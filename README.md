@@ -1,11 +1,18 @@
 ### instructions
- 
+
+The gateway can support calling Java Dubbo cluster and golang Dubbo cluster
+
+You can use 'go build' and './start.sh' to start gateway.
+then,you can do http request to you dubbo interface.
+
+
 #### HTTP request format when do not have metadata center:
+
+Group and version is the mapping data in Dubbo service. 
 
 ```
 {application Name}/​{Interface name}?version={version}&group={group}&method={method}
 ```
-Group and version is the mapping data in Dubbo service. 
 
 http POST body: 
 
