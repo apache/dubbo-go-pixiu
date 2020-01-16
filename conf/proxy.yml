@@ -1,0 +1,9 @@
+http.addr: "127.0.0.1:8800"
+
+dubbo.retries: "2"
+dubbo.resultFiledHumpToLine: true
+
+
+useRedisMetadataCenter : false
+redis.addr: "127.0.0.1:7000"
+redis.password: "pty"
