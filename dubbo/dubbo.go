@@ -2,8 +2,7 @@ package dubbo
 
 import (
 	"context"
-	"fmt"
-	"github.com/pantianying/dubbo-go-proxy/common/config"
+	"github.com/dubbogo/dubbo-go-proxy/common/config"
 	"strings"
 	"sync"
 	"time"

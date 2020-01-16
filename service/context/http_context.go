@@ -1,12 +1,12 @@
 package context
 
 import (
-	"github.com/pantianying/dubbo-go-proxy/common/constant"
-	"github.com/pantianying/dubbo-go-proxy/common/errcode"
-	"github.com/pantianying/dubbo-go-proxy/common/logger"
-	"github.com/pantianying/dubbo-go-proxy/common/util"
-	"github.com/pantianying/dubbo-go-proxy/dubbo"
-	"github.com/pantianying/dubbo-go-proxy/service"
+	"github.com/dubbogo/dubbo-go-proxy/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/common/errcode"
+	"github.com/dubbogo/dubbo-go-proxy/common/logger"
+	"github.com/dubbogo/dubbo-go-proxy/common/util"
+	"github.com/dubbogo/dubbo-go-proxy/dubbo"
+	"github.com/dubbogo/dubbo-go-proxy/service"
 	"io/ioutil"
 	"net/http"
 	"strings"
