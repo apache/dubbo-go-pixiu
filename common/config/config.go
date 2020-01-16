@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/pantianying/dubbo-go-proxy/common/logger"
+	"github.com/dubbogo/dubbo-go-proxy/common/logger"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 )

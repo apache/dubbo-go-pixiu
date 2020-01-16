@@ -3,9 +3,9 @@ package dubbo
 import (
 	"errors"
 	"fmt"
-	"github.com/pantianying/dubbo-go-proxy/common/config"
-	"github.com/pantianying/dubbo-go-proxy/common/errcode"
-	"github.com/pantianying/dubbo-go-proxy/common/logger"
+	"github.com/dubbogo/dubbo-go-proxy/common/config"
+	"github.com/dubbogo/dubbo-go-proxy/common/errcode"
+	"github.com/dubbogo/dubbo-go-proxy/common/logger"
 	"reflect"
 	"strings"
 )

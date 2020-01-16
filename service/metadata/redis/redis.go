@@ -2,10 +2,10 @@ package redis
 
 import (
 	"github.com/go-redis/redis"
-	"github.com/pantianying/dubbo-go-proxy/common/config"
-	"github.com/pantianying/dubbo-go-proxy/common/logger"
-	"github.com/pantianying/dubbo-go-proxy/common/util"
-	"github.com/pantianying/dubbo-go-proxy/service"
+	"github.com/dubbogo/dubbo-go-proxy/common/config"
+	"github.com/dubbogo/dubbo-go-proxy/common/logger"
+	"github.com/dubbogo/dubbo-go-proxy/common/util"
+	"github.com/dubbogo/dubbo-go-proxy/service"
 	"time"
 )
 

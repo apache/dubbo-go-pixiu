@@ -1,4 +1,4 @@
-module github.com/pantianying/dubbo-go-proxy
+module github.com/dubbogo/dubbo-go-proxy
 
 go 1.12
 

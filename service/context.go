@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"github.com/pantianying/dubbo-go-proxy/dubbo"
+	"github.com/dubbogo/dubbo-go-proxy/dubbo"
 )
 
 type ProxyContext interface {

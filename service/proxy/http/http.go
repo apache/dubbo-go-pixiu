@@ -1,13 +1,13 @@
 package http
 
 import (
-	"github.com/pantianying/dubbo-go-proxy/common/config"
-	"github.com/pantianying/dubbo-go-proxy/common/errcode"
-	"github.com/pantianying/dubbo-go-proxy/common/logger"
-	"github.com/pantianying/dubbo-go-proxy/common/util"
-	"github.com/pantianying/dubbo-go-proxy/dubbo"
-	ct "github.com/pantianying/dubbo-go-proxy/service/context"
-	"github.com/pantianying/dubbo-go-proxy/service/metadata/redis"
+	"github.com/dubbogo/dubbo-go-proxy/common/config"
+	"github.com/dubbogo/dubbo-go-proxy/common/errcode"
+	"github.com/dubbogo/dubbo-go-proxy/common/logger"
+	"github.com/dubbogo/dubbo-go-proxy/common/util"
+	"github.com/dubbogo/dubbo-go-proxy/dubbo"
+	ct "github.com/dubbogo/dubbo-go-proxy/service/context"
+	"github.com/dubbogo/dubbo-go-proxy/service/metadata/redis"
 	"io"
 	"net/http"
 	"time"
