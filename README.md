@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/dubbogo/dubbo-go-proxy.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-proxy)
+
 ### instructions
 
 The gateway can support calling Java Dubbo cluster and golang Dubbo cluster
