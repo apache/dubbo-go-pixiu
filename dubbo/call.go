@@ -23,8 +23,8 @@ type InvokeData struct {
 func (d *GenericClientPool) Call(inData InvokeData) (resp interface{}, ret int) {
 	var err error
 	c := d.Get(inData.InterfaceName, inData.Version, inData.Group)
-	ctx:=context.Background()
-	resp, err = c.Invoke(ctx,[]interface{}{inData.Method, inData.ParameterTypes, inData.ReqData})
+	ctx := context.Background()
+	resp, err = c.Invoke(ctx, []interface{}{inData.Method, inData.ParameterTypes, inData.ReqData})
 	if err != nil {
 		ret = errcode.ServerBusy
 		logger.Errorf("GenericClient call get err:%v, InvokeData:%+v", err, inData)
@@ -94,7 +94,7 @@ func mapIItoMapSI(in interface{}) interface{} {
 		}
 		s := fmt.Sprint(k)
 		if s == "class" {
-			//ignore the "class" field
+			// ignore the "class" field
 			continue
 		}
 		vt := reflect.TypeOf(v)
@@ -120,7 +120,7 @@ func mapIItoMapSI(in interface{}) interface{} {
 	return outMap
 }
 
-//traverse all the keys in the map and change the hump to underline
+// traverse all the keys in the map and change the hump to underline
 func humpToLine(in interface{}) interface{} {
 
 	var m map[string]interface{}
