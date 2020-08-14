@@ -22,7 +22,7 @@ type InvokeData struct {
 
 func (d *GenericClientPool) Call(inData InvokeData) (resp interface{}, ret int) {
 	var err error
-	inData.ReqData, err = AdapterForJava(inData.ParameterTypes, inData.ReqData)
+	inData.ReqData, err = adapterForJava(inData.ParameterTypes, inData.ReqData)
 	if err != nil {
 		ret = errcode.ServerBusy
 		return

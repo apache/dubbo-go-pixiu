@@ -5,6 +5,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/common/logger"
 )
 
+// java class name elem
 const (
 	JavaStringClassName      = "java.lang.String"
 	JavaLangClassName        = "java.lang.Long"
@@ -14,7 +15,7 @@ const (
 	JavaMapClassName         = "java.util.Map"
 )
 
-func AdapterForJava(ParameterTypes []string, inData []interface{}) ([]interface{}, error) {
+func adapterForJava(ParameterTypes []string, inData []interface{}) ([]interface{}, error) {
 	var (
 		outData = make([]interface{}, len(ParameterTypes))
 		err     error
