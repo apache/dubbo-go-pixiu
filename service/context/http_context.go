@@ -86,6 +86,7 @@ func (hc *httpContext) InvokeData() *dubbo.InvokeData {
 		logger.Warn("get paramValues fail")
 		return nil
 	}
+
 	invokeData := &dubbo.InvokeData{
 		InterfaceName:  hc.mdKey.ServiceInterface,
 		Group:          hc.mdKey.Group,
