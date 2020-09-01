@@ -1,0 +1,5 @@
+- name: "test-dubbo/user"
+  target: "queryUser"
+  method: "POST"
+  types:
+    - "com.ikurento.user.User"
