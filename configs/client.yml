@@ -1,0 +1,57 @@
+# dubbo client yaml configure file
+
+
+check: true
+# client
+request_timeout: "10s"
+# connect timeout
+connect_timeout: "3s"
+
+# application config
+application:
+  organization: "dubbogo"
+  name: "dubbo-go-proxy"
+  module: "dubbo-go-proxy"
+  version: "1.0.0"
+  group: "test"
+  owner: "PTY"
+  environment: "dev"
+
+registries:
+  "zk_1":
+    protocol: "zookeeper"
+    timeout: "3s"
+    address: "127.0.0.1:2182"
+    username: ""
+    password: ""
+references:
+
+protocol_conf:
+  dubbo:
+    reconnect_interval: 0
+    connection_number: 2
+    heartbeat_period: "30s"
+    session_timeout: "360s"
+    fail_fast_timeout: "5s"
+    pool_size: 4
+    pool_ttl: 600
+    # gr_pool_size is recommended to be set to [cpu core number] * 100
+    gr_pool_size: 200
+    # queue_len is recommended to be set to 64 or 128
+    queue_len: 64
+    # queue_number is recommended to be set to gr_pool_size / 20
+    queue_number: 10
+    getty_session_param:
+      compress_encoding: false
+      tcp_no_delay: true
+      tcp_keep_alive: true
+      keep_alive_period: "120s"
+      tcp_r_buf_size: 262144
+      tcp_w_buf_size: 65536
+      pkg_rq_size: 1024
+      pkg_wq_size: 512
+      tcp_read_timeout: "1s"  #1
+      tcp_write_timeout: "5s" #5
+      wait_timeout: "5s"
+      max_msg_len: 10240000
+      session_name: "client"
