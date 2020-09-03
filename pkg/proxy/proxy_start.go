@@ -39,7 +39,7 @@ func (p *Proxy) Start() {
 }
 
 func (p *Proxy) beforeStart() {
-	NewDubboClient().Init()
+	SingleDubboClient().Init()
 
 	// TODO mock api register
 	ads := GetMustApiDiscoveryService(pkg.ApiDiscoveryService_Dubbo)
