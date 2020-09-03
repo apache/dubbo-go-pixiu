@@ -16,6 +16,8 @@ proxy_start.go#beforeStart() 里面配一些自己的 dubbo 接口元数据
 
 #### IDE启动
 
+启动类 cmd/proxy/proxy.go
+
 程序参数
 -c /Users/tc/Documents/workspace_2020/aproxy/configs/conf.yaml
 
