@@ -66,7 +66,7 @@ func (dc *DubboClient) Close() error {
 
 func (dc *DubboClient) Call(r *Request) (resp Response, err error) {
 	dm := r.Api.Metadata.(*DubboMetadata)
-	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
+	gs := dc.Get(dm.Interface, dm.Version, dm.Group, r.Api.Name, dm)
 
 	var reqData []interface{}
 
@@ -129,10 +129,9 @@ func (dc *DubboClient) check(key string) bool {
 	}
 }
 
-func (dc *DubboClient) create(interfaceName, version, group string, dm *DubboMetadata) *dg.GenericService {
-	key := strings.Join([]string{interfaceName, version, group}, "_")
-	referenceConfig := dg.NewReferenceConfig(interfaceName, context.TODO())
-	referenceConfig.InterfaceName = interfaceName
+func (dc *DubboClient) create(key string, dm *DubboMetadata) *dg.GenericService {
+	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
+	referenceConfig.InterfaceName = dm.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
 	var registers []string
 	for k := range dgCfg.Registries {
@@ -146,8 +145,8 @@ func (dc *DubboClient) create(interfaceName, version, group string, dm *DubboMet
 		referenceConfig.Protocol = dm.ProtocolTypeStr
 	}
 
-	referenceConfig.Version = version
-	referenceConfig.Group = group
+	referenceConfig.Version = dm.Version
+	referenceConfig.Group = dm.Group
 	referenceConfig.Generic = true
 	if dm.Retries == "" {
 		referenceConfig.Retries = "3"
@@ -156,7 +155,7 @@ func (dc *DubboClient) create(interfaceName, version, group string, dm *DubboMet
 	}
 	dc.mLock.Lock()
 	defer dc.mLock.Unlock()
-	referenceConfig.GenericLoad(interfaceName)
+	referenceConfig.GenericLoad(key)
 	time.Sleep(200 * time.Millisecond) //sleep to wait invoker create
 	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 
@@ -164,11 +163,11 @@ func (dc *DubboClient) create(interfaceName, version, group string, dm *DubboMet
 	return clientService
 }
 
-func (dc *DubboClient) Get(interfaceName, version, group string, dm *DubboMetadata) *dg.GenericService {
-	key := strings.Join([]string{interfaceName, version, group}, "_")
+func (dc *DubboClient) Get(interfaceName, version, group string, apiName string, dm *DubboMetadata) *dg.GenericService {
+	key := strings.Join([]string{apiName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
 	} else {
-		return dc.create(interfaceName, version, group, dm)
+		return dc.create(key, dm)
 	}
 }

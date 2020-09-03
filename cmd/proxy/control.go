@@ -28,7 +28,13 @@ var (
 				Name:   "config, c",
 				Usage:  "Load configuration from `FILE`",
 				EnvVar: "DUBBOGO_PROXY_CONFIG",
-				Value:  "configs/proxy_config.json",
+				Value:  "configs/conf.yaml",
+			},
+			cli.StringFlag{
+				Name:   "log-config, lc",
+				Usage:  "Load log configuration from `FILE`",
+				EnvVar: "LOG_FILE",
+				Value:  "configs/log.yml",
 			},
 			cli.StringFlag{
 				Name:   "log-level, l",
@@ -47,11 +53,14 @@ var (
 		Action: func(c *cli.Context) error {
 			configPath := c.String("config")
 			flagLogLevel := c.String("log-level")
+			logConfPath := c.String("log-config")
 
 			bootstrap := proxy.Load(configPath)
 			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
 				logger.SetLoggerLevel(logLevel)
 			}
+
+			logger.InitLog(logConfPath)
 
 			limitCpus := c.Int("limit-cpus")
 			if limitCpus <= 0 {
