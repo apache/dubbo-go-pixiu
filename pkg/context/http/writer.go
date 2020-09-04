@@ -1,14 +1,11 @@
-package proxy
+package http
 
 import (
 	"bufio"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"io"
 	"net"
 	"net/http"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 const (

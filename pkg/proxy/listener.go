@@ -9,15 +9,20 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
+// ListenerService the facade of a listener
 type ListenerService struct {
 	*model.Listener
 }
 
+// Start start the listener
 func (l *ListenerService) Start() {
 	switch l.Address.SocketAddress.Protocol {
 	case model.HTTP:
@@ -28,18 +33,15 @@ func (l *ListenerService) Start() {
 }
 
 func (l *ListenerService) httpListener() {
-	hl := &DefaultHttpListener{
-		pool: sync.Pool{},
-	}
+	hl := NewDefaultHttpListener()
 	hl.pool.New = func() interface{} {
 		return l.allocateContext()
 	}
 
-	var hc HttpConfig
-	if l.Config == "" {
-
-	} else {
-		if c, ok := l.Config.(HttpConfig); ok {
+	// user customize http config
+	var hc model.HttpConfig
+	if l.Config != nil {
+		if c, ok := l.Config.(model.HttpConfig); ok {
 			hc = c
 		}
 	}
@@ -61,19 +63,19 @@ func (l *ListenerService) httpListener() {
 	log.Println(srv.ListenAndServe())
 }
 
-func (l *ListenerService) allocateContext() *HttpContext {
-	return &HttpContext{
-		l:                     l.Listener,
+func (l *ListenerService) allocateContext() *h.HttpContext {
+	return &h.HttpContext{
+		Listener:              l.Listener,
 		FilterChains:          l.FilterChains,
-		httpConnectionManager: l.findHttpManager(),
-		BaseContext:           &BaseContext{},
+		HttpConnectionManager: l.findHttpManager(),
+		BaseContext:           context.NewBaseContext(),
 	}
 }
 
 func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
-			if f.Name == pkg.HttpConnectManagerFilter {
+			if f.Name == constant.HttpConnectManagerFilter {
 				return *f.Config.(*model.HttpConnectionManager)
 			}
 		}
@@ -82,24 +84,26 @@ func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
 	return *DefaultHttpConnectionManager()
 }
 
-type HttpConfig struct {
-	IdleTimeoutStr  string `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
-	ReadTimeoutStr  string `json:"read_timeout,omitempty" yaml:"read_timeout,omitempty" mapstructure:"read_timeout"`
-	WriteTimeoutStr string `json:"write_timeout,omitempty" yaml:"write_timeout,omitempty" mapstructure:"write_timeout"`
-	MaxHeaderBytes  int    `json:"max_header_bytes,omitempty" yaml:"max_header_bytes,omitempty" mapstructure:"max_header_bytes"`
-}
-
 type DefaultHttpListener struct {
 	pool sync.Pool
 }
 
-func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hc := s.pool.Get().(*HttpContext)
-	hc.r = r
-	hc.writermem.reset(w)
-	hc.reset()
+func NewDefaultHttpListener() *DefaultHttpListener {
+	return &DefaultHttpListener{
+		pool: sync.Pool{},
+	}
+}
 
-	hc.AppendFilterFunc(Logger(), Recover())
+func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	hc := s.pool.Get().(*h.HttpContext)
+	hc.Request = r
+	hc.ResetWritermen(w)
+	hc.Reset()
+
+	hc.AppendFilterFunc(
+		extension.GetMustFilterFunc(constant.LoggerFilter),
+		extension.GetMustFilterFunc(constant.RecoveryFilter),
+	)
 
 	hc.BuildFilters()
 
@@ -108,10 +112,10 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	s.pool.Put(hc)
 }
 
-func (s *DefaultHttpListener) handleHTTPRequest(c *HttpContext) {
-	if len(c.BaseContext.filters) > 0 {
+func (s *DefaultHttpListener) handleHTTPRequest(c *h.HttpContext) {
+	if len(c.BaseContext.Filters) > 0 {
 		c.Next()
-		c.writermem.WriteHeaderNow()
+		c.WriteHeaderNow()
 		return
 	}
 

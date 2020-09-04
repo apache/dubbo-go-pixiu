@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
@@ -15,14 +15,14 @@ func DefaultHttpConnectionManager() *model.HttpConnectionManager {
 						Prefix: "/api/v1",
 					},
 					Route: model.RouteAction{
-						Cluster: "*",
+						Cluster: constant.HeaderValueAll,
 					},
 				},
 			},
 		},
 		HttpFilters: []model.HttpFilter{
 			{
-				Name: pkg.HttpRouterFilter,
+				Name: constant.HttpRouterFilter,
 			},
 		},
 	}

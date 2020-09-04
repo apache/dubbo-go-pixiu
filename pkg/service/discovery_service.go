@@ -1,26 +1,31 @@
 package service
 
+// DiscoveryRequest a request for discovery
 type DiscoveryRequest struct {
 	Body []byte
 }
 
+// NewDiscoveryRequest return a DiscoveryRequest with body
 func NewDiscoveryRequest(b []byte) *DiscoveryRequest {
 	return &DiscoveryRequest{
 		Body: b,
 	}
 }
 
+// DiscoveryResponse a response for discovery
 type DiscoveryResponse struct {
 	Success bool
 	Data    interface{}
 }
 
-func NewSuccessDiscoveryResponse() *DiscoveryResponse {
+// NewDiscoveryResponseWithSuccess return a DiscoveryResponse with success
+func NewDiscoveryResponseWithSuccess(b bool) *DiscoveryResponse {
 	return &DiscoveryResponse{
-		Success: true,
+		Success: b,
 	}
 }
 
+// NewDiscoveryResponse return a DiscoveryResponse with Data and success true
 func NewDiscoveryResponse(d interface{}) *DiscoveryResponse {
 	return &DiscoveryResponse{
 		Success: true,
@@ -30,6 +35,7 @@ func NewDiscoveryResponse(d interface{}) *DiscoveryResponse {
 
 var EmptyDiscoveryResponse = &DiscoveryResponse{}
 
+// ApiDiscoveryService api discovery service interface
 type ApiDiscoveryService interface {
 	AddApi(request DiscoveryRequest) (DiscoveryResponse, error)
 	GetApi(request DiscoveryRequest) (DiscoveryResponse, error)

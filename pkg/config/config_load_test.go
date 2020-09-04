@@ -1,7 +1,8 @@
-package proxy
+package config
 
 import (
 	"encoding/json"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"testing"
 )
 
@@ -10,44 +11,44 @@ func TestLoad(t *testing.T) {
 }
 
 func TestStruct2JSON(t *testing.T) {
-	b := Bootstrap{
-		StaticResources: StaticResources{
-			Listeners: []Listener{
+	b := model.Bootstrap{
+		StaticResources: model.StaticResources{
+			Listeners: []model.Listener{
 				{
 					Name: "net/http",
-					Address: Address{
-						SocketAddress: SocketAddress{
+					Address: model.Address{
+						SocketAddress: model.SocketAddress{
 							ProtocolStr: "HTTP",
 							Address:     "127.0.0.0",
 							Port:        8899,
 						},
 					},
-					Config: HttpConfig{
+					Config: model.HttpConfig{
 						IdleTimeoutStr:  "5s",
 						WriteTimeoutStr: "5s",
 						ReadTimeoutStr:  "5s",
 					},
-					FilterChains: []FilterChain{
+					FilterChains: []model.FilterChain{
 						{
-							FilterChainMatch: FilterChainMatch{
+							FilterChainMatch: model.FilterChainMatch{
 								Domains: []string{
 									"api.dubbo.com",
 									"api.proxy.com",
 								},
 							},
-							Filters: []Filter{
+							Filters: []model.Filter{
 								{
 									Name: "dgp.filters.http_connect_manager",
-									Config: HttpConnectionManager{
-										RouteConfig: RouteConfiguration{
-											Routes: []Router{
+									Config: model.HttpConnectionManager{
+										RouteConfig: model.RouteConfiguration{
+											Routes: []model.Router{
 												{
-													Match: RouterMatch{
+													Match: model.RouterMatch{
 														Prefix: "/api/v1",
 													},
-													Route: RouteAction{
+													Route: model.RouteAction{
 														Cluster: "test_dubbo",
-														Cors: CorsPolicy{
+														Cors: model.CorsPolicy{
 															AllowOrigin: []string{
 																"*",
 															},
@@ -56,7 +57,7 @@ func TestStruct2JSON(t *testing.T) {
 												},
 											},
 										},
-										HttpFilters: []HttpFilter{
+										HttpFilters: []model.HttpFilter{
 											{
 												Name: "dgp.filters.http.cors",
 											},
@@ -71,7 +72,7 @@ func TestStruct2JSON(t *testing.T) {
 					},
 				},
 			},
-			Clusters: []Cluster{
+			Clusters: []model.Cluster{
 				{
 					Name:              "test_dubbo",
 					TypeStr:           "EDS",
