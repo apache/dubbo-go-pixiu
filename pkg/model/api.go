@@ -1,11 +1,7 @@
-package client
+package model
 
 import (
 	"sync"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 var (
@@ -14,23 +10,21 @@ var (
 
 // Api is api gateway concept, control request from browser、Mobile APP、third party people
 type Api struct {
-	Name     string        `json:"name"`
-	ITypeStr string        `json:"itype"`
-	IType    model.ApiType `json:"-"`
-	OTypeStr string        `json:"otype"`
-	OType    model.ApiType `json:"-"`
-	Status   model.Status  `json:"status"`
-	Metadata interface{}   `json:"metadata"`
-	Method   string        `json:"method"`
-	model.RequestMethod
-	Client Client
-	lock   sync.Mutex
+	Name     string      `json:"name"`
+	ITypeStr string      `json:"itype"`
+	IType    ApiType     `json:"-"`
+	OTypeStr string      `json:"otype"`
+	OType    ApiType     `json:"-"`
+	Status   Status      `json:"status"`
+	Metadata interface{} `json:"metadata"`
+	Method   string      `json:"method"`
+	RequestMethod
 }
 
 var EmptyApi = &Api{}
 
 func NewApi() *Api {
-	return &Api{lock: sync.Mutex{}}
+	return &Api{}
 }
 
 func (a *Api) FindApi(name string) (*Api, bool) {
@@ -42,8 +36,8 @@ func (a *Api) FindApi(name string) (*Api, bool) {
 }
 
 func (a *Api) MatchMethod(method string) bool {
-	i := model.RequestMethodValue[method]
-	if a.RequestMethod == model.RequestMethod(i) {
+	i := RequestMethodValue[method]
+	if a.RequestMethod == RequestMethod(i) {
 		return true
 	}
 
@@ -52,7 +46,7 @@ func (a *Api) MatchMethod(method string) bool {
 
 func (a *Api) IsOk(name string) bool {
 	if v, ok := CacheApi.Load(name); ok {
-		return v.(*Api).Status == model.Up
+		return v.(*Api).Status == Up
 	}
 
 	return false
@@ -61,13 +55,13 @@ func (a *Api) IsOk(name string) bool {
 // Offline api offline
 func (a *Api) Offline(name string) {
 	if v, ok := CacheApi.Load(name); ok {
-		v.(*Api).Status = model.Down
+		v.(*Api).Status = Down
 	}
 }
 
 // Online api online
 func (a *Api) Online(name string) {
 	if v, ok := CacheApi.Load(name); ok {
-		v.(*Api).Status = model.Up
+		v.(*Api).Status = Up
 	}
 }

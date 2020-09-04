@@ -1,7 +1,7 @@
 package context
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 // Context run context
@@ -22,8 +22,8 @@ type Context interface {
 
 	BuildFilters()
 
-	Api(api *client.Api)
-	GetApi() *client.Api
+	Api(api *model.Api)
+	GetApi() *model.Api
 
 	WriteErr(p interface{})
 }

@@ -7,7 +7,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
@@ -27,12 +27,12 @@ func NewLocalMemoryApiDiscoveryService() *LocalMemoryApiDiscoveryService {
 }
 
 func (ads *LocalMemoryApiDiscoveryService) AddApi(request service.DiscoveryRequest) (service.DiscoveryResponse, error) {
-	aj := client.NewApi()
+	aj := model.NewApi()
 	if err := json.Unmarshal(request.Body, aj); err != nil {
 		return *service.EmptyDiscoveryResponse, err
 	}
 
-	if _, loaded := client.CacheApi.LoadOrStore(aj.Name, aj); loaded {
+	if _, loaded := model.CacheApi.LoadOrStore(aj.Name, aj); loaded {
 		// loaded
 		logger.Warnf("api:%s is exist", aj)
 	} else {
@@ -42,7 +42,7 @@ func (ads *LocalMemoryApiDiscoveryService) AddApi(request service.DiscoveryReque
 		} else {
 			if v, ok := aj.Metadata.(map[string]interface{}); ok {
 				if d, ok := v["dubbo"]; ok {
-					dm := &client.DubboMetadata{}
+					dm := &dubbo.DubboMetadata{}
 					if err := mapstructure.Decode(d, dm); err != nil {
 						return *service.EmptyDiscoveryResponse, err
 					}
@@ -60,7 +60,7 @@ func (ads *LocalMemoryApiDiscoveryService) AddApi(request service.DiscoveryReque
 func (ads *LocalMemoryApiDiscoveryService) GetApi(request service.DiscoveryRequest) (service.DiscoveryResponse, error) {
 	n := string(request.Body)
 
-	if a, ok := client.CacheApi.Load(n); ok {
+	if a, ok := model.CacheApi.Load(n); ok {
 		return *service.NewDiscoveryResponse(a), nil
 	}
 

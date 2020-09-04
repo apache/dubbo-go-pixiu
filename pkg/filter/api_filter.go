@@ -5,10 +5,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 func init() {
@@ -20,7 +20,7 @@ func ApiFilter() context.FilterFunc {
 		url := c.GetUrl()
 		method := c.GetMethod()
 
-		if api, ok := client.EmptyApi.FindApi(url); ok {
+		if api, ok := model.EmptyApi.FindApi(url); ok {
 			if !api.MatchMethod(method) {
 				c.WriteWithStatus(http.StatusMethodNotAllowed, constant.Default405Body)
 				c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
