@@ -1,4 +1,4 @@
-package proxy
+package config
 
 import (
 	"encoding/json"
@@ -84,7 +84,7 @@ func YAMLConfigLoad(path string) *model.Bootstrap {
 		}
 		l.Address.SocketAddress.Protocol = model.ProtocolType(model.ProtocolTypeValue[l.Address.SocketAddress.ProtocolStr])
 
-		hc := &HttpConfig{}
+		hc := &model.HttpConfig{}
 		if l.Config != nil {
 			if v, ok := l.Config.(map[string]interface{}); ok {
 				switch l.Name {

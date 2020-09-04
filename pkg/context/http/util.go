@@ -1,4 +1,4 @@
-package proxy
+package http
 
 import (
 	"regexp"
@@ -6,37 +6,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
-func init() {
-	AddFilterFunc(pkg.HttpDomainFilter, Domain())
-}
-
-// Domain
-// https :authority
-// http Host
-func Domain() FilterFunc {
-	return func(c Context) {
-		if MatchDomainFilter(c.(*HttpContext)) {
-			c.Next()
-		}
-	}
-}
-
-func MatchDomainFilter(c *HttpContext) bool {
-	for _, v := range c.l.FilterChains {
-		for _, d := range v.FilterChainMatch.Domains {
-			if d == c.GetHeader("Host") {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
+// HttpHeaderMatch
 func HttpHeaderMatch(c *HttpContext, hm model.HeaderMatcher) bool {
 	if hm.Name == "" {
 		return true
@@ -60,6 +34,7 @@ func HttpHeaderMatch(c *HttpContext, hm model.HeaderMatcher) bool {
 	return false
 }
 
+// HttpRouteMatch
 func HttpRouteMatch(c *HttpContext, rm model.RouterMatch) bool {
 	if rm.Prefix != "" {
 		if !strings.HasPrefix(c.GetUrl(), rm.Path) {
@@ -82,8 +57,9 @@ func HttpRouteMatch(c *HttpContext, rm model.RouterMatch) bool {
 	return true
 }
 
+// HttpRouteActionMatch
 func HttpRouteActionMatch(c *HttpContext, ra model.RouteAction) bool {
-	conf := GetBootstrap()
+	conf := config.GetBootstrap()
 
 	if ra.Cluster == "" || !conf.ExistCluster(ra.Cluster) {
 		return false
