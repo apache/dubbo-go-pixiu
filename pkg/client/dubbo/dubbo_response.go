@@ -1,4 +1,4 @@
-package client
+package dubbo
 
 import (
 	"errors"
@@ -7,11 +7,15 @@ import (
 	"strings"
 )
 
-func NewDubboResponse(data interface{}) *Response {
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+)
+
+func NewDubboResponse(data interface{}) *client.Response {
 	if r, err := dealResp(data, true); err != nil {
-		return &Response{Data: data}
+		return &client.Response{Data: data}
 	} else {
-		return &Response{Data: r}
+		return &client.Response{Data: r}
 	}
 }
 

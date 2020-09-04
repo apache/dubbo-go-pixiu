@@ -19,7 +19,7 @@ type HttpContext struct {
 	HttpConnectionManager model.HttpConnectionManager
 	FilterChains          []model.FilterChain
 	Listener              *model.Listener
-	api                   *client.Api
+	api                   *model.Api
 
 	Request   *http.Request
 	writermem responseWriter
@@ -82,11 +82,11 @@ func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
 }
 
-func (hc *HttpContext) Api(api *client.Api) {
+func (hc *HttpContext) Api(api *model.Api) {
 	hc.api = api
 }
 
-func (hc *HttpContext) GetApi() *client.Api {
+func (hc *HttpContext) GetApi() *model.Api {
 	return hc.api
 }
 
