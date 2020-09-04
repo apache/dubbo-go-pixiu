@@ -6,6 +6,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/proxy"
 )
@@ -55,7 +56,7 @@ var (
 			flagLogLevel := c.String("log-level")
 			logConfPath := c.String("log-config")
 
-			bootstrap := proxy.Load(configPath)
+			bootstrap := config.Load(configPath)
 			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
 				logger.SetLoggerLevel(logLevel)
 			}

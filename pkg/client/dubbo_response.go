@@ -1,4 +1,4 @@
-package proxy
+package client
 
 import (
 	"errors"
@@ -7,38 +7,12 @@ import (
 	"strings"
 )
 
-type Request struct {
-	Body   []byte
-	Header map[string]string
-	Api    *Api
-}
-
-func NewRequest(b []byte, api *Api) *Request {
-	return &Request{
-		Body: b,
-		Api:  api,
-	}
-}
-
-type Response struct {
-	data interface{}
-}
-
-func NewResponse(data interface{}) *Response {
+func NewDubboResponse(data interface{}) *Response {
 	if r, err := dealResp(data, true); err != nil {
-		return &Response{data: data}
+		return &Response{Data: data}
 	} else {
-		return &Response{data: r}
+		return &Response{Data: r}
 	}
-}
-
-var EmptyResponse = &Response{}
-
-type Client interface {
-	Init() error
-	Close() error
-
-	Call(req *Request) (resp Response, err error)
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {

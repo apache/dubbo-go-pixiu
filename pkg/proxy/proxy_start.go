@@ -6,10 +6,15 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
 )
 
 type Proxy struct {
@@ -17,7 +22,7 @@ type Proxy struct {
 }
 
 func (p *Proxy) Start() {
-	conf := GetBootstrap()
+	conf := config.GetBootstrap()
 
 	p.startWG.Add(1)
 
@@ -39,18 +44,18 @@ func (p *Proxy) Start() {
 }
 
 func (p *Proxy) beforeStart() {
-	SingleDubboClient().Init()
+	client.SingleDubboClient().Init()
 
 	// TODO mock api register
-	ads := GetMustApiDiscoveryService(pkg.ApiDiscoveryService_Dubbo)
+	ads := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 
-	a1 := &Api{
+	a1 := &client.Api{
 		Name:     "/api/v1/test-dubbo/user",
 		ITypeStr: "HTTP",
 		OTypeStr: "DUBBO",
 		Method:   "POST",
 		Status:   1,
-		Metadata: map[string]DubboMetadata{
+		Metadata: map[string]client.DubboMetadata{
 			"dubbo": {
 				ApplicationName: "BDTService",
 				Group:           "test",
@@ -60,16 +65,17 @@ func (p *Proxy) beforeStart() {
 				Types: []string{
 					"com.ikurento.user.User",
 				},
+				ClusterName: "test_dubbo",
 			},
 		},
 	}
-	a2 := &Api{
+	a2 := &client.Api{
 		Name:     "/api/v1/test-dubbo/getUserByName",
 		ITypeStr: "HTTP",
 		OTypeStr: "DUBBO",
 		Method:   "POST",
 		Status:   1,
-		Metadata: map[string]DubboMetadata{
+		Metadata: map[string]client.DubboMetadata{
 			"dubbo": {
 				ApplicationName: "BDTService",
 				Group:           "test",
@@ -79,6 +85,7 @@ func (p *Proxy) beforeStart() {
 				Types: []string{
 					"java.lang.String",
 				},
+				ClusterName: "test_dubbo",
 			},
 		},
 	}

@@ -1,4 +1,4 @@
-package pkg
+package constant
 
 const (
 	HttpConnectManagerFilter = "dgp.filters.http_connect_manager"
@@ -6,16 +6,11 @@ const (
 	HttpApiFilter            = "dgp.filters.http.api"
 	HttpDomainFilter         = "dgp.filters.http.domain"
 	HttpTransferDubboFilter  = "dgp.filters.http_transfer_dubbo"
+
+	LoggerFilter   = "dgp.filters.logger"
+	RecoveryFilter = "dgp.filters.recovery"
 )
 
 const (
-	ApiDiscoveryService_Dubbo = "ads_dubbo"
-)
-
-const (
-	HeaderKeyContextType              = "Content-Type"
-	HeaderKeyAccessControlAllowOrigin = "Access-Control-Allow-Origin"
-
-	HeaderValueJsonUtf8  = "application/json;charset=UTF-8"
-	HeaderValueTextPlain = "text/plain"
+	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
 )
