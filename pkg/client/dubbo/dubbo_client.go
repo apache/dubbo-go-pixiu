@@ -1,4 +1,4 @@
-package client
+package dubbo
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -43,6 +44,7 @@ var (
 	dgCfg        dg.ConsumerConfig
 )
 
+// DubboClient
 type DubboClient struct {
 	mLock              sync.RWMutex
 	GenericServicePool map[string]*dg.GenericService
@@ -77,9 +79,9 @@ func (dc *DubboClient) Close() error {
 	return nil
 }
 
-func (dc *DubboClient) Call(r *Request) (resp Response, err error) {
+func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error) {
 	dm := r.Api.Metadata.(*DubboMetadata)
-	gs := dc.Get(dm.Interface, dm.Version, dm.Group, r.Api.Name, dm)
+	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
 
 	var reqData []interface{}
 
@@ -105,21 +107,21 @@ func (dc *DubboClient) Call(r *Request) (resp Response, err error) {
 		default:
 			bodyMap := make(map[string]interface{})
 			if err := json.Unmarshal(r.Body, &bodyMap); err != nil {
-				return *EmptyResponse, err
+				return *client.EmptyResponse, err
 			} else {
 				reqData = append(reqData, bodyMap)
 			}
 		}
 	case l > 1:
 		if err = json.Unmarshal(r.Body, &reqData); err != nil {
-			return *EmptyResponse, err
+			return *client.EmptyResponse, err
 		}
 	}
 
 	logger.Debugf("[dubbogo proxy] invoke, method:%v, types:%v, reqData:%v", dm.Method, dm.Types, reqData)
 
 	if resp, err := gs.Invoke(context.Background(), []interface{}{dm.Method, dm.Types, reqData}); err != nil {
-		return *EmptyResponse, err
+		return *client.EmptyResponse, err
 	} else {
 		logger.Debugf("[dubbogo proxy] dubbo client resp:%v", resp)
 		return *NewDubboResponse(resp), nil
@@ -176,8 +178,8 @@ func (dc *DubboClient) create(key string, dm *DubboMetadata) *dg.GenericService 
 	return clientService
 }
 
-func (dc *DubboClient) Get(interfaceName, version, group string, apiName string, dm *DubboMetadata) *dg.GenericService {
-	key := strings.Join([]string{apiName, interfaceName, version, group}, "_")
+func (dc *DubboClient) Get(interfaceName, version, group string, dm *DubboMetadata) *dg.GenericService {
+	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
 	} else {

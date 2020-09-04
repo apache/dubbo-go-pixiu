@@ -6,7 +6,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
@@ -44,18 +44,18 @@ func (p *Proxy) Start() {
 }
 
 func (p *Proxy) beforeStart() {
-	client.SingleDubboClient().Init()
+	dubbo.SingleDubboClient().Init()
 
 	// TODO mock api register
 	ads := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 
-	a1 := &client.Api{
+	a1 := &model.Api{
 		Name:     "/api/v1/test-dubbo/user",
 		ITypeStr: "HTTP",
 		OTypeStr: "DUBBO",
 		Method:   "POST",
 		Status:   1,
-		Metadata: map[string]client.DubboMetadata{
+		Metadata: map[string]dubbo.DubboMetadata{
 			"dubbo": {
 				ApplicationName: "BDTService",
 				Group:           "test",
@@ -69,13 +69,13 @@ func (p *Proxy) beforeStart() {
 			},
 		},
 	}
-	a2 := &client.Api{
+	a2 := &model.Api{
 		Name:     "/api/v1/test-dubbo/getUserByName",
 		ITypeStr: "HTTP",
 		OTypeStr: "DUBBO",
 		Method:   "POST",
 		Status:   1,
-		Metadata: map[string]client.DubboMetadata{
+		Metadata: map[string]dubbo.DubboMetadata{
 			"dubbo": {
 				ApplicationName: "BDTService",
 				Group:           "test",
