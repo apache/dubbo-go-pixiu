@@ -13,6 +13,7 @@ import (
 // Version proxy version
 var Version = "0.1.0"
 
+// main proxy run method
 func main() {
 	app := newProxyApp(&cmdStart)
 

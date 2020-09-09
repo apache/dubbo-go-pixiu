@@ -18,7 +18,7 @@ type RouterMatch struct {
 	Headers       []HeaderMatcher `yaml:"headers" json:"headers"`
 }
 
-// RouteAction
+// RouteAction match route should do
 type RouteAction struct {
 	Cluster                     string            `yaml:"cluster" json:"cluster"` // Cluster cluster name
 	ClusterNotFoundResponseCode int               `yaml:"cluster_not_found_response_code" json:"cluster_not_found_response_code"`

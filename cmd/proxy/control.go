@@ -1,8 +1,11 @@
 package main
 
 import (
-	"github.com/urfave/cli"
 	"runtime"
+)
+
+import (
+	"github.com/urfave/cli"
 )
 
 import (

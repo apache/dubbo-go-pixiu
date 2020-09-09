@@ -22,6 +22,7 @@ func Domain() context.FilterFunc {
 	}
 }
 
+// MatchDomainFilter
 func MatchDomainFilter(c *http.HttpContext) bool {
 	for _, v := range c.Listener.FilterChains {
 		for _, d := range v.FilterChainMatch.Domains {

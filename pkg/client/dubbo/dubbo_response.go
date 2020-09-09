@@ -11,6 +11,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
+// NewDubboResponse create dubbo response
 func NewDubboResponse(data interface{}) *client.Response {
 	if r, err := dealResp(data, true); err != nil {
 		return &client.Response{Data: data}

@@ -2,8 +2,11 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"testing"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 func TestLoad(t *testing.T) {

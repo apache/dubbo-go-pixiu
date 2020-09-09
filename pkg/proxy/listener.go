@@ -84,16 +84,19 @@ func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
 	return *DefaultHttpConnectionManager()
 }
 
+// DefaultHttpListener
 type DefaultHttpListener struct {
 	pool sync.Pool
 }
 
+// NewDefaultHttpListener create http listener
 func NewDefaultHttpListener() *DefaultHttpListener {
 	return &DefaultHttpListener{
 		pool: sync.Pool{},
 	}
 }
 
+// ServeHTTP
 func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hc := s.pool.Get().(*h.HttpContext)
 	hc.Request = r

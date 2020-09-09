@@ -15,6 +15,7 @@ func init() {
 	extension.SetFilterFunc(constant.HttpApiFilter, ApiFilter())
 }
 
+// ApiFilter url match api
 func ApiFilter() context.FilterFunc {
 	return func(c context.Context) {
 		url := c.GetUrl()

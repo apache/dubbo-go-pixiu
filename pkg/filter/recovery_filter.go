@@ -11,6 +11,7 @@ func init() {
 	extension.SetFilterFunc(constant.RecoveryFilter, Recover())
 }
 
+// Recover
 func Recover() context.FilterFunc {
 	return func(c context.Context) {
 		defer func() {

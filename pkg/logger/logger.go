@@ -18,6 +18,7 @@ var (
 	logger Logger
 )
 
+// DubbogoProxyLogger
 type DubbogoProxyLogger struct {
 	mutex sync.Mutex
 	Logger
@@ -27,6 +28,7 @@ type DubbogoProxyLogger struct {
 	disable bool
 }
 
+// Logger
 type Logger interface {
 	Info(args ...interface{})
 	Warn(args ...interface{})
@@ -47,6 +49,7 @@ func init() {
 	}
 }
 
+// InitLog load from config path
 func InitLog(logConfFile string) error {
 	if logConfFile == "" {
 		InitLogger(nil)
