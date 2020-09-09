@@ -8,13 +8,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/ghodss/yaml"
+	"github.com/goinggo/mapstructure"
 )
 
 import (
-	"github.com/ghodss/yaml"
-	"github.com/goinggo/mapstructure"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 var (
@@ -23,6 +23,7 @@ var (
 	configLoadFunc ConfigLoadFunc = DefaultConfigLoad
 )
 
+// GetBootstrap get config global, need a better name
 func GetBootstrap() *model.Bootstrap {
 	return config
 }
@@ -58,6 +59,7 @@ func yamlFormat(path string) bool {
 	return false
 }
 
+// YAMLConfigLoad config load yaml
 func YAMLConfigLoad(path string) *model.Bootstrap {
 	log.Println("load config in YAML format from : ", path)
 	content, err := ioutil.ReadFile(path)
@@ -153,6 +155,7 @@ func YAMLConfigLoad(path string) *model.Bootstrap {
 	return cfg
 }
 
+// DefaultConfigLoad if not config, will load this
 func DefaultConfigLoad(path string) *model.Bootstrap {
 	log.Println("load config from : ", path)
 	content, err := ioutil.ReadFile(path)

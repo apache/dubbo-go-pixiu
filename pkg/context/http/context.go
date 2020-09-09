@@ -13,7 +13,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
-// HttpContext
+// HttpContext http context
 type HttpContext struct {
 	*context.BaseContext
 	HttpConnectionManager model.HttpConnectionManager
@@ -26,10 +26,7 @@ type HttpContext struct {
 	Writer    ResponseWriter
 }
 
-func (hc *HttpContext) GetWritermem() {
-
-}
-
+// Next logic for lookup filter
 func (hc *HttpContext) Next() {
 	hc.Index++
 	for hc.Index < int8(len(hc.Filters)) {
@@ -38,24 +35,29 @@ func (hc *HttpContext) Next() {
 	}
 }
 
+// Reset reset http context
 func (hc *HttpContext) Reset() {
 	hc.Writer = &hc.writermem
 	hc.Filters = nil
 	hc.Index = -1
 }
 
+// Status set header status code
 func (hc *HttpContext) Status(code int) {
 	hc.Writer.WriteHeader(code)
 }
 
+// StatusCode get header status code
 func (hc *HttpContext) StatusCode() int {
 	return hc.Writer.Status()
 }
 
+// Write write body data
 func (hc *HttpContext) Write(b []byte) (int, error) {
 	return hc.Writer.Write(b)
 }
 
+// WriteHeaderNow
 func (hc *HttpContext) WriteHeaderNow() {
 	hc.writermem.WriteHeaderNow()
 }
@@ -66,42 +68,52 @@ func (hc *HttpContext) WriteWithStatus(code int, b []byte) (int, error) {
 	return hc.Writer.Write(b)
 }
 
+// AddHeader add header
 func (hc *HttpContext) AddHeader(k, v string) {
 	hc.Writer.Header().Add(k, v)
 }
 
+// GetHeader get header
 func (hc *HttpContext) GetHeader(k string) string {
 	return hc.Request.Header.Get(k)
 }
 
+// GetUrl get http request url
 func (hc *HttpContext) GetUrl() string {
 	return hc.Request.URL.Path
 }
 
+// GetMethod get method, POST/GET ...
 func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
 }
 
+// Api
 func (hc *HttpContext) Api(api *model.Api) {
 	hc.api = api
 }
 
+// GetApi get api
 func (hc *HttpContext) GetApi() *model.Api {
 	return hc.api
 }
 
+// WriteFail
 func (hc *HttpContext) WriteFail() {
 	hc.doWriteJSON(nil, http.StatusInternalServerError, nil)
 }
 
+// WriteErr
 func (hc *HttpContext) WriteErr(p interface{}) {
 	hc.doWriteJSON(nil, http.StatusInternalServerError, p)
 }
 
+// WriteSuccess
 func (hc *HttpContext) WriteSuccess() {
 	hc.doWriteJSON(nil, http.StatusOK, nil)
 }
 
+// WriteResponse
 func (hc *HttpContext) WriteResponse(resp client.Response) {
 	hc.doWriteJSON(nil, http.StatusOK, resp.Data)
 }
@@ -145,6 +157,7 @@ func (hc *HttpContext) BuildFilters() {
 	hc.AppendFilterFunc(ff...)
 }
 
+// ResetWritermen reset writermen
 func (hc *HttpContext) ResetWritermen(w http.ResponseWriter) {
 	hc.writermem.reset(w)
 }

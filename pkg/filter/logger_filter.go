@@ -15,6 +15,7 @@ func init() {
 	extension.SetFilterFunc(constant.LoggerFilter, Logger())
 }
 
+// Logger logger filter, print url and latency
 func Logger() context.FilterFunc {
 	return func(c context.Context) {
 		start := time.Now()

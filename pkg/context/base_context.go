@@ -1,6 +1,8 @@
 package context
 
-import "math"
+import (
+	"math"
+)
 
 const abortIndex int8 = math.MaxInt8 / 2
 

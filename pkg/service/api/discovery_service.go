@@ -3,6 +3,9 @@ package api
 import (
 	"encoding/json"
 	"errors"
+)
+
+import (
 	"github.com/goinggo/mapstructure"
 )
 
