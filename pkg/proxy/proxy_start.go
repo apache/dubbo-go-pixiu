@@ -17,10 +17,12 @@ import (
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
 )
 
+// Proxy
 type Proxy struct {
 	startWG sync.WaitGroup
 }
 
+// Start proxy start
 func (p *Proxy) Start() {
 	conf := config.GetBootstrap()
 
@@ -96,6 +98,7 @@ func (p *Proxy) beforeStart() {
 	ads.AddApi(*service.NewDiscoveryRequest(j2))
 }
 
+// NewProxy create proxy
 func NewProxy() *Proxy {
 	return &Proxy{
 		startWG: sync.WaitGroup{},

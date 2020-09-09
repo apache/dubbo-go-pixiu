@@ -6,6 +6,7 @@ import (
 
 var (
 	CacheApi = sync.Map{}
+	EmptyApi = &Api{}
 )
 
 // Api is api gateway concept, control request from browser、Mobile APP、third party people
@@ -21,12 +22,12 @@ type Api struct {
 	RequestMethod
 }
 
-var EmptyApi = &Api{}
-
+// NewApi
 func NewApi() *Api {
 	return &Api{}
 }
 
+// FindApi find a api, if not exist, return false
 func (a *Api) FindApi(name string) (*Api, bool) {
 	if v, ok := CacheApi.Load(name); ok {
 		return v.(*Api), true
@@ -35,6 +36,7 @@ func (a *Api) FindApi(name string) (*Api, bool) {
 	return nil, false
 }
 
+// MatchMethod
 func (a *Api) MatchMethod(method string) bool {
 	i := RequestMethodValue[method]
 	if a.RequestMethod == RequestMethod(i) {
@@ -44,6 +46,7 @@ func (a *Api) MatchMethod(method string) bool {
 	return false
 }
 
+// IsOk api status equals Up
 func (a *Api) IsOk(name string) bool {
 	if v, ok := CacheApi.Load(name); ok {
 		return v.(*Api).Status == Up
