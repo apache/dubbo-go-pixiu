@@ -1,6 +1,12 @@
 package http
 
 import (
+	"io"
+	"net/http"
+	"time"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/common/config"
 	"github.com/dubbogo/dubbo-go-proxy/common/errcode"
 	"github.com/dubbogo/dubbo-go-proxy/common/logger"
@@ -8,9 +14,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/dubbo"
 	ct "github.com/dubbogo/dubbo-go-proxy/service/context"
 	"github.com/dubbogo/dubbo-go-proxy/service/metadata/redis"
-	"io"
-	"net/http"
-	"time"
 )
 
 var srv http.Server

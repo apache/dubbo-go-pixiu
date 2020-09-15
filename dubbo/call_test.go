@@ -2,8 +2,11 @@ package dubbo
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 var (
