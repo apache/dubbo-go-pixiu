@@ -2,6 +2,9 @@ package dubbo
 
 import (
 	"errors"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/common/logger"
 )
 

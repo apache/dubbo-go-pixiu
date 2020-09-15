@@ -2,7 +2,7 @@ package dubbo
 
 import (
 	"context"
-	"github.com/dubbogo/dubbo-go-proxy/common/config"
+
 	"strings"
 	"sync"
 	"time"
@@ -11,18 +11,20 @@ import (
 import (
 	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
 	_ "github.com/apache/dubbo-go/cluster/loadbalance"
+	"github.com/apache/dubbo-go/common/constant"
 	_ "github.com/apache/dubbo-go/common/logger"
 	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
 	_ "github.com/apache/dubbo-go/config"
+	dg "github.com/apache/dubbo-go/config"
 	_ "github.com/apache/dubbo-go/filter/filter_impl"
+	"github.com/apache/dubbo-go/protocol/dubbo"
 	_ "github.com/apache/dubbo-go/protocol/dubbo"
 	_ "github.com/apache/dubbo-go/registry/protocol"
 	_ "github.com/apache/dubbo-go/registry/zookeeper"
 )
+
 import (
-	"github.com/apache/dubbo-go/common/constant"
-	dg "github.com/apache/dubbo-go/config"
-	"github.com/apache/dubbo-go/protocol/dubbo"
+	"github.com/dubbogo/dubbo-go-proxy/common/config"
 )
 
 var (

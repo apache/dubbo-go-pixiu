@@ -3,6 +3,7 @@ module github.com/dubbogo/dubbo-go-proxy
 go 1.12
 
 require (
+	github.com/apache/dubbo-getty v1.3.10
 	github.com/apache/dubbo-go v1.4.0-rc1
 	github.com/apache/dubbo-go-hessian2 v1.4.0
 	github.com/dubbogo/getty v1.3.9

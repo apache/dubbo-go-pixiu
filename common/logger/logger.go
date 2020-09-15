@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"github.com/dubbogo/getty"
+	getty "github.com/apache/dubbo-getty"
 	"io/ioutil"
 	"log"
 	"path"

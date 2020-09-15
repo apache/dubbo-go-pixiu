@@ -1,15 +1,18 @@
 package context
 
 import (
+	"io/ioutil"
+	"net/http"
+	"strings"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/common/errcode"
 	"github.com/dubbogo/dubbo-go-proxy/common/logger"
 	"github.com/dubbogo/dubbo-go-proxy/common/util"
 	"github.com/dubbogo/dubbo-go-proxy/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/service"
-	"io/ioutil"
-	"net/http"
-	"strings"
 )
 
 type httpContext struct {
