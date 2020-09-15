@@ -41,6 +41,12 @@ var (
 				Value:  "configs/log.yml",
 			},
 			cli.StringFlag{
+				Name:   "api-config, ac",
+				Usage:  "Load api description configuration from `FILE`",
+				EnvVar: "API_FILE",
+				Value:  "configs/api_config.yml",
+			},
+			cli.StringFlag{
 				Name:   "log-level, l",
 				Usage:  "dubbogo proxy log level, trace|debug|info|warning|error|critical",
 				EnvVar: "LOG_LEVEL",
@@ -58,6 +64,7 @@ var (
 			configPath := c.String("config")
 			flagLogLevel := c.String("log-level")
 			logConfPath := c.String("log-config")
+			apiConfPath := c.String("api-config")
 
 			bootstrap := config.Load(configPath)
 			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
