@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/api_load"
 	"runtime"
 )
 
@@ -41,10 +42,9 @@ var (
 				Value:  "configs/log.yml",
 			},
 			cli.StringFlag{
-				Name:   "api-config, ac",
-				Usage:  "Load api description configuration from `FILE`",
-				EnvVar: "API_FILE",
-				Value:  "configs/api_config.yml",
+				Name:   "file-api-config, fac",
+				Usage:  "Load file api description configuration from `FILE`",
+				EnvVar: "FILE_API_CONFIG",
 			},
 			cli.StringFlag{
 				Name:   "log-level, l",
@@ -64,7 +64,7 @@ var (
 			configPath := c.String("config")
 			flagLogLevel := c.String("log-level")
 			logConfPath := c.String("log-config")
-			apiConfPath := c.String("api-config")
+			fileApiConfPath := c.String("file-api-config")
 
 			bootstrap := config.Load(configPath)
 			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
@@ -79,6 +79,8 @@ var (
 			} else {
 				runtime.GOMAXPROCS(limitCpus)
 			}
+
+			api_load.AddApiLoad(fileApiConfPath, bootstrap.DynamicResources.ApiConfig)
 
 			proxy.Start(bootstrap)
 			return nil
