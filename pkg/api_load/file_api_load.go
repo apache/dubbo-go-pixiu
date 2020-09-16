@@ -2,6 +2,7 @@ package api_load
 
 import (
 	"encoding/json"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
 	"io/ioutil"
 )
 
@@ -25,7 +26,23 @@ type FileApiLoader struct {
 	ApiConfigs []model.Api
 }
 
-func (f *FileApiLoader) InitLoad() (err error) {
+type FileApiLoaderOption func(*FileApiLoader)
+
+func WithFilePath(filePath string) FileApiLoaderOption {
+	return func(opt *FileApiLoader) {
+		opt.filePath = filePath
+	}
+}
+
+func NewFileApiLoader(opts ...FileApiLoaderOption) *FileApiLoader {
+	fileApiLoader := &FileApiLoader{}
+	for _, opt := range opts {
+		opt(fileApiLoader)
+	}
+	return fileApiLoader
+}
+
+func (f *FileApiLoader) InitLoad(ads service.ApiDiscoveryService) (err error) {
 	//f.locker.Lock()
 	//defer f.locker.Unlock()
 	content, err := ioutil.ReadFile(f.filePath)
@@ -51,7 +68,7 @@ func (f *FileApiLoader) InitLoad() (err error) {
 	return
 }
 
-func (f *FileApiLoader) HotLoad() error {
+func (f *FileApiLoader) HotLoad(ads service.ApiDiscoveryService) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logger.Error(err)
