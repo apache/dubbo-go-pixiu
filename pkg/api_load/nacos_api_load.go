@@ -8,7 +8,24 @@ func init() {
 }
 
 type NacosApiLoader struct {
-	ApiConfigs []model.Api
+	NacosAddress string
+	ApiConfigs   []model.Api
+}
+
+type NacosApiLoaderOption func(*NacosApiLoader)
+
+func WithNacosAddress(nacosAddress string) NacosApiLoaderOption {
+	return func(opt *NacosApiLoader) {
+		opt.NacosAddress = nacosAddress
+	}
+}
+
+func NewNacosApiLoader(opts ...NacosApiLoaderOption) *NacosApiLoader {
+	var NacosApiLoader = &NacosApiLoader{}
+	for _, opt := range opts {
+		opt(NacosApiLoader)
+	}
+	return NacosApiLoader
 }
 
 func (f *NacosApiLoader) InitLoad() (err error) {
