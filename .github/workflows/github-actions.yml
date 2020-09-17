@@ -19,6 +19,7 @@ jobs:
         os:
           - ubuntu-latest
 
+    # https://docs.github.com/cn/actions/reference/encrypted-secrets
     env:
       DING_TOKEN: ${{ secrets.DING_TOKEN }}
       DING_SIGN: ${{ secrets.DING_SIGN }}
@@ -75,13 +76,6 @@ jobs:
 
     - name: Coverage
       run: bash <(curl -s https://codecov.io/bash)
-
-    - name: Hello world
-      run: echo Hello world $FIRST_NAME $middle_name $Last_Name!
-      env:
-        FIRST_NAME: ${{ secrets.DING_SIGN }}
-        middle_name: The
-        Last_Name: ${{ secrets.DING_TOKEN }}
       
       # Because the contexts of push and PR are different, there are two Notify.
       # Notifications are triggered only in the dubbogo/dubbo-go-proxy repository.
@@ -94,8 +88,8 @@ jobs:
         github.repository == 'dubbogo/dubbo-go-proxy'
       with:
         # DingDing bot token
-        dingToken: ${{ env.DING_TOKEN }}
-        secret: ${{ env.DING_SIGN }}
+        dingToken: ${{ secrets.DING_TOKEN }}
+        secret: ${{ secrets.DING_SIGN }}
         # Post Body to send
         body: |
           {
@@ -113,8 +107,8 @@ jobs:
         github.event_name == 'pull_request' && 
         github.repository == 'dubbogo/dubbo-go-proxy'
       with:
-        dingToken: ${{ env.DING_TOKEN }}
-        secret: ${{ env.DING_SIGN }}
+        dingToken: ${{ secrets.DING_TOKEN }}
+        secret: ${{ secrets.DING_SIGN }}
         body: |
           {
             "msgtype": "markdown",
