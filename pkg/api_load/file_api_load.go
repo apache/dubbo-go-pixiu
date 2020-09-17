@@ -2,7 +2,6 @@ package api_load
 
 import (
 	"encoding/json"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
 	"io/ioutil"
 )
 
@@ -17,7 +16,7 @@ import (
 )
 
 func init() {
-	var _ ApiLoad = new(FileApiLoader)
+	var _ ApiLoader = new(FileApiLoader)
 }
 
 type FileApiLoader struct {
@@ -42,7 +41,15 @@ func NewFileApiLoader(opts ...FileApiLoaderOption) *FileApiLoader {
 	return fileApiLoader
 }
 
-func (f *FileApiLoader) InitLoad(ads service.ApiDiscoveryService) (err error) {
+func (f *FileApiLoader) GetPrior() int {
+	return 0
+}
+
+func (f *FileApiLoader) GetLoadedApiConfigs() ([]model.Api, error) {
+	return f.ApiConfigs, nil
+}
+
+func (f *FileApiLoader) InitLoad() (err error) {
 	//f.locker.Lock()
 	//defer f.locker.Unlock()
 	content, err := ioutil.ReadFile(f.filePath)
@@ -68,11 +75,13 @@ func (f *FileApiLoader) InitLoad(ads service.ApiDiscoveryService) (err error) {
 	return
 }
 
-func (f *FileApiLoader) HotLoad(ads service.ApiDiscoveryService) error {
+func (f *FileApiLoader) HotLoad() (chan struct{}, error) {
+
+	changeNotifier := make(chan struct{}, 10)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logger.Error(err)
-		return err
+		return nil, err
 	}
 
 	defer watcher.Close()
@@ -100,14 +109,18 @@ func (f *FileApiLoader) HotLoad(ads service.ApiDiscoveryService) error {
 						logger.Warnf("fileApiLoader read api config error:%v", err)
 						break
 					}
+					changeNotifier <- struct{}{}
 					break
 				case fsnotify.Remove:
 					logger.Debug("removed file:", event.Name)
 					f.ApiConfigs = nil
+					changeNotifier <- struct{}{}
 					break
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
+					f.Clear()
+					changeNotifier <- struct{}{}
 					return
 				}
 				logger.Error("error:", err)
@@ -118,8 +131,9 @@ func (f *FileApiLoader) HotLoad(ads service.ApiDiscoveryService) error {
 	err = watcher.Add(f.filePath)
 	if err != nil {
 		logger.Error(err)
+		return nil, err
 	}
-	return err
+	return changeNotifier, err
 }
 
 func (f *FileApiLoader) Clear() error {
