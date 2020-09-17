@@ -1,12 +1,14 @@
 package api_load
 
-import "github.com/dubbogo/dubbo-go-proxy/pkg/service"
+import "github.com/dubbogo/dubbo-go-proxy/pkg/model"
 
-type ApiLoad interface {
+type ApiLoader interface {
+	GetPrior() int
+	GetLoadedApiConfigs() ([]model.Api, error)
 	// 第一次初始化加载
-	InitLoad(service.ApiDiscoveryService) error
+	InitLoad() error
 	// 后面动态更新加载
-	HotLoad(service.ApiDiscoveryService) error
+	HotLoad() (chan struct{}, error)
 	// 清除所有加载的api
 	Clear() error
 }

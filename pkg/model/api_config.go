@@ -6,4 +6,5 @@ type ApiConfig struct {
 
 type Nacos struct {
 	Address string `yaml:"address" json:"address"`
+	Prior   int    `yaml:"prior" json:"prior"`
 }
