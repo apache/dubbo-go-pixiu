@@ -1,8 +1,7 @@
 language: go
 
 go:
-  - "1.14.x"
-
+  - "1.14"
 env:
   - GO111MODULE=on
 
@@ -10,4 +9,8 @@ install: true
 
 script:
   - go fmt ./... && [[ -z `git status -s` ]]
-  - go mod vendor && go test ./...
+  - echo 'start unit-test'
+  - go mod vendor && go test ./... -coverprofile=coverage.txt -covermode=atomic
+
+notifications:
+  webhooks: https://oapi.dingtalk.com/robot/send?access_token=72c669f31d5903698cba73d3dccd061a198b7c9a853d9bfac94289f8c0bf4baf
