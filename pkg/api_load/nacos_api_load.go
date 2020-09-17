@@ -4,12 +4,13 @@ import "github.com/dubbogo/dubbo-go-proxy/pkg/model"
 
 // TODO
 func init() {
-	var _ ApiLoad = new(NacosApiLoader)
+	var _ ApiLoader = new(NacosApiLoader)
 }
 
 type NacosApiLoader struct {
 	NacosAddress string
 	ApiConfigs   []model.Api
+	Prior        int
 }
 
 type NacosApiLoaderOption func(*NacosApiLoader)
@@ -28,11 +29,19 @@ func NewNacosApiLoader(opts ...NacosApiLoaderOption) *NacosApiLoader {
 	return NacosApiLoader
 }
 
+func (f *NacosApiLoader) GetPrior() int {
+	return f.Prior
+}
+
+func (f *NacosApiLoader) GetLoadedApiConfigs() ([]model.Api, error) {
+	return f.ApiConfigs, nil
+}
+
 func (f *NacosApiLoader) InitLoad() (err error) {
 	panic("")
 }
 
-func (f *NacosApiLoader) HotLoad() error {
+func (f *NacosApiLoader) HotLoad() (chan struct{}, error) {
 	panic("")
 }
 
