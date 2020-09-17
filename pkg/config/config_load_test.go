@@ -6,11 +6,18 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 func TestLoad(t *testing.T) {
-	Load("/Users/tc/Documents/workspace_2020/aproxy/configs/conf.yaml")
+	conf := Load("conf_test.yaml")
+
+	assert.Equal(t, 1, len(conf.StaticResources.Listeners))
+	assert.Equal(t, 1, len(conf.StaticResources.Clusters))
 }
 
 func TestStruct2JSON(t *testing.T) {
