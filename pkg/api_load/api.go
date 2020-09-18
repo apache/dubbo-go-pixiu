@@ -19,17 +19,22 @@ const (
 )
 
 type ApiLoad struct {
-	mergeLock      sync.Locker
-	limiter        *time.Ticker
-	sleepTime      int64
-	mergeTask      chan struct{}
-	ApiLoadTypeMap map[ApiLoadType]ApiLoader
+	mergeLock       sync.Locker
+	limiter         *time.Timer
+	rateLimiterTime time.Duration
+	mergeTask       chan struct{}
+	ApiLoadTypeMap  map[ApiLoadType]ApiLoader
 }
 
-func NewApiLoad() *ApiLoad {
+func NewApiLoad(rateLimiterTime time.Duration) *ApiLoad {
+	if rateLimiterTime > time.Millisecond*50 {
+		rateLimiterTime = time.Millisecond * 50
+	}
 	return &ApiLoad{
-		ApiLoadTypeMap: make(map[ApiLoadType]ApiLoader, 8),
-		mergeTask:      make(chan struct{}, 1),
+		ApiLoadTypeMap:  make(map[ApiLoadType]ApiLoader, 8),
+		mergeTask:       make(chan struct{}, 1),
+		limiter:         time.NewTimer(rateLimiterTime),
+		rateLimiterTime: rateLimiterTime,
 	}
 }
 
@@ -96,29 +101,31 @@ func (al *ApiLoad) SelectMergeApiTask() (err error) {
 		select {
 		case <-al.limiter.C:
 			if len(al.mergeTask) > 0 {
-				go al.DoMergeApiTask()
+				al.DoMergeApiTask()
 			}
+			al.limiter.Reset(time.Second)
 			break
 		default:
-			al.ClearMergeTask()
-			time.Sleep(time.Millisecond * time.Duration(al.sleepTime))
+			time.Sleep(time.Millisecond * time.Duration(al.rateLimiterTime/10))
 			break
 		}
 	}
 	return
 }
 
-func (al *ApiLoad) DoMergeApiTask() {
+func (al *ApiLoad) DoMergeApiTask() (skip bool, err error) {
 	al.mergeLock.Lock()
 	defer al.mergeLock.Unlock()
 	wait := time.After(time.Millisecond * 50)
 	select {
 	case <-wait:
-		break
+		logger.Debug("merge api task is too frequent.")
+		skip = true
+		return
 	case <-al.mergeTask:
 		// If apiLoadType is File,then try cover it's apis using other's apis from registry center
 		var totalApis map[string]model.Api
-		sortedApiLoader := []int{}
+		var sortedApiLoader []int
 		sortedApiLoaderMap := make(map[int]ApiLoadType, len(al.ApiLoadTypeMap))
 		for apiLoadType, loader := range al.ApiLoadTypeMap {
 			sortedApiLoader = append(sortedApiLoader, loader.GetPrior())
@@ -129,11 +136,13 @@ func (al *ApiLoad) DoMergeApiTask() {
 		for _, sortNo := range sortedApiLoader {
 			loadType := sortedApiLoaderMap[sortNo]
 			apiLoader := al.ApiLoadTypeMap[loadType]
-			fileApiConfigs, err := apiLoader.GetLoadedApiConfigs()
+			var apiConfigs []model.Api
+			apiConfigs, err = apiLoader.GetLoadedApiConfigs()
 			if err != nil {
 				logger.Error("get file apis error:%v", err)
+				return
 			} else {
-				for _, fleApiConfig := range fileApiConfigs {
+				for _, fleApiConfig := range apiConfigs {
 					if fleApiConfig.Status != model.Up {
 						continue
 					}
@@ -142,7 +151,7 @@ func (al *ApiLoad) DoMergeApiTask() {
 			}
 		}
 		// todo添加api
-		break
+		return true, nil
 	}
 }
 
