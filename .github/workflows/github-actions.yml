@@ -19,9 +19,10 @@ jobs:
         os:
           - ubuntu-latest
 
+    # https://docs.github.com/cn/actions/reference/encrypted-secrets
     env:
-      DING_TOKEN: ${{ secrets.DING_TOKEN }}
-      DING_SIGN: ${{ secrets.DING_SIGN }}
+      DING_TOKEN: ce7f7eda223fe7bd2c750ea6f19526416ab343edd6084bd5b8c41dd19257af9f
+      DING_SIGN: SECdcf84e54ff9f38ef903af8f68c5b69e7e6afb13b3efe78b6b88e7a4df4bb9a88
 
     steps:
 
@@ -75,7 +76,10 @@ jobs:
 
     - name: Coverage
       run: bash <(curl -s https://codecov.io/bash)
-      
+
+    - name: Hello world
+      run: echo Hello world ${{ secrets.PROXY_DING_TOKEN }} ${{ secrets.PROXY_DING_SIGN }}
+
       # Because the contexts of push and PR are different, there are two Notify.
       # Notifications are triggered only in the dubbogo/dubbo-go-proxy repository.
     - name: DingTalk Message Notify only Push
