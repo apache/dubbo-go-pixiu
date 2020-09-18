@@ -21,8 +21,8 @@ jobs:
 
     # https://docs.github.com/cn/actions/reference/encrypted-secrets
     env:
-      DING_TOKEN: ${{ secrets.PROXY_DING_TOKEN }}
-      DING_SIGN: ${{ secrets.PROXY_DING_SIGN }}
+      DING_TOKEN: ce7f7eda223fe7bd2c750ea6f19526416ab343edd6084bd5b8c41dd19257af9f
+      DING_SIGN: SECdcf84e54ff9f38ef903af8f68c5b69e7e6afb13b3efe78b6b88e7a4df4bb9a88
 
     steps:
 
@@ -91,8 +91,8 @@ jobs:
         github.repository == 'dubbogo/dubbo-go-proxy'
       with:
         # DingDing bot token
-        dingToken: ${{ secrets.DING_TOKEN }}
-        secret: ${{ secrets.DING_SIGN }}
+        dingToken: ${{ env.DING_TOKEN }}
+        secret: ${{ env.DING_SIGN }}
         # Post Body to send
         body: |
           {
@@ -110,8 +110,8 @@ jobs:
         github.event_name == 'pull_request' && 
         github.repository == 'dubbogo/dubbo-go-proxy'
       with:
-        dingToken: ${{ secrets.DING_TOKEN }}
-        secret: ${{ secrets.DING_SIGN }}
+        dingToken: ${{ env.DING_TOKEN }}
+        secret: ${{ env.DING_SIGN }}
         body: |
           {
             "msgtype": "markdown",
