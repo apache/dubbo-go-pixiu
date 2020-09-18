@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime"
+	"time"
 )
 
 import (
@@ -9,6 +10,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/api_load"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/proxy"
@@ -63,7 +65,7 @@ var (
 			configPath := c.String("config")
 			flagLogLevel := c.String("log-level")
 			logConfPath := c.String("log-config")
-			//fileApiConfPath := c.String("file-api-config")
+			fileApiConfPath := c.String("file-api-config")
 
 			bootstrap := config.Load(configPath)
 			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
@@ -79,7 +81,8 @@ var (
 				runtime.GOMAXPROCS(limitCpus)
 			}
 
-			//api_load.(fileApiConfPath, bootstrap.DynamicResources.ApiConfig)
+			apiLoader := api_load.NewApiLoad(time.Second)
+			apiLoader.AddApiLoad(fileApiConfPath, bootstrap.DynamicResources.ApiConfig)
 
 			proxy.Start(bootstrap)
 			return nil
