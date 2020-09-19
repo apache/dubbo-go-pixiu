@@ -1,9 +1,3 @@
-# - name: "test-dubbo/user"
-#   target: "queryUser"
-#   method: "POST"
-#   types:
-#     - "com.ikurento.user.User"
-
 name: api name
 description: api description
 resources:
@@ -20,16 +14,20 @@ resources:
           type: http
           headers: 
             - name: auth
-            - required: true 
+              required: true 
           queryStrings:
-            - name: page
+            - name: id
               required: false
             - name: type
               required: false
           requestBody:
-            - modelDefinition
+            - definitionName: modelDefinition
+              contentType: application/json
         integrationRequest:
           type: dubbo
+          mappingParams:
+            - name: queryStrings.id
+              mapTo: 1
           applicationName: BDTService
           group: test
           version: 1.0.0
@@ -38,11 +36,8 @@ resources:
           paramTypes:
             - java.lang.String
           ClusterName: test_dubbo
-
-
-Definitions:
+definitions:
   - name: modelDefinition
-    contentType: application/json
     schema: >-
       {
         "type" : "object",
