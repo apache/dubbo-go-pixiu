@@ -49,7 +49,7 @@ type DubboMetadata struct {
 	Version              string   `yaml:"version" json:"version" mapstructure:"version"`
 	Interface            string   `yaml:"interface" json:"interface" mapstructure:"interface"`
 	Method               string   `yaml:"method" json:"method" mapstructure:"method"`
-	Types                []string `yaml:"type" json:"types" mapstructure:"types"`
+	Types                []string `yaml:"types" json:"types" mapstructure:"types"`
 	Retries              string   `yaml:"retries"  json:"retries,omitempty" property:"retries"`
 	ClusterName          string   `yaml:"cluster_name"  json:"cluster_name,omitempty" property:"cluster_name"`
 	ProtocolTypeStr      string   `yaml:"protocol_type"  json:"protocol_type,omitempty" property:"protocol_type"`
