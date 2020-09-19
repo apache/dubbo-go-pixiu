@@ -11,12 +11,12 @@ resources:
       - httpVerb: GET
         onAir: true
         inboundRequest:
-          type: http
+          requestType: http
           headers: 
             - name: auth
               required: true 
           queryStrings:
-            - name: page
+            - name: id
               required: false
             - name: type
               required: false
@@ -24,7 +24,10 @@ resources:
             - definitionName: modelDefinition
               contentType: application/json
         integrationRequest:
-          type: dubbo
+          requestType: dubbo
+          mappingParams:
+            - name: queryStrings.id
+              mapTo: 1
           applicationName: BDTService
           group: test
           version: 1.0.0
