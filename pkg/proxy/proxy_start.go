@@ -2,7 +2,9 @@ package proxy
 
 import (
 	"encoding/json"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/api_load"
 	"sync"
+	"time"
 )
 
 import (
@@ -20,6 +22,7 @@ import (
 // Proxy
 type Proxy struct {
 	startWG sync.WaitGroup
+	bs      *model.Bootstrap
 }
 
 // Start proxy start
@@ -45,12 +48,19 @@ func (p *Proxy) Start() {
 	}
 }
 
-func (p *Proxy) beforeStart() {
+func (p *Proxy) beforeStart() error {
 	dubbo.SingleDubboClient().Init()
 
 	// TODO mock api register
 	ads := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 
+	apiLoader := api_load.NewApiLoad(time.Second, ads)
+	apiLoader.AddApiLoad(p.bs.DynamicResources.ApiConfig)
+	err := apiLoader.StartLoadApi()
+	if err != nil {
+		logger.Errorf("error load api:%v", err)
+		return err
+	}
 	a1 := &model.Api{
 		Name:     "/api/v1/test-dubbo/user",
 		ITypeStr: "HTTP",
@@ -99,16 +109,17 @@ func (p *Proxy) beforeStart() {
 }
 
 // NewProxy create proxy
-func NewProxy() *Proxy {
+func NewProxy(bs *model.Bootstrap) *Proxy {
 	return &Proxy{
 		startWG: sync.WaitGroup{},
+		bs:      bs,
 	}
 }
 
 func Start(bs *model.Bootstrap) {
 	logger.Infof("[dubboproxy go] start by config : %+v", bs)
 
-	proxy := NewProxy()
+	proxy := NewProxy(bs)
 	proxy.Start()
 
 	proxy.startWG.Wait()
