@@ -1,9 +1,11 @@
 package api_load
 
 import (
+	"errors"
 	"fmt"
 	"github.com/apache/dubbo-go/common/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
 	"sort"
 	"sync"
 	"time"
@@ -24,9 +26,10 @@ type ApiLoad struct {
 	rateLimiterTime time.Duration
 	mergeTask       chan struct{}
 	ApiLoadTypeMap  map[ApiLoadType]ApiLoader
+	ads             service.ApiDiscoveryService
 }
 
-func NewApiLoad(rateLimiterTime time.Duration) *ApiLoad {
+func NewApiLoad(rateLimiterTime time.Duration, ads service.ApiDiscoveryService) *ApiLoad {
 	if rateLimiterTime > time.Millisecond*50 {
 		rateLimiterTime = time.Millisecond * 50
 	}
@@ -35,12 +38,13 @@ func NewApiLoad(rateLimiterTime time.Duration) *ApiLoad {
 		mergeTask:       make(chan struct{}, 1),
 		limiter:         time.NewTimer(rateLimiterTime),
 		rateLimiterTime: rateLimiterTime,
+		ads:             ads,
 	}
 }
 
-func (al *ApiLoad) AddApiLoad(fileApiConfPath string, config model.ApiConfig) {
-	if len(fileApiConfPath) > 0 {
-		al.ApiLoadTypeMap[File] = NewFileApiLoader(WithFilePath(fileApiConfPath))
+func (al *ApiLoad) AddApiLoad(config model.ApiConfig) {
+	if config.File != nil {
+		al.ApiLoadTypeMap[File] = NewFileApiLoader(WithFilePath(config.File.FileApiConfPath))
 	}
 	if config.Nacos != nil {
 		al.ApiLoadTypeMap[Nacos] = NewNacosApiLoader(WithNacosAddress(config.Nacos.Address))
@@ -59,8 +63,7 @@ func (al *ApiLoad) StartLoadApi() error {
 	//al.MergeApi()
 
 	if al.limiter == nil {
-		logger.Warnf("proxy won't hot load api since limiter is null.")
-		return nil
+		return errors.New("proxy won't hot load api since limiter is null.")
 	}
 
 	for _, loader := range al.ApiLoadTypeMap {
@@ -83,30 +86,20 @@ func (al *ApiLoad) StartLoadApi() error {
 	return nil
 }
 
-func (al *ApiLoad) ClearMergeTask() {
-	wait := time.After(time.Millisecond * 50)
-	for {
-		select {
-		case <-al.mergeTask:
-			logger.Debug("drop merge task")
-			break
-		case <-wait:
-			return
-		}
-	}
-}
-
 func (al *ApiLoad) SelectMergeApiTask() (err error) {
 	for {
 		select {
 		case <-al.limiter.C:
 			if len(al.mergeTask) > 0 {
-				al.DoMergeApiTask()
+				_, err = al.DoMergeApiTask()
+				if err != nil {
+					logger.Warnf("error merge api task:%v", err)
+				}
 			}
 			al.limiter.Reset(time.Second)
 			break
 		default:
-			time.Sleep(time.Millisecond * time.Duration(al.rateLimiterTime/10))
+			time.Sleep(time.Millisecond * al.rateLimiterTime / 10)
 			break
 		}
 	}
@@ -124,7 +117,7 @@ func (al *ApiLoad) DoMergeApiTask() (skip bool, err error) {
 		return
 	case <-al.mergeTask:
 		// If apiLoadType is File,then try cover it's apis using other's apis from registry center
-		var totalApis map[string]model.Api
+		var multiApisMerged map[string]model.Api
 		var sortedApiLoader []int
 		sortedApiLoaderMap := make(map[int]ApiLoadType, len(al.ApiLoadTypeMap))
 		for apiLoadType, loader := range al.ApiLoadTypeMap {
@@ -146,13 +139,22 @@ func (al *ApiLoad) DoMergeApiTask() (skip bool, err error) {
 					if fleApiConfig.Status != model.Up {
 						continue
 					}
-					totalApis[al.buildApiID(fleApiConfig)] = fleApiConfig
+					multiApisMerged[al.buildApiID(fleApiConfig)] = fleApiConfig
 				}
 			}
 		}
-		// todo添加api
+
+		var totalApis []model.Api
+		for _, api := range multiApisMerged {
+			totalApis = append(totalApis, api)
+		}
+		al.add2ApiDiscoveryService(totalApis)
 		return true, nil
 	}
+}
+
+func (al *ApiLoad) add2ApiDiscoveryService(apis []model.Api) error {
+	al.ads.AddApi()
 }
 
 func (al *ApiLoad) buildApiID(api model.Api) string {
