@@ -41,7 +41,8 @@ func doDubbo(c *http.HttpContext) {
 		c.WriteFail()
 		c.Abort()
 	} else {
-		if resp, err := dubbo.SingleDubboClient().Call(client.NewRequest(bytes, api)); err != nil {
+		if resp, err := dubbo.SingleDubboClient().
+			Call(client.NewRequest(bytes, api)); err != nil {
 			logger.Errorf("[dubboproxy go] client do err:%v!", err)
 			c.WriteFail()
 			c.Abort()
