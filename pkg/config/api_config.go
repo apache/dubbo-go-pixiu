@@ -18,13 +18,13 @@
 package config
 
 import (
-	"log"
+	perrors "github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
-	perrors "github.com/pkg/errors"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 // HTTPVerb defines the restful api http verb
@@ -119,7 +119,7 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 	if len(path) == 0 {
 		return nil, perrors.Errorf("Config file not specified")
 	}
-	log.Printf("Load API configuration file form %s", path)
+	logger.Info("Load API configuration file form %s", path)
 	apiConf := &APIConfig{}
 	_, err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {

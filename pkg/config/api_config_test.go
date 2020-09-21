@@ -23,9 +23,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 func TestLoadAPIConfigFromFile(t *testing.T) {
