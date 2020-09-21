@@ -4,11 +4,11 @@ resources:
   - path: '/'
     type: restful
     description: resource documentation
-    filters:
-      - filterA
-      - filterB
     methods:
       - httpVerb: GET
+        filters:
+          - filterA
+          - filterB
         onAir: true
         inboundRequest:
           requestType: http

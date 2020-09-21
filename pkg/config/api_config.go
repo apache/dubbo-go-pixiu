@@ -62,14 +62,14 @@ type Resource struct {
 	Type        string     `yaml:"type"` // Restful, Dubbo
 	Path        string     `yaml:"path"`
 	Description string     `yaml:"description"`
-	Filters     []string   `yaml:"filters"`
 	Methods     []Method   `yaml:"methods"`
 	Resources   []Resource `yaml:"resources,omitempty"`
 }
 
 // Method defines the method of the api
 type Method struct {
-	OnAir              bool `yaml:"onAir"`
+	OnAir              bool     `yaml:"onAir"`
+	Filters            []string `yaml:"filters"`
 	HTTPVerb           `yaml:"httpVerb"`
 	InboundRequest     `yaml:"inboundRequest"`
 	IntegrationRequest `yaml:"integrationRequest"`
