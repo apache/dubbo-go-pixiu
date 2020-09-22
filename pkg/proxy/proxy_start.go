@@ -61,6 +61,10 @@ func (p *Proxy) beforeStart() error {
 		logger.Errorf("error load api:%v", err)
 		return err
 	}
+	err = apiLoader.SelectMergeApiTask()
+	if err != nil {
+		logger.Errorf("error select merge api task :%v", err)
+	}
 	a1 := &model.Api{
 		Name:     "/api/v1/test-dubbo/user",
 		ITypeStr: "HTTP",
