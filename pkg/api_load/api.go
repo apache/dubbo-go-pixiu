@@ -1,6 +1,7 @@
 package api_load
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/apache/dubbo-go/common/logger"
@@ -76,12 +77,28 @@ func (al *ApiLoad) StartLoadApi() error {
 		go func() {
 			for {
 				select {
-				case <-changeNotifier:
-					al.SelectMergeApiTask()
+				case _, ok := <-changeNotifier:
+					if !ok {
+						logger.Debug("changeNotifier of apiloader was closed!")
+						return
+					}
+					al.AddMergeTask()
 					break
 				}
 			}
 		}()
+	}
+	return nil
+}
+
+func (al *ApiLoad) AddMergeTask() error {
+	select {
+	case al.mergeTask <- struct{}{}:
+		logger.Debug("added a merge task, waiting to merge api.")
+		break
+	case <-time.After(5 * time.Second):
+		logger.Errorf("add merge task fail:wait timeout.")
+		break
 	}
 	return nil
 }
@@ -148,13 +165,30 @@ func (al *ApiLoad) DoMergeApiTask() (skip bool, err error) {
 		for _, api := range multiApisMerged {
 			totalApis = append(totalApis, api)
 		}
-		al.add2ApiDiscoveryService(totalApis)
-		return true, nil
+		err = al.ads.RemoveAllApi()
+		if err != nil {
+			logger.Errorf("remove all older apis error:%v", err)
+			return
+		}
+		err = al.add2ApiDiscoveryService(totalApis)
+		if err != nil {
+			logger.Errorf("add newer apis error:%v", err)
+			return
+		}
+		return
 	}
 }
 
 func (al *ApiLoad) add2ApiDiscoveryService(apis []model.Api) error {
-	al.ads.AddApi()
+	for _, api := range apis {
+		j, _ := json.Marshal(api)
+		_, err := al.ads.AddApi(*service.NewDiscoveryRequest(j))
+		if err != nil {
+			logger.Errorf("error add api:%s", j)
+			return err
+		}
+	}
+	return nil
 }
 
 func (al *ApiLoad) buildApiID(api model.Api) string {
