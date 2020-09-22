@@ -29,6 +29,19 @@ func NewLocalMemoryApiDiscoveryService() *LocalMemoryApiDiscoveryService {
 	return &LocalMemoryApiDiscoveryService{}
 }
 
+func (ads *LocalMemoryApiDiscoveryService) RemoveAllApi() error {
+	model.CacheApi.Range(func(name, _ interface{}) bool {
+		model.CacheApi.Delete(name)
+		return true
+	})
+	return nil
+}
+
+func (ads *LocalMemoryApiDiscoveryService) RemoveApi(name string) error {
+	model.CacheApi.Delete(name)
+	return nil
+}
+
 func (ads *LocalMemoryApiDiscoveryService) AddApi(request service.DiscoveryRequest) (service.DiscoveryResponse, error) {
 	aj := model.NewApi()
 	if err := json.Unmarshal(request.Body, aj); err != nil {
