@@ -121,7 +121,7 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 	}
 	logger.Info("Load API configuration file form %s", path)
 	apiConf := &APIConfig{}
-	_, err := yaml.UnmarshalYMLConfig(path, apiConf)
+	err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 	}
