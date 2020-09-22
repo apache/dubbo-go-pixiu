@@ -41,12 +41,12 @@ func LoadYMLConfig(confProFile string) ([]byte, error) {
 }
 
 // UnmarshalYMLConfig Load yml config byte from file, then unmarshal to object
-func UnmarshalYMLConfig(confProFile string, out interface{}) ([]byte, error) {
+func UnmarshalYMLConfig(confProFile string, out interface{}) error {
 	confFileStream, err := LoadYMLConfig(confProFile)
 	if err != nil {
-		return confFileStream, perrors.Errorf("ioutil.ReadFile(file:%s) = error:%v", confProFile, perrors.WithStack(err))
+		return perrors.Errorf("ioutil.ReadFile(file:%s) = error:%v", confProFile, perrors.WithStack(err))
 	}
-	return confFileStream, yaml.Unmarshal(confFileStream, out)
+	return yaml.Unmarshal(confFileStream, out)
 }
 
 //UnmarshalYML unmarshals decodes the first document found within the in byte slice and assigns decoded values into the out value.
