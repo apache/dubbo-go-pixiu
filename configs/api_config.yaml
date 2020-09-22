@@ -22,7 +22,6 @@ resources:
               required: false
           requestBody:
             - definitionName: modelDefinition
-              contentType: application/json
         integrationRequest:
           type: dubbo
           mappingParams:
