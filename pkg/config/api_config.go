@@ -92,7 +92,6 @@ type Params struct {
 // BodyDefinition connects the request body to the definitions
 type BodyDefinition struct {
 	DefinitionName string `yaml:"definitionName"`
-	ContentType    string `yaml:"contentType"`
 }
 
 // IntegrationRequest defines the backend request format and target
