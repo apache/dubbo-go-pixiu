@@ -33,7 +33,7 @@ func (rt *RouterTree) Put(fullPath string, method config.Method) error {
 
 	if !ok {
 		ms := make(map[config.HTTPVerb]config.Method)
-		wildcard := isWildcard(fullPath)
+		wildcard := containParam(fullPath)
 		rn := &RouterNode{
 			fullPath: fullPath,
 			methods:  ms,
@@ -54,32 +54,17 @@ func (rt *RouterTree) Put(fullPath string, method config.Method) error {
 }
 
 func (rt *RouterTree) searchWildcard(fullPath string) (*RouterNode, bool) {
-	resources := strings.Split(fullPath[1:], "/")
-	resources[0] = "/" + resources[0]
 	wildcardPaths := rt.wildcardTree.Keys()
-
 	for _, p := range wildcardPaths {
 		if wildcardMatch(p.(string), fullPath) {
 			n, ok := rt.wildcardTree.Get(p)
 			return n.(*RouterNode), ok
 		}
 	}
-	// parmPositions := []int{}
-	// for i := range resources {
-	// 	if isWildcard(resources[i]) {
-	// 		parmPositions = append(parmPositions, i)
-	// 	}
-	// }
-	// for _, position := range parmPositions {
-	// 	searchPath := strings.Join(resources[:position], "/")
-	// 	if node, ok := rt.tree.Get(searchPath); ok {
-	// 		return node.(*RouterNode), ok
-	// 	}
-	// }
 	return nil, false
 }
 
-func isWildcard(fullPath string) bool {
+func containParam(fullPath string) bool {
 	for _, s := range fullPath {
 		if s == ':' {
 			return true
@@ -88,6 +73,18 @@ func isWildcard(fullPath string) bool {
 	return false
 }
 
-func wildcardMatch(wildcardPath string, targetPath string) bool {
-	return false
+func wildcardMatch(wildcardPath string, checkPath string) bool {
+	wildcardPath = strings.ToLower(wildcardPath)
+	checkPath = strings.ToLower(checkPath)
+	wPathSplit := strings.Split(wildcardPath[1:], "/")
+	cPathSplit := strings.Split(checkPath[1:], "/")
+	if len(wPathSplit) != len(cPathSplit) {
+		return false
+	}
+	for i, s := range wPathSplit {
+		if containParam(s) {
+			cPathSplit[i] = s
+		}
+	}
+	return strings.Join(wPathSplit, "/") == strings.Join(cPathSplit, "/")
 }
