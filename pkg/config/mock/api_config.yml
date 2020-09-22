@@ -11,7 +11,7 @@ resources:
       - httpVerb: GET
         onAir: true
         inboundRequest:
-          type: http
+          requestType: http
           headers: 
             - name: auth
               required: true 
@@ -23,7 +23,7 @@ resources:
           requestBody:
             - definitionName: modelDefinition
         integrationRequest:
-          type: dubbo
+          requestType: dubbo
           mappingParams:
             - name: queryStrings.id
               mapTo: 1
