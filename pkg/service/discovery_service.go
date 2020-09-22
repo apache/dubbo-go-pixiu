@@ -39,6 +39,8 @@ var EmptyDiscoveryResponse = &DiscoveryResponse{}
 type ApiDiscoveryService interface {
 	AddApi(request DiscoveryRequest) (DiscoveryResponse, error)
 	GetApi(request DiscoveryRequest) (DiscoveryResponse, error)
+	RemoveApi(name string) error
+	RemoveAllApi() error
 }
 
 // DiscoveryService is come from envoy, it can used for admin
