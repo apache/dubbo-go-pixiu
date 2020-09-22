@@ -56,6 +56,7 @@ func TestPut(t *testing.T) {
 func TestSearchWildcard(t *testing.T) {
 	rt := &RouterTree{
 		tree: avltree.NewWithStringComparator(),
+		wildcardTree: avltree.NewWithStringComparator(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	e := rt.Put("/theboys", n0)
@@ -75,10 +76,10 @@ func TestSearchWildcard(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestIsWildcard(t *testing.T) {
-	assert.True(t, isWildcard("/test/:id"))
-	assert.False(t, isWildcard("/test"))
-	assert.True(t, isWildcard("/test/:id/mock"))
+func TestContainParam(t *testing.T) {
+	assert.True(t, containParam("/test/:id"))
+	assert.False(t, containParam("/test"))
+	assert.True(t, containParam("/test/:id/mock"))
 }
 
 func TestWildcardMatch(t *testing.T) {
