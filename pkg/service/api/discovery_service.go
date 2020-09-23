@@ -91,9 +91,11 @@ func (ads *LocalMemoryApiDiscoveryService) AddApi(request service.DiscoveryReque
 }
 
 func (ads *LocalMemoryApiDiscoveryService) GetApi(request service.DiscoveryRequest) (service.DiscoveryResponse, error) {
-	n := string(request.Body)
-
-	if a, ok := model.CacheApi.Load(n); ok {
+	aj := model.NewApi()
+	if err := json.Unmarshal(request.Body, aj); err != nil {
+		return *service.EmptyDiscoveryResponse, err
+	}
+	if a, ok := model.CacheApi.Load(aj.Name); ok {
 		return *service.NewDiscoveryResponse(a), nil
 	}
 

@@ -1,13 +1,16 @@
 package api_load
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"io"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 import (
@@ -98,7 +101,7 @@ func TestFileApiLoader_HotLoad(t *testing.T) {
 }
 
 func appendContent(filename string, content []byte) error {
-	fl, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE, 0644)
+	fl, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		return err
 	}
