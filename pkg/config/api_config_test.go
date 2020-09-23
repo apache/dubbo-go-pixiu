@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-package extension
+package config_test
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
+	"log"
+	"testing"
 )
 
-var (
-	apiDiscoveryServiceMap = map[string]service.ApiDiscoveryService{}
+import (
+	"github.com/ghodss/yaml"
+	"github.com/stretchr/testify/assert"
 )
 
-// SetApiDiscoveryService will store the @filter and @name
-func SetApiDiscoveryService(name string, ads service.ApiDiscoveryService) {
-	apiDiscoveryServiceMap[name] = ads
-}
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+)
 
-// GetMustApiDiscoveryService will return the service.ApiDiscoveryService
-// if not found, it will panic
-func GetMustApiDiscoveryService(name string) service.ApiDiscoveryService {
-	if ds, ok := apiDiscoveryServiceMap[name]; ok {
-		return ds
-	}
+func TestLoadAPIConfigFromFile(t *testing.T) {
+	apiC, err := config.LoadAPIConfigFromFile("")
+	assert.Empty(t, apiC)
+	assert.EqualError(t, err, "Config file not specified")
 
-	panic("api discovery service for " + name + " is not existing!")
+	apiC, err = config.LoadAPIConfigFromFile("./mock/api_config.yml")
+	assert.Empty(t, err)
+	assert.Equal(t, apiC.Name, "api name")
+	bytes, _ := yaml.Marshal(apiC)
+	log.Printf("%s", bytes)
 }
