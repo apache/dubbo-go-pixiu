@@ -29,11 +29,15 @@ type RouterTree struct {
 // Put put a key val into the tree
 func (rt *RouterTree) Put(fullPath string, method config.Method) error {
 	fullPath = strings.ToLower(fullPath)
-	node, ok := rt.tree.Get(fullPath)
+	wildcard := containParam(fullPath)
 
+	if wildcardNode, found := rt.searchWildcard(fullPath); found {
+		return putMethod(wildcardNode, method)
+	}
+
+	node, ok := rt.tree.Get(fullPath)
 	if !ok {
 		ms := make(map[config.HTTPVerb]config.Method)
-		wildcard := containParam(fullPath)
 		rn := &RouterNode{
 			fullPath: fullPath,
 			methods:  ms,
@@ -62,6 +66,14 @@ func (rt *RouterTree) searchWildcard(fullPath string) (*RouterNode, bool) {
 		}
 	}
 	return nil, false
+}
+
+func putMethod(node *RouterNode, method config.Method) error {
+	if _, ok := node.methods[method.HTTPVerb]; ok {
+		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath))
+	}
+	node.methods[method.HTTPVerb] = method
+	return nil
 }
 
 func containParam(fullPath string) bool {
