@@ -12,7 +12,8 @@ import (
 
 func TestPut(t *testing.T) {
 	rt := &RouterTree{
-		tree: avltree.NewWithStringComparator(),
+		tree:         avltree.NewWithStringComparator(),
+		wildcardTree: avltree.NewWithStringComparator(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	rt.Put("/", n0)
@@ -55,7 +56,7 @@ func TestPut(t *testing.T) {
 
 func TestSearchWildcard(t *testing.T) {
 	rt := &RouterTree{
-		tree: avltree.NewWithStringComparator(),
+		tree:         avltree.NewWithStringComparator(),
 		wildcardTree: avltree.NewWithStringComparator(),
 	}
 	n0 := getMockMethod(config.MethodGet)
