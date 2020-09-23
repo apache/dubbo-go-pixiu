@@ -23,12 +23,14 @@ const (
 )
 
 type ApiManager struct {
-	mergeLock       sync.Locker
-	limiter         *time.Timer
+	mergeLock *sync.RWMutex
+	// rate limiter
+	limiter         *time.Ticker
 	rateLimiterTime time.Duration
 	mergeTask       chan struct{}
-	ApiLoadTypeMap  map[ApiLoadType]ApiLoader
-	ads             service.ApiDiscoveryService
+	// store apiLoaders
+	ApiLoadTypeMap map[ApiLoadType]ApiLoader
+	ads            service.ApiDiscoveryService
 }
 
 func NewApiManager(rateLimiterTime time.Duration, ads service.ApiDiscoveryService) *ApiManager {
@@ -38,13 +40,15 @@ func NewApiManager(rateLimiterTime time.Duration, ads service.ApiDiscoveryServic
 	return &ApiManager{
 		ApiLoadTypeMap:  make(map[ApiLoadType]ApiLoader, 8),
 		mergeTask:       make(chan struct{}, 1),
-		limiter:         time.NewTimer(rateLimiterTime),
+		limiter:         time.NewTicker(rateLimiterTime),
 		rateLimiterTime: rateLimiterTime,
+		mergeLock:       &sync.RWMutex{},
 		ads:             ads,
 	}
 }
 
-func (al *ApiManager) AddApiLoad(config model.ApiConfig) {
+// add apiLoader by ApiLoadType
+func (al *ApiManager) AddApiLoader(config model.ApiConfig) {
 	if config.File != nil {
 		al.ApiLoadTypeMap[File] = NewFileApiLoader(WithFilePath(config.File.FileApiConfPath))
 	}
@@ -53,14 +57,15 @@ func (al *ApiManager) AddApiLoad(config model.ApiConfig) {
 	}
 }
 
+// nolint
 func (al *ApiManager) GetApiLoad(apiLoadType ApiLoadType) (ApiLoader, error) {
 	if apiLoader, ok := al.ApiLoadTypeMap[apiLoadType]; ok {
 		return apiLoader, nil
 	}
 	return nil, errors.New(fmt.Sprintf("can't load apiLoader for :%s", apiLoadType))
-
 }
 
+// start to load apis using apiLoaders stored in ApiLoadTypeMap
 func (al *ApiManager) StartLoadApi() error {
 	for _, loader := range al.ApiLoadTypeMap {
 		err := loader.InitLoad()
@@ -69,8 +74,6 @@ func (al *ApiManager) StartLoadApi() error {
 			break
 		}
 	}
-
-	//al.MergeApi()
 
 	if al.limiter == nil {
 		return errors.New("proxy won't hot load api since limiter is null.")
@@ -100,6 +103,7 @@ func (al *ApiManager) StartLoadApi() error {
 	return nil
 }
 
+// store a message to mergeTask to notify calling DoMergeApiTask
 func (al *ApiManager) AddMergeTask() error {
 	select {
 	case al.mergeTask <- struct{}{}:
@@ -112,6 +116,7 @@ func (al *ApiManager) AddMergeTask() error {
 	return nil
 }
 
+// to merge apis to store in ads.Notice that limiter will limit frequency of merging.
 func (al *ApiManager) SelectMergeApiTask() (err error) {
 	for {
 		select {
@@ -122,16 +127,17 @@ func (al *ApiManager) SelectMergeApiTask() (err error) {
 					logger.Warnf("error merge api task:%v", err)
 				}
 			}
-			al.limiter.Reset(time.Second)
+			//al.limiter.Reset(time.Second)
 			break
 		default:
-			time.Sleep(time.Millisecond * al.rateLimiterTime / 10)
+			time.Sleep(al.rateLimiterTime / 10)
 			break
 		}
 	}
 	return
 }
 
+// merge apis
 func (al *ApiManager) DoMergeApiTask() (skip bool, err error) {
 	al.mergeLock.Lock()
 	defer al.mergeLock.Unlock()
@@ -142,8 +148,8 @@ func (al *ApiManager) DoMergeApiTask() (skip bool, err error) {
 		skip = true
 		return
 	case <-al.mergeTask:
-		// If apiLoadType is File,then try cover it's apis using other's apis from registry center
-		var multiApisMerged map[string]model.Api
+		// If apiLoadType is File,then try covering it's apis using other's apis from registry center
+		multiApisMerged := make(map[string]model.Api, 8)
 		var sortedApiLoader []int
 		sortedApiLoaderMap := make(map[int]ApiLoadType, len(al.ApiLoadTypeMap))
 		for apiLoadType, loader := range al.ApiLoadTypeMap {
@@ -188,6 +194,7 @@ func (al *ApiManager) DoMergeApiTask() (skip bool, err error) {
 	}
 }
 
+// add merged apis to ads
 func (al *ApiManager) add2ApiDiscoveryService(apis []model.Api) error {
 	for _, api := range apis {
 		j, _ := json.Marshal(api)
@@ -200,6 +207,7 @@ func (al *ApiManager) add2ApiDiscoveryService(apis []model.Api) error {
 	return nil
 }
 
+// nolint
 func (al *ApiManager) buildApiID(api model.Api) string {
 	return fmt.Sprintf("name:%s,ITypeStr:%s,OTypeStr:%s,Method:%s",
 		api.Name, api.ITypeStr, api.OTypeStr, api.Method)
