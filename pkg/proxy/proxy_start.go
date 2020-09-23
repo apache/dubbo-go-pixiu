@@ -71,7 +71,7 @@ func (p *Proxy) beforeStart() error {
 	// TODO mock api register
 	ads := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 
-	apiLoader := api_load.NewApiLoad(time.Second, ads)
+	apiLoader := api_load.NewApiManager(time.Second, ads)
 	apiLoader.AddApiLoad(p.bs.DynamicResources.ApiConfig)
 	err := apiLoader.StartLoadApi()
 	if err != nil {
