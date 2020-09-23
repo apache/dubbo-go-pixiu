@@ -28,15 +28,15 @@ var (
 
 // Api is api gateway concept, control request from browser、Mobile APP、third party people
 type Api struct {
-	Name     string      `json:"name" yaml:"name"`
-	ITypeStr string      `json:"itype" yaml:"itype"`
-	IType    ApiType     `json:"-" yaml:"-"`
-	OTypeStr string      `json:"otype" yaml:"otype"`
-	OType    ApiType     `json:"-" yaml:"-"`
-	Status   Status      `json:"status" yaml:"status"`
-	Metadata interface{} `json:"metadata" yaml:"metadata"`
-	Method   string      `json:"method" yaml:"method"`
-	RequestMethod
+	Name          string      `json:"name" yaml:"name"`
+	ITypeStr      string      `json:"itype" yaml:"itype"`
+	IType         ApiType     `json:"-" yaml:"-"`
+	OTypeStr      string      `json:"otype" yaml:"otype"`
+	OType         ApiType     `json:"-" yaml:"-"`
+	Status        Status      `json:"status" yaml:"status"`
+	Metadata      interface{} `json:"metadata" yaml:"metadata"`
+	Method        string      `json:"method" yaml:"method"`
+	RequestMethod `json:",omitempty" yaml:"-"`
 }
 
 // NewApi
