@@ -22,7 +22,7 @@ const (
 	Nacos ApiLoadType = "nacos"
 )
 
-type ApiLoad struct {
+type ApiManager struct {
 	mergeLock       sync.Locker
 	limiter         *time.Timer
 	rateLimiterTime time.Duration
@@ -31,11 +31,11 @@ type ApiLoad struct {
 	ads             service.ApiDiscoveryService
 }
 
-func NewApiLoad(rateLimiterTime time.Duration, ads service.ApiDiscoveryService) *ApiLoad {
+func NewApiManager(rateLimiterTime time.Duration, ads service.ApiDiscoveryService) *ApiManager {
 	if rateLimiterTime < time.Millisecond*50 {
 		rateLimiterTime = time.Millisecond * 50
 	}
-	return &ApiLoad{
+	return &ApiManager{
 		ApiLoadTypeMap:  make(map[ApiLoadType]ApiLoader, 8),
 		mergeTask:       make(chan struct{}, 1),
 		limiter:         time.NewTimer(rateLimiterTime),
@@ -44,7 +44,7 @@ func NewApiLoad(rateLimiterTime time.Duration, ads service.ApiDiscoveryService) 
 	}
 }
 
-func (al *ApiLoad) AddApiLoad(config model.ApiConfig) {
+func (al *ApiManager) AddApiLoad(config model.ApiConfig) {
 	if config.File != nil {
 		al.ApiLoadTypeMap[File] = NewFileApiLoader(WithFilePath(config.File.FileApiConfPath))
 	}
@@ -53,7 +53,15 @@ func (al *ApiLoad) AddApiLoad(config model.ApiConfig) {
 	}
 }
 
-func (al *ApiLoad) StartLoadApi() error {
+func (al *ApiManager) GetApiLoad(apiLoadType ApiLoadType) (ApiLoader, error) {
+	if apiLoader, ok := al.ApiLoadTypeMap[apiLoadType]; ok {
+		return apiLoader, nil
+	}
+	return nil, errors.New(fmt.Sprintf("can't load apiLoader for :%s", apiLoadType))
+
+}
+
+func (al *ApiManager) StartLoadApi() error {
 	for _, loader := range al.ApiLoadTypeMap {
 		err := loader.InitLoad()
 		if err != nil {
@@ -92,7 +100,7 @@ func (al *ApiLoad) StartLoadApi() error {
 	return nil
 }
 
-func (al *ApiLoad) AddMergeTask() error {
+func (al *ApiManager) AddMergeTask() error {
 	select {
 	case al.mergeTask <- struct{}{}:
 		logger.Debug("added a merge task, waiting to merge api.")
@@ -104,7 +112,7 @@ func (al *ApiLoad) AddMergeTask() error {
 	return nil
 }
 
-func (al *ApiLoad) SelectMergeApiTask() (err error) {
+func (al *ApiManager) SelectMergeApiTask() (err error) {
 	for {
 		select {
 		case <-al.limiter.C:
@@ -124,7 +132,7 @@ func (al *ApiLoad) SelectMergeApiTask() (err error) {
 	return
 }
 
-func (al *ApiLoad) DoMergeApiTask() (skip bool, err error) {
+func (al *ApiManager) DoMergeApiTask() (skip bool, err error) {
 	al.mergeLock.Lock()
 	defer al.mergeLock.Unlock()
 	wait := time.After(time.Millisecond * 50)
@@ -180,7 +188,7 @@ func (al *ApiLoad) DoMergeApiTask() (skip bool, err error) {
 	}
 }
 
-func (al *ApiLoad) add2ApiDiscoveryService(apis []model.Api) error {
+func (al *ApiManager) add2ApiDiscoveryService(apis []model.Api) error {
 	for _, api := range apis {
 		j, _ := json.Marshal(api)
 		_, err := al.ads.AddApi(*service.NewDiscoveryRequest(j))
@@ -192,7 +200,7 @@ func (al *ApiLoad) add2ApiDiscoveryService(apis []model.Api) error {
 	return nil
 }
 
-func (al *ApiLoad) buildApiID(api model.Api) string {
+func (al *ApiManager) buildApiID(api model.Api) string {
 	return fmt.Sprintf("name:%s,ITypeStr:%s,OTypeStr:%s,Method:%s",
 		api.Name, api.ITypeStr, api.OTypeStr, api.Method)
 }
