@@ -71,6 +71,33 @@ func TestPut(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestFindMethod(t *testing.T) {
+	rt := &Tree{
+		tree:         avltree.NewWithStringComparator(),
+		wildcardTree: avltree.NewWithStringComparator(),
+	}
+	n0 := getMockMethod(config.MethodGet)
+	n1 := getMockMethod(config.MethodPost)
+	e := rt.Put("/theboys", n0)
+	assert.Nil(t, e)
+	e = rt.Put("/theboys/:id", n0)
+	assert.Nil(t, e)
+	e = rt.Put("/vought/:id/supe/:name", n1)
+	assert.Nil(t, e)
+
+	m, ok := rt.FindMethod("/theboys", config.MethodGet)
+	assert.True(t, ok)
+	assert.NotNil(t, m)
+
+	m, ok = rt.FindMethod("/theboys", config.MethodPost)
+	assert.False(t, ok)
+	assert.Nil(t, m)
+
+	m, ok = rt.FindMethod("/vought/123/supe/startlight", config.MethodPost)
+	assert.True(t, ok)
+	assert.NotNil(t, m)
+}
+
 func TestSearchWildcard(t *testing.T) {
 	rt := &Tree{
 		tree:         avltree.NewWithStringComparator(),
