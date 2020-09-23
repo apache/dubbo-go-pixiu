@@ -29,22 +29,22 @@ import (
 	"github.com/pkg/errors"
 )
 
-// RouterNode defines the single method of the router configured API
-type RouterNode struct {
+// Node defines the single method of the router configured API
+type Node struct {
 	fullPath string
 	wildcard bool
 	methods  map[config.HTTPVerb]config.Method
 	lock     sync.RWMutex
 }
 
-// RouterTree defines the tree of router APIs
-type RouterTree struct {
+// Tree defines the tree of router APIs
+type Tree struct {
 	tree         *avltree.Tree
 	wildcardTree *avltree.Tree
 }
 
 // Put put a key val into the tree
-func (rt *RouterTree) Put(fullPath string, method config.Method) error {
+func (rt *Tree) Put(fullPath string, method config.Method) error {
 	fullPath = strings.ToLower(fullPath)
 	wildcard := containParam(fullPath)
 
@@ -55,7 +55,7 @@ func (rt *RouterTree) Put(fullPath string, method config.Method) error {
 	node, ok := rt.tree.Get(fullPath)
 	if !ok {
 		ms := make(map[config.HTTPVerb]config.Method)
-		rn := &RouterNode{
+		rn := &Node{
 			fullPath: fullPath,
 			methods:  ms,
 			wildcard: wildcard,
@@ -67,25 +67,25 @@ func (rt *RouterTree) Put(fullPath string, method config.Method) error {
 		rt.tree.Put(fullPath, rn)
 		return nil
 	}
-	if _, ok := node.(*RouterNode).methods[method.HTTPVerb]; ok {
+	if _, ok := node.(*Node).methods[method.HTTPVerb]; ok {
 		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, fullPath))
 	}
-	node.(*RouterNode).methods[method.HTTPVerb] = method
+	node.(*Node).methods[method.HTTPVerb] = method
 	return nil
 }
 
-func (rt *RouterTree) searchWildcard(fullPath string) (*RouterNode, bool) {
+func (rt *Tree) searchWildcard(fullPath string) (*Node, bool) {
 	wildcardPaths := rt.wildcardTree.Keys()
 	for _, p := range wildcardPaths {
 		if wildcardMatch(p.(string), fullPath) {
 			n, ok := rt.wildcardTree.Get(p)
-			return n.(*RouterNode), ok
+			return n.(*Node), ok
 		}
 	}
 	return nil, false
 }
 
-func putMethod(node *RouterNode, method config.Method) error {
+func putMethod(node *Node, method config.Method) error {
 	if _, ok := node.methods[method.HTTPVerb]; ok {
 		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath))
 	}

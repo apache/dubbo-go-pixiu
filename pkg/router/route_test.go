@@ -38,7 +38,7 @@ func getMockMethod(verb config.HTTPVerb) config.Method {
 }
 
 func TestAbsolutePath(t *testing.T) {
-	rg := &RouterGroup{
+	rg := &Group{
 		basePath: "/",
 	}
 	rst := rg.absolutePath("abc")
@@ -47,7 +47,7 @@ func TestAbsolutePath(t *testing.T) {
 	rst = rg.absolutePath("")
 	assert.Equal(t, rst, "/")
 
-	rg = &RouterGroup{
+	rg = &Group{
 		basePath: "/a",
 	}
 
@@ -65,7 +65,7 @@ func TestAbsolutePath(t *testing.T) {
 }
 
 func TestGroup(t *testing.T) {
-	rg := &RouterGroup{
+	rg := &Group{
 		basePath: "/",
 		root:     true,
 	}
