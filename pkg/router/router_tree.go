@@ -33,7 +33,7 @@ import (
 type Node struct {
 	fullPath string
 	wildcard bool
-	methods  map[config.HTTPVerb]config.Method
+	methods  map[config.HTTPVerb]*config.Method
 	lock     sync.RWMutex
 }
 
@@ -54,13 +54,13 @@ func (rt *Tree) Put(fullPath string, method config.Method) error {
 
 	node, ok := rt.tree.Get(fullPath)
 	if !ok {
-		ms := make(map[config.HTTPVerb]config.Method)
+		ms := make(map[config.HTTPVerb]*config.Method)
 		rn := &Node{
 			fullPath: fullPath,
 			methods:  ms,
 			wildcard: wildcard,
 		}
-		rn.methods[method.HTTPVerb] = method
+		rn.methods[method.HTTPVerb] = &method
 		if wildcard {
 			rt.wildcardTree.Put(fullPath, rn)
 		}
@@ -70,8 +70,22 @@ func (rt *Tree) Put(fullPath string, method config.Method) error {
 	if _, ok := node.(*Node).methods[method.HTTPVerb]; ok {
 		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, fullPath))
 	}
-	node.(*Node).methods[method.HTTPVerb] = method
+	node.(*Node).methods[method.HTTPVerb] = &method
 	return nil
+}
+
+// FindMethod returns the api that meets the
+func (rt *Tree) FindMethod(fullPath string, method config.HTTPVerb) (*config.Method, bool) {
+	var n interface{}
+	var found bool
+	if n, found = rt.searchWildcard(fullPath); !found {
+		n, found = rt.tree.Get(fullPath)
+	}
+	if found {
+		method, ok := n.(*Node).methods[method]
+		return method, ok
+	}
+	return nil, false
 }
 
 func (rt *Tree) searchWildcard(fullPath string) (*Node, bool) {
@@ -89,7 +103,7 @@ func putMethod(node *Node, method config.Method) error {
 	if _, ok := node.methods[method.HTTPVerb]; ok {
 		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath))
 	}
-	node.methods[method.HTTPVerb] = method
+	node.methods[method.HTTPVerb] = &method
 	return nil
 }
 
@@ -116,4 +130,12 @@ func wildcardMatch(wildcardPath string, checkPath string) bool {
 		}
 	}
 	return strings.Join(wPathSplit, "/") == strings.Join(cPathSplit, "/")
+}
+
+// NewTree returns an empty router tree
+func NewTree() *Tree {
+	return &Tree{
+		tree:         avltree.NewWithStringComparator(),
+		wildcardTree: avltree.NewWithStringComparator(),
+	}
 }
