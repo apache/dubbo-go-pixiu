@@ -72,7 +72,7 @@ func (p *Proxy) beforeStart() error {
 	ads := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 
 	apiLoader := api_load.NewApiManager(time.Second, ads)
-	apiLoader.AddApiLoad(p.bs.DynamicResources.ApiConfig)
+	apiLoader.AddApiLoader(p.bs.DynamicResources.ApiConfig)
 	err := apiLoader.StartLoadApi()
 	if err != nil {
 		logger.Errorf("error load api:%v", err)
