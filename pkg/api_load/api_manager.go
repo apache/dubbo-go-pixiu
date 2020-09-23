@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/apache/dubbo-go/common/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
 	"sort"
 	"sync"
 	"time"
 )
 
-//var ApiLoadTypeMap = make(map[ApiLoadType]ApiLoader, 8)
+import (
+	"github.com/apache/dubbo-go/common/logger"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
+)
 
 type ApiLoadType string
 
@@ -31,7 +32,7 @@ type ApiLoad struct {
 }
 
 func NewApiLoad(rateLimiterTime time.Duration, ads service.ApiDiscoveryService) *ApiLoad {
-	if rateLimiterTime > time.Millisecond*50 {
+	if rateLimiterTime < time.Millisecond*50 {
 		rateLimiterTime = time.Millisecond * 50
 	}
 	return &ApiLoad{
@@ -193,5 +194,5 @@ func (al *ApiLoad) add2ApiDiscoveryService(apis []model.Api) error {
 
 func (al *ApiLoad) buildApiID(api model.Api) string {
 	return fmt.Sprintf("name:%s,ITypeStr:%s,OTypeStr:%s,Method:%s",
-		api.Name, api.ITypeStr, api.OTypeStr)
+		api.Name, api.ITypeStr, api.OTypeStr, api.Method)
 }
