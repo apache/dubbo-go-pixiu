@@ -20,8 +20,7 @@ func init() {
 }
 
 type FileApiLoader struct {
-	filePath string
-	//locker   sync.Mutex
+	filePath   string
 	ApiConfigs []model.Api
 }
 
@@ -50,8 +49,6 @@ func (f *FileApiLoader) GetLoadedApiConfigs() ([]model.Api, error) {
 }
 
 func (f *FileApiLoader) InitLoad() (err error) {
-	//f.locker.Lock()
-	//defer f.locker.Unlock()
 	content, err := ioutil.ReadFile(f.filePath)
 	if err != nil {
 		logger.Errorf("fileApiLoader read api config error:%v", err)
@@ -71,7 +68,6 @@ func (f *FileApiLoader) InitLoad() (err error) {
 	if len(f.ApiConfigs) < 1 {
 		logger.Warnf("no api loaded!please make sure api config file is located")
 	}
-	//f.ApiConfigs = apiConfigs
 	return
 }
 
@@ -84,9 +80,8 @@ func (f *FileApiLoader) HotLoad() (chan struct{}, error) {
 		return nil, err
 	}
 
-	defer watcher.Close()
-
 	go func() {
+		defer watcher.Close()
 		for {
 			select {
 			case event, ok := <-watcher.Events:
@@ -99,6 +94,7 @@ func (f *FileApiLoader) HotLoad() (chan struct{}, error) {
 					logger.Debug("modified file:", event.Name)
 					content, err := ioutil.ReadFile(f.filePath)
 					jsonBytes, err := yaml.YAMLToJSON(content)
+					logger.Debugf("modified content:%s", content)
 					if err != nil {
 						logger.Warnf("fileApiLoader transfer api config error:%v,is it yaml format?", err)
 						break
