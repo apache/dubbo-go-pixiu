@@ -28,28 +28,28 @@ import (
 	"github.com/pkg/errors"
 )
 
-// RouterGroup a easy way to manage the actual router tree, provides the apis to group the routers
-type RouterGroup struct {
+// Group a easy way to manage the actual router tree, provides the apis to group the routers
+type Group struct {
 	root       bool
 	basePath   string
 	routerTree *avltree.Tree
 }
 
 // Group deviates a new router group from current group. use the same routerTree.
-func (rg *RouterGroup) Group(relativePath string) (*RouterGroup, error) {
+func (rg *Group) Group(relativePath string) (*Group, error) {
 	if len(relativePath) == 0 {
 		return nil, errors.New("Cannot group router with empty path")
 	}
 	if relativePath[0] != '/' {
 		return nil, errors.New("Path must start with '/'")
 	}
-	return &RouterGroup{
+	return &Group{
 		basePath:   rg.absolutePath(relativePath),
 		routerTree: rg.routerTree,
 	}, nil
 }
 
-func (rg *RouterGroup) absolutePath(relativePath string) string {
+func (rg *Group) absolutePath(relativePath string) string {
 	if len(relativePath) == 0 {
 		return rg.basePath
 	}
@@ -57,14 +57,14 @@ func (rg *RouterGroup) absolutePath(relativePath string) string {
 }
 
 // Add adds the new router node to the group
-func (rg *RouterGroup) Add(path string, method config.Method) error {
+func (rg *Group) Add(path string, method config.Method) error {
 	rg.routerTree.Put(path, method)
 	return nil
 }
 
 // NewRouter returns a nil tree root router group
-func NewRouter() *RouterGroup {
-	return &RouterGroup{
+func NewRouter() *Group {
+	return &Group{
 		root:       true,
 		basePath:   "/",
 		routerTree: avltree.NewWithStringComparator(),

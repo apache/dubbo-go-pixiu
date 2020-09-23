@@ -28,7 +28,7 @@ import (
 )
 
 func TestPut(t *testing.T) {
-	rt := &RouterTree{
+	rt := &Tree{
 		tree:         avltree.NewWithStringComparator(),
 		wildcardTree: avltree.NewWithStringComparator(),
 	}
@@ -47,7 +47,7 @@ func TestPut(t *testing.T) {
 	assert.Nil(t, err)
 	mNode, ok := rt.tree.Get("/mock")
 	assert.True(t, ok)
-	assert.Equal(t, len(mNode.(*RouterNode).methods), 2)
+	assert.Equal(t, len(mNode.(*Node).methods), 2)
 
 	err = rt.Put("/mock/test", n0)
 	assert.Nil(t, err)
@@ -57,7 +57,7 @@ func TestPut(t *testing.T) {
 	rt.Put("/test/:id", n0)
 	tNode, ok := rt.tree.Get("/test/:id")
 	assert.True(t, ok)
-	assert.True(t, tNode.(*RouterNode).wildcard)
+	assert.True(t, tNode.(*Node).wildcard)
 
 	err = rt.Put("/test/:id", n1)
 	assert.Nil(t, err)
@@ -67,12 +67,12 @@ func TestPut(t *testing.T) {
 	err = rt.Put("/test/:id/mock", n0)
 	tNode, ok = rt.tree.Get("/test/:id/mock")
 	assert.True(t, ok)
-	assert.True(t, tNode.(*RouterNode).wildcard)
+	assert.True(t, tNode.(*Node).wildcard)
 	assert.Nil(t, err)
 }
 
 func TestSearchWildcard(t *testing.T) {
-	rt := &RouterTree{
+	rt := &Tree{
 		tree:         avltree.NewWithStringComparator(),
 		wildcardTree: avltree.NewWithStringComparator(),
 	}
