@@ -18,8 +18,9 @@
 package router
 
 import (
-	"path"
+	"fmt"
 	"strings"
+	"sync"
 )
 
 import (
@@ -28,45 +29,129 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Group a easy way to manage the actual router tree, provides the apis to group the routers
-type Group struct {
-	root       bool
-	basePath   string
-	routerTree *avltree.Tree
+// Node defines the single method of the router configured API
+type Node struct {
+	fullPath string
+	wildcard bool
+	methods  map[config.HTTPVerb]*config.Method
+	lock     sync.RWMutex
 }
 
-// Group deviates a new router group from current group. use the same routerTree.
-func (rg *Group) Group(relativePath string) (*Group, error) {
-	if len(relativePath) == 0 {
-		return nil, errors.New("Cannot group router with empty path")
-	}
-	if relativePath[0] != '/' {
-		return nil, errors.New("Path must start with '/'")
-	}
-	return &Group{
-		basePath:   rg.absolutePath(relativePath),
-		routerTree: rg.routerTree,
-	}, nil
+// Route defines the tree of router APIs
+type Route struct {
+	tree         *avltree.Tree
+	wildcardTree *avltree.Tree
 }
 
-func (rg *Group) absolutePath(relativePath string) string {
-	if len(relativePath) == 0 {
-		return rg.basePath
-	}
-	return strings.TrimRight(path.Join(rg.basePath, relativePath), "/")
-}
+// Put put a key val into the tree
+func (rt *Route) Put(fullPath string, method config.Method) error {
+	fullPath = strings.ToLower(fullPath)
+	wildcard := containParam(fullPath)
 
-// Add adds the new router node to the group
-func (rg *Group) Add(path string, method config.Method) error {
-	rg.routerTree.Put(path, method)
+	if wildcardNode, found := rt.searchWildcard(fullPath); found {
+		return putMethod(wildcardNode, method)
+	}
+
+	node, ok := rt.tree.Get(fullPath)
+	if !ok {
+		ms := make(map[config.HTTPVerb]*config.Method)
+		rn := &Node{
+			fullPath: fullPath,
+			methods:  ms,
+			wildcard: wildcard,
+		}
+		rn.methods[method.HTTPVerb] = &method
+		if wildcard {
+			rt.wildcardTree.Put(fullPath, rn)
+		}
+		rt.tree.Put(fullPath, rn)
+		return nil
+	}
+	if _, ok := node.(*Node).methods[method.HTTPVerb]; ok {
+		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, fullPath))
+	}
+	node.(*Node).methods[method.HTTPVerb] = &method
 	return nil
 }
 
-// NewRouter returns a nil tree root router group
-func NewRouter() *Group {
-	return &Group{
-		root:       true,
-		basePath:   "/",
-		routerTree: avltree.NewWithStringComparator(),
+// UpdateMethod update the api method in the existing router node
+func (rt *Route) UpdateMethod(fullPath string, verb config.HTTPVerb, method config.Method) error {
+	node, found := rt.findNode(fullPath)
+	if found {
+		if _, ok := node.methods[verb]; ok {
+			node.methods[verb] = &method
+		}
+	}
+	return nil
+}
+
+func (rt *Route) findNode(fullPath string) (*Node, bool) {
+	fullPath = strings.ToLower(fullPath)
+	var n interface{}
+	var found bool
+	if n, found = rt.searchWildcard(fullPath); !found {
+		n, found = rt.tree.Get(fullPath)
+	}
+	return n.(*Node), found
+}
+
+// FindMethod returns the api that meets the
+func (rt *Route) FindMethod(fullPath string, httpverb config.HTTPVerb) (*config.Method, bool) {
+	if n, found := rt.findNode(fullPath); found {
+		method, ok := n.methods[httpverb]
+		return method, ok
+	}
+	return nil, false
+}
+
+func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
+	wildcardPaths := rt.wildcardTree.Keys()
+	for _, p := range wildcardPaths {
+		if wildcardMatch(p.(string), fullPath) {
+			n, ok := rt.wildcardTree.Get(p)
+			return n.(*Node), ok
+		}
+	}
+	return nil, false
+}
+
+func putMethod(node *Node, method config.Method) error {
+	if _, ok := node.methods[method.HTTPVerb]; ok {
+		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath))
+	}
+	node.methods[method.HTTPVerb] = &method
+	return nil
+}
+
+func containParam(fullPath string) bool {
+	for _, s := range fullPath {
+		if s == ':' {
+			return true
+		}
+	}
+	return false
+}
+
+func wildcardMatch(wildcardPath string, checkPath string) bool {
+	wildcardPath = strings.ToLower(wildcardPath)
+	checkPath = strings.ToLower(checkPath)
+	wPathSplit := strings.Split(wildcardPath[1:], "/")
+	cPathSplit := strings.Split(checkPath[1:], "/")
+	if len(wPathSplit) != len(cPathSplit) {
+		return false
+	}
+	for i, s := range wPathSplit {
+		if containParam(s) {
+			cPathSplit[i] = s
+		}
+	}
+	return strings.Join(wPathSplit, "/") == strings.Join(cPathSplit, "/")
+}
+
+// NewRoute returns an empty router tree
+func NewRoute() *Route {
+	return &Route{
+		tree:         avltree.NewWithStringComparator(),
+		wildcardTree: avltree.NewWithStringComparator(),
 	}
 }
