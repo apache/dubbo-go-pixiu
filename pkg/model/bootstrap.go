@@ -29,6 +29,11 @@ func (bs *Bootstrap) GetListeners() []Listener {
 	return bs.StaticResources.Listeners
 }
 
+// GetListeners
+func (bs *Bootstrap) GetPprof() PprofConf {
+	return bs.StaticResources.PprofConf
+}
+
 // ExistCluster
 func (bs *Bootstrap) ExistCluster(name string) bool {
 	if len(bs.StaticResources.Clusters) > 0 {
@@ -46,6 +51,7 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 type StaticResources struct {
 	Listeners []Listener `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
 	Clusters  []Cluster  `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	PprofConf PprofConf  `yaml:"pprofConf json:"pprofConf" mapstructure:"pprofConf"`
 }
 
 // DynamicResources TODO

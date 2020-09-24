@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"net/http"
 	"sync"
 )
 
@@ -59,6 +60,10 @@ func (p *Proxy) Start() {
 	for _, s := range listeners {
 		ls := ListenerService{Listener: &s}
 		go ls.Start()
+	}
+
+	if conf.GetPprof().Enable {
+		go http.ListenAndServe(conf.GetPprof().Addr, nil)
 	}
 }
 
