@@ -22,9 +22,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/emirpasic/gods/trees/avltree"
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 func getMockMethod(verb config.HTTPVerb) config.Method {

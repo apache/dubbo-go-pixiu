@@ -24,9 +24,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/emirpasic/gods/trees/avltree"
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 // Node defines the single method of the router configured API
@@ -34,17 +37,19 @@ type Node struct {
 	fullPath string
 	wildcard bool
 	methods  map[config.HTTPVerb]*config.Method
-	lock     sync.RWMutex
 }
 
 // Route defines the tree of router APIs
 type Route struct {
+	lock         sync.RWMutex
 	tree         *avltree.Tree
 	wildcardTree *avltree.Tree
 }
 
 // Put put a key val into the tree
 func (rt *Route) Put(fullPath string, method config.Method) error {
+	rt.lock.Lock()
+	defer rt.lock.Unlock()
 	fullPath = strings.ToLower(fullPath)
 	wildcard := containParam(fullPath)
 
@@ -67,15 +72,13 @@ func (rt *Route) Put(fullPath string, method config.Method) error {
 		rt.tree.Put(fullPath, rn)
 		return nil
 	}
-	if _, ok := node.(*Node).methods[method.HTTPVerb]; ok {
-		return errors.New(fmt.Sprintf("Method %s already exists in path %s", method.HTTPVerb, fullPath))
-	}
-	node.(*Node).methods[method.HTTPVerb] = &method
-	return nil
+	return putMethod(node.(*Node), method)
 }
 
 // UpdateMethod update the api method in the existing router node
 func (rt *Route) UpdateMethod(fullPath string, verb config.HTTPVerb, method config.Method) error {
+	rt.lock.Lock()
+	defer rt.lock.Unlock()
 	node, found := rt.findNode(fullPath)
 	if found {
 		if _, ok := node.methods[verb]; ok {
