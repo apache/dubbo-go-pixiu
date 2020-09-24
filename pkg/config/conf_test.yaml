@@ -47,3 +47,6 @@ static_resources:
       type: "EDS"
       lb_policy: "RoundRobin"
       connect_timeout: "5s"
+  pprofConf:
+    enable: true
+    addr: "0.0.0.0:6060"
