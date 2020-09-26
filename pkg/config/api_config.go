@@ -62,6 +62,7 @@ type Resource struct {
 	Type        string     `yaml:"type"` // Restful, Dubbo
 	Path        string     `yaml:"path"`
 	Description string     `yaml:"description"`
+	Filters     []string   `yaml:"filters"`
 	Methods     []Method   `yaml:"methods"`
 	Resources   []Resource `yaml:"resources,omitempty"`
 }

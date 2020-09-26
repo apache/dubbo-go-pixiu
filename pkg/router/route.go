@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
@@ -128,7 +129,7 @@ func putMethod(node *Node, method config.Method) error {
 
 func containParam(fullPath string) bool {
 	for _, s := range fullPath {
-		if s == ':' {
+		if s == constant.PathParamIdentifier {
 			return true
 		}
 	}
@@ -138,8 +139,8 @@ func containParam(fullPath string) bool {
 func wildcardMatch(wildcardPath string, checkPath string) bool {
 	wildcardPath = strings.ToLower(wildcardPath)
 	checkPath = strings.ToLower(checkPath)
-	wPathSplit := strings.Split(wildcardPath[1:], "/")
-	cPathSplit := strings.Split(checkPath[1:], "/")
+	wPathSplit := strings.Split(wildcardPath[1:], constant.PathSlash)
+	cPathSplit := strings.Split(checkPath[1:], constant.PathSlash)
 	if len(wPathSplit) != len(cPathSplit) {
 		return false
 	}
@@ -148,7 +149,7 @@ func wildcardMatch(wildcardPath string, checkPath string) bool {
 			cPathSplit[i] = s
 		}
 	}
-	return strings.Join(wPathSplit, "/") == strings.Join(cPathSplit, "/")
+	return strings.Join(wPathSplit, constant.PathSlash) == strings.Join(cPathSplit, constant.PathSlash)
 }
 
 // NewRoute returns an empty router tree
