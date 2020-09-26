@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"io/ioutil"
 )
 
@@ -23,18 +24,24 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpTransferDubboFilter, HttpDubbo())
+	extension.SetFilterFunc(constant.RemoteCallFilter, RemoteCall())
 }
 
-// HttpDubbo http 2 dubbo
-func HttpDubbo() context.FilterFunc {
+// RemoteCall http 2 dubbo
+func RemoteCall() context.FilterFunc {
 	return func(c context.Context) {
-		doDubbo(c.(*http.HttpContext))
+		doRemoteCall(c.(*http.HttpContext))
 	}
 }
 
-func doDubbo(c *http.HttpContext) {
+func doRemoteCall(c *http.HttpContext) {
 	api := c.GetApi()
+	client := ClientPool.getClient(api.IType)
+	client.call(metadata)
+	switch api.IType {
+	case model.REST:
+
+	}
 
 	if bytes, err := ioutil.ReadAll(c.Request.Body); err != nil {
 		logger.Errorf("[dubboproxy go] read body err:%v!", err)
