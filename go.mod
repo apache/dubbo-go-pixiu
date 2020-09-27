@@ -3,7 +3,7 @@ module github.com/dubbogo/dubbo-go-proxy
 go 1.14
 
 require (
-	github.com/apache/dubbo-go v1.5.0
+	github.com/apache/dubbo-go v1.5.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-playground/validator/v10 v10.3.0 // indirect
@@ -19,4 +19,3 @@ require (
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
-
