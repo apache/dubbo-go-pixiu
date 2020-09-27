@@ -36,14 +36,30 @@ type ClientPool struct {
 	poolMap map[model.ApiType]*sync.Pool
 }
 
-func (pool *ClientPool) getClient(t model.ApiType) (Client, error) {
+var (
+	_clinetPool *ClientPool
+	once        = sync.Once{}
+)
+
+// SingleDubboClient singleton dubbo clent
+func SingletonPool() *ClientPool {
+	if _clinetPool == nil {
+		once.Do(func() {
+			_clinetPool = newClientPool()
+		})
+	}
+
+	return _clinetPool
+}
+
+func (pool *ClientPool) GetClient(t model.ApiType) (Client, error) {
 	if pool.poolMap[t] != nil {
 		return pool.poolMap[t].Get().(Client), nil
 	}
 	return nil, errors.New("protocol not supported yet")
 }
 
-func NewClientPool() *ClientPool {
+func newClientPool() *ClientPool {
 	clientPool := &ClientPool{
 		poolMap: make(map[model.ApiType]*sync.Pool),
 	}
