@@ -88,9 +88,7 @@ func (dc *HttpClient) Close() error {
 func (dc *HttpClient) Call(r *client.Request) (resp client.Response, err error) {
 	dm := r.Api.Metadata.(*RestMetadata)
 	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
-
 	var reqData []interface{}
-
 	l := len(dm.Types)
 	switch {
 	case l == 1:

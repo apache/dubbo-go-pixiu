@@ -18,7 +18,6 @@
 package filter
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"io/ioutil"
 )
 
@@ -32,7 +31,6 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
@@ -53,19 +51,17 @@ func RemoteCall() context.FilterFunc {
 
 func doRemoteCall(c *http.HttpContext) {
 	api := c.GetApi()
-	client := ClientPool.getClient(api.IType)
-	client.call(metadata)
-	switch api.IType {
-	case model.REST:
-
+	cl, e := client.SingletonPool().GetClient(api.IType)
+	if e != nil {
+		c.WriteFail()
+		c.AbortAndLog("", e)
 	}
-
 	if bytes, err := ioutil.ReadAll(c.Request.Body); err != nil {
 		logger.Errorf("[dubboproxy go] read body err:%v!", err)
 		c.WriteFail()
 		c.Abort()
 	} else {
-		if resp, err := dubbo.SingleDubboClient().Call(client.NewRequest(bytes, api)); err != nil {
+		if resp, err := cl.Call(client.NewRequest(bytes, api)); err != nil {
 			logger.Errorf("[dubboproxy go] client do err:%v!", err)
 			c.WriteFail()
 			c.Abort()

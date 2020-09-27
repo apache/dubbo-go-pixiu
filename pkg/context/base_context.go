@@ -18,6 +18,7 @@
 package context
 
 import (
+	"log"
 	"math"
 )
 
@@ -47,6 +48,10 @@ func (c *BaseContext) Next() {
 
 func (c *BaseContext) Abort() {
 	c.Index = abortIndex
+}
+func (c *BaseContext) AbortAndLog(message string, err error) {
+	c.Index = abortIndex
+	log.Println(message, err) //TODO print stack
 }
 
 func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {
