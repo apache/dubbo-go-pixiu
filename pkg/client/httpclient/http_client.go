@@ -86,7 +86,7 @@ func (dc *HttpClient) Close() error {
 
 // Call invoke service
 func (dc *HttpClient) Call(r *client.Request) (resp client.Response, err error) {
-	dm := r.Api.Metadata.(*DubboMetadata)
+	dm := r.Api.Metadata.(*RestMetadata)
 	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
 
 	var reqData []interface{}
@@ -150,7 +150,7 @@ func (dc *HttpClient) check(key string) bool {
 	}
 }
 
-func (dc *HttpClient) create(key string, dm *DubboMetadata) *dg.GenericService {
+func (dc *HttpClient) create(key string, dm *RestMetadata) *dg.GenericService {
 	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
 	referenceConfig.InterfaceName = dm.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
@@ -185,7 +185,7 @@ func (dc *HttpClient) create(key string, dm *DubboMetadata) *dg.GenericService {
 }
 
 // Get find a dubbo GenericService
-func (dc *HttpClient) Get(interfaceName, version, group string, dm *DubboMetadata) *dg.GenericService {
+func (dc *HttpClient) Get(interfaceName, version, group string, dm *RestMetadata) *dg.GenericService {
 	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
