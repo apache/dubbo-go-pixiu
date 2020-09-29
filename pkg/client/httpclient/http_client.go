@@ -86,50 +86,7 @@ func (dc *HttpClient) Close() error {
 
 // Call invoke service
 func (dc *HttpClient) Call(r *client.Request) (resp client.Response, err error) {
-	dm := r.Api.Metadata.(*RestMetadata)
-	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
-	var reqData []interface{}
-	l := len(dm.Types)
-	switch {
-	case l == 1:
-		t := dm.Types[0]
-		switch t {
-		case JavaStringClassName:
-			var s string
-			if err := json.Unmarshal(r.Body, &s); err != nil {
-				logger.Errorf("params parse error:%+v", err)
-			} else {
-				reqData = append(reqData, s)
-			}
-		case JavaLangClassName:
-			var i int
-			if err := json.Unmarshal(r.Body, &i); err != nil {
-				logger.Errorf("params parse error:%+v", err)
-			} else {
-				reqData = append(reqData, i)
-			}
-		default:
-			bodyMap := make(map[string]interface{})
-			if err := json.Unmarshal(r.Body, &bodyMap); err != nil {
-				return *client.EmptyResponse, err
-			} else {
-				reqData = append(reqData, bodyMap)
-			}
-		}
-	case l > 1:
-		if err = json.Unmarshal(r.Body, &reqData); err != nil {
-			return *client.EmptyResponse, err
-		}
-	}
-
-	logger.Debugf("[dubbogo proxy] invoke, method:%v, types:%v, reqData:%v", dm.Method, dm.Types, reqData)
-
-	if resp, err := gs.Invoke(context.Background(), []interface{}{dm.Method, dm.Types, reqData}); err != nil {
-		return *client.EmptyResponse, err
-	} else {
-		logger.Debugf("[dubbogo proxy] dubbo client resp:%v", resp)
-		return *NewDubboResponse(resp), nil
-	}
+	//TODO：get Matched rest api url according to input url ,then make a http call.
 }
 
 func (dc *HttpClient) get(key string) *dg.GenericService {
