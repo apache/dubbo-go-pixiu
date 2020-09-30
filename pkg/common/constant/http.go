@@ -26,7 +26,7 @@ const (
 	HeaderValueAll       = "*"
 
 	PathSlash           = "/"
-	PathParamIdentifier = ':'
+	PathParamIdentifier = ":"
 )
 
 const (
