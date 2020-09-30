@@ -159,12 +159,6 @@ func TestSearchWildcard(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestContainParam(t *testing.T) {
-	assert.True(t, containParam("/test/:id"))
-	assert.False(t, containParam("/test"))
-	assert.True(t, containParam("/test/:id/mock"))
-}
-
 func TestWildcardMatch(t *testing.T) {
 	assert.True(t, wildcardMatch("/vought/:id", "/vought/12345"))
 	assert.True(t, wildcardMatch("/vought/:id", "/vought/125abc"))
