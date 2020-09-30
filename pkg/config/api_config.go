@@ -69,7 +69,7 @@ type Resource struct {
 
 // Method defines the method of the api
 type Method struct {
-	OnAir              bool     `yaml:"onAir"`
+	OnAir              bool     `yaml:"onAir"` // true means the method is up and false means method is down
 	Filters            []string `yaml:"filters"`
 	HTTPVerb           `yaml:"httpVerb"`
 	InboundRequest     `yaml:"inboundRequest"`
