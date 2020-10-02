@@ -5,13 +5,15 @@ resources:
     type: restful
     description: resource documentation
     filters:
-      - filterA
-      - filterB
+      - filter0
     methods:
       - httpVerb: GET
+        filters:
+          - filterA
+          - filterB
         onAir: true
         inboundRequest:
-          type: http
+          requestType: http
           headers: 
             - name: auth
               required: true 
@@ -23,7 +25,7 @@ resources:
           requestBody:
             - definitionName: modelDefinition
         integrationRequest:
-          type: dubbo
+          requestType: dubbo
           mappingParams:
             - name: queryStrings.id
               mapTo: 1
