@@ -51,67 +51,67 @@ const (
 
 // APIConfig defines the data structure of the api gateway configuration
 type APIConfig struct {
-	Name        string       `yaml:"name"`
-	Description string       `yaml:"description"`
-	Resources   []Resource   `yaml:"resources"`
-	Definitions []Definition `yaml:"definitions"`
+	Name        string       `json:"name" yaml:"name"`
+	Description string       `json:"description" yaml:"description"`
+	Resources   []Resource   `json:"resources" yaml:"resources"`
+	Definitions []Definition `json:"definitions" yaml:"definitions"`
 }
 
 // Resource defines the API path
 type Resource struct {
-	Type        string     `yaml:"type"` // Restful, Dubbo
-	Path        string     `yaml:"path"`
-	Description string     `yaml:"description"`
-	Filters     []string   `yaml:"filters"`
-	Methods     []Method   `yaml:"methods"`
-	Resources   []Resource `yaml:"resources,omitempty"`
+	Type        string     `json:"type" yaml:"type"` // Restful, Dubbo
+	Path        string     `json:"path" yaml:"path"`
+	Description string     `json:"description" yaml:"description"`
+	Filters     []string   `json:"filters" yaml:"filters"`
+	Methods     []Method   `json:"methods" yaml:"methods"`
+	Resources   []Resource `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
 // Method defines the method of the api
 type Method struct {
-	OnAir              bool     `yaml:"onAir"` // true means the method is up and false means method is down
-	Filters            []string `yaml:"filters"`
-	HTTPVerb           `yaml:"httpVerb"`
-	InboundRequest     `yaml:"inboundRequest"`
-	IntegrationRequest `yaml:"integrationRequest"`
+	OnAir              bool     `json:"onAir" yaml:"onAir"` // true means the method is up and false means method is down
+	Filters            []string `json:"filters" yaml:"filters"`
+	HTTPVerb           `json:"httpVerb" yaml:"httpVerb"`
+	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
+	IntegrationRequest `json:"integrationRequest" yaml:"integrationRequest"`
 }
 
 // InboundRequest defines the details of the inbound
 type InboundRequest struct {
-	RequestType  string           `yaml:"requestType"` //http, TO-DO: dubbo
-	Headers      []Params         `yaml:"headers"`
-	QueryStrings []Params         `yaml:"queryStrings"`
-	RequestBody  []BodyDefinition `yaml:"requestBody"`
+	RequestType  string           `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
+	Headers      []Params         `json:"headers" yaml:"headers"`
+	QueryStrings []Params         `json:"queryStrings" yaml:"queryStrings"`
+	RequestBody  []BodyDefinition `json:"requestBody" yaml:"requestBody"`
 }
 
 // Params defines the simple parameter definition
 type Params struct {
-	Name     string `yaml:"name"`
-	Required bool   `yaml:"required"`
+	Name     string `json:"name" yaml:"name"`
+	Required bool   `json:"required" yaml:"required"`
 }
 
 // BodyDefinition connects the request body to the definitions
 type BodyDefinition struct {
-	DefinitionName string `yaml:"definitionName"`
+	DefinitionName string `json:"definitionName" yaml:"definitionName"`
 }
 
 // IntegrationRequest defines the backend request format and target
 type IntegrationRequest struct {
-	RequestType         string         `yaml:"requestType"` // dubbo, TO-DO: http
-	MappingParams       []MappingParam `yaml:"mappingParams,omitempty"`
-	dubbo.DubboMetadata `yaml:"dubboMetaData,inline,omitempty"`
+	RequestType         string         `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
+	MappingParams       []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
+	dubbo.DubboMetadata `json:"dubboMetaData,inline,omitempty" yaml:"dubboMetaData,inline,omitempty"`
 }
 
 // MappingParam defines the mapping rules of headers and queryStrings
 type MappingParam struct {
-	Name  string `yaml:"name"`
-	MapTo string `yaml:"mapTo"`
+	Name  string `json:"name" yaml:"name"`
+	MapTo string `json:"mapTo" yaml:"mapTo"`
 }
 
 // Definition defines the complex json request body
 type Definition struct {
-	Name   string `yaml:"name"`
-	Schema string `yaml:"schema"` // use json schema
+	Name   string `json:"name" yaml:"name"`
+	Schema string `json:"schema" yaml:"schema"` // use json schema
 }
 
 // LoadAPIConfigFromFile load the api config from file
@@ -119,7 +119,7 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 	if len(path) == 0 {
 		return nil, perrors.Errorf("Config file not specified")
 	}
-	logger.Info("Load API configuration file form %s", path)
+	logger.Info("Load API configuration file form ", path)
 	apiConf := &APIConfig{}
 	err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {

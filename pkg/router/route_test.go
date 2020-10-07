@@ -107,6 +107,10 @@ func TestFindMethod(t *testing.T) {
 	assert.False(t, ok)
 	assert.Nil(t, m)
 
+	m, ok = rt.FindMethod("/vought/爱国者/supe/startlight", config.MethodPost)
+	assert.True(t, ok)
+	assert.NotNil(t, m)
+
 	m, ok = rt.FindMethod("/vought/123/supe/startlight", config.MethodPost)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
