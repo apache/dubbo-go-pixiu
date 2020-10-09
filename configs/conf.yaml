@@ -48,7 +48,7 @@ static_resources:
       lb_policy: "RoundRobin"
       connect_timeout: "5s"
   pprofConf:
-    enable: true
+    enable: false
     addr: "pprof"
 
 addresses:
