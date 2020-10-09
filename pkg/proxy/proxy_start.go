@@ -20,6 +20,7 @@ package proxy
 import (
 	"encoding/json"
 	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 	"sync"
 )
