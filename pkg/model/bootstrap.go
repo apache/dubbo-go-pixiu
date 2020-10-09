@@ -22,6 +22,7 @@ type Bootstrap struct {
 	StaticResources  StaticResources  `yaml:"static_resources" json:"static_resources" mapstructure:"static_resources"`
 	DynamicResources DynamicResources `yaml:"dynamic_resources" json:"dynamic_resources" mapstructure:"dynamic_resources"`
 	Tracing          Tracing          `yaml:"tracing" json:"tracing" mapstructure:"tracing"`
+	Addresses        []Address        `yaml:"addresses" json:"addresses" mapstructure:"addresses"`
 }
 
 // GetListeners

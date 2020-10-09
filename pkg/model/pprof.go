@@ -19,5 +19,5 @@ package model
 
 type PprofConf struct {
 	Enable bool   `yaml:"enable" json:"enable" mapstructure:"enable" default: false`
-	Addr   string `yaml:"addr" json:"addr" mapstructure:"addr" default: "0.0.0.0:6060"`
+	Addr   string `yaml:"addr" json:"addr" mapstructure:"addr"`
 }
