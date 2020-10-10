@@ -67,7 +67,6 @@ func (r *PromRegistry) Export(ctx context.Context, method config.Method, cost ti
 	r.serviceReqsTotalName.WithLabelValues(string(method.HTTPVerb)).Inc()
 	r.serviceReqsTotalName.WithLabelValues(method.InboundRequest.RequestType).Inc()
 	r.serviceReqsTotalName.WithLabelValues(method.IntegrationRequest.RequestType).Inc()
-
 }
 
 // newPromRegistry create new promRegistry
