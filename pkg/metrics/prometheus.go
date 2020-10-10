@@ -30,6 +30,7 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config/metrics"
 )
 
 const (
@@ -73,7 +74,7 @@ func (r *PromRegistry) Export(ctx context.Context, method config.Method, cost ti
 // it will register the metrics into prometheus
 func newPromRegistry() Registry {
 	// TODO
-	config := config.Prometheus{}
+	config := metrics.Prometheus{}
 	bucket := config.Buckets
 	if bucket == nil {
 		bucket = defaultBuckets
