@@ -30,7 +30,7 @@ func (bs *Bootstrap) GetListeners() []Listener {
 	return bs.StaticResources.Listeners
 }
 
-// GetListeners
+// GetPprof
 func (bs *Bootstrap) GetPprof() PprofConf {
 	return bs.StaticResources.PprofConf
 }
