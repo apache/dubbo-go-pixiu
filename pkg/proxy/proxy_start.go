@@ -20,13 +20,11 @@ package proxy
 import (
 	"encoding/json"
 	"net/http"
-	_ "net/http/pprof"
 	"strconv"
 	"sync"
 )
 
 import (
-	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
 	_ "github.com/apache/dubbo-go/metadata/service/remote"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
@@ -72,7 +70,7 @@ func (p *Proxy) Start() {
 			if addr == address.Name {
 				fullAddr := address.SocketAddress.Address + ":" + strconv.Itoa(address.SocketAddress.Port)
 				go http.ListenAndServe(fullAddr, nil)
-				logger.Infof("[dubboproxy pprof] httpListener start by : %s", fullAddr)
+				logger.Infof("[dubboproxy go pprof] httpListener start by : %s", fullAddr)
 				break
 			}
 		}
