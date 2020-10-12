@@ -12,4 +12,5 @@ require (
 	github.com/urfave/cli v1.22.4
 	go.uber.org/zap v1.15.0
 	gopkg.in/yaml.v2 v2.2.8
+	github.com/hashicorp/consul/api v1.5.0
 )
