@@ -25,20 +25,22 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
-func TransferUrl2Api(url common.URL) config.IntegrationRequest {
-	return config.IntegrationRequest{
-		RequestType: url.Protocol,
-		DubboMetadata: dubbo.DubboMetadata{
-			ApplicationName:      url.GetParam("name", ""),
-			Group:                url.GetParam("group", ""),
-			Version:              url.GetParam("Version", ""),
-			Interface:            url.GetParam("Interface", ""),
-			Method:               "",
-			Types:                nil,
-			Retries:              url.GetParam("Retries", ""),
-			ClusterName:          "",
-			ProtocolTypeStr:      "",
-			SerializationTypeStr: "",
-		},
+func TransferUrl2Api(url common.URL, clusterName string) []config.IntegrationRequest {
+	var irs []config.IntegrationRequest
+	for _, method := range url.Methods {
+		irs = append(irs, config.IntegrationRequest{
+			RequestType: url.Protocol,
+			DubboMetadata: dubbo.DubboMetadata{
+				ApplicationName: url.GetParam("name", ""),
+				Group:           url.GetParam("group", ""),
+				Version:         url.GetParam("version", ""),
+				Interface:       url.GetParam("interface", ""),
+				Method:          method,
+				Retries:         url.GetParam("retries", ""),
+				ClusterName:     clusterName,
+				ProtocolTypeStr: url.Protocol,
+			},
+		})
 	}
+	return irs
 }

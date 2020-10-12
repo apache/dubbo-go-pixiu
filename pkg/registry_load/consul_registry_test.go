@@ -16,11 +16,11 @@
  */
 package registry_load
 
-import "github.com/apache/dubbo-go/common"
+import "testing"
 
-// this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
-type RegistryLoad interface {
-	// load all services registered in registry
-	LoadAllServices() ([]common.URL, error)
-	GetCluster() (string, error)
+func TestConsulRegistryLoad_GetCluster(t *testing.T) {
+
+}
+
+func TestConsulRegistryLoad_LoadAllServices(t *testing.T) {
 }
