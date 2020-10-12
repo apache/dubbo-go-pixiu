@@ -46,10 +46,11 @@ const (
 type ConsulRegistryLoad struct {
 	Address string
 	// Consul client.
-	client *consul.Client
+	client  *consul.Client
+	cluster string
 }
 
-func newConsulRegistryLoad(address string) (RegistryLoad, error) {
+func newConsulRegistryLoad(address, cluster string) (RegistryLoad, error) {
 	config := &consul.Config{Address: address}
 	client, err := consul.NewClient(config)
 	if err != nil {
@@ -59,9 +60,14 @@ func newConsulRegistryLoad(address string) (RegistryLoad, error) {
 	r := &ConsulRegistryLoad{
 		Address: address,
 		client:  client,
+		cluster: cluster,
 	}
 
 	return r, nil
+}
+
+func (crl *ConsulRegistryLoad) GetCluster() (string, error) {
+	return crl.cluster, nil
 }
 
 func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common.URL, error) {
@@ -87,7 +93,7 @@ func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common
 	return *url, nil
 }
 
-func (crl *ConsulRegistryLoad) LoadAllApis() ([]common.URL, error) {
+func (crl *ConsulRegistryLoad) LoadAllServices() ([]common.URL, error) {
 	agentServices, err := crl.client.Agent().ServicesWithFilter(dubbo_api_filter)
 	if err != nil {
 		logger.Error("consul load all apis error:%v", err)
