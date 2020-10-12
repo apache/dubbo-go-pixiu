@@ -17,11 +17,13 @@
 package registry_load
 
 import (
-	"github.com/apache/dubbo-go/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"net/url"
 	"strconv"
 	"strings"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 import (
@@ -63,9 +65,8 @@ func newConsulRegistryLoad(address string) (RegistryLoad, error) {
 }
 
 func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common.URL, error) {
-	var err error
-
 	var params url.Values
+	var protocol string
 
 	for _, tag := range service.Tags {
 		kv := strings.Split(tag, "=")
@@ -75,29 +76,13 @@ func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common
 		params.Add(kv[0], kv[1])
 	}
 
+	if url, ok := service.Meta["url"]; ok {
+		protocol = strings.Split(url, ":")[0]
+	}
+
 	url := common.NewURLWithOptions(common.WithPort(strconv.Itoa(service.Port)),
+		common.WithProtocol(protocol),
 		common.WithIp(service.Address), common.WithParams(params))
-
-	// tags
-
-	// meta
-	meta := make(map[string]string, 8)
-	meta["url"] = url.String()
-
-	// check
-	check := &consul.AgentServiceCheck{
-		TCP:                            tcp,
-		Interval:                       url.GetParam("consul-check-interval", "10s"),
-		Timeout:                        url.GetParam("consul-check-timeout", "1s"),
-		DeregisterCriticalServiceAfter: url.GetParam("consul-deregister-critical-service-after", "20s"),
-	}
-
-	service := &consul.AgentServiceRegistration{
-		Name:  url.Service(),
-		Tags:  tags,
-		Meta:  meta,
-		Check: check,
-	}
 
 	return *url, nil
 }
