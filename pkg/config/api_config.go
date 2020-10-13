@@ -48,6 +48,16 @@ const (
 	MethodOptions HTTPVerb = "OPTIONS"
 )
 
+// RequestType describes the type of the request. could be DUBBO/HTTP and others that we might implement in the future
+type RequestType string
+
+const (
+	// DubboRequest represents the dubbo request
+	DubboRequest RequestType = "DUBBO"
+	// HTTPRequest represents the http request
+	HTTPRequest RequestType = "HTTP"
+)
+
 // APIConfig defines the data structure of the api gateway configuration
 type APIConfig struct {
 	Name        string       `json:"name" yaml:"name"`
@@ -77,10 +87,10 @@ type Method struct {
 
 // InboundRequest defines the details of the inbound
 type InboundRequest struct {
-	RequestType  string           `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
-	Headers      []Params         `json:"headers" yaml:"headers"`
-	QueryStrings []Params         `json:"queryStrings" yaml:"queryStrings"`
-	RequestBody  []BodyDefinition `json:"requestBody" yaml:"requestBody"`
+	RequestType  `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
+	Headers      []Params                                `json:"headers" yaml:"headers"`
+	QueryStrings []Params                                `json:"queryStrings" yaml:"queryStrings"`
+	RequestBody  []BodyDefinition                        `json:"requestBody" yaml:"requestBody"`
 }
 
 // Params defines the simple parameter definition
@@ -96,8 +106,8 @@ type BodyDefinition struct {
 
 // IntegrationRequest defines the backend request format and target
 type IntegrationRequest struct {
-	RequestType        string         `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
-	MappingParams      []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
+	RequestType        `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
+	MappingParams      []MappingParam                          `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
 	DubboBackendConfig `json:"dubboBackendConfig,inline,omitempty" yaml:"dubboBackendConfig,inline,omitempty"`
 }
 
