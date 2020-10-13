@@ -28,9 +28,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go/common"
-)
-
-import (
+	"github.com/apache/dubbo-go/common/constant"
 	consul "github.com/hashicorp/consul/api"
 	perrors "github.com/pkg/errors"
 )
@@ -71,7 +69,7 @@ func (crl *ConsulRegistryLoad) GetCluster() (string, error) {
 }
 
 func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common.URL, error) {
-	var params url.Values
+	var params = url.Values{}
 	var protocol string
 
 	for _, tag := range service.Tags {
@@ -86,8 +84,15 @@ func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common
 		protocol = strings.Split(url, ":")[0]
 	}
 
+	methodsParam := strings.Split(params.Get(constant.METHODS_KEY), ",")
+	var methods []string
+	for _, method := range methodsParam {
+		if method != "" {
+			methods = append(methods, method)
+		}
+	}
 	url := common.NewURLWithOptions(common.WithPort(strconv.Itoa(service.Port)),
-		common.WithProtocol(protocol),
+		common.WithProtocol(protocol), common.WithMethods(methods),
 		common.WithIp(service.Address), common.WithParams(params))
 
 	return *url, nil
