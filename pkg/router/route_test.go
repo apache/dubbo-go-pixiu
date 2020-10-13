@@ -47,38 +47,38 @@ func TestPut(t *testing.T) {
 		wildcardTree: avltree.NewWithStringComparator(),
 	}
 	n0 := getMockMethod(config.MethodGet)
-	rt.Put("/", n0)
+	rt.PutAPI(API{URLPattern: "/", Method: n0})
 	_, ok := rt.tree.Get("/")
 	assert.True(t, ok)
 
-	err := rt.Put("/", n0)
+	err := rt.PutAPI(API{URLPattern: "/", Method: n0})
 	assert.Error(t, err, "Method GET already exists in path /")
 
 	n1 := getMockMethod(config.MethodPost)
-	err = rt.Put("/mock", n0)
+	err = rt.PutAPI(API{URLPattern: "/mock", Method: n0})
 	assert.Nil(t, err)
-	err = rt.Put("/mock", n1)
+	err = rt.PutAPI(API{URLPattern: "/mock", Method: n1})
 	assert.Nil(t, err)
 	mNode, ok := rt.tree.Get("/mock")
 	assert.True(t, ok)
 	assert.Equal(t, len(mNode.(*Node).methods), 2)
 
-	err = rt.Put("/mock/test", n0)
+	err = rt.PutAPI(API{URLPattern: "/mock/test", Method: n0})
 	assert.Nil(t, err)
-	_, ok = rt.tree.Get("/mock")
+	_, ok = rt.tree.Get("/mock/test")
 	assert.True(t, ok)
 
-	rt.Put("/test/:id", n0)
+	rt.PutAPI(API{URLPattern: "/test/:id", Method: n0})
 	tNode, ok := rt.tree.Get("/test/:id")
 	assert.True(t, ok)
 	assert.True(t, tNode.(*Node).wildcard)
 
-	err = rt.Put("/test/:id", n1)
+	err = rt.PutAPI(API{URLPattern: "/test/:id", Method: n1})
 	assert.Nil(t, err)
-	err = rt.Put("/test/js", n0)
+	err = rt.PutAPI(API{URLPattern: "/test/js", Method: n0})
 	assert.Error(t, err, "/test/:id wildcard already exist so that cannot add path /test/js")
 
-	err = rt.Put("/test/:id/mock", n0)
+	err = rt.PutAPI(API{URLPattern: "/test/:id/mock", Method: n0})
 	tNode, ok = rt.tree.Get("/test/:id/mock")
 	assert.True(t, ok)
 	assert.True(t, tNode.(*Node).wildcard)
@@ -92,28 +92,31 @@ func TestFindMethod(t *testing.T) {
 	}
 	n0 := getMockMethod(config.MethodGet)
 	n1 := getMockMethod(config.MethodPost)
-	e := rt.Put("/theboys", n0)
+	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
 	assert.Nil(t, e)
-	e = rt.Put("/theboys/:id", n0)
+	e = rt.PutAPI(API{URLPattern: "/theboys/:id", Method: n0})
 	assert.Nil(t, e)
-	e = rt.Put("/vought/:id/supe/:name", n1)
+	e = rt.PutAPI(API{URLPattern: "/vought/:id/supe/:name", Method: n1})
 	assert.Nil(t, e)
 
-	m, ok := rt.FindMethod("/theboys", config.MethodGet)
+	m, ok := rt.FindAPI("/theboys", config.MethodGet)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
+	assert.Equal(t, m.URLPattern, "/theboys")
 
-	m, ok = rt.FindMethod("/theboys", config.MethodPost)
+	m, ok = rt.FindAPI("/theboys", config.MethodPost)
 	assert.False(t, ok)
 	assert.Nil(t, m)
 
-	m, ok = rt.FindMethod("/vought/爱国者/supe/startlight", config.MethodPost)
+	m, ok = rt.FindAPI("/vought/爱国者/supe/startlight", config.MethodPost)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
+	assert.Equal(t, m.URLPattern, "/vought/:id/supe/:name")
 
-	m, ok = rt.FindMethod("/vought/123/supe/startlight", config.MethodPost)
+	m, ok = rt.FindAPI("/vought/123/supe/startlight", config.MethodPost)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
+	assert.Equal(t, m.URLPattern, "/vought/:id/supe/:name")
 }
 
 func TestUpdateMethod(t *testing.T) {
@@ -123,19 +126,19 @@ func TestUpdateMethod(t *testing.T) {
 	m1.Version = "2.0.0"
 
 	rt := NewRoute()
-	rt.Put("/marvel", m0)
-	m, _ := rt.FindMethod("/marvel", config.MethodGet)
+	rt.PutAPI(API{URLPattern: "/marvel", Method: m0})
+	m, _ := rt.FindAPI("/marvel", config.MethodGet)
 	assert.Equal(t, m.Version, "1.0.0")
-	rt.UpdateMethod("/marvel", config.MethodGet, m1)
-	m, ok := rt.FindMethod("/marvel", config.MethodGet)
+	rt.UpdateAPI(API{URLPattern: "/marvel", Method: m1})
+	m, ok := rt.FindAPI("/marvel", config.MethodGet)
 	assert.True(t, ok)
 	assert.Equal(t, m.Version, "2.0.0")
 
-	rt.Put("/theboys/:id", m0)
-	m, _ = rt.FindMethod("/theBoys/12345", config.MethodGet)
+	rt.PutAPI(API{URLPattern: "/theboys/:id", Method: m0})
+	m, _ = rt.FindAPI("/theBoys/12345", config.MethodGet)
 	assert.Equal(t, m.Version, "1.0.0")
-	rt.UpdateMethod("/theBoys/:id", config.MethodGet, m1)
-	m, ok = rt.FindMethod("/theBoys/12345", config.MethodGet)
+	rt.UpdateAPI(API{URLPattern: "/theBoys/:id", Method: m1})
+	m, ok = rt.FindAPI("/theBoys/12345", config.MethodGet)
 	assert.True(t, ok)
 	assert.Equal(t, m.Version, "2.0.0")
 }
@@ -146,11 +149,11 @@ func TestSearchWildcard(t *testing.T) {
 		wildcardTree: avltree.NewWithStringComparator(),
 	}
 	n0 := getMockMethod(config.MethodGet)
-	e := rt.Put("/theboys", n0)
+	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
 	assert.Nil(t, e)
-	e = rt.Put("/theboys/:id", n0)
+	e = rt.PutAPI(API{URLPattern: "/theboys/:id", Method: n0})
 	assert.Nil(t, e)
-	e = rt.Put("/vought/:id/supe/:name", n0)
+	e = rt.PutAPI(API{URLPattern: "/vought/:id/supe/:name", Method: n0})
 	assert.Nil(t, e)
 
 	_, ok := rt.searchWildcard("/marvel")
@@ -168,4 +171,23 @@ func TestWildcardMatch(t *testing.T) {
 	assert.True(t, wildcardMatch("/vought/:id", "/vought/125abc"))
 	assert.False(t, wildcardMatch("/vought/:id", "/vought/1234abcd/status"))
 	assert.True(t, wildcardMatch("/voughT/:id/:action", "/Vought/1234abcd/attack"))
+}
+
+func TestPutResource(t *testing.T) {
+	rt := NewRoute()
+	err := rt.PutResource()
+	assert.Nil(t, err)
+}
+
+func TestGetFilters(t *testing.T) {
+	rt := NewRoute()
+	n0 := getMockMethod(config.MethodGet)
+	n1 := getMockMethod(config.MethodPost)
+	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
+	assert.Nil(t, e)
+	e = rt.PutAPI(API{URLPattern: "/theboys/:id", Method: n0})
+	assert.Nil(t, e)
+	e = rt.PutAPI(API{URLPattern: "/vought/:id/supe/:name", Method: n1})
+	assert.Nil(t, e)
+
 }

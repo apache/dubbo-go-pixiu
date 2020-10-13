@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package service
+package router
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"

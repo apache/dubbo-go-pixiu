@@ -22,7 +22,6 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
@@ -97,15 +96,26 @@ type BodyDefinition struct {
 
 // IntegrationRequest defines the backend request format and target
 type IntegrationRequest struct {
-	RequestType         string         `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
-	MappingParams       []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
-	dubbo.DubboMetadata `json:"dubboMetaData,inline,omitempty" yaml:"dubboMetaData,inline,omitempty"`
+	RequestType        string         `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
+	MappingParams      []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
+	DubboBackendConfig `json:"dubboBackendConfig,inline,omitempty" yaml:"dubboBackendConfig,inline,omitempty"`
 }
 
 // MappingParam defines the mapping rules of headers and queryStrings
 type MappingParam struct {
 	Name  string `json:"name" yaml:"name"`
 	MapTo string `json:"mapTo" yaml:"mapTo"`
+}
+
+// DubboBackendConfig defines the basic dubbo backend config
+type DubboBackendConfig struct {
+	ApplicationName string   `yaml:"applicationName" json:"applicationName"`
+	Group           string   `yaml:"group" json:"group"`
+	Version         string   `yaml:"version" json:"version"`
+	Interface       string   `yaml:"interface" json:"interface"`
+	Method          string   `yaml:"method" json:"method" mapstructure:"method"`
+	ClusterName     string   `yaml:"clusterName"  json:"clusterName,omitempty"`
+	ParamTypes      []string `yaml:"paramTypes" json:"paramTypes"`
 }
 
 // Definition defines the complex json request body

@@ -28,10 +28,13 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"github.com/pkg/errors"
 )
 
 // ListenerService the facade of a listener
@@ -130,6 +133,27 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	s.handleHTTPRequest(hc)
 
 	s.pool.Put(hc)
+}
+
+func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {
+	apiDiscSrv := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	api, err := apiDiscSrv.GetAPI(req.URL.Path, config.HTTPVerb(req.Method))
+	if err != nil {
+		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
+		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		e := errors.Errorf("Requested URL %s not found", req.URL.Path)
+		logger.Debug(e.Error())
+		return router.API{}, e
+	}
+	if !api.Method.OnAir {
+		ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body)
+		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)
+		logger.Debug(e.Error())
+		return router.API{}, e
+	}
+	ctx.API(api)
+	return api, nil
 }
 
 func (s *DefaultHttpListener) handleHTTPRequest(c *h.HttpContext) {

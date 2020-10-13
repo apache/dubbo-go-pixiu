@@ -29,10 +29,10 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
-func getMockAPI(urlPattern string, verb config.HTTPVerb) service.API {
+func getMockAPI(urlPattern string, verb config.HTTPVerb) router.API {
 	inbound := config.InboundRequest{}
 	integration := config.IntegrationRequest{}
 	method := config.Method{
@@ -41,7 +41,7 @@ func getMockAPI(urlPattern string, verb config.HTTPVerb) service.API {
 		InboundRequest:     inbound,
 		IntegrationRequest: integration,
 	}
-	return service.API{
+	return router.API{
 		URLPattern: urlPattern,
 		Method:     method,
 	}
@@ -57,7 +57,7 @@ func TestAddAPI(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
 	err := l.AddAPI(getMockAPI("/this/is/test", config.MethodPut))
 	assert.Nil(t, err)
-	_, found := l.router.FindMethod("/this/is/test", config.MethodPut)
+	_, found := l.router.FindAPI("/this/is/test", config.MethodPut)
 	assert.True(t, found)
 }
 
@@ -79,13 +79,13 @@ func TestLoadAPI(t *testing.T) {
 	assert.Nil(t, err)
 	apiDisSrv := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	rsp, err := apiDisSrv.GetAPI("/", config.MethodGet)
-	assert.True(t, rsp.Success)
+	assert.NotNil(t, rsp.URLPattern)
 	rsp, err = apiDisSrv.GetAPI("/mockTest", config.MethodGet)
-	assert.True(t, rsp.Success)
+	assert.NotNil(t, rsp.URLPattern)
 	rsp, err = apiDisSrv.GetAPI("/mockTest", config.MethodPost)
-	assert.True(t, rsp.Success)
+	assert.NotNil(t, rsp.URLPattern)
 	rsp, err = apiDisSrv.GetAPI("/mockTest/12345", config.MethodGet)
-	assert.True(t, rsp.Success)
+	assert.NotNil(t, rsp.URLPattern)
 }
 
 func TestLoadAPIFromResource(t *testing.T) {
@@ -138,13 +138,13 @@ func TestLoadAPIFromResource(t *testing.T) {
 	err := loadAPIFromResource("", tempResources, apiDiscSrv)
 	assert.Nil(t, err)
 	rsp, _ := apiDiscSrv.GetAPI("/", config.MethodPut)
-	assert.True(t, rsp.Success)
+	assert.Equal(t, rsp.URLPattern, "/")
 	rsp, _ = apiDiscSrv.GetAPI("/", config.MethodGet)
-	assert.True(t, rsp.Success)
+	assert.Equal(t, rsp.URLPattern, "/")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", config.MethodGet)
-	assert.True(t, rsp.Success)
+	assert.Equal(t, rsp.URLPattern, "/mock")
 	rsp, _ = apiDiscSrv.GetAPI("/mock2/12345", config.MethodPut)
-	assert.True(t, rsp.Success)
+	assert.Equal(t, rsp.URLPattern, "/mock2/:id")
 
 	tempResources = []config.Resource{
 		{
@@ -188,8 +188,8 @@ func TestLoadAPIFromMethods(t *testing.T) {
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
 	err := loadAPIFromMethods("/mock", tempMethods, apiDiscSrv)
 	rsp, _ := apiDiscSrv.GetAPI("/mock", config.MethodPut)
-	assert.True(t, rsp.Success)
+	assert.Equal(t, rsp.URLPattern, "/mock")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", config.MethodGet)
-	assert.True(t, rsp.Success)
+	assert.Equal(t, rsp.URLPattern, "/mock")
 	assert.EqualError(t, err, "Path: /mock, Method: PUT, error: Method PUT already exists in path /mock")
 }
