@@ -128,6 +128,11 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		extension.GetMustFilterFunc(constant.RecoveryFilter),
 	)
 
+	_, err := s.routeRequest(hc, r)
+	if err != nil {
+		s.pool.Put(hc)
+		return
+	}
 	hc.BuildFilters()
 
 	s.handleHTTPRequest(hc)

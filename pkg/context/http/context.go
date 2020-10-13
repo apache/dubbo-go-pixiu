@@ -26,6 +26,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
@@ -168,13 +169,20 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 // BuildFilters build filter, from config http_filters
 func (hc *HttpContext) BuildFilters() {
 	var filterFuncs []context.FilterFunc
+	api := hc.GetAPI()
 
-	if hc.HttpConnectionManager.HttpFilters == nil {
+	if api == nil {
 		return
 	}
+	for _, v := range api.Method.Filters {
+		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
+	}
 
-	for _, v := range hc.HttpConnectionManager.HttpFilters {
-		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v.Name))
+	switch api.Method.IntegrationRequest.RequestType {
+	case config.DubboRequest:
+		hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.HttpTransferDubboFilter))
+	case config.HTTPRequest:
+		break
 	}
 
 	hc.AppendFilterFunc(filterFuncs...)
