@@ -19,6 +19,7 @@ package service
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // DiscoveryRequest a request for discovery
@@ -60,8 +61,8 @@ var EmptyDiscoveryResponse = &DiscoveryResponse{}
 type ApiDiscoveryService interface {
 	AddApi(request DiscoveryRequest) (DiscoveryResponse, error)
 	GetApi(request DiscoveryRequest) (DiscoveryResponse, error)
-	AddAPI(API) error
-	GetAPI(string, config.HTTPVerb) (DiscoveryResponse, error)
+	AddAPI(router.API) error
+	GetAPI(string, config.HTTPVerb) (router.API, error)
 }
 
 // DiscoveryService is come from envoy, it can used for admin

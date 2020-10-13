@@ -98,17 +98,17 @@ func (ads *LocalMemoryAPIDiscoveryService) GetApi(request service.DiscoveryReque
 }
 
 // AddAPI adds a method to the router tree
-func (ads *LocalMemoryAPIDiscoveryService) AddAPI(api service.API) error {
-	return ads.router.Put(api.URLPattern, api.Method)
+func (ads *LocalMemoryAPIDiscoveryService) AddAPI(api router.API) error {
+	return ads.router.PutAPI(api)
 }
 
 // GetAPI returns the method to the caller
-func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTPVerb) (service.DiscoveryResponse, error) {
-	if method, ok := ads.router.FindMethod(url, httpVerb); ok {
-		return *service.NewDiscoveryResponse(method), nil
+func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTPVerb) (router.API, error) {
+	if api, ok := ads.router.FindAPI(url, httpVerb); ok {
+		return *api, nil
 	}
 
-	return *service.EmptyDiscoveryResponse, errors.New("not found")
+	return router.API{}, errors.New("not found")
 }
 
 // InitAPIsFromConfig inits the router from API config and to local cache
@@ -154,7 +154,7 @@ func loadAPIFromResource(parrentPath string, resources []config.Resource, localS
 func loadAPIFromMethods(fullPath string, methods []config.Method, localSrv service.ApiDiscoveryService) error {
 	errStack := []string{}
 	for _, method := range methods {
-		api := service.API{
+		api := router.API{
 			URLPattern: fullPath,
 			Method:     method,
 		}

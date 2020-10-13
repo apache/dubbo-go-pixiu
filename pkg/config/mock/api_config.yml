@@ -69,10 +69,10 @@ resources:
           group: test
           version: 1.0.0
           interface: com.ikurento.user.UserProvider
-          Method: GetUsers
+          method: GetUsers
           paramTypes:
             - java.lang.String
-          ClusterName: test_dubbo
+          clusterName: test_dubbo
       - httpVerb: POST
         filters:
           - filterA
@@ -96,10 +96,10 @@ resources:
           group: test
           version: 1.0.0
           interface: com.ikurento.user.UserProvider
-          Method: NewUser
+          method: NewUser
           paramTypes:
             - java.lang.String
-          ClusterName: test_dubbo
+          clusterName: test_dubbo
     resources:
       - path: '/:id'
         type: restful
@@ -126,10 +126,10 @@ resources:
               group: test
               version: 1.0.0
               interface: com.ikurento.user.UserProvider
-              Method: GetUser
+              method: GetUser
               paramTypes:
                 - java.lang.String
-              ClusterName: test_dubbo
+              clusterName: test_dubbo
           
 definitions:
   - name: modelDefinition
