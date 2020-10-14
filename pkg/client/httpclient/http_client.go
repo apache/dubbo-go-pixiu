@@ -40,19 +40,19 @@ type RestMetadata struct {
 }
 
 var (
-	_httpClient *HttpClient
+	_httpClient *HTTPClient
 	countDown   = sync.Once{}
 	dgCfg       dg.ConsumerConfig
 )
 
-// DubboClient client to generic invoke dubbo
-type HttpClient struct {
+// HTTPClient client to generic invoke dubbo
+type HTTPClient struct {
 	mLock              sync.RWMutex
 	GenericServicePool map[string]*dg.GenericService
 }
 
-// SingleDubboClient singleton dubbo clent
-func SingleHttpClient() *HttpClient {
+// SingleHttpClient singleton HTTP Client
+func SingleHttpClient() *HTTPClient {
 
 	if _httpClient == nil {
 		countDown.Do(func() {
@@ -62,16 +62,16 @@ func SingleHttpClient() *HttpClient {
 	return _httpClient
 }
 
-// NewDubboClient create dubbo client
-func NewHttpClient() *HttpClient {
-	return &HttpClient{
+// NewHttpClient create dubbo client
+func NewHttpClient() *HTTPClient {
+	return &HTTPClient{
 		mLock:              sync.RWMutex{},
 		GenericServicePool: make(map[string]*dg.GenericService),
 	}
 }
 
 // Init init dubbo, config mapping can do here
-func (dc *HttpClient) Init() error {
+func (dc *HTTPClient) Init() error {
 	dgCfg = dg.GetConsumerConfig()
 	dg.SetConsumerConfig(dgCfg)
 	dg.Load()
@@ -80,22 +80,22 @@ func (dc *HttpClient) Init() error {
 }
 
 // Close
-func (dc *HttpClient) Close() error {
+func (dc *HTTPClient) Close() error {
 	return nil
 }
 
 // Call invoke service
-func (dc *HttpClient) Call(r *client.Request) (resp client.Response, err error) {
+func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) {
 	//TODO：get Matched rest api url according to input url ,then make a http call.
 }
 
-func (dc *HttpClient) get(key string) *dg.GenericService {
+func (dc *HTTPClient) get(key string) *dg.GenericService {
 	dc.mLock.RLock()
 	defer dc.mLock.RUnlock()
 	return dc.GenericServicePool[key]
 }
 
-func (dc *HttpClient) check(key string) bool {
+func (dc *HTTPClient) check(key string) bool {
 	dc.mLock.RLock()
 	defer dc.mLock.RUnlock()
 	if _, ok := dc.GenericServicePool[key]; ok {
@@ -105,7 +105,7 @@ func (dc *HttpClient) check(key string) bool {
 	}
 }
 
-func (dc *HttpClient) create(key string, dm *RestMetadata) *dg.GenericService {
+func (dc *HTTPClient) create(key string, dm *RestMetadata) *dg.GenericService {
 	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
 	referenceConfig.InterfaceName = dm.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
@@ -140,11 +140,10 @@ func (dc *HttpClient) create(key string, dm *RestMetadata) *dg.GenericService {
 }
 
 // Get find a dubbo GenericService
-func (dc *HttpClient) Get(interfaceName, version, group string, dm *RestMetadata) *dg.GenericService {
+func (dc *HTTPClient) Get(interfaceName, version, group string, dm *RestMetadata) *dg.GenericService {
 	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
-	} else {
-		return dc.create(key, dm)
 	}
+	return dc.create(key, dm)
 }

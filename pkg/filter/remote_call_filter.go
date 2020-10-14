@@ -54,7 +54,7 @@ func doRemoteCall(c *http.HttpContext) {
 	cl, e := client.SingletonPool().GetClient(api.IType)
 	if e != nil {
 		c.WriteFail()
-		c.AbortAndLog("", e)
+		c.AbortWithError("", e)
 	}
 	if bytes, err := ioutil.ReadAll(c.Request.Body); err != nil {
 		logger.Errorf("[dubboproxy go] read body err:%v!", err)

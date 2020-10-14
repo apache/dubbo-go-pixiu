@@ -25,7 +25,7 @@ import (
 type Context interface {
 	Next()
 	Abort()
-	AbortAndLog(string, error)
+	AbortWithError(string, error)
 	AppendFilterFunc(ff ...FilterFunc)
 
 	Status(code int)
