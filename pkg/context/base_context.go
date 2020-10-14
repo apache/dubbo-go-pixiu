@@ -46,12 +46,16 @@ func (c *BaseContext) Next() {
 	}
 }
 
+// AbortWithError  filter chain break , filter after the current filter will not executed.
 func (c *BaseContext) Abort() {
 	c.Index = abortIndex
 }
-func (c *BaseContext) AbortAndLog(message string, err error) {
+
+// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
+func (c *BaseContext) AbortWithError(message string, err error) {
 	c.Index = abortIndex
 	log.Println(message, err) //TODO print stack
+
 }
 
 func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {

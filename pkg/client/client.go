@@ -22,7 +22,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/httpclient"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	_ "github.com/gin-gonic/gin"
 	"sync"
 )
 
@@ -32,6 +31,7 @@ type Client interface {
 	Call(req *Request) (resp Response, err error)
 }
 
+//ClientPool  a pool of client.
 type ClientPool struct {
 	poolMap map[model.ApiType]*sync.Pool
 }
@@ -41,7 +41,7 @@ var (
 	once        = sync.Once{}
 )
 
-// SingleDubboClient singleton dubbo clent
+// SingletonPool singleton pool
 func SingletonPool() *ClientPool {
 	if _clinetPool == nil {
 		once.Do(func() {
@@ -52,6 +52,7 @@ func SingletonPool() *ClientPool {
 	return _clinetPool
 }
 
+// GetClient  a factory method to get a client according to apiType .
 func (pool *ClientPool) GetClient(t model.ApiType) (Client, error) {
 	if pool.poolMap[t] != nil {
 		return pool.poolMap[t].Get().(Client), nil
