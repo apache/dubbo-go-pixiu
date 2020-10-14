@@ -57,10 +57,8 @@ func NewDiscoveryResponse(d interface{}) *DiscoveryResponse {
 
 var EmptyDiscoveryResponse = &DiscoveryResponse{}
 
-// ApiDiscoveryService api discovery service interface
-type ApiDiscoveryService interface {
-	AddApi(request DiscoveryRequest) (DiscoveryResponse, error)
-	GetApi(request DiscoveryRequest) (DiscoveryResponse, error)
+// APIDiscoveryService api discovery service interface
+type APIDiscoveryService interface {
 	AddAPI(router.API) error
 	GetAPI(string, config.HTTPVerb) (router.API, error)
 }

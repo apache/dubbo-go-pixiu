@@ -141,7 +141,7 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {
-	apiDiscSrv := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	apiDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	api, err := apiDiscSrv.GetAPI(req.URL.Path, config.HTTPVerb(req.Method))
 	if err != nil {
 		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)

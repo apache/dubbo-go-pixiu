@@ -24,6 +24,12 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"sync"
+)
+
+var (
+	apiConfig *APIConfig
+	once      sync.Once
 )
 
 // HTTPVerb defines the restful api http verb
@@ -107,8 +113,8 @@ type BodyDefinition struct {
 // IntegrationRequest defines the backend request format and target
 type IntegrationRequest struct {
 	RequestType        `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
-	MappingParams      []MappingParam                          `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
 	DubboBackendConfig `json:"dubboBackendConfig,inline,omitempty" yaml:"dubboBackendConfig,inline,omitempty"`
+	MappingParams      []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
 }
 
 // MappingParam defines the mapping rules of headers and queryStrings
@@ -119,13 +125,15 @@ type MappingParam struct {
 
 // DubboBackendConfig defines the basic dubbo backend config
 type DubboBackendConfig struct {
+	ClusterName     string   `yaml:"clusterName" json:"clusterName"`
 	ApplicationName string   `yaml:"applicationName" json:"applicationName"`
+	Protocol        string   `yaml:"protocol" json:"protocol,omitempty" default:"dubbo"`
 	Group           string   `yaml:"group" json:"group"`
 	Version         string   `yaml:"version" json:"version"`
 	Interface       string   `yaml:"interface" json:"interface"`
-	Method          string   `yaml:"method" json:"method" mapstructure:"method"`
-	ClusterName     string   `yaml:"clusterName"  json:"clusterName,omitempty"`
+	Method          string   `yaml:"method" json:"method"`
 	ParamTypes      []string `yaml:"paramTypes" json:"paramTypes"`
+	Retries         string   `yaml:"retries" json:"retries,omitempty"`
 }
 
 // Definition defines the complex json request body
@@ -145,5 +153,13 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 	if err != nil {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 	}
+	once.Do(func() {
+		apiConfig = apiConf
+	})
 	return apiConf, nil
+}
+
+// GetAPIConf returns the initted api config
+func GetAPIConf() APIConfig {
+	return *apiConfig
 }

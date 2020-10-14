@@ -79,7 +79,7 @@ func TestRouteRequest(t *testing.T) {
 	mockAPI := getMockAPI(config.MethodPost, "/mock/test")
 	mockAPI.Method.OnAir = false
 
-	apiDiscoverySrv := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	apiDiscoverySrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	apiDiscoverySrv.AddAPI(mockAPI)
 	apiDiscoverySrv.AddAPI(getMockAPI(config.MethodGet, "/mock/test"))
 
