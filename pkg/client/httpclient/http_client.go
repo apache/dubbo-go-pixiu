@@ -2,7 +2,6 @@ package httpclient
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +15,6 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 // TODO java class name elem
@@ -79,7 +77,7 @@ func (dc *HTTPClient) Init() error {
 	return nil
 }
 
-// Close
+// Close close
 func (dc *HTTPClient) Close() error {
 	return nil
 }
