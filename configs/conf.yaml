@@ -47,12 +47,3 @@ static_resources:
       type: "EDS"
       lb_policy: "RoundRobin"
       connect_timeout: "5s"
----
-dynamic_resources:
-  api_config:
-    nacos:
-      address: localhost:8848
-      prior: 1
-    apollo:
-      address: localhost:8070
-      prior: 2
