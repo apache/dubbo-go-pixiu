@@ -8,35 +8,22 @@ resources:
       - filter0
     methods:
       - httpVerb: GET
-        filters:
-          - filterA
-          - filterB
         onAir: true
         inboundRequest:
           requestType: http
-          headers: 
-            - name: auth
-              required: true 
           queryStrings:
             - name: id
               required: false
-            - name: type
-              required: false
-          requestBody:
-            - definitionName: modelDefinition
         integrationRequest:
-          requestType: dubbo
+          requestType: DUBBO
           mappingParams:
             - name: queryStrings.id
               mapTo: 1
-          applicationName: BDTService
-          group: test
-          version: 1.0.0
-          interface: com.ikurento.user.UserProvider
-          Method: GetUser
-          paramTypes:
-            - java.lang.String
-          ClusterName: test_dubbo
+          applicationName: "BDTService"
+          interface: "com.ikurento.user.UserProvider"
+          method: "GetUser"
+          clusterName: "test_dubbo"
+
 definitions:
   - name: modelDefinition
     schema: >-

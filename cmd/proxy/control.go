@@ -52,6 +52,12 @@ var (
 				Value:  "configs/conf.yaml",
 			},
 			cli.StringFlag{
+				Name:   "api-config, a",
+				Usage:  "Load api configuration from `FILE`",
+				EnvVar: "DUBBOGO_PROXY_API_CONFIG",
+				Value:  "configs/api_config.yaml",
+			},
+			cli.StringFlag{
 				Name:   "log-config, lc",
 				Usage:  "Load log configuration from `FILE`",
 				EnvVar: "LOG_FILE",
@@ -73,6 +79,7 @@ var (
 		},
 		Action: func(c *cli.Context) error {
 			configPath := c.String("config")
+			apiConfigPath := c.String("api-config")
 			flagLogLevel := c.String("log-level")
 			logConfPath := c.String("log-config")
 
@@ -80,8 +87,10 @@ var (
 			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
 				logger.SetLoggerLevel(logLevel)
 			}
-
 			logger.InitLog(logConfPath)
+			if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
+				logger.Info(err.Error())
+			}
 
 			limitCpus := c.Int("limit-cpus")
 			if limitCpus <= 0 {

@@ -75,9 +75,9 @@ func TestGetAPI(t *testing.T) {
 func TestLoadAPI(t *testing.T) {
 	apiC, err := config.LoadAPIConfigFromFile("../../config/mock/api_config.yml")
 	assert.Empty(t, err)
-	err = InitAPIsFromConfig(apiC)
+	err = InitAPIsFromConfig(*apiC)
 	assert.Nil(t, err)
-	apiDisSrv := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	apiDisSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	rsp, err := apiDisSrv.GetAPI("/", config.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
 	rsp, err = apiDisSrv.GetAPI("/mockTest", config.MethodGet)

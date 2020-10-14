@@ -18,29 +18,24 @@
 package api
 
 import (
-	"encoding/json"
+	"fmt"
 )
 
 import (
-	"github.com/goinggo/mapstructure"
 	"github.com/pkg/errors"
 )
 
 import (
-	"fmt"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
 	"strings"
 )
 
 func init() {
-	extension.SetApiDiscoveryService(constant.LocalMemoryApiDiscoveryService, NewLocalMemoryAPIDiscoveryService())
+	extension.SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, NewLocalMemoryAPIDiscoveryService())
 }
 
 // LocalMemoryAPIDiscoveryService is the local cached API discovery service
@@ -53,48 +48,6 @@ func NewLocalMemoryAPIDiscoveryService() *LocalMemoryAPIDiscoveryService {
 	return &LocalMemoryAPIDiscoveryService{
 		router: router.NewRoute(),
 	}
-}
-
-// AddApi adds a method to the router tree
-func (ads *LocalMemoryAPIDiscoveryService) AddApi(request service.DiscoveryRequest) (service.DiscoveryResponse, error) {
-	aj := model.NewApi()
-	if err := json.Unmarshal(request.Body, aj); err != nil {
-		return *service.EmptyDiscoveryResponse, err
-	}
-
-	if _, loaded := model.CacheApi.LoadOrStore(aj.Name, aj); loaded {
-		// loaded
-		logger.Warnf("api:%s is exist", aj)
-	} else {
-		// store
-		if aj.Metadata == nil {
-
-		} else {
-			if v, ok := aj.Metadata.(map[string]interface{}); ok {
-				if d, ok := v["dubbo"]; ok {
-					dm := &dubbo.DubboMetadata{}
-					if err := mapstructure.Decode(d, dm); err != nil {
-						return *service.EmptyDiscoveryResponse, err
-					}
-					aj.Metadata = dm
-				}
-			}
-
-			aj.RequestMethod = model.RequestMethod(model.RequestMethodValue[aj.Method])
-		}
-	}
-
-	return *service.NewDiscoveryResponseWithSuccess(true), nil
-}
-
-func (ads *LocalMemoryAPIDiscoveryService) GetApi(request service.DiscoveryRequest) (service.DiscoveryResponse, error) {
-	n := string(request.Body)
-
-	if a, ok := model.CacheApi.Load(n); ok {
-		return *service.NewDiscoveryResponse(a), nil
-	}
-
-	return *service.EmptyDiscoveryResponse, errors.New("not found")
 }
 
 // AddAPI adds a method to the router tree
@@ -112,15 +65,15 @@ func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HT
 }
 
 // InitAPIsFromConfig inits the router from API config and to local cache
-func InitAPIsFromConfig(apiConfig *config.APIConfig) error {
-	localAPIDiscSrv := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+func InitAPIsFromConfig(apiConfig config.APIConfig) error {
+	localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	if len(apiConfig.Resources) == 0 {
 		return nil
 	}
 	return loadAPIFromResource("", apiConfig.Resources, localAPIDiscSrv)
 }
 
-func loadAPIFromResource(parrentPath string, resources []config.Resource, localSrv service.ApiDiscoveryService) error {
+func loadAPIFromResource(parrentPath string, resources []config.Resource, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	if len(resources) == 0 {
 		return nil
@@ -151,7 +104,7 @@ func loadAPIFromResource(parrentPath string, resources []config.Resource, localS
 	return nil
 }
 
-func loadAPIFromMethods(fullPath string, methods []config.Method, localSrv service.ApiDiscoveryService) error {
+func loadAPIFromMethods(fullPath string, methods []config.Method, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	for _, method := range methods {
 		api := router.API{
