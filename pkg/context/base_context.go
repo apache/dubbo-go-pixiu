@@ -19,6 +19,7 @@ package context
 
 import (
 	"math"
+	"time"
 )
 
 const abortIndex int8 = math.MaxInt8 / 2
@@ -28,6 +29,7 @@ type BaseContext struct {
 	Context
 	Index   int8
 	Filters FilterChain
+	Timeout *time.Duration
 }
 
 func NewBaseContext() *BaseContext {
@@ -53,4 +55,12 @@ func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
 	}
+}
+
+func (c *BaseContext) GetTimeout(t *time.Duration) time.Duration {
+	if t == nil {
+		return 3 * time.Second
+	}
+
+	return *t
 }
