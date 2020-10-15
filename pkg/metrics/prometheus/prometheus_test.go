@@ -15,6 +15,28 @@
  * limitations under the License.
  */
 
-package metrics
+package prometheus
 
+import (
+	"context"
+	"testing"
+	"time"
+)
 
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+)
+
+func TestExport(t *testing.T) {
+	registry := newPromRegistry()
+	m := config.Method{
+		OnAir: true,
+		InboundRequest: config.InboundRequest{
+			RequestType: "http",
+		},
+		IntegrationRequest: config.IntegrationRequest{
+			RequestType: "dubbo",
+		},
+	}
+	registry.Export(context.TODO(), m, time.Second)
+}

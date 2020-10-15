@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package metrics
+package prometheus
 
 import (
 	"context"
@@ -31,6 +31,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config/metrics"
+	m "github.com/dubbogo/dubbo-go-proxy/pkg/metrics"
 )
 
 const (
@@ -72,7 +73,7 @@ func (r *PromRegistry) Export(ctx context.Context, method config.Method, cost ti
 
 // newPromRegistry create new promRegistry
 // it will register the metrics into prometheus
-func newPromRegistry() Registry {
+func newPromRegistry() m.Registry {
 	// TODO
 	config := metrics.Prometheus{}
 	bucket := config.Buckets
