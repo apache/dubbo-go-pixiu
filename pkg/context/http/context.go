@@ -20,6 +20,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 )
 
 import (
@@ -41,6 +42,7 @@ type HttpContext struct {
 	Request   *http.Request
 	writermem responseWriter
 	Writer    ResponseWriter
+	Lock      sync.Mutex
 }
 
 // Next logic for lookup filter
