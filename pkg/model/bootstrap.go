@@ -53,6 +53,7 @@ type StaticResources struct {
 type DynamicResources struct {
 }
 
+// ShutdownConfig how to shutdown proxy.
 type ShutdownConfig struct {
 	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
 	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
