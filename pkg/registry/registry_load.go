@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package registry_load
+package registry
 
 import "github.com/apache/dubbo-go/common"
 
 // this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
 type RegistryLoad interface {
-	// load all services registered in registry
+	// LoadAllServices load all services registered in registry
 	LoadAllServices() ([]common.URL, error)
+	// GetCluster get the registry name
 	GetCluster() (string, error)
 }
