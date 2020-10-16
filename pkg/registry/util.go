@@ -14,17 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package registry_load
+package registry
 
 import (
 	"github.com/apache/dubbo-go/common"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
+// TransferUrl2Api transfer url and clusterName to IntegrationRequest
 func TransferUrl2Api(url common.URL, clusterName string) []config.IntegrationRequest {
 	var irs []config.IntegrationRequest
 	for _, method := range url.Methods {
