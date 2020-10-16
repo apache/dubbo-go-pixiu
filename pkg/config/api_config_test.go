@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-package constant
+package config_test
 
-const (
-	HeaderKeyContextType              = "Content-Type"
-	HeaderKeyAccessControlAllowOrigin = "Access-Control-Allow-Origin"
-
-	HeaderValueJsonUtf8  = "application/json;charset=UTF-8"
-	HeaderValueTextPlain = "text/plain"
-	HeaderValueAll       = "*"
-
-	PathSlash           = "/"
-	PathParamIdentifier = ":"
+import (
+	"log"
+	"testing"
 )
 
-const (
-	Http1HeaderKeyHost = "Host"
-	Http2HeaderKeyHost = ":authority"
+import (
+	"github.com/ghodss/yaml"
+	"github.com/stretchr/testify/assert"
 )
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+)
+
+func TestLoadAPIConfigFromFile(t *testing.T) {
+	apiC, err := config.LoadAPIConfigFromFile("")
+	assert.Empty(t, apiC)
+	assert.EqualError(t, err, "Config file not specified")
+
+	apiC, err = config.LoadAPIConfigFromFile("./mock/api_config.yml")
+	assert.Empty(t, err)
+	assert.Equal(t, apiC.Name, "api name")
+	bytes, _ := yaml.Marshal(apiC)
+	log.Printf("%s", bytes)
+}
