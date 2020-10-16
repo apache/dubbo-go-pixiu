@@ -67,6 +67,7 @@ type EdsClusterConfig struct {
 	ServiceName string       `yaml:"service_name" json:"service_name" mapstructure:"service_name"`
 }
 
+// Registry remote registry where dubbo apis are registered.
 type Registry struct {
 	Timeout  string `yaml:"timeout" json:"timeout"`
 	Address  string `yaml:"address" json:"address"`
