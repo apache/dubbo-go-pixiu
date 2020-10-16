@@ -25,8 +25,8 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
-// TransferUrl2Api transfer url and clusterName to IntegrationRequest
-func TransferUrl2Api(url common.URL, clusterName string) []config.IntegrationRequest {
+// TransferURL2Api transfer url and clusterName to IntegrationRequest
+func TransferURL2Api(url common.URL, clusterName string) []config.IntegrationRequest {
 	var irs []config.IntegrationRequest
 	for _, method := range url.Methods {
 		irs = append(irs, config.IntegrationRequest{

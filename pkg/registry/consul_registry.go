@@ -38,9 +38,10 @@ func init() {
 }
 
 const (
-	dubbo_api_filter = "dubbo in Tags"
+	dubboAPIFilter = "dubbo in Tags"
 )
 
+// ConsulRegistryLoad load dubbo apis from consul registry
 type ConsulRegistryLoad struct {
 	Address string
 	// Consul client.
@@ -98,8 +99,9 @@ func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common
 	return *url, nil
 }
 
+// LoadAllServices load all services from consul registry
 func (crl *ConsulRegistryLoad) LoadAllServices() ([]common.URL, error) {
-	agentServices, err := crl.client.Agent().ServicesWithFilter(dubbo_api_filter)
+	agentServices, err := crl.client.Agent().ServicesWithFilter(dubboAPIFilter)
 	if err != nil {
 		logger.Error("consul load all apis error:%v", err)
 		return nil, perrors.Wrap(err, "consul load all apis")

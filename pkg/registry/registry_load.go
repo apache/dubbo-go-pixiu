@@ -18,7 +18,7 @@ package registry
 
 import "github.com/apache/dubbo-go/common"
 
-// this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
+// RegistryLoad this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
 type RegistryLoad interface {
 	// LoadAllServices load all services registered in registry
 	LoadAllServices() ([]common.URL, error)
