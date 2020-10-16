@@ -1,4 +1,6 @@
 ./dubbo-go-proxy
 /logs
 /.idea
+/.vscode
 /vendor
+

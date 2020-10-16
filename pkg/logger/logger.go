@@ -25,10 +25,10 @@ import (
 )
 
 import (
+	"github.com/ghodss/yaml"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/yaml.v2"
 )
 
 var (
