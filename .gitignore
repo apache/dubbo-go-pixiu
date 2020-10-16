@@ -1,3 +1,4 @@
 ./dubbo-go-proxy
 /logs
 /.idea
+/vendor
