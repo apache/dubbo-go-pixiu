@@ -19,9 +19,7 @@ package proxy
 
 import (
 	"encoding/json"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/api_load"
 	"sync"
-	"time"
 )
 
 import (
@@ -39,7 +37,6 @@ import (
 // Proxy
 type Proxy struct {
 	startWG sync.WaitGroup
-	bs      *model.Bootstrap
 }
 
 // Start proxy start
@@ -65,23 +62,12 @@ func (p *Proxy) Start() {
 	}
 }
 
-func (p *Proxy) beforeStart() error {
+func (p *Proxy) beforeStart() {
 	dubbo.SingleDubboClient().Init()
 
 	// TODO mock api register
 	ads := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 
-	apiLoader := api_load.NewApiManager(time.Second, ads)
-	apiLoader.AddApiLoader(p.bs.DynamicResources.ApiConfig)
-	err := apiLoader.StartLoadApi()
-	if err != nil {
-		logger.Errorf("error load api:%v", err)
-		return err
-	}
-	err = apiLoader.SelectMergeApiTask()
-	if err != nil {
-		logger.Errorf("error select merge api task :%v", err)
-	}
 	a1 := &model.Api{
 		Name:     "/api/v1/test-dubbo/user",
 		ITypeStr: "HTTP",
@@ -130,17 +116,16 @@ func (p *Proxy) beforeStart() error {
 }
 
 // NewProxy create proxy
-func NewProxy(bs *model.Bootstrap) *Proxy {
+func NewProxy() *Proxy {
 	return &Proxy{
 		startWG: sync.WaitGroup{},
-		bs:      bs,
 	}
 }
 
 func Start(bs *model.Bootstrap) {
 	logger.Infof("[dubboproxy go] start by config : %+v", bs)
 
-	proxy := NewProxy(bs)
+	proxy := NewProxy()
 	proxy.Start()
 
 	proxy.startWG.Wait()
