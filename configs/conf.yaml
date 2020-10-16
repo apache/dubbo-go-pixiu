@@ -44,6 +44,14 @@ static_resources:
         write_timeout: 5s
   clusters:
     - name: "test_dubbo"
-      type: "EDS"
       lb_policy: "RoundRobin"
       connect_timeout: "5s"
+      registries:
+        "zookeeper":
+          - timeout: "3s"
+            address: "127.0.0.1:2182"
+            username: ""
+            password: ""
+        "consul":
+          - timeout: "3s"
+            address: "127.0.0.1:8500"
