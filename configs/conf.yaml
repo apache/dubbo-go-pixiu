@@ -46,6 +46,7 @@ static_resources:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
       connect_timeout: "5s"
+      request_timeout: "10s"
       registries:
         "zookeeper":
           - timeout: "3s"
@@ -55,3 +56,7 @@ static_resources:
         "consul":
           - timeout: "3s"
             address: "127.0.0.1:8500"
+  shutdown_config:
+    timeout: "60s"
+    step_timeout: "10s"
+    reject_policy: "immediacy"
