@@ -44,10 +44,17 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 
 // StaticResources
 type StaticResources struct {
-	Listeners []Listener `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
-	Clusters  []Cluster  `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	Listeners      []Listener      `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
+	Clusters       []Cluster       `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 }
 
 // DynamicResources TODO
 type DynamicResources struct {
+}
+
+type ShutdownConfig struct {
+	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
+	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
+	RejectPolicy string `yaml:"reject_policy" json:"reject_policy,omitempty"`
 }
