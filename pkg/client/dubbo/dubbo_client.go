@@ -159,9 +159,9 @@ func (dc *DubboClient) check(key string) bool {
 	}
 }
 
-func (dc *DubboClient) create(key string, dm config.IntegrationRequest) *dg.GenericService {
-	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
-	referenceConfig.InterfaceName = dm.Interface
+func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *dg.GenericService {
+	referenceConfig := dg.NewReferenceConfig(irequest.Interface, context.TODO())
+	referenceConfig.InterfaceName = irequest.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
 	var registers []string
 	for k := range dgCfg.Registries {
@@ -169,19 +169,19 @@ func (dc *DubboClient) create(key string, dm config.IntegrationRequest) *dg.Gene
 	}
 	referenceConfig.Registry = strings.Join(registers, ",")
 
-	if dm.Protocol == "" {
+	if irequest.Protocol == "" {
 		referenceConfig.Protocol = dubbo.DUBBO
 	} else {
-		referenceConfig.Protocol = dm.Protocol
+		referenceConfig.Protocol = irequest.Protocol
 	}
 
-	referenceConfig.Version = dm.Version
-	referenceConfig.Group = dm.Group
+	referenceConfig.Version = irequest.Version
+	referenceConfig.Group = irequest.Group
 	referenceConfig.Generic = true
-	if dm.Retries == "" {
+	if irequest.Retries == "" {
 		referenceConfig.Retries = "3"
 	} else {
-		referenceConfig.Retries = dm.Retries
+		referenceConfig.Retries = irequest.Retries
 	}
 	dc.mLock.Lock()
 	defer dc.mLock.Unlock()
@@ -194,11 +194,11 @@ func (dc *DubboClient) create(key string, dm config.IntegrationRequest) *dg.Gene
 }
 
 // Get find a dubbo GenericService
-func (dc *DubboClient) Get(interfaceName, version, group string, dm config.IntegrationRequest) *dg.GenericService {
-	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
+func (dc *DubboClient) Get(interfaceName, version, group string, ir config.IntegrationRequest) *dg.GenericService {
+	key := strings.Join([]string{ir.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
 	}
 
-	return dc.create(key, dm)
+	return dc.create(key, ir)
 }

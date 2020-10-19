@@ -147,7 +147,7 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 	if len(path) == 0 {
 		return nil, perrors.Errorf("Config file not specified")
 	}
-	logger.Info("Load API configuration file form ", path)
+	logger.Infof("Load API configuration file form %s", path)
 	apiConf := &APIConfig{}
 	err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {
