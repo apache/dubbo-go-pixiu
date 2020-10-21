@@ -38,7 +38,6 @@ func init() {
 // ConsulRegistryLoad load dubbo apis from consul registry
 type ZookeeperRegistryLoad struct {
 	zkName  string
-	zkPath  map[string]int
 	client  *zookeeper.ZookeeperClient
 	Address string
 	cluster string
