@@ -19,6 +19,7 @@ package constant
 
 const (
 	HttpConnectManagerFilter = "dgp.filters.http_connect_manager"
+	HttpAuthorityFilter      = "dgp.filters.http.authority_filter"
 	HttpRouterFilter         = "dgp.filters.http.router"
 	HttpApiFilter            = "dgp.filters.http.api"
 	HttpDomainFilter         = "dgp.filters.http.domain"
