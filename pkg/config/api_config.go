@@ -18,11 +18,11 @@
 package config
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	perrors "github.com/pkg/errors"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
@@ -97,9 +97,9 @@ type BodyDefinition struct {
 
 // IntegrationRequest defines the backend request format and target
 type IntegrationRequest struct {
-	RequestType         string         `yaml:"requestType"` // dubbo, TO-DO: http
-	MappingParams       []MappingParam `yaml:"mappingParams,omitempty"`
-	dubbo.DubboMetadata `yaml:"dubboMetaData,inline,omitempty"`
+	RequestType          string         `yaml:"requestType"` // dubbo, TO-DO: http
+	MappingParams        []MappingParam `yaml:"mappingParams,omitempty"`
+	client.DubboMetadata `yaml:"dubboMetaData,inline,omitempty"`
 }
 
 // MappingParam defines the mapping rules of headers and queryStrings
