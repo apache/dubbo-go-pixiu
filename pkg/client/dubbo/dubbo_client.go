@@ -20,6 +20,7 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"strings"
 	"sync"
 	"time"
@@ -32,7 +33,6 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -41,20 +41,6 @@ const (
 	JavaStringClassName = "java.lang.String"
 	JavaLangClassName   = "java.lang.Long"
 )
-
-// DubboMetadata dubbo metadata, api config
-type DubboMetadata struct {
-	ApplicationName      string   `yaml:"application_name" json:"application_name" mapstructure:"application_name"`
-	Group                string   `yaml:"group" json:"group" mapstructure:"group"`
-	Version              string   `yaml:"version" json:"version" mapstructure:"version"`
-	Interface            string   `yaml:"interface" json:"interface" mapstructure:"interface"`
-	Method               string   `yaml:"method" json:"method" mapstructure:"method"`
-	Types                []string `yaml:"types" json:"types" mapstructure:"types"`
-	Retries              string   `yaml:"retries"  json:"retries,omitempty" property:"retries"`
-	ClusterName          string   `yaml:"cluster_name"  json:"cluster_name,omitempty" property:"cluster_name"`
-	ProtocolTypeStr      string   `yaml:"protocol_type"  json:"protocol_type,omitempty" property:"protocol_type"`
-	SerializationTypeStr string   `yaml:"serialization_type"  json:"serialization_type,omitempty" property:"serialization_type"`
-}
 
 var (
 	_DubboClient *DubboClient
@@ -103,7 +89,7 @@ func (dc *DubboClient) Close() error {
 
 // Call invoke service
 func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error) {
-	dm := r.Api.Metadata.(*DubboMetadata)
+	dm := r.Api.Metadata.(*client.DubboMetadata)
 	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
 
 	var reqData []interface{}
@@ -167,7 +153,7 @@ func (dc *DubboClient) check(key string) bool {
 	}
 }
 
-func (dc *DubboClient) create(key string, dm *DubboMetadata) *dg.GenericService {
+func (dc *DubboClient) create(key string, dm *client.DubboMetadata) *dg.GenericService {
 	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
 	referenceConfig.InterfaceName = dm.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
@@ -202,7 +188,7 @@ func (dc *DubboClient) create(key string, dm *DubboMetadata) *dg.GenericService 
 }
 
 // Get find a dubbo GenericService
-func (dc *DubboClient) Get(interfaceName, version, group string, dm *DubboMetadata) *dg.GenericService {
+func (dc *DubboClient) Get(interfaceName, version, group string, dm *client.DubboMetadata) *dg.GenericService {
 	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
