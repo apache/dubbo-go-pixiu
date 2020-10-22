@@ -24,6 +24,9 @@ const (
 	HeaderValueJsonUtf8  = "application/json;charset=UTF-8"
 	HeaderValueTextPlain = "text/plain"
 	HeaderValueAll       = "*"
+
+	PathSlash           = "/"
+	PathParamIdentifier = ":"
 )
 
 const (
