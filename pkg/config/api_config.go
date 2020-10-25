@@ -59,9 +59,9 @@ type RequestType string
 
 const (
 	// DubboRequest represents the dubbo request
-	DubboRequest RequestType = "DUBBO"
+	DubboRequest RequestType = "dubbo"
 	// HTTPRequest represents the http request
-	HTTPRequest RequestType = "HTTP"
+	HTTPRequest RequestType = "http"
 )
 
 // APIConfig defines the data structure of the api gateway configuration

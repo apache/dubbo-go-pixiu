@@ -22,6 +22,10 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
@@ -29,7 +33,6 @@ import (
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
-	"github.com/stretchr/testify/assert"
 )
 
 func getMockAPI(verb config.HTTPVerb, urlPattern string, filters ...string) router.API {

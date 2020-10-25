@@ -15,7 +15,7 @@ resources:
             - name: id
               required: false
         integrationRequest:
-          requestType: DUBBO
+          requestType: dubbo
           mappingParams:
             - name: queryStrings.id
               mapTo: 1
