@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package filter
+package recovery
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
@@ -25,11 +25,19 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, Recover())
+	extension.SetFilterFunc(constant.RecoveryFilter, NewRecoveryFilter().Do())
 }
 
-// Recover
-func Recover() context.FilterFunc {
+type recoveryFilter struct {
+}
+
+// NewRecoveryFilter create timeout filter.
+func NewRecoveryFilter() *recoveryFilter {
+	return &recoveryFilter{}
+}
+
+// Do recoveryFilter execute filter logic.
+func (f *recoveryFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
 		defer func() {
 			if err := recover(); err != nil {

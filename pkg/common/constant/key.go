@@ -24,9 +24,8 @@ const (
 	HttpDomainFilter         = "dgp.filters.http.domain"
 	HttpTransferDubboFilter  = "dgp.filters.http_transfer_dubbo"
 	TimeoutFilter            = "dgp.filters.timeout"
-
-	LoggerFilter   = "dgp.filters.logger"
-	RecoveryFilter = "dgp.filters.recovery"
+	LoggerFilter             = "dgp.filters.logger"
+	RecoveryFilter           = "dgp.filters.recovery"
 )
 
 const (

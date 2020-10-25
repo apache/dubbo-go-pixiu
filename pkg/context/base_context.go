@@ -18,6 +18,7 @@
 package context
 
 import (
+	"context"
 	"math"
 	"time"
 )
@@ -30,6 +31,7 @@ type BaseContext struct {
 	Index   int8
 	Filters FilterChain
 	Timeout *time.Duration
+	Ctx     context.Context
 }
 
 func NewBaseContext() *BaseContext {
@@ -57,9 +59,10 @@ func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {
 	}
 }
 
+// GetTimeout get
 func (c *BaseContext) GetTimeout(t *time.Duration) time.Duration {
 	if t == nil {
-		return 3 * time.Second
+		return 1 * time.Second
 	}
 
 	return *t
