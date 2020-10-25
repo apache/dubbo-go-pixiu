@@ -9,17 +9,17 @@ connect_timeout : "3s"
 
 # application config
 application:
-  organization : "dubbo-go-proxy"
-  name  : "DubboGoProxy"
-  module : "dubbogo proxy client"
-  version : "0.0.1"
-  owner : "DubboGoProxy"
-  environment : "dev"
+  organization: "dubbo-go-proxy"
+  name : "DubboGoProxy"
+  module: "dubbogo proxy client"
+  version: "0.0.1"
+  owner: "DubboGoProxy"
+  environment: "dev"
 
 registries :
   "hangzhouzk":
     protocol: "zookeeper"
-    timeout	: "3s"
+    timeout: "3s"
     address: "127.0.0.1:2181"
     username: ""
     password: ""

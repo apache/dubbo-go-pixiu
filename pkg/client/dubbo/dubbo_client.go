@@ -169,7 +169,7 @@ func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *d
 	}
 	referenceConfig.Registry = strings.Join(registers, ",")
 
-	if irequest.Protocol == "" {
+	if len(irequest.Protocol) == 0 {
 		referenceConfig.Protocol = dubbo.DUBBO
 	} else {
 		referenceConfig.Protocol = irequest.Protocol
@@ -178,7 +178,7 @@ func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *d
 	referenceConfig.Version = irequest.Version
 	referenceConfig.Group = irequest.Group
 	referenceConfig.Generic = true
-	if irequest.Retries == "" {
+	if len(irequest.Retries) == 0 {
 		referenceConfig.Retries = "3"
 	} else {
 		referenceConfig.Retries = irequest.Retries
