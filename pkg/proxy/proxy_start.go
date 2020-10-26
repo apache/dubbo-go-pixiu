@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"sync"
 )
 
@@ -74,7 +75,7 @@ func (p *Proxy) beforeStart() {
 		OTypeStr: "DUBBO",
 		Method:   "POST",
 		Status:   1,
-		Metadata: map[string]dubbo.DubboMetadata{
+		Metadata: map[string]client.DubboMetadata{
 			"dubbo": {
 				ApplicationName: "BDTService",
 				Group:           "test",
@@ -94,7 +95,7 @@ func (p *Proxy) beforeStart() {
 		OTypeStr: "DUBBO",
 		Method:   "POST",
 		Status:   1,
-		Metadata: map[string]dubbo.DubboMetadata{
+		Metadata: map[string]client.DubboMetadata{
 			"dubbo": {
 				ApplicationName: "BDTService",
 				Group:           "test",
