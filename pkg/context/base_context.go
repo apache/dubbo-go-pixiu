@@ -46,7 +46,7 @@ func (c *BaseContext) Next() {
 	}
 }
 
-// AbortWithError  filter chain break , filter after the current filter will not executed.
+// Abort  filter chain break , filter after the current filter will not executed.
 func (c *BaseContext) Abort() {
 	c.Index = abortIndex
 }
