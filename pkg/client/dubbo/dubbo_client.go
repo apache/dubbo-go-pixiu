@@ -20,7 +20,6 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
 import (
