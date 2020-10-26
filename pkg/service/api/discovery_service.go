@@ -20,6 +20,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
 import (
@@ -27,7 +28,6 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
@@ -62,7 +62,7 @@ func (ads *LocalMemoryApiDiscoveryService) AddApi(request service.DiscoveryReque
 		} else {
 			if v, ok := aj.Metadata.(map[string]interface{}); ok {
 				if d, ok := v["dubbo"]; ok {
-					dm := &dubbo.DubboMetadata{}
+					dm := &client.DubboMetadata{}
 					if err := mapstructure.Decode(d, dm); err != nil {
 						return *service.EmptyDiscoveryResponse, err
 					}
