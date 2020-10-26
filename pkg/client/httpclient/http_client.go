@@ -23,7 +23,7 @@ const (
 	JavaLangClassName   = "java.lang.Long"
 )
 
-// DubboMetadata dubbo metadata, api config
+// RestMetadata dubbo metadata, api config
 type RestMetadata struct {
 	ApplicationName      string   `yaml:"application_name" json:"application_name" mapstructure:"application_name"`
 	Group                string   `yaml:"group" json:"group" mapstructure:"group"`

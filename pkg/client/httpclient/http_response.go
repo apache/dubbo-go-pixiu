@@ -10,7 +10,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
-// NewDubboResponse create dubbo response
+// NewDubboResponse creates dubbo response
 func NewDubboResponse(data interface{}) *client.Response {
 	r, err := dealResp(data, true)
 	if err != nil {
