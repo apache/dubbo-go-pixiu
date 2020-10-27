@@ -18,6 +18,7 @@
 package filter
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/pool"
 	"io/ioutil"
 )
 
@@ -51,7 +52,7 @@ func RemoteCall() context.FilterFunc {
 
 func doRemoteCall(c *http.HttpContext) {
 	api := c.GetApi()
-	cl, e := client.SingletonPool().GetClient(api.IType)
+	cl, e := pool.SingletonPool().GetClient(api.IType)
 	if e != nil {
 		c.WriteFail()
 		c.AbortWithError("", e)
