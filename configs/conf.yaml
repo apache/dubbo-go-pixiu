@@ -49,11 +49,8 @@ static_resources:
       connect_timeout: "5s"
   pprofConf:
     enable: true
-    addr: "pprof"
-
-addresses:
-  - name: "pprof"
-    socket_address:
-      protocol_type: "HTTP"
-      address: "0.0.0.0"
-      port: 6060
+    address:
+      socket_address:
+        protocol_type: "HTTP"
+        address: "0.0.0.0"
+        port: 6060
