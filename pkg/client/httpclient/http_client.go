@@ -100,8 +100,9 @@ func (dc *HTTPClient) Close() error {
 }
 
 // Call invoke service
-func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) {
+func (dc *HTTPClient) Call(r *client.Request) (resp *client.Response, err error) {
 	//TODO：get Matched rest api url according to input url ,then make a http call.
+	return nil, nil
 }
 
 func (dc *HTTPClient) get(key string) *dg.GenericService {
