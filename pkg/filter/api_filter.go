@@ -37,7 +37,7 @@ func ApiFilter() context.FilterFunc {
 	return func(c context.Context) {
 		url := c.GetUrl()
 		method := c.GetMethod()
-
+		// [williamfeng323]TO-DO: get the API details from router which saved in constant.LocalMemoryApiDiscoveryService
 		if api, ok := model.EmptyApi.FindApi(url); ok {
 			if !api.MatchMethod(method) {
 				c.WriteWithStatus(http.StatusMethodNotAllowed, constant.Default405Body)
@@ -52,7 +52,7 @@ func ApiFilter() context.FilterFunc {
 				c.Abort()
 				return
 			}
-
+			// [williamfeng323]TO-DO: the c.Api method need to be updated to use the newest API definition
 			c.Api(api)
 			c.Next()
 		} else {
