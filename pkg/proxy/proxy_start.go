@@ -66,8 +66,14 @@ func (p *Proxy) Start() {
 
 	if conf.GetPprof().Enable {
 		addr := conf.GetPprof().Address.SocketAddress
-		go http.ListenAndServe(addr.Address + ":" + strconv.Itoa(addr.Port), nil)
-		logger.Infof("[dubboproxy go pprof] httpListener start by : %s", addr.Address + ":" + strconv.Itoa(addr.Port))
+		if len(addr.Address) == 0 {
+			addr.Address = constant.PprofDefaultAddress
+		}
+		if addr.Port == 0 {
+			addr.Port = constant.PprofDefaultPort
+		}
+		go http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
+		logger.Infof("[dubboproxy go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
 	}
 }
 

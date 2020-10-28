@@ -18,6 +18,6 @@
 package model
 
 type PprofConf struct {
-	Enable  bool    `yaml:"enable" json:"enable" mapstructure:"enable" default: false`
+	Enable  bool    `yaml:"enable" json:"enable" mapstructure:"enable" default:"false"`
 	Address Address `yaml:"address" json:"address" mapstructure:"address"`
 }
