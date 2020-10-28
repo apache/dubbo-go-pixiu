@@ -18,20 +18,20 @@
 package client
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // Request request for endpoint
 type Request struct {
 	Body   []byte
 	Header map[string]string
-	Api    *model.Api
+	API    *router.API
 }
 
 // NewRequest create a request
-func NewRequest(b []byte, api *model.Api) *Request {
+func NewRequest(b []byte, api *router.API) *Request {
 	return &Request{
 		Body: b,
-		Api:  api,
+		API:  api,
 	}
 }
