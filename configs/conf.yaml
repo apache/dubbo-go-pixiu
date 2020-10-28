@@ -51,6 +51,5 @@ static_resources:
     enable: true
     address:
       socket_address:
-        protocol_type: "HTTP"
         address: "0.0.0.0"
         port: 6060
