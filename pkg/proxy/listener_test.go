@@ -25,6 +25,10 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
@@ -32,7 +36,6 @@ import (
 	ctxHttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
-	"github.com/stretchr/testify/assert"
 )
 
 func getTestContext() *ctxHttp.HttpContext {
@@ -75,6 +78,7 @@ func getMockAPI(verb config.HTTPVerb, urlPattern string) router.API {
 		Method:     method,
 	}
 }
+
 func TestRouteRequest(t *testing.T) {
 	mockAPI := getMockAPI(config.MethodPost, "/mock/test")
 	mockAPI.Method.OnAir = false
