@@ -25,7 +25,7 @@ type HttpConnectionManager struct {
 	ServerName        string                 `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
 	IdleTimeoutStr    string                 `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
 	AccessLog         AccessLog              `yaml:"access_log" json:"access_log" mapstructure:"access_log"`
-	GenerateRequestId bool                   `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
+	GenerateRequestID bool                   `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
 }
 
 // CorsPolicy
