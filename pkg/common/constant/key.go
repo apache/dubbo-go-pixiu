@@ -17,6 +17,7 @@
 
 package constant
 
+// HTTP filter const
 const (
 	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
 	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"

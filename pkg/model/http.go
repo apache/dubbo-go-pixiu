@@ -21,7 +21,7 @@ package model
 type HttpConnectionManager struct {
 	RouteConfig       RouteConfiguration     `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
 	AuthorityConfig   AuthorityConfiguration `yaml:"authority_config" json:"authority_config" mapstructure:"authority_config"`
-	HttpFilters       []HttpFilter           `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
+	HTTPFilters       []HTTPFilter           `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
 	ServerName        string                 `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
 	IdleTimeoutStr    string                 `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
 	AccessLog         AccessLog              `yaml:"access_log" json:"access_log" mapstructure:"access_log"`
@@ -39,8 +39,8 @@ type CorsPolicy struct {
 	Enabled          bool `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
 }
 
-// HttpFilter
-type HttpFilter struct {
+// HTTPFilter
+type HTTPFilter struct {
 	Name   string      `yaml:"name" json:"name" mapstructure:"name"`
 	Config interface{} `yaml:"config" json:"config" mapstructure:"config"`
 }

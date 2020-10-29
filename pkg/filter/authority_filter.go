@@ -33,7 +33,7 @@ func init() {
 	extension.SetFilterFunc(constant.HTTPAuthorityFilter, Authority())
 }
 
-// blacklist/whitelist filter
+// Authority blacklist/whitelist filter
 func Authority() context.FilterFunc {
 	return func(c context.Context) {
 		authorityFilter(c.(*http.HttpContext))
@@ -69,7 +69,7 @@ func passCheck(item string, rule model.AuthorityRule) bool {
 
 	if (rule.Strategy == model.Blacklist && result == true) || (rule.Strategy == model.Whitelist && result == false) {
 		return false
-	} else {
-		return true
 	}
+
+	return true
 }
