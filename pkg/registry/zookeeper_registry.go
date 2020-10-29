@@ -31,8 +31,12 @@ import (
 	"github.com/apache/dubbo-go/remoting/zookeeper"
 )
 
+const (
+	rootPath = "/dubbo"
+)
+
 func init() {
-	var _ RegistryLoad = new(ZookeeperRegistryLoad)
+	var _ Loader = new(ZookeeperRegistryLoad)
 }
 
 // ConsulRegistryLoad load dubbo apis from consul registry
@@ -43,7 +47,7 @@ type ZookeeperRegistryLoad struct {
 	cluster string
 }
 
-func newZookeeperRegistryLoad(address, cluster string) (RegistryLoad, error) {
+func newZookeeperRegistryLoad(address, cluster string) (Loader, error) {
 	newClient, err := zookeeper.NewZookeeperClient("zkClient", strings.Split(address, ","), 15*time.Second)
 	if err != nil {
 		logger.Warnf("newZookeeperClient error:%v", err)
@@ -65,7 +69,6 @@ func (crl *ZookeeperRegistryLoad) GetCluster() (string, error) {
 
 // LoadAllServices load all services from consul registry
 func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]common.URL, error) {
-	rootPath := "/dubbo"
 	children, err := crl.client.GetChildren(rootPath)
 	if err != nil {
 		logger.Errorf("[zookeeper registry] get zk children error:%v", err)
@@ -80,12 +83,12 @@ func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]common.URL, error) {
 			return nil, err
 		}
 		for _, url := range urlStrs {
-			dubboUrl, err := common.NewURL(url)
+			dubboURL, err := common.NewURL(url)
 			if err != nil {
 				logger.Warnf("[zookeeper registry] transfer zk info to url error:%v", err)
 				continue
 			}
-			urls = append(urls, dubboUrl)
+			urls = append(urls, dubboURL)
 		}
 	}
 	return urls, nil

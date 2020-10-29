@@ -22,6 +22,7 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
@@ -32,12 +33,12 @@ func TransferURL2Api(url common.URL, clusterName string) []config.IntegrationReq
 		irs = append(irs, config.IntegrationRequest{
 			RequestType: url.Protocol,
 			DubboMetadata: dubbo.DubboMetadata{
-				ApplicationName: url.GetParam("name", ""),
-				Group:           url.GetParam("group", ""),
-				Version:         url.GetParam("version", ""),
-				Interface:       url.GetParam("interface", ""),
+				ApplicationName: url.GetParam(constant.NAME_KEY, ""),
+				Group:           url.GetParam(constant.GROUP_KEY, ""),
+				Version:         url.GetParam(constant.VERSION_KEY, ""),
+				Interface:       url.GetParam(constant.INTERFACE_KEY, ""),
 				Method:          method,
-				Retries:         url.GetParam("retries", ""),
+				Retries:         url.GetParam(constant.RETRIES_KEY, ""),
 				ClusterName:     clusterName,
 				ProtocolTypeStr: url.Protocol,
 			},

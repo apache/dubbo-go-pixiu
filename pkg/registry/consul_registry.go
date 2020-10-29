@@ -34,7 +34,7 @@ import (
 )
 
 func init() {
-	var _ RegistryLoad = new(ConsulRegistryLoad)
+	var _ Loader = new(ConsulRegistryLoad)
 }
 
 const (
@@ -49,7 +49,7 @@ type ConsulRegistryLoad struct {
 	cluster string
 }
 
-func newConsulRegistryLoad(address, cluster string) (RegistryLoad, error) {
+func newConsulRegistryLoad(address, cluster string) (Loader, error) {
 	config := &consul.Config{Address: address}
 	client, err := consul.NewClient(config)
 	if err != nil {
@@ -86,7 +86,7 @@ func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common
 	}
 
 	methodsParam := strings.Split(params.Get(constant.METHODS_KEY), ",")
-	var methods []string
+	var methods = make([]string, len(methodsParam))
 	for _, method := range methodsParam {
 		if method != "" {
 			methods = append(methods, method)
