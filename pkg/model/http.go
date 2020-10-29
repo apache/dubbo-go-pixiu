@@ -39,7 +39,7 @@ type CorsPolicy struct {
 	Enabled          bool `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
 }
 
-// HTTPFilter
+// HTTPFilter http filter
 type HTTPFilter struct {
 	Name   string      `yaml:"name" json:"name" mapstructure:"name"`
 	Config interface{} `yaml:"config" json:"config" mapstructure:"config"`
