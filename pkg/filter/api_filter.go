@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpApiFilter, ApiFilter())
+	extension.SetFilterFunc(constant.HTTPApiFilter, ApiFilter())
 }
 
 // ApiFilter url match api

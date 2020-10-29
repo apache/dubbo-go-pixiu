@@ -210,7 +210,7 @@ func (hc *HttpContext) BuildFilters() {
 
 	switch api.Method.IntegrationRequest.RequestType {
 	case config.DubboRequest:
-		hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.HttpTransferDubboFilter))
+		hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.HTTPTransferDubboFilter))
 	case config.HTTPRequest:
 		break
 	}

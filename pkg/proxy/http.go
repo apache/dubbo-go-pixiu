@@ -39,7 +39,7 @@ func DefaultHttpConnectionManager() *model.HttpConnectionManager {
 		},
 		HttpFilters: []model.HttpFilter{
 			{
-				Name: constant.HttpRouterFilter,
+				Name: constant.HTTPRouterFilter,
 			},
 		},
 	}

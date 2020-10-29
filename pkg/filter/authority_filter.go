@@ -30,7 +30,7 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpAuthorityFilter, Authority())
+	extension.SetFilterFunc(constant.HTTPAuthorityFilter, Authority())
 }
 
 // blacklist/whitelist filter
