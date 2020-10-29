@@ -15,27 +15,14 @@
  * limitations under the License.
  */
 
-package extension
+package router
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
-var (
-	apiDiscoveryServiceMap = map[string]service.APIDiscoveryService{}
-)
-
-// SetAPIDiscoveryService will store the @filter and @name
-func SetAPIDiscoveryService(name string, ads service.APIDiscoveryService) {
-	apiDiscoveryServiceMap[name] = ads
-}
-
-// GetMustAPIDiscoveryService will return the service.APIDiscoveryService
-// if not found, it will panic
-func GetMustAPIDiscoveryService(name string) service.APIDiscoveryService {
-	if ds, ok := apiDiscoveryServiceMap[name]; ok {
-		return ds
-	}
-
-	panic("api discovery service for " + name + " is not existing!")
+// API describes the minimum configuration of an RESTful api configure in gateway
+type API struct {
+	URLPattern    string `json:"urlPattern" yaml:"urlPattern"`
+	config.Method `json:"method,inline" yaml:"method,inline"`
 }

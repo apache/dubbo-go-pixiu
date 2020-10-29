@@ -51,7 +51,7 @@ func HttpDubbo() context.FilterFunc {
 }
 
 func doDubbo(c *http.HttpContext) {
-	api := c.GetApi()
+	api := c.GetAPI()
 
 	if bytes, err := ioutil.ReadAll(c.Request.Body); err != nil {
 		logger.Errorf("[dubboproxy go] read body err:%v!", err)

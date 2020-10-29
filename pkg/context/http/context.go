@@ -29,8 +29,10 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // HttpContext http context
@@ -39,7 +41,7 @@ type HttpContext struct {
 	HttpConnectionManager model.HttpConnectionManager
 	FilterChains          []model.FilterChain
 	Listener              *model.Listener
-	api                   *model.Api
+	api                   router.API
 
 	Request   *http.Request
 	writermem responseWriter
@@ -110,12 +112,17 @@ func (hc *HttpContext) GetMethod() string {
 
 // Api
 func (hc *HttpContext) Api(api *model.Api) {
+	// hc.api = api
+}
+
+// API sets the API to http context
+func (hc *HttpContext) API(api router.API) {
 	hc.api = api
 }
 
-// GetApi get api
-func (hc *HttpContext) GetApi() *model.Api {
-	return hc.api
+// GetAPI get api
+func (hc *HttpContext) GetAPI() *router.API {
+	return &hc.api
 }
 
 func (hc *HttpContext) GetClientIP() string {
@@ -191,17 +198,24 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 
 // BuildFilters build filter, from config http_filters
 func (hc *HttpContext) BuildFilters() {
-	var ff []context.FilterFunc
+	var filterFuncs []context.FilterFunc
+	api := hc.GetAPI()
 
-	if hc.HttpConnectionManager.HttpFilters == nil {
+	if api == nil {
 		return
 	}
-
-	for _, v := range hc.HttpConnectionManager.HttpFilters {
-		ff = append(ff, extension.GetMustFilterFunc(v.Name))
+	for _, v := range api.Method.Filters {
+		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
 
-	hc.AppendFilterFunc(ff...)
+	switch api.Method.IntegrationRequest.RequestType {
+	case config.DubboRequest:
+		hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.HttpTransferDubboFilter))
+	case config.HTTPRequest:
+		break
+	}
+
+	hc.AppendFilterFunc(filterFuncs...)
 }
 
 // ResetWritermen reset writermen
