@@ -128,16 +128,16 @@ func (hc *HttpContext) GetAPI() *router.API {
 func (hc *HttpContext) GetClientIP() string {
 	xForwardedFor := hc.Request.Header.Get("X-Forwarded-For")
 	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
-	if ip != "" {
+	if len(ip) != 0 {
 		return ip
 	}
 
 	ip = strings.TrimSpace(hc.Request.Header.Get("X-Real-Ip"))
-	if ip != "" {
+	if len(ip) != 0 {
 		return ip
 	}
 
-	if ip, _, err := net.SplitHostPort(strings.TrimSpace(hc.Request.RemoteAddr)); err == nil {
+	if ip, _, err := net.SplitHostPort(strings.TrimSpace(hc.Request.RemoteAddr)); err == nil && len(ip) != 0 {
 		return ip
 	}
 
