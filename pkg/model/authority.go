@@ -17,10 +17,12 @@
 
 package model
 
+// AuthorityConfiguration blacklist/whitelist config
 type AuthorityConfiguration struct {
-	Rules []AuthorityRule `yaml:"authority_rule" json:"authority_rule"` //Rules the authority rule list
+	Rules []AuthorityRule `yaml:"authority_rules" json:"authority_rules"` //Rules the authority rule list
 }
 
+// AuthorityRule blacklist/whitelist rule
 type AuthorityRule struct {
 	Strategy StrategyType `yaml:"strategy" json:"strategy"` //Strategy the authority rule strategy
 	Limit    LimitType    `yaml:"limit" json:"limit"`       //Limit the authority rule limit
@@ -30,6 +32,7 @@ type AuthorityRule struct {
 // StrategyType the authority rule strategy enum
 type StrategyType int32
 
+// StrategyType strategy type const
 const (
 	Whitelist StrategyType = 0
 	Blacklist StrategyType = 1
@@ -50,6 +53,7 @@ var StrategyTypeValue = map[string]int32{
 // LimitType the authority rule limit enum
 type LimitType int32
 
+// LimitType limit type const
 const (
 	IP  LimitType = 0
 	App LimitType = 1

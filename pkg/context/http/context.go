@@ -125,6 +125,7 @@ func (hc *HttpContext) GetAPI() *router.API {
 	return &hc.api
 }
 
+// GetClientIP get client IP
 func (hc *HttpContext) GetClientIP() string {
 	xForwardedFor := hc.Request.Header.Get("X-Forwarded-For")
 	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
@@ -144,6 +145,7 @@ func (hc *HttpContext) GetClientIP() string {
 	return ""
 }
 
+// GetApplicationName get application name
 func (hc *HttpContext) GetApplicationName() string {
 	if u, err := url.Parse(hc.Request.RequestURI); err == nil {
 		return strings.Split(u.Path, "/")[0]
