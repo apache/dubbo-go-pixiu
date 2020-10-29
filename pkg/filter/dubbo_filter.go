@@ -40,7 +40,7 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpTransferDubboFilter, HttpDubbo())
+	extension.SetFilterFunc(constant.HTTPTransferDubboFilter, HttpDubbo())
 }
 
 // HttpDubbo http 2 dubbo
