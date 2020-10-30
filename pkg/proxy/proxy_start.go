@@ -18,21 +18,16 @@
 package proxy
 
 import (
-	"encoding/json"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"sync"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
 )
 
 // Proxy
@@ -66,54 +61,7 @@ func (p *Proxy) Start() {
 func (p *Proxy) beforeStart() {
 	dubbo.SingleDubboClient().Init()
 
-	// TODO mock api register
-	ads := extension.GetMustApiDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-
-	a1 := &model.Api{
-		Name:     "/api/v1/test-dubbo/user",
-		ITypeStr: "HTTP",
-		OTypeStr: "DUBBO",
-		Method:   "POST",
-		Status:   1,
-		Metadata: map[string]client.DubboMetadata{
-			"dubbo": {
-				ApplicationName: "BDTService",
-				Group:           "test",
-				Version:         "1.0.0",
-				Interface:       "com.ikurento.user.UserProvider",
-				Method:          "queryUser",
-				Types: []string{
-					"com.ikurento.user.User",
-				},
-				ClusterName: "test_dubbo",
-			},
-		},
-	}
-	a2 := &model.Api{
-		Name:     "/api/v1/test-dubbo/getUserByName",
-		ITypeStr: "HTTP",
-		OTypeStr: "DUBBO",
-		Method:   "POST",
-		Status:   1,
-		Metadata: map[string]client.DubboMetadata{
-			"dubbo": {
-				ApplicationName: "BDTService",
-				Group:           "test",
-				Version:         "1.0.0",
-				Interface:       "com.ikurento.user.UserProvider",
-				Method:          "GetUser",
-				Types: []string{
-					"java.lang.String",
-				},
-				ClusterName: "test_dubbo",
-			},
-		},
-	}
-
-	j1, _ := json.Marshal(a1)
-	j2, _ := json.Marshal(a2)
-	ads.AddApi(*service.NewDiscoveryRequest(j1))
-	ads.AddApi(*service.NewDiscoveryRequest(j2))
+	api.InitAPIsFromConfig(config.GetAPIConf())
 }
 
 // NewProxy create proxy

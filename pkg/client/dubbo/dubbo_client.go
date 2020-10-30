@@ -29,10 +29,11 @@ import (
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -76,6 +77,7 @@ func NewDubboClient() *DubboClient {
 // Init init dubbo, config mapping can do here
 func (dc *DubboClient) Init() error {
 	dgCfg = dg.GetConsumerConfig()
+	//can change config here
 	dg.SetConsumerConfig(dgCfg)
 	dg.Load()
 	dc.GenericServicePool = make(map[string]*dg.GenericService)
@@ -89,15 +91,15 @@ func (dc *DubboClient) Close() error {
 
 // Call invoke service
 func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error) {
-	dm := r.Api.Metadata.(*client.DubboMetadata)
+	dm := r.API.Method.IntegrationRequest
 	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
 
 	var reqData []interface{}
 
-	l := len(dm.Types)
+	l := len(dm.ParamTypes)
 	switch {
 	case l == 1:
-		t := dm.Types[0]
+		t := dm.ParamTypes[0]
 		switch t {
 		case JavaStringClassName:
 			var s string
@@ -127,14 +129,18 @@ func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error)
 		}
 	}
 
-	logger.Debugf("[dubbogo proxy] invoke, method:%v, types:%v, reqData:%v", dm.Method, dm.Types, reqData)
+	logger.Debugf("[dubbogo proxy] invoke, method:%s, types:%s, reqData:%s", dm.Method, dm.ParamTypes, reqData)
 
-	if resp, err := gs.Invoke(context.Background(), []interface{}{dm.Method, dm.Types, reqData}); err != nil {
+	rst, err := gs.Invoke(context.Background(), []interface{}{dm.Method, dm.ParamTypes, reqData})
+	if err != nil {
 		return *client.EmptyResponse, err
-	} else {
-		logger.Debugf("[dubbogo proxy] dubbo client resp:%v", resp)
-		return *NewDubboResponse(resp), nil
 	}
+	if rst == nil {
+		return client.Response{}, nil
+	}
+	resp = rst.(client.Response)
+	logger.Debugf("[dubbogo proxy] dubbo client resp:%v", resp)
+	return *NewDubboResponse(resp), nil
 }
 
 func (dc *DubboClient) get(key string) *dg.GenericService {
@@ -153,9 +159,9 @@ func (dc *DubboClient) check(key string) bool {
 	}
 }
 
-func (dc *DubboClient) create(key string, dm *client.DubboMetadata) *dg.GenericService {
-	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
-	referenceConfig.InterfaceName = dm.Interface
+func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *dg.GenericService {
+	referenceConfig := dg.NewReferenceConfig(irequest.Interface, context.TODO())
+	referenceConfig.InterfaceName = irequest.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
 	var registers []string
 	for k := range dgCfg.Registries {
@@ -163,19 +169,19 @@ func (dc *DubboClient) create(key string, dm *client.DubboMetadata) *dg.GenericS
 	}
 	referenceConfig.Registry = strings.Join(registers, ",")
 
-	if dm.ProtocolTypeStr == "" {
+	if len(irequest.Protocol) == 0 {
 		referenceConfig.Protocol = dubbo.DUBBO
 	} else {
-		referenceConfig.Protocol = dm.ProtocolTypeStr
+		referenceConfig.Protocol = irequest.Protocol
 	}
 
-	referenceConfig.Version = dm.Version
-	referenceConfig.Group = dm.Group
+	referenceConfig.Version = irequest.Version
+	referenceConfig.Group = irequest.Group
 	referenceConfig.Generic = true
-	if dm.Retries == "" {
+	if len(irequest.Retries) == 0 {
 		referenceConfig.Retries = "3"
 	} else {
-		referenceConfig.Retries = dm.Retries
+		referenceConfig.Retries = irequest.Retries
 	}
 	dc.mLock.Lock()
 	defer dc.mLock.Unlock()
@@ -188,11 +194,11 @@ func (dc *DubboClient) create(key string, dm *client.DubboMetadata) *dg.GenericS
 }
 
 // Get find a dubbo GenericService
-func (dc *DubboClient) Get(interfaceName, version, group string, dm *client.DubboMetadata) *dg.GenericService {
-	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
+func (dc *DubboClient) Get(interfaceName, version, group string, ir config.IntegrationRequest) *dg.GenericService {
+	key := strings.Join([]string{ir.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
-	} else {
-		return dc.create(key, dm)
 	}
+
+	return dc.create(key, ir)
 }
