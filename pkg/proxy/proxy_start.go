@@ -18,11 +18,11 @@
 package proxy
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"sync"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
