@@ -20,6 +20,8 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +49,8 @@ var (
 	_DubboClient *DubboClient
 	onceClient   = sync.Once{}
 	dgCfg        dg.ConsumerConfig
+
+	clusterCache = make(map[string]*dg.ConsumerConfig, 4)
 )
 
 // DubboClient client to generic invoke dubbo
@@ -76,12 +80,35 @@ func NewDubboClient() *DubboClient {
 
 // Init init dubbo, config mapping can do here
 func (dc *DubboClient) Init() error {
-	dgCfg = dg.GetConsumerConfig()
+	// register config
+	for i := range config.GetBootstrap().StaticResources.Clusters {
+		cluster := config.GetBootstrap().StaticResources.Clusters[i]
+		clusterCache[cluster.Name] = &dg.ConsumerConfig{
+			Registries: toDubboRegistries(cluster.Registries),
+		}
+	}
+
+	//dgCfg = dg.GetConsumerConfig()
 	//can change config here
-	dg.SetConsumerConfig(dgCfg)
-	dg.Load()
+	//dg.SetConsumerConfig(dgCfg)
+	//dg.Load()
 	dc.GenericServicePool = make(map[string]*dg.GenericService)
 	return nil
+}
+
+func toDubboRegistries(registries map[string]model.Registry) map[string]*dg.RegistryConfig {
+	var result = make(map[string]*dg.RegistryConfig, 4)
+	for k, v := range registries {
+		result[k] = &dg.RegistryConfig{
+			// TODO
+			Protocol:   k,
+			TimeoutStr: v.Timeout,
+			Address:    v.Address,
+			Username:   v.Username,
+			Password:   v.Password,
+		}
+	}
+	return result
 }
 
 // Close
@@ -92,7 +119,11 @@ func (dc *DubboClient) Close() error {
 // Call invoke service
 func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error) {
 	dm := r.API.Method.IntegrationRequest
-	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
+	gs, err := dc.Get(r.API.ClusterName, dm.Interface, dm.Version, dm.Group, dm)
+
+	if err != nil {
+		return client.Response{}, err
+	}
 
 	var reqData []interface{}
 
@@ -159,12 +190,21 @@ func (dc *DubboClient) check(key string) bool {
 	}
 }
 
-func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *dg.GenericService {
+func (dc *DubboClient) create(clusterName, key string, irequest config.IntegrationRequest) (*dg.GenericService, error) {
 	referenceConfig := dg.NewReferenceConfig(irequest.Interface, context.TODO())
 	referenceConfig.InterfaceName = irequest.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
+
+	cl, ok := clusterCache[clusterName]
+	if !ok {
+		return nil, errors.New("cluster not exist")
+	}
+	if len(cl.Registries) < 1 {
+		return nil, errors.New("cluster no registries")
+	}
+
 	var registers []string
-	for k := range dgCfg.Registries {
+	for k := range cl.Registries {
 		registers = append(registers, k)
 	}
 	referenceConfig.Registry = strings.Join(registers, ",")
@@ -190,15 +230,15 @@ func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *d
 	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 
 	dc.GenericServicePool[key] = clientService
-	return clientService
+	return clientService, nil
 }
 
 // Get find a dubbo GenericService
-func (dc *DubboClient) Get(interfaceName, version, group string, ir config.IntegrationRequest) *dg.GenericService {
-	key := strings.Join([]string{ir.ApplicationName, interfaceName, version, group}, "_")
+func (dc *DubboClient) Get(clusterName, interfaceName, version, group string, ir config.IntegrationRequest) (*dg.GenericService, error) {
+	key := strings.Join([]string{clusterName, ir.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
-		return dc.get(key)
+		return dc.get(key), nil
 	}
 
-	return dc.create(key, ir)
+	return dc.create(clusterName, key, ir)
 }
