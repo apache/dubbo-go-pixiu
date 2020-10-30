@@ -22,13 +22,13 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/httpclient"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"sync"
 )
 
 //ClientPool  a pool of client.
 type ClientPool struct {
-	poolMap map[model.ApiType]*sync.Pool
+	poolMap map[config.RequestType]*sync.Pool
 }
 
 var (
@@ -38,14 +38,14 @@ var (
 
 func newClientPool() *ClientPool {
 	clientPool := &ClientPool{
-		poolMap: make(map[model.ApiType]*sync.Pool),
+		poolMap: make(map[config.RequestType]*sync.Pool),
 	}
-	clientPool.poolMap[model.DUBBO] = &sync.Pool{
+	clientPool.poolMap[config.DubboRequest] = &sync.Pool{
 		New: func() interface{} {
 			return dubbo.NewDubboClient()
 		},
 	}
-	clientPool.poolMap[model.REST] = &sync.Pool{
+	clientPool.poolMap[config.HTTPRequest] = &sync.Pool{
 		New: func() interface{} {
 			return httpclient.NewHttpClient()
 		},
@@ -65,7 +65,7 @@ func SingletonPool() *ClientPool {
 }
 
 // GetClient  a factory method to get a client according to apiType .
-func (pool *ClientPool) GetClient(t model.ApiType) (client.Client, error) {
+func (pool *ClientPool) GetClient(t config.RequestType) (client.Client, error) {
 	if pool.poolMap[t] != nil {
 		return pool.poolMap[t].Get().(client.Client), nil
 	}

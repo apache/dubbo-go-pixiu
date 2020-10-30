@@ -26,7 +26,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
@@ -178,13 +177,7 @@ func (hc *HttpContext) BuildFilters() {
 		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
 
-	switch api.Method.IntegrationRequest.RequestType {
-	case config.DubboRequest:
-		hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.HttpTransferDubboFilter))
-	case config.HTTPRequest:
-		break
-	}
-
+	hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
 	hc.AppendFilterFunc(filterFuncs...)
 }
 

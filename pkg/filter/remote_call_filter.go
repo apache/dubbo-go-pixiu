@@ -30,13 +30,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/pool"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/pool"
 )
 
 func init() {
@@ -52,7 +52,7 @@ func RemoteCall() context.FilterFunc {
 
 func doRemoteCall(c *http.HttpContext) {
 	api := c.GetAPI()
-	cl, e := pool.SingletonPool().GetClient(api.IType)
+	cl, e := pool.SingletonPool().GetClient(api.Method.IntegrationRequest.RequestType)
 	if e != nil {
 		c.WriteFail()
 		c.AbortWithError("", e)
