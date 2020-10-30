@@ -18,12 +18,10 @@
 package config
 
 import (
-
 	perrors "github.com/pkg/errors"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"sync"
