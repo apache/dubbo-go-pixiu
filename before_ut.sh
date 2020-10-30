@@ -16,28 +16,10 @@
 
 zkJarName="zookeeper-3.4.9-fatjar.jar"
 remoteJarUrl="https://github.com/dubbogo/resources/raw/master/zookeeper-4unitest/contrib/fatjar/${zkJarName}"
-zkJarPath="remoting/zookeeper/zookeeper-4unittest/contrib/fatjar"
+zkJarPath="registry/zookeeper/zookeeper-4unittest/contrib/fatjar"
 zkJar="${zkJarPath}/${zkJarName}"
 
 if [ ! -f "${zkJar}" ]; then
     mkdir -p ${zkJarPath}
     wget -P "${zkJarPath}" ${remoteJarUrl}
 fi
-
-mkdir -p config_center/zookeeper/zookeeper-4unittest/contrib/fatjar
-cp ${zkJar} config_center/zookeeper/zookeeper-4unittest/contrib/fatjar
-
-mkdir -p registry/zookeeper/zookeeper-4unittest/contrib/fatjar
-cp ${zkJar} registry/zookeeper/zookeeper-4unittest/contrib/fatjar
-
-mkdir -p cluster/router/chain/zookeeper-4unittest/contrib/fatjar
-cp ${zkJar} cluster/router/chain/zookeeper-4unittest/contrib/fatjar
-
-mkdir -p cluster/router/condition/zookeeper-4unittest/contrib/fatjar
-cp ${zkJar} cluster/router/condition/zookeeper-4unittest/contrib/fatjar
-
-mkdir -p cluster/router/tag/zookeeper-4unittest/contrib/fatjar
-cp ${zkJar} cluster/router/tag/zookeeper-4unittest/contrib/fatjar
-
-mkdir -p metadata/report/zookeeper/zookeeper-4unittest/contrib/fatjar
-cp ${zkJar} metadata/report/zookeeper/zookeeper-4unittest/contrib/fatjar
