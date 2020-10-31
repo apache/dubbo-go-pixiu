@@ -32,7 +32,7 @@ import (
 )
 
 func TestPanic(t *testing.T) {
-	c := MockHttpContext(testPanicFilter)
+	c := MockHTTPContext(testPanicFilter)
 	c.Next()
 	// print
 	// 500
@@ -45,7 +45,7 @@ var testPanicFilter = func(c selfcontext.Context) {
 }
 
 func TestTimeout(t *testing.T) {
-	c := MockHttpContext(testTimeoutFilter)
+	c := MockHTTPContext(testTimeoutFilter)
 	c.Next()
 	// print
 	// 503
@@ -57,7 +57,7 @@ var testTimeoutFilter = func(c selfcontext.Context) {
 }
 
 func TestNormal(t *testing.T) {
-	c := MockHttpContext(testNormalFilter)
+	c := MockHTTPContext(testNormalFilter)
 	c.Next()
 }
 
@@ -66,7 +66,7 @@ var testNormalFilter = func(c selfcontext.Context) {
 	fmt.Println("normal call")
 }
 
-func MockHttpContext(fc ...selfcontext.FilterFunc) *selfhttp.HttpContext {
+func MockHTTPContext(fc ...selfcontext.FilterFunc) *selfhttp.HttpContext {
 	result := &selfhttp.HttpContext{
 		BaseContext: &selfcontext.BaseContext{
 			Index: -1,

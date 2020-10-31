@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package recovery
 
 import (
@@ -14,7 +31,7 @@ import (
 )
 
 func TestRecovery(t *testing.T) {
-	c := MockHttpContext(func(c selfcontext.Context) {
+	c := MockHTTPContext(func(c selfcontext.Context) {
 		time.Sleep(time.Millisecond * 100)
 		// panic
 		var m map[string]string
@@ -26,7 +43,7 @@ func TestRecovery(t *testing.T) {
 	// "assignment to entry in nil map"
 }
 
-func MockHttpContext(fc ...selfcontext.FilterFunc) *selfhttp.HttpContext {
+func MockHTTPContext(fc ...selfcontext.FilterFunc) *selfhttp.HttpContext {
 	result := &selfhttp.HttpContext{
 		BaseContext: &selfcontext.BaseContext{
 			Index: -1,
