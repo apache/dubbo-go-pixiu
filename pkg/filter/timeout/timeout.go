@@ -34,8 +34,6 @@ import (
 const (
 	// timeout code
 	TimeoutError = "S005"
-	// unknown code
-	UnknownError = "S003"
 )
 
 func init() {
