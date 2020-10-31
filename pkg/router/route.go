@@ -36,6 +36,7 @@ import (
 type Node struct {
 	fullPath string
 	wildcard bool
+	filters  []string
 	methods  map[config.HTTPVerb]*config.Method
 }
 
@@ -46,9 +47,9 @@ type Route struct {
 	wildcardTree *avltree.Tree
 }
 
-// Put put a key val into the tree
-func (rt *Route) Put(fullPath string, method config.Method) error {
-	lowerCasePath := strings.ToLower(fullPath)
+// PutAPI puts an api into the resource
+func (rt *Route) PutAPI(api API) error {
+	lowerCasePath := strings.ToLower(api.URLPattern)
 	node, ok := rt.findNode(lowerCasePath)
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
@@ -56,7 +57,7 @@ func (rt *Route) Put(fullPath string, method config.Method) error {
 		wildcard := strings.Contains(lowerCasePath, constant.PathParamIdentifier)
 		rn := &Node{
 			fullPath: lowerCasePath,
-			methods:  map[config.HTTPVerb]*config.Method{method.HTTPVerb: &method},
+			methods:  map[config.HTTPVerb]*config.Method{api.Method.HTTPVerb: &api.Method},
 			wildcard: wildcard,
 		}
 		if wildcard {
@@ -65,19 +66,52 @@ func (rt *Route) Put(fullPath string, method config.Method) error {
 		rt.tree.Put(lowerCasePath, rn)
 		return nil
 	}
-	return node.putMethod(method)
+	return node.putMethod(api.Method)
 }
 
-// UpdateMethod update the api method in the existing router node
-func (rt *Route) UpdateMethod(fullPath string, verb config.HTTPVerb, method config.Method) error {
-	node, found := rt.findNode(fullPath)
+func (node *Node) putMethod(method config.Method) error {
+	if _, ok := node.methods[method.HTTPVerb]; ok {
+		return errors.Errorf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath)
+	}
+	node.methods[method.HTTPVerb] = &method
+	return nil
+}
+
+// UpdateAPI update the api method in the existing router node
+func (rt *Route) UpdateAPI(api API) error {
+	node, found := rt.findNode(api.URLPattern)
 	if found {
-		if _, ok := node.methods[verb]; ok {
+		if _, ok := node.methods[api.Method.HTTPVerb]; ok {
 			rt.lock.Lock()
 			defer rt.lock.Unlock()
-			node.methods[verb] = &method
+			node.methods[api.Method.HTTPVerb] = &api.Method
 		}
 	}
+	return nil
+}
+
+// FindAPI returns the api that meets the
+func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool) {
+	if n, found := rt.findNode(fullPath); found {
+		rt.lock.RLock()
+		defer rt.lock.RUnlock()
+		if method, ok := n.methods[httpverb]; ok {
+			return &API{
+				URLPattern: n.fullPath,
+				Method:     *method,
+			}, ok
+		}
+	}
+	return nil, false
+}
+
+// UpdateResource updates the resource configuration
+func (rt *Route) UpdateResource() error {
+	return nil
+}
+
+// PutResource creates the resource into the tree
+func (rt *Route) PutResource() error {
 	return nil
 }
 
@@ -95,17 +129,6 @@ func (rt *Route) findNode(fullPath string) (*Node, bool) {
 	return n.(*Node), found
 }
 
-// FindMethod returns the api that meets the
-func (rt *Route) FindMethod(fullPath string, httpverb config.HTTPVerb) (*config.Method, bool) {
-	if n, found := rt.findNode(fullPath); found {
-		rt.lock.RLock()
-		defer rt.lock.RUnlock()
-		method, ok := n.methods[httpverb]
-		return method, ok
-	}
-	return nil, false
-}
-
 func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
@@ -117,14 +140,6 @@ func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
 		}
 	}
 	return nil, false
-}
-
-func (node *Node) putMethod(method config.Method) error {
-	if _, ok := node.methods[method.HTTPVerb]; ok {
-		return errors.Errorf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath)
-	}
-	node.methods[method.HTTPVerb] = &method
-	return nil
 }
 
 // wildcardMatch validate if the checkPath meets the wildcardPath,

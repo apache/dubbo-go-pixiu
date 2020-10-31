@@ -32,9 +32,8 @@ func LoadYMLConfig(confProFile string) ([]byte, error) {
 	if len(confProFile) == 0 {
 		return nil, perrors.Errorf("configure file name is nil")
 	}
-
-	if path.Ext(confProFile) != ".yml" {
-		return nil, perrors.Errorf("configure file name{%v} suffix must be .yml", confProFile)
+	if path.Ext(confProFile) != ".yml" && path.Ext(confProFile) != ".yaml" {
+		return nil, perrors.Errorf("configure file name{%v} suffix must be .yml or .yaml", confProFile)
 	}
 
 	return ioutil.ReadFile(confProFile)
