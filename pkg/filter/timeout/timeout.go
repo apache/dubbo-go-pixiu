@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	// timeout code
+	// TimeoutError timeout code
 	TimeoutError = "S005"
 )
 
