@@ -20,7 +20,6 @@ package timeout
 import (
 	"context"
 	"fmt"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
 	"net/http"
 	"testing"
 	"time"
@@ -29,6 +28,7 @@ import (
 import (
 	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	selfhttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
 )
 
 func TestPanic(t *testing.T) {
