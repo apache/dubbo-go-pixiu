@@ -8,7 +8,8 @@ env:
 install: true
 
 script:
-  - go fmt ./... && [[ -z `git status -s` ]]
+  - go fmt ./...
+  - git status -s
   - echo 'start unit-test'
   - go mod vendor && go test ./... -coverprofile=coverage.txt -covermode=atomic
 
