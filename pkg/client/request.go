@@ -19,19 +19,19 @@ package client
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"net/http"
 )
 
 // Request request for endpoint
 type Request struct {
-	Body   []byte
-	Header map[string]string
-	API    *router.API
+	IngressRequest *http.Request
+	API            *router.API
 }
 
 // NewRequest create a request
-func NewRequest(b []byte, api *router.API) *Request {
+func NewRequest(request *http.Request, api *router.API) *Request {
 	return &Request{
-		Body: b,
-		API:  api,
+		IngressRequest: request,
+		API:            api,
 	}
 }

@@ -19,6 +19,8 @@ package httpclient
 
 import (
 	"context"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -100,9 +102,17 @@ func (dc *HTTPClient) Close() error {
 }
 
 // Call invoke service
-func (dc *HTTPClient) Call(r *client.Request) (resp *client.Response, err error) {
-	//TODO：get Matched rest api url according to input url ,then make a http call.
-	return nil, nil
+func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) {
+
+	var urlStr = r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetUrl
+	var httpClient = &http.Client{Timeout: 5 * time.Second}
+	var request = r.IngressRequest.Clone(context.Background())
+	request.URL, _ = url.ParseRequestURI(urlStr)
+	//TODO header replace, url rewrite....
+
+	var tmpRet, e = httpClient.Do(request)
+	var ret = client.Response{Data: tmpRet}
+	return ret, e
 }
 
 func (dc *HTTPClient) get(key string) *dg.GenericService {
