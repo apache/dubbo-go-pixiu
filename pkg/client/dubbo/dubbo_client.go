@@ -93,7 +93,7 @@ func (dc *DubboClient) Close() error {
 // Call invoke service
 func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error) {
 	dm := r.API.Method.IntegrationRequest
-	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
+	gs := dc.Get(dm.Interface, dm.DubboBackendConfig.Version, dm.Group, dm)
 
 	var reqData []interface{}
 	var indate []byte
@@ -178,19 +178,19 @@ func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *d
 	}
 	referenceConfig.Registry = strings.Join(registers, ",")
 
-	if len(irequest.Protocol) == 0 {
+	if len(irequest.DubboBackendConfig.Protocol) == 0 {
 		referenceConfig.Protocol = dubbo.DUBBO
 	} else {
-		referenceConfig.Protocol = irequest.Protocol
+		referenceConfig.Protocol = irequest.DubboBackendConfig.Protocol
 	}
 
-	referenceConfig.Version = irequest.Version
+	referenceConfig.Version = irequest.DubboBackendConfig.Version
 	referenceConfig.Group = irequest.Group
 	referenceConfig.Generic = true
-	if len(irequest.Retries) == 0 {
+	if len(irequest.DubboBackendConfig.Retries) == 0 {
 		referenceConfig.Retries = "3"
 	} else {
-		referenceConfig.Retries = irequest.Retries
+		referenceConfig.Retries = irequest.DubboBackendConfig.Retries
 	}
 	dc.mLock.Lock()
 	defer dc.mLock.Unlock()
@@ -204,7 +204,7 @@ func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *d
 
 // Get find a dubbo GenericService
 func (dc *DubboClient) Get(interfaceName, version, group string, ir config.IntegrationRequest) *dg.GenericService {
-	key := strings.Join([]string{ir.ApplicationName, interfaceName, version, group}, "_")
+	key := strings.Join([]string{ir.DubboBackendConfig.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
 	}
