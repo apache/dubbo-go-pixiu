@@ -38,7 +38,7 @@ import (
 
 const providerUrlstr = "dubbo://127.0.0.1:20000/com.ikurento.user.UserProvider?methods.GetUser.retries=1"
 
-func newMockZkRegistry(t *testing.T, providerUrl common.URL, opts ...zookeeper.Option) (*zk.TestCluster, error) {
+func newMockZkRegistry(t *testing.T, providerURL common.URL, opts ...zookeeper.Option) (*zk.TestCluster, error) {
 	var (
 		err    error
 		c      *zk.TestCluster
@@ -56,26 +56,26 @@ func newMockZkRegistry(t *testing.T, providerUrl common.URL, opts ...zookeeper.O
 	)
 	params = url.Values{}
 
-	providerUrl.RangeParams(func(key, value string) bool {
+	providerURL.RangeParams(func(key, value string) bool {
 		params.Add(key, value)
 		return true
 	})
 
-	dubboPath = fmt.Sprintf("/dubbo/%s/%s", url.QueryEscape(providerUrl.Service()), common.DubboNodes[common.PROVIDER])
+	dubboPath = fmt.Sprintf("/dubbo/%s/%s", url.QueryEscape(providerURL.Service()), common.DubboNodes[common.PROVIDER])
 	err = client.CreateWithValue(dubboPath, []byte(""))
 	assert.Nil(t, err)
 
-	if len(providerUrl.Methods) > 0 {
-		params.Add(constant.METHODS_KEY, strings.Join(providerUrl.Methods, ","))
+	if len(providerURL.Methods) > 0 {
+		params.Add(constant.METHODS_KEY, strings.Join(providerURL.Methods, ","))
 	}
 	var host string
-	if providerUrl.Ip == "" {
+	if providerURL.Ip == "" {
 		host = ""
 	} else {
-		host = providerUrl.Ip
+		host = providerURL.Ip
 	}
-	host += ":" + providerUrl.Port
-	rawURL = fmt.Sprintf("%s://%s%s?%s", providerUrl.Protocol, host, providerUrl.Path, params.Encode())
+	host += ":" + providerURL.Port
+	rawURL = fmt.Sprintf("%s://%s%s?%s", providerURL.Protocol, host, providerURL.Path, params.Encode())
 
 	encodedURL = url.QueryEscape(rawURL)
 	dubboPath = strings.ReplaceAll(dubboPath, "$", "%24")
@@ -89,13 +89,13 @@ func newMockZkRegistry(t *testing.T, providerUrl common.URL, opts ...zookeeper.O
 	return c, nil
 }
 
-func registerProvider(providerUrl common.URL, t *testing.T) (*zk.TestCluster, error) {
-	return newMockZkRegistry(t, providerUrl)
+func registerProvider(providerURL common.URL, t *testing.T) (*zk.TestCluster, error) {
+	return newMockZkRegistry(t, providerURL)
 }
 
 func TestZookeeperRegistryLoad_GetCluster(t *testing.T) {
-	providerUrl, _ := common.NewURL(providerUrlstr)
-	testCluster, err := registerProvider(providerUrl, t)
+	providerURL, _ := common.NewURL(providerUrlstr)
+	testCluster, err := registerProvider(providerURL, t)
 	assert.Nil(t, err)
 	defer testCluster.Stop()
 	registryLoad, err := newZookeeperRegistryLoad("127.0.0.1:1111", "test-cluster")
@@ -107,8 +107,8 @@ func TestZookeeperRegistryLoad_GetCluster(t *testing.T) {
 }
 
 func TestZookeeperRegistryLoad_LoadAllServices(t *testing.T) {
-	providerUrl, _ := common.NewURL(providerUrlstr)
-	testCluster, err := registerProvider(providerUrl, t)
+	providerURL, _ := common.NewURL(providerUrlstr)
+	testCluster, err := registerProvider(providerURL, t)
 	assert.Nil(t, err)
 	defer testCluster.Stop()
 	registryLoad, err := newZookeeperRegistryLoad(fmt.Sprintf("%s:%s", "127.0.0.1", strconv.Itoa(testCluster.Servers[0].Port)), "test-cluster")
