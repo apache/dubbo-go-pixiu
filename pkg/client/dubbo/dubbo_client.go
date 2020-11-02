@@ -20,6 +20,7 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -95,6 +96,14 @@ func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error)
 	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
 
 	var reqData []interface{}
+	var indate []byte
+	var e error
+
+	indate, e = ioutil.ReadAll(r.IngressRequest.Body)
+
+	if e != nil {
+		return *client.EmptyResponse, err
+	}
 
 	l := len(dm.ParamTypes)
 	switch {
@@ -103,28 +112,28 @@ func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error)
 		switch t {
 		case JavaStringClassName:
 			var s string
-			if err := json.Unmarshal(r.Body, &s); err != nil {
+			if err := json.Unmarshal(indate, &s); err != nil {
 				logger.Errorf("params parse error:%+v", err)
 			} else {
 				reqData = append(reqData, s)
 			}
 		case JavaLangClassName:
 			var i int
-			if err := json.Unmarshal(r.Body, &i); err != nil {
+			if err := json.Unmarshal(indate, &i); err != nil {
 				logger.Errorf("params parse error:%+v", err)
 			} else {
 				reqData = append(reqData, i)
 			}
 		default:
 			bodyMap := make(map[string]interface{})
-			if err := json.Unmarshal(r.Body, &bodyMap); err != nil {
+			if err := json.Unmarshal(indate, &bodyMap); err != nil {
 				return *client.EmptyResponse, err
 			} else {
 				reqData = append(reqData, bodyMap)
 			}
 		}
 	case l > 1:
-		if err = json.Unmarshal(r.Body, &reqData); err != nil {
+		if err = json.Unmarshal(indate, &reqData); err != nil {
 			return *client.EmptyResponse, err
 		}
 	}

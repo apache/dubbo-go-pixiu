@@ -96,6 +96,11 @@ func (hc *HttpContext) GetHeader(k string) string {
 	return hc.Request.Header.Get(k)
 }
 
+//AllHeaders  get all headers
+func (hc *HttpContext) AllHeaders() http.Header {
+	return hc.Request.Header
+}
+
 // GetUrl get http request url
 func (hc *HttpContext) GetUrl() string {
 	return hc.Request.URL.Path
