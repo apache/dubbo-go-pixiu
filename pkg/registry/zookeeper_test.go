@@ -26,13 +26,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/go-zookeeper/zk"
-)
-
-import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/constant"
 	"github.com/apache/dubbo-go/remoting/zookeeper"
+	"github.com/dubbogo/go-zookeeper/zk"
 	"github.com/stretchr/testify/assert"
 )
 

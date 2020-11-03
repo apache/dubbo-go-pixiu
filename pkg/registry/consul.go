@@ -23,14 +23,14 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-)
-
-import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/constant"
 	consul "github.com/hashicorp/consul/api"
 	perrors "github.com/pkg/errors"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 func init() {
