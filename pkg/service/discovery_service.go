@@ -17,6 +17,11 @@
 
 package service
 
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+)
+
 // DiscoveryRequest a request for discovery
 type DiscoveryRequest struct {
 	Body []byte
@@ -52,12 +57,10 @@ func NewDiscoveryResponse(d interface{}) *DiscoveryResponse {
 
 var EmptyDiscoveryResponse = &DiscoveryResponse{}
 
-// ApiDiscoveryService api discovery service interface
-type ApiDiscoveryService interface {
-	AddApi(request DiscoveryRequest) (DiscoveryResponse, error)
-	GetApi(request DiscoveryRequest) (DiscoveryResponse, error)
-	RemoveApi(name string) error
-	RemoveAllApi() error
+// APIDiscoveryService api discovery service interface
+type APIDiscoveryService interface {
+	AddAPI(router.API) error
+	GetAPI(string, config.HTTPVerb) (router.API, error)
 }
 
 // DiscoveryService is come from envoy, it can used for admin
