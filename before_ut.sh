@@ -16,7 +16,7 @@
 
 zkJarName="zookeeper-3.4.9-fatjar.jar"
 remoteJarUrl="https://github.com/dubbogo/resources/raw/master/zookeeper-4unitest/contrib/fatjar/${zkJarName}"
-zkJarPath="registry/zookeeper/zookeeper-4unittest/contrib/fatjar"
+zkJarPath="pkg/registry/zookeeper/zookeeper-4unittest/contrib/fatjar"
 zkJar="${zkJarPath}/${zkJarName}"
 
 if [ ! -f "${zkJar}" ]; then
