@@ -47,7 +47,7 @@ func newClientPool() *ClientPool {
 	}
 	clientPool.poolMap[config.HTTPRequest] = &sync.Pool{
 		New: func() interface{} {
-			return httpclient.NewHttpClient()
+			return httpclient.NewHTTPClient()
 		},
 	}
 	return clientPool

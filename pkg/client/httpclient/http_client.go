@@ -68,19 +68,19 @@ type HTTPClient struct {
 	GenericServicePool map[string]*dg.GenericService
 }
 
-// SingleHttpClient singleton HTTP Client
-func SingleHttpClient() *HTTPClient {
+// SingleHTTPClient singleton HTTP Client
+func SingleHTTPClient() *HTTPClient {
 
 	if _httpClient == nil {
 		countDown.Do(func() {
-			_httpClient = NewHttpClient()
+			_httpClient = NewHTTPClient()
 		})
 	}
 	return _httpClient
 }
 
-// NewHttpClient create dubbo client
-func NewHttpClient() *HTTPClient {
+// NewHTTPClient create dubbo client
+func NewHTTPClient() *HTTPClient {
 	return &HTTPClient{
 		mLock:              sync.RWMutex{},
 		GenericServicePool: make(map[string]*dg.GenericService),
@@ -104,7 +104,7 @@ func (dc *HTTPClient) Close() error {
 // Call invoke service
 func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) {
 
-	var urlStr = r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetUrl
+	var urlStr = r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
 	var httpClient = &http.Client{Timeout: 5 * time.Second}
 	var request = r.IngressRequest.Clone(context.Background())
 	request.URL, _ = url.ParseRequestURI(urlStr)
