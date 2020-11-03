@@ -140,7 +140,7 @@ type DubboBackendConfig struct {
 // HTTPBackendConfig defines the basic dubbo backend config
 type HTTPBackendConfig struct {
 	//TODO  resolve from yaml config needed.   head mapping needed. paramMappingneeded
-	TargetUrl       string `yaml:"targetUrl" json:"targetUrl"`
+	TargetURL       string `yaml:"targetUrl" json:"targetUrl"`
 	ApplicationName string `yaml:"applicationName" json:"applicationName"`
 	Protocol        string `yaml:"protocol" json:"protocol,schema" default:"https"`
 	Version         string `yaml:"version" json:"version"`
