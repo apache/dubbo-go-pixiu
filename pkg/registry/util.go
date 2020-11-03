@@ -18,9 +18,6 @@ package registry
 
 import (
 	"github.com/apache/dubbo-go/common"
-)
-
-import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )

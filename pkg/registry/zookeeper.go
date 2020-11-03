@@ -23,12 +23,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/apache/dubbo-go/common"
+	"github.com/apache/dubbo-go/remoting/zookeeper"
 )
 
 import (
-	"github.com/apache/dubbo-go/common"
-	"github.com/apache/dubbo-go/remoting/zookeeper"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 const (
