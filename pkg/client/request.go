@@ -31,8 +31,8 @@ type Request struct {
 	API            *router.API
 }
 
-// NewRequest create a request
-func NewRequest(request *http.Request, api *router.API) *Request {
+// NewReq create a request
+func NewReq(request *http.Request, api *router.API) *Request {
 	return &Request{
 		IngressRequest: request,
 		API:            api,
