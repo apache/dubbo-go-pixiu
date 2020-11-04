@@ -56,8 +56,8 @@ type DubboClient struct {
 	GenericServicePool map[string]*dg.GenericService
 }
 
-// SingleDubboClient singleton dubbo clent
-func SingleDubboClient() *DubboClient {
+// SingletonDubboClient singleton dubbo clent
+func SingletonDubboClient() *DubboClient {
 	if _DubboClient == nil {
 		onceClient.Do(func() {
 			_DubboClient = NewDubboClient()

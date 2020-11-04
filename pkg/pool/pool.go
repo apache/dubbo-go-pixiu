@@ -19,11 +19,14 @@ package pool
 
 import (
 	"errors"
+	"sync"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/httpclient"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"sync"
 )
 
 //ClientPool  a pool of client.

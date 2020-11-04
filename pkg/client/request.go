@@ -18,8 +18,11 @@
 package client
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 	"net/http"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // Request request for endpoint
