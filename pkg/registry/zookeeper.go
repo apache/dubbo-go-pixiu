@@ -39,7 +39,7 @@ func init() {
 	var _ Loader = new(ZookeeperRegistryLoad)
 }
 
-// ConsulRegistryLoad load dubbo apis from consul registry
+// ZookeeperRegistryLoad load dubbo apis from zookeeper registry
 type ZookeeperRegistryLoad struct {
 	zkName  string
 	client  *zookeeper.ZookeeperClient
@@ -63,11 +63,12 @@ func newZookeeperRegistryLoad(address, cluster string) (Loader, error) {
 	return r, nil
 }
 
+// nolint
 func (crl *ZookeeperRegistryLoad) GetCluster() (string, error) {
 	return crl.cluster, nil
 }
 
-// LoadAllServices load all services from consul registry
+// LoadAllServices load all services from zookeeper registry
 func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]common.URL, error) {
 	children, err := crl.client.GetChildren(rootPath)
 	if err != nil {

@@ -19,6 +19,7 @@ package registry
 import (
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -54,7 +55,7 @@ func TestConsulRegistryLoad_GetCluster(t *testing.T) {
 func TestConsulRegistryLoad_LoadAllServices(t *testing.T) {
 	consulAgent := consul.NewConsulAgent(t, registryPort)
 	defer consulAgent.Shutdown()
-	registryUrl, _ := common.NewURL(protocol + "://" + providerHost + ":" + strconv.Itoa(providerPort) + "/" + service + "?anyhost=true&" +
+	registryURL, _ := common.NewURL(protocol + "://" + providerHost + ":" + strconv.Itoa(providerPort) + "/" + service + "?anyhost=true&" +
 		"application=BDTService&category=providers&default.timeout=10000&dubbo=dubbo-provider-golang-1.0.0&" +
 		"environment=dev&interface=com.ikurento.user.UserProvider&ip=192.168.56.1&methods=GetUser%2C&" +
 		"module=dubbogo+user-info+server&org=ikurento.com&owner=ZX&pid=1447&revision=0.0.1&" +
@@ -62,14 +63,20 @@ func TestConsulRegistryLoad_LoadAllServices(t *testing.T) {
 
 	registry, err := extension.GetRegistry("consul", common.NewURLWithOptions(common.WithParams(url.Values{}), common.WithIp("localhost"), common.WithPort("8500"), common.WithParamsValue(constant.ROLE_KEY, strconv.Itoa(common.PROVIDER))))
 	assert.Nil(t, err)
-	err = registry.Register(registryUrl)
+	err = registry.Register(registryURL)
 	assert.Nil(t, err)
-	defer registry.UnRegister(registryUrl)
+	defer registry.UnRegister(registryURL)
 	loader, err := newConsulRegistryLoad(registryHost+":"+strconv.Itoa(registryPort), "test_cluster")
 	assert.Nil(t, err)
 	services, err := loader.LoadAllServices()
 	assert.Nil(t, err)
 	assert.Len(t, services, 1)
 	assert.Contains(t, services[0].Methods, "GetUser")
-	assert.Equal(t, services[0].GetParams(), registryUrl.GetParams())
+	assert.Equal(t, services[0].GetParams(), registryURL.GetParams())
+}
+
+func TestName(t *testing.T) {
+	s := "1,,,1"
+	right := strings.TrimRight(s, ",")
+	t.Log(right)
 }
