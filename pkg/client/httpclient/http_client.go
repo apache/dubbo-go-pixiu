@@ -68,8 +68,8 @@ type HTTPClient struct {
 	GenericServicePool map[string]*dg.GenericService
 }
 
-// SingleHTTPClient singleton HTTP Client
-func SingleHTTPClient() *HTTPClient {
+// SingletonHTTPClient singleton HTTP Client
+func SingletonHTTPClient() *HTTPClient {
 
 	if _httpClient == nil {
 		countDown.Do(func() {
@@ -121,16 +121,6 @@ func (dc *HTTPClient) get(key string) *dg.GenericService {
 	return dc.GenericServicePool[key]
 }
 
-func (dc *HTTPClient) check(key string) bool {
-	dc.mLock.RLock()
-	defer dc.mLock.RUnlock()
-	if _, ok := dc.GenericServicePool[key]; ok {
-		return true
-	} else {
-		return false
-	}
-}
-
 func (dc *HTTPClient) create(key string, dm *RestMetadata) *dg.GenericService {
 	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
 	referenceConfig.InterfaceName = dm.Interface
@@ -163,13 +153,4 @@ func (dc *HTTPClient) create(key string, dm *RestMetadata) *dg.GenericService {
 
 	dc.GenericServicePool[key] = clientService
 	return clientService
-}
-
-// Get find a dubbo GenericService
-func (dc *HTTPClient) Get(interfaceName, version, group string, dm *RestMetadata) *dg.GenericService {
-	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
-	if dc.check(key) {
-		return dc.get(key)
-	}
-	return dc.create(key, dm)
 }
