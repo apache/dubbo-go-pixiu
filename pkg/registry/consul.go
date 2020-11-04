@@ -65,6 +65,7 @@ func newConsulRegistryLoad(address, cluster string) (Loader, error) {
 	return r, nil
 }
 
+// nolint
 func (crl *ConsulRegistryLoad) GetCluster() (string, error) {
 	return crl.cluster, nil
 }
