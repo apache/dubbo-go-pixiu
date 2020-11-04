@@ -83,7 +83,7 @@ func SingletonHTTPClient() *HTTPClient {
 func NewHTTPClient() *HTTPClient {
 	return &HTTPClient{
 		mLock:              sync.RWMutex{},
-		GenericServicePool: make(map[string]*dg.GenericService),
+		GenericServicePool: make(map[string]*dg.GenericService, 4),
 	}
 }
 
@@ -104,15 +104,15 @@ func (dc *HTTPClient) Close() error {
 // Call invoke service
 func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) {
 
-	var urlStr = r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
-	var httpClient = &http.Client{Timeout: 5 * time.Second}
-	var request = r.IngressRequest.Clone(context.Background())
+	urlStr := r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	request := r.IngressRequest.Clone(context.Background())
 	request.URL, _ = url.ParseRequestURI(urlStr)
 	//TODO header replace, url rewrite....
 
-	var tmpRet, e = httpClient.Do(request)
-	var ret = client.Response{Data: tmpRet}
-	return ret, e
+	tmpRet, err := httpClient.Do(request)
+	ret := client.Response{Data: tmpRet}
+	return ret, err
 }
 
 func (dc *HTTPClient) get(key string) *dg.GenericService {
