@@ -18,10 +18,6 @@
 package filter
 
 import (
-	"io/ioutil"
-)
-
-import (
 	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
 	_ "github.com/apache/dubbo-go/cluster/loadbalance"
 	_ "github.com/apache/dubbo-go/filter/filter_impl"
@@ -31,41 +27,40 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/pool"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpTransferDubboFilter, HttpDubbo())
+	extension.SetFilterFunc(constant.RemoteCallFilter, RemoteCall())
 }
 
-// HttpDubbo http 2 dubbo
-func HttpDubbo() context.FilterFunc {
+// RemoteCall http 2 dubbo
+func RemoteCall() context.FilterFunc {
 	return func(c context.Context) {
-		doDubbo(c.(*http.HttpContext))
+		doRemoteCall(c.(*http.HttpContext))
 	}
 }
 
-func doDubbo(c *http.HttpContext) {
+func doRemoteCall(c *http.HttpContext) {
 	api := c.GetAPI()
+	cl, e := pool.SingletonPool().GetClient(api.Method.IntegrationRequest.RequestType)
+	if e != nil {
+		c.WriteFail()
+		c.AbortWithError("", e)
+	}
 
-	if bytes, err := ioutil.ReadAll(c.Request.Body); err != nil {
-		logger.Errorf("[dubboproxy go] read body err:%v!", err)
+	if resp, err := cl.Call(client.NewReq(c.Request, api)); err != nil {
+		logger.Errorf("[dubboproxy go] client do err:%v!", err)
 		c.WriteFail()
 		c.Abort()
 	} else {
-		if resp, err := dubbo.SingleDubboClient().
-			Call(client.NewRequest(bytes, api)); err != nil {
-			logger.Errorf("[dubboproxy go] client do err:%v!", err)
-			c.WriteFail()
-			c.Abort()
-		} else {
-			c.WriteResponse(resp)
-			c.Next()
-		}
+		c.WriteResponse(resp)
+		c.Next()
 	}
+
 }
