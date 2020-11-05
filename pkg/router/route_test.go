@@ -122,25 +122,25 @@ func TestFindMethod(t *testing.T) {
 func TestUpdateMethod(t *testing.T) {
 	m0 := getMockMethod(config.MethodGet)
 	m1 := getMockMethod(config.MethodGet)
-	m0.Version = "1.0.0"
-	m1.Version = "2.0.0"
+	m0.DubboBackendConfig.Version = "1.0.0"
+	m1.DubboBackendConfig.Version = "2.0.0"
 
 	rt := NewRoute()
 	rt.PutAPI(API{URLPattern: "/marvel", Method: m0})
 	m, _ := rt.FindAPI("/marvel", config.MethodGet)
-	assert.Equal(t, m.Version, "1.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "1.0.0")
 	rt.UpdateAPI(API{URLPattern: "/marvel", Method: m1})
 	m, ok := rt.FindAPI("/marvel", config.MethodGet)
 	assert.True(t, ok)
-	assert.Equal(t, m.Version, "2.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "2.0.0")
 
 	rt.PutAPI(API{URLPattern: "/theboys/:id", Method: m0})
 	m, _ = rt.FindAPI("/theBoys/12345", config.MethodGet)
-	assert.Equal(t, m.Version, "1.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "1.0.0")
 	rt.UpdateAPI(API{URLPattern: "/theBoys/:id", Method: m1})
 	m, ok = rt.FindAPI("/theBoys/12345", config.MethodGet)
 	assert.True(t, ok)
-	assert.Equal(t, m.Version, "2.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "2.0.0")
 }
 
 func TestSearchWildcard(t *testing.T) {
