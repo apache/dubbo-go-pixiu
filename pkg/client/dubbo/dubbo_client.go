@@ -20,6 +20,7 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -55,8 +56,8 @@ type DubboClient struct {
 	GenericServicePool map[string]*dg.GenericService
 }
 
-// SingleDubboClient singleton dubbo clent
-func SingleDubboClient() *DubboClient {
+// SingletonDubboClient singleton dubbo clent
+func SingletonDubboClient() *DubboClient {
 	if _DubboClient == nil {
 		onceClient.Do(func() {
 			_DubboClient = NewDubboClient()
@@ -92,9 +93,17 @@ func (dc *DubboClient) Close() error {
 // Call invoke service
 func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error) {
 	dm := r.API.Method.IntegrationRequest
-	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
+	gs := dc.Get(dm.Interface, dm.DubboBackendConfig.Version, dm.Group, dm)
 
 	var reqData []interface{}
+	var ingaressReqDate []byte
+	var e error
+
+	ingaressReqDate, e = ioutil.ReadAll(r.IngressRequest.Body)
+
+	if e != nil {
+		return *client.EmptyResponse, err
+	}
 
 	l := len(dm.ParamTypes)
 	switch {
@@ -103,28 +112,28 @@ func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error)
 		switch t {
 		case JavaStringClassName:
 			var s string
-			if err := json.Unmarshal(r.Body, &s); err != nil {
+			if err := json.Unmarshal(ingaressReqDate, &s); err != nil {
 				logger.Errorf("params parse error:%+v", err)
 			} else {
 				reqData = append(reqData, s)
 			}
 		case JavaLangClassName:
 			var i int
-			if err := json.Unmarshal(r.Body, &i); err != nil {
+			if err := json.Unmarshal(ingaressReqDate, &i); err != nil {
 				logger.Errorf("params parse error:%+v", err)
 			} else {
 				reqData = append(reqData, i)
 			}
 		default:
 			bodyMap := make(map[string]interface{})
-			if err := json.Unmarshal(r.Body, &bodyMap); err != nil {
+			if err := json.Unmarshal(ingaressReqDate, &bodyMap); err != nil {
 				return *client.EmptyResponse, err
 			} else {
 				reqData = append(reqData, bodyMap)
 			}
 		}
 	case l > 1:
-		if err = json.Unmarshal(r.Body, &reqData); err != nil {
+		if err = json.Unmarshal(ingaressReqDate, &reqData); err != nil {
 			return *client.EmptyResponse, err
 		}
 	}
@@ -169,19 +178,19 @@ func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *d
 	}
 	referenceConfig.Registry = strings.Join(registers, ",")
 
-	if len(irequest.Protocol) == 0 {
+	if len(irequest.DubboBackendConfig.Protocol) == 0 {
 		referenceConfig.Protocol = dubbo.DUBBO
 	} else {
-		referenceConfig.Protocol = irequest.Protocol
+		referenceConfig.Protocol = irequest.DubboBackendConfig.Protocol
 	}
 
-	referenceConfig.Version = irequest.Version
+	referenceConfig.Version = irequest.DubboBackendConfig.Version
 	referenceConfig.Group = irequest.Group
 	referenceConfig.Generic = true
-	if len(irequest.Retries) == 0 {
+	if len(irequest.DubboBackendConfig.Retries) == 0 {
 		referenceConfig.Retries = "3"
 	} else {
-		referenceConfig.Retries = irequest.Retries
+		referenceConfig.Retries = irequest.DubboBackendConfig.Retries
 	}
 	dc.mLock.Lock()
 	defer dc.mLock.Unlock()
@@ -195,7 +204,7 @@ func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *d
 
 // Get find a dubbo GenericService
 func (dc *DubboClient) Get(interfaceName, version, group string, ir config.IntegrationRequest) *dg.GenericService {
-	key := strings.Join([]string{ir.ApplicationName, interfaceName, version, group}, "_")
+	key := strings.Join([]string{ir.DubboBackendConfig.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
 	}
