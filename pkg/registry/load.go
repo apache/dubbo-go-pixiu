@@ -14,19 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package api_load
+package registry
 
-import "github.com/dubbogo/dubbo-go-proxy/pkg/model"
+import "github.com/apache/dubbo-go/common"
 
-type ApiLoader interface {
-	// every apiloader has a Priority, since remote api configurer such as nacos may cover fileapiloader.
-	// and the larger priority number indicates it's apis can cover apis of lower priority number priority.
-	GetPrior() int
-	GetLoadedApiConfigs() ([]model.Api, error)
-	// load all apis at first time
-	InitLoad() error
-	// watch apis when apis configured were changed.
-	HotLoad() (chan struct{}, error)
-	// clear all apis
-	Clear() error
+// Loader this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
+type Loader interface {
+	// LoadAllServices load all services registered in registry
+	LoadAllServices() ([]common.URL, error)
+	// GetCluster get the registry name
+	GetCluster() (string, error)
 }
