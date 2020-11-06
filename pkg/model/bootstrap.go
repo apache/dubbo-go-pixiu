@@ -51,7 +51,6 @@ type StaticResources struct {
 
 // DynamicResources TODO
 type DynamicResources struct {
-	ApiConfig ApiConfig `yaml:"api_config" json:"apiConfig"`
 }
 
 // ShutdownConfig how to shutdown proxy.
