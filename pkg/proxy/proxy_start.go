@@ -59,7 +59,7 @@ func (p *Proxy) Start() {
 }
 
 func (p *Proxy) beforeStart() {
-	dubbo.SingleDubboClient().Init()
+	dubbo.SingletonDubboClient().Init()
 
 	api.InitAPIsFromConfig(config.GetAPIConf())
 }
