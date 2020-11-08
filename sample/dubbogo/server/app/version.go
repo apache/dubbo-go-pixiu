@@ -18,5 +18,6 @@
 package main
 
 var (
+	// Version dubbo version
 	Version = "2.7.5"
 )

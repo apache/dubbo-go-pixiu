@@ -108,6 +108,7 @@ func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) 
 	return ret, err
 }
 
+// MappingParams param mapping to api.
 func (dc *HTTPClient) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
 	return nil, nil, nil
 }

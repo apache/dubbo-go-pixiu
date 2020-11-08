@@ -38,7 +38,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	selfhttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -46,15 +46,15 @@ func init() {
 	extension.SetFilterFunc(constant.RemoteCallFilter, Call())
 }
 
-// Call
+// Call remote call context.FilterFunc.
 // support: 1 http 2 dubbo 2 http 2 http
 func Call() context.FilterFunc {
 	return func(c context.Context) {
-		doRemoteCall(c.(*selfhttp.HttpContext))
+		doRemoteCall(c.(*contexthttp.HttpContext))
 	}
 }
 
-func doRemoteCall(c *selfhttp.HttpContext) {
+func doRemoteCall(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
 	typ := api.Method.IntegrationRequest.RequestType
