@@ -27,6 +27,10 @@ import (
 	"github.com/urfave/cli"
 )
 
+import (
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/remote"
+)
+
 // Version proxy version
 var Version = "0.1.0"
 
