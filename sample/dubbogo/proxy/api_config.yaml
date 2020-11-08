@@ -3,7 +3,7 @@ description: proxy sample
 resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful
-    description: resource documentation
+    description: user
     filters:
       - filter0
     methods:
@@ -13,6 +13,7 @@ resources:
           requestType: http
           queryStrings:
             - name: name
+              type: string
               required: true
         integrationRequest:
           requestType: dubbo
@@ -25,7 +26,24 @@ resources:
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
-  - path: '/api/v1/test-dubbo/user'
+      - httpVerb: POST
+        onAir: true
+        inboundRequest:
+          requestType: http
+          requestBody:
+            - definitionName: "com.ikurento.user.User"
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody
+              mapTo: 1
+          applicationName: "UserProvider"
+          interface: "com.ic.user.UserProvider"
+          method: "CreateUser"
+          clusterName: "test_dubbo"
+          group: "test"
+          version: 1.0.0
+  - path: '/test-dubbo/user'
     type: restful
     description: resource documentation
     filters:
