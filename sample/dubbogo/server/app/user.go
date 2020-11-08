@@ -39,6 +39,8 @@ func init() {
 		cacheMap: make(map[string]*User, 16),
 		lock:     sync.Mutex{},
 	}
+
+	cache.Add(&User{Id: "0001", Name: "tc", Age: 18, Time: time.Now()})
 }
 
 var cache *UserDB
@@ -78,7 +80,7 @@ type UserProvider struct {
 }
 
 func (u *UserProvider) CreateUser(ctx context.Context, user *User) (*User, error) {
-	println("Req QueryUser data:%#v", user)
+	println("Req CreateUser data:%#v", user)
 	if user == nil {
 		return nil, errors.New("not found")
 	}
@@ -124,12 +126,13 @@ func (u *UserProvider) TwoSimpleParamsWithError(ctx context.Context, name string
 	return &rsp, errors.New("TwoSimpleParams error")
 }
 
-// 方法名称映射
-func (u *UserProvider) MethodMapper() map[string]string {
-	return map[string]string{
-		"GetUserByName": "queryUserByName",
-	}
-}
+// 方法名称映射，做参考
+// GetUserByName can call success.
+//func (u *UserProvider) MethodMapper() map[string]string {
+//	return map[string]string{
+//		"GetUserByName": "queryUserByName",
+//	}
+//}
 
 func (u *UserProvider) Reference() string {
 	return "UserProvider"
