@@ -21,13 +21,15 @@ import (
 	"time"
 )
 
+// nolint.
 type User struct {
-	Id   string
+	ID   string
 	Name string
 	Age  int32
 	Time time.Time
 }
 
+// nolint.
 func (u User) JavaClassName() string {
 	return "com.ikurento.user.User"
 }
