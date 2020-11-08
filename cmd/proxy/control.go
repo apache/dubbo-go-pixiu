@@ -89,7 +89,7 @@ var (
 			}
 			logger.InitLog(logConfPath)
 			if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
-				logger.Error(err.Error())
+				logger.Errorf("load api config error:%+v", err)
 				return err
 			}
 
