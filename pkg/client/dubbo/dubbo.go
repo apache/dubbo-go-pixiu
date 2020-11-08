@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	_DubboClient       *DubboClient
+	dubboClient        *Client
 	onceClient         = sync.Once{}
 	dgCfg              dg.ConsumerConfig
 	defaultApplication = &dg.ApplicationConfig{
@@ -60,33 +60,33 @@ var (
 	}
 )
 
-// DubboClient client to generic invoke dubbo
-type DubboClient struct {
+// Client client to generic invoke dubbo
+type Client struct {
 	lock               sync.RWMutex
 	GenericServicePool map[string]*dg.GenericService
 }
 
 // SingletonDubboClient singleton dubbo clent
-func SingletonDubboClient() *DubboClient {
-	if _DubboClient == nil {
+func SingletonDubboClient() *Client {
+	if dubboClient == nil {
 		onceClient.Do(func() {
-			_DubboClient = NewDubboClient()
+			dubboClient = NewDubboClient()
 		})
 	}
 
-	return _DubboClient
+	return dubboClient
 }
 
 // NewDubboClient create dubbo client
-func NewDubboClient() *DubboClient {
-	return &DubboClient{
+func NewDubboClient() *Client {
+	return &Client{
 		lock:               sync.RWMutex{},
 		GenericServicePool: make(map[string]*dg.GenericService, 4),
 	}
 }
 
 // Init init dubbo, config mapping can do here
-func (dc *DubboClient) Init() error {
+func (dc *Client) Init() error {
 	dc.GenericServicePool = make(map[string]*dg.GenericService, 4)
 
 	cls := config.GetBootstrap().StaticResources.Clusters
@@ -123,8 +123,8 @@ func initDubbogo() {
 	dg.Load()
 }
 
-// Close
-func (dc *DubboClient) Close() error {
+// Close clear GenericServicePool.
+func (dc *Client) Close() error {
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 	for k := range dc.GenericServicePool {
@@ -134,7 +134,7 @@ func (dc *DubboClient) Close() error {
 }
 
 // Call invoke service
-func (dc *DubboClient) Call(req *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(req *client.Request) (resp client.Response, err error) {
 	dm := req.API.Method.IntegrationRequest
 	types, values, err := dc.MappingParams(req)
 	method := dm.Method
@@ -157,9 +157,9 @@ func (dc *DubboClient) Call(req *client.Request) (resp client.Response, err erro
 	return *NewDubboResponse(rst), nil
 }
 
-// MappingParams
+// MappingParams param mapping to api.
 // TODO wait for detail impl
-func (dc *DubboClient) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
+func (dc *Client) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
 	r := req.API.Method.IntegrationRequest
 	for i := range r.MappingParams {
 		m := r.MappingParams[i]
@@ -201,13 +201,13 @@ func paramParse(req *client.Request, param string) (typ string, value interface{
 	}
 	ps := reg.FindStringSubmatch(param)
 
-	_from := ps[1]
-	_key := ps[2]
-	if _from == "queryStrings" {
+	from := ps[1]
+	key := ps[2]
+	if from == "queryStrings" {
 		for i := range inboundRequest.QueryStrings {
 			p := inboundRequest.QueryStrings[i]
-			q := inReq.URL.Query().Get(_key)
-			if p.Name == _key {
+			q := inReq.URL.Query().Get(key)
+			if p.Name == key {
 				if p.Required && q == "" {
 					return "", nil, errors.New("illegal param")
 				}
@@ -241,24 +241,23 @@ func paramParse(req *client.Request, param string) (typ string, value interface{
 	return "", "", nil
 }
 
-func (dc *DubboClient) get(key string) *dg.GenericService {
+func (dc *Client) get(key string) *dg.GenericService {
 	dc.lock.RLock()
 	defer dc.lock.RUnlock()
 	return dc.GenericServicePool[key]
 }
 
-func (dc *DubboClient) check(key string) bool {
+func (dc *Client) check(key string) bool {
 	dc.lock.RLock()
 	defer dc.lock.RUnlock()
 	if _, ok := dc.GenericServicePool[key]; ok {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
 // Get find a dubbo GenericService
-func (dc *DubboClient) Get(ir config.IntegrationRequest) *dg.GenericService {
+func (dc *Client) Get(ir config.IntegrationRequest) *dg.GenericService {
 	key := apiKey(&ir)
 	if dc.check(key) {
 		return dc.get(key)
@@ -272,7 +271,7 @@ func apiKey(ir *config.IntegrationRequest) string {
 	return strings.Join([]string{dbc.ClusterName, dbc.ApplicationName, dbc.Interface, dbc.Version, dbc.Group}, "_")
 }
 
-func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *dg.GenericService {
+func (dc *Client) create(key string, irequest config.IntegrationRequest) *dg.GenericService {
 	referenceConfig := dg.NewReferenceConfig(irequest.Interface, context.TODO())
 	referenceConfig.InterfaceName = irequest.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
