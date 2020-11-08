@@ -102,6 +102,7 @@ type InboundRequest struct {
 // Params defines the simple parameter definition
 type Params struct {
 	Name     string `json:"name" yaml:"name"`
+	Type     string `json:"type" yaml:"type"`
 	Required bool   `json:"required" yaml:"required"`
 }
 
