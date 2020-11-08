@@ -6,7 +6,8 @@ application:
   organization: "dubbogoproxy.com"
   name: "User Micro Service"
   module: "dubbogoproxy user-info server"
-  version: "0.0.1"
+  version: "0.1.0"
+  group: "tc"
   owner: "ZX"
   environment: "dev"
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpclient
+package http
 
 import (
 	"context"
@@ -34,12 +34,6 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-)
-
-// TODO java class name elem
-const (
-	JavaStringClassName = "java.lang.String"
-	JavaLangClassName   = "java.lang.Long"
 )
 
 // RestMetadata dubbo metadata, api config
@@ -70,7 +64,6 @@ type HTTPClient struct {
 
 // SingletonHTTPClient singleton HTTP Client
 func SingletonHTTPClient() *HTTPClient {
-
 	if _httpClient == nil {
 		countDown.Do(func() {
 			_httpClient = NewHTTPClient()
@@ -113,6 +106,10 @@ func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) 
 	tmpRet, err := httpClient.Do(request)
 	ret := client.Response{Data: tmpRet}
 	return ret, err
+}
+
+func (dc *HTTPClient) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
+	return nil, nil, nil
 }
 
 func (dc *HTTPClient) get(key string) *dg.GenericService {
