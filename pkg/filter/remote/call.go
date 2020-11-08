@@ -15,7 +15,12 @@
  * limitations under the License.
  */
 
-package filter
+package remote
+
+import (
+	"errors"
+	"net/http"
+)
 
 import (
 	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
@@ -27,40 +32,60 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
+	clienthttp "github.com/dubbogo/dubbo-go-proxy/pkg/client/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	selfhttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/pool"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RemoteCallFilter, RemoteCall())
+	extension.SetFilterFunc(constant.RemoteCallFilter, Call())
 }
 
-// RemoteCall http 2 dubbo
-func RemoteCall() context.FilterFunc {
+// Call
+// support: 1 http 2 dubbo 2 http 2 http
+func Call() context.FilterFunc {
 	return func(c context.Context) {
-		doRemoteCall(c.(*http.HttpContext))
+		doRemoteCall(c.(*selfhttp.HttpContext))
 	}
 }
 
-func doRemoteCall(c *http.HttpContext) {
+func doRemoteCall(c *selfhttp.HttpContext) {
 	api := c.GetAPI()
-	cl, e := pool.SingletonPool().GetClient(api.Method.IntegrationRequest.RequestType)
-	if e != nil {
-		c.WriteFail()
-		c.AbortWithError("", e)
+
+	typ := api.Method.IntegrationRequest.RequestType
+
+	cli, err := matchClient(typ)
+	if err != nil {
+		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
+		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		return
 	}
 
-	if resp, err := cl.Call(client.NewReq(c.Request, api)); err != nil {
+	resp, err := cli.Call(client.NewReq(c.Request, api))
+
+	if err != nil {
 		logger.Errorf("[dubboproxy go] client do err:%v!", err)
-		c.WriteFail()
-		c.Abort()
-	} else {
-		c.WriteResponse(resp)
-		c.Next()
+		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
+		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		return
 	}
 
+	c.WriteResponse(resp)
+	c.Next()
+}
+
+func matchClient(typ config.RequestType) (client.Client, error) {
+	switch typ {
+	case config.DubboRequest:
+		return dubbo.SingletonDubboClient(), nil
+	case config.HTTPRequest:
+		return clienthttp.SingletonHTTPClient(), nil
+	default:
+		return nil, errors.New("not support")
+	}
 }
