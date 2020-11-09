@@ -25,7 +25,7 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/httpclient"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
@@ -35,14 +35,15 @@ type ClientPool struct {
 }
 
 var (
-	_clinetPool *ClientPool
-	once        = sync.Once{}
+	clientPool *ClientPool
+	once       = sync.Once{}
 )
 
 func newClientPool() *ClientPool {
 	clientPool := &ClientPool{
-		poolMap: make(map[config.RequestType]*sync.Pool),
+		poolMap: make(map[config.RequestType]*sync.Pool, 4),
 	}
+	// init default support request type
 	clientPool.poolMap[config.DubboRequest] = &sync.Pool{
 		New: func() interface{} {
 			return dubbo.NewDubboClient()
@@ -50,7 +51,7 @@ func newClientPool() *ClientPool {
 	}
 	clientPool.poolMap[config.HTTPRequest] = &sync.Pool{
 		New: func() interface{} {
-			return httpclient.NewHTTPClient()
+			return http.NewHTTPClient()
 		},
 	}
 	return clientPool
@@ -58,13 +59,13 @@ func newClientPool() *ClientPool {
 
 // SingletonPool singleton pool
 func SingletonPool() *ClientPool {
-	if _clinetPool == nil {
+	if clientPool == nil {
 		once.Do(func() {
-			_clinetPool = newClientPool()
+			clientPool = newClientPool()
 		})
 	}
 
-	return _clinetPool
+	return clientPool
 }
 
 // GetClient  a factory method to get a client according to apiType .
@@ -73,4 +74,14 @@ func (pool *ClientPool) GetClient(t config.RequestType) (client.Client, error) {
 		return pool.poolMap[t].Get().(client.Client), nil
 	}
 	return nil, errors.New("protocol not supported yet")
+}
+
+// Put put client to pool.
+func (pool *ClientPool) Put(t config.RequestType, c client.Client) error {
+	if pool.poolMap[t] != nil {
+		pool.poolMap[t].Put(c)
+		return nil
+	}
+
+	return errors.New("protocol not supported yet")
 }
