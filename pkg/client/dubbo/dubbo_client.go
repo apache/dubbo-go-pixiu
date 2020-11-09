@@ -20,6 +20,7 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -41,20 +43,6 @@ const (
 	JavaStringClassName = "java.lang.String"
 	JavaLangClassName   = "java.lang.Long"
 )
-
-// DubboMetadata dubbo metadata, api config
-type DubboMetadata struct {
-	ApplicationName      string   `yaml:"application_name" json:"application_name" mapstructure:"application_name"`
-	Group                string   `yaml:"group" json:"group" mapstructure:"group"`
-	Version              string   `yaml:"version" json:"version" mapstructure:"version"`
-	Interface            string   `yaml:"interface" json:"interface" mapstructure:"interface"`
-	Method               string   `yaml:"method" json:"method" mapstructure:"method"`
-	Types                []string `yaml:"types" json:"types" mapstructure:"types"`
-	Retries              string   `yaml:"retries"  json:"retries,omitempty" property:"retries"`
-	ClusterName          string   `yaml:"cluster_name"  json:"cluster_name,omitempty" property:"cluster_name"`
-	ProtocolTypeStr      string   `yaml:"protocol_type"  json:"protocol_type,omitempty" property:"protocol_type"`
-	SerializationTypeStr string   `yaml:"serialization_type"  json:"serialization_type,omitempty" property:"serialization_type"`
-}
 
 var (
 	_DubboClient *DubboClient
@@ -68,8 +56,8 @@ type DubboClient struct {
 	GenericServicePool map[string]*dg.GenericService
 }
 
-// SingleDubboClient singleton dubbo clent
-func SingleDubboClient() *DubboClient {
+// SingletonDubboClient singleton dubbo clent
+func SingletonDubboClient() *DubboClient {
 	if _DubboClient == nil {
 		onceClient.Do(func() {
 			_DubboClient = NewDubboClient()
@@ -90,6 +78,7 @@ func NewDubboClient() *DubboClient {
 // Init init dubbo, config mapping can do here
 func (dc *DubboClient) Init() error {
 	dgCfg = dg.GetConsumerConfig()
+	//can change config here
 	dg.SetConsumerConfig(dgCfg)
 	dg.Load()
 	dc.GenericServicePool = make(map[string]*dg.GenericService)
@@ -103,52 +92,64 @@ func (dc *DubboClient) Close() error {
 
 // Call invoke service
 func (dc *DubboClient) Call(r *client.Request) (resp client.Response, err error) {
-	dm := r.Api.Metadata.(*DubboMetadata)
-	gs := dc.Get(dm.Interface, dm.Version, dm.Group, dm)
+	dm := r.API.Method.IntegrationRequest
+	gs := dc.Get(dm.Interface, dm.DubboBackendConfig.Version, dm.Group, dm)
 
 	var reqData []interface{}
+	var ingaressReqDate []byte
+	var e error
 
-	l := len(dm.Types)
+	ingaressReqDate, e = ioutil.ReadAll(r.IngressRequest.Body)
+
+	if e != nil {
+		return *client.EmptyResponse, err
+	}
+
+	l := len(dm.ParamTypes)
 	switch {
 	case l == 1:
-		t := dm.Types[0]
+		t := dm.ParamTypes[0]
 		switch t {
 		case JavaStringClassName:
 			var s string
-			if err := json.Unmarshal(r.Body, &s); err != nil {
+			if err := json.Unmarshal(ingaressReqDate, &s); err != nil {
 				logger.Errorf("params parse error:%+v", err)
 			} else {
 				reqData = append(reqData, s)
 			}
 		case JavaLangClassName:
 			var i int
-			if err := json.Unmarshal(r.Body, &i); err != nil {
+			if err := json.Unmarshal(ingaressReqDate, &i); err != nil {
 				logger.Errorf("params parse error:%+v", err)
 			} else {
 				reqData = append(reqData, i)
 			}
 		default:
 			bodyMap := make(map[string]interface{})
-			if err := json.Unmarshal(r.Body, &bodyMap); err != nil {
+			if err := json.Unmarshal(ingaressReqDate, &bodyMap); err != nil {
 				return *client.EmptyResponse, err
 			} else {
 				reqData = append(reqData, bodyMap)
 			}
 		}
 	case l > 1:
-		if err = json.Unmarshal(r.Body, &reqData); err != nil {
+		if err = json.Unmarshal(ingaressReqDate, &reqData); err != nil {
 			return *client.EmptyResponse, err
 		}
 	}
 
-	logger.Debugf("[dubbogo proxy] invoke, method:%v, types:%v, reqData:%v", dm.Method, dm.Types, reqData)
+	logger.Debugf("[dubbogo proxy] invoke, method:%s, types:%s, reqData:%s", dm.Method, dm.ParamTypes, reqData)
 
-	if resp, err := gs.Invoke(context.Background(), []interface{}{dm.Method, dm.Types, reqData}); err != nil {
+	rst, err := gs.Invoke(context.Background(), []interface{}{dm.Method, dm.ParamTypes, reqData})
+	if err != nil {
 		return *client.EmptyResponse, err
-	} else {
-		logger.Debugf("[dubbogo proxy] dubbo client resp:%v", resp)
-		return *NewDubboResponse(resp), nil
 	}
+	if rst == nil {
+		return client.Response{}, nil
+	}
+	resp = rst.(client.Response)
+	logger.Debugf("[dubbogo proxy] dubbo client resp:%v", resp)
+	return *NewDubboResponse(resp), nil
 }
 
 func (dc *DubboClient) get(key string) *dg.GenericService {
@@ -167,9 +168,9 @@ func (dc *DubboClient) check(key string) bool {
 	}
 }
 
-func (dc *DubboClient) create(key string, dm *DubboMetadata) *dg.GenericService {
-	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
-	referenceConfig.InterfaceName = dm.Interface
+func (dc *DubboClient) create(key string, irequest config.IntegrationRequest) *dg.GenericService {
+	referenceConfig := dg.NewReferenceConfig(irequest.Interface, context.TODO())
+	referenceConfig.InterfaceName = irequest.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
 	var registers []string
 	for k := range dgCfg.Registries {
@@ -177,19 +178,19 @@ func (dc *DubboClient) create(key string, dm *DubboMetadata) *dg.GenericService 
 	}
 	referenceConfig.Registry = strings.Join(registers, ",")
 
-	if dm.ProtocolTypeStr == "" {
+	if len(irequest.DubboBackendConfig.Protocol) == 0 {
 		referenceConfig.Protocol = dubbo.DUBBO
 	} else {
-		referenceConfig.Protocol = dm.ProtocolTypeStr
+		referenceConfig.Protocol = irequest.DubboBackendConfig.Protocol
 	}
 
-	referenceConfig.Version = dm.Version
-	referenceConfig.Group = dm.Group
+	referenceConfig.Version = irequest.DubboBackendConfig.Version
+	referenceConfig.Group = irequest.Group
 	referenceConfig.Generic = true
-	if dm.Retries == "" {
+	if len(irequest.DubboBackendConfig.Retries) == 0 {
 		referenceConfig.Retries = "3"
 	} else {
-		referenceConfig.Retries = dm.Retries
+		referenceConfig.Retries = irequest.DubboBackendConfig.Retries
 	}
 	dc.mLock.Lock()
 	defer dc.mLock.Unlock()
@@ -202,11 +203,11 @@ func (dc *DubboClient) create(key string, dm *DubboMetadata) *dg.GenericService 
 }
 
 // Get find a dubbo GenericService
-func (dc *DubboClient) Get(interfaceName, version, group string, dm *DubboMetadata) *dg.GenericService {
-	key := strings.Join([]string{dm.ApplicationName, interfaceName, version, group}, "_")
+func (dc *DubboClient) Get(interfaceName, version, group string, ir config.IntegrationRequest) *dg.GenericService {
+	key := strings.Join([]string{ir.DubboBackendConfig.ApplicationName, interfaceName, version, group}, "_")
 	if dc.check(key) {
 		return dc.get(key)
-	} else {
-		return dc.create(key, dm)
 	}
+
+	return dc.create(key, ir)
 }

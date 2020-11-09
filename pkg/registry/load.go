@@ -14,27 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package registry
 
-package client
+import "github.com/apache/dubbo-go/common"
 
-import (
-	"net/http"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
-)
-
-// Request request for endpoint
-type Request struct {
-	IngressRequest *http.Request
-	API            *router.API
-}
-
-// NewReq create a request
-func NewReq(request *http.Request, api *router.API) *Request {
-	return &Request{
-		IngressRequest: request,
-		API:            api,
-	}
+// Loader this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
+type Loader interface {
+	// LoadAllServices load all services registered in registry
+	LoadAllServices() ([]common.URL, error)
+	// GetCluster get the registry name
+	GetCluster() (string, error)
 }
