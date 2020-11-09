@@ -182,8 +182,14 @@ func (hc *HttpContext) BuildFilters() {
 		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
 
-	hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
 	hc.AppendFilterFunc(filterFuncs...)
+}
+
+// BuildFiltersWithDefault build filter like BuildFilters, but add some default filter.
+func (hc *HttpContext) BuildFiltersWithDefault() {
+	hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
+
+	hc.BuildFilters()
 }
 
 // ResetWritermen reset writermen
