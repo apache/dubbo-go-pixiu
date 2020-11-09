@@ -5,10 +5,12 @@ resources:
     type: restful
     description: resource documentation
     filters:
-      - filterA
-      - filterB
+      - filter0
     methods:
       - httpVerb: GET
+        filters:
+          - filterA
+          - filterB
         onAir: true
         inboundRequest:
           requestType: http
@@ -35,6 +37,100 @@ resources:
           paramTypes:
             - java.lang.String
           ClusterName: test_dubbo
+  - path: '/mockTest'
+    type: restful
+    description: mockTest
+    filters:
+      - filter0
+    methods:
+      - httpVerb: GET
+        filters:
+          - filterA
+          - filterB
+        onAir: true
+        inboundRequest:
+          requestType: http
+          headers: 
+            - name: auth
+              required: true 
+          queryStrings:
+            - name: id
+              required: false
+            - name: type
+              required: false
+          requestBody:
+            - definitionName: modelDefinition
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: queryStrings.id
+              mapTo: 1
+          applicationName: BDTService
+          group: test
+          version: 1.0.0
+          interface: com.ikurento.user.UserProvider
+          method: GetUsers
+          paramTypes:
+            - java.lang.String
+          clusterName: test_dubbo
+      - httpVerb: POST
+        filters:
+          - filterA
+        onAir: true
+        inboundRequest:
+          requestType: http
+          headers: 
+            - name: auth
+              required: true 
+          queryStrings:
+            - name: id
+              required: false
+            - name: type
+              required: false
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: queryStrings.id
+              mapTo: 1
+          applicationName: BDTService
+          group: test
+          version: 1.0.0
+          interface: com.ikurento.user.UserProvider
+          method: NewUser
+          paramTypes:
+            - java.lang.String
+          clusterName: test_dubbo
+    resources:
+      - path: '/:id'
+        type: restful
+        description: resource documentation
+        filters:
+          - filter0
+        methods:
+          - httpVerb: GET
+            onAir: true
+            inboundRequest:
+              requestType: http
+              headers: 
+                - name: auth
+                  required: true 
+              queryStrings:
+                - name: id
+                  required: true
+            integrationRequest:
+              requestType: dubbo
+              mappingParams:
+                - name: queryStrings.id
+                  mapTo: 1
+              applicationName: BDTService
+              group: test
+              version: 1.0.0
+              interface: com.ikurento.user.UserProvider
+              method: GetUser
+              paramTypes:
+                - java.lang.String
+              clusterName: test_dubbo
+          
 definitions:
   - name: modelDefinition
     schema: >-
