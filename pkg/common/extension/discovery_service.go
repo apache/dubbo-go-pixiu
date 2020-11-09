@@ -22,17 +22,17 @@ import (
 )
 
 var (
-	apiDiscoveryServiceMap = map[string]service.ApiDiscoveryService{}
+	apiDiscoveryServiceMap = map[string]service.APIDiscoveryService{}
 )
 
-// SetApiDiscoveryService will store the @filter and @name
-func SetApiDiscoveryService(name string, ads service.ApiDiscoveryService) {
+// SetAPIDiscoveryService will store the @filter and @name
+func SetAPIDiscoveryService(name string, ads service.APIDiscoveryService) {
 	apiDiscoveryServiceMap[name] = ads
 }
 
-// GetMustApiDiscoveryService will return the service.ApiDiscoveryService
+// GetMustAPIDiscoveryService will return the service.APIDiscoveryService
 // if not found, it will panic
-func GetMustApiDiscoveryService(name string) service.ApiDiscoveryService {
+func GetMustAPIDiscoveryService(name string) service.APIDiscoveryService {
 	if ds, ok := apiDiscoveryServiceMap[name]; ok {
 		return ds
 	}

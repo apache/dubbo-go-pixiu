@@ -18,6 +18,7 @@
 package context
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"math"
 )
 
@@ -45,8 +46,15 @@ func (c *BaseContext) Next() {
 	}
 }
 
+// Abort  filter chain break , filter after the current filter will not executed.
 func (c *BaseContext) Abort() {
 	c.Index = abortIndex
+}
+
+// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
+func (c *BaseContext) AbortWithError(message string, err error) {
+	c.Index = abortIndex
+	logger.GetLogger().Error(err)
 }
 
 func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {

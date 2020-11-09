@@ -22,7 +22,7 @@ const (
 	HttpRouterFilter         = "dgp.filters.http.router"
 	HttpApiFilter            = "dgp.filters.http.api"
 	HttpDomainFilter         = "dgp.filters.http.domain"
-	HttpTransferDubboFilter  = "dgp.filters.http_transfer_dubbo"
+	RemoteCallFilter         = "dgp.filters.remote_call"
 
 	LoggerFilter   = "dgp.filters.logger"
 	RecoveryFilter = "dgp.filters.recovery"

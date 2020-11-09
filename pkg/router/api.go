@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package client
+package router
 
 import (
-	"net/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
-)
-
-// Request request for endpoint
-type Request struct {
-	IngressRequest *http.Request
-	API            *router.API
-}
-
-// NewReq create a request
-func NewReq(request *http.Request, api *router.API) *Request {
-	return &Request{
-		IngressRequest: request,
-		API:            api,
-	}
+// API describes the minimum configuration of an RESTful api configure in gateway
+type API struct {
+	URLPattern    string `json:"urlPattern" yaml:"urlPattern"`
+	config.Method `json:"method,inline" yaml:"method,inline"`
 }
