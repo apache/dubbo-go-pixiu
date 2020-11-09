@@ -29,8 +29,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/remote"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
@@ -60,7 +58,6 @@ func TestBuildContext(t *testing.T) {
 		BaseContext:  context.NewBaseContext(),
 	}
 	ctx.API(getMockAPI(config.MethodPost, "/mock/test", "a", "b", "c"))
-	ctx.BuildFilters()
 
-	assert.Equal(t, len(ctx.Filters), 4)
+	assert.Equal(t, len(ctx.Filters), 3)
 }
