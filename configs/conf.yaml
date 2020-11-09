@@ -49,13 +49,13 @@ static_resources:
       request_timeout: "10s"
       registries:
         "zookeeper":
-          - timeout: "3s"
-            address: "127.0.0.1:2182"
-            username: ""
-            password: ""
+          timeout: "3s"
+          address: "127.0.0.1:2182"
+          username: ""
+          password: ""
         "consul":
-          - timeout: "3s"
-            address: "127.0.0.1:8500"
+          timeout: "3s"
+          address: "127.0.0.1:8500"
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"
