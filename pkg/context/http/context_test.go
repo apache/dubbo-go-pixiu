@@ -58,6 +58,7 @@ func TestBuildContext(t *testing.T) {
 		BaseContext:  context.NewBaseContext(),
 	}
 	ctx.API(getMockAPI(config.MethodPost, "/mock/test", "a", "b", "c"))
+	ctx.BuildFilters()
 
 	assert.Equal(t, len(ctx.Filters), 3)
 }
