@@ -35,8 +35,8 @@ type ClientPool struct {
 }
 
 var (
-	_clientPool *ClientPool
-	once        = sync.Once{}
+	clientPool *ClientPool
+	once       = sync.Once{}
 )
 
 func newClientPool() *ClientPool {
@@ -59,13 +59,13 @@ func newClientPool() *ClientPool {
 
 // SingletonPool singleton pool
 func SingletonPool() *ClientPool {
-	if _clientPool == nil {
+	if clientPool == nil {
 		once.Do(func() {
-			_clientPool = newClientPool()
+			clientPool = newClientPool()
 		})
 	}
 
-	return _clientPool
+	return clientPool
 }
 
 // GetClient  a factory method to get a client according to apiType .
