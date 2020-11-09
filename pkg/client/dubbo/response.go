@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package httpclient
+package dubbo
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -27,14 +28,14 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
-// NewDubboResponse creates dubbo response
+// NewDubboResponse create dubbo response
 func NewDubboResponse(data interface{}) *client.Response {
 	r, err := dealResp(data, true)
 	if err != nil {
 		return &client.Response{Data: data}
 	}
-	return &client.Response{Data: r}
 
+	return &client.Response{Data: r}
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
@@ -67,7 +68,7 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 				}
 				newTemps = append(newTemps, newTemp)
 			} else {
-				return nil, fmt.Errorf("unexpect err,value:%+v", value)
+				return nil, errors.New(fmt.Sprintf("unexpect err,value:%+v", value))
 			}
 		}
 		return newTemps, nil
@@ -79,11 +80,11 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 
 func mapIItoMapSI(in interface{}) interface{} {
 	var inMap = make(map[interface{}]interface{})
-	v, ok := in.(map[interface{}]interface{})
-	if ok {
+	if v, ok := in.(map[interface{}]interface{}); !ok {
 		return in
+	} else {
+		inMap = v
 	}
-	inMap = v
 	outMap := make(map[string]interface{}, len(inMap))
 
 	for k, v := range inMap {
