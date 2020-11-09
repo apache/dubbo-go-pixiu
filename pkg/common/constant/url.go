@@ -14,27 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package constant
 
-package client
-
-import (
-	"net/http"
+const (
+	// NameKey name of interface
+	NameKey = "name"
+	// GroupKey group of interface
+	GroupKey = "group"
+	// VersionKey Version of interface
+	VersionKey = "version"
+	// InterfaceKey interface
+	InterfaceKey = "interface"
+	// RetriesKey retry times
+	RetriesKey = "retries"
 )
-
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
-)
-
-// Request request for endpoint
-type Request struct {
-	IngressRequest *http.Request
-	API            *router.API
-}
-
-// NewReq create a request
-func NewReq(request *http.Request, api *router.API) *Request {
-	return &Request{
-		IngressRequest: request,
-		API:            api,
-	}
-}

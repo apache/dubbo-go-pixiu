@@ -19,13 +19,14 @@ package context
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // Context run context
 type Context interface {
 	Next()
 	Abort()
-
+	AbortWithError(string, error)
 	AppendFilterFunc(ff ...FilterFunc)
 
 	Status(code int)
@@ -39,6 +40,8 @@ type Context interface {
 
 	BuildFilters()
 
+	API(router.API)
+	GetAPI() *router.API
 	Api(api *model.Api)
 	GetApi() *model.Api
 
