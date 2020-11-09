@@ -5,36 +5,25 @@ resources:
     type: restful
     description: resource documentation
     filters:
-      - filterA
-      - filterB
+      - filter0
     methods:
       - httpVerb: GET
         onAir: true
         inboundRequest:
-          type: http
-          headers: 
-            - name: auth
-              required: true 
+          requestType: http
           queryStrings:
             - name: id
               required: false
-            - name: type
-              required: false
-          requestBody:
-            - definitionName: modelDefinition
         integrationRequest:
-          type: dubbo
+          requestType: dubbo
           mappingParams:
             - name: queryStrings.id
               mapTo: 1
-          applicationName: BDTService
-          group: test
-          version: 1.0.0
-          interface: com.ikurento.user.UserProvider
-          Method: GetUser
-          paramTypes:
-            - java.lang.String
-          ClusterName: test_dubbo
+          applicationName: "BDTService"
+          interface: "com.ikurento.user.UserProvider"
+          method: "GetUser"
+          clusterName: "test_dubbo"
+
 definitions:
   - name: modelDefinition
     schema: >-

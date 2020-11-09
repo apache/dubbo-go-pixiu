@@ -22,7 +22,6 @@ type Bootstrap struct {
 	StaticResources  StaticResources  `yaml:"static_resources" json:"static_resources" mapstructure:"static_resources"`
 	DynamicResources DynamicResources `yaml:"dynamic_resources" json:"dynamic_resources" mapstructure:"dynamic_resources"`
 	Tracing          Tracing          `yaml:"tracing" json:"tracing" mapstructure:"tracing"`
-	Addresses        []Address        `yaml:"addresses" json:"addresses" mapstructure:"addresses"`
 }
 
 // GetListeners
@@ -50,11 +49,19 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 
 // StaticResources
 type StaticResources struct {
-	Listeners []Listener `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
-	Clusters  []Cluster  `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	Listeners      []Listener      `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
+	Clusters       []Cluster       `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf PprofConf  `yaml:"pprofConf json:"pprofConf" mapstructure:"pprofConf"`
 }
 
 // DynamicResources TODO
 type DynamicResources struct {
+}
+
+// ShutdownConfig how to shutdown proxy.
+type ShutdownConfig struct {
+	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
+	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
+	RejectPolicy string `yaml:"reject_policy" json:"reject_policy,omitempty"`
 }
