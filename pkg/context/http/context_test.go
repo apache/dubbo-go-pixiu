@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package http_test
+package http
 
 import (
 	"testing"
@@ -29,8 +29,8 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	httpCtx "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/remote"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
@@ -55,7 +55,7 @@ func TestBuildContext(t *testing.T) {
 	extension.SetFilterFunc("a", func(ctx context.Context) { ctx.Next() })
 	extension.SetFilterFunc("b", func(ctx context.Context) { ctx.Next() })
 	extension.SetFilterFunc("c", func(ctx context.Context) { ctx.Next() })
-	ctx := httpCtx.HttpContext{
+	ctx := HttpContext{
 		FilterChains: []model.FilterChain{},
 		BaseContext:  context.NewBaseContext(),
 	}
