@@ -34,7 +34,7 @@ static_resources:
                     config:
                   - name: dgp.filters.http.router
                     config:
-                  - name: dgp.filters.remote_call
+                  - name: dgp.filters.http_transfer_dubbo
                     config:
                 server_name: "test_http_dubbo"
                 generate_request_id: false
@@ -50,19 +50,13 @@ static_resources:
       registries:
         "zookeeper":
           timeout: "3s"
-          address: "127.0.0.1:2182"
+          address: "127.0.0.1:2181"
           username: ""
           password: ""
-        "consul":
-          timeout: "3s"
-          address: "127.0.0.1:8500"
+#        "consul":
+#          timeout: "3s"
+#          address: "127.0.0.1:8500"
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
-  pprofConf:
-    enable: true
-    address:
-      socket_address:
-        address: "0.0.0.0"
-        port: 6060
