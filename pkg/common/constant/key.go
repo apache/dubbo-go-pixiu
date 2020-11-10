@@ -26,6 +26,8 @@ const (
 
 	LoggerFilter   = "dgp.filters.logger"
 	RecoveryFilter = "dgp.filters.recovery"
+
+	AccessLogFilter = "dgp.filters.access_log"
 )
 
 const (

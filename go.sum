@@ -71,7 +71,7 @@ github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRF
 github.com/aliyun/alibaba-cloud-sdk-go v1.61.18/go.mod h1:v8ESoHo4SyHmuB4b1tJqDHxfTGEciD+yhvOU/5s1Rfk=
 github.com/apache/dubbo-getty v1.3.10 h1:ys5mwjPdxG/KwkPjS6EI0RzQtU6p6FCPoKpaFEzpAL0=
 github.com/apache/dubbo-getty v1.3.10/go.mod h1:x6rraK01BL5C7jUM2fPl5KMkAxLVIx54ZB8/XEOik9Y=
-github.com/apache/dubbo-go v1.5.1 h1:hYktTWnMJdzwY0NkvSqJfOERkwFApZ3mH/tQBLVGO34=
+github.com/apache/dubbo-go v1.5.1 h1:9bcGOkek0+x+zqtvykKpuOwkoJfMef0zNxsyPbWOafY=
 github.com/apache/dubbo-go v1.5.1/go.mod h1:lxwgtF+27mSFQsSrBLaVbdQpwCp+pBN/mHP4w4/N2Qc=
 github.com/apache/dubbo-go-hessian2 v1.6.2 h1:i7F5GjVaUatLQz1x9vUmmSIFj49L8J6rVICdF6xw4qw=
 github.com/apache/dubbo-go-hessian2 v1.6.2/go.mod h1:7rEw9guWABQa6Aqb8HeZcsYPHsOS7XT1qtJvkmI6c5w=
