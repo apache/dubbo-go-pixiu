@@ -15,26 +15,9 @@
  * limitations under the License.
  */
 
-package constant
+package model
 
-const (
-	HeaderKeyContextType              = "Content-Type"
-	HeaderKeyAccessControlAllowOrigin = "Access-Control-Allow-Origin"
-
-	HeaderValueJsonUtf8  = "application/json;charset=UTF-8"
-	HeaderValueTextPlain = "text/plain"
-	HeaderValueAll       = "*"
-
-	PathSlash           = "/"
-	PathParamIdentifier = ":"
-)
-
-const (
-	Http1HeaderKeyHost = "Host"
-	Http2HeaderKeyHost = ":authority"
-)
-
-const (
-	PprofDefaultAddress = "0.0.0.0"
-	PprofDefaultPort    = 7070
-)
+type PprofConf struct {
+	Enable  bool    `yaml:"enable" json:"enable" mapstructure:"enable" default:"false"`
+	Address Address `yaml:"address" json:"address" mapstructure:"address"`
+}
