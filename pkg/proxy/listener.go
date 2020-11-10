@@ -136,7 +136,7 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		s.pool.Put(hc)
 		return
 	}
-	hc.BuildFilters()
+	hc.BuildFiltersWithDefault()
 
 	s.handleHTTPRequest(hc)
 
