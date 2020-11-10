@@ -89,7 +89,8 @@ var (
 			}
 			logger.InitLog(logConfPath)
 			if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
-				logger.Info(err.Error())
+				logger.Errorf("load api config error:%+v", err)
+				return err
 			}
 
 			limitCpus := c.Int("limit-cpus")
