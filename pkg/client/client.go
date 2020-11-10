@@ -20,6 +20,8 @@ package client
 type Client interface {
 	Init() error
 	Close() error
-
 	Call(req *Request) (resp Response, err error)
+
+	// MappingParams mapping param, uri, query, body ...
+	MappingParams(req *Request) (types []string, reqData []interface{}, err error)
 }
