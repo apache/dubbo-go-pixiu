@@ -29,7 +29,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
@@ -98,6 +97,11 @@ func (hc *HttpContext) AddHeader(k, v string) {
 // GetHeader get header
 func (hc *HttpContext) GetHeader(k string) string {
 	return hc.Request.Header.Get(k)
+}
+
+//AllHeaders  get all headers
+func (hc *HttpContext) AllHeaders() http.Header {
+	return hc.Request.Header
 }
 
 // GetUrl get http request url
@@ -210,14 +214,14 @@ func (hc *HttpContext) BuildFilters() {
 		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
 
-	switch api.Method.IntegrationRequest.RequestType {
-	case config.DubboRequest:
-		hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.HTTPTransferDubboFilter))
-	case config.HTTPRequest:
-		break
-	}
-
 	hc.AppendFilterFunc(filterFuncs...)
+}
+
+// BuildFiltersWithDefault build filter like BuildFilters, but add some default filter.
+func (hc *HttpContext) BuildFiltersWithDefault() {
+	hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
+
+	hc.BuildFilters()
 }
 
 // ResetWritermen reset writermen

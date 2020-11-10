@@ -102,6 +102,7 @@ type InboundRequest struct {
 // Params defines the simple parameter definition
 type Params struct {
 	Name     string `json:"name" yaml:"name"`
+	Type     string `json:"type" yaml:"type"`
 	Required bool   `json:"required" yaml:"required"`
 }
 
@@ -114,6 +115,7 @@ type BodyDefinition struct {
 type IntegrationRequest struct {
 	RequestType        `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
 	DubboBackendConfig `json:"dubboBackendConfig,inline,omitempty" yaml:"dubboBackendConfig,inline,omitempty"`
+	HTTPBackendConfig  `json:"httpBackendConfig" yaml:"httpBackendConfig"`
 	MappingParams      []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
 }
 
@@ -134,6 +136,16 @@ type DubboBackendConfig struct {
 	Method          string   `yaml:"method" json:"method"`
 	ParamTypes      []string `yaml:"paramTypes" json:"paramTypes"`
 	Retries         string   `yaml:"retries" json:"retries,omitempty"`
+}
+
+// HTTPBackendConfig defines the basic dubbo backend config
+type HTTPBackendConfig struct {
+	//TODO  resolve from yaml config needed.   head mapping needed. paramMappingneeded
+	TargetURL       string `yaml:"targetUrl" json:"targetUrl"`
+	ApplicationName string `yaml:"applicationName" json:"applicationName"`
+	Protocol        string `yaml:"protocol" json:"protocol,schema" default:"https"`
+	Version         string `yaml:"version" json:"version"`
+	Retries         string `yaml:"retries" json:"retries,omitempty"`
 }
 
 // Definition defines the complex json request body
