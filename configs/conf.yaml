@@ -60,3 +60,9 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+  pprofConf:
+    enable: true
+    address:
+      socket_address:
+        address: "0.0.0.0"
+        port: 6060
