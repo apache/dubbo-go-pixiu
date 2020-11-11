@@ -84,7 +84,7 @@ func TestStruct2JSON(t *testing.T) {
 												},
 											},
 										},
-										HttpFilters: []model.HttpFilter{
+										HTTPFilters: []model.HTTPFilter{
 											{
 												Name: "dgp.filters.http.cors",
 											},
