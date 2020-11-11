@@ -19,7 +19,10 @@ package http
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 import (
@@ -124,6 +127,35 @@ func (hc *HttpContext) API(api router.API) {
 // GetAPI get api
 func (hc *HttpContext) GetAPI() *router.API {
 	return &hc.api
+}
+
+// GetClientIP get client IP
+func (hc *HttpContext) GetClientIP() string {
+	xForwardedFor := hc.Request.Header.Get("X-Forwarded-For")
+	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
+	if len(ip) != 0 {
+		return ip
+	}
+
+	ip = strings.TrimSpace(hc.Request.Header.Get("X-Real-Ip"))
+	if len(ip) != 0 {
+		return ip
+	}
+
+	if ip, _, err := net.SplitHostPort(strings.TrimSpace(hc.Request.RemoteAddr)); err == nil && len(ip) != 0 {
+		return ip
+	}
+
+	return ""
+}
+
+// GetApplicationName get application name
+func (hc *HttpContext) GetApplicationName() string {
+	if u, err := url.Parse(hc.Request.RequestURI); err == nil {
+		return strings.Split(u.Path, "/")[0]
+	}
+
+	return ""
 }
 
 // WriteFail
