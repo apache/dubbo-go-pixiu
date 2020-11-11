@@ -29,7 +29,19 @@ static_resources:
                           allow_origin:
                             - "*"
                           enabled: true
+                  authority_config:
+                    authority_rules:
+                      - strategy: "Blacklist"
+                        limit: "IP"
+                        items:
+                          - "127.0.0.1"
+                      - strategy: "Whitelist"
+                        limit: "App"
+                        items:
+                          - "test_dubbo"
                 http_filters:
+                  - name: dgp.filters.http.authority_filter
+                    config:
                   - name: dgp.filters.http.api
                     config:
                   - name: dgp.filters.http.router
