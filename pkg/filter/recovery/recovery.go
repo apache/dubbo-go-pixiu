@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package filter
+package recovery
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
@@ -25,15 +25,15 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, Recover())
+	extension.SetFilterFunc(constant.RecoveryFilter, Recovery())
 }
 
-// Recover
-func Recover() context.FilterFunc {
+// Recovery recovery the panic, print log.
+func Recovery() context.FilterFunc {
 	return func(c context.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				logger.Infof("[dubboproxy go] error:%+v", err)
+				logger.Warnf("[dubboproxy go] error:%+v", err)
 
 				c.WriteErr(err)
 			}
