@@ -77,8 +77,6 @@ func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 		select {
 		// timeout do.
 		case <-ctx.Done():
-			hc.Lock.Lock()
-			defer hc.Lock.Unlock()
 			logger.Warnf("api %v request timeout", hc.GetAPI())
 			bt, _ := json.Marshal(errResponse{Code: TimeoutError,
 				Message: http.ErrHandlerTimeout.Error()})
@@ -86,8 +84,6 @@ func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 			hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
 			hc.Abort()
 		case <-finishChan:
-			hc.Lock.Lock()
-			defer hc.Lock.Unlock()
 			// finish call do something.
 		}
 	}
