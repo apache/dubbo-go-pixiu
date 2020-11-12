@@ -3,21 +3,22 @@
 
 check: true
 # client
-request_timeout : "3s"
+request_timeout: "3s"
 # connect timeout
-connect_timeout : "3s"
+connect_timeout: "3s"
 
 # application config
 application:
-  organization: "dubbo-go-proxy"
-  name : "DubboGoProxy"
-  module: "dubbogo proxy client"
-  version: "0.0.1"
-  owner: "DubboGoProxy"
+  organization: "dubbogoproxy.com"
+  name: "User Micro Service"
+  module: "dubbogoproxy user-info server"
+  version: "0.1.0"
+  group: "tc"
+  owner: "ZX"
   environment: "dev"
 
-registries :
-  "hangzhouzk":
+registries:
+  "zk1":
     protocol: "zookeeper"
     timeout: "3s"
     address: "127.0.0.1:2181"
@@ -29,9 +30,9 @@ references:
 protocol_conf:
   dubbo:
     reconnect_interval: 0
-    connection_number: 2
+    connection_number: 1
     heartbeat_period: "5s"
-    session_timeout: "20s"
+    session_timeout: "180s"
     pool_size: 64
     pool_ttl: 600
     getty_session_param:
@@ -45,5 +46,5 @@ protocol_conf:
       tcp_read_timeout: "1s"
       tcp_write_timeout: "5s"
       wait_timeout: "1s"
-      max_msg_len: 10240
+      max_msg_len: 1024000
       session_name: "client"

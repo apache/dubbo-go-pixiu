@@ -30,11 +30,12 @@ import (
 
 // NewDubboResponse create dubbo response
 func NewDubboResponse(data interface{}) *client.Response {
-	if r, err := dealResp(data, true); err != nil {
+	r, err := dealResp(data, true)
+	if err != nil {
 		return &client.Response{Data: data}
-	} else {
-		return &client.Response{Data: r}
 	}
+
+	return &client.Response{Data: r}
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
