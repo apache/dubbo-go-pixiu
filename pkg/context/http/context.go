@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 )
 
 import (
@@ -46,7 +45,6 @@ type HttpContext struct {
 	Request   *http.Request
 	writermem responseWriter
 	Writer    ResponseWriter
-	Lock      sync.Mutex
 }
 
 // Next logic for lookup filter
@@ -80,7 +78,7 @@ func (hc *HttpContext) Write(b []byte) (int, error) {
 	return hc.Writer.Write(b)
 }
 
-// WriteHeaderNow
+// WriteHeaderNow write header now
 func (hc *HttpContext) WriteHeaderNow() {
 	hc.writermem.WriteHeaderNow()
 }
@@ -116,7 +114,7 @@ func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
 }
 
-// Api
+// Api wait do delete
 func (hc *HttpContext) Api(api *model.Api) {
 	// hc.api = api
 }
