@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package filter
+package remote
 
 import (
-	"io/ioutil"
+	"errors"
+	"net/http"
 )
 
 import (
@@ -32,39 +33,61 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
+	clienthttp "github.com/dubbogo/dubbo-go-proxy/pkg/client/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpTransferDubboFilter, HttpDubbo())
+	extension.SetFilterFunc(constant.RemoteCallFilter, Call())
 }
 
-// HttpDubbo http 2 dubbo
-func HttpDubbo() context.FilterFunc {
+// Call remote call context.FilterFunc.
+// support: 1 http 2 dubbo 2 http 2 http
+func Call() context.FilterFunc {
 	return func(c context.Context) {
-		doDubbo(c.(*http.HttpContext))
+		doRemoteCall(c.(*contexthttp.HttpContext))
 	}
 }
 
-func doDubbo(c *http.HttpContext) {
+func doRemoteCall(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
-	if bytes, err := ioutil.ReadAll(c.Request.Body); err != nil {
-		logger.Errorf("[dubboproxy go] read body err:%v!", err)
-		c.WriteFail()
-		c.Abort()
-	} else {
-		if resp, err := dubbo.SingleDubboClient().Call(client.NewRequest(bytes, api)); err != nil {
-			logger.Errorf("[dubboproxy go] client do err:%v!", err)
-			c.WriteFail()
-			c.Abort()
-		} else {
-			c.WriteResponse(resp)
-			c.Next()
-		}
+	typ := api.Method.IntegrationRequest.RequestType
+
+	cli, err := matchClient(typ)
+	if err != nil {
+		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
+		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		return
+	}
+
+	resp, err := cli.Call(client.NewReq(c.Request, api, c.Ctx))
+
+	if err != nil {
+		logger.Errorf("[dubboproxy go] client do err:%v!", err)
+		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
+		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		return
+	}
+
+	logger.Debugf("resp : %v", resp)
+
+	c.WriteResponse(resp)
+	c.Next()
+}
+
+func matchClient(typ config.RequestType) (client.Client, error) {
+	switch typ {
+	case config.DubboRequest:
+		return dubbo.SingletonDubboClient(), nil
+	case config.HTTPRequest:
+		return clienthttp.SingletonHTTPClient(), nil
+	default:
+		return nil, errors.New("not support")
 	}
 }

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
+	time "time"
 )
 
 import (
@@ -78,4 +78,12 @@ func (w *MockWriter) Write(b []byte) (int, error) {
 
 func (w *MockWriter) WriteHeader(statusCode int) {
 	fmt.Println(statusCode)
+}
+
+func TestName(t *testing.T) {
+	tt, _ := time.ParseDuration("111")
+	t.Log(tt)
+	if tt == 0 {
+		t.Log("0")
+	}
 }
