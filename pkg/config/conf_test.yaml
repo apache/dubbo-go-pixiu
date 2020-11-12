@@ -60,3 +60,7 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+
+  pprofConf:
+    enable: true
+    addr: "0.0.0.0:6060"
