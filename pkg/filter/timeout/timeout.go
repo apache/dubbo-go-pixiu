@@ -41,24 +41,24 @@ func init() {
 	extension.SetFilterFunc(constant.TimeoutFilter, NewTimeoutFilter(0).Do())
 }
 
-// timeoutFilter is a filter for control request time out.
-type timeoutFilter struct {
+// TimeoutFilter is a filter for control request time out.
+type TimeoutFilter struct {
 	// global timeout
 	waitTime time.Duration
 }
 
 // NewTimeoutFilter create timeout filter.
-func NewTimeoutFilter(t time.Duration) *timeoutFilter {
+func NewTimeoutFilter(t time.Duration) *TimeoutFilter {
 	if t <= 0 {
 		t = constant.DefaultTimeout
 	}
-	return &timeoutFilter{
+	return &TimeoutFilter{
 		waitTime: t,
 	}
 }
 
-// Do timeoutFilter execute filter logic.
-func (f *timeoutFilter) Do() selfcontext.FilterFunc {
+// Do execute TimeoutFilter filter logic.
+func (f *TimeoutFilter) Do() selfcontext.FilterFunc {
 	return func(c selfcontext.Context) {
 		hc := c.(*contexthttp.HttpContext)
 
