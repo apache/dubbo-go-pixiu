@@ -20,6 +20,7 @@ package timeout
 import (
 	"context"
 	"encoding/json"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"net/http"
 	"time"
 )
@@ -33,22 +34,26 @@ import (
 
 const (
 	// TimeoutError timeout code
-	TimeoutError = "S005"
+	TimeoutError = "PROXY005"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.TimeoutFilter, NewTimeoutFilter().Do())
+	extension.SetFilterFunc(constant.TimeoutFilter, NewTimeoutFilter(0).Do())
 }
 
 // timeoutFilter is a filter for control request time out.
 type timeoutFilter struct {
+	// global timeout
 	waitTime time.Duration
 }
 
 // NewTimeoutFilter create timeout filter.
-func NewTimeoutFilter() *timeoutFilter {
+func NewTimeoutFilter(t time.Duration) *timeoutFilter {
+	if t <= 0 {
+		t = constant.DefaultTimeout
+	}
 	return &timeoutFilter{
-		waitTime: time.Minute,
+		waitTime: t,
 	}
 }
 
@@ -70,17 +75,20 @@ func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 		}()
 
 		select {
+		// timeout do.
 		case <-ctx.Done():
 			hc.Lock.Lock()
 			defer hc.Lock.Unlock()
+			logger.Warnf("api %v request timeout", hc.GetAPI())
 			bt, _ := json.Marshal(errResponse{Code: TimeoutError,
 				Message: http.ErrHandlerTimeout.Error()})
-			c.WriteWithStatus(http.StatusServiceUnavailable, bt)
-			c.Abort()
+			hc.WriteWithStatus(http.StatusServiceUnavailable, bt)
+			hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+			hc.Abort()
 		case <-finishChan:
 			hc.Lock.Lock()
 			defer hc.Lock.Unlock()
-			// finish callback
+			// finish call do something.
 		}
 	}
 }
