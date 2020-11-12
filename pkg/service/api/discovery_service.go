@@ -18,11 +18,8 @@
 package api
 
 import (
+	"errors"
 	"fmt"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
