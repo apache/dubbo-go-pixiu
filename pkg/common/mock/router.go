@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package client
+package mock
 
 import (
-	"net/http"
-)
-
-import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
-// Request request for endpoint
-type Request struct {
-	IngressRequest *http.Request
-	API            router.API
-}
-
-// NewReq create a request
-func NewReq(request *http.Request, api router.API) *Request {
-	return &Request{
-		IngressRequest: request,
-		API:            api,
+// GetMockAPI a mock util to create router.API
+func GetMockAPI(verb config.HTTPVerb, urlPattern string, filters ...string) router.API {
+	inbound := config.InboundRequest{}
+	integration := config.IntegrationRequest{RequestType: config.DubboRequest}
+	method := config.Method{
+		OnAir:              true,
+		HTTPVerb:           verb,
+		InboundRequest:     inbound,
+		IntegrationRequest: integration,
+		Filters:            filters,
+	}
+	return router.API{
+		URLPattern: urlPattern,
+		Method:     method,
 	}
 }
