@@ -28,16 +28,17 @@ func init() {
 	extension.SetFilterFunc(constant.RecoveryFilter, NewRecoveryFilter().Do())
 }
 
-type recoveryFilter struct {
+// RecoveryFilter is a filter for recover.
+type RecoveryFilter struct {
 }
 
 // NewRecoveryFilter create timeout filter.
-func NewRecoveryFilter() *recoveryFilter {
-	return &recoveryFilter{}
+func NewRecoveryFilter() *RecoveryFilter {
+	return &RecoveryFilter{}
 }
 
-// Recovery recovery the panic, print log.
-func (f *recoveryFilter) Do() context.FilterFunc {
+// Recovery execute RecoveryFilter filter logic, if recover happen, print log or do other things.
+func (f *RecoveryFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
 		defer func() {
 			if err := recover(); err != nil {
