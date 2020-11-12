@@ -71,6 +71,7 @@ var ProtocolTypeValue = map[string]int32{
 // Address the address
 type Address struct {
 	SocketAddress SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
+	Name          string        `yaml:"name" json:"name" mapstructure:"name"`
 }
 
 // Address specify either a logical or physical address and port, which are

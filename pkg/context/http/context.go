@@ -19,7 +19,10 @@ package http
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 )
 
@@ -27,7 +30,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
@@ -99,6 +101,11 @@ func (hc *HttpContext) GetHeader(k string) string {
 	return hc.Request.Header.Get(k)
 }
 
+// AllHeaders  get all headers
+func (hc *HttpContext) AllHeaders() http.Header {
+	return hc.Request.Header
+}
+
 // GetUrl get http request url
 func (hc *HttpContext) GetUrl() string {
 	return hc.Request.URL.Path
@@ -116,12 +123,42 @@ func (hc *HttpContext) Api(api *model.Api) {
 
 // API sets the API to http context
 func (hc *HttpContext) API(api router.API) {
+	hc.Timeout = api.Timeout
 	hc.api = api
 }
 
 // GetAPI get api
 func (hc *HttpContext) GetAPI() *router.API {
 	return &hc.api
+}
+
+// GetClientIP get client IP
+func (hc *HttpContext) GetClientIP() string {
+	xForwardedFor := hc.Request.Header.Get("X-Forwarded-For")
+	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
+	if len(ip) != 0 {
+		return ip
+	}
+
+	ip = strings.TrimSpace(hc.Request.Header.Get("X-Real-Ip"))
+	if len(ip) != 0 {
+		return ip
+	}
+
+	if ip, _, err := net.SplitHostPort(strings.TrimSpace(hc.Request.RemoteAddr)); err == nil && len(ip) != 0 {
+		return ip
+	}
+
+	return ""
+}
+
+// GetApplicationName get application name
+func (hc *HttpContext) GetApplicationName() string {
+	if u, err := url.Parse(hc.Request.RequestURI); err == nil {
+		return strings.Split(u.Path, "/")[0]
+	}
+
+	return ""
 }
 
 // WriteFail
@@ -179,14 +216,6 @@ func (hc *HttpContext) BuildFilters() {
 	for _, v := range api.Method.Filters {
 		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
-
-	switch api.Method.IntegrationRequest.RequestType {
-	case config.DubboRequest:
-		hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.HttpTransferDubboFilter))
-	case config.HTTPRequest:
-		break
-	}
-
 	hc.AppendFilterFunc(filterFuncs...)
 }
 
