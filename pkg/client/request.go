@@ -28,16 +28,17 @@ import (
 
 // Request request for endpoint
 type Request struct {
+	Context context.Context
+
 	IngressRequest *http.Request
 	API            *router.API
-	Context        context.Context
 }
 
 // NewReq create a request
-func NewReq(request *http.Request, api *router.API, ctx context.Context) *Request {
+func NewReq(ctx context.Context, request *http.Request, api *router.API) *Request {
 	return &Request{
+		Context:        ctx,
 		IngressRequest: request,
 		API:            api,
-		Context:        ctx,
 	}
 }
