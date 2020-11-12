@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpDomainFilter, Domain())
+	extension.SetFilterFunc(constant.HTTPDomainFilter, Domain())
 }
 
 // Domain

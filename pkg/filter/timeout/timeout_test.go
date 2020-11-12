@@ -26,8 +26,8 @@ import (
 )
 
 import (
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	selfhttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	pkgcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
 )
 
@@ -39,7 +39,7 @@ func TestPanic(t *testing.T) {
 	// "timeout filter test panic"
 }
 
-var testPanicFilter = func(c selfcontext.Context) {
+var testPanicFilter = func(c pkgcontext.Context) {
 	time.Sleep(time.Millisecond * 100)
 	panic("timeout filter test panic")
 }
@@ -52,7 +52,7 @@ func TestTimeout(t *testing.T) {
 	// {"code":"S005","message":"http: Handler timeout"}
 }
 
-var testTimeoutFilter = func(c selfcontext.Context) {
+var testTimeoutFilter = func(c pkgcontext.Context) {
 	time.Sleep(time.Second * 3)
 }
 
@@ -61,14 +61,14 @@ func TestNormal(t *testing.T) {
 	c.Next()
 }
 
-var testNormalFilter = func(c selfcontext.Context) {
+var testNormalFilter = func(c pkgcontext.Context) {
 	time.Sleep(time.Millisecond * 200)
 	fmt.Println("normal call")
 }
 
-func MockHTTPContext(fc ...selfcontext.FilterFunc) *selfhttp.HttpContext {
-	result := &selfhttp.HttpContext{
-		BaseContext: &selfcontext.BaseContext{
+func MockHTTPContext(fc ...pkgcontext.FilterFunc) *contexthttp.HttpContext {
+	result := &contexthttp.HttpContext{
+		BaseContext: &pkgcontext.BaseContext{
 			Index: -1,
 			Ctx:   context.Background(),
 		},
