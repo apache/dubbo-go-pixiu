@@ -31,6 +31,7 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/mock"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	ctxHttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
@@ -64,28 +65,13 @@ func getTestContext() *ctxHttp.HttpContext {
 	return hc
 }
 
-func getMockAPI(verb config.HTTPVerb, urlPattern string) router.API {
-	inbound := config.InboundRequest{}
-	integration := config.IntegrationRequest{}
-	method := config.Method{
-		OnAir:              true,
-		HTTPVerb:           verb,
-		InboundRequest:     inbound,
-		IntegrationRequest: integration,
-	}
-	return router.API{
-		URLPattern: urlPattern,
-		Method:     method,
-	}
-}
-
 func TestRouteRequest(t *testing.T) {
-	mockAPI := getMockAPI(config.MethodPost, "/mock/test")
+	mockAPI := mock.GetMockAPI(config.MethodPost, "/mock/test")
 	mockAPI.Method.OnAir = false
 
 	apiDiscoverySrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	apiDiscoverySrv.AddAPI(mockAPI)
-	apiDiscoverySrv.AddAPI(getMockAPI(config.MethodGet, "/mock/test"))
+	apiDiscoverySrv.AddAPI(mock.GetMockAPI(config.MethodGet, "/mock/test"))
 
 	listener := NewDefaultHttpListener()
 	listener.pool.New = func() interface{} {

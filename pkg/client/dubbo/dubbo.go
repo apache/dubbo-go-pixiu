@@ -19,10 +19,7 @@ package dubbo
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"io/ioutil"
-	"regexp"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +29,7 @@ import (
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
+	"github.com/pkg/errors"
 )
 
 import (
@@ -45,6 +43,12 @@ const (
 	JavaStringClassName = "java.lang.String"
 	JavaLangClassName   = "java.lang.Long"
 )
+
+var mappers = map[string]client.ParamMapper{
+	"queryStrings": queryStringsMapper{},
+	"headers":      headerMapper{},
+	"requestBody":  bodyMapper{},
+}
 
 var (
 	dubboClient        *Client
@@ -158,87 +162,21 @@ func (dc *Client) Call(req *client.Request) (resp client.Response, err error) {
 }
 
 // MappingParams param mapping to api.
-// TODO wait for detail impl
-func (dc *Client) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
+func (dc *Client) MappingParams(req *client.Request) ([]string, []interface{}, error) {
 	r := req.API.Method.IntegrationRequest
-	for i := range r.MappingParams {
-		m := r.MappingParams[i]
-		typ, value, err := paramParse(req, m.Name)
+	values := []interface{}{}
+	for _, mappingParam := range r.MappingParams {
+		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
 			return nil, nil, err
 		}
-
-		types = append(types, typ)
-		reqData = append(reqData, value)
-	}
-
-	return
-}
-
-func paramParse(req *client.Request, param string) (typ string, value interface{}, err error) {
-	inboundRequest := req.API.Method.InboundRequest
-	inReq := req.IngressRequest
-
-	var ingaressReqDate []byte
-
-	if param == "requestBody" && req.API.Method.RequestBody != nil {
-		ingaressReqDate, err = ioutil.ReadAll(inReq.Body)
-		if err != nil {
-			return "", nil, err
-		}
-
-		bodyMap := make(map[string]interface{})
-		if err := json.Unmarshal(ingaressReqDate, &bodyMap); err != nil {
-			return "", nil, err
-		}
-		// TODO
-		return inboundRequest.RequestBody[0].DefinitionName, bodyMap, nil
-	}
-
-	reg := regexp.MustCompile(`^([query|uri][\w|\d]+)\.([\w|\d]+)$`)
-	if !reg.MatchString(param) {
-		return "", nil, errors.New("not match, check your config")
-	}
-	ps := reg.FindStringSubmatch(param)
-
-	from := ps[1]
-	key := ps[2]
-	if from == "queryStrings" {
-		for i := range inboundRequest.QueryStrings {
-			p := inboundRequest.QueryStrings[i]
-			q := inReq.URL.Query().Get(key)
-			if p.Name == key {
-				if p.Required && q == "" {
-					return "", nil, errors.New("illegal param")
-				}
-
-				if q != "" {
-					ingaressReqDate, err = json.Marshal(q)
-				}
-
-				switch p.Type {
-				case "string":
-					var s string
-					if err := json.Unmarshal(ingaressReqDate, &s); err != nil {
-						logger.Errorf("params parse error:%+v", err)
-						return "", "", err
-					}
-					return JavaStringClassName, s, nil
-				case "int":
-					var i int
-					if err := json.Unmarshal(ingaressReqDate, &i); err != nil {
-						logger.Errorf("params parse error:%+v", err)
-						return "", nil, err
-					}
-					return JavaLangClassName, i, nil
-				}
-
-				break
+		if mapper, ok := mappers[source]; ok {
+			if err := mapper.Map(mappingParam, *req, &values); err != nil {
+				return nil, nil, err
 			}
 		}
 	}
-
-	return "", "", nil
+	return req.API.IntegrationRequest.ParamTypes, values, nil
 }
 
 func (dc *Client) get(key string) *dg.GenericService {
@@ -303,4 +241,31 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *dg.Gen
 
 	dc.GenericServicePool[key] = clientService
 	return clientService
+}
+
+func validateTarget(target interface{}) (reflect.Value, error) {
+	rv := reflect.ValueOf(target)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return rv, errors.New("Target params must be a non-nil pointer")
+	}
+	if _, ok := target.(*[]interface{}); !ok {
+		return rv, errors.New("Target params for dubbo backend must be *[]interface{}")
+	}
+	return rv, nil
+}
+
+func setTarget(rv reflect.Value, pos int, value interface{}) {
+	if rv.Kind() != reflect.Ptr && rv.Type().Name() != "" && rv.CanAddr() {
+		rv = rv.Addr()
+	} else {
+		rv = rv.Elem()
+	}
+
+	tempValue := rv.Interface().([]interface{})
+	if len(tempValue) <= pos {
+		list := make([]interface{}, pos+1-len(tempValue))
+		tempValue = append(tempValue, list...)
+	}
+	tempValue[pos] = value
+	rv.Set(reflect.ValueOf(tempValue))
 }
