@@ -20,7 +20,6 @@ package timeout
 import (
 	"context"
 	"encoding/json"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"net/http"
 	"time"
 )
@@ -30,6 +29,8 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 const (
@@ -38,31 +39,31 @@ const (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.TimeoutFilter, NewTimeoutFilter(0).Do())
+	extension.SetFilterFunc(constant.TimeoutFilter, New(0).Do())
 }
 
-// TimeoutFilter is a filter for control request time out.
-type TimeoutFilter struct {
+// timeoutFilter is a filter for control request time out.
+type timeoutFilter struct {
 	// global timeout
 	waitTime time.Duration
 }
 
-// NewTimeoutFilter create timeout filter.
-func NewTimeoutFilter(t time.Duration) *TimeoutFilter {
+// New create timeout filter.
+func New(t time.Duration) filter.Filter {
 	if t <= 0 {
 		t = constant.DefaultTimeout
 	}
-	return &TimeoutFilter{
+	return &timeoutFilter{
 		waitTime: t,
 	}
 }
 
-// Do execute TimeoutFilter filter logic.
-func (f *TimeoutFilter) Do() selfcontext.FilterFunc {
+// Do execute timeoutFilter filter logic.
+func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 	return func(c selfcontext.Context) {
 		hc := c.(*contexthttp.HttpContext)
 
-		ctx, cancel := context.WithTimeout(hc.Ctx, hc.GetTimeout(hc.Timeout))
+		ctx, cancel := context.WithTimeout(hc.Ctx, f.getTimeout(hc.Timeout))
 		defer cancel()
 		// Channel capacity must be greater than 0.
 		// Otherwise, if the parent coroutine quit due to timeout,
@@ -87,6 +88,14 @@ func (f *TimeoutFilter) Do() selfcontext.FilterFunc {
 			// finish call do something.
 		}
 	}
+}
+
+func (f *timeoutFilter) getTimeout(t time.Duration) time.Duration {
+	if t <= 0 {
+		return f.waitTime
+	}
+
+	return t
 }
 
 type errResponse struct {
