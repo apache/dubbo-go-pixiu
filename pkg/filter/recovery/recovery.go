@@ -15,27 +15,39 @@
  * limitations under the License.
  */
 
-package extension
+package recovery
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-var (
-	filterFuncCacheMap = make(map[string]func(ctx context.Context), 4)
-)
-
-// SetFilterFunc will store the @filter and @name
-func SetFilterFunc(name string, filter context.FilterFunc) {
-	filterFuncCacheMap[name] = filter
+func init() {
+	extension.SetFilterFunc(constant.RecoveryFilter, New().Do())
 }
 
-// GetMustFilterFunc will return the proxy.FilterFunc
-// if not found, it will panic
-func GetMustFilterFunc(name string) context.FilterFunc {
-	if filter, ok := filterFuncCacheMap[name]; ok {
-		return filter
-	}
+// recoveryFilter is a filter for recover.
+type recoveryFilter struct {
+}
 
-	panic("filter func for " + name + " is not existing!")
+// New create timeout filter.
+func New() filter.Filter {
+	return &recoveryFilter{}
+}
+
+// Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
+func (f *recoveryFilter) Do() context.FilterFunc {
+	return func(c context.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Warnf("[dubboproxy go] error:%+v", err)
+
+				c.WriteErr(err)
+			}
+		}()
+		c.Next()
+	}
 }
