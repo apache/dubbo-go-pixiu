@@ -78,7 +78,7 @@ func (hc *HttpContext) Write(b []byte) (int, error) {
 	return hc.Writer.Write(b)
 }
 
-// WriteHeaderNow
+// WriteHeaderNow write header now
 func (hc *HttpContext) WriteHeaderNow() {
 	hc.writermem.WriteHeaderNow()
 }
@@ -99,7 +99,7 @@ func (hc *HttpContext) GetHeader(k string) string {
 	return hc.Request.Header.Get(k)
 }
 
-//AllHeaders  get all headers
+// AllHeaders  get all headers
 func (hc *HttpContext) AllHeaders() http.Header {
 	return hc.Request.Header
 }
@@ -114,13 +114,14 @@ func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
 }
 
-// Api
+// Api wait do delete
 func (hc *HttpContext) Api(api *model.Api) {
 	// hc.api = api
 }
 
 // API sets the API to http context
 func (hc *HttpContext) API(api router.API) {
+	hc.Timeout = api.Timeout
 	hc.api = api
 }
 
@@ -213,15 +214,7 @@ func (hc *HttpContext) BuildFilters() {
 	for _, v := range api.Method.Filters {
 		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
-
 	hc.AppendFilterFunc(filterFuncs...)
-}
-
-// BuildFiltersWithDefault build filter like BuildFilters, but add some default filter.
-func (hc *HttpContext) BuildFiltersWithDefault() {
-	hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
-
-	hc.BuildFilters()
 }
 
 // ResetWritermen reset writermen

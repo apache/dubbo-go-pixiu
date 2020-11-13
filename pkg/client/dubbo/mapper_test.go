@@ -19,6 +19,7 @@ package dubbo
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"testing"
 )
@@ -50,7 +51,7 @@ func TestQueryStringsMapper(t *testing.T) {
 			MapTo: "jk",
 		},
 	}
-	req := client.NewReq(r, api)
+	req := client.NewReq(context.TODO(), r, api)
 
 	params := []interface{}{}
 	qs := queryStringsMapper{}
@@ -74,7 +75,7 @@ func TestQueryStringsMapper(t *testing.T) {
 			MapTo: "0",
 		},
 	}
-	req = client.NewReq(r, api)
+	req = client.NewReq(context.TODO(), r, api)
 	params = []interface{}{}
 	err = qs.Map(api.IntegrationRequest.MappingParams[0], *req, &params)
 	assert.Nil(t, err)
@@ -98,7 +99,7 @@ func TestHeaderMapper(t *testing.T) {
 	}
 	hm := headerMapper{}
 	target := []interface{}{}
-	req := client.NewReq(r, api)
+	req := client.NewReq(context.TODO(), r, api)
 
 	err := hm.Map(api.IntegrationRequest.MappingParams[0], *req, &target)
 	assert.Nil(t, err)
@@ -124,7 +125,7 @@ func TestBodyMapper(t *testing.T) {
 	}
 	bm := bodyMapper{}
 	target := []interface{}{}
-	req := client.NewReq(r, api)
+	req := client.NewReq(context.TODO(), r, api)
 
 	err := bm.Map(api.IntegrationRequest.MappingParams[0], *req, &target)
 	assert.Nil(t, err)
