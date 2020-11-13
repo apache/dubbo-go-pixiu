@@ -39,34 +39,35 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RemoteCallFilter, NewClientFilter(false).Do())
+	extension.SetFilterFunc(constant.RemoteCallFilter, New(false).Do())
 }
 
-// ClientFilter is a filter for recover.
-type ClientFilter struct {
+// clientFilter is a filter for recover.
+type clientFilter struct {
 	mock bool
 }
 
-// NewClientFilter create timeout filter.
-func NewClientFilter(mock bool) *ClientFilter {
-	return &ClientFilter{
+// New create timeout filter.
+func New(mock bool) filter.Filter {
+	return &clientFilter{
 		mock: mock,
 	}
 }
 
-// Do execute ClientFilter filter logic
+// Do execute clientFilter filter logic
 // support: 1 http 2 dubbo 2 http 2 http
-func (f *ClientFilter) Do() selfcontext.FilterFunc {
+func (f *clientFilter) Do() selfcontext.FilterFunc {
 	return func(c selfcontext.Context) {
 		f.doRemoteCall(c.(*contexthttp.HttpContext))
 	}
 }
 
-func (f *ClientFilter) doRemoteCall(c *contexthttp.HttpContext) {
+func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
 	if f.mock {
