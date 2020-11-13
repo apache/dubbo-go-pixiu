@@ -19,6 +19,7 @@ package dubbo
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"regexp"
 	"testing"
@@ -102,7 +103,7 @@ func TestMappingParams(t *testing.T) {
 			MapTo: "1",
 		},
 	}
-	req := client.NewReq(r, api)
+	req := client.NewReq(context.TODO(), r, api)
 	_, params, err := dClient.MappingParams(req)
 	assert.Nil(t, err)
 	assert.Equal(t, params[0], "12345")
@@ -125,7 +126,7 @@ func TestMappingParams(t *testing.T) {
 		},
 	}
 	r.Header.Set("Auth", "1234567")
-	req = client.NewReq(r, api)
+	req = client.NewReq(context.TODO(), r, api)
 	_, params, err = dClient.MappingParams(req)
 	assert.Nil(t, err)
 	assert.Equal(t, params[0], "12345")
@@ -157,7 +158,7 @@ func TestMappingParams(t *testing.T) {
 		},
 	}
 	r.Header.Set("Auth", "1234567")
-	req = client.NewReq(r, api)
+	req = client.NewReq(context.TODO(), r, api)
 	_, params, err = dClient.MappingParams(req)
 	assert.Nil(t, err)
 	assert.Equal(t, params[0], "12345")
