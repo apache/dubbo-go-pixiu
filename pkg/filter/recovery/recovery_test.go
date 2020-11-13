@@ -55,7 +55,7 @@ func MockHTTPContext(fc ...selfcontext.FilterFunc) *selfhttp.HttpContext {
 	result.ResetWritermen(&w)
 	result.Reset()
 
-	result.Filters = append(result.Filters, NewRecoveryFilter().Do())
+	result.Filters = append(result.Filters, New().Do())
 	for i := range fc {
 		result.Filters = append(result.Filters, fc[i])
 	}
