@@ -15,27 +15,13 @@
  * limitations under the License.
  */
 
-package extension
+package filter
 
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-)
+import "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 
-var (
-	filterFuncCacheMap = make(map[string]func(ctx context.Context), 4)
-)
+// Filter filter interface, used for context.FilterChain.
+type Filter interface {
 
-// SetFilterFunc will store the @filter and @name
-func SetFilterFunc(name string, filter context.FilterFunc) {
-	filterFuncCacheMap[name] = filter
-}
-
-// GetMustFilterFunc will return the proxy.FilterFunc
-// if not found, it will panic
-func GetMustFilterFunc(name string) context.FilterFunc {
-	if filter, ok := filterFuncCacheMap[name]; ok {
-		return filter
-	}
-
-	panic("filter func for " + name + " is not existing!")
+	// Do run filter, use c.next() to next filter, before is pre logic, after is post logic.
+	Do() context.FilterFunc
 }
