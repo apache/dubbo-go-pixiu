@@ -18,7 +18,9 @@
 package config
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	perrors "github.com/pkg/errors"
+	"time"
 )
 
 import (
@@ -74,21 +76,75 @@ type APIConfig struct {
 
 // Resource defines the API path
 type Resource struct {
-	Type        string     `json:"type" yaml:"type"` // Restful, Dubbo
-	Path        string     `json:"path" yaml:"path"`
-	Description string     `json:"description" yaml:"description"`
-	Filters     []string   `json:"filters" yaml:"filters"`
-	Methods     []Method   `json:"methods" yaml:"methods"`
-	Resources   []Resource `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Type        string        `json:"type" yaml:"type"` // Restful, Dubbo
+	Path        string        `json:"path" yaml:"path"`
+	Timeout     time.Duration `json:"timeout" yaml:"timeout"`
+	Description string        `json:"description" yaml:"description"`
+	Filters     []string      `json:"filters" yaml:"filters"`
+	Methods     []Method      `json:"methods" yaml:"methods"`
+	Resources   []Resource    `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+// UnmarshalYAML Resource custom UnmarshalYAML
+func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	s := &struct {
+		Timeout string `yaml:"timeout"`
+	}{}
+	type Alias Resource
+	alias := (*Alias)(r)
+	if err := unmarshal(alias); err != nil {
+		return err
+	}
+	if err := unmarshal(s); err != nil {
+		return err
+	}
+	// if timeout is empty must set a default value. if "" used to time.ParseDuration will err.
+	if s.Timeout == "" {
+		s.Timeout = constant.DefaultTimeoutStr
+	}
+	d, err := time.ParseDuration(s.Timeout)
+	if err != nil {
+		return err
+	}
+
+	r.Timeout = d
+
+	return nil
 }
 
 // Method defines the method of the api
 type Method struct {
-	OnAir              bool     `json:"onAir" yaml:"onAir"` // true means the method is up and false means method is down
-	Filters            []string `json:"filters" yaml:"filters"`
+	OnAir              bool          `json:"onAir" yaml:"onAir"` // true means the method is up and false means method is down
+	Timeout            time.Duration `json:"timeout" yaml:"timeout"`
+	Filters            []string      `json:"filters" yaml:"filters"`
 	HTTPVerb           `json:"httpVerb" yaml:"httpVerb"`
 	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
 	IntegrationRequest `json:"integrationRequest" yaml:"integrationRequest"`
+}
+
+// UnmarshalYAML method custom UnmarshalYAML
+func (m *Method) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type Alias Method
+	alias := (*Alias)(m)
+	if err := unmarshal(alias); err != nil {
+		return err
+	}
+	s := &struct {
+		Timeout string `yaml:"timeout"`
+	}{}
+	if err := unmarshal(s); err != nil {
+		return err
+	}
+	// if timeout is empty must set a default value. if "" used to time.ParseDuration will err.
+	if s.Timeout == "" {
+		s.Timeout = constant.DefaultTimeoutStr
+	}
+	d, err := time.ParseDuration(s.Timeout)
+	if err != nil {
+		return err
+	}
+	m.Timeout = d
+	return nil
 }
 
 // InboundRequest defines the details of the inbound
@@ -102,6 +158,7 @@ type InboundRequest struct {
 // Params defines the simple parameter definition
 type Params struct {
 	Name     string `json:"name" yaml:"name"`
+	Type     string `json:"type" yaml:"type"`
 	Required bool   `json:"required" yaml:"required"`
 }
 
