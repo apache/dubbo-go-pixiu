@@ -17,7 +17,6 @@
 
 package constant
 
-// HTTP filter const
 const (
 	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
 	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
@@ -25,9 +24,9 @@ const (
 	HTTPApiFilter            = "dgp.filters.http.api"
 	HTTPDomainFilter         = "dgp.filters.http.domain"
 	RemoteCallFilter         = "dgp.filters.remote_call"
-
-	LoggerFilter   = "dgp.filters.logger"
-	RecoveryFilter = "dgp.filters.recovery"
+	TimeoutFilter            = "dgp.filters.timeout"
+	LoggerFilter             = "dgp.filters.logger"
+	RecoveryFilter           = "dgp.filters.recovery"
 )
 
 const (
