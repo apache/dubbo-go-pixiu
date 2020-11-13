@@ -66,7 +66,7 @@ func doRemoteCall(c *contexthttp.HttpContext) {
 		return
 	}
 
-	resp, err := cli.Call(client.NewReq(c.Request, api))
+	resp, err := cli.Call(client.NewReq(c.Request, *api))
 
 	if err != nil {
 		logger.Errorf("[dubboproxy go] client do err:%v!", err)
