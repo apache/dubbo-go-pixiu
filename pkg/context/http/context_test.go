@@ -26,38 +26,24 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/mock"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
-
-func getMockAPI(verb config.HTTPVerb, urlPattern string, filters ...string) router.API {
-	inbound := config.InboundRequest{}
-	integration := config.IntegrationRequest{RequestType: config.DubboRequest}
-	method := config.Method{
-		OnAir:              true,
-		HTTPVerb:           verb,
-		InboundRequest:     inbound,
-		IntegrationRequest: integration,
-		Filters:            filters,
-	}
-	return router.API{
-		URLPattern: urlPattern,
-		Method:     method,
-	}
-}
 
 func TestBuildContext(t *testing.T) {
 	extension.SetFilterFunc("a", func(ctx context.Context) { ctx.Next() })
 	extension.SetFilterFunc("b", func(ctx context.Context) { ctx.Next() })
 	extension.SetFilterFunc("c", func(ctx context.Context) { ctx.Next() })
+	extension.SetFilterFunc(constant.RemoteCallFilter, func(ctx context.Context) { ctx.Next() })
 	ctx := HttpContext{
 		FilterChains: []model.FilterChain{},
 		BaseContext:  context.NewBaseContext(),
 	}
-	ctx.API(getMockAPI(config.MethodPost, "/mock/test", "a", "b", "c"))
+	ctx.API(mock.GetMockAPI(config.MethodPost, "/mock/test", "a", "b", "c"))
 	ctx.BuildFilters()
 
 	assert.Equal(t, len(ctx.Filters), 3)
