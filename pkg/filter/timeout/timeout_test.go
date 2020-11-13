@@ -32,7 +32,7 @@ import (
 )
 
 func TestPanic(t *testing.T) {
-	c := MockHTTPContext(testPanicFilter)
+	c := MockHTTPContext(New(0).Do(), recovery.New().Do(), testPanicFilter)
 	c.Next()
 	// print
 	// 500
@@ -45,7 +45,7 @@ var testPanicFilter = func(c pkgcontext.Context) {
 }
 
 func TestTimeout(t *testing.T) {
-	c := MockHTTPContext(testTimeoutFilter)
+	c := MockHTTPContext(New(0).Do(), testTimeoutFilter)
 	c.Next()
 	// print
 	// 503
@@ -78,7 +78,6 @@ func MockHTTPContext(fc ...pkgcontext.FilterFunc) *contexthttp.HttpContext {
 	result.ResetWritermen(&w)
 	result.Reset()
 
-	result.Filters = append(result.Filters, NewTimeoutFilter().Do(), recovery.NewRecoveryFilter().Do())
 	for i := range fc {
 		result.Filters = append(result.Filters, fc[i])
 	}
