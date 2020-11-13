@@ -146,7 +146,7 @@ func (dc *Client) Call(req *client.Request) (resp client.Response, err error) {
 
 	gs := dc.Get(dm)
 
-	rst, err := gs.Invoke(context.Background(), []interface{}{method, types, values})
+	rst, err := gs.Invoke(req.Context, []interface{}{method, types, values})
 
 	if err != nil {
 		return *client.EmptyResponse, err

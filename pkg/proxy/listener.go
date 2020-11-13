@@ -18,6 +18,7 @@
 package proxy
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strconv"
@@ -33,7 +34,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	ctx "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
@@ -91,7 +92,7 @@ func (l *ListenerService) allocateContext() *h.HttpContext {
 		Listener:              l.Listener,
 		FilterChains:          l.FilterChains,
 		HttpConnectionManager: l.findHttpManager(),
-		BaseContext:           context.NewBaseContext(),
+		BaseContext:           ctx.NewBaseContext(),
 	}
 }
 
@@ -119,28 +120,44 @@ func NewDefaultHttpListener() *DefaultHttpListener {
 	}
 }
 
-// ServeHTTP
+// ServeHTTP http request entrance.
 func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hc := s.pool.Get().(*h.HttpContext)
 	hc.Request = r
 	hc.ResetWritermen(w)
 	hc.Reset()
 
-	hc.AppendFilterFunc(
-		extension.GetMustFilterFunc(constant.LoggerFilter),
-		extension.GetMustFilterFunc(constant.RecoveryFilter),
-	)
+	hc.AppendFilterFunc()
 
-	_, err := s.routeRequest(hc, r)
+	api, err := s.routeRequest(hc, r)
 	if err != nil {
 		s.pool.Put(hc)
 		return
 	}
-	hc.BuildFiltersWithDefault()
+
+	hc.Ctx = context.Background()
+	addFilter(hc, api)
 
 	s.handleHTTPRequest(hc)
 
 	s.pool.Put(hc)
+}
+
+func addFilter(ctx *h.HttpContext, api router.API) {
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.LoggerFilter),
+		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
+
+	switch api.Method.IntegrationRequest.RequestType {
+	// TODO add some basic filter for diff protocol
+	case config.DubboRequest:
+
+	case config.HTTPRequest:
+
+	}
+
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
+
+	ctx.BuildFilters()
 }
 
 func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {

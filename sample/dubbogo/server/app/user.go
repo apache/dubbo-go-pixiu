@@ -109,6 +109,19 @@ func (u *UserProvider) GetUserByName(ctx context.Context, name string) (*User, e
 	return nil, nil
 }
 
+// GetUserTimeout query by name, will timeout for proxy.
+func (u *UserProvider) GetUserTimeout(ctx context.Context, name string) (*User, error) {
+	println("Req GetUserByName name:%#v", name)
+	// sleep 10s, proxy config less than 10s.
+	time.Sleep(10 * time.Second)
+	r, ok := cache.Get(name)
+	if ok {
+		println("Req GetUserByName result:%#v", r)
+		return r, nil
+	}
+	return nil, nil
+}
+
 // GetUserByNameAndAge query by name and age, two params, Proxy config GET.
 func (u *UserProvider) GetUserByNameAndAge(ctx context.Context, name string, age int32) (*User, error) {
 	println("Req GetUserByNameAndAge name:%s, age:%d", name, age)
