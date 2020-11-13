@@ -15,52 +15,39 @@
  * limitations under the License.
  */
 
-package filter
+package recovery
 
 import (
-	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
-	_ "github.com/apache/dubbo-go/cluster/loadbalance"
-	_ "github.com/apache/dubbo-go/filter/filter_impl"
-	_ "github.com/apache/dubbo-go/registry/protocol"
-	_ "github.com/apache/dubbo-go/registry/zookeeper"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/pool"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RemoteCallFilter, RemoteCall())
+	extension.SetFilterFunc(constant.RecoveryFilter, New().Do())
 }
 
-// RemoteCall http 2 dubbo
-func RemoteCall() context.FilterFunc {
+// recoveryFilter is a filter for recover.
+type recoveryFilter struct {
+}
+
+// New create timeout filter.
+func New() filter.Filter {
+	return &recoveryFilter{}
+}
+
+// Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
+func (f *recoveryFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
-		doRemoteCall(c.(*http.HttpContext))
-	}
-}
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Warnf("[dubboproxy go] error:%+v", err)
 
-func doRemoteCall(c *http.HttpContext) {
-	api := c.GetAPI()
-	cl, e := pool.SingletonPool().GetClient(api.Method.IntegrationRequest.RequestType)
-	if e != nil {
-		c.WriteFail()
-		c.AbortWithError("", e)
-	}
-
-	if resp, err := cl.Call(client.NewReq(c.Request, api)); err != nil {
-		logger.Errorf("[dubboproxy go] client do err:%v!", err)
-		c.WriteFail()
-		c.Abort()
-	} else {
-		c.WriteResponse(resp)
+				c.WriteErr(err)
+			}
+		}()
 		c.Next()
 	}
-
 }
