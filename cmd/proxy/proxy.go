@@ -24,7 +24,15 @@ import (
 )
 
 import (
+	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
 	"github.com/urfave/cli"
+	_ "net/http/pprof"
+)
+
+import (
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/remote"
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/timeout"
 )
 
 // Version proxy version

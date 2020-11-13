@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package dubbo
+package http
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -28,13 +27,14 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
-// NewDubboResponse create dubbo response
+// NewDubboResponse creates dubbo response
 func NewDubboResponse(data interface{}) *client.Response {
-	if r, err := dealResp(data, true); err != nil {
+	r, err := dealResp(data, true)
+	if err != nil {
 		return &client.Response{Data: data}
-	} else {
-		return &client.Response{Data: r}
 	}
+	return &client.Response{Data: r}
+
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
@@ -67,7 +67,7 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 				}
 				newTemps = append(newTemps, newTemp)
 			} else {
-				return nil, errors.New(fmt.Sprintf("unexpect err,value:%+v", value))
+				return nil, fmt.Errorf("unexpect err,value:%+v", value)
 			}
 		}
 		return newTemps, nil
@@ -79,11 +79,11 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 
 func mapIItoMapSI(in interface{}) interface{} {
 	var inMap = make(map[interface{}]interface{})
-	if v, ok := in.(map[interface{}]interface{}); !ok {
+	v, ok := in.(map[interface{}]interface{})
+	if ok {
 		return in
-	} else {
-		inMap = v
 	}
+	inMap = v
 	outMap := make(map[string]interface{}, len(inMap))
 
 	for k, v := range inMap {

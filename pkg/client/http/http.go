@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpclient
+package http
 
 import (
 	"context"
@@ -36,12 +36,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 )
 
-// TODO java class name elem
-const (
-	JavaStringClassName = "java.lang.String"
-	JavaLangClassName   = "java.lang.Long"
-)
-
 // RestMetadata dubbo metadata, api config
 type RestMetadata struct {
 	ApplicationName      string   `yaml:"application_name" json:"application_name" mapstructure:"application_name"`
@@ -57,20 +51,19 @@ type RestMetadata struct {
 }
 
 var (
-	_httpClient *HTTPClient
+	_httpClient *Client
 	countDown   = sync.Once{}
 	dgCfg       dg.ConsumerConfig
 )
 
-// HTTPClient client to generic invoke dubbo
-type HTTPClient struct {
+// Client client to generic invoke dubbo
+type Client struct {
 	mLock              sync.RWMutex
 	GenericServicePool map[string]*dg.GenericService
 }
 
 // SingletonHTTPClient singleton HTTP Client
-func SingletonHTTPClient() *HTTPClient {
-
+func SingletonHTTPClient() *Client {
 	if _httpClient == nil {
 		countDown.Do(func() {
 			_httpClient = NewHTTPClient()
@@ -80,15 +73,15 @@ func SingletonHTTPClient() *HTTPClient {
 }
 
 // NewHTTPClient create dubbo client
-func NewHTTPClient() *HTTPClient {
-	return &HTTPClient{
+func NewHTTPClient() *Client {
+	return &Client{
 		mLock:              sync.RWMutex{},
 		GenericServicePool: make(map[string]*dg.GenericService, 4),
 	}
 }
 
 // Init init dubbo, config mapping can do here
-func (dc *HTTPClient) Init() error {
+func (dc *Client) Init() error {
 	dgCfg = dg.GetConsumerConfig()
 	dg.SetConsumerConfig(dgCfg)
 	dg.Load()
@@ -97,12 +90,12 @@ func (dc *HTTPClient) Init() error {
 }
 
 // Close close
-func (dc *HTTPClient) Close() error {
+func (dc *Client) Close() error {
 	return nil
 }
 
 // Call invoke service
-func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(r *client.Request) (resp client.Response, err error) {
 
 	urlStr := r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
 	httpClient := &http.Client{Timeout: 5 * time.Second}
@@ -115,13 +108,18 @@ func (dc *HTTPClient) Call(r *client.Request) (resp client.Response, err error) 
 	return ret, err
 }
 
-func (dc *HTTPClient) get(key string) *dg.GenericService {
+// MappingParams param mapping to api.
+func (dc *Client) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
+	return nil, nil, nil
+}
+
+func (dc *Client) get(key string) *dg.GenericService {
 	dc.mLock.RLock()
 	defer dc.mLock.RUnlock()
 	return dc.GenericServicePool[key]
 }
 
-func (dc *HTTPClient) create(key string, dm *RestMetadata) *dg.GenericService {
+func (dc *Client) create(key string, dm *RestMetadata) *dg.GenericService {
 	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
 	referenceConfig.InterfaceName = dm.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
