@@ -18,23 +18,30 @@
 package client
 
 import (
-	"net/http"
+	"regexp"
+	"strings"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"github.com/pkg/errors"
 )
 
-// Request request for endpoint
-type Request struct {
-	IngressRequest *http.Request
-	API            router.API
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+)
+
+// ParamMapper defines the interface about how to map the params in the inbound request.
+type ParamMapper interface {
+	Map(config.MappingParam, Request, interface{}) error
 }
 
-// NewReq create a request
-func NewReq(request *http.Request, api router.API) *Request {
-	return &Request{
-		IngressRequest: request,
-		API:            api,
+// ParseMapSource parses the source parameter config in the mappingParams
+// the source parameter in config could be queryStrings.*, headers.*, requestBody.*
+func ParseMapSource(source string) (from string, params []string, err error) {
+	reg := regexp.MustCompile(`^([queryStrings|headers|requestBody][\w|\d]+)\.([\w|\d|\.]+)$`)
+	if !reg.MatchString(source) {
+		return "", nil, errors.New("Parameter mapping config incorrect. Please fix it")
 	}
+	ps := reg.FindStringSubmatch(source)
+	return ps[1], strings.Split(ps[2], "."), nil
 }
