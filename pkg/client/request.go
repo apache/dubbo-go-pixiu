@@ -18,6 +18,7 @@
 package client
 
 import (
+	"context"
 	"net/http"
 )
 
@@ -27,13 +28,16 @@ import (
 
 // Request request for endpoint
 type Request struct {
+	Context context.Context
+
 	IngressRequest *http.Request
 	API            router.API
 }
 
 // NewReq create a request
-func NewReq(request *http.Request, api router.API) *Request {
+func NewReq(ctx context.Context, request *http.Request, api router.API) *Request {
 	return &Request{
+		Context:        ctx,
 		IngressRequest: request,
 		API:            api,
 	}

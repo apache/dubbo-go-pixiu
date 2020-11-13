@@ -13,8 +13,8 @@
 ## 启动 proxy
 
 配置好下面的环境变量：
-- -c /Users/tc/Documents/workspace_2020/dubbo-go-proxy/sample/dubbogo/proxy/conf.yaml 
-- -a /Users/tc/Documents/workspace_2020/dubbo-go-proxy/sample/dubbogo/proxy/api_config.yaml
+- -c /XXX/dubbo-go-proxy/sample/dubbogo/proxy/conf.yaml 
+- -a /XXX/dubbo-go-proxy/sample/dubbogo/proxy/api_config.yaml
 
 运行 cmd/proxy/proxy.go
 

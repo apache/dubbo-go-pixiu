@@ -9,6 +9,7 @@ resources:
     methods:
       - httpVerb: GET
         onAir: true
+        timeout: 100ms
         inboundRequest:
           requestType: http
           queryStrings:
@@ -43,26 +44,32 @@ resources:
           clusterName: "test_dubbo"
           group: "test"
           version: 1.0.0
-  - path: '/test-dubbo/user'
+  - path: '/api/v1/test-dubbo/timeout-user'
     type: restful
-    description: resource documentation
+    description: user
     filters:
       - filter0
     methods:
-      - httpVerb: POST
+      - httpVerb: GET
         onAir: true
+        timeout: 1s
         inboundRequest:
           requestType: http
-          requestBody:
-            - definitionName: userCreate
+          queryStrings:
+            - name: name
+              type: string
+              required: true
         integrationRequest:
           requestType: dubbo
+          mappingParams:
+            - name: queryStrings.name
+              mapTo: 1
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
-          method: "CreateUser"
-          clusterName: "test_dubbo"
+          method: "GetUserTimeout"
           group: "test"
           version: 1.0.0
+          clusterName: "test_dubbo"
 definitions:
   - name: userCreate
     schema: >-
