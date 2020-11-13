@@ -21,24 +21,25 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, NewRecoveryFilter().Do())
+	extension.SetFilterFunc(constant.RecoveryFilter, New().Do())
 }
 
-// RecoveryFilter is a filter for recover.
-type RecoveryFilter struct {
+// recoveryFilter is a filter for recover.
+type recoveryFilter struct {
 }
 
-// NewRecoveryFilter create timeout filter.
-func NewRecoveryFilter() *RecoveryFilter {
-	return &RecoveryFilter{}
+// New create timeout filter.
+func New() filter.Filter {
+	return &recoveryFilter{}
 }
 
-// Recovery execute RecoveryFilter filter logic, if recover happen, print log or do other things.
-func (f *RecoveryFilter) Do() context.FilterFunc {
+// Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
+func (f *recoveryFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
 		defer func() {
 			if err := recover(); err != nil {

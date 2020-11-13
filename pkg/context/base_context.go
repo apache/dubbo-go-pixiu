@@ -19,7 +19,6 @@ package context
 
 import (
 	"context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"math"
 	"time"
 )
@@ -71,13 +70,4 @@ func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
 	}
-}
-
-// GetTimeout request timeout.
-func (c *BaseContext) GetTimeout(t time.Duration) time.Duration {
-	if t <= 0 {
-		return constant.DefaultTimeout
-	}
-
-	return t
 }
