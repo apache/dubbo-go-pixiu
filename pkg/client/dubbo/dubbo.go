@@ -164,7 +164,7 @@ func (dc *Client) Call(req *client.Request) (resp client.Response, err error) {
 // MappingParams param mapping to api.
 func (dc *Client) MappingParams(req *client.Request) ([]string, []interface{}, error) {
 	r := req.API.Method.IntegrationRequest
-	values := []interface{}{}
+	var values []interface{}
 	for _, mappingParam := range r.MappingParams {
 		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
