@@ -19,7 +19,10 @@ package http
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 import (
@@ -28,6 +31,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // HttpContext http context
@@ -36,7 +40,7 @@ type HttpContext struct {
 	HttpConnectionManager model.HttpConnectionManager
 	FilterChains          []model.FilterChain
 	Listener              *model.Listener
-	api                   *model.Api
+	api                   router.API
 
 	Request   *http.Request
 	writermem responseWriter
@@ -74,7 +78,7 @@ func (hc *HttpContext) Write(b []byte) (int, error) {
 	return hc.Writer.Write(b)
 }
 
-// WriteHeaderNow
+// WriteHeaderNow write header now
 func (hc *HttpContext) WriteHeaderNow() {
 	hc.writermem.WriteHeaderNow()
 }
@@ -95,6 +99,11 @@ func (hc *HttpContext) GetHeader(k string) string {
 	return hc.Request.Header.Get(k)
 }
 
+// AllHeaders  get all headers
+func (hc *HttpContext) AllHeaders() http.Header {
+	return hc.Request.Header
+}
+
 // GetUrl get http request url
 func (hc *HttpContext) GetUrl() string {
 	return hc.Request.URL.Path
@@ -105,14 +114,49 @@ func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
 }
 
-// Api
+// Api wait do delete
 func (hc *HttpContext) Api(api *model.Api) {
+	// hc.api = api
+}
+
+// API sets the API to http context
+func (hc *HttpContext) API(api router.API) {
+	hc.Timeout = api.Timeout
 	hc.api = api
 }
 
-// GetApi get api
-func (hc *HttpContext) GetApi() *model.Api {
-	return hc.api
+// GetAPI get api
+func (hc *HttpContext) GetAPI() *router.API {
+	return &hc.api
+}
+
+// GetClientIP get client IP
+func (hc *HttpContext) GetClientIP() string {
+	xForwardedFor := hc.Request.Header.Get("X-Forwarded-For")
+	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
+	if len(ip) != 0 {
+		return ip
+	}
+
+	ip = strings.TrimSpace(hc.Request.Header.Get("X-Real-Ip"))
+	if len(ip) != 0 {
+		return ip
+	}
+
+	if ip, _, err := net.SplitHostPort(strings.TrimSpace(hc.Request.RemoteAddr)); err == nil && len(ip) != 0 {
+		return ip
+	}
+
+	return ""
+}
+
+// GetApplicationName get application name
+func (hc *HttpContext) GetApplicationName() string {
+	if u, err := url.Parse(hc.Request.RequestURI); err == nil {
+		return strings.Split(u.Path, "/")[0]
+	}
+
+	return ""
 }
 
 // WriteFail
@@ -161,17 +205,16 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 
 // BuildFilters build filter, from config http_filters
 func (hc *HttpContext) BuildFilters() {
-	var ff []context.FilterFunc
+	var filterFuncs []context.FilterFunc
+	api := hc.GetAPI()
 
-	if hc.HttpConnectionManager.HttpFilters == nil {
+	if api == nil {
 		return
 	}
-
-	for _, v := range hc.HttpConnectionManager.HttpFilters {
-		ff = append(ff, extension.GetMustFilterFunc(v.Name))
+	for _, v := range api.Method.Filters {
+		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
-
-	hc.AppendFilterFunc(ff...)
+	hc.AppendFilterFunc(filterFuncs...)
 }
 
 // ResetWritermen reset writermen
