@@ -1,0 +1,90 @@
+name: proxy
+description: proxy sample
+resources:
+  - path: '/api/v1/test-dubbo/user'
+    type: restful
+    description: user
+    filters:
+      - filter0
+    methods:
+      - httpVerb: GET
+        onAir: true
+        timeout: 100ms
+        inboundRequest:
+          requestType: http
+          queryStrings:
+            - name: name
+              type: string
+              required: true
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: queryStrings.name
+              mapTo: 0
+          applicationName: "UserProvider"
+          interface: "com.ic.user.UserProvider"
+          method: "GetUserByName"
+          paramTypes: [ "java.lang.String" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+      - httpVerb: POST
+        onAir: true
+        inboundRequest:
+          requestType: http
+          requestBody:
+            - definitionName: "com.ikurento.user.User"
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody
+              mapTo: 1
+          applicationName: "UserProvider"
+          interface: "com.ic.user.UserProvider"
+          method: "CreateUser"
+          clusterName: "test_dubbo"
+          group: "test"
+          version: 1.0.0
+  - path: '/api/v1/test-dubbo/timeout-user'
+    type: restful
+    description: user
+    filters:
+      - filter0
+    methods:
+      - httpVerb: GET
+        onAir: true
+        timeout: 1s
+        inboundRequest:
+          requestType: http
+          queryStrings:
+            - name: name
+              type: string
+              required: true
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: queryStrings.name
+              mapTo: 1
+          applicationName: "UserProvider"
+          interface: "com.ic.user.UserProvider"
+          method: "GetUserTimeout"
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+definitions:
+  - name: userCreate
+    schema: >-
+      {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "age" : {
+            "type" : "integer"
+          }
+        }
+      }

@@ -18,53 +18,58 @@
 package filter
 
 import (
-	"io/ioutil"
+	nh "net/http"
 )
 
 import (
-	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
-	_ "github.com/apache/dubbo-go/cluster/loadbalance"
-	_ "github.com/apache/dubbo-go/filter/filter_impl"
-	_ "github.com/apache/dubbo-go/registry/protocol"
-	_ "github.com/apache/dubbo-go/registry/zookeeper"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpTransferDubboFilter, HttpDubbo())
+	extension.SetFilterFunc(constant.HTTPAuthorityFilter, Authority())
 }
 
-// HttpDubbo http 2 dubbo
-func HttpDubbo() context.FilterFunc {
+// Authority blacklist/whitelist filter
+func Authority() context.FilterFunc {
 	return func(c context.Context) {
-		doDubbo(c.(*http.HttpContext))
+		authorityFilter(c.(*http.HttpContext))
 	}
 }
 
-func doDubbo(c *http.HttpContext) {
-	api := c.GetApi()
+func authorityFilter(c *http.HttpContext) {
+	for _, r := range c.HttpConnectionManager.AuthorityConfig.Rules {
+		item := c.GetClientIP()
+		if r.Limit == model.App {
+			item = c.GetApplicationName()
+		}
 
-	if bytes, err := ioutil.ReadAll(c.Request.Body); err != nil {
-		logger.Errorf("[dubboproxy go] read body err:%v!", err)
-		c.WriteFail()
-		c.Abort()
-	} else {
-		if resp, err := dubbo.SingleDubboClient().Call(client.NewRequest(bytes, api)); err != nil {
-			logger.Errorf("[dubboproxy go] client do err:%v!", err)
-			c.WriteFail()
+		result := passCheck(item, r)
+		if !result {
+			c.WriteWithStatus(nh.StatusForbidden, constant.Default403Body)
 			c.Abort()
-		} else {
-			c.WriteResponse(resp)
-			c.Next()
+			return
 		}
 	}
+
+	c.Next()
+}
+
+func passCheck(item string, rule model.AuthorityRule) bool {
+	result := false
+	for _, it := range rule.Items {
+		if it == item {
+			result = true
+			break
+		}
+	}
+
+	if (rule.Strategy == model.Blacklist && result == true) || (rule.Strategy == model.Whitelist && result == false) {
+		return false
+	}
+
+	return true
 }
