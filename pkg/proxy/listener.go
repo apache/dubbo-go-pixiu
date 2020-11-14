@@ -18,6 +18,7 @@
 package proxy
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strconv"
@@ -26,12 +27,18 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	ctx "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // ListenerService the facade of a listener
@@ -85,14 +92,14 @@ func (l *ListenerService) allocateContext() *h.HttpContext {
 		Listener:              l.Listener,
 		FilterChains:          l.FilterChains,
 		HttpConnectionManager: l.findHttpManager(),
-		BaseContext:           context.NewBaseContext(),
+		BaseContext:           ctx.NewBaseContext(),
 	}
 }
 
 func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
-			if f.Name == constant.HttpConnectManagerFilter {
+			if f.Name == constant.HTTPConnectManagerFilter {
 				return *f.Config.(*model.HttpConnectionManager)
 			}
 		}
@@ -113,23 +120,65 @@ func NewDefaultHttpListener() *DefaultHttpListener {
 	}
 }
 
-// ServeHTTP
+// ServeHTTP http request entrance.
 func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hc := s.pool.Get().(*h.HttpContext)
 	hc.Request = r
 	hc.ResetWritermen(w)
 	hc.Reset()
 
-	hc.AppendFilterFunc(
-		extension.GetMustFilterFunc(constant.LoggerFilter),
-		extension.GetMustFilterFunc(constant.RecoveryFilter),
-	)
+	hc.AppendFilterFunc()
 
-	hc.BuildFilters()
+	api, err := s.routeRequest(hc, r)
+	if err != nil {
+		s.pool.Put(hc)
+		return
+	}
+
+	hc.Ctx = context.Background()
+	addFilter(hc, api)
 
 	s.handleHTTPRequest(hc)
 
 	s.pool.Put(hc)
+}
+
+func addFilter(ctx *h.HttpContext, api router.API) {
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.LoggerFilter),
+		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
+
+	switch api.Method.IntegrationRequest.RequestType {
+	// TODO add some basic filter for diff protocol
+	case config.DubboRequest:
+
+	case config.HTTPRequest:
+
+	}
+
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
+
+	ctx.BuildFilters()
+}
+
+func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {
+	apiDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	api, err := apiDiscSrv.GetAPI(req.URL.Path, config.HTTPVerb(req.Method))
+	if err != nil {
+		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
+		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		e := errors.Errorf("Requested URL %s not found", req.URL.Path)
+		logger.Debug(e.Error())
+		return router.API{}, e
+	}
+	if !api.Method.OnAir {
+		ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body)
+		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)
+		logger.Debug(e.Error())
+		return router.API{}, e
+	}
+	ctx.API(api)
+	return api, nil
 }
 
 func (s *DefaultHttpListener) handleHTTPRequest(c *h.HttpContext) {

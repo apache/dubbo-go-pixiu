@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package filter
+package main
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"time"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, Recover())
+// nolint.
+type User struct {
+	ID   string
+	Name string
+	Age  int32
+	Time time.Time
 }
 
-// Recover
-func Recover() context.FilterFunc {
-	return func(c context.Context) {
-		defer func() {
-			if err := recover(); err != nil {
-				logger.Infof("[dubboproxy go] error:%+v", err)
-				c.WriteErr(err)
-			}
-		}()
-		c.Next()
-	}
+// nolint.
+func (u User) JavaClassName() string {
+	return "com.ikurento.user.User"
 }
