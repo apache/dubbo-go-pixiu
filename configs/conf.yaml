@@ -29,12 +29,24 @@ static_resources:
                           allow_origin:
                             - "*"
                           enabled: true
+                  authority_config:
+                    authority_rules:
+                      - strategy: "Blacklist"
+                        limit: "IP"
+                        items:
+                          - "127.0.0.1"
+                      - strategy: "Whitelist"
+                        limit: "App"
+                        items:
+                          - "test_dubbo"
                 http_filters:
+                  - name: dgp.filters.http.authority_filter
+                    config:
                   - name: dgp.filters.http.api
                     config:
                   - name: dgp.filters.http.router
                     config:
-                  - name: dgp.filters.http_transfer_dubbo
+                  - name: dgp.filters.remote_call
                     config:
                 server_name: "test_http_dubbo"
                 generate_request_id: false
@@ -44,6 +56,25 @@ static_resources:
         write_timeout: 5s
   clusters:
     - name: "test_dubbo"
-      type: "EDS"
       lb_policy: "RoundRobin"
       connect_timeout: "5s"
+      request_timeout: "10s"
+      registries:
+        "zookeeper":
+          timeout: "3s"
+          address: "127.0.0.1:2182"
+          username: ""
+          password: ""
+        "consul":
+          timeout: "3s"
+          address: "127.0.0.1:8500"
+  shutdown_config:
+    timeout: "60s"
+    step_timeout: "10s"
+    reject_policy: "immediacy"
+  pprofConf:
+    enable: true
+    address:
+      socket_address:
+        address: "0.0.0.0"
+        port: 6060
