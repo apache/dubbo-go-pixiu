@@ -6,7 +6,7 @@
 - aproxy/configs/client.yml 项目配置
 - aproxy/configs/api_config.yaml 里面是Api配置
 
-另外两个配置文件是 dubbo 的，考虑把必要的参数整到 client.yml 的 dgp.filters.http_transfer_dubbo 这个 filter 的配置里面
+另外两个配置文件是 dubbo 的，考虑把必要的参数整到 client.yml 的 dgp.filters.remote_call 这个 filter 的配置里面
 
 因为现在没有接口配置，暂时接口配置写死在代码
 
