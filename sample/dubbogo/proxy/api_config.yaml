@@ -20,10 +20,11 @@ resources:
           requestType: dubbo
           mappingParams:
             - name: queryStrings.name
-              mapTo: 1
+              mapTo: 0
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "GetUserByName"
+          paramTypes: [ "java.lang.String" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
