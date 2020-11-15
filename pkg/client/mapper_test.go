@@ -68,4 +68,11 @@ func TestGetMapValue(t *testing.T) {
 	val, err = GetMapValue(testMap, []string{"structure", "name"})
 	assert.Nil(t, err)
 	assert.Equal(t, val, "joe")
+	val, err = GetMapValue(map[string]interface{}{}, []string{"structure"})
+	assert.Nil(t, val)
+	assert.EqualError(t, err, "structure does not exist in request body")
+
+	val, err = GetMapValue(map[string]interface{}{"structure": "test"}, []string{"structure", "name"})
+	assert.Nil(t, val)
+	assert.EqualError(t, err, "structure is not a map structure. It contains test")
 }
