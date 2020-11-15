@@ -144,6 +144,39 @@ func TestBodyMapper(t *testing.T) {
 	assert.Equal(t, target[2], map[string]interface{}(map[string]interface{}{"firstName": "Joe", "lastName": "Biden"}))
 }
 
+func TestURIMapper(t *testing.T) {
+	r, _ := http.NewRequest("POST", "/mock/12345/joe&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
+	r.Header.Set("Auth", "1234567")
+	api := mock.GetMockAPI(config.MethodGet, "/mock/:id/:name")
+	api.IntegrationRequest.MappingParams = []config.MappingParam{
+		{
+			Name:  "requestBody.sex",
+			MapTo: "0",
+		},
+		{
+			Name:  "requestBody.name.lastName",
+			MapTo: "1",
+		},
+		{
+			Name:  "uri.name",
+			MapTo: "2",
+		},
+		{
+			Name:  "uri.id",
+			MapTo: "3",
+		},
+	}
+	um := uriMapper{}
+	target := []interface{}{}
+	req := client.NewReq(context.TODO(), r, api)
+	err := um.Map(api.IntegrationRequest.MappingParams[3], *req, &target)
+	assert.Nil(t, err)
+	err = um.Map(api.IntegrationRequest.MappingParams[2], *req, &target)
+	assert.Nil(t, err)
+	assert.Equal(t, target[2], "joe")
+	assert.Equal(t, target[3], "12345")
+}
+
 func TestValidateTarget(t *testing.T) {
 	target := []interface{}{}
 	val, err := validateTarget(&target)
