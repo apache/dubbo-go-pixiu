@@ -18,22 +18,33 @@
 package router
 
 import (
-	"net/url"
-)
-
-import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"strings"
+	"github.com/stretchr/testify/assert"
+	"net/url"
+	"testing"
 )
 
-// API describes the minimum configuration of an RESTful api configure in gateway
-type API struct {
-	URLPattern    string `json:"urlPattern" yaml:"urlPattern"`
-	config.Method `json:"method,inline" yaml:"method,inline"`
-}
+func TestGetURIParams(t *testing.T) {
+	api := API{
+		URLPattern: "/mock/:id/:name",
+		Method:     getMockMethod(config.MethodGet),
+	}
+	u, _ := url.Parse("https://test.com/mock/12345/Joe")
+	values := api.GetURIParams(*u)
+	assert.Equal(t, values.Get("id"), "12345")
+	assert.Equal(t, values.Get("name"), "Joe")
 
-// GetURIParams returns the values retrieved from the rawURL
-func (api *API) GetURIParams(rawURL url.URL) url.Values {
-	sourceURL := strings.Split(rawURL.Path, "&")[0]
-	return wildcardMatch(api.URLPattern, sourceURL)
+	u, _ = url.Parse("https://test.com/Mock/12345/Joe")
+	values = api.GetURIParams(*u)
+	assert.Equal(t, values.Get("id"), "12345")
+	assert.Equal(t, values.Get("name"), "Joe")
+
+	u, _ = url.Parse("https://test.com/mock/12345")
+	values = api.GetURIParams(*u)
+	assert.Nil(t, values)
+
+	api.URLPattern = "/mock/test"
+	u, _ = url.Parse("https://test.com/mock/12345/Joe?status=up")
+	values = api.GetURIParams(*u)
+	assert.Nil(t, values)
 }
