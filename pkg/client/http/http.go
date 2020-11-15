@@ -30,11 +30,11 @@ import (
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/pkg/errors"
 )
 
 // RestMetadata dubbo metadata, api config
@@ -122,10 +122,7 @@ func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 	mp := req.API.IntegrationRequest.MappingParams
 	r := newRequestParams()
 	if len(mp) == 0 {
-		r.Body, err = req.IngressRequest.GetBody()
-		if err != nil {
-			return nil, errors.New("Retrieve request body failed")
-		}
+		r.Body = req.IngressRequest.Body
 		r.Header = req.IngressRequest.Header.Clone()
 		queryValues, err := url.ParseQuery(req.IngressRequest.URL.RawQuery)
 		if err != nil {

@@ -39,7 +39,7 @@ type ParamMapper interface {
 // ParseMapSource parses the source parameter config in the mappingParams
 // the source parameter in config could be queryStrings.*, headers.*, requestBody.*
 func ParseMapSource(source string) (from string, params []string, err error) {
-	reg := regexp.MustCompile(`^([queryStrings|headers|requestBody][\w|\d]+)\.([\w|\d|\.|\-]+)$`)
+	reg := regexp.MustCompile(`^([uri|queryStrings|headers|requestBody][\w|\d]+)\.([\w|\d|\.|\-]+)$`)
 	if !reg.MatchString(source) {
 		return "", nil, errors.New("Parameter mapping config incorrect. Please fix it")
 	}
@@ -57,8 +57,12 @@ func GetMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, 
 	if ok && len(keys) == 1 {
 		return rvalue.Interface(), nil
 	}
-	if rvalue.Type().Kind() != reflect.Map {
+	if rvalue.Type().Kind() != reflect.Map && len(keys) == 1 {
 		return rvalue.Interface(), nil
 	}
-	return GetMapValue(sourceMap[keys[0]].(map[string]interface{}), keys[1:])
+	deeperStruct, ok := sourceMap[keys[0]].(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("%s is not a map structure. It contains %v", keys[0], sourceMap[keys[0]])
+	}
+	return GetMapValue(deeperStruct, keys[1:])
 }
