@@ -126,18 +126,19 @@ func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, rawTarget int
 		return err
 	}
 
-	body, err := c.IngressRequest.GetBody()
-	if err != nil {
-		return err
-	}
-	rawBody, err := ioutil.ReadAll(body)
+	rawBody, err := ioutil.ReadAll(c.IngressRequest.Body)
+	defer func() {
+		c.IngressRequest.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
+	}()
 	if err != nil {
 		return err
 	}
 	mapBody := map[string]interface{}{}
 	json.Unmarshal(rawBody, &mapBody)
 	val, err := client.GetMapValue(mapBody, fromKey)
-
+	if err != nil {
+		return errors.Wrapf(err, "Error when get body value from key %s", fromKey)
+	}
 	setTarget(target, to, strings.Join(toKey, constant.Dot), val)
 	return nil
 }
@@ -166,6 +167,9 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 		target.Query.Set(key, val.(string))
 	case constant.RequestBody:
 		rawBody, err := ioutil.ReadAll(target.Body)
+		defer func() {
+			target.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
+		}()
 		if err != nil {
 			return errors.New("Raw body parse failed")
 		}
@@ -177,7 +181,6 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 		if err != nil {
 			return errors.New("Stringify map to body failed")
 		}
-		target.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
 	default:
 		return errors.Errorf("Mapping target to %s does not support", to)
 	}
