@@ -23,10 +23,6 @@ import (
 	"time"
 )
 
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-)
-
 const abortIndex int8 = math.MaxInt8 / 2
 
 // BaseContext
@@ -61,8 +57,7 @@ func (c *BaseContext) Abort() {
 
 // AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
 func (c *BaseContext) AbortWithError(message string, err error) {
-	c.Index = abortIndex
-	logger.Errorf("abort with err : %v", err)
+	c.Abort()
 }
 
 // AppendFilterFunc  append filter func.
