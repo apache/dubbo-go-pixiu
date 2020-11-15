@@ -122,6 +122,10 @@ func TestBodyMapper(t *testing.T) {
 			Name:  "requestBody.name.lastName",
 			MapTo: "1",
 		},
+		{
+			Name:  "requestBody.name",
+			MapTo: "2",
+		},
 	}
 	bm := bodyMapper{}
 	target := []interface{}{}
@@ -134,4 +138,20 @@ func TestBodyMapper(t *testing.T) {
 	err = bm.Map(api.IntegrationRequest.MappingParams[1], *req, &target)
 	assert.Nil(t, err)
 	assert.Equal(t, target[1], "Biden")
+
+	err = bm.Map(api.IntegrationRequest.MappingParams[2], *req, &target)
+	assert.Nil(t, err)
+	assert.Equal(t, target[2], map[string]interface{}(map[string]interface{}{"firstName": "Joe", "lastName": "Biden"}))
+}
+
+func TestValidateTarget(t *testing.T) {
+	target := []interface{}{}
+	val, err := validateTarget(&target)
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+	_, err = validateTarget(target)
+	assert.EqualError(t, err, "Target params must be a non-nil pointer")
+	target2 := ""
+	_, err = validateTarget(&target2)
+	assert.EqualError(t, err, "Target params for dubbo backend must be *[]interface{}")
 }
