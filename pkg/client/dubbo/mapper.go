@@ -19,7 +19,6 @@ package dubbo
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"net/url"
 	"reflect"
@@ -31,6 +30,7 @@ import (
 )
 
 import (
+	"encoding/json"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
@@ -40,6 +40,7 @@ var mappers = map[string]client.ParamMapper{
 	constant.QueryStrings: queryStringsMapper{},
 	constant.Headers:      headerMapper{},
 	constant.RequestBody:  bodyMapper{},
+	constant.RequestURI:   uriMapper{},
 }
 
 type queryStringsMapper struct{}
@@ -109,18 +110,38 @@ func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interf
 	}
 
 	rawBody, err := ioutil.ReadAll(c.IngressRequest.Body)
+	defer func() {
+		c.IngressRequest.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
+	}()
 	if err != nil {
 		return err
 	}
 	mapBody := map[string]interface{}{}
-	err = json.Unmarshal(rawBody, &mapBody)
-	if err != nil {
-		return err
-	}
+	json.Unmarshal(rawBody, &mapBody)
 	val, err := client.GetMapValue(mapBody, keys)
 
 	setTarget(rv, pos, val)
 	c.IngressRequest.Body = ioutil.NopCloser(bytes.NewBuffer(rawBody))
+	return nil
+}
+
+type uriMapper struct{}
+
+func (um uriMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+	rv, err := validateTarget(target)
+	if err != nil {
+		return err
+	}
+	_, keys, err := client.ParseMapSource(mp.Name)
+	if err != nil {
+		return err
+	}
+	pos, err := strconv.Atoi(mp.MapTo)
+	if err != nil {
+		return errors.Errorf("Parameter mapping %v incorrect", mp)
+	}
+	uriValues := c.API.GetURIParams(*c.IngressRequest.URL)
+	setTarget(rv, pos, uriValues.Get(keys[0]))
 	return nil
 }
 
