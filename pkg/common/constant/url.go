@@ -28,3 +28,14 @@ const (
 	// RetriesKey retry times
 	RetriesKey = "retries"
 )
+
+const (
+	// RequestBody name of api config mapping from/to
+	RequestBody = "requestBody"
+	// QueryStrings name of api config mapping from/to
+	QueryStrings = "queryStrings"
+	// Headers name of api config mapping from/to
+	Headers = "headers"
+	// Dot defines the . which will be used to present the path to specific field in the body
+	Dot = "."
+)
