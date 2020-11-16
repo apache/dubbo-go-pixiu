@@ -86,13 +86,12 @@ func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
 
 	if err != nil {
-		logger.Errorf("[dubboproxy go] client do err:%v!", err)
-		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
-		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		logger.Errorf("[dubbo-go-proxy go] client do err:%v!", err)
+		c.WriteErr(err)
 		return
 	}
 
-	logger.Debugf("resp : %v", resp)
+	logger.Debugf("[dubbo-go-proxy go] : %v", resp)
 
 	c.WriteResponse(resp)
 	c.Next()
