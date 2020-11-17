@@ -19,11 +19,11 @@ package router
 
 import (
 	"net/url"
+	"strings"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"strings"
 )
 
 // API describes the minimum configuration of an RESTful api configure in gateway
