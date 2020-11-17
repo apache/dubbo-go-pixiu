@@ -95,7 +95,7 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(r *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(req *client.Request) (resp *client.Response, err error) {
 
 	urlStr := r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
 	httpClient := &http.Client{Timeout: 5 * time.Second}
