@@ -159,9 +159,9 @@ func (hc *HttpContext) GetApplicationName() string {
 	return ""
 }
 
-// WriteFail write fail, fill 503 code, context-type json.
-func (hc *HttpContext) WriteFail(res interface{}) {
-	hc.doWriteJSON(nil, http.StatusInternalServerError, res)
+// WriteFail write fail, auto add context-type json.
+func (hc *HttpContext) WriteFailWithCode(code int, res interface{}) {
+	hc.doWriteJSON(nil, code, res)
 }
 
 // WriteErr
