@@ -37,3 +37,9 @@ const (
 
 	Mock = "DGP9001"
 )
+
+// strategy for response.
+const (
+	ResponseStrategyNormal = "normal"
+	ResponseStrategyHump   = "hump"
+)
