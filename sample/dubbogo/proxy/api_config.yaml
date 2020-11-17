@@ -20,30 +20,33 @@ resources:
           requestType: dubbo
           mappingParams:
             - name: queryStrings.name
-              mapTo: 1
+              mapTo: 0
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "GetUserByName"
+          paramTypes: [ "java.lang.String" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
       - httpVerb: POST
         onAir: true
+        timeout: 10s
         inboundRequest:
           requestType: http
-          requestBody:
-            - definitionName: "com.ikurento.user.User"
+#          requestBody:
+#            - definitionName: "userCreate"
         integrationRequest:
           requestType: dubbo
           mappingParams:
-            - name: requestBody
-              mapTo: 1
+            - name: requestBody._all
+              mapTo: 0
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "CreateUser"
-          clusterName: "test_dubbo"
+          paramTypes: [ "com.ikurento.user.User" ]
           group: "test"
           version: 1.0.0
+          clusterName: "test_dubbo"
   - path: '/api/v1/test-dubbo/timeout-user'
     type: restful
     description: user
@@ -67,6 +70,31 @@ resources:
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "GetUserTimeout"
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+  - path: '/api/v1/test-dubbo/user-add'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: POST
+        onAir: true
+        timeout: 10s
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody.name
+              mapTo: 0
+            - name: requestBody.id
+              mapTo: 1
+            - name: requestBody.age
+              mapTo: 2
+          applicationName: "UserProvider"
+          interface: "com.ic.user.UserProvider"
+          method: "CreateUser"
+          paramTypes: [ "com.ikurento.user.User" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"

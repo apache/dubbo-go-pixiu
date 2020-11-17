@@ -141,8 +141,12 @@ func (dc *Client) Close() error {
 func (dc *Client) Call(req *client.Request) (resp *client.Response, err error) {
 	dm := req.API.Method.IntegrationRequest
 	types, values, err := dc.MappingParams(req)
+	if err != nil {
+		return *client.EmptyResponse, err
+	}
+
 	method := dm.Method
-	logger.Debugf("[dubbogo proxy] invoke, method:%s, types:%s, reqData:%v", method, types, values)
+	logger.Debugf("[dubbo-go-proxy] invoke, method:%s, types:%s, reqData:%v", method, types, values)
 
 	gs := dc.Get(dm)
 
@@ -152,7 +156,7 @@ func (dc *Client) Call(req *client.Request) (resp *client.Response, err error) {
 		return &client.Response{}, err
 	}
 
-	logger.Debugf("[dubbogo proxy] dubbo client resp:%v", rst)
+	logger.Debugf("[dubbo-go-proxy] dubbo client resp:%v", rst)
 
 	if rst == nil {
 		return &client.Response{}, nil
@@ -164,7 +168,7 @@ func (dc *Client) Call(req *client.Request) (resp *client.Response, err error) {
 // MappingParams param mapping to api.
 func (dc *Client) MappingParams(req *client.Request) ([]string, []interface{}, error) {
 	r := req.API.Method.IntegrationRequest
-	values := []interface{}{}
+	var values []interface{}
 	for _, mappingParam := range r.MappingParams {
 		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
