@@ -27,6 +27,7 @@ const (
 	TimeoutFilter            = "dgp.filters.timeout"
 	LoggerFilter             = "dgp.filters.logger"
 	RecoveryFilter           = "dgp.filters.recovery"
+	ResponseFilter           = "dgp.filters.response"
 )
 
 const (
