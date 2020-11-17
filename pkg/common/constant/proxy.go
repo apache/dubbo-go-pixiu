@@ -30,14 +30,6 @@ const (
 	DefaultBodyAll = "_all"
 )
 
-// proxy code.
-const (
-	TimeoutError    = "DGP1005"
-	ClientCallError = "DGP0003"
-
-	Mock = "DGP9001"
-)
-
 // strategy for response.
 const (
 	ResponseStrategyNormal = "normal"
