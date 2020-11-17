@@ -75,11 +75,10 @@ func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 		// timeout do.
 		case <-ctx.Done():
 			logger.Warnf("api:%s request timeout", hc.GetAPI().URLPattern)
-			bt, _ := json.Marshal(filter.ErrResponse{Code: constant.TimeoutError,
-				Message: http.ErrHandlerTimeout.Error()})
+			bt, _ := json.Marshal(filter.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
 			hc.SourceResp = bt
 			hc.TargetResp = &client.Response{Data: bt}
-			hc.WriteFail(bt)
+			hc.WriteFailWithCode(http.StatusGatewayTimeout, bt)
 			c.Abort()
 		case <-finishChan:
 			// finish call do something.
