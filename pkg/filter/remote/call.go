@@ -90,40 +90,35 @@ func (f *clientFilter) Do() selfcontext.FilterFunc {
 func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
-	switch f.level {
-	case open:
-		if api.Mock {
-			c.SourceResp = &filter.ErrResponse{Code: constant.Mock, Message: "success"}
-			c.Next()
-			return
+	if (f.level == open && api.Mock) || (f.level == all) {
+		c.SourceResp = &filter.ErrResponse{
+			Message: "mock success",
 		}
-	case all:
-		c.SourceResp = &filter.ErrResponse{Code: constant.Mock, Message: "success"}
 		c.Next()
 		return
-	default:
-		typ := api.Method.IntegrationRequest.RequestType
-
-		cli, err := matchClient(typ)
-		if err != nil {
-			c.Err = err
-			return
-		}
-
-		resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
-
-		if err != nil {
-			logger.Errorf("[dubbo-go-proxy] client call err:%v!", err)
-			c.Err = err
-			return
-		}
-
-		logger.Debugf("[dubbo-go-proxy] client call resp:%v", resp)
-
-		c.SourceResp = resp
-		// response write in response filter.
-		c.Next()
 	}
+
+	typ := api.Method.IntegrationRequest.RequestType
+
+	cli, err := matchClient(typ)
+	if err != nil {
+		c.Err = err
+		return
+	}
+
+	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
+
+	if err != nil {
+		logger.Errorf("[dubbo-go-proxy] client call err:%v!", err)
+		c.Err = err
+		return
+	}
+
+	logger.Debugf("[dubbo-go-proxy] client call resp:%v", resp)
+
+	c.SourceResp = resp
+	// response write in response filter.
+	c.Next()
 }
 
 func matchClient(typ config.RequestType) (client.Client, error) {
