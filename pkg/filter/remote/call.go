@@ -94,7 +94,7 @@ func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 
 	logger.Debugf("resp : %v", resp)
 
-	c.WriteResponse(resp)
+	// response write in response filter.
 	c.Next()
 }
 
