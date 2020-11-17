@@ -18,6 +18,7 @@
 package router
 
 import (
+	"net/url"
 	"strings"
 	"sync"
 )
@@ -30,7 +31,6 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"net/url"
 )
 
 // Node defines the single method of the router configured API
