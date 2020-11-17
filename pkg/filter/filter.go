@@ -25,3 +25,9 @@ type Filter interface {
 	// Do run filter, use c.next() to next filter, before is pre logic, after is post logic.
 	Do() context.FilterFunc
 }
+
+// ErrResponse err response.
+type ErrResponse struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}

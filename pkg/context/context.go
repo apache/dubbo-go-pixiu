@@ -18,7 +18,6 @@
 package context
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
@@ -50,9 +49,4 @@ type Context interface {
 	GetApplicationName() string
 
 	WriteErr(p interface{})
-
-	// SetResponse set client response to context, for next filter use.
-	SetResponse(resp *client.Response) error
-	// GetResponse get response.
-	GetResponse() (resp *client.Response, err error)
 }
