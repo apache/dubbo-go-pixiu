@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package dubbo
+package response
 
 import (
 	"testing"
@@ -32,7 +32,8 @@ func TestNewDubboResponse(t *testing.T) {
 		"name": "tc",
 		"time": nil,
 	}
-	result := NewDubboResponse(resp)
+	f := responseFilter{}
+	result := f.newResponse(resp)
 	r := result.Data.(map[string]interface{})
 	assert.Equal(t, 18, r["age"])
 	assert.Equal(t, 1, r["i_d"])

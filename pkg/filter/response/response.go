@@ -18,15 +18,16 @@
 package response
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"os"
 	"reflect"
 	"strings"
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
@@ -35,7 +36,7 @@ import (
 )
 
 func init() {
-	strategy := os.Getenv(constant.ResponseStrategy)
+	strategy := os.Getenv(constant.EnvResponseStrategy)
 	if strategy == "" {
 		strategy = constant.ResponseStrategyNormal
 	}
@@ -61,18 +62,28 @@ func (f *responseFilter) Do() selfcontext.FilterFunc {
 }
 
 func (f *responseFilter) doResponse(c *contexthttp.HttpContext) {
-	resp, _ := c.GetResponse()
+	// error do first
+	if c.Err != nil {
+		bt, _ := json.Marshal(filter.ErrResponse{Code: constant.ClientCallError,
+			Message: c.Err.Error()})
+		c.SourceResp = bt
+		c.TargetResp = &client.Response{Data: bt}
+		c.WriteFail(bt)
+		c.Abort()
+		return
+	}
 
-	c.SetResponse(newResponse(resp))
-
-	resp, _ = c.GetResponse()
-
-	c.WriteResponse(*resp)
-	c.Next()
+	c.TargetResp = f.newResponse(c.SourceResp)
+	c.WriteResponse(*c.TargetResp)
+	c.Abort()
 }
 
-func newResponse(data interface{}) *client.Response {
-	r, err := dealResp(data, true)
+func (f *responseFilter) newResponse(data interface{}) *client.Response {
+	hump := false
+	if f.strategy == constant.ResponseStrategyHump {
+		hump = true
+	}
+	r, err := dealResp(data, hump)
 	if err != nil {
 		return &client.Response{Data: data}
 	}

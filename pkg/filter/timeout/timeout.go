@@ -25,17 +25,13 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-)
-
-const (
-	// TimeoutError timeout code
-	TimeoutError = "PROXY005"
 )
 
 func init() {
@@ -78,12 +74,13 @@ func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 		select {
 		// timeout do.
 		case <-ctx.Done():
-			logger.Warnf("api %v request timeout", hc.GetAPI())
-			bt, _ := json.Marshal(errResponse{Code: TimeoutError,
+			logger.Warnf("api:%s request timeout", hc.GetAPI().URLPattern)
+			bt, _ := json.Marshal(filter.ErrResponse{Code: constant.TimeoutError,
 				Message: http.ErrHandlerTimeout.Error()})
-			hc.WriteWithStatus(http.StatusServiceUnavailable, bt)
-			hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
-			hc.Abort()
+			hc.SourceResp = bt
+			hc.TargetResp = &client.Response{Data: bt}
+			hc.WriteFail(bt)
+			c.Abort()
 		case <-finishChan:
 			// finish call do something.
 		}
@@ -96,9 +93,4 @@ func (f *timeoutFilter) getTimeout(t time.Duration) time.Duration {
 	}
 
 	return t
-}
-
-type errResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
 }
