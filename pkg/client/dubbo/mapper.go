@@ -18,6 +18,10 @@
 package dubbo
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
+	"reflect"
 	"strconv"
 )
 
@@ -26,11 +30,9 @@ import (
 )
 
 import (
-	"encoding/json"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"io/ioutil"
-	"reflect"
 )
 
 type queryStringsMapper struct{}
@@ -95,23 +97,27 @@ func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interf
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 
-	body, err := c.IngressRequest.GetBody()
-	if err != nil {
-		return err
-	}
-	rawBody, err := ioutil.ReadAll(body)
+	rawBody, err := ioutil.ReadAll(c.IngressRequest.Body)
 	if err != nil {
 		return err
 	}
 	mapBody := map[string]interface{}{}
-	json.Unmarshal(rawBody, &mapBody)
+	err = json.Unmarshal(rawBody, &mapBody)
+	if err != nil {
+		return err
+	}
+
 	val, err := getMapValue(mapBody, keys)
 
 	setTarget(rv, pos, val)
+	c.IngressRequest.Body = ioutil.NopCloser(bytes.NewBuffer(rawBody))
 	return nil
 }
 
 func getMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, error) {
+	if len(keys) == 1 && keys[0] == constant.DefaultBodyAll {
+		return sourceMap, nil
+	}
 	for i, key := range keys {
 		_, ok := sourceMap[key]
 		if !ok {
