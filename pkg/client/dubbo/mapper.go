@@ -19,6 +19,7 @@ package dubbo
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"net/url"
 	"reflect"
@@ -30,7 +31,6 @@ import (
 )
 
 import (
-	"encoding/json"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
@@ -45,6 +45,7 @@ var mappers = map[string]client.ParamMapper{
 
 type queryStringsMapper struct{}
 
+// nolint
 func (qm queryStringsMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {
@@ -74,6 +75,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c client.Request, targe
 
 type headerMapper struct{}
 
+// nolint
 func (hm headerMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {
@@ -94,6 +96,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c client.Request, target inte
 
 type bodyMapper struct{}
 
+// nolint
 func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
 	// TO-DO: add support for content-type other than application/json
 	rv, err := validateTarget(target)
@@ -127,6 +130,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interf
 
 type uriMapper struct{}
 
+// nolint
 func (um uriMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {

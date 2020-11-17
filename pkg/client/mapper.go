@@ -33,6 +33,7 @@ import (
 
 // ParamMapper defines the interface about how to map the params in the inbound request.
 type ParamMapper interface {
+	// Map implements how the request parameters map to the target parameters described by config.MappingParam
 	Map(config.MappingParam, Request, interface{}) error
 }
 
