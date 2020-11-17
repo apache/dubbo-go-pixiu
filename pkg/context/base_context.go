@@ -19,6 +19,7 @@ package context
 
 import (
 	"context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"math"
 	"time"
 )
@@ -36,6 +37,8 @@ type BaseContext struct {
 	Filters FilterChain
 	Timeout time.Duration
 	Ctx     context.Context
+
+	resp *client.Response
 }
 
 // NewBaseContext create base context.
@@ -70,4 +73,15 @@ func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
 	}
+}
+
+// SetResponse set client response to context, for next filter use.
+func (c *BaseContext) SetResponse(resp *client.Response) error {
+	c.resp = resp
+	return nil
+}
+
+// GetResponse get response.
+func (c *BaseContext) GetResponse() (resp *client.Response, err error) {
+	return c.resp, nil
 }
