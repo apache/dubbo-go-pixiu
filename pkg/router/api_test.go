@@ -18,10 +18,16 @@
 package router
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/stretchr/testify/assert"
 	"net/url"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 func TestGetURIParams(t *testing.T) {

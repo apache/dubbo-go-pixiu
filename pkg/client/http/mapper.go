@@ -60,6 +60,7 @@ func newRequestParams() *requestParams {
 
 type queryStringsMapper struct{}
 
+// nolint
 func (qs queryStringsMapper) Map(mp config.MappingParam, c client.Request, rawTarget interface{}) error {
 	rv, err := validateTarget(rawTarget)
 	if err != nil {
@@ -87,6 +88,7 @@ func (qs queryStringsMapper) Map(mp config.MappingParam, c client.Request, rawTa
 
 type headerMapper struct{}
 
+// nolint
 func (hm headerMapper) Map(mp config.MappingParam, c client.Request, rawTarget interface{}) error {
 	target, err := validateTarget(rawTarget)
 	if err != nil {
@@ -111,6 +113,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c client.Request, rawTarget i
 
 type bodyMapper struct{}
 
+// nolint
 func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, rawTarget interface{}) error {
 	// TO-DO: add support for content-type other than application/json
 	target, err := validateTarget(rawTarget)
