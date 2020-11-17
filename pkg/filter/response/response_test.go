@@ -36,6 +36,6 @@ func TestNewDubboResponse(t *testing.T) {
 	result := f.newResponse(resp)
 	r := result.Data.(map[string]interface{})
 	assert.Equal(t, 18, r["age"])
-	assert.Equal(t, 1, r["i_d"])
+	assert.Equal(t, 1, r["iD"])
 	assert.Equal(t, "tc", r["name"])
 }

@@ -18,9 +18,7 @@
 package constant
 
 const (
+	// env key
 	EnvResponseStrategy = "dgp-response-strategy"
 	EnvMock             = "dgp-mock"
-
-	ResponseStrategyNormal = "normal"
-	ResponseStrategyHump   = "hump"
 )
