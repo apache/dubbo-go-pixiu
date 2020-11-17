@@ -28,6 +28,5 @@ type Filter interface {
 
 // ErrResponse err response.
 type ErrResponse struct {
-	Code    string `json:"code"`
 	Message string `json:"message"`
 }

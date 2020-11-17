@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"reflect"
 	"strings"
@@ -37,7 +38,7 @@ import (
 
 func init() {
 	strategy := os.Getenv(constant.EnvResponseStrategy)
-	if strategy == "" {
+	if len(strategy) != 0 {
 		strategy = constant.ResponseStrategyNormal
 	}
 	extension.SetFilterFunc(constant.ResponseFilter, New(strategy).Do())
@@ -64,11 +65,10 @@ func (f *responseFilter) Do() selfcontext.FilterFunc {
 func (f *responseFilter) doResponse(c *contexthttp.HttpContext) {
 	// error do first
 	if c.Err != nil {
-		bt, _ := json.Marshal(filter.ErrResponse{Code: constant.ClientCallError,
-			Message: c.Err.Error()})
+		bt, _ := json.Marshal(filter.ErrResponse{Message: c.Err.Error()})
 		c.SourceResp = bt
 		c.TargetResp = &client.Response{Data: bt}
-		c.WriteFail(bt)
+		c.WriteFailWithCode(http.StatusServiceUnavailable, bt)
 		c.Abort()
 		return
 	}
