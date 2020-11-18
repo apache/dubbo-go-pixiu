@@ -78,7 +78,7 @@ func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 			bt, _ := json.Marshal(filter.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
 			hc.SourceResp = bt
 			hc.TargetResp = &client.Response{Data: bt}
-			hc.WriteFailWithCode(http.StatusGatewayTimeout, bt)
+			hc.WriteJSONWithStatus(http.StatusGatewayTimeout, bt)
 			c.Abort()
 		case <-finishChan:
 			// finish call do something.
