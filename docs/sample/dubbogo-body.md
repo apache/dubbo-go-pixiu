@@ -36,13 +36,28 @@ resources:
 **request**
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user -X POST -d '{"name":"tiecheng","id":"0001","age":18}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/user -X POST -d '{"name":"tiecheng","id":"0002","age":18}' --header "Content-Type: application/json"
 ```
 
 **response**
 
-```bash
-{"age":18,"i_d":"0001","name":"tiecheng"}
+- if first add, return like:
+
+```json
+{
+    "age": 18,
+    "iD": "0002",
+    "name": "tiecheng"
+}
+```
+
+- if you add user multi, return like: 
+
+```json
+{
+    "code": "DGP0003",
+    "message": "data is exist"
+}
 ```
 
 ## mapping

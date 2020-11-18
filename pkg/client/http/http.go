@@ -95,17 +95,16 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(r *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 
-	urlStr := r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
+	urlStr := req.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + req.API.IntegrationRequest.HTTPBackendConfig.TargetURL
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-	request := r.IngressRequest.Clone(context.Background())
+	request := req.IngressRequest.Clone(context.Background())
 	request.URL, _ = url.ParseRequestURI(urlStr)
 	//TODO header replace, url rewrite....
 
 	tmpRet, err := httpClient.Do(request)
-	ret := client.Response{Data: tmpRet}
-	return ret, err
+	return tmpRet, err
 }
 
 // MappingParams param mapping to api.
