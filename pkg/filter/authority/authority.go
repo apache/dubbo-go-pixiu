@@ -15,50 +15,61 @@
  * limitations under the License.
  */
 
-package filter
+package authority
 
 import (
-	"net/http"
+	nh "net/http"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HTTPApiFilter, ApiFilter())
+	extension.SetFilterFunc(constant.HTTPAuthorityFilter, Authority())
 }
 
-// ApiFilter url match api
-func ApiFilter() context.FilterFunc {
+// Authority blacklist/whitelist filter
+func Authority() context.FilterFunc {
 	return func(c context.Context) {
-		url := c.GetUrl()
-		method := c.GetMethod()
-		// [williamfeng323]TO-DO: get the API details from router which saved in constant.LocalMemoryApiDiscoveryService
-		if api, ok := model.EmptyApi.FindApi(url); ok {
-			if !api.MatchMethod(method) {
-				c.WriteWithStatus(http.StatusMethodNotAllowed, constant.Default405Body)
-				c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-				c.Abort()
-				return
-			}
+		authorityFilter(c.(*http.HttpContext))
+	}
+}
 
-			if !api.IsOk(api.Name) {
-				c.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body)
-				c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-				c.Abort()
-				return
-			}
-			// [williamfeng323]TO-DO: the c.Api method need to be updated to use the newest API definition
-			c.Api(api)
-			c.Next()
-		} else {
-			c.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
-			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+func authorityFilter(c *http.HttpContext) {
+	for _, r := range c.HttpConnectionManager.AuthorityConfig.Rules {
+		item := c.GetClientIP()
+		if r.Limit == model.App {
+			item = c.GetApplicationName()
+		}
+
+		result := passCheck(item, r)
+		if !result {
+			c.WriteWithStatus(nh.StatusForbidden, constant.Default403Body)
 			c.Abort()
+			return
 		}
 	}
+
+	c.Next()
+}
+
+func passCheck(item string, rule model.AuthorityRule) bool {
+	result := false
+	for _, it := range rule.Items {
+		if it == item {
+			result = true
+			break
+		}
+	}
+
+	if (rule.Strategy == model.Blacklist && result == true) || (rule.Strategy == model.Whitelist && result == false) {
+		return false
+	}
+
+	return true
 }
