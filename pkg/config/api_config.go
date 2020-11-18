@@ -116,6 +116,7 @@ func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
 type Method struct {
 	OnAir              bool          `json:"onAir" yaml:"onAir"` // true means the method is up and false means method is down
 	Timeout            time.Duration `json:"timeout" yaml:"timeout"`
+	Mock               bool          `json:"mock" yaml:"mock"`
 	Filters            []string      `json:"filters" yaml:"filters"`
 	HTTPVerb           `json:"httpVerb" yaml:"httpVerb"`
 	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
