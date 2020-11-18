@@ -19,6 +19,7 @@ package context
 
 import (
 	"context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"math"
 	"time"
 )
@@ -32,6 +33,13 @@ type BaseContext struct {
 	Filters FilterChain
 	Timeout time.Duration
 	Ctx     context.Context
+
+	// the response context will return.
+	TargetResp *client.Response
+	// client call response.
+	SourceResp interface{}
+	// happen error
+	Err error
 }
 
 // NewBaseContext create base context.
