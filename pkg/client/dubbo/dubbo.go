@@ -130,31 +130,28 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(req *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	dm := req.API.Method.IntegrationRequest
 	types := req.API.IntegrationRequest.ParamTypes
 	values, err := dc.MapParams(req)
 	if err != nil {
-		return *client.EmptyResponse, err
+		return nil, err
 	}
 	method := dm.Method
-	logger.Debugf("[dubbo-go-proxy] invoke, method:%s, types:%s, reqData:%v", method, types, values)
+
+	logger.Debugf("[dubbo-go-proxy] dubbo invoke, method:%s, types:%s, reqData:%v", method, types, values)
 
 	gs := dc.Get(dm)
 
 	rst, err := gs.Invoke(req.Context, []interface{}{method, types, values})
 
 	if err != nil {
-		return *client.EmptyResponse, err
+		return nil, err
 	}
 
 	logger.Debugf("[dubbo-go-proxy] dubbo client resp:%v", rst)
 
-	if rst == nil {
-		return client.Response{}, nil
-	}
-
-	return *NewDubboResponse(rst), nil
+	return rst, nil
 }
 
 // MapParams param mapping to api.
