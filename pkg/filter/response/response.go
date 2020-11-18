@@ -15,22 +15,75 @@
  * limitations under the License.
  */
 
-package dubbo
+package response
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
 	"reflect"
 	"strings"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 )
 
-// NewDubboResponse create dubbo response
-func NewDubboResponse(data interface{}) *client.Response {
-	r, err := dealResp(data, true)
+func init() {
+	strategy := os.Getenv(constant.EnvResponseStrategy)
+	if len(strategy) != 0 {
+		strategy = constant.ResponseStrategyNormal
+	}
+	extension.SetFilterFunc(constant.ResponseFilter, New(strategy).Do())
+}
+
+type responseFilter struct {
+	strategy string
+}
+
+// New create timeout filter.
+func New(strategy string) filter.Filter {
+	return &responseFilter{
+		strategy: strategy,
+	}
+}
+
+// Do execute responseFilter filter logic.
+func (f *responseFilter) Do() selfcontext.FilterFunc {
+	return func(c selfcontext.Context) {
+		f.doResponse(c.(*contexthttp.HttpContext))
+	}
+}
+
+func (f *responseFilter) doResponse(c *contexthttp.HttpContext) {
+	// error do first
+	if c.Err != nil {
+		bt, _ := json.Marshal(filter.ErrResponse{Message: c.Err.Error()})
+		c.SourceResp = bt
+		c.TargetResp = &client.Response{Data: bt}
+		c.WriteJSONWithStatus(http.StatusServiceUnavailable, bt)
+		c.Abort()
+		return
+	}
+
+	c.TargetResp = f.newResponse(c.SourceResp)
+	c.WriteResponse(*c.TargetResp)
+	c.Abort()
+}
+
+func (f *responseFilter) newResponse(data interface{}) *client.Response {
+	hump := false
+	if f.strategy == constant.ResponseStrategyHump {
+		hump = true
+	}
+	r, err := dealResp(data, hump)
 	if err != nil {
 		return &client.Response{Data: data}
 	}

@@ -15,26 +15,10 @@
  * limitations under the License.
  */
 
-package dubbo
+package constant
 
-import (
-	"testing"
+// env key
+const (
+	EnvResponseStrategy = "dgp-response-strategy"
+	EnvMock             = "dgp-mock"
 )
-
-import (
-	"github.com/stretchr/testify/assert"
-)
-
-func TestNewDubboResponse(t *testing.T) {
-	resp := map[string]interface{}{
-		"age":  18,
-		"iD":   0001,
-		"name": "tc",
-		"time": nil,
-	}
-	result := NewDubboResponse(resp)
-	r := result.Data.(map[string]interface{})
-	assert.Equal(t, 18, r["age"])
-	assert.Equal(t, 1, r["i_d"])
-	assert.Equal(t, "tc", r["name"])
-}
