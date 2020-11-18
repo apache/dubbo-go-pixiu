@@ -15,14 +15,27 @@
  * limitations under the License.
  */
 
-package client
+package response
 
-// Client represents the interface of http/dubbo clients
-type Client interface {
-	Init() error
-	Close() error
-	Call(req *Request) (res interface{}, err error)
+import (
+	"testing"
+)
 
-	// MapParams mapping param, uri, query, body ...
-	MapParams(req *Request) (reqData interface{}, err error)
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNewDubboResponse(t *testing.T) {
+	resp := map[string]interface{}{
+		"age":  18,
+		"iD":   0001,
+		"name": "tc",
+		"time": nil,
+	}
+	f := responseFilter{}
+	result := f.newResponse(resp)
+	r := result.Data.(map[string]interface{})
+	assert.Equal(t, 18, r["age"])
+	assert.Equal(t, 1, r["iD"])
+	assert.Equal(t, "tc", r["name"])
 }

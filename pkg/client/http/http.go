@@ -96,10 +96,11 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(r *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 
-	urlStr := r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
+	urlStr := req.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + req.API.IntegrationRequest.HTTPBackendConfig.TargetURL
 	httpClient := &http.Client{Timeout: 5 * time.Second}
+
 	request := r.IngressRequest.Clone(r.Context)
 	//Map the origin paramters to backend parameters according to the API configure
 	transformedParams, err := dc.MapParams(r)
@@ -109,12 +110,10 @@ func (dc *Client) Call(r *client.Request) (resp client.Response, err error) {
 	params, _ := transformedParams.(*requestParams)
 	request.Body = params.Body
 	request.Header = params.Header
-
 	urlStr = strings.TrimRight(urlStr, "/") + "?" + params.Query.Encode()
 	request.URL, _ = url.ParseRequestURI(urlStr)
 	tmpRet, err := httpClient.Do(request)
-	ret := client.Response{Data: tmpRet}
-	return ret, err
+	return tmpRet, err
 }
 
 // MapParams param mapping to api.
