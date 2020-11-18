@@ -101,11 +101,11 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	urlStr := req.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + req.API.IntegrationRequest.HTTPBackendConfig.TargetURL
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 
-	request := r.IngressRequest.Clone(r.Context)
+	request := req.IngressRequest.Clone(req.Context)
 	//Map the origin paramters to backend parameters according to the API configure
-	transformedParams, err := dc.MapParams(r)
+	transformedParams, err := dc.MapParams(req)
 	if err != nil {
-		return *client.EmptyResponse, err
+		return nil, err
 	}
 	params, _ := transformedParams.(*requestParams)
 	request.Body = params.Body
