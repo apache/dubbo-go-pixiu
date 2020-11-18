@@ -68,7 +68,7 @@ func (f *responseFilter) doResponse(c *contexthttp.HttpContext) {
 		bt, _ := json.Marshal(filter.ErrResponse{Message: c.Err.Error()})
 		c.SourceResp = bt
 		c.TargetResp = &client.Response{Data: bt}
-		c.WriteFailWithCode(http.StatusServiceUnavailable, bt)
+		c.WriteJSONWithStatus(http.StatusServiceUnavailable, bt)
 		c.Abort()
 		return
 	}
