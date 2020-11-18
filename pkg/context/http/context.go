@@ -159,9 +159,9 @@ func (hc *HttpContext) GetApplicationName() string {
 	return ""
 }
 
-// WriteFail
-func (hc *HttpContext) WriteFail() {
-	hc.doWriteJSON(nil, http.StatusInternalServerError, nil)
+// WriteJSONWithStatus write fail, auto add context-type json.
+func (hc *HttpContext) WriteJSONWithStatus(code int, res interface{}) {
+	hc.doWriteJSON(nil, code, res)
 }
 
 // WriteErr
@@ -195,6 +195,12 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 	hc.Writer.WriteHeader(code)
 
 	if d != nil {
+		byt, ok := d.([]byte)
+		if ok {
+			hc.Writer.Write(byt)
+			return
+		}
+
 		if b, err := json.Marshal(d); err != nil {
 			hc.Writer.Write([]byte(err.Error()))
 		} else {

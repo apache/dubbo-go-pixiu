@@ -44,6 +44,15 @@ curl localhost:8888/api/v1/test-dubbo/user?name=tc -X GET
 
 **response**
 
+- if exist, will return:
+
 ```bash
-{"age":18,"i_d":"0001","name":"tc"}
+{
+    "age": 18,
+    "iD": "0001",
+    "name": "tc"
+}
 ```
+
+- not found, return: nil
+
