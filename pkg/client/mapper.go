@@ -18,18 +18,18 @@
 package client
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"reflect"
 	"regexp"
 	"strings"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"reflect"
+	"github.com/pkg/errors"
 )
 
 // ParamMapper defines the interface about how to map the params in the inbound request.
