@@ -17,11 +17,12 @@
 
 package client
 
+// Client represents the interface of http/dubbo clients
 type Client interface {
 	Init() error
 	Close() error
 	Call(req *Request) (res interface{}, err error)
 
-	// MappingParams mapping param, uri, query, body ...
-	MappingParams(req *Request) (types []string, reqData []interface{}, err error)
+	// MapParams mapping param, uri, query, body ...
+	MapParams(req *Request) (reqData interface{}, err error)
 }
