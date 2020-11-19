@@ -19,7 +19,6 @@ package dubbo
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +28,6 @@ import (
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
-	"github.com/pkg/errors"
 )
 
 import (
@@ -43,12 +41,6 @@ const (
 	JavaStringClassName = "java.lang.String"
 	JavaLangClassName   = "java.lang.Long"
 )
-
-var mappers = map[string]client.ParamMapper{
-	"queryStrings": queryStringsMapper{},
-	"headers":      headerMapper{},
-	"requestBody":  bodyMapper{},
-}
 
 var (
 	dubboClient        *Client
@@ -140,11 +132,11 @@ func (dc *Client) Close() error {
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	dm := req.API.Method.IntegrationRequest
-	types, values, err := dc.MappingParams(req)
+	types := req.API.IntegrationRequest.ParamTypes
+	values, err := dc.MapParams(req)
 	if err != nil {
 		return nil, err
 	}
-
 	method := dm.Method
 
 	logger.Debugf("[dubbo-go-proxy] dubbo invoke, method:%s, types:%s, reqData:%v", method, types, values)
@@ -162,22 +154,22 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	return rst, nil
 }
 
-// MappingParams param mapping to api.
-func (dc *Client) MappingParams(req *client.Request) ([]string, []interface{}, error) {
+// MapParams params mapping to api.
+func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
 	var values []interface{}
 	for _, mappingParam := range r.MappingParams {
 		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if mapper, ok := mappers[source]; ok {
-			if err := mapper.Map(mappingParam, *req, &values); err != nil {
-				return nil, nil, err
+			if err := mapper.Map(mappingParam, req, &values); err != nil {
+				return nil, err
 			}
 		}
 	}
-	return req.API.IntegrationRequest.ParamTypes, values, nil
+	return values, nil
 }
 
 func (dc *Client) get(key string) *dg.GenericService {
@@ -242,31 +234,4 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *dg.Gen
 
 	dc.GenericServicePool[key] = clientService
 	return clientService
-}
-
-func validateTarget(target interface{}) (reflect.Value, error) {
-	rv := reflect.ValueOf(target)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return rv, errors.New("Target params must be a non-nil pointer")
-	}
-	if _, ok := target.(*[]interface{}); !ok {
-		return rv, errors.New("Target params for dubbo backend must be *[]interface{}")
-	}
-	return rv, nil
-}
-
-func setTarget(rv reflect.Value, pos int, value interface{}) {
-	if rv.Kind() != reflect.Ptr && rv.Type().Name() != "" && rv.CanAddr() {
-		rv = rv.Addr()
-	} else {
-		rv = rv.Elem()
-	}
-
-	tempValue := rv.Interface().([]interface{})
-	if len(tempValue) <= pos {
-		list := make([]interface{}, pos+1-len(tempValue))
-		tempValue = append(tempValue, list...)
-	}
-	tempValue[pos] = value
-	rv.Set(reflect.ValueOf(tempValue))
 }

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"net/url"
 	"reflect"
 	"strconv"
 )
@@ -35,14 +36,25 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
+var mappers = map[string]client.ParamMapper{
+	constant.QueryStrings: queryStringsMapper{},
+	constant.Headers:      headerMapper{},
+	constant.RequestBody:  bodyMapper{},
+	constant.RequestURI:   uriMapper{},
+}
+
 type queryStringsMapper struct{}
 
-func (qm queryStringsMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+// nolint
+func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
 	}
-	c.IngressRequest.ParseForm()
+	queryValues, err := url.ParseQuery(c.IngressRequest.URL.RawQuery)
+	if err != nil {
+		return errors.Wrap(err, "Error happened when parsing the query paramters")
+	}
 	_, key, err := client.ParseMapSource(mp.Name)
 	if err != nil {
 		return err
@@ -51,19 +63,20 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c client.Request, targe
 	if err != nil {
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
-	formValue := c.IngressRequest.Form.Get(key[0])
-	if len(formValue) == 0 {
+	qValue := queryValues.Get(key[0])
+	if len(qValue) == 0 {
 		return errors.Errorf("Query parameter %s does not exist", key)
 	}
 
-	setTarget(rv, pos, formValue)
+	setTarget(rv, pos, qValue)
 
 	return nil
 }
 
 type headerMapper struct{}
 
-func (hm headerMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+// nolint
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -83,7 +96,9 @@ func (hm headerMapper) Map(mp config.MappingParam, c client.Request, target inte
 
 type bodyMapper struct{}
 
-func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+// nolint
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
+	// TO-DO: add support for content-type other than application/json
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -98,36 +113,67 @@ func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interf
 	}
 
 	rawBody, err := ioutil.ReadAll(c.IngressRequest.Body)
+	defer func() {
+		c.IngressRequest.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
+	}()
 	if err != nil {
 		return err
 	}
 	mapBody := map[string]interface{}{}
-	err = json.Unmarshal(rawBody, &mapBody)
-	if err != nil {
-		return err
-	}
-
-	val, err := getMapValue(mapBody, keys)
+	json.Unmarshal(rawBody, &mapBody)
+	val, err := client.GetMapValue(mapBody, keys)
 
 	setTarget(rv, pos, val)
 	c.IngressRequest.Body = ioutil.NopCloser(bytes.NewBuffer(rawBody))
 	return nil
 }
 
-func getMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, error) {
-	if len(keys) == 1 && keys[0] == constant.DefaultBodyAll {
-		return sourceMap, nil
+type uriMapper struct{}
+
+// nolint
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
+	rv, err := validateTarget(target)
+	if err != nil {
+		return err
 	}
-	for i, key := range keys {
-		_, ok := sourceMap[key]
-		if !ok {
-			return nil, errors.Errorf("%s does not exist in request body", key)
-		}
-		rvalue := reflect.ValueOf(sourceMap[key])
-		if rvalue.Type().Kind() != reflect.Map {
-			return rvalue.Interface(), nil
-		}
-		return getMapValue(sourceMap[key].(map[string]interface{}), keys[i+1:])
+	_, keys, err := client.ParseMapSource(mp.Name)
+	if err != nil {
+		return err
 	}
-	return nil, nil
+	pos, err := strconv.Atoi(mp.MapTo)
+	if err != nil {
+		return errors.Errorf("Parameter mapping %v incorrect", mp)
+	}
+	uriValues := c.API.GetURIParams(*c.IngressRequest.URL)
+	setTarget(rv, pos, uriValues.Get(keys[0]))
+	return nil
+}
+
+// validateTarget verify if the incoming target for the Map function
+// can be processed as expected.
+func validateTarget(target interface{}) (reflect.Value, error) {
+	rv := reflect.ValueOf(target)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return rv, errors.New("Target params must be a non-nil pointer")
+	}
+	if _, ok := target.(*[]interface{}); !ok {
+		return rv, errors.New("Target params for dubbo backend must be *[]interface{}")
+	}
+	return rv, nil
+}
+
+func setTarget(rv reflect.Value, pos int, value interface{}) {
+	if rv.Kind() != reflect.Ptr && rv.Type().Name() != "" && rv.CanAddr() {
+		rv = rv.Addr()
+	} else {
+		rv = rv.Elem()
+	}
+
+	tempValue := rv.Interface().([]interface{})
+	if len(tempValue) <= pos {
+		list := make([]interface{}, pos+1-len(tempValue))
+		tempValue = append(tempValue, list...)
+	}
+	tempValue[pos] = value
+	rv.Set(reflect.ValueOf(tempValue))
 }
