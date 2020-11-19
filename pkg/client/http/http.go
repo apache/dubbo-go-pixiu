@@ -136,7 +136,7 @@ func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 			return nil, err
 		}
 		if mapper, ok := mappers[source]; ok {
-			if err := mapper.Map(mp[i], *req, r); err != nil {
+			if err := mapper.Map(mp[i], req, r); err != nil {
 				return nil, err
 			}
 		}

@@ -154,7 +154,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	return rst, nil
 }
 
-// MapParams param mapping to api.
+// MapParams params mapping to api.
 func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
 	var values []interface{}
@@ -164,7 +164,7 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 			return nil, err
 		}
 		if mapper, ok := mappers[source]; ok {
-			if err := mapper.Map(mappingParam, *req, &values); err != nil {
+			if err := mapper.Map(mappingParam, req, &values); err != nil {
 				return nil, err
 			}
 		}

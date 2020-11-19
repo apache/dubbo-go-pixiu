@@ -46,7 +46,7 @@ var mappers = map[string]client.ParamMapper{
 type queryStringsMapper struct{}
 
 // nolint
-func (qm queryStringsMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c client.Request, targe
 type headerMapper struct{}
 
 // nolint
-func (hm headerMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c client.Request, target inte
 type bodyMapper struct{}
 
 // nolint
-func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
 	// TO-DO: add support for content-type other than application/json
 	rv, err := validateTarget(target)
 	if err != nil {
@@ -131,7 +131,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c client.Request, target interf
 type uriMapper struct{}
 
 // nolint
-func (um uriMapper) Map(mp config.MappingParam, c client.Request, target interface{}) error {
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
