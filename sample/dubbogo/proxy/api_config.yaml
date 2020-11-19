@@ -9,7 +9,7 @@ resources:
     methods:
       - httpVerb: GET
         onAir: true
-        timeout: 100ms
+        timeout: 1000ms
         inboundRequest:
           requestType: http
           queryStrings:
