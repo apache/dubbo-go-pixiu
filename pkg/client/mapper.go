@@ -18,6 +18,7 @@
 package client
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"regexp"
 	"strings"
 )
@@ -50,6 +51,9 @@ func ParseMapSource(source string) (from string, params []string, err error) {
 
 // GetMapValue return the value from map base on the path
 func GetMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, error) {
+	if keys[0] == constant.DefaultBodyAll {
+		return sourceMap, nil
+	}
 	_, ok := sourceMap[keys[0]]
 	if !ok {
 		return nil, errors.Errorf("%s does not exist in request body", keys[0])
