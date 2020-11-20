@@ -19,7 +19,9 @@ package client
 
 import (
 	"context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"net/http"
+	"strings"
 )
 
 import (
@@ -41,4 +43,32 @@ func NewReq(ctx context.Context, request *http.Request, api router.API) *Request
 		IngressRequest: request,
 		API:            api,
 	}
+}
+
+// GetURL new url
+func (r *Request) GetURL() string {
+	ir := r.API.IntegrationRequest
+	if ir.RequestType == config.HTTPRequest {
+		if len(ir.HTTPBackendConfig.URL) != 0 {
+			return ir.HTTPBackendConfig.URL
+		}
+
+		// now only support http.
+		scheme := "http"
+		host := r.IngressRequest.URL.Host
+		if len(ir.HTTPBackendConfig.Host) != 0 {
+			host = ir.HTTPBackendConfig.Host
+		}
+		path := r.IngressRequest.URL.Path
+		if len(ir.HTTPBackendConfig.Path) != 0 {
+			path = ir.HTTPBackendConfig.Path
+		}
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+
+		return scheme + "://" + host + path
+	}
+
+	return ""
 }
