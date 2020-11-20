@@ -10,6 +10,7 @@
 
 * [dubbo](sample/dubbo.md)
 * [http](sample/http.md)
+* [mock](sample/mock.md)
 
 ## [User Guide](user/README.md)
 
