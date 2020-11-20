@@ -62,20 +62,30 @@ func (f *responseFilter) Do() selfcontext.FilterFunc {
 	}
 }
 
-func (f *responseFilter) doResponse(c *contexthttp.HttpContext) {
+func (f *responseFilter) doResponse(ctx *contexthttp.HttpContext) {
 	// error do first
-	if c.Err != nil {
-		bt, _ := json.Marshal(filter.ErrResponse{Message: c.Err.Error()})
-		c.SourceResp = bt
-		c.TargetResp = &client.Response{Data: bt}
-		c.WriteJSONWithStatus(http.StatusServiceUnavailable, bt)
-		c.Abort()
+	if ctx.Err != nil {
+		bt, _ := json.Marshal(filter.ErrResponse{Message: ctx.Err.Error()})
+		ctx.SourceResp = bt
+		ctx.TargetResp = &client.Response{Data: bt}
+		ctx.WriteJSONWithStatus(http.StatusServiceUnavailable, bt)
+		ctx.Abort()
 		return
 	}
 
-	c.TargetResp = f.newResponse(c.SourceResp)
-	c.WriteResponse(*c.TargetResp)
-	c.Abort()
+	// http type
+	r, ok := ctx.SourceResp.(*http.Response)
+	if ok {
+		ctx.TargetResp = &client.Response{Data: r}
+		ctx.WriteWithStatus(r.StatusCode, []byte(r.Status))
+		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		ctx.Abort()
+		return
+	}
+
+	ctx.TargetResp = f.newResponse(ctx.SourceResp)
+	ctx.WriteResponse(*ctx.TargetResp)
+	ctx.Abort()
 }
 
 func (f *responseFilter) newResponse(data interface{}) *client.Response {
