@@ -77,8 +77,8 @@ func TestMapParams(t *testing.T) {
 			MapTo: "requestBody.nickName",
 		},
 	}
-	api.IntegrationRequest.HTTPBackendConfig.Protocol = "https"
-	api.IntegrationRequest.HTTPBackendConfig.TargetURL = "localhost"
+	api.IntegrationRequest.HTTPBackendConfig.Scheme = "https"
+	api.IntegrationRequest.HTTPBackendConfig.Host = "localhost"
 	r, _ = http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte("{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	r.Header.Set("Auth", "12345")
 	req = client.NewReq(context.TODO(), r, api)
