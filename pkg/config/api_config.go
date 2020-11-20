@@ -180,6 +180,14 @@ type IntegrationRequest struct {
 type MappingParam struct {
 	Name  string `json:"name" yaml:"name"`
 	MapTo string `json:"mapTo" yaml:"mapTo"`
+	Opt   Opt    `json:"opt,omitempty" yaml:"opt,omitempty"`
+}
+
+// Opt option, action for compatibility.
+type Opt struct {
+	Name   string `json:"name" yaml:"name"`
+	Open   bool   `json:"open" yaml:"open"`
+	Usable bool   `json:"usable" yaml:"usable"`
 }
 
 // DubboBackendConfig defines the basic dubbo backend config
