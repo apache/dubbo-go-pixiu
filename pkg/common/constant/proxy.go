@@ -25,9 +25,11 @@ const (
 	DefaultTimeout    = time.Second
 )
 
-// body passthrough.
 const (
+	// body passthrough.
 	DefaultBodyAll = "_all"
+	// like dubbo proxy.
+	DefaultOldAuto = "_auto"
 )
 
 // strategy for response.
