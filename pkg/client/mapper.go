@@ -18,17 +18,18 @@
 package client
 
 import (
+	"reflect"
 	"regexp"
 	"strings"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"reflect"
+	"github.com/pkg/errors"
 )
 
 // ParamMapper defines the interface about how to map the params in the inbound request.
@@ -50,6 +51,9 @@ func ParseMapSource(source string) (from string, params []string, err error) {
 
 // GetMapValue return the value from map base on the path
 func GetMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, error) {
+	if len(keys) > 0 && keys[0] == constant.DefaultBodyAll {
+		return sourceMap, nil
+	}
 	_, ok := sourceMap[keys[0]]
 	if !ok {
 		return nil, errors.Errorf("%s does not exist in request body", keys[0])
