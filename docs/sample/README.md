@@ -1,4 +1,5 @@
 # Samples
 
-* [dubbo](sample/dubbo.md)
-* [http](sample/http.md)
+* [dubbo](dubbo.md)
+* [http](http.md)
+* [mock](mock.md)
