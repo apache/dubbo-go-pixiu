@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -77,8 +78,17 @@ func (f *responseFilter) doResponse(ctx *contexthttp.HttpContext) {
 	r, ok := ctx.SourceResp.(*http.Response)
 	if ok {
 		ctx.TargetResp = &client.Response{Data: r}
-		ctx.WriteWithStatus(r.StatusCode, []byte(r.Status))
-		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		byts, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			ctx.WriteWithStatus(r.StatusCode, []byte(r.Status))
+			ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+			ctx.Abort()
+			return
+		}
+		for k, v := range r.Header {
+			ctx.AddHeader(k, v[0])
+		}
+		ctx.WriteWithStatus(r.StatusCode, byts)
 		ctx.Abort()
 		return
 	}
