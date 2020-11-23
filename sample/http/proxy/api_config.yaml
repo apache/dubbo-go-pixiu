@@ -1,0 +1,51 @@
+name: proxy
+description: proxy sample
+resources:
+  - path: '/api/v1/test-http/user'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: GET
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+          queryStrings:
+            - name: name
+              required: true
+        integrationRequest:
+          requestType: http
+          mappingParams:
+            - name: queryStrings.name
+              mapTo: queryStrings.name
+          host: "127.0.0.1:1314"
+          path: "user"
+      - httpVerb: POST
+        onAir: true
+        timeout: 10s
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: http
+          mappingParams:
+            - name: requestBody._all
+              mapTo: requestBody._all
+          host: "127.0.0.1:1314"
+          path: "user"
+definitions:
+  - name: userCreate
+    schema: >-
+      {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "age" : {
+            "type" : "integer"
+          }
+        }
+      }
