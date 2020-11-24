@@ -33,6 +33,8 @@ resources:
                 clusterName: "test_dubbo"
 ```
 
+> mapTo: 0 needed
+
 **request**
 
 ```bash
