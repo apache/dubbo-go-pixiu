@@ -61,7 +61,7 @@ func TestQueryStringsMapper(t *testing.T) {
 	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, &params, nil)
 	assert.EqualError(t, err, "Query parameter [name] does not exist")
 	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, &params, nil)
-	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk} incorrect")
+	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk { false false}} incorrect")
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")

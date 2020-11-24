@@ -21,23 +21,21 @@ package client
 type Client interface {
 	Init() error
 	Close() error
+
+	// Call invoke the downstream service.
 	Call(req *Request) (res interface{}, err error)
 
 	// MapParams mapping param, uri, query, body ...
 	MapParams(req *Request) (reqData interface{}, err error)
 }
 
+/**
+ * follow option is design to support dubbo proxy model. you can see
+ * https://github.com/dubbogo/dubbo-go-proxy/tree/master.
+ */
+
 // MapOption option map, key : name, value : option
 type MapOption map[string]IOption
-
-var DefaultMapOption = MapOption{
-	"types":       &dubboParamTypesOpt{},
-	"group":       &dubboGroupOpt{},
-	"version":     &dubboVersionOpt{},
-	"interface":   &dubboInterfaceOpt{},
-	"application": &dubboApplicationOpt{},
-	"method":      &dubboMethodOpt{},
-}
 
 // IOption option interface.
 type IOption interface {
@@ -49,110 +47,18 @@ type IOption interface {
 	Action(req *Request, val interface{})
 }
 
-// CommonOption
+// CommonOption common opt.
 type CommonOption struct {
 	usable bool
 	IOption
 }
 
-// Usable get usable
+// Usable get usable.
 func (opt *CommonOption) Usable() bool {
 	return opt.usable
 }
 
-// SetUsable set usable
+// SetUsable set usable.
 func (opt *CommonOption) SetUsable(b bool) {
 	opt.usable = b
-}
-
-type dubboParamTypesOpt struct {
-	CommonOption
-}
-
-// nolint
-func (opt *dubboParamTypesOpt) Action(req *Request, val interface{}) {
-	v, ok := val.([]interface{})
-	if !ok {
-		return
-	}
-
-	var pt []string
-	for i := range v {
-		ptv, ok := v[i].(string)
-		if ok {
-			pt = append(pt, ptv)
-		}
-	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.ParamTypes = pt
-}
-
-type dubboGroupOpt struct {
-	CommonOption
-}
-
-// nolint
-func (opt *dubboGroupOpt) Action(req *Request, val interface{}) {
-	v, ok := val.(string)
-	if !ok {
-		return
-	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Group = v
-}
-
-type dubboVersionOpt struct {
-	CommonOption
-}
-
-// nolint
-func (opt *dubboVersionOpt) Action(req *Request, val interface{}) {
-	v, ok := val.(string)
-	if !ok {
-		return
-	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Version = v
-}
-
-type dubboMethodOpt struct {
-	CommonOption
-}
-
-// nolint
-func (opt *dubboMethodOpt) Action(req *Request, val interface{}) {
-	v, ok := val.(string)
-	if !ok {
-		return
-	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Method = v
-}
-
-type dubboApplicationOpt struct {
-	CommonOption
-}
-
-// nolint
-func (opt *dubboApplicationOpt) Action(req *Request, val interface{}) {
-	v, ok := val.(string)
-	if !ok {
-		return
-	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.ApplicationName = v
-}
-
-type dubboInterfaceOpt struct {
-	CommonOption
-}
-
-// nolint
-func (opt *dubboInterfaceOpt) Action(req *Request, val interface{}) {
-	v, ok := val.(string)
-	if !ok {
-		return
-	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Interface = v
 }
