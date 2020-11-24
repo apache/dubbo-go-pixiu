@@ -185,9 +185,12 @@ type MappingParam struct {
 
 // Opt option, action for compatibility.
 type Opt struct {
-	Name   string `json:"name" yaml:"name"`
-	Open   bool   `json:"open" yaml:"open"`
-	Usable bool   `json:"usable" yaml:"usable"`
+	// Name match dubbo.DefaultMapOption key.
+	Name string `json:"name" yaml:"name"`
+	// Open control opt create.
+	Open bool `json:"open" yaml:"open"`
+	// Usable setTarget condition, true can set, false not set.
+	Usable bool `json:"usable" yaml:"usable"`
 }
 
 // DubboBackendConfig defines the basic dubbo backend config
