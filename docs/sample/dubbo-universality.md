@@ -1,12 +1,12 @@
-# use dubbo request universality
+# Use dubbo request universality
 
 > POST request
 
-## suggest
+## Suggest
 
 > In this way, you can request your dubbo rpc service by defined one api for every cluster.
 
-**config**
+### Config
 
 ```yaml
 name: proxy
@@ -66,13 +66,13 @@ resources:
           clusterName: "test_dubbo"
 ```
 
-**request**
+### Request
 
 ```bash
 curl host:port/api/v1/test-dubbo/UserProvider/com.ic.user.UserProvider?method=GetUserByName&group=test&version=1.0.0 -X POST -d '{"types":["java.lang.String"],"values":"tc"}' --header "Content-Type: application/json"
 ```
 
-**response**
+### Response
 
 ```json
 {
@@ -83,26 +83,80 @@ curl host:port/api/v1/test-dubbo/UserProvider/com.ic.user.UserProvider?method=Ge
 }
 ```
 
-### special config
+### Special config
 
-**the code**
+#### Code
 
 ```go
-var DefaultMapOption = MapOption{
-	"types":       &DubboParamTypesOpt{},
-	"group":       &DubboGroupOpt{},
-	"version":     &DubboVersionOpt{},
-	"interface":   &DubboInterfaceOpt{},
-	"application": &DubboApplicationOpt{},
-	"method":      &DubboMethodOpt{},
+const (
+	optionKeyTypes       = "types"
+	optionKeyGroup       = "group"
+	optionKeyVersion     = "version"
+	optionKeyInterface   = "interface"
+	optionKeyApplication = "application"
+	optionKeyMethod      = "method"
+)
+```
+
+#### Options
+
+Assemble generic params to invoke.
+
+```go
+// GenericService uses for generic invoke for service call
+type GenericService struct {
+	Invoke       func(ctx context.Context, req []interface{}) (interface{}, error) `dubbo:"$invoke"`
+	referenceStr string
 }
 ```
 
-**the config**
+- types
+
+> dubbo generic types
+
+Use for dubbogo `GenericService#Invoke` func arg 2rd param.
+
+- method
+
+Use for dubbogo `GenericService#Invoke` func arg 1rd param.
+
+- group
+
+Dubbo group in `ReferenceConfig#Group`. 
+
+- version
+
+Dubbo version in `ReferenceConfig#Version`.
+
+- interface
+
+Dubbo interface in `ReferenceConfig#InterfaceName`.
+
+- application
+
+Now only use for part of cache key.
+
+#### Explain
+
+request body
+
+```json
+{
+    "types": [
+        "java.lang.String"
+    ],
+    "values": "tc"
+}
+```
 
 ```yaml
+            - name: requestBody.types
+              mapTo: 1
               opt:
                 open: true
                 name: types
 ```
 
+- `requestBody.types` means body content with types key.
+- `opt.name` means use types option.
+- `opt.usable` means if remove the request to downstream service.
