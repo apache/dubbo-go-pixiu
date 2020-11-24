@@ -185,10 +185,11 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 func buildOption(conf config.MappingParam) client.IOption {
 	var opt client.IOption
 	if conf.Opt.Open {
-		opt, ok := DefaultMapOption[conf.Opt.Name]
+		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
 		if ok {
-			opt.SetUsable(conf.Opt.Usable)
+			matchOpt.SetUsable(conf.Opt.Usable)
 		}
+		opt = matchOpt
 	}
 
 	return opt
