@@ -26,10 +26,8 @@ const (
 )
 
 const (
-	// body passthrough.
+	// DefaultBodyAll body passthrough.
 	DefaultBodyAll = "_all"
-	// like dubbo proxy.
-	DefaultOldAuto = "_auto"
 )
 
 // strategy for response.
