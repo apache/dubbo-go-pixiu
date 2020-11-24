@@ -171,8 +171,10 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	for _, mappingParam := range r.MappingParams {
 		var opt client.IOption
 		if mappingParam.Opt.Open {
-			opt = client.DefaultMapOption[mappingParam.Opt.Name]
-			opt.SetUsable(mappingParam.Opt.Usable)
+			opt, ok := DefaultMapOption[mappingParam.Opt.Name]
+			if ok {
+				opt.SetUsable(mappingParam.Opt.Usable)
+			}
 		}
 		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
