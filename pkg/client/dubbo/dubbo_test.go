@@ -167,3 +167,30 @@ func TestMappingParams(t *testing.T) {
 	assert.Equal(t, params.([]interface{})[3], "male")
 	assert.Equal(t, params.([]interface{})[4], "Joe")
 }
+
+func TestBuildOption(t *testing.T) {
+	mp := config.MappingParam{
+		Name:  "queryStrings.id",
+		MapTo: "0",
+		Opt: config.Opt{
+			Name:   optionKeyGroup,
+			Open:   true,
+			Usable: false,
+		},
+	}
+	option := buildOption(mp)
+	assert.NotNil(t, option)
+	assert.Equal(t, false, option.Usable())
+
+	mp = config.MappingParam{
+		Name:  "queryStrings.id",
+		MapTo: "0",
+		Opt: config.Opt{
+			Name:   "other",
+			Open:   true,
+			Usable: false,
+		},
+	}
+	option = buildOption(mp)
+	assert.Nil(t, option)
+}
