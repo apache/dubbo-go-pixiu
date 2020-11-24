@@ -19,14 +19,24 @@ package dubbo
 
 import "github.com/dubbogo/dubbo-go-proxy/pkg/client"
 
+// option keys
+const (
+	optionKeyTypes       = "types"
+	optionKeyGroup       = "group"
+	optionKeyVersion     = "version"
+	optionKeyInterface   = "interface"
+	optionKeyApplication = "application"
+	optionKeyMethod      = "method"
+)
+
 // DefaultMapOption default map opt
 var DefaultMapOption = client.MapOption{
-	"types":       &paramTypesOpt{},
-	"group":       &groupOpt{},
-	"version":     &versionOpt{},
-	"interface":   &interfaceOpt{},
-	"application": &applicationOpt{},
-	"method":      &methodOpt{},
+	optionKeyTypes:       &paramTypesOpt{},
+	optionKeyGroup:       &groupOpt{},
+	optionKeyVersion:     &versionOpt{},
+	optionKeyInterface:   &interfaceOpt{},
+	optionKeyApplication: &applicationOpt{},
+	optionKeyMethod:      &methodOpt{},
 }
 
 type paramTypesOpt struct {
