@@ -169,24 +169,29 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
 	var values []interface{}
 	for _, mappingParam := range r.MappingParams {
-		var opt client.IOption
-		if mappingParam.Opt.Open {
-			opt, ok := DefaultMapOption[mappingParam.Opt.Name]
-			if ok {
-				opt.SetUsable(mappingParam.Opt.Usable)
-			}
-		}
 		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
 			return nil, err
 		}
 		if mapper, ok := mappers[source]; ok {
-			if err := mapper.Map(mappingParam, req, &values, opt); err != nil {
+			if err := mapper.Map(mappingParam, req, &values, buildOption(mappingParam)); err != nil {
 				return nil, err
 			}
 		}
 	}
 	return values, nil
+}
+
+func buildOption(conf config.MappingParam) client.IOption {
+	var opt client.IOption
+	if conf.Opt.Open {
+		opt, ok := DefaultMapOption[conf.Opt.Name]
+		if ok {
+			opt.SetUsable(conf.Opt.Usable)
+		}
+	}
+
+	return opt
 }
 
 func (dc *Client) get(key string) *dg.GenericService {
