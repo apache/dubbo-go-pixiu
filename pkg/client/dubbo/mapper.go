@@ -46,7 +46,7 @@ var mappers = map[string]client.ParamMapper{
 type queryStringsMapper struct{}
 
 // nolint
-func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
+func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, targ
 		return errors.Errorf("Query parameter %s does not exist", key)
 	}
 
-	setTarget(rv, pos, qValue)
+	setTargetWithOpt(c, option, rv, pos, qValue)
 
 	return nil
 }
@@ -76,7 +76,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, targ
 type headerMapper struct{}
 
 // nolint
-func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -90,14 +90,16 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target int
 	if len(header) == 0 {
 		return errors.Errorf("Header %s not found", key[0])
 	}
-	setTarget(rv, pos, header)
+
+	setTargetWithOpt(c, option, rv, pos, header)
+
 	return nil
 }
 
 type bodyMapper struct{}
 
 // nolint
-func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
 	// TO-DO: add support for content-type other than application/json
 	rv, err := validateTarget(target)
 	if err != nil {
@@ -123,7 +125,8 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 	json.Unmarshal(rawBody, &mapBody)
 	val, err := client.GetMapValue(mapBody, keys)
 
-	setTarget(rv, pos, val)
+	setTargetWithOpt(c, option, rv, pos, val)
+
 	c.IngressRequest.Body = ioutil.NopCloser(bytes.NewBuffer(rawBody))
 	return nil
 }
@@ -131,7 +134,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 type uriMapper struct{}
 
 // nolint
-func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interface{}) error {
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -145,7 +148,9 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interf
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 	uriValues := c.API.GetURIParams(*c.IngressRequest.URL)
-	setTarget(rv, pos, uriValues.Get(keys[0]))
+
+	setTargetWithOpt(c, option, rv, pos, uriValues.Get(keys[0]))
+
 	return nil
 }
 
@@ -160,6 +165,16 @@ func validateTarget(target interface{}) (reflect.Value, error) {
 		return rv, errors.New("Target params for dubbo backend must be *[]interface{}")
 	}
 	return rv, nil
+}
+
+func setTargetWithOpt(req *client.Request, option client.IOption, rv reflect.Value, pos int, value interface{}) {
+	if option == nil || option.Usable() {
+		setTarget(rv, pos, value)
+	}
+
+	if option != nil {
+		option.Action(req, value)
+	}
 }
 
 func setTarget(rv reflect.Value, pos int, value interface{}) {

@@ -61,22 +61,22 @@ func TestQueryMapper(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := newRequestParams()
-	err := qs.Map(api.IntegrationRequest.MappingParams[0], req, target)
+	err := qs.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Id"), "12345")
 
-	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, target)
+	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Query.Get("name"), "joe")
 
-	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, target)
+	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
-	err = qs.Map(api.IntegrationRequest.MappingParams[3], req, target)
+	err = qs.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
 	rawBody, _ := ioutil.ReadAll(target.Body)
 	assert.Equal(t, string(rawBody), "{\"age\":\"19\",\"nickName\":\"trump\"}")
 
-	err = qs.Map(config.MappingParam{Name: "queryStrings.doesNotExistField", MapTo: "queryStrings.whatever"}, req, target)
+	err = qs.Map(config.MappingParam{Name: "queryStrings.doesNotExistField", MapTo: "queryStrings.whatever"}, req, target, nil)
 	assert.EqualError(t, err, "doesNotExistField in query parameters not found")
 }
 
@@ -109,24 +109,24 @@ func TestHeaderMapper(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := newRequestParams()
-	err := hm.Map(api.IntegrationRequest.MappingParams[0], req, target)
+	err := hm.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Auth"), "xxxx12345xxx")
-	err = hm.Map(api.IntegrationRequest.MappingParams[1], req, target)
+	err = hm.Map(api.IntegrationRequest.MappingParams[1], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Token"), "ttttt12345ttt")
 
-	err = hm.Map(api.IntegrationRequest.MappingParams[2], req, target)
+	err = hm.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Query.Get("originPasscode"), "whoseyourdaddy")
 
-	err = hm.Map(api.IntegrationRequest.MappingParams[3], req, target)
+	err = hm.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
 	rawBody, err := ioutil.ReadAll(target.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"pokeMonName\":\"Pika\"}")
 
-	err = hm.Map(config.MappingParam{Name: "headers.doesNotExistField", MapTo: "headers.whatever"}, req, target)
+	err = hm.Map(config.MappingParam{Name: "headers.doesNotExistField", MapTo: "headers.whatever"}, req, target, nil)
 	assert.EqualError(t, err, "Header doesNotExistField not found")
 }
 
@@ -155,18 +155,18 @@ func TestBodyMapper(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := newRequestParams()
-	err := bm.Map(api.IntegrationRequest.MappingParams[0], req, target)
+	err := bm.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Id"), "12345")
 
 	target = newRequestParams()
-	err = bm.Map(api.IntegrationRequest.MappingParams[1], req, target)
+	err = bm.Map(api.IntegrationRequest.MappingParams[1], req, target, nil)
 	assert.Nil(t, err)
 
-	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, target)
+	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
 
-	err = bm.Map(api.IntegrationRequest.MappingParams[3], req, target)
+	err = bm.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
 	rawBody, err := ioutil.ReadAll(target.Body)
 	assert.Nil(t, err)

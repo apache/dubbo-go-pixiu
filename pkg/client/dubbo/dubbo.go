@@ -131,12 +131,12 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
-	dm := req.API.Method.IntegrationRequest
-	types := req.API.IntegrationRequest.ParamTypes
-	values, err := dc.MapParams(req)
+	types, values, err := dc.genericArgs(req)
 	if err != nil {
 		return nil, err
 	}
+
+	dm := req.API.Method.IntegrationRequest
 	method := dm.Method
 
 	logger.Debugf("[dubbo-go-proxy] dubbo invoke, method:%s, types:%s, reqData:%v", method, types, values)
@@ -154,6 +154,16 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	return rst, nil
 }
 
+func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error) {
+	values, err := dc.MapParams(req)
+	types := req.API.IntegrationRequest.ParamTypes
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return types, values, nil
+}
+
 // MapParams params mapping to api.
 func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
@@ -164,12 +174,25 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 			return nil, err
 		}
 		if mapper, ok := mappers[source]; ok {
-			if err := mapper.Map(mappingParam, req, &values); err != nil {
+			if err := mapper.Map(mappingParam, req, &values, buildOption(mappingParam)); err != nil {
 				return nil, err
 			}
 		}
 	}
 	return values, nil
+}
+
+func buildOption(conf config.MappingParam) client.IOption {
+	var opt client.IOption
+	if conf.Opt.Open {
+		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
+		if ok {
+			matchOpt.SetUsable(conf.Opt.Usable)
+		}
+		opt = matchOpt
+	}
+
+	return opt
 }
 
 func (dc *Client) get(key string) *dg.GenericService {
