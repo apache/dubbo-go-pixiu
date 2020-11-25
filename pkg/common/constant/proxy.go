@@ -25,8 +25,8 @@ const (
 	DefaultTimeout    = time.Second
 )
 
-// body passthrough.
 const (
+	// DefaultBodyAll body passthrough.
 	DefaultBodyAll = "_all"
 )
 
