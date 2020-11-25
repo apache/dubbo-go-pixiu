@@ -112,6 +112,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	params, _ := transformedParams.(*requestParams)
 	request.Body = params.Body
 	request.Header = params.Header
+	// url query add.
 	urlStr = strings.TrimRight(u.String(), "/") + "?" + params.Query.Encode()
 
 	newReq, err := http.NewRequest(req.IngressRequest.Method, urlStr, params.Body)
