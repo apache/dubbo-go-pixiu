@@ -15,48 +15,52 @@
  * limitations under the License.
  */
 
-package client
+package mock
 
 import (
 	"context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"fmt"
 	"net/http"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	pkgcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 )
 
-// Request request for endpoint
-type Request struct {
-	Context context.Context
-
-	IngressRequest *http.Request
-	API            router.API
-}
-
-// NewReq create a request
-func NewReq(ctx context.Context, request *http.Request, api router.API) *Request {
-	return &Request{
-		Context:        ctx,
-		IngressRequest: request,
-		API:            api,
-	}
-}
-
-// GetURL new url
-func (r *Request) GetURL() string {
-	ir := r.API.IntegrationRequest
-	if ir.RequestType == config.HTTPRequest {
-		if len(ir.HTTPBackendConfig.URL) != 0 {
-			return ir.HTTPBackendConfig.URL
-		}
-
-		// now only support http.
-		scheme := "http"
-
-		return scheme + "://" + r.IngressRequest.Host + r.IngressRequest.URL.Path
+func GetMockHTTPContext(r *http.Request, fc ...pkgcontext.FilterFunc) *contexthttp.HttpContext {
+	result := &contexthttp.HttpContext{
+		BaseContext: &pkgcontext.BaseContext{
+			Index: -1,
+			Ctx:   context.Background(),
+		},
+		Request: r,
 	}
 
-	return ""
+	w := mockWriter{header: map[string][]string{}}
+	result.ResetWritermen(&w)
+	result.Reset()
+
+	for i := range fc {
+		result.Filters = append(result.Filters, fc[i])
+	}
+
+	return result
+}
+
+type mockWriter struct {
+	header http.Header
+}
+
+func (w *mockWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *mockWriter) Write(b []byte) (int, error) {
+	fmt.Println(string(b))
+	return -1, nil
+}
+
+func (w *mockWriter) WriteHeader(statusCode int) {
+	fmt.Println(statusCode)
 }

@@ -80,8 +80,8 @@ func (f *responseFilter) doResponse(ctx *contexthttp.HttpContext) {
 		ctx.TargetResp = &client.Response{Data: r}
 		byts, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			ctx.WriteWithStatus(r.StatusCode, []byte(r.Status))
 			ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+			ctx.WriteWithStatus(r.StatusCode, []byte(r.Status))
 			ctx.Abort()
 			return
 		}
