@@ -15,48 +15,29 @@
  * limitations under the License.
  */
 
-package client
+package replacepath
 
 import (
-	"context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"bytes"
 	"net/http"
+	"testing"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"github.com/stretchr/testify/assert"
 )
 
-// Request request for endpoint
-type Request struct {
-	Context context.Context
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
+)
 
-	IngressRequest *http.Request
-	API            router.API
-}
-
-// NewReq create a request
-func NewReq(ctx context.Context, request *http.Request, api router.API) *Request {
-	return &Request{
-		Context:        ctx,
-		IngressRequest: request,
-		API:            api,
-	}
-}
-
-// GetURL new url
-func (r *Request) GetURL() string {
-	ir := r.API.IntegrationRequest
-	if ir.RequestType == config.HTTPRequest {
-		if len(ir.HTTPBackendConfig.URL) != 0 {
-			return ir.HTTPBackendConfig.URL
-		}
-
-		// now only support http.
-		scheme := "http"
-
-		return scheme + "://" + r.IngressRequest.Host + r.IngressRequest.URL.Path
-	}
-
-	return ""
+func TestReplacePath(t *testing.T) {
+	path := "/user"
+	request, err := http.NewRequest("POST", "http://www.dubbogoproxy.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	assert.NoError(t, err)
+	c := mock.GetMockHTTPContext(request, New(path).Do(), recovery.New().Do())
+	c.Next()
+	assert.Equal(t, path, c.Request.URL.Path)
+	assert.Equal(t, path+"?name=tc", c.Request.RequestURI)
 }

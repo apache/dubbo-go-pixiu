@@ -29,14 +29,9 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/hello", sayHello)
 	http.HandleFunc("/user", user)
 	log.Println("Starting sample server ...")
 	log.Fatal(http.ListenAndServe(":1314", nil))
-}
-
-func sayHello(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("hello, I'm http"))
 }
 
 func user(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +45,12 @@ func user(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal(byts, &user)
 		if err != nil {
 			w.Write([]byte(err.Error()))
+		}
+		_, ok := cache.Get(user.Name)
+		if ok {
+			w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+			w.Write([]byte("{\"message\":\"data is exist\"}"))
+			return
 		}
 		if cache.Add(&user) {
 			b, _ := json.Marshal(&user)

@@ -16,10 +16,10 @@ resources:
         integrationRequest:
           requestType: http
           mappingParams:
-            - name: queryStrings.name
+            - name: queryStrings.username
               mapTo: queryStrings.name
           host: "127.0.0.1:1314"
-          path: "user"
+          path: "/user"
       - httpVerb: POST
         onAir: true
         timeout: 10s
@@ -27,11 +27,8 @@ resources:
           requestType: http
         integrationRequest:
           requestType: http
-          mappingParams:
-            - name: requestBody._all
-              mapTo: requestBody._all
           host: "127.0.0.1:1314"
-          path: "user"
+          path: "/user"
 definitions:
   - name: userCreate
     schema: >-
