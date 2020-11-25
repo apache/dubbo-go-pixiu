@@ -209,7 +209,9 @@ type DubboBackendConfig struct {
 // HTTPBackendConfig defines the basic dubbo backend config
 type HTTPBackendConfig struct {
 	URL  string `yaml:"url" json:"url"`
+	// downstream host.
 	Host string `yaml:"host" json:"host"`
+	// path to replace.
 	Path string `yaml:"path" json:"path"`
 	// http protocol, http or https.
 	Scheme string `yaml:"scheme" json:"scheme"`

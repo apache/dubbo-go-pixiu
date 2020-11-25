@@ -2,9 +2,9 @@
 
 > POST request
 
-## passthrough
+## Passthroughs
 
-**config**
+### Config
 
 ```yaml
 name: proxy
@@ -35,15 +35,15 @@ resources:
 
 > mapTo: 0 needed
 
-**request**
+### Request
 
 ```bash
 curl host:port/api/v1/test-dubbo/user -X POST -d '{"name":"tiecheng","id":"0002","age":18}' --header "Content-Type: application/json"
 ```
 
-**response**
+### Response
 
-- if first add, return like:
+- If first add, return like:
 
 ```json
 {
@@ -53,16 +53,15 @@ curl host:port/api/v1/test-dubbo/user -X POST -d '{"name":"tiecheng","id":"0002"
 }
 ```
 
-- if you add user multi, return like: 
+- If you add user multi, return like: 
 
 ```json
 {
-    "code": "DGP0003",
     "message": "data is exist"
 }
 ```
 
-## mapping
+## Mapping
 
 
 

@@ -19,7 +19,6 @@ package proxy
 
 import (
 	"context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/host"
 	"log"
 	"net/http"
 	"strconv"
@@ -37,6 +36,8 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	ctx "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/host"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/replacepath"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
@@ -163,10 +164,13 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 
+// try to create filter from config.
 func httpFilter(ctx *h.HttpContext, request config.IntegrationRequest) {
-	// this way is try to create filter from config.
 	if len(request.Host) != 0 {
 		ctx.AppendFilterFunc(host.New(request.Host).Do())
+	}
+	if len(request.Path) != 0 {
+		ctx.AppendFilterFunc(replacepath.New(request.Path).Do())
 	}
 }
 
