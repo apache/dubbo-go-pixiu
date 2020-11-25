@@ -21,8 +21,44 @@ package client
 type Client interface {
 	Init() error
 	Close() error
+
+	// Call invoke the downstream service.
 	Call(req *Request) (res interface{}, err error)
 
 	// MapParams mapping param, uri, query, body ...
 	MapParams(req *Request) (reqData interface{}, err error)
+}
+
+/**
+ * follow option is design to support dubbo proxy model. you can see
+ * https://github.com/dubbogo/dubbo-go-proxy/tree/master.
+ */
+
+// MapOption option map, key : name, value : option
+type MapOption map[string]IOption
+
+// IOption option interface.
+type IOption interface {
+	// Usable if option can use
+	Usable() bool
+	// SetUsable set usable
+	SetUsable(b bool)
+	// Action do with val for special
+	Action(req *Request, val interface{})
+}
+
+// CommonOption common opt.
+type CommonOption struct {
+	usable bool
+	IOption
+}
+
+// Usable get usable.
+func (opt *CommonOption) Usable() bool {
+	return opt.usable
+}
+
+// SetUsable set usable.
+func (opt *CommonOption) SetUsable(b bool) {
+	opt.usable = b
 }
