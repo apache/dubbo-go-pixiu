@@ -1,19 +1,17 @@
 # Response
 
-## timeout
+## Timeout
 
 ```json
 {
-    "code": "DGP1005",
     "message": "http: Handler timeout"
 }
 ```
 
-## client err
+## Client err
 
 ```json
 {
-    "code": "DGP0003",
     "message": "data is exist"
 }
 ```
