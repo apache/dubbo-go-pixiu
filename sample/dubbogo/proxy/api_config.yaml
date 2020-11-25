@@ -1,6 +1,58 @@
 name: proxy
 description: proxy sample
 resources:
+  - path: '/api/v1/test-dubbo/:application/:interface'
+    type: restful
+    description: common
+    methods:
+      - httpVerb: POST
+        onAir: true
+        timeout: 100s
+        inboundRequest:
+          requestType: http
+          queryStrings:
+            - name: method
+              required: true
+            - name: group
+              required: false
+            - name: version
+              required: false
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody.values
+              mapTo: 0
+            - name: requestBody.types
+              mapTo: 1
+              opt:
+                open: true
+                name: types
+            - name: uri.application
+              mapTo: 2
+              opt:
+                open: true
+                name: application
+            - name: uri.interface
+              mapTo: 3
+              opt:
+                open: true
+                name: interface
+            - name: queryStrings.method
+              mapTo: 4
+              opt:
+                open: true
+                name: method
+            - name: queryStrings.group
+              mapTo: 5
+              opt:
+                open: true
+                name: group
+            - name: queryStrings.version
+              mapTo: 6
+              opt:
+                open: true
+                name: version
+          clusterName: "test_dubbo"
   - path: '/api/v1/test-dubbo/user'
     type: restful
     description: user
@@ -32,8 +84,8 @@ resources:
         timeout: 10s
         inboundRequest:
           requestType: http
-#          requestBody:
-#            - definitionName: "userCreate"
+        #          requestBody:
+        #            - definitionName: "userCreate"
         integrationRequest:
           requestType: dubbo
           mappingParams:
