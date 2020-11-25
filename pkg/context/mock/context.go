@@ -28,6 +28,7 @@ import (
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 )
 
+// GetMockHTTPContext mock context for test.
 func GetMockHTTPContext(r *http.Request, fc ...pkgcontext.FilterFunc) *contexthttp.HttpContext {
 	result := &contexthttp.HttpContext{
 		BaseContext: &pkgcontext.BaseContext{
