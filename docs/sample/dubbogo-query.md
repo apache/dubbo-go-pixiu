@@ -2,9 +2,9 @@
 
 > GET request
 
-## simple
+## Simple
 
-**config**
+### Config
 
 ```yaml
 name: proxy
@@ -36,15 +36,15 @@ resources:
           clusterName: "test_dubbo"
 ```
 
-**request**
+### Request
 
 ```bash
 curl localhost:8888/api/v1/test-dubbo/user?name=tc -X GET 
 ```
 
-**response**
+### Response
 
-- if exist, will return:
+- If exist, will return:
 
 ```bash
 {
@@ -54,5 +54,5 @@ curl localhost:8888/api/v1/test-dubbo/user?name=tc -X GET
 }
 ```
 
-- not found, return: nil
+- Not found, return: nil
 
