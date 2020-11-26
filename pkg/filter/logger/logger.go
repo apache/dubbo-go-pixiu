@@ -15,61 +15,32 @@
  * limitations under the License.
  */
 
-package filter
+package logger
 
 import (
-	nh "net/http"
+	"time"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HTTPAuthorityFilter, Authority())
+	extension.SetFilterFunc(constant.LoggerFilter, Logger())
 }
 
-// Authority blacklist/whitelist filter
-func Authority() context.FilterFunc {
+// Logger logger filter, print url and latency
+func Logger() context.FilterFunc {
 	return func(c context.Context) {
-		authorityFilter(c.(*http.HttpContext))
+		start := time.Now()
+
+		c.Next()
+
+		latency := time.Now().Sub(start)
+
+		logger.Infof("[dubboproxy go] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
 	}
-}
-
-func authorityFilter(c *http.HttpContext) {
-	for _, r := range c.HttpConnectionManager.AuthorityConfig.Rules {
-		item := c.GetClientIP()
-		if r.Limit == model.App {
-			item = c.GetApplicationName()
-		}
-
-		result := passCheck(item, r)
-		if !result {
-			c.WriteWithStatus(nh.StatusForbidden, constant.Default403Body)
-			c.Abort()
-			return
-		}
-	}
-
-	c.Next()
-}
-
-func passCheck(item string, rule model.AuthorityRule) bool {
-	result := false
-	for _, it := range rule.Items {
-		if it == item {
-			result = true
-			break
-		}
-	}
-
-	if (rule.Strategy == model.Blacklist && result == true) || (rule.Strategy == model.Whitelist && result == false) {
-		return false
-	}
-
-	return true
 }

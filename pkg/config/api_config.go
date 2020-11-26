@@ -116,6 +116,7 @@ func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
 type Method struct {
 	OnAir              bool          `json:"onAir" yaml:"onAir"` // true means the method is up and false means method is down
 	Timeout            time.Duration `json:"timeout" yaml:"timeout"`
+	Mock               bool          `json:"mock" yaml:"mock"`
 	Filters            []string      `json:"filters" yaml:"filters"`
 	HTTPVerb           `json:"httpVerb" yaml:"httpVerb"`
 	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
@@ -179,6 +180,17 @@ type IntegrationRequest struct {
 type MappingParam struct {
 	Name  string `json:"name" yaml:"name"`
 	MapTo string `json:"mapTo" yaml:"mapTo"`
+	Opt   Opt    `json:"opt,omitempty" yaml:"opt,omitempty"`
+}
+
+// Opt option, action for compatibility.
+type Opt struct {
+	// Name match dubbo.DefaultMapOption key.
+	Name string `json:"name" yaml:"name"`
+	// Open control opt create.
+	Open bool `json:"open" yaml:"open"`
+	// Usable setTarget condition, true can set, false not set.
+	Usable bool `json:"usable" yaml:"usable"`
 }
 
 // DubboBackendConfig defines the basic dubbo backend config

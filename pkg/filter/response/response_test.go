@@ -15,14 +15,27 @@
  * limitations under the License.
  */
 
-package client
+package response
 
-// Response response from endpoint
-type Response struct {
-	Data interface{}
-}
+import (
+	"testing"
+)
 
-// NewResponse create response
-func NewResponse(data interface{}) *Response {
-	return &Response{Data: data}
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNewDubboResponse(t *testing.T) {
+	resp := map[string]interface{}{
+		"age":  18,
+		"iD":   0001,
+		"name": "tc",
+		"time": nil,
+	}
+	f := responseFilter{}
+	result := f.newResponse(resp)
+	r := result.Data.(map[string]interface{})
+	assert.Equal(t, 18, r["age"])
+	assert.Equal(t, 1, r["iD"])
+	assert.Equal(t, "tc", r["name"])
 }
