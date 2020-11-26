@@ -1,6 +1,6 @@
-# dubbo error
+# Dubbo incomplete
 
-## time args will nil
+## Args will nil
 
 > fix in dubbogo 1.5.4
 
@@ -15,8 +15,6 @@ type User struct {
 }
 ```
 
-Although User struct has Time value, generic invoke will return nil.
+Although User struct has Time value, generic invoke will return nil. [the simple response](dubbogo-query.md#simple) time field is disappear. 
 
-[the simple response](dubbogo-query.md#simple) time field is disappear. 
-
-So I support you can use string to time type.
+So I suggest you can use string to time type for a short time.
