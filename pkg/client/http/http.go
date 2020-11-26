@@ -30,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
+	"github.com/pkg/errors"
 )
 
 import (
@@ -95,22 +96,52 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(r *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 
-	urlStr := r.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + r.API.IntegrationRequest.HTTPBackendConfig.TargetURL
+	urlStr := req.API.IntegrationRequest.HTTPBackendConfig.Protocol + "://" + req.API.IntegrationRequest.HTTPBackendConfig.TargetURL
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-	request := r.IngressRequest.Clone(context.Background())
-	request.URL, _ = url.ParseRequestURI(urlStr)
-	//TODO header replace, url rewrite....
 
+	request := req.IngressRequest.Clone(req.Context)
+	//Map the origin paramters to backend parameters according to the API configure
+	transformedParams, err := dc.MapParams(req)
+	if err != nil {
+		return nil, err
+	}
+	params, _ := transformedParams.(*requestParams)
+	request.Body = params.Body
+	request.Header = params.Header
+	urlStr = strings.TrimRight(urlStr, "/") + "?" + params.Query.Encode()
+	request.URL, _ = url.ParseRequestURI(urlStr)
 	tmpRet, err := httpClient.Do(request)
-	ret := client.Response{Data: tmpRet}
-	return ret, err
+	return tmpRet, err
 }
 
-// MappingParams param mapping to api.
-func (dc *Client) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
-	return nil, nil, nil
+// MapParams param mapping to api.
+func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error) {
+	mp := req.API.IntegrationRequest.MappingParams
+	r := newRequestParams()
+	if len(mp) == 0 {
+		r.Body = req.IngressRequest.Body
+		r.Header = req.IngressRequest.Header.Clone()
+		queryValues, err := url.ParseQuery(req.IngressRequest.URL.RawQuery)
+		if err != nil {
+			return nil, errors.New("Retrieve request query parameters failed")
+		}
+		r.Query = queryValues
+		return r, nil
+	}
+	for i := 0; i < len(mp); i++ {
+		source, _, err := client.ParseMapSource(mp[i].Name)
+		if err != nil {
+			return nil, err
+		}
+		if mapper, ok := mappers[source]; ok {
+			if err := mapper.Map(mp[i], req, r, nil); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return r, nil
 }
 
 func (dc *Client) get(key string) *dg.GenericService {
