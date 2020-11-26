@@ -19,11 +19,11 @@ package client
 
 import (
 	"context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"net/http"
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
