@@ -18,19 +18,21 @@
 package replacepath
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"net/http"
 	"net/url"
 )
 
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
+)
 
 const (
 	// ReplacedPathHeader is the default header to set the old path to.
 	ReplacedPathHeader = "X-Replaced-Path"
-	replacePathError = "replace path fail"
+	replacePathError   = "replace path fail"
 )
 
 // replacePathFilter is a filter for host.
