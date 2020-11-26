@@ -15,27 +15,32 @@
  * limitations under the License.
  */
 
-package recovery
-
-import (
-	"testing"
-	"time"
-)
+package host
 
 import (
 	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
+	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 )
 
-func TestRecovery(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, New().Do(), func(c selfcontext.Context) {
-		time.Sleep(time.Millisecond * 100)
-		// panic
-		var m map[string]string
-		m["name"] = "1"
-	})
+// hostFilter is a filter for host.
+type hostFilter struct {
+	host string
+}
+
+// New create host filter.
+func New(host string) filter.Filter {
+	return &hostFilter{host: host}
+}
+
+// // Do execute hostFilter filter logic.
+func (f *hostFilter) Do() selfcontext.FilterFunc {
+	return func(c selfcontext.Context) {
+		f.doHostFilter(c.(*contexthttp.HttpContext))
+	}
+}
+
+func (f *hostFilter) doHostFilter(c *contexthttp.HttpContext) {
+	c.Request.Host = f.host
 	c.Next()
-	// print
-	// 500
-	// "assignment to entry in nil map"
 }
