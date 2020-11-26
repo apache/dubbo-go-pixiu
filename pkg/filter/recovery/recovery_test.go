@@ -28,7 +28,7 @@ import (
 )
 
 func TestRecovery(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil,  New().Do(), func(c selfcontext.Context) {
+	c := mock.GetMockHTTPContext(nil, New().Do(), func(c selfcontext.Context) {
 		time.Sleep(time.Millisecond * 100)
 		// panic
 		var m map[string]string
