@@ -151,9 +151,9 @@ func (m *Method) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // InboundRequest defines the details of the inbound
 type InboundRequest struct {
 	RequestType  `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
-	Headers      []Params                                `json:"headers" yaml:"headers"`
-	QueryStrings []Params                                `json:"queryStrings" yaml:"queryStrings"`
-	RequestBody  []BodyDefinition                        `json:"requestBody" yaml:"requestBody"`
+	Headers      []Params         `json:"headers" yaml:"headers"`
+	QueryStrings []Params         `json:"queryStrings" yaml:"queryStrings"`
+	RequestBody  []BodyDefinition `json:"requestBody" yaml:"requestBody"`
 }
 
 // Params defines the simple parameter definition
@@ -178,19 +178,20 @@ type IntegrationRequest struct {
 
 // MappingParam defines the mapping rules of headers and queryStrings
 type MappingParam struct {
-	Name  string `json:"name" yaml:"name"`
-	MapTo string `json:"mapTo" yaml:"mapTo"`
-	Opt   Opt    `json:"opt,omitempty" yaml:"opt,omitempty"`
+	Name  string `json:"name,omitempty" yaml:"name"`
+	MapTo string `json:"mapTo,omitempty" yaml:"mapTo"`
+	// Opt some action.
+	Opt Opt `json:"opt,omitempty" yaml:"opt,omitempty"`
 }
 
 // Opt option, action for compatibility.
 type Opt struct {
 	// Name match dubbo.DefaultMapOption key.
-	Name string `json:"name" yaml:"name"`
+	Name string `json:"name,omitempty" yaml:"name"`
 	// Open control opt create.
-	Open bool `json:"open" yaml:"open"`
+	Open bool `json:"open,omitempty" yaml:"open"`
 	// Usable setTarget condition, true can set, false not set.
-	Usable bool `json:"usable" yaml:"usable"`
+	Usable bool `json:"usable,omitempty" yaml:"usable"`
 }
 
 // DubboBackendConfig defines the basic dubbo backend config
@@ -208,13 +209,13 @@ type DubboBackendConfig struct {
 
 // HTTPBackendConfig defines the basic dubbo backend config
 type HTTPBackendConfig struct {
-	URL  string `yaml:"url" json:"url"`
+	URL string `yaml:"url" json:"url,omitempty"`
 	// downstream host.
-	Host string `yaml:"host" json:"host"`
+	Host string `yaml:"host" json:"host,omitempty"`
 	// path to replace.
-	Path string `yaml:"path" json:"path"`
+	Path string `yaml:"path" json:"path,omitempty"`
 	// http protocol, http or https.
-	Scheme string `yaml:"scheme" json:"scheme"`
+	Scheme string `yaml:"scheme" json:"scheme,omitempty"`
 }
 
 // Definition defines the complex json request body
