@@ -158,6 +158,8 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
 
 	ctx.BuildFilters()
+
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 
 func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {

@@ -19,8 +19,19 @@ package constant
 
 import "time"
 
-// default timeout 1s
+// default timeout 1s.
 const (
 	DefaultTimeoutStr = "1s"
 	DefaultTimeout    = time.Second
+)
+
+const (
+	// DefaultBodyAll body passthrough.
+	DefaultBodyAll = "_all"
+)
+
+// strategy for response.
+const (
+	ResponseStrategyNormal = "normal"
+	ResponseStrategyHump   = "hump"
 )
