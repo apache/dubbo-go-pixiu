@@ -36,6 +36,8 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	ctx "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/host"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/replacepath"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
@@ -82,7 +84,7 @@ func (l *ListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubboproxy go] httpListener start by config : %+v", l)
+	logger.Infof("[dubbo-go-proxy] httpListener start at : %s", srv.Addr)
 
 	log.Println(srv.ListenAndServe())
 }
@@ -152,7 +154,7 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	case config.DubboRequest:
 
 	case config.HTTPRequest:
-
+		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
 
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
@@ -160,6 +162,16 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	ctx.BuildFilters()
 
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
+}
+
+// try to create filter from config.
+func httpFilter(ctx *h.HttpContext, request config.IntegrationRequest) {
+	if len(request.Host) != 0 {
+		ctx.AppendFilterFunc(host.New(request.Host).Do())
+	}
+	if len(request.Path) != 0 {
+		ctx.AppendFilterFunc(replacepath.New(request.Path).Do())
+	}
 }
 
 func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {
