@@ -23,6 +23,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
@@ -41,4 +42,21 @@ func NewReq(ctx context.Context, request *http.Request, api router.API) *Request
 		IngressRequest: request,
 		API:            api,
 	}
+}
+
+// GetURL new url
+func (r *Request) GetURL() string {
+	ir := r.API.IntegrationRequest
+	if ir.RequestType == config.HTTPRequest {
+		if len(ir.HTTPBackendConfig.URL) != 0 {
+			return ir.HTTPBackendConfig.URL
+		}
+
+		// now only support http.
+		scheme := "http"
+
+		return scheme + "://" + r.IngressRequest.Host + r.IngressRequest.URL.Path
+	}
+
+	return ""
 }
