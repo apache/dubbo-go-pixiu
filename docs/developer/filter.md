@@ -4,11 +4,12 @@ Filter is the composition of filter chain, make use more control.
 
 ## Default filter
 
-### remote filter
+### Remote filter
 
 call downstream service, only for call, not process the response. 
 
-**field**
+#### field
+
 > level: mockLevel 
  
 - 0:open Global mock is open, api need config `mock=true` in `api_config.yaml` will mock response. If some api need mock, you need use this. 
@@ -18,29 +19,31 @@ call downstream service, only for call, not process the response.
 result
 ```json
 {
-    "code": "DGP9001",
     "message": "success"
 }
 ```
 
-**proxy log** 
+#### proxy log 
 ```bash
 2020-11-17T11:31:05.718+0800    DEBUG   remote/call.go:92       [dubbo-go-proxy] client call resp:map[age:88 iD:3213 name:tiecheng time:<nil>]
 ```
 
-### timeout filter
+### Timeout filter
 
 api timeout control, independent config for each interface.
 
-**basic response**
+#### Basic response
 
 [reference](../user/response.md#timeout)
 
-### response filter
+### Response filter
 
-response result or err.
+Response result or err.
 
-**common result**
+#### Common result
 
 [reference](../sample/dubbogo-body.md)
 
+### Host filter
+
+ 
