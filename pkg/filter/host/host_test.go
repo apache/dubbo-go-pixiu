@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-package recovery
+package host
 
 import (
+	"bytes"
+	"net/http"
 	"testing"
-	"time"
 )
 
 import (
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestRecovery(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, New().Do(), func(c selfcontext.Context) {
-		time.Sleep(time.Millisecond * 100)
-		// panic
-		var m map[string]string
-		m["name"] = "1"
-	})
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
+)
+
+func TestHost(t *testing.T) {
+	targetHost := "www.dubbogo.com"
+	request, err := http.NewRequest("POST", "http://www.dubbogoproxy.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	assert.NoError(t, err)
+	c := mock.GetMockHTTPContext(request, New(targetHost).Do(), recovery.New().Do())
 	c.Next()
-	// print
-	// 500
-	// "assignment to entry in nil map"
+	assert.Equal(t, c.Request.Host, targetHost)
 }

@@ -2,7 +2,7 @@
 
 ## simple
 
-**config**
+### config
 
 ```yaml
 name: proxy
@@ -20,15 +20,15 @@ resources:
           requestType: http
 ```
 
-**request**
+### request
 
 ```bash
 curl localhost:8888/api/v1/test-dubbo/mock -X GET 
 ```
 
-**response**
+### response
 
-```bash
+```json
 {
     "message": "mock success"
 }
