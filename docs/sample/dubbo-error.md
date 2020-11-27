@@ -1,6 +1,6 @@
-# dubbo error
+# How to check dubbo error
 
-## proxy bug condition
+## Proxy bug condition
 
 Server log.
 
@@ -9,7 +9,7 @@ Server log.
 github.com/apache/dubbo-go/common/logger.Errorf
 ```
 
-In case, if it happens, proxy will return nil because dubbo server return nil. You can see dubbo log follow when log format is debug. 
+If this case happens, proxy will return nil because dubbo server return nil. You can see dubbo log follow when log format is debug. 
 
 ```bash
 2020-11-19T20:30:26.072+0800    DEBUG   proxy/proxy.go:172      [makeDubboCallProxy] result: 0xc0001aeeb0, err: <nil>
@@ -26,7 +26,7 @@ When generic invoke, err will return nil, because wrote the code as below.
 	}
 ```
 
-## err log in proxy
+## Err log in proxy
 
 Dubbo server return error:
 
@@ -52,7 +52,7 @@ Return value
 }
 ```
 
-## no provider
+## No provider info
 
 ```bash
 2020-11-20T15:56:59.011+0800    ERROR   remote/call.go:112      [dubbo-go-proxy] client call err:Failed to invoke the method $invoke. No provider available for the service dubbo://:@:/?interface=com.ic.user.UserProvider&group=test&version=1.0.0 from registry zookeeper://127.0.0.1:2181?group=&registry=zookeeper&registry.label=true&registry.preferred=false&registry.role=0&registry.timeout=3s&registry.ttl=&registry.weight=0&registry.zone=&simplified=false on the consumer 30.11.176.51 using the dubbo version 1.3.0 .Please check if the providers have been started and registered.!
