@@ -18,14 +18,16 @@
 package constant
 
 const (
-	HttpConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HttpRouterFilter         = "dgp.filters.http.router"
-	HttpApiFilter            = "dgp.filters.http.api"
-	HttpDomainFilter         = "dgp.filters.http.domain"
-	HttpTransferDubboFilter  = "dgp.filters.http_transfer_dubbo"
-
-	LoggerFilter   = "dgp.filters.logger"
-	RecoveryFilter = "dgp.filters.recovery"
+	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
+	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
+	HTTPRouterFilter         = "dgp.filters.http.router"
+	HTTPApiFilter            = "dgp.filters.http.api"
+	HTTPDomainFilter         = "dgp.filters.http.domain"
+	RemoteCallFilter         = "dgp.filters.remote_call"
+	TimeoutFilter            = "dgp.filters.timeout"
+	LoggerFilter             = "dgp.filters.logger"
+	RecoveryFilter           = "dgp.filters.recovery"
+	ResponseFilter           = "dgp.filters.response"
 )
 
 const (
