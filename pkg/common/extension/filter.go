@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	filterFuncCacheMap = make(map[string]func(ctx context.Context))
+	filterFuncCacheMap = make(map[string]func(ctx context.Context), 4)
 )
 
 // SetFilterFunc will store the @filter and @name

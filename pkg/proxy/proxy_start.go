@@ -18,11 +18,14 @@
 package proxy
 
 import (
+	"net/http"
+	"strconv"
 	"sync"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
@@ -56,10 +59,22 @@ func (p *Proxy) Start() {
 		ls := ListenerService{Listener: &s}
 		go ls.Start()
 	}
+
+	if conf.GetPprof().Enable {
+		addr := conf.GetPprof().Address.SocketAddress
+		if len(addr.Address) == 0 {
+			addr.Address = constant.PprofDefaultAddress
+		}
+		if addr.Port == 0 {
+			addr.Port = constant.PprofDefaultPort
+		}
+		go http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
+		logger.Infof("[dubboproxy go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
+	}
 }
 
 func (p *Proxy) beforeStart() {
-	dubbo.SingleDubboClient().Init()
+	dubbo.SingletonDubboClient().Init()
 
 	api.InitAPIsFromConfig(config.GetAPIConf())
 }

@@ -18,6 +18,7 @@
 package proxy
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strconv"
@@ -33,8 +34,10 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	ctx "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/host"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/replacepath"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
@@ -81,7 +84,7 @@ func (l *ListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubboproxy go] httpListener start by config : %+v", l)
+	logger.Infof("[dubbo-go-proxy] httpListener start at : %s", srv.Addr)
 
 	log.Println(srv.ListenAndServe())
 }
@@ -91,14 +94,14 @@ func (l *ListenerService) allocateContext() *h.HttpContext {
 		Listener:              l.Listener,
 		FilterChains:          l.FilterChains,
 		HttpConnectionManager: l.findHttpManager(),
-		BaseContext:           context.NewBaseContext(),
+		BaseContext:           ctx.NewBaseContext(),
 	}
 }
 
 func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
-			if f.Name == constant.HttpConnectManagerFilter {
+			if f.Name == constant.HTTPConnectManagerFilter {
 				return *f.Config.(*model.HttpConnectionManager)
 			}
 		}
@@ -119,28 +122,56 @@ func NewDefaultHttpListener() *DefaultHttpListener {
 	}
 }
 
-// ServeHTTP
+// ServeHTTP http request entrance.
 func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hc := s.pool.Get().(*h.HttpContext)
 	hc.Request = r
 	hc.ResetWritermen(w)
 	hc.Reset()
 
-	hc.AppendFilterFunc(
-		extension.GetMustFilterFunc(constant.LoggerFilter),
-		extension.GetMustFilterFunc(constant.RecoveryFilter),
-	)
+	hc.AppendFilterFunc()
 
-	_, err := s.routeRequest(hc, r)
+	api, err := s.routeRequest(hc, r)
 	if err != nil {
 		s.pool.Put(hc)
 		return
 	}
-	hc.BuildFilters()
+
+	hc.Ctx = context.Background()
+	addFilter(hc, api)
 
 	s.handleHTTPRequest(hc)
 
 	s.pool.Put(hc)
+}
+
+func addFilter(ctx *h.HttpContext, api router.API) {
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.LoggerFilter),
+		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
+
+	switch api.Method.IntegrationRequest.RequestType {
+	// TODO add some basic filter for diff protocol
+	case config.DubboRequest:
+
+	case config.HTTPRequest:
+		httpFilter(ctx, api.Method.IntegrationRequest)
+	}
+
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
+
+	ctx.BuildFilters()
+
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
+}
+
+// try to create filter from config.
+func httpFilter(ctx *h.HttpContext, request config.IntegrationRequest) {
+	if len(request.Host) != 0 {
+		ctx.AppendFilterFunc(host.New(request.Host).Do())
+	}
+	if len(request.Path) != 0 {
+		ctx.AppendFilterFunc(replacepath.New(request.Path).Do())
+	}
 }
 
 func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {

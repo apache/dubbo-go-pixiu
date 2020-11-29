@@ -33,3 +33,8 @@ const (
 	Http1HeaderKeyHost = "Host"
 	Http2HeaderKeyHost = ":authority"
 )
+
+const (
+	PprofDefaultAddress = "0.0.0.0"
+	PprofDefaultPort    = 7070
+)

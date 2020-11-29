@@ -18,20 +18,45 @@
 package client
 
 import (
+	"context"
+	"net/http"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // Request request for endpoint
 type Request struct {
-	Body   []byte
-	Header map[string]string
-	API    *router.API
+	Context context.Context
+
+	IngressRequest *http.Request
+	API            router.API
 }
 
-// NewRequest create a request
-func NewRequest(b []byte, api *router.API) *Request {
+// NewReq create a request
+func NewReq(ctx context.Context, request *http.Request, api router.API) *Request {
 	return &Request{
-		Body: b,
-		API:  api,
+		Context:        ctx,
+		IngressRequest: request,
+		API:            api,
 	}
+}
+
+// GetURL new url
+func (r *Request) GetURL() string {
+	ir := r.API.IntegrationRequest
+	if ir.RequestType == config.HTTPRequest {
+		if len(ir.HTTPBackendConfig.URL) != 0 {
+			return ir.HTTPBackendConfig.URL
+		}
+
+		// now only support http.
+		scheme := "http"
+
+		return scheme + "://" + r.IngressRequest.Host + r.IngressRequest.URL.Path
+	}
+
+	return ""
 }
