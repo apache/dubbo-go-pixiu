@@ -18,7 +18,10 @@
 package context
 
 import (
+	"context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"math"
+	"time"
 )
 
 const abortIndex int8 = math.MaxInt8 / 2
@@ -28,8 +31,18 @@ type BaseContext struct {
 	Context
 	Index   int8
 	Filters FilterChain
+	Timeout time.Duration
+	Ctx     context.Context
+
+	// the response context will return.
+	TargetResp *client.Response
+	// client call response.
+	SourceResp interface{}
+	// happen error
+	Err error
 }
 
+// NewBaseContext create base context.
 func NewBaseContext() *BaseContext {
 	return &BaseContext{Index: -1}
 }
@@ -45,10 +58,17 @@ func (c *BaseContext) Next() {
 	}
 }
 
+// Abort  filter chain break , filter after the current filter will not executed.
 func (c *BaseContext) Abort() {
 	c.Index = abortIndex
 }
 
+// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
+func (c *BaseContext) AbortWithError(message string, err error) {
+	c.Abort()
+}
+
+// AppendFilterFunc  append filter func.
 func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
