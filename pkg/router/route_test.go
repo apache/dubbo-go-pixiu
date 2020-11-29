@@ -122,25 +122,25 @@ func TestFindMethod(t *testing.T) {
 func TestUpdateMethod(t *testing.T) {
 	m0 := getMockMethod(config.MethodGet)
 	m1 := getMockMethod(config.MethodGet)
-	m0.Version = "1.0.0"
-	m1.Version = "2.0.0"
+	m0.DubboBackendConfig.Version = "1.0.0"
+	m1.DubboBackendConfig.Version = "2.0.0"
 
 	rt := NewRoute()
 	rt.PutAPI(API{URLPattern: "/marvel", Method: m0})
 	m, _ := rt.FindAPI("/marvel", config.MethodGet)
-	assert.Equal(t, m.Version, "1.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "1.0.0")
 	rt.UpdateAPI(API{URLPattern: "/marvel", Method: m1})
 	m, ok := rt.FindAPI("/marvel", config.MethodGet)
 	assert.True(t, ok)
-	assert.Equal(t, m.Version, "2.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "2.0.0")
 
 	rt.PutAPI(API{URLPattern: "/theboys/:id", Method: m0})
 	m, _ = rt.FindAPI("/theBoys/12345", config.MethodGet)
-	assert.Equal(t, m.Version, "1.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "1.0.0")
 	rt.UpdateAPI(API{URLPattern: "/theBoys/:id", Method: m1})
 	m, ok = rt.FindAPI("/theBoys/12345", config.MethodGet)
 	assert.True(t, ok)
-	assert.Equal(t, m.Version, "2.0.0")
+	assert.Equal(t, m.DubboBackendConfig.Version, "2.0.0")
 }
 
 func TestSearchWildcard(t *testing.T) {
@@ -167,16 +167,21 @@ func TestSearchWildcard(t *testing.T) {
 }
 
 func TestWildcardMatch(t *testing.T) {
-	assert.True(t, wildcardMatch("/vought/:id", "/vought/12345"))
-	assert.True(t, wildcardMatch("/vought/:id", "/vought/125abc"))
-	assert.False(t, wildcardMatch("/vought/:id", "/vought/1234abcd/status"))
-	assert.True(t, wildcardMatch("/voughT/:id/:action", "/Vought/1234abcd/attack"))
-}
-
-func TestPutResource(t *testing.T) {
-	rt := NewRoute()
-	err := rt.PutResource()
-	assert.Nil(t, err)
+	vals := wildcardMatch("/vought/:id", "/vought/12345")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "12345")
+	vals = wildcardMatch("/vought/:id", "/vought/125abc")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "125abc")
+	vals = wildcardMatch("/vought/:id", "/vought/1234abcd/status")
+	assert.Nil(t, vals)
+	vals = wildcardMatch("/voughT/:id/:action", "/Vought/1234abcd/attack")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "1234abcd")
+	assert.Equal(t, vals.Get("action"), "attack")
+	vals = wildcardMatch("/voughT/:id/status", "/Vought/1234abcd/status")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "1234abcd")
 }
 
 func TestGetFilters(t *testing.T) {
