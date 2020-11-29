@@ -26,7 +26,7 @@ import (
 type Context interface {
 	Next()
 	Abort()
-
+	AbortWithError(string, error)
 	AppendFilterFunc(ff ...FilterFunc)
 
 	Status(code int)
@@ -44,6 +44,9 @@ type Context interface {
 	GetAPI() *router.API
 	Api(api *model.Api)
 	GetApi() *model.Api
+
+	GetClientIP() string
+	GetApplicationName() string
 
 	WriteErr(p interface{})
 }
