@@ -29,6 +29,7 @@ dubbo-go-proxy支持2种协议的调用:
 ![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbgoproxy-infrastructure.png)
 ## 流程图
 ![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbogoproxy-procedure.png)
+
 ## 术语解释
 ### 组件
 #### Proxy
