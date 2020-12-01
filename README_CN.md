@@ -26,9 +26,9 @@ dubbo-go-proxy支持2种协议的调用:
 5. istio 下支持 dubbo 协议流量（规划中）
 
 ## 架构图
-![image](https://note.youdao.com/favicon.ico)
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbgoproxy-infrastructure.png)
 ## 流程图
-![image](https://note.youdao.com/favicon.ico)
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbogoproxy-procedure.png)
 ## 术语解释
 ### 组件
 #### Proxy
