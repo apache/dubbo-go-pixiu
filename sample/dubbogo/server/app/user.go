@@ -119,11 +119,11 @@ func (db *UserDB) GetByCode(n int64) (*User, bool) {
 
 // User user obj.
 type User struct {
-	ID   string
-	Code int64
-	Name string
-	Age  int32
-	Time time.Time
+	ID   string    `json:"id,omitempty"`
+	Code int64     `json:"code,omitempty"`
+	Name string    `json:"name,omitempty"`
+	Age  int32     `json:"age,omitempty"`
+	Time time.Time `json:"time,omitempty"`
 }
 
 // UserProvider the dubbo provider.
