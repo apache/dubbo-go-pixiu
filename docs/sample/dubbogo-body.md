@@ -15,22 +15,23 @@ resources:
     description: user
     methods:
       - httpVerb: POST
-              onAir: true
-              timeout: 10s
-              inboundRequest:
-                requestType: http            
-              integrationRequest:
-                requestType: dubbo
-                mappingParams:
-                  - name: requestBody._all
-                    mapTo: 0
-                applicationName: "UserProvider"
-                interface: "com.ic.user.UserProvider"
-                method: "CreateUser"
-                paramTypes: [ "com.ikurento.user.User" ]
-                group: "test"
-                version: 1.0.0
-                clusterName: "test_dubbo"
+        onAir: true
+        timeout: 10s
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody._all
+              mapTo: 0
+          applicationName: "UserProvider"
+          interface: "com.ic.user.UserProvider"
+          method: "CreateUser"
+          paramTypes: [ "com.ikurento.user.User" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+          retries: 0
 ```
 
 > mapTo: 0 needed
@@ -48,8 +49,9 @@ curl host:port/api/v1/test-dubbo/user -X POST -d '{"name":"tiecheng","id":"0002"
 ```json
 {
     "age": 18,
-    "iD": "0002",
-    "name": "tiecheng"
+    "id": "0002",
+    "name": "tiecheng",
+    "code": 1
 }
 ```
 
