@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/header"
 	"log"
 	"net/http"
 	"strconv"
@@ -156,6 +157,8 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	case config.HTTPRequest:
 		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
+
+	ctx.AppendFilterFunc(header.New().Do())
 
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
 
