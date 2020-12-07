@@ -37,12 +37,21 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 )
 
-func init() {
+// Init set response filter.
+func Init() {
+	extension.SetFilterFunc(constant.ResponseFilter, responseFilterFunc())
+}
+
+func responseFilterFunc() selfcontext.FilterFunc {
+	return New(defaultNewParams()).Do()
+}
+
+func defaultNewParams() string {
 	strategy := os.Getenv(constant.EnvResponseStrategy)
 	if len(strategy) != 0 {
 		strategy = constant.ResponseStrategyNormal
 	}
-	extension.SetFilterFunc(constant.ResponseFilter, New(strategy).Do())
+	return strategy
 }
 
 type responseFilter struct {
@@ -57,13 +66,13 @@ func New(strategy string) filter.Filter {
 }
 
 // Do execute responseFilter filter logic.
-func (f *responseFilter) Do() selfcontext.FilterFunc {
+func (f responseFilter) Do() selfcontext.FilterFunc {
 	return func(c selfcontext.Context) {
 		f.doResponse(c.(*contexthttp.HttpContext))
 	}
 }
 
-func (f *responseFilter) doResponse(ctx *contexthttp.HttpContext) {
+func (f responseFilter) doResponse(ctx *contexthttp.HttpContext) {
 	// error do first
 	if ctx.Err != nil {
 		bt, _ := json.Marshal(filter.ErrResponse{Message: ctx.Err.Error()})
@@ -98,7 +107,7 @@ func (f *responseFilter) doResponse(ctx *contexthttp.HttpContext) {
 	ctx.Abort()
 }
 
-func (f *responseFilter) newResponse(data interface{}) *client.Response {
+func (f responseFilter) newResponse(data interface{}) *client.Response {
 	hump := false
 	if f.strategy == constant.ResponseStrategyHump {
 		hump = true
