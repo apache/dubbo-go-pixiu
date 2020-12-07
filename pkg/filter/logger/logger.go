@@ -25,15 +25,30 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.LoggerFilter, Logger())
+// Init set logger filter.
+func Init() {
+	extension.SetFilterFunc(constant.LoggerFilter, loggerFilterFunc())
+}
+
+func loggerFilterFunc() context.FilterFunc {
+	return New().Do()
+}
+
+// loggerFilter is a filter for simple logger.
+type loggerFilter struct {
+}
+
+// New create logger filter.
+func New() filter.Filter {
+	return &loggerFilter{}
 }
 
 // Logger logger filter, print url and latency
-func Logger() context.FilterFunc {
+func (f loggerFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
 		start := time.Now()
 
