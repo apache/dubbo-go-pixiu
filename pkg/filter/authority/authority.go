@@ -26,21 +26,35 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.HTTPAuthorityFilter, Authority())
+func Init() {
+	extension.SetFilterFunc(constant.HTTPAuthorityFilter, authorityFilterFunc())
 }
 
-// Authority blacklist/whitelist filter
-func Authority() context.FilterFunc {
+func authorityFilterFunc() context.FilterFunc {
+	return New().Do()
+}
+
+// authorityFilter is a filter for blacklist/whitelist.
+type authorityFilter struct {
+}
+
+// New create blacklist/whitelist filter.
+func New() filter.Filter {
+	return &authorityFilter{}
+}
+
+// Do execute blacklist/whitelist filter logic.
+func (f authorityFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
-		authorityFilter(c.(*http.HttpContext))
+		f.doAuthorityFilter(c.(*http.HttpContext))
 	}
 }
 
-func authorityFilter(c *http.HttpContext) {
+func (f authorityFilter) doAuthorityFilter(c *http.HttpContext) {
 	for _, r := range c.HttpConnectionManager.AuthorityConfig.Rules {
 		item := c.GetClientIP()
 		if r.Limit == model.App {

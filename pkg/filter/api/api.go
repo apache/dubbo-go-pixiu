@@ -28,12 +28,12 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.HTTPApiFilter, ApiFilter())
+func Init() {
+	extension.SetFilterFunc(constant.HTTPApiFilter, apiFilterFunc())
 }
 
-// ApiFilter url match api
-func ApiFilter() context.FilterFunc {
+// apiFilterFunc url match api
+func apiFilterFunc() context.FilterFunc {
 	return func(c context.Context) {
 		url := c.GetUrl()
 		method := c.GetMethod()
