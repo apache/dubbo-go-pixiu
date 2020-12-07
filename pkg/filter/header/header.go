@@ -18,14 +18,18 @@
 package header
 
 import (
+	"strings"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"strings"
 )
 
 type headerFilter struct {
 }
 
+// nolint.
 func New() *headerFilter {
 	return &headerFilter{}
 }
