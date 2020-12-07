@@ -45,5 +45,8 @@ type Context interface {
 	Api(api *model.Api)
 	GetApi() *model.Api
 
+	GetClientIP() string
+	GetApplicationName() string
+
 	WriteErr(p interface{})
 }

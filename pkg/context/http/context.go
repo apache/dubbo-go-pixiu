@@ -19,7 +19,10 @@ package http
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 import (
@@ -75,7 +78,7 @@ func (hc *HttpContext) Write(b []byte) (int, error) {
 	return hc.Writer.Write(b)
 }
 
-// WriteHeaderNow
+// WriteHeaderNow write header now
 func (hc *HttpContext) WriteHeaderNow() {
 	hc.writermem.WriteHeaderNow()
 }
@@ -96,7 +99,7 @@ func (hc *HttpContext) GetHeader(k string) string {
 	return hc.Request.Header.Get(k)
 }
 
-//AllHeaders  get all headers
+// AllHeaders  get all headers
 func (hc *HttpContext) AllHeaders() http.Header {
 	return hc.Request.Header
 }
@@ -111,13 +114,14 @@ func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
 }
 
-// Api
+// Api wait do delete
 func (hc *HttpContext) Api(api *model.Api) {
 	// hc.api = api
 }
 
 // API sets the API to http context
 func (hc *HttpContext) API(api router.API) {
+	hc.Timeout = api.Timeout
 	hc.api = api
 }
 
@@ -126,9 +130,38 @@ func (hc *HttpContext) GetAPI() *router.API {
 	return &hc.api
 }
 
-// WriteFail
-func (hc *HttpContext) WriteFail() {
-	hc.doWriteJSON(nil, http.StatusInternalServerError, nil)
+// GetClientIP get client IP
+func (hc *HttpContext) GetClientIP() string {
+	xForwardedFor := hc.Request.Header.Get("X-Forwarded-For")
+	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
+	if len(ip) != 0 {
+		return ip
+	}
+
+	ip = strings.TrimSpace(hc.Request.Header.Get("X-Real-Ip"))
+	if len(ip) != 0 {
+		return ip
+	}
+
+	if ip, _, err := net.SplitHostPort(strings.TrimSpace(hc.Request.RemoteAddr)); err == nil && len(ip) != 0 {
+		return ip
+	}
+
+	return ""
+}
+
+// GetApplicationName get application name
+func (hc *HttpContext) GetApplicationName() string {
+	if u, err := url.Parse(hc.Request.RequestURI); err == nil {
+		return strings.Split(u.Path, "/")[0]
+	}
+
+	return ""
+}
+
+// WriteJSONWithStatus write fail, auto add context-type json.
+func (hc *HttpContext) WriteJSONWithStatus(code int, res interface{}) {
+	hc.doWriteJSON(nil, code, res)
 }
 
 // WriteErr
@@ -162,6 +195,12 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 	hc.Writer.WriteHeader(code)
 
 	if d != nil {
+		byt, ok := d.([]byte)
+		if ok {
+			hc.Writer.Write(byt)
+			return
+		}
+
 		if b, err := json.Marshal(d); err != nil {
 			hc.Writer.Write([]byte(err.Error()))
 		} else {
@@ -181,15 +220,7 @@ func (hc *HttpContext) BuildFilters() {
 	for _, v := range api.Method.Filters {
 		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
 	}
-
 	hc.AppendFilterFunc(filterFuncs...)
-}
-
-// BuildFiltersWithDefault build filter like BuildFilters, but add some default filter.
-func (hc *HttpContext) BuildFiltersWithDefault() {
-	hc.AppendFilterFunc(extension.GetMustFilterFunc(constant.RemoteCallFilter))
-
-	hc.BuildFilters()
 }
 
 // ResetWritermen reset writermen
