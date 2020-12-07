@@ -25,8 +25,13 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, New().Do())
+// Init set recovery filter.
+func Init() {
+	extension.SetFilterFunc(constant.RecoveryFilter, recoveryFilterFunc())
+}
+
+func recoveryFilterFunc() context.FilterFunc {
+	return New().Do()
 }
 
 // recoveryFilter is a filter for recover.
@@ -39,7 +44,7 @@ func New() filter.Filter {
 }
 
 // Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
-func (f *recoveryFilter) Do() context.FilterFunc {
+func (f recoveryFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
 		defer func() {
 			if err := recover(); err != nil {
