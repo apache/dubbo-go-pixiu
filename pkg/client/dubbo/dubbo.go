@@ -19,10 +19,6 @@ package dubbo
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"io/ioutil"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -134,111 +130,69 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(req *client.Request) (resp client.Response, err error) {
+func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
+	types, values, err := dc.genericArgs(req)
+	if err != nil {
+		return nil, err
+	}
+
 	dm := req.API.Method.IntegrationRequest
-	types, values, err := dc.MappingParams(req)
 	method := dm.Method
-	logger.Debugf("[dubbogo proxy] invoke, method:%s, types:%s, reqData:%v", method, types, values)
+
+	logger.Debugf("[dubbo-go-proxy] dubbo invoke, method:%s, types:%s, reqData:%v", method, types, values)
 
 	gs := dc.Get(dm)
 
-	rst, err := gs.Invoke(context.Background(), []interface{}{method, types, values})
+	rst, err := gs.Invoke(req.Context, []interface{}{method, types, values})
 
 	if err != nil {
-		return *client.EmptyResponse, err
+		return nil, err
 	}
 
-	logger.Debugf("[dubbogo proxy] dubbo client resp:%v", rst)
+	logger.Debugf("[dubbo-go-proxy] dubbo client resp:%v", rst)
 
-	if rst == nil {
-		return client.Response{}, nil
-	}
-
-	return *NewDubboResponse(rst), nil
+	return rst, nil
 }
 
-// MappingParams param mapping to api.
-// TODO wait for detail impl
-func (dc *Client) MappingParams(req *client.Request) (types []string, reqData []interface{}, err error) {
+func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error) {
+	values, err := dc.MapParams(req)
+	types := req.API.IntegrationRequest.ParamTypes
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return types, values, nil
+}
+
+// MapParams params mapping to api.
+func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
-	for i := range r.MappingParams {
-		m := r.MappingParams[i]
-		typ, value, err := paramParse(req, m.Name)
+	var values []interface{}
+	for _, mappingParam := range r.MappingParams {
+		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-
-		types = append(types, typ)
-		reqData = append(reqData, value)
-	}
-
-	return
-}
-
-func paramParse(req *client.Request, param string) (typ string, value interface{}, err error) {
-	inboundRequest := req.API.Method.InboundRequest
-	inReq := req.IngressRequest
-
-	var ingaressReqDate []byte
-
-	if param == "requestBody" && req.API.Method.RequestBody != nil {
-		ingaressReqDate, err = ioutil.ReadAll(inReq.Body)
-		if err != nil {
-			return "", nil, err
-		}
-
-		bodyMap := make(map[string]interface{})
-		if err := json.Unmarshal(ingaressReqDate, &bodyMap); err != nil {
-			return "", nil, err
-		}
-		// TODO
-		return inboundRequest.RequestBody[0].DefinitionName, bodyMap, nil
-	}
-
-	reg := regexp.MustCompile(`^([query|uri][\w|\d]+)\.([\w|\d]+)$`)
-	if !reg.MatchString(param) {
-		return "", nil, errors.New("not match, check your config")
-	}
-	ps := reg.FindStringSubmatch(param)
-
-	from := ps[1]
-	key := ps[2]
-	if from == "queryStrings" {
-		for i := range inboundRequest.QueryStrings {
-			p := inboundRequest.QueryStrings[i]
-			q := inReq.URL.Query().Get(key)
-			if p.Name == key {
-				if p.Required && q == "" {
-					return "", nil, errors.New("illegal param")
-				}
-
-				if q != "" {
-					ingaressReqDate, err = json.Marshal(q)
-				}
-
-				switch p.Type {
-				case "string":
-					var s string
-					if err := json.Unmarshal(ingaressReqDate, &s); err != nil {
-						logger.Errorf("params parse error:%+v", err)
-						return "", "", err
-					}
-					return JavaStringClassName, s, nil
-				case "int":
-					var i int
-					if err := json.Unmarshal(ingaressReqDate, &i); err != nil {
-						logger.Errorf("params parse error:%+v", err)
-						return "", nil, err
-					}
-					return JavaLangClassName, i, nil
-				}
-
-				break
+		if mapper, ok := mappers[source]; ok {
+			if err := mapper.Map(mappingParam, req, &values, buildOption(mappingParam)); err != nil {
+				return nil, err
 			}
 		}
 	}
+	return values, nil
+}
 
-	return "", "", nil
+func buildOption(conf config.MappingParam) client.IOption {
+	var opt client.IOption
+	if conf.Opt.Open {
+		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
+		if ok {
+			matchOpt.SetUsable(conf.Opt.Usable)
+		}
+		opt = matchOpt
+	}
+
+	return opt
 }
 
 func (dc *Client) get(key string) *dg.GenericService {
