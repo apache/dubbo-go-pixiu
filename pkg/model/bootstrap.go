@@ -49,10 +49,10 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 
 // StaticResources
 type StaticResources struct {
-	Listeners      []Listener      `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
-	Clusters       []Cluster       `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
-	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
-	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
+	Listeners       []Listener      `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
+	Clusters        []Cluster       `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
+	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
 	AccessLogConfig AccessLogConfig `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
 }
 

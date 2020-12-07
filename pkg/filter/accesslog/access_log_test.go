@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package filter
+package accesslog
 
 import (
 	"github.com/stretchr/testify/assert"

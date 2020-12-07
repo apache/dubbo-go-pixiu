@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package filter
+package accesslog
 
 import (
 	"os"
@@ -47,15 +47,10 @@ const (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.AccessLogFilter, AccessLogFilter())
+	extension.SetFilterFunc(constant.AccessLogFilter, Filter())
 }
 
-type AccessLogDate struct {
-	accessLog string
-	data      map[string]string
-}
-
-func AccessLogFilter() context.FilterFunc {
+func Filter() context.FilterFunc {
 	return func(c context.Context) {
 		alc := config.GetBootstrap().StaticResources.AccessLogConfig
 		if alc.Enable {
@@ -67,7 +62,12 @@ func AccessLogFilter() context.FilterFunc {
 			if len(alc.OutPutPath) == 0 || alc.OutPutPath == Console {
 				logger.Info(accessLogMsg)
 			} else {
-				go writeToFile(accessLogMsg, alc.OutPutPath)
+				go func() {
+					err := writeToFile(accessLogMsg, alc.OutPutPath)
+					if err != nil {
+						logger.Warnf("write access log to file err s%, v%", accessLogMsg, err)
+					}
+				}()
 			}
 		}
 	}
