@@ -24,6 +24,11 @@ type AccessLog struct {
 	Config interface{}     `yaml:"config" json:"config" mapstructure:"config"`
 }
 
+type AccessLogConfig struct {
+	Enable     bool   `yaml:"enable" json:"enable" mapstructure:"enable"`
+	OutPutPath string `yaml:"outPutPath" json:"outPutPath" mapstructure:"outPutPath"`
+}
+
 // AccessLogFilter
 type AccessLogFilter struct {
 	StatusCodeFilter StatusCodeFilter `yaml:"status_code_filter" json:"status_code_filter" mapstructure:"status_code_filter"`
