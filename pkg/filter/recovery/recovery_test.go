@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package filter
+package recovery
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"testing"
+	"time"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, Recover())
-}
+import (
+	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
+)
 
-// Recover
-func Recover() context.FilterFunc {
-	return func(c context.Context) {
-		defer func() {
-			if err := recover(); err != nil {
-				logger.Infof("[dubboproxy go] error:%+v", err)
-
-				c.WriteErr(err)
-			}
-		}()
-		c.Next()
-	}
+func TestRecovery(t *testing.T) {
+	c := mock.GetMockHTTPContext(nil, New().Do(), func(c selfcontext.Context) {
+		time.Sleep(time.Millisecond * 100)
+		// panic
+		var m map[string]string
+		m["name"] = "1"
+	})
+	c.Next()
+	// print
+	// 500
+	// "assignment to entry in nil map"
 }

@@ -28,24 +28,9 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/mock"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
-
-func getMockAPI(urlPattern string, verb config.HTTPVerb) router.API {
-	inbound := config.InboundRequest{}
-	integration := config.IntegrationRequest{}
-	method := config.Method{
-		OnAir:              true,
-		HTTPVerb:           verb,
-		InboundRequest:     inbound,
-		IntegrationRequest: integration,
-	}
-	return router.API{
-		URLPattern: urlPattern,
-		Method:     method,
-	}
-}
 
 func TestNewLocalMemoryAPIDiscoveryService(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
@@ -55,7 +40,7 @@ func TestNewLocalMemoryAPIDiscoveryService(t *testing.T) {
 
 func TestAddAPI(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
-	err := l.AddAPI(getMockAPI("/this/is/test", config.MethodPut))
+	err := l.AddAPI(mock.GetMockAPI(config.MethodPut, "/this/is/test"))
 	assert.Nil(t, err)
 	_, found := l.router.FindAPI("/this/is/test", config.MethodPut)
 	assert.True(t, found)
@@ -63,7 +48,7 @@ func TestAddAPI(t *testing.T) {
 
 func TestGetAPI(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
-	err := l.AddAPI(getMockAPI("/this/is/test", config.MethodPut))
+	err := l.AddAPI(mock.GetMockAPI(config.MethodPut, "/this/is/test"))
 	assert.Nil(t, err)
 	_, err = l.GetAPI("/this/is/test", config.MethodPut)
 	assert.Nil(t, err)
@@ -90,9 +75,9 @@ func TestLoadAPI(t *testing.T) {
 
 func TestLoadAPIFromResource(t *testing.T) {
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
-	mockMethod1 := getMockAPI("", config.MethodPut).Method
-	mockMethod2 := getMockAPI("", config.MethodPost).Method
-	mockMethod3 := getMockAPI("", config.MethodGet).Method
+	mockMethod1 := mock.GetMockAPI(config.MethodPut, "").Method
+	mockMethod2 := mock.GetMockAPI(config.MethodPost, "").Method
+	mockMethod3 := mock.GetMockAPI(config.MethodGet, "").Method
 	tempResources := []config.Resource{
 		{
 			Type:        "Restful",
@@ -135,7 +120,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 			},
 		},
 	}
-	err := loadAPIFromResource("", tempResources, apiDiscSrv)
+	err := loadAPIFromResource("", tempResources, nil, apiDiscSrv)
 	assert.Nil(t, err)
 	rsp, _ := apiDiscSrv.GetAPI("/", config.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/")
@@ -175,18 +160,18 @@ func TestLoadAPIFromResource(t *testing.T) {
 		},
 	}
 	apiDiscSrv = NewLocalMemoryAPIDiscoveryService()
-	err = loadAPIFromResource("", tempResources, apiDiscSrv)
+	err = loadAPIFromResource("", tempResources, nil, apiDiscSrv)
 	assert.EqualError(t, err, "Path :id in /mock doesn't start with /; Path :ik in /mock doesn't start with /")
 }
 
 func TestLoadAPIFromMethods(t *testing.T) {
 	tempMethods := []config.Method{
-		getMockAPI("", config.MethodPut).Method,
-		getMockAPI("", config.MethodGet).Method,
-		getMockAPI("", config.MethodPut).Method,
+		mock.GetMockAPI(config.MethodPut, "").Method,
+		mock.GetMockAPI(config.MethodGet, "").Method,
+		mock.GetMockAPI(config.MethodPut, "").Method,
 	}
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
-	err := loadAPIFromMethods("/mock", tempMethods, apiDiscSrv)
+	err := loadAPIFromMethods("/mock", tempMethods, nil, apiDiscSrv)
 	rsp, _ := apiDiscSrv.GetAPI("/mock", config.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", config.MethodGet)
