@@ -31,7 +31,8 @@ import (
 	"strings"
 )
 
-func init() {
+// Init set api discovery local_memory service.
+func Init() {
 	extension.SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, NewLocalMemoryAPIDiscoveryService())
 }
 
