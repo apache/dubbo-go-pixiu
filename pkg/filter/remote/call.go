@@ -19,7 +19,8 @@ package remote
 
 import (
 	"errors"
-	"net/http"
+	"os"
+	"strconv"
 )
 
 import (
@@ -37,45 +38,86 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RemoteCallFilter, Call())
+	mock := 1
+	mockStr := os.Getenv(constant.EnvMock)
+	if mockStr != "" {
+		i, err := strconv.Atoi(mockStr)
+		if err == nil {
+			mock = i
+		}
+	}
+	extension.SetFilterFunc(constant.RemoteCallFilter, New(mockLevel(mock)).Do())
 }
 
-// Call remote call context.FilterFunc.
-// support: 1 http 2 dubbo 2 http 2 http
-func Call() context.FilterFunc {
-	return func(c context.Context) {
-		doRemoteCall(c.(*contexthttp.HttpContext))
+type mockLevel int8
+
+const (
+	open = iota
+	close
+	all
+)
+
+// clientFilter is a filter for recover.
+type clientFilter struct {
+	level mockLevel
+}
+
+// New create timeout filter.
+func New(level mockLevel) filter.Filter {
+	if level < 0 || level > 2 {
+		level = close
+	}
+	return &clientFilter{
+		level: level,
 	}
 }
 
-func doRemoteCall(c *contexthttp.HttpContext) {
+// Do execute clientFilter filter logic
+// support: 1 http 2 dubbo 2 http 2 http
+func (f *clientFilter) Do() selfcontext.FilterFunc {
+	return func(c selfcontext.Context) {
+		f.doRemoteCall(c.(*contexthttp.HttpContext))
+	}
+}
+
+func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
+
+	if (f.level == open && api.Mock) || (f.level == all) {
+		c.SourceResp = &filter.ErrResponse{
+			Message: "mock success",
+		}
+		c.Next()
+		return
+	}
 
 	typ := api.Method.IntegrationRequest.RequestType
 
 	cli, err := matchClient(typ)
 	if err != nil {
-		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
-		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		c.Err = err
 		return
 	}
 
-	resp, err := cli.Call(client.NewReq(c.Request, api))
+	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
 
 	if err != nil {
-		logger.Errorf("[dubboproxy go] client do err:%v!", err)
-		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
-		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		logger.Errorf("[dubbo-go-proxy] client call err:%v!", err)
+		c.Err = err
 		return
 	}
 
-	c.WriteResponse(resp)
+	logger.Debugf("[dubbo-go-proxy] client call resp:%v", resp)
+
+	c.SourceResp = resp
+	// response write in response filter.
 	c.Next()
 }
 

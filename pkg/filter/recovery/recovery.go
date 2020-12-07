@@ -15,32 +15,39 @@
  * limitations under the License.
  */
 
-package filter
-
-import (
-	"time"
-)
+package recovery
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 func init() {
-	extension.SetFilterFunc(constant.LoggerFilter, Logger())
+	extension.SetFilterFunc(constant.RecoveryFilter, New().Do())
 }
 
-// Logger logger filter, print url and latency
-func Logger() context.FilterFunc {
+// recoveryFilter is a filter for recover.
+type recoveryFilter struct {
+}
+
+// New create timeout filter.
+func New() filter.Filter {
+	return &recoveryFilter{}
+}
+
+// Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
+func (f *recoveryFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
-		start := time.Now()
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Warnf("[dubboproxy go] error:%+v", err)
 
+				c.WriteErr(err)
+			}
+		}()
 		c.Next()
-
-		latency := time.Now().Sub(start)
-
-		logger.Infof("[dubboproxy go] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
 	}
 }

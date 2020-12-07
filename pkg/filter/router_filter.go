@@ -31,7 +31,7 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.HttpRouterFilter, HttpRouting())
+	extension.SetFilterFunc(constant.HTTPRouterFilter, HttpRouting())
 }
 
 // HttpRouting http router filter

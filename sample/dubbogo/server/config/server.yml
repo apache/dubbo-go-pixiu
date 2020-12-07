@@ -29,18 +29,6 @@ services:
     cluster: "failover"
     version: 1.0.0
     group: test
-    methods:
-      - name: "CreateUser"
-        retries: 1
-      - name: "GetUser"
-        retries: 1
-        loadbalance: "random"
-      - name: "QueryUser"
-        retries: 1
-        loadbalance: "random"
-      - name: "TwoSimpleParams"
-        retries: 1
-        loadbalance: "random"
 
 protocols:
   "dubbo":
