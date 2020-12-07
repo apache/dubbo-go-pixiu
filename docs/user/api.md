@@ -1,6 +1,13 @@
-# API Gateway
-API is the key feature of the dubbo-go-proxy. With this feature, you can expose your dubbo service as a HTTP service.
-## Configuration
+# Api
+
+Introduction to API model, recommended reading before customizing API for api_config.yaml.
+
+## Api Gateway
+
+API is the key feature of the dubbo-go-proxy. With this feature, you can expose your dubbo service as an HTTP service.
+
+### Configuration
+
 Sample:
 ``` yaml
 name: api name
