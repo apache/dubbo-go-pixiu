@@ -1,132 +1,64 @@
 [![Build Status](https://travis-ci.org/dubbogo/dubbo-go-proxy.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-proxy)
 
-### instructions
+[中文](./README_CN.md) 
+### Introduction
 
-The gateway can support calling Java Dubbo cluster and golang Dubbo cluster
+dubbo-go-proxy is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful services.
 
-You can use 'go build' and './start.sh' to start gateway.
-then,you can do http request to you dubbo interface.
+It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near future.
 
+## Get Start
+#### Start proxy
+1. Build the binary with `make build`
+2. Start the proxy with `make start`
 
-#### HTTP request format when do not have metadata center:
+#### Quick Guide
+dubbo-go-proxy supports to invoke 2 protocols:
 
-Group and version is the mapping data in Dubbo service. 
+1. [Http](https://github.com/dubbogo/dubbo-go-proxy/blob/develop/docs/sample/http.md) 
+2. [Dubbo](https://github.com/dubbogo/dubbo-go-proxy/blob/develop/docs/sample/dubbo.md)
 
-```
-{application Name}/​{Interface name}?version={version}&group={group}&method={method}
-```
+## Features
+1. You can customize your own dubbo-go-proxy with plugin.
+2. Multiple default filters to manage your APIs.
+3. Dubbo and HTTP proxies.
+4. Customizable request parameters mapping.
+5. Automatically recognizes RPC services from service registration center and exposes it in HTTP protocol.
+4. Sidecar or centralized deployment（Planning）
+5. Dubbo protocol's rate-limiting in Istio environment（Planning）
 
-http POST body: 
+## Architecture Diagram
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbgoproxy-infrastructure.png)
+## Flow Diagram
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbogoproxy-procedure.png)
 
-```json
-{
-    "paramTypes" : ["org.apache.dubbo.demo.model.User"],
-    "paramValues": [
-        {
-            "id": 23,
-            "username": "testUser"
-        }
-    ]
-}
-```
+## Teams
+### Components
+#### Proxy
+Data panel
+#### Admin
+Control Panel
+### Concepts
+#### Downstream
+Downstream is the requester who sends request to and expecting the response from dubbo-go-proxy. (Eg.Postman client, Browser)
+#### Upstream
+The service that receive requests and send responses to dubbo-go-proxy. (Eg. Dubbo server)
+#### Listener
+The way that the dubbo-go-proxy exposes services to upstream clients. It could be configured to multiple listeners for one dubbo-go-proxy.
+#### Cluster
+Cluster is a set of upstream services that logically similar, such as dubbo cluster. Proxy can identifies the cluster members through service discovery and proactively probes their healthiness so that the proxy can route the requests to proper cluster member base on load balancing strategies.
+#### Api
+API is the core concept of the dubbo-go-proxy, all the upstream services will be configured and exposed through API.
+#### Client
+The actual caller of the upstream services.
+#### Router
+Router routes the HTTP request to proper upstream services according to the API configs.
+#### Context
+The context of a request in dubbo-go-proxy includes almost all information to get response from upstream services. It will be used in almost all process in the dubbo-go-proxy, especially the filter chain.
+#### Filter
+Filter manipulate the incoming requests. It is extensible for the users.
+## Contact Us
+The project is under intensively iteration, you are more than welcome to use, suggest and contribute codes. DingDing Group: 31363295
+## License
 
-#### HTTP request format when  have metadata center:
-```
-{application Name}/​{Interface name}?version={version}&group={group}&method={method}
-```
-```json
-{
-    "paramValues": [
-        {
-            "id": 23,
-            "username": "testUser"
-        }
-    ]
-}
-
-```
-
-
-
-
-
-
-### 服务端配置元数据中心：
-
-添加依赖
-```
-<dependency>
-    <groupId>org.apache.dubbo</groupId>
-    <artifactId>dubbo-metadata-report-redis</artifactId>
-</dependency>
-```
-
-在provider和consumer应用中配置MetadataReportConfig
-```
-@Bean
-public MetadataReportConfig metadataReportConfig() {
-    MetadataReportConfig metadataReportConfig = new MetadataReportConfig();
-    metadataReportConfig.setAddress("redis://localhost:6379");
-    return metadataReportConfig;
-}
-
-```
-
- 启动provider，可以在redis中发现多了一个key
-
-```
-org.apache.dubbo.demo.DemoService:provider:dubbo-demo-annotation-provider.metaData
-{
-    "parameters": {
-        "side": "provider",
-        "release": "",
-        "methods": "sayHello",
-        "deprecated": "false",
-        "dubbo": "2.0.2",
-        "default.dynamic": "false",
-        "interface": "org.apache.dubbo.demo.DemoService",
-        "generic": "false",
-        "default.deprecated": "false",
-        "application": "dubbo-demo-annotation-provider",
-        "default.register": "true",
-        "dynamic": "false",
-        "bean.name": "providers:dubbo:org.apache.dubbo.demo.DemoService",
-        "register": "true",
-        "anyhost": "true"
-    },
-    "canonicalName": "org.apache.dubbo.demo.DemoService",
-    "codeSource": "file:/D:/Workspace/Dubbo/dubbo-demo/dubbo-demo-interface/target/classes/",
-    "methods": [
-        {
-            "name": "sayHello",
-            "parameterTypes": [
-                "java.lang.String"
-            ],
-            "returnType": "java.lang.String"
-        }
-    ],
-    "types": [
-        {
-            "type": "byte"
-        },
-        {
-            "type": "java.lang.String",
-            "properties": {
-                "coder": {
-                    "type": "byte"
-                },
-                "value": {
-                    "type": "byte[]"
-                },
-                "hash": {
-                    "type": "int"
-                }
-            }
-        },
-        {
-            "type": "int"
-        }
-    ]
-}
-```
-
+Apache License, Version 2.0

@@ -26,6 +26,3 @@ type Response struct {
 func NewResponse(data interface{}) *Response {
 	return &Response{Data: data}
 }
-
-// empty Response
-var EmptyResponse = &Response{}
