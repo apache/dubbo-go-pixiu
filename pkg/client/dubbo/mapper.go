@@ -168,12 +168,12 @@ func validateTarget(target interface{}) (reflect.Value, error) {
 }
 
 func setTargetWithOpt(req *client.Request, option client.IOption, rv reflect.Value, pos int, value interface{}) {
-	if option != nil {
-		option.Action(req, value)
-	}
-
 	if option == nil || option.Usable() {
 		setTarget(rv, pos, value)
+	}
+
+	if option != nil {
+		option.Action(req, value)
 	}
 }
 
