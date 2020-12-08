@@ -44,7 +44,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-// Init set remote call filter.
+// nolint
 func Init() {
 	extension.SetFilterFunc(constant.RemoteCallFilter, remoteFilterFunc())
 }
