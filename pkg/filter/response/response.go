@@ -37,7 +37,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 )
 
-// Init set response filter.
+// nolint
 func Init() {
 	extension.SetFilterFunc(constant.ResponseFilter, responseFilterFunc())
 }
