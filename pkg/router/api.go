@@ -18,6 +18,11 @@
 package router
 
 import (
+	"net/url"
+	"strings"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
@@ -25,4 +30,11 @@ import (
 type API struct {
 	URLPattern    string `json:"urlPattern" yaml:"urlPattern"`
 	config.Method `json:"method,inline" yaml:"method,inline"`
+	Headers       map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+}
+
+// GetURIParams returns the values retrieved from the rawURL
+func (api *API) GetURIParams(rawURL url.URL) url.Values {
+	sourceURL := strings.Split(rawURL.Path, "&")[0]
+	return wildcardMatch(api.URLPattern, sourceURL)
 }

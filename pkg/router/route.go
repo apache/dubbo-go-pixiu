@@ -18,6 +18,7 @@
 package router
 
 import (
+	"net/url"
 	"strings"
 	"sync"
 )
@@ -38,6 +39,7 @@ type Node struct {
 	wildcard bool
 	filters  []string
 	methods  map[config.HTTPVerb]*config.Method
+	headers  map[string]string
 }
 
 // Route defines the tree of router APIs
@@ -59,6 +61,7 @@ func (rt *Route) PutAPI(api API) error {
 			fullPath: lowerCasePath,
 			methods:  map[config.HTTPVerb]*config.Method{api.Method.HTTPVerb: &api.Method},
 			wildcard: wildcard,
+			headers:  api.Headers,
 		}
 		if wildcard {
 			rt.wildcardTree.Put(lowerCasePath, rn)
@@ -66,14 +69,15 @@ func (rt *Route) PutAPI(api API) error {
 		rt.tree.Put(lowerCasePath, rn)
 		return nil
 	}
-	return node.putMethod(api.Method)
+	return node.putMethod(api.Method, api.Headers)
 }
 
-func (node *Node) putMethod(method config.Method) error {
+func (node *Node) putMethod(method config.Method, headers map[string]string) error {
 	if _, ok := node.methods[method.HTTPVerb]; ok {
 		return errors.Errorf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath)
 	}
 	node.methods[method.HTTPVerb] = &method
+	node.headers = headers
 	return nil
 }
 
@@ -99,20 +103,11 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool)
 			return &API{
 				URLPattern: n.fullPath,
 				Method:     *method,
+				Headers:    n.headers,
 			}, ok
 		}
 	}
 	return nil, false
-}
-
-// UpdateResource updates the resource configuration
-func (rt *Route) UpdateResource() error {
-	return nil
-}
-
-// PutResource creates the resource into the tree
-func (rt *Route) PutResource() error {
-	return nil
 }
 
 func (rt *Route) findNode(fullPath string) (*Node, bool) {
@@ -134,7 +129,7 @@ func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
 	defer rt.lock.RUnlock()
 	wildcardPaths := rt.wildcardTree.Keys()
 	for _, p := range wildcardPaths {
-		if wildcardMatch(p.(string), fullPath) {
+		if wildcardMatch(p.(string), fullPath) != nil {
 			n, ok := rt.wildcardTree.Get(p)
 			return n.(*Node), ok
 		}
@@ -145,22 +140,22 @@ func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
 // wildcardMatch validate if the checkPath meets the wildcardPath,
 // for example /vought/12345 should match wildcard path /vought/:id;
 // /vought/1234abcd/status should not match /vought/:id;
-func wildcardMatch(wildcardPath string, checkPath string) bool {
-	lowerWildcardPath := strings.ToLower(wildcardPath)
-	lowerCheckPath := strings.ToLower(checkPath)
-	wPathSplit := strings.Split(strings.TrimPrefix(lowerWildcardPath, constant.PathSlash), constant.PathSlash)
-	cPathSplit := strings.Split(strings.TrimPrefix(lowerCheckPath, constant.PathSlash), constant.PathSlash)
-	if len(wPathSplit) != len(cPathSplit) {
-		return false
+func wildcardMatch(wildcardPath string, checkPath string) url.Values {
+	cPaths := strings.Split(strings.TrimLeft(checkPath, constant.PathSlash), constant.PathSlash)
+	wPaths := strings.Split(strings.TrimLeft(wildcardPath, constant.PathSlash), constant.PathSlash)
+	result := url.Values{}
+	if len(cPaths) == 0 || len(wPaths) == 0 || len(cPaths) != len(wPaths) {
+		return nil
 	}
-	for i, s := range wPathSplit {
-		if strings.Contains(s, constant.PathParamIdentifier) {
-			cPathSplit[i] = s
-		} else if wPathSplit[i] != cPathSplit[i] {
-			return false
+	for i := 0; i < len(cPaths); i++ {
+		if strings.ToLower(cPaths[i]) != strings.ToLower(wPaths[i]) && !strings.HasPrefix(wPaths[i], constant.PathParamIdentifier) {
+			return nil
+		}
+		if strings.HasPrefix(wPaths[i], constant.PathParamIdentifier) {
+			result.Add(strings.TrimPrefix(wPaths[i], constant.PathParamIdentifier), cPaths[i])
 		}
 	}
-	return strings.Join(wPathSplit, constant.PathSlash) == strings.Join(cPathSplit, constant.PathSlash)
+	return result
 }
 
 // NewRoute returns an empty router tree
