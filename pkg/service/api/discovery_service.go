@@ -67,10 +67,10 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	if len(apiConfig.Resources) == 0 {
 		return nil
 	}
-	return loadAPIFromResource("", apiConfig.Resources, localAPIDiscSrv)
+	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
-func loadAPIFromResource(parrentPath string, resources []config.Resource, localSrv service.APIDiscoveryService) error {
+func loadAPIFromResource(parrentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	if len(resources) == 0 {
 		return nil
@@ -79,19 +79,26 @@ func loadAPIFromResource(parrentPath string, resources []config.Resource, localS
 	if parrentPath == constant.PathSlash {
 		groupPath = ""
 	}
+	fullHeaders := parentHeaders
+	if fullHeaders == nil {
+		fullHeaders = make(map[string]string, 9)
+	}
 	for _, resource := range resources {
 		fullPath := groupPath + resource.Path
 		if !strings.HasPrefix(resource.Path, constant.PathSlash) {
 			errStack = append(errStack, fmt.Sprintf("Path %s in %s doesn't start with /", resource.Path, parrentPath))
 			continue
 		}
+		for headerName, headerValue := range resource.Headers {
+			fullHeaders[headerName] = headerValue
+		}
 		if len(resource.Resources) > 0 {
-			if err := loadAPIFromResource(resource.Path, resource.Resources, localSrv); err != nil {
+			if err := loadAPIFromResource(resource.Path, resource.Resources, fullHeaders, localSrv); err != nil {
 				errStack = append(errStack, err.Error())
 			}
 		}
 
-		if err := loadAPIFromMethods(fullPath, resource.Methods, localSrv); err != nil {
+		if err := loadAPIFromMethods(fullPath, resource.Methods, fullHeaders, localSrv); err != nil {
 			errStack = append(errStack, err.Error())
 		}
 	}
@@ -101,12 +108,13 @@ func loadAPIFromResource(parrentPath string, resources []config.Resource, localS
 	return nil
 }
 
-func loadAPIFromMethods(fullPath string, methods []config.Method, localSrv service.APIDiscoveryService) error {
+func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	for _, method := range methods {
 		api := router.API{
 			URLPattern: fullPath,
 			Method:     method,
+			Headers:    headers,
 		}
 		if err := localSrv.AddAPI(api); err != nil {
 			errStack = append(errStack, fmt.Sprintf("Path: %s, Method: %s, error: %s", fullPath, method.HTTPVerb, err.Error()))

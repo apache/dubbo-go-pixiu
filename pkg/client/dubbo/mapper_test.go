@@ -53,15 +53,15 @@ func TestQueryStringsMapper(t *testing.T) {
 	}
 	req := client.NewReq(context.TODO(), r, api)
 
-	params := []interface{}{}
+	var params []interface{}
 	qs := queryStringsMapper{}
-	err := qs.Map(api.IntegrationRequest.MappingParams[0], *req, &params)
+	err := qs.Map(api.IntegrationRequest.MappingParams[0], req, &params, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, params[0], "12345")
-	err = qs.Map(api.IntegrationRequest.MappingParams[1], *req, &params)
+	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, &params, nil)
 	assert.EqualError(t, err, "Query parameter [name] does not exist")
-	err = qs.Map(api.IntegrationRequest.MappingParams[2], *req, &params)
-	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk} incorrect")
+	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, &params, nil)
+	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk { false false}} incorrect")
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
@@ -77,11 +77,11 @@ func TestQueryStringsMapper(t *testing.T) {
 	}
 	req = client.NewReq(context.TODO(), r, api)
 	params = []interface{}{}
-	err = qs.Map(api.IntegrationRequest.MappingParams[0], *req, &params)
+	err = qs.Map(api.IntegrationRequest.MappingParams[0], req, &params, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, params[1], "12345")
 	assert.Nil(t, params[0])
-	err = qs.Map(api.IntegrationRequest.MappingParams[1], *req, &params)
+	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, &params, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, params[1], "12345")
 	assert.Equal(t, params[0], "19")
@@ -101,11 +101,11 @@ func TestHeaderMapper(t *testing.T) {
 	target := []interface{}{}
 	req := client.NewReq(context.TODO(), r, api)
 
-	err := hm.Map(api.IntegrationRequest.MappingParams[0], *req, &target)
+	err := hm.Map(api.IntegrationRequest.MappingParams[0], req, &target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target[0], "1234567")
 
-	err = hm.Map(config.MappingParam{Name: "headers.Test", MapTo: "0"}, *req, &target)
+	err = hm.Map(config.MappingParam{Name: "headers.Test", MapTo: "0"}, req, &target, nil)
 	assert.EqualError(t, err, "Header Test not found")
 }
 
@@ -122,16 +122,69 @@ func TestBodyMapper(t *testing.T) {
 			Name:  "requestBody.name.lastName",
 			MapTo: "1",
 		},
+		{
+			Name:  "requestBody.name",
+			MapTo: "2",
+		},
 	}
 	bm := bodyMapper{}
 	target := []interface{}{}
 	req := client.NewReq(context.TODO(), r, api)
 
-	err := bm.Map(api.IntegrationRequest.MappingParams[0], *req, &target)
+	err := bm.Map(api.IntegrationRequest.MappingParams[0], req, &target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target[0], "male")
 
-	err = bm.Map(api.IntegrationRequest.MappingParams[1], *req, &target)
+	err = bm.Map(api.IntegrationRequest.MappingParams[1], req, &target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target[1], "Biden")
+
+	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, &target, nil)
+	assert.Nil(t, err)
+	assert.Equal(t, target[2], map[string]interface{}(map[string]interface{}{"firstName": "Joe", "lastName": "Biden"}))
+}
+
+func TestURIMapper(t *testing.T) {
+	r, _ := http.NewRequest("POST", "/mock/12345/joe&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
+	r.Header.Set("Auth", "1234567")
+	api := mock.GetMockAPI(config.MethodGet, "/mock/:id/:name")
+	api.IntegrationRequest.MappingParams = []config.MappingParam{
+		{
+			Name:  "requestBody.sex",
+			MapTo: "0",
+		},
+		{
+			Name:  "requestBody.name.lastName",
+			MapTo: "1",
+		},
+		{
+			Name:  "uri.name",
+			MapTo: "2",
+		},
+		{
+			Name:  "uri.id",
+			MapTo: "3",
+		},
+	}
+	um := uriMapper{}
+	target := []interface{}{}
+	req := client.NewReq(context.TODO(), r, api)
+	err := um.Map(api.IntegrationRequest.MappingParams[3], req, &target, nil)
+	assert.Nil(t, err)
+	err = um.Map(api.IntegrationRequest.MappingParams[2], req, &target, nil)
+	assert.Nil(t, err)
+	assert.Equal(t, target[2], "joe")
+	assert.Equal(t, target[3], "12345")
+}
+
+func TestValidateTarget(t *testing.T) {
+	target := []interface{}{}
+	val, err := validateTarget(&target)
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+	_, err = validateTarget(target)
+	assert.EqualError(t, err, "Target params must be a non-nil pointer")
+	target2 := ""
+	_, err = validateTarget(&target2)
+	assert.EqualError(t, err, "Target params for dubbo backend must be *[]interface{}")
 }
