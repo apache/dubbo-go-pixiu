@@ -104,10 +104,10 @@ func TestMappingParams(t *testing.T) {
 		},
 	}
 	req := client.NewReq(context.TODO(), r, api)
-	_, params, err := dClient.MappingParams(req)
+	params, err := dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params[0], "12345")
-	assert.Equal(t, params[1], "19")
+	assert.Equal(t, params.([]interface{})[0], "12345")
+	assert.Equal(t, params.([]interface{})[1], "19")
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
@@ -127,11 +127,11 @@ func TestMappingParams(t *testing.T) {
 	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
-	_, params, err = dClient.MappingParams(req)
+	params, err = dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params[0], "12345")
-	assert.Equal(t, params[1], "19")
-	assert.Equal(t, params[2], "1234567")
+	assert.Equal(t, params.([]interface{})[0], "12345")
+	assert.Equal(t, params.([]interface{})[1], "19")
+	assert.Equal(t, params.([]interface{})[2], "1234567")
 
 	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
@@ -159,46 +159,38 @@ func TestMappingParams(t *testing.T) {
 	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
-	_, params, err = dClient.MappingParams(req)
+	params, err = dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params[0], "12345")
-	assert.Equal(t, params[1], "19")
-	assert.Equal(t, params[2], "1234567")
-	assert.Equal(t, params[3], "male")
-	assert.Equal(t, params[4], "Joe")
+	assert.Equal(t, params.([]interface{})[0], "12345")
+	assert.Equal(t, params.([]interface{})[1], "19")
+	assert.Equal(t, params.([]interface{})[2], "1234567")
+	assert.Equal(t, params.([]interface{})[3], "male")
+	assert.Equal(t, params.([]interface{})[4], "Joe")
 }
 
-func TestValidateTarget(t *testing.T) {
-	target := []interface{}{}
-	val, err := validateTarget(&target)
-	assert.Nil(t, err)
-	assert.NotNil(t, val)
-	_, err = validateTarget(target)
-	assert.EqualError(t, err, "Target params must be a non-nil pointer")
-	target2 := ""
-	_, err = validateTarget(&target2)
-	assert.EqualError(t, err, "Target params for dubbo backend must be *[]interface{}")
-}
+func TestBuildOption(t *testing.T) {
+	mp := config.MappingParam{
+		Name:  "queryStrings.id",
+		MapTo: "0",
+		Opt: config.Opt{
+			Name:   optionKeyGroup,
+			Open:   true,
+			Usable: false,
+		},
+	}
+	option := buildOption(mp)
+	assert.NotNil(t, option)
+	assert.Equal(t, false, option.Usable())
 
-func TestParseMapSource(t *testing.T) {
-	from, key, err := client.ParseMapSource("queryStrings.id")
-	assert.Nil(t, err)
-	assert.Equal(t, from, "queryStrings")
-	assert.Equal(t, key[0], "id")
-
-	from, key, err = client.ParseMapSource("headers.id")
-	assert.Nil(t, err)
-	assert.Equal(t, from, "headers")
-	assert.Equal(t, key[0], "id")
-
-	from, key, err = client.ParseMapSource("requestBody.user.id")
-	assert.Nil(t, err)
-	assert.Equal(t, from, "requestBody")
-	assert.Equal(t, key[0], "user")
-	assert.Equal(t, key[1], "id")
-
-	from, key, err = client.ParseMapSource("what.user.id")
-	assert.EqualError(t, err, "Parameter mapping config incorrect. Please fix it")
-	from, key, err = client.ParseMapSource("requestBody.*userid")
-	assert.EqualError(t, err, "Parameter mapping config incorrect. Please fix it")
+	mp = config.MappingParam{
+		Name:  "queryStrings.id",
+		MapTo: "0",
+		Opt: config.Opt{
+			Name:   "other",
+			Open:   true,
+			Usable: false,
+		},
+	}
+	option = buildOption(mp)
+	assert.Nil(t, option)
 }

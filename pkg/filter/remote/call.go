@@ -19,7 +19,8 @@ package remote
 
 import (
 	"errors"
-	"net/http"
+	"os"
+	"strconv"
 )
 
 import (
@@ -44,18 +45,37 @@ import (
 )
 
 func init() {
-	extension.SetFilterFunc(constant.RemoteCallFilter, New(false).Do())
+	mock := 1
+	mockStr := os.Getenv(constant.EnvMock)
+	if mockStr != "" {
+		i, err := strconv.Atoi(mockStr)
+		if err == nil {
+			mock = i
+		}
+	}
+	extension.SetFilterFunc(constant.RemoteCallFilter, New(mockLevel(mock)).Do())
 }
+
+type mockLevel int8
+
+const (
+	open = iota
+	close
+	all
+)
 
 // clientFilter is a filter for recover.
 type clientFilter struct {
-	mock bool
+	level mockLevel
 }
 
 // New create timeout filter.
-func New(mock bool) filter.Filter {
+func New(level mockLevel) filter.Filter {
+	if level < 0 || level > 2 {
+		level = close
+	}
 	return &clientFilter{
-		mock: mock,
+		level: level,
 	}
 }
 
@@ -70,7 +90,11 @@ func (f *clientFilter) Do() selfcontext.FilterFunc {
 func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
-	if f.mock {
+	if (f.level == open && api.Mock) || (f.level == all) {
+		c.SourceResp = &filter.ErrResponse{
+			Message: "mock success",
+		}
+		c.Next()
 		return
 	}
 
@@ -78,23 +102,22 @@ func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 
 	cli, err := matchClient(typ)
 	if err != nil {
-		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
-		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		c.Err = err
 		return
 	}
 
 	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
 
 	if err != nil {
-		logger.Errorf("[dubboproxy go] client do err:%v!", err)
-		c.WriteWithStatus(http.StatusServiceUnavailable, constant.Default503Body)
-		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		logger.Errorf("[dubbo-go-proxy] client call err:%v!", err)
+		c.Err = err
 		return
 	}
 
-	logger.Debugf("resp : %v", resp)
+	logger.Debugf("[dubbo-go-proxy] client call resp:%v", resp)
 
-	c.WriteResponse(resp)
+	c.SourceResp = resp
+	// response write in response filter.
 	c.Next()
 }
 
