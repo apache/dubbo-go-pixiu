@@ -208,16 +208,19 @@ func setMapWithPath(targetMap map[string]interface{}, path string, val interface
 	return targetMap
 }
 
-func mapPrepare(mp config.MappingParam, rawTarget interface{}) (*requestParams, []string, string, []string, error) {
-	target, err := validateTarget(rawTarget)
+func mapPrepare(mp config.MappingParam, rawTarget interface{}) (target *requestParams, fromKey []string, to string, toKey []string, err error) {
+	// ensure the target is a pointer and type is requestParams
+	target, err = validateTarget(rawTarget)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}
-	_, fromKey, err := client.ParseMapSource(mp.Name)
+	// retrieve the mapping values' origin param name
+	_, fromKey, err = client.ParseMapSource(mp.Name)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}
-	to, toKey, err := client.ParseMapSource(mp.MapTo)
+	// retrieve the mapping values' target param name and param types(header/uri/query/request body)
+	to, toKey, err = client.ParseMapSource(mp.MapTo)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}
