@@ -30,8 +30,10 @@ import (
 )
 
 import (
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/logger"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/remote"
+	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/response"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/timeout"
 )
 
