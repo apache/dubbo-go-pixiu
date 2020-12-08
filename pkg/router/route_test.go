@@ -167,16 +167,21 @@ func TestSearchWildcard(t *testing.T) {
 }
 
 func TestWildcardMatch(t *testing.T) {
-	assert.True(t, wildcardMatch("/vought/:id", "/vought/12345"))
-	assert.True(t, wildcardMatch("/vought/:id", "/vought/125abc"))
-	assert.False(t, wildcardMatch("/vought/:id", "/vought/1234abcd/status"))
-	assert.True(t, wildcardMatch("/voughT/:id/:action", "/Vought/1234abcd/attack"))
-}
-
-func TestPutResource(t *testing.T) {
-	rt := NewRoute()
-	err := rt.PutResource()
-	assert.Nil(t, err)
+	vals := wildcardMatch("/vought/:id", "/vought/12345")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "12345")
+	vals = wildcardMatch("/vought/:id", "/vought/125abc")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "125abc")
+	vals = wildcardMatch("/vought/:id", "/vought/1234abcd/status")
+	assert.Nil(t, vals)
+	vals = wildcardMatch("/voughT/:id/:action", "/Vought/1234abcd/attack")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "1234abcd")
+	assert.Equal(t, vals.Get("action"), "attack")
+	vals = wildcardMatch("/voughT/:id/status", "/Vought/1234abcd/status")
+	assert.NotNil(t, vals)
+	assert.Equal(t, vals.Get("id"), "1234abcd")
 }
 
 func TestGetFilters(t *testing.T) {

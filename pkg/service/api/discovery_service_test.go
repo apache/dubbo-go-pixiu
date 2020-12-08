@@ -120,7 +120,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 			},
 		},
 	}
-	err := loadAPIFromResource("", tempResources, apiDiscSrv)
+	err := loadAPIFromResource("", tempResources, nil, apiDiscSrv)
 	assert.Nil(t, err)
 	rsp, _ := apiDiscSrv.GetAPI("/", config.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/")
@@ -160,7 +160,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 		},
 	}
 	apiDiscSrv = NewLocalMemoryAPIDiscoveryService()
-	err = loadAPIFromResource("", tempResources, apiDiscSrv)
+	err = loadAPIFromResource("", tempResources, nil, apiDiscSrv)
 	assert.EqualError(t, err, "Path :id in /mock doesn't start with /; Path :ik in /mock doesn't start with /")
 }
 
@@ -171,7 +171,7 @@ func TestLoadAPIFromMethods(t *testing.T) {
 		mock.GetMockAPI(config.MethodPut, "").Method,
 	}
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
-	err := loadAPIFromMethods("/mock", tempMethods, apiDiscSrv)
+	err := loadAPIFromMethods("/mock", tempMethods, nil, apiDiscSrv)
 	rsp, _ := apiDiscSrv.GetAPI("/mock", config.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", config.MethodGet)
