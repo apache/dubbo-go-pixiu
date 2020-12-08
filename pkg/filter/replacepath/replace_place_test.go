@@ -15,32 +15,29 @@
  * limitations under the License.
  */
 
-package filter
+package replacepath
 
 import (
-	"time"
+	"bytes"
+	"net/http"
+	"testing"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.LoggerFilter, Logger())
-}
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
+)
 
-// Logger logger filter, print url and latency
-func Logger() context.FilterFunc {
-	return func(c context.Context) {
-		start := time.Now()
-
-		c.Next()
-
-		latency := time.Now().Sub(start)
-
-		logger.Infof("[dubboproxy go] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
-	}
+func TestReplacePath(t *testing.T) {
+	path := "/user"
+	request, err := http.NewRequest("POST", "http://www.dubbogoproxy.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	assert.NoError(t, err)
+	c := mock.GetMockHTTPContext(request, New(path).Do(), recovery.New().Do())
+	c.Next()
+	assert.Equal(t, path, c.Request.URL.Path)
+	assert.Equal(t, path+"?name=tc", c.Request.RequestURI)
 }
