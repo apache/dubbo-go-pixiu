@@ -76,13 +76,14 @@ type APIConfig struct {
 
 // Resource defines the API path
 type Resource struct {
-	Type        string        `json:"type" yaml:"type"` // Restful, Dubbo
-	Path        string        `json:"path" yaml:"path"`
-	Timeout     time.Duration `json:"timeout" yaml:"timeout"`
-	Description string        `json:"description" yaml:"description"`
-	Filters     []string      `json:"filters" yaml:"filters"`
-	Methods     []Method      `json:"methods" yaml:"methods"`
-	Resources   []Resource    `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Type        string            `json:"type" yaml:"type"` // Restful, Dubbo
+	Path        string            `json:"path" yaml:"path"`
+	Timeout     time.Duration     `json:"timeout" yaml:"timeout"`
+	Description string            `json:"description" yaml:"description"`
+	Filters     []string          `json:"filters" yaml:"filters"`
+	Methods     []Method          `json:"methods" yaml:"methods"`
+	Resources   []Resource        `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
 }
 
 // UnmarshalYAML Resource custom UnmarshalYAML
@@ -116,6 +117,7 @@ func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
 type Method struct {
 	OnAir              bool          `json:"onAir" yaml:"onAir"` // true means the method is up and false means method is down
 	Timeout            time.Duration `json:"timeout" yaml:"timeout"`
+	Mock               bool          `json:"mock" yaml:"mock"`
 	Filters            []string      `json:"filters" yaml:"filters"`
 	HTTPVerb           `json:"httpVerb" yaml:"httpVerb"`
 	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
@@ -171,14 +173,26 @@ type BodyDefinition struct {
 type IntegrationRequest struct {
 	RequestType        `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
 	DubboBackendConfig `json:"dubboBackendConfig,inline,omitempty" yaml:"dubboBackendConfig,inline,omitempty"`
-	HTTPBackendConfig  `json:"httpBackendConfig" yaml:"httpBackendConfig"`
+	HTTPBackendConfig  `json:"httpBackendConfig,inline,omitempty" yaml:"httpBackendConfig,inline,omitempty"`
 	MappingParams      []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
 }
 
 // MappingParam defines the mapping rules of headers and queryStrings
 type MappingParam struct {
-	Name  string `json:"name" yaml:"name"`
-	MapTo string `json:"mapTo" yaml:"mapTo"`
+	Name  string `json:"name,omitempty" yaml:"name"`
+	MapTo string `json:"mapTo,omitempty" yaml:"mapTo"`
+	// Opt some action.
+	Opt Opt `json:"opt,omitempty" yaml:"opt,omitempty"`
+}
+
+// Opt option, action for compatibility.
+type Opt struct {
+	// Name match dubbo.DefaultMapOption key.
+	Name string `json:"name,omitempty" yaml:"name"`
+	// Open control opt create.
+	Open bool `json:"open,omitempty" yaml:"open"`
+	// Usable setTarget condition, true can set, false not set.
+	Usable bool `json:"usable,omitempty" yaml:"usable"`
 }
 
 // DubboBackendConfig defines the basic dubbo backend config
@@ -196,12 +210,13 @@ type DubboBackendConfig struct {
 
 // HTTPBackendConfig defines the basic dubbo backend config
 type HTTPBackendConfig struct {
-	//TODO  resolve from yaml config needed.   head mapping needed. paramMappingneeded
-	TargetURL       string `yaml:"targetUrl" json:"targetUrl"`
-	ApplicationName string `yaml:"applicationName" json:"applicationName"`
-	Protocol        string `yaml:"protocol" json:"protocol,schema" default:"https"`
-	Version         string `yaml:"version" json:"version"`
-	Retries         string `yaml:"retries" json:"retries,omitempty"`
+	URL string `yaml:"url" json:"url,omitempty"`
+	// downstream host.
+	Host string `yaml:"host" json:"host,omitempty"`
+	// path to replace.
+	Path string `yaml:"path" json:"path,omitempty"`
+	// http protocol, http or https.
+	Scheme string `yaml:"scheme" json:"scheme,omitempty"`
 }
 
 // Definition defines the complex json request body
