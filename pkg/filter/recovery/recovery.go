@@ -25,7 +25,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-// Init set recovery filter.
+// nolint
 func Init() {
 	extension.SetFilterFunc(constant.RecoveryFilter, recoveryFilterFunc())
 }

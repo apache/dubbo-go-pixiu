@@ -34,7 +34,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-// Init set timeout filter.
+// nolint
 func Init() {
 	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
 }
