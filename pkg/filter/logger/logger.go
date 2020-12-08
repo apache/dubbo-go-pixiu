@@ -29,7 +29,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-// Init set logger filter.
+// nolint
 func Init() {
 	extension.SetFilterFunc(constant.LoggerFilter, loggerFilterFunc())
 }

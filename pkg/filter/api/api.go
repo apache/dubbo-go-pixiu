@@ -28,6 +28,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
+// nolint
 func Init() {
 	extension.SetFilterFunc(constant.HTTPApiFilter, apiFilterFunc())
 }
