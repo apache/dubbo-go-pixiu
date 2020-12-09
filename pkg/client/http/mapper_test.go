@@ -173,6 +173,32 @@ func TestBodyMapper(t *testing.T) {
 	assert.Equal(t, string(rawBody), "{\"age\":\"19\",\"nickName\":\"trump\",\"testStruct\":{\"name\":\"mock\",\"nickName\":\"trump\",\"test\":\"happy\"}}")
 }
 
+func TestURIMap(t *testing.T) {
+	um := uriMapper{}
+	r, _ := http.NewRequest("POST", "/mock/test/12345", bytes.NewReader([]byte("{\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
+	api := mock.GetMockAPI(config.MethodGet, "/mock/test/:id")
+	api.IntegrationRequest.MappingParams = []config.MappingParam{
+		{
+			Name:  "uri.id",
+			MapTo: "headers.id",
+		},
+	}
+	req := client.NewReq(context.TODO(), r, api)
+
+	target := newRequestParams()
+	err := um.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
+	assert.Nil(t, err)
+	assert.Equal(t, target.Header.Get("Id"), "12345")
+
+	target = newRequestParams()
+	err = um.Map(config.MappingParam{
+		Name:  "uri.id",
+		MapTo: "uri.id",
+	}, req, target, nil)
+	assert.Nil(t, err)
+	assert.Equal(t, target.URIParams.Get("id"), "12345")
+}
+
 func TestSetTarget(t *testing.T) {
 	emptyRequestParams := newRequestParams()
 	err := setTarget(emptyRequestParams, constant.Headers, "Auth", "1234565")
@@ -204,6 +230,10 @@ func TestSetTarget(t *testing.T) {
 	rawBody, err = ioutil.ReadAll(emptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"testStruct\":{\"secondLayer\":{\"thirdLayer\":{\"name\":\"mock\",\"test\":\"happy\"}}}}")
+
+	err = setTarget(emptyRequestParams, constant.RequestURI, "id", "12345")
+	assert.Nil(t, err)
+	assert.Equal(t, emptyRequestParams.URIParams.Get("id"), "12345")
 
 	nonEmptyRequestParams := newRequestParams()
 	nonEmptyRequestParams.Body = ioutil.NopCloser(bytes.NewReader([]byte("{\"testStruct\":\"abcde\"}")))
