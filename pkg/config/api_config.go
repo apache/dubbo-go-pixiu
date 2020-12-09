@@ -216,7 +216,7 @@ type HTTPBackendConfig struct {
 	// path to replace.
 	Path string `yaml:"path" json:"path,omitempty"`
 	// http protocol, http or https.
-	Scheme string `yaml:"scheme" json:"scheme,omitempty"`
+	Schema string `yaml:"schema" json:"scheme,omitempty"`
 }
 
 // Definition defines the complex json request body
