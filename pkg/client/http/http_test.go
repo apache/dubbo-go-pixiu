@@ -77,7 +77,7 @@ func TestMapParams(t *testing.T) {
 			MapTo: "requestBody.nickName",
 		},
 	}
-	api.IntegrationRequest.HTTPBackendConfig.Scheme = "https"
+	api.IntegrationRequest.HTTPBackendConfig.Schema = "https"
 	api.IntegrationRequest.HTTPBackendConfig.Host = "localhost"
 	r, _ = http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte("{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	r.Header.Set("Auth", "12345")
@@ -93,4 +93,41 @@ func TestMapParams(t *testing.T) {
 	assert.Equal(t, string(rawBody), "{\"age\":\"19\",\"nickName\":\"trump\",\"testStruct\":{\"name\":\"mock\",\"nickName\":\"trump\",\"test\":\"happy\"}}")
 
 	hClient.Call(req)
+}
+
+func TestParseURL(t *testing.T) {
+	hClient := NewHTTPClient()
+	requestParams := newRequestParams()
+	requestParams.URIParams.Set("id", "12345")
+	r, _ := http.NewRequest("POST", "/mock/test/12345", bytes.NewReader([]byte("")))
+	api := mock.GetMockAPI(config.MethodGet, "/mock/test/:id")
+	api.IntegrationRequest.RequestType = "http"
+	api.IntegrationRequest.HTTPBackendConfig.Schema = "http"
+	api.IntegrationRequest.HTTPBackendConfig.Host = "abc.com"
+	api.IntegrationRequest.HTTPBackendConfig.Path = "/:id"
+	req := client.NewReq(context.TODO(), r, api)
+	parsedURL, err := hClient.parseURL(req, *requestParams)
+	assert.Equal(t, parsedURL, "http://abc.com/12345")
+	assert.Nil(t, err)
+
+	requestParams = newRequestParams()
+	requestParams.URIParams.Set("id", "12345")
+	requestParams.Query.Set("name", "Joe")
+	parsedURL, err = hClient.parseURL(req, *requestParams)
+	assert.Equal(t, parsedURL, "http://abc.com/12345?name=Joe")
+	assert.Nil(t, err)
+
+	requestParams = newRequestParams()
+	requestParams.URIParams.Set("id", "12345")
+	req.API.HTTPBackendConfig.Path = ""
+	parsedURL, err = hClient.parseURL(req, *requestParams)
+	assert.Equal(t, parsedURL, "http://abc.com")
+	assert.Nil(t, err)
+
+	requestParams = newRequestParams()
+	requestParams.URIParams.Set("id", "12345")
+	requestParams.Query.Set("name", "Joe")
+	parsedURL, err = hClient.parseURL(req, *requestParams)
+	assert.Equal(t, parsedURL, "http://abc.com?name=Joe")
+	assert.Nil(t, err)
 }
