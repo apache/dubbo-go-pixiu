@@ -23,6 +23,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
@@ -30,10 +31,19 @@ import (
 type API struct {
 	URLPattern    string `json:"urlPattern" yaml:"urlPattern"`
 	config.Method `json:"method,inline" yaml:"method,inline"`
+	Headers       map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
 }
 
 // GetURIParams returns the values retrieved from the rawURL
 func (api *API) GetURIParams(rawURL url.URL) url.Values {
-	sourceURL := strings.Split(rawURL.Path, "&")[0]
-	return wildcardMatch(api.URLPattern, sourceURL)
+	return wildcardMatch(api.URLPattern, rawURL.Path)
+}
+
+// IsWildCardBackendPath checks whether the configured path of
+// the upstream restful service contains parameters
+func (api *API) IsWildCardBackendPath() bool {
+	if len(api.IntegrationRequest.Path) == 0 {
+		return false
+	}
+	return strings.Contains(api.IntegrationRequest.Path, constant.PathParamIdentifier)
 }
