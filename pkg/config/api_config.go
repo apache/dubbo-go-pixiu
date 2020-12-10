@@ -76,13 +76,14 @@ type APIConfig struct {
 
 // Resource defines the API path
 type Resource struct {
-	Type        string        `json:"type" yaml:"type"` // Restful, Dubbo
-	Path        string        `json:"path" yaml:"path"`
-	Timeout     time.Duration `json:"timeout" yaml:"timeout"`
-	Description string        `json:"description" yaml:"description"`
-	Filters     []string      `json:"filters" yaml:"filters"`
-	Methods     []Method      `json:"methods" yaml:"methods"`
-	Resources   []Resource    `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Type        string            `json:"type" yaml:"type"` // Restful, Dubbo
+	Path        string            `json:"path" yaml:"path"`
+	Timeout     time.Duration     `json:"timeout" yaml:"timeout"`
+	Description string            `json:"description" yaml:"description"`
+	Filters     []string          `json:"filters" yaml:"filters"`
+	Methods     []Method          `json:"methods" yaml:"methods"`
+	Resources   []Resource        `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
 }
 
 // UnmarshalYAML Resource custom UnmarshalYAML
@@ -215,7 +216,7 @@ type HTTPBackendConfig struct {
 	// path to replace.
 	Path string `yaml:"path" json:"path,omitempty"`
 	// http protocol, http or https.
-	Scheme string `yaml:"scheme" json:"scheme,omitempty"`
+	Schema string `yaml:"schema" json:"scheme,omitempty"`
 }
 
 // Definition defines the complex json request body

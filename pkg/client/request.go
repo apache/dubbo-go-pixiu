@@ -29,8 +29,7 @@ import (
 
 // Request request for endpoint
 type Request struct {
-	Context context.Context
-
+	Context        context.Context
 	IngressRequest *http.Request
 	API            router.API
 }

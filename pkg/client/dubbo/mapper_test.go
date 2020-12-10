@@ -145,7 +145,7 @@ func TestBodyMapper(t *testing.T) {
 }
 
 func TestURIMapper(t *testing.T) {
-	r, _ := http.NewRequest("POST", "/mock/12345/joe&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
+	r, _ := http.NewRequest("POST", "/mock/12345/joe?age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
 	r.Header.Set("Auth", "1234567")
 	api := mock.GetMockAPI(config.MethodGet, "/mock/:id/:name")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
