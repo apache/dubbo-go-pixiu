@@ -34,13 +34,13 @@ func New(host string) filter.Filter {
 }
 
 // // Do execute hostFilter filter logic.
-func (f *hostFilter) Do() selfcontext.FilterFunc {
+func (f hostFilter) Do() selfcontext.FilterFunc {
 	return func(c selfcontext.Context) {
 		f.doHostFilter(c.(*contexthttp.HttpContext))
 	}
 }
 
-func (f *hostFilter) doHostFilter(c *contexthttp.HttpContext) {
+func (f hostFilter) doHostFilter(c *contexthttp.HttpContext) {
 	c.Request.Host = f.host
 	c.Next()
 }

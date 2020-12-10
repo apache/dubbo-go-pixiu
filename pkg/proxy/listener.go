@@ -58,7 +58,7 @@ func (l *ListenerService) Start() {
 	case model.HTTP:
 		l.httpListener()
 	default:
-		panic("un support protocol start: " + l.Address.SocketAddress.ProtocolStr)
+		panic("unsupported protocol start: " + l.Address.SocketAddress.ProtocolStr)
 	}
 }
 
@@ -71,8 +71,8 @@ func (l *ListenerService) httpListener() {
 	// user customize http config
 	var hc model.HttpConfig
 	if l.Config != nil {
-		if c, ok := l.Config.(model.HttpConfig); ok {
-			hc = c
+		if c, ok := l.Config.(*model.HttpConfig); ok {
+			hc = *c
 		}
 	}
 
@@ -132,8 +132,6 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	hc.Request = r
 	hc.ResetWritermen(w)
 	hc.Reset()
-
-	hc.AppendFilterFunc()
 
 	api, err := s.routeRequest(hc, r)
 	if err != nil {
