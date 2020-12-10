@@ -18,7 +18,6 @@
 package http
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,9 +26,6 @@ import (
 )
 
 import (
-	dgConstant "github.com/apache/dubbo-go/common/constant"
-	dg "github.com/apache/dubbo-go/config"
-	"github.com/apache/dubbo-go/protocol/dubbo"
 	"github.com/pkg/errors"
 )
 
@@ -38,7 +34,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 )
 
-// RestMetadata dubbo metadata, api config
+// RestMetadata http metadata, api config
 type RestMetadata struct {
 	ApplicationName      string   `yaml:"application_name" json:"application_name" mapstructure:"application_name"`
 	Group                string   `yaml:"group" json:"group" mapstructure:"group"`
@@ -53,41 +49,31 @@ type RestMetadata struct {
 }
 
 var (
-	_httpClient *Client
-	countDown   = sync.Once{}
-	dgCfg       dg.ConsumerConfig
+	httpClient *Client
+	countDown  = sync.Once{}
 )
 
 // Client client to generic invoke dubbo
 type Client struct {
-	mLock              sync.RWMutex
-	GenericServicePool map[string]*dg.GenericService
 }
 
 // SingletonHTTPClient singleton HTTP Client
 func SingletonHTTPClient() *Client {
-	if _httpClient == nil {
+	if httpClient == nil {
 		countDown.Do(func() {
-			_httpClient = NewHTTPClient()
+			httpClient = NewHTTPClient()
 		})
 	}
-	return _httpClient
+	return httpClient
 }
 
 // NewHTTPClient create dubbo client
 func NewHTTPClient() *Client {
-	return &Client{
-		mLock:              sync.RWMutex{},
-		GenericServicePool: make(map[string]*dg.GenericService, 4),
-	}
+	return &Client{}
 }
 
 // Init init dubbo, config mapping can do here
 func (dc *Client) Init() error {
-	dgCfg = dg.GetConsumerConfig()
-	dg.SetConsumerConfig(dgCfg)
-	dg.Load()
-	dc.GenericServicePool = make(map[string]*dg.GenericService)
 	return nil
 }
 
@@ -190,44 +176,4 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 		RawQuery: params.Query.Encode(),
 	}
 	return parsedURL.String(), nil
-}
-
-func (dc *Client) get(key string) *dg.GenericService {
-	dc.mLock.RLock()
-	defer dc.mLock.RUnlock()
-	return dc.GenericServicePool[key]
-}
-
-func (dc *Client) create(key string, dm *RestMetadata) *dg.GenericService {
-	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
-	referenceConfig.InterfaceName = dm.Interface
-	referenceConfig.Cluster = dgConstant.DEFAULT_CLUSTER
-	var registers []string
-	for k := range dgCfg.Registries {
-		registers = append(registers, k)
-	}
-	referenceConfig.Registry = strings.Join(registers, ",")
-
-	if dm.ProtocolTypeStr == "" {
-		referenceConfig.Protocol = dubbo.DUBBO
-	} else {
-		referenceConfig.Protocol = dm.ProtocolTypeStr
-	}
-
-	referenceConfig.Version = dm.Version
-	referenceConfig.Group = dm.Group
-	referenceConfig.Generic = true
-	if dm.Retries == "" {
-		referenceConfig.Retries = "3"
-	} else {
-		referenceConfig.Retries = dm.Retries
-	}
-	dc.mLock.Lock()
-	defer dc.mLock.Unlock()
-	referenceConfig.GenericLoad(key)
-	time.Sleep(200 * time.Millisecond) //sleep to wait invoker create
-	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
-
-	dc.GenericServicePool[key] = clientService
-	return clientService
 }
