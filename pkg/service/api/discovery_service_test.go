@@ -58,6 +58,7 @@ func TestGetAPI(t *testing.T) {
 }
 
 func TestLoadAPI(t *testing.T) {
+	Init()
 	apiC, err := config.LoadAPIConfigFromFile("../../config/mock/api_config.yml")
 	assert.Empty(t, err)
 	err = InitAPIsFromConfig(*apiC)
