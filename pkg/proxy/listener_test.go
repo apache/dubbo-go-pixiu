@@ -37,6 +37,7 @@ import (
 	ctxHttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
 )
 
 func getTestContext() *ctxHttp.HttpContext {
@@ -66,6 +67,7 @@ func getTestContext() *ctxHttp.HttpContext {
 }
 
 func TestRouteRequest(t *testing.T) {
+	api.Init()
 	mockAPI := mock.GetMockAPI(config.MethodPost, "/mock/test")
 	mockAPI.Method.OnAir = false
 
