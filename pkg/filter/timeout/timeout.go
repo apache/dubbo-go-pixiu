@@ -34,8 +34,13 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.TimeoutFilter, New(0).Do())
+// nolint
+func Init() {
+	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
+}
+
+func timeoutFilterFunc(duration time.Duration) selfcontext.FilterFunc {
+	return New(duration).Do()
 }
 
 // timeoutFilter is a filter for control request time out.
@@ -55,7 +60,7 @@ func New(t time.Duration) filter.Filter {
 }
 
 // Do execute timeoutFilter filter logic.
-func (f *timeoutFilter) Do() selfcontext.FilterFunc {
+func (f timeoutFilter) Do() selfcontext.FilterFunc {
 	return func(c selfcontext.Context) {
 		hc := c.(*contexthttp.HttpContext)
 
@@ -86,7 +91,7 @@ func (f *timeoutFilter) Do() selfcontext.FilterFunc {
 	}
 }
 
-func (f *timeoutFilter) getTimeout(t time.Duration) time.Duration {
+func (f timeoutFilter) getTimeout(t time.Duration) time.Duration {
 	if t <= 0 {
 		return f.waitTime
 	}
