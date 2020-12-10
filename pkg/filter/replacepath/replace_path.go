@@ -18,14 +18,14 @@
 package replacepath
 
 import (
-	"net/http"
+	nh "net/http"
 	"net/url"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 )
 
@@ -46,13 +46,13 @@ func New(path string) filter.Filter {
 }
 
 // // Do execute replacePathFilter filter logic.
-func (f *replacePathFilter) Do() selfcontext.FilterFunc {
-	return func(c selfcontext.Context) {
-		f.doReplacePathFilter(c.(*contexthttp.HttpContext))
+func (f replacePathFilter) Do() context.FilterFunc {
+	return func(c context.Context) {
+		f.doReplacePathFilter(c.(*http.HttpContext))
 	}
 }
 
-func (f *replacePathFilter) doReplacePathFilter(ctx *contexthttp.HttpContext) {
+func (f replacePathFilter) doReplacePathFilter(ctx *http.HttpContext) {
 	req := ctx.Request
 	if req.URL.RawPath == "" {
 		req.Header.Add(ReplacedPathHeader, req.URL.Path)
@@ -65,7 +65,7 @@ func (f *replacePathFilter) doReplacePathFilter(ctx *contexthttp.HttpContext) {
 	req.URL.Path, err = url.PathUnescape(req.URL.RawPath)
 	if err != nil {
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-		ctx.WriteWithStatus(http.StatusInternalServerError, []byte(replacePathError))
+		ctx.WriteWithStatus(nh.StatusInternalServerError, []byte(replacePathError))
 		ctx.Abort()
 		return
 	}

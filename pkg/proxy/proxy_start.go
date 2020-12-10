@@ -28,6 +28,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/initialize"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
@@ -74,6 +75,8 @@ func (p *Proxy) Start() {
 }
 
 func (p *Proxy) beforeStart() {
+	initialize.Run()
+
 	dubbo.SingletonDubboClient().Init()
 
 	api.InitAPIsFromConfig(config.GetAPIConf())
