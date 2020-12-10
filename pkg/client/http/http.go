@@ -31,6 +31,7 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 )
 
 // RestMetadata http metadata, api config
@@ -83,8 +84,6 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
-	urlStr := req.GetURL()
-	u, err := url.ParseRequestURI(urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +97,13 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	params, _ := transformedParams.(*requestParams)
 	request.Body = params.Body
 	request.Header = params.Header
-	// url query add.
-	urlStr = strings.TrimRight(u.String(), "/") + "?" + params.Query.Encode()
 
-	newReq, err := http.NewRequest(req.IngressRequest.Method, urlStr, params.Body)
+	targetURL, err := dc.parseURL(req, *params)
+	if err != nil {
+		return nil, err
+	}
+
+	newReq, err := http.NewRequest(req.IngressRequest.Method, targetURL, params.Body)
 
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	tmpRet, err := httpClient.Do(newReq)
@@ -121,6 +123,9 @@ func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 			return nil, errors.New("Retrieve request query parameters failed")
 		}
 		r.Query = queryValues
+		if req.API.IsWildCardBackendPath() {
+			r.URIParams = req.API.GetURIParams(*req.IngressRequest.URL)
+		}
 		return r, nil
 	}
 	for i := 0; i < len(mp); i++ {
@@ -135,4 +140,40 @@ func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 		}
 	}
 	return r, nil
+}
+
+// ParseURL returns the actual target url. Supports wildcard target path value mapping.
+func (dc *Client) parseURL(req *client.Request, params requestParams) (string, error) {
+	var schema string
+	if len(req.API.IntegrationRequest.HTTPBackendConfig.Schema) == 0 {
+		schema = "http"
+	} else {
+		schema = req.API.IntegrationRequest.HTTPBackendConfig.Schema
+	}
+
+	rawPath := req.API.IntegrationRequest.HTTPBackendConfig.Path
+	if req.API.IsWildCardBackendPath() {
+		paths := strings.Split(
+			strings.TrimLeft(req.API.IntegrationRequest.HTTPBackendConfig.Path, constant.PathSlash),
+			constant.PathSlash)
+		for i := 0; i < len(paths); i++ {
+			if strings.HasPrefix(paths[i], constant.PathParamIdentifier) {
+				uriParam := string(paths[i][1:len(paths[i])])
+				uriValue := params.URIParams.Get(uriParam)
+				if len(uriValue) == 0 {
+					return "", errors.New("No value for target URI")
+				}
+				paths[i] = uriValue
+			}
+		}
+		rawPath = strings.Join(paths, constant.PathSlash)
+	}
+
+	parsedURL := url.URL{
+		Host:     req.API.IntegrationRequest.HTTPBackendConfig.Host,
+		Scheme:   schema,
+		Path:     rawPath,
+		RawQuery: params.Query.Encode(),
+	}
+	return parsedURL.String(), nil
 }
