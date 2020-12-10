@@ -39,6 +39,7 @@ type Node struct {
 	wildcard bool
 	filters  []string
 	methods  map[config.HTTPVerb]*config.Method
+	headers  map[string]string
 }
 
 // Route defines the tree of router APIs
@@ -60,6 +61,7 @@ func (rt *Route) PutAPI(api API) error {
 			fullPath: lowerCasePath,
 			methods:  map[config.HTTPVerb]*config.Method{api.Method.HTTPVerb: &api.Method},
 			wildcard: wildcard,
+			headers:  api.Headers,
 		}
 		if wildcard {
 			rt.wildcardTree.Put(lowerCasePath, rn)
@@ -67,14 +69,15 @@ func (rt *Route) PutAPI(api API) error {
 		rt.tree.Put(lowerCasePath, rn)
 		return nil
 	}
-	return node.putMethod(api.Method)
+	return node.putMethod(api.Method, api.Headers)
 }
 
-func (node *Node) putMethod(method config.Method) error {
+func (node *Node) putMethod(method config.Method, headers map[string]string) error {
 	if _, ok := node.methods[method.HTTPVerb]; ok {
 		return errors.Errorf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath)
 	}
 	node.methods[method.HTTPVerb] = &method
+	node.headers = headers
 	return nil
 }
 
@@ -100,6 +103,7 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool)
 			return &API{
 				URLPattern: n.fullPath,
 				Method:     *method,
+				Headers:    n.headers,
 			}, ok
 		}
 	}
