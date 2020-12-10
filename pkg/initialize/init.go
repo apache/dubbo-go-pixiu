@@ -15,39 +15,35 @@
  * limitations under the License.
  */
 
-package filter
+package initialize
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/api"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/authority"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/logger"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/remote"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/response"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/timeout"
+	sa "github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
 )
 
-func init() {
-	extension.SetFilterFunc(constant.HTTPDomainFilter, Domain())
+// Run start init.
+func Run() {
+	filterInit()
+	apiDiscoveryServiceInit()
 }
 
-// Domain
-// https :authority
-// http Host
-func Domain() context.FilterFunc {
-	return func(c context.Context) {
-		if MatchDomainFilter(c.(*http.HttpContext)) {
-			c.Next()
-		}
-	}
+func filterInit() {
+	api.Init()
+	authority.Init()
+	logger.Init()
+	recovery.Init()
+	remote.Init()
+	response.Init()
+	timeout.Init()
 }
 
-// MatchDomainFilter
-func MatchDomainFilter(c *http.HttpContext) bool {
-	for _, v := range c.Listener.FilterChains {
-		for _, d := range v.FilterChainMatch.Domains {
-			if d == c.GetHeader(constant.Http1HeaderKeyHost) {
-				return true
-			}
-		}
-	}
-
-	return false
+func apiDiscoveryServiceInit() {
+	sa.Init()
 }
