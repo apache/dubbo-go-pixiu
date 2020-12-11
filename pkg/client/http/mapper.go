@@ -64,7 +64,7 @@ func newRequestParams() *requestParams {
 type queryStringsMapper struct{}
 
 // nolint
-func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.IOption) error {
+func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawT
 type headerMapper struct{}
 
 // nolint
-func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.IOption) error {
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget 
 type bodyMapper struct{}
 
 // nolint
-func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.IOption) error {
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
 	// TO-DO: add support for content-type other than application/json
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
@@ -128,7 +128,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget in
 type uriMapper struct{}
 
 // nolint
-func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.IOption) error {
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
