@@ -192,7 +192,7 @@ func setTarget(rv reflect.Value, pos int, value interface{}) {
 	if pos == -1 {
 		v, ok := value.([]interface{})
 		if ok {
-			npos := len(v) -1
+			npos := len(v) - 1
 			if len(tempValue) <= npos {
 				list := make([]interface{}, npos+1-len(tempValue))
 				tempValue = append(tempValue, list...)
