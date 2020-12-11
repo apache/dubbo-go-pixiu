@@ -35,10 +35,10 @@ type Client interface {
  */
 
 // MapOption option map, key : name, value : option
-type MapOption map[string]IOption
+type MapOption map[string]RequestOption
 
-// IOption option interface.
-type IOption interface {
+// RequestOption option interface.
+type RequestOption interface {
 	// Usable if option can use
 	Usable() bool
 	// SetUsable set usable
@@ -50,7 +50,7 @@ type IOption interface {
 // CommonOption common opt.
 type CommonOption struct {
 	usable bool
-	IOption
+	RequestOption
 }
 
 // Usable get usable.
