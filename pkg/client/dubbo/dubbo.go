@@ -182,8 +182,8 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	return values, nil
 }
 
-func buildOption(conf config.MappingParam) client.IOption {
-	var opt client.IOption
+func buildOption(conf config.MappingParam) client.RequestOption {
+	var opt client.RequestOption
 	if conf.Opt.Open {
 		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
 		if ok {
