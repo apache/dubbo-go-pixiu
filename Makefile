@@ -6,20 +6,26 @@ mainPath := $(currentPath)$(proxyPath)
 $(info $(mainPath))
 
 targetName := dubbo-go-proxy
-go_cmd:=${go_cmd}
-ifeq ("",$(go_cmd))
-        go_cmd = go
+
+api-config-path:=${api-config}
+ifeq ("",$(api-config-path))
+        api-config-path = configs/api_config.yaml
 endif
-os := $(shell $(go_cmd) env GOOS)
+
+config-path:=${config-path}
+ifeq ("",$(config-path))
+        config-path = configs/conf.yaml
+endif
+
+os := $(shell go env GOOS)
 $(info os is $(os))
 ifeq (windows,$(os))
 	targetName = dubbo-go-proxy.exe
 endif
 exe := $(mainPath)$(targetName)
 $(info path of exe is $(exe))
-$(info go command is $(go_cmd))
 build:
-	cd $(mainPath) && $(go_cmd) build  -o $(targetName)
+	cd $(mainPath) && go build  -o $(targetName)
 
 run: build
-	cp $(exe) $(currentPath) && ./dubbo-go-proxy start
+	cp $(exe) $(currentPath) && ./dubbo-go-proxy start -a $(api-config-path) -c $(config-path)
