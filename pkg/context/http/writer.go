@@ -127,6 +127,7 @@ func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 
 // CloseNotify implements the http.CloseNotify interface.
 // todo replace this later version
+// nolint
 func (w *responseWriter) CloseNotify() <-chan bool {
 	return w.ResponseWriter.(http.CloseNotifier).CloseNotify()
 }
