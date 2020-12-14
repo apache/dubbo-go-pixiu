@@ -148,7 +148,7 @@ func wildcardMatch(wildcardPath string, checkPath string) url.Values {
 		return nil
 	}
 	for i := 0; i < len(cPaths); i++ {
-		if strings.ToLower(cPaths[i]) != strings.ToLower(wPaths[i]) && !strings.HasPrefix(wPaths[i], constant.PathParamIdentifier) {
+		if !strings.EqualFold(cPaths[i], wPaths[i]) && !strings.HasPrefix(wPaths[i], constant.PathParamIdentifier) {
 			return nil
 		}
 		if strings.HasPrefix(wPaths[i], constant.PathParamIdentifier) {
