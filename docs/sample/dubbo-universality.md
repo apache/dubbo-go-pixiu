@@ -32,7 +32,7 @@ resources:
           requestType: dubbo
           mappingParams:
             - name: requestBody.values
-              mapTo: 0
+              mapTo: -1
             - name: requestBody.types
               mapTo: 1
               opt:
@@ -138,6 +138,8 @@ Now only use for part of cache key.
 
 #### Explain
 
+##### Single params 
+
 request body
 
 ```json
@@ -160,3 +162,36 @@ request body
 - `requestBody.types` means body content with types key.
 - `opt.name` means use types option.
 - `opt.usable` means if remove the request to downstream service.
+
+##### Multiple params
+
+```json
+{
+  "types": [
+    "java.lang.String",
+    "com.dubbogo.proxy.User"
+  ],
+  "values": [
+    "tc",
+    {
+      "id": "0001",
+      "code": 1,
+      "name": "tc",
+      "age": 99
+    }
+  ]
+}
+```
+
+Body's values will use array for multi parameters. Config like follow `mapTo -1` will run special treatment.
+
+```yaml
+            - name: requestBody.values
+              mapTo: -1
+            - name: requestBody.types
+              mapTo: 1
+              opt:
+                open: true
+                name: types
+```
+
