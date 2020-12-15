@@ -39,6 +39,7 @@ type ResponseWriter interface {
 	http.Hijacker
 	http.Flusher
 	// todo replace it later version
+	// nolint
 	http.CloseNotifier
 
 	// Returns the HTTP response status code of the current request.
