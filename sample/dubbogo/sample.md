@@ -1,6 +1,6 @@
 # Local example
 
-> prepare zookeeper env.
+> Prepare zookeeper env.
 
 ## Start provider:
 
