@@ -59,8 +59,7 @@ func (hc *HttpContext) Next() {
 // Reset reset http context
 func (hc *HttpContext) Reset() {
 	hc.Writer = &hc.writermem
-	hc.Filters = nil
-	hc.Index = -1
+	hc.BaseContext = context.NewBaseContext()
 }
 
 // Status set header status code
