@@ -64,13 +64,13 @@ func TestLoadAPI(t *testing.T) {
 	err = InitAPIsFromConfig(*apiC)
 	assert.Nil(t, err)
 	apiDisSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	rsp, err := apiDisSrv.GetAPI("/", config.MethodGet)
+	rsp, _ := apiDisSrv.GetAPI("/", config.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, err = apiDisSrv.GetAPI("/mockTest", config.MethodGet)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest", config.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, err = apiDisSrv.GetAPI("/mockTest", config.MethodPost)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest", config.MethodPost)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, err = apiDisSrv.GetAPI("/mockTest/12345", config.MethodGet)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest/12345", config.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
 }
 

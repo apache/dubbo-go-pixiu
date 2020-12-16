@@ -78,12 +78,11 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 }
 
 func mapIItoMapSI(in interface{}) interface{} {
-	var inMap = make(map[interface{}]interface{})
 	v, ok := in.(map[interface{}]interface{})
 	if ok {
 		return in
 	}
-	inMap = v
+	inMap := v
 	outMap := make(map[string]interface{}, len(inMap))
 
 	for k, v := range inMap {
