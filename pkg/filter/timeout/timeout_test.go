@@ -30,7 +30,7 @@ import (
 )
 
 func TestPanic(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, New(0).Do(), recovery.New().Do(), testPanicFilter)
+	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), recovery.New().Do(), testPanicFilter)
 	c.Next()
 	// print
 	// 500
@@ -43,7 +43,7 @@ var testPanicFilter = func(c pkgcontext.Context) {
 }
 
 func TestTimeout(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, New(0).Do(), testTimeoutFilter)
+	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), testTimeoutFilter)
 	c.Next()
 	// print
 	// 503
