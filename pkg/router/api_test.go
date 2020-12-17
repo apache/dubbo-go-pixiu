@@ -45,6 +45,11 @@ func TestGetURIParams(t *testing.T) {
 	assert.Equal(t, values.Get("id"), "12345")
 	assert.Equal(t, values.Get("name"), "Joe")
 
+	u, _ = url.Parse("https://test.com/Mock/12345/Joe&jack")
+	values = api.GetURIParams(*u)
+	assert.Equal(t, values.Get("id"), "12345")
+	assert.Equal(t, values.Get("name"), "Joe&jack")
+
 	u, _ = url.Parse("https://test.com/mock/12345")
 	values = api.GetURIParams(*u)
 	assert.Nil(t, values)
@@ -53,4 +58,24 @@ func TestGetURIParams(t *testing.T) {
 	u, _ = url.Parse("https://test.com/mock/12345/Joe?status=up")
 	values = api.GetURIParams(*u)
 	assert.Nil(t, values)
+
+	api.URLPattern = "/mock/test"
+	u, _ = url.Parse("https://test.com/mock/12345/Joe&Jack")
+	values = api.GetURIParams(*u)
+	assert.Nil(t, values)
+}
+
+func TestIsWildCardBackendPath(t *testing.T) {
+	mockAPI := API{
+		URLPattern: "/mock/:id/:name",
+		Method:     getMockMethod(config.MethodGet),
+	}
+	mockAPI.IntegrationRequest.Path = "/mock/:id"
+	assert.True(t, mockAPI.IsWildCardBackendPath())
+
+	mockAPI.IntegrationRequest.Path = "/mock/test"
+	assert.False(t, mockAPI.IsWildCardBackendPath())
+
+	mockAPI.IntegrationRequest.Path = ""
+	assert.False(t, mockAPI.IsWildCardBackendPath())
 }

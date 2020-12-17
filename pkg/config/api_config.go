@@ -189,7 +189,7 @@ type MappingParam struct {
 type Opt struct {
 	// Name match dubbo.DefaultMapOption key.
 	Name string `json:"name,omitempty" yaml:"name"`
-	// Open control opt create.
+	// Open control opt create, only true will create a Opt.
 	Open bool `json:"open,omitempty" yaml:"open"`
 	// Usable setTarget condition, true can set, false not set.
 	Usable bool `json:"usable,omitempty" yaml:"usable"`
@@ -216,7 +216,7 @@ type HTTPBackendConfig struct {
 	// path to replace.
 	Path string `yaml:"path" json:"path,omitempty"`
 	// http protocol, http or https.
-	Scheme string `yaml:"scheme" json:"scheme,omitempty"`
+	Schema string `yaml:"schema" json:"scheme,omitempty"`
 }
 
 // Definition defines the complex json request body
