@@ -18,8 +18,8 @@
 package logger
 
 import (
+	"fmt"
 	"io/ioutil"
-	"log"
 	"path"
 	"sync"
 )
@@ -62,7 +62,7 @@ func init() {
 	logConfFile := "./conf/log.yml"
 	err := InitLog(logConfFile)
 	if err != nil {
-		log.Printf("[InitLog] warn: %v", err)
+		logger.Infof("[InitLog] warn: %v", err)
 	}
 }
 
@@ -74,20 +74,20 @@ func InitLog(logConfFile string) error {
 	}
 	if path.Ext(logConfFile) != ".yml" {
 		InitLogger(nil)
-		return perrors.Errorf("log configure file name{%s} suffix must be .yml", logConfFile)
+		return perrors.New(fmt.Sprintf("log configure file name %s suffix must be .yml", logConfFile))
 	}
 
 	confFileStream, err := ioutil.ReadFile(logConfFile)
 	if err != nil {
 		InitLogger(nil)
-		return perrors.Errorf("ioutil.ReadFile(file:%s) = error:%v", logConfFile, err)
+		return perrors.New(fmt.Sprintf("ioutil.ReadFile file:%s, error:%v", logConfFile, err))
 	}
 
 	conf := &zap.Config{}
 	err = yaml.Unmarshal(confFileStream, conf)
 	if err != nil {
 		InitLogger(nil)
-		return perrors.Errorf("[Unmarshal]init logger error: %v", err)
+		return perrors.New(fmt.Sprintf("[Unmarshal]init logger error: %v", err))
 	}
 
 	InitLogger(conf)

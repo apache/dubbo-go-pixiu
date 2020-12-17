@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
+	"strings"
 )
 
 import (
@@ -29,7 +31,7 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/user", user)
+	http.HandleFunc("/user/", user)
 	log.Println("Starting sample server ...")
 	log.Fatal(http.ListenAndServe(":1314", nil))
 }
@@ -52,6 +54,7 @@ func user(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("{\"message\":\"data is exist\"}"))
 			return
 		}
+		user.ID = randSeq(5)
 		if cache.Add(&user) {
 			b, _ := json.Marshal(&user)
 			w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
@@ -60,8 +63,17 @@ func user(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Write(nil)
 	case "GET":
-		q := r.URL.Query()
-		u, b := cache.Get(q.Get("name"))
+		subPath := strings.TrimPrefix(r.URL.Path, "/user/")
+		userName := strings.Split(subPath, "/")[0]
+		var u *User
+		var b bool
+		if len(userName) != 0 {
+			log.Printf("paths: %v", userName)
+			u, b = cache.Get(userName)
+		} else {
+			q := r.URL.Query()
+			u, b = cache.Get(q.Get("name"))
+		}
 		//w.WriteHeader(200)
 		if b {
 			b, _ := json.Marshal(u)
@@ -69,6 +81,17 @@ func user(w http.ResponseWriter, r *http.Request) {
 			w.Write(b)
 			return
 		}
+		w.WriteHeader(http.StatusNotFound)
 		w.Write(nil)
 	}
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
 )
 
+// nolint
 func TestRecovery(t *testing.T) {
 	c := mock.GetMockHTTPContext(nil, New().Do(), func(c selfcontext.Context) {
 		time.Sleep(time.Millisecond * 100)
