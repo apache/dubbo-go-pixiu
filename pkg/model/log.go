@@ -19,6 +19,7 @@ package model
 
 import (
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -78,6 +79,17 @@ func (alw *AccessLogWriter) writeLogToFile(ald AccessLogData) {
 
 // write message to access log file
 func WriteToFile(accessLogMsg string, filePath string) error {
+	pd := filepath.Dir(filePath)
+	if _, err := os.Stat(pd); err != nil {
+		if os.IsExist(err) {
+			logger.Warnf("Can not open log dir: %s, %v", filePath, err)
+		}
+		err = os.MkdirAll(pd, os.ModeDir|os.ModePerm)
+		if err != nil {
+			logger.Warnf("Can not create log dir: %s, %v", filePath, err)
+			return err
+		}
+	}
 	logFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, constant.LogFileMode)
 	if err != nil {
 		logger.Warnf("Can not open the access log file: %s, %v", filePath, err)
