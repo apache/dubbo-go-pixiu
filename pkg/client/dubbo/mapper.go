@@ -46,7 +46,7 @@ var mappers = map[string]client.ParamMapper{
 type queryStringsMapper struct{}
 
 // nolint
-func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
+func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, targ
 type headerMapper struct{}
 
 // nolint
-func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target int
 type bodyMapper struct{}
 
 // nolint
-func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
 	// TO-DO: add support for content-type other than application/json
 	rv, err := validateTarget(target)
 	if err != nil {
@@ -134,7 +134,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 type uriMapper struct{}
 
 // nolint
-func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.IOption) error {
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func validateTarget(target interface{}) (reflect.Value, error) {
 	return rv, nil
 }
 
-func setTargetWithOpt(req *client.Request, option client.IOption, rv reflect.Value, pos int, value interface{}) {
+func setTargetWithOpt(req *client.Request, option client.RequestOption, rv reflect.Value, pos int, value interface{}) {
 	if option == nil || option.Usable() {
 		setTarget(rv, pos, value)
 	}
@@ -185,6 +185,29 @@ func setTarget(rv reflect.Value, pos int, value interface{}) {
 	}
 
 	tempValue := rv.Interface().([]interface{})
+
+	// for dubbo values split, like RequestOption
+	// When config mapTo -1, values is single object, set to 0 position, values is array, will auto split len(values).
+	//
+	if pos == -1 {
+		v, ok := value.([]interface{})
+		if ok {
+			npos := len(v) - 1
+			if len(tempValue) <= npos {
+				list := make([]interface{}, npos+1-len(tempValue))
+				tempValue = append(tempValue, list...)
+			}
+			for i := range v {
+				s := v[i]
+				tempValue[i] = s
+			}
+			rv.Set(reflect.ValueOf(tempValue))
+			return
+		}
+
+		pos = 0
+	}
+
 	if len(tempValue) <= pos {
 		list := make([]interface{}, pos+1-len(tempValue))
 		tempValue = append(tempValue, list...)
