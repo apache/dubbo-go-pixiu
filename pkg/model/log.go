@@ -52,7 +52,7 @@ func (alw *AccessLogWriter) Writer(accessLogData AccessLogData) {
 	case alw.AccessLogDataChan <- accessLogData:
 		return
 	default:
-		logger.Warn("The channel is full and the access logIntoChannel data will be dropped")
+		logger.Warn("the channel is full and the access logIntoChannel data will be dropped")
 		return
 	}
 }
@@ -82,23 +82,23 @@ func WriteToFile(accessLogMsg string, filePath string) error {
 	pd := filepath.Dir(filePath)
 	if _, err := os.Stat(pd); err != nil {
 		if os.IsExist(err) {
-			logger.Warnf("Can not open log dir: %s, %v", filePath, err)
+			logger.Warnf("can not open log dir: %s, %v", filePath, err)
 		}
-		err = os.MkdirAll(pd, os.ModeDir|constant.LogFileMode)
+		err = os.MkdirAll(pd, os.ModePerm)
 		if err != nil {
-			logger.Warnf("Can not create log dir: %s, %v", filePath, err)
+			logger.Warnf("can not create log dir: %s, %v", filePath, err)
 			return err
 		}
 	}
 	logFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, constant.LogFileMode)
 	if err != nil {
-		logger.Warnf("Can not open the access log file: %s, %v", filePath, err)
+		logger.Warnf("can not open the access log file: %s, %v", filePath, err)
 		return err
 	}
 	now := time.Now().Format(constant.FileDateFormat)
 	fileInfo, err := logFile.Stat()
 	if err != nil {
-		logger.Warnf("Can not get the info of access log file: %s, %v", filePath, err)
+		logger.Warnf("can not get the info of access log file: %s, %v", filePath, err)
 		return err
 	}
 	last := fileInfo.ModTime().Format(constant.FileDateFormat)
@@ -111,7 +111,7 @@ func WriteToFile(accessLogMsg string, filePath string) error {
 	if now != last {
 		err = os.Rename(fileInfo.Name(), fileInfo.Name()+"."+now)
 		if err != nil {
-			logger.Warnf("Can not rename access log file: %s, %v", fileInfo.Name(), err)
+			logger.Warnf("can not rename access log file: %s, %v", fileInfo.Name(), err)
 			return err
 		}
 		logFile, err = os.OpenFile(fileInfo.Name(), os.O_CREATE|os.O_APPEND|os.O_RDWR, constant.LogFileMode)
