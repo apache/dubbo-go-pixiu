@@ -29,9 +29,13 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
+import (
+	"github.com/stretchr/testify/assert"
+)
+
 func TestAccessLog_Write_to_file(t *testing.T) {
 	msg := "this is test msg"
-	filePath := "logs/dubbo-go-access"
+	filePath := "/home/dubbo-go-proxy/logs/dubbo-go-access"
 	//filePath := "C:\\Users\\60125\\Desktop\\dubbo-go\\logs\\dubbo-go-proxy-20201217"
 	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
 	accessLogWriter.Write()
@@ -42,5 +46,5 @@ func TestAccessLog_Write_to_file(t *testing.T) {
 			logger.Warnf("can not create dir: %s, %v", filePath, err)
 		}
 	}
-	//assert.FileExists(t, filePath, nil)
+	assert.FileExists(t, filePath, nil)
 }
