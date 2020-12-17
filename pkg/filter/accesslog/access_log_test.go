@@ -18,13 +18,20 @@
 package accesslog
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAccessLog_Write_to_file(t *testing.T) {
 	msg := "this is test msg"
 	filePath := "C:\\Users\\60125\\Desktop\\dubbo-go\\logs\\dubbo-go-access.log"
-	err := writeToFile(msg, filePath)
-	assert.NoError(t, err)
+	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
+	accessLogWriter.Write()
+	accessLogWriter.Writer(model.AccessLogData{AccessLogMsg: msg, AccessLogConfig: model.AccessLogConfig{OutPutPath: filePath, Enable: true}})
+	assert.FileExists(t, filePath, nil)
 }
