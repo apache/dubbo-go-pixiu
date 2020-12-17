@@ -84,7 +84,7 @@ func WriteToFile(accessLogMsg string, filePath string) error {
 		if os.IsExist(err) {
 			logger.Warnf("Can not open log dir: %s, %v", filePath, err)
 		}
-		err = os.MkdirAll(pd, os.ModeDir|os.ModePerm)
+		err = os.MkdirAll(pd, os.ModeDir|constant.LogFileMode)
 		if err != nil {
 			logger.Warnf("Can not create log dir: %s, %v", filePath, err)
 			return err
