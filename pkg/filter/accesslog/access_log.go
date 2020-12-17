@@ -18,6 +18,8 @@
 package accesslog
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"strconv"
 	"strings"
@@ -82,9 +84,29 @@ func buildAccessLogMsg(c context.Context, cost time.Duration) string {
 	builder.WriteString(strconv.Itoa(int(cost)) + " ]")
 	err := c.(*http.HttpContext).Err
 	if err != nil {
-		builder.WriteString(fmt.Sprintf("invoke err [ v%", err))
+		builder.WriteString(fmt.Sprintf("invoke err [ %v", err))
+		builder.WriteString("] ")
+	}
+	resp := c.(*http.HttpContext).TargetResp.Data
+	rbs, err := getBytes(resp)
+	if err != nil {
+		builder.WriteString(fmt.Sprintf(" response can not convert to string"))
+		builder.WriteString("] ")
+	} else {
+		builder.WriteString(fmt.Sprintf(" response [ %+v", string(rbs)))
 		builder.WriteString("] ")
 	}
 	//builder.WriteString("\n")
 	return builder.String()
+}
+
+// converter interface to byte array
+func getBytes(key interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(key)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
