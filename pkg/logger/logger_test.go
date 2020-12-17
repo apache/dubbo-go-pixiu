@@ -40,7 +40,7 @@ func TestInitLog(t *testing.T) {
 	path, err = filepath.Abs("./log.xml")
 	assert.NoError(t, err)
 	err = InitLog(path)
-	assert.EqualError(t, err, "log configure file name{"+path+"} suffix must be .yml")
+	assert.EqualError(t, err, "log configure file name "+path+" suffix must be .yml")
 
 	path, err = filepath.Abs("./logger.yml")
 	assert.NoError(t, err)
@@ -51,7 +51,7 @@ func TestInitLog(t *testing.T) {
 	} else {
 		errMsg = fmt.Sprintf("open %s: no such file or directory", path)
 	}
-	assert.EqualError(t, err, fmt.Sprintf("ioutil.ReadFile(file:%s) = error:%s", path, errMsg))
+	assert.EqualError(t, err, fmt.Sprintf("ioutil.ReadFile file:%s, error:%s", path, errMsg))
 
 	err = InitLog("./log.yml")
 	assert.NoError(t, err)

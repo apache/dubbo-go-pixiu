@@ -42,9 +42,9 @@ func TestParseMapSource(t *testing.T) {
 	assert.Equal(t, key[0], "user")
 	assert.Equal(t, key[1], "id")
 
-	from, key, err = ParseMapSource("what.user.id")
+	_, _, err = ParseMapSource("what.user.id")
 	assert.EqualError(t, err, "Parameter mapping config incorrect. Please fix it")
-	from, key, err = ParseMapSource("requestBody.*userid")
+	_, _, err = ParseMapSource("requestBody.*userid")
 	assert.EqualError(t, err, "Parameter mapping config incorrect. Please fix it")
 }
 
