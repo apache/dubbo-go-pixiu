@@ -20,11 +20,9 @@ package accesslog
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"testing"
-)
-
-import (
 	"github.com/stretchr/testify/assert"
+	"testing"
+	"time"
 )
 
 func TestAccessLog_Write_to_file(t *testing.T) {
@@ -33,6 +31,7 @@ func TestAccessLog_Write_to_file(t *testing.T) {
 	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
 	accessLogWriter.Write()
 	accessLogWriter.Writer(model.AccessLogData{AccessLogMsg: msg, AccessLogConfig: model.AccessLogConfig{OutPutPath: filePath, Enable: true}})
+	time.Sleep(3e9)
 	assert.FileExists(t, filePath, nil)
 
 }
