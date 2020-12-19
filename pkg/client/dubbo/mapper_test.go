@@ -51,6 +51,11 @@ func TestQueryStringsMapper(t *testing.T) {
 			MapTo: "jk",
 		},
 	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
+		"string",
+		"int",
+	}
 	req := client.NewReq(context.TODO(), r, api)
 
 	var params []interface{}
@@ -75,6 +80,10 @@ func TestQueryStringsMapper(t *testing.T) {
 			MapTo: "0",
 		},
 	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
+		"string",
+	}
 	req = client.NewReq(context.TODO(), r, api)
 	params = []interface{}{}
 	err = qs.Map(api.IntegrationRequest.MappingParams[0], req, &params, nil)
@@ -96,6 +105,9 @@ func TestHeaderMapper(t *testing.T) {
 			Name:  "headers.Auth",
 			MapTo: "0",
 		},
+	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
 	}
 	hm := headerMapper{}
 	target := []interface{}{}
@@ -126,6 +138,11 @@ func TestBodyMapper(t *testing.T) {
 			Name:  "requestBody.name",
 			MapTo: "2",
 		},
+	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
+		"string",
+		"object",
 	}
 	bm := bodyMapper{}
 	target := []interface{}{}
@@ -166,6 +183,12 @@ func TestURIMapper(t *testing.T) {
 			MapTo: "3",
 		},
 	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
+		"string",
+		"object",
+		"string",
+	}
 	um := uriMapper{}
 	target := []interface{}{}
 	req := client.NewReq(context.TODO(), r, api)
@@ -187,4 +210,34 @@ func TestValidateTarget(t *testing.T) {
 	target2 := ""
 	_, err = validateTarget(&target2)
 	assert.EqualError(t, err, "Target params for dubbo backend must be *[]interface{}")
+}
+
+func TestMapType(t *testing.T) {
+	val, err := mapTypes("strings", 123)
+	assert.EqualError(t, err, "Invalid parameter type: strings")
+
+	val, err = mapTypes("string", 123)
+	assert.Nil(t, err)
+	assert.Equal(t, val, "123")
+	val, err = mapTypes("string", []int{123, 222})
+	assert.EqualError(t, err, "unable to cast []int{123, 222} of type []int to string")
+
+	val, err = mapTypes("int", "123")
+	assert.Nil(t, err)
+	assert.Equal(t, val, int32(123))
+	val, err = mapTypes("int", 123.6)
+	assert.Nil(t, err)
+	assert.Equal(t, val, int32(123))
+	val, err = mapTypes("int", "123a")
+	assert.EqualError(t, err, "unable to cast \"123a\" of type string to int32")
+
+	val, err = mapTypes("object", map[string]string{"abc": "123"})
+	assert.Nil(t, err)
+	assert.Equal(t, val, map[string]string{"abc": "123"})
+	val, err = mapTypes("object", struct{ Abc string }{Abc: "123"})
+	assert.Nil(t, err)
+	assert.Equal(t, val, struct{ Abc string }{Abc: "123"})
+	val, err = mapTypes("object", 123.6)
+	assert.Nil(t, err)
+	assert.Equal(t, val, 123.6)
 }
