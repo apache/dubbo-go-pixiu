@@ -213,13 +213,13 @@ func TestValidateTarget(t *testing.T) {
 }
 
 func TestMapType(t *testing.T) {
-	val, err := mapTypes("strings", 123)
+	_, err := mapTypes("strings", 123)
 	assert.EqualError(t, err, "Invalid parameter type: strings")
 
-	val, err = mapTypes("string", 123)
+	val, err := mapTypes("string", 123)
 	assert.Nil(t, err)
 	assert.Equal(t, val, "123")
-	val, err = mapTypes("string", []int{123, 222})
+	_, err = mapTypes("string", []int{123, 222})
 	assert.EqualError(t, err, "unable to cast []int{123, 222} of type []int to string")
 
 	val, err = mapTypes("int", "123")
@@ -228,7 +228,7 @@ func TestMapType(t *testing.T) {
 	val, err = mapTypes("int", 123.6)
 	assert.Nil(t, err)
 	assert.Equal(t, val, int32(123))
-	val, err = mapTypes("int", "123a")
+	_, err = mapTypes("int", "123a")
 	assert.EqualError(t, err, "unable to cast \"123a\" of type string to int32")
 
 	val, err = mapTypes("object", map[string]string{"abc": "123"})
