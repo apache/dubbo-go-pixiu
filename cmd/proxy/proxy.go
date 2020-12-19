@@ -18,15 +18,16 @@
 package main
 
 import (
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
 )
 
 import (
+	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
 	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
 	"github.com/urfave/cli"
-	_ "net/http/pprof"
 )
 
 // Version proxy version
