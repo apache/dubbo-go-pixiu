@@ -124,7 +124,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 	val, err := client.GetMapValue(mapBody, keys)
 
 	if err := setTargetWithOpt(c, option, rv, pos, val, c.API.IntegrationRequest.ParamTypes[pos]); err != nil {
-		return err
+		return errors.Wrap(err, "set target fail")
 	}
 
 	c.IngressRequest.Body = ioutil.NopCloser(bytes.NewBuffer(rawBody))
@@ -170,13 +170,24 @@ func setTargetWithOpt(req *client.Request, option client.RequestOption, rv refle
 	if err != nil {
 		return err
 	}
-	if option == nil || option.Usable() {
-		setTarget(rv, pos, value)
-	}
+	newPos := pos
 
 	if option != nil {
 		option.Action(req, value)
+
+		if option.VirtualPos() != 0 {
+			newPos = option.VirtualPos()
+		}
+
+		if option.Usable() {
+			setTarget(rv, newPos, value)
+		}
+
+		return nil
 	}
+
+	setTarget(rv, newPos, value)
+
 	return nil
 }
 
