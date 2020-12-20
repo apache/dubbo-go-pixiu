@@ -45,6 +45,8 @@ type RequestOption interface {
 	SetUsable(b bool)
 	// Action do with val for special
 	Action(req *Request, val interface{})
+	// VirtualPos virtual position
+	VirtualPos() int
 }
 
 // CommonOption common opt.
@@ -61,4 +63,9 @@ func (opt *CommonOption) Usable() bool {
 // SetUsable set usable.
 func (opt *CommonOption) SetUsable(b bool) {
 	opt.usable = b
+}
+
+// VirtualPos virtual position, default 0.
+func (opt *CommonOption) VirtualPos() int {
+	return 0
 }
