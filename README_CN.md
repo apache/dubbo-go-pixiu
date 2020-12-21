@@ -18,12 +18,25 @@ dubbo-go-proxy支持2种协议的调用:
 2. [Dubbo协议调用](https://github.com/dubbogo/dubbo-go-proxy/blob/develop/docs/sample/dubbo.md)
 
 ## 特性
-1. dubbo-go-proxy 有完善的插件机制可以支持自定义的扩展
-2. 正如其它的网关一样，主要来做流量和接口的治理
-3. 兼容 java 和 go 的 dubbo 及 Spring Cloud（HTTP）
-4. 支持传统的网关自定义映射外，还支持自动识别注册中心的 RPC 服务暴露 HTTP 接口
-4. 能支持边车和集中部署（规划中）
-5. istio 下支持 dubbo 协议流量（规划中）
+- 多协议支持
+    - HTTP 代理，基于官方 net/http 包
+    - Dubbo 代理，基于 [dubbogo](https://github.com/apache/dubbo-go) (1.5.5) 泛化调用
+- 多形式的 Dubbo 配置
+    - 标准的 API 接口配置：配置 API 到 Dubbo 之间的关系
+    - 通用的 API 接口配置：把请求的接口信息通过 POST 请求携带过来转换（兼顾[dubbo-proxy](https://github.com/apache/dubbo-proxy)）
+- 动态特性
+    - 路由重写，支持请求发送到上游之前重写 host, uri, schema,headers（开发中）
+    - 超时控制
+    - 限流熔断（开发中）
+    - 插件机制（开发中）
+    - 路由匹配
+    - 支持传统的网关接口自定义映射外，还支持自动识别注册中心的 RPC 服务暴露 HTTP 接口（开发中）
+- 控制面板（开发中）
+- 安全
+    - IP 黑白名单
+- 云原生支持 
+    - istio 下支持 dubbo 协议流量（规划中）
+    - 能支持边车和集中部署（规划中）                       
 
 ## 架构图
 ![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbgoproxy-infrastructure.png)
