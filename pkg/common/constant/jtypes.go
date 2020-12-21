@@ -17,20 +17,27 @@
 
 package constant
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
+import (
+	"reflect"
+	"time"
 )
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
-)
+// Object represents the java.lang.Object type
+type Object interface{}
+
+// JTypeMapper maps the java basic types to golang types
+var JTypeMapper = map[string]reflect.Type{
+	"string":           reflect.TypeOf(""),
+	"java.lang.String": reflect.TypeOf(""),
+	"char":             reflect.TypeOf(""),
+	"short":            reflect.TypeOf(int32(0)),
+	"int":              reflect.TypeOf(int32(0)),
+	"long":             reflect.TypeOf(int64(0)),
+	"float":            reflect.TypeOf(float64(0)),
+	"double":           reflect.TypeOf(float64(0)),
+	"boolean":          reflect.TypeOf(true),
+	"java.util.Date":   reflect.TypeOf(time.Time{}),
+	"date":             reflect.TypeOf(time.Time{}),
+	"object":           reflect.TypeOf([]Object{}).Elem(),
+	"java.lang.Object": reflect.TypeOf([]Object{}).Elem(),
+}
