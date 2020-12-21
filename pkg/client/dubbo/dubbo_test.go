@@ -103,11 +103,15 @@ func TestMappingParams(t *testing.T) {
 			MapTo: "1",
 		},
 	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
+		"int",
+	}
 	req := client.NewReq(context.TODO(), r, api)
 	params, err := dClient.MapParams(req)
 	assert.Nil(t, err)
 	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], "19")
+	assert.Equal(t, params.([]interface{})[1], int32(19))
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
@@ -125,12 +129,17 @@ func TestMappingParams(t *testing.T) {
 			MapTo: "2",
 		},
 	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
+		"int",
+		"string",
+	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
 	params, err = dClient.MapParams(req)
 	assert.Nil(t, err)
 	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], "19")
+	assert.Equal(t, params.([]interface{})[1], int32(19))
 	assert.Equal(t, params.([]interface{})[2], "1234567")
 
 	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
@@ -157,12 +166,19 @@ func TestMappingParams(t *testing.T) {
 			MapTo: "4",
 		},
 	}
+	api.IntegrationRequest.ParamTypes = []string{
+		"string",
+		"int",
+		"string",
+		"string",
+		"java.lang.String",
+	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
 	params, err = dClient.MapParams(req)
 	assert.Nil(t, err)
 	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], "19")
+	assert.Equal(t, params.([]interface{})[1], int32(19))
 	assert.Equal(t, params.([]interface{})[2], "1234567")
 	assert.Equal(t, params.([]interface{})[3], "male")
 	assert.Equal(t, params.([]interface{})[4], "Joe")
