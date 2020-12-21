@@ -16,3 +16,5 @@ require (
 	go.uber.org/zap v1.16.0
 	gopkg.in/yaml.v2 v2.4.0
 )
+
+replace github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
