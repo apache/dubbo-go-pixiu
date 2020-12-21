@@ -24,3 +24,20 @@ var (
 	Default406Body = []byte("406 api not up")
 	Default503Body = []byte("503 service unavailable")
 )
+
+const (
+	// nolint
+	// FileDateFormat
+	FileDateFormat = "2006-01-02"
+	// nolint
+	// MessageDateLayout
+	MessageDateLayout = "2006-01-02 15:04:05"
+	// nolint
+	// LogFileMode
+	LogFileMode = 0600
+	// nolint
+	// buffer
+	LogDataBuffer = 5000
+	// console
+	Console = "console"
+)
