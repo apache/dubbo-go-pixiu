@@ -92,7 +92,7 @@ func registerProvider(providerURL common.URL, t *testing.T) (*zk.TestCluster, er
 
 func TestZookeeperRegistryLoad_GetCluster(t *testing.T) {
 	providerURL, _ := common.NewURL(providerUrlstr)
-	testCluster, err := registerProvider(providerURL, t)
+	testCluster, err := registerProvider(*providerURL, t)
 	assert.Nil(t, err)
 	defer testCluster.Stop()
 	registryLoad, err := newZookeeperRegistryLoad("127.0.0.1:1111", "test-cluster")
@@ -105,7 +105,7 @@ func TestZookeeperRegistryLoad_GetCluster(t *testing.T) {
 
 func TestZookeeperRegistryLoad_LoadAllServices(t *testing.T) {
 	providerURL, _ := common.NewURL(providerUrlstr)
-	testCluster, err := registerProvider(providerURL, t)
+	testCluster, err := registerProvider(*providerURL, t)
 	assert.Nil(t, err)
 	defer testCluster.Stop()
 	registryLoad, err := newZookeeperRegistryLoad(fmt.Sprintf("%s:%s", "127.0.0.1", strconv.Itoa(testCluster.Servers[0].Port)), "test-cluster")
