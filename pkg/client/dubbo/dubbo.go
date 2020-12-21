@@ -158,6 +158,9 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error) {
 	values, err := dc.MapParams(req)
 	types := req.API.IntegrationRequest.ParamTypes
+	if len(req.API.IntegrationRequest.ToParamTypes) > 0 {
+		types = req.API.IntegrationRequest.ToParamTypes
+	}
 	if err != nil {
 		return nil, nil, err
 	}
