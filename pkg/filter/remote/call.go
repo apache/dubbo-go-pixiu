@@ -21,6 +21,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -132,10 +133,10 @@ func (f clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 }
 
 func matchClient(typ config.RequestType) (client.Client, error) {
-	switch typ {
-	case config.DubboRequest:
+	switch strings.ToLower(string(typ)) {
+	case string(config.DubboRequest):
 		return dubbo.SingletonDubboClient(), nil
-	case config.HTTPRequest:
+	case string(config.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
 		return nil, errors.New("not support")
