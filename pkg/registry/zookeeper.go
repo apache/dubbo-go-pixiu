@@ -89,7 +89,7 @@ func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]common.URL, error) {
 				logger.Warnf("[zookeeper registry] transfer zk info to url error:%v", err)
 				continue
 			}
-			urls = append(urls, dubboURL)
+			urls = append(urls, *dubboURL)
 		}
 	}
 	return urls, nil
