@@ -24,10 +24,12 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"time"
 )
 
 import (
 	"github.com/pkg/errors"
+	"github.com/spf13/cast"
 )
 
 import (
@@ -68,9 +70,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, targ
 		return errors.Errorf("Query parameter %s does not exist", key)
 	}
 
-	setTargetWithOpt(c, option, rv, pos, qValue)
-
-	return nil
+	return setTargetWithOpt(c, option, rv, pos, qValue, c.API.IntegrationRequest.ParamTypes[pos])
 }
 
 type headerMapper struct{}
@@ -91,9 +91,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target int
 		return errors.Errorf("Header %s not found", key[0])
 	}
 
-	setTargetWithOpt(c, option, rv, pos, header)
-
-	return nil
+	return setTargetWithOpt(c, option, rv, pos, header, c.API.IntegrationRequest.ParamTypes[pos])
 }
 
 type bodyMapper struct{}
@@ -125,7 +123,9 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 	json.Unmarshal(rawBody, &mapBody)
 	val, err := client.GetMapValue(mapBody, keys)
 
-	setTargetWithOpt(c, option, rv, pos, val)
+	if err := setTargetWithOpt(c, option, rv, pos, val, c.API.IntegrationRequest.ParamTypes[pos]); err != nil {
+		return errors.Wrap(err, "set target fail")
+	}
 
 	c.IngressRequest.Body = ioutil.NopCloser(bytes.NewBuffer(rawBody))
 	return nil
@@ -149,9 +149,7 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interf
 	}
 	uriValues := c.API.GetURIParams(*c.IngressRequest.URL)
 
-	setTargetWithOpt(c, option, rv, pos, uriValues.Get(keys[0]))
-
-	return nil
+	return setTargetWithOpt(c, option, rv, pos, uriValues.Get(keys[0]), c.API.IntegrationRequest.ParamTypes[pos])
 }
 
 // validateTarget verify if the incoming target for the Map function
@@ -167,14 +165,30 @@ func validateTarget(target interface{}) (reflect.Value, error) {
 	return rv, nil
 }
 
-func setTargetWithOpt(req *client.Request, option client.RequestOption, rv reflect.Value, pos int, value interface{}) {
-	if option == nil || option.Usable() {
-		setTarget(rv, pos, value)
+func setTargetWithOpt(req *client.Request, option client.RequestOption, rv reflect.Value, pos int, value interface{}, targetType string) error {
+	value, err := mapTypes(targetType, value)
+	if err != nil {
+		return err
 	}
+	newPos := pos
 
 	if option != nil {
 		option.Action(req, value)
+
+		if option.VirtualPos() != 0 {
+			newPos = option.VirtualPos()
+		}
+
+		if option.Usable() {
+			setTarget(rv, newPos, value)
+		}
+
+		return nil
 	}
+
+	setTarget(rv, newPos, value)
+
+	return nil
 }
 
 func setTarget(rv reflect.Value, pos int, value interface{}) {
@@ -214,4 +228,27 @@ func setTarget(rv reflect.Value, pos int, value interface{}) {
 	}
 	tempValue[pos] = value
 	rv.Set(reflect.ValueOf(tempValue))
+}
+
+func mapTypes(jType string, originVal interface{}) (interface{}, error) {
+	targetType, ok := constant.JTypeMapper[jType]
+	if !ok {
+		return nil, errors.Errorf("Invalid parameter type: %s", jType)
+	}
+	switch targetType {
+	case reflect.TypeOf(""):
+		return cast.ToStringE(originVal)
+	case reflect.TypeOf(int32(0)):
+		return cast.ToInt32E(originVal)
+	case reflect.TypeOf(int64(0)):
+		return cast.ToInt64E(originVal)
+	case reflect.TypeOf(float64(0)):
+		return cast.ToFloat64E(originVal)
+	case reflect.TypeOf(true):
+		return cast.ToBoolE(originVal)
+	case reflect.TypeOf(time.Time{}):
+		return cast.ToBoolE(originVal)
+	default:
+		return originVal, nil
+	}
 }
