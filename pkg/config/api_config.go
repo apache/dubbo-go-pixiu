@@ -152,9 +152,9 @@ func (m *Method) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // InboundRequest defines the details of the inbound
 type InboundRequest struct {
 	RequestType  `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
-	Headers      []Params         `json:"headers" yaml:"headers"`
-	QueryStrings []Params         `json:"queryStrings" yaml:"queryStrings"`
-	RequestBody  []BodyDefinition `json:"requestBody" yaml:"requestBody"`
+	Headers      []Params                                `json:"headers" yaml:"headers"`
+	QueryStrings []Params                                `json:"queryStrings" yaml:"queryStrings"`
+	RequestBody  []BodyDefinition                        `json:"requestBody" yaml:"requestBody"`
 }
 
 // Params defines the simple parameter definition
