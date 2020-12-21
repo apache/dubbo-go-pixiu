@@ -34,6 +34,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/pkg/errors"
 )
 
 // TODO java class name elem
@@ -167,6 +168,9 @@ func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error
 // MapParams params mapping to api.
 func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
+	if len(r.ParamTypes) != len(r.MappingParams) {
+		return nil, errors.New("Numbers of param types and paramMappings are not the same")
+	}
 	var values []interface{}
 	for _, mappingParam := range r.MappingParams {
 		source, _, err := client.ParseMapSource(mappingParam.Name)
