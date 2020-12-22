@@ -1,6 +1,6 @@
 # Get the parameter from the body
 
-> POST request
+> POST request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/body)
 
 ## Passthroughs
 
@@ -25,37 +25,77 @@ resources:
             - name: requestBody._all
               mapTo: 0
           applicationName: "UserProvider"
-          interface: "com.ic.user.UserProvider"
+          interface: "com.dubbogo.proxy.UserService"
           method: "CreateUser"
-          paramTypes: [ "com.ikurento.user.User" ]
+          paramTypes: [ "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
-          retries: 0
+      - httpVerb: PUT
+        onAir: true
+        timeout: 10s
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody._all
+              mapTo: 0
+          applicationName: "UserProvider"
+          interface: "com.dubbogo.proxy.UserService"
+          method: "UpdateUser"
+          paramTypes: [ "object" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+  - path: '/api/v1/test-dubbo/user2'
+    type: restful
+    description: user
+    filters:
+      - filter0
+    methods:
+      - httpVerb: PUT
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody.name
+              mapTo: 0
+            - name: requestBody.user
+              mapTo: 1
+          applicationName: "UserService"
+          interface: "com.dubbogo.proxy.UserService"
+          method: "UpdateUserByName"
+          paramTypes: [ "string", "object" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
 ```
 
-> mapTo: 0 needed
+> when passthroughs, mapTo: 0 needed
 
-### Request
+### Test
+
+- passthroughs
 
 ```bash
-curl host:port/api/v1/test-dubbo/user -X POST -d '{"name":"tiecheng","id":"0002","age":18}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/user -X POST -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header "Content-Type: application/json"
 ```
 
-### Response
-
-- If first add, return like:
+If first add, return like:
 
 ```json
 {
-    "age": 18,
-    "id": "0002",
-    "name": "tiecheng",
-    "code": 1
+  "age": 99,
+  "code": 3,
+  "iD": "0003",
+  "name": "dubbogo"
 }
 ```
-
-- If you add user multi, return like: 
+If you add user multi, return like: 
 
 ```json
 {
@@ -63,7 +103,26 @@ curl host:port/api/v1/test-dubbo/user -X POST -d '{"name":"tiecheng","id":"0002"
 }
 ```
 
-## Mapping
+- update
 
+```bash
+curl host:port/api/v1/test-dubbo/user -X PUT -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header "Content-Type: application/json"
+```
 
+result
 
+```bash
+true
+```
+
+- body parse multi params
+
+```bash
+curl host:port/api/v1/test-dubbo/user2 -X PUT -d '{"name":"tc","user":{"id":"0001","code":1,"name":"tc","age":99}}' --header "Content-Type: application/json"
+```
+
+result
+
+```bash
+true
+```
