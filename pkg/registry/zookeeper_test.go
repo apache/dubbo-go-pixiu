@@ -35,7 +35,7 @@ import (
 
 const providerUrlstr = "dubbo://127.0.0.1:20000/com.ikurento.user.UserProvider?methods.GetUser.retries=1"
 
-func newMockZkRegistry(t *testing.T, providerURL common.URL, opts ...zookeeper.Option) (*zk.TestCluster, error) {
+func newMockZkRegistry(t *testing.T, providerURL *common.URL, opts ...zookeeper.Option) (*zk.TestCluster, error) {
 	var (
 		err    error
 		c      *zk.TestCluster
@@ -86,13 +86,13 @@ func newMockZkRegistry(t *testing.T, providerURL common.URL, opts ...zookeeper.O
 	return c, nil
 }
 
-func registerProvider(providerURL common.URL, t *testing.T) (*zk.TestCluster, error) {
+func registerProvider(providerURL *common.URL, t *testing.T) (*zk.TestCluster, error) {
 	return newMockZkRegistry(t, providerURL)
 }
 
 func TestZookeeperRegistryLoad_GetCluster(t *testing.T) {
 	providerURL, _ := common.NewURL(providerUrlstr)
-	testCluster, err := registerProvider(*providerURL, t)
+	testCluster, err := registerProvider(providerURL, t)
 	assert.Nil(t, err)
 	defer testCluster.Stop()
 	registryLoad, err := newZookeeperRegistryLoad("127.0.0.1:1111", "test-cluster")
@@ -105,7 +105,7 @@ func TestZookeeperRegistryLoad_GetCluster(t *testing.T) {
 
 func TestZookeeperRegistryLoad_LoadAllServices(t *testing.T) {
 	providerURL, _ := common.NewURL(providerUrlstr)
-	testCluster, err := registerProvider(*providerURL, t)
+	testCluster, err := registerProvider(providerURL, t)
 	assert.Nil(t, err)
 	defer testCluster.Stop()
 	registryLoad, err := newZookeeperRegistryLoad(fmt.Sprintf("%s:%s", "127.0.0.1", strconv.Itoa(testCluster.Servers[0].Port)), "test-cluster")
