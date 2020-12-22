@@ -1,6 +1,6 @@
-# Samples
+# 示例
  
-[中文](./README.zh-cn.md) 
+[English](./README.md) 
 * [dubbo](dubbo.md)
 * [http](http.md)
 * [mock](mock.md)
