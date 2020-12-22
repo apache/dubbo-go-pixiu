@@ -23,7 +23,7 @@ import (
 )
 
 // TransferURL2Api transfer url and clusterName to IntegrationRequest
-func TransferURL2Api(url common.URL, clusterName string) []config.IntegrationRequest {
+func TransferURL2Api(url *common.URL, clusterName string) []config.IntegrationRequest {
 	var irs []config.IntegrationRequest
 	for _, method := range url.Methods {
 		irs = append(irs, config.IntegrationRequest{
