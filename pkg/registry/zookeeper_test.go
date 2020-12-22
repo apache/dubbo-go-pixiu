@@ -35,7 +35,7 @@ import (
 
 const providerUrlstr = "dubbo://127.0.0.1:20000/com.ikurento.user.UserProvider?methods.GetUser.retries=1"
 
-func newMockZkRegistry(t *testing.T, providerURL common.URL, opts ...zookeeper.Option) (*zk.TestCluster, error) {
+func newMockZkRegistry(t *testing.T, providerURL *common.URL, opts ...zookeeper.Option) (*zk.TestCluster, error) {
 	var (
 		err    error
 		c      *zk.TestCluster
@@ -86,7 +86,7 @@ func newMockZkRegistry(t *testing.T, providerURL common.URL, opts ...zookeeper.O
 	return c, nil
 }
 
-func registerProvider(providerURL common.URL, t *testing.T) (*zk.TestCluster, error) {
+func registerProvider(providerURL *common.URL, t *testing.T) (*zk.TestCluster, error) {
 	return newMockZkRegistry(t, providerURL)
 }
 
