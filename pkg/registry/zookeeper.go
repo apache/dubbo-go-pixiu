@@ -69,13 +69,13 @@ func (crl *ZookeeperRegistryLoad) GetCluster() (string, error) {
 }
 
 // LoadAllServices load all services from zookeeper registry
-func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]common.URL, error) {
+func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]*common.URL, error) {
 	children, err := crl.client.GetChildren(rootPath)
 	if err != nil {
 		logger.Errorf("[zookeeper registry] get zk children error:%v", err)
 		return nil, err
 	}
-	var urls []common.URL
+	var urls []*common.URL
 	for _, _interface := range children {
 		providerStr := path.Join(rootPath, "/", _interface, "/", "providers")
 		urlStrs, err := crl.client.GetChildren(providerStr)
