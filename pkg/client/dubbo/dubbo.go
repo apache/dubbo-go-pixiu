@@ -116,7 +116,6 @@ func (dc *Client) Init() error {
 
 func initDubbogo() {
 	dg.SetConsumerConfig(dgCfg)
-	dubbo.SetClientConf(dubbo.GetDefaultClientConfig())
 	dg.Load()
 }
 
