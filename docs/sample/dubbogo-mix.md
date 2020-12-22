@@ -1,6 +1,6 @@
-# Get the parameter from the query
+# Get the parameter from the part of uri,query,body
 
-> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/query)
+> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/mix)
 
 ## Simple
 
@@ -10,7 +10,7 @@
 name: proxy
 description: proxy sample
 resources:
-  - path: '/api/v1/test-dubbo/userByName'
+  - path: '/api/v1/test-dubbo/user/:name'
     type: restful
     description: user
     filters:
@@ -21,74 +21,61 @@ resources:
         timeout: 1000ms
         inboundRequest:
           requestType: http
-          queryStrings:
-            - name: name
-              required: true
         integrationRequest:
           requestType: dubbo
           mappingParams:
-            - name: queryStrings.name
-              mapTo: 0
-          applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
-          method: "GetUserByName"
-          paramTypes: [ "java.lang.String" ]
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_dubbo"
-  - path: '/api/v1/test-dubbo/userByNameAndAge'
-    type: restful
-    description: user
-    filters:
-      - filter0
-    methods:
-      - httpVerb: GET
-        onAir: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-          queryStrings:
-            - name: name
-              required: true
-            - name: age
-              required: true
-        integrationRequest:
-          requestType: dubbo
-          mappingParams:
-            - name: queryStrings.name
+            - name: uri.name
               mapTo: 0
             - name: queryStrings.age
               mapTo: 1
           applicationName: "UserService"
           interface: "com.dubbogo.proxy.UserService"
           method: "GetUserByNameAndAge"
-          paramTypes: [ "java.lang.String","java.lang.Integer" ]
+          paramTypes: [ "string", "int" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
-  - path: '/api/v1/test-dubbo/userByCode'
+      - httpVerb: PUT
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: uri.name
+              mapTo: 0
+            - name: requestBody._all
+              mapTo: 1
+          applicationName: "UserService"
+          interface: "com.dubbogo.proxy.UserService"
+          method: "UpdateUserByName"
+          paramTypes: [ "string", "object" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+  - path: '/api/v1/test-dubbo/user'
     type: restful
     description: user
     filters:
       - filter0
     methods:
-      - httpVerb: GET
+      - httpVerb: PUT
         onAir: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
-          queryStrings:
-            - name: code
-              required: true
         integrationRequest:
           requestType: dubbo
           mappingParams:
-            - name: queryStrings.code
+            - name: queryStrings.name
               mapTo: 0
+            - name: requestBody._all
+              mapTo: 1
           applicationName: "UserService"
           interface: "com.dubbogo.proxy.UserService"
-          method: "GetUserByCode"
-          paramTypes: [ "java.lang.Integer" ]
+          method: "UpdateUserByName"
+          paramTypes: [ "string", "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -96,40 +83,32 @@ resources:
 
 ### Test
 
-- single param string
+- from uri and query
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/userByName?name=tc -X GET 
-```
-
-If exist, will return:
-
-```bash
-{
-  "age": 18,
-  "code": 1,
-  "iD": "0001",
-  "name": "tc",
-  "time": "2020-12-20T15:51:36.333+08:00"
-}
-```
-
-Not found, return: nil
-
-- multi params
-
-```bash
-curl localhost:8888/api/v1/test-dubbo/userByNameAndAge?name=tc&age=99 -X GET 
+curl localhost:8888/api/v1/test-dubbo/user/tc?age=99 -X GET 
 ```
 
 result
 
 ```bash
 {
-  "age": 18,
+  "age": 15,
   "code": 1,
   "iD": "0001",
   "name": "tc",
-  "time": "2020-12-20T15:51:36.333+08:00"
+  "time": "2020-12-20T20:54:38.746+08:00"
 }
+```
+
+- multi params, from body and query
+
+```bash
+curl localhost:8888/api/v1/test-dubbo/user?name=tc -X PUT -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json"
+```
+
+result
+
+```bash
+true
 ```
