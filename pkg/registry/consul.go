@@ -70,7 +70,7 @@ func (crl *ConsulRegistryLoad) GetCluster() (string, error) {
 	return crl.cluster, nil
 }
 
-func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common.URL, error) {
+func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (*common.URL, error) {
 	var params = url.Values{}
 	var protocol string
 
@@ -97,17 +97,17 @@ func (crl *ConsulRegistryLoad) transfer2Url(service consul.AgentService) (common
 		common.WithProtocol(protocol), common.WithMethods(methods),
 		common.WithIp(service.Address), common.WithParams(params))
 
-	return *url, nil
+	return url, nil
 }
 
 // LoadAllServices load all services from consul registry
-func (crl *ConsulRegistryLoad) LoadAllServices() ([]common.URL, error) {
+func (crl *ConsulRegistryLoad) LoadAllServices() ([]*common.URL, error) {
 	agentServices, err := crl.client.Agent().ServicesWithFilter(dubboAPIFilter)
 	if err != nil {
 		logger.Error("consul load all apis error:%v", err)
 		return nil, perrors.Wrap(err, "consul load all apis")
 	}
-	var urls []common.URL
+	var urls []*common.URL
 	for _, service := range agentServices {
 		url, err := crl.transfer2Url(*service)
 		if err != nil {
