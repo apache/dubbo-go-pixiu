@@ -1,12 +1,12 @@
-# Use dubbo request universality
+# 使用 dubbo 通用性请求
 
-> POST request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/body)
+> POST 请求
 
-## Suggest
+## 建议
 
-> In this way, you can request your dubbo rpc service by defined one api for every cluster.
+> 使用此方式，你能够给一个集群定义一个接口来请求对应 dubbo 提供的服务
 
-### Config
+### 配置
 
 ```yaml
 name: proxy
@@ -61,14 +61,14 @@ resources:
                 open: true
                 name: version
           paramTypes: ["object", "object", "string", "string", "string", "string", "string"]
-          # Notice: this is the really paramTypes to dubbo service, it takes precedence over paramTypes when it is finally called.
+          # 这个是必须注意的，实际传给 dubbo 的 paramTypes，在最终调用的时候优先级高于 paramTypes。
           toParamTypes: ["string"]
           clusterName: "test_dubbo"
 ```
 
-### Test
+### 测试例子
 
-- single param string
+- 单个 string 参数
 
 ```bash
 curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
@@ -86,7 +86,7 @@ result
 }
 ```
 
-- single param int
+- 单个 int 参数
 
 ```bash
 curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
@@ -104,7 +104,7 @@ result
 }
 ```
 
-- multi params
+- 多个参数
 
 ```bash
 curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
@@ -116,9 +116,9 @@ result
 true
 ```
 
-### Special config
+### 特殊配置
 
-#### Code
+#### 可配码
 
 ```go
 const (
@@ -132,9 +132,9 @@ const (
 )
 ```
 
-#### Options
+#### 选择项
 
-Assemble generic params to invoke.
+组装泛化调用的参数
 
 ```go
 // GenericService uses for generic invoke for service call
@@ -146,39 +146,39 @@ type GenericService struct {
 
 - types
 
-> dubbo generic types
+> dubbo 泛化类型
 
-Use for dubbogo `GenericService#Invoke` func arg 2rd param.
+用于 dubbogo `GenericService#Invoke` 函数的第二个参数。
 
 - method
 
-Use for dubbogo `GenericService#Invoke` func arg 1rd param.
+用于 dubbogo `GenericService#Invoke` 函数的第一个参数。
 
 - group
 
-Dubbo group in `ReferenceConfig#Group`. 
+Dubbo 组配置 `ReferenceConfig#Group`。
 
 - version
 
-Dubbo version in `ReferenceConfig#Version`.
+Dubbo 版本配置 `ReferenceConfig#Version`。
 
 - interface
 
-Dubbo interface in `ReferenceConfig#InterfaceName`.
+Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
 
 - application
 
-Now only use for part of cache key.
+目前暂时用于缓存，索引的一部分查找对应的缓存对象。
 
 - values
 
-Use for dubbogo `GenericService#Invoke` func arg 3rd param.
+值的处理，用于 `GenericService#Invoke` 函数的第三个参数。
 
-#### Explain
+#### 解释
 
-##### Single params 
+##### 单个参数
 
-request body
+请求体
 
 ```json
 {
@@ -197,12 +197,14 @@ request body
                 name: types
 ```
 
-- `requestBody.types` means body content with types key.
-- `opt.name` means use types option.
-- `opt.open` must `true` will create opt，may be deleted in the future for thin provisioning。
-- `opt.usable` means if remove the request to downstream service.
+- `requestBody.types` 意味着对 body 的 json 内容取 key 的值为 types。
+- `opt.name` 意味着扩展名称，和 proxy 提供的默认实现匹配。
+- `opt.open` 打开，目前是 `true` 才会创建对应的扩展，如果后续配置缩减的话考虑删除。
+- `opt.usable` 表示上游服务是否需要这个参数，对应代码里面 `setTarget` 这个行为，默认加了扩展是 `false`，即这个字段只有行为，不会成为 RPC 的参数。
 
-##### Multiple params
+##### 多个参数
+
+请求体
 
 ```json
 {
@@ -222,5 +224,4 @@ request body
 }
 ```
 
-Please pay attention to the special situation of configuration the degrees of freedom is not very high, if can't meet the scene, please mention [issue] (https://github.com/dubbogo/dubbo-go-proxy/issues), thank you.
-
+请注意这种特殊情况的配置目前自由度不是很高，如果有不能满足的场景请提 [issue](https://github.com/dubbogo/dubbo-go-proxy/issues)，谢谢。
