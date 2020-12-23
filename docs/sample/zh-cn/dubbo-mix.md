@@ -1,10 +1,10 @@
-# Get the parameter from the part of uri,query,body
+# 从 URI，Query，Body 各个部分获取参数
 
-> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/mix)
+> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/mix)
 
-## Simple
+## 简单示例
 
-### Config
+### 配置
 
 ```yaml
 name: proxy
@@ -81,15 +81,15 @@ resources:
           clusterName: "test_dubbo"
 ```
 
-### Test
+### 测试
 
-- from uri and query
+- 来自 uri 和 query
 
 ```bash
 curl localhost:8888/api/v1/test-dubbo/user/tc?age=99 -X GET 
 ```
 
-result
+结果
 
 ```bash
 {
@@ -101,14 +101,16 @@ result
 }
 ```
 
-- multi params, from body and query
+- 来自 body 和 query
 
 ```bash
 curl localhost:8888/api/v1/test-dubbo/user?name=tc -X PUT -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json"
 ```
 
-result
+结果
 
 ```bash
 true
 ```
+
+[上一页](./dubbo.md)
