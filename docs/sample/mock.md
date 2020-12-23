@@ -1,8 +1,8 @@
 # Mock request
 
-## simple
+## Simple Demo
 
-### config
+### Config
 
 ```yaml
 name: proxy
@@ -20,13 +20,13 @@ resources:
           requestType: http
 ```
 
-### request
+### Request
 
 ```bash
 curl localhost:8888/api/v1/test-dubbo/mock -X GET 
 ```
 
-### response
+### Response
 
 ```json
 {
@@ -36,4 +36,6 @@ curl localhost:8888/api/v1/test-dubbo/mock -X GET
 
 ## TODO
 
-We plan use can config custom result in the future. Not only api config way, but also create a match rule.  
+We plan use can config custom result in the future. Not only api config way, but also create a match rule.
+
+[Previous](./README.md)  
