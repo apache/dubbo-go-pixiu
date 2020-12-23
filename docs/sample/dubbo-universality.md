@@ -1,6 +1,6 @@
 # Use dubbo request universality
 
-> POST request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/body)
+> POST request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/proxy)
 
 ## Suggest
 
@@ -222,5 +222,6 @@ request body
 }
 ```
 
-Please pay attention to the special situation of configuration the degrees of freedom is not very high, if can't meet the scene, please mention [issue] (https://github.com/dubbogo/dubbo-go-proxy/issues), thank you.
+Please pay attention to the special situation of configuration the degrees of freedom is not very high, if can't meet the scene, please mention [issue](https://github.com/dubbogo/dubbo-go-proxy/issues), thank you.
 
+[Previous](./dubbo.md)
