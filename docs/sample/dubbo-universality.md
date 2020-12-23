@@ -6,7 +6,7 @@
 
 > In this way, you can request your dubbo rpc service by defined one api for every cluster.
 
-### Config
+### Api Config
 
 ```yaml
 name: proxy
