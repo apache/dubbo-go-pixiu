@@ -4,7 +4,7 @@
 
 ## Passthroughs
 
-### Config
+### Api Config
 
 ```yaml
 name: proxy

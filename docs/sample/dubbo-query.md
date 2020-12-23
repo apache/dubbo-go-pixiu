@@ -4,7 +4,7 @@
 
 ## Simple Demo
 
-### Config
+### Api Config
 
 ```yaml
 name: proxy
