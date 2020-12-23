@@ -1,6 +1,6 @@
 # 使用 dubbo 通用性请求
 
-> POST 请求
+> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/proxy)
 
 ## 建议
 
@@ -224,4 +224,6 @@ Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
 }
 ```
 
-请注意这种特殊情况的配置目前自由度不是很高，如果有不能满足的场景请提 [issue](https://github.com/dubbogo/dubbo-go-proxy/issues)，谢谢。
+请注意这种特殊情况的配置目前自由度不是很高，如果有不能满足的场景请及时反馈到[问题](https://github.com/dubbogo/dubbo-go-proxy/issues)
+
+[上一页](./dubbo.md)
