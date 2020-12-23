@@ -3,9 +3,9 @@
 > GET request
 > downstream service url is 127.0.0.1:1314/user?name=tc
 
-## Simple
+## Simple Demo
 
-### Config
+### Api Config
 
 ```yaml
 name: proxy
