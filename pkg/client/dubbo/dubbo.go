@@ -34,6 +34,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/pkg/errors"
 )
 
 // TODO java class name elem
@@ -115,7 +116,6 @@ func (dc *Client) Init() error {
 
 func initDubbogo() {
 	dg.SetConsumerConfig(dgCfg)
-	dubbo.SetClientConf(dubbo.GetDefaultClientConfig())
 	dg.Load()
 }
 
@@ -157,6 +157,9 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error) {
 	values, err := dc.MapParams(req)
 	types := req.API.IntegrationRequest.ParamTypes
+	if len(req.API.IntegrationRequest.ToParamTypes) > 0 {
+		types = req.API.IntegrationRequest.ToParamTypes
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -167,6 +170,9 @@ func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error
 // MapParams params mapping to api.
 func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
+	if len(r.ParamTypes) != len(r.MappingParams) {
+		return nil, errors.New("Numbers of param types and paramMappings are not the same")
+	}
 	var values []interface{}
 	for _, mappingParam := range r.MappingParams {
 		source, _, err := client.ParseMapSource(mappingParam.Name)
@@ -182,8 +188,8 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	return values, nil
 }
 
-func buildOption(conf config.MappingParam) client.IOption {
-	var opt client.IOption
+func buildOption(conf config.MappingParam) client.RequestOption {
+	var opt client.RequestOption
 	if conf.Opt.Open {
 		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
 		if ok {

@@ -17,21 +17,113 @@
 
 package model
 
-// AccessLog
-type AccessLog struct {
-	Name   string          `yaml:"name" json:"name" mapstructure:"name"`
-	Filter AccessLogFilter `yaml:"filter" json:"filter" mapstructure:"filter"`
-	Config interface{}     `yaml:"config" json:"config" mapstructure:"config"`
+import (
+	"os"
+	"path/filepath"
+	"time"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+)
+
+// access log config, enable default value true, outputpath default value console
+// access log will out put into console
+type AccessLogConfig struct {
+	Enable     bool   `yaml:"enable" json:"enable" mapstructure:"enable" default:"true"`
+	OutPutPath string `yaml:"outPutPath" json:"outPutPath" mapstructure:"outPutPath" default:"console"`
 }
 
-// AccessLogFilter
-type AccessLogFilter struct {
-	StatusCodeFilter StatusCodeFilter `yaml:"status_code_filter" json:"status_code_filter" mapstructure:"status_code_filter"`
-	DurationFilter   DurationFilter   `yaml:"duration_filter" json:"duration_filter" mapstructure:"duration_filter"`
+// access log chan
+type AccessLogWriter struct {
+	AccessLogDataChan chan AccessLogData
 }
 
-type StatusCodeFilter struct {
+// access log data
+type AccessLogData struct {
+	AccessLogMsg    string
+	AccessLogConfig AccessLogConfig
 }
 
-type DurationFilter struct {
+// writer msg into chan
+func (alw *AccessLogWriter) Writer(accessLogData AccessLogData) {
+	select {
+	case alw.AccessLogDataChan <- accessLogData:
+		return
+	default:
+		logger.Warn("the channel is full and the access logIntoChannel data will be dropped")
+		return
+	}
+}
+
+// write log into out put path
+func (alw *AccessLogWriter) Write() {
+	go func() {
+		for accessLogData := range alw.AccessLogDataChan {
+			alw.writeLogToFile(accessLogData)
+		}
+	}()
+}
+
+// write log to file or console
+func (alw *AccessLogWriter) writeLogToFile(ald AccessLogData) {
+	alc := ald.AccessLogConfig
+	alm := ald.AccessLogMsg
+	if len(alc.OutPutPath) == 0 || alc.OutPutPath == constant.Console {
+		logger.Info(alm)
+		return
+	}
+	_ = WriteToFile(alm, alc.OutPutPath)
+}
+
+// write message to access log file
+func WriteToFile(accessLogMsg string, filePath string) error {
+	pd := filepath.Dir(filePath)
+	if _, err := os.Stat(pd); err != nil {
+		if os.IsExist(err) {
+			logger.Warnf("can not open log dir: %s, %v", filePath, err)
+		}
+		err = os.MkdirAll(pd, os.ModePerm)
+		if err != nil {
+			logger.Warnf("can not create log dir: %s, %v", filePath, err)
+			return err
+		}
+	}
+	logFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, constant.LogFileMode)
+	if err != nil {
+		logger.Warnf("can not open the access log file: %s, %v", filePath, err)
+		return err
+	}
+	now := time.Now().Format(constant.FileDateFormat)
+	fileInfo, err := logFile.Stat()
+	if err != nil {
+		logger.Warnf("can not get the info of access log file: %s, %v", filePath, err)
+		return err
+	}
+	last := fileInfo.ModTime().Format(constant.FileDateFormat)
+
+	// this is confused.
+	// for example, if the last = '2020-03-04'
+	// and today is '2020-03-05'
+	// we will create one new file to log access data
+	// By this way, we can split the access log based on days.
+	if now != last {
+		err = os.Rename(fileInfo.Name(), fileInfo.Name()+"."+now)
+		if err != nil {
+			logger.Warnf("can not rename access log file: %s, %v", fileInfo.Name(), err)
+			return err
+		}
+		logFile, err = os.OpenFile(fileInfo.Name(), os.O_CREATE|os.O_APPEND|os.O_RDWR, constant.LogFileMode)
+		if err != nil {
+			logger.Warnf("can not open access log file: %s, %v", fileInfo.Name(), err)
+			return err
+		}
+	}
+	_, err = logFile.WriteString(accessLogMsg + "\n")
+	if err != nil {
+		logger.Warnf("can not write to access log file: %s, v%", fileInfo.Name(), err)
+		return err
+	}
+	return nil
 }
