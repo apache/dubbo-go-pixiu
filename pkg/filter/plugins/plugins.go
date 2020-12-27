@@ -125,7 +125,7 @@ func loadExternalPlugin(p *config.Plugin, pl *plugin.Plugin) context.FilterFunc 
 		}
 
 		sbf := sb.(func() filter.Filter)
-		logger.Infof("loadExternalPlugin %s sucess", p.Name)
+		logger.Infof("loadExternalPlugin %s success", p.Name)
 		return sbf().Do()
 	}
 
