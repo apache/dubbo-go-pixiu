@@ -68,10 +68,32 @@ const (
 
 // APIConfig defines the data structure of the api gateway configuration
 type APIConfig struct {
-	Name        string       `json:"name" yaml:"name"`
-	Description string       `json:"description" yaml:"description"`
-	Resources   []Resource   `json:"resources" yaml:"resources"`
-	Definitions []Definition `json:"definitions" yaml:"definitions"`
+	Name        	string       	`json:"name" yaml:"name"`
+	Description 	string       	`json:"description" yaml:"description"`
+	Resources   	[]Resource   	`json:"resources" yaml:"resources"`
+	Definitions 	[]Definition 	`json:"definitions" yaml:"definitions"`
+	PluginFilePath  string 			`json:"pluginFilePath" yaml:"pluginFilePath"`
+	PluginsGroup 	[]PluginsGroup 	`json:"pluginsGroup" yaml:"pluginsGroup"`
+}
+
+// Plugin defines plugin details
+type Plugin struct {
+	Name 				string 	`json:"name" yaml:"name"`
+	Version 			string 	`json:"version" yaml:"version"`
+	Priority 			int 	`json:"priority" yaml:"priority"`
+	ExternalLookupName  string 	`json:"externalLookupName" yaml:"externalLookupName"`
+}
+
+// PluginsGroup defines the plugins group info
+type PluginsGroup struct {
+	GroupName 		string 		`json:"groupName" yaml:"groupName"`
+	Plugins 		[]Plugin	`json:"plugins" yaml:"plugins"`
+}
+
+// Resource defines resources.plugins
+type PluginsInUse struct {
+	GroupNames 		[]string 	`json:"groupNames" yaml:"groupNames"`
+	PluginNames 	[]string 	`json:"pluginNames" yaml:"pluginNames"`
 }
 
 // Resource defines the API path
@@ -81,6 +103,7 @@ type Resource struct {
 	Timeout     time.Duration     `json:"timeout" yaml:"timeout"`
 	Description string            `json:"description" yaml:"description"`
 	Filters     []string          `json:"filters" yaml:"filters"`
+	Plugins 	PluginsInUse 	  `json:"plugins" yaml:"plugins"`
 	Methods     []Method          `json:"methods" yaml:"methods"`
 	Resources   []Resource        `json:"resources,omitempty" yaml:"resources,omitempty"`
 	Headers     map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
