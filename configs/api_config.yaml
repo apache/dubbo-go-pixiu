@@ -6,6 +6,12 @@ resources:
     description: resource documentation
     filters:
       - filter0
+    plugins:
+      groupNames:
+        - group2
+      pluginNames:
+        - rate limit
+        - access
     methods:
       - httpVerb: GET
         onAir: true
@@ -23,7 +29,6 @@ resources:
           interface: "com.ikurento.user.UserProvider"
           method: "GetUser"
           clusterName: "test_dubbo"
-
 definitions:
   - name: modelDefinition
     schema: >-
@@ -41,3 +46,21 @@ definitions:
           }
         }
       }
+pluginFilePath: "/Users/zhengxianle/dubbo-go-proxy/configs/plugins/plugin.so"
+pluginsGroup:
+  - groupName: "group1"
+    plugins:
+      - name: "rate limit"
+        version: "0.0.1"
+        priority: 1000
+        externalLookupName: "ExternalPluginRateLimit"
+      - name: "access"
+        version: "0.0.1"
+        priority: 1000
+        externalLookupName: "ExternalPluginAccess"
+  - groupName: "group2"
+    plugins:
+      - name: "blacklist"
+        version: "0.0.1"
+        priority: 1000
+        externalLookupName: "ExternalPluginBlackList"
