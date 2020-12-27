@@ -20,6 +20,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
 )
 
 import (
@@ -67,6 +68,10 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	if len(apiConfig.Resources) == 0 {
 		return nil
 	}
+	// load pluginsGroup
+	plugins.InitPluginsGroup(apiConfig.PluginsGroup,apiConfig.PluginFilePath)
+	// init plugins from resource
+	plugins.InitApiUrlWithFilterChain(apiConfig.Resources)
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
