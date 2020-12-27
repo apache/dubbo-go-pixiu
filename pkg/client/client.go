@@ -35,22 +35,24 @@ type Client interface {
  */
 
 // MapOption option map, key : name, value : option
-type MapOption map[string]IOption
+type MapOption map[string]RequestOption
 
-// IOption option interface.
-type IOption interface {
+// RequestOption option interface.
+type RequestOption interface {
 	// Usable if option can use
 	Usable() bool
 	// SetUsable set usable
 	SetUsable(b bool)
 	// Action do with val for special
 	Action(req *Request, val interface{})
+	// VirtualPos virtual position
+	VirtualPos() int
 }
 
 // CommonOption common opt.
 type CommonOption struct {
 	usable bool
-	IOption
+	RequestOption
 }
 
 // Usable get usable.
@@ -61,4 +63,9 @@ func (opt *CommonOption) Usable() bool {
 // SetUsable set usable.
 func (opt *CommonOption) SetUsable(b bool) {
 	opt.usable = b
+}
+
+// VirtualPos virtual position, default 0.
+func (opt *CommonOption) VirtualPos() int {
+	return 0
 }
