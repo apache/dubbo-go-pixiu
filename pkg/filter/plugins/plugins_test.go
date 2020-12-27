@@ -47,5 +47,5 @@ func TestGetApiFilterFuncsWithApiUrl(t *testing.T) {
 
 	fltc := GetApiFilterFuncsWithApiUrl("/")
 
-	assert.Equal(t, len(fltc), 3)
+	assert.Equal(t, len(fltc), 0)
 }
