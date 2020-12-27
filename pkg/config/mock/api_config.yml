@@ -154,7 +154,7 @@ definitions:
           }
         }
       }
-pluginFilePath: "../../../configs/plugins/plugin.so"
+pluginFilePath: ""
 pluginsGroup:
   - groupName: "group1"
     plugins:
