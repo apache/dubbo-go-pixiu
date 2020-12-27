@@ -46,6 +46,11 @@ type PluginsWithFunc struct {
 
 // Prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
 func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
+
+	if "" == filePath {
+		return
+	}
+
 	// load file.so
 	pls, err := plugin.Open(filePath)
 	if nil != err {
