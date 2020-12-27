@@ -21,6 +21,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -44,16 +45,26 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-func init() {
+// nolint
+func Init() {
+	extension.SetFilterFunc(constant.RemoteCallFilter, remoteFilterFunc())
+}
+
+func remoteFilterFunc() selfcontext.FilterFunc {
+	return New(defaultNewParams()).Do()
+}
+
+func defaultNewParams() mockLevel {
 	mock := 1
 	mockStr := os.Getenv(constant.EnvMock)
-	if mockStr != "" {
+	if len(mockStr) > 0 {
 		i, err := strconv.Atoi(mockStr)
 		if err == nil {
 			mock = i
 		}
 	}
-	extension.SetFilterFunc(constant.RemoteCallFilter, New(mockLevel(mock)).Do())
+
+	return mockLevel(mock)
 }
 
 type mockLevel int8
@@ -81,13 +92,13 @@ func New(level mockLevel) filter.Filter {
 
 // Do execute clientFilter filter logic
 // support: 1 http 2 dubbo 2 http 2 http
-func (f *clientFilter) Do() selfcontext.FilterFunc {
+func (f clientFilter) Do() selfcontext.FilterFunc {
 	return func(c selfcontext.Context) {
 		f.doRemoteCall(c.(*contexthttp.HttpContext))
 	}
 }
 
-func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
+func (f clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
 	if (f.level == open && api.Mock) || (f.level == all) {
@@ -122,10 +133,10 @@ func (f *clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 }
 
 func matchClient(typ config.RequestType) (client.Client, error) {
-	switch typ {
-	case config.DubboRequest:
+	switch strings.ToLower(string(typ)) {
+	case string(config.DubboRequest):
 		return dubbo.SingletonDubboClient(), nil
-	case config.HTTPRequest:
+	case string(config.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
 		return nil, errors.New("not support")

@@ -1,27 +1,28 @@
 name: api name
 description: api description
 resources:
-  - path: '/'
+  - path: '/api/v1/test-dubbo/user'
     type: restful
     description: resource documentation
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
         inboundRequest:
           requestType: http
           queryStrings:
-            - name: id
-              required: false
+            - name: name
+              required: true
         integrationRequest:
           requestType: dubbo
           mappingParams:
-            - name: queryStrings.id
-              mapTo: 1
+            - name: queryStrings.name
+              mapTo: 0
           applicationName: "BDTService"
           interface: "com.ikurento.user.UserProvider"
           method: "GetUser"
+          paramTypes: [ "java.lang.String" ]
+          group: "test"
+          version: 1.0.0
           clusterName: "test_dubbo"
 
 definitions:
