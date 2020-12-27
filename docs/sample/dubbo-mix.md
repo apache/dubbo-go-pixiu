@@ -1,6 +1,6 @@
 # Get the parameter from the part of uri,query,body
 
-> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/mix)
+> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/mix)
 
 ## Simple Demo
 
@@ -13,8 +13,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/:name'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -57,8 +55,6 @@ resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: PUT
         onAir: true
@@ -86,7 +82,7 @@ resources:
 - from uri and query
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user/tc?age=99 -X GET 
+curl localhost:port/api/v1/test-dubbo/user/tc?age=99 -X GET 
 ```
 
 result
@@ -104,7 +100,7 @@ result
 - from body and query
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user?name=tc -X PUT -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json"
+curl localhost:port/api/v1/test-dubbo/user?name=tc -X PUT -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json"
 ```
 
 result

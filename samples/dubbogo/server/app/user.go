@@ -36,8 +36,8 @@ func init() {
 	hessian.RegisterPOJO(&User{})
 
 	cache = &UserDB{
-		cacheMap:  make(map[string]*User, 16),
-		cacheMapC: make(map[int64]*User, 16),
+		nameIndex: make(map[string]*User, 16),
+		codeIndex: make(map[int64]*User, 16),
 		lock:      sync.Mutex{},
 	}
 
@@ -50,71 +50,98 @@ var cache *UserDB
 // UserDB cache user.
 type UserDB struct {
 	// key is name, value is user obj
-	cacheMap  map[string]*User
-	cacheMapC map[int64]*User
+	nameIndex map[string]*User
+	// key is code, value is user obj
+	codeIndex map[int64]*User
 	lock      sync.Mutex
 }
 
-// nolint.
+// nolint
 func (db *UserDB) Add(u *User) bool {
-	res := db.AddForName(u)
-	if !res {
-		return false
-	}
-
-	return db.AddForCode(u)
-}
-
-// nolint.
-func (db *UserDB) AddForName(u *User) bool {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
+	if u.Name == "" || u.Code <= 0 {
+		return false
+	}
+
+	if !db.existName(u.Name) && !db.existCode(u.Code) {
+		return db.AddForName(u) && db.AddForCode(u)
+	}
+
+	return false
+}
+
+// nolint
+func (db *UserDB) AddForName(u *User) bool {
 	if len(u.Name) == 0 {
 		return false
 	}
 
-	if _, ok := db.cacheMap[u.Name]; ok {
+	if _, ok := db.nameIndex[u.Name]; ok {
 		return false
 	}
 
-	db.cacheMap[u.Name] = u
+	db.nameIndex[u.Name] = u
 	return true
 }
 
-// nolint.
+// nolint
 func (db *UserDB) AddForCode(u *User) bool {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
-	if u.Code == 0 {
+	if u.Code <= 0 {
 		return false
 	}
 
-	if _, ok := db.cacheMapC[u.Code]; ok {
+	if _, ok := db.codeIndex[u.Code]; ok {
 		return false
 	}
 
-	db.cacheMapC[u.Code] = u
+	db.codeIndex[u.Code] = u
 	return true
 }
 
-// nolint.
+// nolint
 func (db *UserDB) GetByName(n string) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
-	r, ok := db.cacheMap[n]
+	r, ok := db.nameIndex[n]
 	return r, ok
 }
 
-// nolint.
+// nolint
 func (db *UserDB) GetByCode(n int64) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
-	r, ok := db.cacheMapC[n]
+	r, ok := db.codeIndex[n]
 	return r, ok
+}
+
+func (db *UserDB) existName(name string) bool {
+	if len(name) <= 0 {
+		return false
+	}
+
+	_, ok := db.nameIndex[name]
+	if ok {
+		return true
+	}
+
+	return false
+}
+
+func (db *UserDB) existCode(code int64) bool {
+	if code <= 0 {
+		return false
+	}
+
+	_, ok := db.codeIndex[code]
+	if ok {
+		return true
+	}
+
+	return false
 }
 
 // User user obj.
@@ -174,12 +201,12 @@ func (u *UserProvider) GetUserByCode(ctx context.Context, code int64) (*User, er
 
 // GetUserTimeout query by name, will timeout for proxy.
 func (u *UserProvider) GetUserTimeout(ctx context.Context, name string) (*User, error) {
-	println("Req GetUserTimeout name:%#v", name)
+	println("Req GetUserByName name:%#v", name)
 	// sleep 10s, proxy config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := cache.GetByName(name)
 	if ok {
-		println("Req GetUserTimeout result:%#v", r)
+		println("Req GetUserByName result:%#v", r)
 		return r, nil
 	}
 	return nil, nil
@@ -228,17 +255,17 @@ func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *
 	return false, errors.New("not found")
 }
 
-// nolint.
+// nolint
 func (u *UserProvider) Reference() string {
 	return "UserProvider"
 }
 
-// nolint.
+// nolint
 func (u User) JavaClassName() string {
-	return "com.ikurento.user.User"
+	return "com.dubbogo.proxy.User"
 }
 
-// nolint.
+// nolint
 func println(format string, args ...interface{}) {
 	fmt.Printf("\033[32;40m"+format+"\033[0m\n", args...)
 }
