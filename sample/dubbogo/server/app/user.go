@@ -174,12 +174,12 @@ func (u *UserProvider) GetUserByCode(ctx context.Context, code int64) (*User, er
 
 // GetUserTimeout query by name, will timeout for proxy.
 func (u *UserProvider) GetUserTimeout(ctx context.Context, name string) (*User, error) {
-	println("Req GetUserByName name:%#v", name)
+	println("Req GetUserTimeout name:%#v", name)
 	// sleep 10s, proxy config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := cache.GetByName(name)
 	if ok {
-		println("Req GetUserByName result:%#v", r)
+		println("Req GetUserTimeout result:%#v", r)
 		return r, nil
 	}
 	return nil, nil
@@ -190,7 +190,7 @@ func (u *UserProvider) GetUserByNameAndAge(ctx context.Context, name string, age
 	println("Req GetUserByNameAndAge name:%s, age:%d", name, age)
 	r, ok := cache.GetByName(name)
 	if ok && r.Age == age {
-		println("Req GetUserByName result:%#v", r)
+		println("Req GetUserByNameAndAge result:%#v", r)
 		return r, nil
 	}
 	return r, nil
@@ -214,7 +214,7 @@ func (u *UserProvider) UpdateUser(ctx context.Context, user *User) (bool, error)
 
 // UpdateUser update by user struct, my be another struct, Proxy config POST or PUT.
 func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *User) (bool, error) {
-	println("Req UpdateUser data:%#v", user)
+	println("Req UpdateUserByName data:%#v", user)
 	r, ok := cache.GetByName(name)
 	if ok {
 		if user.ID != "" {

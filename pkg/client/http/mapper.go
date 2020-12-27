@@ -42,35 +42,30 @@ var mappers = map[string]client.ParamMapper{
 	constant.QueryStrings: queryStringsMapper{},
 	constant.Headers:      headerMapper{},
 	constant.RequestBody:  bodyMapper{},
+	constant.RequestURI:   uriMapper{},
 }
 
 type requestParams struct {
-	Header http.Header
-	Query  url.Values
-	Body   io.ReadCloser
+	Header    http.Header
+	Query     url.Values
+	Body      io.ReadCloser
+	URIParams url.Values
 }
 
 func newRequestParams() *requestParams {
 	return &requestParams{
-		Header: http.Header{},
-		Query:  url.Values{},
-		Body:   ioutil.NopCloser(bytes.NewReader([]byte(""))),
+		Header:    http.Header{},
+		Query:     url.Values{},
+		Body:      ioutil.NopCloser(bytes.NewReader([]byte(""))),
+		URIParams: url.Values{},
 	}
 }
 
 type queryStringsMapper struct{}
 
 // nolint
-func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.IOption) error {
-	rv, err := validateTarget(rawTarget)
-	if err != nil {
-		return err
-	}
-	_, fromKey, err := client.ParseMapSource(mp.Name)
-	if err != nil {
-		return err
-	}
-	to, toKey, err := client.ParseMapSource(mp.MapTo)
+func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
+	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
 	}
@@ -82,23 +77,15 @@ func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawT
 	if len(rawValue) == 0 {
 		return errors.Errorf("%s in query parameters not found", fromKey[0])
 	}
-	setTarget(rv, to, toKey[0], rawValue)
+	setTarget(target, to, toKey[0], rawValue)
 	return nil
 }
 
 type headerMapper struct{}
 
 // nolint
-func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.IOption) error {
-	target, err := validateTarget(rawTarget)
-	if err != nil {
-		return err
-	}
-	_, fromKey, err := client.ParseMapSource(mp.Name)
-	if err != nil {
-		return err
-	}
-	to, toKey, err := client.ParseMapSource(mp.MapTo)
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
+	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
 	}
@@ -114,17 +101,9 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget 
 type bodyMapper struct{}
 
 // nolint
-func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.IOption) error {
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
 	// TO-DO: add support for content-type other than application/json
-	target, err := validateTarget(rawTarget)
-	if err != nil {
-		return err
-	}
-	_, fromKey, err := client.ParseMapSource(mp.Name)
-	if err != nil {
-		return err
-	}
-	to, toKey, err := client.ParseMapSource(mp.MapTo)
+	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
 	}
@@ -143,6 +122,25 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget in
 		return errors.Wrapf(err, "Error when get body value from key %s", fromKey)
 	}
 	setTarget(target, to, strings.Join(toKey, constant.Dot), val)
+	return nil
+}
+
+type uriMapper struct{}
+
+// nolint
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
+	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
+	if err != nil {
+		return err
+	}
+	if to == constant.RequestURI {
+
+	}
+	uriValues := c.API.GetURIParams(*c.IngressRequest.URL)
+	if uriValues == nil {
+		return errors.New("No URI parameters found")
+	}
+	setTarget(target, to, strings.Join(toKey, constant.Dot), uriValues.Get(fromKey[0]))
 	return nil
 }
 
@@ -166,6 +164,8 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 	switch to {
 	case constant.Headers:
 		target.Header.Set(key, val.(string))
+	case constant.RequestURI:
+		target.URIParams.Set(key, val.(string))
 	case constant.QueryStrings:
 		target.Query.Set(key, val.(string))
 	case constant.RequestBody:
@@ -206,4 +206,23 @@ func setMapWithPath(targetMap map[string]interface{}, path string, val interface
 		targetMap[keys[0]] = setMapWithPath(targetMap[keys[0]].(map[string]interface{}), strings.Join(keys[1:len(keys)], constant.Dot), val)
 	}
 	return targetMap
+}
+
+func mapPrepare(mp config.MappingParam, rawTarget interface{}) (target *requestParams, fromKey []string, to string, toKey []string, err error) {
+	// ensure the target is a pointer and type is requestParams
+	target, err = validateTarget(rawTarget)
+	if err != nil {
+		return nil, nil, "", nil, err
+	}
+	// retrieve the mapping values' origin param name
+	_, fromKey, err = client.ParseMapSource(mp.Name)
+	if err != nil {
+		return nil, nil, "", nil, err
+	}
+	// retrieve the mapping values' target param name and param types(header/uri/query/request body)
+	to, toKey, err = client.ParseMapSource(mp.MapTo)
+	if err != nil {
+		return nil, nil, "", nil, err
+	}
+	return target, fromKey, to, toKey, nil
 }
