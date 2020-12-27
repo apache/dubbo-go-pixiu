@@ -45,7 +45,7 @@ type PluginsWithFunc struct {
 }
 
 // Prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
-func InitPluginsGroup(groups []config.PluginsGroup,filePath string) {
+func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 	// load file.so
 	pls, err := plugin.Open(filePath)
 	if nil != err {
@@ -57,7 +57,7 @@ func InitPluginsGroup(groups []config.PluginsGroup,filePath string) {
 
 		// trans to context.FilterFunc
 		for _, pl := range group.Plugins {
-			pwf := PluginsWithFunc{pl.Name, pl.Priority, loadExternalPlugin(&pl,pls)}
+			pwf := PluginsWithFunc{pl.Name, pl.Priority, loadExternalPlugin(&pl, pls)}
 			pwdMap[pl.Name] = pwf
 		}
 
@@ -67,10 +67,10 @@ func InitPluginsGroup(groups []config.PluginsGroup,filePath string) {
 
 // must behind InitPluginsGroup call
 func InitApiUrlWithFilterChain(resources []config.Resource) {
-	pairUrlWithFilterChain("",resources,context.FilterChain{})
+	pairUrlWithFilterChain("", resources, context.FilterChain{})
 }
 
-func pairUrlWithFilterChain(parentPath string,resources []config.Resource,parentFilterFuncs []context.FilterFunc){
+func pairUrlWithFilterChain(parentPath string, resources []config.Resource, parentFilterFuncs []context.FilterFunc) {
 
 	if len(resources) == 0 {
 		return
@@ -81,13 +81,13 @@ func pairUrlWithFilterChain(parentPath string,resources []config.Resource,parent
 		groupPath = ""
 	}
 
-	for _,resource := range resources {
+	for _, resource := range resources {
 		fullPath := groupPath + resource.Path
 		if !strings.HasPrefix(resource.Path, constant.PathSlash) {
 			continue
 		}
 
-		currentFuncArr :=  getApiFilterFuncsWithPluginsGroup(&resource.Plugins)
+		currentFuncArr := getApiFilterFuncsWithPluginsGroup(&resource.Plugins)
 
 		if len(currentFuncArr) > 0 {
 			apiUrlWithPluginsMap[fullPath] = currentFuncArr
@@ -99,7 +99,7 @@ func pairUrlWithFilterChain(parentPath string,resources []config.Resource,parent
 		}
 
 		if len(resource.Resources) > 0 {
-			pairUrlWithFilterChain(resource.Path,resource.Resources,parentFilterFuncs)
+			pairUrlWithFilterChain(resource.Path, resource.Resources, parentFilterFuncs)
 		}
 	}
 
@@ -108,7 +108,7 @@ func pairUrlWithFilterChain(parentPath string,resources []config.Resource,parent
 func GetApiFilterFuncsWithApiUrl(url string) context.FilterChain {
 	// found from cache
 	if funcs, found := apiUrlWithPluginsMap[url]; found {
-		logger.Debugf("GetExternalPlugins is:%v,len:%d", funcs,len(funcs))
+		logger.Debugf("GetExternalPlugins is:%v,len:%d", funcs, len(funcs))
 		return funcs
 	}
 
@@ -116,7 +116,7 @@ func GetApiFilterFuncsWithApiUrl(url string) context.FilterChain {
 	return context.FilterChain{}
 }
 
-func loadExternalPlugin(p *config.Plugin,pl *plugin.Plugin) context.FilterFunc {
+func loadExternalPlugin(p *config.Plugin, pl *plugin.Plugin) context.FilterFunc {
 	if nil != p {
 		logger.Infof("loadExternalPlugin name is :%s,version:%s,Priority:%d", p.Name, p.Version, p.Priority)
 		sb, err := pl.Lookup(p.ExternalLookupName)
