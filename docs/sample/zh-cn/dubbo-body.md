@@ -1,6 +1,6 @@
 # 从请求体里面获取参数
 
-> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/body)
+> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/body)
 
 ## 透传
 
@@ -51,8 +51,6 @@ resources:
   - path: '/api/v1/test-dubbo/user2'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: PUT
         onAir: true

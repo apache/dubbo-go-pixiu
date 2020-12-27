@@ -8,6 +8,6 @@
 * [dubbo-error](dubbo-error.md)
 * [dubbo-incomplete](dubbo-incomplete.md)
 
-> Base on [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo)
+> Base on [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple)
 
 [Previous](./README.md)
