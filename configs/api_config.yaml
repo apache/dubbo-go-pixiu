@@ -47,7 +47,7 @@ definitions:
           }
         }
       }
-pluginFilePath: "/Users/zhengxianle/dubbo-go-proxy/configs/plugins/plugin.so"
+pluginFilePath: "../../../configs/plugins/plugin.so"
 pluginsGroup:
   - groupName: "group1"
     plugins:

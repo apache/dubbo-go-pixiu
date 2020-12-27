@@ -24,14 +24,14 @@ import (
 
 func TestInitPluginsGroup(t *testing.T) {
 
-	config, err := config.LoadAPIConfigFromFile("/Users/zhengxianle/dubbo-go-proxy/configs/api_config.yaml")
+	config, err := config.LoadAPIConfigFromFile("../../../configs/api_config.yaml")
 	assert.Empty(t, err)
 
 	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
 }
 
 func TestInitApiUrlWithFilterChain(t *testing.T) {
-	config, err := config.LoadAPIConfigFromFile("/Users/zhengxianle/dubbo-go-proxy/configs/api_config.yaml")
+	config, err := config.LoadAPIConfigFromFile("../../../configs/api_config.yaml")
 	assert.Empty(t, err)
 
 	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
@@ -39,7 +39,7 @@ func TestInitApiUrlWithFilterChain(t *testing.T) {
 }
 
 func TestGetApiFilterFuncsWithApiUrl(t *testing.T) {
-	config, err := config.LoadAPIConfigFromFile("/Users/zhengxianle/dubbo-go-proxy/configs/api_config.yaml")
+	config, err := config.LoadAPIConfigFromFile("../../../configs/api_config.yaml")
 	assert.Empty(t, err)
 
 	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
