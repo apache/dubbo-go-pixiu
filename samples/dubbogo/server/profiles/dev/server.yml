@@ -1,34 +1,34 @@
 # dubbo server yaml configure file
-
-
 # application config
 application:
   organization: "dubbogoproxy.com"
-  name: "User Micro Service"
-  module: "dubbogoproxy user-info server"
-  version: "0.1.0"
-  group: "tc"
+  name: "BDTService"
+  module: "dubbogo user-info server"
+  version: "0.0.1"
   owner: "ZX"
   environment: "dev"
 
 registries:
-  "zk1":
+  "demoZk":
     protocol: "zookeeper"
     timeout: "3s"
     address: "127.0.0.1:2181"
 
 services:
   "UserProvider":
-    # 可以指定多个registry，使用逗号隔开;不指定默认向所有注册中心注册
-    registry: "zk1"
+    registry: "demoZk"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.ic.user.UserProvider"
+    interface: "com.dubbogo.proxy.UserService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
-    version: 1.0.0
     group: test
+    version: 1.0.0
+    methods:
+      - name: "CreateUser"
+        retries: 1
+        loadbalance: "random"
 
 protocols:
   "dubbo":
