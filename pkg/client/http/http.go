@@ -18,7 +18,6 @@
 package http
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,17 +26,15 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go/common/constant"
-	dg "github.com/apache/dubbo-go/config"
-	"github.com/apache/dubbo-go/protocol/dubbo"
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 )
 
-// RestMetadata dubbo metadata, api config
+// RestMetadata http metadata, api config
 type RestMetadata struct {
 	ApplicationName      string   `yaml:"application_name" json:"application_name" mapstructure:"application_name"`
 	Group                string   `yaml:"group" json:"group" mapstructure:"group"`
@@ -52,41 +49,31 @@ type RestMetadata struct {
 }
 
 var (
-	_httpClient *Client
-	countDown   = sync.Once{}
-	dgCfg       dg.ConsumerConfig
+	httpClient *Client
+	countDown  = sync.Once{}
 )
 
 // Client client to generic invoke dubbo
 type Client struct {
-	mLock              sync.RWMutex
-	GenericServicePool map[string]*dg.GenericService
 }
 
 // SingletonHTTPClient singleton HTTP Client
 func SingletonHTTPClient() *Client {
-	if _httpClient == nil {
+	if httpClient == nil {
 		countDown.Do(func() {
-			_httpClient = NewHTTPClient()
+			httpClient = NewHTTPClient()
 		})
 	}
-	return _httpClient
+	return httpClient
 }
 
 // NewHTTPClient create dubbo client
 func NewHTTPClient() *Client {
-	return &Client{
-		mLock:              sync.RWMutex{},
-		GenericServicePool: make(map[string]*dg.GenericService, 4),
-	}
+	return &Client{}
 }
 
 // Init init dubbo, config mapping can do here
 func (dc *Client) Init() error {
-	dgCfg = dg.GetConsumerConfig()
-	dg.SetConsumerConfig(dgCfg)
-	dg.Load()
-	dc.GenericServicePool = make(map[string]*dg.GenericService)
 	return nil
 }
 
@@ -97,26 +84,24 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
-	urlStr := req.GetURL()
-	u, err := url.ParseRequestURI(urlStr)
 	if err != nil {
 		return nil, err
 	}
 
-	request := req.IngressRequest.Clone(req.Context)
-	//Map the origin paramters to backend parameters according to the API configure
+	//Map the origin parameters to backend parameters according to the API configure
 	transformedParams, err := dc.MapParams(req)
 	if err != nil {
 		return nil, err
 	}
 	params, _ := transformedParams.(*requestParams)
-	request.Body = params.Body
-	request.Header = params.Header
-	// url query add.
-	urlStr = strings.TrimRight(u.String(), "/") + "?" + params.Query.Encode()
 
-	newReq, err := http.NewRequest(req.IngressRequest.Method, urlStr, params.Body)
+	targetURL, err := dc.parseURL(req, *params)
+	if err != nil {
+		return nil, err
+	}
 
+	newReq, _ := http.NewRequest(req.IngressRequest.Method, targetURL, params.Body)
+	newReq.Header = params.Header
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	tmpRet, err := httpClient.Do(newReq)
 
@@ -135,6 +120,9 @@ func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 			return nil, errors.New("Retrieve request query parameters failed")
 		}
 		r.Query = queryValues
+		if req.API.IsWildCardBackendPath() {
+			r.URIParams = req.API.GetURIParams(*req.IngressRequest.URL)
+		}
 		return r, nil
 	}
 	for i := 0; i < len(mp); i++ {
@@ -151,42 +139,38 @@ func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 	return r, nil
 }
 
-func (dc *Client) get(key string) *dg.GenericService {
-	dc.mLock.RLock()
-	defer dc.mLock.RUnlock()
-	return dc.GenericServicePool[key]
-}
-
-func (dc *Client) create(key string, dm *RestMetadata) *dg.GenericService {
-	referenceConfig := dg.NewReferenceConfig(dm.Interface, context.TODO())
-	referenceConfig.InterfaceName = dm.Interface
-	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
-	var registers []string
-	for k := range dgCfg.Registries {
-		registers = append(registers, k)
-	}
-	referenceConfig.Registry = strings.Join(registers, ",")
-
-	if dm.ProtocolTypeStr == "" {
-		referenceConfig.Protocol = dubbo.DUBBO
+// ParseURL returns the actual target url. Supports wildcard target path value mapping.
+func (dc *Client) parseURL(req *client.Request, params requestParams) (string, error) {
+	var schema string
+	if len(req.API.IntegrationRequest.HTTPBackendConfig.Schema) == 0 {
+		schema = "http"
 	} else {
-		referenceConfig.Protocol = dm.ProtocolTypeStr
+		schema = req.API.IntegrationRequest.HTTPBackendConfig.Schema
 	}
 
-	referenceConfig.Version = dm.Version
-	referenceConfig.Group = dm.Group
-	referenceConfig.Generic = true
-	if dm.Retries == "" {
-		referenceConfig.Retries = "3"
-	} else {
-		referenceConfig.Retries = dm.Retries
+	rawPath := req.API.IntegrationRequest.HTTPBackendConfig.Path
+	if req.API.IsWildCardBackendPath() {
+		paths := strings.Split(
+			strings.TrimLeft(req.API.IntegrationRequest.HTTPBackendConfig.Path, constant.PathSlash),
+			constant.PathSlash)
+		for i := 0; i < len(paths); i++ {
+			if strings.HasPrefix(paths[i], constant.PathParamIdentifier) {
+				uriParam := string(paths[i][1:len(paths[i])])
+				uriValue := params.URIParams.Get(uriParam)
+				if len(uriValue) == 0 {
+					return "", errors.New("No value for target URI")
+				}
+				paths[i] = uriValue
+			}
+		}
+		rawPath = strings.Join(paths, constant.PathSlash)
 	}
-	dc.mLock.Lock()
-	defer dc.mLock.Unlock()
-	referenceConfig.GenericLoad(key)
-	time.Sleep(200 * time.Millisecond) //sleep to wait invoker create
-	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 
-	dc.GenericServicePool[key] = clientService
-	return clientService
+	parsedURL := url.URL{
+		Host:     req.API.IntegrationRequest.HTTPBackendConfig.Host,
+		Scheme:   schema,
+		Path:     rawPath,
+		RawQuery: params.Query.Encode(),
+	}
+	return parsedURL.String(), nil
 }

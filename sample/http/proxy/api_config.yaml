@@ -28,7 +28,27 @@ resources:
         integrationRequest:
           requestType: http
           host: "127.0.0.1:1314"
-          path: "/user"
+          path: "/user/"
+    resources:
+      - path: '/:name'
+        type: restful
+        description: user2
+        methods:
+          - httpVerb: GET
+            onAir: true
+            timeout: 1000ms
+            inboundRequest:
+              requestType: http
+              queryStrings:
+                - name: name
+                  required: true
+            integrationRequest:
+              requestType: http
+              mappingParams:
+                - name: uri.name
+                  mapTo: uri.name
+              host: "127.0.0.1:1314"
+              path: "/user/:name"
 definitions:
   - name: userCreate
     schema: >-
