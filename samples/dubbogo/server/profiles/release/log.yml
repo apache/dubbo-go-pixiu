@@ -1,7 +1,7 @@
-level: "info"
+level: "warn"
 development: true
-disableCaller: false
-disableStacktrace: false
+disableCaller: true
+disableStacktrace: true
 sampling:
 encoding: "console"
 
