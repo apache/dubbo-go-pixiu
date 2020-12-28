@@ -19,7 +19,6 @@ package plugins
 
 import (
 	"errors"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"plugin"
 	"strings"
 )
@@ -28,6 +27,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -47,7 +47,7 @@ type PluginsWithFunc struct {
 // Prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
 func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 
-	if "" == filePath {
+	if "" == filePath || len(groups) == 0 {
 		return
 	}
 

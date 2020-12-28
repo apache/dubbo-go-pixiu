@@ -20,16 +20,16 @@ package api
 import (
 	"errors"
 	"fmt"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
+	"strings"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
-	"strings"
 )
 
 // Init set api discovery local_memory service.

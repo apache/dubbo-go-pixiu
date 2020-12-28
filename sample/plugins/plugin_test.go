@@ -17,8 +17,11 @@
 package main
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"testing"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 )
 
 func TestExternalPluginAccess(t *testing.T) {
