@@ -25,27 +25,26 @@ import (
 
 func main() {}
 
-// Export filter
+// ExternalPluginAccess export filter
 func ExternalPluginAccess() filter.Filter {
 	return &Access{}
 }
 
-// Export filter
+// ExternalPluginBlackList export filter
 func ExternalPluginBlackList() filter.Filter {
 	return &BlackList{}
 }
 
-// Export filter
+// ExternalPluginRateLimit export filter
 func ExternalPluginRateLimit() filter.Filter {
 	return &RateLimit{}
 }
 
-/**
-Access filter
-*/
+// Access filter
 type Access struct {
 }
 
+// Do to export func(c context.Context)
 func (r *Access) Do() context.FilterFunc {
 	return func(c context.Context) {
 		logger.Info("DoAccessFilter")
@@ -53,12 +52,11 @@ func (r *Access) Do() context.FilterFunc {
 	}
 }
 
-/**
-BlackList filter
-*/
+// BlackList filter
 type BlackList struct {
 }
 
+// Do to export func(c context.Context)
 func (r *BlackList) Do() context.FilterFunc {
 	return func(c context.Context) {
 		logger.Info("DoBlackListFilter")
@@ -66,12 +64,11 @@ func (r *BlackList) Do() context.FilterFunc {
 	}
 }
 
-/**
-RateLimit filter
-*/
+// RateLimit filter
 type RateLimit struct {
 }
 
+// Do to export func(c context.Context)
 func (r *RateLimit) Do() context.FilterFunc {
 	return func(c context.Context) {
 		logger.Info("DoRateLimitFilter")

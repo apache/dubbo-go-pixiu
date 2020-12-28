@@ -41,7 +41,7 @@ func TestInitApiUrlWithFilterChain(t *testing.T) {
 	assert.Empty(t, err)
 
 	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
-	InitApiUrlWithFilterChain(config.Resources)
+	InitAPIURLWithFilterChain(config.Resources)
 }
 
 func TestGetApiFilterFuncsWithApiUrl(t *testing.T) {
@@ -49,9 +49,9 @@ func TestGetApiFilterFuncsWithApiUrl(t *testing.T) {
 	assert.Empty(t, err)
 
 	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
-	InitApiUrlWithFilterChain(config.Resources)
+	InitAPIURLWithFilterChain(config.Resources)
 
-	fltc := GetApiFilterFuncsWithApiUrl("/")
+	fltc := GetAPIFilterFuncsWithAPIURL("/")
 
 	assert.Equal(t, len(fltc), 0)
 }
