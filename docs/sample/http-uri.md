@@ -1,19 +1,17 @@
-# Get the parameter from the query
+# Get the parameter from the URI
 
-> GET request
+> GET request \
 > downstream service url is 127.0.0.1:1314/user?name=tc
 > downstream service url is 127.0.0.1:1314/user/:name
 
-> POST request
+> POST request \
 > downstream service url is 127.0.0.1:1314/user
-> request body as below: 
-```
- type User struct {
-	Name string    `json:"name"`
-	Age  int32     `json:"age"`
-	Time time.Time `json:"time"`
+> request body as below: \
+> type User struct { \
+	Name string    `json:"name"` \
+	Age  int32     `json:"age"`\
+	Time time.Time `json:"time"`\
 }
-```
 
 ## Simple Demo
 
