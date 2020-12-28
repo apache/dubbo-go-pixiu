@@ -32,19 +32,19 @@ import (
 )
 
 var (
-	apiUrlWithPluginsMap = make(map[string]context.FilterChain)
+	apiURLWithPluginsMap = make(map[string]context.FilterChain)
 	groupWithPluginsMap  = make(map[string]map[string]PluginsWithFunc)
-	emptyPluginConfigErr = errors.New("Empty plugin config")
+	errEmptyPluginConfig = errors.New("Empty plugin config")
 )
 
-// single plugin details
+// PluginsWithFunc is a single plugin details
 type PluginsWithFunc struct {
 	Name     string
 	Priority int
 	fn       context.FilterFunc
 }
 
-// Prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
+// InitPluginsGroup prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
 func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 
 	if "" == filePath || len(groups) == 0 {
@@ -70,12 +70,12 @@ func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 	}
 }
 
-// must behind InitPluginsGroup call
-func InitApiUrlWithFilterChain(resources []config.Resource) {
-	pairUrlWithFilterChain("", resources, context.FilterChain{})
+// InitApiUrlWithFilterChain must behind InitPluginsGroup call
+func InitAPIURLWithFilterChain(resources []config.Resource) {
+	pairURLWithFilterChain("", resources, context.FilterChain{})
 }
 
-func pairUrlWithFilterChain(parentPath string, resources []config.Resource, parentFilterFuncs []context.FilterFunc) {
+func pairURLWithFilterChain(parentPath string, resources []config.Resource, parentFilterFuncs []context.FilterFunc) {
 
 	if len(resources) == 0 {
 		return
@@ -95,24 +95,25 @@ func pairUrlWithFilterChain(parentPath string, resources []config.Resource, pare
 		currentFuncArr := getApiFilterFuncsWithPluginsGroup(&resource.Plugins)
 
 		if len(currentFuncArr) > 0 {
-			apiUrlWithPluginsMap[fullPath] = currentFuncArr
+			apiURLWithPluginsMap[fullPath] = currentFuncArr
 			parentFilterFuncs = currentFuncArr
 		} else {
 			if len(parentFilterFuncs) > 0 {
-				apiUrlWithPluginsMap[fullPath] = parentFilterFuncs
+				apiURLWithPluginsMap[fullPath] = parentFilterFuncs
 			}
 		}
 
 		if len(resource.Resources) > 0 {
-			pairUrlWithFilterChain(resource.Path, resource.Resources, parentFilterFuncs)
+			pairURLWithFilterChain(resource.Path, resource.Resources, parentFilterFuncs)
 		}
 	}
 
 }
 
-func GetApiFilterFuncsWithApiUrl(url string) context.FilterChain {
+// GetAPIFilterFuncsWithAPIURL is get filterchain with path
+func GetAPIFilterFuncsWithAPIURL(url string) context.FilterChain {
 	// found from cache
-	if funcs, found := apiUrlWithPluginsMap[url]; found {
+	if funcs, found := apiURLWithPluginsMap[url]; found {
 		logger.Debugf("GetExternalPlugins is:%v,len:%d", funcs, len(funcs))
 		return funcs
 	}
@@ -134,7 +135,7 @@ func loadExternalPlugin(p *config.Plugin, pl *plugin.Plugin) context.FilterFunc 
 		return sbf().Do()
 	}
 
-	panic(emptyPluginConfigErr)
+	panic(errEmptyPluginConfig)
 }
 
 func getApiFilterFuncsWithPluginsGroup(plu *config.PluginsInUse) []context.FilterFunc {
