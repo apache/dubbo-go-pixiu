@@ -17,9 +17,15 @@
 package plugins
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 func TestInitPluginsGroup(t *testing.T) {
