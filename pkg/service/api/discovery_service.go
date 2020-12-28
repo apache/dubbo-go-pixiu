@@ -72,7 +72,7 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	// load pluginsGroup
 	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
 	// init plugins from resource
-	plugins.InitApiUrlWithFilterChain(apiConfig.Resources)
+	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
