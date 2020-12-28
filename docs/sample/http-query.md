@@ -31,13 +31,6 @@ resources:
               mapTo: queryStrings.name
           group: "test"
           version: 1.0.0
-      - httpVerb: POST
-        onAir: true
-        timeout: 10s
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: http
 ```
 
 ### Request
