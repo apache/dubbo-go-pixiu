@@ -168,7 +168,7 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	ctx.BuildFilters()
 
 	// load plugins
-	filterChain := plugins.GetApiFilterFuncsWithApiUrl(ctx.Request.URL.Path)
+	filterChain := plugins.GetAPIFilterFuncsWithAPIURL(ctx.Request.URL.Path)
 	ctx.AppendFilterFunc(filterChain...)
 
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
