@@ -1,10 +1,10 @@
-# Get the parameter from the part of uri
+# 从 URI获取参数
 
-> GET request [sample](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/sample/dubbo/multi)
+> GET 请求 [sample](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/sample/dubbo/multi)
 
-## Simple Demo
+## 简单示例
 
-### Api Config
+### 接口配置
 
 ```yaml
 name: proxy
@@ -173,9 +173,9 @@ protocol_conf:
       session_name: "server"
 ```
 
-### Test
+### 测试
 
-- from uri
+- 来自 uri
 
 ```bash
 curl localhost:8888/api/v1/test-dubbo/student/tc-student -X GET 
@@ -183,7 +183,7 @@ and
 curl localhost:8888/api/v1/test-dubbo/teacher/tc-teacher -X GET 
 ```
 
-result
+结果
 
 ```bash
 {
