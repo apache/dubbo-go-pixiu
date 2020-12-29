@@ -10,6 +10,6 @@
 
 > Based on [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple)
 
-## simple
+How do I run a simple test example [document](dubbo-simple-run.md)
 
 [Previous](./README.md)

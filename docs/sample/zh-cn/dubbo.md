@@ -10,5 +10,7 @@
 
 > 基于的例子 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple)
 
+如何运行简单的测试例子[文档](dubbo-simple-run.md)
+
 [上一页](./README.md)
 
