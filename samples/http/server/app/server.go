@@ -18,59 +18,80 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"encoding/json"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net/http"
+	"strings"
 )
 
 import (
-	"github.com/apache/dubbo-go/common/logger"
-	"github.com/apache/dubbo-go/config"
-	_ "github.com/apache/dubbo-go/protocol/rest"
-	_ "github.com/apache/dubbo-go/registry/protocol"
-
-	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
-	_ "github.com/apache/dubbo-go/filter/filter_impl"
-
-	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
-	_ "github.com/apache/dubbo-go/cluster/loadbalance"
-	_ "github.com/apache/dubbo-go/registry/zookeeper"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 )
 
-var (
-	survivalTimeout = int(3e9)
-)
-
-// they are necessary:
-// 		export CONF_PROVIDER_FILE_PATH="xxx"
-// 		export APP_LOG_CONF_FILE="xxx"
 func main() {
-	config.Load()
-
-	initSignal()
+	http.HandleFunc("/user/", user)
+	log.Println("Starting sample server ...")
+	log.Fatal(http.ListenAndServe(":1314", nil))
 }
 
-func initSignal() {
-	signals := make(chan os.Signal, 1)
-	// It is not possible to block SIGKILL or syscall.SIGSTOP
-	signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
-	for {
-		sig := <-signals
-		logger.Infof("get signal %s", sig.String())
-		switch sig {
-		case syscall.SIGHUP:
-			// reload()
-		default:
-			time.AfterFunc(time.Duration(survivalTimeout), func() {
-				logger.Warnf("app exit now by force...")
-				os.Exit(1)
-			})
-
-			// The program exits normally or timeout forcibly exits.
-			fmt.Println("provider app exit now...")
+func user(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		byts, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+		}
+		var user User
+		err = json.Unmarshal(byts, &user)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+		}
+		_, ok := cache.Get(user.Name)
+		if ok {
+			w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+			w.Write([]byte("{\"message\":\"data is exist\"}"))
 			return
 		}
+		user.ID = randSeq(5)
+		if cache.Add(&user) {
+			b, _ := json.Marshal(&user)
+			w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+			w.Write(b)
+			return
+		}
+		w.Write(nil)
+	case "GET":
+		subPath := strings.TrimPrefix(r.URL.Path, "/user/")
+		userName := strings.Split(subPath, "/")[0]
+		var u *User
+		var b bool
+		if len(userName) != 0 {
+			log.Printf("paths: %v", userName)
+			u, b = cache.Get(userName)
+		} else {
+			q := r.URL.Query()
+			u, b = cache.Get(q.Get("name"))
+		}
+		//w.WriteHeader(200)
+		if b {
+			b, _ := json.Marshal(u)
+			w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+			w.Write(b)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(nil)
 	}
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
