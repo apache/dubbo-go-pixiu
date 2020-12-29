@@ -181,22 +181,22 @@ func (s *StudentProvider) CreateStudent(ctx context.Context, student *Student) (
 func (s *StudentProvider) GetStudentByName(ctx context.Context, name string) (*Student, error) {
 	println("Req GetStudentByName name:%#v", name)
 	r, ok := studentCache.GetByName(name)
-	if ok {
-		println("Req GetStudentByName result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	println("Req GetStudentByName result:%#v", r)
+	return r, nil
 }
 
 // GetStudentByCode query by code, single param, Proxy config GET.
 func (s *StudentProvider) GetStudentByCode(ctx context.Context, code int64) (*Student, error) {
 	println("Req GetStudentByCode name:%#v", code)
 	r, ok := studentCache.GetByCode(code)
-	if ok {
-		println("Req GetStudentByCode result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	println("Req GetStudentByCode result:%#v", r)
+	return r, nil
 }
 
 // GetStudentTimeout query by name, will timeout for proxy.
@@ -205,11 +205,11 @@ func (s *StudentProvider) GetStudentTimeout(ctx context.Context, name string) (*
 	// sleep 10s, proxy config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := studentCache.GetByName(name)
-	if ok {
-		println("Req GetStudentByName result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	println("Req GetStudentByName result:%#v", r)
+	return r, nil
 }
 
 // GetStudentByNameAndAge query by name and age, two params, Proxy config GET.
@@ -227,32 +227,32 @@ func (s *StudentProvider) GetStudentByNameAndAge(ctx context.Context, name strin
 func (s *StudentProvider) UpdateStudent(ctx context.Context, Student *Student) (bool, error) {
 	println("Req UpdateStudent data:%#v", Student)
 	r, ok := studentCache.GetByName(Student.Name)
-	if ok {
-		if Student.ID != "" {
-			r.ID = Student.ID
-		}
-		if Student.Age >= 0 {
-			r.Age = Student.Age
-		}
-		return true, nil
+	if !ok {
+		return false, errors.New("not found")
 	}
-	return false, errors.New("not found")
+	if Student.ID != "" {
+		r.ID = Student.ID
+	}
+	if Student.Age >= 0 {
+		r.Age = Student.Age
+	}
+	return true, nil
 }
 
 // UpdateStudent update by Student struct, my be another struct, Proxy config POST or PUT.
 func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, Student *Student) (bool, error) {
 	println("Req UpdateStudentByName data:%#v", Student)
 	r, ok := studentCache.GetByName(name)
-	if ok {
-		if Student.ID != "" {
-			r.ID = Student.ID
-		}
-		if Student.Age >= 0 {
-			r.Age = Student.Age
-		}
-		return true, nil
+	if !ok {
+		return false, errors.New("not found")
 	}
-	return false, errors.New("not found")
+	if Student.ID != "" {
+		r.ID = Student.ID
+	}
+	if Student.Age >= 0 {
+		r.Age = Student.Age
+	}
+	return true, nil
 }
 
 // nolint
