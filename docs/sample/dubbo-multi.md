@@ -112,11 +112,11 @@ registries:
   "demoZk1":
     protocol: "zookeeper"
     timeout: "3s"
-    address: "111.229.125.157:2181"
+    address: "127.0.0.1:2181"
   "demoZk2":
     protocol: "zookeeper"
     timeout: "3s"
-    address: "111.229.125.157:2182"
+    address: "127.0.0.1:2182"
 
 services:
   "StudentProvider":
