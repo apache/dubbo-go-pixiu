@@ -180,22 +180,23 @@ func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (
 func (s *TeacherProvider) GetTeacherByName(ctx context.Context, name string) (*Teacher, error) {
 	println("Req GetTeacherByName name:%#v", name)
 	r, ok := teacherCache.GetByName(name)
-	if ok {
-		println("Req GetTeacherByName result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+
+	println("Req GetTeacherByName result:%#v", r)
+	return r, nil
 }
 
 // GetTeacherByCode query by code, single param, Proxy config GET.
 func (s *TeacherProvider) GetTeacherByCode(ctx context.Context, code int64) (*Teacher, error) {
 	println("Req GetTeacherByCode name:%#v", code)
 	r, ok := teacherCache.GetByCode(code)
-	if ok {
-		println("Req GetTeacherByCode result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	println("Req GetTeacherByCode result:%#v", r)
+	return r, nil
 }
 
 // GetTeacherTimeout query by name, will timeout for proxy.
@@ -204,11 +205,11 @@ func (s *TeacherProvider) GetTeacherTimeout(ctx context.Context, name string) (*
 	// sleep 10s, proxy config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := teacherCache.GetByName(name)
-	if ok {
-		println("Req GetTeacherByName result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	println("Req GetTeacherByName result:%#v", r)
+	return r, nil
 }
 
 // GetTeacherByNameAndAge query by name and age, two params, Proxy config GET.
@@ -223,35 +224,35 @@ func (s *TeacherProvider) GetTeacherByNameAndAge(ctx context.Context, name strin
 }
 
 // UpdateTeacher update by teacher struct, my be another struct, Proxy config POST or PUT.
-func (s *TeacherProvider) UpdateTeacher(ctx context.Context, Teacher *Teacher) (bool, error) {
-	println("Req UpdateTeacher data:%#v", Teacher)
-	r, ok := teacherCache.GetByName(Teacher.Name)
-	if ok {
-		if Teacher.ID != "" {
-			r.ID = Teacher.ID
-		}
-		if Teacher.Age >= 0 {
-			r.Age = Teacher.Age
-		}
-		return true, nil
+func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (bool, error) {
+	println("Req UpdateTeacher data:%#v", teacher)
+	r, ok := teacherCache.GetByName(teacher.Name)
+	if !ok {
+		return false, errors.New("not found")
 	}
-	return false, errors.New("not found")
+	if teacher.ID != "" {
+		r.ID = teacher.ID
+	}
+	if teacher.Age >= 0 {
+		r.Age = teacher.Age
+	}
+	return true, nil
 }
 
 // UpdateTeacher update by teacher struct, my be another struct, Proxy config POST or PUT.
-func (s *TeacherProvider) UpdateTeacherByName(ctx context.Context, name string, Teacher *Teacher) (bool, error) {
-	println("Req UpdateTeacherByName data:%#v", Teacher)
+func (s *TeacherProvider) UpdateTeacherByName(ctx context.Context, name string, teacher *Teacher) (bool, error) {
+	println("Req UpdateTeacherByName data:%#v", teacher)
 	r, ok := teacherCache.GetByName(name)
-	if ok {
-		if Teacher.ID != "" {
-			r.ID = Teacher.ID
-		}
-		if Teacher.Age >= 0 {
-			r.Age = Teacher.Age
-		}
-		return true, nil
+	if !ok {
+		return false, errors.New("not found")
 	}
-	return false, errors.New("not found")
+	if teacher.ID != "" {
+		r.ID = teacher.ID
+	}
+	if teacher.Age >= 0 {
+		r.Age = teacher.Age
+	}
+	return true, nil
 }
 
 // nolint
