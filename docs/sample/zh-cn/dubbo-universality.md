@@ -1,6 +1,6 @@
 # 使用 dubbo 通用性请求
 
-> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/proxy)
+> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/proxy)
 
 ## 建议
 
