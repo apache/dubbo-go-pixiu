@@ -10,7 +10,7 @@
 name: proxy
 description: proxy sample
 resources:
-  - path: '/api/v1/test-dubbo/user'
+  - path: '/api/v1/test-http/user'
     type: restful
     description: user
     methods:
@@ -24,19 +24,23 @@ resources:
               required: true
         integrationRequest:
           requestType: http
-          host: 127.0.0.1:8889
-          path: /UserProvider/GetUserByName
-          mappingParams:
-            - name: queryStrings.name
-              mapTo: queryStrings.name
-          group: "test"
-          version: 1.0.0
+          host: "127.0.0.1:1314"
+          path: "/user"
+      - httpVerb: POST
+        onAir: true
+        timeout: 10s
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: http
+          host: "127.0.0.1:1314"
+          path: "/user/"
 ```
 
 ### Request
 
 ```bash
-curl http://localhost:8888/api/v1/test-dubbo/user?name=tc -X GET 
+curl http://localhost:8888/api/v1/test-http/user?name=tc -X GET 
 ```
 
 ### Response
@@ -46,9 +50,8 @@ curl http://localhost:8888/api/v1/test-dubbo/user?name=tc -X GET
 ```bash
 {
   "id": "0001",
-  "code": 1,
   "name": "tc",
   "age": 18,
-  "time": "2020-12-24T16:46:31.8409857+08:00"
+  "time": "2020-12-30T14:07:07.9432117+08:00"
 }
 ```
