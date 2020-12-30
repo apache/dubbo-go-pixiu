@@ -230,7 +230,7 @@ func (s *StudentProvider) UpdateStudent(ctx context.Context, Student *Student) (
 	if !ok {
 		return false, errors.New("not found")
 	}
-	if Student.ID != "" {
+	if len(Student.ID) != 0 {
 		r.ID = Student.ID
 	}
 	if Student.Age >= 0 {
@@ -246,7 +246,7 @@ func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, 
 	if !ok {
 		return false, errors.New("not found")
 	}
-	if Student.ID != "" {
+	if len(Student.ID) != 0 {
 		r.ID = Student.ID
 	}
 	if Student.Age >= 0 {
