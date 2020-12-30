@@ -230,7 +230,7 @@ func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (
 	if !ok {
 		return false, errors.New("not found")
 	}
-	if teacher.ID != "" {
+	if len(teacher.ID) != 0 {
 		r.ID = teacher.ID
 	}
 	if teacher.Age >= 0 {
@@ -246,7 +246,7 @@ func (s *TeacherProvider) UpdateTeacherByName(ctx context.Context, name string, 
 	if !ok {
 		return false, errors.New("not found")
 	}
-	if teacher.ID != "" {
+	if len(teacher.ID) != 0 {
 		r.ID = teacher.ID
 	}
 	if teacher.Age >= 0 {
