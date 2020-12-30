@@ -224,33 +224,33 @@ func (s *StudentProvider) GetStudentByNameAndAge(ctx context.Context, name strin
 }
 
 // UpdateStudent update by Student struct, my be another struct, Proxy config POST or PUT.
-func (s *StudentProvider) UpdateStudent(ctx context.Context, Student *Student) (bool, error) {
-	println("Req UpdateStudent data:%#v", Student)
-	r, ok := studentCache.GetByName(Student.Name)
+func (s *StudentProvider) UpdateStudent(ctx context.Context, student *Student) (bool, error) {
+	println("Req UpdateStudent data:%#v", student)
+	r, ok := studentCache.GetByName(student.Name)
 	if !ok {
 		return false, errors.New("not found")
 	}
-	if len(Student.ID) != 0 {
-		r.ID = Student.ID
+	if len(student.ID) != 0 {
+		r.ID = student.ID
 	}
-	if Student.Age >= 0 {
-		r.Age = Student.Age
+	if student.Age >= 0 {
+		r.Age = student.Age
 	}
 	return true, nil
 }
 
 // UpdateStudent update by Student struct, my be another struct, Proxy config POST or PUT.
-func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, Student *Student) (bool, error) {
-	println("Req UpdateStudentByName data:%#v", Student)
+func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, student *Student) (bool, error) {
+	println("Req UpdateStudentByName data:%#v", student)
 	r, ok := studentCache.GetByName(name)
 	if !ok {
 		return false, errors.New("not found")
 	}
-	if len(Student.ID) != 0 {
-		r.ID = Student.ID
+	if len(student.ID) != 0 {
+		r.ID = student.ID
 	}
-	if Student.Age >= 0 {
-		r.Age = Student.Age
+	if student.Age >= 0 {
+		r.Age = student.Age
 	}
 	return true, nil
 }
