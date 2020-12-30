@@ -1,6 +1,6 @@
 # 从 URI，Query，Body 各个部分获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/mix)
+> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/mix)
 
 ## 简单示例
 
@@ -13,8 +13,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/:name'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -57,8 +55,6 @@ resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: PUT
         onAir: true
@@ -86,7 +82,7 @@ resources:
 - 来自 uri 和 query
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user/tc?age=99 -X GET 
+curl localhost:port/api/v1/test-dubbo/user/tc?age=99 -X GET 
 ```
 
 结果
@@ -104,7 +100,7 @@ curl localhost:8888/api/v1/test-dubbo/user/tc?age=99 -X GET
 - 来自 body 和 query
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user?name=tc -X PUT -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json"
+curl localhost:port/api/v1/test-dubbo/user?name=tc -X PUT -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json"
 ```
 
 结果
