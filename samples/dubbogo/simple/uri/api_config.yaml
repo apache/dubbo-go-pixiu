@@ -1,0 +1,79 @@
+name: proxy
+description: proxy sample
+resources:
+  - path: '/api/v1/test-dubbo/user/name/:name'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: GET
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+          uri:
+            - name: name
+              required: true
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: uri.name
+              mapTo: 0
+          applicationName: "UserProvider"
+          interface: "com.dubbogo.proxy.UserService"
+          method: "GetUserByName"
+          paramTypes: [ "string" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+  - path: '/api/v1/test-dubbo/user/code/:code'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: GET
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+          uri:
+            - name: code
+              required: true
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: uri.code
+              mapTo: 0
+          applicationName: "UserProvider"
+          interface: "com.dubbogo.proxy.UserService"
+          method: "GetUserByCode"
+          paramTypes: [ "int" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+  - path: '/api/v1/test-dubbo/user/name/:name/age/:age'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: GET
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+          uri:
+            - name: name
+              required: true
+            - name: age
+              required: true
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: uri.name
+              mapTo: 0
+            - name: uri.age
+              mapTo: 1
+          applicationName: "UserProvider"
+          interface: "com.dubbogo.proxy.UserService"
+          method: "GetUserByNameAndAge"
+          paramTypes: [ "string", "int" ]
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
