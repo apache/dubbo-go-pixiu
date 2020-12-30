@@ -88,15 +88,12 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 		return nil, err
 	}
 
-	request := req.IngressRequest.Clone(req.Context)
 	//Map the origin parameters to backend parameters according to the API configure
 	transformedParams, err := dc.MapParams(req)
 	if err != nil {
 		return nil, err
 	}
 	params, _ := transformedParams.(*requestParams)
-	request.Body = params.Body
-	request.Header = params.Header
 
 	targetURL, err := dc.parseURL(req, *params)
 	if err != nil {
@@ -104,7 +101,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	}
 
 	newReq, _ := http.NewRequest(req.IngressRequest.Method, targetURL, params.Body)
-
+	newReq.Header = params.Header
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	tmpRet, err := httpClient.Do(newReq)
 
