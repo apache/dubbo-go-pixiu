@@ -160,7 +160,7 @@ type StudentProvider struct {
 
 // CreateStudent new Student, Proxy config POST.
 func (s *StudentProvider) CreateStudent(ctx context.Context, student *Student) (*Student, error) {
-	println("Req CreateStudent data:%#v", student)
+	outLn("Req CreateStudent data:%#v", student)
 	if student == nil {
 		return nil, errors.New("not found")
 	}
@@ -179,80 +179,80 @@ func (s *StudentProvider) CreateStudent(ctx context.Context, student *Student) (
 
 // GetStudentByName query by name, single param, Proxy config GET.
 func (s *StudentProvider) GetStudentByName(ctx context.Context, name string) (*Student, error) {
-	println("Req GetStudentByName name:%#v", name)
+	outLn("Req GetStudentByName name:%#v", name)
 	r, ok := studentCache.GetByName(name)
-	if ok {
-		println("Req GetStudentByName result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	outLn("Req GetStudentByName result:%#v", r)
+	return r, nil
 }
 
 // GetStudentByCode query by code, single param, Proxy config GET.
 func (s *StudentProvider) GetStudentByCode(ctx context.Context, code int64) (*Student, error) {
-	println("Req GetStudentByCode name:%#v", code)
+	outLn("Req GetStudentByCode name:%#v", code)
 	r, ok := studentCache.GetByCode(code)
-	if ok {
-		println("Req GetStudentByCode result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	outLn("Req GetStudentByCode result:%#v", r)
+	return r, nil
 }
 
 // GetStudentTimeout query by name, will timeout for proxy.
 func (s *StudentProvider) GetStudentTimeout(ctx context.Context, name string) (*Student, error) {
-	println("Req GetStudentByName name:%#v", name)
+	outLn("Req GetStudentByName name:%#v", name)
 	// sleep 10s, proxy config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := studentCache.GetByName(name)
-	if ok {
-		println("Req GetStudentByName result:%#v", r)
-		return r, nil
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	outLn("Req GetStudentByName result:%#v", r)
+	return r, nil
 }
 
 // GetStudentByNameAndAge query by name and age, two params, Proxy config GET.
 func (s *StudentProvider) GetStudentByNameAndAge(ctx context.Context, name string, age int32) (*Student, error) {
-	println("Req GetStudentByNameAndAge name:%s, age:%d", name, age)
+	outLn("Req GetStudentByNameAndAge name:%s, age:%d", name, age)
 	r, ok := studentCache.GetByName(name)
 	if ok && r.Age == age {
-		println("Req GetStudentByNameAndAge result:%#v", r)
+		outLn("Req GetStudentByNameAndAge result:%#v", r)
 		return r, nil
 	}
 	return r, nil
 }
 
 // UpdateStudent update by Student struct, my be another struct, Proxy config POST or PUT.
-func (s *StudentProvider) UpdateStudent(ctx context.Context, Student *Student) (bool, error) {
-	println("Req UpdateStudent data:%#v", Student)
-	r, ok := studentCache.GetByName(Student.Name)
-	if ok {
-		if Student.ID != "" {
-			r.ID = Student.ID
-		}
-		if Student.Age >= 0 {
-			r.Age = Student.Age
-		}
-		return true, nil
+func (s *StudentProvider) UpdateStudent(ctx context.Context, student *Student) (bool, error) {
+	outLn("Req UpdateStudent data:%#v", student)
+	r, ok := studentCache.GetByName(student.Name)
+	if !ok {
+		return false, errors.New("not found")
 	}
-	return false, errors.New("not found")
+	if len(student.ID) != 0 {
+		r.ID = student.ID
+	}
+	if student.Age >= 0 {
+		r.Age = student.Age
+	}
+	return true, nil
 }
 
 // UpdateStudent update by Student struct, my be another struct, Proxy config POST or PUT.
-func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, Student *Student) (bool, error) {
-	println("Req UpdateStudentByName data:%#v", Student)
+func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, student *Student) (bool, error) {
+	outLn("Req UpdateStudentByName data:%#v", student)
 	r, ok := studentCache.GetByName(name)
-	if ok {
-		if Student.ID != "" {
-			r.ID = Student.ID
-		}
-		if Student.Age >= 0 {
-			r.Age = Student.Age
-		}
-		return true, nil
+	if !ok {
+		return false, errors.New("not found")
 	}
-	return false, errors.New("not found")
+	if len(student.ID) != 0 {
+		r.ID = student.ID
+	}
+	if student.Age >= 0 {
+		r.Age = student.Age
+	}
+	return true, nil
 }
 
 // nolint
@@ -266,6 +266,6 @@ func (s Student) JavaClassName() string {
 }
 
 // nolint
-func println(format string, args ...interface{}) {
+func outLn(format string, args ...interface{}) {
 	fmt.Printf("\033[32;40m"+format+"\033[0m\n", args...)
 }
