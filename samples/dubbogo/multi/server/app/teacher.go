@@ -159,7 +159,7 @@ type TeacherProvider struct {
 
 // CreateTeacher new teacher, Proxy config POST.
 func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (*Teacher, error) {
-	println("Req CreateTeacher data:%#v", Teacher)
+	outLn("Req CreateTeacher data:%#v", Teacher)
 	if Teacher == nil {
 		return nil, errors.New("not found")
 	}
@@ -178,46 +178,46 @@ func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (
 
 // GetTeacherByName query by name, single param, Proxy config GET.
 func (s *TeacherProvider) GetTeacherByName(ctx context.Context, name string) (*Teacher, error) {
-	println("Req GetTeacherByName name:%#v", name)
+	outLn("Req GetTeacherByName name:%#v", name)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
 		return nil, nil
 	}
 
-	println("Req GetTeacherByName result:%#v", r)
+	outLn("Req GetTeacherByName result:%#v", r)
 	return r, nil
 }
 
 // GetTeacherByCode query by code, single param, Proxy config GET.
 func (s *TeacherProvider) GetTeacherByCode(ctx context.Context, code int64) (*Teacher, error) {
-	println("Req GetTeacherByCode name:%#v", code)
+	outLn("Req GetTeacherByCode name:%#v", code)
 	r, ok := teacherCache.GetByCode(code)
 	if !ok {
 		return nil, nil
 	}
-	println("Req GetTeacherByCode result:%#v", r)
+	outLn("Req GetTeacherByCode result:%#v", r)
 	return r, nil
 }
 
 // GetTeacherTimeout query by name, will timeout for proxy.
 func (s *TeacherProvider) GetTeacherTimeout(ctx context.Context, name string) (*Teacher, error) {
-	println("Req GetTeacherByName name:%#v", name)
+	outLn("Req GetTeacherByName name:%#v", name)
 	// sleep 10s, proxy config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
 		return nil, nil
 	}
-	println("Req GetTeacherByName result:%#v", r)
+	outLn("Req GetTeacherByName result:%#v", r)
 	return r, nil
 }
 
 // GetTeacherByNameAndAge query by name and age, two params, Proxy config GET.
 func (s *TeacherProvider) GetTeacherByNameAndAge(ctx context.Context, name string, age int32) (*Teacher, error) {
-	println("Req GetTeacherByNameAndAge name:%s, age:%d", name, age)
+	outLn("Req GetTeacherByNameAndAge name:%s, age:%d", name, age)
 	r, ok := teacherCache.GetByName(name)
 	if ok && r.Age == age {
-		println("Req GetTeacherByNameAndAge result:%#v", r)
+		outLn("Req GetTeacherByNameAndAge result:%#v", r)
 		return r, nil
 	}
 	return r, nil
@@ -225,7 +225,7 @@ func (s *TeacherProvider) GetTeacherByNameAndAge(ctx context.Context, name strin
 
 // UpdateTeacher update by teacher struct, my be another struct, Proxy config POST or PUT.
 func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (bool, error) {
-	println("Req UpdateTeacher data:%#v", teacher)
+	outLn("Req UpdateTeacher data:%#v", teacher)
 	r, ok := teacherCache.GetByName(teacher.Name)
 	if !ok {
 		return false, errors.New("not found")
@@ -241,7 +241,7 @@ func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (
 
 // UpdateTeacher update by teacher struct, my be another struct, Proxy config POST or PUT.
 func (s *TeacherProvider) UpdateTeacherByName(ctx context.Context, name string, teacher *Teacher) (bool, error) {
-	println("Req UpdateTeacherByName data:%#v", teacher)
+	outLn("Req UpdateTeacherByName data:%#v", teacher)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
 		return false, errors.New("not found")
