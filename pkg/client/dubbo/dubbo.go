@@ -99,12 +99,12 @@ func (dc *Client) Init() error {
 		dgCfg.Request_Timeout = c.RequestTimeoutStr
 		dgCfg.Connect_Timeout = c.ConnectTimeoutStr
 		for k, v := range c.Registries {
-			protocol := v.Protocol
-			if len(protocol) == 0 {
-				protocol = k
+			if len(v.Protocol) == 0 {
+				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
+				v.Protocol = "zookeeper"
 			}
 			dgCfg.Registries[k] = &dg.RegistryConfig{
-				Protocol:   protocol,
+				Protocol:   v.Protocol,
 				Address:    v.Address,
 				TimeoutStr: v.Timeout,
 				Username:   v.Username,
