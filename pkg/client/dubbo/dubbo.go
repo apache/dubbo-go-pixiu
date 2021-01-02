@@ -99,8 +99,12 @@ func (dc *Client) Init() error {
 		dgCfg.Request_Timeout = c.RequestTimeoutStr
 		dgCfg.Connect_Timeout = c.ConnectTimeoutStr
 		for k, v := range c.Registries {
+			protocol := v.Protocol
+			if len(protocol) == 0 {
+				protocol = k
+			}
 			dgCfg.Registries[k] = &dg.RegistryConfig{
-				Protocol:   v.Protocol,
+				Protocol:   protocol,
 				Address:    v.Address,
 				TimeoutStr: v.Timeout,
 				Username:   v.Username,
