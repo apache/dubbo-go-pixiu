@@ -44,7 +44,7 @@ const (
 )
 
 const (
-	default_dubbo_protocol = "dubbo"
+	defaultDubboProtocol = "dubbo"
 )	
 
 var (
