@@ -105,7 +105,7 @@ func (dc *Client) Init() error {
 		for k, v := range c.Registries {
 			if len(v.Protocol) == 0 {
 				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
-				v.Protocol = default_dubbo_protocol
+				v.Protocol = defaultDubboProtocol
 			}
 			dgCfg.Registries[k] = &dg.RegistryConfig{
 				Protocol:   v.Protocol,
