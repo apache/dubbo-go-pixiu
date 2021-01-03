@@ -44,8 +44,8 @@ const (
 )
 
 const (
-	defaultDubboProtocol = "dubbo"
-)	
+	defaultDubboProtocol = "zookeeper"
+)
 
 var (
 	dubboClient        *Client
