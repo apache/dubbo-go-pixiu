@@ -1,3 +1,5 @@
 ./dubbo-go-proxy
 /logs
 /.idea
+/.vscode
+pkg/registry/zookeeper-4unittest/contrib/fatjar
