@@ -29,19 +29,19 @@ resources:
           group: "test"
           version: 1.0.0
       - httpVerb: POST
-          onAir: true
-          timeout: 1000ms
-          inboundRequest:
-            requestType: http
-            queryStrings:
-              - name: name
-                required: true
-          integrationRequest:
-            requestType: http
-            host: 127.0.0.1:8889
-            path: /UserProvider/CreateUser
-            group: "test"
-            version: 1.0.0
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+          queryStrings:
+            - name: name
+              required: true
+        integrationRequest:
+          requestType: http
+          host: 127.0.0.1:8889
+          path: /UserProvider/CreateUser
+          group: "test"
+          version: 1.0.0
 pluginFilePath: ""
 pluginsGroup:
   - groupName: "group1"
