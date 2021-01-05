@@ -1,6 +1,6 @@
 # 从请求的URI部分获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/uri)
+> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/uri)
 
 ## 简单示例
 
@@ -13,8 +13,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/name/:name'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -39,8 +37,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/code/:code'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -65,8 +61,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/name/:name/age/:age'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -99,7 +93,7 @@ resources:
 - 单个 string 参数
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user/name/tc -X GET 
+curl localhost:port/api/v1/test-dubbo/user/name/tc -X GET 
 ```
 
 如果存在数据，返回:
@@ -119,7 +113,7 @@ curl localhost:8888/api/v1/test-dubbo/user/name/tc -X GET
 - 多个参数
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user/name/tc/age/99 -X GET 
+curl localhost:port/api/v1/test-dubbo/user/name/tc/age/99 -X GET 
 ```
 
 结果
