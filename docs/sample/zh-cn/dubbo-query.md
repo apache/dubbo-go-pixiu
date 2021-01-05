@@ -1,6 +1,6 @@
 # 从表单请求里面获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/query)
+> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/query)
 
 ## 简单示例
 
@@ -99,7 +99,7 @@ resources:
 - 单个 string 参数
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/userByName?name=tc -X GET 
+curl localhost:port/api/v1/test-dubbo/userByName?name=tc -X GET 
 ```
 
 如果存在数据，返回:
@@ -119,7 +119,7 @@ curl localhost:8888/api/v1/test-dubbo/userByName?name=tc -X GET
 - 多个参数
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/userByNameAndAge?name=tc&age=99 -X GET 
+curl localhost:port/api/v1/test-dubbo/userByNameAndAge?name=tc&age=99 -X GET 
 ```
 
 结果
