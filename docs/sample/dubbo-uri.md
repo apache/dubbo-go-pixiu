@@ -1,6 +1,6 @@
 # Get the parameter from the uri
 
-> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/uri)
+> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/uri)
 
 ## Simple Demo
 
@@ -13,8 +13,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/name/:name'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -39,8 +37,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/code/:code'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -65,8 +61,6 @@ resources:
   - path: '/api/v1/test-dubbo/user/name/:name/age/:age'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         onAir: true
@@ -99,7 +93,7 @@ resources:
 - single param string
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user/name/tc -X GET 
+curl localhost:port/api/v1/test-dubbo/user/name/tc -X GET 
 ```
 
 If exist, will return:
@@ -119,7 +113,7 @@ Not found, return: nil
 - multi params
 
 ```bash
-curl localhost:8888/api/v1/test-dubbo/user/name/tc/age/99 -X GET 
+curl localhost:port/api/v1/test-dubbo/user/name/tc/age/99 -X GET 
 ```
 
 result
