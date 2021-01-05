@@ -1,6 +1,6 @@
 # Use dubbo request universality
 
-> POST request [samples](https://github.com/dubbogo/dubbo-go-proxy-samples/tree/master/dubbo/apiconfig/proxy)
+> POST request [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/proxy)
 
 ## Suggest
 
