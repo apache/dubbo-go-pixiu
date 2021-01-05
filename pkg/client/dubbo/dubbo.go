@@ -43,6 +43,10 @@ const (
 	JavaLangClassName   = "java.lang.Long"
 )
 
+const (
+	defaultDubboProtocol = "zookeeper"
+)
+
 var (
 	dubboClient        *Client
 	onceClient         = sync.Once{}
@@ -99,6 +103,10 @@ func (dc *Client) Init() error {
 		dgCfg.Request_Timeout = c.RequestTimeoutStr
 		dgCfg.Connect_Timeout = c.ConnectTimeoutStr
 		for k, v := range c.Registries {
+			if len(v.Protocol) == 0 {
+				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
+				v.Protocol = defaultDubboProtocol
+			}
 			dgCfg.Registries[k] = &dg.RegistryConfig{
 				Protocol:   v.Protocol,
 				Address:    v.Address,
