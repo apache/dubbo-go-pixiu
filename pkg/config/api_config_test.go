@@ -18,6 +18,8 @@
 package config_test
 
 import (
+	_ "github.com/apache/dubbo-go/config_center/zookeeper"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	"log"
 	"testing"
 )
@@ -37,6 +39,16 @@ func TestLoadAPIConfigFromFile(t *testing.T) {
 	assert.EqualError(t, err, "Config file not specified")
 
 	apiC, err = config.LoadAPIConfigFromFile("./mock/api_config.yml")
+	assert.Empty(t, err)
+	assert.Equal(t, apiC.Name, "api name")
+	bytes, _ := yaml.Marshal(apiC)
+	log.Printf("%s", bytes)
+}
+
+func TestLoadAPIConfig(t *testing.T) {
+	apiMeataConf := &model.ApiMetaConfig{"zookeeper", "127.0.0.1:2181", "proxy", "dubbo", "dubbo", "dubbo"}
+
+	apiC, err := config.LoadAPIConfig(apiMeataConf)
 	assert.Empty(t, err)
 	assert.Equal(t, apiC.Name, "api name")
 	bytes, _ := yaml.Marshal(apiC)
