@@ -17,6 +17,11 @@
 
 package model
 
+import (
+	"github.com/apache/dubbo-go/common/constant"
+	"net/url"
+)
+
 // Bootstrap the door
 type Bootstrap struct {
 	StaticResources  StaticResources  `yaml:"static_resources" json:"static_resources" mapstructure:"static_resources"`
@@ -32,6 +37,10 @@ func (bs *Bootstrap) GetListeners() []Listener {
 // GetPprof
 func (bs *Bootstrap) GetPprof() PprofConf {
 	return bs.StaticResources.PprofConf
+}
+
+func (bs *Bootstrap) GetApiMetaConfig() *ApiMetaConfig {
+	return bs.StaticResources.ApiMetaConfig
 }
 
 // ExistCluster
@@ -53,6 +62,7 @@ type StaticResources struct {
 	Clusters       []Cluster       `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
 	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
+	ApiMetaConfig *ApiMetaConfig `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
 }
 
 // DynamicResources TODO
@@ -65,3 +75,29 @@ type ShutdownConfig struct {
 	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
 	RejectPolicy string `yaml:"reject_policy" json:"reject_policy,omitempty"`
 }
+
+// ApiMetaConfig how to find api config, file or etcd etc.
+type ApiMetaConfig struct {
+	Protocol      string `required:"true"  yaml:"protocol"  json:"protocol,omitempty"`
+	Address       string `yaml:"address" json:"address,omitempty"`
+	Group         string `default:"dubbo" yaml:"group" json:"group,omitempty"`
+	Cluster       string `yaml:"cluster" json:"cluster,omitempty"`
+	Namespace     string `default:"dubbo" yaml:"namespace"  json:"namespace,omitempty"`
+	AppId         string `default:"dubbo" yaml:"app_id"  json:"app_id,omitempty"`
+}
+
+
+func (c *ApiMetaConfig) GetUrlMap() url.Values {
+	urlMap := url.Values{}
+	urlMap.Set(constant.CONFIG_NAMESPACE_KEY, c.Namespace)
+	urlMap.Set(constant.CONFIG_GROUP_KEY, c.Group)
+	urlMap.Set(constant.CONFIG_CLUSTER_KEY, c.Cluster)
+	urlMap.Set(constant.CONFIG_APP_ID_KEY, c.AppId)
+	return urlMap
+}
+
+
+
+
+
+
