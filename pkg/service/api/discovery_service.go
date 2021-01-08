@@ -71,6 +71,20 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
+// RefreshAPIsFromConfig fresh the router from API config and to local cache
+func RefreshAPIsFromConfig(apiConfig config.APIConfig) error {
+	localAPIDiscSrv :=NewLocalMemoryAPIDiscoveryService()
+	if len(apiConfig.Resources) == 0 {
+		return nil
+	}
+	error := loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
+	if error == nil {
+		extension.SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, localAPIDiscSrv)
+	}
+	return error
+}
+
+
 func loadAPIFromResource(parrentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	if len(resources) == 0 {

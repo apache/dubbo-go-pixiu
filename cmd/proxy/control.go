@@ -88,9 +88,18 @@ var (
 				logger.SetLoggerLevel(logLevel)
 			}
 			logger.InitLog(logConfPath)
-			if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
-				logger.Errorf("load api config error:%+v", err)
-				return err
+
+
+			if bootstrap.GetApiMetaConfig() != nil {
+				if _, err := config.LoadAPIConfig(bootstrap.GetApiMetaConfig()); err != nil {
+					logger.Errorf("load api config from config center error:%+v", err)
+					return err
+				}
+			} else {
+				if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
+					logger.Errorf("load api config error:%+v", err)
+					return err
+				}
 			}
 
 			limitCpus := c.Int("limit-cpus")
