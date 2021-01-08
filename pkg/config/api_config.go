@@ -18,8 +18,13 @@
 package config
 
 import (
+	"github.com/apache/dubbo-go/common"
+	"github.com/apache/dubbo-go/common/extension"
+	"github.com/apache/dubbo-go/config_center"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	perrors "github.com/pkg/errors"
+	"log"
 	"time"
 )
 
@@ -73,6 +78,12 @@ type APIConfig struct {
 	Resources   []Resource   `json:"resources" yaml:"resources"`
 	Definitions []Definition `json:"definitions" yaml:"definitions"`
 }
+
+func (a *APIConfig) Process(event *config_center.ConfigChangeEvent) {
+	log.Println("Process change : ", event.Value)
+
+}
+
 
 // Resource defines the API path
 type Resource struct {
@@ -241,6 +252,43 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 	})
 	return apiConf, nil
 }
+
+// LoadAPIConfig load the api config from config center
+func LoadAPIConfig(metaConfig *model.ApiMetaConfig) (*APIConfig, error) {
+
+	url, err := common.NewURL(metaConfig.Address,
+		common.WithProtocol(metaConfig.Protocol), common.WithParams(metaConfig.GetUrlMap()))
+	if err != nil {
+		return nil, err
+	}
+
+	factory := extension.GetConfigCenterFactory(metaConfig.Protocol)
+	dynamicConfig, err := factory.GetDynamicConfiguration(&url)
+
+	if dynamicConfig == nil {
+		return nil, perrors.Errorf("Get dynamicConfiguration fail, dynamicConfiguration is nil, init config center plugin please")
+	}
+
+	dynamicConfig.AddListener("api_config", apiConfig, config_center.WithGroup(metaConfig.Group))
+	content, err := dynamicConfig.GetProperties("api_config", config_center.WithGroup(metaConfig.Group))
+
+	apiConf := &APIConfig{}
+	if len(content) != 0 {
+		err := yaml.UnmarshalYML([]byte(content), apiConf)
+		if err != nil {
+			return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
+		}
+		once.Do(func() {
+			apiConfig = apiConf
+		})
+		// config.GetEnvInstance().UpdateAppExternalConfigMap(appMapConent)
+	}
+
+	return apiConf,nil
+}
+
+
+
 
 // GetAPIConf returns the initted api config
 func GetAPIConf() APIConfig {
