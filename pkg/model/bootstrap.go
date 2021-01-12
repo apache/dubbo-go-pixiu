@@ -78,12 +78,7 @@ type ShutdownConfig struct {
 
 // ApiMetaConfig how to find api config, file or etcd etc.
 type ApiMetaConfig struct {
-	Protocol      string `required:"true"  yaml:"protocol"  json:"protocol,omitempty"`
 	Address       string `yaml:"address" json:"address,omitempty"`
-	Group         string `default:"dubbo" yaml:"group" json:"group,omitempty"`
-	Cluster       string `yaml:"cluster" json:"cluster,omitempty"`
-	Namespace     string `default:"dubbo" yaml:"namespace"  json:"namespace,omitempty"`
-	AppId         string `default:"dubbo" yaml:"app_id"  json:"app_id,omitempty"`
 }
 
 

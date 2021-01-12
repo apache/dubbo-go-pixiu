@@ -76,5 +76,4 @@ static_resources:
         address: "0.0.0.0"
         port: 6060
   apiMetaConfig:
-    protocol: "zookeeper"
-    address: "127.0.0.1:2181"
+    address: "127.0.0.1:2379"

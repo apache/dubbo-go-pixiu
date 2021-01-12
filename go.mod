@@ -3,8 +3,10 @@ module github.com/dubbogo/dubbo-go-proxy
 go 1.14
 
 require (
+	github.com/apache/dubbo-getty v1.3.10
 	github.com/apache/dubbo-go v1.5.1
 	github.com/apache/dubbo-go-hessian2 v1.6.2
+	github.com/coreos/etcd v3.3.25+incompatible
 	github.com/dubbogo/go-zookeeper v1.0.1
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
@@ -15,5 +17,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.22.4
 	go.uber.org/zap v1.15.0
+	google.golang.org/grpc v1.23.0
 	gopkg.in/yaml.v2 v2.2.8
+
 )
