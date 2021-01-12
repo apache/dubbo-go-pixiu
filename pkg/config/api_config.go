@@ -20,11 +20,12 @@ package config
 import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/extension"
-	"github.com/apache/dubbo-go/config_center"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 	perrors "github.com/pkg/errors"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -256,21 +257,19 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.ApiMetaConfig) (*APIConfig, error) {
 
-	url, err := common.NewURL(metaConfig.Address,
-		common.WithProtocol(metaConfig.Protocol), common.WithParams(metaConfig.GetUrlMap()))
+
+	client := etcdv3.NewServiceDiscoveryClient(
+		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
+		etcdv3.WithTimeout(100),
+		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
+	)
+
+	content, err := client.Get("config");
+
 	if err != nil {
-		return nil, err
-	}
-
-	factory := extension.GetConfigCenterFactory(metaConfig.Protocol)
-	dynamicConfig, err := factory.GetDynamicConfiguration(&url)
-
-	if dynamicConfig == nil {
 		return nil, perrors.Errorf("Get dynamicConfiguration fail, dynamicConfiguration is nil, init config center plugin please")
 	}
-
-	dynamicConfig.AddListener("api_config", apiConfig, config_center.WithGroup(metaConfig.Group))
-	content, err := dynamicConfig.GetProperties("api_config", config_center.WithGroup(metaConfig.Group))
+	//dynamicConfig.AddListener("api_config", apiConfig, config_center.WithGroup(metaConfig.Group))
 
 	apiConf := &APIConfig{}
 	if len(content) != 0 {
