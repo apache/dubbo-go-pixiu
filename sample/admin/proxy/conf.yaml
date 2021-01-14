@@ -62,9 +62,4 @@ static_resources:
     step_timeout: "10s"
     reject_policy: "immediacy"
   api_meta_config:
-    protocol: "zookeeper"
-    address: "127.0.0.1:2181"
-    group: "proxy"
-    cluster: "dubbo"
-    namespace: "proxy"
-    appId: "dubbo"
+    address: "127.0.0.1:2379"
