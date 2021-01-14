@@ -479,7 +479,10 @@ func (c *Client) GetChildrenKVList(k string) ([]string, []string, error) {
 // Get gets value by @k
 func (c *Client) Get(k string) (string, error) {
 	v, err := c.get(k)
-	return v, perrors.WithMessagef(err, "get key value (key %s)", k)
+	if err != nil {
+		return v, perrors.WithMessagef(err, "get key value (key %s)", k)
+	}
+	return v, nil
 }
 
 // Watch watches on spec key
