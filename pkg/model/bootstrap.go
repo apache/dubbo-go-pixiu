@@ -17,11 +17,6 @@
 
 package model
 
-import (
-	"github.com/apache/dubbo-go/common/constant"
-	"net/url"
-)
-
 // Bootstrap the door
 type Bootstrap struct {
 	StaticResources  StaticResources  `yaml:"static_resources" json:"static_resources" mapstructure:"static_resources"`
@@ -62,7 +57,7 @@ type StaticResources struct {
 	Clusters       []Cluster       `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
 	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
-	ApiMetaConfig *ApiMetaConfig `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
+	ApiMetaConfig  *ApiMetaConfig  `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
 }
 
 // DynamicResources TODO
@@ -78,21 +73,5 @@ type ShutdownConfig struct {
 
 // ApiMetaConfig how to find api config, file or etcd etc.
 type ApiMetaConfig struct {
-	Address       string `yaml:"address" json:"address,omitempty"`
+	Address string `yaml:"address" json:"address,omitempty"`
 }
-
-
-func (c *ApiMetaConfig) GetUrlMap() url.Values {
-	urlMap := url.Values{}
-	urlMap.Set(constant.CONFIG_NAMESPACE_KEY, c.Namespace)
-	urlMap.Set(constant.CONFIG_GROUP_KEY, c.Group)
-	urlMap.Set(constant.CONFIG_CLUSTER_KEY, c.Cluster)
-	urlMap.Set(constant.CONFIG_APP_ID_KEY, c.AppId)
-	return urlMap
-}
-
-
-
-
-
-
