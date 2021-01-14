@@ -20,62 +20,58 @@ package router
 import (
 	"net/url"
 	"testing"
-)
 
-import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-)
-
 func TestGetURIParams(t *testing.T) {
-	api := API{
+	api := router.API{
 		URLPattern: "/mock/:id/:name",
 		Method:     getMockMethod(config.MethodGet),
 	}
 	u, _ := url.Parse("https://test.com/mock/12345/Joe")
-	values := api.GetURIParams(*u)
+	values := GetURIParams(&api, *u)
 	assert.Equal(t, values.Get("id"), "12345")
 	assert.Equal(t, values.Get("name"), "Joe")
 
 	u, _ = url.Parse("https://test.com/Mock/12345/Joe")
-	values = api.GetURIParams(*u)
+	values = GetURIParams(&api, *u)
 	assert.Equal(t, values.Get("id"), "12345")
 	assert.Equal(t, values.Get("name"), "Joe")
 
 	u, _ = url.Parse("https://test.com/Mock/12345/Joe&jack")
-	values = api.GetURIParams(*u)
+	values = GetURIParams(&api, *u)
 	assert.Equal(t, values.Get("id"), "12345")
 	assert.Equal(t, values.Get("name"), "Joe&jack")
 
 	u, _ = url.Parse("https://test.com/mock/12345")
-	values = api.GetURIParams(*u)
+	values = GetURIParams(&api, *u)
 	assert.Nil(t, values)
 
 	api.URLPattern = "/mock/test"
 	u, _ = url.Parse("https://test.com/mock/12345/Joe?status=up")
-	values = api.GetURIParams(*u)
+	values = GetURIParams(&api, *u)
 	assert.Nil(t, values)
 
 	api.URLPattern = "/mock/test"
 	u, _ = url.Parse("https://test.com/mock/12345/Joe&Jack")
-	values = api.GetURIParams(*u)
+	values = GetURIParams(&api, *u)
 	assert.Nil(t, values)
 }
 
 func TestIsWildCardBackendPath(t *testing.T) {
-	mockAPI := API{
+	mockAPI := &router.API{
 		URLPattern: "/mock/:id/:name",
 		Method:     getMockMethod(config.MethodGet),
 	}
 	mockAPI.IntegrationRequest.Path = "/mock/:id"
-	assert.True(t, mockAPI.IsWildCardBackendPath())
+	assert.True(t, IsWildCardBackendPath(mockAPI))
 
 	mockAPI.IntegrationRequest.Path = "/mock/test"
-	assert.False(t, mockAPI.IsWildCardBackendPath())
+	assert.False(t, IsWildCardBackendPath(mockAPI))
 
 	mockAPI.IntegrationRequest.Path = ""
-	assert.False(t, mockAPI.IsWildCardBackendPath())
+	assert.False(t, IsWildCardBackendPath(mockAPI))
 }
