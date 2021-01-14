@@ -18,13 +18,10 @@
 package config
 
 import (
-	"github.com/apache/dubbo-go/common"
-	"github.com/apache/dubbo-go/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 	perrors "github.com/pkg/errors"
-	"log"
 	"strings"
 	"time"
 )
@@ -79,12 +76,6 @@ type APIConfig struct {
 	Resources   []Resource   `json:"resources" yaml:"resources"`
 	Definitions []Definition `json:"definitions" yaml:"definitions"`
 }
-
-func (a *APIConfig) Process(event *config_center.ConfigChangeEvent) {
-	log.Println("Process change : ", event.Value)
-
-}
-
 
 // Resource defines the API path
 type Resource struct {
@@ -257,14 +248,12 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.ApiMetaConfig) (*APIConfig, error) {
 
-
 	client := etcdv3.NewServiceDiscoveryClient(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
-		etcdv3.WithTimeout(100),
+		etcdv3.WithTimeout(10*time.Second),
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
-
-	content, err := client.Get("config");
+	content, err := client.Get("/proxy/config/api")
 
 	if err != nil {
 		return nil, perrors.Errorf("Get dynamicConfiguration fail, dynamicConfiguration is nil, init config center plugin please")
@@ -283,11 +272,8 @@ func LoadAPIConfig(metaConfig *model.ApiMetaConfig) (*APIConfig, error) {
 		// config.GetEnvInstance().UpdateAppExternalConfigMap(appMapConent)
 	}
 
-	return apiConf,nil
+	return apiConf, nil
 }
-
-
-
 
 // GetAPIConf returns the initted api config
 func GetAPIConf() APIConfig {
