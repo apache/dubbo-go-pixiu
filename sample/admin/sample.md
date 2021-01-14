@@ -1,5 +1,10 @@
 # Local example
 
+
+export ETCDCTL_API=3
+
+cat api_config.yaml | etcdctl set "/proxy/config/api"
+
 > Prepare zookeeper env.
 
 upload /XXX/dubbo-go-proxy/sample/admin/proxy/api_config.yml to server where zookeeper are running on, then execute below command to set api_config value
