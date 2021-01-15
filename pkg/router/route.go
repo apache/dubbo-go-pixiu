@@ -21,12 +21,17 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+)
 
+import (
+	"github.com/emirpasic/gods/trees/avltree"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/emirpasic/gods/trees/avltree"
-	"github.com/pkg/errors"
 )
 
 // Node defines the single method of the router configured API
