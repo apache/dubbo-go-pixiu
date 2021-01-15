@@ -19,11 +19,16 @@ package router
 
 import (
 	"testing"
+)
 
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
+import (
 	"github.com/emirpasic/gods/trees/avltree"
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 )
 
 func getMockMethod(verb config.HTTPVerb) config.Method {
