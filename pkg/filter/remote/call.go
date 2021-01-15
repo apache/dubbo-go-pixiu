@@ -30,6 +30,7 @@ import (
 	_ "github.com/apache/dubbo-go/filter/filter_impl"
 	_ "github.com/apache/dubbo-go/registry/protocol"
 	_ "github.com/apache/dubbo-go/registry/zookeeper"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 )
 
 import (
@@ -38,7 +39,6 @@ import (
 	clienthttp "github.com/dubbogo/dubbo-go-proxy/pkg/client/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
