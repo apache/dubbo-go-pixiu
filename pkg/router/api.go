@@ -20,7 +20,9 @@ package router
 import (
 	"net/url"
 	"strings"
+)
 
+import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 )
