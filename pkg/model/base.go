@@ -17,6 +17,10 @@
 
 package model
 
+import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
+)
+
 type Metadata struct {
 	Info map[string]MetadataValue
 }
@@ -25,12 +29,11 @@ type MetadataValue interface {
 }
 
 // Status is the components status
-type Status int32
 
 const (
-	Down    Status = 0
-	Up      Status = 1
-	Unknown Status = 2
+	Down    api.Status = 0
+	Up      api.Status = 1
+	Unknown api.Status = 2
 )
 
 var StatusName = map[int32]string{
@@ -93,12 +96,10 @@ type ConfigSource struct {
 
 // ApiConfigSource
 type ApiConfigSource struct {
-	ApiType     ApiType  `yaml:"omitempty" json:"omitempty"`
-	ApiTypeStr  string   `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
-	ClusterName []string `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
+	ApiType     api.ApiType `yaml:"omitempty" json:"omitempty"`
+	ApiTypeStr  string      `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
+	ClusterName []string    `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
 }
-
-type ApiType int32
 
 const (
 	REST_VALUE  = "REST"
@@ -107,7 +108,7 @@ const (
 )
 
 const (
-	REST ApiType = 0 + iota // support for 1.0
+	REST api.ApiType = 0 + iota // support for 1.0
 	GRPC
 	DUBBO
 )
