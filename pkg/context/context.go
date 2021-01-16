@@ -18,8 +18,8 @@
 package context
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 // Context run context
@@ -42,8 +42,8 @@ type Context interface {
 
 	API(router.API)
 	GetAPI() *router.API
-	Api(api *model.Api)
-	GetApi() *model.Api
+	Api(api *api.Api)
+	GetApi() *api.Api
 
 	GetClientIP() string
 	GetApplicationName() string
