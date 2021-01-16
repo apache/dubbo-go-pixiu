@@ -23,12 +23,12 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 )
 
 // nolint
