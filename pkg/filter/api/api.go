@@ -22,10 +22,13 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 // nolint
@@ -39,7 +42,7 @@ func apiFilterFunc() context.FilterFunc {
 		url := c.GetUrl()
 		method := c.GetMethod()
 		// [williamfeng323]TO-DO: get the API details from router which saved in constant.LocalMemoryApiDiscoveryService
-		if api, ok := model.EmptyApi.FindApi(url); ok {
+		if api, ok := api.EmptyApi.FindApi(url); ok {
 			if !api.MatchMethod(method) {
 				c.WriteWithStatus(http.StatusMethodNotAllowed, constant.Default405Body)
 				c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
