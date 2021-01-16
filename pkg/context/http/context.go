@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 )
 
@@ -214,7 +215,7 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 
 // BuildFilters build filter, from config http_filters
 func (hc *HttpContext) BuildFilters() {
-	var filterFuncs []context.FilterFunc
+	var filterFuncs []fc.FilterFunc
 	api := hc.GetAPI()
 
 	if api == nil {
