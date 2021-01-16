@@ -22,7 +22,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 )
 
