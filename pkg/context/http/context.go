@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 )
 
@@ -117,7 +118,7 @@ func (hc *HttpContext) GetMethod() string {
 }
 
 // Api wait do delete
-func (hc *HttpContext) Api(api *model.Api) {
+func (hc *HttpContext) Api(api *api.Api) {
 	// hc.api = api
 }
 
