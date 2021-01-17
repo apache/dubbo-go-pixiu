@@ -59,7 +59,7 @@ type Logger interface {
 }
 
 func init() {
-	logConfFile := "./conf/log.yaml"
+	logConfFile := "./conf/log.yml"
 	err := InitLog(logConfFile)
 	if err != nil {
 		logger.Infof("[InitLog] warn: %v", err)
