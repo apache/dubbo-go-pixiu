@@ -61,7 +61,7 @@ var (
 				Name:   "log-config, lc",
 				Usage:  "Load log configuration from `FILE`",
 				EnvVar: "LOG_FILE",
-				Value:  "configs/log.yaml",
+				Value:  "configs/log.yml",
 			},
 			cli.StringFlag{
 				Name:   "log-level, l",
