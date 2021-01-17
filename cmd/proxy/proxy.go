@@ -24,7 +24,6 @@ import (
 )
 
 import (
-	_ "github.com/apache/dubbo-go/config_center/zookeeper"
 	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
 	"github.com/urfave/cli"
 	_ "net/http/pprof"

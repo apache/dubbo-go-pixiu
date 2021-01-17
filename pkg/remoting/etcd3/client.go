@@ -91,46 +91,9 @@ func WithHeartbeat(heartbeat int) Option {
 	}
 }
 
-// ValidateClient validates client and sets options
-func ValidateClient(container clientFacade, opts ...Option) error {
-	options := &Options{
-		heartbeat: 1, // default heartbeat
-	}
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	lock := container.ClientLock()
-	lock.Lock()
-	defer lock.Unlock()
-
-	// new Client
-	if container.Client() == nil {
-		newClient, err := NewClient(options.name, options.endpoints, options.timeout, options.heartbeat)
-		if err != nil {
-			logger.Warnf("new etcd client (name{%s}, etcd addresses{%v}, timeout{%d}) = error{%v}",
-				options.name, options.endpoints, options.timeout, err)
-			return perrors.WithMessagef(err, "new client (address:%+v)", options.endpoints)
-		}
-		container.SetClient(newClient)
-	}
-
-	// Client lose connection with etcd server
-	if container.Client().rawClient == nil {
-		newClient, err := NewClient(options.name, options.endpoints, options.timeout, options.heartbeat)
-		if err != nil {
-			logger.Warnf("new etcd client (name{%s}, etcd addresses{%v}, timeout{%d}) = error{%v}",
-				options.name, options.endpoints, options.timeout, err)
-			return perrors.WithMessagef(err, "new client (address:%+v)", options.endpoints)
-		}
-		container.SetClient(newClient)
-	}
-
-	return nil
-}
 
 //  nolint
-func NewServiceDiscoveryClient(opts ...Option) *Client {
+func NewConfigClient(opts ...Option) *Client {
 	options := &Options{
 		heartbeat: 1, // default heartbeat
 	}
@@ -479,10 +442,7 @@ func (c *Client) GetChildrenKVList(k string) ([]string, []string, error) {
 // Get gets value by @k
 func (c *Client) Get(k string) (string, error) {
 	v, err := c.get(k)
-	if err != nil {
-		return v, perrors.WithMessagef(err, "get key value (key %s)", k)
-	}
-	return v, nil
+	return v, perrors.WithMessagef(err, "get key value (key %s)", k)
 }
 
 // Watch watches on spec key

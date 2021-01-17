@@ -3,7 +3,6 @@ module github.com/dubbogo/dubbo-go-proxy
 go 1.14
 
 require (
-	github.com/apache/dubbo-getty v1.3.10
 	github.com/apache/dubbo-go v1.5.1
 	github.com/apache/dubbo-go-hessian2 v1.6.2
 	github.com/coreos/etcd v3.3.25+incompatible
@@ -19,5 +18,4 @@ require (
 	go.uber.org/zap v1.15.0
 	google.golang.org/grpc v1.23.0
 	gopkg.in/yaml.v2 v2.2.8
-
 )

@@ -59,7 +59,9 @@ var EmptyDiscoveryResponse = &DiscoveryResponse{}
 
 // APIDiscoveryService api discovery service interface
 type APIDiscoveryService interface {
+	config.ApiConfigListener
 	AddAPI(router.API) error
+	ClearAPI() error
 	GetAPI(string, config.HTTPVerb) (router.API, error)
 }
 
