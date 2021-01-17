@@ -74,4 +74,5 @@ type ShutdownConfig struct {
 // ApiMetaConfig how to find api config, file or etcd etc.
 type ApiMetaConfig struct {
 	Address string `yaml:"address" json:"address,omitempty"`
+	ApiConfigPath string `default:"/proxy/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
 }

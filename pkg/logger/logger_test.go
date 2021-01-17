@@ -53,7 +53,7 @@ func TestInitLog(t *testing.T) {
 	}
 	assert.EqualError(t, err, fmt.Sprintf("ioutil.ReadFile file:%s, error:%s", path, errMsg))
 
-	err = InitLog("./log.yml")
+	err = InitLog("./log.yaml")
 	assert.NoError(t, err)
 
 	Debug("debug")
@@ -67,7 +67,7 @@ func TestInitLog(t *testing.T) {
 }
 
 func TestSetLevel(t *testing.T) {
-	err := InitLog("./log.yml")
+	err := InitLog("./log.yaml")
 	assert.NoError(t, err)
 	Debug("debug")
 	Info("info")
