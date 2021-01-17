@@ -51,7 +51,7 @@ static_resources:
       registries:
         "zookeeper":
           timeout: "3s"
-          address: "127.0.0.0:2181"
+          address: "127.0.0.1:2181"
           username: ""
           password: ""
   #        "consul":
@@ -63,3 +63,4 @@ static_resources:
     reject_policy: "immediacy"
   api_meta_config:
     address: "127.0.0.1:2379"
+    api_config_path: "/proxy/config/api"
