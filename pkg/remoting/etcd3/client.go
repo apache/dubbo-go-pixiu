@@ -93,7 +93,7 @@ func WithHeartbeat(heartbeat int) Option {
 }
 
 
-//  NewConfigClient create new Client
+// NewConfigClient create new Client
 func NewConfigClient(opts ...Option) *Client {
 	options := &Options{
 		heartbeat: 1, // default heartbeat
