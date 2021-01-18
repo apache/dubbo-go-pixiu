@@ -4,6 +4,7 @@ import (
 	"strings"
 )
 
+// todo
 func Split(path string) []string {
 	return strings.Split(path, "/")
 }
