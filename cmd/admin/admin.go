@@ -15,8 +15,11 @@ var client *etcdv3.Client
 
 
 const (
+	// EtcdAddress etcd address
 	EtcdAddress   string = "127.0.0.1:2379"
+	// AdminAddress admin server host and port
 	AdminAddress  string = "127.0.0.1:8080"
+	// APIConfigPath api config path in etcd
 	APIConfigPath string = "/proxy/config/api"
 )
 
