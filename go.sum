@@ -104,8 +104,8 @@ github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20190307165228-86c17b95fcd5/go.mod h1
 github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYUyUczH0OGQWaF5ceTx0UBShxjsH6f8oGKYe2c=
 github.com/apache/dubbo-getty v1.3.10 h1:ys5mwjPdxG/KwkPjS6EI0RzQtU6p6FCPoKpaFEzpAL0=
 github.com/apache/dubbo-getty v1.3.10/go.mod h1:x6rraK01BL5C7jUM2fPl5KMkAxLVIx54ZB8/XEOik9Y=
-github.com/apache/dubbo-go v1.5.5-rc1 h1:33yiuW9P6U1OVugHplXolB48dWN7B2qEZQWw+aT4VHA=
-github.com/apache/dubbo-go v1.5.5-rc1/go.mod h1:KAty5L/vcHjh3qcTfC4R5Nfd0tkk7MLJnux/IQKfQLg=
+github.com/apache/dubbo-go v1.5.5 h1:bQX+eGANPFl/ldfvctQJdw5HKfTGBpiWx1gaXrrYwMA=
+github.com/apache/dubbo-go v1.5.5/go.mod h1:KAty5L/vcHjh3qcTfC4R5Nfd0tkk7MLJnux/IQKfQLg=
 github.com/apache/dubbo-go-hessian2 v1.7.0 h1:u2XxIuepu/zb6JcGZc7EbvKboXdKoJbf7rbmeq6SF1w=
 github.com/apache/dubbo-go-hessian2 v1.7.0/go.mod h1:7rEw9guWABQa6Aqb8HeZcsYPHsOS7XT1qtJvkmI6c5w=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
