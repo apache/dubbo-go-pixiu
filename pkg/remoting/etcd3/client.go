@@ -41,7 +41,7 @@ const (
 	MaxFailTimes = 15
 	// RegistryETCDV3Client client name
 	RegistryETCDV3Client = "etcd registry"
-	// metadataETCDV3Client client name
+	// MetadataETCDV3Client client name
 	MetadataETCDV3Client = "etcd metadata"
 )
 
@@ -391,7 +391,7 @@ func (c *Client) keepAliveKV(k string, v string) error {
 	return perrors.WithMessage(err, "put k/v with lease")
 }
 
-// Done
+// Done return exit chan
 func (c *Client) Done() <-chan struct{} {
 	return c.exit
 }
