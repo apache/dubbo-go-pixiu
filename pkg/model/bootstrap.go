@@ -34,6 +34,7 @@ func (bs *Bootstrap) GetPprof() PprofConf {
 	return bs.StaticResources.PprofConf
 }
 
+// GetAPIMetaConfig get api meta config from bootstrap
 func (bs *Bootstrap) GetAPIMetaConfig() *APIMetaConfig {
 	return bs.StaticResources.APIMetaConfig
 }
