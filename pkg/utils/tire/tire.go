@@ -1,12 +1,10 @@
 package tire
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlPath"
+	"strings"
 )
-
-type Info struct {
-	BizInfo interface{}
-}
 
 type Tire struct {
 	root Node
@@ -32,15 +30,22 @@ func (tire *Tire) Put(withOutHost string, bizInfo interface{}) bool {
 
 	return tire.root.Put(parts, bizInfo)
 }
-
-func (tire Tire) Get(withOutHost string) (*Node, []string) {
+func (tire Tire) Get(withOutHost string) (*Node, []string, bool) {
 	parts := urlPath.Split(withOutHost)
 	return tire.root.Get(parts)
 }
 
+//不释放内存，释放内存需要使用方rebuild 整个字典树
+func (tire Tire) Remove(withOutHost string) {
+	n, _, _ := tire.Get(withOutHost)
+	if n != nil {
+		n.endOfPath = false
+	}
+}
+
 func (tire Tire) Contains(withOutHost string) bool {
 	parts := urlPath.Split(withOutHost)
-	ret, _ := tire.root.Get(parts)
+	ret, _, _ := tire.root.Get(parts)
 	return !(ret == nil)
 }
 
@@ -66,31 +71,35 @@ func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 
 }
 
-func (node *Node) Get(keys []string) (*Node, []string) {
+func (node *Node) GetBizInfo() interface{} {
+	return node.bizInfo
+}
+
+func (node *Node) Get(keys []string) (*Node, []string, bool) {
 	key := keys[0]
 	childKeys := keys[1:]
 	isReal := len(childKeys) == 0
 	if isReal {
 		if isPathVariable(key) {
 			if node.PathVariableNode.endOfPath == true {
-				return node.PathVariableNode, []string{key[1 : len(key)-1]}
+				return node.PathVariableNode, []string{urlPath.VariableName(key)}, true
 			} else {
-				return nil, nil
+				return nil, nil, false
 			}
 			return node.PathVariableNode.Get(childKeys)
 		} else {
-			return node.children[key], nil
+			return node.children[key], nil, true
 		}
 	} else {
 		if isPathVariable(key) {
 			if node.PathVariableNode == nil {
-				return nil, nil
+				return nil, nil, false
 			}
-			retNode, pathVariableList := node.PathVariableNode.Get(childKeys)
-			return retNode, append(pathVariableList, key[1:len(key)-1])
+			retNode, pathVariableList, ok := node.PathVariableNode.Get(childKeys)
+			return retNode, append(pathVariableList, key[1:len(key)-1]), ok
 		} else {
 			if node.children == nil || node.children[key] == nil {
-				return nil, nil
+				return nil, nil, false
 			}
 			return node.children[key].Get(childKeys)
 		}
@@ -100,7 +109,7 @@ func (node *Node) Get(keys []string) (*Node, []string) {
 
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 	if isPathVariable(key) {
-		pathVariable := key[1 : len(key)-1]
+		pathVariable := urlPath.VariableName(key)
 		return node.putPathVariable(pathVariable, isReal, bizInfo)
 	} else {
 		return node.putNode(key, isReal, bizInfo)
@@ -151,5 +160,10 @@ func isPathVariable(key string) bool {
 	if key == "" {
 		return false
 	}
-	return key[0] == '{' && key[len(key)-1] == '}'
+
+	if strings.HasPrefix(key, constant.PathParamIdentifier) {
+		return true
+	}
+	//return key[0] == '{' && key[len(key)-1] == '}'
+	return false
 }

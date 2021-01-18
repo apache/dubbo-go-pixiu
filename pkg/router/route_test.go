@@ -18,11 +18,11 @@
 package router
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/tire"
 	"testing"
 )
 
 import (
-	"github.com/emirpasic/gods/trees/avltree"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,12 +43,11 @@ func getMockMethod(verb config.HTTPVerb) config.Method {
 
 func TestPut(t *testing.T) {
 	rt := &Route{
-		tree:         avltree.NewWithStringComparator(),
-		wildcardTree: avltree.NewWithStringComparator(),
+		tree: tire.NewTire(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	rt.PutAPI(API{URLPattern: "/", Method: n0})
-	_, ok := rt.tree.Get("/")
+	_, _, ok := rt.tree.Get("/")
 	assert.True(t, ok)
 
 	err := rt.PutAPI(API{URLPattern: "/", Method: n0})
@@ -59,36 +58,35 @@ func TestPut(t *testing.T) {
 	assert.Nil(t, err)
 	err = rt.PutAPI(API{URLPattern: "/mock", Method: n1})
 	assert.Nil(t, err)
-	mNode, ok := rt.tree.Get("/mock")
+	mNode, _, ok := rt.tree.Get("/mock")
 	assert.True(t, ok)
-	assert.Equal(t, len(mNode.(*Node).methods), 2)
+	node := mNode.GetBizInfo().(*Node)
+	assert.Equal(t, len((node).methods), 2)
 
 	err = rt.PutAPI(API{URLPattern: "/mock/test", Method: n0})
 	assert.Nil(t, err)
-	_, ok = rt.tree.Get("/mock/test")
+	_, _, ok = rt.tree.Get("/mock/test")
 	assert.True(t, ok)
 
 	rt.PutAPI(API{URLPattern: "/test/:id", Method: n0})
-	tNode, ok := rt.tree.Get("/test/:id")
+	_, _, ok = rt.tree.Get("/test/:id")
 	assert.True(t, ok)
-	assert.True(t, tNode.(*Node).wildcard)
 
 	err = rt.PutAPI(API{URLPattern: "/test/:id", Method: n1})
 	assert.Nil(t, err)
+	rt.PutAPI(API{URLPattern: "/test/js", Method: n0})
 	err = rt.PutAPI(API{URLPattern: "/test/js", Method: n0})
 	assert.Error(t, err, "/test/:id wildcard already exist so that cannot add path /test/js")
 
 	err = rt.PutAPI(API{URLPattern: "/test/:id/mock", Method: n0})
-	tNode, ok = rt.tree.Get("/test/:id/mock")
+	_, _, ok = rt.tree.Get("/test/:id/mock")
 	assert.True(t, ok)
-	assert.True(t, tNode.(*Node).wildcard)
 	assert.Nil(t, err)
 }
 
 func TestFindMethod(t *testing.T) {
 	rt := &Route{
-		tree:         avltree.NewWithStringComparator(),
-		wildcardTree: avltree.NewWithStringComparator(),
+		tree: tire.NewTire(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	n1 := getMockMethod(config.MethodPost)
@@ -145,8 +143,7 @@ func TestUpdateMethod(t *testing.T) {
 
 func TestSearchWildcard(t *testing.T) {
 	rt := &Route{
-		tree:         avltree.NewWithStringComparator(),
-		wildcardTree: avltree.NewWithStringComparator(),
+		tree: tire.NewTire(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
@@ -156,13 +153,13 @@ func TestSearchWildcard(t *testing.T) {
 	e = rt.PutAPI(API{URLPattern: "/vought/:id/supe/:name", Method: n0})
 	assert.Nil(t, e)
 
-	_, ok := rt.searchWildcard("/marvel")
+	_, ok := rt.findNode("/marvel")
 	assert.False(t, ok)
-	_, ok = rt.searchWildcard("/theboys/:id/age")
+	_, ok = rt.findNode("/theboys/:id/age")
 	assert.False(t, ok)
-	_, ok = rt.searchWildcard("/theboys/butcher")
+	_, ok = rt.findNode("/theboys/butcher")
 	assert.True(t, ok)
-	_, ok = rt.searchWildcard("/vought/:id/supe/homelander")
+	_, ok = rt.findNode("/vought/:id/supe/homelander")
 	assert.True(t, ok)
 }
 

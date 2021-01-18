@@ -24,19 +24,18 @@ import (
 )
 
 import (
-	"github.com/emirpasic/gods/trees/avltree"
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/tire"
 )
 
 // Node defines the single method of the router configured API
 type Node struct {
 	fullPath string
-	wildcard bool
 	filters  []string
 	methods  map[config.HTTPVerb]*config.Method
 	headers  map[string]string
@@ -44,9 +43,8 @@ type Node struct {
 
 // Route defines the tree of router APIs
 type Route struct {
-	lock         sync.RWMutex
-	tree         *avltree.Tree
-	wildcardTree *avltree.Tree
+	lock sync.RWMutex
+	tree tire.Tire
 }
 
 // PutAPI puts an api into the resource
@@ -56,15 +54,10 @@ func (rt *Route) PutAPI(api API) error {
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
 	if !ok {
-		wildcard := strings.Contains(lowerCasePath, constant.PathParamIdentifier)
 		rn := &Node{
 			fullPath: lowerCasePath,
 			methods:  map[config.HTTPVerb]*config.Method{api.Method.HTTPVerb: &api.Method},
-			wildcard: wildcard,
 			headers:  api.Headers,
-		}
-		if wildcard {
-			rt.wildcardTree.Put(lowerCasePath, rn)
 		}
 		rt.tree.Put(lowerCasePath, rn)
 		return nil
@@ -114,27 +107,15 @@ func (rt *Route) findNode(fullPath string) (*Node, bool) {
 	lowerPath := strings.ToLower(fullPath)
 	var n interface{}
 	var found bool
-	if n, found = rt.searchWildcard(lowerPath); !found {
-		rt.lock.RLock()
-		defer rt.lock.RUnlock()
-		if n, found = rt.tree.Get(lowerPath); !found {
-			return nil, false
-		}
-	}
-	return n.(*Node), found
-}
-
-func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
-	wildcardPaths := rt.wildcardTree.Keys()
-	for _, p := range wildcardPaths {
-		if wildcardMatch(p.(string), fullPath) != nil {
-			n, ok := rt.wildcardTree.Get(p)
-			return n.(*Node), ok
-		}
+	tireNode, _, _ := rt.tree.Get(lowerPath)
+	found = tireNode != nil
+	if !found {
+		return nil, false
 	}
-	return nil, false
+	n = tireNode.GetBizInfo()
+	return n.(*Node), found
 }
 
 // wildcardMatch validate if the checkPath meets the wildcardPath,
@@ -161,7 +142,6 @@ func wildcardMatch(wildcardPath string, checkPath string) url.Values {
 // NewRoute returns an empty router tree
 func NewRoute() *Route {
 	return &Route{
-		tree:         avltree.NewWithStringComparator(),
-		wildcardTree: avltree.NewWithStringComparator(),
+		tree: tire.NewTire(),
 	}
 }
