@@ -3,7 +3,7 @@ module github.com/dubbogo/dubbo-go-proxy
 go 1.14
 
 require (
-	github.com/apache/dubbo-go v1.5.5-rc1
+	github.com/apache/dubbo-go v1.5.5
 	github.com/apache/dubbo-go-hessian2 v1.7.0
 	github.com/dubbogo/go-zookeeper v1.0.2
 	github.com/emirpasic/gods v1.12.0
