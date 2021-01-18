@@ -253,7 +253,7 @@ func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 }
 
 // LoadAPIConfig load the api config from config center
-func LoadAPIConfig(metaConfig *model.ApiMetaConfig) (*APIConfig, error) {
+func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*APIConfig, error) {
 
 	client = etcdv3.NewConfigClient(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
@@ -261,9 +261,9 @@ func LoadAPIConfig(metaConfig *model.ApiMetaConfig) (*APIConfig, error) {
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
 
-	go listenApiConfigNodeEvent(metaConfig.ApiConfigPath)
+	go listenApiConfigNodeEvent(metaConfig.APIConfigPath)
 
-	content, err := client.Get(metaConfig.ApiConfigPath)
+	content, err := client.Get(metaConfig.APIConfigPath)
 
 	if err != nil {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
