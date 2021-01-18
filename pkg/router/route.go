@@ -49,6 +49,7 @@ type Route struct {
 	wildcardTree *avltree.Tree
 }
 
+// ClearAPI clear the api
 func (rt *Route) ClearAPI() error {
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
