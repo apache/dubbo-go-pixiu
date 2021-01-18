@@ -46,12 +46,13 @@ const (
 )
 
 var (
-	// Defines related errors
+	// ErrNilETCDV3Client raw client nil
 	ErrNilETCDV3Client = perrors.New("etcd raw client is nil") // full describe the ERR
+	// ErrKVPairNotFound not found key
 	ErrKVPairNotFound  = perrors.New("k/v pair not found")
 )
 
-// nolint
+// Options client configuration
 type Options struct {
 	name      string
 	endpoints []string
@@ -92,7 +93,7 @@ func WithHeartbeat(heartbeat int) Option {
 }
 
 
-//  nolint
+//  NewConfigClient create new Client
 func NewConfigClient(opts ...Option) *Client {
 	options := &Options{
 		heartbeat: 1, // default heartbeat
@@ -127,7 +128,7 @@ type Client struct {
 	Wait sync.WaitGroup
 }
 
-// nolint
+// NewClient create a client instance with name, endpoints etc.
 func NewClient(name string, endpoints []string, timeout time.Duration, heartbeat int) (*Client, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	rawClient, err := clientv3.New(clientv3.Config{
@@ -181,7 +182,7 @@ func (c *Client) stop() bool {
 	return false
 }
 
-// nolint
+// Close close client
 func (c *Client) Close() {
 	if c == nil {
 		return
@@ -302,7 +303,7 @@ func (c *Client) get(k string) (string, error) {
 	return string(resp.Kvs[0].Value), nil
 }
 
-// nolint
+// CleanKV delete all key and value
 func (c *Client) CleanKV() error {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
@@ -382,21 +383,20 @@ func (c *Client) keepAliveKV(k string, v string) error {
 		c.rawClient.Revoke(c.ctx, lease.ID)
 		if err != nil {
 			return perrors.WithMessage(err, "keep alive lease")
-		} else {
-			return perrors.New("keep alive lease")
 		}
+		return perrors.New("keep alive lease")
 	}
 
 	_, err = c.rawClient.Put(c.ctx, k, v, clientv3.WithLease(lease.ID))
 	return perrors.WithMessage(err, "put k/v with lease")
 }
 
-// nolint
+// Done
 func (c *Client) Done() <-chan struct{} {
 	return c.exit
 }
 
-// nolint
+// Valid check client
 func (c *Client) Valid() bool {
 	select {
 	case <-c.exit:
@@ -409,7 +409,7 @@ func (c *Client) Valid() bool {
 	return c.rawClient != nil
 }
 
-// nolint
+// Create key value ...
 func (c *Client) Create(k string, v string) error {
 	err := c.put(k, v)
 	return perrors.WithMessagef(err, "put k/v (key: %s value %s)", k, v)
@@ -421,7 +421,7 @@ func (c *Client) Update(k, v string) error {
 	return perrors.WithMessagef(err, "Update k/v (key: %s value %s)", k, v)
 }
 
-// nolint
+// Delete key
 func (c *Client) Delete(k string) error {
 	err := c.delete(k)
 	return perrors.WithMessagef(err, "delete k/v (key %s)", k)
