@@ -36,7 +36,7 @@ import (
 var (
 	apiConfig *APIConfig
 	client    *etcdv3.Client
-	listener  ApiConfigListener
+	listener  APIConfigListener
 	lock      sync.RWMutex
 )
 
@@ -72,9 +72,9 @@ const (
 	HTTPRequest RequestType = "http"
 )
 
-// ApiConfigListener defines api config listener interface
-type ApiConfigListener interface {
-	ApiConfigChange(apiConfig APIConfig) bool //bool is return for interface implement is interesting
+// APIConfigListener defines api config listener interface
+type APIConfigListener interface {
+	APIConfigChange(apiConfig APIConfig) bool //bool is return for interface implement is interesting
 }
 
 
@@ -261,7 +261,7 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*APIConfig, error) {
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
 
-	go listenApiConfigNodeEvent(metaConfig.APIConfigPath)
+	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath)
 
 	content, err := client.Get(metaConfig.APIConfigPath)
 
@@ -269,12 +269,12 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*APIConfig, error) {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
 	}
 
-	initApiConfigFromString(content)
+	initAPIConfigFromString(content)
 
 	return apiConfig, nil
 }
 
-func initApiConfigFromString(content string) error{
+func initAPIConfigFromString(content string) error{
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -289,7 +289,7 @@ func initApiConfigFromString(content string) error{
 	return nil
 }
 
-func listenApiConfigNodeEvent(key string) bool {
+func listenAPIConfigNodeEvent(key string) bool {
 	for {
 		wc, err := client.Watch(key)
 		if err != nil {
@@ -318,8 +318,8 @@ func listenApiConfigNodeEvent(key string) bool {
 			for _, event := range e.Events {
 				switch event.Type {
 				case mvccpb.PUT:
-					initApiConfigFromString(string(event.Kv.Value))
-					listener.ApiConfigChange(GetAPIConf())
+					initAPIConfigFromString(string(event.Kv.Value))
+					listener.APIConfigChange(GetAPIConf())
 				case mvccpb.DELETE:
 					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					return true
@@ -330,8 +330,8 @@ func listenApiConfigNodeEvent(key string) bool {
 		}
 	}
 }
-// RegisterConfigListener register ApiConfigListener
-func RegisterConfigListener(li ApiConfigListener) {
+// RegisterConfigListener register APIConfigListener
+func RegisterConfigListener(li APIConfigListener) {
 	listener = li
 }
 
