@@ -55,7 +55,7 @@ type UserDB struct {
 	lock      sync.Mutex
 }
 
-// nolint.
+// Add add user
 func (db *UserDB) Add(u *User) bool {
 	res := db.AddForName(u)
 	if !res {
@@ -65,7 +65,7 @@ func (db *UserDB) Add(u *User) bool {
 	return db.AddForCode(u)
 }
 
-// nolint.
+// AddForName add user with name
 func (db *UserDB) AddForName(u *User) bool {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -82,7 +82,7 @@ func (db *UserDB) AddForName(u *User) bool {
 	return true
 }
 
-// nolint.
+// AddForCode add user with code
 func (db *UserDB) AddForCode(u *User) bool {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -99,7 +99,7 @@ func (db *UserDB) AddForCode(u *User) bool {
 	return true
 }
 
-// nolint.
+// GetByName find user by name
 func (db *UserDB) GetByName(n string) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -108,7 +108,7 @@ func (db *UserDB) GetByName(n string) (*User, bool) {
 	return r, ok
 }
 
-// nolint.
+// GetByCode find user by code
 func (db *UserDB) GetByCode(n int64) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -212,7 +212,7 @@ func (u *UserProvider) UpdateUser(ctx context.Context, user *User) (bool, error)
 	return false, errors.New("not found")
 }
 
-// UpdateUser update by user struct, my be another struct, Proxy config POST or PUT.
+// UpdateUserByName update by user struct, my be another struct, Proxy config POST or PUT.
 func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *User) (bool, error) {
 	println("Req UpdateUserByName data:%#v", user)
 	r, ok := cache.GetByName(name)
@@ -228,12 +228,12 @@ func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *
 	return false, errors.New("not found")
 }
 
-// nolint.
+// Reference return reference
 func (u *UserProvider) Reference() string {
 	return "UserProvider"
 }
 
-// nolint.
+// JavaClassName return java class name
 func (u User) JavaClassName() string {
 	return "com.ikurento.user.User"
 }
