@@ -90,8 +90,8 @@ var (
 			logger.InitLog(logConfPath)
 
 
-			if bootstrap.GetApiMetaConfig() != nil {
-				if _, err := config.LoadAPIConfig(bootstrap.GetApiMetaConfig()); err != nil {
+			if bootstrap.GetAPIMetaConfig() != nil {
+				if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
 					logger.Errorf("load api config from config center error:%+v", err)
 					return err
 				}
