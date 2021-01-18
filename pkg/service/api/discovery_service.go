@@ -67,8 +67,8 @@ func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
 	return nil
 }
 
-// ApiConfigChange to response to api config change
-func (ads *LocalMemoryAPIDiscoveryService) ApiConfigChange(apiConfig config.APIConfig) bool {
+// APIConfigChange to response to api config change
+func (ads *LocalMemoryAPIDiscoveryService) APIConfigChange(apiConfig config.APIConfig) bool {
 	ads.ClearAPI()
 	loadAPIFromResource("", apiConfig.Resources, nil, ads)
 	return true

@@ -34,8 +34,8 @@ func (bs *Bootstrap) GetPprof() PprofConf {
 	return bs.StaticResources.PprofConf
 }
 
-func (bs *Bootstrap) GetApiMetaConfig() *APIMetaConfig {
-	return bs.StaticResources.ApiMetaConfig
+func (bs *Bootstrap) GetAPIMetaConfig() *APIMetaConfig {
+	return bs.StaticResources.APIMetaConfig
 }
 
 // ExistCluster
@@ -57,7 +57,7 @@ type StaticResources struct {
 	Clusters       []Cluster       `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
 	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
-	ApiMetaConfig  *APIMetaConfig  `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
+	APIMetaConfig  *APIMetaConfig  `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
 }
 
 // DynamicResources TODO
