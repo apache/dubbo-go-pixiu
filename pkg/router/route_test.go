@@ -157,8 +157,10 @@ func TestSearchWildcard(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = rt.findNode("/theboys/:id/age")
 	assert.False(t, ok)
-	_, ok = rt.findNode("/theboys/butcher")
+	_, ok = rt.matchNode("/theboys/butcher")
 	assert.True(t, ok)
+
+	///??????????
 	_, ok = rt.findNode("/vought/:id/supe/homelander")
 	assert.True(t, ok)
 }

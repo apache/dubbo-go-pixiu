@@ -83,8 +83,8 @@ func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
 	childKeys := parts[1:]
 	isReal := len(childKeys) == 0
 	if isReal {
-		if node.children != nil && node.children[key] != nil && node.endOfPath {
-			return node, &[]string{}, true
+		if node.children != nil && node.children[key] != nil && node.children[key].endOfPath {
+			return node.children[key], &[]string{}, true
 		}
 		//不能直接return 需要一次回朔 O（2n）    tire下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
 		if node.PathVariableNode != nil {
