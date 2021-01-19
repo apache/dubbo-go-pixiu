@@ -161,7 +161,7 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 }
 
 func mapIItoMapSI(in interface{}) interface{} {
-	var inMap = make(map[interface{}]interface{})
+	var inMap map[interface{}]interface{}
 	if v, ok := in.(map[interface{}]interface{}); !ok {
 		return in
 	} else {

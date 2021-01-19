@@ -189,7 +189,7 @@ type MappingParam struct {
 type Opt struct {
 	// Name match dubbo.DefaultMapOption key.
 	Name string `json:"name,omitempty" yaml:"name"`
-	// Open control opt create.
+	// Open control opt create, only true will create a Opt.
 	Open bool `json:"open,omitempty" yaml:"open"`
 	// Usable setTarget condition, true can set, false not set.
 	Usable bool `json:"usable,omitempty" yaml:"usable"`
@@ -205,6 +205,7 @@ type DubboBackendConfig struct {
 	Interface       string   `yaml:"interface" json:"interface"`
 	Method          string   `yaml:"method" json:"method"`
 	ParamTypes      []string `yaml:"paramTypes" json:"paramTypes"`
+	ToParamTypes    []string `yaml:"toParamTypes" json:"toParamTypes"`
 	Retries         string   `yaml:"retries" json:"retries,omitempty"`
 }
 
