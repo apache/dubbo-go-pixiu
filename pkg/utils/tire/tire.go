@@ -12,7 +12,7 @@ func NewTire() Tire {
 	return Tire{root: Node{endOfPath: false, matchStr: "*"}}
 }
 
-// https://hsot:port/path1/{pathvarible1}/path2/{pathvarible2}
+// Node 对比标准tire 多了针对通配节点的子树，如果go 语法支持逆变协变 可以放在同一个children 更标准更好理解
 type Node struct {
 	matchStr         string           //冗余信息暂时无用，rebuild 需要
 	children         map[string]*Node //子树
@@ -37,7 +37,7 @@ func (tire Tire) Match(withOutHost string) (*Node, *[]string, bool) {
 	return tire.root.Match(parts)
 }
 
-//不释放内存，释放内存需要使用方rebuild 整个字典树
+// Remove 不释放内存，释放内存需要使用方rebuild 整个字典树
 func (tire Tire) Remove(withOutHost string) {
 	n, _, _ := tire.Get(withOutHost)
 	if n != nil {
