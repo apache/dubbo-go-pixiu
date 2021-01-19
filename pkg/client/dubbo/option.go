@@ -27,6 +27,7 @@ const (
 	optionKeyInterface   = "interface"
 	optionKeyApplication = "application"
 	optionKeyMethod      = "method"
+	optionKeyValues      = "values"
 )
 
 // DefaultMapOption default map opt
@@ -37,6 +38,7 @@ var DefaultMapOption = client.MapOption{
 	optionKeyInterface:   &interfaceOpt{},
 	optionKeyApplication: &applicationOpt{},
 	optionKeyMethod:      &methodOpt{},
+	optionKeyValues:      &valuesOpt{},
 }
 
 type paramTypesOpt struct {
@@ -45,20 +47,20 @@ type paramTypesOpt struct {
 
 // nolint
 func (opt *paramTypesOpt) Action(req *client.Request, val interface{}) {
-	v, ok := val.([]interface{})
-	if !ok {
-		return
-	}
-
-	var pt []string
-	for i := range v {
-		ptv, ok := v[i].(string)
-		if ok {
-			pt = append(pt, ptv)
-		}
-	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.ParamTypes = pt
+	//v, ok := val.([]interface{})
+	//if !ok {
+	//	return
+	//}
+	//
+	//var pt []string
+	//for i := range v {
+	//	ptv, ok := v[i].(string)
+	//	if ok {
+	//		pt = append(pt, ptv)
+	//	}
+	//}
+	//
+	//req.API.IntegrationRequest.DubboBackendConfig.ParamTypes = pt
 }
 
 type groupOpt struct {
@@ -129,4 +131,17 @@ func (opt *interfaceOpt) Action(req *client.Request, val interface{}) {
 	}
 
 	req.API.IntegrationRequest.DubboBackendConfig.Interface = v
+}
+
+type valuesOpt struct {
+	client.CommonOption
+}
+
+// nolint
+func (opt *valuesOpt) Action(req *client.Request, val interface{}) {
+
+}
+
+func (opt *valuesOpt) VirtualPos() int {
+	return -1
 }

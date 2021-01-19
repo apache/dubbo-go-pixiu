@@ -205,6 +205,7 @@ type DubboBackendConfig struct {
 	Interface       string   `yaml:"interface" json:"interface"`
 	Method          string   `yaml:"method" json:"method"`
 	ParamTypes      []string `yaml:"paramTypes" json:"paramTypes"`
+	ToParamTypes    []string `yaml:"toParamTypes" json:"toParamTypes"`
 	Retries         string   `yaml:"retries" json:"retries,omitempty"`
 }
 

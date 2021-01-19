@@ -4,13 +4,13 @@
 
 ## Passthroughs
 
-### Config
+### Api Config
 
 ```yaml
 name: proxy
 description: proxy sample
 resources:
-  - path: '/api/v1/test-dubbo/user'
+  - path: '/api/v1/test-http/user'
     type: restful
     description: user
     methods:
@@ -22,12 +22,13 @@ resources:
         integrationRequest:
           requestType: http
           host: "127.0.0.1:1314"
+          path: "/user/"
 ```
 
 ### Request
 
 ```bash
-curl host:port/api/v1/test-http/user -X POST -d '{"name":"ttc","id":"0003","age":28}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-http/user -X POST -d '{"name": "tiecheng1","code": 4,"age": 18}' --header "Content-Type: application/json"
 ```
 
 ### Response
@@ -36,10 +37,10 @@ curl host:port/api/v1/test-http/user -X POST -d '{"name":"ttc","id":"0003","age"
 
 ```json
 {
-    "age": 28,
-    "iD": "0003",
-    "name": "ttc",
-    "time": "0001-01-01T00:00:00Z"
+  "id": "XVlBz",
+  "name": "tiecheng1",
+  "age": 18,
+  "time": "0001-01-01T00:00:00Z"
 }
 ```
 
@@ -47,7 +48,7 @@ curl host:port/api/v1/test-http/user -X POST -d '{"name":"ttc","id":"0003","age"
 
 ```json
 {
-    "message": "data is exist"
+  "message": "data is exist"
 }
 ```
 
