@@ -15,6 +15,8 @@ type User struct {
 }
 ```
 
-Although User struct has Time value, generic invoke will return nil. [the simple response](dubbogo-query.md#simple) time field is disappear. 
+Although User struct has Time value, generic invoke will return nil. [the simple response](dubbo-query.md#simple) time field is disappear. 
 
 So I suggest you can use string to time type for a short time.
+
+[Previous](./dubbo.md)
