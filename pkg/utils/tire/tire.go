@@ -3,6 +3,7 @@ package tire
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlPath"
+	"github.com/emirpasic/gods/lists/arraylist"
 	"strings"
 )
 
@@ -17,12 +18,12 @@ func NewTire() Tire {
 // https://hsot:port/path1/{pathvarible1}/path2/{pathvarible2}
 
 type Node struct {
-	matchStr         string
-	children         map[string]*Node
-	PathVariablesSet map[string]*Node
-	PathVariableNode *Node
-	endOfPath        bool
-	bizInfo          interface{}
+	matchStr         string           //冗余信息暂时无用，rebuild 需要
+	children         map[string]*Node //子树
+	PathVariablesSet map[string]*Node //变量名集合 找不到set先用map todo
+	PathVariableNode *Node            //通配变量节点后的子树
+	endOfPath        bool             //是否是路径末尾
+	bizInfo          interface{}      //随便塞啥
 }
 
 func (tire *Tire) Put(withOutHost string, bizInfo interface{}) bool {
@@ -33,6 +34,11 @@ func (tire *Tire) Put(withOutHost string, bizInfo interface{}) bool {
 func (tire Tire) Get(withOutHost string) (*Node, []string, bool) {
 	parts := urlPath.Split(withOutHost)
 	return tire.root.Get(parts)
+}
+
+func (tire Tire) Match(withOutHost string) (*Node, []string, bool) {
+	parts := urlPath.Split(withOutHost)
+	return tire.root.Match(parts)
 }
 
 //不释放内存，释放内存需要使用方rebuild 整个字典树
@@ -73,6 +79,43 @@ func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 
 func (node *Node) GetBizInfo() interface{} {
 	return node.bizInfo
+}
+
+func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
+	key := parts[0]
+	childKeys := parts[1:]
+	isReal := len(childKeys) == 0
+	if isReal {
+		if node.children[key] != nil {
+			if node.endOfPath {
+				return node, &[]string{}, true
+			}
+			//不能直接return 需要一次回朔 O（2n）    tire下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
+		}
+		if node.PathVariableNode != nil {
+			if node.PathVariableNode.endOfPath {
+				return node.PathVariableNode, &[]string{key}, true
+			}
+		}
+		return nil, nil, false
+	} else {
+		if node.children[key] != nil {
+			node, param, ok := node.children[key].Match(childKeys)
+			if ok {
+				return node, param, ok
+			}
+			//同理需要回朔
+		}
+		if node.PathVariableNode != nil {
+			node, param, ok := node.PathVariableNode.Match(childKeys)
+			if ok {
+				newParams := append(*param, key)
+				param = &newParams
+				return node, param, ok
+			}
+		}
+		return nil, nil, false
+	}
 }
 
 func (node *Node) Get(keys []string) (*Node, []string, bool) {
