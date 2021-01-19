@@ -42,7 +42,7 @@ Response result or err.
 
 #### Common result
 
-[reference](../sample/dubbogo-body.md)
+[reference](../sample/dubbo-body.md)
 
 ### Host filter
 
