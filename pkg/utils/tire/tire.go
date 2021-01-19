@@ -1,10 +1,7 @@
 package tire
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlPath"
-	"github.com/emirpasic/gods/lists/arraylist"
-	"strings"
 )
 
 type Tire struct {
@@ -36,7 +33,7 @@ func (tire Tire) Get(withOutHost string) (*Node, []string, bool) {
 	return tire.root.Get(parts)
 }
 
-func (tire Tire) Match(withOutHost string) (*Node, []string, bool) {
+func (tire Tire) Match(withOutHost string) (*Node, *[]string, bool) {
 	parts := urlPath.Split(withOutHost)
 	return tire.root.Match(parts)
 }
@@ -69,7 +66,7 @@ func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 		return false
 	}
 	childKeys := keys[1:]
-	if isPathVariable(key) {
+	if urlPath.IsPathVariable(key) {
 		return node.PathVariableNode.Put(childKeys, bizInfo)
 	} else {
 		return node.children[key].Put(childKeys, bizInfo)
@@ -123,18 +120,17 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 	childKeys := keys[1:]
 	isReal := len(childKeys) == 0
 	if isReal {
-		if isPathVariable(key) {
+		if urlPath.IsPathVariable(key) {
 			if node.PathVariableNode.endOfPath == true {
 				return node.PathVariableNode, []string{urlPath.VariableName(key)}, true
 			} else {
 				return nil, nil, false
 			}
-			return node.PathVariableNode.Get(childKeys)
 		} else {
 			return node.children[key], nil, true
 		}
 	} else {
-		if isPathVariable(key) {
+		if urlPath.IsPathVariable(key) {
 			if node.PathVariableNode == nil {
 				return nil, nil, false
 			}
@@ -151,7 +147,7 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 }
 
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
-	if isPathVariable(key) {
+	if urlPath.IsPathVariable(key) {
 		pathVariable := urlPath.VariableName(key)
 		return node.putPathVariable(pathVariable, isReal, bizInfo)
 	} else {
@@ -197,16 +193,4 @@ func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) boo
 	selfNode.endOfPath = selfNode.endOfPath || old.endOfPath
 	node.children[matchStr] = selfNode
 	return true
-}
-
-func isPathVariable(key string) bool {
-	if key == "" {
-		return false
-	}
-
-	if strings.HasPrefix(key, constant.PathParamIdentifier) {
-		return true
-	}
-	//return key[0] == '{' && key[len(key)-1] == '}'
-	return false
 }

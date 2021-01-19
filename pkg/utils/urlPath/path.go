@@ -12,3 +12,15 @@ func Split(path string) []string {
 func VariableName(key string) string {
 	return strings.TrimPrefix(key, constant.PathParamIdentifier)
 }
+
+func IsPathVariable(key string) bool {
+	if key == "" {
+		return false
+	}
+
+	if strings.HasPrefix(key, constant.PathParamIdentifier) {
+		return true
+	}
+	//return key[0] == '{' && key[len(key)-1] == '}'
+	return false
+}
