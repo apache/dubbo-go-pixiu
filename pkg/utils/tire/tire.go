@@ -4,10 +4,12 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlpath"
 )
 
+// Tire 字典树
 type Tire struct {
 	root Node
 }
 
+// NewTire 构造方法
 func NewTire() Tire {
 	return Tire{root: Node{endOfPath: false, matchStr: "*"}}
 }
