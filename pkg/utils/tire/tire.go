@@ -63,6 +63,7 @@ func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 	}
 
 	key := keys[0]
+	// isReal 代表是否是输入url 最末尾那段,对应trie 上的节点是否真实存在。
 	isReal := len(keys) == 1
 	//屏蔽 通配和非统配的细节put 方法，不涉及递归
 	isSuccess := node.put(key, isReal, bizInfo)
@@ -88,6 +89,7 @@ func (node *Node) GetBizInfo() interface{} {
 func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
 	key := parts[0]
 	childKeys := parts[1:]
+	// isReal 代表是否是输入url 最末尾那段,对应trie 上的节点是否真实存在。
 	isReal := len(childKeys) == 0
 	if isReal {
 		//退出条件
