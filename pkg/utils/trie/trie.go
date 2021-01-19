@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package tire
+package trie
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlpath"
 )
 
-// Tire 字典树
-type Tire struct {
+// Trie 字典树
+type Trie struct {
 	root Node
 }
 
-// NewTire 构造方法
-func NewTire() Tire {
-	return Tire{root: Node{endOfPath: false, matchStr: "*"}}
+// NewTrie 构造方法
+func NewTrie() Trie {
+	return Trie{root: Node{endOfPath: false, matchStr: "*"}}
 }
 
-// Node 对比标准tire 多了针对通配节点的子树，如果go 语法支持逆变协变 可以放在同一个children 更标准更好理解
+// Node 对比标准trie 多了针对通配节点的子树，如果go 语法支持逆变协变 可以放在同一个children 更标准更好理解
 type Node struct {
 	matchStr         string           //冗余信息暂时无用，rebuild 需要
 	children         map[string]*Node //子树
@@ -43,29 +43,29 @@ type Node struct {
 
 //Tire对外暴露 推荐外部使用
 
-func (tire *Tire) Put(withOutHost string, bizInfo interface{}) bool {
+func (trie *Trie) Put(withOutHost string, bizInfo interface{}) bool {
 	parts := urlpath.Split(withOutHost)
-	return tire.root.Put(parts, bizInfo)
+	return trie.root.Put(parts, bizInfo)
 }
-func (tire Tire) Get(withOutHost string) (*Node, []string, bool) {
+func (trie Trie) Get(withOutHost string) (*Node, []string, bool) {
 	parts := urlpath.Split(withOutHost)
-	return tire.root.Get(parts)
+	return trie.root.Get(parts)
 }
-func (tire Tire) Match(withOutHost string) (*Node, *[]string, bool) {
+func (trie Trie) Match(withOutHost string) (*Node, *[]string, bool) {
 	parts := urlpath.Split(withOutHost)
-	return tire.root.Match(parts)
+	return trie.root.Match(parts)
 }
 
 // Remove 不释放内存，释放内存需要使用方rebuild 整个字典树
-func (tire Tire) Remove(withOutHost string) {
-	n, _, _ := tire.Get(withOutHost)
+func (trie Trie) Remove(withOutHost string) {
+	n, _, _ := trie.Get(withOutHost)
 	if n != nil {
 		n.endOfPath = false
 	}
 }
-func (tire Tire) Contains(withOutHost string) bool {
+func (trie Trie) Contains(withOutHost string) bool {
 	parts := urlpath.Split(withOutHost)
-	ret, _, _ := tire.root.Get(parts)
+	ret, _, _ := trie.root.Get(parts)
 	return !(ret == nil)
 }
 
@@ -114,7 +114,7 @@ func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
 		if node.children != nil && node.children[key] != nil && node.children[key].endOfPath {
 			return node.children[key], &[]string{}, true
 		}
-		//不能直接return 需要一次回朔 O（2n）    tire下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
+		//不能直接return 需要一次回朔 O（2n）    trie下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
 		if node.PathVariableNode != nil {
 			if node.PathVariableNode.endOfPath {
 				return node.PathVariableNode, &[]string{key}, true

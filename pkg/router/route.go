@@ -30,7 +30,7 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/tire"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/trie"
 )
 
 // Node defines the single method of the router configured API
@@ -44,7 +44,7 @@ type Node struct {
 // Route defines the tree of router APIs
 type Route struct {
 	lock sync.RWMutex
-	tree tire.Tire
+	tree trie.Trie
 }
 
 // PutAPI puts an api into the resource
@@ -163,6 +163,6 @@ func wildcardMatch(wildcardPath string, checkPath string) url.Values {
 // NewRoute returns an empty router tree
 func NewRoute() *Route {
 	return &Route{
-		tree: tire.NewTire(),
+		tree: trie.NewTrie(),
 	}
 }

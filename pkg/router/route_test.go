@@ -18,7 +18,7 @@
 package router
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/tire"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/trie"
 	"testing"
 )
 
@@ -43,7 +43,7 @@ func getMockMethod(verb config.HTTPVerb) config.Method {
 
 func TestPut(t *testing.T) {
 	rt := &Route{
-		tree: tire.NewTire(),
+		tree: trie.NewTrie(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	rt.PutAPI(API{URLPattern: "/", Method: n0})
@@ -86,7 +86,7 @@ func TestPut(t *testing.T) {
 
 func TestFindMethod(t *testing.T) {
 	rt := &Route{
-		tree: tire.NewTire(),
+		tree: trie.NewTrie(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	n1 := getMockMethod(config.MethodPost)
@@ -143,7 +143,7 @@ func TestUpdateMethod(t *testing.T) {
 
 func TestSearchWildcard(t *testing.T) {
 	rt := &Route{
-		tree: tire.NewTire(),
+		tree: trie.NewTrie(),
 	}
 	n0 := getMockMethod(config.MethodGet)
 	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
