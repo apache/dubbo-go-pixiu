@@ -43,6 +43,10 @@ const (
 	JavaLangClassName   = "java.lang.Long"
 )
 
+const (
+	defaultDubboProtocol = "zookeeper"
+)
+
 var (
 	dubboClient        *Client
 	onceClient         = sync.Once{}
@@ -99,8 +103,12 @@ func (dc *Client) Init() error {
 		dgCfg.Request_Timeout = c.RequestTimeoutStr
 		dgCfg.Connect_Timeout = c.ConnectTimeoutStr
 		for k, v := range c.Registries {
+			if len(v.Protocol) == 0 {
+				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
+				v.Protocol = defaultDubboProtocol
+			}
 			dgCfg.Registries[k] = &dg.RegistryConfig{
-				Protocol:   k,
+				Protocol:   v.Protocol,
 				Address:    v.Address,
 				TimeoutStr: v.Timeout,
 				Username:   v.Username,
@@ -116,7 +124,6 @@ func (dc *Client) Init() error {
 
 func initDubbogo() {
 	dg.SetConsumerConfig(dgCfg)
-	dubbo.SetClientConf(dubbo.GetDefaultClientConfig())
 	dg.Load()
 }
 
@@ -158,6 +165,9 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error) {
 	values, err := dc.MapParams(req)
 	types := req.API.IntegrationRequest.ParamTypes
+	if len(req.API.IntegrationRequest.ToParamTypes) > 0 {
+		types = req.API.IntegrationRequest.ToParamTypes
+	}
 	if err != nil {
 		return nil, nil, err
 	}
