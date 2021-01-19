@@ -192,12 +192,11 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 	//不涉及递归，屏蔽变量 非变量 put 细节
-	if urlpath.IsPathVariable(key) {
-		pathVariable := urlpath.VariableName(key)
-		return node.putPathVariable(pathVariable, isReal, bizInfo)
-	} else {
+	if !urlpath.IsPathVariable(key) {
 		return node.putNode(key, isReal, bizInfo)
 	}
+	pathVariable := urlpath.VariableName(key)
+	return node.putPathVariable(pathVariable, isReal, bizInfo)
 }
 
 func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo interface{}) bool {
