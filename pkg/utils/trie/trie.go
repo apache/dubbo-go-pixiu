@@ -33,7 +33,7 @@ func NewTrie() Trie {
 
 // Node 对比标准trie 多了针对通配节点的子树，如果go 语法支持逆变协变 可以放在同一个children 更标准更好理解
 type Node struct {
-	matchStr         string           //冗余信息暂时无用，rebuild 需要
+	matchStr         string           //冗余信息 通配节点冗余变量名，普通节点冗余节点名
 	children         map[string]*Node //子树
 	PathVariablesSet map[string]*Node //变量名集合 找不到set先用map todo
 	PathVariableNode *Node            //通配变量节点后的子树
@@ -52,13 +52,27 @@ func (trie *Trie) Put(withOutHost string, bizInfo interface{}) bool {
 //Get get values according key.pathVariable not supported.
 func (trie Trie) Get(withOutHost string) (*Node, []string, bool) {
 	parts := urlpath.Split(withOutHost)
-	return trie.root.Get(parts)
+	node, param, ok := trie.root.Get(parts)
+	length := len(param)
+	for i := 0; i < length/2; i++ {
+		temp := param[length-1-i]
+		param[length-1-i] = param[i]
+		param[i] = temp
+	}
+	return node, param, ok
 }
 
 //Match get values according url , pathVariable supported.
-func (trie Trie) Match(withOutHost string) (*Node, *[]string, bool) {
+func (trie Trie) Match(withOutHost string) (*Node, []string, bool) {
 	parts := urlpath.Split(withOutHost)
-	return trie.root.Match(parts)
+	node, param, ok := trie.root.Match(parts)
+	length := len(param)
+	for i := 0; i < length/2; i++ {
+		temp := param[length-1-i]
+		param[length-1-i] = param[i]
+		param[i] = temp
+	}
+	return node, param, ok
 }
 
 //Remove remove key and value from trie. 不释放内存，释放内存需要使用方rebuild 整个字典树
@@ -114,7 +128,7 @@ func (node *Node) GetBizInfo() interface{} {
 }
 
 //Match node match
-func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
+func (node *Node) Match(parts []string) (*Node, []string, bool) {
 	key := parts[0]
 	childKeys := parts[1:]
 	// isReal 代表是否是输入url 最末尾那段,对应trie 上的节点是否真实存在。
@@ -122,30 +136,29 @@ func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
 	if isReal {
 		//退出条件
 		if node.children != nil && node.children[key] != nil && node.children[key].endOfPath {
-			return node.children[key], &[]string{}, true
+			return node.children[key], []string{}, true
 		}
 		//不能直接return 需要一次回朔 O（2n）    trie下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
 		if node.PathVariableNode != nil {
 			if node.PathVariableNode.endOfPath {
-				return node.PathVariableNode, &[]string{key}, true
+				return node.PathVariableNode, []string{key}, true
 			}
 		}
 		return nil, nil, false
 	} else {
 		//递归体
 		if node.children != nil && node.children[key] != nil {
-			node, param, ok := node.children[key].Match(childKeys)
+			n, param, ok := node.children[key].Match(childKeys)
 			if ok {
-				return node, param, ok
+				return n, param, ok
 			}
 		}
 		//同理需要回朔
 		if node.PathVariableNode != nil {
-			node, param, ok := node.PathVariableNode.Match(childKeys)
+			n, param, ok := node.PathVariableNode.Match(childKeys)
+			param = append(param, key)
 			if ok {
-				newParams := append(*param, key)
-				param = &newParams
-				return node, param, ok
+				return n, param, ok
 			}
 		}
 		return nil, nil, false
@@ -177,7 +190,9 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 				return nil, nil, false
 			}
 			retNode, pathVariableList, ok := node.PathVariableNode.Get(childKeys)
-			return retNode, append(pathVariableList, key[1:len(key)-1]), ok
+			newList := []string{key}
+			copy(newList[1:], pathVariableList)
+			return retNode, newList, ok
 		} else {
 			if node.children == nil || node.children[key] == nil {
 				return nil, nil, false
@@ -208,6 +223,7 @@ func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo inte
 	}
 	if isReal {
 		node.PathVariableNode.bizInfo = bizInfo
+		node.PathVariableNode.matchStr = pathVariable
 	}
 	node.PathVariableNode.endOfPath = node.PathVariableNode.endOfPath || isReal
 	if node.PathVariablesSet == nil {

@@ -87,7 +87,9 @@ func TestTire_MatchAndGet(t *testing.T) {
 
 	node, param, ok := trie.Match("/path1/v1/path2/v2")
 	assert.True(t, ok)
-	assert.True(t, len(*param) == 2)
+	assert.True(t, len(param) == 2)
+	assert.Equal(t, (param)[0], "v1")
+	assert.Equal(t, (param)[1], "v2")
 	assert.True(t, node.GetBizInfo() == "test1")
 
 	_, _, ok = trie.Get("/path1/v1/path2/v2")
