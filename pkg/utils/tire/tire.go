@@ -1,7 +1,7 @@
 package tire
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlPath"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlpath"
 )
 
 type Tire struct {
@@ -25,15 +25,15 @@ type Node struct {
 //Tire对外暴露 推荐外部使用
 
 func (tire *Tire) Put(withOutHost string, bizInfo interface{}) bool {
-	parts := urlPath.Split(withOutHost)
+	parts := urlpath.Split(withOutHost)
 	return tire.root.Put(parts, bizInfo)
 }
 func (tire Tire) Get(withOutHost string) (*Node, []string, bool) {
-	parts := urlPath.Split(withOutHost)
+	parts := urlpath.Split(withOutHost)
 	return tire.root.Get(parts)
 }
 func (tire Tire) Match(withOutHost string) (*Node, *[]string, bool) {
-	parts := urlPath.Split(withOutHost)
+	parts := urlpath.Split(withOutHost)
 	return tire.root.Match(parts)
 }
 
@@ -45,7 +45,7 @@ func (tire Tire) Remove(withOutHost string) {
 	}
 }
 func (tire Tire) Contains(withOutHost string) bool {
-	parts := urlPath.Split(withOutHost)
+	parts := urlpath.Split(withOutHost)
 	ret, _, _ := tire.root.Get(parts)
 	return !(ret == nil)
 }
@@ -73,7 +73,7 @@ func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 	childKeys := keys[1:]
 
 	//递归体
-	if urlPath.IsPathVariable(key) {
+	if urlpath.IsPathVariable(key) {
 		return node.PathVariableNode.Put(childKeys, bizInfo)
 	} else {
 		return node.children[key].Put(childKeys, bizInfo)
@@ -129,12 +129,12 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 	isReal := len(childKeys) == 0
 	if isReal {
 		//退出条件
-		if urlPath.IsPathVariable(key) {
+		if urlpath.IsPathVariable(key) {
 			if node.PathVariableNode == nil {
 				return nil, nil, false
 			}
 			if node.PathVariableNode.endOfPath {
-				return node.PathVariableNode, []string{urlPath.VariableName(key)}, true
+				return node.PathVariableNode, []string{urlpath.VariableName(key)}, true
 			} else {
 				return nil, nil, false
 			}
@@ -146,7 +146,7 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 		}
 	} else {
 		//递归体
-		if urlPath.IsPathVariable(key) {
+		if urlpath.IsPathVariable(key) {
 			if node.PathVariableNode == nil {
 				return nil, nil, false
 			}
@@ -164,8 +164,8 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 	//不涉及递归，屏蔽变量 非变量 put 细节
-	if urlPath.IsPathVariable(key) {
-		pathVariable := urlPath.VariableName(key)
+	if urlpath.IsPathVariable(key) {
+		pathVariable := urlpath.VariableName(key)
 		return node.putPathVariable(pathVariable, isReal, bizInfo)
 	} else {
 		return node.putNode(key, isReal, bizInfo)

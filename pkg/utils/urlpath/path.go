@@ -1,4 +1,4 @@
-package urlPath
+package urlpath
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
