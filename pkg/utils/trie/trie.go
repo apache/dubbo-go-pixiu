@@ -42,6 +42,7 @@ type Node struct {
 }
 
 //Tire对外暴露 推荐外部使用
+
 //Put put key and values into trie as map.
 func (trie *Trie) Put(withOutHost string, bizInfo interface{}) bool {
 	parts := urlpath.Split(withOutHost)
@@ -76,6 +77,7 @@ func (trie Trie) Contains(withOutHost string) bool {
 }
 
 //不对外暴露，不推荐外部使用
+
 //Put node put
 func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 	//空节点初始化
@@ -158,14 +160,10 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 	if isReal {
 		//退出条件
 		if urlpath.IsPathVariable(key) {
-			if node.PathVariableNode == nil {
+			if node.PathVariableNode == nil || !node.PathVariableNode.endOfPath {
 				return nil, nil, false
 			}
-			if node.PathVariableNode.endOfPath {
-				return node.PathVariableNode, []string{urlpath.VariableName(key)}, true
-			} else {
-				return nil, nil, false
-			}
+			return node.PathVariableNode, []string{urlpath.VariableName(key)}, true
 		} else {
 			if node.children == nil {
 				return nil, nil, false
