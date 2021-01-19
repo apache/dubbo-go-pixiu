@@ -1,0 +1,54 @@
+name: proxy
+description: proxy sample
+resources:
+  - path: '/api/v1/test-dubbo/:application/:interface'
+    type: restful
+    description: common
+    methods:
+      - httpVerb: POST
+        onAir: true
+        timeout: 100s
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: requestBody.values
+              mapTo: 0
+              opt:
+                open: true
+                usable: true
+                name: values
+            - name: requestBody.types
+              mapTo: 1
+              opt:
+                open: true
+                name: types
+            - name: uri.application
+              mapTo: 2
+              opt:
+                open: true
+                name: application
+            - name: uri.interface
+              mapTo: 3
+              opt:
+                open: true
+                name: interface
+            - name: queryStrings.method
+              mapTo: 4
+              opt:
+                open: true
+                name: method
+            - name: queryStrings.group
+              mapTo: 5
+              opt:
+                open: true
+                name: group
+            - name: queryStrings.version
+              mapTo: 6
+              opt:
+                open: true
+                name: version
+          paramTypes: ["object", "object", "string", "string", "string", "string", "string"]
+          toParamTypes: ["string"]
+          clusterName: "test_dubbo"
