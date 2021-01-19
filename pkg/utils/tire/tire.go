@@ -83,12 +83,10 @@ func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
 	childKeys := parts[1:]
 	isReal := len(childKeys) == 0
 	if isReal {
-		if node.children[key] != nil {
-			if node.endOfPath {
-				return node, &[]string{}, true
-			}
-			//不能直接return 需要一次回朔 O（2n）    tire下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
+		if node.children != nil && node.children[key] != nil && node.endOfPath {
+			return node, &[]string{}, true
 		}
+		//不能直接return 需要一次回朔 O（2n）    tire下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
 		if node.PathVariableNode != nil {
 			if node.PathVariableNode.endOfPath {
 				return node.PathVariableNode, &[]string{key}, true
@@ -96,13 +94,13 @@ func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
 		}
 		return nil, nil, false
 	} else {
-		if node.children[key] != nil {
+		if node.children != nil && node.children[key] != nil {
 			node, param, ok := node.children[key].Match(childKeys)
 			if ok {
 				return node, param, ok
 			}
-			//同理需要回朔
 		}
+		//同理需要回朔
 		if node.PathVariableNode != nil {
 			node, param, ok := node.PathVariableNode.Match(childKeys)
 			if ok {
@@ -121,12 +119,18 @@ func (node *Node) Get(keys []string) (*Node, []string, bool) {
 	isReal := len(childKeys) == 0
 	if isReal {
 		if urlPath.IsPathVariable(key) {
-			if node.PathVariableNode.endOfPath == true {
+			if node.PathVariableNode == nil {
+				return nil, nil, false
+			}
+			if node.PathVariableNode.endOfPath {
 				return node.PathVariableNode, []string{urlPath.VariableName(key)}, true
 			} else {
 				return nil, nil, false
 			}
 		} else {
+			if node.children == nil {
+				return nil, nil, false
+			}
 			return node.children[key], nil, true
 		}
 	} else {

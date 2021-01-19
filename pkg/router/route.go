@@ -89,7 +89,7 @@ func (rt *Route) UpdateAPI(api API) error {
 
 // FindAPI returns the api that meets the
 func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool) {
-	if n, found := rt.findNode(fullPath); found {
+	if n, found := rt.matchNode(fullPath); found {
 		rt.lock.RLock()
 		defer rt.lock.RUnlock()
 		if method, ok := n.methods[httpverb]; ok {
@@ -110,6 +110,21 @@ func (rt *Route) findNode(fullPath string) (*Node, bool) {
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
 	tireNode, _, _ := rt.tree.Get(lowerPath)
+	found = tireNode != nil
+	if !found {
+		return nil, false
+	}
+	n = tireNode.GetBizInfo()
+	return n.(*Node), found
+}
+
+func (rt *Route) matchNode(fullPath string) (*Node, bool) {
+	lowerPath := strings.ToLower(fullPath)
+	var n interface{}
+	var found bool
+	rt.lock.RLock()
+	defer rt.lock.RUnlock()
+	tireNode, _, _ := rt.tree.Match(lowerPath)
 	found = tireNode != nil
 	if !found {
 		return nil, false
