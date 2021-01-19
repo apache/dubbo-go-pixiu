@@ -32,15 +32,15 @@ func main() {
 	)
 	defer client.Close()
 
-	http.HandleFunc("/config/api", GetApiConfig)
-	http.HandleFunc("/config/api/set", SetApiConfig)
+	http.HandleFunc("/config/api", GetAPIConfig)
+	http.HandleFunc("/config/api/set", SetAPIConfig)
 
 	http.ListenAndServe(AdminAddress, nil)
 
 }
 
-// GetApiConfig handle get api config http request
-func GetApiConfig(w http.ResponseWriter, req *http.Request) {
+// GetAPIConfig handle get api config http request
+func GetAPIConfig(w http.ResponseWriter, req *http.Request) {
 	config, err := client.Get(APIConfigPath)
 	if err != nil {
 		fmt.Printf(err.Error())
@@ -49,8 +49,8 @@ func GetApiConfig(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(config))
 }
 
-// SetApiConfig handle modify api config http request
-func SetApiConfig(w http.ResponseWriter, req *http.Request) {
+// SetAPIConfig handle modify api config http request
+func SetAPIConfig(w http.ResponseWriter, req *http.Request) {
 
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
