@@ -14,9 +14,9 @@ resources:
         onAir: true
         inboundRequest:
           requestType: http
-          headers: 
+          headers:
             - name: auth
-              required: true 
+              required: true
           queryStrings:
             - name: id
               required: false
