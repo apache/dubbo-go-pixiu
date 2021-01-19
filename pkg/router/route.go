@@ -130,6 +130,9 @@ func (rt *Route) matchNode(fullPath string) (*Node, bool) {
 		return nil, false
 	}
 	n = tireNode.GetBizInfo()
+	if n == nil {
+		return nil, false
+	}
 	return n.(*Node), found
 }
 
