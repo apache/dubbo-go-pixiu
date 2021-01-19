@@ -1,43 +1,38 @@
-name: api name
-description: api description
+name: proxy
+description: proxy sample
 resources:
-  - path: '/'
+  - path: '/api/v1/test-dubbo/user'
     type: restful
-    description: resource documentation
-    filters:
-      - filter0
+    description: user
     methods:
       - httpVerb: GET
         onAir: true
+        timeout: 1000ms
         inboundRequest:
           requestType: http
           queryStrings:
-            - name: id
-              required: false
+            - name: name
+              required: true
         integrationRequest:
-          requestType: dubbo
+          requestType: http
+          host: 127.0.0.1:8889
+          path: /UserProvider/GetUserByName
           mappingParams:
-            - name: queryStrings.id
-              mapTo: 1
-          applicationName: "BDTService"
-          interface: "com.ikurento.user.UserProvider"
-          method: "GetUser"
-          clusterName: "test_dubbo"
-
-definitions:
-  - name: modelDefinition
-    schema: >-
-      {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer"
-          },
-          "type" : {
-            "type" : "string"
-          },
-          "price" : {
-            "type" : "number"
-          }
-        }
-      }
+            - name: queryStrings.name
+              mapTo: queryStrings.name
+          group: "test"
+          version: 1.0.0
+      - httpVerb: POST
+        onAir: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+          queryStrings:
+            - name: name
+              required: true
+        integrationRequest:
+          requestType: http
+          host: 127.0.0.1:8889
+          path: /UserProvider/CreateUser
+          group: "test"
+          version: 1.0.0

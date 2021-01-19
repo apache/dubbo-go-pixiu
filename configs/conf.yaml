@@ -23,7 +23,7 @@ static_resources:
                           - name: "X-DGP-WAY"
                             value: "dubbo"
                       route:
-                        cluster: "test_dubbo"
+                        cluster: "test-dubbo"
                         cluster_not_found_response_code: 505
                         cors:
                           allow_origin:
@@ -75,3 +75,6 @@ static_resources:
       socket_address:
         address: "0.0.0.0"
         port: 6060
+  accessLog:
+    enable: true
+    outputpath: C:\Users\60125\Desktop\dubbo-go\logs\dubbo-go-proxy-access
