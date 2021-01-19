@@ -13,7 +13,6 @@ func NewTire() Tire {
 }
 
 // https://hsot:port/path1/{pathvarible1}/path2/{pathvarible2}
-
 type Node struct {
 	matchStr         string           //冗余信息暂时无用，rebuild 需要
 	children         map[string]*Node //子树
