@@ -22,19 +22,21 @@ import (
 	"strings"
 )
 
+//Split url split to []string by "/"
 func Split(path string) []string {
 	return strings.Split(strings.TrimLeft(path, constant.PathSlash), constant.PathSlash)
 }
 
+//VariableName extract VariableName      (:id, name = id)
 func VariableName(key string) string {
 	return strings.TrimPrefix(key, constant.PathParamIdentifier)
 }
 
+//IsPathVariable return if is a PathVariable     (:id, true)
 func IsPathVariable(key string) bool {
 	if key == "" {
 		return false
 	}
-
 	if strings.HasPrefix(key, constant.PathParamIdentifier) {
 		return true
 	}

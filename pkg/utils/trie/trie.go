@@ -42,25 +42,25 @@ type Node struct {
 }
 
 //Tire对外暴露 推荐外部使用
-// Put put key and values into trie as map.
+//Put put key and values into trie as map.
 func (trie *Trie) Put(withOutHost string, bizInfo interface{}) bool {
 	parts := urlpath.Split(withOutHost)
 	return trie.root.Put(parts, bizInfo)
 }
 
-// Get get values according key.pathVariable not supported.
+//Get get values according key.pathVariable not supported.
 func (trie Trie) Get(withOutHost string) (*Node, []string, bool) {
 	parts := urlpath.Split(withOutHost)
 	return trie.root.Get(parts)
 }
 
-// Match get values according url , pathVariable supported.
+//Match get values according url , pathVariable supported.
 func (trie Trie) Match(withOutHost string) (*Node, *[]string, bool) {
 	parts := urlpath.Split(withOutHost)
 	return trie.root.Match(parts)
 }
 
-// Remove remove key and value from trie. 不释放内存，释放内存需要使用方rebuild 整个字典树
+//Remove remove key and value from trie. 不释放内存，释放内存需要使用方rebuild 整个字典树
 func (trie Trie) Remove(withOutHost string) {
 	n, _, _ := trie.Get(withOutHost)
 	if n != nil {
@@ -68,7 +68,7 @@ func (trie Trie) Remove(withOutHost string) {
 	}
 }
 
-// return if key exists in trie
+//Contains return if key exists in trie
 func (trie Trie) Contains(withOutHost string) bool {
 	parts := urlpath.Split(withOutHost)
 	ret, _, _ := trie.root.Get(parts)
@@ -76,7 +76,7 @@ func (trie Trie) Contains(withOutHost string) bool {
 }
 
 //不对外暴露，不推荐外部使用
-// Put node put
+//Put node put
 func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 	//空节点初始化
 	if node.children == nil {
@@ -106,12 +106,12 @@ func (node *Node) Put(keys []string, bizInfo interface{}) bool {
 
 }
 
-// GetBizInfo get info
+//GetBizInfo get info
 func (node *Node) GetBizInfo() interface{} {
 	return node.bizInfo
 }
 
-// Match node match
+//Match node match
 func (node *Node) Match(parts []string) (*Node, *[]string, bool) {
 	key := parts[0]
 	childKeys := parts[1:]
