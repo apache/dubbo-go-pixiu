@@ -59,7 +59,7 @@ type StaticResources struct {
 	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
 	AccessLogConfig AccessLogConfig `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
-	APIMetaConfig  *APIMetaConfig  `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
+	APIMetaConfig   *APIMetaConfig  `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
 }
 
 // DynamicResources TODO
@@ -75,6 +75,6 @@ type ShutdownConfig struct {
 
 // APIMetaConfig how to find api config, file or etcd etc.
 type APIMetaConfig struct {
-	Address string `yaml:"address" json:"address,omitempty"`
+	Address       string `yaml:"address" json:"address,omitempty"`
 	APIConfigPath string `default:"/proxy/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
 }
