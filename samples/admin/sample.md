@@ -49,6 +49,10 @@ curl "http://127.0.0.1:8888/api/v1/test-dubbo/user?name=tc" ， the result:
 
 run cmd/admin/admin.go
 
+config program arguments：
+- -c /XXX/dubbo-go-proxy/samples/admin/admin/admin_config.yaml 
+
+
 - run cmd `curl 127.0.0.1:8080/config/api` to check current proxy api config
 - modify api_config.yaml content, such as change path `test-dubbo/user` to `test-dubbo/user_new`
 - run cmd `curl "127.0.0.1:8080/config/api/set" -X POST --data-binary "@/xx/xx/dubbo-go-proxy/samples/admin/proxy/api_config.yaml"` to modify proxy api config
