@@ -21,25 +21,26 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
-
 type AdminBootstrap struct {
-	Address  string  `yaml:"address" json:"address" mapstructure:"address"`
+	Server    ServerConfig     `yaml:"server" json:"server" mapstructure:"server"`
 	EtcdConfig EtcdConfig `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
 }
 
-type EtcdConfig struct {
-	Address  string  `yaml:"admin" json:"admin" mapstructure:"admin"`
-	Path string  `yaml:"path" json:"path" mapstructure:"path"`
+type ServerConfig struct {
+	Address string `yaml:"address" json:"address" mapstructure:"address"`
 }
 
-
+type EtcdConfig struct {
+	Address string `yaml:"address" json:"admin" mapstructure:"admin"`
+	Path    string `yaml:"path" json:"path" mapstructure:"path"`
+}
 
 var (
-	cmdStart = cli.Command{
+	cmdStart = cli.Command {
 		Name:  "start",
 		Usage: "start dubbogo proxy admin",
-		Flags: []cli.Flag{
-			cli.StringFlag{
+		Flags: []cli.Flag {
+			cli.StringFlag {
 				Name:   "config, c",
 				Usage:  "Load configuration from `FILE`",
 				EnvVar: "DUBBOGO_PROXY_CONFIG",
@@ -48,7 +49,7 @@ var (
 		},
 		Action: func(c *cli.Context) error {
 			configPath := c.String("config")
-			_ , err := LoadAPIConfigFromFile(configPath)
+			_, err := LoadAPIConfigFromFile(configPath)
 			if err != nil {
 				logger.Errorf("load admin config  error:%+v", err)
 				return err
@@ -58,15 +59,14 @@ var (
 		},
 	}
 
-	cmdStop = cli.Command{
+	cmdStop = cli.Command {
 		Name:  "stop",
-		Usage: "stop dubbogo proxy",
+		Usage: "stop dubbogo proxy admin",
 		Action: func(c *cli.Context) error {
 			return nil
 		},
 	}
 )
-
 
 func newAdminApp(startCmd *cli.Command) *cli.App {
 	app := cli.NewApp()
@@ -74,7 +74,7 @@ func newAdminApp(startCmd *cli.Command) *cli.App {
 	app.Version = "0.0.1"
 	app.Compiled = time.Now()
 	app.Copyright = "(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo"
-	app.Usage = "Dubbogo proxy is a lightweight gateway."
+	app.Usage = "Dubbogo proxy admin"
 	app.Flags = cmdStart.Flags
 
 	//commands
@@ -104,17 +104,15 @@ func LoadAPIConfigFromFile(path string) (*AdminBootstrap, error) {
 	if err != nil {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 	}
-	bootstrap = adminBootstrap;
+	bootstrap = adminBootstrap
 	return adminBootstrap, nil
 }
-
 
 func main() {
 	app := newAdminApp(&cmdStart)
 	// ignore error so we don't exit non-zero and break gfmrun README example tests
 	_ = app.Run(os.Args)
 }
-
 
 var client *etcdv3.Client
 var bootstrap *AdminBootstrap
@@ -131,7 +129,7 @@ func Start() {
 	http.HandleFunc("/config/api", GetAPIConfig)
 	http.HandleFunc("/config/api/set", SetAPIConfig)
 
-	http.ListenAndServe(bootstrap.Address, nil)
+	http.ListenAndServe(bootstrap.Server.Address, nil)
 }
 
 // GetAPIConfig handle get api config http request
