@@ -31,7 +31,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go/common/logger"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
 const (
