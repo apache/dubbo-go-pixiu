@@ -92,7 +92,7 @@ var (
 
 			if bootstrap.GetAPIMetaConfig() != nil {
 				if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
-					logger.Errorf("load api config from config center error:%+v", err)
+					logger.Errorf("load api config from etcd error:%+v", err)
 					return err
 				}
 			} else {
