@@ -42,8 +42,3 @@ func TestLoadAPIConfigFromFile(t *testing.T) {
 	bytes, _ := yaml.Marshal(apiC)
 	log.Printf("%s", bytes)
 }
-
-
-func TestInitAPIConfigFromString(t *testing.T) {
-	
-}

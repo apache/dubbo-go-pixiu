@@ -21,15 +21,18 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
+// AdminBootstrap admin bootstrap config
 type AdminBootstrap struct {
 	Server    ServerConfig     `yaml:"server" json:"server" mapstructure:"server"`
 	EtcdConfig EtcdConfig `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
 }
 
+// ServerConfig admin http server config
 type ServerConfig struct {
 	Address string `yaml:"address" json:"address" mapstructure:"address"`
 }
 
+// EtcdConfig admin etcd client config
 type EtcdConfig struct {
 	Address string `yaml:"address" json:"admin" mapstructure:"admin"`
 	Path    string `yaml:"path" json:"path" mapstructure:"path"`
@@ -43,8 +46,8 @@ var (
 			cli.StringFlag {
 				Name:   "config, c",
 				Usage:  "Load configuration from `FILE`",
-				EnvVar: "DUBBOGO_PROXY_CONFIG",
-				Value:  "configs/conf.yaml",
+				EnvVar: "PROXY_ADMIN_CONFIG",
+				Value:  "configs/admin_config.yaml",
 			},
 		},
 		Action: func(c *cli.Context) error {
@@ -114,8 +117,10 @@ func main() {
 	_ = app.Run(os.Args)
 }
 
-var client *etcdv3.Client
-var bootstrap *AdminBootstrap
+var (
+	client *etcdv3.Client
+	bootstrap *AdminBootstrap
+)
 
 // Start start init etcd client and start admin http server
 func Start() {
