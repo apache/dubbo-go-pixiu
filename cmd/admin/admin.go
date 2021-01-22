@@ -23,8 +23,8 @@ import (
 
 // AdminBootstrap admin bootstrap config
 type AdminBootstrap struct {
-	Server    ServerConfig     `yaml:"server" json:"server" mapstructure:"server"`
-	EtcdConfig EtcdConfig `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
+	Server     ServerConfig `yaml:"server" json:"server" mapstructure:"server"`
+	EtcdConfig EtcdConfig   `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
 }
 
 // ServerConfig admin http server config
@@ -39,11 +39,11 @@ type EtcdConfig struct {
 }
 
 var (
-	cmdStart = cli.Command {
+	cmdStart = cli.Command{
 		Name:  "start",
 		Usage: "start dubbogo proxy admin",
-		Flags: []cli.Flag {
-			cli.StringFlag {
+		Flags: []cli.Flag{
+			cli.StringFlag{
 				Name:   "config, c",
 				Usage:  "Load configuration from `FILE`",
 				EnvVar: "PROXY_ADMIN_CONFIG",
@@ -62,7 +62,7 @@ var (
 		},
 	}
 
-	cmdStop = cli.Command {
+	cmdStop = cli.Command{
 		Name:  "stop",
 		Usage: "stop dubbogo proxy admin",
 		Action: func(c *cli.Context) error {
@@ -118,7 +118,7 @@ func main() {
 }
 
 var (
-	client *etcdv3.Client
+	client    *etcdv3.Client
 	bootstrap *AdminBootstrap
 )
 

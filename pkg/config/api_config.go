@@ -77,7 +77,6 @@ type APIConfigListener interface {
 	APIConfigChange(apiConfig APIConfig) bool //bool is return for interface implement is interesting
 }
 
-
 // APIConfig defines the data structure of the api gateway configuration
 type APIConfig struct {
 	Name           string         `json:"name" yaml:"name"`
@@ -187,9 +186,9 @@ func (m *Method) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // InboundRequest defines the details of the inbound
 type InboundRequest struct {
 	RequestType  `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
-	Headers      []Params         `json:"headers" yaml:"headers"`
-	QueryStrings []Params         `json:"queryStrings" yaml:"queryStrings"`
-	RequestBody  []BodyDefinition `json:"requestBody" yaml:"requestBody"`
+	Headers      []Params                                `json:"headers" yaml:"headers"`
+	QueryStrings []Params                                `json:"queryStrings" yaml:"queryStrings"`
+	RequestBody  []BodyDefinition                        `json:"requestBody" yaml:"requestBody"`
 }
 
 // Params defines the simple parameter definition
@@ -298,7 +297,7 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*APIConfig, error) {
 	return apiConfig, nil
 }
 
-func initAPIConfigFromString(content string) error{
+func initAPIConfigFromString(content string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -354,6 +353,7 @@ func listenAPIConfigNodeEvent(key string) bool {
 		}
 	}
 }
+
 // RegisterConfigListener register APIConfigListener
 func RegisterConfigListener(li APIConfigListener) {
 	listener = li
