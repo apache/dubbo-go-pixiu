@@ -27,7 +27,6 @@ import (
 )
 
 import (
-	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 	perrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
@@ -36,6 +35,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 )
 
 // AdminBootstrap admin bootstrap config
@@ -88,10 +88,13 @@ var (
 	}
 )
 
+// Version admin version
+const Version = "0.1.0"
+
 func newAdminApp(startCmd *cli.Command) *cli.App {
 	app := cli.NewApp()
 	app.Name = "dubbogo proxy admin"
-	app.Version = "0.0.1"
+	app.Version = Version
 	app.Compiled = time.Now()
 	app.Copyright = "(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo"
 	app.Usage = "Dubbogo proxy admin"
