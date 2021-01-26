@@ -24,6 +24,9 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 )
 
