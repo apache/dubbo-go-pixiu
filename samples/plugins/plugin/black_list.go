@@ -26,11 +26,8 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
 )
 
-func main() {}
-
-// ExternalPluginAccess export filter
-func ExternalPluginAccess() filter.Filter {
-	return &Access{}
+// BlackList filter
+type BlackList struct {
 }
 
 // ExternalPluginBlackList export filter
@@ -38,43 +35,10 @@ func ExternalPluginBlackList() filter.Filter {
 	return &BlackList{}
 }
 
-// ExternalPluginRateLimit export filter
-func ExternalPluginRateLimit() filter.Filter {
-	return &RateLimit{}
-}
-
-// Access filter
-type Access struct {
-}
-
-// Do to export func(c context.Context)
-func (r *Access) Do() context.FilterFunc {
-	return func(c context.Context) {
-		log.Print("DoAccessFilter")
-		c.Next()
-	}
-}
-
-// BlackList filter
-type BlackList struct {
-}
-
 // Do to export func(c context.Context)
 func (r *BlackList) Do() context.FilterFunc {
 	return func(c context.Context) {
-		log.Print("DoBlackListFilter")
-		c.Next()
-	}
-}
-
-// RateLimit filter
-type RateLimit struct {
-}
-
-// Do to export func(c context.Context)
-func (r *RateLimit) Do() context.FilterFunc {
-	return func(c context.Context) {
-		log.Print("DoRateLimitFilter")
+		log.Println("DoBlackListFilter")
 		c.Next()
 	}
 }
