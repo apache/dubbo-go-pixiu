@@ -18,12 +18,12 @@
 package main
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
+	"log"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
 )
 
 func main() {}
@@ -50,7 +50,7 @@ type Access struct {
 // Do to export func(c context.Context)
 func (r *Access) Do() context.FilterFunc {
 	return func(c context.Context) {
-		logger.Info("DoAccessFilter")
+		log.Print("DoAccessFilter")
 		c.Next()
 	}
 }
@@ -62,7 +62,7 @@ type BlackList struct {
 // Do to export func(c context.Context)
 func (r *BlackList) Do() context.FilterFunc {
 	return func(c context.Context) {
-		logger.Info("DoBlackListFilter")
+		log.Print("DoBlackListFilter")
 		c.Next()
 	}
 }
@@ -74,7 +74,7 @@ type RateLimit struct {
 // Do to export func(c context.Context)
 func (r *RateLimit) Do() context.FilterFunc {
 	return func(c context.Context) {
-		logger.Info("DoRateLimitFilter")
+		log.Print("DoRateLimitFilter")
 		c.Next()
 	}
 }
