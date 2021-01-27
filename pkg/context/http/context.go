@@ -26,12 +26,17 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // HttpContext http context
@@ -114,7 +119,7 @@ func (hc *HttpContext) GetMethod() string {
 }
 
 // Api wait do delete
-func (hc *HttpContext) Api(api *model.Api) {
+func (hc *HttpContext) Api(api *api.Api) {
 	// hc.api = api
 }
 
@@ -210,7 +215,7 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 
 // BuildFilters build filter, from config http_filters
 func (hc *HttpContext) BuildFilters() {
-	var filterFuncs []context.FilterFunc
+	var filterFuncs []fc.FilterFunc
 	api := hc.GetAPI()
 
 	if api == nil {
