@@ -18,6 +18,10 @@
 package context
 
 import (
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+)
+
+import (
 	"context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"math"
@@ -28,9 +32,9 @@ const abortIndex int8 = math.MaxInt8 / 2
 
 // BaseContext
 type BaseContext struct {
-	Context
+	fc.Context
 	Index   int8
-	Filters FilterChain
+	Filters fc.FilterChain
 	Timeout time.Duration
 	Ctx     context.Context
 
@@ -69,7 +73,7 @@ func (c *BaseContext) AbortWithError(message string, err error) {
 }
 
 // AppendFilterFunc  append filter func.
-func (c *BaseContext) AppendFilterFunc(ff ...FilterFunc) {
+func (c *BaseContext) AppendFilterFunc(ff ...fc.FilterFunc) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
 	}
