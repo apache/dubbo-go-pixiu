@@ -24,13 +24,13 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 	"github.com/emirpasic/gods/trees/avltree"
 	"github.com/pkg/errors"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 )
 
