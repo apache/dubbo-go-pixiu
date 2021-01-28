@@ -8,5 +8,5 @@ WORKDIR ${HOME}
 COPY . ${HOME}
 
 CMD go version\
-&& go build -o out -buildmode=plugin ${HOME}/plugin/*.go\
+&& go build -o out/plugin.so -buildmode=plugin ./plugin/*.go\
 && echo "build sucessful!\n"\
