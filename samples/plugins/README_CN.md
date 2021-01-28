@@ -49,7 +49,7 @@ docker build -t plugin-test . && docker run --name plugin -v <localFilePath>:/go
 
 > 在使用之前，请先更新配置文件中的插件加载目录“ pluginFilePath ”为“localFilePath/plugin.so”。	
 
-访问并查看日志：
+访问并查看日志
 
 
 
