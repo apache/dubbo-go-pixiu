@@ -1,7 +1,7 @@
 name: proxy
 description: proxy sample
 resources:
-  - path: '/api/v1/test-dubbo/user'
+  - path: '/api/v1/test-http/user'
     type: restful
     description: user
     plugins:
@@ -11,38 +11,16 @@ resources:
         - rate limit
         - access
     methods:
-      - httpVerb: GET
-        onAir: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-          queryStrings:
-            - name: name
-              required: true
-        integrationRequest:
-          requestType: http
-          host: 127.0.0.1:8889
-          path: /UserProvider/GetUserByName
-          mappingParams:
-            - name: queryStrings.name
-              mapTo: queryStrings.name
-          group: "test"
-          version: 1.0.0
       - httpVerb: POST
         onAir: true
-        timeout: 1000ms
+        timeout: 10s
         inboundRequest:
           requestType: http
-          queryStrings:
-            - name: name
-              required: true
         integrationRequest:
           requestType: http
-          host: 127.0.0.1:8889
-          path: /UserProvider/CreateUser
-          group: "test"
-          version: 1.0.0
-pluginFilePath: ""
+          host: "127.0.0.1:1314"
+          path: "/user/"
+pluginFilePath: "/go/src/samples/plugins/out/plugin.so"
 pluginsGroup:
   - groupName: "group1"
     plugins:
