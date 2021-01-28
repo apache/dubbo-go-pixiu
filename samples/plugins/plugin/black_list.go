@@ -39,6 +39,6 @@ func ExternalPluginBlackList() filter.Filter {
 func (r *BlackList) Do() context.FilterFunc {
 	return func(c context.Context) {
 		log.Println("DoBlackListFilter")
-		c.Next()
+		c.WriteWithStatus(503, []byte("block"))
 	}
 }
