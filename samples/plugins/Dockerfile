@@ -7,6 +7,4 @@ WORKDIR ${HOME}
 
 COPY . ${HOME}
 
-CMD go version\
-&& go build -o out/plugin.so -buildmode=plugin ./plugin/*.go\
-&& echo "build sucessful!\n"\
+CMD "./start.sh"
