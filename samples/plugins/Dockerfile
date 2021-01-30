@@ -7,4 +7,4 @@ WORKDIR ${HOME}
 
 COPY . ${HOME}
 
-CMD "./start.sh"
+CMD ["/bin/bash", "${HOME}/start.sh"]
