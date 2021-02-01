@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package main
 
 import (
@@ -11,7 +28,6 @@ import (
 
 import (
 	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 	perrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
@@ -19,32 +35,36 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+  etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 )
 
+// AdminBootstrap admin bootstrap config
 type AdminBootstrap struct {
-	Server    ServerConfig     `yaml:"server" json:"server" mapstructure:"server"`
-	EtcdConfig EtcdConfig `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
+	Server     ServerConfig `yaml:"server" json:"server" mapstructure:"server"`
+	EtcdConfig EtcdConfig   `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
 }
 
+// ServerConfig admin http server config
 type ServerConfig struct {
 	Address string `yaml:"address" json:"address" mapstructure:"address"`
 }
 
+// EtcdConfig admin etcd client config
 type EtcdConfig struct {
 	Address string `yaml:"address" json:"admin" mapstructure:"admin"`
 	Path    string `yaml:"path" json:"path" mapstructure:"path"`
 }
 
 var (
-	cmdStart = cli.Command {
+	cmdStart = cli.Command{
 		Name:  "start",
 		Usage: "start dubbogo proxy admin",
-		Flags: []cli.Flag {
-			cli.StringFlag {
+		Flags: []cli.Flag{
+			cli.StringFlag{
 				Name:   "config, c",
 				Usage:  "Load configuration from `FILE`",
-				EnvVar: "DUBBOGO_PROXY_CONFIG",
-				Value:  "configs/conf.yaml",
+				EnvVar: "PROXY_ADMIN_CONFIG",
+				Value:  "configs/admin_config.yaml",
 			},
 		},
 		Action: func(c *cli.Context) error {
@@ -59,7 +79,7 @@ var (
 		},
 	}
 
-	cmdStop = cli.Command {
+	cmdStop = cli.Command{
 		Name:  "stop",
 		Usage: "stop dubbogo proxy admin",
 		Action: func(c *cli.Context) error {
@@ -68,10 +88,13 @@ var (
 	}
 )
 
+// Version admin version
+const Version = "0.1.0"
+
 func newAdminApp(startCmd *cli.Command) *cli.App {
 	app := cli.NewApp()
 	app.Name = "dubbogo proxy admin"
-	app.Version = "0.0.1"
+	app.Version = Version
 	app.Compiled = time.Now()
 	app.Copyright = "(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo"
 	app.Usage = "Dubbogo proxy admin"
@@ -114,8 +137,10 @@ func main() {
 	_ = app.Run(os.Args)
 }
 
-var client *etcdv3.Client
-var bootstrap *AdminBootstrap
+var (
+	client    *etcdv3.Client
+	bootstrap *AdminBootstrap
+)
 
 // Start start init etcd client and start admin http server
 func Start() {
