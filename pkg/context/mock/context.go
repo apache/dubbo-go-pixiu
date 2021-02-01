@@ -24,12 +24,16 @@ import (
 )
 
 import (
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+)
+
+import (
 	pkgcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
 )
 
 // GetMockHTTPContext mock context for test.
-func GetMockHTTPContext(r *http.Request, fc ...pkgcontext.FilterFunc) *contexthttp.HttpContext {
+func GetMockHTTPContext(r *http.Request, fc ...fc.FilterFunc) *contexthttp.HttpContext {
 	result := &contexthttp.HttpContext{
 		BaseContext: &pkgcontext.BaseContext{
 			Index: -1,
