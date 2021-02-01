@@ -10,10 +10,10 @@ import (
 )
 
 import (
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 	perrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 )
 
 import (
