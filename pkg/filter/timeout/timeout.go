@@ -25,12 +25,15 @@ import (
 )
 
 import (
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -39,7 +42,7 @@ func Init() {
 	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
 }
 
-func timeoutFilterFunc(duration time.Duration) selfcontext.FilterFunc {
+func timeoutFilterFunc(duration time.Duration) fc.FilterFunc {
 	return New(duration).Do()
 }
 
@@ -60,8 +63,8 @@ func New(t time.Duration) filter.Filter {
 }
 
 // Do execute timeoutFilter filter logic.
-func (f timeoutFilter) Do() selfcontext.FilterFunc {
-	return func(c selfcontext.Context) {
+func (f timeoutFilter) Do() fc.FilterFunc {
+	return func(c fc.Context) {
 		hc := c.(*contexthttp.HttpContext)
 
 		ctx, cancel := context.WithTimeout(hc.Ctx, f.getTimeout(hc.Timeout))

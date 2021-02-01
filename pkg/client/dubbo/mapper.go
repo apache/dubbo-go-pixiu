@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 )
@@ -35,7 +36,7 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 var mappers = map[string]client.ParamMapper{
@@ -147,7 +148,7 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interf
 	if err != nil {
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
-	uriValues := c.API.GetURIParams(*c.IngressRequest.URL)
+	uriValues := router.GetURIParams(&c.API, *c.IngressRequest.URL)
 
 	return setTargetWithOpt(c, option, rv, pos, uriValues.Get(keys[0]), c.API.IntegrationRequest.ParamTypes[pos])
 }
