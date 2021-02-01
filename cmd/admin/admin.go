@@ -27,15 +27,15 @@ import (
 )
 
 import (
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 	perrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
+  etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 )
 
 // AdminBootstrap admin bootstrap config
@@ -176,7 +176,7 @@ func SetAPIConfig(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// validate the api config
-	apiConf := &config.APIConfig{}
+	apiConf := &fc.APIConfig{}
 	err = yaml.UnmarshalYML([]byte(body), apiConf)
 
 	if err != nil {
