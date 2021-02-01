@@ -26,6 +26,7 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
+	pc "github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
@@ -86,7 +87,7 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 		return nil
 	}
 	// register config change listener
-	config.RegisterConfigListener(localAPIDiscSrv)
+	pc.RegisterConfigListener(localAPIDiscSrv)
 	// load pluginsGroup
 	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
 	// init plugins from resource
