@@ -67,6 +67,7 @@ func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HT
 
 	return fr.API{}, errors.New("not found")
 }
+
 // ClearAPI clear all api
 func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
 	ads.router.ClearAPI()
@@ -95,12 +96,9 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
-
-
-
 // RefreshAPIsFromConfig fresh the router from API config and to local cache
 func RefreshAPIsFromConfig(apiConfig config.APIConfig) error {
-	localAPIDiscSrv :=NewLocalMemoryAPIDiscoveryService()
+	localAPIDiscSrv := NewLocalMemoryAPIDiscoveryService()
 	if len(apiConfig.Resources) == 0 {
 		return nil
 	}
@@ -110,7 +108,6 @@ func RefreshAPIsFromConfig(apiConfig config.APIConfig) error {
 	}
 	return error
 }
-
 
 func loadAPIFromResource(parrentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}

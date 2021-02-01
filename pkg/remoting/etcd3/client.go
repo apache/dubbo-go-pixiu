@@ -49,7 +49,7 @@ var (
 	// ErrNilETCDV3Client raw client nil
 	ErrNilETCDV3Client = perrors.New("etcd raw client is nil") // full describe the ERR
 	// ErrKVPairNotFound not found key
-	ErrKVPairNotFound  = perrors.New("k/v pair not found")
+	ErrKVPairNotFound = perrors.New("k/v pair not found")
 )
 
 // Options client configuration
@@ -91,7 +91,6 @@ func WithHeartbeat(heartbeat int) Option {
 		opt.heartbeat = heartbeat
 	}
 }
-
 
 // NewConfigClient create new Client
 func NewConfigClient(opts ...Option) *Client {
@@ -138,6 +137,7 @@ func NewClient(name string, endpoints []string, timeout time.Duration, heartbeat
 		DialOptions: []grpc.DialOption{grpc.WithBlock()},
 	})
 	if err != nil {
+		cancel()
 		return nil, perrors.WithMessage(err, "new raw client block connect to server")
 	}
 
