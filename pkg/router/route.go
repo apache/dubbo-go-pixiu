@@ -50,6 +50,15 @@ type Route struct {
 	wildcardTree *avltree.Tree
 }
 
+// ClearAPI clear the api
+func (rt *Route) ClearAPI() error {
+	rt.lock.Lock()
+	defer rt.lock.Unlock()
+	rt.wildcardTree.Clear()
+	rt.tree.Clear()
+	return nil
+}
+
 // PutAPI puts an api into the resource
 func (rt *Route) PutAPI(api router.API) error {
 	lowerCasePath := strings.ToLower(api.URLPattern)
