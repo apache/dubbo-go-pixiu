@@ -24,10 +24,13 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
