@@ -24,7 +24,10 @@ import (
 )
 
 import (
-	pkgcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
 )
@@ -37,7 +40,7 @@ func TestPanic(t *testing.T) {
 	// "timeout filter test panic"
 }
 
-var testPanicFilter = func(c pkgcontext.Context) {
+var testPanicFilter = func(c fc.Context) {
 	time.Sleep(time.Millisecond * 100)
 	panic("timeout filter test panic")
 }
@@ -50,7 +53,7 @@ func TestTimeout(t *testing.T) {
 	// {"code":"S005","message":"http: Handler timeout"}
 }
 
-var testTimeoutFilter = func(c pkgcontext.Context) {
+var testTimeoutFilter = func(c fc.Context) {
 	time.Sleep(time.Second * 3)
 }
 
@@ -59,7 +62,7 @@ func TestNormal(t *testing.T) {
 	c.Next()
 }
 
-var testNormalFilter = func(c pkgcontext.Context) {
+var testNormalFilter = func(c fc.Context) {
 	time.Sleep(time.Millisecond * 200)
 	fmt.Println("normal call")
 }
