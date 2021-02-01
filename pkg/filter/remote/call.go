@@ -30,6 +30,9 @@ import (
 	_ "github.com/apache/dubbo-go/filter/filter_impl"
 	_ "github.com/apache/dubbo-go/registry/protocol"
 	_ "github.com/apache/dubbo-go/registry/zookeeper"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
 )
 
 import (
@@ -38,10 +41,7 @@ import (
 	clienthttp "github.com/dubbogo/dubbo-go-proxy/pkg/client/http"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
@@ -50,7 +50,7 @@ func Init() {
 	extension.SetFilterFunc(constant.RemoteCallFilter, remoteFilterFunc())
 }
 
-func remoteFilterFunc() selfcontext.FilterFunc {
+func remoteFilterFunc() fc.FilterFunc {
 	return New(defaultNewParams()).Do()
 }
 
@@ -92,8 +92,8 @@ func New(level mockLevel) filter.Filter {
 
 // Do execute clientFilter filter logic
 // support: 1 http 2 dubbo 2 http 2 http
-func (f clientFilter) Do() selfcontext.FilterFunc {
-	return func(c selfcontext.Context) {
+func (f clientFilter) Do() fc.FilterFunc {
+	return func(c fc.Context) {
 		f.doRemoteCall(c.(*contexthttp.HttpContext))
 	}
 }
