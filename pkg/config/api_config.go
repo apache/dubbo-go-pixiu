@@ -86,7 +86,7 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 	return apiConfig, nil
 }
 
-func initAPIConfigFromString(content string) error{
+func initAPIConfigFromString(content string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -142,6 +142,7 @@ func listenAPIConfigNodeEvent(key string) bool {
 		}
 	}
 }
+
 // RegisterConfigListener register APIConfigListener
 func RegisterConfigListener(li APIConfigListener) {
 	listener = li
