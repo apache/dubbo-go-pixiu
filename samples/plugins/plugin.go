@@ -18,8 +18,11 @@
 package main
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 )
 
