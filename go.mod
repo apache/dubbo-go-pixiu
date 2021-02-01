@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/apache/dubbo-go v1.5.5
 	github.com/apache/dubbo-go-hessian2 v1.7.0
+	github.com/coreos/etcd v3.3.25+incompatible
 	github.com/dubbogo/dubbo-go-proxy-filter v0.1.0-rc1.0.20210120132524-c63f4eb13725 //TODO
 	github.com/dubbogo/go-zookeeper v1.0.2
 	github.com/emirpasic/gods v1.12.0
@@ -16,6 +17,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/urfave/cli v1.22.4
 	go.uber.org/zap v1.16.0
+	google.golang.org/grpc v1.26.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
