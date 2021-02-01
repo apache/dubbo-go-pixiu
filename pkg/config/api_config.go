@@ -18,19 +18,22 @@
 package config
 
 import (
-	"github.com/coreos/etcd/mvcc/mvccpb"
-	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	perrors "github.com/pkg/errors"
-	"time"
 	"strings"
+	"sync"
+	"time"
+)
+
+import (
+	"github.com/coreos/etcd/mvcc/mvccpb"
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
+	perrors "github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"sync"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 var (
