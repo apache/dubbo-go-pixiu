@@ -1,0 +1,40 @@
+name: proxy
+description: proxy sample
+resources:
+  - path: '/api/v1/test-http/user'
+    type: restful
+    description: user
+    plugins:
+      groupNames:
+        - group2
+      pluginNames:
+        - rate limit
+        - access
+    methods:
+      - httpVerb: POST
+        onAir: true
+        timeout: 10s
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: http
+          host: "127.0.0.1:1314"
+          path: "/user/"
+pluginFilePath: "/go/src/samples/plugins/out/plugin.so"
+pluginsGroup:
+  - groupName: "group1"
+    plugins:
+      - name: "rate limit"
+        version: "0.0.1"
+        priority: 1000
+        externalLookupName: "ExternalPluginRateLimit"
+      - name: "access"
+        version: "0.0.1"
+        priority: 1000
+        externalLookupName: "ExternalPluginAccess"
+  - groupName: "group2"
+    plugins:
+      - name: "blacklist"
+        version: "0.0.1"
+        priority: 1000
+        externalLookupName: "ExternalPluginBlackList"
