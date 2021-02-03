@@ -1,6 +1,0 @@
-// build to *.so
-go build -o plugin.so -buildmode=plugin .
-// go plugins has more limit see below:
-https://medium.com/@alperkose/things-to-avoid-while-using-golang-plugins-f34c0a636e8
-https://github.com/golang/go/issues/29525
-https://github.com/golang/go/issues/19282
