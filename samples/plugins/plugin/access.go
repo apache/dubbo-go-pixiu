@@ -14,27 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package main
 
 import (
-	"testing"
+	"log"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
 )
 
-func TestExternalPluginAccess(t *testing.T) {
-	c := context.NewBaseContext()
-	ExternalPluginAccess().Do()(c)
+func main() {}
+
+// Access filter
+type Access struct {
 }
 
-func TestExternalPluginBlackList(t *testing.T) {
-	c := context.NewBaseContext()
-	ExternalPluginBlackList().Do()(c)
+// ExternalPluginAccess export filter
+func ExternalPluginAccess() filter.Filter {
+	return &Access{}
 }
 
-func TestExternalPluginRateLimit(t *testing.T) {
-	c := context.NewBaseContext()
-	ExternalPluginRateLimit().Do()(c)
+// Do to export func(c context.Context)
+func (r *Access) Do() context.FilterFunc {
+	return func(c context.Context) {
+		log.Print("DoAccessFilter")
+		c.Next()
+	}
 }
