@@ -22,7 +22,7 @@ resources:
           requestType: http
           host: "127.0.0.1:1314"
           path: "/user/"
-pluginFilePath: "/Users/mark4z/GolandProjects/dubbo-go-proxy/samples/plugins/out/plugin.so"
+pluginFilePath: "/go/src/samples/plugins/out/plugin.so"
 pluginsGroup:
   - groupName: "group1"
     plugins:
