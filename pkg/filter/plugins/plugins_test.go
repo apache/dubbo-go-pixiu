@@ -28,30 +28,33 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
-func TestInitPluginsGroup(t *testing.T) {
+var (
+	mockFile = "../../config/mock/api_config.yml"
+)
 
-	config, err := config.LoadAPIConfigFromFile("../../../configs/api_config.yaml")
+func TestInitPluginsGroup(t *testing.T) {
+	apiConfig, err := config.LoadAPIConfigFromFile(mockFile)
 	assert.Empty(t, err)
 
-	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
+	InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
 }
 
 func TestInitApiUrlWithFilterChain(t *testing.T) {
-	config, err := config.LoadAPIConfigFromFile("../../../configs/api_config.yaml")
+	apiConfig, err := config.LoadAPIConfigFromFile(mockFile)
 	assert.Empty(t, err)
 
-	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
-	InitAPIURLWithFilterChain(config.Resources)
+	InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
+	InitAPIURLWithFilterChain(apiConfig.Resources)
 }
 
 func TestGetApiFilterFuncsWithApiUrl(t *testing.T) {
-	config, err := config.LoadAPIConfigFromFile("../../../configs/api_config.yaml")
+	apiConfig, err := config.LoadAPIConfigFromFile(mockFile)
 	assert.Empty(t, err)
 
-	InitPluginsGroup(config.PluginsGroup, config.PluginFilePath)
-	InitAPIURLWithFilterChain(config.Resources)
+	InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
+	InitAPIURLWithFilterChain(apiConfig.Resources)
 
-	fltc := GetAPIFilterFuncsWithAPIURL("/")
-
-	assert.Equal(t, len(fltc), 0)
+	flc := GetAPIFilterFuncsWithAPIURL("/")
+	assert.Equal(t, 0, len(flc.Pre))
+	assert.Equal(t, 0, len(flc.Post))
 }
