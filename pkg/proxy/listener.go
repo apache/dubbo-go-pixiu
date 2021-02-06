@@ -163,15 +163,14 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	case fc.HTTPRequest:
 		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
+	// load plugins
+	pluginsFilter := plugins.GetAPIFilterFuncsWithAPIURL(ctx.Request.URL.Path)
+	ctx.AppendFilterFunc(pluginsFilter.Pre...)
 
 	ctx.AppendFilterFunc(header.New().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
-
 	ctx.BuildFilters()
 
-	// load plugins
-	filterChain := plugins.GetAPIFilterFuncsWithAPIURL(ctx.Request.URL.Path)
-	ctx.AppendFilterFunc(filterChain...)
-
+	ctx.AppendFilterFunc(pluginsFilter.Post...)
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 
