@@ -5,11 +5,13 @@ resources:
     type: restful
     description: user
     plugins:
-      groupNames:
-        - group2
-      pluginNames:
-        - rate limit
-        - access
+      pre:
+        pluginNames:
+          - rate limit
+          - access
+      post:
+        groupNames:
+          - group2
     methods:
       - httpVerb: GET
         onAir: true
