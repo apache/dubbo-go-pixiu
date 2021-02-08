@@ -1,0 +1,3 @@
+github.com/dubbogo/dubbo-go-proxy-filter v0.1.0-rc3.0.20210206105825-798f95b07dfa h1:vcZA5dixa3NvX3AFEjhFXykwlRgVbuLgdz96TPnEp2A=
+github.com/dubbogo/dubbo-go-proxy-filter v0.1.0-rc3.0.20210206105825-798f95b07dfa/go.mod h1:vy26EhD+06QetexzAI7VAbMor2TtjmbC8f9iRw9lyzA=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
