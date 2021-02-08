@@ -77,6 +77,10 @@ func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
 // APIConfigChange to response to api config change
 func (ads *LocalMemoryAPIDiscoveryService) APIConfigChange(apiConfig config.APIConfig) bool {
 	ads.ClearAPI()
+	// load pluginsGroup
+	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
+	// init plugins from resource
+	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
 	loadAPIFromResource("", apiConfig.Resources, nil, ads)
 	return true
 }
