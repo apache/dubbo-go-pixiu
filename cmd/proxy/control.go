@@ -89,12 +89,16 @@ var (
 			}
 			logger.InitLog(logConfPath)
 
+			initFromRemote := false
 			if bootstrap.GetAPIMetaConfig() != nil {
 				if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
 					logger.Errorf("load api config from etcd error:%+v", err)
-					return err
+				} else {
+					initFromRemote = true
 				}
-			} else {
+			}
+
+			if !initFromRemote {
 				if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
 					logger.Errorf("load api config error:%+v", err)
 					return err

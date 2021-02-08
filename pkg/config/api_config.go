@@ -81,7 +81,9 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
 	}
 
-	initAPIConfigFromString(content)
+	if err = initAPIConfigFromString(content); err != nil {
+		return nil, err
+	}
 
 	return apiConfig, nil
 }
@@ -96,9 +98,29 @@ func initAPIConfigFromString(content string) error {
 		if err != nil {
 			return perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 		}
+
+		valid := validateApiConfig(apiConf)
+		if !valid {
+			return perrors.Errorf("api config not valid error %v", perrors.WithStack(err))
+		}
+
 		apiConfig = apiConf
 	}
 	return nil
+}
+
+// validateApiConfig check api config valid
+func validateApiConfig(conf *fc.APIConfig) bool {
+	if conf.Name == "" {
+		return false
+	}
+	if conf.Description == "" {
+		return false
+	}
+	if conf.Resources == nil || len(conf.Resources) == 0 {
+		return false
+	}
+	return true
 }
 
 func listenAPIConfigNodeEvent(key string) bool {
