@@ -35,10 +35,16 @@ import (
 )
 
 var (
-	apiURLWithPluginsMap = make(map[string]context.FilterChain)
+	apiURLWithPluginsMap = make(map[string]FilterChain)
 	groupWithPluginsMap  = make(map[string]map[string]PluginsWithFunc)
 	errEmptyPluginConfig = errors.New("Empty plugin config")
 )
+
+//FilterChain include Pre & Post filters
+type FilterChain struct {
+	Pre  context.FilterChain
+	Post context.FilterChain
+}
 
 // PluginsWithFunc is a single plugin details
 type PluginsWithFunc struct {
@@ -75,10 +81,10 @@ func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 
 // InitApiUrlWithFilterChain must behind InitPluginsGroup call
 func InitAPIURLWithFilterChain(resources []config.Resource) {
-	pairURLWithFilterChain("", resources, context.FilterChain{})
+	pairURLWithFilterChain("", resources, nil)
 }
 
-func pairURLWithFilterChain(parentPath string, resources []config.Resource, parentFilterFuncs []context.FilterFunc) {
+func pairURLWithFilterChain(parentPath string, resources []config.Resource, parentFilterChains *FilterChain) {
 
 	if len(resources) == 0 {
 		return
@@ -95,34 +101,34 @@ func pairURLWithFilterChain(parentPath string, resources []config.Resource, pare
 			continue
 		}
 
-		currentFuncArr := getApiFilterFuncsWithPluginsGroup(&resource.Plugins)
+		currentFilterChains, err := getApiFilterChains(&resource.Plugins)
 
-		if len(currentFuncArr) > 0 {
-			apiURLWithPluginsMap[fullPath] = currentFuncArr
-			parentFilterFuncs = currentFuncArr
+		if err == nil {
+			apiURLWithPluginsMap[fullPath] = *currentFilterChains
+			parentFilterChains = currentFilterChains
 		} else {
-			if len(parentFilterFuncs) > 0 {
-				apiURLWithPluginsMap[fullPath] = parentFilterFuncs
+			if parentFilterChains != nil {
+				apiURLWithPluginsMap[fullPath] = *parentFilterChains
 			}
 		}
 
 		if len(resource.Resources) > 0 {
-			pairURLWithFilterChain(resource.Path, resource.Resources, parentFilterFuncs)
+			pairURLWithFilterChain(resource.Path, resource.Resources, parentFilterChains)
 		}
 	}
 
 }
 
 // GetAPIFilterFuncsWithAPIURL is get filterchain with path
-func GetAPIFilterFuncsWithAPIURL(url string) context.FilterChain {
+func GetAPIFilterFuncsWithAPIURL(url string) FilterChain {
 	// found from cache
-	if funcs, found := apiURLWithPluginsMap[url]; found {
-		logger.Debugf("GetExternalPlugins is:%v,len:%d", funcs, len(funcs))
-		return funcs
+	if flc, found := apiURLWithPluginsMap[url]; found {
+		logger.Debugf("GetExternalPlugins is:%v", flc)
+		return flc
 	}
 
 	// or return empty FilterFunc
-	return context.FilterChain{}
+	return FilterChain{context.FilterChain{}, context.FilterChain{}}
 }
 
 func loadExternalPlugin(p *config.Plugin, pl *plugin.Plugin) context.FilterFunc {
@@ -139,6 +145,17 @@ func loadExternalPlugin(p *config.Plugin, pl *plugin.Plugin) context.FilterFunc 
 	}
 
 	panic(errEmptyPluginConfig)
+}
+
+func getApiFilterChains(pluginsConfig *config.PluginsConfig) (fcs *FilterChain, err error) {
+	pre := getApiFilterFuncsWithPluginsGroup(&pluginsConfig.PrePlugins)
+	post := getApiFilterFuncsWithPluginsGroup(&pluginsConfig.PostPlugins)
+
+	if len(pre) == 0 && len(post) == 0 {
+		return nil, errors.New("FilterChains is empty")
+	}
+
+	return &FilterChain{pre, post}, nil
 }
 
 func getApiFilterFuncsWithPluginsGroup(plu *config.PluginsInUse) []context.FilterFunc {
