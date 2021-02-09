@@ -18,27 +18,22 @@
 package main
 
 import (
-	"log"
-)
-
-import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
 )
 
-// BlackList filter
-type BlackList struct {
+// Trace filter
+type Trace struct {
 }
 
 // ExternalPluginBlackList export filter
-func ExternalPluginBlackList() filter.Filter {
-	return &BlackList{}
+func ExternalPluginTrace() filter.Filter {
+	return &Trace{}
 }
 
 // Do to export func(c context.Context)
-func (r *BlackList) Do() context.FilterFunc {
+func (r *Trace) Do() context.FilterFunc {
 	return func(c context.Context) {
-		log.Println("DoBlackListFilter")
-		c.WriteWithStatus(503, []byte("block"))
+		c.AddHeader("trace", "dubbo go proxy")
 	}
 }
