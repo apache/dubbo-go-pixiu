@@ -152,8 +152,9 @@ func listenAPIConfigNodeEvent(key string) bool {
 			for _, event := range e.Events {
 				switch event.Type {
 				case mvccpb.PUT:
-					initAPIConfigFromString(string(event.Kv.Value))
-					listener.APIConfigChange(GetAPIConf())
+					if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
+						listener.APIConfigChange(GetAPIConf())
+					}
 				case mvccpb.DELETE:
 					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					return true
