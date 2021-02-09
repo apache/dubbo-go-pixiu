@@ -58,7 +58,7 @@ pluginsGroup:
         externalLookupName: "ExternalPluginAccess"
   - groupName: "group2"
     plugins:
-      - name: "blacklist"
+      - name: "trace"
         version: "0.0.1"
         priority: 1000
-        externalLookupName: "ExternalPluginBlackList"
+        externalLookupName: "ExternalPluginTrace"
