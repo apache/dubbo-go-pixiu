@@ -21,8 +21,9 @@ run samples/admin/server/app/server.go
 
 config program arguments：
 - -c /XXX/dubbo-go-proxy/samples/admin/proxy/conf.yaml 
+- -a /XXX/dubbo-go-proxy/samples/admin/proxy/api_config.yaml
 
-to replace -c program arguments, should put api_meta_config in conf.yaml 
+to replace -a program arguments, should put api_meta_config in conf.yaml 
 
 ```yaml
   api_meta_config:
