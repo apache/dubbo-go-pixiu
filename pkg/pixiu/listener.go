@@ -44,7 +44,6 @@ import (
 	ctx "github.com/dubbogo/dubbo-go-pixiu/pkg/context"
 	h "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/host"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/replacepath"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
@@ -178,9 +177,6 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 func httpFilter(ctx *h.HttpContext, request fc.IntegrationRequest) {
 	if len(request.Host) != 0 {
 		ctx.AppendFilterFunc(host.New(request.Host).Do())
-	}
-	if len(request.Path) != 0 {
-		ctx.AppendFilterFunc(replacepath.New(request.Path).Do())
 	}
 }
 
