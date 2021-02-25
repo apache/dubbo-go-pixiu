@@ -26,6 +26,10 @@ import (
 )
 
 import (
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/mock"
@@ -40,20 +44,20 @@ func TestNewLocalMemoryAPIDiscoveryService(t *testing.T) {
 
 func TestAddAPI(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
-	err := l.AddAPI(mock.GetMockAPI(config.MethodPut, "/this/is/test"))
+	err := l.AddAPI(mock.GetMockAPI(fc.MethodPut, "/this/is/test"))
 	assert.Nil(t, err)
-	_, found := l.router.FindAPI("/this/is/test", config.MethodPut)
+	_, found := l.router.FindAPI("/this/is/test", fc.MethodPut)
 	assert.True(t, found)
 }
 
 func TestGetAPI(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
-	err := l.AddAPI(mock.GetMockAPI(config.MethodPut, "/this/is/test"))
+	err := l.AddAPI(mock.GetMockAPI(fc.MethodPut, "/this/is/test"))
 	assert.Nil(t, err)
-	_, err = l.GetAPI("/this/is/test", config.MethodPut)
+	_, err = l.GetAPI("/this/is/test", fc.MethodPut)
 	assert.Nil(t, err)
 
-	_, err = l.GetAPI("/this/is/test/or/else", config.MethodPut)
+	_, err = l.GetAPI("/this/is/test/or/else", fc.MethodPut)
 	assert.NotNil(t, err)
 }
 
@@ -64,37 +68,37 @@ func TestLoadAPI(t *testing.T) {
 	err = InitAPIsFromConfig(*apiC)
 	assert.Nil(t, err)
 	apiDisSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	rsp, _ := apiDisSrv.GetAPI("/", config.MethodGet)
+	rsp, _ := apiDisSrv.GetAPI("/", fc.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, _ = apiDisSrv.GetAPI("/mockTest", config.MethodGet)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest", fc.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, _ = apiDisSrv.GetAPI("/mockTest", config.MethodPost)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest", fc.MethodPost)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, _ = apiDisSrv.GetAPI("/mockTest/12345", config.MethodGet)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest/12345", fc.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
 }
 
 func TestLoadAPIFromResource(t *testing.T) {
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
-	mockMethod1 := mock.GetMockAPI(config.MethodPut, "").Method
-	mockMethod2 := mock.GetMockAPI(config.MethodPost, "").Method
-	mockMethod3 := mock.GetMockAPI(config.MethodGet, "").Method
-	tempResources := []config.Resource{
+	mockMethod1 := mock.GetMockAPI(fc.MethodPut, "").Method
+	mockMethod2 := mock.GetMockAPI(fc.MethodPost, "").Method
+	mockMethod3 := mock.GetMockAPI(fc.MethodGet, "").Method
+	tempResources := []fc.Resource{
 		{
 			Type:        "Restful",
 			Path:        "/",
 			Description: "test only",
-			Methods: []config.Method{
+			Methods: []fc.Method{
 				mockMethod1,
 				mockMethod2,
 				mockMethod3,
 			},
-			Resources: []config.Resource{
+			Resources: []fc.Resource{
 				{
 					Type:        "Restful",
 					Path:        "/mock",
 					Description: "test only",
-					Methods: []config.Method{
+					Methods: []fc.Method{
 						mockMethod1,
 						mockMethod2,
 						mockMethod3,
@@ -104,15 +108,15 @@ func TestLoadAPIFromResource(t *testing.T) {
 					Type:        "Restful",
 					Path:        "/mock2",
 					Description: "test only",
-					Methods: []config.Method{
+					Methods: []fc.Method{
 						mockMethod1,
 					},
-					Resources: []config.Resource{
+					Resources: []fc.Resource{
 						{
 							Type:        "Restful",
 							Path:        "/:id",
 							Description: "test only",
-							Methods: []config.Method{
+							Methods: []fc.Method{
 								mockMethod1,
 							},
 						},
@@ -123,29 +127,29 @@ func TestLoadAPIFromResource(t *testing.T) {
 	}
 	err := loadAPIFromResource("", tempResources, nil, apiDiscSrv)
 	assert.Nil(t, err)
-	rsp, _ := apiDiscSrv.GetAPI("/", config.MethodPut)
+	rsp, _ := apiDiscSrv.GetAPI("/", fc.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/")
-	rsp, _ = apiDiscSrv.GetAPI("/", config.MethodGet)
+	rsp, _ = apiDiscSrv.GetAPI("/", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/")
-	rsp, _ = apiDiscSrv.GetAPI("/mock", config.MethodGet)
+	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	rsp, _ = apiDiscSrv.GetAPI("/mock2/12345", config.MethodPut)
+	rsp, _ = apiDiscSrv.GetAPI("/mock2/12345", fc.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/mock2/:id")
 
-	tempResources = []config.Resource{
+	tempResources = []fc.Resource{
 		{
 			Type:        "Restful",
 			Path:        "/mock",
 			Description: "test only",
-			Methods: []config.Method{
+			Methods: []fc.Method{
 				mockMethod1,
 			},
-			Resources: []config.Resource{
+			Resources: []fc.Resource{
 				{
 					Type:        "Restful",
 					Path:        ":id",
 					Description: "test only",
-					Methods: []config.Method{
+					Methods: []fc.Method{
 						mockMethod1,
 					},
 				},
@@ -153,7 +157,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 					Type:        "Restful",
 					Path:        ":ik",
 					Description: "test only",
-					Methods: []config.Method{
+					Methods: []fc.Method{
 						mockMethod1,
 					},
 				},
@@ -166,16 +170,16 @@ func TestLoadAPIFromResource(t *testing.T) {
 }
 
 func TestLoadAPIFromMethods(t *testing.T) {
-	tempMethods := []config.Method{
-		mock.GetMockAPI(config.MethodPut, "").Method,
-		mock.GetMockAPI(config.MethodGet, "").Method,
-		mock.GetMockAPI(config.MethodPut, "").Method,
+	tempMethods := []fc.Method{
+		mock.GetMockAPI(fc.MethodPut, "").Method,
+		mock.GetMockAPI(fc.MethodGet, "").Method,
+		mock.GetMockAPI(fc.MethodPut, "").Method,
 	}
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
 	err := loadAPIFromMethods("/mock", tempMethods, nil, apiDiscSrv)
-	rsp, _ := apiDiscSrv.GetAPI("/mock", config.MethodPut)
+	rsp, _ := apiDiscSrv.GetAPI("/mock", fc.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	rsp, _ = apiDiscSrv.GetAPI("/mock", config.MethodGet)
+	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	assert.EqualError(t, err, "Path: /mock, Method: PUT, error: Method PUT already exists in path /mock")
 }

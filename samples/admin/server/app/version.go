@@ -15,38 +15,9 @@
  * limitations under the License.
  */
 
-package context
+package main
 
-import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+var (
+	// Version dubbo version
+	Version = "2.7.5"
 )
-
-// Context run context
-type Context interface {
-	Next()
-	Abort()
-	AbortWithError(string, error)
-	AppendFilterFunc(ff ...FilterFunc)
-
-	Status(code int)
-	StatusCode() int
-	WriteWithStatus(int, []byte) (int, error)
-	Write([]byte) (int, error)
-	AddHeader(k, v string)
-	GetHeader(k string) string
-	GetUrl() string
-	GetMethod() string
-
-	BuildFilters()
-
-	API(router.API)
-	GetAPI() *router.API
-	Api(api *model.Api)
-	GetApi() *model.Api
-
-	GetClientIP() string
-	GetApplicationName() string
-
-	WriteErr(p interface{})
-}

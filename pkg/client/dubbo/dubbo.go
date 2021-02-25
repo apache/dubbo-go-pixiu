@@ -28,6 +28,7 @@ import (
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 )
 
 import (
@@ -196,7 +197,7 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	return values, nil
 }
 
-func buildOption(conf config.MappingParam) client.RequestOption {
+func buildOption(conf fc.MappingParam) client.RequestOption {
 	var opt client.RequestOption
 	if conf.Opt.Open {
 		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
@@ -225,7 +226,7 @@ func (dc *Client) check(key string) bool {
 }
 
 // Get find a dubbo GenericService
-func (dc *Client) Get(ir config.IntegrationRequest) *dg.GenericService {
+func (dc *Client) Get(ir fc.IntegrationRequest) *dg.GenericService {
 	key := apiKey(&ir)
 	if dc.check(key) {
 		return dc.get(key)
@@ -234,12 +235,12 @@ func (dc *Client) Get(ir config.IntegrationRequest) *dg.GenericService {
 	return dc.create(key, ir)
 }
 
-func apiKey(ir *config.IntegrationRequest) string {
+func apiKey(ir *fc.IntegrationRequest) string {
 	dbc := ir.DubboBackendConfig
 	return strings.Join([]string{dbc.ClusterName, dbc.ApplicationName, dbc.Interface, dbc.Version, dbc.Group}, "_")
 }
 
-func (dc *Client) create(key string, irequest config.IntegrationRequest) *dg.GenericService {
+func (dc *Client) create(key string, irequest fc.IntegrationRequest) *dg.GenericService {
 	referenceConfig := dg.NewReferenceConfig(irequest.Interface, context.TODO())
 	referenceConfig.InterfaceName = irequest.Interface
 	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
