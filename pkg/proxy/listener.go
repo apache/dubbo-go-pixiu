@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/header"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
 )
 
 import (
@@ -31,6 +32,8 @@ import (
 )
 
 import (
+	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 	"github.com/pkg/errors"
 )
 
@@ -44,7 +47,6 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/replacepath"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // ListenerService the facade of a listener
@@ -156,21 +158,24 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	}
 	switch api.Method.IntegrationRequest.RequestType {
 	// TODO add some basic filter for diff protocol
-	case config.DubboRequest:
+	case fc.DubboRequest:
 
-	case config.HTTPRequest:
+	case fc.HTTPRequest:
 		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
+	// load plugins
+	pluginsFilter := plugins.GetAPIFilterFuncsWithAPIURL(ctx.Request.URL.Path)
+	ctx.AppendFilterFunc(pluginsFilter.Pre...)
 
 	ctx.AppendFilterFunc(header.New().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
-
 	ctx.BuildFilters()
 
+	ctx.AppendFilterFunc(pluginsFilter.Post...)
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 
 // try to create filter from config.
-func httpFilter(ctx *h.HttpContext, request config.IntegrationRequest) {
+func httpFilter(ctx *h.HttpContext, request fc.IntegrationRequest) {
 	if len(request.Host) != 0 {
 		ctx.AppendFilterFunc(host.New(request.Host).Do())
 	}
@@ -181,7 +186,7 @@ func httpFilter(ctx *h.HttpContext, request config.IntegrationRequest) {
 
 func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {
 	apiDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	api, err := apiDiscSrv.GetAPI(req.URL.Path, config.HTTPVerb(req.Method))
+	api, err := apiDiscSrv.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
 		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
