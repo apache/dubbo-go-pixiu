@@ -20,15 +20,21 @@ package api
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	pc "github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
-	"strings"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	fr "github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
 )
 
 // Init set api discovery local_memory service.
@@ -49,17 +55,34 @@ func NewLocalMemoryAPIDiscoveryService() *LocalMemoryAPIDiscoveryService {
 }
 
 // AddAPI adds a method to the router tree
-func (ads *LocalMemoryAPIDiscoveryService) AddAPI(api router.API) error {
+func (ads *LocalMemoryAPIDiscoveryService) AddAPI(api fr.API) error {
 	return ads.router.PutAPI(api)
 }
 
 // GetAPI returns the method to the caller
-func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTPVerb) (router.API, error) {
+func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTPVerb) (fr.API, error) {
 	if api, ok := ads.router.FindAPI(url, httpVerb); ok {
 		return *api, nil
 	}
 
-	return router.API{}, errors.New("not found")
+	return fr.API{}, errors.New("not found")
+}
+
+// ClearAPI clear all api
+func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
+	ads.router.ClearAPI()
+	return nil
+}
+
+// APIConfigChange to response to api config change
+func (ads *LocalMemoryAPIDiscoveryService) APIConfigChange(apiConfig config.APIConfig) bool {
+	ads.ClearAPI()
+	// load pluginsGroup
+	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
+	// init plugins from resource
+	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
+	loadAPIFromResource("", apiConfig.Resources, nil, ads)
+	return true
 }
 
 // InitAPIsFromConfig inits the router from API config and to local cache
@@ -68,7 +91,26 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	if len(apiConfig.Resources) == 0 {
 		return nil
 	}
+	// register config change listener
+	pc.RegisterConfigListener(localAPIDiscSrv)
+	// load pluginsGroup
+	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
+	// init plugins from resource
+	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
+}
+
+// RefreshAPIsFromConfig fresh the router from API config and to local cache
+func RefreshAPIsFromConfig(apiConfig config.APIConfig) error {
+	localAPIDiscSrv := NewLocalMemoryAPIDiscoveryService()
+	if len(apiConfig.Resources) == 0 {
+		return nil
+	}
+	error := loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
+	if error == nil {
+		extension.SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, localAPIDiscSrv)
+	}
+	return error
 }
 
 func loadAPIFromResource(parrentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv service.APIDiscoveryService) error {
@@ -112,7 +154,7 @@ func loadAPIFromResource(parrentPath string, resources []config.Resource, parent
 func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	for _, method := range methods {
-		api := router.API{
+		api := fr.API{
 			URLPattern: fullPath,
 			Method:     method,
 			Headers:    headers,
