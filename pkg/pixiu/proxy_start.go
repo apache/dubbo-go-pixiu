@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package pixiu
 
 import (
 	"net/http"
@@ -24,23 +24,23 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/initialize"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client/dubbo"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/initialize"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/service/api"
 )
 
-// Proxy
-type Proxy struct {
+// PX
+type PX struct {
 	startWG sync.WaitGroup
 }
 
-// Start proxy start
-func (p *Proxy) Start() {
+// Start pixiu start
+func (p *PX) Start() {
 	conf := config.GetBootstrap()
 
 	p.startWG.Add(1)
@@ -74,7 +74,7 @@ func (p *Proxy) Start() {
 	}
 }
 
-func (p *Proxy) beforeStart() {
+func (p *PX) beforeStart() {
 	initialize.Run()
 
 	dubbo.SingletonDubboClient().Init()
@@ -82,17 +82,17 @@ func (p *Proxy) beforeStart() {
 	api.InitAPIsFromConfig(config.GetAPIConf())
 }
 
-// NewProxy create proxy
-func NewProxy() *Proxy {
-	return &Proxy{
+// NewPX create pixiu
+func NewPX() *PX {
+	return &PX{
 		startWG: sync.WaitGroup{},
 	}
 }
 
 func Start(bs *model.Bootstrap) {
-	logger.Infof("[dubboproxy go] start by config : %+v", bs)
+	logger.Infof("[dubbopixiu go] start by config : %+v", bs)
 
-	proxy := NewProxy()
+	proxy := NewPX()
 	proxy.Start()
 
 	proxy.startWG.Wait()

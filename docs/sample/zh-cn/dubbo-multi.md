@@ -1,14 +1,14 @@
 # 从 URI获取参数
 
-> GET 请求 [sample](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/sample/dubbo/multi)
+> GET 请求 [sample](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/sample/dubbo/multi)
 
 ## 简单示例
 
 ### 接口配置
 
 ```yaml
-name: proxy
-description: proxy sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/student/:name'
     type: restful
@@ -27,7 +27,7 @@ resources:
             - name: uri.name
               mapTo: 0
           applicationName: "StudentService"
-          interface: "com.dubbogo.proxy.StudentService"
+          interface: "com.dubbogo.pixiu.StudentService"
           method: "GetStudentByName"
           paramTypes: [ "string" ]
           group: "test"
@@ -46,7 +46,7 @@ resources:
             - name: requestBody._all
               mapTo: 1
           applicationName: "StudentService"
-          interface: "com.dubbogo.proxy.StudentService"
+          interface: "com.dubbogo.pixiu.StudentService"
           method: "UpdateStudentByName"
           paramTypes: [ "string", "object" ]
           group: "test"
@@ -69,7 +69,7 @@ resources:
             - name: uri.name
               mapTo: 0
           applicationName: "TeacherService"
-          interface: "com.dubbogo.proxy.TeacherService"
+          interface: "com.dubbogo.pixiu.TeacherService"
           method: "GetTeacherByName"
           paramTypes: [ "string" ]
           group: "test"
@@ -88,7 +88,7 @@ resources:
             - name: requestBody._all
               mapTo: 1
           applicationName: "TeacherService"
-          interface: "com.dubbogo.proxy.TeacherService"
+          interface: "com.dubbogo.pixiu.TeacherService"
           method: "UpdateTeacherByName"
           paramTypes: [ "string", "object" ]
           group: "test"
@@ -101,7 +101,7 @@ resources:
 # dubbo server yaml configure file
 # application config
 application:
-  organization: "dubbogoproxy.com"
+  organization: "dubbogopixiu.com"
   name: "BDTService"
   module: "dubbogo user-info server"
   version: "0.0.1"
@@ -123,7 +123,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.dubbogo.proxy.StudentService"
+    interface: "com.dubbogo.pixiu.StudentService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
@@ -137,7 +137,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.dubbogo.proxy.TeacherService"
+    interface: "com.dubbogo.pixiu.TeacherService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"

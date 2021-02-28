@@ -34,9 +34,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/router"
 )
 
 var mappers = map[string]client.ParamMapper{
