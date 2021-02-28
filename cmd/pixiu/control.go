@@ -26,9 +26,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/proxy"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/pixiu"
 )
 
 var (
@@ -43,18 +43,18 @@ var (
 
 	cmdStart = cli.Command{
 		Name:  "start",
-		Usage: "start dubbogo proxy",
+		Usage: "start dubbogo pixiu",
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:   "config, c",
 				Usage:  "Load configuration from `FILE`",
-				EnvVar: "DUBBOGO_PROXY_CONFIG",
+				EnvVar: "DUBBOGO_PIXIU_CONFIG",
 				Value:  "configs/conf.yaml",
 			},
 			cli.StringFlag{
 				Name:   "api-config, a",
 				Usage:  "Load api configuration from `FILE`",
-				EnvVar: "DUBBOGO_PROXY_API_CONFIG",
+				EnvVar: "DUBBOGO_PIXIU_API_CONFIG",
 				Value:  "configs/api_config.yaml",
 			},
 			cli.StringFlag{
@@ -65,16 +65,16 @@ var (
 			},
 			cli.StringFlag{
 				Name:   "log-level, l",
-				Usage:  "dubbogo proxy log level, trace|debug|info|warning|error|critical",
+				Usage:  "dubbogo pixiu log level, trace|debug|info|warning|error|critical",
 				EnvVar: "LOG_LEVEL",
 			},
 			cli.StringFlag{
 				Name:  "log-format, lf",
-				Usage: "dubbogo proxy log format, currently useless",
+				Usage: "dubbogo pixiu log format, currently useless",
 			},
 			cli.StringFlag{
 				Name:  "limit-cpus, limc",
-				Usage: "dubbogo proxy schedule threads count",
+				Usage: "dubbogo pixiu schedule threads count",
 			},
 		},
 		Action: func(c *cli.Context) error {
@@ -112,14 +112,14 @@ var (
 				runtime.GOMAXPROCS(limitCpus)
 			}
 
-			proxy.Start(bootstrap)
+			pixiu.Start(bootstrap)
 			return nil
 		},
 	}
 
 	cmdStop = cli.Command{
 		Name:  "stop",
-		Usage: "stop dubbogo proxy",
+		Usage: "stop dubbogo pixiu",
 		Action: func(c *cli.Context) error {
 			return nil
 		},

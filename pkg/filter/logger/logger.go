@@ -27,9 +27,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
 )
 
 // nolint
@@ -59,6 +59,6 @@ func (f loggerFilter) Do() context.FilterFunc {
 
 		latency := time.Now().Sub(start)
 
-		logger.Infof("[dubboproxy go] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
+		logger.Infof("[dubbo go pixiu] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
 	}
 }

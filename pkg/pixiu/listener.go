@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package proxy
+package pixiu
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/header"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/header"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/plugins"
 )
 
 import (
@@ -38,15 +38,15 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	ctx "github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	h "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/host"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/replacepath"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	ctx "github.com/dubbogo/dubbo-go-pixiu/pkg/context"
+	h "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/host"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/replacepath"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
 
 // ListenerService the facade of a listener
@@ -90,7 +90,7 @@ func (l *ListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-proxy] httpListener start at : %s", srv.Addr)
+	logger.Infof("[dubbo-go-pixiu] httpListener start at : %s", srv.Addr)
 
 	log.Println(srv.ListenAndServe())
 }

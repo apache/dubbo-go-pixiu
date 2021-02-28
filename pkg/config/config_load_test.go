@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
 
 func TestLoad(t *testing.T) {
@@ -60,7 +60,7 @@ func TestStruct2JSON(t *testing.T) {
 							FilterChainMatch: model.FilterChainMatch{
 								Domains: []string{
 									"api.dubbo.com",
-									"api.proxy.com",
+									"api.pixiu.com",
 								},
 							},
 							Filters: []model.Filter{

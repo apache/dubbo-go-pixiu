@@ -30,7 +30,7 @@ type Client interface {
 }
 
 /**
- * follow option is design to support dubbo proxy model. you can see
+ * follow option is design to support dubbo pixiu model. you can see
  * https://github.com/dubbogo/dubbo-go-proxy/tree/master.
  */
 

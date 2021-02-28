@@ -1,10 +1,10 @@
-# dubbo-go-proxy Documentation
+# dubbo-go-pixiu Documentation
 
 ## [Common](common/README.md)
 
 * [FAQ](common/faq.md)
 * [Roadmap](common/roadmap.md)
-* [Proxy arguments](common/proxy-arguments.md)
+* [Pixiu arguments](common/pixiu-arguments.md)
 
 ## [Samples](sample/README.md)
 
