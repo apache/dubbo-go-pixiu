@@ -157,7 +157,7 @@ type Teacher struct {
 type TeacherProvider struct {
 }
 
-// CreateTeacher new teacher, Proxy config POST.
+// CreateTeacher new teacher, PX config POST.
 func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (*Teacher, error) {
 	outLn("Req CreateTeacher data:%#v", Teacher)
 	if Teacher == nil {
@@ -176,7 +176,7 @@ func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (
 	return nil, errors.New("add error")
 }
 
-// GetTeacherByName query by name, single param, Proxy config GET.
+// GetTeacherByName query by name, single param, PX config GET.
 func (s *TeacherProvider) GetTeacherByName(ctx context.Context, name string) (*Teacher, error) {
 	outLn("Req GetTeacherByName name:%#v", name)
 	r, ok := teacherCache.GetByName(name)
@@ -188,7 +188,7 @@ func (s *TeacherProvider) GetTeacherByName(ctx context.Context, name string) (*T
 	return r, nil
 }
 
-// GetTeacherByCode query by code, single param, Proxy config GET.
+// GetTeacherByCode query by code, single param, PX config GET.
 func (s *TeacherProvider) GetTeacherByCode(ctx context.Context, code int64) (*Teacher, error) {
 	outLn("Req GetTeacherByCode name:%#v", code)
 	r, ok := teacherCache.GetByCode(code)
@@ -199,10 +199,10 @@ func (s *TeacherProvider) GetTeacherByCode(ctx context.Context, code int64) (*Te
 	return r, nil
 }
 
-// GetTeacherTimeout query by name, will timeout for proxy.
+// GetTeacherTimeout query by name, will timeout for pixiu.
 func (s *TeacherProvider) GetTeacherTimeout(ctx context.Context, name string) (*Teacher, error) {
 	outLn("Req GetTeacherByName name:%#v", name)
-	// sleep 10s, proxy config less than 10s.
+	// sleep 10s, pixiu config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
@@ -212,7 +212,7 @@ func (s *TeacherProvider) GetTeacherTimeout(ctx context.Context, name string) (*
 	return r, nil
 }
 
-// GetTeacherByNameAndAge query by name and age, two params, Proxy config GET.
+// GetTeacherByNameAndAge query by name and age, two params, PX config GET.
 func (s *TeacherProvider) GetTeacherByNameAndAge(ctx context.Context, name string, age int32) (*Teacher, error) {
 	outLn("Req GetTeacherByNameAndAge name:%s, age:%d", name, age)
 	r, ok := teacherCache.GetByName(name)
@@ -223,7 +223,7 @@ func (s *TeacherProvider) GetTeacherByNameAndAge(ctx context.Context, name strin
 	return r, nil
 }
 
-// UpdateTeacher update by teacher struct, my be another struct, Proxy config POST or PUT.
+// UpdateTeacher update by teacher struct, my be another struct, PX config POST or PUT.
 func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (bool, error) {
 	outLn("Req UpdateTeacher data:%#v", teacher)
 	r, ok := teacherCache.GetByName(teacher.Name)
@@ -239,7 +239,7 @@ func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (
 	return true, nil
 }
 
-// UpdateTeacher update by teacher struct, my be another struct, Proxy config POST or PUT.
+// UpdateTeacher update by teacher struct, my be another struct, PX config POST or PUT.
 func (s *TeacherProvider) UpdateTeacherByName(ctx context.Context, name string, teacher *Teacher) (bool, error) {
 	outLn("Req UpdateTeacherByName data:%#v", teacher)
 	r, ok := teacherCache.GetByName(name)
@@ -262,5 +262,5 @@ func (s *TeacherProvider) Reference() string {
 
 // nolint
 func (s Teacher) JavaClassName() string {
-	return "com.dubbogo.proxy.TeacherService"
+	return "com.dubbogo.pixiu.TeacherService"
 }
