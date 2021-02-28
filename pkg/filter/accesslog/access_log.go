@@ -31,11 +31,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
 
 var accessLogWriter = &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}

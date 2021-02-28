@@ -23,9 +23,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
 )
 
 // nolint
@@ -51,7 +51,7 @@ func (f recoveryFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				logger.Warnf("[dubboproxy go] error:%+v", err)
+				logger.Warnf("[dubbopixiu go] error:%+v", err)
 
 				c.WriteErr(err)
 			}

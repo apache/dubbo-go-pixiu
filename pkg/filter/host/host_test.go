@@ -28,13 +28,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/mock"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestHost(t *testing.T) {
 	targetHost := "www.dubbogo.com"
-	request, err := http.NewRequest("POST", "http://www.dubbogoproxy.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request, New(targetHost).Do(), recovery.New().Do())
 	c.Next()

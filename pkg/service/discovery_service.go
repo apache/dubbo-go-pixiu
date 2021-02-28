@@ -20,7 +20,10 @@ package service
 import (
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
-	pc "github.com/dubbogo/dubbo-go-proxy/pkg/config"
+)
+
+import (
+	pc "github.com/dubbogo/dubbo-go-pixiu/pkg/config"
 )
 
 // DiscoveryRequest a request for discovery

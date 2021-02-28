@@ -1,14 +1,14 @@
 # 从 URI，Query，Body 各个部分获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/mix)
+> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/mix)
 
 ## 简单示例
 
 ### 接口配置
 
 ```yaml
-name: proxy
-description: proxy sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/user/:name'
     type: restful
@@ -27,7 +27,7 @@ resources:
             - name: queryStrings.age
               mapTo: 1
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByNameAndAge"
           paramTypes: [ "string", "int" ]
           group: "test"
@@ -46,7 +46,7 @@ resources:
             - name: requestBody._all
               mapTo: 1
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUserByName"
           paramTypes: [ "string", "object" ]
           group: "test"
@@ -69,7 +69,7 @@ resources:
             - name: requestBody._all
               mapTo: 1
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUserByName"
           paramTypes: [ "string", "object" ]
           group: "test"

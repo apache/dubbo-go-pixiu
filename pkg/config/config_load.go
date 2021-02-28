@@ -60,7 +60,7 @@ func Load(path string) *model.Bootstrap {
 	return config
 }
 
-// ConfigLoadFunc parse a input(usually file path) into a proxy config
+// ConfigLoadFunc parse a input(usually file path) into a pixiu config
 type ConfigLoadFunc func(path string) *model.Bootstrap
 
 // RegisterConfigLoadFunc can replace a new config load function instead of default

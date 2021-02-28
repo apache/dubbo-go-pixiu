@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
