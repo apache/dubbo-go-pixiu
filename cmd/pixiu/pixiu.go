@@ -31,32 +31,32 @@ import (
 )
 
 import (
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/accesslog"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/logger"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/recovery"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/remote"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/response"
-	_ "github.com/dubbogo/dubbo-go-proxy/pkg/filter/timeout"
+	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/accesslog"
+	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/logger"
+	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/recovery"
+	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/remote"
+	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/response"
+	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/timeout"
 )
 
-// Version proxy version
+// Version pixiu version
 var Version = "0.1.0"
 
-// main proxy run method
+// main pixiu run method
 func main() {
-	app := newProxyApp(&cmdStart)
+	app := newPXApp(&cmdStart)
 
 	// ignore error so we don't exit non-zero and break gfmrun README example tests
 	_ = app.Run(os.Args)
 }
 
-func newProxyApp(startCmd *cli.Command) *cli.App {
+func newPXApp(startCmd *cli.Command) *cli.App {
 	app := cli.NewApp()
-	app.Name = "dubbogo proxy"
+	app.Name = "dubbogo pixiu"
 	app.Version = Version
 	app.Compiled = time.Now()
 	app.Copyright = "(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo"
-	app.Usage = "Dubbogo proxy is a lightweight gateway."
+	app.Usage = "Dubbogo pixiu is a lightweight gateway."
 	app.Flags = cmdStart.Flags
 
 	//commands

@@ -25,15 +25,15 @@ import (
 
 import (
 	"github.com/coreos/etcd/mvcc/mvccpb"
+	etcdv3 "github.com/dubbogo/dubbo-go-pixiu/pkg/remoting/etcd3"
 	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 	perrors "github.com/pkg/errors"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
 
 var (
