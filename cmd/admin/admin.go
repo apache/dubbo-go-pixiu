@@ -58,7 +58,7 @@ type EtcdConfig struct {
 var (
 	cmdStart = cli.Command{
 		Name:  "start",
-		Usage: "start dubbogo proxy admin",
+		Usage: "start dubbogo pixiu admin",
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:   "config, c",
@@ -81,7 +81,7 @@ var (
 
 	cmdStop = cli.Command{
 		Name:  "stop",
-		Usage: "stop dubbogo proxy admin",
+		Usage: "stop dubbogo pixiu admin",
 		Action: func(c *cli.Context) error {
 			return nil
 		},
@@ -93,11 +93,11 @@ const Version = "0.1.0"
 
 func newAdminApp(startCmd *cli.Command) *cli.App {
 	app := cli.NewApp()
-	app.Name = "dubbogo proxy admin"
+	app.Name = "dubbogo pixiu admin"
 	app.Version = Version
 	app.Compiled = time.Now()
 	app.Copyright = "(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo"
-	app.Usage = "Dubbogo proxy admin"
+	app.Usage = "Dubbogo pixiu admin"
 	app.Flags = cmdStart.Flags
 
 	//commands

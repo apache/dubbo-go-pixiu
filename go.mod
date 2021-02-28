@@ -1,4 +1,4 @@
-module github.com/dubbogo/dubbo-go-proxy
+module github.com/dubbogo/dubbo-go-pixiu
 
 go 1.14
 
@@ -6,6 +6,7 @@ require (
 	github.com/apache/dubbo-go v1.5.5
 	github.com/apache/dubbo-go-hessian2 v1.7.0
 	github.com/coreos/etcd v3.3.25+incompatible
+	github.com/dubbogo/dubbo-go-proxy v0.2.0
 	github.com/dubbogo/dubbo-go-proxy-filter v0.1.0-rc3.0.20210206105825-798f95b07dfa
 	github.com/dubbogo/go-zookeeper v1.0.2
 	github.com/emirpasic/gods v1.12.0
