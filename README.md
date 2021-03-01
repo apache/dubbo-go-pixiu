@@ -8,7 +8,7 @@ dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to
 It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near future.
 
 ## Get Start
-#### Start pixiu
+#### Start Pixiu
 1. Build the binary with `make build`
 2. Start the pixiu with `make start`
 
@@ -34,7 +34,7 @@ dubbo-go-pixiu supports to invoke 2 protocols:
 
 ## Teams
 ### Components
-#### pixiu
+#### Pixiu
 Data panel
 #### Admin
 Control Panel
