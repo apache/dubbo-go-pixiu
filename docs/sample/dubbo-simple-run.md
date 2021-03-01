@@ -1,8 +1,8 @@
 # How run dubbo simple test samples
 
-## Start pixiu
+## Start Pixiu
 
-- build pixiu
+- build Pixiu
 
 ```bash
 cd /dubbogo-go-pixiu/cmd/pixiu
