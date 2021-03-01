@@ -34,6 +34,14 @@ jobs:
           go-version: ${{ matrix.go_version }}
         id: go
 
+      # lint
+      - name: Lint Go Code
+        uses: actions/checkout@v2
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
+          go get -u golang.org/x/lint/golint
+          golint ./...
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
