@@ -33,9 +33,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	etcdv3 "github.com/dubbogo/dubbo-go-pixiu/pkg/remoting/etcd3"
 )
 
 // AdminBootstrap admin bootstrap config

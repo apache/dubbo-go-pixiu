@@ -1,8 +1,8 @@
 # 如何运行 dubbo 简单的测试例子
 
-## 启动 pixiu
+## 启动 Pixiu
 
-- 构建 pixiu
+- 构建 Pixiu
 
 ```bash
 cd /dubbogo-go-pixiu/cmd/pixiu
@@ -10,7 +10,7 @@ cd /dubbogo-go-pixiu/cmd/pixiu
 go build
 ```
 
-- 把 pixiu 移动到运行目录
+- 把 Pixiu 移动到运行目录
 
 ```bash
 mv -b pixiu ../../samples/dubbogo/simple

@@ -1,6 +1,6 @@
 # How to check dubbo error
 
-## pixiu bug condition
+## Pixiu bug condition
 
 Server log.
 
@@ -26,7 +26,7 @@ When generic invoke, err will return nil, because wrote the code as below.
 	}
 ```
 
-## Err log in pixiu
+## Err log in Pixiu
 
 Dubbo server return error:
 
