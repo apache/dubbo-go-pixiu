@@ -7,7 +7,7 @@ dubbo-go-pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 现在dubbo-go-pixiu 已经支持以dubbo协议和http协议调用远程的 dubbo 集群，未来还会支持更多的协议。
 
 ## 开始
-#### 启动pixiu
+#### 启动 Pixiu
 1. `make build` 构建出二进制包
 2. `make start` 启动pixiu
 
@@ -45,7 +45,7 @@ dubbo-go-pixiu支持2种协议的调用:
 
 ## 术语解释
 ### 组件
-#### pixiu
+#### Pixiu
 数据面板
 #### Admin
 控制面板

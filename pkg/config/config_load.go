@@ -30,8 +30,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
 
 var (
@@ -47,7 +47,7 @@ func GetBootstrap() *model.Bootstrap {
 
 // Load config file and parse
 func Load(path string) *model.Bootstrap {
-	logger.Infof("[dubboproxy go] load path:%s", path)
+	logger.Infof("[dubbopixiu go] load path:%s", path)
 
 	configPath, _ = filepath.Abs(path)
 	if yamlFormat(path) {

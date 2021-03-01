@@ -25,7 +25,7 @@ import (
 
 import (
 	"github.com/coreos/etcd/mvcc/mvccpb"
-	etcdv3 "github.com/dubbogo/dubbo-go-pixiu/pkg/remoting/etcd3"
+
 	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
 	perrors "github.com/pkg/errors"
 )
@@ -34,6 +34,7 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
+	etcdv3 "github.com/dubbogo/dubbo-go-pixiu/pkg/remoting/etcd3"
 )
 
 var (

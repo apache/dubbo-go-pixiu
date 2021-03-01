@@ -70,7 +70,7 @@ func (p *PX) Start() {
 			addr.Port = constant.PprofDefaultPort
 		}
 		go http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
-		logger.Infof("[dubboproxy go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
+		logger.Infof("[dubbopixiu go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
 	}
 }
 
