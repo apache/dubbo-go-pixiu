@@ -95,93 +95,87 @@ func TestMappingParams(t *testing.T) {
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "queryStrings.id",
-			MapTo: "0",
+			Name:    "queryStrings.id",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.age",
-			MapTo: "1",
+			Name:    "queryStrings.age",
+			MapTo:   "1",
+			MapType: "int",
 		},
-	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"int",
 	}
 	req := client.NewReq(context.TODO(), r, api)
 	params, err := dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], int32(19))
+	assert.Equal(t, params.(*dubboTarget).Values[0], "12345")
+	assert.Equal(t, params.(*dubboTarget).Values[1], int(19))
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "queryStrings.id",
-			MapTo: "0",
+			Name:    "queryStrings.id",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.age",
-			MapTo: "1",
+			Name:    "queryStrings.age",
+			MapTo:   "1",
+			MapType: "int",
 		},
 		{
-			Name:  "headers.Auth",
-			MapTo: "2",
+			Name:    "headers.Auth",
+			MapTo:   "2",
+			MapType: "string",
 		},
-	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"int",
-		"string",
 	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
 	params, err = dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], int32(19))
-	assert.Equal(t, params.([]interface{})[2], "1234567")
+	assert.Equal(t, params.(*dubboTarget).Values[0], "12345")
+	assert.Equal(t, params.(*dubboTarget).Values[1], int(19))
+	assert.Equal(t, params.(*dubboTarget).Values[2], "1234567")
 
 	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "queryStrings.id",
-			MapTo: "0",
+			Name:    "queryStrings.id",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.age",
-			MapTo: "1",
+			Name:    "queryStrings.age",
+			MapTo:   "1",
+			MapType: "int",
 		},
 		{
-			Name:  "headers.Auth",
-			MapTo: "2",
+			Name:    "headers.Auth",
+			MapTo:   "2",
+			MapType: "string",
 		},
 		{
-			Name:  "requestBody.sex",
-			MapTo: "3",
+			Name:    "requestBody.sex",
+			MapTo:   "3",
+			MapType: "string",
 		},
 		{
-			Name:  "requestBody.name.firstName",
-			MapTo: "4",
+			Name:    "requestBody.name.firstName",
+			MapTo:   "4",
+			MapType: "java.lang.String",
 		},
-	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"int",
-		"string",
-		"string",
-		"java.lang.String",
 	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
 	params, err = dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], int32(19))
-	assert.Equal(t, params.([]interface{})[2], "1234567")
-	assert.Equal(t, params.([]interface{})[3], "male")
-	assert.Equal(t, params.([]interface{})[4], "Joe")
+	assert.Equal(t, params.(*dubboTarget).Values[0], "12345")
+	assert.Equal(t, params.(*dubboTarget).Values[1], int(19))
+	assert.Equal(t, params.(*dubboTarget).Values[2], "1234567")
+	assert.Equal(t, params.(*dubboTarget).Values[3], "male")
+	assert.Equal(t, params.(*dubboTarget).Values[4], "Joe")
 }
 
 func TestBuildOption(t *testing.T) {
@@ -206,6 +200,13 @@ func TestBuildOption(t *testing.T) {
 			Open:   true,
 			Usable: false,
 		},
+	}
+	option = buildOption(mp)
+	assert.Nil(t, option)
+
+	mp = config.MappingParam{
+		Name:  "queryStrings.id",
+		MapTo: "0",
 	}
 	option = buildOption(mp)
 	assert.Nil(t, option)

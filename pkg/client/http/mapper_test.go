@@ -251,3 +251,25 @@ func TestSetTarget(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"otherStructure\":\"abcde\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\"}}")
 }
+
+func TestValidateTarget(t *testing.T) {
+	requestP := newRequestParams()
+	p, e := validateTarget(requestP)
+	assert.NotNil(t, p)
+	assert.Nil(t, e)
+
+	requestP = nil
+	p, e = validateTarget(requestP)
+	assert.Nil(t, p)
+	assert.NotNil(t, e)
+
+	requestP2 := []int{}
+	p, e = validateTarget(requestP2)
+	assert.Nil(t, p)
+	assert.NotNil(t, e)
+
+	requestP3 := struct{}{}
+	p, e = validateTarget(requestP3)
+	assert.Nil(t, p)
+	assert.NotNil(t, e)
+}

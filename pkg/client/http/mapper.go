@@ -146,12 +146,8 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget int
 }
 
 func validateTarget(target interface{}) (*requestParams, error) {
-	rv := reflect.ValueOf(target)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return nil, errors.New("Target params must be a non-nil pointer")
-	}
 	val, ok := target.(*requestParams)
-	if !ok {
+	if !ok || val == nil {
 		return nil, errors.New("Target params must be a requestParams pointer")
 	}
 	return val, nil

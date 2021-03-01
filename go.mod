@@ -22,3 +22,5 @@ require (
 )
 
 replace github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
+
+replace github.com/dubbogo/dubbo-go-proxy-filter v0.1.0-rc3.0.20210206105825-798f95b07dfa => /Users/william/Workspace/dubbo/williamfeng323/dubbo-go-proxy-filter

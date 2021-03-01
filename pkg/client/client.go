@@ -52,7 +52,7 @@ type RequestOption interface {
 // CommonOption common opt.
 type CommonOption struct {
 	usable bool
-	RequestOption
+	// RequestOption
 }
 
 // Usable get usable.

@@ -39,61 +39,68 @@ func TestQueryStringsMapper(t *testing.T) {
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "queryStrings.id",
-			MapTo: "0",
+			Name:    "queryStrings.id",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.name",
-			MapTo: "1",
+			Name:    "queryStrings.name",
+			MapTo:   "1",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.age",
-			MapTo: "jk",
+			Name:    "queryStrings.age",
+			MapTo:   "jk",
+			MapType: "int",
 		},
 	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"string",
-		"int",
-	}
+
 	req := client.NewReq(context.TODO(), r, api)
 
-	var params []interface{}
+	params := newDubboTarget(api.IntegrationRequest.MappingParams)
 	qs := queryStringsMapper{}
-	err := qs.Map(api.IntegrationRequest.MappingParams[0], req, &params, nil)
+	// Giving valid mapping params
+	err := qs.Map(api.IntegrationRequest.MappingParams[0], req, params, nil)
+	// it should not return error
 	assert.Nil(t, err)
-	assert.Equal(t, params[0], "12345")
-	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, &params, nil)
+	// it should update the target value in target position from corresponding query value in request.
+	assert.Equal(t, params.Values[0], "12345")
+	assert.Equal(t, params.Types[0], "string")
+	// Giving valid mapping params and same target
+	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, params, nil)
+	// it should return error when request does not contain the source parameter
 	assert.EqualError(t, err, "Query parameter [name] does not exist")
-	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, &params, nil)
-	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk { false false}} incorrect")
+	// Giving invalid mapping params that is not a number and same target
+	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, params, nil)
+	// it should return error that points out the mapping param
+	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk int { false false}} incorrect")
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "queryStrings.id",
-			MapTo: "1",
+			Name:    "queryStrings.id",
+			MapTo:   "1",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.age",
-			MapTo: "0",
+			Name:    "queryStrings.age",
+			MapTo:   "0",
+			MapType: "int",
 		},
 	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"string",
-	}
+
 	req = client.NewReq(context.TODO(), r, api)
-	params = []interface{}{}
-	err = qs.Map(api.IntegrationRequest.MappingParams[0], req, &params, nil)
+	params = newDubboTarget(api.IntegrationRequest.MappingParams)
+	err = qs.Map(api.IntegrationRequest.MappingParams[0], req, params, nil)
 	assert.Nil(t, err)
-	assert.Equal(t, params[1], "12345")
-	assert.Nil(t, params[0])
-	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, &params, nil)
+	assert.Equal(t, params.Values[1], "12345")
+	assert.Equal(t, params.Types[1], "string")
+	assert.Nil(t, params.Values[0])
+	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, params, nil)
 	assert.Nil(t, err)
-	assert.Equal(t, params[1], "12345")
-	assert.Equal(t, params[0], "19")
+	assert.Equal(t, params.Types[0], "int")
+	assert.Equal(t, params.Values[0], 19)
 }
 
 func TestHeaderMapper(t *testing.T) {
@@ -102,22 +109,21 @@ func TestHeaderMapper(t *testing.T) {
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "headers.Auth",
-			MapTo: "0",
+			Name:    "headers.Auth",
+			MapTo:   "0",
+			MapType: "string",
 		},
 	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-	}
 	hm := headerMapper{}
-	target := []interface{}{}
+	target := newDubboTarget(api.IntegrationRequest.MappingParams)
 	req := client.NewReq(context.TODO(), r, api)
 
-	err := hm.Map(api.IntegrationRequest.MappingParams[0], req, &target, nil)
+	err := hm.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
-	assert.Equal(t, target[0], "1234567")
+	assert.Equal(t, target.Values[0], "1234567")
+	assert.Equal(t, target.Types[0], "string")
 
-	err = hm.Map(config.MappingParam{Name: "headers.Test", MapTo: "0"}, req, &target, nil)
+	err = hm.Map(config.MappingParam{Name: "headers.Test", MapTo: "0"}, req, target, nil)
 	assert.EqualError(t, err, "Header Test not found")
 }
 
@@ -127,38 +133,39 @@ func TestBodyMapper(t *testing.T) {
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "requestBody.sex",
-			MapTo: "0",
+			Name:    "requestBody.sex",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "requestBody.name.lastName",
-			MapTo: "1",
+			Name:    "requestBody.name.lastName",
+			MapTo:   "1",
+			MapType: "string",
 		},
 		{
-			Name:  "requestBody.name",
-			MapTo: "2",
+			Name:    "requestBody.name",
+			MapTo:   "2",
+			MapType: "object",
 		},
-	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"string",
-		"object",
 	}
 	bm := bodyMapper{}
-	target := []interface{}{}
+	target := newDubboTarget(api.IntegrationRequest.MappingParams)
 	req := client.NewReq(context.TODO(), r, api)
 
-	err := bm.Map(api.IntegrationRequest.MappingParams[0], req, &target, nil)
+	err := bm.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
-	assert.Equal(t, target[0], "male")
+	assert.Equal(t, target.Values[0], "male")
+	assert.Equal(t, target.Types[0], "string")
 
-	err = bm.Map(api.IntegrationRequest.MappingParams[1], req, &target, nil)
+	err = bm.Map(api.IntegrationRequest.MappingParams[1], req, target, nil)
 	assert.Nil(t, err)
-	assert.Equal(t, target[1], "Biden")
+	assert.Equal(t, target.Values[1], "Biden")
+	assert.Equal(t, target.Types[1], "string")
 
-	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, &target, nil)
+	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
-	assert.Equal(t, target[2], map[string]interface{}(map[string]interface{}{"firstName": "Joe", "lastName": "Biden"}))
+	assert.Equal(t, target.Types[2], "object")
+	assert.Equal(t, target.Values[2], map[string]interface{}(map[string]interface{}{"firstName": "Joe", "lastName": "Biden"}))
 }
 
 func TestURIMapper(t *testing.T) {
@@ -167,49 +174,56 @@ func TestURIMapper(t *testing.T) {
 	api := mock.GetMockAPI(config.MethodGet, "/mock/:id/:name")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "requestBody.sex",
-			MapTo: "0",
+			Name:    "requestBody.sex",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "requestBody.name.lastName",
-			MapTo: "1",
+			Name:    "requestBody.name.lastName",
+			MapTo:   "1",
+			MapType: "string",
 		},
 		{
-			Name:  "uri.name",
-			MapTo: "2",
+			Name:    "uri.name",
+			MapTo:   "2",
+			MapType: "object",
 		},
 		{
-			Name:  "uri.id",
-			MapTo: "3",
+			Name:    "uri.id",
+			MapTo:   "3",
+			MapType: "string",
 		},
 	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"string",
-		"object",
-		"string",
-	}
+
 	um := uriMapper{}
-	target := []interface{}{}
+	target := newDubboTarget(api.IntegrationRequest.MappingParams)
 	req := client.NewReq(context.TODO(), r, api)
-	err := um.Map(api.IntegrationRequest.MappingParams[3], req, &target, nil)
+	err := um.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
-	err = um.Map(api.IntegrationRequest.MappingParams[2], req, &target, nil)
+	err = um.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
-	assert.Equal(t, target[2], "joe")
-	assert.Equal(t, target[3], "12345")
+	assert.Equal(t, target.Values[2], "joe")
+	assert.Equal(t, target.Types[2], "object")
+	assert.Equal(t, target.Values[3], "12345")
+	assert.Equal(t, target.Types[3], "string")
 }
 
 func TestValidateTarget(t *testing.T) {
-	target := []interface{}{}
-	val, err := validateTarget(&target)
+	target := newDubboTarget([]config.MappingParam{
+		{
+			Name:    "requestBody.sex",
+			MapTo:   "0",
+			MapType: "string",
+		},
+	})
+	val, err := validateTarget(target)
 	assert.Nil(t, err)
 	assert.NotNil(t, val)
-	_, err = validateTarget(target)
-	assert.EqualError(t, err, "Target params must be a non-nil pointer")
+	_, err = validateTarget(*target)
+	assert.EqualError(t, err, "Target params for dubbo backend must be *dubbogoTarget")
 	target2 := ""
-	_, err = validateTarget(&target2)
-	assert.EqualError(t, err, "Target params for dubbo backend must be *[]interface{}")
+	_, err = validateTarget(target2)
+	assert.EqualError(t, err, "Target params for dubbo backend must be *dubbogoTarget")
 }
 
 func TestMapType(t *testing.T) {
@@ -224,12 +238,12 @@ func TestMapType(t *testing.T) {
 
 	val, err = mapTypes("int", "123")
 	assert.Nil(t, err)
-	assert.Equal(t, val, int32(123))
+	assert.Equal(t, val, 123)
 	val, err = mapTypes("int", 123.6)
 	assert.Nil(t, err)
-	assert.Equal(t, val, int32(123))
+	assert.Equal(t, val, 123)
 	_, err = mapTypes("int", "123a")
-	assert.EqualError(t, err, "unable to cast \"123a\" of type string to int32")
+	assert.EqualError(t, err, "unable to cast \"123a\" of type string to int")
 
 	val, err = mapTypes("object", map[string]string{"abc": "123"})
 	assert.Nil(t, err)
@@ -240,4 +254,45 @@ func TestMapType(t *testing.T) {
 	val, err = mapTypes("object", 123.6)
 	assert.Nil(t, err)
 	assert.Equal(t, val, 123.6)
+}
+
+func TestNewDubboTarget(t *testing.T) {
+	mps := []config.MappingParam{
+		config.MappingParam{
+			Name:  "string1",
+			MapTo: "0",
+		},
+	}
+	target := newDubboTarget(mps)
+	assert.NotNil(t, target)
+
+	mps = []config.MappingParam{
+		config.MappingParam{
+			Name:  "string1",
+			MapTo: "0",
+			Opt: config.Opt{
+				Usable: false,
+				Name:   "interface",
+			},
+		},
+	}
+	target = newDubboTarget(mps)
+	assert.Nil(t, target)
+}
+
+func TestSetTarget(t *testing.T) {
+	vals := make([]interface{}, 10)
+	types := make([]string, 10)
+	target := &dubboTarget{
+		Values: vals,
+		Types:  types,
+	}
+	setTarget(target, 1, 123, "int")
+	assert.Equal(t, target.Values[1], 123)
+	assert.Equal(t, target.Types[1], "int")
+	assert.Nil(t, target.Values[0])
+	assert.Equal(t, target.Types[0], "")
+	setTarget(target, 10, "123", "string")
+	assert.Equal(t, target.Values[10], "123")
+	assert.Equal(t, target.Types[10], "string")
 }
