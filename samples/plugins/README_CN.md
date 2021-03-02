@@ -14,7 +14,7 @@
 
 - 使用相同版本的公共依赖项
 
-  > 插件实现和主应用程序都必须使用**完全相同**的公共依赖项，在本例中唯一的公共依赖项是[github.com/dubbogo/dubbo-go-proxy-filter](https://github.com/dubbogo/dubbo-go-proxy-filter)。所以，请务必保证其与Proxy中的版本一致。
+  > 插件实现和主应用程序都必须使用**完全相同**的公共依赖项，在本例中唯一的公共依赖项是[github.com/dubbogo/dubbo-go-pixiu-filter](https://github.com/dubbogo/dubbo-go-pixiu-filter)。所以，请务必保证其与Proxy中的版本一致。
 
 - 不支持Windows
   
