@@ -22,12 +22,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/stretchr/testify/assert"
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (
