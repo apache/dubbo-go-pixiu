@@ -26,9 +26,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 import (
