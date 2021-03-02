@@ -29,8 +29,8 @@ import (
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
