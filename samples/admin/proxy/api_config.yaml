@@ -22,37 +22,19 @@ resources:
           paramTypes: [ "string", "string", "string", "string", "string", "string", "string" ]
           mappingParams:
             - name: requestBody.values
-              mapTo: 0
+              mapTo: opt.values
             - name: requestBody.types
-              mapTo: 1
-              opt:
-                open: true
-                name: types
+              mapTo: opt.types
             - name: uri.application
-              mapTo: 2
-              opt:
-                open: true
-                name: application
+              mapTo: opt.application
             - name: uri.interface
-              mapTo: 3
-              opt:
-                open: true
-                name: interface
+              mapTo: opt.interface
             - name: queryStrings.method
-              mapTo: 4
-              opt:
-                open: true
-                name: method
+              mapTo: opt.method
             - name: queryStrings.group
-              mapTo: 5
-              opt:
-                open: true
-                name: group
+              mapTo: opt.group
             - name: queryStrings.version
-              mapTo: 6
-              opt:
-                open: true
-                name: version
+              mapTo: opt.version
           clusterName: "test_dubbo"
   - path: '/api/v1/test-dubbo/user'
     type: restful
@@ -70,10 +52,10 @@ resources:
               required: true
         integrationRequest:
           requestType: dubbo
-          paramTypes: [ "java.lang.String" ]
           mappingParams:
             - name: queryStrings.name
               mapTo: 0
+              mapType: "java.lang.String"
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "GetUserByName"
@@ -85,14 +67,12 @@ resources:
         timeout: 10s
         inboundRequest:
           requestType: http
-        #          requestBody:
-        #            - definitionName: "userCreate"
         integrationRequest:
           requestType: dubbo
-          paramTypes: [ "object" ]
           mappingParams:
             - name: requestBody._all
               mapTo: 0
+              mapType: "object"
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "CreateUser"
@@ -116,10 +96,10 @@ resources:
               required: true
         integrationRequest:
           requestType: dubbo
-          paramTypes: [ "string" ]
           mappingParams:
             - name: queryStrings.name
               mapTo: 1
+              mapType: "string"
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "GetUserTimeout"
@@ -137,14 +117,16 @@ resources:
           requestType: http
         integrationRequest:
           requestType: dubbo
-          paramTypes: [ "string", "string", "int" ]
           mappingParams:
             - name: requestBody.name
               mapTo: 0
+              mapType: "string"
             - name: requestBody.id
               mapTo: 1
+              mapType: "string"
             - name: requestBody.age
               mapTo: 2
+              mapType: "int"
           applicationName: "UserProvider"
           interface: "com.ic.user.UserProvider"
           method: "CreateUser"

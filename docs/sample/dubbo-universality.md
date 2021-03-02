@@ -25,44 +25,20 @@ resources:
           requestType: dubbo
           mappingParams:
             - name: requestBody.values
-              mapTo: 0
-              opt:
-                open: true
-                usable: true
-                name: values
+              mapTo: opt.values
             - name: requestBody.types
-              mapTo: 1
-              opt:
-                open: true
-                name: types
+              mapTo: opt.types
             - name: uri.application
-              mapTo: 2
-              opt:
-                open: true
-                name: application
+              mapTo: opt.application
             - name: uri.interface
-              mapTo: 3
-              opt:
-                open: true
-                name: interface
+              mapTo: opt.interface
             - name: queryStrings.method
-              mapTo: 4
-              opt:
-                open: true
-                name: method
+              mapTo: opt.method
             - name: queryStrings.group
-              mapTo: 5
-              opt:
-                open: true
-                name: group
+              mapTo: opt.group
             - name: queryStrings.version
-              mapTo: 6
-              opt:
-                open: true
-                name: version
-          paramTypes: ["object", "object", "string", "string", "string", "string", "string"]
+              mapTo: opt.version
           # Notice: this is the really paramTypes to dubbo service, it takes precedence over paramTypes when it is finally called.
-          toParamTypes: ["string"]
           clusterName: "test_dubbo"
 ```
 
@@ -134,7 +110,7 @@ const (
 
 #### Options
 
-Assemble generic params to invoke.
+By configuring mapTo with option keywords(listed below), Pixiu will assemble generic params to invoke.
 
 ```go
 // GenericService uses for generic invoke for service call
@@ -144,33 +120,33 @@ type GenericService struct {
 }
 ```
 
-- types
+- opt.types
 
 > dubbo generic types
 
 Use for dubbogo `GenericService#Invoke` func arg 2rd param.
 
-- method
+- opt.method
 
 Use for dubbogo `GenericService#Invoke` func arg 1rd param.
 
-- group
+- opt.group
 
 Dubbo group in `ReferenceConfig#Group`. 
 
-- version
+- opt.version
 
 Dubbo version in `ReferenceConfig#Version`.
 
-- interface
+- opt.interface
 
 Dubbo interface in `ReferenceConfig#InterfaceName`.
 
-- application
+- opt.application
 
 Now only use for part of cache key.
 
-- values
+- opt.values
 
 Use for dubbogo `GenericService#Invoke` func arg 3rd param.
 
@@ -191,16 +167,11 @@ request body
 
 ```yaml
             - name: requestBody.types
-              mapTo: 1
-              opt:
-                open: true
-                name: types
+              mapTo: opt.types
 ```
 
 - `requestBody.types` means body content with types key.
-- `opt.name` means use types option.
-- `opt.open` must `true` will create opt，may be deleted in the future for thin provisioning。
-- `opt.usable` means if remove the request to downstream service.
+- `opt.types` means use types option.
 
 ##### Multiple params
 
