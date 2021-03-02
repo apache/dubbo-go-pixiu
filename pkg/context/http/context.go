@@ -119,7 +119,7 @@ func (hc *HttpContext) GetMethod() string {
 }
 
 // Api wait do delete
-func (hc *HttpContext) Api(api *api.Api) {
+func (hc *HttpContext) Api(api *api.API) {
 	// hc.api = api
 }
 

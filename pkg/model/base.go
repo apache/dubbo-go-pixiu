@@ -32,7 +32,8 @@ type MetadataValue interface {
 
 const (
 	// Down
-	Down    api.Status = 0
+	Down api.Status = 0
+	// Up
 	Up      api.Status = 1
 	Unknown api.Status = 2
 )
