@@ -73,7 +73,7 @@ func TestQueryStringsMapper(t *testing.T) {
 	// Giving invalid mapping params that is not a number and same target
 	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, params, nil)
 	// it should return error that points out the mapping param
-	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk int { false false}} incorrect")
+	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk int} incorrect")
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
@@ -262,37 +262,89 @@ func TestNewDubboTarget(t *testing.T) {
 			Name:  "string1",
 			MapTo: "0",
 		},
+		config.MappingParam{
+			Name:  "string2",
+			MapTo: "opt.values",
+		},
 	}
 	target := newDubboTarget(mps)
 	assert.NotNil(t, target)
+	assert.Equal(t, len(target.Values), 2)
 
 	mps = []config.MappingParam{
 		config.MappingParam{
 			Name:  "string1",
-			MapTo: "0",
-			Opt: config.Opt{
-				Usable: false,
-				Name:   "interface",
-			},
+			MapTo: "opt.interface",
 		},
 	}
 	target = newDubboTarget(mps)
 	assert.Nil(t, target)
 }
 
-func TestSetTarget(t *testing.T) {
+func TestSetCommonTarget(t *testing.T) {
 	vals := make([]interface{}, 10)
 	types := make([]string, 10)
 	target := &dubboTarget{
 		Values: vals,
 		Types:  types,
 	}
-	setTarget(target, 1, 123, "int")
+	setCommonTarget(target, 1, 123, "int")
 	assert.Equal(t, target.Values[1], 123)
 	assert.Equal(t, target.Types[1], "int")
 	assert.Nil(t, target.Values[0])
 	assert.Equal(t, target.Types[0], "")
-	setTarget(target, 10, "123", "string")
+	setCommonTarget(target, 10, "123", "string")
 	assert.Equal(t, target.Values[10], "123")
 	assert.Equal(t, target.Types[10], "string")
+}
+
+func TestSetGenericTarget(t *testing.T) {
+	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	r, _ := http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
+	req := client.NewReq(context.TODO(), r, api)
+
+	target := &dubboTarget{
+		Values: make([]interface{}, 3),
+		Types:  make([]string, 3),
+	}
+
+	opt := DefaultMapOption[optionKeyValues]
+	err := setGenericTarget(req, opt, target, []interface{}{1, "abc", struct{ Name string }{"joe"}}, "int, string, object")
+	assert.Nil(t, err)
+	assert.Equal(t, target.Values[0], 1)
+	assert.Equal(t, target.Values[1], "abc")
+	assert.Equal(t, target.Values[2], struct{ Name string }{"joe"})
+	assert.Equal(t, target.Types[0], "int")
+	assert.Equal(t, target.Types[1], "string")
+	assert.Equal(t, target.Types[2], "object")
+
+	opt = DefaultMapOption[optionKeyTypes]
+	err = setGenericTarget(req, opt, target, "int, object, object", "")
+	assert.Nil(t, err)
+	assert.Equal(t, target.Types[0], "int")
+	assert.Equal(t, target.Types[1], "object")
+	assert.Equal(t, target.Types[2], "object")
+
+	opt = DefaultMapOption[optionKeyInterface]
+	err = setGenericTarget(req, opt, target, "testingInterface", "")
+	assert.Nil(t, err)
+	assert.Equal(t, req.API.IntegrationRequest.Interface, "testingInterface")
+
+	opt = DefaultMapOption[optionKeyApplication]
+	err = setGenericTarget(req, opt, target, "testingApplication", "")
+	assert.Nil(t, err)
+	assert.Equal(t, req.API.IntegrationRequest.ApplicationName, "testingApplication")
+}
+
+func TestGetGenericMapTo(t *testing.T) {
+	isGeneric, gMapTo := getGenericMapTo("1")
+	assert.False(t, isGeneric)
+
+	isGeneric, gMapTo = getGenericMapTo("opt.interface")
+	assert.True(t, isGeneric)
+	assert.Equal(t, gMapTo, "interface")
+
+	isGeneric, gMapTo = getGenericMapTo("opt.whatever")
+	assert.False(t, isGeneric)
+	assert.Equal(t, gMapTo, "")
 }

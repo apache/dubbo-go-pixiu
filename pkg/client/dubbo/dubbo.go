@@ -196,14 +196,10 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 
 func buildOption(conf fc.MappingParam) client.RequestOption {
 	var opt client.RequestOption
-	if conf.Opt.Open {
-		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
-		if ok {
-			matchOpt.SetUsable(conf.Opt.Usable)
-		}
-		opt = matchOpt
+	isGeneric, mapToType := getGenericMapTo(conf.MapTo)
+	if isGeneric {
+		opt, _ = DefaultMapOption[mapToType]
 	}
-
 	return opt
 }
 

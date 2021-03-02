@@ -39,33 +39,5 @@ type MapOption map[string]RequestOption
 
 // RequestOption option interface.
 type RequestOption interface {
-	// Usable if option can use
-	Usable() bool
-	// SetUsable set usable
-	SetUsable(b bool)
-	// Action do with val for special
-	Action(req *Request, val interface{})
-	// VirtualPos virtual position
-	VirtualPos() int
-}
-
-// CommonOption common opt.
-type CommonOption struct {
-	usable bool
-	// RequestOption
-}
-
-// Usable get usable.
-func (opt *CommonOption) Usable() bool {
-	return opt.usable
-}
-
-// SetUsable set usable.
-func (opt *CommonOption) SetUsable(b bool) {
-	opt.usable = b
-}
-
-// VirtualPos virtual position, default 0.
-func (opt *CommonOption) VirtualPos() int {
-	return 0
+	Action(target, val interface{}) error
 }

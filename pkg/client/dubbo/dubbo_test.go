@@ -182,32 +182,23 @@ func TestBuildOption(t *testing.T) {
 	mp := config.MappingParam{
 		Name:  "queryStrings.id",
 		MapTo: "0",
-		Opt: config.Opt{
-			Name:   optionKeyGroup,
-			Open:   true,
-			Usable: false,
-		},
 	}
 	option := buildOption(mp)
+	assert.Nil(t, option)
+
+	mp = config.MappingParam{
+		Name:  "queryStrings.id",
+		MapTo: "opt.whatsoever",
+	}
+	option = buildOption(mp)
+	assert.Nil(t, option)
+
+	mp = config.MappingParam{
+		Name:  "queryStrings.id",
+		MapTo: "opt.interface",
+	}
+	option = buildOption(mp)
 	assert.NotNil(t, option)
-	assert.Equal(t, false, option.Usable())
-
-	mp = config.MappingParam{
-		Name:  "queryStrings.id",
-		MapTo: "0",
-		Opt: config.Opt{
-			Name:   "other",
-			Open:   true,
-			Usable: false,
-		},
-	}
-	option = buildOption(mp)
-	assert.Nil(t, option)
-
-	mp = config.MappingParam{
-		Name:  "queryStrings.id",
-		MapTo: "0",
-	}
-	option = buildOption(mp)
-	assert.Nil(t, option)
+	_, ok := option.(*interfaceOpt)
+	assert.True(t, ok)
 }

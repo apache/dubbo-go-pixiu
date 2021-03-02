@@ -37,6 +37,7 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"strings"
 )
 
 var mappers = map[string]client.ParamMapper{
@@ -55,7 +56,8 @@ type dubboTarget struct {
 func newDubboTarget(mps []config.MappingParam) *dubboTarget {
 	length := 0
 	for i := 0; i < len(mps); i++ {
-		if !mps[i].Opt.Usable && len(mps[i].Opt.Name) != 0 {
+		isGeneric, v := getGenericMapTo(mps[i].MapTo)
+		if isGeneric && v != optionKeyValues {
 			continue
 		}
 		length++
@@ -189,56 +191,31 @@ func validateTarget(target interface{}) (*dubboTarget, error) {
 }
 
 func setTargetWithOpt(req *client.Request, option client.RequestOption, target *dubboTarget, pos int, value interface{}, targetType string) error {
+	if option != nil {
+		return setGenericTarget(req, option, target, value, targetType)
+	}
 	value, err := mapTypes(targetType, value)
 	if err != nil {
 		return err
 	}
-	newPos := pos
-	//TODO: fix the option incompatible
-	if option != nil {
-		option.Action(req, value)
-
-		if option.VirtualPos() != 0 {
-			newPos = option.VirtualPos()
-		}
-
-		if option.Usable() {
-			if len(targetType) == 0 {
-				return errors.New("Parameter that usable is true must have valid mapType")
-			}
-			setTarget(target, newPos, value, targetType)
-		}
-
-		return nil
-	}
-
-	setTarget(target, newPos, value, targetType)
-
+	setCommonTarget(target, pos, value, targetType)
 	return nil
 }
 
-func setTarget(target *dubboTarget, pos int, value interface{}, targetType string) {
-	// for dubbo values split, like RequestOption
-	// When config mapTo -1, values is single object, set to 0 position, values is array, will auto split len(values).
-	//
-	//TODO: fix the option incompatible
-	if pos == -1 {
-		v, ok := value.([]interface{})
-		if ok {
-			npos := len(v) - 1
-			if len(target.Values) <= npos {
-				list := make([]interface{}, npos+1-len(target.Values))
-				target.Values = append(target.Values, list...)
-			}
-			for i := range v {
-				s := v[i]
-				target.Values[i] = s
-			}
-			return
-		}
-		pos = 0
+func setGenericTarget(req *client.Request, option client.RequestOption, target *dubboTarget, value interface{}, targetType string) error {
+	var err error
+	switch option.(type) {
+	case *groupOpt, *versionOpt, *interfaceOpt, *applicationOpt, *methodOpt:
+		err = option.Action(req, value)
+	case *valuesOpt:
+		err = option.Action(target, [2]interface{}{value, targetType})
+	case *paramTypesOpt:
+		err = option.Action(target, value)
 	}
+	return err
+}
 
+func setCommonTarget(target *dubboTarget, pos int, value interface{}, targetType string) {
 	// if the mapTo position is greater than the numbers of usable parameters,
 	// extend the values and types slices. It changes the address of the the target.
 	if cap(target.Values) <= pos {
@@ -280,4 +257,19 @@ func mapTypes(jType string, originVal interface{}) (interface{}, error) {
 	default:
 		return originVal, nil
 	}
+}
+
+// getGenericMapTo will parse the mapTo field, if the mapTo value is
+// opt.xxx, the "opt." prefix will identify the param mapTo generic field,
+// supporting generic fields: interface, group, application, method, version,
+// values, types
+func getGenericMapTo(mapTo string) (isGeneric bool, genericField string) {
+	fields := strings.Split(mapTo, ".")
+	if len(fields) != 2 || fields[0] != "opt" {
+		return false, ""
+	}
+	if _, ok := DefaultMapOption[fields[1]]; !ok {
+		return false, ""
+	}
+	return true, fields[1]
 }
