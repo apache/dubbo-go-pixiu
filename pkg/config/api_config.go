@@ -26,7 +26,7 @@ import (
 import (
 	"github.com/coreos/etcd/mvcc/mvccpb"
 
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	perrors "github.com/pkg/errors"
 )
 
