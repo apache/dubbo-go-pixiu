@@ -1,0 +1,66 @@
+---
+static_resources:
+  listeners:
+    - name: "net/http"
+      address:
+        socket_address:
+          protocol_type: "HTTP"
+          address: "0.0.0.0"
+          port: 8888
+      #      not used now.
+      #      filter_chains:
+      #        - filter_chain_match:
+      #            domains:
+      #              - api.dubbo.com
+      #              - api.proxy.com
+      #          filters:
+      #            - name: dgp.filters.http_connect_manager
+      #              config:
+      #                route_config:
+      #                  routes:
+      #                    - match:
+      #                        prefix: "/api/v1"
+      #                        headers:
+      #                          - name: "X-DGP-WAY"
+      #                            value: "dubbo"
+      #                      route:
+      #                        cluster: "test_dubbo"
+      #                        cluster_not_found_response_code: 505
+      #                        cors:
+      #                          allow_origin:
+      #                            - "*"
+      #                          enabled: true
+      #                http_filters:
+      #                  - name: dgp.filters.http.api
+      #                    config:
+      #                  - name: dgp.filters.http.router
+      #                    config:
+      #                  - name: dgp.filters.http_transfer_dubbo
+      #                    config:
+      #                server_name: "test_http_dubbo"
+      #                generate_request_id: false
+      config:
+        idle_timeout: 5s
+        read_timeout: 5s
+        write_timeout: 5s
+  clusters:
+    - name: "test_dubbo"
+      lb_policy: "RoundRobin"
+      connect_timeout: "5s"
+      request_timeout: "10s"
+      registries:
+        "zookeeper":
+          timeout: "3s"
+          address: "127.0.0.1:2181"
+          username: ""
+          password: ""
+  #        "consul":
+  #          timeout: "3s"
+  #          address: "127.0.0.1:8500"
+  shutdown_config:
+    timeout: "60s"
+    step_timeout: "10s"
+    reject_policy: "immediacy"
+  api_meta_config:
+    address: "127.0.0.1:2379"
+    api_config_path: "/proxy/config/api"

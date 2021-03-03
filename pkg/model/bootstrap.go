@@ -34,6 +34,11 @@ func (bs *Bootstrap) GetPprof() PprofConf {
 	return bs.StaticResources.PprofConf
 }
 
+// GetAPIMetaConfig get api meta config from bootstrap
+func (bs *Bootstrap) GetAPIMetaConfig() *APIMetaConfig {
+	return bs.StaticResources.APIMetaConfig
+}
+
 // ExistCluster
 func (bs *Bootstrap) ExistCluster(name string) bool {
 	if len(bs.StaticResources.Clusters) > 0 {
@@ -54,6 +59,7 @@ type StaticResources struct {
 	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
 	AccessLogConfig AccessLogConfig `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
+	APIMetaConfig   *APIMetaConfig  `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
 }
 
 // DynamicResources TODO
@@ -65,4 +71,10 @@ type ShutdownConfig struct {
 	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
 	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
 	RejectPolicy string `yaml:"reject_policy" json:"reject_policy,omitempty"`
+}
+
+// APIMetaConfig how to find api config, file or etcd etc.
+type APIMetaConfig struct {
+	Address       string `yaml:"address" json:"address,omitempty"`
+	APIConfigPath string `default:"/proxy/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
 }
