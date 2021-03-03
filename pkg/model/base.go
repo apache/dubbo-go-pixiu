@@ -18,7 +18,7 @@
 package model
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
 )
 
 type Metadata struct {

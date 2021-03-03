@@ -18,7 +18,7 @@
 package context
 
 import (
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (

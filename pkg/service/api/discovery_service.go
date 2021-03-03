@@ -33,8 +33,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	fr "github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 // Init set api discovery local_memory service.
