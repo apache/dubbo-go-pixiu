@@ -339,6 +339,7 @@ func TestSetGenericTarget(t *testing.T) {
 func TestGetGenericMapTo(t *testing.T) {
 	isGeneric, gMapTo := getGenericMapTo("1")
 	assert.False(t, isGeneric)
+	assert.Equal(t, gMapTo, "")
 
 	isGeneric, gMapTo = getGenericMapTo("opt.interface")
 	assert.True(t, isGeneric)

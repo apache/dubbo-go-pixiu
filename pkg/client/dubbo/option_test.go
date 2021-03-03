@@ -89,7 +89,9 @@ func TestParamTypesOptAction(t *testing.T) {
 	err = opt.Action("target", []string{})
 	assert.EqualError(t, err, "The val type must be string")
 	err = opt.Action(target, "object,")
+	assert.Nil(t, err)
 	assert.Equal(t, "object", target.Types[0])
 	err = opt.Action(target, "object")
+	assert.Nil(t, err)
 	assert.Equal(t, "object", target.Types[0])
 }
