@@ -32,8 +32,8 @@ import (
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/router"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"github.com/pkg/errors"
 )
 
