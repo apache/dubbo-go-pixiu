@@ -29,13 +29,14 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 var mappers = map[string]client.ParamMapper{
@@ -136,7 +137,7 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget int
 	if to == constant.RequestURI {
 
 	}
-	uriValues := c.API.GetURIParams(*c.IngressRequest.URL)
+	uriValues := router.GetURIParams(&c.API, *c.IngressRequest.URL)
 	if uriValues == nil {
 		return errors.New("No URI parameters found")
 	}
