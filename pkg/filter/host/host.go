@@ -18,9 +18,12 @@
 package host
 
 import (
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+)
+
+import (
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 )
 
 // hostFilter is a filter for host.
@@ -34,8 +37,8 @@ func New(host string) filter.Filter {
 }
 
 // // Do execute hostFilter filter logic.
-func (f hostFilter) Do() selfcontext.FilterFunc {
-	return func(c selfcontext.Context) {
+func (f hostFilter) Do() fc.FilterFunc {
+	return func(c fc.Context) {
 		f.doHostFilter(c.(*contexthttp.HttpContext))
 	}
 }

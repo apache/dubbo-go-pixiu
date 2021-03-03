@@ -18,8 +18,9 @@
 package service
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+	pc "github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 // DiscoveryRequest a request for discovery
@@ -59,7 +60,9 @@ var EmptyDiscoveryResponse = &DiscoveryResponse{}
 
 // APIDiscoveryService api discovery service interface
 type APIDiscoveryService interface {
+	pc.APIConfigListener
 	AddAPI(router.API) error
+	ClearAPI() error
 	GetAPI(string, config.HTTPVerb) (router.API, error)
 }
 
