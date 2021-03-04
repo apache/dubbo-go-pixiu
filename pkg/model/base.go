@@ -31,7 +31,9 @@ type MetadataValue interface {
 // Status is the components status
 
 const (
-	Down    api.Status = 0
+	// Down
+	Down api.Status = 0
+	// Up
 	Up      api.Status = 1
 	Unknown api.Status = 2
 )
@@ -96,8 +98,8 @@ type ConfigSource struct {
 
 // ApiConfigSource
 type ApiConfigSource struct {
-	ApiType     api.ApiType `yaml:"omitempty" json:"omitempty"`
-	ApiTypeStr  string      `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
+	APIType     api.ApiType `yaml:"omitempty" json:"omitempty"`
+	APITypeStr  string      `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
 	ClusterName []string    `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
 }
 
