@@ -24,9 +24,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-proxy-filter/pkg/filter"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
@@ -36,7 +36,7 @@ import (
 
 var (
 	apiURLWithPluginsMap = make(map[string]FilterChain)
-	groupWithPluginsMap  = make(map[string]map[string]PluginsWithFunc)
+	groupWithPluginsMap  = make(map[string]map[string]WithFunc)
 	errEmptyPluginConfig = errors.New("Empty plugin config")
 )
 
@@ -46,8 +46,8 @@ type FilterChain struct {
 	Post context.FilterChain
 }
 
-// PluginsWithFunc is a single plugin details
-type PluginsWithFunc struct {
+// WithFunc is a single plugin details
+type WithFunc struct {
 	Name     string
 	Priority int
 	fn       context.FilterFunc
@@ -67,11 +67,11 @@ func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 	}
 
 	for _, group := range groups {
-		pwdMap := make(map[string]PluginsWithFunc, len(group.Plugins))
+		pwdMap := make(map[string]WithFunc, len(group.Plugins))
 
 		// trans to context.FilterFunc
 		for _, pl := range group.Plugins {
-			pwf := PluginsWithFunc{pl.Name, pl.Priority, loadExternalPlugin(&pl, pls)}
+			pwf := WithFunc{pl.Name, pl.Priority, loadExternalPlugin(&pl, pls)}
 			pwdMap[pl.Name] = pwf
 		}
 
@@ -79,7 +79,7 @@ func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 	}
 }
 
-// InitApiUrlWithFilterChain must behind InitPluginsGroup call
+// InitAPIURLWithFilterChain must behind InitPluginsGroup call
 func InitAPIURLWithFilterChain(resources []config.Resource) {
 	pairURLWithFilterChain("", resources, nil)
 }
@@ -101,7 +101,7 @@ func pairURLWithFilterChain(parentPath string, resources []config.Resource, pare
 			continue
 		}
 
-		currentFilterChains, err := getApiFilterChains(&resource.Plugins)
+		currentFilterChains, err := getAPIFilterChains(&resource.Plugins)
 
 		if err == nil {
 			apiURLWithPluginsMap[fullPath] = *currentFilterChains
@@ -147,9 +147,9 @@ func loadExternalPlugin(p *config.Plugin, pl *plugin.Plugin) context.FilterFunc 
 	panic(errEmptyPluginConfig)
 }
 
-func getApiFilterChains(pluginsConfig *config.PluginsConfig) (fcs *FilterChain, err error) {
-	pre := getApiFilterFuncsWithPluginsGroup(&pluginsConfig.PrePlugins)
-	post := getApiFilterFuncsWithPluginsGroup(&pluginsConfig.PostPlugins)
+func getAPIFilterChains(pluginsConfig *config.PluginsConfig) (fcs *FilterChain, err error) {
+	pre := getAPIFilterFuncsWithPluginsGroup(&pluginsConfig.PrePlugins)
+	post := getAPIFilterFuncsWithPluginsGroup(&pluginsConfig.PostPlugins)
 
 	if len(pre) == 0 && len(post) == 0 {
 		return nil, errors.New("FilterChains is empty")
@@ -158,7 +158,7 @@ func getApiFilterChains(pluginsConfig *config.PluginsConfig) (fcs *FilterChain, 
 	return &FilterChain{pre, post}, nil
 }
 
-func getApiFilterFuncsWithPluginsGroup(plu *config.PluginsInUse) []context.FilterFunc {
+func getAPIFilterFuncsWithPluginsGroup(plu *config.PluginsInUse) []context.FilterFunc {
 	// not set plugins
 	if nil == plu || nil != plu && len(plu.GroupNames) == 0 && len(plu.PluginNames) == 0 {
 		return []context.FilterFunc{}
