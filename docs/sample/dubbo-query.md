@@ -7,8 +7,8 @@
 ### Api Config
 
 ```yaml
-name: proxy
-description: proxy sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/userByName'
     type: restful
@@ -25,7 +25,7 @@ resources:
             - name: queryStrings.name
               mapTo: 0
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByName"
           paramTypes: [ "string" ]
           group: "test"
@@ -48,7 +48,7 @@ resources:
             - name: queryStrings.age
               mapTo: 1
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByNameAndAge"
           paramTypes: [ "string","int" ]
           group: "test"
@@ -69,7 +69,7 @@ resources:
             - name: queryStrings.code
               mapTo: 0
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByCode"
           paramTypes: [ "int" ]
           group: "test"

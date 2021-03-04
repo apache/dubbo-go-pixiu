@@ -7,8 +7,8 @@
 ### Api Config
 
 ```yaml
-name: proxy
-description: proxy sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/student/:name'
     type: restful
@@ -27,7 +27,7 @@ resources:
             - name: uri.name
               mapTo: 0
           applicationName: "StudentService"
-          interface: "com.dubbogo.proxy.StudentService"
+          interface: "com.dubbogo.pixiu.StudentService"
           method: "GetStudentByName"
           paramTypes: [ "string" ]
           group: "test"
@@ -46,7 +46,7 @@ resources:
             - name: requestBody._all
               mapTo: 1
           applicationName: "StudentService"
-          interface: "com.dubbogo.proxy.StudentService"
+          interface: "com.dubbogo.pixiu.StudentService"
           method: "UpdateStudentByName"
           paramTypes: [ "string", "object" ]
           group: "test"
@@ -69,7 +69,7 @@ resources:
             - name: uri.name
               mapTo: 0
           applicationName: "TeacherService"
-          interface: "com.dubbogo.proxy.TeacherService"
+          interface: "com.dubbogo.pixiu.TeacherService"
           method: "GetTeacherByName"
           paramTypes: [ "string" ]
           group: "test"
@@ -88,7 +88,7 @@ resources:
             - name: requestBody._all
               mapTo: 1
           applicationName: "TeacherService"
-          interface: "com.dubbogo.proxy.TeacherService"
+          interface: "com.dubbogo.pixiu.TeacherService"
           method: "UpdateTeacherByName"
           paramTypes: [ "string", "object" ]
           group: "test"
@@ -123,7 +123,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.dubbogo.proxy.StudentService"
+    interface: "com.dubbogo.pixiu.StudentService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
@@ -137,7 +137,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.dubbogo.proxy.TeacherService"
+    interface: "com.dubbogo.pixiu.TeacherService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"

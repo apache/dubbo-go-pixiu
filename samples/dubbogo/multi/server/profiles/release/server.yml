@@ -1,7 +1,7 @@
 # dubbo server yaml configure file
 # application config
 application:
-  organization: "dubbogoproxy.com"
+  organization: "dubbogopixiu.com"
   name: "BDTService"
   module: "dubbogo user-info server"
   version: "0.0.1"
@@ -23,7 +23,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.dubbogo.proxy.StudentService"
+    interface: "com.dubbogo.pixiu.StudentService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
@@ -37,7 +37,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.dubbogo.proxy.TeacherService"
+    interface: "com.dubbogo.pixiu.TeacherService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"

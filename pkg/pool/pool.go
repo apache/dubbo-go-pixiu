@@ -27,9 +27,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/http"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client/dubbo"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client/http"
 )
 
 //ClientPool  a pool of client.
