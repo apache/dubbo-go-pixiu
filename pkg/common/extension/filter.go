@@ -18,7 +18,7 @@
 package extension
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 var (

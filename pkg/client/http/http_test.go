@@ -26,13 +26,13 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/mock"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 func TestMapParams(t *testing.T) {
