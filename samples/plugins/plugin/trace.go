@@ -26,7 +26,7 @@ import (
 type Trace struct {
 }
 
-// ExternalPluginBlackList export filter
+// ExternalPluginTrace export filter
 func ExternalPluginTrace() filter.Filter {
 	return &Trace{}
 }

@@ -24,11 +24,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/pkg/errors"
 )
 
