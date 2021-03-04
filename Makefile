@@ -1,11 +1,11 @@
 cur_mkfile := $(abspath $(lastword $(MAKEFILE_LIST)))
 currentPath := $(patsubst %/, %, $(dir $(cur_mkfile)))
 $(info cur_makefile_path1=$(currentPath))
-proxyPath := /cmd/proxy/
-mainPath := $(currentPath)$(proxyPath)
+pixiuPath := /cmd/pixiu/
+mainPath := $(currentPath)$(pixiuPath)
 $(info $(mainPath))
 
-targetName := dubbo-go-proxy
+targetName := dubbo-go-pixiu
 
 api-config-path:=${api-config}
 ifeq ("",$(api-config-path))
@@ -20,7 +20,7 @@ endif
 os := $(shell go env GOOS)
 $(info os is $(os))
 ifeq (windows,$(os))
-	targetName = dubbo-go-proxy.exe
+	targetName = dubbo-go-pixiu.exe
 endif
 exe := $(mainPath)$(targetName)
 $(info path of exe is $(exe))
@@ -28,4 +28,4 @@ build:
 	cd $(mainPath) && go build  -o $(targetName)
 
 run: build
-	cp $(exe) $(currentPath) && ./dubbo-go-proxy start -a $(api-config-path) -c $(config-path)
+	cp $(exe) $(currentPath) && ./dubbo-go-pixiu start -a $(api-config-path) -c $(config-path)

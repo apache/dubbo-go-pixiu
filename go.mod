@@ -1,4 +1,4 @@
-module github.com/dubbogo/dubbo-go-proxy
+module github.com/dubbogo/dubbo-go-pixiu
 
 go 1.14
 

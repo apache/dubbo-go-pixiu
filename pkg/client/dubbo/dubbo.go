@@ -32,9 +32,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
 	"github.com/pkg/errors"
 )
 
@@ -53,11 +53,11 @@ var (
 	onceClient         = sync.Once{}
 	dgCfg              dg.ConsumerConfig
 	defaultApplication = &dg.ApplicationConfig{
-		Organization: "dubbo-go-proxy",
-		Name:         "Dubbogo Proxy",
-		Module:       "dubbogo proxy",
+		Organization: "dubbo-go-pixiu",
+		Name:         "Dubbogo Pixiu",
+		Module:       "dubbogo Pixiu",
 		Version:      "0.1.0",
-		Owner:        "Dubbogo Proxy",
+		Owner:        "Dubbogo Pixiu",
 		Environment:  "dev",
 	}
 )
@@ -148,7 +148,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	dm := req.API.Method.IntegrationRequest
 	method := dm.Method
 
-	logger.Debugf("[dubbo-go-proxy] dubbo invoke, method:%s, types:%s, reqData:%v", method, types, values)
+	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, types, values)
 
 	gs := dc.Get(dm)
 
@@ -158,7 +158,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 		return nil, err
 	}
 
-	logger.Debugf("[dubbo-go-proxy] dubbo client resp:%v", rst)
+	logger.Debugf("[dubbo-go-pixiu] dubbo client resp:%v", rst)
 
 	return rst, nil
 }
