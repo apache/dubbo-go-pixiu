@@ -1,14 +1,14 @@
 # 从请求体里面获取参数
 
-> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/body)
+> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/body)
 
 ## 透传
 
 ### 接口配置
 
 ```yaml
-name: proxy
-description: proxy sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful
@@ -25,7 +25,7 @@ resources:
             - name: requestBody._all
               mapTo: 0
           applicationName: "UserProvider"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "CreateUser"
           paramTypes: [ "object" ]
           group: "test"
@@ -42,7 +42,7 @@ resources:
             - name: requestBody._all
               mapTo: 0
           applicationName: "UserProvider"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUser"
           paramTypes: [ "object" ]
           group: "test"
@@ -65,7 +65,7 @@ resources:
             - name: requestBody.user
               mapTo: 1
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUserByName"
           paramTypes: [ "string", "object" ]
           group: "test"
