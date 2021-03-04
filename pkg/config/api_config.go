@@ -25,7 +25,7 @@ import (
 
 import (
 	"github.com/coreos/etcd/mvcc/mvccpb"
-	fc "github.com/dubbogo/dubbo-go-proxy-filter/pkg/api/config"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
 	perrors "github.com/pkg/errors"
 )
@@ -99,7 +99,7 @@ func initAPIConfigFromString(content string) error {
 			return perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 		}
 
-		valid := validateApiConfig(apiConf)
+		valid := validateAPIConfig(apiConf)
 		if !valid {
 			return perrors.Errorf("api config not valid error %v", perrors.WithStack(err))
 		}
@@ -109,8 +109,8 @@ func initAPIConfigFromString(content string) error {
 	return nil
 }
 
-// validateApiConfig check api config valid
-func validateApiConfig(conf *fc.APIConfig) bool {
+// validateAPIConfig check api config valid
+func validateAPIConfig(conf *fc.APIConfig) bool {
 	if conf.Name == "" {
 		return false
 	}
