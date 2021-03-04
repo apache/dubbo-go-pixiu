@@ -138,7 +138,7 @@ func SetLoggerLevel(level string) bool {
 
 type OpsLogger interface {
 	Logger
-	// setLoggerLevel function as name
+	// SetLoggerLevel function as name
 	SetLoggerLevel(level string)
 }
 
