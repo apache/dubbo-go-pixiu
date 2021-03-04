@@ -27,6 +27,7 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	// The filter needs to be initialized
 	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/initialize"
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
