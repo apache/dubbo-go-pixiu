@@ -35,7 +35,7 @@ var (
 	logger Logger
 )
 
-// DubbogoPXLogger
+// DubbogoPXLogger is logger struct
 type DubbogoPXLogger struct {
 	mutex sync.Mutex
 	Logger
@@ -138,9 +138,11 @@ func SetLoggerLevel(level string) bool {
 
 type OpsLogger interface {
 	Logger
+	// SetLoggerLevel function as name
 	SetLoggerLevel(level string)
 }
 
+// SetLoggerLevel
 func (dpl *DubbogoPXLogger) SetLoggerLevel(level string) {
 	l := new(zapcore.Level)
 	l.Set(level)
