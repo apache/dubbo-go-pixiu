@@ -24,13 +24,14 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"github.com/emirpasic/gods/trees/avltree"
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 )
 
 // Node defines the single method of the router configured API
@@ -49,8 +50,17 @@ type Route struct {
 	wildcardTree *avltree.Tree
 }
 
+// ClearAPI clear the api
+func (rt *Route) ClearAPI() error {
+	rt.lock.Lock()
+	defer rt.lock.Unlock()
+	rt.wildcardTree.Clear()
+	rt.tree.Clear()
+	return nil
+}
+
 // PutAPI puts an api into the resource
-func (rt *Route) PutAPI(api API) error {
+func (rt *Route) PutAPI(api router.API) error {
 	lowerCasePath := strings.ToLower(api.URLPattern)
 	node, ok := rt.findNode(lowerCasePath)
 	rt.lock.Lock()
@@ -82,7 +92,7 @@ func (node *Node) putMethod(method config.Method, headers map[string]string) err
 }
 
 // UpdateAPI update the api method in the existing router node
-func (rt *Route) UpdateAPI(api API) error {
+func (rt *Route) UpdateAPI(api router.API) error {
 	node, found := rt.findNode(api.URLPattern)
 	if found {
 		if _, ok := node.methods[api.Method.HTTPVerb]; ok {
@@ -95,12 +105,12 @@ func (rt *Route) UpdateAPI(api API) error {
 }
 
 // FindAPI returns the api that meets the
-func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool) {
+func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API, bool) {
 	if n, found := rt.findNode(fullPath); found {
 		rt.lock.RLock()
 		defer rt.lock.RUnlock()
 		if method, ok := n.methods[httpverb]; ok {
-			return &API{
+			return &router.API{
 				URLPattern: n.fullPath,
 				Method:     *method,
 				Headers:    n.headers,
