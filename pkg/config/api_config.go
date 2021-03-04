@@ -18,232 +18,160 @@
 package config
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	perrors "github.com/pkg/errors"
+	"strings"
+	"sync"
 	"time"
+)
+
+import (
+	"github.com/coreos/etcd/mvcc/mvccpb"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	etcdv3 "github.com/dubbogo/dubbo-go-proxy/pkg/remoting/etcd3"
+	perrors "github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/yaml"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"sync"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 var (
-	apiConfig *APIConfig
+	apiConfig *fc.APIConfig
 	once      sync.Once
+	client    *etcdv3.Client
+	listener  APIConfigListener
+	lock      sync.RWMutex
 )
 
-// HTTPVerb defines the restful api http verb
-type HTTPVerb string
-
-const (
-	// MethodAny any method
-	MethodAny HTTPVerb = "ANY"
-	// MethodGet get
-	MethodGet HTTPVerb = "GET"
-	// MethodHead head
-	MethodHead HTTPVerb = "HEAD"
-	// MethodPost post
-	MethodPost HTTPVerb = "POST"
-	// MethodPut put
-	MethodPut HTTPVerb = "PUT"
-	// MethodPatch patch
-	MethodPatch HTTPVerb = "PATCH" // RFC 5789
-	// MethodDelete delete
-	MethodDelete HTTPVerb = "DELETE"
-	// MethodOptions options
-	MethodOptions HTTPVerb = "OPTIONS"
-)
-
-// RequestType describes the type of the request. could be DUBBO/HTTP and others that we might implement in the future
-type RequestType string
-
-const (
-	// DubboRequest represents the dubbo request
-	DubboRequest RequestType = "dubbo"
-	// HTTPRequest represents the http request
-	HTTPRequest RequestType = "http"
-)
-
-// APIConfig defines the data structure of the api gateway configuration
-type APIConfig struct {
-	Name        string       `json:"name" yaml:"name"`
-	Description string       `json:"description" yaml:"description"`
-	Resources   []Resource   `json:"resources" yaml:"resources"`
-	Definitions []Definition `json:"definitions" yaml:"definitions"`
-}
-
-// Resource defines the API path
-type Resource struct {
-	Type        string            `json:"type" yaml:"type"` // Restful, Dubbo
-	Path        string            `json:"path" yaml:"path"`
-	Timeout     time.Duration     `json:"timeout" yaml:"timeout"`
-	Description string            `json:"description" yaml:"description"`
-	Filters     []string          `json:"filters" yaml:"filters"`
-	Methods     []Method          `json:"methods" yaml:"methods"`
-	Resources   []Resource        `json:"resources,omitempty" yaml:"resources,omitempty"`
-	Headers     map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
-}
-
-// UnmarshalYAML Resource custom UnmarshalYAML
-func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	s := &struct {
-		Timeout string `yaml:"timeout"`
-	}{}
-	type Alias Resource
-	alias := (*Alias)(r)
-	if err := unmarshal(alias); err != nil {
-		return err
-	}
-	if err := unmarshal(s); err != nil {
-		return err
-	}
-	// if timeout is empty must set a default value. if "" used to time.ParseDuration will err.
-	if s.Timeout == "" {
-		s.Timeout = constant.DefaultTimeoutStr
-	}
-	d, err := time.ParseDuration(s.Timeout)
-	if err != nil {
-		return err
-	}
-
-	r.Timeout = d
-
-	return nil
-}
-
-// Method defines the method of the api
-type Method struct {
-	OnAir              bool          `json:"onAir" yaml:"onAir"` // true means the method is up and false means method is down
-	Timeout            time.Duration `json:"timeout" yaml:"timeout"`
-	Mock               bool          `json:"mock" yaml:"mock"`
-	Filters            []string      `json:"filters" yaml:"filters"`
-	HTTPVerb           `json:"httpVerb" yaml:"httpVerb"`
-	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
-	IntegrationRequest `json:"integrationRequest" yaml:"integrationRequest"`
-}
-
-// UnmarshalYAML method custom UnmarshalYAML
-func (m *Method) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type Alias Method
-	alias := (*Alias)(m)
-	if err := unmarshal(alias); err != nil {
-		return err
-	}
-	s := &struct {
-		Timeout string `yaml:"timeout"`
-	}{}
-	if err := unmarshal(s); err != nil {
-		return err
-	}
-	// if timeout is empty must set a default value. if "" used to time.ParseDuration will err.
-	if s.Timeout == "" {
-		s.Timeout = constant.DefaultTimeoutStr
-	}
-	d, err := time.ParseDuration(s.Timeout)
-	if err != nil {
-		return err
-	}
-	m.Timeout = d
-	return nil
-}
-
-// InboundRequest defines the details of the inbound
-type InboundRequest struct {
-	RequestType  `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
-	Headers      []Params                                `json:"headers" yaml:"headers"`
-	QueryStrings []Params                                `json:"queryStrings" yaml:"queryStrings"`
-	RequestBody  []BodyDefinition                        `json:"requestBody" yaml:"requestBody"`
-}
-
-// Params defines the simple parameter definition
-type Params struct {
-	Name     string `json:"name" yaml:"name"`
-	Type     string `json:"type" yaml:"type"`
-	Required bool   `json:"required" yaml:"required"`
-}
-
-// BodyDefinition connects the request body to the definitions
-type BodyDefinition struct {
-	DefinitionName string `json:"definitionName" yaml:"definitionName"`
-}
-
-// IntegrationRequest defines the backend request format and target
-type IntegrationRequest struct {
-	RequestType        `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
-	DubboBackendConfig `json:"dubboBackendConfig,inline,omitempty" yaml:"dubboBackendConfig,inline,omitempty"`
-	HTTPBackendConfig  `json:"httpBackendConfig,inline,omitempty" yaml:"httpBackendConfig,inline,omitempty"`
-	MappingParams      []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
-}
-
-// MappingParam defines the mapping rules of headers and queryStrings
-type MappingParam struct {
-	Name  string `json:"name,omitempty" yaml:"name"`
-	MapTo string `json:"mapTo,omitempty" yaml:"mapTo"`
-	// Opt some action.
-	Opt Opt `json:"opt,omitempty" yaml:"opt,omitempty"`
-}
-
-// Opt option, action for compatibility.
-type Opt struct {
-	// Name match dubbo.DefaultMapOption key.
-	Name string `json:"name,omitempty" yaml:"name"`
-	// Open control opt create, only true will create a Opt.
-	Open bool `json:"open,omitempty" yaml:"open"`
-	// Usable setTarget condition, true can set, false not set.
-	Usable bool `json:"usable,omitempty" yaml:"usable"`
-}
-
-// DubboBackendConfig defines the basic dubbo backend config
-type DubboBackendConfig struct {
-	ClusterName     string   `yaml:"clusterName" json:"clusterName"`
-	ApplicationName string   `yaml:"applicationName" json:"applicationName"`
-	Protocol        string   `yaml:"protocol" json:"protocol,omitempty" default:"dubbo"`
-	Group           string   `yaml:"group" json:"group"`
-	Version         string   `yaml:"version" json:"version"`
-	Interface       string   `yaml:"interface" json:"interface"`
-	Method          string   `yaml:"method" json:"method"`
-	ParamTypes      []string `yaml:"paramTypes" json:"paramTypes"`
-	ToParamTypes    []string `yaml:"toParamTypes" json:"toParamTypes"`
-	Retries         string   `yaml:"retries" json:"retries,omitempty"`
-}
-
-// HTTPBackendConfig defines the basic dubbo backend config
-type HTTPBackendConfig struct {
-	URL string `yaml:"url" json:"url,omitempty"`
-	// downstream host.
-	Host string `yaml:"host" json:"host,omitempty"`
-	// path to replace.
-	Path string `yaml:"path" json:"path,omitempty"`
-	// http protocol, http or https.
-	Schema string `yaml:"schema" json:"scheme,omitempty"`
-}
-
-// Definition defines the complex json request body
-type Definition struct {
-	Name   string `json:"name" yaml:"name"`
-	Schema string `json:"schema" yaml:"schema"` // use json schema
+// APIConfigListener defines api config listener interface
+type APIConfigListener interface {
+	APIConfigChange(apiConfig fc.APIConfig) bool //bool is return for interface implement is interesting
 }
 
 // LoadAPIConfigFromFile load the api config from file
-func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
+func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 	if len(path) == 0 {
 		return nil, perrors.Errorf("Config file not specified")
 	}
 	logger.Infof("Load API configuration file form %s", path)
-	apiConf := &APIConfig{}
+	apiConf := &fc.APIConfig{}
 	err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 	}
-	once.Do(func() {
-		apiConfig = apiConf
-	})
+	apiConfig = apiConf
 	return apiConf, nil
 }
 
+// LoadAPIConfig load the api config from config center
+func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
+
+	client = etcdv3.NewConfigClient(
+		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
+		etcdv3.WithTimeout(10*time.Second),
+		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
+	)
+
+	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath)
+
+	content, err := client.Get(metaConfig.APIConfigPath)
+
+	if err != nil {
+		return nil, perrors.Errorf("Get remote config fail error %v", err)
+	}
+
+	if err = initAPIConfigFromString(content); err != nil {
+		return nil, err
+	}
+
+	return apiConfig, nil
+}
+
+func initAPIConfigFromString(content string) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	apiConf := &fc.APIConfig{}
+	if len(content) != 0 {
+		err := yaml.UnmarshalYML([]byte(content), apiConf)
+		if err != nil {
+			return perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
+		}
+
+		valid := validateAPIConfig(apiConf)
+		if !valid {
+			return perrors.Errorf("api config not valid error %v", perrors.WithStack(err))
+		}
+
+		apiConfig = apiConf
+	}
+	return nil
+}
+
+// validateAPIConfig check api config valid
+func validateAPIConfig(conf *fc.APIConfig) bool {
+	if conf.Name == "" {
+		return false
+	}
+	if conf.Description == "" {
+		return false
+	}
+	if conf.Resources == nil || len(conf.Resources) == 0 {
+		return false
+	}
+	return true
+}
+
+func listenAPIConfigNodeEvent(key string) bool {
+	for {
+		wc, err := client.Watch(key)
+		if err != nil {
+			logger.Warnf("Watch api config {key:%s} = error{%v}", key, err)
+			return false
+		}
+
+		select {
+
+		// client stopped
+		case <-client.Done():
+			logger.Warnf("client stopped")
+			return false
+		// client ctx stop
+		// handle etcd events
+		case e, ok := <-wc:
+			if !ok {
+				logger.Warnf("watch-chan closed")
+				return false
+			}
+
+			if e.Err() != nil {
+				logger.Errorf("watch ERR {err: %s}", e.Err())
+				continue
+			}
+			for _, event := range e.Events {
+				switch event.Type {
+				case mvccpb.PUT:
+					if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
+						listener.APIConfigChange(GetAPIConf())
+					}
+				case mvccpb.DELETE:
+					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
+					return true
+				default:
+					return false
+				}
+			}
+		}
+	}
+}
+
+// RegisterConfigListener register APIConfigListener
+func RegisterConfigListener(li APIConfigListener) {
+	listener = li
+}
+
 // GetAPIConf returns the initted api config
-func GetAPIConf() APIConfig {
+func GetAPIConf() fc.APIConfig {
 	return *apiConfig
 }

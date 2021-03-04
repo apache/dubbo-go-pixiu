@@ -32,6 +32,7 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
 )
 
 // RestMetadata http metadata, api config
@@ -120,8 +121,8 @@ func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 			return nil, errors.New("Retrieve request query parameters failed")
 		}
 		r.Query = queryValues
-		if req.API.IsWildCardBackendPath() {
-			r.URIParams = req.API.GetURIParams(*req.IngressRequest.URL)
+		if router.IsWildCardBackendPath(&req.API) {
+			r.URIParams = router.GetURIParams(&req.API, *req.IngressRequest.URL)
 		}
 		return r, nil
 	}
@@ -149,7 +150,7 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 	}
 
 	rawPath := req.API.IntegrationRequest.HTTPBackendConfig.Path
-	if req.API.IsWildCardBackendPath() {
+	if router.IsWildCardBackendPath(&req.API) {
 		paths := strings.Split(
 			strings.TrimLeft(req.API.IntegrationRequest.HTTPBackendConfig.Path, constant.PathSlash),
 			constant.PathSlash)
