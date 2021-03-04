@@ -100,7 +100,7 @@ func initAPIConfigFromString(content string) error {
 			return perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 		}
 
-		valid := validateApiConfig(apiConf)
+		valid := validateAPIConfig(apiConf)
 		if !valid {
 			return perrors.Errorf("api config not valid error %v", perrors.WithStack(err))
 		}
@@ -110,8 +110,8 @@ func initAPIConfigFromString(content string) error {
 	return nil
 }
 
-// validateApiConfig check api config valid
-func validateApiConfig(conf *fc.APIConfig) bool {
+// validateAPIConfig check api config valid
+func validateAPIConfig(conf *fc.APIConfig) bool {
 	if conf.Name == "" {
 		return false
 	}
