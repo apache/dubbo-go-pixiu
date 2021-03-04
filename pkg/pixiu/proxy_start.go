@@ -34,7 +34,7 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu/pkg/service/api"
 )
 
-// PX
+// PX is Pixiu start struct
 type PX struct {
 	startWG sync.WaitGroup
 }
