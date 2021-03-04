@@ -29,12 +29,15 @@ import (
 )
 
 import (
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	selfcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter"
 )
 
 // nolint
@@ -42,7 +45,7 @@ func Init() {
 	extension.SetFilterFunc(constant.ResponseFilter, responseFilterFunc())
 }
 
-func responseFilterFunc() selfcontext.FilterFunc {
+func responseFilterFunc() fc.FilterFunc {
 	return New(defaultNewParams()).Do()
 }
 
@@ -66,8 +69,8 @@ func New(strategy string) filter.Filter {
 }
 
 // Do execute responseFilter filter logic.
-func (f responseFilter) Do() selfcontext.FilterFunc {
-	return func(c selfcontext.Context) {
+func (f responseFilter) Do() fc.FilterFunc {
+	return func(c fc.Context) {
 		f.doResponse(c.(*contexthttp.HttpContext))
 	}
 }

@@ -22,23 +22,27 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/common/mock"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
 	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
 )
 
 func TestBuildContext(t *testing.T) {
-	extension.SetFilterFunc("a", func(ctx context.Context) { ctx.Next() })
-	extension.SetFilterFunc("b", func(ctx context.Context) { ctx.Next() })
-	extension.SetFilterFunc("c", func(ctx context.Context) { ctx.Next() })
-	extension.SetFilterFunc(constant.RemoteCallFilter, func(ctx context.Context) { ctx.Next() })
+	extension.SetFilterFunc("a", func(ctx fc.Context) { ctx.Next() })
+	extension.SetFilterFunc("b", func(ctx fc.Context) { ctx.Next() })
+	extension.SetFilterFunc("c", func(ctx fc.Context) { ctx.Next() })
+	extension.SetFilterFunc(constant.RemoteCallFilter, func(ctx fc.Context) { ctx.Next() })
 	ctx := HttpContext{
 		FilterChains: []model.FilterChain{},
 		BaseContext:  context.NewBaseContext(),
