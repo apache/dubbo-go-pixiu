@@ -1,4 +1,4 @@
-module dubbo-go-proxy/samples/plugins
+module dubbo-go-pixiu/samples/plugins
 
 go 1.14
 

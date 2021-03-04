@@ -11,7 +11,7 @@ static_resources:
         - filter_chain_match:
             domains:
               - api.dubbo.com
-              - api.proxy.com
+              - api.pixiu.com
           filters:
             - name: dgp.filters.http_connect_manager
               config:
@@ -78,4 +78,4 @@ static_resources:
         port: 6060
   accessLog:
     enable: true
-    outputpath: C:\Users\60125\Desktop\dubbo-go\logs\dubbo-go-proxy-access
+    outputpath: C:\Users\60125\Desktop\dubbo-go\logs\dubbo-go-pixiu-access

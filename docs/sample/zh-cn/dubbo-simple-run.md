@@ -1,31 +1,31 @@
 # 如何运行 dubbo 简单的测试例子
 
-## 启动 proxy
+## 启动 Pixiu
 
-- 构建 proxy
+- 构建 Pixiu
 
 ```bash
-cd /dubbogo-go-proxy/cmd/proxy
+cd /dubbogo-go-pixiu/cmd/pixiu
 
 go build
 ```
 
-- 把 proxy 移动到运行目录
+- 把 Pixiu 移动到运行目录
 
 ```bash
-mv -b proxy ../../samples/dubbogo/simple
+mv -b pixiu ../../samples/dubbogo/simple
 ```
 
 - 启动某个例子
 
-通过 `./start.sh [name]` 启动 proxy，可以选择如下：
+通过 `./start.sh [name]` 启动 pixiu，可以选择如下：
 
 ```bash
 ./start.sh body
 ./start.sh mix
 ./start.sh query
 ./start.sh uri
-./start.sh proxy
+./start.sh pixiu
 ```
 
 - 接口访问

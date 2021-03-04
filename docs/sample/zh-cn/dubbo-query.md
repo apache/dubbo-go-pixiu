@@ -1,14 +1,14 @@
 # 从表单请求里面获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/query)
+> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/query)
 
 ## 简单示例
 
 ### 接口配置
 
 ```yaml
-name: proxy
-description: proxy sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/userByName'
     type: restful
@@ -30,7 +30,7 @@ resources:
             - name: queryStrings.name
               mapTo: 0
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByName"
           paramTypes: [ "java.lang.String" ]
           group: "test"
@@ -60,7 +60,7 @@ resources:
             - name: queryStrings.age
               mapTo: 1
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByNameAndAge"
           paramTypes: [ "java.lang.String","java.lang.Integer" ]
           group: "test"
@@ -86,7 +86,7 @@ resources:
             - name: queryStrings.code
               mapTo: 0
           applicationName: "UserService"
-          interface: "com.dubbogo.proxy.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByCode"
           paramTypes: [ "java.lang.Integer" ]
           group: "test"

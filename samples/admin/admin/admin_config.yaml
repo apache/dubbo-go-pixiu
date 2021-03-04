@@ -2,4 +2,4 @@ server:
   address: 127.0.0.1:8080
 etcd:
   address: 127.0.0.1:2379
-  path: /proxy/config/api
+  path: /pixiu/config/api

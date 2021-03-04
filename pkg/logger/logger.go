@@ -35,8 +35,8 @@ var (
 	logger Logger
 )
 
-// DubbogoProxyLogger
-type DubbogoProxyLogger struct {
+// DubbogoPXLogger
+type DubbogoPXLogger struct {
 	mutex sync.Mutex
 	Logger
 	dynamicLevel zap.AtomicLevel
@@ -117,7 +117,7 @@ func InitLogger(conf *zap.Config) {
 	}
 	zapLogger, _ := zapLoggerConfig.Build(zap.AddCallerSkip(1))
 	//logger = zapLogger.Sugar()
-	logger = &DubbogoProxyLogger{Logger: zapLogger.Sugar(), dynamicLevel: zapLoggerConfig.Level}
+	logger = &DubbogoPXLogger{Logger: zapLogger.Sugar(), dynamicLevel: zapLoggerConfig.Level}
 }
 
 func SetLogger(log Logger) {
@@ -141,7 +141,7 @@ type OpsLogger interface {
 	SetLoggerLevel(level string)
 }
 
-func (dpl *DubbogoProxyLogger) SetLoggerLevel(level string) {
+func (dpl *DubbogoPXLogger) SetLoggerLevel(level string) {
 	l := new(zapcore.Level)
 	l.Set(level)
 	dpl.dynamicLevel.SetLevel(*l)

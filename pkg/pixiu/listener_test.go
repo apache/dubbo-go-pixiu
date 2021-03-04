@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package pixiu
 
 import (
 	"bytes"
@@ -31,13 +31,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/mock"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	ctxHttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service/api"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/mock"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/context"
+	ctxHttp "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/service/api"
 )
 
 func getTestContext() *ctxHttp.HttpContext {
