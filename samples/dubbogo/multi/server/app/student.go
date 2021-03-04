@@ -158,7 +158,7 @@ type Student struct {
 type StudentProvider struct {
 }
 
-// CreateStudent new Student, Proxy config POST.
+// CreateStudent new Student, PX config POST.
 func (s *StudentProvider) CreateStudent(ctx context.Context, student *Student) (*Student, error) {
 	outLn("Req CreateStudent data:%#v", student)
 	if student == nil {
@@ -177,7 +177,7 @@ func (s *StudentProvider) CreateStudent(ctx context.Context, student *Student) (
 	return nil, errors.New("add error")
 }
 
-// GetStudentByName query by name, single param, Proxy config GET.
+// GetStudentByName query by name, single param, PX config GET.
 func (s *StudentProvider) GetStudentByName(ctx context.Context, name string) (*Student, error) {
 	outLn("Req GetStudentByName name:%#v", name)
 	r, ok := studentCache.GetByName(name)
@@ -188,7 +188,7 @@ func (s *StudentProvider) GetStudentByName(ctx context.Context, name string) (*S
 	return r, nil
 }
 
-// GetStudentByCode query by code, single param, Proxy config GET.
+// GetStudentByCode query by code, single param, PX config GET.
 func (s *StudentProvider) GetStudentByCode(ctx context.Context, code int64) (*Student, error) {
 	outLn("Req GetStudentByCode name:%#v", code)
 	r, ok := studentCache.GetByCode(code)
@@ -199,10 +199,10 @@ func (s *StudentProvider) GetStudentByCode(ctx context.Context, code int64) (*St
 	return r, nil
 }
 
-// GetStudentTimeout query by name, will timeout for proxy.
+// GetStudentTimeout query by name, will timeout for pixiu.
 func (s *StudentProvider) GetStudentTimeout(ctx context.Context, name string) (*Student, error) {
 	outLn("Req GetStudentByName name:%#v", name)
-	// sleep 10s, proxy config less than 10s.
+	// sleep 10s, pixiu config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := studentCache.GetByName(name)
 	if !ok {
@@ -212,7 +212,7 @@ func (s *StudentProvider) GetStudentTimeout(ctx context.Context, name string) (*
 	return r, nil
 }
 
-// GetStudentByNameAndAge query by name and age, two params, Proxy config GET.
+// GetStudentByNameAndAge query by name and age, two params, PX config GET.
 func (s *StudentProvider) GetStudentByNameAndAge(ctx context.Context, name string, age int32) (*Student, error) {
 	outLn("Req GetStudentByNameAndAge name:%s, age:%d", name, age)
 	r, ok := studentCache.GetByName(name)
@@ -223,7 +223,7 @@ func (s *StudentProvider) GetStudentByNameAndAge(ctx context.Context, name strin
 	return r, nil
 }
 
-// UpdateStudent update by Student struct, my be another struct, Proxy config POST or PUT.
+// UpdateStudent update by Student struct, my be another struct, PX config POST or PUT.
 func (s *StudentProvider) UpdateStudent(ctx context.Context, student *Student) (bool, error) {
 	outLn("Req UpdateStudent data:%#v", student)
 	r, ok := studentCache.GetByName(student.Name)
@@ -239,7 +239,7 @@ func (s *StudentProvider) UpdateStudent(ctx context.Context, student *Student) (
 	return true, nil
 }
 
-// UpdateStudent update by Student struct, my be another struct, Proxy config POST or PUT.
+// UpdateStudent update by Student struct, my be another struct, PX config POST or PUT.
 func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, student *Student) (bool, error) {
 	outLn("Req UpdateStudentByName data:%#v", student)
 	r, ok := studentCache.GetByName(name)
@@ -262,7 +262,7 @@ func (s *StudentProvider) Reference() string {
 
 // nolint
 func (s Student) JavaClassName() string {
-	return "com.dubbogo.proxy.StudentService"
+	return "com.dubbogo.pixiu.StudentService"
 }
 
 // nolint
