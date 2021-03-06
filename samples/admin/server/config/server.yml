@@ -3,9 +3,9 @@
 
 # application config
 application:
-  organization: "dubbogoproxy.com"
+  organization: "dubbogopixiu.com"
   name: "User Micro Service"
-  module: "dubbogoproxy user-info server"
+  module: "dubbogopixiu user-info server"
   version: "0.1.0"
   group: "tc"
   owner: "ZX"

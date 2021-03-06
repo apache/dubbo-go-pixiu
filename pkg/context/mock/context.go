@@ -28,8 +28,8 @@ import (
 )
 
 import (
-	pkgcontext "github.com/dubbogo/dubbo-go-proxy/pkg/context"
-	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	pkgcontext "github.com/dubbogo/dubbo-go-pixiu/pkg/context"
+	contexthttp "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
 )
 
 // GetMockHTTPContext mock context for test.

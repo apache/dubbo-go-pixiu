@@ -23,9 +23,9 @@ result
 }
 ```
 
-#### proxy log 
+#### Pixiu log 
 ```bash
-2020-11-17T11:31:05.718+0800    DEBUG   remote/call.go:92       [dubbo-go-proxy] client call resp:map[age:88 iD:3213 name:tiecheng time:<nil>]
+2020-11-17T11:31:05.718+0800    DEBUG   remote/call.go:92       [dubbo-go-pixiu] client call resp:map[age:88 iD:3213 name:tiecheng time:<nil>]
 ```
 
 ### Timeout filter

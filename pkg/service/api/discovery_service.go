@@ -24,12 +24,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	pc "github.com/dubbogo/dubbo-go-proxy/pkg/config"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/filter/plugins"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/router"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/service"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
+	pc "github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/plugins"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/router"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/service"
 )
 
 import (
