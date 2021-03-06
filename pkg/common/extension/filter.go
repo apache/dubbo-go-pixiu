@@ -30,7 +30,7 @@ func SetFilterFunc(name string, filter context.FilterFunc) {
 	filterFuncCacheMap[name] = filter
 }
 
-// GetMustFilterFunc will return the proxy.FilterFunc
+// GetMustFilterFunc will return the pixiu.FilterFunc
 // if not found, it will panic
 func GetMustFilterFunc(name string) context.FilterFunc {
 	if filter, ok := filterFuncCacheMap[name]; ok {

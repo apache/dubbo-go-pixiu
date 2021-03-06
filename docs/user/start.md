@@ -1,16 +1,16 @@
 # Start
 
-How to start the dubbo-go-proxy
+How to start the dubbo-go-pixiu
 
 ## intellij
 
 ### Main
 
-cmd/proxy/proxy.go
+cmd/pixiu/pixiu.go
 
 ### Config program arguments
 
 ```bash
--c /path/dubbo-go-proxy/sample/dubbogo/proxy/conf.yaml -a /path/dubbo-go-proxy/sample/dubbogo/proxy/api_config.yaml
+-c /path/dubbo-go-pixiu/sample/dubbogo/pixiu/conf.yaml -a /path/dubbo-go-pixiu/sample/dubbogo/pixiu/api_config.yaml
 ```
 
