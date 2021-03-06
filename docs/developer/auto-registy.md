@@ -1,6 +1,6 @@
 # Auto Registry
 
-A feature easy for users to use dubbo-go-proxy.
+A feature easy for users to use dubbo-go-pixiu.
 
 ## Dubbo
 

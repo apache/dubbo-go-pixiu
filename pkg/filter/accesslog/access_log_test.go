@@ -24,9 +24,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
 
 import (
@@ -35,8 +35,8 @@ import (
 
 func TestAccessLog_Write_to_file(t *testing.T) {
 	msg := "this is test msg"
-	filePath := "dubbo-go-proxy/logs/dubbo-go-access"
-	//filePath := "C:\\Users\\60125\\Desktop\\dubbo-go\\logs\\dubbo-go-proxy-20201217"
+	filePath := "dubbo-go-pixiu/logs/dubbo-go-access"
+	//filePath := "C:\\Users\\60125\\Desktop\\dubbo-go\\logs\\dubbo-go-pixiu-20201217"
 	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
 	accessLogWriter.Write()
 	accessLogWriter.Writer(model.AccessLogData{AccessLogMsg: msg, AccessLogConfig: model.AccessLogConfig{OutPutPath: filePath, Enable: true}})

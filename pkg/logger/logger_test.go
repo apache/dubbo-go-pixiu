@@ -76,7 +76,7 @@ func TestSetLevel(t *testing.T) {
 	Debug("debug")
 	Info("info")
 
-	SetLogger(GetLogger().(*DubbogoProxyLogger).Logger)
+	SetLogger(GetLogger().(*DubbogoPXLogger).Logger)
 	assert.False(t, SetLoggerLevel("debug"))
 	Debug("debug")
 	Info("info")

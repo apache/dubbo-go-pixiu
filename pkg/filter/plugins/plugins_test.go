@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/config"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
 )
 
 var (
