@@ -1,31 +1,31 @@
 # How run dubbo simple test samples
 
-## Start proxy
+## Start Pixiu
 
-- build proxy
+- build Pixiu
 
 ```bash
-cd /dubbogo-go-proxy/cmd/proxy
+cd /dubbogo-go-pixiu/cmd/pixiu
 
 go build
 ```
 
-- move proxy to run folder
+- move pixiu to run folder
 
 ```bash
-mv -b proxy ../../samples/dubbogo/simple
+mv -b pixiu ../../samples/dubbogo/simple
 ```
 
 - start one sample
 
-Use `./start.sh [name]` to start proxy，you have a few choices：
+Use `./start.sh [name]` to start pixiu，you have a few choices：
 
 ```bash
 ./start.sh body
 ./start.sh mix
 ./start.sh query
 ./start.sh uri
-./start.sh proxy
+./start.sh pixiu
 ```
 
 - interface access

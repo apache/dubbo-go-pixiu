@@ -18,8 +18,8 @@
 ### Api Config
 
 ```yaml
-name: proxy
-description: proxy sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-http/user'
     type: restful

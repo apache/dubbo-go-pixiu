@@ -34,6 +34,6 @@ func ExternalPluginTrace() filter.Filter {
 // Do to export func(c context.Context)
 func (r *Trace) Do() context.FilterFunc {
 	return func(c context.Context) {
-		c.AddHeader("trace", "dubbo go proxy")
+		c.AddHeader("trace", "dubbo go pixiu")
 	}
 }

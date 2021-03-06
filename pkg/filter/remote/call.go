@@ -36,13 +36,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client/dubbo"
-	clienthttp "github.com/dubbogo/dubbo-go-proxy/pkg/client/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/extension"
-	contexthttp "github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/logger"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client/dubbo"
+	clienthttp "github.com/dubbogo/dubbo-go-pixiu/pkg/client/http"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
+	contexthttp "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
 )
 
 // nolint
@@ -120,12 +120,12 @@ func (f clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
 
 	if err != nil {
-		logger.Errorf("[dubbo-go-proxy] client call err:%v!", err)
+		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
 		c.Err = err
 		return
 	}
 
-	logger.Debugf("[dubbo-go-proxy] client call resp:%v", resp)
+	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
 
 	c.SourceResp = resp
 	// response write in response filter.

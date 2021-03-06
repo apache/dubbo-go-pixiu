@@ -23,7 +23,7 @@ import (
 
 import (
 	"context"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/client"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
 	"math"
 	"time"
 )
