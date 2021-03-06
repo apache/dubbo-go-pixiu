@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package proxy
+package pixiu
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-proxy/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
 )
 
 // DefaultHttpConnectionManager

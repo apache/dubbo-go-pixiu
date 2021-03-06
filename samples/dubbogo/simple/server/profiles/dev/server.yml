@@ -1,7 +1,7 @@
 # dubbo server yaml configure file
 # application config
 application:
-  organization: "dubbogoproxy.com"
+  organization: "dubbogopixiu.com"
   name: "BDTService"
   module: "dubbogo user-info server"
   version: "0.0.1"
@@ -12,14 +12,14 @@ registries:
   "demoZk":
     protocol: "zookeeper"
     timeout: "3s"
-    address: "127.0.0.1:2182"
+    address: "127.0.0.1:2181"
 
 services:
   "UserProvider":
     registry: "demoZk"
     protocol: "dubbo"
     # 相当于dubbo.xml中的interface
-    interface: "com.dubbogo.proxy.UserService"
+    interface: "com.dubbogo.pixiu.UserService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"

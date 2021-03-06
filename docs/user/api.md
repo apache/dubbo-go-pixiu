@@ -4,7 +4,7 @@ Introduction to API model, recommended reading before customizing API for api_co
 
 ## Api Gateway
 
-API is the key feature of the dubbo-go-proxy. With this feature, you can expose your dubbo service as an HTTP service.
+API is the key feature of the dubbo-go-pixiu. With this feature, you can expose your dubbo service as an HTTP service.
 
 ### Configuration
 
@@ -118,7 +118,7 @@ integrationRequest
 
 requestType
 :
-> The request type in integrationRequest defines the type of the backend service. 'dubbo' is the value we support now. 'http' will be support later with the dubbo-to-http proxy feature.
+> The request type in integrationRequest defines the type of the backend service. 'dubbo' is the value we support now. 'http' will be support later with the dubbo-to-http pixiu feature.
 
 mappingParams
 :

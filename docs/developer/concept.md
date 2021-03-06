@@ -2,4 +2,4 @@
 
 ## Term
 
-The term in dubbo-go-proxy 
+The term in dubbo-go-pixiu 

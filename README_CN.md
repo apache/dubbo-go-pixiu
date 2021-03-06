@@ -1,21 +1,21 @@
-[![Build Status](https://travis-ci.org/dubbogo/dubbo-go-proxy.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-proxy)
+[![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
 
 ### 简介
 
-dubbo-go-proxy 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
+dubbo-go-pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 
-现在dubbo-go-proxy 已经支持以dubbo协议和http协议调用远程的 dubbo 集群，未来还会支持更多的协议。
+现在dubbo-go-pixiu 已经支持以dubbo协议和http协议调用远程的 dubbo 集群，未来还会支持更多的协议。
 
 ## 开始
-#### 启动proxy
+#### 启动 Pixiu
 1. `make build` 构建出二进制包
-2. `make start` 启动proxy
+2. `make start` 启动pixiu
 
 #### 快速入门
-dubbo-go-proxy支持2种协议的调用:
+dubbo-go-pixiu支持2种协议的调用:
 
-1. [Http协议调用](https://github.com/dubbogo/dubbo-go-proxy/blob/develop/docs/sample/http.md) 
-2. [Dubbo协议调用](https://github.com/dubbogo/dubbo-go-proxy/blob/develop/docs/sample/dubbo.md)
+1. [Http协议调用](https://github.com/dubbogo/dubbo-go-pixiu/blob/develop/docs/sample/http.md) 
+2. [Dubbo协议调用](https://github.com/dubbogo/dubbo-go-pixiu/blob/develop/docs/sample/dubbo.md)
 
 ## 特性
 - 多协议支持
@@ -39,25 +39,25 @@ dubbo-go-proxy支持2种协议的调用:
     - 能支持边车和集中部署（规划中）                       
 
 ## 架构图
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbgoproxy-infrastructure.png)
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/master/docs/images/dubbgopixiu-infrastructure.png)
 ## 流程图
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-proxy/master/docs/images/dubbogoproxy-procedure.png)
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/master/docs/images/dubbogopixiu-procedure.png)
 
 ## 术语解释
 ### 组件
-#### Proxy
+#### Pixiu
 数据面板
 #### Admin
 控制面板
 ### 概念
 #### 下游（Downstream）
-下游主机连接到 Proxy ，发送请求并接收响应。（API 网关场景理解：浏览器）
+下游主机连接到 Pixiu ，发送请求并接收响应。（API 网关场景理解：浏览器）
 #### 上游（Upstream）
-上游主机接收来自 Proxy 的连接和请求并返回响应。（API 网关场景理解：dubbo 服务的机器）
+上游主机接收来自 Pixiu 的连接和请求并返回响应。（API 网关场景理解：dubbo 服务的机器）
 #### 监听器（Listener）
-监听器是可以被下游客户端连接的网络位置（例如，端口，unix域套接字等）。Proxy 公开一个或多个下游主机连接的监听器。
+监听器是可以被下游客户端连接的网络位置（例如，端口，unix域套接字等）。Pixiu 公开一个或多个下游主机连接的监听器。
 #### 集群（Cluster）
-群集是指 Proxy 连接到的一组逻辑上相似的上游主机（比如 dubbo 集群）。Proxy 通过服务发现发现一个集群的成员，它可以通过主动健康检查来确定集群成员的健康度，从而 Proxy 通过负载均衡策略将请求路由到相应的集群成员。
+群集是指 Pixiu 连接到的一组逻辑上相似的上游主机（比如 dubbo 集群）。Pixiu 通过服务发现发现一个集群的成员，它可以通过主动健康检查来确定集群成员的健康度，从而 Pixiu 通过负载均衡策略将请求路由到相应的集群成员。
 #### 接口（Api）
 接口是 API 网关的核心概念，特别针对浏览器等外部系统的访问时必须开启，所有请求必须匹配到对应的 Up 状态的接口才能继续进行后续逻辑。
 #### 客户端（Client）

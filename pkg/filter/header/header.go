@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-proxy/pkg/context/http"
+	"github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
 )
 
 type headerFilter struct {
