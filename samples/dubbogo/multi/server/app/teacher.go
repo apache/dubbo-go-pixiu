@@ -239,7 +239,7 @@ func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (
 	return true, nil
 }
 
-// UpdateTeacher update by teacher struct, my be another struct, PX config POST or PUT.
+// UpdateTeacherByName update by teacher struct, my be another struct, PX config POST or PUT.
 func (s *TeacherProvider) UpdateTeacherByName(ctx context.Context, name string, teacher *Teacher) (bool, error) {
 	outLn("Req UpdateTeacherByName data:%#v", teacher)
 	r, ok := teacherCache.GetByName(name)
