@@ -239,7 +239,7 @@ func (s *StudentProvider) UpdateStudent(ctx context.Context, student *Student) (
 	return true, nil
 }
 
-// UpdateStudent update by Student struct, my be another struct, PX config POST or PUT.
+// UpdateStudentByName update by Student struct, my be another struct, PX config POST or PUT.
 func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, student *Student) (bool, error) {
 	outLn("Req UpdateStudentByName data:%#v", student)
 	r, ok := studentCache.GetByName(name)
