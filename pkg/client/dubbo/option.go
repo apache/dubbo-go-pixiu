@@ -17,7 +17,7 @@
 
 package dubbo
 
-import "github.com/dubbogo/dubbo-go-proxy/pkg/client"
+import "github.com/dubbogo/dubbo-go-pixiu/pkg/client"
 
 // option keys
 const (

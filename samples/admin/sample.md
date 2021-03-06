@@ -28,7 +28,7 @@ to replace -a program arguments, should put api_meta_config in conf.yaml
 ```yaml
   api_meta_config:
     address: "127.0.0.1:2379"
-    api_config_path: "/proxy/config/api"
+    api_config_path: "/pixiu/config/api"
 ```
 
 
