@@ -239,7 +239,7 @@ func (u *UserProvider) UpdateUser(ctx context.Context, user *User) (bool, error)
 	return false, errors.New("not found")
 }
 
-// UpdateUser update by user struct, my be another struct, PX config POST or PUT.
+// UpdateUserByName update by user struct, my be another struct, PX config POST or PUT.
 func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *User) (bool, error) {
 	outLn("Req UpdateUserByName data:%#v", user)
 	r, ok := cache.GetByName(name)
