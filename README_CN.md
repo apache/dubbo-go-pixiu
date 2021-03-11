@@ -1,5 +1,8 @@
 [![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
 
+### 吉祥物
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/develop/docs/images/pixiu-logo.jpg)
+
 ### 简介
 
 dubbo-go-pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
