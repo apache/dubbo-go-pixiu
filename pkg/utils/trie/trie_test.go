@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-func TestTire_Put(t *testing.T) {
+func TestTrie_Put(t *testing.T) {
 	trie := NewTrie()
 	ret := trie.Put("/path1/:pathvarible1/path2/:pathvarible2", nil)
 	assert.True(t, ret)
@@ -54,7 +54,7 @@ func TestTire_Put(t *testing.T) {
 	assert.False(t, ret)
 }
 
-func TestTire_MatchAndGet(t *testing.T) {
+func TestTrie_MatchAndGet(t *testing.T) {
 	trie := NewTrie()
 	ret := trie.Put("/path1/:pathvarible1/path2/:pathvarible2", "test1")
 	assert.True(t, ret)

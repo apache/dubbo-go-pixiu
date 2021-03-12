@@ -21,17 +21,17 @@ import (
 	"github.com/dubbogo/dubbo-go-proxy/pkg/utils/urlpath"
 )
 
-// Trie 字典树
+// Trie
 type Trie struct {
 	root Node
 }
 
-// NewTrie 构造方法
+// NewTrie
 func NewTrie() Trie {
 	return Trie{root: Node{endOfPath: false, matchStr: "*"}}
 }
 
-// Node 对比标准trie 多了针对通配节点的子树，如果go 语法支持逆变协变 可以放在同一个children 更标准更好理解
+// Node
 type Node struct {
 	matchStr         string           //冗余信息 通配节点冗余变量名，普通节点冗余节点名
 	children         map[string]*Node //子树
@@ -41,7 +41,7 @@ type Node struct {
 	bizInfo          interface{}      //随便塞啥
 }
 
-//Tire对外暴露 推荐外部使用
+//Trie对外暴露 推荐外部使用
 
 //Put put key and values into trie as map.
 func (trie *Trie) Put(withOutHost string, bizInfo interface{}) bool {

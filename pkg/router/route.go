@@ -109,12 +109,12 @@ func (rt *Route) findNode(fullPath string) (*Node, bool) {
 	var found bool
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
-	tireNode, _, _ := rt.tree.Get(lowerPath)
-	found = tireNode != nil
+	trieNode, _, _ := rt.tree.Get(lowerPath)
+	found = trieNode != nil
 	if !found {
 		return nil, false
 	}
-	n = tireNode.GetBizInfo()
+	n = trieNode.GetBizInfo()
 	if n == nil {
 		return nil, false
 	}
@@ -127,12 +127,12 @@ func (rt *Route) matchNode(fullPath string) (*Node, bool) {
 	var found bool
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
-	tireNode, _, _ := rt.tree.Match(lowerPath)
-	found = tireNode != nil
+	trieNode, _, _ := rt.tree.Match(lowerPath)
+	found = trieNode != nil
 	if !found {
 		return nil, false
 	}
-	n = tireNode.GetBizInfo()
+	n = trieNode.GetBizInfo()
 	if n == nil {
 		return nil, false
 	}
