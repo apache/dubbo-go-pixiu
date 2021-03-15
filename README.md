@@ -3,7 +3,8 @@
 [中文](./README_CN.md) 
 
 ### Mascot
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/develop/docs/images/pixiu-logo.jpg)
+
+![](./docs/images/pixiu-log.jpg)
     
 ### Introduction
 
@@ -32,9 +33,12 @@ dubbo-go-pixiu supports to invoke 2 protocols:
 5. Dubbo protocol's rate-limiting in Istio environment（Planning）
 
 ## Architecture Diagram
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/master/docs/images/dubbgopixiu-infrastructure.png)
+
+![](./docs/images/dubbgopixiu-infrastructure.png)
+
 ## Flow Diagram
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/master/docs/images/dubbogopixiu-procedure.png)
+
+![](./docs/images/dubbogopixiu-procedure.png)
 
 ## Teams
 ### Components
