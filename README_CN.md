@@ -1,7 +1,8 @@
 [![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
 
 ### 吉祥物
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/develop/docs/images/pixiu-logo.jpg)
+
+![](./docs/images/pixiu-log.jpg)
 
 ### 简介
 
@@ -42,9 +43,12 @@ dubbo-go-pixiu支持2种协议的调用:
     - 能支持边车和集中部署（规划中）                       
 
 ## 架构图
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/master/docs/images/dubbgopixiu-infrastructure.png)
+
+![](./docs/images/dubbgopixiu-infrastructure.png)
+
 ## 流程图
-![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/master/docs/images/dubbogopixiu-procedure.png)
+
+![](./docs/images/dubbogopixiu-procedure.png)
 
 ## 术语解释
 ### 组件
