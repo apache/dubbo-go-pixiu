@@ -1,6 +1,10 @@
 [![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
 
 [中文](./README_CN.md) 
+
+### Mascot
+![image](https://raw.githubusercontent.com/dubbogo/dubbo-go-pixiu/develop/docs/images/pixiu-logo.jpg)
+    
 ### Introduction
 
 dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful services.
