@@ -2,7 +2,21 @@
 
 ### 吉祥物
 
-![](./docs/images/pixiu-log.jpg)
+<div>
+<table>
+  <tbody>
+  <tr></tr>
+    <tr>
+      <td align="center"  valign="middle">
+        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
+          <img width="350px" height="450px" src="./docs/images/pixiu-log.jpg">
+        </a>
+      </td>
+    </tr>
+    <tr></tr>
+  </tbody>
+</table>
+</div>
 
 ### 简介
 
@@ -48,11 +62,40 @@ dubbo-go-pixiu支持2种协议的调用:
 
 ## 架构图
 
-![](./docs/images/dubbgopixiu-infrastructure.png)
+<div>
+<table>
+  <tbody>
+  <tr></tr>
+    <tr>
+      <td align="center"  valign="middle">
+        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
+          <img width="500px" height="500px" src="./docs/images/dubbgopixiu-infrastructure.png">
+        </a>
+      </td>
+    </tr>
+    <tr></tr>
+  </tbody>
+</table>
+</div>
 
 ## 流程图
 
-![](./docs/images/dubbogopixiu-procedure.png)
+
+<div>
+<table>
+  <tbody>
+  <tr></tr>
+    <tr>
+      <td align="center"  valign="middle">
+        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
+          <img width="650px" height="100px" src="./docs/images/dubbogopixiu-procedure.png">
+        </a>
+      </td>
+    </tr>
+    <tr></tr>
+  </tbody>
+</table>
+</div>
 
 ## 术语解释
 
