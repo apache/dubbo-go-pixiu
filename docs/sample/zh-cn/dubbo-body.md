@@ -1,6 +1,6 @@
 # 从请求体里面获取参数
 
-> POST 请求 [samples](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/body)
+> POST 请求 [samples](https://github.com/apache/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/body)
 
 ## 透传
 

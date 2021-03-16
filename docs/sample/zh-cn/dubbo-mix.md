@@ -1,6 +1,6 @@
 # 从 URI，Query，Body 各个部分获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/mix)
+> GET 请求 [samples](https://github.com/apache/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/mix)
 
 ## 简单示例
 

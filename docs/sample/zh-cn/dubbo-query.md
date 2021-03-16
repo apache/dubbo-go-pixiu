@@ -1,6 +1,6 @@
 # 从表单请求里面获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/query)
+> GET 请求 [samples](https://github.com/apache/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/query)
 
 ## 简单示例
 
