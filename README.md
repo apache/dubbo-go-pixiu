@@ -139,6 +139,46 @@ Filter manipulate the incoming requests. It is extensible for the users.
 
 The project is under intensively iteration, you are more than welcome to use, suggest and contribute codes. DingDing Group: 31363295
 
+## Community
+
+If u want to communicate with our community, pls scan the following dubbobo Ding-Ding QR code or search our commnity DingDing group code 31363295.
+
+<div>
+<table>
+  <tbody>
+  <tr></tr>
+    <tr>
+      <td align="center"  valign="middle">
+        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
+          <img width="80px" height="85px" src="./docs/images/dubbogo-dingding.png">
+        </a>
+      </td>
+    </tr>
+    <tr></tr>
+  </tbody>
+</table>
+</div>
+
+The wechat public account of out community is as follows.
+
+<div>
+<table>
+  <tbody>
+  <tr></tr>
+    <tr>
+      <td align="center"  valign="middle">
+          <img width="80px" height="115px" src="./docs/images/dubbogo-wechat.png">
+        </a>
+      </td>
+    </tr>
+    <tr></tr>
+  </tbody>
+</table>
+</div>
+
+
+We welcome the friends who can give us constructing suggestions instead of known-nothing.
+
 ## License
 
 Apache License, Version 2.0
