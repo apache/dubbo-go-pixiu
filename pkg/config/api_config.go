@@ -31,10 +31,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
-	etcdv3 "github.com/dubbogo/dubbo-go-pixiu/pkg/remoting/etcd3"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	etcdv3 "github.com/apache/dubbo-go-pixiu/pkg/remoting/etcd3"
 )
 
 var (

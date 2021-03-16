@@ -1,6 +1,6 @@
 # 从 URI获取参数
 
-> GET 请求 [sample](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/sample/dubbo/multi)
+> GET 请求 [sample](https://github.com/apache/dubbo-go-pixiu/tree/develop/sample/dubbo/multi)
 
 ## 简单示例
 

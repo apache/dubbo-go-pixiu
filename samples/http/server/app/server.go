@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 func main() {

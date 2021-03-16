@@ -18,7 +18,7 @@
 package extension
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/service"
+	"github.com/apache/dubbo-go-pixiu/pkg/service"
 )
 
 var (

@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 )
 
 // NewDubboResponse creates dubbo response
