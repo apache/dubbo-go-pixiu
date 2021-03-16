@@ -59,7 +59,7 @@ dubbo-go-pixiu supports to invoke 2 protocols:
     <tr>
       <td align="center"  valign="middle">
         <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="500px" height="500px" src="./docs/images/dubbgopixiu-infrastructure.png">
+          <img width="800px" height="800px" src="./docs/images/dubbgopixiu-infrastructure.png">
         </a>
       </td>
     </tr>
@@ -77,7 +77,7 @@ dubbo-go-pixiu supports to invoke 2 protocols:
     <tr>
       <td align="center"  valign="middle">
         <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="650px" height="100px" src="./docs/images/dubbogopixiu-procedure.png">
+          <img width="850px" height="150px" src="./docs/images/dubbogopixiu-procedure.png">
         </a>
       </td>
     </tr>
