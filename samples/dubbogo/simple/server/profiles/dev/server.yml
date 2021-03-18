@@ -18,7 +18,7 @@ services:
   "UserProvider":
     registry: "demoZk"
     protocol: "dubbo"
-    # 相当于dubbo.xml中的interface
+    # amount to dubbo.xml Interface in
     interface: "com.dubbogo.pixiu.UserService"
     loadbalance: "random"
     warmup: "100"

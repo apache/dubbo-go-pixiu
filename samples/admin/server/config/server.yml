@@ -19,10 +19,11 @@ registries:
 
 services:
   "UserProvider":
-    # 可以指定多个registry，使用逗号隔开;不指定默认向所有注册中心注册
+    # Multiple registries can be specified separated by commas
+    # do not specify to register with all registries by default
     registry: "zk1"
     protocol: "dubbo"
-    # 相当于dubbo.xml中的interface
+    # amount to dubbo.xml Interface in
     interface: "com.ic.user.UserProvider"
     loadbalance: "random"
     warmup: "100"
