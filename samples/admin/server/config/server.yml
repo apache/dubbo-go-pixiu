@@ -23,7 +23,7 @@ services:
     # do not specify to register with all registries by default
     registry: "zk1"
     protocol: "dubbo"
-    # amount to dubbo.xml Interface in
+    # Equivalent to the interface in the  dubbo.xml file
     interface: "com.ic.user.UserProvider"
     loadbalance: "random"
     warmup: "100"

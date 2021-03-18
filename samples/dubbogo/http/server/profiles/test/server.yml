@@ -20,7 +20,7 @@ services:
     # do not specify to register with all registries by default
     registry: "demoZk"
     protocol: "rest"
-    # amount to dubbo.xml Interface in
+    # Equivalent to the interface in the  dubbo.xml file
     interface: "com.dubbogo.pixiu.UserService"
     loadbalance: "random"
     warmup: "100"

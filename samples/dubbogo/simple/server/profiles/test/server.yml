@@ -21,7 +21,7 @@ registries:
 services:
   "UserProvider":
     protocol: "dubbo"
-    # amount to dubbo.xml Interface in
+    # Equivalent to the interface in the  dubbo.xml file
     interface: "com.dubbogo.UserService"
     loadbalance: "random"
     warmup: "100"
