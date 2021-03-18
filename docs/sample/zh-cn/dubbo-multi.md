@@ -122,7 +122,7 @@ services:
   "StudentProvider":
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
-    # 相当于dubbo.xml中的interface
+    # Equivalent to the interface in the  dubbo.xml file
     interface: "com.dubbogo.pixiu.StudentService"
     loadbalance: "random"
     warmup: "100"
@@ -136,7 +136,7 @@ services:
   "TeacherProvider":
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
-    # 相当于dubbo.xml中的interface
+    # Equivalent to the interface in the  dubbo.xml file
     interface: "com.dubbogo.pixiu.TeacherService"
     loadbalance: "random"
     warmup: "100"
