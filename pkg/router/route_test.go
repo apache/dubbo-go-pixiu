@@ -109,7 +109,7 @@ func TestFindMethod(t *testing.T) {
 	assert.False(t, ok)
 	assert.Nil(t, m)
 
-	m, ok = rt.FindAPI("/vought/爱国者/supe/startlight", config.MethodPost)
+	m, ok = rt.FindAPI("/vought/123/supe/startlight", config.MethodPost)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
 	assert.Equal(t, m.URLPattern, "/vought/:id/supe/:name")
