@@ -15,23 +15,29 @@
  * limitations under the License.
  */
 
-package constant
+package ratelimit
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
-)
+func TestMatch(t *testing.T) {
+	config, err := GetMockedRateLimitConfig()
+	assert.Nil(t, err)
+
+	matcher.Load(config.APIResources)
+
+	res, _ := matcher.Match("/api/v1/test-dubbo/user")
+	assert.Equal(t, "test-dubbo", res)
+	res, _ = matcher.Match("/api/v1/test-dubbo/user/getInfo")
+	assert.Equal(t, "test-dubbo", res)
+	_, ok := matcher.Match("/api/v1/test-dubbo/A")
+	assert.Equal(t, false, ok)
+
+	res, _ = matcher.Match("/api/v1/http/foo")
+	assert.Equal(t, "test-http", res)
+	res, _ = matcher.Match("/api/v1/http/bar/1.json")
+	assert.Equal(t, "test-http", res)
+}

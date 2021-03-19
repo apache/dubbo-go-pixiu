@@ -15,23 +15,49 @@
  * limitations under the License.
  */
 
-package constant
+package matcher
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 )
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
-)
+var matcher *Matcher
+
+func Init() {
+	matcher = NewMatcher()
+}
+
+//PathMatcher according the url path find APIResource name
+type PathMatcher interface {
+	load(apis []ratelimit.APIResource)
+
+	match(path string) (string, bool)
+}
+
+type Matcher struct {
+	matchers []PathMatcher
+}
+
+func NewMatcher() *Matcher {
+	return &Matcher{
+		matchers: []PathMatcher{
+			&Accurate{},
+			&Regex{},
+		},
+	}
+}
+
+func Load(apis []ratelimit.APIResource) {
+	for _, v := range matcher.matchers {
+		v.load(apis)
+	}
+}
+
+func Match(path string) (string, bool) {
+	for _, m := range matcher.matchers {
+		if res, ok := m.match(path); ok {
+			return res, ok
+		}
+	}
+	return "", false
+}

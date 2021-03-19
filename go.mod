@@ -3,6 +3,7 @@ module github.com/apache/dubbo-go-pixiu
 go 1.14
 
 require (
+	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.6
 	github.com/apache/dubbo-go-hessian2 v1.9.1
 	github.com/coreos/etcd v3.3.25+incompatible

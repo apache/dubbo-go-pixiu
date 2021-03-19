@@ -15,23 +15,48 @@
  * limitations under the License.
  */
 
-package constant
+package matcher
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 )
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
+import (
+	"regexp"
+	"sync"
 )
+
+type Regex struct {
+	apiNames map[string]string
+	sync.RWMutex
+}
+
+func (p *Regex) load(apis []ratelimit.APIResource) {
+	m := map[string]string{}
+
+	for _, api := range apis {
+		apiName := api.Name
+		for _, api := range api.Items {
+			if api.MatchStrategy == ratelimit.REGEX {
+				m[api.Pattern] = apiName
+			}
+		}
+	}
+
+	p.Lock()
+	defer p.Unlock()
+	p.apiNames = m
+}
+
+func (p *Regex) match(path string) (string, bool) {
+	p.RLock()
+	defer p.RUnlock()
+
+	for k, v := range p.apiNames {
+		matched, _ := regexp.MatchString(k, path)
+		if matched {
+			return v, true
+		}
+	}
+	return "", false
+}

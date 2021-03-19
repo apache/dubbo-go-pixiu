@@ -15,23 +15,35 @@
  * limitations under the License.
  */
 
-package constant
+package ratelimit
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
+import (
+	"encoding/json"
+	"testing"
 )
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
+
+func TestGetMockConfig(t *testing.T) {
+	config, err := GetMockedRateLimitConfig()
+	if err != nil {
+		logger.Warn(err)
+		t.Fail()
+	}
+	configStr, _ := json.Marshal(config)
+	logger.Infof("rate limit config %s", configStr)
+}
+
+func TestInit(t *testing.T) {
+	err := rateLimitInit()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoadRules(t *testing.T) {
+	config, _ := GetMockedRateLimitConfig()
+	loadRules(config.Rules)
+}

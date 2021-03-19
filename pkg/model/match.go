@@ -17,7 +17,7 @@
 
 package model
 
-// StringMatcher matcher string
+// StringMatcher accurate string
 type StringMatcher struct {
 	Matcher MatcherType
 }
@@ -27,7 +27,7 @@ func (sm *StringMatcher) Match() (bool, error) {
 	return true, nil
 }
 
-// MatcherType matcher type
+// MatcherType accurate type
 type MatcherType int32
 
 const (
@@ -51,7 +51,7 @@ var MatcherTypeValue = map[string]int32{
 	"Regex":  3,
 }
 
-// HeaderMatcher header matcher struct
+// HeaderMatcher header accurate struct
 // Name header key, Value header value, Regex header value is regex
 type HeaderMatcher struct {
 	Name  string `yaml:"name" json:"name"`
