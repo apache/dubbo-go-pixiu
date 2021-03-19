@@ -17,7 +17,7 @@
 
 package model
 
-// Router 路由
+// Router struct
 type Router struct {
 	Match    RouterMatch `yaml:"match" json:"match"`
 	Route    RouteAction `yaml:"route" json:"route"`
