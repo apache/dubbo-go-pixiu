@@ -27,7 +27,7 @@ type Cluster struct {
 	Lb                LbPolicy            `yaml:",omitempty" json:",omitempty"`           // Lb the cluster select node used loadBalance policy
 	ConnectTimeoutStr string              `yaml:"connect_timeout" json:"connect_timeout"` // ConnectTimeout timeout for connect to cluster node
 	HealthChecks      []HealthCheck       `yaml:"health_checks" json:"health_checks"`
-	Hosts             []Address           `yaml:"hosts" json:"hosts"` // Hosts whe discovery type is Static, StrictDNS or LogicalDns，this need config
+	Hosts             []Address           `yaml:"hosts" json:"hosts"` // Hosts whe discovery type is Static, StrictDNS or LogicalDns, this need config
 	RequestTimeoutStr string              `yaml:"request_timeout" json:"request_timeout"`
 	Registries        map[string]Registry `yaml:"registries" json:"registries"`
 }
