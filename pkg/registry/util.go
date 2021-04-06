@@ -22,7 +22,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go/common"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // TransferURL2Api transfer url and clusterName to IntegrationRequest
