@@ -1,4 +1,4 @@
-module github.com/dubbogo/dubbo-go-pixiu
+module github.com/apache/dubbo-go-pixiu
 
 go 1.14
 
