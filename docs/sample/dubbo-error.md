@@ -32,15 +32,15 @@ Dubbo server return error:
 
 ```bash
 2020-11-17T11:19:18.019+0800    ERROR   remote/call.go:87       [dubbo-go-pixiu] client call err:data is exist!
-github.com/dubbogo/dubbo-go-pixiu/pkg/logger.Errorf
+github.com/apache/dubbo-go-pixiu/pkg/logger.Errorf
         /Users/tc/Documents/workspace_2020/dubbo-go-pixiu/pkg/logger/logging.go:52
-github.com/dubbogo/dubbo-go-pixiu/pkg/filter/remote.(*clientFilter).doRemoteCall
+github.com/apache/dubbo-go-pixiu/pkg/filter/remote.(*clientFilter).doRemoteCall
         /Users/tc/Documents/workspace_2020/dubbo-go-pixiu/pkg/filter/remote/call.go:87
-github.com/dubbogo/dubbo-go-pixiu/pkg/filter/remote.(*clientFilter).Do.func1
+github.com/apache/dubbo-go-pixiu/pkg/filter/remote.(*clientFilter).Do.func1
         /Users/tc/Documents/workspace_2020/dubbo-go-pixiu/pkg/filter/remote/call.go:65
-github.com/dubbogo/dubbo-go-pixiu/pkg/context/http.(*HttpContext).Next
+github.com/apache/dubbo-go-pixiu/pkg/context/http.(*HttpContext).Next
         /Users/tc/Documents/workspace_2020/dubbo-go-pixiu/pkg/context/http/context.go:54
-github.com/dubbogo/dubbo-go-pixiu/pkg/filter/timeout.(*timeoutFilter).Do.func1.1
+github.com/apache/dubbo-go-pixiu/pkg/filter/timeout.(*timeoutFilter).Do.func1.1
         /Users/tc/Documents/workspace_2020/dubbo-go-pixiu/pkg/filter/timeout/timeout.go:70
 ```
 
