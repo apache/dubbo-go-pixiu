@@ -21,5 +21,8 @@ github:
     develop:
       required_status_checks:
         strict: true
-        contexts:
-          - Hound
+
+notifications:
+     commits:      commits@dubbo.apache.org
+     issues:       notifications@dubbo.apache.org
+     pullrequests: notifications@dubbo.apache.org
