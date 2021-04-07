@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func TestLoad(t *testing.T) {
