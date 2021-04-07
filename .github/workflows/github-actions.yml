@@ -77,7 +77,7 @@ jobs:
         run: |
           chmod u+x before_ut.sh && ./before_ut.sh
           go mod vendor && go test ./... -coverprofile=coverage.txt -covermode=atomic
-#          chmod +x integrate_test.sh && ./integrate_test.sh
+#          chmod +x integrate_test.sh &&    ./integrate_test.sh
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
