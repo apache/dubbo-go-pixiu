@@ -88,7 +88,7 @@ jobs:
         # Because the contexts of push and PR are different, there are two Notify.
         # Notifications are triggered only in the dubbogo/dubbo-go-pixiu repository.
       - name: DingTalk Message Notify only Push
-        uses: zcong1993/actions-ding@v3.0.1
+        uses: ./.github/actions/actions-ding
         # Whether job is successful or not, always () is always true.
         if: |
           always() &&
@@ -109,7 +109,7 @@ jobs:
             }
 
       - name: DingTalk Message Notify only PR
-        uses: zcong1993/actions-ding@v3.0.1
+        uses: ./.github/actions/actions-ding
         if: |
           always() &&
           github.event_name == 'pull_request_target' &&
