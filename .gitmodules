@@ -1,0 +1,3 @@
+[submodule ".github/actions/actions-ding"]
+	path = .github/actions/actions-ding
+	url = https://github.com/zcong1993/actions-ding
