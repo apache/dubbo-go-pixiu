@@ -31,7 +31,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // Node defines the single method of the router configured API

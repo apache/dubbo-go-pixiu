@@ -31,13 +31,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/mock"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/context"
-	ctxHttp "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/service/api"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/context"
+	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
 func getTestContext() *ctxHttp.HttpContext {

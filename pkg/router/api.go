@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // GetURIParams returns the values retrieved from the rawURL

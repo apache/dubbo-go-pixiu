@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	contexthttp "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 // hostFilter is a filter for host.
