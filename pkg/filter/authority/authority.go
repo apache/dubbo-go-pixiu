@@ -43,8 +43,7 @@ func authorityFilterFunc() context.FilterFunc {
 }
 
 // authorityFilter is a filter for blacklist/whitelist.
-type authorityFilter struct {
-}
+type authorityFilter struct{}
 
 // New create blacklist/whitelist filter.
 func New() filter.Filter {

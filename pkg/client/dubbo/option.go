@@ -139,7 +139,6 @@ type valuesOpt struct {
 
 // nolint
 func (opt *valuesOpt) Action(req *client.Request, val interface{}) {
-
 }
 
 func (opt *valuesOpt) VirtualPos() int {

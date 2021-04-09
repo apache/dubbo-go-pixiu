@@ -186,5 +186,4 @@ func DefaultConfigLoad(path string) *model.Bootstrap {
 		log.Fatalln("[config] [default load] json unmarshal config failed, ", err)
 	}
 	return cfg
-
 }
