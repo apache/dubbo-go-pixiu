@@ -38,8 +38,7 @@ func recoveryFilterFunc() context.FilterFunc {
 }
 
 // recoveryFilter is a filter for recover.
-type recoveryFilter struct {
-}
+type recoveryFilter struct{}
 
 // New create timeout filter.
 func New() filter.Filter {

@@ -27,8 +27,7 @@ import (
 )
 
 // RateLimit filter
-type RateLimit struct {
-}
+type RateLimit struct{}
 
 // ExternalPluginRateLimit export filter
 func ExternalPluginRateLimit() filter.Filter {

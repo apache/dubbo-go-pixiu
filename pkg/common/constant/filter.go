@@ -34,7 +34,7 @@ const (
 	MessageDateLayout = "2006-01-02 15:04:05"
 	// nolint
 	// LogFileMode
-	LogFileMode = 0600
+	LogFileMode = 0o600
 	// nolint
 	// buffer
 	LogDataBuffer = 5000

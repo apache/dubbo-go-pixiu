@@ -47,7 +47,7 @@ var (
 
 // APIConfigListener defines api config listener interface
 type APIConfigListener interface {
-	APIConfigChange(apiConfig fc.APIConfig) bool //bool is return for interface implement is interesting
+	APIConfigChange(apiConfig fc.APIConfig) bool // bool is return for interface implement is interesting
 }
 
 // LoadAPIConfigFromFile load the api config from file
@@ -67,7 +67,6 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
-
 	client = etcdv3.NewConfigClient(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
@@ -77,7 +76,6 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath)
 
 	content, err := client.Get(metaConfig.APIConfigPath)
-
 	if err != nil {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
 	}
