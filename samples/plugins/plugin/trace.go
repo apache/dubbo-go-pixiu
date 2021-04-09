@@ -23,8 +23,7 @@ import (
 )
 
 // Trace filter
-type Trace struct {
-}
+type Trace struct{}
 
 // ExternalPluginTrace export filter
 func ExternalPluginTrace() filter.Filter {

@@ -135,7 +135,6 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget int
 		return err
 	}
 	if to == constant.RequestURI {
-
 	}
 	uriValues := router.GetURIParams(&c.API, *c.IngressRequest.URL)
 	if uriValues == nil {
@@ -204,7 +203,7 @@ func setMapWithPath(targetMap map[string]interface{}, path string, val interface
 	}
 	if !ok && len(keys) != 1 {
 		targetMap[keys[0]] = make(map[string]interface{})
-		targetMap[keys[0]] = setMapWithPath(targetMap[keys[0]].(map[string]interface{}), strings.Join(keys[1:len(keys)], constant.Dot), val)
+		targetMap[keys[0]] = setMapWithPath(targetMap[keys[0]].(map[string]interface{}), strings.Join(keys[1:], constant.Dot), val)
 	}
 	return targetMap
 }

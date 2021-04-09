@@ -195,5 +195,4 @@ func TestGetFilters(t *testing.T) {
 	assert.Nil(t, e)
 	e = rt.PutAPI(router.API{URLPattern: "/vought/:id/supe/:name", Method: n1})
 	assert.Nil(t, e)
-
 }

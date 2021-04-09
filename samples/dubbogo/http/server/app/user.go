@@ -155,8 +155,7 @@ type User struct {
 
 // UserProvider the dubbo provider.
 // like: version: 1.0.0 group: test
-type UserProvider struct {
-}
+type UserProvider struct{}
 
 // CreateUser new user, PX config POST.
 func (u *UserProvider) CreateUser(ctx context.Context, user *User) (*User, error) {

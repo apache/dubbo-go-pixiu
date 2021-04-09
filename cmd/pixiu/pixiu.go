@@ -59,14 +59,14 @@ func newPXApp(startCmd *cli.Command) *cli.App {
 	app.Usage = "Dubbogo pixiu is a lightweight gateway."
 	app.Flags = cmdStart.Flags
 
-	//commands
+	// commands
 	app.Commands = []cli.Command{
 		cmdStart,
 		cmdStop,
 		cmdReload,
 	}
 
-	//action
+	// action
 	app.Action = func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
 			return cli.ShowAppHelp(c)

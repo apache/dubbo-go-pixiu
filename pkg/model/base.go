@@ -25,8 +25,7 @@ type Metadata struct {
 	Info map[string]MetadataValue
 }
 
-type MetadataValue interface {
-}
+type MetadataValue interface{}
 
 // Status is the components status
 
