@@ -63,8 +63,7 @@ type StaticResources struct {
 }
 
 // DynamicResources TODO
-type DynamicResources struct {
-}
+type DynamicResources struct{}
 
 // ShutdownConfig how to shutdown pixiu.
 type ShutdownConfig struct {

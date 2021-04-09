@@ -154,8 +154,7 @@ type Teacher struct {
 
 // TeacherProvider the dubbo provider.
 // like: version: 1.0.0 group: test
-type TeacherProvider struct {
-}
+type TeacherProvider struct{}
 
 // CreateTeacher new teacher, PX config POST.
 func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (*Teacher, error) {

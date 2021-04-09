@@ -34,7 +34,6 @@ func NewDubboResponse(data interface{}) *client.Response {
 		return &client.Response{Data: data}
 	}
 	return &client.Response{Data: r}
-
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
@@ -119,7 +118,6 @@ func mapIItoMapSI(in interface{}) interface{} {
 
 // traverse all the keys in the map and change the hump to underline
 func humpToLine(in interface{}) interface{} {
-
 	var m map[string]interface{}
 	if v, ok := in.(map[string]interface{}); ok {
 		m = v
@@ -127,7 +125,7 @@ func humpToLine(in interface{}) interface{} {
 		return in
 	}
 
-	var out = make(map[string]interface{}, len(m))
+	out := make(map[string]interface{}, len(m))
 	for k1, v1 := range m {
 		x := humpToUnderline(k1)
 
@@ -137,7 +135,7 @@ func humpToLine(in interface{}) interface{} {
 			out[x] = humpToLine(struct2Map(v1))
 		} else if reflect.TypeOf(v1).Kind() == reflect.Slice {
 			value := reflect.ValueOf(v1)
-			var newTemps = make([]interface{}, 0, value.Len())
+			newTemps := make([]interface{}, 0, value.Len())
 			for i := 0; i < value.Len(); i++ {
 				newTemp := humpToLine(value.Index(i).Interface())
 				newTemps = append(newTemps, newTemp)
@@ -173,7 +171,7 @@ func struct2Map(obj interface{}) map[string]interface{} {
 	t := reflect.TypeOf(obj)
 	v := reflect.ValueOf(obj)
 
-	var data = make(map[string]interface{})
+	data := make(map[string]interface{})
 	for i := 0; i < t.NumField(); i++ {
 		data[t.Field(i).Name] = v.Field(i).Interface()
 	}

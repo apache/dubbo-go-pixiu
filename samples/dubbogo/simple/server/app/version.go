@@ -17,7 +17,5 @@
 
 package main
 
-var (
-	// Version dubbo version
-	Version = "2.7.5"
-)
+// Version dubbo version
+var Version = "2.7.5"
