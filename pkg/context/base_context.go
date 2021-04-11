@@ -23,9 +23,10 @@ import (
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"math"
 	"time"
+
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 )
 
 const abortIndex int8 = math.MaxInt8 / 2
