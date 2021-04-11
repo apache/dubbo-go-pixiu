@@ -19,14 +19,14 @@ package model
 
 // AuthorityConfiguration blacklist/whitelist config
 type AuthorityConfiguration struct {
-	Rules []AuthorityRule `yaml:"authority_rules" json:"authority_rules"` //Rules the authority rule list
+	Rules []AuthorityRule `yaml:"authority_rules" json:"authority_rules"` // Rules the authority rule list
 }
 
 // AuthorityRule blacklist/whitelist rule
 type AuthorityRule struct {
-	Strategy StrategyType `yaml:"strategy" json:"strategy"` //Strategy the authority rule strategy
-	Limit    LimitType    `yaml:"limit" json:"limit"`       //Limit the authority rule limit
-	Items    []string     `yaml:"items" json:"items"`       //Items the authority rule items
+	Strategy StrategyType `yaml:"strategy" json:"strategy"` // Strategy the authority rule strategy
+	Limit    LimitType    `yaml:"limit" json:"limit"`       // Limit the authority rule limit
+	Items    []string     `yaml:"items" json:"items"`       // Items the authority rule items
 }
 
 // StrategyType the authority rule strategy enum

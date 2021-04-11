@@ -28,7 +28,7 @@ import (
 func TestNewDubboResponse(t *testing.T) {
 	resp := map[string]interface{}{
 		"age":  18,
-		"iD":   0001,
+		"iD":   0o001,
 		"name": "tc",
 		"time": nil,
 	}
