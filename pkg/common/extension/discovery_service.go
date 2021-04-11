@@ -21,9 +21,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/service"
 )
 
-var (
-	apiDiscoveryServiceMap = map[string]service.APIDiscoveryService{}
-)
+var apiDiscoveryServiceMap = map[string]service.APIDiscoveryService{}
 
 // SetAPIDiscoveryService will store the @filter and @name
 func SetAPIDiscoveryService(name string, ads service.APIDiscoveryService) {

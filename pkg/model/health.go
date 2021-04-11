@@ -18,8 +18,7 @@
 package model
 
 // HealthCheck
-type HealthCheck struct {
-}
+type HealthCheck struct{}
 
 // HttpHealthCheck
 type HttpHealthCheck struct {
