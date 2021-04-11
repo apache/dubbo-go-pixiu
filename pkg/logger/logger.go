@@ -31,9 +31,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	logger Logger
-)
+var logger Logger
 
 // DubbogoPXLogger is logger struct
 type DubbogoPXLogger struct {
@@ -116,7 +114,7 @@ func InitLogger(conf *zap.Config) {
 		zapLoggerConfig = *conf
 	}
 	zapLogger, _ := zapLoggerConfig.Build(zap.AddCallerSkip(1))
-	//logger = zapLogger.Sugar()
+	// logger = zapLogger.Sugar()
 	logger = &DubbogoPXLogger{Logger: zapLogger.Sugar(), dynamicLevel: zapLoggerConfig.Level}
 }
 

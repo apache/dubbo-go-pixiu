@@ -42,8 +42,7 @@ func loggerFilterFunc() context.FilterFunc {
 }
 
 // loggerFilter is a filter for simple logger.
-type loggerFilter struct {
-}
+type loggerFilter struct{}
 
 // New create logger filter.
 func New() filter.Filter {

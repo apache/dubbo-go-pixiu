@@ -32,7 +32,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client/http"
 )
 
-//ClientPool  a pool of client.
+// ClientPool  a pool of client.
 type ClientPool struct {
 	poolMap map[config.RequestType]*sync.Pool
 }

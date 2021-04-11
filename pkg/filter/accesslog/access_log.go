@@ -99,7 +99,7 @@ func buildAccessLogMsg(c context.Context, cost time.Duration) string {
 		builder.WriteString(fmt.Sprintf(" response [ %+v", string(rbs)))
 		builder.WriteString("] ")
 	}
-	//builder.WriteString("\n")
+	// builder.WriteString("\n")
 	return builder.String()
 }
 
