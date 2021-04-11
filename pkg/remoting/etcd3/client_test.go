@@ -84,7 +84,6 @@ type ClientTestSuite struct {
 
 // start etcd server
 func (suite *ClientTestSuite) SetupSuite() {
-
 	t := suite.T()
 
 	DefaultListenPeerURLs := "http://localhost:2382"
@@ -139,7 +138,6 @@ func (suite *ClientTestSuite) SetupTest() {
 }
 
 func (suite *ClientTestSuite) TestClientClose() {
-
 	c := suite.client
 	t := suite.T()
 
@@ -150,7 +148,6 @@ func (suite *ClientTestSuite) TestClientClose() {
 }
 
 func (suite *ClientTestSuite) TestClientValid() {
-
 	c := suite.client
 	t := suite.T()
 
@@ -164,7 +161,6 @@ func (suite *ClientTestSuite) TestClientValid() {
 }
 
 func (suite *ClientTestSuite) TestClientDone() {
-
 	c := suite.client
 
 	go func() {
@@ -180,7 +176,6 @@ func (suite *ClientTestSuite) TestClientDone() {
 }
 
 func (suite *ClientTestSuite) TestClientCreateKV() {
-
 	tests := tests
 
 	c := suite.client
@@ -211,7 +206,6 @@ func (suite *ClientTestSuite) TestClientCreateKV() {
 }
 
 func (suite *ClientTestSuite) TestClientDeleteKV() {
-
 	tests := tests
 	c := suite.client
 	t := suite.T()
@@ -241,11 +235,9 @@ func (suite *ClientTestSuite) TestClientDeleteKV() {
 			t.Fatal(err)
 		}
 	}
-
 }
 
 func (suite *ClientTestSuite) TestClientGetChildrenKVList() {
-
 	tests := tests
 
 	c := suite.client
@@ -279,11 +271,9 @@ func (suite *ClientTestSuite) TestClientGetChildrenKVList() {
 	}
 
 	t.Fatalf("expect keylist %v but got %v expect valueList %v but got %v ", expectKList, kList, expectVList, vList)
-
 }
 
 func (suite *ClientTestSuite) TestClientWatch() {
-
 	tests := tests
 
 	c := suite.client
@@ -293,7 +283,6 @@ func (suite *ClientTestSuite) TestClientWatch() {
 	wg.Add(1)
 
 	go func() {
-
 		defer wg.Done()
 
 		wc, err := c.watch(prefix)
@@ -306,7 +295,6 @@ func (suite *ClientTestSuite) TestClientWatch() {
 		var eCreate, eDelete mvccpb.Event
 
 		for e := range wc {
-
 			for _, event := range e.Events {
 				events = append(events, (mvccpb.Event)(*event))
 				if event.Type == mvccpb.PUT {
@@ -341,11 +329,9 @@ func (suite *ClientTestSuite) TestClientWatch() {
 	c.Close()
 
 	wg.Wait()
-
 }
 
 func (suite *ClientTestSuite) TestClientRegisterTemp() {
-
 	c := suite.client
 	observeC := suite.setUpClient()
 	t := suite.T()
@@ -367,7 +353,6 @@ func (suite *ClientTestSuite) TestClientRegisterTemp() {
 		var eCreate, eDelete mvccpb.Event
 
 		for e := range wc {
-
 			for _, event := range e.Events {
 				events = append(events, (mvccpb.Event)(*event))
 				if event.Type == mvccpb.DELETE {
