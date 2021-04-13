@@ -29,8 +29,7 @@ import (
 func main() {}
 
 // Access filter
-type Access struct {
-}
+type Access struct{}
 
 // ExternalPluginAccess export filter
 func ExternalPluginAccess() filter.Filter {
