@@ -55,6 +55,12 @@ type EtcdConfig struct {
 	Path    string `yaml:"path" json:"path" mapstructure:"path"`
 }
 
+type BaseInfo struct {
+	Name           string `json:"name" yaml:"name"`
+	Description    string `json:"description" yaml:"description"`
+	PluginFilePath string `json:"pluginFilePath" yaml:"pluginFilePath"`
+}
+
 var (
 	cmdStart = cli.Command{
 		Name:  "start",
@@ -90,6 +96,9 @@ var (
 
 // Version admin version
 const Version = "0.1.0"
+const Base = "base"
+const Resources = "Resources"
+const Plugin = "plugin"
 
 func newAdminApp(startCmd *cli.Command) *cli.App {
 	app := cli.NewApp()
@@ -167,6 +176,78 @@ func GetAPIConfig(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(config))
 }
 
+// SetBaseInfo handle modify base info http request
+func SetBaseInfo(w http.ResponseWriter, req *http.Request) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		logger.Errorf("read body err, %v\n", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// validate the api config
+	baseInfo := &BaseInfo{}
+	err = yaml.UnmarshalYML([]byte(body), baseInfo)
+
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	setErr := client.Update(getRootPath(Base), string(body))
+	if setErr != nil {
+		logger.Warnf("update etcd error, %v\n", err)
+		w.Write([]byte(setErr.Error()))
+	}
+	w.Write([]byte("Success"))
+}
+
+// GetResourceList get all resource list
+func GetResourceList(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// ModifyResourceInfo modify resource info exclude
+func ModifyResourceInfo(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// DeleteResourceInfo delete resource
+func DeleteResourceInfo(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// GetResourceMethodList get method info list below resource
+func GetResourceMethodList(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// ModifyResourceMethod get method info below resource
+func ModifyResourceMethod(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// DeleteResourceMethod delete method below resource
+func DeleteResourceMethod(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// GetPluginGroupList get plugin group list
+func GetPluginGroupList(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// ModifyPluginGroup modify plugin group
+func ModifyPluginGroup(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// DeletePluginGroup delete plugin group
+func DeletePluginGroup(w http.ResponseWriter, req *http.Request) {
+
+}
+
 // SetAPIConfig handle modify api config http request
 func SetAPIConfig(w http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
@@ -190,4 +271,8 @@ func SetAPIConfig(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(setErr.Error()))
 	}
 	w.Write([]byte("Success"))
+}
+
+func getRootPath(key string) string {
+	return bootstrap.EtcdConfig.Path + "/" + key
 }
