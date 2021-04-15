@@ -23,6 +23,6 @@ require (
 )
 
 replace (
+	github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0
 	google.golang.org/grpc v1.33.1 => google.golang.org/grpc v1.26.0
-    github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0
 )
