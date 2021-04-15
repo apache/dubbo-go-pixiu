@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package registry
 
 import (
@@ -21,12 +22,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-)
 
-import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/constant"
 	"github.com/apache/dubbo-go/common/extension"
+
 	_ "github.com/apache/dubbo-go/registry/consul"
 	"github.com/apache/dubbo-go/remoting/consul"
 	"github.com/stretchr/testify/assert"
