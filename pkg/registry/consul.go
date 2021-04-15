@@ -41,7 +41,7 @@ const (
 	dubboAPIFilter = "dubbo in Tags"
 )
 
-// ConsulRegistryLoad load dubbo apis from consul registry
+// ConsulRegistryLoad load dubbo apis from consul registry.
 type ConsulRegistryLoad struct {
 	Address string
 	// Consul client.
