@@ -34,7 +34,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	etcdv3 "github.com/apache/dubbo-go-pixiu/pkg/remoting/etcd3"
+	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 )
 
 var (

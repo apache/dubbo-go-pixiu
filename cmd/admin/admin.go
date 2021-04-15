@@ -18,24 +18,21 @@
 package main
 
 import (
+	"encoding/json"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-)
 
-import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	perrors "github.com/pkg/errors"
-	"github.com/urfave/cli"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	etcdv3 "github.com/apache/dubbo-go-pixiu/pkg/remoting/etcd3"
+	perrors "github.com/pkg/errors"
+	"github.com/urfave/cli"
+
+	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 )
 
 // AdminBootstrap admin bootstrap config
@@ -162,6 +159,8 @@ func Start() {
 
 	http.HandleFunc("/config/api", GetAPIConfig)
 	http.HandleFunc("/config/api/set", SetAPIConfig)
+	http.HandleFunc("/config/api/base", GetBaseInfo)
+	http.HandleFunc("/config/api/base/set", SetBaseInfo)
 
 	http.ListenAndServe(bootstrap.Server.Address, nil)
 }
@@ -185,31 +184,92 @@ func SetBaseInfo(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// validate the api config
 	baseInfo := &BaseInfo{}
-	err = yaml.UnmarshalYML([]byte(body), baseInfo)
+	err = yaml.UnmarshalYML(body, baseInfo)
 
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
 	}
 
-	setErr := client.Update(getRootPath(Base), string(body))
+	setErr := BizSetBaseInfo(baseInfo)
+
 	if setErr != nil {
-		logger.Warnf("update etcd error, %v\n", err)
 		w.Write([]byte(setErr.Error()))
 	}
 	w.Write([]byte("Success"))
 }
 
+func BizSetBaseInfo(info *BaseInfo) error {
+	// validate the api config
+
+	data, _ := yaml.MarshalYML(info)
+	setErr := client.Update(getRootPath(Base), string(data))
+
+	if setErr != nil {
+		logger.Warnf("update etcd error, %v\n", setErr)
+		return perrors.WithMessage(setErr, "BizSetBaseInfo error")
+	}
+	return nil
+}
+
+// GetBaseInfo get base info
+func GetBaseInfo(w http.ResponseWriter, req *http.Request) {
+	config, err := BizGetBaseInfo()
+	if err != nil {
+		w.Write([]byte(err.Error()))
+	}
+	w.Write([]byte(config))
+}
+
+func BizGetBaseInfo() (string, error) {
+	config, err := client.Get(getRootPath(Base))
+	if err != nil {
+		logger.Errorf("GetBaseInfo err, %v\n", err)
+		return config, perrors.WithMessage(err, "BizGetBaseInfo error")
+	}
+	return config, nil
+}
+
 // GetResourceList get all resource list
 func GetResourceList(w http.ResponseWriter, req *http.Request) {
+	res, err := BizGetResourceList()
+	if err != nil {
+		w.Write([]byte(err.Error()))
+	}
+	data, _ := json.Marshal(res)
+	w.Write(data)
+}
+
+func BizGetResourceList() ([]fc.Resource, error) {
+	_, vList, err := client.GetChildrenKVList(getRootPath(Resources))
+	if err != nil {
+		logger.Errorf("GetResourceList err, %v\n", err)
+		return nil, perrors.WithMessage(err, "BizGetResourceList error")
+	}
+
+	var ret []fc.Resource
+	for _, v := range vList {
+		res := fc.Resource{}
+		err := yaml.UnmarshalYML([]byte(v), res)
+		if err != nil {
+			logger.Errorf("UnmarshalYML err, %v\n", err)
+		}
+		ret = append(ret, res)
+	}
+
+	return ret, nil
+}
+
+// SetResourceInfo modify resource info exclude
+func SetResourceInfo(w http.ResponseWriter, req *http.Request) {
 
 }
 
-// ModifyResourceInfo modify resource info exclude
-func ModifyResourceInfo(w http.ResponseWriter, req *http.Request) {
+func BizCreateResourceInfo(res fc.Resource) {
+}
+
+func BizModifyResourceInfo(res fc.Resource) {
 
 }
 
@@ -225,6 +285,11 @@ func GetResourceMethodList(w http.ResponseWriter, req *http.Request) {
 
 // ModifyResourceMethod get method info below resource
 func ModifyResourceMethod(w http.ResponseWriter, req *http.Request) {
+
+}
+
+// BizCreateResourceMethod batch create method below specific path
+func BizCreateResourceMethod(root string, methods []fc.Method) {
 
 }
 
