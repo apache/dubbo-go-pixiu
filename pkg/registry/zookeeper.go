@@ -21,10 +21,11 @@ import (
 	"path"
 	"strings"
 	"time"
+)
 
-	"github.com/apache/dubbo-go/common"
-
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go/common"
 	zookeeper "github.com/dubbogo/gost/database/kv/zk"
 )
 
