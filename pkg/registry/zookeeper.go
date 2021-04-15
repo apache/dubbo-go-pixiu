@@ -39,7 +39,7 @@ func init() {
 	var _ Loader = new(ZookeeperRegistryLoad)
 }
 
-// ZookeeperRegistryLoad load dubbo apis from zookeeper registry
+// ZookeeperRegistryLoad load dubbo apis from zookeeper registry.
 type ZookeeperRegistryLoad struct {
 	zkName  string
 	client  *zookeeper.ZookeeperClient
