@@ -19,18 +19,19 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/Workiva/go-datastructures/threadsafe/err"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/gin-gonic/gin"
+	perrors "github.com/pkg/errors"
+	"github.com/urfave/cli"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	perrors "github.com/pkg/errors"
-	"github.com/urfave/cli"
 
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 )
@@ -157,47 +158,44 @@ func Start() {
 	)
 	defer client.Close()
 
-	http.HandleFunc("/config/api", GetAPIConfig)
-	http.HandleFunc("/config/api/set", SetAPIConfig)
-	http.HandleFunc("/config/api/base", GetBaseInfo)
-	http.HandleFunc("/config/api/base/set", SetBaseInfo)
+	r := gin.Default()
 
-	http.ListenAndServe(bootstrap.Server.Address, nil)
+	r.GET("/config/api", GetAPIConfig)
+	r.POST("/config/api/set", SetAPIConfig)
+	r.GET("/config/api/base", GetBaseInfo)
+	r.POST("/config/api/base/set", SetBaseInfo)
+
+	r.Run(bootstrap.Server.Address) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
 // GetAPIConfig handle get api config http request
-func GetAPIConfig(w http.ResponseWriter, req *http.Request) {
+func GetAPIConfig(c *gin.Context) {
 	config, err := client.Get(bootstrap.EtcdConfig.Path)
 	if err != nil {
 		logger.Errorf("GetAPIConfig err, %v\n", err)
-		w.Write([]byte("Error"))
+		c.String(http.StatusOK, "error")
 	}
-	w.Write([]byte(config))
+	c.String(http.StatusOK, config)
 }
 
 // SetBaseInfo handle modify base info http request
-func SetBaseInfo(w http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		logger.Errorf("read body err, %v\n", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+func SetBaseInfo(c *gin.Context) {
+	body := c.PostForm("content")
 
 	baseInfo := &BaseInfo{}
-	err = yaml.UnmarshalYML(body, baseInfo)
+	err := yaml.UnmarshalYML([]byte(body), baseInfo)
 
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, err.Error())
 	}
 
 	setErr := BizSetBaseInfo(baseInfo)
 
 	if setErr != nil {
-		w.Write([]byte(setErr.Error()))
+		c.String(http.StatusOK, err.Error())
 	}
-	w.Write([]byte("Success"))
+	c.String(http.StatusOK, "success")
 }
 
 func BizSetBaseInfo(info *BaseInfo) error {
@@ -266,11 +264,50 @@ func SetResourceInfo(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func BizCreateResourceInfo(res fc.Resource) {
+func BizCreateResourceInfo(res *fc.Resource) error {
+
+	methods := res.Methods
+	// 创建 methods
+	BizCreateResourceMethod(res.Path, methods)
+	// 创建resource
+	res.Methods = nil
+	data, _ := yaml.MarshalYML(res)
+	setErr := client.Create(getRootPath(Resources)+"/"+res.Path, string(data))
+
+	if setErr != nil {
+		logger.Warnf("update etcd error, %v\n", setErr)
+		return perrors.WithMessage(setErr, "BizCreateResourceInfo error")
+	}
+	return nil
 }
 
 func BizModifyResourceInfo(res fc.Resource) {
 
+}
+
+// CreateResourceInfo create resource
+func CreateResourceInfo(w http.ResponseWriter, req *http.Request) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		logger.Errorf("read body err, %v\n", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	res := &fc.Resource{}
+	err = yaml.UnmarshalYML(body, res)
+
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	setErr := BizCreateResourceInfo(res)
+
+	if setErr != nil {
+		w.Write([]byte(setErr.Error()))
+	}
+	w.Write([]byte("Success"))
 }
 
 // DeleteResourceInfo delete resource
@@ -289,8 +326,21 @@ func ModifyResourceMethod(w http.ResponseWriter, req *http.Request) {
 }
 
 // BizCreateResourceMethod batch create method below specific path
-func BizCreateResourceMethod(root string, methods []fc.Method) {
+func BizCreateResourceMethod(root string, methods []fc.Method) error {
+	var kList, vList []string
 
+	for _, method := range methods {
+		kList = append(kList, root+"/"+string(method.HTTPVerb))
+		data, _ := yaml.MarshalYML(method)
+		vList = append(vList, string(data))
+	}
+
+	err := client.BatchCreate(kList, vList)
+	if err != nil {
+		logger.Warnf("update etcd error, %v\n", err)
+		return perrors.WithMessage(err, "BizCreateResourceMethod error")
+	}
+	return nil
 }
 
 // DeleteResourceMethod delete method below resource
