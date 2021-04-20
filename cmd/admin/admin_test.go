@@ -2,7 +2,10 @@ package main
 
 import (
 	getty "github.com/apache/dubbo-getty"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/coreos/etcd/embed"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/suite"
 	"os"
 	"testing"
@@ -37,6 +40,8 @@ func (suite *AdminTestSuite) SetupSuite() {
 	}
 
 	suite.etcd = e
+
+	gin.SetMode(gin.TestMode)
 }
 
 // stop etcd server
@@ -58,4 +63,13 @@ func (suite *AdminTestSuite) TestSetBaseInfo() {
 
 func (suite *AdminTestSuite) TestGetBaseInfo() {
 
+}
+
+func TestGetBaseInfo(t *testing.T) {
+	str := "path: '/api/v1/test-dubbo/user'\n    type: restful\n    description: user\n    timeout: 100ms\n    plugins:\n      pre:\n        pluginNames:\n          - rate limit\n          - access\n      post:\n        groupNames:\n          - group2\n    methods:\n      - httpVerb: GET\n        onAir: true\n        timeout: 1000ms\n        inboundRequest:\n          requestType: http\n          queryStrings:\n            - name: name\n              required: true\n        integrationRequest:\n          requestType: http\n          host: 127.0.0.1:8889\n          path: /UserProvider/GetUserByName\n          mappingParams:\n            - name: queryStrings.name\n              mapTo: queryStrings.name\n          group: \"test\"\n          version: 1.0.0\n      - httpVerb: POST\n        onAir: true\n        timeout: 1000ms\n        inboundRequest:\n          requestType: http\n          queryStrings:\n            - name: name\n              required: true\n        integrationRequest:\n          requestType: http\n          host: 127.0.0.1:8889\n          path: /UserProvider/CreateUser\n          group: \"test\"\n          version: 1.0.0"
+	res := &fc.Resource{}
+	err := yaml.UnmarshalYML([]byte(str), res)
+	if err != nil {
+
+	}
 }

@@ -19,7 +19,6 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/Workiva/go-datastructures/threadsafe/err"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
@@ -57,6 +56,19 @@ type BaseInfo struct {
 	Name           string `json:"name" yaml:"name"`
 	Description    string `json:"description" yaml:"description"`
 	PluginFilePath string `json:"pluginFilePath" yaml:"pluginFilePath"`
+}
+
+type RetData struct {
+	Code string      `json:"code" yaml:"code"`
+	Data interface{} `json:"data" yaml:"data"`
+}
+
+func WithError(err error) RetData {
+	return RetData{ERR, err.Error()}
+}
+
+func WithRet(data interface{}) RetData {
+	return RetData{OK, data}
 }
 
 var (
@@ -97,6 +109,8 @@ const Version = "0.1.0"
 const Base = "base"
 const Resources = "Resources"
 const Plugin = "plugin"
+const OK = "10001"
+const ERR = "10002"
 
 func newAdminApp(startCmd *cli.Command) *cli.App {
 	app := cli.NewApp()
@@ -151,31 +165,34 @@ var (
 
 // Start start init etcd client and start admin http server
 func Start() {
-	client = etcdv3.NewConfigClient(
+	newClient, err := etcdv3.NewConfigClient(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
-		etcdv3.WithTimeout(10*time.Second),
+		etcdv3.WithTimeout(20*time.Second),
 		etcdv3.WithEndpoints(strings.Split(bootstrap.EtcdConfig.Address, ",")...),
 	)
+
+	if err != nil {
+		logger.Errorf("update etcd error, %v\n", err)
+		return
+	}
+
+	client = newClient
 	defer client.Close()
 
-	r := gin.Default()
-
-	r.GET("/config/api", GetAPIConfig)
-	r.POST("/config/api/set", SetAPIConfig)
-	r.GET("/config/api/base", GetBaseInfo)
-	r.POST("/config/api/base/set", SetBaseInfo)
-
+	r := SetupRouter()
 	r.Run(bootstrap.Server.Address) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
-// GetAPIConfig handle get api config http request
-func GetAPIConfig(c *gin.Context) {
-	config, err := client.Get(bootstrap.EtcdConfig.Path)
-	if err != nil {
-		logger.Errorf("GetAPIConfig err, %v\n", err)
-		c.String(http.StatusOK, "error")
-	}
-	c.String(http.StatusOK, config)
+func SetupRouter() *gin.Engine {
+	r := gin.Default()
+
+	r.GET("/config/api/base", GetBaseInfo)
+	r.POST("/config/api/base/set", SetBaseInfo)
+	r.GET("/config/api/resource/list", GetResourceList)
+	r.POST("/config/api/resource/create", CreateResourceInfo)
+	//r.POST("/config/api/resource/modify", UpdateResourceInfo)
+
+	return r
 }
 
 // SetBaseInfo handle modify base info http request
@@ -188,6 +205,7 @@ func SetBaseInfo(c *gin.Context) {
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
 		c.String(http.StatusBadRequest, err.Error())
+		return
 	}
 
 	setErr := BizSetBaseInfo(baseInfo)
@@ -212,31 +230,37 @@ func BizSetBaseInfo(info *BaseInfo) error {
 }
 
 // GetBaseInfo get base info
-func GetBaseInfo(w http.ResponseWriter, req *http.Request) {
+func GetBaseInfo(c *gin.Context) {
 	config, err := BizGetBaseInfo()
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		c.JSON(http.StatusOK, WithError(err))
+		return
 	}
-	w.Write([]byte(config))
+	data, _ := yaml.MarshalYML(config)
+	c.JSON(http.StatusOK, WithRet(string(data)))
 }
 
-func BizGetBaseInfo() (string, error) {
+func BizGetBaseInfo() (*BaseInfo, error) {
 	config, err := client.Get(getRootPath(Base))
 	if err != nil {
 		logger.Errorf("GetBaseInfo err, %v\n", err)
-		return config, perrors.WithMessage(err, "BizGetBaseInfo error")
+		return nil, perrors.WithMessage(err, "BizGetBaseInfo error")
 	}
-	return config, nil
+	data := &BaseInfo{}
+	_ = yaml.UnmarshalYML([]byte(config), data)
+
+	return data, nil
 }
 
 // GetResourceList get all resource list
-func GetResourceList(w http.ResponseWriter, req *http.Request) {
+func GetResourceList(c *gin.Context) {
 	res, err := BizGetResourceList()
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		c.JSON(http.StatusOK, WithError(err))
+		return
 	}
 	data, _ := json.Marshal(res)
-	w.Write(data)
+	c.JSON(http.StatusOK, WithRet(string(data)))
 }
 
 func BizGetResourceList() ([]fc.Resource, error) {
@@ -286,28 +310,24 @@ func BizModifyResourceInfo(res fc.Resource) {
 }
 
 // CreateResourceInfo create resource
-func CreateResourceInfo(w http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		logger.Errorf("read body err, %v\n", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+func CreateResourceInfo(c *gin.Context) {
+	body := c.PostForm("content")
 
 	res := &fc.Resource{}
-	err = yaml.UnmarshalYML(body, res)
+	err := yaml.UnmarshalYML([]byte(body), res)
 
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.JSON(http.StatusOK, WithError(err))
+		return
 	}
 
 	setErr := BizCreateResourceInfo(res)
 
 	if setErr != nil {
-		w.Write([]byte(setErr.Error()))
+		c.JSON(http.StatusOK, WithError(err))
 	}
-	w.Write([]byte("Success"))
+	c.JSON(http.StatusOK, WithRet("Success"))
 }
 
 // DeleteResourceInfo delete resource

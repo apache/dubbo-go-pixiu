@@ -67,7 +67,7 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
-	client = etcdv3.NewConfigClient(
+	client, _ = etcdv3.NewConfigClient(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
