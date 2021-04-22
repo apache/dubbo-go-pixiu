@@ -84,91 +84,15 @@ func YAMLConfigLoad(path string) *model.Bootstrap {
 		log.Fatalln("[config] [yaml load] load config failed, ", err)
 	}
 	cfg := &model.Bootstrap{}
-
 	bytes, err := yaml.YAMLToJSON(content)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] convert YAML to JSON failed, ", err)
 	}
-
 	err = json.Unmarshal(bytes, cfg)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] yaml unmarshal config failed, ", err)
 	}
-
-	// other adapter
-
-	for i, l := range cfg.StaticResources.Listeners {
-		if l.Address.SocketAddress.ProtocolStr == "" {
-			l.Address.SocketAddress.ProtocolStr = "HTTP"
-		}
-		l.Address.SocketAddress.Protocol = model.ProtocolType(model.ProtocolTypeValue[l.Address.SocketAddress.ProtocolStr])
-
-		hc := &model.HttpConfig{}
-		if l.Config != nil {
-			if v, ok := l.Config.(map[string]interface{}); ok {
-				switch l.Name {
-				case "net/http":
-					if err := mapstructure.Decode(v, hc); err != nil {
-						logger.Error(err)
-					}
-
-					cfg.StaticResources.Listeners[i].Config = hc
-				}
-			}
-		}
-
-		for _, fc := range l.FilterChains {
-			if fc.Filters != nil {
-				for i, fcf := range fc.Filters {
-					hcm := &model.HttpConnectionManager{}
-					if fcf.Config != nil {
-						switch fcf.Name {
-						case "dgp.filters.http_connect_manager":
-							if v, ok := fcf.Config.(map[string]interface{}); ok {
-								if err := mapstructure.Decode(v, hcm); err != nil {
-									logger.Error(err)
-								}
-
-								fc.Filters[i].Config = hcm
-							}
-						}
-					}
-				}
-			}
-		}
-
-	}
-
-	for _, c := range cfg.StaticResources.Clusters {
-		var discoverType int32
-		if c.TypeStr != "" {
-			if t, ok := model.DiscoveryTypeValue[c.TypeStr]; ok {
-				discoverType = t
-			} else {
-				c.TypeStr = "EDS"
-				discoverType = model.DiscoveryTypeValue[c.TypeStr]
-			}
-		} else {
-			c.TypeStr = "EDS"
-			discoverType = model.DiscoveryTypeValue[c.TypeStr]
-		}
-		c.Type = model.DiscoveryType(discoverType)
-
-		var lbPolicy int32
-		if c.LbStr != "" {
-			if lb, ok := model.LbPolicyValue[c.LbStr]; ok {
-				lbPolicy = lb
-			} else {
-				c.LbStr = "RoundRobin"
-				lbPolicy = model.LbPolicyValue[c.LbStr]
-			}
-		} else {
-			c.LbStr = "RoundRobin"
-			lbPolicy = model.LbPolicyValue[c.LbStr]
-		}
-		c.Lb = model.LbPolicy(lbPolicy)
-	}
-
+	adapter(cfg)
 	return cfg
 }
 
@@ -186,4 +110,97 @@ func DefaultConfigLoad(path string) *model.Bootstrap {
 		log.Fatalln("[config] [default load] json unmarshal config failed, ", err)
 	}
 	return cfg
+}
+
+func adapter(cfg *model.Bootstrap) {
+	FilterChain(cfg)
+	HttpConfig(cfg)
+	Protocol(cfg)
+	LoadBalance(cfg)
+	DiscoverType(cfg)
+}
+
+func Protocol(cfg *model.Bootstrap) {
+	for _, l := range cfg.StaticResources.Listeners {
+		if l.Address.SocketAddress.ProtocolStr == "" {
+			l.Address.SocketAddress.ProtocolStr = "HTTP"
+		}
+		l.Address.SocketAddress.Protocol = model.ProtocolType(model.ProtocolTypeValue[l.Address.SocketAddress.ProtocolStr])
+	}
+}
+
+func HttpConfig(cfg *model.Bootstrap) {
+	for i, l := range cfg.StaticResources.Listeners {
+		hc := &model.HttpConfig{}
+		if l.Config != nil {
+			if v, ok := l.Config.(map[string]interface{}); ok {
+				switch l.Name {
+				case "net/http":
+					if err := mapstructure.Decode(v, hc); err != nil {
+						logger.Error(err)
+					}
+					cfg.StaticResources.Listeners[i].Config = hc
+				}
+			}
+		}
+	}
+}
+
+func FilterChain(cfg *model.Bootstrap) {
+	for _, l := range cfg.StaticResources.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.Filters != nil {
+				for i, fcf := range fc.Filters {
+					hcm := &model.HttpConnectionManager{}
+					if fcf.Config != nil {
+						switch fcf.Name {
+						case "dgp.filters.http_connect_manager":
+							if v, ok := fcf.Config.(map[string]interface{}); ok {
+								if err := mapstructure.Decode(v, hcm); err != nil {
+									logger.Error(err)
+								}
+								fc.Filters[i].Config = hcm
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func LoadBalance(cfg *model.Bootstrap) {
+	for _, c := range cfg.StaticResources.Clusters {
+		var lbPolicy int32
+		if c.LbStr != "" {
+			if lb, ok := model.LbPolicyValue[c.LbStr]; ok {
+				lbPolicy = lb
+			} else {
+				c.LbStr = "RoundRobin"
+				lbPolicy = model.LbPolicyValue[c.LbStr]
+			}
+		} else {
+			c.LbStr = "RoundRobin"
+			lbPolicy = model.LbPolicyValue[c.LbStr]
+		}
+		c.Lb = model.LbPolicy(lbPolicy)
+	}
+}
+
+func DiscoverType(cfg *model.Bootstrap) {
+	for _, c := range cfg.StaticResources.Clusters {
+		var discoverType int32
+		if c.TypeStr != "" {
+			if t, ok := model.DiscoveryTypeValue[c.TypeStr]; ok {
+				discoverType = t
+			} else {
+				c.TypeStr = "EDS"
+				discoverType = model.DiscoveryTypeValue[c.TypeStr]
+			}
+		} else {
+			c.TypeStr = "EDS"
+			discoverType = model.DiscoveryTypeValue[c.TypeStr]
+		}
+		c.Type = model.DiscoveryType(discoverType)
+	}
 }
