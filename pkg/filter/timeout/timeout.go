@@ -38,7 +38,7 @@ import (
 )
 
 // nolint
-func Init() {
+func init() {
 	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
 }
 

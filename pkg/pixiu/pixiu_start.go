@@ -29,7 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	// The filter needs to be initialized
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/initialize"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/initialize"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/service/api"
@@ -71,7 +71,6 @@ func (p *PX) Start() {
 }
 
 func (p *PX) beforeStart() {
-	initialize.Run()
 	dubbo.SingletonDubboClient().Init()
 	api.InitAPIsFromConfig(config.GetAPIConf())
 }

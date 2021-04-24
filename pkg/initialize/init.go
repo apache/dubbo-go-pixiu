@@ -18,32 +18,12 @@
 package initialize
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/api"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/remote"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/response"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
-	sa "github.com/apache/dubbo-go-pixiu/pkg/service/api"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/api"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/logger"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/remote"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/response"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
-
-// Run start init.
-func Run() {
-	filterInit()
-	apiDiscoveryServiceInit()
-}
-
-func filterInit() {
-	api.Init()
-	authority.Init()
-	logger.Init()
-	recovery.Init()
-	remote.Init()
-	response.Init()
-	timeout.Init()
-}
-
-func apiDiscoveryServiceInit() {
-	sa.Init()
-}

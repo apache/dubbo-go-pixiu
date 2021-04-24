@@ -41,7 +41,7 @@ import (
 )
 
 // nolint
-func Init() {
+func init() {
 	extension.SetFilterFunc(constant.ResponseFilter, responseFilterFunc())
 }
 

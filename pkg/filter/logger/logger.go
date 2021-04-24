@@ -33,7 +33,7 @@ import (
 )
 
 // nolint
-func Init() {
+func init() {
 	extension.SetFilterFunc(constant.LoggerFilter, loggerFilterFunc())
 }
 

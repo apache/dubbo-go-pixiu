@@ -37,7 +37,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context"
 	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/service/api"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
 func getTestContext() *ctxHttp.HttpContext {
@@ -67,7 +67,6 @@ func getTestContext() *ctxHttp.HttpContext {
 }
 
 func TestRouteRequest(t *testing.T) {
-	api.Init()
 	mockAPI := mock.GetMockAPI(config.MethodPost, "/mock/test")
 	mockAPI.Method.OnAir = false
 
