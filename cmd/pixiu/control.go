@@ -18,6 +18,7 @@
 package main
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"runtime"
 )
 
@@ -77,44 +78,7 @@ var (
 				Usage: "dubbogo pixiu schedule threads count",
 			},
 		},
-		Action: func(c *cli.Context) error {
-			configPath := c.String("config")
-			apiConfigPath := c.String("api-config")
-			flagLogLevel := c.String("log-level")
-			logConfPath := c.String("log-config")
-
-			bootstrap := config.Load(configPath)
-			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
-				logger.SetLoggerLevel(logLevel)
-			}
-			logger.InitLog(logConfPath)
-
-			initFromRemote := false
-			if bootstrap.GetAPIMetaConfig() != nil {
-				if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
-					logger.Errorf("load api config from etcd error:%+v", err)
-				} else {
-					initFromRemote = true
-				}
-			}
-
-			if !initFromRemote {
-				if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
-					logger.Errorf("load api config error:%+v", err)
-					return err
-				}
-			}
-
-			limitCpus := c.Int("limit-cpus")
-			if limitCpus <= 0 {
-				runtime.GOMAXPROCS(runtime.NumCPU())
-			} else {
-				runtime.GOMAXPROCS(limitCpus)
-			}
-
-			pixiu.Start(bootstrap)
-			return nil
-		},
+		Action: PixiuAction,
 	}
 
 	cmdStop = cli.Command{
@@ -133,3 +97,47 @@ var (
 		},
 	}
 )
+
+func PixiuAction(c *cli.Context) error {
+	configPath := c.String("config")
+	apiConfigPath := c.String("api-config")
+	flagLogLevel := c.String("log-level")
+	logConfPath := c.String("log-config")
+	bootstrap := config.Load(configPath)
+	if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
+		logger.SetLoggerLevel(logLevel)
+	}
+	logger.InitLog(logConfPath)
+	if err := GetAPIConfig(bootstrap, apiConfigPath); err != nil {
+		return err
+	}
+	InitNumCPU(c)
+	pixiu.Start(bootstrap)
+	return nil
+}
+
+func GetAPIConfig(bootstrap *model.Bootstrap, apiConfigPath string) error {
+	metaConfig := bootstrap.GetAPIMetaConfig()
+	switch metaConfig {
+	case nil:
+		if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
+			logger.Errorf("load api config error:%+v", err)
+			return err
+		}
+	default:
+		if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
+			logger.Errorf("load api config from etcd error:%+v", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func InitNumCPU(c *cli.Context) {
+	limitCpus := c.Int("limit-cpus")
+	if limitCpus <= 0 {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	} else {
+		runtime.GOMAXPROCS(limitCpus)
+	}
+}

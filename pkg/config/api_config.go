@@ -72,37 +72,30 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 		etcdv3.WithTimeout(10*time.Second),
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
-
 	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath)
-
 	content, err := client.Get(metaConfig.APIConfigPath)
 	if err != nil {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
 	}
-
 	if err = initAPIConfigFromString(content); err != nil {
 		return nil, err
 	}
-
 	return apiConfig, nil
 }
 
 func initAPIConfigFromString(content string) error {
 	lock.Lock()
 	defer lock.Unlock()
-
 	apiConf := &fc.APIConfig{}
 	if len(content) != 0 {
 		err := yaml.UnmarshalYML([]byte(content), apiConf)
 		if err != nil {
 			return perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 		}
-
 		valid := validateAPIConfig(apiConf)
 		if !valid {
 			return perrors.Errorf("api config not valid error %v", perrors.WithStack(err))
 		}
-
 		apiConfig = apiConf
 	}
 	return nil
@@ -129,9 +122,7 @@ func listenAPIConfigNodeEvent(key string) bool {
 			logger.Warnf("Watch api config {key:%s} = error{%v}", key, err)
 			return false
 		}
-
 		select {
-
 		// client stopped
 		case <-client.Done():
 			logger.Warnf("client stopped")
@@ -143,7 +134,6 @@ func listenAPIConfigNodeEvent(key string) bool {
 				logger.Warnf("watch-chan closed")
 				return false
 			}
-
 			if e.Err() != nil {
 				logger.Errorf("watch ERR {err: %s}", e.Err())
 				continue

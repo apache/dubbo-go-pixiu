@@ -39,18 +39,15 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 )
 
-// Version pixiu version
 var Version = "0.1.0"
 
-// main pixiu run method
 func main() {
-	app := newPXApp(&cmdStart)
-
+	app := newPXApp()
 	// ignore error so we don't exit non-zero and break gfmrun README example tests
 	_ = app.Run(os.Args)
 }
 
-func newPXApp(startCmd *cli.Command) *cli.App {
+func newPXApp() *cli.App {
 	app := cli.NewApp()
 	app.Name = "dubbogo pixiu"
 	app.Version = Version
@@ -58,22 +55,16 @@ func newPXApp(startCmd *cli.Command) *cli.App {
 	app.Copyright = "(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo"
 	app.Usage = "Dubbogo pixiu is a lightweight gateway."
 	app.Flags = cmdStart.Flags
-
-	// commands
 	app.Commands = []cli.Command{
 		cmdStart,
 		cmdStop,
 		cmdReload,
 	}
-
-	// action
 	app.Action = func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
 			return cli.ShowAppHelp(c)
 		}
-
-		return startCmd.Action.(func(c *cli.Context) error)(c)
+		return cmdStart.Action.(func(c *cli.Context) error)(c)
 	}
-
 	return app
 }

@@ -43,20 +43,15 @@ type PX struct {
 // Start pixiu start
 func (p *PX) Start() {
 	conf := config.GetBootstrap()
-
 	p.startWG.Add(1)
-
 	defer func() {
 		if re := recover(); re != nil {
 			logger.Error(re)
 			// TODO stop
 		}
 	}()
-
 	p.beforeStart()
-
 	listeners := conf.GetListeners()
-
 	for _, s := range listeners {
 		ls := ListenerService{Listener: &s}
 		go ls.Start()
@@ -77,9 +72,7 @@ func (p *PX) Start() {
 
 func (p *PX) beforeStart() {
 	initialize.Run()
-
 	dubbo.SingletonDubboClient().Init()
-
 	api.InitAPIsFromConfig(config.GetAPIConf())
 }
 
@@ -92,9 +85,7 @@ func NewPX() *PX {
 
 func Start(bs *model.Bootstrap) {
 	logger.Infof("[dubbopixiu go] start by config : %+v", bs)
-
 	proxy := NewPX()
 	proxy.Start()
-
 	proxy.startWG.Wait()
 }
