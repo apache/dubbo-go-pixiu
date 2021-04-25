@@ -49,7 +49,7 @@ func GetBootstrap() *model.Bootstrap {
 func Load(path string) *model.Bootstrap {
 	logger.Infof("[dubbopixiu go] load path:%s", path)
 	configPath, _ = filepath.Abs(path)
-	if yamlFormat(configPath) {
+	if configPath != "" && yamlFormat(configPath) {
 		RegisterConfigLoadFunc(YAMLConfigLoad)
 	}
 	if cfg := configLoadFunc(configPath); cfg != nil {
