@@ -48,15 +48,13 @@ func GetBootstrap() *model.Bootstrap {
 // Load config file and parse
 func Load(path string) *model.Bootstrap {
 	logger.Infof("[dubbopixiu go] load path:%s", path)
-
 	configPath, _ = filepath.Abs(path)
-	if yamlFormat(path) {
+	if yamlFormat(configPath) {
 		RegisterConfigLoadFunc(YAMLConfigLoad)
 	}
-	if cfg := configLoadFunc(path); cfg != nil {
+	if cfg := configLoadFunc(configPath); cfg != nil {
 		config = cfg
 	}
-
 	return config
 }
 
@@ -98,7 +96,7 @@ func YAMLConfigLoad(path string) *model.Bootstrap {
 
 // DefaultConfigLoad if not config, will load this
 func DefaultConfigLoad(path string) *model.Bootstrap {
-	log.Println("load config from : ", path)
+	logger.Debug("load config from : ", path)
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Fatalln("[config] [default load] load config failed, ", err)
@@ -188,8 +186,8 @@ func LoadBalance(cfg *model.Bootstrap) {
 }
 
 func DiscoverType(cfg *model.Bootstrap) {
+	var discoverType int32
 	for _, c := range cfg.StaticResources.Clusters {
-		var discoverType int32
 		if c.TypeStr != "" {
 			if t, ok := model.DiscoveryTypeValue[c.TypeStr]; ok {
 				discoverType = t
