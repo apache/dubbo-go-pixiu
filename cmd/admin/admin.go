@@ -19,20 +19,24 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/gin-gonic/gin"
-	perrors "github.com/pkg/errors"
-	"github.com/urfave/cli"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
+	"github.com/gin-gonic/gin"
+	perrors "github.com/pkg/errors"
+	"github.com/urfave/cli"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // AdminBootstrap admin bootstrap config
@@ -108,6 +112,8 @@ var (
 const Version = "0.1.0"
 const Base = "base"
 const Resources = "Resources"
+const PluginGroup = "pluginGroup"
+
 const Plugin = "plugin"
 const OK = "10001"
 const ERR = "10002"
@@ -148,7 +154,7 @@ func LoadAPIConfigFromFile(path string) (*AdminBootstrap, error) {
 	if err != nil {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 	}
-	bootstrap = adminBootstrap
+	Bootstrap = adminBootstrap
 	return adminBootstrap, nil
 }
 
@@ -159,8 +165,8 @@ func main() {
 }
 
 var (
-	client    *etcdv3.Client
-	bootstrap *AdminBootstrap
+	Client    *etcdv3.Client
+	Bootstrap *AdminBootstrap
 )
 
 // Start start init etcd client and start admin http server
@@ -168,7 +174,7 @@ func Start() {
 	newClient, err := etcdv3.NewConfigClient(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(20*time.Second),
-		etcdv3.WithEndpoints(strings.Split(bootstrap.EtcdConfig.Address, ",")...),
+		etcdv3.WithEndpoints(strings.Split(Bootstrap.EtcdConfig.Address, ",")...),
 	)
 
 	if err != nil {
@@ -176,80 +182,36 @@ func Start() {
 		return
 	}
 
-	client = newClient
-	defer client.Close()
+	Client = newClient
+	defer Client.Close()
 
 	r := SetupRouter()
-	r.Run(bootstrap.Server.Address) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	r.Run(Bootstrap.Server.Address) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
 	r.GET("/config/api/base", GetBaseInfo)
-	r.POST("/config/api/base/set", SetBaseInfo)
+	r.POST("/config/api/base/", SetBaseInfo)
+	r.PUT("/config/api/base/", SetBaseInfo)
 	r.GET("/config/api/resource/list", GetResourceList)
-	r.POST("/config/api/resource/create", CreateResourceInfo)
-	//r.POST("/config/api/resource/modify", UpdateResourceInfo)
+	r.GET("/config/api/resource/detail", GetResourceDetail)
+	r.POST("/config/api/resource", SetResourceInfo)
+	r.PUT("/config/api/resource", ModifyResourceInfo)
+	r.DELETE("/config/api/resource", DeleteResourceInfo)
+	r.GET("/config/api/resource/method/list", GetMethodList)
+	r.GET("/config/api/resource/method/detail", GetMethodDetail)
+	r.POST("/config/api/resource/method", SetMethodInfo)
+	r.PUT("/config/api/resource/method", ModifyMethodInfo)
+	r.DELETE("/config/api/resource/method", DeleteMethodInfo)
+	r.GET("/config/api/plugin_group/list", GetPluginGroupList)
+	r.GET("/config/api/plugin_group/detail", GetPluginGroupDetail)
+	r.POST("/config/api/plugin_group", CreatePluginGroup)
+	r.PUT("/config/api/plugin_group", ModifyPluginGroup)
+	r.DELETE("/config/api/plugin_group", DeletePluginGroup)
 
 	return r
-}
-
-// SetBaseInfo handle modify base info http request
-func SetBaseInfo(c *gin.Context) {
-	body := c.PostForm("content")
-
-	baseInfo := &BaseInfo{}
-	err := yaml.UnmarshalYML([]byte(body), baseInfo)
-
-	if err != nil {
-		logger.Warnf("read body err, %v\n", err)
-		c.String(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	setErr := BizSetBaseInfo(baseInfo)
-
-	if setErr != nil {
-		c.String(http.StatusOK, err.Error())
-	}
-	c.String(http.StatusOK, "success")
-}
-
-func BizSetBaseInfo(info *BaseInfo) error {
-	// validate the api config
-
-	data, _ := yaml.MarshalYML(info)
-	setErr := client.Update(getRootPath(Base), string(data))
-
-	if setErr != nil {
-		logger.Warnf("update etcd error, %v\n", setErr)
-		return perrors.WithMessage(setErr, "BizSetBaseInfo error")
-	}
-	return nil
-}
-
-// GetBaseInfo get base info
-func GetBaseInfo(c *gin.Context) {
-	config, err := BizGetBaseInfo()
-	if err != nil {
-		c.JSON(http.StatusOK, WithError(err))
-		return
-	}
-	data, _ := yaml.MarshalYML(config)
-	c.JSON(http.StatusOK, WithRet(string(data)))
-}
-
-func BizGetBaseInfo() (*BaseInfo, error) {
-	config, err := client.Get(getRootPath(Base))
-	if err != nil {
-		logger.Errorf("GetBaseInfo err, %v\n", err)
-		return nil, perrors.WithMessage(err, "BizGetBaseInfo error")
-	}
-	data := &BaseInfo{}
-	_ = yaml.UnmarshalYML([]byte(config), data)
-
-	return data, nil
 }
 
 // GetResourceList get all resource list
@@ -263,54 +225,97 @@ func GetResourceList(c *gin.Context) {
 	c.JSON(http.StatusOK, WithRet(string(data)))
 }
 
-func BizGetResourceList() ([]fc.Resource, error) {
-	_, vList, err := client.GetChildrenKVList(getRootPath(Resources))
+// GetResourceList get all resource list
+func GetMethodList(c *gin.Context) {
+	path := c.Query("path")
+
+	res, err := BizGetMethodList(path)
 	if err != nil {
-		logger.Errorf("GetResourceList err, %v\n", err)
-		return nil, perrors.WithMessage(err, "BizGetResourceList error")
+		c.JSON(http.StatusOK, WithError(err))
+		return
 	}
-
-	var ret []fc.Resource
-	for _, v := range vList {
-		res := fc.Resource{}
-		err := yaml.UnmarshalYML([]byte(v), res)
-		if err != nil {
-			logger.Errorf("UnmarshalYML err, %v\n", err)
-		}
-		ret = append(ret, res)
-	}
-
-	return ret, nil
+	data, _ := json.Marshal(res)
+	c.JSON(http.StatusOK, WithRet(string(data)))
 }
 
-// SetResourceInfo modify resource info exclude
-func SetResourceInfo(w http.ResponseWriter, req *http.Request) {
+// SetBaseInfo handle create base info http request
+func SetBaseInfo(c *gin.Context) {
+	body := c.PostForm("content")
 
-}
+	baseInfo := &BaseInfo{}
+	err := yaml.UnmarshalYML([]byte(body), baseInfo)
 
-func BizCreateResourceInfo(res *fc.Resource) error {
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		c.String(http.StatusBadRequest, err.Error())
+		return
+	}
 
-	methods := res.Methods
-	// 创建 methods
-	BizCreateResourceMethod(res.Path, methods)
-	// 创建resource
-	res.Methods = nil
-	data, _ := yaml.MarshalYML(res)
-	setErr := client.Create(getRootPath(Resources)+"/"+res.Path, string(data))
+	setErr := BizSetBaseInfo(baseInfo, true)
 
 	if setErr != nil {
-		logger.Warnf("update etcd error, %v\n", setErr)
-		return perrors.WithMessage(setErr, "BizCreateResourceInfo error")
+		c.String(http.StatusOK, err.Error())
 	}
-	return nil
+	c.String(http.StatusOK, "success")
 }
 
-func BizModifyResourceInfo(res fc.Resource) {
-
+// GetBaseInfo business layer get base info
+func GetBaseInfo(c *gin.Context) {
+	config, err := BizGetBaseInfo()
+	if err != nil {
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+	data, _ := yaml.MarshalYML(config)
+	c.JSON(http.StatusOK, WithRet(string(data)))
 }
 
-// CreateResourceInfo create resource
-func CreateResourceInfo(c *gin.Context) {
+// ModifyBaseInfo handle modify base info http request
+func ModifyBaseInfo(c *gin.Context) {
+	body := c.PostForm("content")
+
+	baseInfo := &BaseInfo{}
+	err := yaml.UnmarshalYML([]byte(body), baseInfo)
+
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		c.String(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	setErr := BizSetBaseInfo(baseInfo, false)
+
+	if setErr != nil {
+		c.String(http.StatusOK, err.Error())
+	}
+	c.String(http.StatusOK, "success")
+}
+
+// GetResourceDetail get resource detail with yml
+func GetResourceDetail(c *gin.Context) {
+	path := c.Query("path")
+	res, err := BizGetResourceDetail(path)
+	if err != nil {
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+	c.JSON(http.StatusOK, WithRet(res))
+}
+
+// GetMethodDetail get method detail with yml
+func GetMethodDetail(c *gin.Context) {
+	path := c.Query("path")
+	method := c.Query("method")
+	res, err := BizGetMethodDetail(path, method)
+	if err != nil {
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+	c.JSON(http.StatusOK, WithRet(res))
+}
+
+// SetResourceInfo create resource
+func SetResourceInfo(c *gin.Context) {
 	body := c.PostForm("content")
 
 	res := &fc.Resource{}
@@ -322,7 +327,28 @@ func CreateResourceInfo(c *gin.Context) {
 		return
 	}
 
-	setErr := BizCreateResourceInfo(res)
+	setErr := BizSetResourceInfo(res, true)
+
+	if setErr != nil {
+		c.JSON(http.StatusOK, WithError(err))
+	}
+	c.JSON(http.StatusOK, WithRet("Success"))
+}
+
+// ModifyResourceInfo modify resource
+func ModifyResourceInfo(c *gin.Context) {
+	body := c.PostForm("content")
+
+	res := &fc.Resource{}
+	err := yaml.UnmarshalYML([]byte(body), res)
+
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+
+	setErr := BizSetResourceInfo(res, false)
 
 	if setErr != nil {
 		c.JSON(http.StatusOK, WithError(err))
@@ -331,83 +357,144 @@ func CreateResourceInfo(c *gin.Context) {
 }
 
 // DeleteResourceInfo delete resource
-func DeleteResourceInfo(w http.ResponseWriter, req *http.Request) {
+func DeleteResourceInfo(c *gin.Context) {
+	path := c.Query("path")
+	err := BizDeleteResourceInfo(path)
 
-}
-
-// GetResourceMethodList get method info list below resource
-func GetResourceMethodList(w http.ResponseWriter, req *http.Request) {
-
-}
-
-// ModifyResourceMethod get method info below resource
-func ModifyResourceMethod(w http.ResponseWriter, req *http.Request) {
-
-}
-
-// BizCreateResourceMethod batch create method below specific path
-func BizCreateResourceMethod(root string, methods []fc.Method) error {
-	var kList, vList []string
-
-	for _, method := range methods {
-		kList = append(kList, root+"/"+string(method.HTTPVerb))
-		data, _ := yaml.MarshalYML(method)
-		vList = append(vList, string(data))
-	}
-
-	err := client.BatchCreate(kList, vList)
 	if err != nil {
-		logger.Warnf("update etcd error, %v\n", err)
-		return perrors.WithMessage(err, "BizCreateResourceMethod error")
+		c.JSON(http.StatusOK, WithError(err))
 	}
-	return nil
+	c.JSON(http.StatusOK, WithRet("Success"))
 }
 
-// DeleteResourceMethod delete method below resource
-func DeleteResourceMethod(w http.ResponseWriter, req *http.Request) {
+// DeleteResourceInfo delete method
+func DeleteMethodInfo(c *gin.Context) {
+	path := c.Query("path")
+	method := c.Query("method")
+	err := BizDeleteMethodInfo(path, method)
 
-}
-
-// GetPluginGroupList get plugin group list
-func GetPluginGroupList(w http.ResponseWriter, req *http.Request) {
-
-}
-
-// ModifyPluginGroup modify plugin group
-func ModifyPluginGroup(w http.ResponseWriter, req *http.Request) {
-
-}
-
-// DeletePluginGroup delete plugin group
-func DeletePluginGroup(w http.ResponseWriter, req *http.Request) {
-
-}
-
-// SetAPIConfig handle modify api config http request
-func SetAPIConfig(w http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		logger.Errorf("read body err, %v\n", err)
-		return
+		c.JSON(http.StatusOK, WithError(err))
 	}
-	// validate the api config
-	apiConf := &fc.APIConfig{}
-	err = yaml.UnmarshalYML([]byte(body), apiConf)
+	c.JSON(http.StatusOK, WithRet("Success"))
+}
+
+// SetMethodInfo create method
+func SetMethodInfo(c *gin.Context) {
+	body := c.PostForm("content")
+	path := c.Query("path")
+
+	res := &fc.Method{}
+	err := yaml.UnmarshalYML([]byte(body), res)
 
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.JSON(http.StatusOK, WithError(err))
 		return
 	}
 
-	setErr := client.Update(bootstrap.EtcdConfig.Path, string(body))
+	setErr := BizSetResourceMethod(path, res, true)
+
 	if setErr != nil {
-		logger.Warnf("update etcd error, %v\n", err)
-		w.Write([]byte(setErr.Error()))
+		c.JSON(http.StatusOK, WithError(err))
 	}
-	w.Write([]byte("Success"))
+	c.JSON(http.StatusOK, WithRet("Success"))
 }
 
-func getRootPath(key string) string {
-	return bootstrap.EtcdConfig.Path + "/" + key
+// ModifyMethodInfo modify method
+func ModifyMethodInfo(c *gin.Context) {
+	body := c.PostForm("content")
+	path := c.Query("path")
+
+	res := &fc.Method{}
+	err := yaml.UnmarshalYML([]byte(body), res)
+
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+
+	setErr := BizSetResourceMethod(path, res, false)
+
+	if setErr != nil {
+		c.JSON(http.StatusOK, WithError(err))
+	}
+	c.JSON(http.StatusOK, WithRet("Success"))
+}
+
+// GetPluginGroupList get plugin group list
+func GetPluginGroupList(c *gin.Context) {
+	res, err := BizGetPluginGroupList()
+	if err != nil {
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+	data, _ := json.Marshal(res)
+	c.JSON(http.StatusOK, WithRet(string(data)))
+}
+
+// GetPluginGroupDetail get plugin group list
+func GetPluginGroupDetail(c *gin.Context) {
+	name := c.Query("name")
+
+	res, err := BizGetPluginGroupDetail(name)
+	if err != nil {
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+	c.JSON(http.StatusOK, WithRet(res))
+}
+
+// CreatePluginGroup create plugin group
+func CreatePluginGroup(c *gin.Context) {
+	body := c.PostForm("content")
+
+	res := &fc.PluginsGroup{}
+	err := yaml.UnmarshalYML([]byte(body), res)
+
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+
+	setErr := BizSetPluginGroupInfo(res, true)
+
+	if setErr != nil {
+		c.JSON(http.StatusOK, WithError(err))
+	}
+	c.JSON(http.StatusOK, WithRet("Success"))
+}
+
+// ModifyPluginGroup modify plugin group
+func ModifyPluginGroup(c *gin.Context) {
+	body := c.PostForm("content")
+
+	res := &fc.PluginsGroup{}
+	err := yaml.UnmarshalYML([]byte(body), res)
+
+	if err != nil {
+		logger.Warnf("read body err, %v\n", err)
+		c.JSON(http.StatusOK, WithError(err))
+		return
+	}
+
+	setErr := BizSetPluginGroupInfo(res, true)
+
+	if setErr != nil {
+		c.JSON(http.StatusOK, WithError(err))
+	}
+	c.JSON(http.StatusOK, WithRet("Success"))
+}
+
+// DeletePluginGroup delete plugin group
+func DeletePluginGroup(c *gin.Context) {
+	name := c.Query("name")
+	err := BizDeletePluginGroupInfo(name)
+
+	if err != nil {
+		c.JSON(http.StatusOK, WithError(err))
+	}
+	c.JSON(http.StatusOK, WithRet("Success"))
 }

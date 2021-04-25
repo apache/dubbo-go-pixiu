@@ -66,8 +66,8 @@ func (suite *AdminTestSuite) TestGetBaseInfo() {
 }
 
 func TestGetBaseInfo(t *testing.T) {
-	str := "path: '/api/v1/test-dubbo/user'\n    type: restful\n    description: user\n    timeout: 100ms\n    plugins:\n      pre:\n        pluginNames:\n          - rate limit\n          - access\n      post:\n        groupNames:\n          - group2\n    methods:\n      - httpVerb: GET\n        onAir: true\n        timeout: 1000ms\n        inboundRequest:\n          requestType: http\n          queryStrings:\n            - name: name\n              required: true\n        integrationRequest:\n          requestType: http\n          host: 127.0.0.1:8889\n          path: /UserProvider/GetUserByName\n          mappingParams:\n            - name: queryStrings.name\n              mapTo: queryStrings.name\n          group: \"test\"\n          version: 1.0.0\n      - httpVerb: POST\n        onAir: true\n        timeout: 1000ms\n        inboundRequest:\n          requestType: http\n          queryStrings:\n            - name: name\n              required: true\n        integrationRequest:\n          requestType: http\n          host: 127.0.0.1:8889\n          path: /UserProvider/CreateUser\n          group: \"test\"\n          version: 1.0.0"
-	res := &fc.Resource{}
+	str := "httpVerb: GET\nonAir: true\ntimeout: 1000ms\ninboundRequest:\n    requestType: http\n    queryStrings:\n    - name: name\n        required: true\nintegrationRequest:\n    requestType: http\n    host: 127.0.0.1:8889\n    path: /UserProvider/GetUserByName\n    mappingParams:\n    - name: queryStrings.name\n        mapTo: queryStrings.name\n    group: \"test\"\n    version: 1.0.0"
+	res := &fc.Method{}
 	err := yaml.UnmarshalYML([]byte(str), res)
 	if err != nil {
 
