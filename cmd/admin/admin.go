@@ -33,9 +33,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
-	etcdv3 "github.com/dubbogo/dubbo-go-pixiu/pkg/remoting/etcd3"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	etcdv3 "github.com/apache/dubbo-go-pixiu/pkg/remoting/etcd3"
 )
 
 // AdminBootstrap admin bootstrap config
@@ -100,13 +100,13 @@ func newAdminApp(startCmd *cli.Command) *cli.App {
 	app.Usage = "Dubbogo pixiu admin"
 	app.Flags = cmdStart.Flags
 
-	//commands
+	// commands
 	app.Commands = []cli.Command{
 		cmdStart,
 		cmdStop,
 	}
 
-	//action
+	// action
 	app.Action = func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
 			return cli.ShowAppHelp(c)
@@ -169,7 +169,6 @@ func GetAPIConfig(w http.ResponseWriter, req *http.Request) {
 
 // SetAPIConfig handle modify api config http request
 func SetAPIConfig(w http.ResponseWriter, req *http.Request) {
-
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		logger.Errorf("read body err, %v\n", err)

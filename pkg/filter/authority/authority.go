@@ -27,10 +27,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // nolint
@@ -43,8 +43,7 @@ func authorityFilterFunc() context.FilterFunc {
 }
 
 // authorityFilter is a filter for blacklist/whitelist.
-type authorityFilter struct {
-}
+type authorityFilter struct{}
 
 // New create blacklist/whitelist filter.
 func New() filter.Filter {

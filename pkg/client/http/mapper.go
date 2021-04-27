@@ -34,9 +34,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 var mappers = map[string]client.ParamMapper{
@@ -135,7 +135,6 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget int
 		return err
 	}
 	if to == constant.RequestURI {
-
 	}
 	uriValues := router.GetURIParams(&c.API, *c.IngressRequest.URL)
 	if uriValues == nil {
@@ -204,7 +203,7 @@ func setMapWithPath(targetMap map[string]interface{}, path string, val interface
 	}
 	if !ok && len(keys) != 1 {
 		targetMap[keys[0]] = make(map[string]interface{})
-		targetMap[keys[0]] = setMapWithPath(targetMap[keys[0]].(map[string]interface{}), strings.Join(keys[1:len(keys)], constant.Dot), val)
+		targetMap[keys[0]] = setMapWithPath(targetMap[keys[0]].(map[string]interface{}), strings.Join(keys[1:], constant.Dot), val)
 	}
 	return targetMap
 }
