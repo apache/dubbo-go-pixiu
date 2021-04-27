@@ -22,7 +22,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// DefaultHttpConnectionManager
 func DefaultHttpConnectionManager() *model.HttpConnectionManager {
 	return &model.HttpConnectionManager{
 		RouteConfig: model.RouteConfiguration{
