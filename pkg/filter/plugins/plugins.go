@@ -42,13 +42,13 @@ var (
 
 // FilterChain include Pre & Post filters
 type FilterChain struct {
-	Pre    context.FilterChain
+	Pre  context.FilterChain
 	Post context.FilterChain
 }
 
 // WithFunc is a single plugin details
 type WithFunc struct {
-	Name  string
+	Name     string
 	Priority int
 	fn       context.FilterFunc
 }
