@@ -17,7 +17,7 @@
 
 package dubbo
 
-import "github.com/dubbogo/dubbo-go-pixiu/pkg/client"
+import "github.com/apache/dubbo-go-pixiu/pkg/client"
 
 // option keys
 const (
@@ -139,7 +139,6 @@ type valuesOpt struct {
 
 // nolint
 func (opt *valuesOpt) Action(req *client.Request, val interface{}) {
-
 }
 
 func (opt *valuesOpt) VirtualPos() int {

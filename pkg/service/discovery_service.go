@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	pc "github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // DiscoveryRequest a request for discovery

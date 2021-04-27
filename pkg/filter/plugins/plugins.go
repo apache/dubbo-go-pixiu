@@ -30,8 +30,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 var (
@@ -40,7 +40,7 @@ var (
 	errEmptyPluginConfig = errors.New("Empty plugin config")
 )
 
-//FilterChain include Pre & Post filters
+// FilterChain include Pre & Post filters
 type FilterChain struct {
 	Pre  context.FilterChain
 	Post context.FilterChain
@@ -55,7 +55,6 @@ type WithFunc struct {
 
 // InitPluginsGroup prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
 func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
-
 	if "" == filePath || len(groups) == 0 {
 		return
 	}
@@ -85,7 +84,6 @@ func InitAPIURLWithFilterChain(resources []config.Resource) {
 }
 
 func pairURLWithFilterChain(parentPath string, resources []config.Resource, parentFilterChains *FilterChain) {
-
 	if len(resources) == 0 {
 		return
 	}
@@ -116,7 +114,6 @@ func pairURLWithFilterChain(parentPath string, resources []config.Resource, pare
 			pairURLWithFilterChain(resource.Path, resource.Resources, parentFilterChains)
 		}
 	}
-
 }
 
 // GetAPIFilterFuncsWithAPIURL is get filterchain with path

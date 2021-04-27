@@ -48,7 +48,7 @@ func UnmarshalYMLConfig(confProFile string, out interface{}) error {
 	return yaml.Unmarshal(confFileStream, out)
 }
 
-//UnmarshalYML unmarshals decodes the first document found within the in byte slice and assigns decoded values into the out value.
+// UnmarshalYML unmarshals decodes the first document found within the in byte slice and assigns decoded values into the out value.
 func UnmarshalYML(data []byte, out interface{}) error {
 	return yaml.Unmarshal(data, out)
 }
