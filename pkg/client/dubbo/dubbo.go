@@ -29,13 +29,13 @@ import (
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/pkg/errors"
 )
 
 // TODO java class name elem

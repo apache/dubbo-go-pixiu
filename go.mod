@@ -7,7 +7,6 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.7.0
 	github.com/coreos/etcd v3.3.25+incompatible
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210427062645-0bec837d429e
-	github.com/dubbogo/dubbo-go-proxy v0.2.0
 	github.com/dubbogo/go-zookeeper v1.0.2
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
