@@ -26,11 +26,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
-type headerFilter struct {
-}
+type headerFilter struct{}
 
 // nolint.
 func New() *headerFilter {
@@ -39,7 +38,6 @@ func New() *headerFilter {
 
 func (h *headerFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
-
 		api := c.GetAPI()
 		headers := api.Headers
 		if len(headers) <= 0 {

@@ -18,8 +18,8 @@
 package pixiu
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/header"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/plugins"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 )
 
 import (
@@ -38,15 +38,15 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
-	ctx "github.com/dubbogo/dubbo-go-pixiu/pkg/context"
-	h "github.com/dubbogo/dubbo-go-pixiu/pkg/context/http"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/host"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/replacepath"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	ctx "github.com/apache/dubbo-go-pixiu/pkg/context"
+	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/replacepath"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // ListenerService the facade of a listener

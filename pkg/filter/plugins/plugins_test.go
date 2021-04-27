@@ -25,12 +25,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
-var (
-	mockFile = "../../config/mock/api_config.yml"
-)
+var mockFile = "../../config/mock/api_config.yml"
 
 func TestInitPluginsGroup(t *testing.T) {
 	apiConfig, err := config.LoadAPIConfigFromFile(mockFile)
