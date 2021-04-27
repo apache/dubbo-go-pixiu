@@ -18,7 +18,6 @@
 package main
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"runtime"
 )
 
@@ -29,6 +28,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/pixiu"
 )
 
@@ -118,17 +118,16 @@ func PixiuAction(c *cli.Context) error {
 
 func GetAPIConfig(bootstrap *model.Bootstrap, apiConfigPath string) error {
 	metaConfig := bootstrap.GetAPIMetaConfig()
-	switch metaConfig {
-	case nil:
+	if metaConfig == nil {
 		if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
 			logger.Errorf("load api config error:%+v", err)
 			return err
 		}
-	default:
-		if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
-			logger.Errorf("load api config from etcd error:%+v", err)
-			return err
-		}
+		return nil
+	}
+	if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
+		logger.Errorf("load api config from etcd error:%+v", err)
+		return err
 	}
 	return nil
 }
