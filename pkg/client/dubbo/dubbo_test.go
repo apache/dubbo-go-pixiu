@@ -31,8 +31,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 )
 
 func TestReg(t *testing.T) {

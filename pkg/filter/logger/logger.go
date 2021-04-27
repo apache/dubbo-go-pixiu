@@ -27,9 +27,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // nolint
@@ -42,8 +42,7 @@ func loggerFilterFunc() context.FilterFunc {
 }
 
 // loggerFilter is a filter for simple logger.
-type loggerFilter struct {
-}
+type loggerFilter struct{}
 
 // New create logger filter.
 func New() filter.Filter {

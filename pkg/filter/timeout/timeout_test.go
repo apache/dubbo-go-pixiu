@@ -28,8 +28,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/filter/recovery"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestPanic(t *testing.T) {
