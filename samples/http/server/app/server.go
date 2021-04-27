@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 func main() {
@@ -74,7 +74,7 @@ func user(w http.ResponseWriter, r *http.Request) {
 			q := r.URL.Query()
 			u, b = cache.Get(q.Get("name"))
 		}
-		//w.WriteHeader(200)
+		// w.WriteHeader(200)
 		if b {
 			b, _ := json.Marshal(u)
 			w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)

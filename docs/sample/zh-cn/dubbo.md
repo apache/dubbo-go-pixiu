@@ -8,7 +8,7 @@
 * [dubbo-error](../dubbo-error.md)
 * [dubbo-incomplete](../dubbo-incomplete.md)
 
-> 基于的例子 [samples](https://github.com/dubbogo/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple)
+> 基于的例子 [samples](https://github.com/apache/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple)
 
 如何运行简单的测试例子[文档](dubbo-simple-run.md)
 

@@ -31,12 +31,12 @@ import (
 )
 
 import (
-	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/accesslog"
-	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/logger"
-	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/recovery"
-	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/remote"
-	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/response"
-	_ "github.com/dubbogo/dubbo-go-pixiu/pkg/filter/timeout"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/logger"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/remote"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/response"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 )
 
 // Version pixiu version
@@ -59,14 +59,14 @@ func newPXApp(startCmd *cli.Command) *cli.App {
 	app.Usage = "Dubbogo pixiu is a lightweight gateway."
 	app.Flags = cmdStart.Flags
 
-	//commands
+	// commands
 	app.Commands = []cli.Command{
 		cmdStart,
 		cmdStop,
 		cmdReload,
 	}
 
-	//action
+	// action
 	app.Action = func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
 			return cli.ShowAppHelp(c)

@@ -30,9 +30,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 // RestMetadata http metadata, api config
@@ -55,8 +55,7 @@ var (
 )
 
 // Client client to generic invoke dubbo
-type Client struct {
-}
+type Client struct{}
 
 // SingletonHTTPClient singleton HTTP Client
 func SingletonHTTPClient() *Client {
@@ -89,7 +88,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 		return nil, err
 	}
 
-	//Map the origin parameters to backend parameters according to the API configure
+	// Map the origin parameters to backend parameters according to the API configure
 	transformedParams, err := dc.MapParams(req)
 	if err != nil {
 		return nil, err

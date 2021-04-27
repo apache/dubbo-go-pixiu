@@ -32,9 +32,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/client"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/config"
-	"github.com/dubbogo/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/pkg/errors"
 )
 
@@ -153,7 +153,6 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	gs := dc.Get(dm)
 
 	rst, err := gs.Invoke(req.Context, []interface{}{method, types, values})
-
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +266,7 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *dg.Generic
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 	referenceConfig.GenericLoad(key)
-	time.Sleep(200 * time.Millisecond) //sleep to wait invoker create
+	time.Sleep(200 * time.Millisecond) // sleep to wait invoker create
 	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 
 	dc.GenericServicePool[key] = clientService
