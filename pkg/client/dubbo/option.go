@@ -17,7 +17,18 @@
 
 package dubbo
 
-import "github.com/apache/dubbo-go-pixiu/pkg/client"
+import (
+	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+)
 
 // option keys
 const (
@@ -41,106 +52,156 @@ var DefaultMapOption = client.MapOption{
 	optionKeyValues:      &valuesOpt{},
 }
 
-type paramTypesOpt struct {
-	client.CommonOption
-}
+type groupOpt struct{}
 
 // nolint
-func (opt *paramTypesOpt) Action(req *client.Request, val interface{}) {
-	//v, ok := val.([]interface{})
-	//if !ok {
-	//	return
-	//}
-	//
-	//var pt []string
-	//for i := range v {
-	//	ptv, ok := v[i].(string)
-	//	if ok {
-	//		pt = append(pt, ptv)
-	//	}
-	//}
-	//
-	//req.API.IntegrationRequest.DubboBackendConfig.ParamTypes = pt
-}
-
-type groupOpt struct {
-	client.CommonOption
-}
-
-// nolint
-func (opt *groupOpt) Action(req *client.Request, val interface{}) {
+func (opt *groupOpt) Action(target, val interface{}) error {
 	v, ok := val.(string)
 	if !ok {
-		return
+		return errors.New("Group value is not string")
 	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Group = v
+	r, ok := target.(*client.Request)
+	if !ok {
+		return errors.New("Target is not *client.Request in value options")
+	}
+	r.API.IntegrationRequest.DubboBackendConfig.Group = v
+	return nil
 }
 
-type versionOpt struct {
-	client.CommonOption
-}
+type versionOpt struct{}
 
 // nolint
-func (opt *versionOpt) Action(req *client.Request, val interface{}) {
+func (opt *versionOpt) Action(target, val interface{}) error {
 	v, ok := val.(string)
 	if !ok {
-		return
+		return errors.New("Version value is not string")
 	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Version = v
+	r, ok := target.(*client.Request)
+	if !ok {
+		return errors.New("Target is not *client.Request in value options")
+	}
+	r.API.IntegrationRequest.DubboBackendConfig.Version = v
+	return nil
 }
 
-type methodOpt struct {
-	client.CommonOption
-}
+type methodOpt struct{}
 
 // nolint
-func (opt *methodOpt) Action(req *client.Request, val interface{}) {
+func (opt *methodOpt) Action(target, val interface{}) error {
 	v, ok := val.(string)
 	if !ok {
-		return
+		return errors.New("Method value is not string")
 	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Method = v
+	r, ok := target.(*client.Request)
+	if !ok {
+		return errors.New("Target is not *client.Request in value options")
+	}
+	r.API.IntegrationRequest.DubboBackendConfig.Method = v
+	return nil
 }
 
-type applicationOpt struct {
-	client.CommonOption
-}
+type applicationOpt struct{}
 
 // nolint
-func (opt *applicationOpt) Action(req *client.Request, val interface{}) {
+func (opt *applicationOpt) Action(target, val interface{}) error {
 	v, ok := val.(string)
 	if !ok {
-		return
+		return errors.New("Application value is not string")
 	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.ApplicationName = v
+	r, ok := target.(*client.Request)
+	if !ok {
+		return errors.New("Target is not *client.Request in value options")
+	}
+	r.API.IntegrationRequest.DubboBackendConfig.ApplicationName = v
+	return nil
 }
 
-type interfaceOpt struct {
-	client.CommonOption
-}
+type interfaceOpt struct{}
 
 // nolint
-func (opt *interfaceOpt) Action(req *client.Request, val interface{}) {
+func (opt *interfaceOpt) Action(target, val interface{}) error {
 	v, ok := val.(string)
 	if !ok {
-		return
+		return errors.New("Interface value is not string")
 	}
-
-	req.API.IntegrationRequest.DubboBackendConfig.Interface = v
+	r, ok := target.(*client.Request)
+	if !ok {
+		return errors.New("Target is not *client.Request in value options")
+	}
+	r.API.IntegrationRequest.DubboBackendConfig.Interface = v
+	return nil
 }
 
-type valuesOpt struct {
-	client.CommonOption
+type valuesOpt struct{}
+
+// Action of valuesOpt retrieve value from [2]interface{} then assign to target, which the first element is the
+// parameter values to dubbo generic call. the second element is string, which is the types
+// for the generic call, it could be empty or types sep from ','. If empty, it should retrieve types from
+// another generic option - types.
+func (opt *valuesOpt) Action(target, val interface{}) error {
+	dubboTarget, ok := target.(*dubboTarget)
+	if !ok {
+		return errors.New("Target is not dubboTarget in value options")
+	}
+	v, ok := val.([2]interface{})
+	if !ok {
+		return errors.New("The value must be [2]interface{}")
+	}
+	var toVals []interface{}
+	toTypes := []string{}
+
+	if t, tok := v[1].(string); tok && len(t) != 0 {
+		toTypes = strings.Split(t, ",")
+	}
+	if val, vok := v[0].([]interface{}); vok {
+		toVals = val
+	} else {
+		toVals = []interface{}{v[0]}
+	}
+	if len(toTypes) != 0 && len(toTypes) == len(toVals) {
+		for i := range toVals {
+			trimType := strings.TrimSpace(toTypes[i])
+			if _, ok = constant.JTypeMapper[trimType]; ok {
+				toTypes[i] = trimType
+			} else {
+				return errors.Errorf("Types invalid %s", trimType)
+			}
+			var err error
+			toVals[i], err = mapTypes(toTypes[i], toVals[i])
+			if err != nil {
+				return errors.WithStack(err)
+			}
+		}
+	}
+	dubboTarget.Types = toTypes
+	dubboTarget.Values = toVals
+	return nil
 }
 
-// nolint
-func (opt *valuesOpt) Action(req *client.Request, val interface{}) {
-}
+type paramTypesOpt struct{}
 
-func (opt *valuesOpt) VirtualPos() int {
-	return -1
+// Action for paramTypesOpt override the other param types mapping/config.
+// The val must be []string, and will then assign to the target.(dubboTarget).Types
+func (opt *paramTypesOpt) Action(target, val interface{}) error {
+	v, ok := val.(string)
+	if !ok {
+		return errors.New("The val type must be string")
+	}
+	types := strings.Split(v, ",")
+	dubboTarget, ok := target.(*dubboTarget)
+	if !ok {
+		return errors.New("Target is not dubboTarget in target parameter")
+	}
+	for i := range types {
+		trimType := strings.TrimSpace(types[i])
+		if len(trimType) == 0 {
+			continue
+		}
+		if _, ok = constant.JTypeMapper[trimType]; !ok {
+			return errors.Errorf("Types invalid %s", trimType)
+		}
+		types[i] = trimType
+	}
+	dubboTarget.Types = types
+	return nil
 }
