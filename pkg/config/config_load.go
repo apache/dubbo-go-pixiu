@@ -95,7 +95,7 @@ func LoadYAMLConfig(path string) *model.Bootstrap {
 
 func Adapter(cfg *model.Bootstrap) (err error) {
 	if GetFilterChain(cfg) != nil || GetHttpConfig(cfg) != nil || GetProtocol(cfg) != nil ||
-		GetLoadBalance(cfg) != nil || GetDiscoverType(cfg) != nil {
+		GetLoadBalance(cfg) != nil || GetDiscoveryType(cfg) != nil {
 		return err
 	}
 	return nil
@@ -188,7 +188,7 @@ func GetLoadBalance(cfg *model.Bootstrap) (err error) {
 	return nil
 }
 
-func GetDiscoverType(cfg *model.Bootstrap) (err error) {
+func GetDiscoveryType(cfg *model.Bootstrap) (err error) {
 	if cfg == nil {
 		logger.Error("Bootstrap configuration is null")
 		return err
