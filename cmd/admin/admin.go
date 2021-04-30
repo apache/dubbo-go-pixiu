@@ -171,7 +171,7 @@ var (
 
 // Start start init etcd client and start admin http server
 func Start() {
-	newClient, err := etcdv3.NewConfigClient(
+	newClient, err := etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(20*time.Second),
 		etcdv3.WithEndpoints(strings.Split(Bootstrap.EtcdConfig.Address, ",")...),

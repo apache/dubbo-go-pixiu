@@ -18,6 +18,8 @@
 package config
 
 import (
+	"go.etcd.io/etcd/clientv3"
+	mvccpb2 "go.etcd.io/etcd/mvcc/mvccpb"
 	"strings"
 	"sync"
 	"time"
@@ -66,15 +68,13 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
-	client, _ = etcdv3.NewConfigClient(
+	client, _ = etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
 
-	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath)
-
-	content, err := client.Get(metaConfig.APIConfigPath)
+	content, rev, err := client.GetValAndRev(metaConfig.APIConfigPath)
 	if err != nil {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
 	}
@@ -82,6 +82,8 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 	if err = initAPIConfigFromString(content); err != nil {
 		return nil, err
 	}
+
+	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath, rev)
 
 	return apiConfig, nil
 }
@@ -121,9 +123,9 @@ func validateAPIConfig(conf *fc.APIConfig) bool {
 	return true
 }
 
-func listenAPIConfigNodeEvent(key string) bool {
+func listenAPIConfigNodeEvent(key string, rev int64) bool {
 	for {
-		wc, err := client.Watch(key)
+		wc, err := client.WatchWithOption(key, clientv3.WithRev(rev), clientv3.WithPrefix())
 		if err != nil {
 			logger.Warnf("Watch api config {key:%s} = error{%v}", key, err)
 			return false
@@ -149,11 +151,12 @@ func listenAPIConfigNodeEvent(key string) bool {
 			}
 			for _, event := range e.Events {
 				switch event.Type {
-				case mvccpb.PUT:
+				case mvccpb2.Event_EventType(mvccpb.PUT):
+
 					if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
 						listener.APIConfigChange(GetAPIConf())
 					}
-				case mvccpb.DELETE:
+				case mvccpb2.Event_EventType(mvccpb.DELETE):
 					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					return true
 				default:
