@@ -1,6 +1,7 @@
 package main
 
 import (
+	"go.etcd.io/etcd/embed"
 	"os"
 	"testing"
 	"time"
@@ -8,7 +9,6 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
-	"github.com/coreos/etcd/embed"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/suite"

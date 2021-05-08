@@ -120,6 +120,27 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API
 	return nil, false
 }
 
+func (rt *Route) DeleteNode(fullPath string) bool {
+	lowerPath := strings.ToLower(fullPath)
+	if _, found := rt.searchWildcard(lowerPath); !found {
+		rt.lock.RLock()
+		defer rt.lock.RUnlock()
+		rt.tree.Remove(lowerPath)
+		return true
+	}
+	return false
+}
+
+func (rt *Route) DeleteAPI(fullPath string, httpverb config.HTTPVerb) bool {
+	if n, found := rt.findNode(fullPath); found {
+		rt.lock.RLock()
+		defer rt.lock.RUnlock()
+		delete(n.methods, httpverb)
+		return true
+	}
+	return false
+}
+
 func (rt *Route) findNode(fullPath string) (*Node, bool) {
 	lowerPath := strings.ToLower(fullPath)
 	var n interface{}

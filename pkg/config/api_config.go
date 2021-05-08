@@ -20,13 +20,13 @@ package config
 import (
 	"go.etcd.io/etcd/clientv3"
 	mvccpb2 "go.etcd.io/etcd/mvcc/mvccpb"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 )
 
 import (
-	"github.com/coreos/etcd/mvcc/mvccpb"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
@@ -42,13 +42,18 @@ var (
 	apiConfig *fc.APIConfig
 	once      sync.Once
 	client    *etcdv3.Client
-	listener  APIConfigListener
+	listener  APIConfigResourceListener
 	lock      sync.RWMutex
 )
 
-// APIConfigListener defines api config listener interface
-type APIConfigListener interface {
-	APIConfigChange(apiConfig fc.APIConfig) bool // bool is return for interface implement is interesting
+// APIConfigResourceListener defines api config listener interface
+type APIConfigResourceListener interface {
+	ResourceChange(new fc.Resource, old fc.Resource) bool // bool is return for interface implement is interesting
+	ResourceAdd(res fc.Resource) bool
+	ResourceDelete(deleted fc.Resource) bool
+	MethodChange(res fc.Resource, method fc.Method, old fc.Method) bool
+	MethodAdd(res fc.Resource, method fc.Method) bool
+	MethodDelete(res fc.Resource, method fc.Method) bool
 }
 
 // LoadAPIConfigFromFile load the api config from file
@@ -63,6 +68,7 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 	}
 	apiConfig = apiConf
+
 	return apiConf, nil
 }
 
@@ -83,9 +89,15 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 		return nil, err
 	}
 
-	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath, rev)
-
+	// 启动service和plugin group 的监听
+	//go listenAPIConfigNodeEvent(metaConfig.APIConfigPath, rev)
+	go listenServiceNodeEvent(getEtcdServicePath(metaConfig.APIConfigPath), rev)
+	//go listenPluginNodeEvent(metaConfig.APIConfigPath, rev)
 	return apiConfig, nil
+}
+
+func getEtcdServicePath(root string) string {
+	return root + "/Resources/"
 }
 
 func initAPIConfigFromString(content string) error {
@@ -123,7 +135,7 @@ func validateAPIConfig(conf *fc.APIConfig) bool {
 	return true
 }
 
-func listenAPIConfigNodeEvent(key string, rev int64) bool {
+func listenServiceNodeEvent(key string, rev int64) bool {
 	for {
 		wc, err := client.WatchWithOption(key, clientv3.WithRev(rev), clientv3.WithPrefix())
 		if err != nil {
@@ -151,12 +163,12 @@ func listenAPIConfigNodeEvent(key string, rev int64) bool {
 			}
 			for _, event := range e.Events {
 				switch event.Type {
-				case mvccpb2.Event_EventType(mvccpb.PUT):
-
-					if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
-						listener.APIConfigChange(GetAPIConf())
-					}
-				case mvccpb2.Event_EventType(mvccpb.DELETE):
+				case mvccpb2.PUT:
+					handlePutEvent(event.Kv.Key, event.Kv.Value)
+					//if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
+					//	listener.APIConfigChange(GetAPIConf())
+					//}
+				case mvccpb2.DELETE:
 					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					return true
 				default:
@@ -167,12 +179,69 @@ func listenAPIConfigNodeEvent(key string, rev int64) bool {
 	}
 }
 
+func handlePutEvent(key, val []byte) {
+	re := regexp.MustCompile(".+/Resources/[^/]+/?$")
+	matchResource := re.Match(key)
+
+	if matchResource {
+		res := fc.Resource{}
+		err := yaml.UnmarshalYML(val, res)
+		if err != nil {
+			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+			return
+		}
+		mergeApiConfigResource(res)
+	} else {
+
+		res := fc.Method{}
+		err := yaml.UnmarshalYML(val, res)
+		if err != nil {
+			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+			return
+		}
+		mergeApiConfigMethod(res)
+	}
+}
+
+func mergeApiConfigResource(val fc.Resource) {
+	for i, resource := range apiConfig.Resources {
+		if val.Path != resource.Path {
+			continue
+		}
+		// modify one resource
+		val.Methods = resource.Methods
+		apiConfig.Resources[i] = val
+
+		return
+	}
+	// add one resource
+	apiConfig.Resources = append(apiConfig.Resources, val)
+}
+
+func mergeApiConfigMethod(path string, val fc.Method) {
+	for _, resource := range apiConfig.Resources {
+		if path != resource.Path {
+			continue
+		}
+
+		for j, method := range resource.Methods {
+			if method.HTTPVerb == val.HTTPVerb {
+				// modify one method
+				resource.Methods[j] = val
+				return
+			}
+		}
+		// add one method
+		resource.Methods = append(resource.Methods, val)
+	}
+}
+
 // RegisterConfigListener register APIConfigListener
-func RegisterConfigListener(li APIConfigListener) {
+func RegisterConfigListener(li APIConfigResourceListener) {
 	listener = li
 }
 
-// GetAPIConf returns the initted api config
+// GetAPIConf returns the init api config
 func GetAPIConf() fc.APIConfig {
 	return *apiConfig
 }

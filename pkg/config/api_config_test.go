@@ -19,6 +19,7 @@ package config_test
 
 import (
 	"log"
+	"regexp"
 	"testing"
 )
 
@@ -41,4 +42,16 @@ func TestLoadAPIConfigFromFile(t *testing.T) {
 	assert.Equal(t, apiC.Name, "api name")
 	bytes, _ := yaml.Marshal(apiC)
 	log.Printf("%s", bytes)
+}
+
+func TestRegexSucc(t *testing.T) {
+	et := regexp.MustCompile(".+/Resources/[^/]+/?$")
+	ret := et.Match([]byte("/dis/sdf/Resources/service1/"))
+	assert.True(t, ret, "not match")
+}
+
+func TestRegexFail(t *testing.T) {
+	et := regexp.MustCompile(".+/Resources/[^/]+/?$")
+	ret := et.Match([]byte("/dis/sdf/Resources/service1/ddd"))
+	assert.False(t, ret, "not match")
 }
