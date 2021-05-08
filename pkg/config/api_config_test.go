@@ -50,6 +50,12 @@ func TestRegexSucc(t *testing.T) {
 	assert.True(t, ret, "not match")
 }
 
+func TestRegexExtractSucc(t *testing.T) {
+	re := regexp.MustCompile("Resources/([^/]+)/Method")
+	result := re.FindStringSubmatch("/Resources/user-service/Method/POST")
+	assert.Equal(t, result[1], "user-service")
+}
+
 func TestRegexFail(t *testing.T) {
 	et := regexp.MustCompile(".+/Resources/[^/]+/?$")
 	ret := et.Match([]byte("/dis/sdf/Resources/service1/ddd"))

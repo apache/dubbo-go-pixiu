@@ -199,7 +199,14 @@ func handlePutEvent(key, val []byte) {
 			logger.Error("handlePutEvent UnmarshalYML error %v", err)
 			return
 		}
-		mergeApiConfigMethod(res)
+
+		reExtract := regexp.MustCompile("Resources/([^/]+)/Method")
+		result := reExtract.FindStringSubmatch("/Resources/user-service/Method/POST")
+		if len(result) != 2 {
+			return
+		}
+		fullPath := result[1]
+		mergeApiConfigMethod(fullPath, res)
 	}
 }
 
@@ -212,10 +219,13 @@ func mergeApiConfigResource(val fc.Resource) {
 		val.Methods = resource.Methods
 		apiConfig.Resources[i] = val
 
+		listener.ResourceChange(val, resource)
+
 		return
 	}
 	// add one resource
 	apiConfig.Resources = append(apiConfig.Resources, val)
+	listener.ResourceAdd(val)
 }
 
 func mergeApiConfigMethod(path string, val fc.Method) {
@@ -228,11 +238,13 @@ func mergeApiConfigMethod(path string, val fc.Method) {
 			if method.HTTPVerb == val.HTTPVerb {
 				// modify one method
 				resource.Methods[j] = val
+				listener.MethodChange(resource, val, method)
 				return
 			}
 		}
 		// add one method
 		resource.Methods = append(resource.Methods, val)
+		listener.MethodAdd(resource, val)
 	}
 }
 
