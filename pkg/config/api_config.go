@@ -170,6 +170,7 @@ func listenServiceNodeEvent(key string, rev int64) bool {
 					//}
 				case mvccpb2.DELETE:
 					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
+					handleDeleteEvent(event.Kv.Key, event.Kv.Value)
 					return true
 				default:
 					return false
@@ -179,8 +180,49 @@ func listenServiceNodeEvent(key string, rev int64) bool {
 	}
 }
 
+func getCheckResourceRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/Resources/[^/]+/?$")
+}
+
+func getExtractMethodRegexp() *regexp.Regexp {
+	return regexp.MustCompile("Resources/([^/]+)/Method")
+}
+
+
+func handleDeleteEvent(key, val []byte) {
+	re := getCheckResourceRegexp()
+	matchResource := re.Match(key)
+
+	if matchResource {
+		res := fc.Resource{}
+		err := yaml.UnmarshalYML(val, res)
+		if err != nil {
+			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+			return
+		}
+		mergeApiConfigResource(res)
+	} else {
+		res := fc.Method{}
+		err := yaml.UnmarshalYML(val, res)
+		if err != nil {
+			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+			return
+		}
+
+		reExtract := getExtractMethodRegexp()
+
+		result := reExtract.FindStringSubmatch(strings.Replace(string(key), "[pixiu]", "/", -1))
+		if len(result) != 2 {
+			return
+		}
+		fullPath := result[1]
+		mergeApiConfigMethod(fullPath, res)
+	}
+}
+
+
 func handlePutEvent(key, val []byte) {
-	re := regexp.MustCompile(".+/Resources/[^/]+/?$")
+	re := getCheckResourceRegexp()
 	matchResource := re.Match(key)
 
 	if matchResource {
@@ -200,8 +242,9 @@ func handlePutEvent(key, val []byte) {
 			return
 		}
 
-		reExtract := regexp.MustCompile("Resources/([^/]+)/Method")
-		result := reExtract.FindStringSubmatch("/Resources/user-service/Method/POST")
+		reExtract := getExtractMethodRegexp()
+
+		result := reExtract.FindStringSubmatch(strings.Replace(string(key), "[pixiu]", "/", -1))
 		if len(result) != 2 {
 			return
 		}
