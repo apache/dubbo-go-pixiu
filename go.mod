@@ -33,4 +33,5 @@ require (
 replace (
 	github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
+	github.com/dubbogo/dubbo-go-pixiu-filter => ../../dubbo-go-pixiu-filter
 )

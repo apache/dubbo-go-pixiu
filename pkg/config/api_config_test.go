@@ -46,13 +46,13 @@ func TestLoadAPIConfigFromFile(t *testing.T) {
 
 func TestRegexSucc(t *testing.T) {
 	et := regexp.MustCompile(".+/Resources/[^/]+/?$")
-	ret := et.Match([]byte("/dis/sdf/Resources/service1/"))
+	ret := et.Match([]byte("/pixiu/config/api/Resources/_pixiu_config_api_Resources__api_v1_test-dubbo_friend_method/method/GET"))
 	assert.True(t, ret, "not match")
 }
 
 func TestRegexExtractSucc(t *testing.T) {
-	re := regexp.MustCompile("Resources/([^/]+)/Method")
-	result := re.FindStringSubmatch("/Resources/user-service/Method/POST")
+	re := regexp.MustCompile(".+Resources/([^/]+)/Method/[^/]+/?$")
+	result := re.FindStringSubmatch("/pixiu/config/api/Resources/api/v1/test-dubbo/friends12/Method/GET")
 	assert.Equal(t, result[1], "user-service")
 }
 

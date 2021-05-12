@@ -72,6 +72,10 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 	return apiConf, nil
 }
 
+func getConfigPath(root string) string {
+	return root + "/Resources"
+}
+
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 	client, _ = etcdv3.NewConfigClientWithErr(
@@ -80,18 +84,18 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
 
-	content, rev, err := client.GetValAndRev(metaConfig.APIConfigPath)
+	kList, vList, err := client.GetChildren(metaConfig.APIConfigPath)
 	if err != nil {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
 	}
 
-	if err = initAPIConfigFromString(content); err != nil {
+	if err = initAPIConfigFromKVList(kList, vList); err != nil {
 		return nil, err
 	}
 
 	// 启动service和plugin group 的监听
 	//go listenAPIConfigNodeEvent(metaConfig.APIConfigPath, rev)
-	go listenServiceNodeEvent(getEtcdServicePath(metaConfig.APIConfigPath), rev)
+	go listenServiceNodeEvent(metaConfig.APIConfigPath)
 	//go listenPluginNodeEvent(metaConfig.APIConfigPath, rev)
 	return apiConfig, nil
 }
@@ -121,6 +125,100 @@ func initAPIConfigFromString(content string) error {
 	return nil
 }
 
+func initAPIConfigFromKVList(kList, vList []string) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	tmpApiConf := &fc.APIConfig{}
+
+	for i, k := range kList {
+		v := vList[i]
+
+		re := getCheckBaseInfoRegexp()
+
+		// base info
+		if m := re.Match([]byte(k)); m {
+			continue
+		}
+
+		// resource
+		re = getCheckResourceRegexp()
+		if m := re.Match([]byte(k)); m {
+			resource := &fc.Resource{}
+			err := yaml.UnmarshalYML([]byte(v), resource)
+			if err != nil {
+				logger.Error("unmarshalYmlConfig error %v", err.Error())
+				continue
+			}
+
+			// for 循环查找
+			found := false
+			if tmpApiConf.Resources == nil {
+				tmpApiConf.Resources = make([]fc.Resource, 0)
+			}
+
+			for i, old := range tmpApiConf.Resources {
+				if old.Path != resource.Path {
+					continue
+				}
+
+				// modify one resource
+				resource.Methods = old.Methods
+				tmpApiConf.Resources[i] = *resource
+				found = true
+			}
+
+			if !found {
+				tmpApiConf.Resources = append(tmpApiConf.Resources, *resource)
+			}
+			continue
+		}
+
+		re = getExtractMethodRegexp()
+
+		if m := re.Match([]byte(k)); m {
+
+			method := &fc.Method{}
+			err := yaml.UnmarshalYML([]byte(v), method)
+			if err != nil {
+				logger.Error("unmarshalYmlConfig error %v", err.Error())
+				continue
+			}
+
+			found := false
+			for r, resource := range tmpApiConf.Resources {
+				if method.ResourcePath != resource.Path {
+					continue
+				}
+
+				for j, old := range resource.Methods {
+					if old.HTTPVerb == method.HTTPVerb {
+						// modify one method
+						resource.Methods[j] = *method
+						found = true
+					}
+				}
+				if !found {
+					resource.Methods = append(resource.Methods, *method)
+					tmpApiConf.Resources[r] = resource
+					found = true
+				}
+			}
+
+			// need add resource first
+			if !found {
+				resource := &fc.Resource{}
+				resource.Methods = append(resource.Methods, *method)
+				resource.Path = method.ResourcePath
+				tmpApiConf.Resources = append(tmpApiConf.Resources, *resource)
+			}
+
+		}
+	}
+	apiConfig = tmpApiConf
+	return nil
+}
+
 // validateAPIConfig check api config valid
 func validateAPIConfig(conf *fc.APIConfig) bool {
 	if conf.Name == "" {
@@ -135,9 +233,9 @@ func validateAPIConfig(conf *fc.APIConfig) bool {
 	return true
 }
 
-func listenServiceNodeEvent(key string, rev int64) bool {
+func listenServiceNodeEvent(key string) bool {
 	for {
-		wc, err := client.WatchWithOption(key, clientv3.WithRev(rev), clientv3.WithPrefix())
+		wc, err := client.WatchWithOption(key, clientv3.WithPrefix())
 		if err != nil {
 			logger.Warnf("Watch api config {key:%s} = error{%v}", key, err)
 			return false
@@ -180,76 +278,63 @@ func listenServiceNodeEvent(key string, rev int64) bool {
 	}
 }
 
+func getCheckBaseInfoRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/base$")
+}
+
 func getCheckResourceRegexp() *regexp.Regexp {
 	return regexp.MustCompile(".+/Resources/[^/]+/?$")
 }
 
 func getExtractMethodRegexp() *regexp.Regexp {
-	return regexp.MustCompile("Resources/([^/]+)/Method")
+	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
 }
-
 
 func handleDeleteEvent(key, val []byte) {
 	re := getCheckResourceRegexp()
 	matchResource := re.Match(key)
 
 	if matchResource {
-		res := fc.Resource{}
+		res := &fc.Resource{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Error("handlePutEvent UnmarshalYML error %v", err)
 			return
 		}
-		mergeApiConfigResource(res)
+		mergeApiConfigResource(*res)
 	} else {
-		res := fc.Method{}
+		res := &fc.Method{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Error("handlePutEvent UnmarshalYML error %v", err)
 			return
 		}
-
-		reExtract := getExtractMethodRegexp()
-
-		result := reExtract.FindStringSubmatch(strings.Replace(string(key), "[pixiu]", "/", -1))
-		if len(result) != 2 {
-			return
-		}
-		fullPath := result[1]
-		mergeApiConfigMethod(fullPath, res)
+		mergeApiConfigMethod(res.ResourcePath, *res)
 	}
 }
-
 
 func handlePutEvent(key, val []byte) {
 	re := getCheckResourceRegexp()
 	matchResource := re.Match(key)
 
 	if matchResource {
-		res := fc.Resource{}
+		res := &fc.Resource{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Error("handlePutEvent UnmarshalYML error %v", err)
 			return
 		}
-		mergeApiConfigResource(res)
+		mergeApiConfigResource(*res)
 	} else {
 
-		res := fc.Method{}
+		res := &fc.Method{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Error("handlePutEvent UnmarshalYML error %v", err)
 			return
 		}
 
-		reExtract := getExtractMethodRegexp()
-
-		result := reExtract.FindStringSubmatch(strings.Replace(string(key), "[pixiu]", "/", -1))
-		if len(result) != 2 {
-			return
-		}
-		fullPath := result[1]
-		mergeApiConfigMethod(fullPath, res)
+		mergeApiConfigMethod(res.ResourcePath, *res)
 	}
 }
 
