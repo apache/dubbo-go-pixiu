@@ -170,11 +170,15 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 			target.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
 		}()
 		if err != nil {
-			return errors.New("Raw body parse failed")
+			return errors.New("Raw body read failed")
 		}
 		mapBody := map[string]interface{}{}
-		json.Unmarshal(rawBody, &mapBody)
-
+		if len(rawBody) != 0 {
+			err = json.Unmarshal(rawBody, &mapBody)
+			if err != nil {
+				return errors.New("Raw body parse failed")
+			}
+		}
 		setMapWithPath(mapBody, key, val)
 		rawBody, err = json.Marshal(mapBody)
 		if err != nil {

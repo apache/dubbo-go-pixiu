@@ -157,7 +157,6 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	gs := dc.Get(dm)
 
 	rst, err := gs.Invoke(req.Context, []interface{}{method, val.Types, val.Values})
-
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +197,7 @@ func buildOption(conf fc.MappingParam) client.RequestOption {
 	var opt client.RequestOption
 	isGeneric, mapToType := getGenericMapTo(conf.MapTo)
 	if isGeneric {
-		opt, _ = DefaultMapOption[mapToType]
+		opt = DefaultMapOption[mapToType]
 	}
 	return opt
 }

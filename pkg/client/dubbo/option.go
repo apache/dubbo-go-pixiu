@@ -158,19 +158,22 @@ func (opt *valuesOpt) Action(target, val interface{}) error {
 	} else {
 		toVals = []interface{}{v[0]}
 	}
-	if len(toTypes) != 0 && len(toTypes) == len(toVals) {
-		for i := range toVals {
-			trimType := strings.TrimSpace(toTypes[i])
-			if _, ok = constant.JTypeMapper[trimType]; ok {
-				toTypes[i] = trimType
-			} else {
-				return errors.Errorf("Types invalid %s", trimType)
-			}
-			var err error
-			toVals[i], err = mapTypes(toTypes[i], toVals[i])
-			if err != nil {
-				return errors.WithStack(err)
-			}
+	if !(len(toTypes) != 0 && len(toTypes) == len(toVals)) {
+		dubboTarget.Types = toTypes
+		dubboTarget.Values = toVals
+		return nil
+	}
+	for i := range toVals {
+		trimType := strings.TrimSpace(toTypes[i])
+		if _, ok = constant.JTypeMapper[trimType]; ok {
+			toTypes[i] = trimType
+		} else {
+			return errors.Errorf("Types invalid %s", trimType)
+		}
+		var err error
+		toVals[i], err = mapTypes(toTypes[i], toVals[i])
+		if err != nil {
+			return errors.WithStack(err)
 		}
 	}
 	dubboTarget.Types = toTypes

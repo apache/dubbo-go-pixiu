@@ -165,11 +165,14 @@ func TestBodyMapper(t *testing.T) {
 	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Types[2], "object")
-	assert.Equal(t, target.Values[2], map[string]interface{}(map[string]interface{}{"firstName": "Joe", "lastName": "Biden"}))
+	assert.Equal(t, target.Values[2], map[string]interface{}(map[string]interface{}{
+		"firstName": "Joe", "lastName": "Biden",
+	}))
 }
 
 func TestURIMapper(t *testing.T) {
-	r, _ := http.NewRequest("POST", "/mock/12345/joe?age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
+	r, _ := http.NewRequest("POST", "/mock/12345/joe?age=19", bytes.NewReader([]byte(
+		`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
 	r.Header.Set("Auth", "1234567")
 	api := mock.GetMockAPI(config.MethodGet, "/mock/:id/:name")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
@@ -258,11 +261,11 @@ func TestMapType(t *testing.T) {
 
 func TestNewDubboTarget(t *testing.T) {
 	mps := []config.MappingParam{
-		config.MappingParam{
+		{
 			Name:  "string1",
 			MapTo: "0",
 		},
-		config.MappingParam{
+		{
 			Name:  "string2",
 			MapTo: "opt.values",
 		},
@@ -272,7 +275,7 @@ func TestNewDubboTarget(t *testing.T) {
 	assert.Equal(t, len(target.Values), 2)
 
 	mps = []config.MappingParam{
-		config.MappingParam{
+		{
 			Name:  "string1",
 			MapTo: "opt.interface",
 		},

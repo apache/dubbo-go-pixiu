@@ -55,6 +55,7 @@ type dubboTarget struct {
 // pre-allocate proper memory according to the params' usability.
 func newDubboTarget(mps []config.MappingParam) *dubboTarget {
 	length := 0
+
 	for i := 0; i < len(mps); i++ {
 		isGeneric, v := getGenericMapTo(mps[i].MapTo)
 		if isGeneric && v != optionKeyValues {
@@ -62,6 +63,7 @@ func newDubboTarget(mps []config.MappingParam) *dubboTarget {
 		}
 		length++
 	}
+
 	if length > 0 {
 		val := make([]interface{}, length)
 		target := &dubboTarget{
@@ -190,7 +192,8 @@ func validateTarget(target interface{}) (*dubboTarget, error) {
 	return val, nil
 }
 
-func setTargetWithOpt(req *client.Request, option client.RequestOption, target *dubboTarget, pos int, value interface{}, targetType string) error {
+func setTargetWithOpt(req *client.Request, option client.RequestOption,
+	target *dubboTarget, pos int, value interface{}, targetType string) error {
 	if option != nil {
 		return setGenericTarget(req, option, target, value, targetType)
 	}
@@ -202,7 +205,8 @@ func setTargetWithOpt(req *client.Request, option client.RequestOption, target *
 	return nil
 }
 
-func setGenericTarget(req *client.Request, option client.RequestOption, target *dubboTarget, value interface{}, targetType string) error {
+func setGenericTarget(req *client.Request, option client.RequestOption,
+	target *dubboTarget, value interface{}, targetType string) error {
 	var err error
 	switch option.(type) {
 	case *groupOpt, *versionOpt, *interfaceOpt, *applicationOpt, *methodOpt:
@@ -238,7 +242,7 @@ func mapTypes(jType string, originVal interface{}) (interface{}, error) {
 		return cast.ToStringE(originVal)
 	case reflect.TypeOf(int(0)):
 		return cast.ToIntE(originVal)
-	case reflect.TypeOf(int8(8)):
+	case reflect.TypeOf(int8(0)):
 		return cast.ToInt8E(originVal)
 	case reflect.TypeOf(int16(16)):
 		return cast.ToInt16E(originVal)

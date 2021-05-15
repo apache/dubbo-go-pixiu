@@ -180,22 +180,25 @@ func TestMappingParams(t *testing.T) {
 
 func TestBuildOption(t *testing.T) {
 	mp := config.MappingParam{
-		Name:  "queryStrings.id",
-		MapTo: "0",
+		Name:    "queryStrings.id",
+		MapTo:   "0",
+		MapType: "string",
 	}
 	option := buildOption(mp)
 	assert.Nil(t, option)
 
 	mp = config.MappingParam{
-		Name:  "queryStrings.id",
-		MapTo: "opt.whatsoever",
+		Name:    "queryStrings.id",
+		MapTo:   "opt.whatsoever",
+		MapType: "",
 	}
 	option = buildOption(mp)
 	assert.Nil(t, option)
 
 	mp = config.MappingParam{
-		Name:  "queryStrings.id",
-		MapTo: "opt.interface",
+		Name:    "queryStrings.id",
+		MapTo:   "opt.interface",
+		MapType: "",
 	}
 	option = buildOption(mp)
 	assert.NotNil(t, option)
