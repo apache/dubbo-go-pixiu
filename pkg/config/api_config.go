@@ -21,6 +21,7 @@ import (
 	"go.etcd.io/etcd/clientv3"
 	mvccpb2 "go.etcd.io/etcd/mvcc/mvccpb"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -267,7 +268,7 @@ func listenServiceNodeEvent(key string) bool {
 					//	listener.APIConfigChange(GetAPIConf())
 					//}
 				case mvccpb2.DELETE:
-					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
+					logger.Infof("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					handleDeleteEvent(event.Kv.Key, event.Kv.Value)
 					return true
 				default:
@@ -291,33 +292,54 @@ func getExtractMethodRegexp() *regexp.Regexp {
 }
 
 func handleDeleteEvent(key, val []byte) {
-	re := getCheckResourceRegexp()
-	matchResource := re.Match(key)
 
-	if matchResource {
-		res := &fc.Resource{}
-		err := yaml.UnmarshalYML(val, res)
-		if err != nil {
-			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+	keyStr := string(key)
+	keyStr = strings.TrimSuffix(keyStr, "/")
+
+	re := getCheckResourceRegexp()
+	if m := re.Match(key); m {
+		pathArray := strings.Split(keyStr, "/")
+		if len(pathArray) == 0 {
+			logger.Errorf("handleDeleteEvent key format error")
 			return
 		}
-		mergeApiConfigResource(*res)
-	} else {
-		res := &fc.Method{}
-		err := yaml.UnmarshalYML(val, res)
+		resourceIdStr := pathArray[len(pathArray)-1]
+		ID, err := strconv.Atoi(resourceIdStr)
 		if err != nil {
-			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+			logger.Error("handleDeleteEvent ID is not int error %v", err)
 			return
 		}
-		mergeApiConfigMethod(res.ResourcePath, *res)
+		deleteApiConfigResource(ID)
+		return
+	}
+
+	re = getExtractMethodRegexp()
+	if m := re.Match(key); m {
+		pathArray := strings.Split(keyStr, "/")
+		if len(pathArray) < 3 {
+			logger.Errorf("handleDeleteEvent key format error")
+			return
+		}
+		resourceIdStr := pathArray[len(pathArray)-3]
+		resourceId, err := strconv.Atoi(resourceIdStr)
+		if err != nil {
+			logger.Error("handleDeleteEvent ID is not int error %v", err)
+			return
+		}
+
+		methodIdStr := pathArray[len(pathArray)-1]
+		methodId, err := strconv.Atoi(methodIdStr)
+		if err != nil {
+			logger.Error("handleDeleteEvent ID is not int error %v", err)
+			return
+		}
+		deleteApiConfigMethod(resourceId, methodId)
 	}
 }
 
 func handlePutEvent(key, val []byte) {
 	re := getCheckResourceRegexp()
-	matchResource := re.Match(key)
-
-	if matchResource {
+	if m := re.Match(key); m {
 		res := &fc.Resource{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
@@ -325,7 +347,11 @@ func handlePutEvent(key, val []byte) {
 			return
 		}
 		mergeApiConfigResource(*res)
-	} else {
+		return
+	}
+
+	re = getExtractMethodRegexp()
+	if m := re.Match(key); m {
 
 		res := &fc.Method{}
 		err := yaml.UnmarshalYML(val, res)
@@ -338,9 +364,20 @@ func handlePutEvent(key, val []byte) {
 	}
 }
 
+func deleteApiConfigResource(resourceId int) {
+	for i := 0; i < len(apiConfig.Resources); i++ {
+		itr := apiConfig.Resources[i]
+		if itr.ID == resourceId {
+			apiConfig.Resources = append(apiConfig.Resources[:i], apiConfig.Resources[i+1:]...)
+			listener.ResourceDelete(itr)
+			return
+		}
+	}
+}
+
 func mergeApiConfigResource(val fc.Resource) {
 	for i, resource := range apiConfig.Resources {
-		if val.Path != resource.Path {
+		if val.ID != resource.ID {
 			continue
 		}
 		// modify one resource
@@ -356,6 +393,24 @@ func mergeApiConfigResource(val fc.Resource) {
 	listener.ResourceAdd(val)
 }
 
+func deleteApiConfigMethod(resourceId, methodId int) {
+	for _, resource := range apiConfig.Resources {
+		if resource.ID != resourceId {
+			continue
+		}
+
+		for i := 0; i < len(resource.Methods); i++ {
+			method := resource.Methods[i]
+
+			if method.ID == methodId {
+				resource.Methods = append(resource.Methods[:i], resource.Methods[i+1:]...)
+				listener.MethodDelete(resource, method)
+				return
+			}
+		}
+	}
+}
+
 func mergeApiConfigMethod(path string, val fc.Method) {
 	for _, resource := range apiConfig.Resources {
 		if path != resource.Path {
@@ -363,7 +418,7 @@ func mergeApiConfigMethod(path string, val fc.Method) {
 		}
 
 		for j, method := range resource.Methods {
-			if method.HTTPVerb == val.HTTPVerb {
+			if method.ID == val.ID {
 				// modify one method
 				resource.Methods[j] = val
 				listener.MethodChange(resource, val, method)
