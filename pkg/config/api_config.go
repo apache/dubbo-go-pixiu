@@ -263,6 +263,7 @@ func listenServiceNodeEvent(key string) bool {
 			for _, event := range e.Events {
 				switch event.Type {
 				case mvccpb2.PUT:
+					logger.Infof("get event (key{%s}) = event{EventNodePut}", event.Kv.Key)
 					handlePutEvent(event.Kv.Key, event.Kv.Value)
 					//if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
 					//	listener.APIConfigChange(GetAPIConf())
