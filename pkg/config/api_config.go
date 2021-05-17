@@ -18,8 +18,6 @@
 package config
 
 import (
-	"go.etcd.io/etcd/clientv3"
-	mvccpb2 "go.etcd.io/etcd/mvcc/mvccpb"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +29,8 @@ import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	clientv32 "go.etcd.io/etcd/client/v3"
 )
 
 import (
@@ -73,10 +73,6 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 	return apiConf, nil
 }
 
-func getConfigPath(root string) string {
-	return root + "/Resources"
-}
-
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 	client, _ = etcdv3.NewConfigClientWithErr(
@@ -94,10 +90,11 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 		return nil, err
 	}
 
-	// 启动service和plugin group 的监听
-	//go listenAPIConfigNodeEvent(metaConfig.APIConfigPath, rev)
-	go listenServiceNodeEvent(metaConfig.APIConfigPath)
-	//go listenPluginNodeEvent(metaConfig.APIConfigPath, rev)
+	// TODO:
+
+	go listenResourceAndMethodEvent(metaConfig.APIConfigPath)
+	// TODO: 其他配置监控可以相继启动，比如 PluginGroup 等
+
 	return apiConfig, nil
 }
 
@@ -234,9 +231,9 @@ func validateAPIConfig(conf *fc.APIConfig) bool {
 	return true
 }
 
-func listenServiceNodeEvent(key string) bool {
+func listenResourceAndMethodEvent(key string) bool {
 	for {
-		wc, err := client.WatchWithOption(key, clientv3.WithPrefix())
+		wc, err := client.WatchWithOption(key, clientv32.WithPrefix())
 		if err != nil {
 			logger.Warnf("Watch api config {key:%s} = error{%v}", key, err)
 			return false
@@ -262,13 +259,13 @@ func listenServiceNodeEvent(key string) bool {
 			}
 			for _, event := range e.Events {
 				switch event.Type {
-				case mvccpb2.PUT:
+				case mvccpb.PUT:
 					logger.Infof("get event (key{%s}) = event{EventNodePut}", event.Kv.Key)
 					handlePutEvent(event.Kv.Key, event.Kv.Value)
 					//if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
 					//	listener.APIConfigChange(GetAPIConf())
 					//}
-				case mvccpb2.DELETE:
+				case mvccpb.DELETE:
 					logger.Infof("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					handleDeleteEvent(event.Kv.Key, event.Kv.Value)
 					return true
