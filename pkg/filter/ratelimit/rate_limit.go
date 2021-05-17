@@ -24,8 +24,6 @@ import (
 import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
@@ -33,6 +31,8 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // Init cache the filter func & init sentinel
