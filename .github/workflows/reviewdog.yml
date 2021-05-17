@@ -30,6 +30,3 @@ jobs:
           submodules: true
       - name: golangci-lint
         uses: ./.github/actions/review-dog
-#        with:
-#          golangci_lint_flags: "--enable-all --timeout=10m --exclude-use-default=false"
-#          golangci_lint_flags: "--disable-all --timeout=10m -E errcheck -E golint"
