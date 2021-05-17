@@ -6,9 +6,9 @@ require (
 	github.com/apache/dubbo-getty v1.4.3
 	github.com/apache/dubbo-go v1.5.6
 	github.com/apache/dubbo-go-hessian2 v1.9.1
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.3
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210514150956-207303ec4bd4
 	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.8
+	github.com/dubbogo/gost v1.11.9
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.1
@@ -31,7 +31,6 @@ require (
 )
 
 replace (
-	github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
 	github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 )
