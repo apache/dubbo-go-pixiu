@@ -35,7 +35,6 @@ func GetConfig() *config.Config {
 	return c
 }
 
-//rateLimitInit
 func rateLimitInit() error {
 	c := GetConfig()
 
@@ -54,13 +53,13 @@ func rateLimitInit() error {
 	return nil
 }
 
-//OnUpdate update api & rule
+// OnUpdate update api & rule
 func OnUpdate(c config.Config) {
 	loadApiResources(c.APIResources)
 	loadRules(c.Rules)
 }
 
-//loadRulesWithString
+// loadRules
 func loadRules(rules []config.Rule) {
 	var enableRules []*flow.Rule
 	for _, v := range rules {
@@ -75,7 +74,7 @@ func loadRules(rules []config.Rule) {
 	return
 }
 
-//loadApiResources
+// loadApiResources
 func loadApiResources(apis []config.APIResource) {
 	matcher.Load(apis)
 }

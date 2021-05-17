@@ -23,6 +23,7 @@ import (
 
 var matcher *Matcher
 
+// Init matcher
 func Init() {
 	matcher = NewMatcher()
 }
@@ -47,12 +48,14 @@ func NewMatcher() *Matcher {
 	}
 }
 
+// Load load api resource for matchers
 func Load(apis []config.APIResource) {
 	for _, v := range matcher.matchers {
 		v.load(apis)
 	}
 }
 
+// Match match resource via url path
 func Match(path string) (string, bool) {
 	for _, m := range matcher.matchers {
 		if res, ok := m.match(path); ok {

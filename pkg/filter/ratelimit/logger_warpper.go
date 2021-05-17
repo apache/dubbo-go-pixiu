@@ -23,7 +23,7 @@ import "github.com/apache/dubbo-go-pixiu/pkg/logger"
 type loggerWrapper struct {
 }
 
-//getWrappedLogger
+// getWrappedLogger
 func getWrappedLogger() loggerWrapper {
 	return loggerWrapper{}
 }
@@ -44,7 +44,7 @@ func (l loggerWrapper) Error(err error, msg string, keysAndValues ...interface{}
 	logger.Warnf(msg, err, keysAndValues)
 }
 
-//InfoEnabled todo logger should implements this method
+// InfoEnabled todo logger should implements this method
 func (l loggerWrapper) InfoEnabled() bool {
 	return true
 }

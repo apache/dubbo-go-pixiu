@@ -21,25 +21,26 @@ import (
 	"github.com/alibaba/sentinel-golang/core/flow"
 )
 
+// Config rate limit config
 type Config struct {
 	APIResources []APIResource `json:"resources" yaml:"resources"`
 	Rules        []Rule        `json:"rules" yaml:"rules"`
 	LogPath      string        `json:"logPath" yaml:"logPath"`
 }
 
-//APIResource API group for rate limit, all API in group is considered to be the same resource
+// APIResource API group for rate limit, all API in group is considered to be the same resource
 type APIResource struct {
 	Name  string    `json:"name" yaml:"name"`
 	Items []APIItem `json:"items" yaml:"items"`
 }
 
-//APIItem API item for group
+// APIItem API item for group
 type APIItem struct {
 	MatchStrategy MatchStrategy `json:"matchStrategy" yaml:"matchStrategy"`
 	Pattern       string        `json:"pattern" yaml:"pattern"`
 }
 
-//MatchStrategy API match strategy
+// MatchStrategy API match strategy
 type MatchStrategy int32
 
 const (
