@@ -89,6 +89,7 @@ func (ads *LocalMemoryAPIDiscoveryService) RemoveAPI(fullPath string, method con
 	return nil
 }
 
+// ResourceChange handle modify resource event
 func (ads *LocalMemoryAPIDiscoveryService) ResourceChange(new config.Resource, old config.Resource) bool {
 	if err := modifyAPIFromResource(new, old, ads); err == nil {
 		return true
@@ -96,6 +97,7 @@ func (ads *LocalMemoryAPIDiscoveryService) ResourceChange(new config.Resource, o
 	return false
 }
 
+// ResourceAdd handle add resource event
 func (ads *LocalMemoryAPIDiscoveryService) ResourceAdd(res config.Resource) bool {
 	parentPath, groupPath := getDefaultPath()
 
@@ -106,6 +108,7 @@ func (ads *LocalMemoryAPIDiscoveryService) ResourceAdd(res config.Resource) bool
 	return false
 }
 
+// ResourceDelete handle delete resource event
 func (ads *LocalMemoryAPIDiscoveryService) ResourceDelete(deleted config.Resource) bool {
 	if err := deleteAPIFromResource(deleted, ads); err == nil {
 		return true
@@ -113,6 +116,7 @@ func (ads *LocalMemoryAPIDiscoveryService) ResourceDelete(deleted config.Resourc
 	return false
 }
 
+// MethodChange handle modify method event
 func (ads *LocalMemoryAPIDiscoveryService) MethodChange(res config.Resource, new config.Method, old config.Method) bool {
 	_, groupPath := getDefaultPath()
 	fullPath := getFullPath(groupPath, res.Path)
@@ -123,6 +127,7 @@ func (ads *LocalMemoryAPIDiscoveryService) MethodChange(res config.Resource, new
 	return false
 }
 
+// MethodAdd handle add method event
 func (ads *LocalMemoryAPIDiscoveryService) MethodAdd(res config.Resource, method config.Method) bool {
 	_, groupPath := getDefaultPath()
 	fullPath := getFullPath(groupPath, res.Path)
@@ -133,6 +138,7 @@ func (ads *LocalMemoryAPIDiscoveryService) MethodAdd(res config.Resource, method
 	return false
 }
 
+// MethodDelete handle delete method event
 func (ads *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, method config.Method) bool {
 	_, groupPath := getDefaultPath()
 	fullPath := getFullPath(groupPath, res.Path)
@@ -171,13 +177,10 @@ func loadAPIFromResource(parentPath string, resources []config.Resource, parentH
 		fullHeaders = make(map[string]string, 9)
 	}
 	for _, resource := range resources {
-
 		err := addAPIFromResource(resource, localSrv, groupPath, parentPath, fullHeaders)
-
 		if err != nil {
 			errStack = append(errStack, err.Error())
 		}
-
 	}
 	if len(errStack) > 0 {
 		return errors.New(strings.Join(errStack, "; "))
@@ -191,7 +194,6 @@ func getDefaultPath() (string, string) {
 
 func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv service.APIDiscoveryService) error {
 	parentPath, groupPath := getDefaultPath()
-
 	fullHeaders := make(map[string]string, 9)
 
 	err := deleteAPIFromResource(old, localSrv)

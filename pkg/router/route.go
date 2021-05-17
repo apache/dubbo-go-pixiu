@@ -120,6 +120,7 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API
 	return nil, false
 }
 
+// DeleteNode delete node by fullPath
 func (rt *Route) DeleteNode(fullPath string) bool {
 	lowerPath := strings.ToLower(fullPath)
 	if _, found := rt.searchWildcard(lowerPath); !found {
@@ -131,6 +132,7 @@ func (rt *Route) DeleteNode(fullPath string) bool {
 	return false
 }
 
+// DeleteAPI delete api by fullPath and http verb
 func (rt *Route) DeleteAPI(fullPath string, httpverb config.HTTPVerb) bool {
 	if n, found := rt.findNode(fullPath); found {
 		rt.lock.RLock()

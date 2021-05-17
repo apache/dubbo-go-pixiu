@@ -47,13 +47,19 @@ var (
 	lock      sync.RWMutex
 )
 
-// APIConfigResourceListener defines api config listener interface
+// APIConfigResourceListener defines api resource and method config listener interface
 type APIConfigResourceListener interface {
+	// ResourceChange handle modify resource event
 	ResourceChange(new fc.Resource, old fc.Resource) bool // bool is return for interface implement is interesting
+	// ResourceAdd handle add resource event
 	ResourceAdd(res fc.Resource) bool
+	// ResourceDelete handle delete resource event
 	ResourceDelete(deleted fc.Resource) bool
+	// MethodChange handle modify method event
 	MethodChange(res fc.Resource, method fc.Method, old fc.Method) bool
+	// MethodAdd handle add method below one resource event
 	MethodAdd(res fc.Resource, method fc.Method) bool
+	// MethodDelete handle delete method event
 	MethodDelete(res fc.Resource, method fc.Method) bool
 }
 
@@ -69,7 +75,6 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
 	}
 	apiConfig = apiConf
-
 	return apiConf, nil
 }
 
@@ -85,42 +90,14 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 	if err != nil {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
 	}
-
 	if err = initAPIConfigFromKVList(kList, vList); err != nil {
 		return nil, err
 	}
-
-	// TODO:
+	// TODO: 其他需要从远端获取配置的初始化操作
 
 	go listenResourceAndMethodEvent(metaConfig.APIConfigPath)
-	// TODO: 其他配置监控可以相继启动，比如 PluginGroup 等
-
+	// TODO: 其他监控配置的操作，比如 PluginGroup 等
 	return apiConfig, nil
-}
-
-func getEtcdServicePath(root string) string {
-	return root + "/Resources/"
-}
-
-func initAPIConfigFromString(content string) error {
-	lock.Lock()
-	defer lock.Unlock()
-
-	apiConf := &fc.APIConfig{}
-	if len(content) != 0 {
-		err := yaml.UnmarshalYML([]byte(content), apiConf)
-		if err != nil {
-			return perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
-		}
-
-		valid := validateAPIConfig(apiConf)
-		if !valid {
-			return perrors.Errorf("api config not valid error %v", perrors.WithStack(err))
-		}
-
-		apiConfig = apiConf
-	}
-	return nil
 }
 
 func initAPIConfigFromKVList(kList, vList []string) error {
@@ -132,15 +109,8 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 	for i, k := range kList {
 		v := vList[i]
 
-		re := getCheckBaseInfoRegexp()
-
-		// base info
-		if m := re.Match([]byte(k)); m {
-			continue
-		}
-
-		// resource
-		re = getCheckResourceRegexp()
+		// handle resource
+		re := getCheckResourceRegexp()
 		if m := re.Match([]byte(k)); m {
 			resource := &fc.Resource{}
 			err := yaml.UnmarshalYML([]byte(v), resource)
@@ -149,7 +119,6 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 				continue
 			}
 
-			// for 循环查找
 			found := false
 			if tmpApiConf.Resources == nil {
 				tmpApiConf.Resources = make([]fc.Resource, 0)
@@ -160,7 +129,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 					continue
 				}
 
-				// modify one resource
+				// replace old with new one except method list
 				resource.Methods = old.Methods
 				tmpApiConf.Resources[i] = *resource
 				found = true
@@ -172,8 +141,8 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 			continue
 		}
 
+		// handle method
 		re = getExtractMethodRegexp()
-
 		if m := re.Match([]byte(k)); m {
 
 			method := &fc.Method{}
@@ -203,7 +172,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 				}
 			}
 
-			// need add resource first
+			// not found one resource, so need add empty resource first
 			if !found {
 				resource := &fc.Resource{}
 				resource.Methods = append(resource.Methods, *method)
@@ -213,22 +182,9 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 
 		}
 	}
+
 	apiConfig = tmpApiConf
 	return nil
-}
-
-// validateAPIConfig check api config valid
-func validateAPIConfig(conf *fc.APIConfig) bool {
-	if conf.Name == "" {
-		return false
-	}
-	if conf.Description == "" {
-		return false
-	}
-	if conf.Resources == nil || len(conf.Resources) == 0 {
-		return false
-	}
-	return true
 }
 
 func listenResourceAndMethodEvent(key string) bool {
@@ -262,9 +218,6 @@ func listenResourceAndMethodEvent(key string) bool {
 				case mvccpb.PUT:
 					logger.Infof("get event (key{%s}) = event{EventNodePut}", event.Kv.Key)
 					handlePutEvent(event.Kv.Key, event.Kv.Value)
-					//if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
-					//	listener.APIConfigChange(GetAPIConf())
-					//}
 				case mvccpb.DELETE:
 					logger.Infof("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					handleDeleteEvent(event.Kv.Key, event.Kv.Value)
@@ -275,18 +228,6 @@ func listenResourceAndMethodEvent(key string) bool {
 			}
 		}
 	}
-}
-
-func getCheckBaseInfoRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/base$")
-}
-
-func getCheckResourceRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/Resources/[^/]+/?$")
-}
-
-func getExtractMethodRegexp() *regexp.Regexp {
-	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
 }
 
 func handleDeleteEvent(key, val []byte) {
@@ -350,14 +291,12 @@ func handlePutEvent(key, val []byte) {
 
 	re = getExtractMethodRegexp()
 	if m := re.Match(key); m {
-
 		res := &fc.Method{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Error("handlePutEvent UnmarshalYML error %v", err)
 			return
 		}
-
 		mergeApiConfigMethod(res.ResourcePath, *res)
 	}
 }
@@ -381,9 +320,7 @@ func mergeApiConfigResource(val fc.Resource) {
 		// modify one resource
 		val.Methods = resource.Methods
 		apiConfig.Resources[i] = val
-
 		listener.ResourceChange(val, resource)
-
 		return
 	}
 	// add one resource
@@ -427,6 +364,18 @@ func mergeApiConfigMethod(path string, val fc.Method) {
 		resource.Methods = append(resource.Methods, val)
 		listener.MethodAdd(resource, val)
 	}
+}
+
+func getCheckBaseInfoRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/base$")
+}
+
+func getCheckResourceRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/Resources/[^/]+/?$")
+}
+
+func getExtractMethodRegexp() *regexp.Regexp {
+	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
 }
 
 // RegisterConfigListener register APIConfigListener
