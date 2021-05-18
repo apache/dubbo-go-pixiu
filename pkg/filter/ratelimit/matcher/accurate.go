@@ -27,7 +27,8 @@ import (
 
 type Accurate struct {
 	apiNames map[string]string
-	mu       sync.RWMutex
+
+	mu sync.RWMutex
 }
 
 func (p *Accurate) load(apis []config.APIResource) {

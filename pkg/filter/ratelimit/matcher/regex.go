@@ -28,7 +28,8 @@ import (
 
 type Regex struct {
 	apiNames map[string]string
-	mu       sync.RWMutex
+
+	mu sync.RWMutex
 }
 
 func (p *Regex) load(apis []config.APIResource) {

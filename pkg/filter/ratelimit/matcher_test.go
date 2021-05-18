@@ -32,18 +32,50 @@ import (
 func TestMatch(t *testing.T) {
 	config, err := GetMockedRateLimitConfig()
 	assert.Nil(t, err)
-
+	matcher.Init()
 	matcher.Load(config.APIResources)
 
-	res, _ := matcher.Match("/api/v1/test-dubbo/user")
-	assert.Equal(t, "test-dubbo", res)
-	res, _ = matcher.Match("/api/v1/test-dubbo/user/getInfo")
-	assert.Equal(t, "test-dubbo", res)
-	_, ok := matcher.Match("/api/v1/test-dubbo/A")
-	assert.Equal(t, false, ok)
-
-	res, _ = matcher.Match("/api/v1/http/foo")
-	assert.Equal(t, "test-http", res)
-	res, _ = matcher.Match("/api/v1/http/bar/1.json")
-	assert.Equal(t, "test-http", res)
+	tests := []struct {
+		give    string
+		matched bool
+		res     string
+	}{
+		{
+			give:    "/api/v1/test-dubbo/user",
+			matched: true,
+			res:     "test-dubbo",
+		},
+		{
+			give:    "/api/v1/test-dubbo/user/getInfo",
+			matched: true,
+			res:     "test-dubbo",
+		},
+		{
+			give:    "/api/v1/test-dubbo/A",
+			matched: false,
+			res:     "",
+		},
+		{
+			give:    "/api/v1/http/foo",
+			matched: true,
+			res:     "test-http",
+		},
+		{
+			give:    "/api/v1/http/bar/1.json",
+			matched: true,
+			res:     "test-http",
+		},
+		{
+			give:    "/api/v1/http",
+			matched: false,
+			res:     "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.give, func(t *testing.T) {
+			res, ok := matcher.Match(tt.give)
+			assert.Equal(t, res, tt.res)
+			assert.Equal(t, ok, tt.matched)
+		})
+	}
 }
