@@ -28,7 +28,7 @@ import (
 
 type Regex struct {
 	apiNames map[string]string
-	sync.RWMutex
+	mu       sync.RWMutex
 }
 
 func (p *Regex) load(apis []config.APIResource) {
@@ -43,14 +43,14 @@ func (p *Regex) load(apis []config.APIResource) {
 		}
 	}
 
-	p.Lock()
-	defer p.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.apiNames = m
 }
 
 func (p *Regex) match(path string) (string, bool) {
-	p.RLock()
-	defer p.RUnlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	for k, v := range p.apiNames {
 		matched, _ := regexp.MatchString(k, path)
