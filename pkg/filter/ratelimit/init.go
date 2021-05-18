@@ -22,6 +22,7 @@ import (
 	sc "github.com/alibaba/sentinel-golang/core/config"
 	"github.com/alibaba/sentinel-golang/core/flow"
 	"github.com/alibaba/sentinel-golang/logging"
+	"github.com/pkg/errors"
 )
 
 import (
@@ -40,11 +41,10 @@ func rateLimitInit() error {
 
 	sentinelConf := sc.NewDefaultConfig()
 	sentinelConf.Sentinel.Log.Dir = c.LogPath
-	if err := logging.ResetGlobalLogger(getWrappedLogger()); err != nil {
-		return err
-	}
+	_ = logging.ResetGlobalLogger(getWrappedLogger())
+
 	if err := sentinel.InitWithConfig(sentinelConf); err != nil {
-		return err
+		return errors.Wrap(err, "rate limit init fail")
 	}
 	matcher.Init()
 
