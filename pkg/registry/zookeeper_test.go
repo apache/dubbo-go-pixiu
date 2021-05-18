@@ -18,6 +18,7 @@ package registry
 
 import (
 	"fmt"
+	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 	"net/url"
 	"strconv"
 	"strings"
@@ -28,20 +29,19 @@ import (
 import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/constant"
-	"github.com/apache/dubbo-go/remoting/zookeeper"
 	"github.com/dubbogo/go-zookeeper/zk"
 	"github.com/stretchr/testify/assert"
 )
 
 const providerUrlstr = "dubbo://127.0.0.1:20000/com.ikurento.user.UserProvider?methods.GetUser.retries=1"
 
-func newMockZkRegistry(t *testing.T, providerURL *common.URL, opts ...zookeeper.Option) (*zk.TestCluster, error) {
+func newMockZkRegistry(t *testing.T, providerURL *common.URL, opts ...gxzookeeper.Option) (*zk.TestCluster, error) {
 	var (
 		err    error
 		c      *zk.TestCluster
-		client *zookeeper.ZookeeperClient
+		client *gxzookeeper.ZookeeperClient
 	)
-	c, client, _, err = zookeeper.NewMockZookeeperClient("test", 15*time.Second, opts...)
+	c, client, _, err = gxzookeeper.NewMockZookeeperClient("test", 15*time.Second, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -18,6 +18,8 @@
 package config
 
 import (
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 	"regexp"
 	"strconv"
 	"strings"
@@ -29,8 +31,6 @@ import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
-	"go.etcd.io/etcd/api/v3/mvccpb"
-	clientv32 "go.etcd.io/etcd/client/v3"
 )
 
 import (
@@ -189,7 +189,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 
 func listenResourceAndMethodEvent(key string) bool {
 	for {
-		wc, err := client.WatchWithOption(key, clientv32.WithPrefix())
+		wc, err := client.WatchWithOption(key, clientv3.WithPrefix())
 		if err != nil {
 			logger.Warnf("Watch api config {key:%s} = error{%v}", key, err)
 			return false
@@ -347,7 +347,7 @@ func deleteApiConfigMethod(resourceId, methodId int) {
 }
 
 func mergeApiConfigMethod(path string, val fc.Method) {
-	for _, resource := range apiConfig.Resources {
+	for i, resource := range apiConfig.Resources {
 		if path != resource.Path {
 			continue
 		}
@@ -357,11 +357,13 @@ func mergeApiConfigMethod(path string, val fc.Method) {
 				// modify one method
 				resource.Methods[j] = val
 				listener.MethodChange(resource, val, method)
+				apiConfig.Resources[i] = resource
 				return
 			}
 		}
 		// add one method
 		resource.Methods = append(resource.Methods, val)
+		apiConfig.Resources[i] = resource
 		listener.MethodAdd(resource, val)
 	}
 }
