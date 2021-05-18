@@ -35,9 +35,9 @@ func (p *Accurate) load(apis []config.APIResource) {
 
 	for _, api := range apis {
 		apiName := api.Name
-		for _, api := range api.Items {
-			if api.MatchStrategy == config.ACCURATE {
-				m[api.Pattern] = apiName
+		for _, item := range api.Items {
+			if item.MatchStrategy == config.ACCURATE {
+				m[item.Pattern] = apiName
 			}
 		}
 	}

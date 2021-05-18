@@ -36,9 +36,9 @@ func (p *Regex) load(apis []config.APIResource) {
 
 	for _, api := range apis {
 		apiName := api.Name
-		for _, api := range api.Items {
-			if api.MatchStrategy == config.REGEX {
-				m[api.Pattern] = apiName
+		for _, item := range api.Items {
+			if item.MatchStrategy == config.REGEX {
+				m[item.Pattern] = apiName
 			}
 		}
 	}
