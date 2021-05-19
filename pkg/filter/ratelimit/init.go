@@ -71,7 +71,6 @@ func loadRules(rules []config.Rule) {
 	if _, err := flow.LoadRules(enableRules); err != nil {
 		logger.Warnf("rate limit load rules err: %v", err)
 	}
-	return
 }
 
 // loadApiResources
