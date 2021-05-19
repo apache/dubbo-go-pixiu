@@ -231,6 +231,8 @@ func listenResourceAndMethodEvent(key string) bool {
 }
 
 func handleDeleteEvent(key, val []byte) {
+	lock.Lock()
+	defer lock.Unlock()
 
 	keyStr := string(key)
 	keyStr = strings.TrimSuffix(keyStr, "/")
@@ -277,6 +279,9 @@ func handleDeleteEvent(key, val []byte) {
 }
 
 func handlePutEvent(key, val []byte) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	re := getCheckResourceRegexp()
 	if m := re.Match(key); m {
 		res := &fc.Resource{}
