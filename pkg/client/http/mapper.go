@@ -145,12 +145,8 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget int
 }
 
 func validateTarget(target interface{}) (*requestParams, error) {
-	rv := reflect.ValueOf(target)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return nil, errors.New("Target params must be a non-nil pointer")
-	}
 	val, ok := target.(*requestParams)
-	if !ok {
+	if !ok || val == nil {
 		return nil, errors.New("Target params must be a requestParams pointer")
 	}
 	return val, nil
@@ -174,11 +170,15 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 			target.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
 		}()
 		if err != nil {
-			return errors.New("Raw body parse failed")
+			return errors.New("Raw body read failed")
 		}
 		mapBody := map[string]interface{}{}
-		json.Unmarshal(rawBody, &mapBody)
-
+		if len(rawBody) != 0 {
+			err = json.Unmarshal(rawBody, &mapBody)
+			if err != nil {
+				return errors.New("Raw body parse failed")
+			}
+		}
 		setMapWithPath(mapBody, key, val)
 		rawBody, err = json.Marshal(mapBody)
 		if err != nil {
