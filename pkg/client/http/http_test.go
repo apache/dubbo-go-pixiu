@@ -37,7 +37,8 @@ import (
 
 func TestMapParams(t *testing.T) {
 	hClient := NewHTTPClient()
-	r, _ := http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte("{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
+	r, _ := http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte(
+		"{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	r.Header.Set("Auth", "12345")
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
 	req := client.NewReq(context.TODO(), r, api)
@@ -49,7 +50,8 @@ func TestMapParams(t *testing.T) {
 	assert.Equal(t, p.Header.Get("Auth"), "12345")
 	rawBody, err := ioutil.ReadAll(p.Body)
 	assert.Nil(t, err)
-	assert.Equal(t, string(rawBody), "{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")
+	assert.Equal(t, string(rawBody),
+		"{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")
 
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
@@ -79,7 +81,8 @@ func TestMapParams(t *testing.T) {
 	}
 	api.IntegrationRequest.HTTPBackendConfig.Schema = "https"
 	api.IntegrationRequest.HTTPBackendConfig.Host = "localhost"
-	r, _ = http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte("{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
+	r, _ = http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte(
+		"{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	r.Header.Set("Auth", "12345")
 	req = client.NewReq(context.TODO(), r, api)
 	val, err = hClient.MapParams(req)
@@ -90,9 +93,8 @@ func TestMapParams(t *testing.T) {
 	assert.Equal(t, p.Query.Get("team"), "theBoys")
 	rawBody, err = ioutil.ReadAll(p.Body)
 	assert.Nil(t, err)
-	assert.Equal(t, string(rawBody), "{\"age\":\"19\",\"nickName\":\"trump\",\"testStruct\":{\"name\":\"mock\",\"nickName\":\"trump\",\"test\":\"happy\"}}")
-
-	hClient.Call(req)
+	assert.Equal(t, string(rawBody),
+		"{\"age\":\"19\",\"nickName\":\"trump\",\"testStruct\":{\"name\":\"mock\",\"nickName\":\"trump\",\"test\":\"happy\"}}")
 }
 
 func TestParseURL(t *testing.T) {
