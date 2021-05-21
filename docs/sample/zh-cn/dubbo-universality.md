@@ -25,44 +25,20 @@ resources:
           requestType: dubbo
           mappingParams:
             - name: requestBody.values
-              mapTo: 0
-              opt:
-                open: true
-                usable: true
-                name: values
+              mapTo: opt.values
             - name: requestBody.types
-              mapTo: 1
-              opt:
-                open: true
-                name: types
+              mapTo: opt.types
             - name: uri.application
-              mapTo: 2
-              opt:
-                open: true
-                name: application
+              mapTo: opt.application
             - name: uri.interface
-              mapTo: 3
-              opt:
-                open: true
-                name: interface
+              mapTo: opt.interface
             - name: queryStrings.method
-              mapTo: 4
-              opt:
-                open: true
-                name: method
+              mapTo: opt.method
             - name: queryStrings.group
-              mapTo: 5
-              opt:
-                open: true
-                name: group
+              mapTo: opt.group
             - name: queryStrings.version
-              mapTo: 6
-              opt:
-                open: true
-                name: version
-          paramTypes: ["object", "object", "string", "string", "string", "string", "string"]
-          # 这个是必须注意的，实际传给 dubbo 的 paramTypes，在最终调用的时候优先级高于 paramTypes。
-          toParamTypes: ["string"]
+              mapTo: opt.version
+          # Notice: this is the really paramTypes to dubbo service, it takes precedence over paramTypes when it is finally called.
           clusterName: "test_dubbo"
 ```
 
@@ -134,7 +110,7 @@ const (
 
 #### 选择项
 
-组装泛化调用的参数
+在mapTo 里面使用特定的关键字(列表如下)，貔貅可以自动组装泛化调用的参数
 
 ```go
 // GenericService uses for generic invoke for service call
@@ -144,33 +120,33 @@ type GenericService struct {
 }
 ```
 
-- types
+- opt.types
 
 > dubbo 泛化类型
 
 用于 dubbogo `GenericService#Invoke` 函数的第二个参数。
 
-- method
+- opt.method
 
 用于 dubbogo `GenericService#Invoke` 函数的第一个参数。
 
-- group
+- opt.group
 
 Dubbo 组配置 `ReferenceConfig#Group`。
 
-- version
+- opt.version
 
 Dubbo 版本配置 `ReferenceConfig#Version`。
 
-- interface
+- opt.interface
 
 Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
 
-- application
+- opt.application
 
 目前暂时用于缓存，索引的一部分查找对应的缓存对象。
 
-- values
+- opt.values
 
 值的处理，用于 `GenericService#Invoke` 函数的第三个参数。
 
