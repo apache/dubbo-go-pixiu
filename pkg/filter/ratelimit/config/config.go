@@ -37,7 +37,7 @@ type APIResource struct {
 // APIItem API item for group
 type APIItem struct {
 	MatchStrategy MatchStrategy `json:"matchStrategy" yaml:"matchStrategy"`
-	Pattern       string        `json:"pattern" yaml:"pattern"`
+	Pattern       string        `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 }
 
 // MatchStrategy API match strategy
