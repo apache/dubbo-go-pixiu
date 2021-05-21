@@ -24,12 +24,13 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
             - name: queryStrings.age
               mapTo: 1
+              mapType: "int"
           applicationName: "UserService"
           interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByNameAndAge"
-          paramTypes: [ "string", "int" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -43,12 +44,13 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
             - name: requestBody._all
               mapTo: 1
+              mapType: "object"
           applicationName: "UserService"
           interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUserByName"
-          paramTypes: [ "string", "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -66,12 +68,13 @@ resources:
           mappingParams:
             - name: queryStrings.name
               mapTo: 0
+              mapType: "string"
             - name: requestBody._all
               mapTo: 1
+              mapType: "object"
           applicationName: "UserService"
           interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUserByName"
-          paramTypes: [ "string", "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
