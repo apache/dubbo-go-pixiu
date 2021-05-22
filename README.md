@@ -11,7 +11,7 @@
     <tr>
       <td align="center"  valign="middle">
         <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="350px" height="450px" src="./docs/images/pixiu-log.jpg">
+          <img width="513px" height="513px" src="./docs/images/pixiu-log.png">
         </a>
       </td>
     </tr>
