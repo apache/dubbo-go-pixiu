@@ -21,7 +21,7 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
-var filterFuncCacheMap = make(map[string]func(ctx context.Context), 4)
+var filterFuncCacheMap = make(map[string]func(ctx context.Context), 8)
 
 // SetFilterFunc will store the @filter and @name
 func SetFilterFunc(name string, filter context.FilterFunc) {
