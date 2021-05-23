@@ -39,7 +39,8 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 )
 
-var Version = "0.1.0"
+// Version pixiu version
+var Version = "0.3.0"
 
 func main() {
 	app := newPXApp()
