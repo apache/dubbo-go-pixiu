@@ -26,10 +26,10 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
           applicationName: "StudentService"
           interface: "com.dubbogo.pixiu.StudentService"
           method: "GetStudentByName"
-          paramTypes: [ "string" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -43,12 +43,13 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
             - name: requestBody._all
               mapTo: 1
+              mapType: "object"
           applicationName: "StudentService"
           interface: "com.dubbogo.pixiu.StudentService"
           method: "UpdateStudentByName"
-          paramTypes: [ "string", "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -68,10 +69,10 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
           applicationName: "TeacherService"
           interface: "com.dubbogo.pixiu.TeacherService"
           method: "GetTeacherByName"
-          paramTypes: [ "string" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -85,12 +86,13 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
             - name: requestBody._all
               mapTo: 1
+              mapType: "object"
           applicationName: "TeacherService"
           interface: "com.dubbogo.pixiu.TeacherService"
           method: "UpdateTeacherByName"
-          paramTypes: [ "string", "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"

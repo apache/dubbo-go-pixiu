@@ -27,10 +27,10 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
           applicationName: "UserProvider"
           interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByName"
-          paramTypes: [ "string" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -51,10 +51,10 @@ resources:
           mappingParams:
             - name: uri.code
               mapTo: 0
+              mapType: "int"
           applicationName: "UserProvider"
           interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByCode"
-          paramTypes: [ "int" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -77,12 +77,13 @@ resources:
           mappingParams:
             - name: uri.name
               mapTo: 0
+              mapType: "string"
             - name: uri.age
               mapTo: 1
+              mapType: "int"
           applicationName: "UserProvider"
           interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByNameAndAge"
-          paramTypes: [ "string", "int" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
