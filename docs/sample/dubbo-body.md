@@ -24,10 +24,10 @@ resources:
           mappingParams:
             - name: requestBody._all
               mapTo: 0
+              mapType: "object"
           applicationName: "UserProvider"
           interface: "com.dubbogo.pixiu.UserService"
           method: "CreateUser"
-          paramTypes: [ "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -41,10 +41,10 @@ resources:
           mappingParams:
             - name: requestBody._all
               mapTo: 0
+              mapType: "object"
           applicationName: "UserProvider"
           interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUser"
-          paramTypes: [ "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -62,12 +62,13 @@ resources:
           mappingParams:
             - name: requestBody.name
               mapTo: 0
+              mapType: "string"
             - name: requestBody.user
               mapTo: 1
+              mapType: "object"
           applicationName: "UserService"
           interface: "com.dubbogo.pixiu.UserService"
           method: "UpdateUserByName"
-          paramTypes: [ "string", "object" ]
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"

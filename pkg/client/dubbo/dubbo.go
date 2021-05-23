@@ -29,13 +29,13 @@ import (
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/pkg/errors"
 )
 
 // TODO java class name elem
@@ -89,8 +89,6 @@ func NewDubboClient() *Client {
 
 // Init init dubbo, config mapping can do here
 func (dc *Client) Init() error {
-	dc.GenericServicePool = make(map[string]*dg.GenericService, 4)
-
 	cls := config.GetBootstrap().StaticResources.Clusters
 
 	// dubbogo comsumer config
@@ -140,7 +138,11 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
-	types, values, err := dc.genericArgs(req)
+	values, err := dc.genericArgs(req)
+	val, ok := values.(*dubboTarget)
+	if !ok {
+		return nil, errors.New("map parameters failed")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -148,11 +150,11 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	dm := req.API.Method.IntegrationRequest
 	method := dm.Method
 
-	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, types, values)
+	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
 
 	gs := dc.Get(dm)
 
-	rst, err := gs.Invoke(req.Context, []interface{}{method, types, values})
+	rst, err := gs.Invoke(req.Context, []interface{}{method, val.Types, val.Values})
 	if err != nil {
 		return nil, err
 	}
@@ -162,33 +164,26 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	return rst, nil
 }
 
-func (dc *Client) genericArgs(req *client.Request) ([]string, interface{}, error) {
+func (dc *Client) genericArgs(req *client.Request) (interface{}, error) {
 	values, err := dc.MapParams(req)
-	types := req.API.IntegrationRequest.ParamTypes
-	if len(req.API.IntegrationRequest.ToParamTypes) > 0 {
-		types = req.API.IntegrationRequest.ToParamTypes
-	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return types, values, nil
+	return values, nil
 }
 
 // MapParams params mapping to api.
 func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
-	if len(r.ParamTypes) != len(r.MappingParams) {
-		return nil, errors.New("Numbers of param types and paramMappings are not the same")
-	}
-	var values []interface{}
+	values := newDubboTarget(r.MappingParams)
 	for _, mappingParam := range r.MappingParams {
 		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
 			return nil, err
 		}
 		if mapper, ok := mappers[source]; ok {
-			if err := mapper.Map(mappingParam, req, &values, buildOption(mappingParam)); err != nil {
+			if err := mapper.Map(mappingParam, req, values, buildOption(mappingParam)); err != nil {
 				return nil, err
 			}
 		}
@@ -198,14 +193,10 @@ func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 
 func buildOption(conf fc.MappingParam) client.RequestOption {
 	var opt client.RequestOption
-	if conf.Opt.Open {
-		matchOpt, ok := DefaultMapOption[conf.Opt.Name]
-		if ok {
-			matchOpt.SetUsable(conf.Opt.Usable)
-		}
-		opt = matchOpt
+	isGeneric, mapToType := getGenericMapTo(conf.MapTo)
+	if isGeneric {
+		opt = DefaultMapOption[mapToType]
 	}
-
 	return opt
 }
 
