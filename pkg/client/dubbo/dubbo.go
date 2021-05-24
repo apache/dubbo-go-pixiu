@@ -89,8 +89,6 @@ func NewDubboClient() *Client {
 
 // Init init dubbo, config mapping can do here
 func (dc *Client) Init() error {
-	dc.GenericServicePool = make(map[string]*dg.GenericService, 4)
-
 	cls := config.GetBootstrap().StaticResources.Clusters
 
 	// dubbogo comsumer config
