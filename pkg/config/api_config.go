@@ -18,8 +18,6 @@
 package config
 
 import (
-	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/mvcc/mvccpb"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +29,8 @@ import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 import (
@@ -93,10 +93,10 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 	if err = initAPIConfigFromKVList(kList, vList); err != nil {
 		return nil, err
 	}
-	// TODO: 其他需要从远端获取配置的初始化操作
+	// TODO: init other setting which need fetch from remote
 
 	go listenResourceAndMethodEvent(metaConfig.APIConfigPath)
-	// TODO: 其他监控配置的操作，比如 PluginGroup 等
+	// TODO: watch other setting which need fetch from remote
 	return apiConfig, nil
 }
 
