@@ -35,3 +35,23 @@ const (
 	ResponseStrategyNormal = "normal"
 	ResponseStrategyHump   = "hump"
 )
+
+const (
+	// DefaultDiscoveryType Set up default discovery type.
+	DefaultDiscoveryType = "EDS"
+	// DefaultLoadBalanceType Set up default load balance type.
+	DefaultLoadBalanceType = "RoundRobin"
+	// DefaultFilterType Set up default filter type.
+	DefaultFilterType = "dgp.filters.http_connect_manager"
+	// DefaultHTTPType Set up default HTTP Type.
+	DefaultHTTPType = "net/http"
+	// DefaultProtocolType Set up default protocol type.
+	DefaultProtocolType = "HTTP"
+)
+
+const (
+	// YAML .yaml
+	YAML = ".yaml"
+	//YML .yml
+	YML = ".yml"
+)
