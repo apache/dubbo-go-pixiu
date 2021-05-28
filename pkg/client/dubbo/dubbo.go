@@ -89,8 +89,6 @@ func NewDubboClient() *Client {
 
 // Init init dubbo, config mapping can do here
 func (dc *Client) Init() error {
-	dc.GenericServicePool = make(map[string]*dg.GenericService, 4)
-
 	cls := config.GetBootstrap().StaticResources.Clusters
 
 	// dubbogo comsumer config
@@ -141,12 +139,12 @@ func (dc *Client) Close() error {
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	values, err := dc.genericArgs(req)
+	if err != nil {
+		return nil, err
+	}
 	val, ok := values.(*dubboTarget)
 	if !ok {
 		return nil, errors.New("map parameters failed")
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	dm := req.API.Method.IntegrationRequest
