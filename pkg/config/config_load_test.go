@@ -19,6 +19,8 @@ package config
 
 import (
 	"encoding/json"
+	"log"
+	"os"
 	"testing"
 )
 
@@ -30,15 +32,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-func TestLoad(t *testing.T) {
-	conf := Load("conf_test.yaml")
+var b model.Bootstrap
 
-	assert.Equal(t, 1, len(conf.StaticResources.Listeners))
-	assert.Equal(t, 1, len(conf.StaticResources.Clusters))
-}
-
-func TestStruct2JSON(t *testing.T) {
-	b := model.Bootstrap{
+func TestMain(m *testing.M) {
+	log.Println("Prepare Bootstrap")
+	b = model.Bootstrap{
 		StaticResources: model.StaticResources{
 			Listeners: []model.Listener{
 				{
@@ -46,8 +44,8 @@ func TestStruct2JSON(t *testing.T) {
 					Address: model.Address{
 						SocketAddress: model.SocketAddress{
 							ProtocolStr: "HTTP",
-							Address:     "127.0.0.0",
-							Port:        8899,
+							Address:     "0.0.0.0",
+							Port:        8888,
 						},
 					},
 					Config: model.HttpConfig{
@@ -72,13 +70,20 @@ func TestStruct2JSON(t *testing.T) {
 												{
 													Match: model.RouterMatch{
 														Prefix: "/api/v1",
+														Headers: []model.HeaderMatcher{
+															{Name: "X-DGP-WAY",
+																Value: "dubbo",
+															},
+														},
 													},
 													Route: model.RouteAction{
-														Cluster: "test_dubbo",
+														Cluster:                     "test_dubbo",
+														ClusterNotFoundResponseCode: 505,
 														Cors: model.CorsPolicy{
 															AllowOrigin: []string{
 																"*",
 															},
+															Enabled: true,
 														},
 													},
 												},
@@ -86,12 +91,20 @@ func TestStruct2JSON(t *testing.T) {
 										},
 										HTTPFilters: []model.HTTPFilter{
 											{
-												Name: "dgp.filters.http.cors",
+												Name:   "dgp.filters.http.api",
+												Config: interface{}(nil),
 											},
 											{
-												Name: "dgp.filters.http.router",
+												Name:   "dgp.filters.http.router",
+												Config: interface{}(nil),
+											},
+											{
+												Name:   "dgp.filters.http_transfer_dubbo",
+												Config: interface{}(nil),
 											},
 										},
+										ServerName:        "test_http_dubbo",
+										GenerateRequestID: false,
 									},
 								},
 							},
@@ -99,17 +112,56 @@ func TestStruct2JSON(t *testing.T) {
 					},
 				},
 			},
-			Clusters: []model.Cluster{
+			Clusters: []*model.Cluster{
 				{
 					Name:              "test_dubbo",
 					TypeStr:           "EDS",
+					Type:              model.EDS,
 					LbStr:             "RoundRobin",
 					ConnectTimeoutStr: "5s",
+					RequestTimeoutStr: "10s",
+					Registries: map[string]model.Registry{
+						"zookeeper": {
+							Timeout:  "3s",
+							Address:  "127.0.0.1:2182",
+							Username: "",
+							Password: "",
+						},
+						"consul": {
+							Timeout: "3s",
+							Address: "127.0.0.1:8500",
+						},
+					},
+				},
+			},
+			ShutdownConfig: &model.ShutdownConfig{
+				Timeout:      "60s",
+				StepTimeout:  "10s",
+				RejectPolicy: "immediacy",
+			},
+			PprofConf: model.PprofConf{
+				Enable: true,
+				Address: model.Address{
+					SocketAddress: model.SocketAddress{
+						Address: "0.0.0.0",
+						Port:    6060,
+					},
 				},
 			},
 		},
 	}
+	retCode := m.Run()
+	os.Exit(retCode)
+}
 
+func TestLoad(t *testing.T) {
+	conf := Load("conf_test.yaml")
+	assert.Equal(t, 1, len(conf.StaticResources.Listeners))
+	assert.Equal(t, 1, len(conf.StaticResources.Clusters))
+	assert.Equal(t, *conf, b)
+}
+
+func TestStruct2JSON(t *testing.T) {
 	if bytes, err := json.Marshal(b); err != nil {
 		t.Fatal(err)
 	} else {
