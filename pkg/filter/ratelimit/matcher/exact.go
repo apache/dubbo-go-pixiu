@@ -25,19 +25,19 @@ import (
 	"sync"
 )
 
-type Accurate struct {
+type Exact struct {
 	apiNames map[string]string
 
 	mu sync.RWMutex
 }
 
-func (p *Accurate) load(apis []config.APIResource) {
+func (p *Exact) load(apis []config.APIResource) {
 	m := map[string]string{}
 
 	for _, api := range apis {
 		apiName := api.Name
 		for _, item := range api.Items {
-			if item.MatchStrategy == config.ACCURATE {
+			if item.MatchStrategy == config.EXACT {
 				m[item.Pattern] = apiName
 			}
 		}
@@ -48,7 +48,7 @@ func (p *Accurate) load(apis []config.APIResource) {
 	p.apiNames = m
 }
 
-func (p *Accurate) match(path string) (string, bool) {
+func (p *Exact) match(path string) (string, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 

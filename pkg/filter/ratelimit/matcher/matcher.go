@@ -42,7 +42,7 @@ type Matcher struct {
 func NewMatcher() *Matcher {
 	return &Matcher{
 		matchers: []PathMatcher{
-			&Accurate{},
+			&Exact{},
 			&Regex{},
 		},
 	}

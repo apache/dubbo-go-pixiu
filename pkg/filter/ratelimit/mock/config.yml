@@ -18,7 +18,7 @@
 resources:
   - name: test-dubbo
     items:
-      #Accurate
+      #Exact
       - matchStrategy: 0
         pattern: "/api/v1/test-dubbo/user"
       #Regex
@@ -26,7 +26,7 @@ resources:
         pattern: "/api/v1/test-dubbo/user/*"
   - name: test-http
     items:
-      #Accurate
+      #Exact
       - matchStrategy: 0
         pattern: "/api/v1/http/foo"
       - matchStrategy: 0

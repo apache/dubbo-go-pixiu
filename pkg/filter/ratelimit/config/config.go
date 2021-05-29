@@ -44,7 +44,7 @@ type APIItem struct {
 type MatchStrategy int32
 
 const (
-	ACCURATE MatchStrategy = iota
+	EXACT MatchStrategy = iota
 	REGEX
 	ANT_PATH
 )
