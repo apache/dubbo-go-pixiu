@@ -24,7 +24,7 @@ BASE_DIR := $(PROJECT_DIR)/dist
 PIXIU_DIR := $(PIXIU_DIR)
 PIXIU_PID = /tmp/.pixiu.pid
 
-SOURCES = $(PROJECT_DIR)/server/app/server.go
+SOURCES = $(wildcard $(PROJECT_DIR)/server/app/*.go)
 pixiuSources = $(wildcard $(PIXIU_DIR)/cmd/pixiu/*.go)
 
 export GO111MODULE ?= on
@@ -82,7 +82,7 @@ build: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME) config
 .PHONY: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME)
 $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME):
 	$(info   >  Buiding application binary: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME))
-	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME) $(SOURCES)
+	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) $(SOURCES)
 
 
 ## config: Setup config files
@@ -121,7 +121,7 @@ clean: stop
 start: export CONF_PROVIDER_FILE_PATH ?= $(OUT_DIR)/server/server.yml
 start: build
 	$(info   >  Starting application $(PROJECT_NAME), output is redirected to $(LOG_FILE))
-	@-$(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME) > $(LOG_FILE) 2>&1 & echo $$! > $(PID)
+	@-$(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) > $(LOG_FILE) 2>&1 & echo $$! > $(PID)
 	@cat $(PID) | sed "/^/s/^/  \>  PID: /"
 
 ## run: Run the application (for client)
