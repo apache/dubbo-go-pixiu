@@ -97,7 +97,7 @@ jobs:
       # integration test
       - name: Integration Test
         run: |
-          chmod +x integrate_test.sh && ./start_integrate_test.sh
+          chmod +x start_integrate_test.sh && chmod +x integrate_test.sh && ./start_integrate_test.sh
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
