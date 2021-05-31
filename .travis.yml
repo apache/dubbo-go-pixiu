@@ -33,7 +33,7 @@ script:
   # unit-test
   - echo 'start unit-test'
   - chmod u+x before_ut.sh && ./before_ut.sh
-  - go mod vendor && go test ./... -coverprofile=coverage.txt -covermode=atomic
+  - go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
