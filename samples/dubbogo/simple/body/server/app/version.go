@@ -18,4 +18,4 @@
 package main
 
 // Version dubbo version
-var Version = "2.7.5"
+const Version = "2.7.5"
