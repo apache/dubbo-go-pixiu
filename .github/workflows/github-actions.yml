@@ -89,11 +89,10 @@ jobs:
       - name: Run Linter
         run: golangci-lint run --timeout=10m -v --disable-all --enable=govet --enable=staticcheck --enable=ineffassign --enable=misspell
 
-#      - name: Go Test
-#        run: |
-#          chmod u+x before_ut.sh && ./before_ut.sh
-#          go mod vendor && go test ./... -coverprofile=coverage.txt -covermode=atomic
-#          chmod +x integrate_test.sh && ./integrate_test.sh
+      - name: Go Test
+        run: |
+          chmod u+x before_ut.sh && ./before_ut.sh
+          go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
       # integration test
       - name: Integration Test
         run: |
