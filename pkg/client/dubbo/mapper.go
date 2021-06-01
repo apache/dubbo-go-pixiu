@@ -92,7 +92,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, targ
 		return err
 	}
 	pos, err := strconv.Atoi(mp.MapTo)
-	if err != nil {
+	if err != nil && option == nil {
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 	qValue := queryValues.Get(key[0])
@@ -113,7 +113,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target int
 	}
 	_, key, err := client.ParseMapSource(mp.Name)
 	pos, err := strconv.Atoi(mp.MapTo)
-	if err != nil {
+	if err != nil && option == nil {
 		return errors.Errorf("Parameter mapping %+v incorrect", mp)
 	}
 	header := c.IngressRequest.Header.Get(key[0])
@@ -138,7 +138,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 		return err
 	}
 	pos, err := strconv.Atoi(mp.MapTo)
-	if err != nil {
+	if err != nil && option == nil {
 		return errors.Errorf("Parameter mapping %v incorrect, parameters for Dubbo backend must be mapped to an int to represent position", mp)
 	}
 
@@ -174,7 +174,7 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interf
 		return err
 	}
 	pos, err := strconv.Atoi(mp.MapTo)
-	if err != nil {
+	if err != nil && option == nil {
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 	uriValues := router.GetURIParams(&c.API, *c.IngressRequest.URL)
