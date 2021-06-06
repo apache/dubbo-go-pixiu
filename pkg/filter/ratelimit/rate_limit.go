@@ -37,8 +37,7 @@ import (
 
 // Init cache the filter func & init sentinel
 func Init() {
-	err := rateLimitInit()
-	if err != nil {
+	if err := rateLimitInit(); err != nil {
 		logger.Errorf("rate limit init fail: %v", err)
 
 		//if sentinel init fail, just return a empty filter func to avoid error.
