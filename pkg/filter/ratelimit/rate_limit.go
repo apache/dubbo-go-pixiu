@@ -18,6 +18,7 @@
 package ratelimit
 
 import (
+	"encoding/json"
 	"net/http"
 )
 
@@ -29,8 +30,10 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -60,7 +63,9 @@ func New() filter.Filter {
 // Do extract the url target & pass or block it.
 func (r *rateLimit) Do() fc.FilterFunc {
 	return func(ctx fc.Context) {
-		path := ctx.GetAPI().URLPattern
+		hc := ctx.(*contexthttp.HttpContext)
+
+		path := hc.GetAPI().URLPattern
 		resourceName, ok := matcher.Match(path)
 		//if not exists, just skip it.
 		if !ok {
@@ -71,8 +76,11 @@ func (r *rateLimit) Do() fc.FilterFunc {
 
 		//if blockErr not nil, indicates the request was blocked by Sentinel
 		if blockErr != nil {
-			ctx.Status(http.StatusTooManyRequests)
-			ctx.Abort()
+			bt, _ := json.Marshal(filter.ErrResponse{Message: "blocked by rate limit"})
+			hc.SourceResp = bt
+			hc.TargetResp = &client.Response{Data: bt}
+			hc.WriteJSONWithStatus(http.StatusTooManyRequests, bt)
+			hc.Abort()
 			return
 		}
 		defer entry.Exit()
