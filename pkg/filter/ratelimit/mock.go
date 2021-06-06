@@ -24,7 +24,7 @@ import (
 
 func GetMockedRateLimitConfig() (*config.Config, error) {
 	c := &config.Config{}
-	if err := yaml.UnmarshalYMLConfig("./mock/config.yml", c); err != nil {
+	if err := yaml.UnmarshalYMLConfig("/Users/mark4z/GolandProjects/dubbo-go-pixiu/pkg/filter/ratelimit/mock/config.yml", c); err != nil {
 		return nil, err
 	}
 	return c, nil

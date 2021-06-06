@@ -152,8 +152,8 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 func addFilter(ctx *h.HttpContext, api router.API) {
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.LoggerFilter),
 		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
-	alc := config.GetBootstrap().StaticResources.AccessLogConfig
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RateLimitFilter))
+	alc := config.GetBootstrap().StaticResources.AccessLogConfig
 	if alc.Enable {
 		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.AccessLogFilter))
 	}
@@ -187,9 +187,6 @@ func httpFilter(ctx *h.HttpContext, request fc.IntegrationRequest) {
 
 func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {
 	apiDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-
-	logger.Debug(req.URL.Path)
-
 	api, err := apiDiscSrv.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
 		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
