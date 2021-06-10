@@ -18,7 +18,7 @@
 package matcher
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
 import (
@@ -32,13 +32,13 @@ type Regex struct {
 	mu sync.RWMutex
 }
 
-func (p *Regex) load(apis []config.APIResource) {
+func (p *Regex) load(apis []ratelimit.Resource) {
 	m := map[string]string{}
 
 	for _, api := range apis {
 		apiName := api.Name
 		for _, item := range api.Items {
-			if item.MatchStrategy == config.REGEX {
+			if item.MatchStrategy == ratelimit.REGEX {
 				m[item.Pattern] = apiName
 			}
 		}

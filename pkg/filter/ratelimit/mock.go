@@ -18,14 +18,40 @@
 package ratelimit
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/config"
+	"github.com/alibaba/sentinel-golang/core/flow"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
-func GetMockedRateLimitConfig() (*config.Config, error) {
-	c := &config.Config{}
-	if err := yaml.UnmarshalYMLConfig("/Users/mark4z/GolandProjects/dubbo-go-pixiu/pkg/filter/ratelimit/mock/config.yml", c); err != nil {
-		return nil, err
+func GetMockedRateLimitConfig() ratelimit.Config {
+	c := ratelimit.Config{
+		Resources: []ratelimit.Resource{
+			{
+				Name: "test-dubbo",
+				Items: []ratelimit.Item{
+					{MatchStrategy: ratelimit.EXACT, Pattern: "/api/v1/test-dubbo/user"},
+					{MatchStrategy: ratelimit.REGEX, Pattern: "/api/v1/test-dubbo/user/*"},
+				},
+			},
+			{
+				Name: "test-http",
+				Items: []ratelimit.Item{
+					{MatchStrategy: ratelimit.EXACT, Pattern: "/api/v1/http/foo"},
+					{MatchStrategy: ratelimit.EXACT, Pattern: "/api/v1/http/bar"},
+
+					{MatchStrategy: ratelimit.REGEX, Pattern: "/api/v1/http/foo/*"},
+					{MatchStrategy: ratelimit.REGEX, Pattern: "/api/v1/http/bar/*"},
+				},
+			},
+		},
+		Rules: []ratelimit.Rule{
+			{
+				Enable: true,
+				FlowRule: flow.Rule{
+					Threshold:        100,
+					StatIntervalInMs: 1000,
+				},
+			},
+		},
 	}
-	return c, nil
+	return c
 }

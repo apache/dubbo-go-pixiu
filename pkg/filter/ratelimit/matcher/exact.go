@@ -18,7 +18,7 @@
 package matcher
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
 import (
@@ -31,13 +31,13 @@ type Exact struct {
 	mu sync.RWMutex
 }
 
-func (p *Exact) load(apis []config.APIResource) {
+func (p *Exact) load(apis []ratelimit.Resource) {
 	m := map[string]string{}
 
 	for _, api := range apis {
 		apiName := api.Name
 		for _, item := range api.Items {
-			if item.MatchStrategy == config.EXACT {
+			if item.MatchStrategy == ratelimit.EXACT {
 				m[item.Pattern] = apiName
 			}
 		}

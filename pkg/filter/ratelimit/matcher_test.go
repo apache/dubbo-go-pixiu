@@ -30,10 +30,9 @@ import (
 )
 
 func TestMatch(t *testing.T) {
-	config, err := GetMockedRateLimitConfig()
-	assert.Nil(t, err)
+	config := GetMockedRateLimitConfig()
 	matcher.Init()
-	matcher.Load(config.APIResources)
+	matcher.Load(config.Resources)
 
 	tests := []struct {
 		give    string

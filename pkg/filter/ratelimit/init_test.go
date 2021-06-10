@@ -17,33 +17,14 @@
 
 package ratelimit
 
-import (
-	"encoding/json"
-	"testing"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-)
-
-func TestGetMockConfig(t *testing.T) {
-	config, err := GetMockedRateLimitConfig()
-	if err != nil {
-		logger.Warn(err)
-		t.Fail()
-	}
-	configStr, _ := json.Marshal(config)
-	logger.Infof("rate limit config %s", configStr)
-}
-
-func TestInit(t *testing.T) {
-	err := rateLimitInit()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestLoadRules(t *testing.T) {
-	config, _ := GetMockedRateLimitConfig()
-	loadRules(config.Rules)
-}
+//func TestInit(t *testing.T) {
+//	err := rateLimitInit()
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//}
+//
+//func TestLoadRules(t *testing.T) {
+//	config, _ := GetMockedRateLimitConfig()
+//	loadRules(config.Rules)
+//}

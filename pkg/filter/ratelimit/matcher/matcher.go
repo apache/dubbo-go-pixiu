@@ -18,7 +18,7 @@
 package matcher
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
 var _matcher *Matcher
@@ -30,7 +30,7 @@ func Init() {
 
 //PathMatcher according the url path find APIResource name
 type PathMatcher interface {
-	load(apis []config.APIResource)
+	load(apis []ratelimit.Resource)
 
 	match(path string) (string, bool)
 }
@@ -49,7 +49,7 @@ func NewMatcher() *Matcher {
 }
 
 // Load load api resource for matchers
-func Load(apis []config.APIResource) {
+func Load(apis []ratelimit.Resource) {
 	for _, v := range _matcher.matchers {
 		v.load(apis)
 	}
