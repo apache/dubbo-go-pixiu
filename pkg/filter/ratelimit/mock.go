@@ -22,7 +22,7 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
-func GetMockedRateLimitConfig() ratelimit.Config {
+func GetMockedRateLimitConfig() *ratelimit.Config {
 	c := ratelimit.Config{
 		Resources: []ratelimit.Resource{
 			{
@@ -53,5 +53,5 @@ func GetMockedRateLimitConfig() ratelimit.Config {
 			},
 		},
 	}
-	return c
+	return &c
 }

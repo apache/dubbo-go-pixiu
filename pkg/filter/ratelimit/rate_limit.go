@@ -25,6 +25,7 @@ import (
 import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
@@ -39,8 +40,8 @@ import (
 )
 
 // Init cache the filter func & init sentinel
-func Init() {
-	if err := rateLimitInit(); err != nil {
+func Init(config *ratelimit.Config) {
+	if err := rateLimitInit(config); err != nil {
 		logger.Errorf("rate limit init fail: %v", err)
 
 		//if sentinel init fail, just return a empty filter func to avoid error.

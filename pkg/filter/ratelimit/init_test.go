@@ -17,14 +17,17 @@
 
 package ratelimit
 
-//func TestInit(t *testing.T) {
-//	err := rateLimitInit()
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//}
-//
-//func TestLoadRules(t *testing.T) {
-//	config, _ := GetMockedRateLimitConfig()
-//	loadRules(config.Rules)
-//}
+import "testing"
+
+func TestInit(t *testing.T) {
+	c := GetMockedRateLimitConfig()
+	err := rateLimitInit(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOnUpdate(t *testing.T) {
+	config := GetMockedRateLimitConfig()
+	OnUpdate(*config)
+}

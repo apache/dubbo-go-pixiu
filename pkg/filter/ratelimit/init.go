@@ -22,19 +22,16 @@ import (
 	sc "github.com/alibaba/sentinel-golang/core/config"
 	"github.com/alibaba/sentinel-golang/core/flow"
 	"github.com/alibaba/sentinel-golang/logging"
-	config "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 	"github.com/pkg/errors"
 )
 
 import (
-	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-func rateLimitInit() error {
-	c := apiConf.GetAPIConf().RateLimit
-
+func rateLimitInit(c *ratelimit.Config) error {
 	sentinelConf := sc.NewDefaultConfig()
 	if len(c.LogPath) > 0 {
 		sentinelConf.Sentinel.Log.Dir = c.LogPath
@@ -52,13 +49,13 @@ func rateLimitInit() error {
 }
 
 // OnUpdate update api & rule
-func OnUpdate(c config.Config) {
+func OnUpdate(c ratelimit.Config) {
 	loadApiResources(c.Resources)
 	loadRules(c.Rules)
 }
 
 // loadRules
-func loadRules(rules []config.Rule) {
+func loadRules(rules []ratelimit.Rule) {
 	var enableRules []*flow.Rule
 	for _, v := range rules {
 		if v.Enable {
@@ -72,6 +69,6 @@ func loadRules(rules []config.Rule) {
 }
 
 // loadApiResources
-func loadApiResources(apis []config.Resource) {
+func loadApiResources(apis []ratelimit.Resource) {
 	matcher.Load(apis)
 }
