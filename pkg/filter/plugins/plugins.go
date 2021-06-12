@@ -40,6 +40,11 @@ var (
 	errEmptyPluginConfig = errors.New("Empty plugin config")
 )
 
+func Init(groups []config.PluginsGroup, filePath string, resources []config.Resource) {
+	InitPluginsGroup(groups, filePath)
+	InitAPIURLWithFilterChain(resources)
+}
+
 // FilterChain include Pre & Post filters
 type FilterChain struct {
 	Pre  context.FilterChain
