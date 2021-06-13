@@ -95,118 +95,146 @@ func TestMappingParams(t *testing.T) {
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "queryStrings.id",
-			MapTo: "0",
+			Name:    "queryStrings.id",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.age",
-			MapTo: "1",
+			Name:    "queryStrings.age",
+			MapTo:   "1",
+			MapType: "int",
 		},
-	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"int",
 	}
 	req := client.NewReq(context.TODO(), r, api)
 	params, err := dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], int32(19))
+	assert.Equal(t, params.(*dubboTarget).Values[0], "12345")
+	assert.Equal(t, params.(*dubboTarget).Values[1], int(19))
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
-			Name:  "queryStrings.id",
-			MapTo: "0",
+			Name:    "queryStrings.id",
+			MapTo:   "0",
+			MapType: "string",
 		},
 		{
-			Name:  "queryStrings.age",
-			MapTo: "1",
+			Name:    "queryStrings.age",
+			MapTo:   "1",
+			MapType: "int",
 		},
 		{
-			Name:  "headers.Auth",
-			MapTo: "2",
+			Name:    "headers.Auth",
+			MapTo:   "2",
+			MapType: "string",
 		},
-	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"int",
-		"string",
 	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
 	params, err = dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], int32(19))
-	assert.Equal(t, params.([]interface{})[2], "1234567")
+	assert.Equal(t, params.(*dubboTarget).Values[0], "12345")
+	assert.Equal(t, params.(*dubboTarget).Values[1], int(19))
+	assert.Equal(t, params.(*dubboTarget).Values[2], "1234567")
+
+	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
+	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api.IntegrationRequest.MappingParams = []config.MappingParam{
+		{
+			Name:    "queryStrings.id",
+			MapTo:   "0",
+			MapType: "string",
+		},
+		{
+			Name:    "queryStrings.age",
+			MapTo:   "1",
+			MapType: "int",
+		},
+		{
+			Name:    "headers.Auth",
+			MapTo:   "2",
+			MapType: "string",
+		},
+		{
+			Name:    "requestBody.sex",
+			MapTo:   "3",
+			MapType: "string",
+		},
+		{
+			Name:    "requestBody.name.firstName",
+			MapTo:   "4",
+			MapType: "java.lang.String",
+		},
+	}
+	r.Header.Set("Auth", "1234567")
+	req = client.NewReq(context.TODO(), r, api)
+	params, err = dClient.MapParams(req)
+	assert.Nil(t, err)
+	assert.Equal(t, params.(*dubboTarget).Values[0], "12345")
+	assert.Equal(t, params.(*dubboTarget).Values[1], int(19))
+	assert.Equal(t, params.(*dubboTarget).Values[2], "1234567")
+	assert.Equal(t, params.(*dubboTarget).Values[3], "male")
+	assert.Equal(t, params.(*dubboTarget).Values[4], "Joe")
 
 	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
 	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
 	api.IntegrationRequest.MappingParams = []config.MappingParam{
 		{
 			Name:  "queryStrings.id",
-			MapTo: "0",
+			MapTo: "opt.method",
 		},
 		{
 			Name:  "queryStrings.age",
-			MapTo: "1",
+			MapTo: "opt.application",
 		},
 		{
 			Name:  "headers.Auth",
-			MapTo: "2",
+			MapTo: "opt.group",
 		},
 		{
 			Name:  "requestBody.sex",
-			MapTo: "3",
+			MapTo: "opt.values",
 		},
 		{
 			Name:  "requestBody.name.firstName",
-			MapTo: "4",
+			MapTo: "opt.interface",
 		},
-	}
-	api.IntegrationRequest.ParamTypes = []string{
-		"string",
-		"int",
-		"string",
-		"string",
-		"java.lang.String",
 	}
 	r.Header.Set("Auth", "1234567")
 	req = client.NewReq(context.TODO(), r, api)
-	params, err = dClient.MapParams(req)
+	_, err = dClient.MapParams(req)
 	assert.Nil(t, err)
-	assert.Equal(t, params.([]interface{})[0], "12345")
-	assert.Equal(t, params.([]interface{})[1], int32(19))
-	assert.Equal(t, params.([]interface{})[2], "1234567")
-	assert.Equal(t, params.([]interface{})[3], "male")
-	assert.Equal(t, params.([]interface{})[4], "Joe")
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.ApplicationName, "19")
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.Group, "1234567")
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.Interface, "Joe")
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.Method, "12345")
 }
 
 func TestBuildOption(t *testing.T) {
 	mp := config.MappingParam{
-		Name:  "queryStrings.id",
-		MapTo: "0",
-		Opt: config.Opt{
-			Name:   optionKeyGroup,
-			Open:   true,
-			Usable: false,
-		},
+		Name:    "queryStrings.id",
+		MapTo:   "0",
+		MapType: "string",
 	}
 	option := buildOption(mp)
-	assert.NotNil(t, option)
-	assert.Equal(t, false, option.Usable())
+	assert.Nil(t, option)
 
 	mp = config.MappingParam{
-		Name:  "queryStrings.id",
-		MapTo: "0",
-		Opt: config.Opt{
-			Name:   "other",
-			Open:   true,
-			Usable: false,
-		},
+		Name:    "queryStrings.id",
+		MapTo:   "opt.whatsoever",
+		MapType: "",
 	}
 	option = buildOption(mp)
 	assert.Nil(t, option)
+
+	mp = config.MappingParam{
+		Name:    "queryStrings.id",
+		MapTo:   "opt.interface",
+		MapType: "",
+	}
+	option = buildOption(mp)
+	assert.NotNil(t, option)
+	_, ok := option.(*interfaceOpt)
+	assert.True(t, ok)
 }
