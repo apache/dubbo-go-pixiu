@@ -29,5 +29,5 @@ func TestInit(t *testing.T) {
 
 func TestOnUpdate(t *testing.T) {
 	config := GetMockedRateLimitConfig()
-	OnUpdate(*config)
+	OnUpdate(config)
 }
