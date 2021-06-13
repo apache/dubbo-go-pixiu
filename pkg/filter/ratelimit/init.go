@@ -43,19 +43,18 @@ func rateLimitInit(c *ratelimit.Config) error {
 	}
 	matcher.Init()
 
-	loadApiResources(c.Resources)
-	loadRules(c.Rules)
+	OnUpdate(c)
 	return nil
 }
 
 // OnUpdate update api & rule
-func OnUpdate(c ratelimit.Config) {
-	loadApiResources(c.Resources)
-	loadRules(c.Rules)
+func OnUpdate(c *ratelimit.Config) {
+	OnResourcesUpdate(c.Resources)
+	OnRulesUpdate(c.Rules)
 }
 
-// loadRules
-func loadRules(rules []ratelimit.Rule) {
+// OnRulesUpdate update rule
+func OnRulesUpdate(rules []ratelimit.Rule) {
 	var enableRules []*flow.Rule
 	for _, v := range rules {
 		if v.Enable {
@@ -68,7 +67,7 @@ func loadRules(rules []ratelimit.Rule) {
 	}
 }
 
-// loadApiResources
-func loadApiResources(apis []ratelimit.Resource) {
+// OnResourcesUpdate update matcher for resources
+func OnResourcesUpdate(apis []ratelimit.Resource) {
 	matcher.Load(apis)
 }
