@@ -142,14 +142,14 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 			continue
 		}
 		//handle plugin group
-		re = regexp.MustCompile("")
+		re = getCheckPluginsGroupRegexp()
 		if m := re.Match([]byte(k)); m {
 			plugins = append(plugins, v)
 			continue
 		}
 
 		//handle rate limit config
-		re = regexp.MustCompile("")
+		re = getCheckRatelimitRegexp()
 		if m := re.Match([]byte(k)); m {
 			rateLimit = v
 			continue
@@ -392,7 +392,7 @@ func handleDeleteEvent(key, val []byte) {
 		deleteApiConfigMethod(resourceId, methodId)
 	}
 
-	re = getCheckRatelimit()
+	re = getCheckRatelimitRegexp()
 	if m := re.Match(key); m {
 		empty := &fr.Config{}
 		ratelimit.OnUpdate(empty)
@@ -434,14 +434,14 @@ func handlePutEvent(key, val []byte) {
 	}
 
 	//handle plugins group
-	re = getCheckPluginsGroup()
+	re = getCheckPluginsGroupRegexp()
 	if m := re.Match(key); m {
 		mergePluginGroup(val)
 		return
 	}
 
 	//handle ratelimit
-	re = getCheckRatelimit()
+	re = getCheckRatelimitRegexp()
 	if m := re.Match(key); m {
 		mergeRatelimit(val)
 		return
@@ -560,11 +560,11 @@ func getExtractMethodRegexp() *regexp.Regexp {
 	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
 }
 
-func getCheckPluginsGroup() *regexp.Regexp {
+func getCheckPluginsGroupRegexp() *regexp.Regexp {
 	return regexp.MustCompile(".+/pluginGroup/[^/]+/?$")
 }
 
-func getCheckRatelimit() *regexp.Regexp {
+func getCheckRatelimitRegexp() *regexp.Regexp {
 	return regexp.MustCompile(".+/ratelimit/[^/]+/?$")
 }
 
