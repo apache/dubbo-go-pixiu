@@ -80,12 +80,16 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
-	client, _ = etcdv3.NewConfigClientWithErr(
+	tmpClient, err := etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
+	if err != nil {
+		return nil, perrors.Errorf("Init etcd client fail error %v", err)
+	}
 
+	client = tmpClient
 	kList, vList, err := client.GetChildren(metaConfig.APIConfigPath)
 	if err != nil {
 		return nil, perrors.Errorf("Get remote config fail error %v", err)
@@ -94,96 +98,120 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 		return nil, err
 	}
 	// TODO: init other setting which need fetch from remote
-
 	go listenResourceAndMethodEvent(metaConfig.APIConfigPath)
 	// TODO: watch other setting which need fetch from remote
 	return apiConfig, nil
 }
 
 func initAPIConfigFromKVList(kList, vList []string) error {
+	var skList, svList, mkList, mvList []string
+
+	for i, k := range kList {
+		v := vList[i]
+		// handle resource
+		re := getCheckResourceRegexp()
+		if m := re.Match([]byte(k)); m {
+			skList = append(skList, k)
+			svList = append(svList, v)
+			continue
+		}
+		// handle method
+		re = getExtractMethodRegexp()
+		if m := re.Match([]byte(k)); m {
+			mkList = append(mkList, k)
+			mvList = append(mvList, v)
+			continue
+		}
+	}
+
 	lock.Lock()
 	defer lock.Unlock()
 
 	tmpApiConf := &fc.APIConfig{}
-
-	for i, k := range kList {
-		v := vList[i]
-
-		// handle resource
-		re := getCheckResourceRegexp()
-		if m := re.Match([]byte(k)); m {
-			resource := &fc.Resource{}
-			err := yaml.UnmarshalYML([]byte(v), resource)
-			if err != nil {
-				logger.Error("unmarshalYmlConfig error %v", err.Error())
-				continue
-			}
-
-			found := false
-			if tmpApiConf.Resources == nil {
-				tmpApiConf.Resources = make([]fc.Resource, 0)
-			}
-
-			for i, old := range tmpApiConf.Resources {
-				if old.Path != resource.Path {
-					continue
-				}
-
-				// replace old with new one except method list
-				resource.Methods = old.Methods
-				tmpApiConf.Resources[i] = *resource
-				found = true
-			}
-
-			if !found {
-				tmpApiConf.Resources = append(tmpApiConf.Resources, *resource)
-			}
-			continue
-		}
-
-		// handle method
-		re = getExtractMethodRegexp()
-		if m := re.Match([]byte(k)); m {
-
-			method := &fc.Method{}
-			err := yaml.UnmarshalYML([]byte(v), method)
-			if err != nil {
-				logger.Error("unmarshalYmlConfig error %v", err.Error())
-				continue
-			}
-
-			found := false
-			for r, resource := range tmpApiConf.Resources {
-				if method.ResourcePath != resource.Path {
-					continue
-				}
-
-				for j, old := range resource.Methods {
-					if old.HTTPVerb == method.HTTPVerb {
-						// modify one method
-						resource.Methods[j] = *method
-						found = true
-					}
-				}
-				if !found {
-					resource.Methods = append(resource.Methods, *method)
-					tmpApiConf.Resources[r] = resource
-					found = true
-				}
-			}
-
-			// not found one resource, so need add empty resource first
-			if !found {
-				resource := &fc.Resource{}
-				resource.Methods = append(resource.Methods, *method)
-				resource.Path = method.ResourcePath
-				tmpApiConf.Resources = append(tmpApiConf.Resources, *resource)
-			}
-
-		}
+	if err := initAPIConfigServiceFromKvList(tmpApiConf, skList, svList); err != nil {
+		logger.Error("initAPIConfigServiceFromKvList error %v", err.Error())
+		return err
+	}
+	if err := initAPIConfigMethodFromKvList(tmpApiConf, mkList, mvList); err != nil {
+		logger.Error("initAPIConfigMethodFromKvList error %v", err.Error())
+		return err
 	}
 
 	apiConfig = tmpApiConf
+	return nil
+}
+
+func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) error {
+	for i, _ := range kList {
+		v := vList[i]
+		method := &fc.Method{}
+		err := yaml.UnmarshalYML([]byte(v), method)
+		if err != nil {
+			logger.Error("unmarshalYmlConfig error %v", err.Error())
+			return err
+		}
+
+		found := false
+		for r, resource := range config.Resources {
+			if method.ResourcePath != resource.Path {
+				continue
+			}
+
+			for j, old := range resource.Methods {
+				if old.HTTPVerb == method.HTTPVerb {
+					// modify one method
+					resource.Methods[j] = *method
+					found = true
+				}
+			}
+			if !found {
+				resource.Methods = append(resource.Methods, *method)
+				config.Resources[r] = resource
+				found = true
+			}
+		}
+
+		// not found one resource, so need add empty resource first
+		if !found {
+			resource := &fc.Resource{}
+			resource.Methods = append(resource.Methods, *method)
+			resource.Path = method.ResourcePath
+			config.Resources = append(config.Resources, *resource)
+		}
+	}
+	return nil
+}
+
+func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string) error {
+	for i, _ := range kList {
+		v := vList[i]
+		resource := &fc.Resource{}
+		err := yaml.UnmarshalYML([]byte(v), resource)
+		if err != nil {
+			logger.Error("unmarshalYmlConfig error %v", err.Error())
+			return err
+		}
+
+		found := false
+		if config.Resources == nil {
+			config.Resources = make([]fc.Resource, 0)
+		}
+
+		for i, old := range config.Resources {
+			if old.Path != resource.Path {
+				continue
+			}
+			// replace old with new one except method list
+			resource.Methods = old.Methods
+			config.Resources[i] = *resource
+			found = true
+		}
+
+		if !found {
+			config.Resources = append(config.Resources, *resource)
+		}
+		continue
+	}
 	return nil
 }
 
