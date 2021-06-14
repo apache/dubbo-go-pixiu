@@ -18,7 +18,7 @@
 package config
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,8 +27,9 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
 	"go.etcd.io/etcd/clientv3"
@@ -204,7 +205,7 @@ func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
 }
 
 func initAPIConfigRatelimitFromString(conf *fc.APIConfig, str string) error {
-	c := ratelimit.Config{}
+	c := fr.Config{}
 	if err := yaml.UnmarshalYML([]byte(str), &c); err != nil {
 		logger.Errorf("unmarshalYmlConfig error %v", err.Error())
 		return err
@@ -390,6 +391,12 @@ func handleDeleteEvent(key, val []byte) {
 		}
 		deleteApiConfigMethod(resourceId, methodId)
 	}
+
+	re = getCheckRatelimit()
+	if m := re.Match(key); m {
+		empty := &fr.Config{}
+		ratelimit.OnUpdate(empty)
+	}
 }
 
 func handlePutEvent(key, val []byte) {
@@ -427,14 +434,14 @@ func handlePutEvent(key, val []byte) {
 	}
 
 	//handle plugins group
-	re = regexp.MustCompile("")
+	re = getCheckPluginsGroup()
 	if m := re.Match(key); m {
 		mergePluginGroup(val)
 		return
 	}
 
 	//handle ratelimit
-	re = regexp.MustCompile("")
+	re = getCheckRatelimit()
 	if m := re.Match(key); m {
 		mergeRatelimit(val)
 		return
@@ -442,13 +449,13 @@ func handlePutEvent(key, val []byte) {
 }
 
 func mergeRatelimit(val []byte) {
-	c := &ratelimit.Config{}
+	c := &fr.Config{}
 	if err := yaml.UnmarshalYML(val, c); err != nil {
 		logger.Errorf("unmarshalYmlConfig error %v", err.Error())
 		return
 	}
 	apiConfig.RateLimit = *c
-	//fixme
+	ratelimit.OnUpdate(c)
 }
 
 func mergePluginGroup(val []byte) {
@@ -462,7 +469,7 @@ func mergePluginGroup(val []byte) {
 			apiConfig.PluginsGroup[i] = *g
 		}
 	}
-	//fixme
+	plugins.OnGroupUpdate(apiConfig.PluginsGroup)
 }
 
 func mergeBaseInfo(val []byte) {
@@ -548,6 +555,14 @@ func getCheckResourceRegexp() *regexp.Regexp {
 
 func getExtractMethodRegexp() *regexp.Regexp {
 	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
+}
+
+func getCheckPluginsGroup() *regexp.Regexp {
+	return regexp.MustCompile(".+/pluginGroup/[^/]+/?$")
+}
+
+func getCheckRatelimit() *regexp.Regexp {
+	return regexp.MustCompile(".+/ratelimit/[^/]+/?$")
 }
 
 // RegisterConfigListener register APIConfigListener

@@ -27,7 +27,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/service"
 )

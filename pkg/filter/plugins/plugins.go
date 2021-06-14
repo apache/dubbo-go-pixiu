@@ -38,7 +38,7 @@ var (
 	// url path -> filter chain
 	filterChainCache = make(map[string]FilterChain)
 	groupCache       = make(map[string]map[string]WithFunc)
-	localFilePath        = ""
+	localFilePath    = ""
 
 	errEmptyConfig = errors.New("Empty plugin config")
 )
@@ -75,8 +75,8 @@ func OnResourceUpdate(resource *config.Resource) {
 }
 
 // OnGroupUpdate update group cache
-func OnGroupUpdate(groups []config.PluginsGroup, filePath string) {
-	InitPluginsGroup(groups, filePath)
+func OnGroupUpdate(groups []config.PluginsGroup) {
+	InitPluginsGroup(groups, "")
 }
 
 // InitPluginsGroup prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
