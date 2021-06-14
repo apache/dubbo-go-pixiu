@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package registry
 
 import (
@@ -24,12 +25,12 @@ import (
 	"strings"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/constant"
 	"github.com/dubbogo/go-zookeeper/zk"
+
+	zookeeper "github.com/dubbogo/gost/database/kv/zk"
 	"github.com/stretchr/testify/assert"
 )
 

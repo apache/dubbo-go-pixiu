@@ -156,10 +156,6 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	}
 	// register config change listener
 	pc.RegisterConfigListener(localAPIDiscSrv)
-	// load pluginsGroup
-	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
-	// init plugins from resource
-	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 

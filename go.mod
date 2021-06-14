@@ -3,6 +3,13 @@ module github.com/apache/dubbo-go-pixiu
 go 1.14
 
 require (
+	github.com/alibaba/sentinel-golang v1.0.2
+	github.com/apache/dubbo-go v1.5.7-rc1
+	github.com/apache/dubbo-go-hessian2 v1.9.2
+	github.com/coreos/etcd v3.3.25+incompatible
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c
+	github.com/dubbogo/go-zookeeper v1.0.3
+	github.com/dubbogo/gost v1.11.7
 	github.com/apache/dubbo-go v1.5.6
 	github.com/apache/dubbo-go-hessian2 v1.9.1
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c
@@ -24,6 +31,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc // indirect
 	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
 	golang.org/x/text v0.3.6 // indirect
+	google.golang.org/grpc v1.33.1
 	gopkg.in/yaml.v2 v2.4.0
 )
 
