@@ -498,6 +498,9 @@ func mergeApiConfigResource(val fc.Resource) {
 		val.Methods = resource.Methods
 		apiConfig.Resources[i] = val
 		listener.ResourceChange(val, resource)
+
+		//plugin update
+		plugins.OnResourceUpdate(&resource)
 		return
 	}
 	// add one resource
