@@ -7,15 +7,16 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.9.1
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210514150956-207303ec4bd4
 	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.8
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/hashicorp/consul/api v1.5.0
 	github.com/pkg/errors v0.9.1
+	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
 	github.com/spf13/cast v1.3.1
 	github.com/stretchr/testify v1.7.0
+	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/urfave/cli v1.22.4
 	go.etcd.io/etcd v0.0.0-20200402134248-51bdeb39e698
 	go.uber.org/zap v1.16.0

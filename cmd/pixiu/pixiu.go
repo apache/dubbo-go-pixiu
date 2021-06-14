@@ -40,7 +40,7 @@ import (
 )
 
 // Version pixiu version
-var Version = "0.1.0"
+var Version = "0.3.0"
 
 // main pixiu run method
 func main() {
