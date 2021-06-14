@@ -38,6 +38,7 @@ var (
 	apiURLWithPluginsMap = make(map[string]FilterChain)
 	groupWithPluginsMap  = make(map[string]map[string]WithFunc)
 	errEmptyPluginConfig = errors.New("Empty plugin config")
+	localFilePath        = ""
 )
 
 // FilterChain include Pre & Post filters
@@ -53,14 +54,24 @@ type WithFunc struct {
 	fn       context.FilterFunc
 }
 
+func OnFilePathChange(filePath string) {
+	if len(filePath) == 0 {
+		logger.Error("plugins file path can not be empty")
+		return
+	}
+	localFilePath = filePath
+}
+
 // InitPluginsGroup prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
 func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
-	if "" == filePath || len(groups) == 0 {
+	OnFilePathChange(filePath)
+
+	if "" == localFilePath || len(groups) == 0 {
 		return
 	}
 
 	// load file.so
-	pls, err := plugin.Open(filePath)
+	pls, err := plugin.Open(localFilePath)
 	if nil != err {
 		panic(err)
 	}
