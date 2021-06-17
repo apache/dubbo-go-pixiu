@@ -157,7 +157,7 @@ func GetLoadBalance(cfg *model.Bootstrap) (err error) {
 			c.LbStr = constant.DefaultLoadBalanceType
 			lbPolicy = model.LbPolicyValue[c.LbStr]
 		}
-		c.Type = model.DiscoveryType(lbPolicy)
+		c.Lb = model.LbPolicy(lbPolicy)
 	}
 	return nil
 }
