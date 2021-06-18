@@ -54,7 +54,7 @@ var MatcherTypeValue = map[string]int32{
 // HeaderMatcher header matcher struct
 // Name header key, Value header value, Regex header value is regex
 type HeaderMatcher struct {
-	Name  string `yaml:"name" json:"name"`
-	Value string `yaml:"value" json:"value"`
-	Regex bool   `yaml:"regex" json:"regex"`
+	Name  string `yaml:"name" json:"name" mapstructure:"name"`
+	Value string `yaml:"value" json:"value" mapstructure:"value"`
+	Regex bool   `yaml:"regex" json:"regex" mapstructure:"regex"`
 }

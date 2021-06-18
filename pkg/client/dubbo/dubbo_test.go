@@ -176,6 +176,39 @@ func TestMappingParams(t *testing.T) {
 	assert.Equal(t, params.(*dubboTarget).Values[2], "1234567")
 	assert.Equal(t, params.(*dubboTarget).Values[3], "male")
 	assert.Equal(t, params.(*dubboTarget).Values[4], "Joe")
+
+	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
+	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api.IntegrationRequest.MappingParams = []config.MappingParam{
+		{
+			Name:  "queryStrings.id",
+			MapTo: "opt.method",
+		},
+		{
+			Name:  "queryStrings.age",
+			MapTo: "opt.application",
+		},
+		{
+			Name:  "headers.Auth",
+			MapTo: "opt.group",
+		},
+		{
+			Name:  "requestBody.sex",
+			MapTo: "opt.values",
+		},
+		{
+			Name:  "requestBody.name.firstName",
+			MapTo: "opt.interface",
+		},
+	}
+	r.Header.Set("Auth", "1234567")
+	req = client.NewReq(context.TODO(), r, api)
+	_, err = dClient.MapParams(req)
+	assert.Nil(t, err)
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.ApplicationName, "19")
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.Group, "1234567")
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.Interface, "Joe")
+	assert.Equal(t, req.API.Method.IntegrationRequest.DubboBackendConfig.Method, "12345")
 }
 
 func TestBuildOption(t *testing.T) {
