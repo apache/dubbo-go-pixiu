@@ -17,7 +17,6 @@
 package registry
 
 import (
-	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 	"path"
 	"strings"
 	"time"
@@ -25,6 +24,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go/common"
+	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 )
 
 import (
