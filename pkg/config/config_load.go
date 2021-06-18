@@ -18,7 +18,7 @@
 package config
 
 import (
-	"encoding/json"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -37,8 +37,11 @@ import (
 var (
 	configPath     string
 	config         *model.Bootstrap
-	configLoadFunc ConfigLoadFunc = DefaultConfigLoad
+	configLoadFunc LoadFunc = LoadYAMLConfig
 )
+
+// LoadFunc ConfigLoadFunc parse a input(usually file path) into a pixiu config
+type LoadFunc func(path string) *model.Bootstrap
 
 // GetBootstrap get config global, need a better name
 func GetBootstrap() *model.Bootstrap {
@@ -48,142 +51,162 @@ func GetBootstrap() *model.Bootstrap {
 // Load config file and parse
 func Load(path string) *model.Bootstrap {
 	logger.Infof("[dubbopixiu go] load path:%s", path)
-
 	configPath, _ = filepath.Abs(path)
-	if yamlFormat(path) {
-		RegisterConfigLoadFunc(YAMLConfigLoad)
+	if configPath != "" && CheckYamlFormat(configPath) {
+		RegisterConfigLoadFunc(LoadYAMLConfig)
 	}
-	if cfg := configLoadFunc(path); cfg != nil {
+	if cfg := configLoadFunc(configPath); cfg != nil {
 		config = cfg
 	}
-
 	return config
 }
 
-// ConfigLoadFunc parse a input(usually file path) into a pixiu config
-type ConfigLoadFunc func(path string) *model.Bootstrap
-
 // RegisterConfigLoadFunc can replace a new config load function instead of default
-func RegisterConfigLoadFunc(f ConfigLoadFunc) {
+func RegisterConfigLoadFunc(f LoadFunc) {
 	configLoadFunc = f
 }
 
-func yamlFormat(path string) bool {
+func CheckYamlFormat(path string) bool {
 	ext := filepath.Ext(path)
-	if ext == ".yaml" || ext == ".yml" {
+	if ext == constant.YAML || ext == constant.YML {
 		return true
 	}
 	return false
 }
 
-// YAMLConfigLoad config load yaml
-func YAMLConfigLoad(path string) *model.Bootstrap {
+// LoadYAMLConfig YAMLConfigLoad config load yaml
+func LoadYAMLConfig(path string) *model.Bootstrap {
 	log.Println("load config in YAML format from : ", path)
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] load config failed, ", err)
 	}
 	cfg := &model.Bootstrap{}
-
-	bytes, err := yaml.YAMLToJSON(content)
+	err = yaml.Unmarshal(content, cfg)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] convert YAML to JSON failed, ", err)
 	}
-
-	err = json.Unmarshal(bytes, cfg)
+	err = Adapter(cfg)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] yaml unmarshal config failed, ", err)
 	}
+	return cfg
+}
 
-	// other adapter
+func Adapter(cfg *model.Bootstrap) (err error) {
+	if GetFilterChain(cfg) != nil || GetHttpConfig(cfg) != nil || GetProtocol(cfg) != nil ||
+		GetLoadBalance(cfg) != nil || GetDiscoveryType(cfg) != nil {
+		return err
+	}
+	return nil
+}
 
-	for i, l := range cfg.StaticResources.Listeners {
+func GetProtocol(cfg *model.Bootstrap) (err error) {
+	if cfg == nil {
+		logger.Error("Bootstrap configuration is null")
+		return err
+	}
+	for _, l := range cfg.StaticResources.Listeners {
 		if l.Address.SocketAddress.ProtocolStr == "" {
-			l.Address.SocketAddress.ProtocolStr = "HTTP"
+			l.Address.SocketAddress.ProtocolStr = constant.DefaultProtocolType
 		}
 		l.Address.SocketAddress.Protocol = model.ProtocolType(model.ProtocolTypeValue[l.Address.SocketAddress.ProtocolStr])
+	}
+	return nil
+}
 
+func GetHttpConfig(cfg *model.Bootstrap) (err error) {
+	if cfg == nil {
+		logger.Error("Bootstrap configuration is null")
+		return err
+	}
+	for i, l := range cfg.StaticResources.Listeners {
 		hc := &model.HttpConfig{}
 		if l.Config != nil {
 			if v, ok := l.Config.(map[string]interface{}); ok {
 				switch l.Name {
-				case "net/http":
+				case constant.DefaultHTTPType:
 					if err := mapstructure.Decode(v, hc); err != nil {
 						logger.Error(err)
 					}
-
-					cfg.StaticResources.Listeners[i].Config = hc
+					cfg.StaticResources.Listeners[i].Config = *hc
 				}
 			}
 		}
+	}
+	return nil
+}
 
+func GetFilterChain(cfg *model.Bootstrap) (err error) {
+	if cfg == nil {
+		logger.Error("Bootstrap configuration is null")
+		return err
+	}
+	for _, l := range cfg.StaticResources.Listeners {
 		for _, fc := range l.FilterChains {
 			if fc.Filters != nil {
 				for i, fcf := range fc.Filters {
 					hcm := &model.HttpConnectionManager{}
 					if fcf.Config != nil {
 						switch fcf.Name {
-						case "dgp.filters.http_connect_manager":
+						case constant.DefaultFilterType:
 							if v, ok := fcf.Config.(map[string]interface{}); ok {
 								if err := mapstructure.Decode(v, hcm); err != nil {
 									logger.Error(err)
 								}
-
-								fc.Filters[i].Config = hcm
+								fc.Filters[i].Config = *hcm
 							}
 						}
 					}
 				}
 			}
 		}
-
 	}
-
-	for _, c := range cfg.StaticResources.Clusters {
-		var discoverType int32
-		if c.TypeStr != "" {
-			if t, ok := model.DiscoveryTypeValue[c.TypeStr]; ok {
-				discoverType = t
-			} else {
-				c.TypeStr = "EDS"
-				discoverType = model.DiscoveryTypeValue[c.TypeStr]
-			}
-		} else {
-			c.TypeStr = "EDS"
-			discoverType = model.DiscoveryTypeValue[c.TypeStr]
-		}
-		c.Type = model.DiscoveryType(discoverType)
-
-		var lbPolicy int32
-		if c.LbStr != "" {
-			if lb, ok := model.LbPolicyValue[c.LbStr]; ok {
-				lbPolicy = lb
-			} else {
-				c.LbStr = "RoundRobin"
-				lbPolicy = model.LbPolicyValue[c.LbStr]
-			}
-		} else {
-			c.LbStr = "RoundRobin"
-			lbPolicy = model.LbPolicyValue[c.LbStr]
-		}
-		c.Lb = model.LbPolicy(lbPolicy)
-	}
-
-	return cfg
+	return nil
 }
 
-// DefaultConfigLoad if not config, will load this
-func DefaultConfigLoad(path string) *model.Bootstrap {
-	log.Println("load config from : ", path)
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatalln("[config] [default load] load config failed, ", err)
+func GetLoadBalance(cfg *model.Bootstrap) (err error) {
+	if cfg == nil {
+		logger.Error("Bootstrap configuration is null")
+		return err
 	}
-	cfg := &model.Bootstrap{}
-	// translate to lower case
-	err = json.Unmarshal(content, cfg)
-	if err != nil {
-		log.Fatalln("[config] [default load] json unmarshal config failed, ", err)
+	var lbPolicy int32
+	for _, c := range cfg.StaticResources.Clusters {
+		flag := true
+		if c.TypeStr != "" {
+			if t, ok := model.LbPolicyValue[c.LbStr]; ok {
+				lbPolicy = t
+				flag = false
+			}
+		}
+		if flag {
+			c.LbStr = constant.DefaultLoadBalanceType
+			lbPolicy = model.LbPolicyValue[c.LbStr]
+		}
+		c.Type = model.DiscoveryType(lbPolicy)
 	}
-	return cfg
+	return nil
+}
+
+func GetDiscoveryType(cfg *model.Bootstrap) (err error) {
+	if cfg == nil {
+		logger.Error("Bootstrap configuration is null")
+		return err
+	}
+	var discoveryType int32
+	for _, c := range cfg.StaticResources.Clusters {
+		flag := true
+		if c.TypeStr != "" {
+			if t, ok := model.DiscoveryTypeValue[c.TypeStr]; ok {
+				discoveryType = t
+				flag = false
+			}
+		}
+		if flag {
+			c.TypeStr = constant.DefaultDiscoveryType
+			discoveryType = model.DiscoveryTypeValue[c.TypeStr]
+		}
+		c.Type = model.DiscoveryType(discoveryType)
+	}
+	return nil
 }
