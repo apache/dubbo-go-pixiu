@@ -32,8 +32,6 @@ static_resources:
   clusters:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
-      connect_timeout: "5s"
-      request_timeout: "10s"
       registries:
         "zookeeper":
           protocol: "zookeeper"
@@ -44,6 +42,9 @@ static_resources:
 #        "consul":
 #          timeout: "3s"
 #          address: "127.0.0.1:8500"
+  timeout_config:
+    connect_timeout: "5s"
+    request_timeout: "10s"
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"
