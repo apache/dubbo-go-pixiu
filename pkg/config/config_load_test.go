@@ -114,12 +114,10 @@ func TestMain(m *testing.M) {
 			},
 			Clusters: []*model.Cluster{
 				{
-					Name:              "test_dubbo",
-					TypeStr:           "EDS",
-					Type:              model.EDS,
-					LbStr:             "RoundRobin",
-					ConnectTimeoutStr: "5s",
-					RequestTimeoutStr: "10s",
+					Name:    "test_dubbo",
+					TypeStr: "EDS",
+					Type:    model.EDS,
+					LbStr:   "RoundRobin",
 					Registries: map[string]model.Registry{
 						"zookeeper": {
 							Timeout:  "3s",
@@ -133,6 +131,10 @@ func TestMain(m *testing.M) {
 						},
 					},
 				},
+			},
+			TimeoutConfig: model.TimeoutConfig{
+				ConnectTimeoutStr: "5s",
+				RequestTimeoutStr: "10s",
 			},
 			ShutdownConfig: &model.ShutdownConfig{
 				Timeout:      "60s",

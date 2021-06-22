@@ -19,17 +19,15 @@ package model
 
 // Cluster a single upstream cluster
 type Cluster struct {
-	Name              string              `yaml:"name" json:"name"`             // Name the cluster unique name
-	TypeStr           string              `yaml:"type" json:"type"`             // Type the cluster discovery type string value
-	Type              DiscoveryType       `yaml:",omitempty" json:",omitempty"` // Type the cluster discovery type
-	EdsClusterConfig  EdsClusterConfig    `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
-	LbStr             string              `yaml:"lb_policy" json:"lb_policy"`             // Lb the cluster select node used loadBalance policy
-	Lb                LbPolicy            `yaml:",omitempty" json:",omitempty"`           // Lb the cluster select node used loadBalance policy
-	ConnectTimeoutStr string              `yaml:"connect_timeout" json:"connect_timeout"` // ConnectTimeout timeout for connect to cluster node
-	HealthChecks      []HealthCheck       `yaml:"health_checks" json:"health_checks"`
-	Hosts             []Address           `yaml:"hosts" json:"hosts"` // Hosts whe discovery type is Static, StrictDNS or LogicalDns, this need config
-	RequestTimeoutStr string              `yaml:"request_timeout" json:"request_timeout"`
-	Registries        map[string]Registry `yaml:"registries" json:"registries"`
+	Name             string              `yaml:"name" json:"name"`             // Name the cluster unique name
+	TypeStr          string              `yaml:"type" json:"type"`             // Type the cluster discovery type string value
+	Type             DiscoveryType       `yaml:",omitempty" json:",omitempty"` // Type the cluster discovery type
+	EdsClusterConfig EdsClusterConfig    `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
+	LbStr            string              `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
+	Lb               LbPolicy            `yaml:",omitempty" json:",omitempty"` // Lb the cluster select node used loadBalance policy
+	HealthChecks     []HealthCheck       `yaml:"health_checks" json:"health_checks"`
+	Hosts            []Address           `yaml:"hosts" json:"hosts"` // Hosts whe discovery type is Static, StrictDNS or LogicalDns, this need config
+	Registries       map[string]Registry `yaml:"registries" json:"registries"`
 }
 
 // DiscoveryType
