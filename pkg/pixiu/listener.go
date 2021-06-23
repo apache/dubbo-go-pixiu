@@ -107,7 +107,7 @@ func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == constant.HTTPConnectManagerFilter {
-				return *f.Config.(*model.HttpConnectionManager)
+				return f.Config.(model.HttpConnectionManager)
 			}
 		}
 	}
