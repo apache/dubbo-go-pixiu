@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package registry
 
 import (
 	"fmt"
-	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 	"net/url"
 	"strconv"
 	"strings"
@@ -30,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/constant"
 	"github.com/dubbogo/go-zookeeper/zk"
+	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 	"github.com/stretchr/testify/assert"
 )
 

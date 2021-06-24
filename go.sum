@@ -81,10 +81,11 @@ github.com/aliyun/alibaba-cloud-sdk-go v1.61.18/go.mod h1:v8ESoHo4SyHmuB4b1tJqDH
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/dubbo-getty v1.4.3 h1:PCKpryDasKOxwT5MBC6MIMO+0NLOaHF6Xco9YXQw7HI=
 github.com/apache/dubbo-getty v1.4.3/go.mod h1:ansXgKxxyhCOiQL29nO5ce1MDcEKmCyZuNR9oMs3hek=
-github.com/apache/dubbo-go v1.5.6 h1:iTMrXo8jB6DxKOhM83NKDnGA8c9ZPnofCOos/GvKyF8=
-github.com/apache/dubbo-go v1.5.6/go.mod h1:wLJvPWbnrf6/bhoohBT404QK4t2JoNcckMw+/fJ9P+c=
-github.com/apache/dubbo-go-hessian2 v1.9.1 h1:ceSsU/9z/gv3hzUpl8GceEhQvF3i0BionfdHUGMmjHU=
+github.com/apache/dubbo-go v1.5.7-rc1 h1:PBK/Ox35L8QH85eBmHAqsg/EL2SnO+xwcCw67lQ4z4Q=
+github.com/apache/dubbo-go v1.5.7-rc1/go.mod h1:wLJvPWbnrf6/bhoohBT404QK4t2JoNcckMw+/fJ9P+c=
 github.com/apache/dubbo-go-hessian2 v1.9.1/go.mod h1:xQUjE7F8PX49nm80kChFvepA/AvqAZ0oh/UaB6+6pBE=
+github.com/apache/dubbo-go-hessian2 v1.9.2 h1:XuI8KvENSfKiAhiCBS4RNihmQDoPNmGWKT3gTui0p9A=
+github.com/apache/dubbo-go-hessian2 v1.9.2/go.mod h1:xQUjE7F8PX49nm80kChFvepA/AvqAZ0oh/UaB6+6pBE=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e h1:QEF07wC0T1rKkctt1RINW/+RMTVmiwxETico2l3gxJA=
@@ -176,8 +177,6 @@ github.com/dnaeon/go-vcr v1.0.1/go.mod h1:aBB1+wY4s93YsC3HHjMBMrwTj2R9FHDzUr9KyG
 github.com/docker/go-connections v0.3.0 h1:3lOnM9cSzgGwx8VfK/NGOW5fLQ0GjIlCkaktF+n1M6o=
 github.com/docker/go-connections v0.3.0/go.mod h1:Gbd7IOopHjR8Iph03tsViu4nIes5XhDvyHbTtUxmeec=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
-github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210427062645-0bec837d429e h1:0d1cHanEYqLu/WRwvTe4Y2zeCeeiimVqFKTL5QXAxAs=
-github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210427062645-0bec837d429e/go.mod h1:d6SDK5BHl/QCvg84BN+g6LZS9QzVqnI2+yw0NBu0uac=
 github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c h1:Hff+hNfuM7lx01sJy0ZmEZELNGZkNEgU8WQOz8D4Tno=
 github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c/go.mod h1:o0tgVjbQyVxVq27Av9VvB5ZBv6tk4ypfIPkhfTLfmuw=
 github.com/dubbogo/go-zookeeper v1.0.3 h1:UkuY+rBsxdT7Bs63QAzp9z7XqQ53W1j8E5rwl83me8g=

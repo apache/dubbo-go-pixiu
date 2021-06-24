@@ -74,6 +74,7 @@ func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
 	return nil
 }
 
+<<<<<<< HEAD
 // RemoveAPIByPath remove all api belonged to path
 func (ads *LocalMemoryAPIDiscoveryService) RemoveAPIByPath(deleted config.Resource) error {
 	_, groupPath := getDefaultPath()
@@ -146,6 +147,15 @@ func (ads *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, met
 		return true
 	}
 	return false
+=======
+// APIConfigChange to response to api config change
+func (ads *LocalMemoryAPIDiscoveryService) APIConfigChange(apiConfig config.APIConfig) bool {
+	ads.ClearAPI()
+	loadAPIFromResource("", apiConfig.Resources, nil, ads)
+
+	plugins.Init(apiConfig.PluginsGroup, apiConfig.PluginFilePath, apiConfig.Resources)
+	return true
+>>>>>>> develop
 }
 
 // InitAPIsFromConfig inits the router from API config and to local cache
@@ -156,10 +166,6 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	}
 	// register config change listener
 	pc.RegisterConfigListener(localAPIDiscSrv)
-	// load pluginsGroup
-	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
-	// init plugins from resource
-	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 

@@ -89,18 +89,21 @@ func NewDubboClient() *Client {
 
 // Init init dubbo, config mapping can do here
 func (dc *Client) Init() error {
-	cls := config.GetBootstrap().StaticResources.Clusters
+	staticResources := config.GetBootstrap().StaticResources
+	cls := staticResources.Clusters
+	tc := staticResources.TimeoutConfig
 
-	// dubbogo comsumer config
+	// dubbogo consumer config
 	dgCfg = dg.ConsumerConfig{
 		Check:      new(bool),
 		Registries: make(map[string]*dg.RegistryConfig, 4),
 	}
-	dgCfg.ApplicationConfig = defaultApplication
+	// timeout config
+	dgCfg.Connect_Timeout = tc.ConnectTimeoutStr
+	dgCfg.Request_Timeout = tc.RequestTimeoutStr
+	dgCfg.ApplicazookeepertionConfig = defaultApplication
 	for i := range cls {
 		c := cls[i]
-		dgCfg.Request_Timeout = c.RequestTimeoutStr
-		dgCfg.Connect_Timeout = c.ConnectTimeoutStr
 		for k, v := range c.Registries {
 			if len(v.Protocol) == 0 {
 				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
