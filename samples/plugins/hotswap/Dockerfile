@@ -23,6 +23,6 @@ ENV GOPROXY https://goproxy.cn
 
 WORKDIR ${HOME}
 
-COPY . ${HOME}
+COPY .. ${HOME}
 
 CMD ["/bin/bash", "start.sh"]
