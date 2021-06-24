@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package registry
 
 import (
@@ -23,12 +24,9 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go/common"
-	"github.com/apache/dubbo-go/remoting/zookeeper"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go/common"
+	zookeeper "github.com/dubbogo/gost/database/kv/zk"
 )
 
 const (
@@ -48,7 +46,7 @@ type ZookeeperRegistryLoad struct {
 }
 
 func newZookeeperRegistryLoad(address, cluster string) (Loader, error) {
-	newClient, err := zookeeper.NewZookeeperClient("zkClient", strings.Split(address, ","), 15*time.Second)
+	newClient, err := zookeeper.NewZookeeperClient("zkClient", strings.Split(address, ","), false, zookeeper.WithZkTimeOut(15*time.Second))
 	if err != nil {
 		logger.Warnf("newZookeeperClient error:%v", err)
 		return nil, err
