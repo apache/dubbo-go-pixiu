@@ -27,7 +27,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/service"
 )
@@ -74,7 +73,6 @@ func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
 	return nil
 }
 
-<<<<<<< HEAD
 // RemoveAPIByPath remove all api belonged to path
 func (ads *LocalMemoryAPIDiscoveryService) RemoveAPIByPath(deleted config.Resource) error {
 	_, groupPath := getDefaultPath()
@@ -147,15 +145,6 @@ func (ads *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, met
 		return true
 	}
 	return false
-=======
-// APIConfigChange to response to api config change
-func (ads *LocalMemoryAPIDiscoveryService) APIConfigChange(apiConfig config.APIConfig) bool {
-	ads.ClearAPI()
-	loadAPIFromResource("", apiConfig.Resources, nil, ads)
-
-	plugins.Init(apiConfig.PluginsGroup, apiConfig.PluginFilePath, apiConfig.Resources)
-	return true
->>>>>>> develop
 }
 
 // InitAPIsFromConfig inits the router from API config and to local cache

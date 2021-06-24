@@ -101,7 +101,7 @@ func (dc *Client) Init() error {
 	// timeout config
 	dgCfg.Connect_Timeout = tc.ConnectTimeoutStr
 	dgCfg.Request_Timeout = tc.RequestTimeoutStr
-	dgCfg.ApplicazookeepertionConfig = defaultApplication
+	dgCfg.ApplicationConfig = defaultApplication
 	for i := range cls {
 		c := cls[i]
 		for k, v := range c.Registries {
