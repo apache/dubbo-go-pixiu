@@ -15,23 +15,36 @@
  * limitations under the License.
  */
 
-package constant
+package main
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
+import (
+	"fmt"
+	"net/http"
+	"time"
 )
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
-)
+func main() {
+	client := &http.Client{Timeout: time.Second * 2}
+	url := "http://localhost:8888/api/v1/test-dubbo/user?name=tc"
+
+	ch := make(chan interface{})
+	for i := 0; i < 5; i++ {
+		go func() {
+			for {
+				access(client, url)
+			}
+		}()
+	}
+	<-ch
+}
+
+func access(c *http.Client, url string) {
+	res, err := c.Get(url)
+	time.Sleep(time.Millisecond * 100)
+	if err != nil {
+		fmt.Println(time.Now(), "blocked", err.Error())
+		return
+	}
+	fmt.Println(time.Now(), "passed")
+	_ = res.Body.Close()
+}

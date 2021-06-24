@@ -11,6 +11,7 @@
 * [dubbo](sample/dubbo.md)
 * [http](sample/http.md)
 * [mock](sample/mock.md)
+* [plugins](../samples/plugins/index.md)
 
 ## [User Guide](user/README.md)
 
