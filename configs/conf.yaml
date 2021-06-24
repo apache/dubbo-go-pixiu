@@ -75,8 +75,6 @@ static_resources:
   clusters:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
-      connect_timeout: "5s"
-      request_timeout: "10s"
       registries:
         "zookeeper":
           protocol: "zookeeper"
@@ -84,6 +82,9 @@ static_resources:
           address: "127.0.0.1:2181"
           username: ""
           password: ""
+  timeout_config:
+    connect_timeout: "5s"
+    request_timeout: "10s"
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"
