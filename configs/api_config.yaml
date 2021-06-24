@@ -80,3 +80,33 @@ pluginsGroup:
         version: "0.0.1"
         priority: 1000
         externalLookupName: "ExternalPluginTrace"
+rateLimit:
+  resources:
+    - name: test-dubbo
+      items:
+        #Exact
+        - matchStrategy: 0
+          pattern: "/api/v1/test-dubbo/user"
+        #Regex
+        - matchStrategy: 1
+          pattern: "/api/v1/test-dubbo/user/*"
+    - name: test-http
+      items:
+        #Exact
+        - matchStrategy: 0
+          pattern: "/api/v1/http/foo"
+        - matchStrategy: 0
+          pattern: "/api/v1/http/bar"
+        #Regex
+        - matchStrategy: 1
+          pattern: "/api/v1/http/foo/*"
+        - matchStrategy: 1
+          pattern: "/api/v1/http/bar/*"
+
+  rules:
+    #qps sample At most 100 requests can be passed in 1000ms, so qps is 100
+    - resource: "test-dubbo"
+      enable: true
+      flowRule:
+        threshold: 100
+        statintervalinms: 1000
