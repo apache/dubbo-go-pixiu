@@ -155,6 +155,8 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	if alc.Enable {
 		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.AccessLogFilter))
 	}
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RateLimitFilter))
+
 	switch api.Method.IntegrationRequest.RequestType {
 	// TODO add some basic filter for diff protocol
 	case fc.DubboRequest:
