@@ -207,7 +207,7 @@ func deleteAPIFromResource(old config.Resource, localSrv service.APIDiscoverySer
 func addAPIFromResource(resource config.Resource, localSrv service.APIDiscoveryService, groupPath string, parentPath string, fullHeaders map[string]string) error {
 	fullPath := getFullPath(groupPath, resource.Path)
 	if !strings.HasPrefix(resource.Path, constant.PathSlash) {
-		return errors.New(fmt.Sprintf("Path %s in %s doesn't start with /", resource.Path, parentPath))
+		return fmt.Errorf("path %s in %s doesn't start with /", resource.Path, parentPath)
 	}
 	for headerName, headerValue := range resource.Headers {
 		fullHeaders[headerName] = headerValue
@@ -231,7 +231,7 @@ func addAPIFromMethod(fullPath string, method config.Method, headers map[string]
 		Headers:    headers,
 	}
 	if err := localSrv.AddAPI(api); err != nil {
-		return errors.New(fmt.Sprintf("Path: %s, Method: %s, error: %s", fullPath, method.HTTPVerb, err.Error()))
+		return fmt.Errorf("path: %s, Method: %s, error: %s", fullPath, method.HTTPVerb, err.Error())
 	}
 	return nil
 }
