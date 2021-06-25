@@ -22,6 +22,7 @@ resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful
     description: user
+    timeout: 100ms
     plugins:
       pre:
         pluginNames:
