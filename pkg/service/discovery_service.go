@@ -63,10 +63,12 @@ var EmptyDiscoveryResponse = &DiscoveryResponse{}
 
 // APIDiscoveryService api discovery service interface
 type APIDiscoveryService interface {
-	pc.APIConfigListener
+	pc.APIConfigResourceListener
 	AddAPI(router.API) error
 	ClearAPI() error
 	GetAPI(string, config.HTTPVerb) (router.API, error)
+	RemoveAPIByPath(deleted config.Resource) error
+	RemoveAPI(fullPath string, method config.Method) error
 }
 
 // DiscoveryService is come from envoy, it can used for admin
