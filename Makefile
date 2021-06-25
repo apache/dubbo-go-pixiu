@@ -19,30 +19,31 @@
 
 cur_mkfile := $(abspath $(lastword $(MAKEFILE_LIST)))
 currentPath := $(patsubst %/, %, $(dir $(cur_mkfile)))
-$(info cur_makefile_path1=$(currentPath))
 pixiuPath := /cmd/pixiu/
 mainPath := $(currentPath)$(pixiuPath)
-$(info $(mainPath))
 
 targetName := dubbo-go-pixiu
 
 api-config-path:=${api-config}
-ifeq ("",$(api-config-path))
-        api-config-path = configs/api_config.yaml
+ifeq (,$(api-config-path))
+$(warning api-config-path is nil, default: configs/api_config.yaml)
+api-config-path = configs/api_config.yaml
 endif
 
 config-path:=${config-path}
-ifeq ("",$(config-path))
-        config-path = configs/conf.yaml
+ifeq (,$(config-path))
+$(warning config-path is nil, default: configs/conf.yaml)
+config-path = configs/conf.yaml
 endif
 
+$(info api-config-path = $(api-config-path))
+$(info config-path = $(config-path))
+
 os := $(shell go env GOOS)
-$(info os is $(os))
 ifeq (windows,$(os))
 	targetName = dubbo-go-pixiu.exe
 endif
 exe := $(mainPath)$(targetName)
-$(info path of exe is $(exe))
 build:
 	cd $(mainPath) && go build  -o $(targetName)
 
