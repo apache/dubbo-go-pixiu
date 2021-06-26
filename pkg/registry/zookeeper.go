@@ -14,21 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package registry
 
 import (
-	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 	"path"
 	"strings"
 	"time"
 )
 
 import (
-	"github.com/apache/dubbo-go/common"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go/common"
+	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 )
 
 const (

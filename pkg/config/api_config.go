@@ -18,7 +18,6 @@
 package config
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"regexp"
 	"strconv"
 	"strings"
@@ -141,6 +140,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 			mvList = append(mvList, v)
 			continue
 		}
+
 		//handle plugin group
 		re = getCheckPluginsGroupRegexp()
 		if m := re.Match([]byte(k)); m {
@@ -164,7 +164,6 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 		logger.Error("initBaseInfoFromString error %v", err.Error())
 		return err
 	}
-
 	if err := initAPIConfigServiceFromKvList(tmpApiConf, skList, svList); err != nil {
 		logger.Error("initAPIConfigServiceFromKvList error %v", err.Error())
 		return err
@@ -183,48 +182,6 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 	}
 
 	apiConfig = tmpApiConf
-	return nil
-}
-
-func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
-	properties := make(map[string]string, 8)
-	if err := yaml.UnmarshalYML([]byte(str), properties); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %v", err.Error())
-		return err
-	}
-	if v, ok := properties[BASE_INFO_NAME]; ok {
-		conf.Name = v
-	}
-	if v, ok := properties[BASE_INFO_DESC]; ok {
-		conf.Description = v
-	}
-	if v, ok := properties[BASE_INFO_PFP]; ok {
-		conf.PluginFilePath = v
-	}
-	return nil
-}
-
-func initAPIConfigRatelimitFromString(conf *fc.APIConfig, str string) error {
-	c := fr.Config{}
-	if err := yaml.UnmarshalYML([]byte(str), &c); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %v", err.Error())
-		return err
-	}
-	conf.RateLimit = c
-	return nil
-}
-
-func initAPIConfigPluginsFromStringList(conf *fc.APIConfig, plugins []string) error {
-	var groups []fc.PluginsGroup
-	for _, v := range plugins {
-		g := fc.PluginsGroup{}
-		if err := yaml.UnmarshalYML([]byte(v), &g); err != nil {
-			logger.Errorf("unmarshalYmlConfig error %v", err.Error())
-			return err
-		}
-		groups = append(groups, g)
-	}
-	conf.PluginsGroup = groups
 	return nil
 }
 
@@ -448,6 +405,33 @@ func handlePutEvent(key, val []byte) {
 	}
 }
 
+func deleteApiConfigResource(resourceId int) {
+	for i := 0; i < len(apiConfig.Resources); i++ {
+		itr := apiConfig.Resources[i]
+		if itr.ID == resourceId {
+			apiConfig.Resources = append(apiConfig.Resources[:i], apiConfig.Resources[i+1:]...)
+			listener.ResourceDelete(itr)
+			return
+		}
+	}
+}
+
+func mergeApiConfigResource(val fc.Resource) {
+	for i, resource := range apiConfig.Resources {
+		if val.ID != resource.ID {
+			continue
+		}
+		// modify one resource
+		val.Methods = resource.Methods
+		apiConfig.Resources[i] = val
+		listener.ResourceChange(val, resource)
+		return
+	}
+	// add one resource
+	apiConfig.Resources = append(apiConfig.Resources, val)
+	listener.ResourceAdd(val)
+}
+
 func mergeRatelimit(val []byte) {
 	c := &fr.Config{}
 	if err := yaml.UnmarshalYML(val, c); err != nil {
@@ -476,36 +460,6 @@ func mergeBaseInfo(val []byte) {
 	_ = initBaseInfoFromString(apiConfig, string(val))
 
 	plugins.OnFilePathChange(apiConfig.PluginFilePath)
-}
-
-func deleteApiConfigResource(resourceId int) {
-	for i := 0; i < len(apiConfig.Resources); i++ {
-		itr := apiConfig.Resources[i]
-		if itr.ID == resourceId {
-			apiConfig.Resources = append(apiConfig.Resources[:i], apiConfig.Resources[i+1:]...)
-			listener.ResourceDelete(itr)
-			return
-		}
-	}
-}
-
-func mergeApiConfigResource(val fc.Resource) {
-	for i, resource := range apiConfig.Resources {
-		if val.ID != resource.ID {
-			continue
-		}
-		// modify one resource
-		val.Methods = resource.Methods
-		apiConfig.Resources[i] = val
-		listener.ResourceChange(val, resource)
-
-		//plugin update
-		plugins.OnResourceUpdate(&resource)
-		return
-	}
-	// add one resource
-	apiConfig.Resources = append(apiConfig.Resources, val)
-	listener.ResourceAdd(val)
 }
 
 func deleteApiConfigMethod(resourceId, methodId int) {
@@ -559,6 +513,7 @@ func getCheckResourceRegexp() *regexp.Regexp {
 func getExtractMethodRegexp() *regexp.Regexp {
 	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
 }
+
 
 func getCheckPluginsGroupRegexp() *regexp.Regexp {
 	return regexp.MustCompile(".+/pluginGroup/[^/]+/?$")
