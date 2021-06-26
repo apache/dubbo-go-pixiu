@@ -63,7 +63,6 @@ type WithFunc struct {
 
 func OnFilePathChange(filePath string) {
 	if len(filePath) == 0 {
-		logger.Error("plugins file path can not be empty")
 		return
 	}
 	localFilePath = filePath
