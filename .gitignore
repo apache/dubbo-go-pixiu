@@ -9,5 +9,4 @@ samples/dubbogo/simple/server/app/app
 /.idea
 /.vscode
 pkg/registry/zookeeper-4unittest/contrib/fatjar
-
-
+.DS_Store
