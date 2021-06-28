@@ -1,14 +1,31 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zookeeper
 
 import (
 	"strings"
-	"time"
 	"sync"
+	"time"
 )
 
 import (
-	"github.com/pkg/errors"
 	"github.com/dubbogo/go-zookeeper/zk"
+	"github.com/pkg/errors"
 )
 
 import (
@@ -18,8 +35,7 @@ import (
 // Options defines the client option.
 type Options struct {
 	zkName string
-	client *ZooKeeperClient
-	ts *zk.TestCluster
+	ts     *zk.TestCluster
 }
 
 // Option defines the function to load the options
@@ -105,10 +121,10 @@ func (z *ZooKeeperClient) RegisterHandler(event <-chan zk.Event) {
 }
 
 // HandleZkEvent handles zookeeper events
-func (z *ZooKeeperClient) HandleZkEvent(session <-chan zk.Event) {
+func (z *ZooKeeperClient) HandleZkEvent(s <-chan zk.Event) {
 	var (
 		state int
-		event zk.Event
+		e     zk.Event
 	)
 
 	defer func() {
@@ -120,28 +136,21 @@ func (z *ZooKeeperClient) HandleZkEvent(session <-chan zk.Event) {
 		select {
 		case <-z.exit:
 			return
-		case event = <-session:
+		case e = <-s:
 			logger.Infof("client{%s} get a zookeeper event{type:%s, server:%s, path:%s, state:%d-%s, err:%v}",
-				z.name, event.Type, event.Server, event.Path, event.State, StateToString(event.State), event.Err)
-			switch (int)(event.State) {
+				z.name, e.Type, e.Server, e.Path, e.State, StateToString(e.State), e.Err)
+			switch (int)(e.State) {
 			case (int)(zk.StateDisconnected):
 				logger.Warnf("zk{addr:%s} state is StateDisconnected, so close the zk client{name:%s}.", z.ZkAddrs, z.name)
-				z.stop()
-				z.Lock()
-				conn := z.conn
-				z.conn = nil
-				z.Unlock()
-				if conn != nil {
-					conn.Close()
-				}
+				z.Destroy()
 				return
 			case (int)(zk.EventNodeDataChanged), (int)(zk.EventNodeChildrenChanged):
-				logger.Infof("zkClient{%s} get zk node changed event{path:%s}", z.name, event.Path)
+				logger.Infof("zkClient{%s} get zk node changed event{path:%s}", z.name, e.Path)
 				z.eventRegistryLock.RLock()
 				for p, a := range z.eventRegistry {
-					if strings.HasPrefix(p, event.Path) {
+					if strings.HasPrefix(p, e.Path) {
 						logger.Infof("send event{state:zk.EventNodeDataChange, Path:%s} notify event to path{%s} related listener",
-							event.Path, p)
+							e.Path, p)
 						for _, e := range a {
 							*e <- struct{}{}
 						}
@@ -153,14 +162,14 @@ func (z *ZooKeeperClient) HandleZkEvent(session <-chan zk.Event) {
 					continue
 				}
 				z.eventRegistryLock.RLock()
-				if a, ok := z.eventRegistry[event.Path]; ok && 0 < len(a) {
+				if a, ok := z.eventRegistry[e.Path]; ok && 0 < len(a) {
 					for _, e := range a {
 						*e <- struct{}{}
 					}
 				}
 				z.eventRegistryLock.RUnlock()
 			}
-			state = (int)(event.State)
+			state = (int)(e.State)
 		}
 	}
 }
@@ -182,7 +191,6 @@ func (z *ZooKeeperClient) stop() bool {
 
 	return false
 }
-
 
 // GetChildren gets children by @path
 func (z *ZooKeeperClient) GetChildren(path string) ([]string, error) {
@@ -207,4 +215,23 @@ func (z *ZooKeeperClient) GetChildren(path string) ([]string, error) {
 	}
 
 	return children, nil
+}
+
+func (z *ZooKeeperClient) GetConnState() zk.State {
+	conn := z.getConn()
+	if conn != nil {
+		return conn.State()
+	}
+	return zk.StateExpired
+}
+
+func (z *ZooKeeperClient) Destroy() {
+	z.stop()
+	z.Lock()
+	conn := z.conn
+	z.conn = nil
+	z.Unlock()
+	if conn != nil {
+		conn.Close()
+	}
 }

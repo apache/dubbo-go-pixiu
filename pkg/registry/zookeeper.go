@@ -17,12 +17,13 @@
 
 package registry
 
-import (
-	"path"
-	"strings"
-	"time"
-)
+// import (
+// 	"path"
+// 	"strings"
+// 	"time"
+// )
 
+<<<<<<< HEAD
 import (
 	"github.com/apache/dubbo-go/common"
 
@@ -36,63 +37,74 @@ import (
 const (
 	rootPath = "/dubbo"
 )
+=======
+// import (
+// 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+// 	"github.com/apache/dubbo-go/common"
+// 	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
+// )
 
-func init() {
-	var _ Loader = new(ZookeeperRegistryLoad)
-}
+// const (
+// 	rootPath = "/dubbo"
+// )
+>>>>>>> 7dcd364f ([#131] load interface level)
 
-// ZookeeperRegistryLoad load dubbo apis from zookeeper registry
-type ZookeeperRegistryLoad struct {
-	zkName  string
-	client  *gxzookeeper.ZookeeperClient
-	Address string
-	cluster string
-}
+// func init() {
+// 	var _ Loader = new(ZookeeperRegistryLoad)
+// }
 
-func newZookeeperRegistryLoad(address, cluster string) (Loader, error) {
-	newClient, err := gxzookeeper.NewZookeeperClient("zkClient", strings.Split(address, ","), false, gxzookeeper.WithZkTimeOut(15*time.Second))
-	if err != nil {
-		logger.Warnf("newZookeeperClient error:%v", err)
-		return nil, err
-	}
+// // ZookeeperRegistryLoad load dubbo apis from zookeeper registry
+// type ZookeeperRegistryLoad struct {
+// 	zkName  string
+// 	client  *gxzookeeper.ZookeeperClient
+// 	Address string
+// 	cluster string
+// }
 
-	r := &ZookeeperRegistryLoad{
-		Address: address,
-		client:  newClient,
-		cluster: cluster,
-	}
+// func newZookeeperRegistryLoad(address, cluster string) (Loader, error) {
+// 	newClient, err := gxzookeeper.NewZookeeperClient("zkClient", strings.Split(address, ","), false, gxzookeeper.WithZkTimeOut(15*time.Second))
+// 	if err != nil {
+// 		logger.Warnf("newZookeeperClient error:%v", err)
+// 		return nil, err
+// 	}
 
-	return r, nil
-}
+// 	r := &ZookeeperRegistryLoad{
+// 		Address: address,
+// 		client:  newClient,
+// 		cluster: cluster,
+// 	}
 
-// nolint
-func (crl *ZookeeperRegistryLoad) GetCluster() (string, error) {
-	return crl.cluster, nil
-}
+// 	return r, nil
+// }
 
-// LoadAllServices load all services from zookeeper registry
-func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]*common.URL, error) {
-	children, err := crl.client.GetChildren(rootPath)
-	if err != nil {
-		logger.Errorf("[zookeeper registry] get zk children error:%v", err)
-		return nil, err
-	}
-	var urls []*common.URL
-	for _, _interface := range children {
-		providerStr := path.Join(rootPath, "/", _interface, "/", "providers")
-		urlStrs, err := crl.client.GetChildren(providerStr)
-		if err != nil {
-			logger.Errorf("[zookeeper registry] get zk children \"%s\" error:%v", providerStr, err)
-			return nil, err
-		}
-		for _, url := range urlStrs {
-			dubboURL, err := common.NewURL(url)
-			if err != nil {
-				logger.Warnf("[zookeeper registry] transfer zk info to url error:%v", err)
-				continue
-			}
-			urls = append(urls, dubboURL)
-		}
-	}
-	return urls, nil
-}
+// // nolint
+// func (crl *ZookeeperRegistryLoad) GetCluster() (string, error) {
+// 	return crl.cluster, nil
+// }
+
+// // LoadAllServices load all services from zookeeper registry
+// func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]*common.URL, error) {
+// 	children, err := crl.client.GetChildren(rootPath)
+// 	if err != nil {
+// 		logger.Errorf("[zookeeper registry] get zk children error:%v", err)
+// 		return nil, err
+// 	}
+// 	var urls []*common.URL
+// 	for _, _interface := range children {
+// 		providerStr := path.Join(rootPath, "/", _interface, "/", "providers")
+// 		urlStrs, err := crl.client.GetChildren(providerStr)
+// 		if err != nil {
+// 			logger.Errorf("[zookeeper registry] get zk children \"%s\" error:%v", providerStr, err)
+// 			return nil, err
+// 		}
+// 		for _, url := range urlStrs {
+// 			dubboURL, err := common.NewURL(url)
+// 			if err != nil {
+// 				logger.Warnf("[zookeeper registry] transfer zk info to url error:%v", err)
+// 				continue
+// 			}
+// 			urls = append(urls, dubboURL)
+// 		}
+// 	}
+// 	return urls, nil
+// }
