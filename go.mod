@@ -11,7 +11,6 @@ require (
 	github.com/dubbogo/gost v1.11.8
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/go-zookeeper/zk v1.0.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/hashicorp/consul/api v1.5.0

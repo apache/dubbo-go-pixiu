@@ -20,5 +20,5 @@ package constant
 // env key
 const (
 	Zookeeper string = "zookeeper"
-	Consul string = "consul"
+	Consul    string = "consul"
 )
