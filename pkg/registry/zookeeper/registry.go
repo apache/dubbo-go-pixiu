@@ -34,13 +34,14 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/registry/base"
 	zk "github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
 const (
 	// RegistryZkClient zk client name
 	RegistryZkClient = "zk registry"
-	rootPath = "/dubbo"
+	rootPath         = "/dubbo"
 )
 
 func init() {
@@ -48,90 +49,101 @@ func init() {
 }
 
 type ZKRegistry struct {
-	*registry.BaseRegistry
-	client *zk.ZookeeperClient
+	*baseregistry.BaseRegistry
+	client *zk.ZooKeeperClient
 }
 
 func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
-	baseReg := registry.NewBaseRegistry()
+	var zkReg *ZKRegistry = &ZKRegistry{}
+	baseReg := baseregistry.NewBaseRegistry(zkReg)
 	timeout, err := time.ParseDuration(regConfig.Timeout)
 	if err != nil {
 		return nil, errors.Errorf("Incorrect timeout configuration: %s", regConfig.Timeout)
 	}
-	client, err := zk.NewZookeeperClient(RegistryZkClient, strings.Split(regConfig.Address, ","), timeout)
+	client, eventChan, err := zk.NewZooKeeperClient(RegistryZkClient, strings.Split(regConfig.Address, ","), timeout)
 	if err != nil {
 		return nil, errors.Errorf("Initialize zookeeper client failed: %s", err.Error())
 	}
+	client.RegisterHandler(eventChan)
 	return &ZKRegistry{
 		BaseRegistry: baseReg,
-		client: client,
+		client:       client,
 	}, nil
 }
 
+func (r *ZKRegistry) GetClient() *zk.ZooKeeperClient {
+	return r.client
+}
+
 // LoadServices loads all the registered Dubbo services from registry
-func (r *ZKRegistry)LoadServices() {
+func (r *ZKRegistry) LoadServices() {
 	r.LoadInterfaces()
 	r.LoadApplications()
 }
 
 // LoadInterfaces load services registered before dubbo 2.7
-func (r *ZKRegistry)LoadInterfaces() []error {
+func (r *ZKRegistry) LoadInterfaces() ([]router.API, []error) {
 	subPaths, err := r.client.GetChildren(rootPath)
 	if err != nil {
-		return []error{err}
+		return nil, []error{err}
 	}
 	if len(subPaths) == 0 {
-		return nil
+		return nil, nil
 	}
 	errorStack := []error{}
+	apis := []router.API{}
 	for i := range subPaths {
 		if subPaths[i] == "metadata" {
 			continue
 		}
-		providerPath := subPaths[i] + "/providers"
+		providerPath := strings.Join([]string{rootPath, subPaths[i], "providers"}, constant.PathSlash)
 		providerString, err := r.client.GetChildren(providerPath)
 		if err != nil {
 			logger.Warnf("Get provider %s failed due to %s", providerPath, err.Error())
-			errorStack = append(errorStack, errors.WithStack(err));
+			errorStack = append(errorStack, errors.WithStack(err))
+			continue
 		}
 		interfaceDetailString := providerString[0]
 		bkConfig, methods, err := registry.ParseDubboString(interfaceDetailString)
+		if len(bkConfig.ApplicationName) == 0 || len(bkConfig.Interface) == 0 {
+			errorStack = append(errorStack, errors.Errorf("Path %s contains dubbo registration that interface or application not set", providerPath))
+			continue
+		}
 		if err != nil {
 			logger.Warnf("Parse dubbo interface provider %s failed; due to \n %s", interfaceDetailString, err.Error())
-			errorStack = append(errorStack, errors.WithStack(err));
+			errorStack = append(errorStack, errors.WithStack(err))
+			continue
 		}
-		localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-		apiPattern := bkConfig.ApplicationName + "/" + bkConfig.Interface + "/" + bkConfig.Version
+		apiPattern := strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface, bkConfig.Version}, constant.PathSlash)
 		mappingParams := []config.MappingParam{
 			{
-				Name: "requestBody.values",
+				Name:  "requestBody.values",
 				MapTo: "opt.values",
 			},
 			{
-				Name: "requestBody.types",
+				Name:  "requestBody.types",
 				MapTo: "opt.types",
 			},
 		}
 		for i := range methods {
-			err := localAPIDiscSrv.AddAPI(registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams))
-			if err != nil {
-				logger.Warnf("Add URL %s/method failed; due to \n %s", interfaceDetailString, err.Error())
-				errorStack = append(errorStack, errors.WithStack(err));
-			}
+			apis = append(apis, registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams))
 		}
-	} 
-	return errorStack
+	}
+	return apis, errorStack
 }
 
 // LoadApplications load services registered after dubbo 2.7
-func (r *ZKRegistry)LoadApplications() {}
+func (r *ZKRegistry) LoadApplications() ([]router.API, []error) {
+	return nil, nil
+}
 
 // Subscribe monitors the target registry.
-func (r *ZKRegistry) Subscribe(common.URL) error {
+func (r *ZKRegistry) DoSubscribe(*common.URL) error {
 	return nil
 }
+
 // Unsubscribe stops monitoring the target registry.
-func (r *ZKRegistry)Unsubscribe(common.URL) error {
+func (r *ZKRegistry) DoUnsubscribe(*common.URL) error {
 	return nil
 }
 

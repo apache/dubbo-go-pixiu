@@ -60,10 +60,13 @@ const (
 
 const (
 	StringSeparator = ","
+<<<<<<< HEAD
 	DefaultConfigPath    = "configs/conf.yaml"
 	DefaultApiConfigPath = "configs/api_config.yaml"
 	DefaultLogConfigPath = "configs/log.yml"
 	DefaultLogLevel      = "info"
 	DefaultLimitCpus     = "0"
 	DefaultLogFormat     = ""
+=======
+>>>>>>> 7dcd364f ([#131] load interface level)
 )
