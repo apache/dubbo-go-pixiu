@@ -166,23 +166,23 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 
 	tmpApiConf := &fc.APIConfig{}
 	if err := initBaseInfoFromString(tmpApiConf, baseInfo); err != nil {
-		logger.Error("initBaseInfoFromString error %v", err.Error())
+		logger.Errorf("initBaseInfoFromString error %s", err.Error())
 		return err
 	}
 	if err := initAPIConfigServiceFromKvList(tmpApiConf, skList, svList); err != nil {
-		logger.Error("initAPIConfigServiceFromKvList error %v", err.Error())
+		logger.Errorf("initAPIConfigServiceFromKvList error %s", err.Error())
 		return err
 	}
 	if err := initAPIConfigMethodFromKvList(tmpApiConf, mkList, mvList); err != nil {
-		logger.Error("initAPIConfigMethodFromKvList error %v", err.Error())
+		logger.Errorf("initAPIConfigMethodFromKvList error %s", err.Error())
 		return err
 	}
 	if err := initAPIConfigPluginsFromStringList(tmpApiConf, pluginGroup); err != nil {
-		logger.Error("initAPIConfigPluginsFromStringList error %v", err.Error())
+		logger.Errorf("initAPIConfigPluginsFromStringList error %s", err.Error())
 		return err
 	}
 	if err := initAPIConfigRatelimitFromString(tmpApiConf, rateLimit); err != nil {
-		logger.Error("initAPIConfigRatelimitFromString error %v", err.Error())
+		logger.Errorf("initAPIConfigRatelimitFromString error %s", err.Error())
 		return err
 	}
 
@@ -238,7 +238,7 @@ func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) 
 		method := &fc.Method{}
 		err := yaml.UnmarshalYML([]byte(v), method)
 		if err != nil {
-			logger.Error("unmarshalYmlConfig error %v", err.Error())
+			logger.Errorf("unmarshalYmlConfig error %s", err.Error())
 			return err
 		}
 
@@ -279,7 +279,7 @@ func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string)
 		resource := &fc.Resource{}
 		err := yaml.UnmarshalYML([]byte(v), resource)
 		if err != nil {
-			logger.Error("unmarshalYmlConfig error %v", err.Error())
+			logger.Errorf("unmarshalYmlConfig error %s", err.Error())
 			return err
 		}
 
@@ -366,7 +366,7 @@ func handleDeleteEvent(key, val []byte) {
 		resourceIdStr := pathArray[len(pathArray)-1]
 		ID, err := strconv.Atoi(resourceIdStr)
 		if err != nil {
-			logger.Error("handleDeleteEvent ID is not int error %v", err)
+			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
 			return
 		}
 		deleteApiConfigResource(ID)
@@ -383,14 +383,14 @@ func handleDeleteEvent(key, val []byte) {
 		resourceIdStr := pathArray[len(pathArray)-3]
 		resourceId, err := strconv.Atoi(resourceIdStr)
 		if err != nil {
-			logger.Error("handleDeleteEvent ID is not int error %v", err)
+			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
 			return
 		}
 
 		methodIdStr := pathArray[len(pathArray)-1]
 		methodId, err := strconv.Atoi(methodIdStr)
 		if err != nil {
-			logger.Error("handleDeleteEvent ID is not int error %v", err)
+			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
 			return
 		}
 		deleteApiConfigMethod(resourceId, methodId)
@@ -412,7 +412,7 @@ func handlePutEvent(key, val []byte) {
 		res := &fc.Resource{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
-			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
 			return
 		}
 		mergeApiConfigResource(*res)
@@ -424,7 +424,7 @@ func handlePutEvent(key, val []byte) {
 		res := &fc.Method{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
-			logger.Error("handlePutEvent UnmarshalYML error %v", err)
+			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
 			return
 		}
 		mergeApiConfigMethod(res.ResourcePath, *res)
