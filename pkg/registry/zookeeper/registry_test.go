@@ -20,16 +20,28 @@ package zookeeper
 import (
 	"fmt"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/go-zookeeper/zk"
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
 func TestNewZKRegistry(t *testing.T) {
 	regConfig := model.Registry{
 		Protocol: "zookeeper",
-		Timeout: "2s",
-		Address: "127.0.0.1:9100",
+		Timeout:  "2s",
+		Address:  "127.0.0.1:9100",
 	}
 	reg, err := newZKRegistry(regConfig)
 	assert.Nil(t, err)
@@ -37,8 +49,8 @@ func TestNewZKRegistry(t *testing.T) {
 
 	regConfig = model.Registry{
 		Protocol: "zookeeper",
-		Timeout: "2xxxxxx",
-		Address: "127.0.0.1:9100",
+		Timeout:  "2xxxxxx",
+		Address:  "127.0.0.1:9100",
 	}
 	reg, err = newZKRegistry(regConfig)
 	assert.Nil(t, reg)
@@ -46,17 +58,62 @@ func TestNewZKRegistry(t *testing.T) {
 
 	regConfig = model.Registry{
 		Protocol: "zookeeper",
-		Timeout: "2s",
-		Address: "",
+		Timeout:  "2s",
+		Address:  "",
 	}
 	reg, err = newZKRegistry(regConfig)
 	assert.Nil(t, reg)
 	assert.NotNil(t, err)
 }
 
-
-const providerUrlstr = "dubbo://127.0.0.1:20000/com.ikurento.user.UserProvider?methods.GetUser.retries=1"
-
 func TestLoadInterfaces(t *testing.T) {
-	reg
+	api.Init()
+	tc, err := zk.StartTestCluster(1, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tc.Stop()
+
+	conn, _, _ := tc.ConnectAll()
+	conn.Create("/dubbo", nil, 0, zk.WorldACL(zk.PermAll))
+	conn.Create("/dubbo/com.ikurento.user.UserProvider1", nil, 0, zk.WorldACL(zk.PermAll))
+	conn.Create("/dubbo/com.ikurento.user.UserProvider1/providers", nil, 0, zk.WorldACL(zk.PermAll))
+	conn.Create("/dubbo/com.ikurento.user.UserProvider1/providers/"+
+		url.QueryEscape("dubbo://192.168.3.46:20002/org.apache.dubbo.UserProvider1?anyhost=true&app.version=0.0.1&application=UserInfoServer1&bean.name=UserProvider&cluster=failover&interface=org.apache.dubbo.UserProvider1&loadbalance=random&methods=GetUser&name=UserInfoServer&organization=dubbo.io&registry.role=3&service.filter=echo,token,accesslog,tps,generic_service,execute,pshutdown&side=provider&ssl-enabled=false&timestamp=1624716984&warmup=100"),
+		nil, 0, zk.WorldACL(zk.PermAll))
+	conn.Create("/dubbo/com.ikurento.user.UserProvider2", nil, 0, zk.WorldACL(zk.PermAll))
+	conn.Create("/dubbo/com.ikurento.user.UserProvider2/providers", nil, 0, zk.WorldACL(zk.PermAll))
+	conn.Create("/dubbo/com.ikurento.user.UserProvider2/providers/"+
+		url.QueryEscape("dubbo://192.168.3.46:20001/org.apache.dubbo.UserProvider2?anyhost=true&app.version=0.0.1&application=UserInfoServer2&bean.name=UserProvider&cluster=failover&interface=org.apache.dubbo.UserProvider2&loadbalance=random&methods=GetUser,SetUser,AllUsers&name=UserInfoServer&organization=dubbo.io&registry.role=3&service.filter=echo,token,accesslog,tps,generic_service,execute,pshutdown&side=provider&ssl-enabled=false&timestamp=1624716984&warmup=100"),
+		nil, 0, zk.WorldACL(zk.PermAll))
+
+	hosts := make([]string, len(tc.Servers))
+	for i, srv := range tc.Servers {
+		hosts[i] = fmt.Sprintf("127.0.0.1:%d", srv.Port)
+	}
+	regConfig := model.Registry{
+		Protocol: "zookeeper",
+		Timeout:  "20s",
+		Address:  hosts[0],
+	}
+	reg, _ := newZKRegistry(regConfig)
+	r := reg.(*ZKRegistry)
+	c := r.GetClient()
+	connState := c.GetConnState()
+	for connState != zk.StateConnected && connState != zk.StateHasSession {
+		<-time.After(200 * time.Millisecond)
+		connState = c.GetConnState()
+	}
+	r.LoadInterfaces()
+	localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	api, err := localAPIDiscSrv.GetAPI("/UserInfoServer1/org.apache.dubbo.UserProvider1/0.0.1/GetUser", config.MethodPost)
+	assert.Equal(t, api.URLPattern, "/userinfoserver1/org.apache.dubbo.userprovider1/0.0.1/getuser")
+	assert.Nil(t, err)
+	api, err = localAPIDiscSrv.GetAPI("/UserInfoServer2/org.apache.dubbo.UserProvider2/0.0.1/GetUser", config.MethodPost)
+	assert.Equal(t, api.URLPattern, "/userinfoserver2/org.apache.dubbo.userprovider2/0.0.1/getuser")
+	assert.Nil(t, err)
+	api, err = localAPIDiscSrv.GetAPI("/UserInfoServer2/org.apache.dubbo.UserProvider2/0.0.1/SetUser", config.MethodPost)
+	assert.Equal(t, api.URLPattern, "/userinfoserver2/org.apache.dubbo.userprovider2/0.0.1/setuser")
+	assert.Nil(t, err)
+	c.Destroy()
 }
