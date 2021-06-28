@@ -15,16 +15,10 @@
  * limitations under the License.
  */
 
-package registry
+package constant
 
-import (
-	"github.com/apache/dubbo-go/common"
+// env key
+const (
+	Zookeeper string = "zookeeper"
+	Consul string = "consul"
 )
-
-// Loader this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
-type Loader interface {
-	// LoadAllServices load all services registered in registry
-	LoadAllServices() ([]*common.URL, error)
-	// GetCluster get the registry name
-	GetCluster() (string, error)
-}
