@@ -1,13 +1,34 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zookeeper
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/stretchr/testify/assert"
-	"time"
-	"github.com/pkg/errors"
-	"github.com/dubbogo/go-zookeeper/zk"
 	"testing"
+	"time"
+)
+import (
+	"github.com/dubbogo/go-zookeeper/zk"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+)
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 func verifyEventStateOrder(t *testing.T, c <-chan zk.Event, expectedStates []zk.State, source string) {
@@ -78,7 +99,7 @@ func TestNewZooKeeperClient(t *testing.T) {
 	for i, srv := range tc.Servers {
 		hosts[i] = fmt.Sprintf("127.0.0.1:%d", srv.Port)
 	}
-	zkClient, eventChan, err := NewZooKeeperClient("testZK", hosts, 30 * time.Second)
+	zkClient, eventChan, err := NewZooKeeperClient("testZK", hosts, 30*time.Second)
 	if err != nil {
 		t.Fatalf("Connect returned error: %+v", err)
 	}
@@ -97,41 +118,36 @@ func TestGetChildren(t *testing.T) {
 	}
 	defer tc.Stop()
 
-	conn, _, err := tc.ConnectAll()
-	assert.Nil(t, err)
-	path, err := conn.Create("/test", nil, 0, zk.WorldACL(zk.PermAll))
-	assert.Nil(t, err)
-	assert.NotNil(t, path)
-	path, err = conn.Create("/test/testchild1", nil, 0, zk.WorldACL(zk.PermAll))
-	assert.Nil(t, err)
-	assert.NotNil(t, path)
+	conn, _, _ := tc.ConnectAll()
+	conn.Create("/test", nil, 0, zk.WorldACL(zk.PermAll))
+	conn.Create("/test/testchild1", nil, 0, zk.WorldACL(zk.PermAll))
 	conn.Create("/test/testchild2", nil, 0, zk.WorldACL(zk.PermAll))
 
 	hosts := make([]string, len(tc.Servers))
 	for i, srv := range tc.Servers {
 		hosts[i] = fmt.Sprintf("127.0.0.1:%d", srv.Port)
 	}
-	zkClient, eventChan, err := NewZooKeeperClient("testZK", hosts, 30 * time.Second)
+	zkClient, eventChan, err := NewZooKeeperClient("testZK", hosts, 30*time.Second)
 	assert.Nil(t, err)
-	wait:
-		for {
-			event := <- eventChan
-			switch event.State {
-			case zk.StateDisconnected:
-				break wait
-			case zk.StateConnected:
-				children, err := zkClient.GetChildren("/test")
-				assert.Nil(t, err)
-				assert.Equal(t, children[1], "testchild1")
-				assert.Equal(t, children[0], "testchild2")
+wait:
+	for {
+		e := <-eventChan
+		switch e.State {
+		case zk.StateDisconnected:
+			break wait
+		case zk.StateConnected:
+			children, err := zkClient.GetChildren("/test")
+			assert.Nil(t, err)
+			assert.Equal(t, children[1], "testchild1")
+			assert.Equal(t, children[0], "testchild2")
 
-				children, err = zkClient.GetChildren("/vacancy")
-				assert.EqualError(t, err, "path{/vacancy} does not exist")
-				assert.Nil(t, children)
-				children, err = zkClient.GetChildren("/test/testchild1")
-				assert.EqualError(t, err, "path{/test/testchild1} has none children")
-				assert.Empty(t, children)
-				zkClient.conn.Close()
-			}
+			children, err = zkClient.GetChildren("/vacancy")
+			assert.EqualError(t, err, "path{/vacancy} does not exist")
+			assert.Nil(t, children)
+			children, err = zkClient.GetChildren("/test/testchild1")
+			assert.EqualError(t, err, "path{/test/testchild1} has none children")
+			assert.Empty(t, children)
+			zkClient.conn.Close()
 		}
+	}
 }
