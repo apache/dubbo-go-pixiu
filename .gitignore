@@ -10,9 +10,8 @@ samples/dubbogo/simple/server/app/app
 /.vscode
 pkg/registry/zookeeper-4unittest/contrib/fatjar
 
-coverage.txt
 
-/vendor/
+.DS_Store
 
 /*.exe
 test

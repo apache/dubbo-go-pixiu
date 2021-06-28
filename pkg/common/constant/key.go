@@ -47,3 +47,17 @@ const (
 	LimitCpusKey     = "limit-cpus"
 	LogFormatKey     = "log-format"
 )
+
+const (
+	ApplicationKey          = "application"
+	AppVersionKey           = "app.version"
+	ClusterKey							= "cluster"
+	GroupKey                = "group"
+	VersionKey              = "version"
+	InterfaceKey            = "interface"
+	MethodsKey              = "methods"
+	// NameKey name of interface
+	NameKey                 = "name"
+	// RetriesKey retry times
+	RetriesKey              = "retries"
+)
