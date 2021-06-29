@@ -72,8 +72,7 @@ func (l *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTP
 
 // ClearAPI clear all api
 func (l *LocalMemoryAPIDiscoveryService) ClearAPI() error {
-	l.router.ClearAPI()
-	return nil
+	return l.router.ClearAPI()
 }
 
 // RemoveAPIByPath remove all api belonged to path
