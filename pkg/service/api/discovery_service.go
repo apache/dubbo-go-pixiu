@@ -27,12 +27,15 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/service"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	ratelimitConf "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
@@ -54,13 +57,13 @@ func NewLocalMemoryAPIDiscoveryService() *LocalMemoryAPIDiscoveryService {
 }
 
 // AddAPI adds a method to the router tree
-func (ads *LocalMemoryAPIDiscoveryService) AddAPI(api fr.API) error {
-	return ads.router.PutAPI(api)
+func (l *LocalMemoryAPIDiscoveryService) AddAPI(api fr.API) error {
+	return l.router.PutAPI(api)
 }
 
 // GetAPI returns the method to the caller
-func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTPVerb) (fr.API, error) {
-	if api, ok := ads.router.FindAPI(url, httpVerb); ok {
+func (l *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTPVerb) (fr.API, error) {
+	if api, ok := l.router.FindAPI(url, httpVerb); ok {
 		return *api, nil
 	}
 
@@ -68,80 +71,80 @@ func (ads *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HT
 }
 
 // ClearAPI clear all api
-func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
-	ads.router.ClearAPI()
+func (l *LocalMemoryAPIDiscoveryService) ClearAPI() error {
+	l.router.ClearAPI()
 	return nil
 }
 
 // RemoveAPIByPath remove all api belonged to path
-func (ads *LocalMemoryAPIDiscoveryService) RemoveAPIByPath(deleted config.Resource) error {
+func (l *LocalMemoryAPIDiscoveryService) RemoveAPIByPath(deleted config.Resource) error {
 	_, groupPath := getDefaultPath()
 	fullPath := getFullPath(groupPath, deleted.Path)
 
-	ads.router.DeleteNode(fullPath)
+	l.router.DeleteNode(fullPath)
 	return nil
 }
 
 // RemoveAPIByPath remove all api
-func (ads *LocalMemoryAPIDiscoveryService) RemoveAPI(fullPath string, method config.Method) error {
-	ads.router.DeleteAPI(fullPath, method.HTTPVerb)
+func (l *LocalMemoryAPIDiscoveryService) RemoveAPI(fullPath string, method config.Method) error {
+	l.router.DeleteAPI(fullPath, method.HTTPVerb)
 	return nil
 }
 
 // ResourceChange handle modify resource event
-func (ads *LocalMemoryAPIDiscoveryService) ResourceChange(new config.Resource, old config.Resource) bool {
-	if err := modifyAPIFromResource(new, old, ads); err == nil {
+func (l *LocalMemoryAPIDiscoveryService) ResourceChange(new config.Resource, old config.Resource) bool {
+	if err := modifyAPIFromResource(new, old, l); err == nil {
 		return true
 	}
 	return false
 }
 
 // ResourceAdd handle add resource event
-func (ads *LocalMemoryAPIDiscoveryService) ResourceAdd(res config.Resource) bool {
+func (l *LocalMemoryAPIDiscoveryService) ResourceAdd(res config.Resource) bool {
 	parentPath, groupPath := getDefaultPath()
 
 	fullHeaders := make(map[string]string, 9)
-	if err := addAPIFromResource(res, ads, groupPath, parentPath, fullHeaders); err == nil {
+	if err := addAPIFromResource(res, l, groupPath, parentPath, fullHeaders); err == nil {
 		return true
 	}
 	return false
 }
 
 // ResourceDelete handle delete resource event
-func (ads *LocalMemoryAPIDiscoveryService) ResourceDelete(deleted config.Resource) bool {
-	if err := deleteAPIFromResource(deleted, ads); err == nil {
+func (l *LocalMemoryAPIDiscoveryService) ResourceDelete(deleted config.Resource) bool {
+	if err := deleteAPIFromResource(deleted, l); err == nil {
 		return true
 	}
 	return false
 }
 
 // MethodChange handle modify method event
-func (ads *LocalMemoryAPIDiscoveryService) MethodChange(res config.Resource, new config.Method, old config.Method) bool {
+func (l *LocalMemoryAPIDiscoveryService) MethodChange(res config.Resource, new config.Method, old config.Method) bool {
 	_, groupPath := getDefaultPath()
 	fullPath := getFullPath(groupPath, res.Path)
 	fullHeaders := make(map[string]string, 9)
-	if err := modifyAPIFromMethod(fullPath, new, old, fullHeaders, ads); err == nil {
+	if err := modifyAPIFromMethod(fullPath, new, old, fullHeaders, l); err == nil {
 		return true
 	}
 	return false
 }
 
 // MethodAdd handle add method event
-func (ads *LocalMemoryAPIDiscoveryService) MethodAdd(res config.Resource, method config.Method) bool {
+func (l *LocalMemoryAPIDiscoveryService) MethodAdd(res config.Resource, method config.Method) bool {
 	_, groupPath := getDefaultPath()
 	fullPath := getFullPath(groupPath, res.Path)
 	fullHeaders := make(map[string]string, 9)
-	if err := addAPIFromMethod(fullPath, method, fullHeaders, ads); err == nil {
+	if err := addAPIFromMethod(fullPath, method, fullHeaders, l); err == nil {
 		return true
 	}
 	return false
 }
 
 // MethodDelete handle delete method event
-func (ads *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, method config.Method) bool {
+func (l *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, method config.Method) bool {
 	_, groupPath := getDefaultPath()
 	fullPath := getFullPath(groupPath, res.Path)
-	if err := deleteAPIFromMethod(fullPath, method, ads); err == nil {
+	if err := deleteAPIFromMethod(fullPath, method, l); err == nil {
 		return true
 	}
 	return false
@@ -268,4 +271,16 @@ func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[st
 		return errors.New(strings.Join(errStack, "\n"))
 	}
 	return nil
+}
+
+func (l *LocalMemoryAPIDiscoveryService) PluginPathChange(filePath string) {
+	plugins.OnFilePathChange(filePath)
+}
+
+func (l *LocalMemoryAPIDiscoveryService) PluginGroupChange(group []config.PluginsGroup) {
+	plugins.OnGroupUpdate(group)
+}
+
+func (l *LocalMemoryAPIDiscoveryService) RateLimitChange(c *ratelimitConf.Config) {
+	ratelimit.OnUpdate(c)
 }
