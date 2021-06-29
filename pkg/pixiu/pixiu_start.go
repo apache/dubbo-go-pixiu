@@ -76,10 +76,8 @@ func (p *PX) Start() {
 }
 
 func (p *PX) beforeStart() {
-	initialize.Run()
-
 	dubbo.SingletonDubboClient().Init()
-
+	initialize.Run(config.GetAPIConf())
 	api.InitAPIsFromConfig(config.GetAPIConf())
 }
 
