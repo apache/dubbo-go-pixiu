@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package registry
 
 import (
+	"github.com/apache/dubbo-go/common"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go/common"
 )
 
 // TransferURL2Api transfer url and clusterName to IntegrationRequest
