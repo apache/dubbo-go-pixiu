@@ -402,11 +402,11 @@ func mergeApiConfigMethod(path string, val fc.Method) {
 }
 
 func getCheckResourceRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/Resources/[^/]+/?$")
+	return regexp.MustCompile(".+/resources/[^/]+/?$")
 }
 
 func getExtractMethodRegexp() *regexp.Regexp {
-	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
+	return regexp.MustCompile("resources/([^/]+)/method/[^/]+/?$")
 }
 
 // RegisterConfigListener register APIConfigListener
