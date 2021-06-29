@@ -56,6 +56,7 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 type StaticResources struct {
 	Listeners       []Listener      `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
 	Clusters        []*Cluster      `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	TimeoutConfig   TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
 	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
 	AccessLogConfig AccessLogConfig `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
@@ -76,4 +77,10 @@ type ShutdownConfig struct {
 type APIMetaConfig struct {
 	Address       string `yaml:"address" json:"address,omitempty"`
 	APIConfigPath string `default:"/pixiu/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
+}
+
+// TimeoutConfig the config of ConnectTimeout and RequestTimeout
+type TimeoutConfig struct {
+	ConnectTimeoutStr string `yaml:"connect_timeout" json:"connect_timeout,omitempty"` // ConnectTimeout timeout for connect to cluster node
+	RequestTimeoutStr string `yaml:"request_timeout" json:"request_timeout,omitempty"`
 }
