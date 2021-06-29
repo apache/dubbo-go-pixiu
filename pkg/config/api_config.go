@@ -550,23 +550,23 @@ func mergeApiConfigMethod(path string, val fc.Method) {
 }
 
 func getCheckBaseInfoRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/Base$")
+	return regexp.MustCompile(".+/base$")
 }
 
 func getCheckResourceRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/Resources/[^/]+/?$")
+	return regexp.MustCompile(".+/resources/[^/]+/?$")
 }
 
 func getExtractMethodRegexp() *regexp.Regexp {
-	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
+	return regexp.MustCompile(".+/resources/([^/]+)/method/[^/]+/?$")
 }
 
 func getCheckPluginsGroupRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/PluginGroup/[^/]+/?$")
+	return regexp.MustCompile(".+/filter/pluginGroup/[^/]+/?$")
 }
 
 func getCheckRatelimitRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/Ratelimit/[^/]+/?$")
+	return regexp.MustCompile(".+/filter/ratelimit/[^/]+/?$")
 }
 
 // RegisterConfigListener register APIConfigListener
