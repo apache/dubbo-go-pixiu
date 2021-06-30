@@ -166,23 +166,23 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 
 	tmpApiConf := &fc.APIConfig{}
 	if err := initBaseInfoFromString(tmpApiConf, baseInfo); err != nil {
-		logger.Errorf("initBaseInfoFromString error %s", err.Error())
+		logger.Errorf("initBaseInfoFromString error %s", err)
 		return err
 	}
 	if err := initAPIConfigServiceFromKvList(tmpApiConf, skList, svList); err != nil {
-		logger.Errorf("initAPIConfigServiceFromKvList error %s", err.Error())
+		logger.Errorf("initAPIConfigServiceFromKvList error %s", err)
 		return err
 	}
 	if err := initAPIConfigMethodFromKvList(tmpApiConf, mkList, mvList); err != nil {
-		logger.Errorf("initAPIConfigMethodFromKvList error %s", err.Error())
+		logger.Errorf("initAPIConfigMethodFromKvList error %s", err)
 		return err
 	}
 	if err := initAPIConfigPluginsFromStringList(tmpApiConf, pluginGroup); err != nil {
-		logger.Errorf("initAPIConfigPluginsFromStringList error %s", err.Error())
+		logger.Errorf("initAPIConfigPluginsFromStringList error %s", err)
 		return err
 	}
 	if err := initAPIConfigRatelimitFromString(tmpApiConf, rateLimit); err != nil {
-		logger.Errorf("initAPIConfigRatelimitFromString error %s", err.Error())
+		logger.Errorf("initAPIConfigRatelimitFromString error %s", err)
 		return err
 	}
 
@@ -193,7 +193,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
 	properties := make(map[string]string, 8)
 	if err := yaml.UnmarshalYML([]byte(str), properties); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %s", err.Error())
+		logger.Errorf("unmarshalYmlConfig error %s", err)
 		return err
 	}
 	if v, ok := properties[BASE_INFO_NAME]; ok {
@@ -211,7 +211,7 @@ func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
 func initAPIConfigRatelimitFromString(conf *fc.APIConfig, str string) error {
 	c := fr.Config{}
 	if err := yaml.UnmarshalYML([]byte(str), &c); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %s", err.Error())
+		logger.Errorf("unmarshalYmlConfig error %s", err)
 		return err
 	}
 	conf.RateLimit = c
@@ -223,7 +223,7 @@ func initAPIConfigPluginsFromStringList(conf *fc.APIConfig, plugins []string) er
 	for _, v := range plugins {
 		g := fc.PluginsGroup{}
 		if err := yaml.UnmarshalYML([]byte(v), &g); err != nil {
-			logger.Errorf("unmarshalYmlConfig error %s", err.Error())
+			logger.Errorf("unmarshalYmlConfig error %s", err)
 			return err
 		}
 		groups = append(groups, g)
@@ -238,7 +238,7 @@ func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) 
 		method := &fc.Method{}
 		err := yaml.UnmarshalYML([]byte(v), method)
 		if err != nil {
-			logger.Errorf("unmarshalYmlConfig error %s", err.Error())
+			logger.Errorf("unmarshalYmlConfig error %s", err)
 			return err
 		}
 
@@ -279,7 +279,7 @@ func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string)
 		resource := &fc.Resource{}
 		err := yaml.UnmarshalYML([]byte(v), resource)
 		if err != nil {
-			logger.Errorf("unmarshalYmlConfig error %s", err.Error())
+			logger.Errorf("unmarshalYmlConfig error %s", err)
 			return err
 		}
 
@@ -482,7 +482,7 @@ func mergeApiConfigResource(val fc.Resource) {
 func mergeRatelimit(val []byte) {
 	c := &fr.Config{}
 	if err := yaml.UnmarshalYML(val, c); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %s", err.Error())
+		logger.Errorf("unmarshalYmlConfig error %s", err)
 		return
 	}
 	apiConfig.RateLimit = *c
@@ -492,7 +492,7 @@ func mergeRatelimit(val []byte) {
 func mergePluginGroup(val []byte) {
 	g := &fc.PluginsGroup{}
 	if err := yaml.UnmarshalYML(val, g); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %s", err.Error())
+		logger.Errorf("unmarshalYmlConfig error %s", err)
 		return
 	}
 	for i, v := range apiConfig.PluginsGroup {
