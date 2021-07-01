@@ -27,7 +27,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/service"
 )
@@ -74,15 +73,78 @@ func (ads *LocalMemoryAPIDiscoveryService) ClearAPI() error {
 	return nil
 }
 
-// APIConfigChange to response to api config change
-func (ads *LocalMemoryAPIDiscoveryService) APIConfigChange(apiConfig config.APIConfig) bool {
-	ads.ClearAPI()
-	// load pluginsGroup
-	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
-	// init plugins from resource
-	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
-	loadAPIFromResource("", apiConfig.Resources, nil, ads)
-	return true
+// RemoveAPIByPath remove all api belonged to path
+func (ads *LocalMemoryAPIDiscoveryService) RemoveAPIByPath(deleted config.Resource) error {
+	_, groupPath := getDefaultPath()
+	fullPath := getFullPath(groupPath, deleted.Path)
+
+	ads.router.DeleteNode(fullPath)
+	return nil
+}
+
+// RemoveAPIByPath remove all api
+func (ads *LocalMemoryAPIDiscoveryService) RemoveAPI(fullPath string, method config.Method) error {
+	ads.router.DeleteAPI(fullPath, method.HTTPVerb)
+	return nil
+}
+
+// ResourceChange handle modify resource event
+func (ads *LocalMemoryAPIDiscoveryService) ResourceChange(new config.Resource, old config.Resource) bool {
+	if err := modifyAPIFromResource(new, old, ads); err == nil {
+		return true
+	}
+	return false
+}
+
+// ResourceAdd handle add resource event
+func (ads *LocalMemoryAPIDiscoveryService) ResourceAdd(res config.Resource) bool {
+	parentPath, groupPath := getDefaultPath()
+
+	fullHeaders := make(map[string]string, 9)
+	if err := addAPIFromResource(res, ads, groupPath, parentPath, fullHeaders); err == nil {
+		return true
+	}
+	return false
+}
+
+// ResourceDelete handle delete resource event
+func (ads *LocalMemoryAPIDiscoveryService) ResourceDelete(deleted config.Resource) bool {
+	if err := deleteAPIFromResource(deleted, ads); err == nil {
+		return true
+	}
+	return false
+}
+
+// MethodChange handle modify method event
+func (ads *LocalMemoryAPIDiscoveryService) MethodChange(res config.Resource, new config.Method, old config.Method) bool {
+	_, groupPath := getDefaultPath()
+	fullPath := getFullPath(groupPath, res.Path)
+	fullHeaders := make(map[string]string, 9)
+	if err := modifyAPIFromMethod(fullPath, new, old, fullHeaders, ads); err == nil {
+		return true
+	}
+	return false
+}
+
+// MethodAdd handle add method event
+func (ads *LocalMemoryAPIDiscoveryService) MethodAdd(res config.Resource, method config.Method) bool {
+	_, groupPath := getDefaultPath()
+	fullPath := getFullPath(groupPath, res.Path)
+	fullHeaders := make(map[string]string, 9)
+	if err := addAPIFromMethod(fullPath, method, fullHeaders, ads); err == nil {
+		return true
+	}
+	return false
+}
+
+// MethodDelete handle delete method event
+func (ads *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, method config.Method) bool {
+	_, groupPath := getDefaultPath()
+	fullPath := getFullPath(groupPath, res.Path)
+	if err := deleteAPIFromMethod(fullPath, method, ads); err == nil {
+		return true
+	}
+	return false
 }
 
 // InitAPIsFromConfig inits the router from API config and to local cache
@@ -93,33 +155,16 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	}
 	// register config change listener
 	pc.RegisterConfigListener(localAPIDiscSrv)
-	// load pluginsGroup
-	plugins.InitPluginsGroup(apiConfig.PluginsGroup, apiConfig.PluginFilePath)
-	// init plugins from resource
-	plugins.InitAPIURLWithFilterChain(apiConfig.Resources)
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
-// RefreshAPIsFromConfig fresh the router from API config and to local cache
-func RefreshAPIsFromConfig(apiConfig config.APIConfig) error {
-	localAPIDiscSrv := NewLocalMemoryAPIDiscoveryService()
-	if len(apiConfig.Resources) == 0 {
-		return nil
-	}
-	error := loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
-	if error == nil {
-		extension.SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, localAPIDiscSrv)
-	}
-	return error
-}
-
-func loadAPIFromResource(parrentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv service.APIDiscoveryService) error {
+func loadAPIFromResource(parentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	if len(resources) == 0 {
 		return nil
 	}
-	groupPath := parrentPath
-	if parrentPath == constant.PathSlash {
+	groupPath := parentPath
+	if parentPath == constant.PathSlash {
 		groupPath = ""
 	}
 	fullHeaders := parentHeaders
@@ -127,21 +172,8 @@ func loadAPIFromResource(parrentPath string, resources []config.Resource, parent
 		fullHeaders = make(map[string]string, 9)
 	}
 	for _, resource := range resources {
-		fullPath := groupPath + resource.Path
-		if !strings.HasPrefix(resource.Path, constant.PathSlash) {
-			errStack = append(errStack, fmt.Sprintf("Path %s in %s doesn't start with /", resource.Path, parrentPath))
-			continue
-		}
-		for headerName, headerValue := range resource.Headers {
-			fullHeaders[headerName] = headerValue
-		}
-		if len(resource.Resources) > 0 {
-			if err := loadAPIFromResource(resource.Path, resource.Resources, fullHeaders, localSrv); err != nil {
-				errStack = append(errStack, err.Error())
-			}
-		}
-
-		if err := loadAPIFromMethods(fullPath, resource.Methods, fullHeaders, localSrv); err != nil {
+		err := addAPIFromResource(resource, localSrv, groupPath, parentPath, fullHeaders)
+		if err != nil {
 			errStack = append(errStack, err.Error())
 		}
 	}
@@ -151,16 +183,85 @@ func loadAPIFromResource(parrentPath string, resources []config.Resource, parent
 	return nil
 }
 
+func getDefaultPath() (string, string) {
+	return "", ""
+}
+
+func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv service.APIDiscoveryService) error {
+	parentPath, groupPath := getDefaultPath()
+	fullHeaders := make(map[string]string, 9)
+
+	err := deleteAPIFromResource(old, localSrv)
+	if err != nil {
+		return err
+	}
+
+	err = addAPIFromResource(new, localSrv, groupPath, parentPath, fullHeaders)
+	return err
+}
+
+func deleteAPIFromResource(old config.Resource, localSrv service.APIDiscoveryService) error {
+	return localSrv.RemoveAPIByPath(old)
+}
+
+func addAPIFromResource(resource config.Resource, localSrv service.APIDiscoveryService, groupPath string, parentPath string, fullHeaders map[string]string) error {
+	fullPath := getFullPath(groupPath, resource.Path)
+	if !strings.HasPrefix(resource.Path, constant.PathSlash) {
+		return fmt.Errorf("path %s in %s doesn't start with /", resource.Path, parentPath)
+	}
+	for headerName, headerValue := range resource.Headers {
+		fullHeaders[headerName] = headerValue
+	}
+	if len(resource.Resources) > 0 {
+		if err := loadAPIFromResource(resource.Path, resource.Resources, fullHeaders, localSrv); err != nil {
+			return err
+		}
+	}
+
+	if err := loadAPIFromMethods(fullPath, resource.Methods, fullHeaders, localSrv); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addAPIFromMethod(fullPath string, method config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
+	api := fr.API{
+		URLPattern: fullPath,
+		Method:     method,
+		Headers:    headers,
+	}
+	if err := localSrv.AddAPI(api); err != nil {
+		return fmt.Errorf("path: %s, Method: %s, error: %s", fullPath, method.HTTPVerb, err.Error())
+	}
+	return nil
+}
+
+func modifyAPIFromMethod(fullPath string, new config.Method, old config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
+	if err := localSrv.RemoveAPI(fullPath, old); err != nil {
+		return err
+	}
+
+	if err := addAPIFromMethod(fullPath, new, headers, localSrv); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func deleteAPIFromMethod(fullPath string, deleted config.Method, localSrv service.APIDiscoveryService) error {
+	return localSrv.RemoveAPI(fullPath, deleted)
+}
+
+func getFullPath(groupPath string, resourcePath string) string {
+	return groupPath + resourcePath
+}
+
 func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
 	errStack := []string{}
 	for _, method := range methods {
-		api := fr.API{
-			URLPattern: fullPath,
-			Method:     method,
-			Headers:    headers,
-		}
-		if err := localSrv.AddAPI(api); err != nil {
-			errStack = append(errStack, fmt.Sprintf("Path: %s, Method: %s, error: %s", fullPath, method.HTTPVerb, err.Error()))
+
+		if err := addAPIFromMethod(fullPath, method, headers, localSrv); err != nil {
+			errStack = append(errStack, err.Error())
 		}
 	}
 	if len(errStack) > 0 {
