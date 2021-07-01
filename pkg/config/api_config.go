@@ -18,36 +18,62 @@
 package config
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
 import (
-	"github.com/coreos/etcd/mvcc/mvccpb"
-
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	etcdv3 "github.com/apache/dubbo-go-pixiu/pkg/remoting/etcd3"
 )
 
 var (
 	apiConfig *fc.APIConfig
 	once      sync.Once
 	client    *etcdv3.Client
-	listener  APIConfigListener
+	listener  APIConfigResourceListener
 	lock      sync.RWMutex
 )
 
-// APIConfigListener defines api config listener interface
-type APIConfigListener interface {
-	APIConfigChange(apiConfig fc.APIConfig) bool // bool is return for interface implement is interesting
+var (
+	BASE_INFO_NAME = "name"
+	BASE_INFO_DESC = "description"
+	BASE_INFO_PFP  = "pluginFilePath"
+)
+
+// APIConfigResourceListener defines api resource and method config listener interface
+type APIConfigResourceListener interface {
+	// ResourceChange handle modify resource event
+	ResourceChange(new fc.Resource, old fc.Resource) bool // bool is return for interface implement is interesting
+	// ResourceAdd handle add resource event
+	ResourceAdd(res fc.Resource) bool
+	// ResourceDelete handle delete resource event
+	ResourceDelete(deleted fc.Resource) bool
+	// MethodChange handle modify method event
+	MethodChange(res fc.Resource, method fc.Method, old fc.Method) bool
+	// MethodAdd handle add method below one resource event
+	MethodAdd(res fc.Resource, method fc.Method) bool
+	// MethodDelete handle delete method event
+	MethodDelete(res fc.Resource, method fc.Method) bool
+
+	PluginPathChange(filePath string)
+
+	PluginGroupChange(group []fc.PluginsGroup)
+
+	RateLimitChange(*fr.Config)
 }
 
 // LoadAPIConfigFromFile load the api config from file
@@ -59,7 +85,7 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 	apiConf := &fc.APIConfig{}
 	err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {
-		return nil, perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
+		return nil, perrors.Errorf("unmarshalYmlConfig error %s", perrors.WithStack(err))
 	}
 	apiConfig = apiConf
 	return apiConf, nil
@@ -67,66 +93,224 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 
 // LoadAPIConfig load the api config from config center
 func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
-	client = etcdv3.NewConfigClient(
+	tmpClient, err := etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
 		etcdv3.WithEndpoints(strings.Split(metaConfig.Address, ",")...),
 	)
-
-	go listenAPIConfigNodeEvent(metaConfig.APIConfigPath)
-
-	content, err := client.Get(metaConfig.APIConfigPath)
 	if err != nil {
-		return nil, perrors.Errorf("Get remote config fail error %v", err)
+		return nil, perrors.Errorf("Init etcd client fail error %s", err)
 	}
 
-	if err = initAPIConfigFromString(content); err != nil {
+	client = tmpClient
+	kList, vList, err := client.GetChildren(metaConfig.APIConfigPath)
+	if err != nil {
+		return nil, perrors.Errorf("Get remote config fail error %s", err)
+	}
+	if err = initAPIConfigFromKVList(kList, vList); err != nil {
 		return nil, err
 	}
-
+	// TODO: init other setting which need fetch from remote
+	go listenResourceAndMethodEvent(metaConfig.APIConfigPath)
+	// TODO: watch other setting which need fetch from remote
 	return apiConfig, nil
 }
 
-func initAPIConfigFromString(content string) error {
+func initAPIConfigFromKVList(kList, vList []string) error {
+	var skList, svList, mkList, mvList []string
+	var baseInfo string
+	var pluginGroup []string
+	var rateLimit string
+
+	for i, k := range kList {
+		v := vList[i]
+		//handle base info
+		re := getCheckBaseInfoRegexp()
+		if m := re.Match([]byte(k)); m {
+			baseInfo = v
+			continue
+		}
+
+		// handle resource
+		re = getCheckResourceRegexp()
+		if m := re.Match([]byte(k)); m {
+			skList = append(skList, k)
+			svList = append(svList, v)
+			continue
+		}
+		// handle method
+		re = getExtractMethodRegexp()
+		if m := re.Match([]byte(k)); m {
+			mkList = append(mkList, k)
+			mvList = append(mvList, v)
+			continue
+		}
+
+		//handle plugin group
+		re = getCheckPluginsGroupRegexp()
+		if m := re.Match([]byte(k)); m {
+			pluginGroup = append(pluginGroup, v)
+			continue
+		}
+
+		//handle rate limit config
+		re = getCheckRatelimitRegexp()
+		if m := re.Match([]byte(k)); m {
+			rateLimit = v
+			continue
+		}
+	}
+
 	lock.Lock()
 	defer lock.Unlock()
 
-	apiConf := &fc.APIConfig{}
-	if len(content) != 0 {
-		err := yaml.UnmarshalYML([]byte(content), apiConf)
-		if err != nil {
-			return perrors.Errorf("unmarshalYmlConfig error %v", perrors.WithStack(err))
-		}
+	tmpApiConf := &fc.APIConfig{}
+	if err := initBaseInfoFromString(tmpApiConf, baseInfo); err != nil {
+		logger.Errorf("initBaseInfoFromString error %s", err)
+		return err
+	}
+	if err := initAPIConfigServiceFromKvList(tmpApiConf, skList, svList); err != nil {
+		logger.Errorf("initAPIConfigServiceFromKvList error %s", err)
+		return err
+	}
+	if err := initAPIConfigMethodFromKvList(tmpApiConf, mkList, mvList); err != nil {
+		logger.Errorf("initAPIConfigMethodFromKvList error %s", err)
+		return err
+	}
+	if err := initAPIConfigPluginsFromStringList(tmpApiConf, pluginGroup); err != nil {
+		logger.Errorf("initAPIConfigPluginsFromStringList error %s", err)
+		return err
+	}
+	if err := initAPIConfigRatelimitFromString(tmpApiConf, rateLimit); err != nil {
+		logger.Errorf("initAPIConfigRatelimitFromString error %s", err)
+		return err
+	}
 
-		valid := validateAPIConfig(apiConf)
-		if !valid {
-			return perrors.Errorf("api config not valid error %v", perrors.WithStack(err))
-		}
+	apiConfig = tmpApiConf
+	return nil
+}
 
-		apiConfig = apiConf
+func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
+	properties := make(map[string]string, 8)
+	if err := yaml.UnmarshalYML([]byte(str), properties); err != nil {
+		logger.Errorf("unmarshalYmlConfig error %s", err)
+		return err
+	}
+	if v, ok := properties[BASE_INFO_NAME]; ok {
+		conf.Name = v
+	}
+	if v, ok := properties[BASE_INFO_DESC]; ok {
+		conf.Description = v
+	}
+	if v, ok := properties[BASE_INFO_PFP]; ok {
+		conf.PluginFilePath = v
 	}
 	return nil
 }
 
-// validateAPIConfig check api config valid
-func validateAPIConfig(conf *fc.APIConfig) bool {
-	if conf.Name == "" {
-		return false
+func initAPIConfigRatelimitFromString(conf *fc.APIConfig, str string) error {
+	c := fr.Config{}
+	if err := yaml.UnmarshalYML([]byte(str), &c); err != nil {
+		logger.Errorf("unmarshalYmlConfig error %s", err)
+		return err
 	}
-	if conf.Description == "" {
-		return false
-	}
-	if conf.Resources == nil || len(conf.Resources) == 0 {
-		return false
-	}
-	return true
+	conf.RateLimit = c
+	return nil
 }
 
-func listenAPIConfigNodeEvent(key string) bool {
-	for {
-		wc, err := client.Watch(key)
+func initAPIConfigPluginsFromStringList(conf *fc.APIConfig, plugins []string) error {
+	var groups []fc.PluginsGroup
+	for _, v := range plugins {
+		g := fc.PluginsGroup{}
+		if err := yaml.UnmarshalYML([]byte(v), &g); err != nil {
+			logger.Errorf("unmarshalYmlConfig error %s", err)
+			return err
+		}
+		groups = append(groups, g)
+	}
+	conf.PluginsGroup = groups
+	return nil
+}
+
+func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) error {
+	for i := range kList {
+		v := vList[i]
+		method := &fc.Method{}
+		err := yaml.UnmarshalYML([]byte(v), method)
 		if err != nil {
-			logger.Warnf("Watch api config {key:%s} = error{%v}", key, err)
+			logger.Errorf("unmarshalYmlConfig error %s", err)
+			return err
+		}
+
+		found := false
+		for r, resource := range config.Resources {
+			if method.ResourcePath != resource.Path {
+				continue
+			}
+
+			for j, old := range resource.Methods {
+				if old.HTTPVerb == method.HTTPVerb {
+					// modify one method
+					resource.Methods[j] = *method
+					found = true
+				}
+			}
+			if !found {
+				resource.Methods = append(resource.Methods, *method)
+				config.Resources[r] = resource
+				found = true
+			}
+		}
+
+		// not found one resource, so need add empty resource first
+		if !found {
+			resource := &fc.Resource{}
+			resource.Methods = append(resource.Methods, *method)
+			resource.Path = method.ResourcePath
+			config.Resources = append(config.Resources, *resource)
+		}
+	}
+	return nil
+}
+
+func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string) error {
+	for i := range kList {
+		v := vList[i]
+		resource := &fc.Resource{}
+		err := yaml.UnmarshalYML([]byte(v), resource)
+		if err != nil {
+			logger.Errorf("unmarshalYmlConfig error %s", err)
+			return err
+		}
+
+		found := false
+		if config.Resources == nil {
+			config.Resources = make([]fc.Resource, 0)
+		}
+
+		for i, old := range config.Resources {
+			if old.Path != resource.Path {
+				continue
+			}
+			// replace old with new one except method list
+			resource.Methods = old.Methods
+			config.Resources[i] = *resource
+			found = true
+		}
+
+		if !found {
+			config.Resources = append(config.Resources, *resource)
+		}
+		continue
+	}
+	return nil
+}
+
+func listenResourceAndMethodEvent(key string) bool {
+	for {
+		wc, err := client.WatchWithOption(key, clientv3.WithPrefix())
+		if err != nil {
+			logger.Warnf("Watch api config {key:%s} = error{%s}", key, err)
 			return false
 		}
 
@@ -151,11 +335,11 @@ func listenAPIConfigNodeEvent(key string) bool {
 			for _, event := range e.Events {
 				switch event.Type {
 				case mvccpb.PUT:
-					if err = initAPIConfigFromString(string(event.Kv.Value)); err == nil {
-						listener.APIConfigChange(GetAPIConf())
-					}
+					logger.Infof("get event (key{%s}) = event{EventNodePut}", event.Kv.Key)
+					handlePutEvent(event.Kv.Key, event.Kv.Value)
 				case mvccpb.DELETE:
-					logger.Warnf("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
+					logger.Infof("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
+					handleDeleteEvent(event.Kv.Key, event.Kv.Value)
 					return true
 				default:
 					return false
@@ -165,12 +349,232 @@ func listenAPIConfigNodeEvent(key string) bool {
 	}
 }
 
+func handleDeleteEvent(key, val []byte) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	keyStr := string(key)
+	keyStr = strings.TrimSuffix(keyStr, "/")
+
+	re := getCheckResourceRegexp()
+	if m := re.Match(key); m {
+		pathArray := strings.Split(keyStr, "/")
+		if len(pathArray) == 0 {
+			logger.Errorf("handleDeleteEvent key format error")
+			return
+		}
+		resourceIdStr := pathArray[len(pathArray)-1]
+		ID, err := strconv.Atoi(resourceIdStr)
+		if err != nil {
+			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
+			return
+		}
+		deleteApiConfigResource(ID)
+		return
+	}
+
+	re = getExtractMethodRegexp()
+	if m := re.Match(key); m {
+		pathArray := strings.Split(keyStr, "/")
+		if len(pathArray) < 3 {
+			logger.Errorf("handleDeleteEvent key format error")
+			return
+		}
+		resourceIdStr := pathArray[len(pathArray)-3]
+		resourceId, err := strconv.Atoi(resourceIdStr)
+		if err != nil {
+			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
+			return
+		}
+
+		methodIdStr := pathArray[len(pathArray)-1]
+		methodId, err := strconv.Atoi(methodIdStr)
+		if err != nil {
+			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
+			return
+		}
+		deleteApiConfigMethod(resourceId, methodId)
+	}
+
+	re = getCheckRatelimitRegexp()
+	if m := re.Match(key); m {
+		empty := &fr.Config{}
+		listener.RateLimitChange(empty)
+	}
+}
+
+func handlePutEvent(key, val []byte) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	re := getCheckResourceRegexp()
+	if m := re.Match(key); m {
+		res := &fc.Resource{}
+		err := yaml.UnmarshalYML(val, res)
+		if err != nil {
+			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
+			return
+		}
+		mergeApiConfigResource(*res)
+		return
+	}
+
+	re = getExtractMethodRegexp()
+	if m := re.Match(key); m {
+		res := &fc.Method{}
+		err := yaml.UnmarshalYML(val, res)
+		if err != nil {
+			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
+			return
+		}
+		mergeApiConfigMethod(res.ResourcePath, *res)
+	}
+
+	//handle base info
+	re = getCheckBaseInfoRegexp()
+	if m := re.Match(key); m {
+		mergeBaseInfo(val)
+		return
+	}
+
+	//handle plugins group
+	re = getCheckPluginsGroupRegexp()
+	if m := re.Match(key); m {
+		mergePluginGroup(val)
+		return
+	}
+
+	//handle ratelimit
+	re = getCheckRatelimitRegexp()
+	if m := re.Match(key); m {
+		mergeRatelimit(val)
+		return
+	}
+}
+
+func deleteApiConfigResource(resourceId int) {
+	for i := 0; i < len(apiConfig.Resources); i++ {
+		itr := apiConfig.Resources[i]
+		if itr.ID == resourceId {
+			apiConfig.Resources = append(apiConfig.Resources[:i], apiConfig.Resources[i+1:]...)
+			listener.ResourceDelete(itr)
+			return
+		}
+	}
+}
+
+func mergeApiConfigResource(val fc.Resource) {
+	for i, resource := range apiConfig.Resources {
+		if val.ID != resource.ID {
+			continue
+		}
+		// modify one resource
+		val.Methods = resource.Methods
+		apiConfig.Resources[i] = val
+		listener.ResourceChange(val, resource)
+		return
+	}
+	// add one resource
+	apiConfig.Resources = append(apiConfig.Resources, val)
+	listener.ResourceAdd(val)
+}
+
+func mergeRatelimit(val []byte) {
+	c := &fr.Config{}
+	if err := yaml.UnmarshalYML(val, c); err != nil {
+		logger.Errorf("unmarshalYmlConfig error %s", err)
+		return
+	}
+	apiConfig.RateLimit = *c
+	listener.RateLimitChange(c)
+}
+
+func mergePluginGroup(val []byte) {
+	g := &fc.PluginsGroup{}
+	if err := yaml.UnmarshalYML(val, g); err != nil {
+		logger.Errorf("unmarshalYmlConfig error %s", err)
+		return
+	}
+	for i, v := range apiConfig.PluginsGroup {
+		if v.GroupName == g.GroupName {
+			apiConfig.PluginsGroup[i] = *g
+		}
+	}
+	listener.PluginGroupChange(apiConfig.PluginsGroup)
+}
+
+func mergeBaseInfo(val []byte) {
+	_ = initBaseInfoFromString(apiConfig, string(val))
+
+	listener.PluginPathChange(apiConfig.PluginFilePath)
+}
+
+func deleteApiConfigMethod(resourceId, methodId int) {
+	for _, resource := range apiConfig.Resources {
+		if resource.ID != resourceId {
+			continue
+		}
+
+		for i := 0; i < len(resource.Methods); i++ {
+			method := resource.Methods[i]
+
+			if method.ID == methodId {
+				resource.Methods = append(resource.Methods[:i], resource.Methods[i+1:]...)
+				listener.MethodDelete(resource, method)
+				return
+			}
+		}
+	}
+}
+
+func mergeApiConfigMethod(path string, val fc.Method) {
+	for i, resource := range apiConfig.Resources {
+		if path != resource.Path {
+			continue
+		}
+
+		for j, method := range resource.Methods {
+			if method.ID == val.ID {
+				// modify one method
+				resource.Methods[j] = val
+				listener.MethodChange(resource, val, method)
+				apiConfig.Resources[i] = resource
+				return
+			}
+		}
+		// add one method
+		resource.Methods = append(resource.Methods, val)
+		apiConfig.Resources[i] = resource
+		listener.MethodAdd(resource, val)
+	}
+}
+
+func getCheckBaseInfoRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/base$")
+}
+
+func getCheckResourceRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/resources/[^/]+/?$")
+}
+
+func getExtractMethodRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/resources/([^/]+)/method/[^/]+/?$")
+}
+
+func getCheckPluginsGroupRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/filter/pluginGroup/[^/]+/?$")
+}
+
+func getCheckRatelimitRegexp() *regexp.Regexp {
+	return regexp.MustCompile(".+/filter/ratelimit/[^/]+/?$")
+}
+
 // RegisterConfigListener register APIConfigListener
-func RegisterConfigListener(li APIConfigListener) {
+func RegisterConfigListener(li APIConfigResourceListener) {
 	listener = li
 }
 
-// GetAPIConf returns the initted api config
+// GetAPIConf returns the init api config
 func GetAPIConf() fc.APIConfig {
 	return *apiConfig
 }
