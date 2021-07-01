@@ -16,8 +16,13 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-server:
-  address: 127.0.0.1:8080
-etcd:
-  address: 127.0.0.1:2379
-  path: /pixiu/config/api
+FROM golang:1.14
+
+ENV HOME /go/src
+ENV GOPROXY https://goproxy.cn
+
+WORKDIR ${HOME}
+
+COPY .. ${HOME}
+
+CMD ["/bin/bash", "start.sh"]
