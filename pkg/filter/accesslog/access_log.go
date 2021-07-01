@@ -40,7 +40,7 @@ import (
 
 var accessLogWriter = &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
 
-func init() {
+func Init() {
 	extension.SetFilterFunc(constant.AccessLogFilter, accessLog())
 	accessLogWriter.Write()
 }
