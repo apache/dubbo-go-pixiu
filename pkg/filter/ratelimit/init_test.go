@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package constant
+package ratelimit
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
-)
+import "testing"
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
-)
+func TestInit(t *testing.T) {
+	c := GetMockedRateLimitConfig()
+	err := rateLimitInit(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOnUpdate(t *testing.T) {
+	config := GetMockedRateLimitConfig()
+	OnUpdate(config)
+}

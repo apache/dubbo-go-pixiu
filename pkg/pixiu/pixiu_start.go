@@ -76,11 +76,11 @@ func (p *PX) Start() {
 }
 
 func (p *PX) beforeStart() {
-	initialize.Run()
-
 	dubbo.SingletonDubboClient().Init()
-
-	api.InitAPIsFromConfig(config.GetAPIConf())
+	initialize.Run(config.GetAPIConf())
+	if err := api.InitAPIsFromConfig(config.GetAPIConf()); err != nil {
+		logger.Errorf("InitAPIsFromConfig fail: %v", err)
+	}
 }
 
 // NewPX create pixiu
