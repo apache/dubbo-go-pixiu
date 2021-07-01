@@ -1,0 +1,73 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# dubbo server yaml configure file
+# application config
+application:
+  organization: "dubbogopixiu.com"
+  name: "BDTService"
+  module: "dubbogo user-info server"
+  version: "0.0.1"
+  owner: "ZX"
+  environment: "dev"
+
+registries:
+  "demoZk":
+    protocol: "zookeeper"
+    timeout: "3s"
+    address: "127.0.0.1:2181"
+
+services:
+  "UserProvider":
+    registry: "demoZk"
+    protocol: "dubbo"
+    # Equivalent to the interface in the  dubbo.xml file
+    interface: "com.dubbogo.pixiu.UserService"
+    loadbalance: "random"
+    warmup: "100"
+    cluster: "failover"
+    group: test
+    version: 1.0.0
+    methods:
+      - name: "CreateUser"
+        retries: 1
+        loadbalance: "random"
+
+protocols:
+  "dubbo":
+    name: "dubbo"
+    port: 20000
+
+protocol_conf:
+  dubbo:
+    session_number: 700
+    session_timeout: "20s"
+    getty_session_param:
+      compress_encoding: false
+      tcp_no_delay: true
+      tcp_keep_alive: true
+      keep_alive_period: "120s"
+      tcp_r_buf_size: 262144
+      tcp_w_buf_size: 65536
+      pkg_rq_size: 1024
+      pkg_wq_size: 512
+      tcp_read_timeout: "1s"
+      tcp_write_timeout: "5s"
+      wait_timeout: "1s"
+      max_msg_len: 1024
+      session_name: "server"
