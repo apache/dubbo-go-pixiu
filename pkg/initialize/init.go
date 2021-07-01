@@ -18,9 +18,12 @@
 package initialize
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/remote"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/response"
@@ -28,13 +31,18 @@ import (
 	sa "github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
+import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+)
+
 // Run start init.
-func Run() {
-	filterInit()
+func Run(config config.APIConfig) {
+	filterInit(&config)
 	apiDiscoveryServiceInit()
 }
 
-func filterInit() {
+func filterInit(config *config.APIConfig) {
+	accesslog.Init()
 	api.Init()
 	authority.Init()
 	logger.Init()
@@ -42,6 +50,8 @@ func filterInit() {
 	remote.Init()
 	response.Init()
 	timeout.Init()
+	ratelimit.Init(&config.RateLimit)
+	plugins.Init(config.PluginsGroup, config.PluginFilePath, config.Resources)
 }
 
 func apiDiscoveryServiceInit() {

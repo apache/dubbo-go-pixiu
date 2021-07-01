@@ -35,10 +35,18 @@ import (
 )
 
 var (
-	apiURLWithPluginsMap = make(map[string]FilterChain)
-	groupWithPluginsMap  = make(map[string]map[string]WithFunc)
-	errEmptyPluginConfig = errors.New("Empty plugin config")
+	// url path -> filter chain
+	filterChainCache = make(map[string]FilterChain)
+	groupCache       = make(map[string]map[string]WithFunc)
+	localFilePath    = ""
+
+	errEmptyConfig = errors.New("Empty plugin config")
 )
+
+func Init(groups []config.PluginsGroup, filePath string, resources []config.Resource) {
+	InitPluginsGroup(groups, filePath)
+	InitFilterChainCache(resources)
+}
 
 // FilterChain include Pre & Post filters
 type FilterChain struct {
@@ -53,17 +61,38 @@ type WithFunc struct {
 	fn       context.FilterFunc
 }
 
+func OnFilePathChange(filePath string) {
+	if len(filePath) == 0 {
+		return
+	}
+	localFilePath = filePath
+}
+
+// OnResourceUpdate update plugins cache map when api-resource update
+func OnResourceUpdate(resource *config.Resource) {
+	InitFilterChainForResource(resource, "", nil)
+}
+
+// OnGroupUpdate update group cache
+func OnGroupUpdate(groups []config.PluginsGroup) {
+	InitPluginsGroup(groups, "")
+}
+
 // InitPluginsGroup prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
 func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
-	if "" == filePath || len(groups) == 0 {
+	OnFilePathChange(filePath)
+
+	if "" == localFilePath || len(groups) == 0 {
 		return
 	}
 
 	// load file.so
-	pls, err := plugin.Open(filePath)
+	pls, err := plugin.Open(localFilePath)
 	if nil != err {
 		panic(err)
 	}
+
+	newGroupMap := make(map[string]map[string]WithFunc, len(groups))
 
 	for _, group := range groups {
 		pwdMap := make(map[string]WithFunc, len(group.Plugins))
@@ -74,12 +103,13 @@ func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
 			pwdMap[pl.Name] = pwf
 		}
 
-		groupWithPluginsMap[group.GroupName] = pwdMap
+		newGroupMap[group.GroupName] = pwdMap
 	}
+	groupCache = newGroupMap
 }
 
-// InitAPIURLWithFilterChain must behind InitPluginsGroup call
-func InitAPIURLWithFilterChain(resources []config.Resource) {
+// InitFilterChainCache must behind InitPluginsGroup call
+func InitFilterChainCache(resources []config.Resource) {
 	pairURLWithFilterChain("", resources, nil)
 }
 
@@ -94,32 +124,36 @@ func pairURLWithFilterChain(parentPath string, resources []config.Resource, pare
 	}
 
 	for _, resource := range resources {
-		fullPath := groupPath + resource.Path
-		if !strings.HasPrefix(resource.Path, constant.PathSlash) {
-			continue
-		}
+		InitFilterChainForResource(&resource, groupPath, parentFilterChains)
+	}
+}
 
-		currentFilterChains, err := getAPIFilterChains(&resource.Plugins)
+func InitFilterChainForResource(resource *config.Resource, groupPath string, parent *FilterChain) {
+	fullPath := groupPath + resource.Path
+	if !strings.HasPrefix(resource.Path, constant.PathSlash) {
+		return
+	}
 
-		if err == nil {
-			apiURLWithPluginsMap[fullPath] = *currentFilterChains
-			parentFilterChains = currentFilterChains
-		} else {
-			if parentFilterChains != nil {
-				apiURLWithPluginsMap[fullPath] = *parentFilterChains
-			}
-		}
+	currentFilterChains, err := getAPIFilterChains(&resource.Plugins)
 
-		if len(resource.Resources) > 0 {
-			pairURLWithFilterChain(resource.Path, resource.Resources, parentFilterChains)
+	if err == nil {
+		filterChainCache[fullPath] = *currentFilterChains
+		parent = currentFilterChains
+	} else {
+		if parent != nil {
+			filterChainCache[fullPath] = *parent
 		}
+	}
+
+	if len(resource.Resources) > 0 {
+		pairURLWithFilterChain(resource.Path, resource.Resources, parent)
 	}
 }
 
 // GetAPIFilterFuncsWithAPIURL is get filterchain with path
 func GetAPIFilterFuncsWithAPIURL(url string) FilterChain {
 	// found from cache
-	if flc, found := apiURLWithPluginsMap[url]; found {
+	if flc, found := filterChainCache[url]; found {
 		logger.Debugf("GetExternalPlugins is:%v", flc)
 		return flc
 	}
@@ -141,7 +175,7 @@ func loadExternalPlugin(p *config.Plugin, pl *plugin.Plugin) context.FilterFunc 
 		return sbf().Do()
 	}
 
-	panic(errEmptyPluginConfig)
+	panic(errEmptyConfig)
 }
 
 func getAPIFilterChains(pluginsConfig *config.PluginsConfig) (fcs *FilterChain, err error) {
@@ -165,7 +199,7 @@ func getAPIFilterFuncsWithPluginsGroup(plu *config.PluginsInUse) []context.Filte
 
 	// found with group name
 	for _, groupName := range plu.GroupNames {
-		pwfMap, found := groupWithPluginsMap[groupName]
+		pwfMap, found := groupCache[groupName]
 		if found {
 			for _, pwf := range pwfMap {
 				tmpMap[pwf.Name] = pwf.fn
@@ -174,7 +208,7 @@ func getAPIFilterFuncsWithPluginsGroup(plu *config.PluginsInUse) []context.Filte
 	}
 
 	// found with with name from all group
-	for _, group := range groupWithPluginsMap {
+	for _, group := range groupCache {
 		for _, name := range plu.PluginNames {
 			if pwf, found := group[name]; found {
 				tmpMap[pwf.Name] = pwf.fn

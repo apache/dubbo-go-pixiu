@@ -92,7 +92,7 @@ var (
 			initFromRemote := false
 			if bootstrap.GetAPIMetaConfig() != nil {
 				if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
-					logger.Errorf("load api config from etcd error:%+v", err)
+					logger.Warnf("load api config from etcd error:%+v", err)
 				} else {
 					initFromRemote = true
 				}
