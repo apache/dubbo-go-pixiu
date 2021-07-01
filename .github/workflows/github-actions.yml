@@ -36,6 +36,7 @@ jobs:
       matrix:
         go_version:
           - 1.15
+          - 1.14
         os:
           - ubuntu-latest
 
