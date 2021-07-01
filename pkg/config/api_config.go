@@ -553,7 +553,6 @@ func getCheckBaseInfoRegexp() *regexp.Regexp {
 	return regexp.MustCompile(".+/base$")
 }
 
-
 func getCheckResourceRegexp() *regexp.Regexp {
 	return regexp.MustCompile(".+/resources/[^/]+/?$")
 }
