@@ -42,7 +42,7 @@ import (
 // Init cache the filter func & init sentinel
 func Init(config *ratelimit.Config) {
 	if err := rateLimitInit(config); err != nil {
-		logger.Errorf("rate limit init fail: %v", err)
+		logger.Errorf("rate limit init fail: %s", err)
 
 		//if sentinel init fail, just return a empty filter func to avoid error.
 		extension.SetFilterFunc(constant.RateLimitFilter, func(context fc.Context) {})

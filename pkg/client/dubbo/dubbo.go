@@ -260,7 +260,9 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *dg.Generic
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 	referenceConfig.GenericLoad(key)
-	time.Sleep(200 * time.Millisecond) // sleep to wait invoker create
+	//TODO: fix it later
+	// sleep to wait invoker create
+	time.Sleep(500 * time.Millisecond)
 	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 
 	dc.GenericServicePool[key] = clientService
