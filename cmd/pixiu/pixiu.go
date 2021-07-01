@@ -30,15 +30,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-import (
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/logger"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/remote"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/response"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
-)
-
 // Version pixiu version
 var Version = "0.3.0"
 
