@@ -18,6 +18,7 @@
 package initialize
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/logger"
@@ -41,6 +42,7 @@ func Run(config config.APIConfig) {
 }
 
 func filterInit(config *config.APIConfig) {
+	accesslog.Init()
 	api.Init()
 	authority.Init()
 	logger.Init()
