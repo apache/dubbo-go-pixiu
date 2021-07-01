@@ -28,9 +28,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPost(t *testing.T) {
-	url := "http://localhost:8881/api/v1/test-dubbo/user"
-	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":99}"
+func TestPost1(t *testing.T) {
+	url := "http://localhost:8883/api/v1/test-dubbo/UserService/com.dubbogo.pixiu.UserService?group=test&version=1.0.0&method=GetUserByName"
+	data := "{\"types\":[\"string\"],\"values\":\"tc\"}"
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("POST", url, strings.NewReader(data))
 	assert.NoError(t, err)
@@ -41,11 +41,11 @@ func TestPost(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
-func TestPut1(t *testing.T) {
-	url := "http://localhost:8881/api/v1/test-dubbo/user"
-	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":77}"
+func TestPost2(t *testing.T) {
+	url := "http://localhost:8883/api/v1/test-dubbo/UserService/com.dubbogo.pixiu.UserService?group=test&version=1.0.0&method=UpdateUserByName"
+	data := "{\"types\":[\"string\",\"body\"],\"values\":[\"tc\",{\"id\":\"0001\",\"code\":1,\"name\":\"tc\",\"age\":15}]}"
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	req, err := http.NewRequest("POST", url, strings.NewReader(data))
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
@@ -54,11 +54,11 @@ func TestPut1(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
-func TestPut2(t *testing.T) {
-	url := "http://localhost:8881/api/v1/test-dubbo/user2"
-	data := "{\"name\":\"dubbogo\",\"user\":{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":88}}"
+func TestPost3(t *testing.T) {
+	url := "http://localhost:8883/api/v1/test-dubbo/UserService/com.dubbogo.pixiu.UserService?group=test&version=1.0.0&method=GetUserByCode"
+	data := "{\"types\":[\"int\"],\"values\":1}"
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	req, err := http.NewRequest("POST", url, strings.NewReader(data))
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
