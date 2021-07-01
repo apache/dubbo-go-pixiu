@@ -38,6 +38,7 @@ var (
 	// url path -> filter chain
 	filterChainCache = make(map[string]FilterChain)
 	groupCache       = make(map[string]map[string]WithFunc)
+	localFilePath    = ""
 
 	errEmptyConfig = errors.New("Empty plugin config")
 )
@@ -60,24 +61,33 @@ type WithFunc struct {
 	fn       context.FilterFunc
 }
 
+func OnFilePathChange(filePath string) {
+	if len(filePath) == 0 {
+		return
+	}
+	localFilePath = filePath
+}
+
 // OnResourceUpdate update plugins cache map when api-resource update
 func OnResourceUpdate(resource *config.Resource) {
 	InitFilterChainForResource(resource, "", nil)
 }
 
 // OnGroupUpdate update group cache
-func OnGroupUpdate(groups []config.PluginsGroup, filePath string) {
-	InitPluginsGroup(groups, filePath)
+func OnGroupUpdate(groups []config.PluginsGroup) {
+	InitPluginsGroup(groups, "")
 }
 
 // InitPluginsGroup prase api_config.yaml(pluginsGroup) to map[string][]PluginsWithFunc
 func InitPluginsGroup(groups []config.PluginsGroup, filePath string) {
-	if "" == filePath || len(groups) == 0 {
+	OnFilePathChange(filePath)
+
+	if "" == localFilePath || len(groups) == 0 {
 		return
 	}
 
 	// load file.so
-	pls, err := plugin.Open(filePath)
+	pls, err := plugin.Open(localFilePath)
 	if nil != err {
 		panic(err)
 	}
