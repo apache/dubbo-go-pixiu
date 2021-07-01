@@ -142,7 +142,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 }
 
 func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) error {
-	for i, _ := range kList {
+	for i := range kList {
 		v := vList[i]
 		method := &fc.Method{}
 		err := yaml.UnmarshalYML([]byte(v), method)
@@ -183,7 +183,7 @@ func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) 
 }
 
 func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string) error {
-	for i, _ := range kList {
+	for i := range kList {
 		v := vList[i]
 		resource := &fc.Resource{}
 		err := yaml.UnmarshalYML([]byte(v), resource)
@@ -401,16 +401,12 @@ func mergeApiConfigMethod(path string, val fc.Method) {
 	}
 }
 
-func getCheckBaseInfoRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/base$")
-}
-
 func getCheckResourceRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/Resources/[^/]+/?$")
+	return regexp.MustCompile(".+/resources/[^/]+/?$")
 }
 
 func getExtractMethodRegexp() *regexp.Regexp {
-	return regexp.MustCompile("Resources/([^/]+)/Method/[^/]+/?$")
+	return regexp.MustCompile("resources/([^/]+)/method/[^/]+/?$")
 }
 
 // RegisterConfigListener register APIConfigListener
