@@ -43,7 +43,7 @@ func TestPost1(t *testing.T) {
 
 func TestPost2(t *testing.T) {
 	url := "http://localhost:8883/api/v1/test-dubbo/UserService/com.dubbogo.pixiu.UserService?group=test&version=1.0.0&method=UpdateUserByName"
-	data := "{\"types\":\"string,body\",\"values\":[\"tc\",{\"id\":\"0001\",\"code\":1,\"name\":\"tc\",\"age\":15}]}"
+	data := "{\"types\":\"string,object\",\"values\":[\"tc\",{\"id\":\"0001\",\"code\":1,\"name\":\"tc\",\"age\":15}]}"
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("POST", url, strings.NewReader(data))
 	assert.NoError(t, err)
