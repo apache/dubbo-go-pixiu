@@ -25,14 +25,14 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"github.com/stretchr/testify/assert"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestHeader(t *testing.T) {
