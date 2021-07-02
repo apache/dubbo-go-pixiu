@@ -19,12 +19,18 @@ package authority
 
 import (
 	"bytes"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"net/http"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestAuthority(t *testing.T) {
