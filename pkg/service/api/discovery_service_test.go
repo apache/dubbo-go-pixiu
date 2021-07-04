@@ -166,7 +166,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 	}
 	apiDiscSrv = NewLocalMemoryAPIDiscoveryService()
 	err = loadAPIFromResource("", tempResources, nil, apiDiscSrv)
-	assert.EqualError(t, err, "Path :id in /mock doesn't start with /; Path :ik in /mock doesn't start with /")
+	assert.EqualError(t, err, "path :id in /mock doesn't start with /; path :ik in /mock doesn't start with /")
 }
 
 func TestLoadAPIFromMethods(t *testing.T) {
@@ -181,5 +181,5 @@ func TestLoadAPIFromMethods(t *testing.T) {
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	assert.EqualError(t, err, "Path: /mock, Method: PUT, error: Method PUT already exists in path /mock")
+	assert.EqualError(t, err, "path: /mock, Method: PUT, error: Method PUT already exists in path /mock")
 }
