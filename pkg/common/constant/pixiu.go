@@ -55,3 +55,7 @@ const (
 	//YML .yml
 	YML = ".yml"
 )
+
+const (
+	StringSeparator = ","
+)
