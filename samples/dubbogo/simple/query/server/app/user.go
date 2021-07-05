@@ -35,20 +35,16 @@ func init() {
 	// ------for hessian2------
 	hessian.RegisterPOJO(&User{})
 
-	cache = &UserDB{
-		nameIndex: make(map[string]*User, 16),
-		codeIndex: make(map[int64]*User, 16),
-		lock:      sync.Mutex{},
-	}
+	cache = newUserDB()
 
 	cache.Add(&User{ID: "0001", Code: 1, Name: "tc", Age: 18, Time: time.Now()})
 	cache.Add(&User{ID: "0002", Code: 2, Name: "ic", Age: 88, Time: time.Now()})
 }
 
-var cache *UserDB
+var cache *userDB
 
-// UserDB cache user.
-type UserDB struct {
+// userDB cache user.
+type userDB struct {
 	// key is name, value is user obj
 	nameIndex map[string]*User
 	// key is code, value is user obj
@@ -56,8 +52,17 @@ type UserDB struct {
 	lock      sync.Mutex
 }
 
+// userDB create func
+func newUserDB() *userDB {
+	return &userDB{
+		nameIndex: make(map[string]*User, 16),
+		codeIndex: make(map[int64]*User, 16),
+		lock:      sync.Mutex{},
+	}
+}
+
 // nolint
-func (db *UserDB) Add(u *User) bool {
+func (db *userDB) Add(u *User) bool {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -73,7 +78,7 @@ func (db *UserDB) Add(u *User) bool {
 }
 
 // nolint
-func (db *UserDB) AddForName(u *User) bool {
+func (db *userDB) AddForName(u *User) bool {
 	if len(u.Name) == 0 {
 		return false
 	}
@@ -87,7 +92,7 @@ func (db *UserDB) AddForName(u *User) bool {
 }
 
 // nolint
-func (db *UserDB) AddForCode(u *User) bool {
+func (db *userDB) AddForCode(u *User) bool {
 	if u.Code <= 0 {
 		return false
 	}
@@ -101,7 +106,7 @@ func (db *UserDB) AddForCode(u *User) bool {
 }
 
 // nolint
-func (db *UserDB) GetByName(n string) (*User, bool) {
+func (db *userDB) GetByName(n string) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -110,7 +115,7 @@ func (db *UserDB) GetByName(n string) (*User, bool) {
 }
 
 // nolint
-func (db *UserDB) GetByCode(n int64) (*User, bool) {
+func (db *userDB) GetByCode(n int64) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -118,7 +123,7 @@ func (db *UserDB) GetByCode(n int64) (*User, bool) {
 	return r, ok
 }
 
-func (db *UserDB) existName(name string) bool {
+func (db *userDB) existName(name string) bool {
 	if len(name) <= 0 {
 		return false
 	}
@@ -131,7 +136,7 @@ func (db *UserDB) existName(name string) bool {
 	return false
 }
 
-func (db *UserDB) existCode(code int64) bool {
+func (db *userDB) existCode(code int64) bool {
 	if code <= 0 {
 		return false
 	}
