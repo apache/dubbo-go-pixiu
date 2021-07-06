@@ -55,6 +55,8 @@ func (p *PX) Start() {
 
 	p.beforeStart()
 
+	registerOtelMetricMeter(conf.Metric)
+
 	listeners := conf.GetListeners()
 
 	for _, s := range listeners {

@@ -25,7 +25,7 @@ const (
 	HTTPDomainFilter         = "dgp.filters.http.domain"
 	RemoteCallFilter         = "dgp.filters.remote_call"
 	TimeoutFilter            = "dgp.filters.timeout"
-	LoggerFilter             = "dgp.filters.logger"
+	MetricFilter             = "dgp.filters.metric"
 	RecoveryFilter           = "dgp.filters.recovery"
 	ResponseFilter           = "dgp.filters.response"
 	AccessLogFilter          = "dgp.filters.access_log"
