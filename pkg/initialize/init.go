@@ -21,7 +21,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
@@ -45,7 +45,7 @@ func filterInit(config *config.APIConfig) {
 	accesslog.Init()
 	api.Init()
 	authority.Init()
-	logger.Init()
+	metric.Init()
 	recovery.Init()
 	remote.Init()
 	response.Init()
