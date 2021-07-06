@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package logger
+package metric
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
-func TestLogger(t *testing.T) {
+func TestMetric(t *testing.T) {
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request, New().Do(), recovery.New().Do())

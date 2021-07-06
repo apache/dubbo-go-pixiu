@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package logger
+package metric
 
 import (
+	ctx "context"
+	"sync/atomic"
 	"time"
 )
 
@@ -30,33 +32,60 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
+)
+
+var (
+	totalElapsed int64 = 0
+	totalCount   int64 = 0
 )
 
 // nolint
 func Init() {
-	extension.SetFilterFunc(constant.LoggerFilter, loggerFilterFunc())
+	extension.SetFilterFunc(constant.MetricFilter, metricFilterFunc())
+	registerOtelMetric()
 }
 
-func loggerFilterFunc() context.FilterFunc {
+func registerOtelMetric() {
+	meter := global.GetMeterProvider().Meter("pixiu")
+	observerElapsedCallback := func(_ ctx.Context, result metric.Int64ObserverResult) {
+		result.Observe(totalElapsed)
+	}
+	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_elapsed", observerElapsedCallback,
+		metric.WithDescription("request total elapsed in pixiu"),
+	)
+
+	observerCountCallback := func(_ ctx.Context, result metric.Int64ObserverResult) {
+		result.Observe(totalCount)
+	}
+	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
+		metric.WithDescription("request total count in pixiu"),
+	)
+}
+
+func metricFilterFunc() context.FilterFunc {
 	return New().Do()
 }
 
-// loggerFilter is a filter for simple logger.
-type loggerFilter struct{}
+// loggerFilter is a filter for simple metric.
+type metricFilter struct{}
 
-// New create logger filter.
+// New create metric filter.
 func New() filter.Filter {
-	return &loggerFilter{}
+	return &metricFilter{}
 }
 
-// Logger logger filter, print url and latency
-func (f loggerFilter) Do() context.FilterFunc {
+// Metric filter, record url and latency
+func (f metricFilter) Do() context.FilterFunc {
 	return func(c context.Context) {
 		start := time.Now()
 
 		c.Next()
 
 		latency := time.Now().Sub(start)
+		atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
+		atomic.AddInt64(&totalCount, 1)
 
 		logger.Infof("[dubbo go pixiu] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
 	}
