@@ -25,7 +25,7 @@ resources:
     methods:
       - httpVerb: GET
         onAir: true
-        timeout: 1000ms
+        timeout: 100s
         inboundRequest:
           requestType: http
         integrationRequest:
@@ -45,7 +45,7 @@ resources:
           clusterName: "test_dubbo"
       - httpVerb: PUT
         onAir: true
-        timeout: 1000ms
+        timeout: 100s
         inboundRequest:
           requestType: http
         integrationRequest:
@@ -71,7 +71,7 @@ resources:
     methods:
       - httpVerb: PUT
         onAir: true
-        timeout: 1000ms
+        timeout: 100s
         inboundRequest:
           requestType: http
         integrationRequest:
