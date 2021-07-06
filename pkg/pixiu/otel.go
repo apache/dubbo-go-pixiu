@@ -18,53 +18,55 @@
 package pixiu
 
 import (
-	"context"
-	"log"
-	"time"
+	"net/http"
+	"strconv"
 )
 
 import (
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
+	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric/global"
+	export "go.opentelemetry.io/otel/sdk/export/metric"
+	"go.opentelemetry.io/otel/sdk/metric/aggregator/histogram"
 	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
 	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
-	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+	selector "go.opentelemetry.io/otel/sdk/metric/selector/simple"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func registerOtelMetricMeter(conf model.Metric) {
 	if conf.Enable {
-		otelctx := context.Background()
+		config := prometheus.Config{}
 		resources := resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("dubbo-go-pixiu"),
-			semconv.ServiceVersionKey.String("0.3.0"),
 		)
-
-		metricExporter, err := stdoutmetric.New(
-			stdoutmetric.WithPrettyPrint(),
-		)
-		if err != nil {
-			log.Fatalf("failed to initialize stdoutmetric export pipeline: %v", err)
-		}
-		pusher := controller.New(
+		c := controller.New(
 			processor.New(
-				simple.NewWithExactDistribution(),
-				metricExporter,
+				selector.NewWithHistogramDistribution(
+					histogram.WithExplicitBoundaries(config.DefaultHistogramBoundaries),
+				),
+				export.CumulativeExportKindSelector(),
+				processor.WithMemory(true),
 			),
 			controller.WithResource(resources),
-			controller.WithExporter(metricExporter),
-			controller.WithCollectPeriod(conf.Interval*time.Second),
 		)
-		err = pusher.Start(otelctx)
+		exporter, err := prometheus.New(config, c)
 		if err != nil {
-			log.Fatalf("failed to initialize metric controller: %v", err)
+			logger.Error("failed to initialize prometheus exporter %v", err)
 		}
-		global.SetMeterProvider(pusher.MeterProvider())
+		global.SetMeterProvider(exporter.MeterProvider())
+
+		http.HandleFunc("/", exporter.ServeHTTP)
+		addr := ":" + strconv.Itoa(conf.PrometheusPort)
+		go func() {
+			_ = http.ListenAndServe(addr, nil)
+		}()
+
+		logger.Info("Prometheus server running on " + addr)
 	}
 }
