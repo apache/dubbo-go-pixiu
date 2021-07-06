@@ -37,8 +37,8 @@ import (
 )
 
 var (
-	totalElapsed int64 = 0
-	totalCount   int64 = 0
+	totalElapsed int64
+	totalCount   int64
 )
 
 // nolint
