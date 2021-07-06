@@ -17,12 +17,8 @@
 
 package model
 
-import (
-	"time"
-)
-
 // Metirc config for otel metric.
 type Metric struct {
-	Enable   bool          `yaml:"enable" json:"enable"`
-	Interval time.Duration `yaml:"interval" json:"interval"`
+	Enable         bool `yaml:"enable" json:"enable"`
+	PrometheusPort int  `yaml:"prometheus_port" json:"prometheus_port"`
 }
