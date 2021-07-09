@@ -427,6 +427,7 @@ func handlePutEvent(key, val []byte) {
 			return
 		}
 		mergeApiConfigMethod(res.ResourcePath, *res)
+		return
 	}
 
 	//handle base info
@@ -565,7 +566,7 @@ func getCheckPluginsGroupRegexp() *regexp.Regexp {
 }
 
 func getCheckRatelimitRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/filter/ratelimit/[^/]+/?$")
+	return regexp.MustCompile(".+/filter/ratelimit$")
 }
 
 // RegisterConfigListener register APIConfigListener
