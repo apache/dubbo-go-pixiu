@@ -18,13 +18,13 @@
 package metric
 
 import (
-	ctx "context"
+	"context"
 	"sync/atomic"
 	"time"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
@@ -49,14 +49,14 @@ func Init() {
 
 func registerOtelMetric() {
 	meter := global.GetMeterProvider().Meter("pixiu")
-	observerElapsedCallback := func(_ ctx.Context, result metric.Int64ObserverResult) {
+	observerElapsedCallback := func(_ context.Context, result metric.Int64ObserverResult) {
 		result.Observe(totalElapsed)
 	}
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_elapsed", observerElapsedCallback,
 		metric.WithDescription("request total elapsed in pixiu"),
 	)
 
-	observerCountCallback := func(_ ctx.Context, result metric.Int64ObserverResult) {
+	observerCountCallback := func(_ context.Context, result metric.Int64ObserverResult) {
 		result.Observe(totalCount)
 	}
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
@@ -64,7 +64,7 @@ func registerOtelMetric() {
 	)
 }
 
-func metricFilterFunc() context.FilterFunc {
+func metricFilterFunc() fc.FilterFunc {
 	return New().Do()
 }
 
@@ -77,8 +77,8 @@ func New() filter.Filter {
 }
 
 // Metric filter, record url and latency
-func (f metricFilter) Do() context.FilterFunc {
-	return func(c context.Context) {
+func (f metricFilter) Do() fc.FilterFunc {
+	return func(c fc.Context) {
 		start := time.Now()
 
 		c.Next()
