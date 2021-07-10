@@ -565,7 +565,7 @@ func getCheckPluginsGroupRegexp() *regexp.Regexp {
 }
 
 func getCheckRatelimitRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/filter/ratelimit/[^/]+/?$")
+	return regexp.MustCompile(".+/filter/ratelimit")
 }
 
 // RegisterConfigListener register APIConfigListener
