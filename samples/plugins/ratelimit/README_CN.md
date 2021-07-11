@@ -34,7 +34,7 @@ resources:
     - enable: true
       flowRule:
         #the resource's name
-        resource: "test-dubbo"
+        resource: "test-http"
         threshold: 100
         statintervalinms: 1000
 ```
