@@ -19,7 +19,6 @@ package test
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 )
@@ -28,39 +27,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPost(t *testing.T) {
-	url := "http://localhost:8881/api/v1/test-dubbo/user"
-	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":99}"
+func TestGet1(t *testing.T) {
+	url := "http://localhost:8885/api/v1/test-dubbo/user/name/tc"
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("POST", url, strings.NewReader(data))
+	req, err := http.NewRequest("GET", url, nil)
 	assert.NoError(t, err)
-	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
-func TestPut1(t *testing.T) {
-	url := "http://localhost:8881/api/v1/test-dubbo/user"
-	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":77}"
+func TestGet2(t *testing.T) {
+	url := "http://localhost:8885/api/v1/test-dubbo/user/code/1"
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	req, err := http.NewRequest("GET", url, nil)
 	assert.NoError(t, err)
-	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
-func TestPut2(t *testing.T) {
-	url := "http://localhost:8881/api/v1/test-dubbo/user2"
-	data := "{\"name\":\"dubbogo\",\"user\":{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":88}}"
+func TestGet3(t *testing.T) {
+	url := "http://localhost:8885/api/v1/test-dubbo/user/name/tc/age/99"
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	req, err := http.NewRequest("GET", url, nil)
 	assert.NoError(t, err)
-	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
