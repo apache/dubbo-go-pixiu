@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package constant
+package metric
 
-const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	MetricFilter             = "dgp.filters.metric"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
+import (
+	"bytes"
+	"net/http"
+	"testing"
 )
 
-const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
+import (
+	"github.com/stretchr/testify/assert"
 )
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
+)
+
+func TestMetric(t *testing.T) {
+	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	assert.NoError(t, err)
+	c := mock.GetMockHTTPContext(request, New().Do(), recovery.New().Do())
+	c.Next()
+	t.Log("log filter test is finished")
+}
