@@ -15,27 +15,10 @@
  * limitations under the License.
  */
 
-package logger
+package model
 
-import (
-	"bytes"
-	"net/http"
-	"testing"
-)
-
-import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
-)
-
-func TestLogger(t *testing.T) {
-	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
-	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, New().Do(), recovery.New().Do())
-	c.Next()
-	t.Log("log filter test is finished")
+// Metirc config for otel metric.
+type Metric struct {
+	Enable         bool `yaml:"enable" json:"enable"`
+	PrometheusPort int  `yaml:"prometheus_port" json:"prometheus_port"`
 }
