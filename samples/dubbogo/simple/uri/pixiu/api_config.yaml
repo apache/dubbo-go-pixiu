@@ -19,73 +19,80 @@
 name: pixiu
 description: pixiu sample
 resources:
-  - path: '/api/v1/test-dubbo/user/:name'
+  - path: '/api/v1/test-dubbo/user/name/:name'
     type: restful
     description: user
     methods:
       - httpVerb: GET
         onAir: true
-        timeout: 1000ms
+        timeout: 100s
         inboundRequest:
           requestType: http
+          uri:
+            - name: name
+              required: true
         integrationRequest:
           requestType: dubbo
           mappingParams:
             - name: uri.name
               mapTo: 0
               mapType: "string"
-            - name: queryStrings.age
-              mapTo: 1
-              mapType: "int"
-          applicationName: "UserService"
+          applicationName: "UserProvider"
           interface: "com.dubbogo.pixiu.UserService"
-          method: "GetUserByNameAndAge"
+          method: "GetUserByName"
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
-      - httpVerb: PUT
-        onAir: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: dubbo
-          mappingParams:
-            - name: uri.name
-              mapTo: 0
-              mapType: "string"
-            - name: requestBody._all
-              mapTo: 1
-              mapType: "object"
-          applicationName: "UserService"
-          interface: "com.dubbogo.pixiu.UserService"
-          method: "UpdateUserByName"
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_dubbo"
-  - path: '/api/v1/test-dubbo/user'
+  - path: '/api/v1/test-dubbo/user/code/:code'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
-      - httpVerb: PUT
+      - httpVerb: GET
         onAir: true
-        timeout: 1000ms
+        timeout: 100s
         inboundRequest:
           requestType: http
+          uri:
+            - name: code
+              required: true
         integrationRequest:
           requestType: dubbo
           mappingParams:
-            - name: queryStrings.name
+            - name: uri.code
+              mapTo: 0
+              mapType: "int"
+          applicationName: "UserProvider"
+          interface: "com.dubbogo.pixiu.UserService"
+          method: "GetUserByCode"
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+  - path: '/api/v1/test-dubbo/user/name/:name/age/:age'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: GET
+        onAir: true
+        timeout: 100s
+        inboundRequest:
+          requestType: http
+          uri:
+            - name: name
+              required: true
+            - name: age
+              required: true
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: uri.name
               mapTo: 0
               mapType: "string"
-            - name: requestBody._all
+            - name: uri.age
               mapTo: 1
-              mapType: "object"
-          applicationName: "UserService"
+              mapType: "int"
+          applicationName: "UserProvider"
           interface: "com.dubbogo.pixiu.UserService"
-          method: "UpdateUserByName"
+          method: "GetUserByNameAndAge"
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
