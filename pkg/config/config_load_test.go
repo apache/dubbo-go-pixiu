@@ -38,14 +38,14 @@ func TestMain(m *testing.M) {
 	log.Println("Prepare Bootstrap")
 	b = model.Bootstrap{
 		StaticResources: model.StaticResources{
-			Listeners: []model.Listener{
+			Listeners: []*model.Listener{
 				{
 					Name: "net/http",
 					Address: model.Address{
 						SocketAddress: model.SocketAddress{
-							ProtocolStr: "HTTP",
+							ProtocolStr: "HTTPS",
 							Address:     "0.0.0.0",
-							Port:        8888,
+							Port:        443,
 						},
 					},
 					Config: model.HttpConfig{
