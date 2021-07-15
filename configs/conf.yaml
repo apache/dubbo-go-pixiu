@@ -25,6 +25,50 @@ static_resources:
           protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 80
+      port: 8888
+        filter_chains:
+            - filter_chain_match:
+              domains:
+                - api.dubbo.com
+                - api.pixiu.com
+              filters:
+                - name: dgp.filters.http_connect_manager
+                  config:
+                    route_config:
+                      routes:
+                        - match:
+                            prefix: "/api/v1"
+                            headers:
+                              - name: "X-DGP-WAY"
+                                value: "dubbo"
+                          route:
+                            cluster: "test-dubbo"
+                            cluster_not_found_response_code: 505
+                            cors:
+                              allow_origin:
+                                - "*"
+                              enabled: true
+                      authority_config:
+                        authority_rules:
+                          - strategy: "Blacklist"
+                            limit: "IP"
+                            items:
+                              - "127.0.0.1"
+                          - strategy: "Whitelist"
+                            limit: "App"
+                            items:
+                              - "test_dubbo"
+                    http_filters:
+                      - name: dgp.filters.http.authority_filter
+                        config:
+                      - name: dgp.filters.http.api
+                        config:
+                      - name: dgp.filters.http.router
+                        config:
+                      - name: dgp.filters.remote_call
+                        config:
+                    server_name: "test_http_dubbo"
+                    generate_request_id: false
       config:
         idle_timeout: 5s
         read_timeout: 5s
