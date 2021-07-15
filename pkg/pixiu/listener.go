@@ -20,7 +20,6 @@ package pixiu
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
-	"github.com/mitchellh/mapstructure"
 )
 
 import (
@@ -71,12 +70,8 @@ func (l *ListenerService) httpsListener() {
 		return l.allocateContext()
 	}
 	// user customize http config
-	var hc model.HttpConfig
-	if l.Config != nil {
-		if ok := mapstructure.Decode(l.Config , &hc); ok != nil {
-			logger.Error("Config error" , ok)
-		}
-	}
+	var hc *model.HttpConfig
+	hc = model.MapInStruct(l.Config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
@@ -101,12 +96,8 @@ func (l *ListenerService) httpListener() {
 	}
 
 	// user customize http config
-	var hc model.HttpConfig
-	if l.Config != nil {
-		if c, ok := l.Config.(*model.HttpConfig); ok {
-			hc = *c
-		}
-	}
+	var hc *model.HttpConfig
+	hc = model.MapInStruct(l.Config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
