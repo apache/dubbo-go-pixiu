@@ -217,6 +217,26 @@ func (z *ZooKeeperClient) GetChildren(path string) ([]string, error) {
 	return children, nil
 }
 
+// GetContent gets content by @path
+func (z *ZooKeeperClient) GetContent(path string) ([]byte, error) {
+	var (
+		data []byte
+	)
+	conn := z.getConn()
+	if conn == nil {
+		return nil, errors.New("ZooKeeper client has no connection")
+	}
+	data, _, err := conn.Get(path)
+	if err != nil {
+		if err == zk.ErrNoNode {
+			return nil, errors.Errorf("path{%s} does not exist", path)
+		}
+		logger.Errorf("zk.Data(path{%s}) = error(%v)", path, errors.WithStack(err))
+		return nil, errors.WithMessagef(err, "zk.Data(path:%s)", path)
+	}
+	return data, nil
+}
+
 func (z *ZooKeeperClient) GetConnState() zk.State {
 	conn := z.getConn()
 	if conn != nil {

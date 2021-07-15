@@ -18,11 +18,25 @@
 package zookeeper
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
 import (
+	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
+	_ "github.com/apache/dubbo-go/cluster/loadbalance"
 	"github.com/apache/dubbo-go/common"
+	ex "github.com/apache/dubbo-go/common/extension"
+	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
+	_ "github.com/apache/dubbo-go/filter/filter_impl"
+	"github.com/apache/dubbo-go/metadata/definition"
+	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
+	_ "github.com/apache/dubbo-go/metadata/service/remote"
+	dr "github.com/apache/dubbo-go/registry"
+	_ "github.com/apache/dubbo-go/registry/protocol"
+	_ "github.com/apache/dubbo-go/registry/zookeeper"
+	"github.com/apache/dubbo-go/remoting/zookeeper/curator_discovery"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"github.com/pkg/errors"
@@ -42,6 +56,8 @@ const (
 	// RegistryZkClient zk client name
 	RegistryZkClient = "zk registry"
 	rootPath         = "/dubbo"
+	servicesRootPath = "/services"
+	methodsRootPath  = "/dubbo/metadata"
 )
 
 func init() {
@@ -134,7 +150,156 @@ func (r *ZKRegistry) LoadInterfaces() ([]router.API, []error) {
 
 // LoadApplications load services registered after dubbo 2.7
 func (r *ZKRegistry) LoadApplications() ([]router.API, []error) {
-	return nil, nil
+	instances, errorStack := r.getInstances()
+	apis := []router.API{}
+
+	for _, instance := range instances {
+		metaData := instance.GetMetadata()
+		metadataStorageType, ok := metaData[constant.MetadataStorageTypeKey]
+		if !ok {
+			metadataStorageType = constant.DefaultMetadataStorageType
+		}
+		// get metadata service proxy factory according to the metadataStorageType
+		proxyFactory := ex.GetMetadataServiceProxyFactory(metadataStorageType)
+		if proxyFactory == nil {
+			continue
+		}
+		metadataService := proxyFactory.GetProxy(instance)
+		if metadataService == nil {
+			continue
+		}
+		// call GetExportedURLs to get the exported urls
+		urls, err := metadataService.GetExportedURLs(constant.AnyValue, constant.AnyValue, constant.AnyValue, constant.AnyValue)
+		if err != nil {
+			logger.Errorf("Get exported urls of instance %s failed; due to \n %s", instance, err.Error())
+			continue
+		}
+
+		for _, url := range urls {
+			bkConfig, _, err := registry.ParseDubboString(url.(string))
+			if len(bkConfig.ApplicationName) == 0 || len(bkConfig.Interface) == 0 {
+				errorStack = append(errorStack, errors.Errorf("Path %s contains dubbo registration that interface or application not set", metadataService))
+				continue
+			}
+			if err != nil {
+				logger.Warnf("Parse dubbo interface provider %s failed; due to \n %s", url.(string), err.Error())
+				errorStack = append(errorStack, errors.WithStack(err))
+				continue
+			}
+			methods, err := r.getMethods(bkConfig.Interface)
+			if err != nil {
+				logger.Warnf("Get methods of interface provider %s failed; due to \n %s", bkConfig.Interface, err.Error())
+				errorStack = append(errorStack, errors.WithStack(err))
+				continue
+			}
+
+			apiPattern := strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface, bkConfig.Version}, constant.PathSlash)
+			mappingParams := []config.MappingParam{
+				{
+					Name:  "requestBody.values",
+					MapTo: "opt.values",
+				},
+				{
+					Name:  "requestBody.types",
+					MapTo: "opt.types",
+				},
+			}
+			for i := range methods {
+				apis = append(apis, registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams))
+			}
+		}
+	}
+	return apis, errorStack
+}
+
+// getMethods will return the methods of a service
+func (r *ZKRegistry) getMethods(in string) ([]string, error) {
+	methods := []string{}
+
+	path := strings.Join([]string{methodsRootPath, in}, constant.PathSlash)
+	data, err := r.client.GetContent(path)
+	if err != nil {
+		return nil, err
+	}
+
+	sd := &definition.ServiceDefinition{}
+	err = json.Unmarshal(data, sd)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, m := range sd.Methods {
+		methods = append(methods, m.Name)
+	}
+	return methods, nil
+}
+
+// getInstances will return the instances
+func (r *ZKRegistry) getInstances() ([]dr.ServiceInstance, []error) {
+	subPaths, err := r.client.GetChildren(servicesRootPath)
+	if err != nil {
+		return nil, []error{err}
+	}
+	if len(subPaths) == 0 {
+		return nil, nil
+	}
+
+	errorStack := []error{}
+	iss := []dr.ServiceInstance{}
+	for _, subPath := range subPaths {
+		serviceName := strings.Join([]string{servicesRootPath, subPath}, constant.PathSlash)
+		ids, err := r.client.GetChildren(serviceName)
+		if err != nil {
+			logger.Warnf("Get serviceIDs %s failed due to %s", serviceName, err.Error())
+			errorStack = append(errorStack, errors.WithStack(err))
+			continue
+		}
+		for _, id := range ids {
+			path := strings.Join([]string{serviceName, id}, constant.PathSlash)
+			data, err := r.client.GetContent(path)
+			if err != nil {
+				logger.Warnf("Get service instance %s failed due to %s", path, err.Error())
+				errorStack = append(errorStack, errors.WithStack(err))
+				continue
+			}
+			instance := &curator_discovery.ServiceInstance{}
+			err = json.Unmarshal(data, instance)
+			if err != nil {
+				logger.Warnf("Parse service instance %s failed due to %s", path, err.Error())
+				errorStack = append(errorStack, errors.WithStack(err))
+				continue
+			}
+			iss = append(iss, toZookeeperInstance(instance))
+		}
+	}
+	return iss, errorStack
+}
+
+// toZookeeperInstance convert to registry's service instance
+func toZookeeperInstance(cris *curator_discovery.ServiceInstance) dr.ServiceInstance {
+	pl, ok := cris.Payload.(map[string]interface{})
+	if !ok {
+		logger.Errorf("toZookeeperInstance{%s} payload is not map[string]interface{}", cris.Id)
+		return nil
+	}
+	mdi, ok := pl["metadata"].(map[string]interface{})
+	if !ok {
+		logger.Errorf("toZookeeperInstance{%s} metadata is not map[string]interface{}", cris.Id)
+		return nil
+	}
+	md := make(map[string]string, len(mdi))
+	for k, v := range mdi {
+		md[k] = fmt.Sprint(v)
+	}
+	return &dr.DefaultServiceInstance{
+		Id:          cris.Id,
+		ServiceName: cris.Name,
+		Host:        cris.Address,
+		Port:        cris.Port,
+		Enable:      true,
+		Healthy:     true,
+		Metadata:    md,
+	}
 }
 
 // Subscribe monitors the target registry.
