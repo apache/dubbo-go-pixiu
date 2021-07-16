@@ -160,6 +160,7 @@ func TestLoad(t *testing.T) {
 	conf := Load("conf_test.yaml")
 	assert.Equal(t, 1, len(conf.StaticResources.Listeners))
 	assert.Equal(t, 1, len(conf.StaticResources.Clusters))
+	Adapter(&b)
 	assert.Equal(t, *conf, b)
 }
 
