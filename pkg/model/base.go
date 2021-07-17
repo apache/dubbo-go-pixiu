@@ -69,9 +69,9 @@ var ProtocolTypeName = map[int32]string{
 
 // ProtocolTypeValue
 var ProtocolTypeValue = map[string]int32{
-	"HTTP": 0,
-	"TCP":  1,
-	"UDP":  2,
+	"HTTP":  0,
+	"TCP":   1,
+	"UDP":   2,
 	"HTTPS": 3,
 }
 
