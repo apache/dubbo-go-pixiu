@@ -12,9 +12,6 @@
 
 Milestone: [https://github.com/dubbogo/dubbo-go-proxy/milestone/2](https://github.com/dubbogo/dubbo-go-proxy/milestone/2?closed=1)
 
-
-
-
 ## 0.2.1
 
 ### Enhancement
@@ -53,10 +50,5 @@ Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/3](https://github
 - [Fix flow chart](https://github.com/apache/dubbo-go-pixiu/pull/205)
 - [Fix reviewdog](https://github.com/apache/dubbo-go-pixiu/pull/195)   
      
-Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/4](https://github.com/apache/dubbo-go-pixiu/milestone/4)
-     
-     
-     
-     
-     
-     
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/4](https://github.com/apache/dubbo-go-pixiu/milestone/4) 
+   
