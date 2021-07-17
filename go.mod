@@ -8,7 +8,7 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.9.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c
 	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.14
+	github.com/dubbogo/gost v1.11.8
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
