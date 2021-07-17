@@ -41,7 +41,6 @@ import (
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
