@@ -393,6 +393,7 @@ func handlePutEvent(key, val []byte) {
 			return
 		}
 		mergeApiConfigMethod(res.ResourcePath, *res)
+		return
 	}
 
 	//handle base info
