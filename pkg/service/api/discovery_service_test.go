@@ -23,9 +23,6 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
-)
-
-import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
