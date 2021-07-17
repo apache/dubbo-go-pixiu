@@ -18,11 +18,6 @@
 package pixiu
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
-)
-
-import (
 	"context"
 	"log"
 	"net/http"
@@ -32,9 +27,10 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
-	"github.com/pkg/errors"
 )
 
 import (
@@ -46,6 +42,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 )
 
 // ListenerService the facade of a listener
