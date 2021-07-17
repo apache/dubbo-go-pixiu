@@ -86,8 +86,8 @@ func (l *ListenerService) httpsListener() {
 	}
 
 	logger.Infof("[dubbo-go-pixiu] httpsListener start at : %s", srv.Addr)
-	err := srv.ListenAndServeTLS(hc.CertFile , hc.KeyFile)
-	logger.Info("[dubbo-go-pixiu] httpsListener result:" , err)
+	err := srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
+	logger.Info("[dubbo-go-pixiu] httpsListener result:", err)
 }
 func (l *ListenerService) httpListener() {
 	hl := NewDefaultHttpListener()
