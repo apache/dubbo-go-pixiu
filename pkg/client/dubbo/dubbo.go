@@ -56,7 +56,7 @@ var (
 		Organization: "dubbo-go-pixiu",
 		Name:         "Dubbogo Pixiu",
 		Module:       "dubbogo Pixiu",
-		Version:      "0.1.0",
+		Version:      config.Version,
 		Owner:        "Dubbogo Pixiu",
 		Environment:  "dev",
 	}
