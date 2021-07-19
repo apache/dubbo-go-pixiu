@@ -82,8 +82,8 @@ static_resources:
         idle_timeout: 5s
         read_timeout: 5s
         write_timeout: 5s
-        cert_file: D:\Go\dubbo-go-pixiu\configs\server.crt
-        key_file: D:\Go\dubbo-go-pixiu\configs\server.key
+        cert_file: configs/ca/server.crt
+        key_file: configs/ca/server.key
   clusters:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
@@ -109,7 +109,7 @@ static_resources:
         port: 6060
   accessLog:
     enable: true
-    outputpath: C:\Users\60125\Desktop\dubbo-go\logs\dubbo-go-pixiu-access
+    outputpath: logs/dubbo-go-pixiu-access
 metric:
   enable: true
   prometheus_port: 2222
