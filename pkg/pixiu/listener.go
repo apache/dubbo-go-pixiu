@@ -107,7 +107,7 @@ func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == constant.HTTPConnectManagerFilter {
-				return *f.Config.(*model.HttpConnectionManager)
+				return f.Config.(model.HttpConnectionManager)
 			}
 		}
 	}
@@ -149,7 +149,7 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func addFilter(ctx *h.HttpContext, api router.API) {
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.LoggerFilter),
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.MetricFilter),
 		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
 	alc := config.GetBootstrap().StaticResources.AccessLogConfig
 	if alc.Enable {
