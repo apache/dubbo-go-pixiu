@@ -56,14 +56,6 @@ type Logger interface {
 	Debugf(fmt string, args ...interface{})
 }
 
-func init() {
-	logConfFile := "./conf/log.yml"
-	err := InitLog(logConfFile)
-	if err != nil {
-		logger.Infof("[InitLog] warn: %v", err)
-	}
-}
-
 // InitLog load from config path
 func InitLog(logConfFile string) error {
 	if logConfFile == "" {
