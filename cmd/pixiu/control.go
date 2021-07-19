@@ -83,7 +83,10 @@ var (
 			flagLogLevel := c.String("log-level")
 			logConfPath := c.String("log-config")
 
-			logger.InitLog(logConfPath)
+			err := logger.InitLog(logConfPath)
+			if err != nil {
+				return err
+			}
 
 			bootstrap := config.Load(configPath)
 			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
