@@ -67,9 +67,10 @@ type EdsClusterConfig struct {
 
 // Registry remote registry where dubbo apis are registered.
 type Registry struct {
-	Protocol string `yaml:"protocol" json:"protocol" default:"zookeeper"`
-	Timeout  string `yaml:"timeout" json:"timeout"`
-	Address  string `yaml:"address" json:"address"`
-	Username string `yaml:"username" json:"username"`
-	Password string `yaml:"password" json:"password"`
+	Protocol     string `yaml:"protocol" json:"protocol" default:"zookeeper"`
+	Timeout      string `yaml:"timeout" json:"timeout"`
+	Address      string `yaml:"address" json:"address"`
+	Username     string `yaml:"username" json:"username"`
+	Password     string `yaml:"password" json:"password"`
+	ServicesPath string `yaml:"services_path,omitempty" json:"services_path,omitempty"`
 }

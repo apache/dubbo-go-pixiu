@@ -54,10 +54,10 @@ import (
 
 const (
 	// RegistryZkClient zk client name
-	RegistryZkClient = "zk registry"
-	rootPath         = "/dubbo"
-	servicesRootPath = "/services"
-	methodsRootPath  = "/dubbo/metadata"
+	RegistryZkClient    = "zk registry"
+	rootPath            = "/dubbo"
+	defaultServicesPath = "/services"
+	methodsRootPath     = "/dubbo/metadata"
 )
 
 func init() {
@@ -66,7 +66,8 @@ func init() {
 
 type ZKRegistry struct {
 	*baseregistry.BaseRegistry
-	client *zk.ZooKeeperClient
+	client       *zk.ZooKeeperClient
+	servicesPath string
 }
 
 func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
@@ -81,9 +82,13 @@ func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
 		return nil, errors.Errorf("Initialize zookeeper client failed: %s", err.Error())
 	}
 	client.RegisterHandler(eventChan)
+	if regConfig.ServicesPath == "" {
+		regConfig.ServicesPath = defaultServicesPath
+	}
 	return &ZKRegistry{
 		BaseRegistry: baseReg,
 		client:       client,
+		servicesPath: regConfig.ServicesPath,
 	}, nil
 }
 
@@ -236,7 +241,7 @@ func (r *ZKRegistry) getMethods(in string) ([]string, error) {
 
 // getInstances will return the instances
 func (r *ZKRegistry) getInstances() ([]dr.ServiceInstance, []error) {
-	subPaths, err := r.client.GetChildren(servicesRootPath)
+	subPaths, err := r.client.GetChildren(r.servicesPath)
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -247,7 +252,7 @@ func (r *ZKRegistry) getInstances() ([]dr.ServiceInstance, []error) {
 	errorStack := []error{}
 	iss := []dr.ServiceInstance{}
 	for _, subPath := range subPaths {
-		serviceName := strings.Join([]string{servicesRootPath, subPath}, constant.PathSlash)
+		serviceName := strings.Join([]string{r.servicesPath, subPath}, constant.PathSlash)
 		ids, err := r.client.GetChildren(serviceName)
 		if err != nil {
 			logger.Warnf("Get serviceIDs %s failed due to %s", serviceName, err.Error())
