@@ -75,7 +75,7 @@ help: $(realpath $(firstword $(MAKEFILE_LIST)))
 	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
 	@echo
 
-## igt: Build application's binaries
+## build: Build application's binaries
 .PHONY: build
 build: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME) config
 
