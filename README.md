@@ -48,7 +48,7 @@ export APPLOGCONFFILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
 go build -o server samples/dubbogo/http/server/app/*.go 
 ```
 
-#### 1.4 Start the provider and execute it in the project root directory
+#### 1.4 Execute the binary file in the project root directory
 
 ```
 ./server 
@@ -68,7 +68,7 @@ configs/conf.yaml
 go build -o pixiu cmd/pixiu/*.go 
 ```
 
-#### 2.3 Start pixiu: execute it in the root directory
+#### 2.3 Execute the binary file in the project root directory
 
 ```
 ./pixiu -lc ./configs/log.yml 
