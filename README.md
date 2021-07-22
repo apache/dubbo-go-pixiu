@@ -39,8 +39,8 @@ samples/dubbogo/http/server/profiles/dev/server.yml
 #### 1.2 Switch to the root directory of dubbo-go-pixiu to execute
 
 ```
-export CONFPROVIDERFILEPATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
-export APPLOGCONFFILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
+export CONF_PROVIDER_FILE_PATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
+export APP_LOG_CONF_FILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
 ```
 
 #### 1.3 Compile the provider code
@@ -71,7 +71,7 @@ go build -o pixiu cmd/pixiu/*.go
 #### 2.3 Execute the binary file in the project root directory
 
 ```
-./pixiu -lc ./configs/log.yml 
+./pixiu start
 ```
 
 ### 3. Try a request
