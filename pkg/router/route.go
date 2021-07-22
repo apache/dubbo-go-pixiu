@@ -61,22 +61,22 @@ func (rt *Route) ClearAPI() error {
 
 // PutAPI puts an api into the resource
 func (rt *Route) PutAPI(api router.API) error {
-	lowerCasePath := strings.ToLower(api.URLPattern)
-	node, ok := rt.findNode(lowerCasePath)
+	fullPath := api.URLPattern
+	node, ok := rt.findNode(fullPath)
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
 	if !ok {
-		wildcard := strings.Contains(lowerCasePath, constant.PathParamIdentifier)
+		wildcard := strings.Contains(fullPath, constant.PathParamIdentifier)
 		rn := &Node{
-			fullPath: lowerCasePath,
+			fullPath: fullPath,
 			methods:  map[config.HTTPVerb]*config.Method{api.Method.HTTPVerb: &api.Method},
 			wildcard: wildcard,
 			headers:  api.Headers,
 		}
 		if wildcard {
-			rt.wildcardTree.Put(lowerCasePath, rn)
+			rt.wildcardTree.Put(fullPath, rn)
 		}
-		rt.tree.Put(lowerCasePath, rn)
+		rt.tree.Put(fullPath, rn)
 		return nil
 	}
 	return node.putMethod(api.Method, api.Headers)
@@ -122,14 +122,10 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API
 
 // DeleteNode delete node by fullPath
 func (rt *Route) DeleteNode(fullPath string) bool {
-	lowerPath := strings.ToLower(fullPath)
-	if _, found := rt.searchWildcard(lowerPath); found {
-		rt.lock.RLock()
-		defer rt.lock.RUnlock()
-		rt.tree.Remove(lowerPath)
-		return true
-	}
-	return false
+	rt.lock.RLock()
+	defer rt.lock.RUnlock()
+	rt.tree.Remove(fullPath)
+	return true
 }
 
 // DeleteAPI delete api by fullPath and http verb
@@ -144,13 +140,12 @@ func (rt *Route) DeleteAPI(fullPath string, httpverb config.HTTPVerb) bool {
 }
 
 func (rt *Route) findNode(fullPath string) (*Node, bool) {
-	lowerPath := strings.ToLower(fullPath)
 	var n interface{}
 	var found bool
-	if n, found = rt.searchWildcard(lowerPath); !found {
+	if n, found = rt.searchWildcard(fullPath); !found {
 		rt.lock.RLock()
 		defer rt.lock.RUnlock()
-		if n, found = rt.tree.Get(lowerPath); !found {
+		if n, found = rt.tree.Get(fullPath); !found {
 			return nil, false
 		}
 	}

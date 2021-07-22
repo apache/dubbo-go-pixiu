@@ -98,3 +98,6 @@ static_resources:
   accessLog:
     enable: true
     outputpath: C:\Users\60125\Desktop\dubbo-go\logs\dubbo-go-pixiu-access
+metric:
+  enable: true
+  prometheus_port: 2222
