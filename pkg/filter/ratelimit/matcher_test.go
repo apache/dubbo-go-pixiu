@@ -18,7 +18,7 @@
 package ratelimit
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
+	"testing"
 )
 
 import (
@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"testing"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
 )
 
 func TestMatch(t *testing.T) {

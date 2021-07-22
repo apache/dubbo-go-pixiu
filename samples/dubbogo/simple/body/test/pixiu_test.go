@@ -18,8 +18,8 @@
 package test
 
 import (
-	"bytes"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -29,11 +29,39 @@ import (
 )
 
 func TestPost(t *testing.T) {
-	var url = "http://localhost:8881/api/v1/test-dubbo/user"
+	url := "http://localhost:8881/api/v1/test-dubbo/user"
 	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":99}"
-	contentType := "application/json"
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Post(url, contentType, bytes.NewBufferString(data))
+	req, err := http.NewRequest("POST", url, strings.NewReader(data))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+}
+
+func TestPut1(t *testing.T) {
+	url := "http://localhost:8881/api/v1/test-dubbo/user"
+	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":77}"
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+}
+
+func TestPut2(t *testing.T) {
+	url := "http://localhost:8881/api/v1/test-dubbo/user2"
+	data := "{\"name\":\"dubbogo\",\"user\":{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":88}}"
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
