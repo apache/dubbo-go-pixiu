@@ -106,8 +106,9 @@ rateLimit:
 
   rules:
     #qps sample At most 100 requests can be passed in 1000ms, so qps is 100
-    - resource: "test-dubbo"
-      enable: true
+    - enable: true
       flowRule:
+        #the resource's name
+        resource: "test-dubbo"
         threshold: 100
         statintervalinms: 1000

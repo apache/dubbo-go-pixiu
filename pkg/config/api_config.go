@@ -340,9 +340,8 @@ func listenResourceAndMethodEvent(key string) bool {
 				case mvccpb.DELETE:
 					logger.Infof("get event (key{%s}) = event{EventNodeDeleted}", event.Kv.Key)
 					handleDeleteEvent(event.Kv.Key, event.Kv.Value)
-					return true
 				default:
-					return false
+					logger.Infof("get event (key{%s}) = event{%d}", event.Kv.Key, event.Type)
 				}
 			}
 		}
@@ -428,6 +427,7 @@ func handlePutEvent(key, val []byte) {
 			return
 		}
 		mergeApiConfigMethod(res.ResourcePath, *res)
+		return
 	}
 
 	//handle base info
@@ -566,7 +566,7 @@ func getCheckPluginsGroupRegexp() *regexp.Regexp {
 }
 
 func getCheckRatelimitRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/filter/ratelimit/[^/]+/?$")
+	return regexp.MustCompile(".+/filter/ratelimit")
 }
 
 // RegisterConfigListener register APIConfigListener
