@@ -18,11 +18,11 @@
 package matcher
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	"sync"
 )
 
 import (
-	"sync"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
 type Exact struct {
