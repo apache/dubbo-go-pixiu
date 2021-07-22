@@ -37,8 +37,8 @@ samples/dubbogo/http/server/profiles/dev/server.yml
 #### 1.2 切换到dubbo-go-pixiu根目录执行
 
 ```
-export CONFPROVIDERFILEPATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
-export APPLOGCONFFILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
+export CONF_PROVIDER_FILE_PATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
+export APP_LOG_CONF_FILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
 ```
 
 #### 1.3 编译provider代码
@@ -69,7 +69,7 @@ go build -o pixiu cmd/pixiu/*.go
 #### 2.3 启动pixiu，在根目录执行
 
 ```
-./pixiu -lc ./configs/log.yml 
+./pixiu start
 ```
 
 ### 3. 发起请求
