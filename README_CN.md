@@ -24,19 +24,59 @@ dubbo-go-pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 
 现在dubbo-go-pixiu 已经支持以dubbo协议和http协议调用远程的 dubbo 集群，未来还会支持更多的协议。
 
-## 开始
+## 快速开始
 
-#### 启动 Pixiu
+### 1. 启动provider
 
-1. `make build` 构建出二进制包
-2. `make start` 启动pixiu
+#### 1.1 修改以下文件的zookeeper配置 
 
-#### 快速入门
+```
+samples/dubbogo/http/server/profiles/dev/server.yml
+```
 
-dubbo-go-pixiu支持2种协议的调用:
+#### 1.2 切换到dubbo-go-pixiu根目录执行
 
-1. [Http协议调用](./develop/docs/sample/http.md) 
-2. [Dubbo协议调用](./develop/docs/sample/dubbo.md)
+```
+export CONFPROVIDERFILEPATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
+export APPLOGCONFFILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
+```
+
+#### 1.3 编译provider代码
+```
+go build -o server samples/dubbogo/http/server/app/*.go 
+```
+
+#### 1.4 启动provider，在项目根目录执行
+
+```
+./server 
+```
+
+### 2. 启动pixiu
+
+#### 2.1 修改以下文件的zookeeper配置
+
+```
+configs/conf.yaml 
+```
+
+#### 2.2 编译pixiu代码
+
+```
+go build -o pixiu cmd/pixiu/*.go 
+```
+
+#### 2.3 启动pixiu，在根目录执行
+
+```
+./pixiu -lc ./configs/log.yml 
+```
+
+### 3. 发起请求
+
+```
+curl -X POST 'localhost:8888/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+```
 
 ## 特性
 
