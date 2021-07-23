@@ -17,64 +17,8 @@
 
 package registry
 
-//////////////////////////////////////////
-// event type
-//////////////////////////////////////////
-
-// EventType means SourceObjectEventType
-type EventType int
-
-const (
-	// EventTypeAdd means add event
-	EventTypeAdd = iota
-	// EventTypeDel means del event
-	EventTypeDel
-	// EventTypeUpdate means update event
-	EventTypeUpdate
-)
-
-var serviceEventTypeStrings = [...]string{
-	"add",
-	"delete",
-	"update",
-}
-
-// nolint
-func (t EventType) String() string {
-	return serviceEventTypeStrings[t]
-}
-
-// ServiceEvent includes create, update, delete event
-type ServiceEvent struct {
-	Action  EventType
-	Service RegisteredAPI
-	// store the id for Service.ID()
-	id string
-	// If the Service is updated, such as Merged.
-	updated bool
-}
-
-//////////////////////////////////////////
-// service event
-//////////////////////////////////////////
-
-// Event defines common elements for service event
-
-type Event struct {
-	Path    string
-	Action  EventType
-	Content string
-}
-
-// nolint
-func (e Event) String() string {
-	return "Event{Action{" + e.Action.String() + "}, Content{" + e.Content + "}}"
-}
-
 // Listener this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
 type Listener interface {
-	// Next returns next service event once received
-	Next() (*ServiceEvent, error)
 	// Close closes this listener
 	Close()
 	// WatchAndHandle watch the target path and handle the event
