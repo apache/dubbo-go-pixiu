@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package registry
 
 //////////////////////////////////////////
@@ -43,6 +44,16 @@ func (t EventType) String() string {
 	return serviceEventTypeStrings[t]
 }
 
+// ServiceEvent includes create, update, delete event
+type ServiceEvent struct {
+	Action  EventType
+	Service RegisteredAPI
+	// store the id for Service.ID()
+	id string
+	// If the Service is updated, such as Merged.
+	updated bool
+}
+
 //////////////////////////////////////////
 // service event
 //////////////////////////////////////////
@@ -62,6 +73,10 @@ func (e Event) String() string {
 
 // Listener this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
 type Listener interface {
-	// ChangeHandler processes the events sent from registry
-	ChangeHandler(Event)
+	// Next returns next service event once received
+	Next() (*ServiceEvent, error)
+	// Close closes this listener
+	Close()
+	// WatchAndHandle watch the target path and handle the event
+	WatchAndHandle()
 }
