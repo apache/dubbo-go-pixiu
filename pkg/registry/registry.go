@@ -18,7 +18,6 @@
 package registry
 
 import (
-	"bytes"
 	"strings"
 	"time"
 )
@@ -45,51 +44,12 @@ func (t *RegisteredType) String() string {
 	return []string{"application", "interface"}[*t]
 }
 
-// RegisteredAPI represents the APIs found in the registry center
-type RegisteredAPI struct {
-	API            router.API
-	RegisteredType RegisteredType
-	RegisteredPath string
-}
-
-// ID returns the unique ID of the API. Combining the application and
-func (rAPI *RegisteredAPI) ID() string {
-	intf := rAPI.API.IntegrationRequest.Interface
-	app := rAPI.API.IntegrationRequest.ApplicationName
-	group := rAPI.API.IntegrationRequest.Group
-	version := rAPI.API.IntegrationRequest.Version
-	if app == "" {
-		return ""
-	}
-	buf := &bytes.Buffer{}
-	buf.WriteString(app)
-	buf.WriteString(constant.PathSlash)
-	if intf == "" {
-		return ""
-	}
-	if group != "" {
-		buf.WriteString(group)
-		buf.WriteString(constant.PathSlash)
-	}
-
-	buf.WriteString(intf)
-
-	if version != "" && version != "0.0.0" {
-		buf.WriteString(constant.PathSlash)
-		buf.WriteString(version)
-	}
-
-	return buf.String()
-}
-
 // Registry interface defines the basic features of a registry
 type Registry interface {
-	// LoadServices loads all the registered Dubbo services from registry
-	LoadServices() error
 	// Subscribe monitors the target registry.
-	Subscribe(RegisteredAPI) error
+	Subscribe() error
 	// Unsubscribe stops monitoring the target registry.
-	Unsubscribe(RegisteredAPI) error
+	Unsubscribe() error
 }
 
 // CreateAPIConfig returns router.API struct base on the input
