@@ -32,6 +32,15 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
+var (
+	// ErrNilZkClientConn no conn error
+	ErrNilZkClientConn = errors.New("zookeeper Client{conn} is nil")
+	// ErrNilChildren no children error
+	ErrNilChildren = errors.Errorf("has none children")
+	// ErrNilNode no node error
+	ErrNilNode = errors.Errorf("node does not exist")
+)
+
 // Options defines the client option.
 type Options struct {
 	zkName string
@@ -85,7 +94,7 @@ func NewZooKeeperClient(name string, zkAddrs []string, timeout time.Duration) (*
 	return z, event, nil
 }
 
-// nolint
+// StateToString translate the state to string
 func StateToString(state zk.State) string {
 	switch state {
 	case zk.StateDisconnected:
@@ -118,6 +127,22 @@ func StateToString(state zk.State) string {
 func (z *ZooKeeperClient) RegisterHandler(event <-chan zk.Event) {
 	z.Wait.Add(1)
 	go z.HandleZkEvent(event)
+}
+
+// ExistW is a wrapper to the zk connection conn.ExistsW
+func (z *ZooKeeperClient) ExistW(zkPath string) (<-chan zk.Event, error) {
+	conn := z.getConn()
+	if conn == nil {
+		return nil, ErrNilZkClientConn
+	}
+	exist, _, watcher, err := conn.ExistsW(zkPath)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "zk.ExistsW(path:%s)", zkPath)
+	}
+	if !exist {
+		return nil, errors.WithMessagef(ErrNilNode, "zkClient{%s} App zk path{%s} does not exist.", z.name, zkPath)
+	}
+	return watcher.EvtCh, nil
 }
 
 // HandleZkEvent handles zookeeper events
@@ -194,27 +219,48 @@ func (z *ZooKeeperClient) stop() bool {
 
 // GetChildren gets children by @path
 func (z *ZooKeeperClient) GetChildren(path string) ([]string, error) {
-	var (
-		children []string
-		stat     *zk.Stat
-	)
 	conn := z.getConn()
 	if conn == nil {
-		return nil, errors.New("ZooKeeper client has no connection")
+		return nil, ErrNilZkClientConn
 	}
 	children, stat, err := conn.Children(path)
 	if err != nil {
 		if err == zk.ErrNoNode {
-			return nil, errors.Errorf("path{%s} does not exist", path)
+			return nil, errors.WithMessagef(ErrNilNode, "path{%s} does not exist", path)
 		}
 		logger.Errorf("zk.Children(path{%s}) = error(%v)", path, errors.WithStack(err))
 		return nil, errors.WithMessagef(err, "zk.Children(path:%s)", path)
 	}
 	if stat.NumChildren == 0 {
-		return nil, errors.Errorf("path{%s} has none children", path)
+		return nil, ErrNilChildren
+	}
+	return children, nil
+}
+
+// GetChildrenW gets children watch by @path
+func (z *ZooKeeperClient) GetChildrenW(path string) ([]string, <-chan zk.Event, error) {
+	conn := z.getConn()
+	if conn == nil {
+		return nil, nil, ErrNilZkClientConn
+	}
+	children, stat, watcher, err := conn.ChildrenW(path)
+	if err != nil {
+		if err == zk.ErrNoChildrenForEphemerals {
+			return nil, nil, ErrNilChildren
+		}
+		if err == zk.ErrNoNode {
+			return nil, nil, ErrNilNode
+		}
+		return nil, nil, errors.WithMessagef(err, "zk.ChildrenW(path:%s)", path)
+	}
+	if stat == nil {
+		return nil, nil, errors.Errorf("path{%s} get stat is nil", path)
+	}
+	if len(children) == 0 {
+		return nil, nil, ErrNilChildren
 	}
 
-	return children, nil
+	return children, watcher.EvtCh, nil
 }
 
 func (z *ZooKeeperClient) GetConnState() zk.State {

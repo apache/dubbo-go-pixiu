@@ -1,0 +1,1 @@
+ 2goXhr pkg/common/extension/registry.go
