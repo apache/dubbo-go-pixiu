@@ -22,9 +22,7 @@ import (
 	"time"
 )
 import (
-	"github.com/apache/dubbo-go/common"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"github.com/pkg/errors"
 )
 
@@ -38,10 +36,15 @@ import (
 	zk "github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
+var (
+	_ baseregistry.FacadeRegistry = new(ZKRegistry)
+)
+
 const (
 	// RegistryZkClient zk client name
 	RegistryZkClient = "zk registry"
 	rootPath         = "/dubbo"
+	providerCategory = "providers"
 )
 
 func init() {
@@ -50,6 +53,7 @@ func init() {
 
 type ZKRegistry struct {
 	*baseregistry.BaseRegistry
+	zkListeners  map[registry.RegisteredType]registry.Listener
 	client *zk.ZooKeeperClient
 }
 
@@ -65,24 +69,26 @@ func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
 		return nil, errors.Errorf("Initialize zookeeper client failed: %s", err.Error())
 	}
 	client.RegisterHandler(eventChan)
-	return &ZKRegistry{
-		BaseRegistry: baseReg,
-		client:       client,
-	}, nil
+	zkReg.BaseRegistry = baseReg
+	zkReg.client = client
+	initZKListeners(zkReg)
+	return zkReg, nil
+}
+
+func initZKListeners(reg *ZKRegistry) {
+	reg.zkListeners = make(map[registry.RegisteredType]registry.Listener)
+	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg)
+	go reg.zkListeners[registry.RegisteredTypeInterface].WatchAndHandle()
+	//reg.zkListeners[registry.RegisteredTypeApplication] = newZKIntfListener(reg.client, registry.RegisteredTypeApplication)
+	//go reg.zkListeners[registry.RegisteredTypeInterface].Watch()
 }
 
 func (r *ZKRegistry) GetClient() *zk.ZooKeeperClient {
 	return r.client
 }
 
-// LoadServices loads all the registered Dubbo services from registry
-func (r *ZKRegistry) LoadServices() {
-	r.LoadInterfaces()
-	r.LoadApplications()
-}
-
 // LoadInterfaces load services registered before dubbo 2.7
-func (r *ZKRegistry) LoadInterfaces() ([]router.API, []error) {
+func (r *ZKRegistry) LoadInterfaces() ([]registry.RegisteredAPI, []error) {
 	subPaths, err := r.client.GetChildren(rootPath)
 	if err != nil {
 		return nil, []error{err}
@@ -90,8 +96,8 @@ func (r *ZKRegistry) LoadInterfaces() ([]router.API, []error) {
 	if len(subPaths) == 0 {
 		return nil, nil
 	}
-	errorStack := []error{}
-	apis := []router.API{}
+	var errorStack []error
+	var apis []registry.RegisteredAPI
 	for i := range subPaths {
 		if subPaths[i] == "metadata" {
 			continue
@@ -105,13 +111,13 @@ func (r *ZKRegistry) LoadInterfaces() ([]router.API, []error) {
 		}
 		interfaceDetailString := providerString[0]
 		bkConfig, methods, err := registry.ParseDubboString(interfaceDetailString)
-		if len(bkConfig.ApplicationName) == 0 || len(bkConfig.Interface) == 0 {
-			errorStack = append(errorStack, errors.Errorf("Path %s contains dubbo registration that interface or application not set", providerPath))
-			continue
-		}
 		if err != nil {
 			logger.Warnf("Parse dubbo interface provider %s failed; due to \n %s", interfaceDetailString, err.Error())
 			errorStack = append(errorStack, errors.WithStack(err))
+			continue
+		}
+		if len(bkConfig.ApplicationName) == 0 || len(bkConfig.Interface) == 0 {
+			errorStack = append(errorStack, errors.Errorf("Path %s contains dubbo registration that interface or application not set", providerPath))
 			continue
 		}
 		apiPattern := strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface, bkConfig.Version}, constant.PathSlash)
@@ -126,33 +132,42 @@ func (r *ZKRegistry) LoadInterfaces() ([]router.API, []error) {
 			},
 		}
 		for i := range methods {
-			apis = append(apis, registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams))
+			apis = append(apis, registry.RegisteredAPI{
+				API:            registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams),
+				RegisteredType: registry.RegisteredTypeInterface,
+				RegisteredPath: providerPath,
+			})
 		}
 	}
 	return apis, errorStack
 }
 
 // LoadApplications load services registered after dubbo 2.7
-func (r *ZKRegistry) LoadApplications() ([]router.API, []error) {
+func (r *ZKRegistry) LoadApplications() ([]registry.RegisteredAPI, []error) {
 	return nil, nil
 }
 
-// Subscribe monitors the target registry.
-func (r *ZKRegistry) DoSubscribe(*common.URL) error {
-	return nil
-}
-
-// Unsubscribe stops monitoring the target registry.
-func (r *ZKRegistry) DoUnsubscribe(*common.URL) error {
-	return nil
-}
-
-// CreateAPIFromRegistry creates the router from registry and save to local cache
-func CreateAPIFromRegistry(api router.API) error {
-	localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	err := localAPIDiscSrv.AddAPI(api)
-	if err != nil {
-		return err
+// DoSubscribe is the implementation of subscription on the target registry for interface level.
+func (r *ZKRegistry) DoSubscribe(service registry.RegisteredAPI) error {
+	intfListener, ok := r.zkListeners[registry.RegisteredTypeInterface]
+	if !ok {
+		return errors.New("Listener for interface level registration does not initialized")
 	}
+	go intfListener.WatchAndHandle()
+	return nil
+}
+
+// DoSDSubscribe monitors the target registry for application level service discovery
+func (r *ZKRegistry) DoSDSubscribe(service registry.RegisteredAPI) error {
+	return nil
+}
+
+// DoUnsubscribe stops monitoring the target registry.
+func (r *ZKRegistry) DoUnsubscribe(service registry.RegisteredAPI) error {
+	return nil
+}
+
+// DoSDUnsubscribe monitors the target registry.
+func (r *ZKRegistry) DoSDUnsubscribe(service registry.RegisteredAPI) error {
 	return nil
 }
