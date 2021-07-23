@@ -104,7 +104,6 @@ func (zkl *serviceListener) WatchAndHandle() {
 			}
 		}
 	}
-	return
 }
 
 // whenever it is called, the children node changed and refresh the api configuration.
@@ -114,7 +113,9 @@ func (zkl *serviceListener) handleEvent(children []string) {
 		// disable the API
 		bkConf, _, _ := registry.ParseDubboString(zkl.url.String())
 		apiPattern := registry.GetAPIPattern(bkConf)
-		localAPIDiscSrv.RemoveAPIByPath(config.Resource{Path: apiPattern})
+		if err := localAPIDiscSrv.RemoveAPIByPath(config.Resource{Path: apiPattern}); err != nil {
+			logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), apiPattern)
+		}
 		return
 	}
 	var err error
@@ -144,13 +145,11 @@ func (zkl *serviceListener) handleEvent(children []string) {
 	apiPattern := registry.GetAPIPattern(bkConfig)
 	for i := range methods {
 		api := registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams)
-		localAPIDiscSrv.AddAPI(api)
+		if err := localAPIDiscSrv.AddAPI(api); err != nil {
+			logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
+		}
 	}
 	return
-}
-
-func (zkl *serviceListener) Next() (*registry.ServiceEvent, error) {
-	panic("implement me")
 }
 
 // Close closes this listener

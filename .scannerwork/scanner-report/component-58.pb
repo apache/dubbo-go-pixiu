@@ -1,1 +1,0 @@
-: 2goXChr!pkg/registry/base/baseregistry.go
