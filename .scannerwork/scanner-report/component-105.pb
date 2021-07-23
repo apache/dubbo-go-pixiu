@@ -1,1 +1,0 @@
-i (2goXBhr&pkg/registry/base/baseregistry_test.go
