@@ -18,6 +18,7 @@
 package registry
 
 import (
+	"bytes"
 	"strings"
 	"time"
 )
@@ -33,14 +34,62 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
+type RegisteredType int8
+
+const (
+	RegisteredTypeApplication RegisteredType = iota
+	RegisteredTypeInterface
+)
+
+func (t *RegisteredType) String() string {
+	return []string{"application", "interface"}[*t]
+}
+
+// RegisteredAPI represents the APIs found in the registry center
+type RegisteredAPI struct {
+	API            router.API
+	RegisteredType RegisteredType
+	RegisteredPath string
+}
+
+// ID returns the unique ID of the API. Combining the application and
+func (rAPI *RegisteredAPI) ID() string {
+	intf := rAPI.API.IntegrationRequest.Interface
+	app := rAPI.API.IntegrationRequest.ApplicationName
+	group := rAPI.API.IntegrationRequest.Group
+	version := rAPI.API.IntegrationRequest.Version
+	if app == "" {
+		return ""
+	}
+	buf := &bytes.Buffer{}
+	buf.WriteString(app)
+	buf.WriteString(constant.PathSlash)
+	if intf == "" {
+		return ""
+	}
+	if group != "" {
+		buf.WriteString(group)
+		buf.WriteString(constant.PathSlash)
+	}
+
+	buf.WriteString(intf)
+
+	if version != "" && version != "0.0.0" {
+		buf.WriteString(constant.PathSlash)
+		buf.WriteString(version)
+	}
+
+	return buf.String()
+}
+
 // Registry interface defines the basic features of a registry
 type Registry interface {
 	// LoadServices loads all the registered Dubbo services from registry
-	LoadServices()
+	LoadServices() error
 	// Subscribe monitors the target registry.
-	Subscribe(*common.URL) error
+	Subscribe(RegisteredAPI) error
 	// Unsubscribe stops monitoring the target registry.
-	Unsubscribe(*common.URL) error
+	Unsubscribe(RegisteredAPI) error
 }
 
 // CreateAPIConfig returns router.API struct base on the input
@@ -88,4 +137,9 @@ func ParseDubboString(urlString string) (config.DubboBackendConfig, []string, er
 		Interface:       url.GetParam(constant.InterfaceKey, ""),
 		Retries:         url.GetParam(constant.RetriesKey, ""),
 	}, strings.Split(url.GetParam(constant.MethodsKey, ""), constant.StringSeparator), nil
+}
+
+// GetAPIPattern generate the API path pattern. /application/interface/version
+func GetAPIPattern(bkConfig config.DubboBackendConfig) string {
+	return strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface, bkConfig.Version}, constant.PathSlash)
 }

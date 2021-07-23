@@ -1,0 +1,1 @@
+5 2goX\hrpkg/registry/registry.go

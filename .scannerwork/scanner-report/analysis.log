@@ -1,0 +1,39 @@
+SonarQube plugins:
+  - Python Code Quality and Security 2.13.0.7236 (python)
+  - SonarCSS 1.2.0.1325 (cssfamily)
+  - JaCoCo 1.1.0.898 (jacoco)
+  - SonarGo 1.6.0.719 (go)
+  - SonarKotlin 1.5.0.315 (kotlin)
+  - Svn 1.10.0.1917 (scmsvn)
+  - SonarJS 6.2.1.12157 (javascript)
+  - SonarRuby 1.5.0.315 (ruby)
+  - SonarScala 1.5.0.315 (sonarscala)
+  - C# Code Quality and Security 8.9.0.19135 (csharp)
+  - Java Code Quality and Security 6.5.1.22586 (java)
+  - SonarHTML 3.2.0.2082 (web)
+  - Git 1.12.0.2034 (scmgit)
+  - SonarFlex 2.5.1.1831 (flex)
+  - SonarXML 2.0.1.2020 (xml)
+  - PHP Code Quality and Security 3.5.0.5655 (php)
+  - SonarTS 2.1.0.4359 (typescript)
+  - VB.NET Code Quality and Security 8.9.0.19135 (vbnet)
+Global server settings:
+  - sonar.core.id=BF41A1F2-AXqn8y9SFn3Ntz2FyEiF
+  - sonar.core.startTime=2021-07-15T02:16:07+0000
+Project server settings:
+Project scanner properties:
+  - sonar.exclusions=**/*_test.go,**/vendor/**
+  - sonar.go.coverage.reportPaths=./coverage.out
+  - sonar.host.url=http://localhost:9000
+  - sonar.projectBaseDir=/Users/william/Workspace/dubbo/williamfeng323/dubbo-go-proxy
+  - sonar.projectKey=dubbo-go-pixiu
+  - sonar.projectName=dubbo-go-pixiu
+  - sonar.scanner.app=ScannerCLI
+  - sonar.scanner.appVersion=4.4.0.2170
+  - sonar.sourceEncoding=UTF-8
+  - sonar.sources=./pkg
+  - sonar.test.exclusions=**/vendor/**,**/mocks/**,**/repo_impl/**,**/errors.go
+  - sonar.test.inclusions=**/*_test.go
+  - sonar.tests=./pkg
+  - sonar.verbose=true
+  - sonar.working.directory=/Users/william/Workspace/dubbo/williamfeng323/dubbo-go-proxy/.scannerwork
