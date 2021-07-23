@@ -30,10 +30,9 @@ import (
 )
 
 import (
-	//"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	zookeeper "github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
+	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
 const (
@@ -63,16 +62,12 @@ func newZKIntfListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry) regis
 	}
 }
 
-func (z zkIntfListener) Next() (*registry.ServiceEvent, error) {
-	panic("implement me")
-}
-
-func (z zkIntfListener) Close() {
+func (z *zkIntfListener) Close() {
 	close(z.exit)
 	z.wg.Wait()
 }
 
-func (z zkIntfListener) WatchAndHandle() {
+func (z *zkIntfListener) WatchAndHandle() {
 	z.wg.Add(1)
 	go z.watch()
 }
@@ -86,7 +81,7 @@ func (z *zkIntfListener) watch() {
 	)
 	defer delayTimer.Stop()
 	for {
-		childEventCh, err := z.client.ExistW(z.path)
+		e, err := z.client.ExistW(z.path)
 		// error handling
 		if err != nil {
 			failTimes++
@@ -113,8 +108,8 @@ func (z *zkIntfListener) watch() {
 			select {
 			case <-ticker.C:
 				z.handleEvent(z.path)
-			case zkEvent := <-childEventCh:
-				logger.Warnf("get a zookeeper childEventCh{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
+			case zkEvent := <-e:
+				logger.Warnf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
 					zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, zookeeper.StateToString(zkEvent.State), zkEvent.Err)
 				ticker.Stop()
 				if zkEvent.Type != zk.EventNodeChildrenChanged {
@@ -142,6 +137,7 @@ func (z *zkIntfListener) handleEvent(basePath string) {
 			continue
 		}
 		providerPath := path.Join(basePath, newChildren[i], providerCategory)
+		// TO-DO: modify here to only handle child that changed
 		providers, err := z.client.GetChildren(providerPath)
 		if err != nil {
 			logger.Warnf("Get provider %s failed due to %s", providerPath, err.Error())
@@ -152,13 +148,13 @@ func (z *zkIntfListener) handleEvent(basePath string) {
 			logger.Warnf("Parse provider service url %s failed due to %s", providers[0], err.Error())
 			continue
 		}
-		if z.reg.GetListener(srvUrl.ServiceKey()) != nil {
+		if z.reg.GetSvcListener(srvUrl.ServiceKey()) != nil {
 			continue
 		}
 		l := newZkSrvListener(srvUrl, providerPath, z.client)
 		l.wg.Add(1)
 		go l.WatchAndHandle()
-		z.reg.SetListener(srvUrl.ServiceKey(), l)
+		z.reg.SetSvcListener(srvUrl.ServiceKey(), l)
 	}
 	return
 }

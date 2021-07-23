@@ -22,14 +22,12 @@ import (
 	"time"
 )
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/registry/base"
@@ -58,7 +56,7 @@ type ZKRegistry struct {
 }
 
 func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
-	var zkReg *ZKRegistry = &ZKRegistry{}
+	var zkReg = &ZKRegistry{}
 	baseReg := baseregistry.NewBaseRegistry(zkReg)
 	timeout, err := time.ParseDuration(regConfig.Timeout)
 	if err != nil {
@@ -87,68 +85,19 @@ func (r *ZKRegistry) GetClient() *zk.ZooKeeperClient {
 	return r.client
 }
 
-// LoadInterfaces load services registered before dubbo 2.7
-func (r *ZKRegistry) LoadInterfaces() ([]registry.RegisteredAPI, []error) {
-	subPaths, err := r.client.GetChildren(rootPath)
-	if err != nil {
-		return nil, []error{err}
+// DoSubscribe is the implementation of subscription on the target registry.
+func (r *ZKRegistry) DoSubscribe() error {
+	if err := r.interfaceSubscribe(); err != nil {
+		return err
 	}
-	if len(subPaths) == 0 {
-		return nil, nil
+	if  err := r.applicationSubscribe(); err != nil {
+		return err
 	}
-	var errorStack []error
-	var apis []registry.RegisteredAPI
-	for i := range subPaths {
-		if subPaths[i] == "metadata" {
-			continue
-		}
-		providerPath := strings.Join([]string{rootPath, subPaths[i], "providers"}, constant.PathSlash)
-		providerString, err := r.client.GetChildren(providerPath)
-		if err != nil {
-			logger.Warnf("Get provider %s failed due to %s", providerPath, err.Error())
-			errorStack = append(errorStack, errors.WithStack(err))
-			continue
-		}
-		interfaceDetailString := providerString[0]
-		bkConfig, methods, err := registry.ParseDubboString(interfaceDetailString)
-		if err != nil {
-			logger.Warnf("Parse dubbo interface provider %s failed; due to \n %s", interfaceDetailString, err.Error())
-			errorStack = append(errorStack, errors.WithStack(err))
-			continue
-		}
-		if len(bkConfig.ApplicationName) == 0 || len(bkConfig.Interface) == 0 {
-			errorStack = append(errorStack, errors.Errorf("Path %s contains dubbo registration that interface or application not set", providerPath))
-			continue
-		}
-		apiPattern := strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface, bkConfig.Version}, constant.PathSlash)
-		mappingParams := []config.MappingParam{
-			{
-				Name:  "requestBody.values",
-				MapTo: "opt.values",
-			},
-			{
-				Name:  "requestBody.types",
-				MapTo: "opt.types",
-			},
-		}
-		for i := range methods {
-			apis = append(apis, registry.RegisteredAPI{
-				API:            registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams),
-				RegisteredType: registry.RegisteredTypeInterface,
-				RegisteredPath: providerPath,
-			})
-		}
-	}
-	return apis, errorStack
+	return nil
 }
 
-// LoadApplications load services registered after dubbo 2.7
-func (r *ZKRegistry) LoadApplications() ([]registry.RegisteredAPI, []error) {
-	return nil, nil
-}
-
-// DoSubscribe is the implementation of subscription on the target registry for interface level.
-func (r *ZKRegistry) DoSubscribe(service registry.RegisteredAPI) error {
+// To subscribe service level service discovery
+func (r *ZKRegistry) interfaceSubscribe() error {
 	intfListener, ok := r.zkListeners[registry.RegisteredTypeInterface]
 	if !ok {
 		return errors.New("Listener for interface level registration does not initialized")
@@ -157,17 +106,31 @@ func (r *ZKRegistry) DoSubscribe(service registry.RegisteredAPI) error {
 	return nil
 }
 
-// DoSDSubscribe monitors the target registry for application level service discovery
-func (r *ZKRegistry) DoSDSubscribe(service registry.RegisteredAPI) error {
+// To subscribe application level service discovery
+func (r *ZKRegistry) applicationSubscribe() error {
+	appListener, ok := r.zkListeners[registry.RegisteredTypeApplication]
+	if !ok {
+		return errors.New("Listener for interface level registration does not initialized")
+	}
+	go appListener.WatchAndHandle()
 	return nil
 }
 
 // DoUnsubscribe stops monitoring the target registry.
-func (r *ZKRegistry) DoUnsubscribe(service registry.RegisteredAPI) error {
-	return nil
-}
-
-// DoSDUnsubscribe monitors the target registry.
-func (r *ZKRegistry) DoSDUnsubscribe(service registry.RegisteredAPI) error {
+func (r *ZKRegistry) DoUnsubscribe() error {
+	intfListener, ok := r.zkListeners[registry.RegisteredTypeInterface]
+	if !ok {
+		return errors.New("Listener for interface level registration does not initialized")
+	}
+	intfListener.Close()
+	appListener, ok := r.zkListeners[registry.RegisteredTypeApplication]
+	if !ok {
+		return errors.New("Listener for interface level registration does not initialized")
+	}
+	appListener.Close()
+	for k, l := range r.GetAllSvcListener() {
+		l.Close()
+		r.RemoveSvcListener(k)
+	}
 	return nil
 }
