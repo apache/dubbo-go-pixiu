@@ -117,3 +117,7 @@ func TestLoadInterfaces(t *testing.T) {
 	assert.Nil(t, err)
 	c.Destroy()
 }
+
+func TestID(t *testing.T) {
+
+}
