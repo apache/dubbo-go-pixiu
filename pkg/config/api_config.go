@@ -27,7 +27,6 @@ import (
 
 import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
 	"go.etcd.io/etcd/clientv3"
