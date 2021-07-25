@@ -37,7 +37,7 @@ const abortIndex int8 = math.MaxInt8 / 2
 type BaseContext struct {
 	fc.Context
 	Index   int8
-	Filters fc.FilterChain
+	Filters []fc.Filter
 	Timeout time.Duration
 	Ctx     context.Context
 
@@ -76,7 +76,7 @@ func (c *BaseContext) AbortWithError(message string, err error) {
 }
 
 // AppendFilterFunc  append filter func.
-func (c *BaseContext) AppendFilterFunc(ff ...fc.FilterFunc) {
+func (c *BaseContext) AppendFilterFunc(ff ...fc.Filter) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
 	}
