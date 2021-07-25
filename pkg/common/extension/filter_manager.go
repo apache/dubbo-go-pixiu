@@ -10,7 +10,7 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * WITHOmanage.goUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
@@ -20,33 +20,42 @@ package extension
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
 )
 
-var filterFactories = make(map[string]filterFactoryCreator, 8)
+// FilterManager take over the entire life cycle of FilterChain,
+// All filters are configurable and support dynamic refresh
 
-type FilterManager struct {
-	filters []context.Filter
-}
+// filterFactories all filter will be registered in filterFactories
+// by call RegisterFilterFactory
+var filterFactories = make(map[string]filterFactoryCreator, 16)
 
 type filterFactoryCreator func() filter.Factory
+type FilterChain []filter.Filter
+
+type filterManager struct {
+	filters FilterChain
+}
+
+func NewFilterManager() *filterManager {
+	return &filterManager{filters: make([]filter.Filter, 0, 16)}
+}
 
 // RegisterFilterFactory will store the @filter factory and @name
 func RegisterFilterFactory(name string, filter filterFactoryCreator) {
 	filterFactories[name] = filter
 }
 
-func (fm *FilterManager) GetFilters() []context.Filter {
+func (fm *filterManager) GetFilters() []filter.Filter {
 	return fm.filters
 }
 
-func (fm *FilterManager) Init(filters []config.Filter) {
-	tmp := make([]context.Filter, len(filters))
+func (fm *filterManager) Init(filters []config.Filter) {
+	tmp := make([]filter.Filter, len(filters))
 	for _, f := range filters {
-		apply, err := fm.GetFilter(f.Name, f.Config)
+		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
 			logger.Errorf("apply [%s] init fail, %s", err)
 		}
@@ -56,7 +65,8 @@ func (fm *FilterManager) Init(filters []config.Filter) {
 	fm.filters = tmp
 }
 
-func (fm FilterManager) GetFilter(name string, conf interface{}) (context.Filter, error) {
+// Apply return a new filter by name & conf
+func (fm filterManager) Apply(name string, conf map[string]interface{}) (filter.Filter, error) {
 	creator, ok := filterFactories[name]
 	if !ok {
 		return nil, errors.New("filter not found")
@@ -73,7 +83,7 @@ func (fm FilterManager) GetFilter(name string, conf interface{}) (context.Filter
 	return apply, nil
 }
 
-func parseConfig(factoryConfStruct interface{}, conf interface{}) error {
+func parseConfig(factoryConfStruct interface{}, conf map[string]interface{}) error {
 	// conf will be map, convert to yaml
 	yamlBytes, err := yaml.Marshal(conf)
 	if err != nil {
