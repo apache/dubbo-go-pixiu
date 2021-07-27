@@ -23,9 +23,9 @@ import (
 	"github.com/alibaba/sentinel-golang/core/flow"
 	"github.com/alibaba/sentinel-golang/logging"
 
-	"github.com/pkg/errors"
-
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+
+	"github.com/pkg/errors"
 )
 
 import (
