@@ -18,11 +18,6 @@
 package pixiu
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
-)
-
-import (
 	"context"
 	"log"
 	"net/http"
@@ -32,9 +27,10 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
-	"github.com/pkg/errors"
 )
 
 import (
@@ -43,6 +39,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	ctx "github.com/apache/dubbo-go-pixiu/pkg/context"
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -149,7 +146,7 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func addFilter(ctx *h.HttpContext, api router.API) {
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.LoggerFilter),
+	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.MetricFilter),
 		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
 	alc := config.GetBootstrap().StaticResources.AccessLogConfig
 	if alc.Enable {
@@ -164,14 +161,10 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	case fc.HTTPRequest:
 		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
-	// load plugins
-	pluginsFilter := plugins.GetAPIFilterFuncsWithAPIURL(ctx.Request.URL.Path)
-	ctx.AppendFilterFunc(pluginsFilter.Pre...)
 
 	ctx.AppendFilterFunc(header.New().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
 	ctx.BuildFilters()
 
-	ctx.AppendFilterFunc(pluginsFilter.Post...)
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 
