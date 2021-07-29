@@ -24,12 +24,13 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/pkg/errors"
+
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/pkg/errors"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // ParamMapper defines the interface about how to map the params in the inbound request.

@@ -15,11 +15,10 @@
 #  limitations under the License.
 
 array=("samples/dubbogo/simple/body")
-#array+=("samples/dubbogo/simple/mix")
-#array+=("samples/dubbogo/simple/proxy")
-#array+=("samples/dubbogo/simple/query")
-#array+=("samples/dubbogo/simple/server")
-#array+=("samples/dubbogo/simple/uri")
+array+=("samples/dubbogo/simple/mix")
+array+=("samples/dubbogo/simple/proxy")
+array+=("samples/dubbogo/simple/query")
+array+=("samples/dubbogo/simple/uri")
 
 #http
 
@@ -27,7 +26,7 @@ array=("samples/dubbogo/simple/body")
 
 for((i=0;i<${#array[*]};i++))
 do
-	./integrate_test.sh ${array[i]}
+	sh ./integrate_test.sh ${array[i]}
 	result=$?
 	if [ $result -gt 0 ]; then
     exit $result
