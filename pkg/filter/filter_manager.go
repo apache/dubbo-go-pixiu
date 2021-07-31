@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package extension
+package filter
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -34,10 +34,9 @@ import (
 var filterFactories = make(map[string]filterFactoryCreator, 16)
 
 type filterFactoryCreator func() filter.Factory
-type FilterChain []filter.Filter
 
 type filterManager struct {
-	filters FilterChain
+	filters []filter.Filter
 
 	mu sync.RWMutex
 }
