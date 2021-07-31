@@ -23,6 +23,7 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
+	"sync"
 )
 
 // FilterManager take over the entire life cycle of FilterChain,
@@ -37,6 +38,8 @@ type FilterChain []filter.Filter
 
 type filterManager struct {
 	filters FilterChain
+
+	mu sync.RWMutex
 }
 
 func NewFilterManager() *filterManager {
@@ -49,11 +52,15 @@ func RegisterFilterFactory(name string, filter filterFactoryCreator) {
 }
 
 func (fm *filterManager) GetFilters() []filter.Filter {
+	fm.mu.RLock()
+	defer fm.mu.RUnlock()
+
 	return fm.filters
 }
 
-func (fm *filterManager) Init(filters []config.Filter) {
-	tmp := make([]filter.Filter, len(filters))
+// Load init or reload filter configs
+func (fm *filterManager) Load(filters []*config.Filter) {
+	tmp := make([]filter.Filter, 0, len(filters))
 	for _, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
@@ -61,12 +68,15 @@ func (fm *filterManager) Init(filters []config.Filter) {
 		}
 		tmp = append(tmp, apply)
 	}
-	//TODO lock and hotswap
+	// avoid filter inconsistency
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
 	fm.filters = tmp
 }
 
 // Apply return a new filter by name & conf
-func (fm filterManager) Apply(name string, conf map[string]interface{}) (filter.Filter, error) {
+func (fm *filterManager) Apply(name string, conf map[string]interface{}) (filter.Filter, error) {
 	creator, ok := filterFactories[name]
 	if !ok {
 		return nil, errors.New("filter not found")
