@@ -2,6 +2,7 @@ package extension
 
 import (
 	"fmt"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -60,4 +61,27 @@ func TestApply(t *testing.T) {
 
 	baseContext := pxCtx.NewBaseContext()
 	apply(baseContext)
+}
+
+func TestLoad(t *testing.T) {
+	fm := NewFilterManager()
+	conf := map[string]interface{}{}
+	conf["foo"] = "Cat"
+	conf["bar"] = "The Walnut"
+
+	filtersConf := []*config.Filter{
+		{
+			Name:   DEMO,
+			Config: conf,
+		},
+	}
+	fm.Load(filtersConf)
+
+	filters := fm.GetFilters()
+	assert.Equal(t, len(filtersConf), len(filters))
+
+	baseContext := pxCtx.NewBaseContext()
+	for i := range filters {
+		filters[i](baseContext)
+	}
 }
