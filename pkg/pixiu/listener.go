@@ -162,7 +162,7 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
 
-	ctx.AppendFilterFunc(header.New().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
+	//ctx.AppendFilterFunc(header.newFIlter().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
 	ctx.BuildFilters()
 
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
@@ -171,7 +171,7 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 // try to create filter from config.
 func httpFilter(ctx *h.HttpContext, request fc.IntegrationRequest) {
 	if len(request.Host) != 0 {
-		ctx.AppendFilterFunc(host.New(request.Host).Do())
+		//ctx.AppendFilterFunc(host.newHostFilter(request.Host).Do())
 	}
 }
 

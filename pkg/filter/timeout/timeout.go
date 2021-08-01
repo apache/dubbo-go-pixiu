@@ -32,18 +32,18 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // nolint
 func Init() {
-	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
+	manager.RegisterFilterFactory(constant.TimeoutFilter, newFilter)
 }
 
-func timeoutFilterFunc(duration time.Duration) fc.FilterFunc {
-	return New(duration).Do()
+func newFilter() filter.Factory {
+	return &timeoutFilter{}
 }
 
 // timeoutFilter is a filter for control request time out.
@@ -52,18 +52,14 @@ type timeoutFilter struct {
 	waitTime time.Duration
 }
 
-// New create timeout filter.
-func New(t time.Duration) filter.Filter {
-	if t <= 0 {
-		t = constant.DefaultTimeout
-	}
-	return &timeoutFilter{
-		waitTime: t,
-	}
+func (f *timeoutFilter) Config() interface{} {
+	return nil
 }
 
-// Do execute timeoutFilter filter logic.
-func (f timeoutFilter) Do() fc.FilterFunc {
+func (f *timeoutFilter) Apply() (filter.Filter, error) {
+	if f.waitTime <= 0 {
+		f.waitTime = constant.DefaultTimeout
+	}
 	return func(c fc.Context) {
 		hc := c.(*contexthttp.HttpContext)
 
@@ -91,7 +87,7 @@ func (f timeoutFilter) Do() fc.FilterFunc {
 		case <-finishChan:
 			// finish call do something.
 		}
-	}
+	}, nil
 }
 
 func (f timeoutFilter) getTimeout(t time.Duration) time.Duration {
