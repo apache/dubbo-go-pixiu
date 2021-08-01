@@ -24,7 +24,6 @@ import (
 )
 
 import (
-	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 
@@ -34,6 +33,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
