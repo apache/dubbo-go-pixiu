@@ -15,52 +15,39 @@
  * limitations under the License.
  */
 
-package matcher
+package ratelimit
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	"sync"
 )
 
-var _matcher *Matcher
+type Exact struct {
+	apiNames map[string]string
 
-// Init matcher
-func Init() {
-	_matcher = NewMatcher()
+	mu sync.RWMutex
 }
 
-//PathMatcher according the url path find APIResource name
-type PathMatcher interface {
-	load(apis []ratelimit.Resource)
+func (p *Exact) load(apis []*Resource) {
+	m := map[string]string{}
 
-	match(path string) (string, bool)
-}
-
-type Matcher struct {
-	matchers []PathMatcher
-}
-
-func NewMatcher() *Matcher {
-	return &Matcher{
-		matchers: []PathMatcher{
-			&Exact{},
-			&Regex{},
-		},
-	}
-}
-
-// Load load api resource for matchers
-func Load(apis []ratelimit.Resource) {
-	for _, v := range _matcher.matchers {
-		v.load(apis)
-	}
-}
-
-// Match match resource via url path
-func Match(path string) (string, bool) {
-	for _, m := range _matcher.matchers {
-		if res, ok := m.match(path); ok {
-			return res, ok
+	for _, api := range apis {
+		apiName := api.Name
+		for _, item := range api.Items {
+			if item.MatchStrategy == EXACT {
+				m[item.Pattern] = apiName
+			}
 		}
 	}
-	return "", false
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.apiNames = m
+}
+
+func (p *Exact) match(path string) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	resourceName, ok := p.apiNames[path]
+	return resourceName, ok
 }
