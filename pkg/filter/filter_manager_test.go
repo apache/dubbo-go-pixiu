@@ -19,14 +19,15 @@ package filter
 
 import (
 	"fmt"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+
+	"github.com/stretchr/testify/assert"
 )
 
 import (

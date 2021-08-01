@@ -18,17 +18,24 @@
 package filter
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"sync"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+
 	"github.com/ghodss/yaml"
+
 	"github.com/pkg/errors"
-	"sync"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // FilterManager take over the entire life cycle of FilterChain,
 // All filters are configurable and support dynamic refresh
-
 // filterFactories all filter will be registered in filterFactories
 // by call RegisterFilterFactory
 var filterFactories = make(map[string]filterFactoryCreator, 16)

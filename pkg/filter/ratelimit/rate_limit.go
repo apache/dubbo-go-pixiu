@@ -25,6 +25,10 @@ import (
 import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
+	sc "github.com/alibaba/sentinel-golang/core/config"
+	"github.com/alibaba/sentinel-golang/core/flow"
+	"github.com/alibaba/sentinel-golang/logging"
+
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
@@ -32,41 +36,58 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
+	fm "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // Init cache the filter func & init sentinel
-func Init(config *Config) {
-	if err := rateLimitInit(config); err != nil {
-		logger.Errorf("rate limit init fail: %s", err)
-
-		//if sentinel init fail, just return a empty filter func to avoid error.
-		extension.SetFilterFunc(constant.RateLimitFilter, func(context fc.Context) {})
-		return
-	}
-
-	extension.SetFilterFunc(constant.RateLimitFilter, New().Do())
+func Init() {
+	fm.RegisterFilterFactory(constant.RateLimitFilter, newFactory)
 }
 
 // rateLimit
 type rateLimit struct {
+	conf *Config
 }
 
-// New create the rate limit filter
-func New() filter.Filter {
-	return &rateLimit{}
+// newFactory create the rate limit filter
+func newFactory() filter.Factory {
+	return &rateLimit{conf: &Config{}}
 }
 
-// Do extract the url target & pass or block it.
-func (r *rateLimit) Do() fc.FilterFunc {
+func (r *rateLimit) Config() interface{} {
+	return r.conf
+}
+
+func (r *rateLimit) Apply() (filter.Filter, error) {
+	// init matcher
+	matcher := newMatcher()
+	conf := r.conf
+	matcher.load(conf.Resources)
+
+	// init sentinel
+	sentinelConf := sc.NewDefaultConfig()
+	if len(conf.LogPath) > 0 {
+		sentinelConf.Sentinel.Log.Dir = conf.LogPath
+	}
+	_ = logging.ResetGlobalLogger(getWrappedLogger())
+
+	if err := sentinel.InitWithConfig(sentinelConf); err != nil {
+		return nil, err
+	}
+	OnRulesUpdate(conf.Rules)
+
+	// filter func
+	return filterFunc(matcher), nil
+}
+
+func filterFunc(m *Matcher) filter.Filter {
 	return func(ctx fc.Context) {
 		hc := ctx.(*contexthttp.HttpContext)
 
 		path := hc.GetAPI().URLPattern
-		resourceName, ok := matcher.Match(path)
+		resourceName, ok := m.match(path)
 		//if not exists, just skip it.
 		if !ok {
 			return
@@ -84,5 +105,19 @@ func (r *rateLimit) Do() fc.FilterFunc {
 			return
 		}
 		defer entry.Exit()
+	}
+}
+
+// OnRulesUpdate update rule
+func OnRulesUpdate(rules []*Rule) {
+	var enableRules []*flow.Rule
+	for _, v := range rules {
+		if v.Enable {
+			enableRules = append(enableRules, &v.FlowRule)
+		}
+	}
+
+	if _, err := flow.LoadRules(enableRules); err != nil {
+		logger.Warnf("rate limit load rules err: %v", err)
 	}
 }
