@@ -18,32 +18,40 @@
 package host
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 )
+
+func Init() {
+	manager.RegisterFilterFactory(constant.HostFilter, newHostFilter)
+}
 
 // hostFilter is a filter for host.
 type hostFilter struct {
-	host string
 }
 
-// New create host filter.
-func New(host string) filter.Filter {
-	return &hostFilter{host: host}
+// newHostFilter create host filter.
+func newHostFilter() filter.Factory {
+	return &hostFilter{}
 }
 
-// // Do execute hostFilter filter logic.
-func (f hostFilter) Do() fc.FilterFunc {
+func (f *hostFilter) Config() interface{} {
+	return nil
+}
+
+func (f *hostFilter) Apply() (filter.Filter, error) {
 	return func(c fc.Context) {
 		f.doHostFilter(c.(*contexthttp.HttpContext))
-	}
+	}, nil
 }
 
 func (f hostFilter) doHostFilter(c *contexthttp.HttpContext) {
-	c.Request.Host = f.host
+	c.Request.Host = c.GetAPI().Method.IntegrationRequest.Host
 	c.Next()
 }

@@ -18,6 +18,7 @@
 package recovery
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -32,7 +33,9 @@ import (
 
 // nolint
 func TestRecovery(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, New().Do(), func(c context.Context) {
+	filter, err := newFilter().Apply()
+	assert.Nil(t, err)
+	c := mock.GetMockHTTPContext(nil, filter, func(c context.Context) {
 		time.Sleep(time.Millisecond * 100)
 		// panic
 		var m map[string]string

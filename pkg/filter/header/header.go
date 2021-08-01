@@ -18,6 +18,8 @@
 package header
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"strings"
 )
 
@@ -27,16 +29,25 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 )
+
+func Init() {
+	manager.RegisterFilterFactory(constant.HeaderFilter, newFilter)
+}
 
 type headerFilter struct{}
 
 // nolint.
-func New() *headerFilter {
+func newFilter() filter.Factory {
 	return &headerFilter{}
 }
 
-func (h *headerFilter) Do() context.FilterFunc {
+func (h *headerFilter) Config() interface{} {
+	return nil
+}
+
+func (h *headerFilter) Apply() (filter.Filter, error) {
 	return func(c context.Context) {
 		api := c.GetAPI()
 		headers := api.Headers
@@ -70,5 +81,5 @@ func (h *headerFilter) Do() context.FilterFunc {
 			}
 			break
 		}
-	}
+	}, nil
 }
