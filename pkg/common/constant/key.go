@@ -23,6 +23,8 @@ const (
 	HTTPRouterFilter         = "dgp.filters.http.router"
 	HTTPApiFilter            = "dgp.filters.http.api"
 	HTTPDomainFilter         = "dgp.filters.http.domain"
+	HeaderFilter             = "dgp.filters.header"
+	HostFilter               = "dgp.filters.host"
 	RemoteCallFilter         = "dgp.filters.remote_call"
 	TimeoutFilter            = "dgp.filters.timeout"
 	MetricFilter             = "dgp.filters.metric"

@@ -24,29 +24,28 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // nolint
 func Init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, recoveryFilterFunc())
-}
-
-func recoveryFilterFunc() context.FilterFunc {
-	return New().Do()
+	manager.RegisterFilterFactory(constant.RecoveryFilter, newFilter)
 }
 
 // recoveryFilter is a filter for recover.
 type recoveryFilter struct{}
 
 // New create timeout filter.
-func New() filter.Filter {
+func newFilter() filter.Factory {
 	return &recoveryFilter{}
 }
 
-// Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
-func (f recoveryFilter) Do() context.FilterFunc {
+func (f *recoveryFilter) Config() interface{} {
+	return nil
+}
+
+func (f *recoveryFilter) Apply() (filter.Filter, error) {
 	return func(c context.Context) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -56,5 +55,12 @@ func (f recoveryFilter) Do() context.FilterFunc {
 			}
 		}()
 		c.Next()
-	}
+	}, nil
+}
+
+// GetMockRecoveryFilter return mocked filter
+func GetMockRecoveryFilter() filter.Filter {
+	factory := newFilter()
+	apply, _ := factory.Apply()
+	return apply
 }
