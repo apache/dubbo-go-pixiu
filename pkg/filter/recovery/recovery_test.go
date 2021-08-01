@@ -18,13 +18,14 @@
 package recovery
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+
+	"github.com/stretchr/testify/assert"
 )
 
 import (
