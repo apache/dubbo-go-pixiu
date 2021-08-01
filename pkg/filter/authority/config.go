@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package model
+package authority
 
 // AuthorityConfiguration blacklist/whitelist config
 type AuthorityConfiguration struct {
