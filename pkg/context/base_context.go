@@ -19,12 +19,10 @@ package context
 
 import (
 	"context"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"math"
 	"time"
-)
-
-import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (
@@ -37,7 +35,7 @@ const abortIndex int8 = math.MaxInt8 / 2
 type BaseContext struct {
 	fc.Context
 	Index   int8
-	Filters []fc.Filter
+	Filters []filter.Filter
 	Timeout time.Duration
 	Ctx     context.Context
 
@@ -75,8 +73,8 @@ func (c *BaseContext) AbortWithError(message string, err error) {
 	c.Abort()
 }
 
-// AppendFilterFunc  append filter func.
-func (c *BaseContext) AppendFilterFunc(ff ...fc.Filter) {
+// AppendFilter append filter func.
+func (c *BaseContext) AppendFilter(ff ...func(fc.Context)) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
 	}
