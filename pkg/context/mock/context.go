@@ -20,8 +20,11 @@ package mock
 import (
 	"context"
 	"fmt"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"net/http"
+)
+
+import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (

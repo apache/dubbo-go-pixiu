@@ -18,11 +18,18 @@
 package authority
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/ghodss/yaml"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+)
+
+import (
+	"github.com/ghodss/yaml"
+
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
 func init() {

@@ -19,8 +19,9 @@ package initialize
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
@@ -38,7 +39,6 @@ func Run() {
 
 func filterInit() {
 	accesslog.Init()
-	api.Init()
 	authority.Init()
 	metric.Init()
 	recovery.Init()
@@ -46,6 +46,8 @@ func filterInit() {
 	response.Init()
 	timeout.Init()
 	ratelimit.Init()
+	host.Init()
+	header.Init()
 }
 
 func apiDiscoveryServiceInit() {

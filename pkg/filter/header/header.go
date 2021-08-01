@@ -18,16 +18,16 @@
 package header
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"strings"
 )
 
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 )
