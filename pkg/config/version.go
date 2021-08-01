@@ -15,24 +15,8 @@
  * limitations under the License.
  */
 
-package main
+package config
 
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+const (
+	Version = "0.4.0"
 )
-
-// Trace filter
-type Trace struct{}
-
-// ExternalPluginTrace export filter
-func ExternalPluginTrace() filter.Filter {
-	return &Trace{}
-}
-
-// Do to export func(c context.Context)
-func (r *Trace) Do() context.FilterFunc {
-	return func(c context.Context) {
-		c.AddHeader("trace", "dubbo go pixiu")
-	}
-}
