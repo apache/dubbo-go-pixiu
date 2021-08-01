@@ -15,43 +15,38 @@
  * limitations under the License.
  */
 
-package matcher
+package ratelimit
 
 import (
-	"sync"
+	"testing"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	"github.com/ghodss/yaml"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type Exact struct {
-	apiNames map[string]string
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+)
 
-	mu sync.RWMutex
-}
+func TestFilter(t *testing.T) {
+	factory := newFactory()
+	config, ok := factory.Config().(*Config)
+	assert.True(t, ok)
 
-func (p *Exact) load(apis []ratelimit.Resource) {
-	m := map[string]string{}
+	mockYaml, err := yaml.Marshal(mockConfig())
+	assert.Nil(t, err)
+	err = yaml.Unmarshal(mockYaml, config)
+	assert.Nil(t, err)
 
-	for _, api := range apis {
-		apiName := api.Name
-		for _, item := range api.Items {
-			if item.MatchStrategy == ratelimit.EXACT {
-				m[item.Pattern] = apiName
-			}
-		}
+	apply, err := factory.Apply()
+	assert.Nil(t, err)
+
+	ctx := &http.HttpContext{
+		BaseContext: context.NewBaseContext(),
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.apiNames = m
-}
-
-func (p *Exact) match(path string) (string, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	resourceName, ok := p.apiNames[path]
-	return resourceName, ok
+	apply(ctx)
 }

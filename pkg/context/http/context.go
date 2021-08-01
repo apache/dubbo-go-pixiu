@@ -26,15 +26,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -116,11 +113,6 @@ func (hc *HttpContext) GetUrl() string {
 // GetMethod get method, POST/GET ...
 func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
-}
-
-// Api wait do delete
-func (hc *HttpContext) Api(api *api.API) {
-	// hc.api = api
 }
 
 // API sets the API to http context
@@ -211,20 +203,6 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 			hc.Writer.Write(b)
 		}
 	}
-}
-
-// BuildFilters build filter, from config http_filters
-func (hc *HttpContext) BuildFilters() {
-	var filterFuncs []fc.FilterFunc
-	api := hc.GetAPI()
-
-	if api == nil {
-		return
-	}
-	for _, v := range api.Method.Filters {
-		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
-	}
-	hc.AppendFilterFunc(filterFuncs...)
 }
 
 // ResetWritermen reset writermen
