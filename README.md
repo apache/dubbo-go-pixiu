@@ -26,19 +26,59 @@ dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to
 
 It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near future.
 
-## Get Start
+## Quick Start
 
-#### Start Pixiu
+### 1. start provider
 
-1. Build the binary with `make build`
-2. Start the pixiu with `make start`
+#### 1.1 Modify the zookeeper configuration of the following files
 
-#### Quick Guide
+```
+samples/dubbogo/http/server/profiles/dev/server.yml
+```
 
-dubbo-go-pixiu supports to invoke 2 protocols:
+#### 1.2 Switch to the root directory of dubbo-go-pixiu to execute
 
-1. [Http](./docs/sample/http.md) 
-2. [Dubbo](./docs/sample/dubbo.md)
+```
+export CONF_PROVIDER_FILE_PATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
+export APP_LOG_CONF_FILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
+```
+
+#### 1.3 Compile the provider code
+```
+go build -o server samples/dubbogo/http/server/app/*.go 
+```
+
+#### 1.4 Execute the binary file in the project root directory
+
+```
+./server 
+```
+
+### 2. Start pixiu
+
+#### 2.1 Modify the zookeeper configuration of the following files
+
+```
+configs/conf.yaml 
+```
+
+#### 2.2 Compile pixiu code
+
+```
+go build -o pixiu cmd/pixiu/*.go 
+```
+
+#### 2.3 Execute the binary file in the project root directory
+
+```
+./pixiu start
+```
+
+### 3. Try a request
+
+```
+curl -X POST 'localhost:8888/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+```
 
 ## Features
 
