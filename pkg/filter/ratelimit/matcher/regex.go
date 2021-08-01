@@ -18,12 +18,12 @@
 package matcher
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	"regexp"
+	"sync"
 )
 
 import (
-	"regexp"
-	"sync"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
 type Regex struct {
