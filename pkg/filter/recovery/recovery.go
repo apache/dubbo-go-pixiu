@@ -58,8 +58,8 @@ func (f *recoveryFilter) Apply() (filter.Filter, error) {
 	}, nil
 }
 
-// GetMockRecoveryFilter return mocked filter
-func GetMockRecoveryFilter() filter.Filter {
+// GetMock return mocked filter
+func GetMock() filter.Filter {
 	factory := newFilter()
 	apply, _ := factory.Apply()
 	return apply
