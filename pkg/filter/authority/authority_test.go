@@ -18,39 +18,34 @@
 package authority
 
 import (
-	"bytes"
-	"math"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/ghodss/yaml"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
 )
 
-import (
-	"github.com/stretchr/testify/assert"
-)
+func init() {
+	Init()
+}
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
-)
+func TestAuth(t *testing.T) {
 
-func TestAuthority(t *testing.T) {
-	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
-	assert.NoError(t, err)
-	c := mock.GetMockHTTPAuthContext(request, true, New().Do(), recovery.New().Do())
-	c.Next()
-	assert.Equal(t, int8(math.MaxInt8/2+1), c.BaseContext.Index)
+	rules := AuthorityConfiguration{
+		[]AuthorityRule{{Strategy: Blacklist, Items: append([]string{}, "")}},
+	}
+	//rules = []AuthorityRule{{Strategy: Whitelist, Items: append([]string{}, "127.0.0.1")}}
 
-	request.Header.Set("X-Forwarded-For", "0.0.0.0")
-	c1 := mock.GetMockHTTPAuthContext(request, false, New().Do(), recovery.New().Do())
-	c1.Next()
-	assert.Equal(t, int8(math.MaxInt8/2+1), c1.BaseContext.Index)
+	authFilter := NewAuthFilter()
+	config := authFilter.Config()
+	mockYaml, err := yaml.Marshal(rules)
+	assert.Nil(t, err)
+	err = yaml.Unmarshal(mockYaml, config)
+	assert.Nil(t, err)
 
-	c2 := mock.GetMockHTTPAuthContext(request, true, New().Do(), recovery.New().Do())
-	c2.Next()
-	assert.Equal(t, int8(len(c2.Filters)*2), c2.BaseContext.Index)
+	apply, err := authFilter.Apply()
+	assert.Nil(t, err)
 
-	request.Header.Set("X-Forwarded-For", "127.0.0.1")
-	c3 := mock.GetMockHTTPAuthContext(request, false, New().Do(), recovery.New().Do())
-	c3.Next()
-	assert.Equal(t, int8(len(c3.Filters)*2), c3.BaseContext.Index)
+	request, _ := http.NewRequest("GET", "/", nil)
+	apply(mock.GetMockHTTPContext(request))
 }
