@@ -39,7 +39,7 @@ func TestMetric(t *testing.T) {
 
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, metric, recovery.GetMockRecoveryFilter())
+	c := mock.GetMockHTTPContext(request, metric, recovery.GetMock())
 	c.Next()
 	t.Log("log filter test is finished")
 }

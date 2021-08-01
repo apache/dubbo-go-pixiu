@@ -18,12 +18,12 @@
 package host
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 )
