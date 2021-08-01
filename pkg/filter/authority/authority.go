@@ -28,39 +28,39 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 )
 
 // nolint
 func Init() {
-	extension.SetFilterFunc(constant.HTTPAuthorityFilter, authorityFilterFunc())
-}
-
-func authorityFilterFunc() context.FilterFunc {
-	return New().Do()
+	manager.RegisterFilterFactory(constant.HTTPAuthorityFilter, NewAuthFilter)
 }
 
 // authorityFilter is a filter for blacklist/whitelist.
-type authorityFilter struct{}
-
-// New create blacklist/whitelist filter.
-func New() filter.Filter {
-	return &authorityFilter{}
+type authorityFilter struct {
+	conf *AuthorityConfiguration
 }
 
-// Do execute blacklist/whitelist filter logic.
-func (f authorityFilter) Do() context.FilterFunc {
+// NewAuthFilter create blacklist/whitelist filter.
+func NewAuthFilter() filter.Factory {
+	return &authorityFilter{conf: &AuthorityConfiguration{}}
+}
+
+func (a *authorityFilter) Config() interface{} {
+	return a.conf
+}
+
+func (a *authorityFilter) Apply() (filter.Filter, error) {
 	return func(c context.Context) {
-		f.doAuthorityFilter(c.(*http.HttpContext))
-	}
+		a.doAuthorityFilter(c.(*http.HttpContext))
+	}, nil
 }
 
-func (f authorityFilter) doAuthorityFilter(c *http.HttpContext) {
-	for _, r := range c.HttpConnectionManager.AuthorityConfig.Rules {
+func (a *authorityFilter) doAuthorityFilter(c *http.HttpContext) {
+	for _, r := range a.conf.Rules {
 		item := c.GetClientIP()
-		if r.Limit == model.App {
+		if r.Limit == App {
 			item = c.GetApplicationName()
 		}
 
@@ -75,7 +75,7 @@ func (f authorityFilter) doAuthorityFilter(c *http.HttpContext) {
 	c.Next()
 }
 
-func passCheck(item string, rule model.AuthorityRule) bool {
+func passCheck(item string, rule AuthorityRule) bool {
 	result := false
 	for _, it := range rule.Items {
 		if it == item {
@@ -84,7 +84,7 @@ func passCheck(item string, rule model.AuthorityRule) bool {
 		}
 	}
 
-	if (rule.Strategy == model.Blacklist && result == true) || (rule.Strategy == model.Whitelist && result == false) {
+	if (rule.Strategy == Blacklist && result == true) || (rule.Strategy == Whitelist && result == false) {
 		return false
 	}
 
