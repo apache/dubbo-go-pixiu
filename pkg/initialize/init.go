@@ -30,17 +30,13 @@ import (
 	sa "github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-)
-
 // Run start init.
-func Run(config config.APIConfig) {
-	filterInit(&config)
+func Run() {
+	filterInit()
 	apiDiscoveryServiceInit()
 }
 
-func filterInit(config *config.APIConfig) {
+func filterInit() {
 	accesslog.Init()
 	api.Init()
 	authority.Init()
@@ -49,7 +45,7 @@ func filterInit(config *config.APIConfig) {
 	remote.Init()
 	response.Init()
 	timeout.Init()
-	ratelimit.Init(&config.RateLimit)
+	ratelimit.Init()
 }
 
 func apiDiscoveryServiceInit() {

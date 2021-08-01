@@ -28,37 +28,55 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 )
 
-var accessLogWriter = &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
-
 func Init() {
-	extension.SetFilterFunc(constant.AccessLogFilter, accessLog())
-	accessLogWriter.Write()
+	manager.RegisterFilterFactory(constant.AccessLogFilter, newAccessLog)
+}
+
+type accessLog struct {
+	conf *AccessLogConfig
+	alw  *AccessLogWriter
+}
+
+func newAccessLog() filter.Factory {
+	return &accessLog{
+		conf: &AccessLogConfig{},
+		alw: &AccessLogWriter{
+			AccessLogDataChan: make(chan AccessLogData, constant.LogDataBuffer),
+		},
+	}
+}
+
+func (a *accessLog) Config() interface{} {
+	return a.conf
+}
+
+func (a *accessLog) Apply() (filter.Filter, error) {
+	// init
+	a.alw.Write()
+
+	return accessLogFunc(a.alw, a.conf), nil
 }
 
 // access log filter
-func accessLog() context.FilterFunc {
+func accessLogFunc(alw *AccessLogWriter, alc *AccessLogConfig) filter.Filter {
 	return func(c context.Context) {
-		alc := config.GetBootstrap().StaticResources.AccessLogConfig
-		if !alc.Enable {
-			return
-		}
+
 		start := time.Now()
 		c.Next()
 		latency := time.Now().Sub(start)
 		// build access_log message
 		accessLogMsg := buildAccessLogMsg(c, latency)
 		if len(accessLogMsg) > 0 {
-			accessLogWriter.Writer(model.AccessLogData{AccessLogConfig: alc, AccessLogMsg: accessLogMsg})
+			alw.Writer(AccessLogData{AccessLogConfig: *alc, AccessLogMsg: accessLogMsg})
 		}
 	}
 }
