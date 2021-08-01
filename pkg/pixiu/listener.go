@@ -41,7 +41,6 @@ import (
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -162,14 +161,10 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	case fc.HTTPRequest:
 		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
-	// load plugins
-	pluginsFilter := plugins.GetAPIFilterFuncsWithAPIURL(ctx.Request.URL.Path)
-	ctx.AppendFilterFunc(pluginsFilter.Pre...)
 
 	ctx.AppendFilterFunc(header.New().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
 	ctx.BuildFilters()
 
-	ctx.AppendFilterFunc(pluginsFilter.Post...)
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 
