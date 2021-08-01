@@ -44,8 +44,21 @@ ifeq (windows,$(os))
 	targetName = dubbo-go-pixiu.exe
 endif
 exe := $(mainPath)$(targetName)
-build:
-	cd $(mainPath) && go build  -o $(targetName)
+gobuild:
+	cd $(mainPath) && go build  -o $(currentPath)/$(targetName) *.go
 
 run: build
-	cp $(exe) $(currentPath) && ./dubbo-go-pixiu start -a $(api-config-path) -c $(config-path)
+	./dubbo-go-pixiu start -a $(api-config-path) -c $(config-path)
+
+license-check-util:
+	go install github.com/lsm-dev/license-header-checker/cmd/license-header-checker@latest
+
+license-check:
+	license-header-checker -v -a -r -i vendor -i .github/actions /tmp/tools/license/license.txt . go
+
+test:
+	sh before_ut.sh
+	go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
+
+integrate-test:
+	sh start_integrate_test.sh
