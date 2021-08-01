@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 
@@ -33,7 +34,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -44,8 +44,38 @@ var (
 
 // nolint
 func Init() {
-	extension.SetFilterFunc(constant.MetricFilter, metricFilterFunc())
+	manager.RegisterFilterFactory(constant.MetricFilter, newMetricFilter)
+}
+
+// loggerFilter is a filter for simple metric.
+type metricFilter struct {
+}
+
+// New create metric filter.
+func newMetricFilter() filter.Factory {
+	return &metricFilter{}
+}
+
+func (m *metricFilter) Config() interface{} {
+	return nil
+}
+
+func (m *metricFilter) Apply() (filter.Filter, error) {
+	// init
 	registerOtelMetric()
+
+	// Metric filter, record url and latency
+	return func(c fc.Context) {
+		start := time.Now()
+
+		c.Next()
+
+		latency := time.Now().Sub(start)
+		atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
+		atomic.AddInt64(&totalCount, 1)
+
+		logger.Infof("[dubbo go pixiu] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
+	}, nil
 }
 
 func registerOtelMetric() {
@@ -63,31 +93,4 @@ func registerOtelMetric() {
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
 		metric.WithDescription("request total count in pixiu"),
 	)
-}
-
-func metricFilterFunc() fc.FilterFunc {
-	return New().Do()
-}
-
-// loggerFilter is a filter for simple metric.
-type metricFilter struct{}
-
-// New create metric filter.
-func New() filter.Filter {
-	return &metricFilter{}
-}
-
-// Metric filter, record url and latency
-func (f metricFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		start := time.Now()
-
-		c.Next()
-
-		latency := time.Now().Sub(start)
-		atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
-		atomic.AddInt64(&totalCount, 1)
-
-		logger.Infof("[dubbo go pixiu] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
-	}
 }
