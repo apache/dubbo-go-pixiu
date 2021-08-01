@@ -17,17 +17,39 @@
 
 package ratelimit
 
-import "testing"
+//PathMatcher according the url path find APIResource name
+type PathMatcher interface {
+	load(apis []*Resource)
 
-func TestInit(t *testing.T) {
-	c := GetMockedRateLimitConfig()
-	err := rateLimitInit(c)
-	if err != nil {
-		t.Fatal(err)
+	match(path string) (string, bool)
+}
+
+type Matcher struct {
+	matchers []PathMatcher
+}
+
+func newMatcher() *Matcher {
+	return &Matcher{
+		matchers: []PathMatcher{
+			&Exact{},
+			&Regex{},
+		},
 	}
 }
 
-func TestOnUpdate(t *testing.T) {
-	config := GetMockedRateLimitConfig()
-	OnUpdate(config)
+// Load load api resource for matchers
+func (m *Matcher) load(apis []*Resource) {
+	for _, v := range m.matchers {
+		v.load(apis)
+	}
+}
+
+// Match match resource via url path
+func (m *Matcher) match(path string) (string, bool) {
+	for _, matchers := range m.matchers {
+		if res, ok := matchers.match(path); ok {
+			return res, ok
+		}
+	}
+	return "", false
 }
