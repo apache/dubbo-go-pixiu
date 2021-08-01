@@ -19,6 +19,8 @@ package host
 
 import (
 	"bytes"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"net/http"
 	"testing"
 )
@@ -29,14 +31,26 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestHost(t *testing.T) {
 	targetHost := "www.dubbogo.com"
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, New(targetHost).Do(), recovery.New().Do())
+	host, err := newHostFilter().Apply()
+	assert.Nil(t, err)
+	c := mock.GetMockHTTPContext(request, host)
+	c.API(
+		router.API{
+			Method: config.Method{
+				IntegrationRequest: config.IntegrationRequest{
+					HTTPBackendConfig: config.HTTPBackendConfig{
+						Host: targetHost,
+					},
+				},
+			},
+		},
+	)
 	c.Next()
-	assert.Equal(t, c.Request.Host, targetHost)
+	assert.Equal(t, targetHost, c.Request.Host)
 }

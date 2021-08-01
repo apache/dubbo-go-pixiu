@@ -19,6 +19,7 @@ package timeout
 
 import (
 	"fmt"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"testing"
 	"time"
 )
@@ -32,8 +33,14 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
+func timeoutFilterFunc(wait time.Duration) filter.Filter {
+	t := &timeoutFilter{waitTime: wait}
+	apply, _ := t.Apply()
+	return apply
+}
+
 func TestPanic(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), recovery.New().Do(), testPanicFilter)
+	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), recovery.GetMockRecoveryFilter(), testPanicFilter)
 	c.Next()
 	// print
 	// 500
