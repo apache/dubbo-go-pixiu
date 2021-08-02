@@ -30,8 +30,8 @@ type Client interface {
 }
 
 /**
- * follow option is design to support dubbo pixiu model. you can see
- * https://github.com/dubbogo/dubbo-go-proxy/tree/master.
+ * the following option is designed to support dubbo pixiu model. you can see
+ * https://github.com/apache/dubbo-go-pixiu/tree/master.
  */
 
 // MapOption option map, key : name, value : option
