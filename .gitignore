@@ -12,3 +12,5 @@ pkg/registry/zookeeper-4unittest/contrib/fatjar
 
 coverage.txt
 
+/*.exe
+test
