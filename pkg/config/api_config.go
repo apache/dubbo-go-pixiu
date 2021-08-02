@@ -30,8 +30,7 @@ import (
 	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 	perrors "github.com/pkg/errors"
-	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/mvcc/mvccpb"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 import (
@@ -274,7 +273,7 @@ func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string)
 
 func listenResourceAndMethodEvent(key string) bool {
 	for {
-		wc, err := client.WatchWithOption(key, clientv3.WithPrefix())
+		wc, err := client.WatchWithPrefix(key)
 		if err != nil {
 			logger.Warnf("Watch api config {key:%s} = error{%s}", key, err)
 			return false
