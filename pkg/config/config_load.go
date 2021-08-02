@@ -18,7 +18,6 @@
 package config
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -30,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
