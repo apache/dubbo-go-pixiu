@@ -22,20 +22,20 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/pkg/errors"
-)
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/pkg/errors"
 )
 
 // TODO java class name elem
@@ -46,6 +46,13 @@ const (
 
 const (
 	defaultDubboProtocol = "zookeeper"
+
+	traceNameDubbogoClient = "dubbogo-client"
+	spanNameDubbogoClient  = "DUBBOGO CLIENT"
+
+	spanTagMethod = "method"
+	spanTagType   = "type"
+	spanTagValues = "values"
 )
 
 var (
@@ -156,8 +163,15 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
 
 	gs := dc.Get(dm)
-
-	rst, err := gs.Invoke(req.Context, []interface{}{method, val.Types, val.Values})
+	tr := otel.Tracer(traceNameDubbogoClient)
+	_, span := tr.Start(req.Context, spanNameDubbogoClient)
+	trace.SpanFromContext(req.Context).SpanContext()
+	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
+	span.SetAttributes(attribute.Key(spanTagType).Array(val.Types))
+	span.SetAttributes(attribute.Key(spanTagValues).Array(val.Values))
+	defer span.End()
+	ctx := context.WithValue(req.Context, constant.TRACING_REMOTE_SPAN_CTX, trace.SpanFromContext(req.Context).SpanContext())
+	rst, err := gs.Invoke(ctx, []interface{}{method, val.Types, val.Values})
 	if err != nil {
 		return nil, err
 	}

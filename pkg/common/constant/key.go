@@ -30,6 +30,7 @@ const (
 	ResponseFilter           = "dgp.filters.response"
 	AccessLogFilter          = "dgp.filters.access_log"
 	RateLimitFilter          = "dgp.filters.rate_limit"
+	TracingFilter            = "dgp.filters.tracing"
 )
 
 const (
