@@ -18,6 +18,10 @@
 package http
 
 import (
+	"bytes"
+	"io/ioutil"
+	"mime"
+	"net/http"
 	"regexp"
 	"strings"
 )
@@ -83,4 +87,32 @@ func HttpRouteActionMatch(c *HttpContext, ra model.RouteAction) bool {
 	}
 
 	return true
+}
+
+// 将request.body写入到span中，并重新放回去
+func ExtractRequestBody(req *http.Request) []byte {
+	isUpload := isUpload(req)
+	if isUpload {
+		return nil
+	}
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return nil
+	}
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	return body
+}
+
+// 是否为文件上传 upload方法
+func isUpload(req *http.Request) bool {
+	isUpload := false
+	v := req.Header.Get("Content-Type")
+	if v == "" {
+		return isUpload
+	}
+	d, _, err := mime.ParseMediaType(v)
+	if err == nil && d == "multipart/form-data" {
+		isUpload = true
+	}
+	return isUpload
 }

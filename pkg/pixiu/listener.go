@@ -147,8 +147,16 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func addFilter(ctx *h.HttpContext, api router.API) {
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.MetricFilter),
-		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
+	ctx.AppendFilterFunc(
+		extension.GetMustFilterFunc(constant.MetricFilter),
+		extension.GetMustFilterFunc(constant.RecoveryFilter),
+		extension.GetMustFilterFunc(constant.TimeoutFilter),
+	)
+	trace := config.GetBootstrap().Tracing
+	if trace.URL != "" && trace.Type != "" {
+		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.TracerFilter))
+	}
+
 	alc := config.GetBootstrap().StaticResources.AccessLogConfig
 	if alc.Enable {
 		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.AccessLogFilter))
