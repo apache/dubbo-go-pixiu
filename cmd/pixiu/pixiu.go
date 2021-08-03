@@ -27,6 +27,7 @@ import (
 import (
 	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
 	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
+
 	"github.com/urfave/cli"
 )
 
