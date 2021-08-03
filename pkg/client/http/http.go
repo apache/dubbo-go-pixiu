@@ -23,16 +23,16 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
-	"github.com/pkg/errors"
-)
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
+	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // RestMetadata http metadata, api config
@@ -52,6 +52,15 @@ type RestMetadata struct {
 var (
 	httpClient *Client
 	countDown  = sync.Once{}
+)
+
+const (
+	traceNameHTTPClient = "http-client"
+	spanNameHTTPClient  = "HTTP CLIENT"
+
+	spanTagMethod = "method"
+	spanTagURL    = "url"
+	spanTagBody   = "body"
 )
 
 // Client client to generic invoke dubbo
@@ -103,6 +112,16 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	newReq, _ := http.NewRequest(req.IngressRequest.Method, targetURL, params.Body)
 	newReq.Header = params.Header
 	httpClient := &http.Client{Timeout: 5 * time.Second}
+
+	tr := otel.Tracer(traceNameHTTPClient)
+	_, span := tr.Start(req.Context, spanNameHTTPClient)
+	trace.SpanFromContext(req.Context).SpanContext()
+	span.SetAttributes(attribute.Key(spanTagMethod).String(req.IngressRequest.Method))
+	span.SetAttributes(attribute.Key(spanTagURL).String(targetURL))
+	body := contexthttp.ExtractRequestBody(newReq)
+	span.SetAttributes(attribute.Key(spanTagBody).String(string(body)))
+	defer span.End()
+
 	tmpRet, err := httpClient.Do(newReq)
 
 	return tmpRet, err

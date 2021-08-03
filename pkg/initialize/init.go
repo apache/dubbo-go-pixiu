@@ -28,6 +28,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/remote"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/response"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/tracer"
 	sa "github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
@@ -50,6 +51,7 @@ func filterInit(config *config.APIConfig) {
 	remote.Init()
 	response.Init()
 	timeout.Init()
+	tracer.Init()
 	ratelimit.Init(&config.RateLimit)
 	plugins.Init(config.PluginsGroup, config.PluginFilePath, config.Resources)
 }
