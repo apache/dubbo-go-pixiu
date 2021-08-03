@@ -17,7 +17,9 @@
 
 package ratelimit
 
-import "github.com/apache/dubbo-go-pixiu/pkg/logger"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
 
 // loggerWrapper
 type loggerWrapper struct {

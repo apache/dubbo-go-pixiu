@@ -18,6 +18,10 @@
 package initialize
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
@@ -28,10 +32,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/response"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 	sa "github.com/apache/dubbo-go-pixiu/pkg/service/api"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
 // Run start init.
