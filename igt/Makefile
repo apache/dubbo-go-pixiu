@@ -32,7 +32,7 @@ export GOPROXY ?= https://goproxy.io,direct
 export GOSUMDB ?= sum.golang.org
 export GOARCH ?= amd64
 
-export DOCKER_HOST_IP = $(shell ifconfig en0 | grep inet | grep -v inet6 | awk '{print $$2}')
+export DOCKER_HOST_IP = $(shell hostname)
 
 OS := $(shell uname)
 ifeq ($(OS), Linux)
@@ -59,7 +59,7 @@ else
 	LDFLAGS := "-s -w"
 endif
 
-OUT_DIR := $(BASE_DIR)/$(GOOS)_$(GOARCH)/$(rtfg8u7)
+OUT_DIR := $(BASE_DIR)/$(GOOS)_$(GOARCH)
 LOG_FILE := $(OUT_DIR)/$(PROJECT_NAME).log
 API_CONFIG_PATH := $(OUT_DIR)/pixiuconf/api_config.yaml
 CONFIG_PATH := $(OUT_DIR)/pixiuconf/conf.yaml
@@ -82,6 +82,7 @@ build: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME) config
 .PHONY: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME)
 $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME):
 	$(info   >  Buiding application binary: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME))
+	@echo $(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME)
 	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) $(SOURCES)
 
 
@@ -132,8 +133,8 @@ run: buildPixiu
 ## buildPixiu: start pixiu
 .PHONY: buildPixiu
 buildPixiu:
-	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/pixiu$(EXT_NAME) $(pixiuSources)
-	@-$(OUT_DIR)/pixiu$(EXT_NAME) -a $(API_CONFIG_PATH) -c $(CONFIG_PATH) & echo $$! > $(PIXIU_PID)
+	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
+	@-$(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) start-gateway -a $(API_CONFIG_PATH) -c $(CONFIG_PATH) & echo $$! > $(PIXIU_PID)
 	@cat $(PIXIU_PID) | sed "/^/s/^/  \> PIXIU_PID: /"	
 ## stop: Stop running the application (for server)
 .PHONY: stop
