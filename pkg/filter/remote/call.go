@@ -117,7 +117,8 @@ func (f clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
 		return
 	}
 
-	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
+	req := client.NewReq(c.Request.Context(), c.Request, *api)
+	resp, err := cli.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
 		c.Err = err
