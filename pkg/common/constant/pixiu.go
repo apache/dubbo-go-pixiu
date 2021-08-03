@@ -17,7 +17,9 @@
 
 package constant
 
-import "time"
+import (
+	"time"
+)
 
 // default timeout 1s.
 const (
