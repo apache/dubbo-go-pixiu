@@ -19,16 +19,11 @@ package main
 
 import (
 	_ "net/http/pprof"
-	"os"
-	"strconv"
-	"time"
 )
 
 import (
 	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
 	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
-
-	"github.com/urfave/cli"
 )
 
 // Version pixiu version
@@ -36,36 +31,8 @@ var Version = "0.3.0"
 
 // main pixiu run method
 func main() {
-	app := newPXApp(&cmdStart)
+	app := startCmd
 
 	// ignore error so we don't exit non-zero and break gfmrun README example tests
-	_ = app.Run(os.Args)
-}
-
-func newPXApp(startCmd *cli.Command) *cli.App {
-	app := cli.NewApp()
-	app.Name = "dubbogo pixiu"
-	app.Version = Version
-	app.Compiled = time.Now()
-	app.Copyright = "(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo"
-	app.Usage = "Dubbogo pixiu is a lightweight gateway."
-	app.Flags = cmdStart.Flags
-
-	// commands
-	app.Commands = []cli.Command{
-		cmdStart,
-		cmdStop,
-		cmdReload,
-	}
-
-	// action
-	app.Action = func(c *cli.Context) error {
-		if c.NumFlags() == 0 {
-			return cli.ShowAppHelp(c)
-		}
-
-		return startCmd.Action.(func(c *cli.Context) error)(c)
-	}
-
-	return app
+	_ = app.Execute()
 }
