@@ -18,14 +18,18 @@
 package main
 
 import (
+	"os"
 	"runtime"
+	"strconv"
+	"time"
 )
 
 import (
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/pixiu"
@@ -41,99 +45,108 @@ var (
 		"critical": "FATAL",
 	}
 
-	cmdStart = cli.Command{
-		Name:  "start",
-		Usage: "start dubbogo pixiu",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:   "config, c",
-				Usage:  "Load configuration from `FILE`",
-				EnvVar: "DUBBOGO_PIXIU_CONFIG",
-				Value:  "configs/conf.yaml",
-			},
-			cli.StringFlag{
-				Name:   "api-config, a",
-				Usage:  "Load api configuration from `FILE`",
-				EnvVar: "DUBBOGO_PIXIU_API_CONFIG",
-				Value:  "configs/api_config.yaml",
-			},
-			cli.StringFlag{
-				Name:   "log-config, lc",
-				Usage:  "Load log configuration from `FILE`",
-				EnvVar: "LOG_FILE",
-				Value:  "configs/log.yml",
-			},
-			cli.StringFlag{
-				Name:   "log-level, l",
-				Usage:  "dubbogo pixiu log level, trace|debug|info|warning|error|critical",
-				EnvVar: "LOG_LEVEL",
-			},
-			cli.StringFlag{
-				Name:  "log-format, lf",
-				Usage: "dubbogo pixiu log format, currently useless",
-			},
-			cli.StringFlag{
-				Name:  "limit-cpus, limc",
-				Usage: "dubbogo pixiu schedule threads count",
-			},
-		},
-		Action: func(c *cli.Context) error {
-			configPath := c.String("config")
-			apiConfigPath := c.String("api-config")
-			flagLogLevel := c.String("log-level")
-			logConfPath := c.String("log-config")
+	configPath    string
+	apiConfigPath string
+	logConfigPath string
+	logLevel      string
 
-			err := logger.InitLog(logConfPath)
+	// CURRENTLY USELESS
+	logFormat string
+
+	limitCpus string
+
+	// Currently default set to false, wait for up coming support
+	initFromRemote = false
+
+	startCmd = &cobra.Command{
+		Use:   "dubbogo pixiu",
+		Short: "Dubbogo pixiu is a lightweight gateway.",
+		Long: "dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful \n" +
+			"services. It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near \n" +
+			"future." +
+			"(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo",
+		Version: Version,
+		PreRun: func(cmd *cobra.Command, args []string) {
+			initDefaultValue()
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			err := logger.InitLog(logConfigPath)
 			if err != nil {
-				return err
+				// cause `logger.InitLog` already handle init failed, so just use logger to log
+				logger.Warnf("[startCmd] failed to init log config file")
+			}
+
+			if level, ok := flagToLogLevel[logLevel]; ok {
+				logger.SetLoggerLevel(level)
+			} else {
+				logger.Warnf("[startCmd] logLevel is invalid, set log level to default: %s", constant.DefaultLogLevel)
+				logger.SetLoggerLevel(flagToLogLevel[constant.DefaultLogLevel])
 			}
 
 			bootstrap := config.Load(configPath)
-			if logLevel, ok := flagToLogLevel[flagLogLevel]; ok {
-				logger.SetLoggerLevel(logLevel)
-			}
-
-			initFromRemote := false
+			// get api config from meta data center
 			if bootstrap.GetAPIMetaConfig() != nil {
 				if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
-					logger.Warnf("load api config from etcd error:%+v", err)
-				} else {
-					initFromRemote = true
+					logger.Warnf("[startCmd] failed to get api meta config, %s", err.Error())
 				}
 			}
 
+			// get api config from local file
 			if !initFromRemote {
 				if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
-					logger.Errorf("load api config error:%+v", err)
-					return err
+					logger.Errorf("[startCmd] failed to load api config from file, %s", err.Error())
 				}
 			}
 
-			limitCpus := c.Int("limit-cpus")
-			if limitCpus <= 0 {
+			limitCpuNumber, err := strconv.ParseInt(limitCpus, 10, 64)
+			if err != nil {
+				logger.Errorf("[startCmd] failed to get limit cpu number, %s", err.Error())
+			}
+			if limitCpuNumber <= 0 {
 				runtime.GOMAXPROCS(runtime.NumCPU())
 			} else {
-				runtime.GOMAXPROCS(limitCpus)
+				runtime.GOMAXPROCS(int(limitCpuNumber))
 			}
 
 			pixiu.Start(bootstrap)
-			return nil
-		},
-	}
-
-	cmdStop = cli.Command{
-		Name:  "stop",
-		Usage: "stop dubbogo pixiu",
-		Action: func(c *cli.Context) error {
-			return nil
-		},
-	}
-
-	cmdReload = cli.Command{
-		Name:  "reload",
-		Usage: "reconfiguration",
-		Action: func(c *cli.Context) error {
-			return nil
 		},
 	}
 )
+
+// init Init startCmd
+func init() {
+	startCmd.PersistentFlags().StringVarP(&configPath, constant.ConfigPathKey, "c", os.Getenv(constant.EnvDubbogoPixiuConfig), "Load configuration from `FILE`")
+	startCmd.PersistentFlags().StringVarP(&apiConfigPath, constant.ApiConfigPathKey, "a", os.Getenv(constant.EnvDubbogoPixiuApiConfig), "Load api configuration from `FILE`")
+	startCmd.PersistentFlags().StringVarP(&logConfigPath, constant.LogConfigPathKey, "g", os.Getenv(constant.EnvDubbogoPixiuLogConfig), "Load log configuration from `FILE`")
+	startCmd.PersistentFlags().StringVarP(&logLevel, constant.LogLevelKey, "l", os.Getenv(constant.EnvDubbogoPixiuLogLevel), "dubbogo pixiu log level, trace|debug|info|warning|error|critical")
+	startCmd.PersistentFlags().StringVarP(&limitCpus, constant.LimitCpusKey, "m", os.Getenv(constant.EnvDubbogoPixiuLimitCpus), "dubbogo pixiu schedule threads count")
+	startCmd.PersistentFlags().StringVarP(&logFormat, constant.LogFormatKey, "f", os.Getenv(constant.EnvDubbogoPixiuLogFormat), "dubbogo pixiu log format, currently useless")
+
+}
+
+// initDefaultValue If not set both in args and env, set default values
+func initDefaultValue() {
+	if configPath == "" {
+		configPath = constant.DefaultConfigPath
+	}
+
+	if apiConfigPath == "" {
+		apiConfigPath = constant.DefaultApiConfigPath
+	}
+
+	if logConfigPath != "" {
+		logConfigPath = constant.DefaultLogConfigPath
+	}
+
+	if logLevel == "" {
+		logLevel = constant.DefaultLogLevel
+	}
+
+	if limitCpus == "" {
+		limitCpus = constant.DefaultLimitCpus
+	}
+
+	if logFormat != "" {
+		logFormat = constant.DefaultLogFormat
+	}
+}
