@@ -80,13 +80,13 @@ func getRootCmd() *cobra.Command {
 		Short: "Dubbogo pixiu is a lightweight gateway.",
 		Long: "dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful \n" +
 			"services. It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near \n" +
-			"future." +
+			"future. \n" +
 			"(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo",
 		Version: Version,
 	}
 
-	rootCmd.AddCommand(startGatewayCmd)
-	rootCmd.AddCommand(startSideCarCmd)
+	rootCmd.AddCommand(gatewayCmd)
+	rootCmd.AddCommand(sideCarCmd)
 
 	return rootCmd
 }
