@@ -32,9 +32,14 @@ import (
 )
 
 var (
+	gatewayCmd = &cobra.Command{
+		Use:   "gateway",
+		Short: "Run dubbo go pixiu in gateway mode",
+	}
+
 	startGatewayCmd = &cobra.Command{
-		Use:     "start-gateway",
-		Short:   "Run dubbo go pixiu in gateway mode",
+		Use:     "start",
+		Short:   "Start gateway",
 		Version: Version,
 		PreRun: func(cmd *cobra.Command, args []string) {
 			initDefaultValue()
@@ -72,4 +77,6 @@ func init() {
 	startGatewayCmd.PersistentFlags().StringVarP(&logLevel, constant.LogLevelKey, "l", os.Getenv(constant.EnvDubbogoPixiuLogLevel), "dubbogo pixiu log level, trace|debug|info|warning|error|critical")
 	startGatewayCmd.PersistentFlags().StringVarP(&limitCpus, constant.LimitCpusKey, "m", os.Getenv(constant.EnvDubbogoPixiuLimitCpus), "dubbogo pixiu schedule threads count")
 	startGatewayCmd.PersistentFlags().StringVarP(&logFormat, constant.LogFormatKey, "f", os.Getenv(constant.EnvDubbogoPixiuLogFormat), "dubbogo pixiu log format, currently useless")
+
+	gatewayCmd.AddCommand(startGatewayCmd)
 }
