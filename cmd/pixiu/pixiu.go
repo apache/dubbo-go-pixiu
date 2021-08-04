@@ -18,7 +18,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	_ "net/http/pprof"
 	"runtime"
@@ -130,7 +129,7 @@ func initLog() error {
 		logger.SetLoggerLevel(level)
 	} else {
 		logger.SetLoggerLevel(flagToLogLevel[constant.DefaultLogLevel])
-		return errors.New(fmt.Sprintf("logLevel is invalid, set log level to default: %s", constant.DefaultLogLevel))
+		return fmt.Errorf("logLevel is invalid, set log level to default: %s", constant.DefaultLogLevel)
 	}
 	return nil
 }
