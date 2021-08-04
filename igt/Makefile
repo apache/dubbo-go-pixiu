@@ -82,7 +82,6 @@ build: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME) config
 .PHONY: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME)
 $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME):
 	$(info   >  Buiding application binary: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME))
-	@echo $(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME)
 	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) $(SOURCES)
 
 
@@ -134,7 +133,7 @@ run: buildPixiu
 .PHONY: buildPixiu
 buildPixiu:
 	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
-	@-$(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) start-gateway -a $(API_CONFIG_PATH) -c $(CONFIG_PATH) & echo $$! > $(PIXIU_PID)
+	@-$(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) gateway start -a $(API_CONFIG_PATH) -c $(CONFIG_PATH) & echo $$! > $(PIXIU_PID)
 	@cat $(PIXIU_PID) | sed "/^/s/^/  \> PIXIU_PID: /"	
 ## stop: Stop running the application (for server)
 .PHONY: stop
