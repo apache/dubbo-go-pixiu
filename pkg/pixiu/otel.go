@@ -24,13 +24,16 @@ import (
 
 import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
+
 	"go.opentelemetry.io/otel/metric/global"
+
 	export "go.opentelemetry.io/otel/sdk/export/metric"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/histogram"
 	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
 	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	selector "go.opentelemetry.io/otel/sdk/metric/selector/simple"
 	"go.opentelemetry.io/otel/sdk/resource"
+
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
