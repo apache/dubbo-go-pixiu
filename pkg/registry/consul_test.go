@@ -30,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go/common/extension"
 	_ "github.com/apache/dubbo-go/registry/consul"
 	"github.com/apache/dubbo-go/remoting/consul"
+
 	"github.com/stretchr/testify/assert"
 )
 
