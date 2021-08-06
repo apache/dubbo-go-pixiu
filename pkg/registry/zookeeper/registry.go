@@ -41,8 +41,9 @@ var (
 const (
 	// RegistryZkClient zk client name
 	RegistryZkClient = "zk registry"
-	rootPath         = "/dubbo"
-	providerCategory = "providers"
+	MaxFailTimes     = 2
+	ConnDelay        = 3 * time.Second
+	defaultTTL       = 10 * time.Minute
 )
 
 func init() {
@@ -51,8 +52,8 @@ func init() {
 
 type ZKRegistry struct {
 	*baseregistry.BaseRegistry
-	zkListeners  map[registry.RegisteredType]registry.Listener
-	client *zk.ZooKeeperClient
+	zkListeners map[registry.RegisteredType]registry.Listener
+	client      *zk.ZooKeeperClient
 }
 
 func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
@@ -77,8 +78,8 @@ func initZKListeners(reg *ZKRegistry) {
 	reg.zkListeners = make(map[registry.RegisteredType]registry.Listener)
 	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg)
 	go reg.zkListeners[registry.RegisteredTypeInterface].WatchAndHandle()
-	//reg.zkListeners[registry.RegisteredTypeApplication] = newZKIntfListener(reg.client, registry.RegisteredTypeApplication)
-	//go reg.zkListeners[registry.RegisteredTypeInterface].Watch()
+	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg)
+	go reg.zkListeners[registry.RegisteredTypeApplication].WatchAndHandle()
 }
 
 func (r *ZKRegistry) GetClient() *zk.ZooKeeperClient {
@@ -90,7 +91,7 @@ func (r *ZKRegistry) DoSubscribe() error {
 	if err := r.interfaceSubscribe(); err != nil {
 		return err
 	}
-	if  err := r.applicationSubscribe(); err != nil {
+	if err := r.applicationSubscribe(); err != nil {
 		return err
 	}
 	return nil
