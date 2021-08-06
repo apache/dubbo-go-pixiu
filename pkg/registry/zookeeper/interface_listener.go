@@ -36,19 +36,18 @@ import (
 )
 
 const (
-	MaxFailTimes = 3
-	ConnDelay    = 3 * time.Second
-	defaultTTL   = 10 * time.Minute
+	rootPath         = "/dubbo"
+	providerCategory = "providers"
 )
 
 var _ registry.Listener = new(zkIntfListener)
 
 type zkIntfListener struct {
-	path             string
-	exit             chan struct{}
-	client           *zookeeper.ZooKeeperClient
-	reg				 *ZKRegistry
-	wg               sync.WaitGroup
+	path   string
+	exit   chan struct{}
+	client *zookeeper.ZooKeeperClient
+	reg    *ZKRegistry
+	wg     sync.WaitGroup
 }
 
 // newZKIntfListener returns a new zkIntfListener with pre-defined path according to the registered type.
@@ -58,7 +57,7 @@ func newZKIntfListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry) regis
 		path:   p,
 		exit:   make(chan struct{}),
 		client: client,
-		reg:	reg,
+		reg:    reg,
 	}
 }
 
