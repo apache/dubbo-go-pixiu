@@ -97,7 +97,7 @@ func (zkl *serviceListener) WatchAndHandle() {
 				}
 				zkl.handleEvent(children)
 				break WATCH
-			case <- zkl.exit:
+			case <-zkl.exit:
 				logger.Warnf("listen(path{%s}) goroutine exit now...", zkl.path)
 				ticker.Stop()
 				return
@@ -157,4 +157,3 @@ func (zkl *serviceListener) Close() {
 	close(zkl.exit)
 	zkl.wg.Wait()
 }
-
