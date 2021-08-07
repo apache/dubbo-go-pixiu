@@ -22,4 +22,4 @@ DIR=$(cd $(dirname $0) && pwd )
 
 echo $DIR
 
-./pixiu -c ${DIR}/$1/pixiu/conf.yaml -a ${DIR}/$1/pixiu/api_config.yaml
+./dubbo-go-pixiu gateway start -c ${DIR}/$1/pixiu/conf.yaml -a ${DIR}/$1/pixiu/api_config.yaml
