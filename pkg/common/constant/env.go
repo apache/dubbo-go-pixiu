@@ -22,3 +22,12 @@ const (
 	EnvResponseStrategy = "dgp-response-strategy"
 	EnvMock             = "dgp-mock"
 )
+
+const (
+	EnvDubbogoPixiuConfig    = "DUBBOGO_PIXIU_CONFIG"
+	EnvDubbogoPixiuApiConfig = "DUBBOGO_PIXIU_API_CONFIG"
+	EnvDubbogoPixiuLogConfig = "DUBBOGO_PIXIU_LOG_CONFIG"
+	EnvDubbogoPixiuLogLevel  = "DUBBOGO_PIXIU_LOG_LEVEL"
+	EnvDubbogoPixiuLogFormat = "DUBBOGO_PIXIU_LOG_FORMAT"
+	EnvDubbogoPixiuLimitCpus = "DUBBOGO_PIXIU_LIMIT_CPUS"
+)
