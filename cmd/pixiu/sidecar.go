@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package ratelimit
+package main
 
 import (
-	"testing"
+	"fmt"
+	"github.com/spf13/cobra"
 )
 
-func TestInit(t *testing.T) {
-	c := GetMockedRateLimitConfig()
-	err := rateLimitInit(c)
-	if err != nil {
-		t.Fatal(err)
+var (
+	sideCarCmd = &cobra.Command{
+		Use:   "sidecar",
+		Short: "Run dubbo go pixiu in sidecar mode  (implement in the future)",
 	}
-}
 
-func TestOnUpdate(t *testing.T) {
-	config := GetMockedRateLimitConfig()
-	OnUpdate(config)
+	startSideCarCmd = &cobra.Command{
+		Use:   "start",
+		Short: "Start sidecar  (implement in the future)",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Meet you in the Future!")
+		},
+	}
+)
+
+func init() {
+	sideCarCmd.AddCommand(startSideCarCmd)
 }
