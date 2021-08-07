@@ -69,7 +69,7 @@ go build -o pixiu cmd/pixiu/*.go
 #### 2.3 启动pixiu，在根目录执行
 
 ```
-./pixiu start
+./pixiu gateway start
 ```
 
 ### 3. 发起请求
