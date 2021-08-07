@@ -35,3 +35,12 @@ const (
 const (
 	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
 )
+
+const (
+	ConfigPathKey    = "config"
+	ApiConfigPathKey = "api-config"
+	LogConfigPathKey = "log-config"
+	LogLevelKey      = "log-level"
+	LimitCpusKey     = "limit-cpus"
+	LogFormatKey     = "log-format"
+)

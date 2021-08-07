@@ -25,6 +25,7 @@ import (
 
 import (
 	"github.com/ghodss/yaml"
+
 	"github.com/goinggo/mapstructure"
 )
 
