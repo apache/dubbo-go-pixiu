@@ -71,7 +71,7 @@ go build -o pixiu cmd/pixiu/*.go
 #### 2.3 Execute the binary file in the project root directory
 
 ```
-./pixiu start
+./pixiu gateway start
 ```
 
 ### 3. Try a request
