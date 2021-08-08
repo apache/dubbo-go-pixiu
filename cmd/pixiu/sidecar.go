@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package constant
+package main
 
-// env key
-const (
-	EnvResponseStrategy = "dgp-response-strategy"
-	EnvMock             = "dgp-mock"
+import (
+	"fmt"
+	"github.com/spf13/cobra"
 )
 
-const (
-	EnvDubbogoPixiuConfig    = "DUBBOGO_PIXIU_CONFIG"
-	EnvDubbogoPixiuApiConfig = "DUBBOGO_PIXIU_API_CONFIG"
-	EnvDubbogoPixiuLogConfig = "DUBBOGO_PIXIU_LOG_CONFIG"
-	EnvDubbogoPixiuLogLevel  = "DUBBOGO_PIXIU_LOG_LEVEL"
-	EnvDubbogoPixiuLogFormat = "DUBBOGO_PIXIU_LOG_FORMAT"
-	EnvDubbogoPixiuLimitCpus = "DUBBOGO_PIXIU_LIMIT_CPUS"
+var (
+	sideCarCmd = &cobra.Command{
+		Use:   "sidecar",
+		Short: "Run dubbo go pixiu in sidecar mode  (implement in the future)",
+	}
+
+	startSideCarCmd = &cobra.Command{
+		Use:   "start",
+		Short: "Start sidecar  (implement in the future)",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Meet you in the Future!")
+		},
+	}
 )
+
+func init() {
+	sideCarCmd.AddCommand(startSideCarCmd)
+}
