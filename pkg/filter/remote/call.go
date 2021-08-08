@@ -31,7 +31,7 @@ import (
 	_ "github.com/apache/dubbo-go/registry/protocol"
 	_ "github.com/apache/dubbo-go/registry/zookeeper"
 
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	apiConf "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
@@ -41,31 +41,22 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// nolint
 func Init() {
-	extension.SetFilterFunc(constant.RemoteCallFilter, remoteFilterFunc())
+	manager.RegisterFilterFactory(constant.RemoteCallFilter, newClient)
 }
 
-func remoteFilterFunc() fc.FilterFunc {
-	return New(defaultNewParams()).Do()
+// clientFilter is a filter for recover.
+type clientFilter struct {
+	conf *config
 }
 
-func defaultNewParams() mockLevel {
-	mock := 1
-	mockStr := os.Getenv(constant.EnvMock)
-	if len(mockStr) > 0 {
-		i, err := strconv.Atoi(mockStr)
-		if err == nil {
-			mock = i
-		}
-	}
-
-	return mockLevel(mock)
+type config struct {
+	Level mockLevel `yaml:"level,omitempty" json:"level,omitempty"`
 }
 
 type mockLevel int8
@@ -76,67 +67,77 @@ const (
 	all
 )
 
-// clientFilter is a filter for recover.
-type clientFilter struct {
-	level mockLevel
-}
-
-// New create timeout filter.
-func New(level mockLevel) filter.Filter {
+func newClient() filter.Factory {
+	mock := 1
+	mockStr := os.Getenv(constant.EnvMock)
+	if len(mockStr) > 0 {
+		i, err := strconv.Atoi(mockStr)
+		if err == nil {
+			mock = i
+		}
+	}
+	level := mockLevel(mock)
 	if level < 0 || level > 2 {
 		level = close
 	}
-	return &clientFilter{
-		level: level,
-	}
+
+	return &clientFilter{conf: &config{Level: level}}
 }
 
-// Do execute clientFilter filter logic
-// support: 1 http 2 dubbo 2 http 2 http
-func (f clientFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		f.doRemoteCall(c.(*contexthttp.HttpContext))
-	}
+func (f *clientFilter) Config() interface{} {
+	return f.conf
 }
 
-func (f clientFilter) doRemoteCall(c *contexthttp.HttpContext) {
-	api := c.GetAPI()
+func (f *clientFilter) Apply() (filter.Filter, error) {
+	level := f.conf.Level
+	// check mock level
+	if level < 0 || level > 2 {
+		level = close
+	}
+	return doRemoteCall(level), nil
+}
 
-	if (f.level == open && api.Mock) || (f.level == all) {
-		c.SourceResp = &filter.ErrResponse{
-			Message: "mock success",
+func doRemoteCall(level mockLevel) filter.Filter {
+	return func(ctx fc.Context) {
+		c := ctx.(*contexthttp.HttpContext)
+		api := c.GetAPI()
+
+		if (level == open && api.Mock) || (level == all) {
+			c.SourceResp = &filter.ErrResponse{
+				Message: "mock success",
+			}
+			c.Next()
+			return
 		}
+
+		typ := api.Method.IntegrationRequest.RequestType
+
+		cli, err := matchClient(typ)
+		if err != nil {
+			c.Err = err
+			return
+		}
+
+		resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
+		if err != nil {
+			logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
+			c.Err = err
+			return
+		}
+
+		logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
+
+		c.SourceResp = resp
+		// response write in response filter.
 		c.Next()
-		return
 	}
-
-	typ := api.Method.IntegrationRequest.RequestType
-
-	cli, err := matchClient(typ)
-	if err != nil {
-		c.Err = err
-		return
-	}
-
-	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
-	if err != nil {
-		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
-		c.Err = err
-		return
-	}
-
-	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
-
-	c.SourceResp = resp
-	// response write in response filter.
-	c.Next()
 }
 
-func matchClient(typ config.RequestType) (client.Client, error) {
+func matchClient(typ apiConf.RequestType) (client.Client, error) {
 	switch strings.ToLower(string(typ)) {
-	case string(config.DubboRequest):
+	case string(apiConf.DubboRequest):
 		return dubbo.SingletonDubboClient(), nil
-	case string(config.HTTPRequest):
+	case string(apiConf.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
 		return nil, errors.New("not support")

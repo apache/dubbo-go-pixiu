@@ -36,17 +36,21 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	manager "github.com/apache/dubbo-go-pixiu/pkg/filter"
 )
 
 // nolint
 func Init() {
-	extension.SetFilterFunc(constant.ResponseFilter, responseFilterFunc())
+	manager.RegisterFilterFactory(constant.ResponseFilter, newResponse)
 }
 
-func responseFilterFunc() fc.FilterFunc {
-	return New(defaultNewParams()).Do()
+type responseFilter struct {
+	conf *config
+}
+
+type config struct {
+	Strategy string `json:"strategy,omitempty" yaml:"strategy,omitempty"`
 }
 
 func defaultNewParams() string {
@@ -57,22 +61,18 @@ func defaultNewParams() string {
 	return strategy
 }
 
-type responseFilter struct {
-	strategy string
+func newResponse() filter.Factory {
+	return &responseFilter{conf: &config{Strategy: defaultNewParams()}}
 }
 
-// New create timeout filter.
-func New(strategy string) filter.Filter {
-	return &responseFilter{
-		strategy: strategy,
-	}
+func (f *responseFilter) Config() interface{} {
+	return f.conf
 }
 
-// Do execute responseFilter filter logic.
-func (f responseFilter) Do() fc.FilterFunc {
+func (f *responseFilter) Apply() (filter.Filter, error) {
 	return func(c fc.Context) {
 		f.doResponse(c.(*contexthttp.HttpContext))
-	}
+	}, nil
 }
 
 func (f responseFilter) doResponse(ctx *contexthttp.HttpContext) {
@@ -110,9 +110,10 @@ func (f responseFilter) doResponse(ctx *contexthttp.HttpContext) {
 	ctx.Abort()
 }
 
+// newResponse not *responseFilter to avoid conf refresh
 func (f responseFilter) newResponse(data interface{}) *client.Response {
 	hump := false
-	if f.strategy == constant.ResponseStrategyHump {
+	if f.conf.Strategy == constant.ResponseStrategyHump {
 		hump = true
 	}
 	r, err := dealResp(data, hump)
