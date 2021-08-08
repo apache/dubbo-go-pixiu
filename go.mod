@@ -22,7 +22,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/urfave/cli v1.22.4
-	go.etcd.io/etcd v0.0.0-20200402134248-51bdeb39e698 // indirect
+	go.etcd.io/etcd v0.0.0-20200402134248-51bdeb39e698
 	go.etcd.io/etcd/api/v3 v3.5.0-alpha.0
 	go.opentelemetry.io/otel v1.0.0-RC1
 	go.opentelemetry.io/otel/exporters/prometheus v0.21.0
@@ -38,6 +38,7 @@ require (
 )
 
 replace (
+	github.com/dubbogo/dubbo-go-pixiu-filter => /Users/mark4z/GolandProjects/dubbo-go-proxy-filter
 	github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
 	google.golang.org/api => google.golang.org/api v0.13.0
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0
