@@ -29,7 +29,7 @@ script:
   - go fmt ./... && [[ -z `git status -s` ]]
   - sh before_validate_license.sh
   - chmod u+x /tmp/tools/license/license-header-checker
-  - /tmp/tools/license/license-header-checker -v -a -r -i vendor -i .github/actions /tmp/tools/license/license.txt . go  && [[ -z `git status -s` ]]
+  - /tmp/tools/license/license-header-checker -v -a -r -i vendor,.github/actions /tmp/tools/license/license.txt . go  && [[ -z `git status -s` ]]
   # unit-test
   - echo 'start unit-test'
   - chmod u+x before_ut.sh && ./before_ut.sh
