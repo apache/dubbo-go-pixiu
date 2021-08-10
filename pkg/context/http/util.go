@@ -89,7 +89,7 @@ func HttpRouteActionMatch(c *HttpContext, ra model.RouteAction) bool {
 	return true
 }
 
-// 将request.body写入到span中，并重新放回去
+// ExtractRequestBody extract body of http request
 func ExtractRequestBody(req *http.Request) []byte {
 	isUpload := isUpload(req)
 	if isUpload {
@@ -103,16 +103,16 @@ func ExtractRequestBody(req *http.Request) []byte {
 	return body
 }
 
-// 是否为文件上传 upload方法
+// isUpload determine whether it is a file upload request
 func isUpload(req *http.Request) bool {
-	isUpload := false
+	var ret bool
 	v := req.Header.Get("Content-Type")
 	if v == "" {
-		return isUpload
+		return ret
 	}
 	d, _, err := mime.ParseMediaType(v)
 	if err == nil && d == "multipart/form-data" {
-		isUpload = true
+		ret = true
 	}
-	return isUpload
+	return ret
 }
