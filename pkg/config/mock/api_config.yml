@@ -22,13 +22,8 @@ resources:
   - path: '/'
     type: restful
     description: resource documentation
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
-        filters:
-          - filterA
-          - filterB
         onAir: true
         inboundRequest:
           requestType: http
@@ -58,13 +53,8 @@ resources:
   - path: '/mockTest'
     type: restful
     description: mockTest
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
-        filters:
-          - filterA
-          - filterB
         onAir: true
         inboundRequest:
           requestType: http
@@ -92,8 +82,6 @@ resources:
             - java.lang.String
           clusterName: test_dubbo
       - httpVerb: POST
-        filters:
-          - filterA
         onAir: true
         inboundRequest:
           requestType: http
@@ -122,8 +110,6 @@ resources:
       - path: '/:id'
         type: restful
         description: resource documentation
-        filters:
-          - filter0
         methods:
           - httpVerb: GET
             onAir: true
