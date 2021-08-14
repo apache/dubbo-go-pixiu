@@ -28,12 +28,15 @@ jobs:
     strategy:
       matrix:
         # build and publish in parallel: linux/386, linux/amd64, windows/386, windows/amd64, darwin/amd64
-        goos: [linux, windows, darwin]
+        goos: [linux, windows]
         goarch: ["386", amd64, arm]
+        exclude:  
+          - goarch: "arm"
+            goos: windows
 
     steps:
       - uses: actions/checkout@v2
-      - uses: wangyoucao577/go-release-action@v1.19
+      - uses: wangyoucao577/go-release-action@v1.18
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
