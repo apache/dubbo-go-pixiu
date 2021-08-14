@@ -39,5 +39,5 @@ jobs:
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           goversion: "https://golang.org/dl/go1.14.linux-amd64.tar.gz"
-          project_path: "./pixiu/cmd"
+          project_path: "./cmd/pixiu"
           binary_name: "dubbo-go-pixiu"
