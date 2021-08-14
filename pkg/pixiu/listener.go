@@ -36,11 +36,8 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	ctx "github.com/apache/dubbo-go-pixiu/pkg/context"
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -146,26 +143,26 @@ func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func addFilter(ctx *h.HttpContext, api router.API) {
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.MetricFilter),
-		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
-	alc := config.GetBootstrap().StaticResources.AccessLogConfig
-	if alc.Enable {
-		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.AccessLogFilter))
-	}
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RateLimitFilter))
-
-	switch api.Method.IntegrationRequest.RequestType {
-	// TODO add some basic filter for diff protocol
-	case fc.DubboRequest:
-
-	case fc.HTTPRequest:
-		httpFilter(ctx, api.Method.IntegrationRequest)
-	}
-
-	//ctx.AppendFilterFunc(header.newFIlter().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
-	ctx.BuildFilters()
-
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
+	//	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.MetricFilter),
+	//		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
+	//	alc := config.GetBootstrap().StaticResources.AccessLogConfig
+	//	if alc.Enable {
+	//		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.AccessLogFilter))
+	//	}
+	//	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RateLimitFilter))
+	//
+	//	switch api.Method.IntegrationRequest.RequestType {
+	//	// TODO add some basic filter for diff protocol
+	//	case fc.DubboRequest:
+	//
+	//	case fc.HTTPRequest:
+	//		httpFilter(ctx, api.Method.IntegrationRequest)
+	//	}
+	//
+	//	//ctx.AppendFilterFunc(header.newFIlter().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
+	//	ctx.BuildFilters()
+	//
+	//	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 
 // try to create filter from config.
