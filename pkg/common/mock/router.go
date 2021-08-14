@@ -31,7 +31,6 @@ func GetMockAPI(verb config.HTTPVerb, urlPattern string, filters ...string) rout
 		HTTPVerb:           verb,
 		InboundRequest:     inbound,
 		IntegrationRequest: integration,
-		Filters:            filters,
 	}
 	return router.API{
 		URLPattern: urlPattern,
