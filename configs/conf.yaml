@@ -64,6 +64,9 @@ static_resources:
                         config:
                       - name: dgp.filters.http.router
                         config:
+                      - name: dgp.filters.http.api_config_router
+                        config:
+                          - path: configs/api_config.yaml
                       - name: dgp.filters.remote_call
                         config:
                     server_name: "test_http_dubbo"
@@ -87,6 +90,10 @@ static_resources:
   clusters:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
+
+
+  cluster_adpaters:
+    - name: "dgp.cluster_adapters.spring_cloud"
       registries:
         "zookeeper":
           protocol: "zookeeper"
