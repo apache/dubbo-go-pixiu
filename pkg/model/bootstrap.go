@@ -30,6 +30,10 @@ func (bs *Bootstrap) GetListeners() []*Listener {
 	return bs.StaticResources.Listeners
 }
 
+func (bs *Bootstrap) GetStaticListeners() []*Listener {
+	return bs.StaticResources.Listeners
+}
+
 // GetPprof
 func (bs *Bootstrap) GetPprof() PprofConf {
 	return bs.StaticResources.PprofConf
@@ -57,6 +61,7 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 type StaticResources struct {
 	Listeners       []*Listener     `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
 	Clusters        []*Cluster      `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	ClusterAdapters []*ClusterAdapter `yaml:"cluster_adapters" json:"cluster_adapters" mapstructure:"cluster_adapters"`
 	TimeoutConfig   TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
 	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
