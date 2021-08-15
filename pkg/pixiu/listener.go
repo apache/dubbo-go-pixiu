@@ -47,20 +47,34 @@ import (
 
 // ListenerService the facade of a listener
 type ListenerService struct {
-	*model.Listener
+	Config *model.Listener
+	srv *http.Server
+}
+
+func CreateListenerService(lc *model.Listener) *ListenerService {
+
+
+
+	return &ListenerService{Config: lc}
+}
+
+func (ls *ListenerService) GetConfig() *model.Listener {
+	return ls.Config
 }
 
 // Start start the listener
 func (l *ListenerService) Start() {
-	switch l.Address.SocketAddress.Protocol {
+	sa := l.GetConfig().Address.SocketAddress
+	switch sa.Protocol {
 	case model.HTTP:
 		l.httpListener()
 	case model.HTTPS:
 		l.httpsListener()
 	default:
-		panic("unsupported protocol start: " + l.Address.SocketAddress.ProtocolStr)
+		panic("unsupported protocol start: " + sa.ProtocolStr)
 	}
 }
+
 func (l *ListenerService) httpsListener() {
 	hl := NewDefaultHttpListener()
 	hl.pool.New = func() interface{} {
@@ -73,8 +87,9 @@ func (l *ListenerService) httpsListener() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
 
-	srv := http.Server{
-		Addr:           resolveAddress(l.Address.SocketAddress.Address + ":" + strconv.Itoa(l.Address.SocketAddress.Port)),
+	sa := l.GetConfig().Address.SocketAddress
+	l.srv = &http.Server{
+		Addr:           resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port)),
 		Handler:        mux,
 		ReadTimeout:    resolveStr2Time(hc.ReadTimeoutStr, 20*time.Second),
 		WriteTimeout:   resolveStr2Time(hc.WriteTimeoutStr, 20*time.Second),
@@ -82,10 +97,11 @@ func (l *ListenerService) httpsListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-pixiu] httpsListener start at : %s", srv.Addr)
-	err := srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
+	logger.Infof("[dubbo-go-pixiu] httpsListener start at : %s", l.srv.Addr)
+	err := l.srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
 	logger.Info("[dubbo-go-pixiu] httpsListener result:", err)
 }
+
 func (l *ListenerService) httpListener() {
 	hl := NewDefaultHttpListener()
 	hl.pool.New = func() interface{} {
@@ -99,8 +115,9 @@ func (l *ListenerService) httpListener() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
 
-	srv := http.Server{
-		Addr:           resolveAddress(l.Address.SocketAddress.Address + ":" + strconv.Itoa(l.Address.SocketAddress.Port)),
+	sa := l.GetConfig().Address.SocketAddress
+	l.srv = &http.Server{
+		Addr:           resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port)),
 		Handler:        mux,
 		ReadTimeout:    resolveStr2Time(hc.ReadTimeoutStr, 20*time.Second),
 		WriteTimeout:   resolveStr2Time(hc.WriteTimeoutStr, 20*time.Second),
@@ -108,22 +125,22 @@ func (l *ListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-pixiu] httpListener start at : %s", srv.Addr)
+	logger.Infof("[dubbo-go-pixiu] httpListener start at : %s", l.srv.Addr)
 
-	log.Println(srv.ListenAndServe())
+	log.Println(l.srv.ListenAndServe())
 }
 
 func (l *ListenerService) allocateContext() *h.HttpContext {
 	return &h.HttpContext{
-		Listener:              l.Listener,
-		FilterChains:          l.FilterChains,
+		Listener:              l.GetConfig(),
+		FilterChains:          l.GetConfig().FilterChains,
 		HttpConnectionManager: l.findHttpManager(),
 		BaseContext:           ctx.NewBaseContext(),
 	}
 }
 
 func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
-	for _, fc := range l.FilterChains {
+	for _, fc := range l.GetConfig().FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == constant.HTTPConnectManagerFilter {
 				return f.Config.(model.HttpConnectionManager)
