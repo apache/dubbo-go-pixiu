@@ -27,7 +27,6 @@ type Cluster struct {
 	Lb               LbPolicy            `yaml:",omitempty" json:",omitempty"` // Lb the cluster select node used loadBalance policy
 	HealthChecks     []HealthCheck       `yaml:"health_checks" json:"health_checks"`
 	Hosts            []Address           `yaml:"hosts" json:"hosts"` // Hosts whe discovery type is Static, StrictDNS or LogicalDns, this need config
-	Registries       map[string]Registry `yaml:"registries" json:"registries"`
 }
 
 // DiscoveryType
