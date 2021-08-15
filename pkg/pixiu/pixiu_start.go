@@ -37,6 +37,14 @@ import (
 // PX is Pixiu start struct
 type PX struct {
 	startWG sync.WaitGroup
+
+	listenerManager *ListenerManager
+	clusterManager  *ClusterManager
+}
+
+func (p *PX) initialize(bs *model.Bootstrap) {
+	p.listenerManager = CreateDefaultListenerManager(bs)
+	p.clusterManager = CreateDefaultClusterManager(bs)
 }
 
 // Start pixiu start
@@ -56,12 +64,7 @@ func (p *PX) Start() {
 
 	registerOtelMetricMeter(conf.Metric)
 
-	listeners := conf.GetListeners()
-
-	for _, s := range listeners {
-		ls := ListenerService{Listener: s}
-		go ls.Start()
-	}
+	p.listenerManager.StartListen()
 
 	if conf.GetPprof().Enable {
 		addr := conf.GetPprof().Address.SocketAddress
@@ -95,6 +98,8 @@ func Start(bs *model.Bootstrap) {
 	logger.Infof("[dubbopixiu go] start by config : %+v", bs)
 
 	proxy := NewPX()
+	proxy.initialize(bs)
+
 	proxy.Start()
 
 	proxy.startWG.Wait()
