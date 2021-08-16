@@ -38,6 +38,12 @@ func Init() {
 	extension.SetFilterFunc(constant.HTTPAuthorityFilter, authorityFilterFunc())
 }
 
+func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
+	return func(hc *http.HttpContext) {
+		hc.AppendFilterFunc(authorityFilterFunc())
+	}
+}
+
 func authorityFilterFunc() context.FilterFunc {
 	return New().Do()
 }

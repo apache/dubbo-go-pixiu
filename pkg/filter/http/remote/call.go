@@ -19,6 +19,7 @@ package remote
 
 import (
 	"errors"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"os"
 	"strconv"
 	"strings"
@@ -38,17 +39,27 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // nolint
 func Init() {
-	extension.SetFilterFunc(constant.RemoteCallFilter, remoteFilterFunc())
+	extension.SetFilterFunc(constant.DubboProxyFilter, remoteFilterFunc())
+}
+
+func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
+	// temporary should trigger once or depend on config
+	dpc := config.(DubboProxyConfig)
+	dubbo.SingletonDubboClient().Init(&dpc, bs)
+
+	return func(hc *contexthttp.HttpContext) {
+		hc.AppendFilterFunc(remoteFilterFunc())
+	}
 }
 
 func remoteFilterFunc() fc.FilterFunc {
@@ -92,7 +103,7 @@ func New(level mockLevel) filter.Filter {
 }
 
 // Do execute clientFilter filter logic
-// support: 1 http 2 dubbo 2 http 2 http
+// support: 1 http 2 dubbo
 func (f clientFilter) Do() fc.FilterFunc {
 	return func(c fc.Context) {
 		f.doRemoteCall(c.(*contexthttp.HttpContext))
