@@ -24,14 +24,11 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/initialize"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
 // PX is Pixiu start struct
@@ -60,8 +57,6 @@ func (p *PX) Start() {
 		}
 	}()
 
-	p.beforeStart()
-
 	registerOtelMetricMeter(conf.Metric)
 
 	p.listenerManager.StartListen()
@@ -76,14 +71,6 @@ func (p *PX) Start() {
 		}
 		go http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
 		logger.Infof("[dubbopixiu go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
-	}
-}
-
-func (p *PX) beforeStart() {
-	dubbo.SingletonDubboClient().Init()
-	initialize.Run(config.GetAPIConf())
-	if err := api.InitAPIsFromConfig(config.GetAPIConf()); err != nil {
-		logger.Errorf("InitAPIsFromConfig fail: %v", err)
 	}
 }
 

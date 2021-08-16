@@ -18,7 +18,7 @@
 package pixiu
 
 import (
-	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"log"
 	"net/http"
 	"strconv"
@@ -27,68 +27,62 @@ import (
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
-
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	ctx "github.com/apache/dubbo-go-pixiu/pkg/context"
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// ListenerService the facade of a listener
-type ListenerService struct {
-	Config *model.Listener
-	srv *http.Server
-}
+type (
+	// ListenerService the facade of a listener
+	ListenerService struct {
+		cfg *model.Listener
+		// TODO: just temporary because only one network filter
+		nf  extension.NetworkFilter
+		srv *http.Server
+	}
 
-func CreateListenerService(lc *model.Listener) *ListenerService {
+	// DefaultHttpListener
+	DefaultHttpWorker struct {
+		pool sync.Pool
+		ls   *ListenerService
+	}
+)
 
-
-
-	return &ListenerService{Config: lc}
-}
-
-func (ls *ListenerService) GetConfig() *model.Listener {
-	return ls.Config
+// NewListenerService create listener service
+func CreateListenerService(lc *model.Listener, bs *model.Bootstrap) *ListenerService {
+	hcm := createHttpManager(lc, bs)
+	return &ListenerService{cfg: lc, nf: *hcm}
 }
 
 // Start start the listener
-func (l *ListenerService) Start() {
-	sa := l.GetConfig().Address.SocketAddress
+func (ls *ListenerService) Start() {
+	sa := ls.cfg.Address.SocketAddress
 	switch sa.Protocol {
 	case model.HTTP:
-		l.httpListener()
+		ls.httpListener()
 	case model.HTTPS:
-		l.httpsListener()
+		ls.httpsListener()
 	default:
 		panic("unsupported protocol start: " + sa.ProtocolStr)
 	}
 }
 
-func (l *ListenerService) httpsListener() {
-	hl := NewDefaultHttpListener()
+func (ls *ListenerService) httpsListener() {
+	hl := CreateDefaultHttpWorker(ls)
 	hl.pool.New = func() interface{} {
-		return l.allocateContext()
+		return ls.allocateContext()
 	}
 	// user customize http config
 	var hc *model.HttpConfig
-	hc = model.MapInStruct(l.Config)
+	hc = model.MapInStruct(ls.cfg)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
 
-	sa := l.GetConfig().Address.SocketAddress
-	l.srv = &http.Server{
+	sa := ls.cfg.Address.SocketAddress
+	ls.srv = &http.Server{
 		Addr:           resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port)),
 		Handler:        mux,
 		ReadTimeout:    resolveStr2Time(hc.ReadTimeoutStr, 20*time.Second),
@@ -97,26 +91,26 @@ func (l *ListenerService) httpsListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-pixiu] httpsListener start at : %s", l.srv.Addr)
-	err := l.srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
+	logger.Infof("[dubbo-go-pixiu] httpsListener start at : %s", ls.srv.Addr)
+	err := ls.srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
 	logger.Info("[dubbo-go-pixiu] httpsListener result:", err)
 }
 
-func (l *ListenerService) httpListener() {
-	hl := NewDefaultHttpListener()
+func (ls *ListenerService) httpListener() {
+	hl := CreateDefaultHttpWorker(ls)
 	hl.pool.New = func() interface{} {
-		return l.allocateContext()
+		return ls.allocateContext()
 	}
 
 	// user customize http config
 	var hc *model.HttpConfig
-	hc = model.MapInStruct(l.Config)
+	hc = model.MapInStruct(ls.cfg)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
 
-	sa := l.GetConfig().Address.SocketAddress
-	l.srv = &http.Server{
+	sa := ls.cfg.Address.SocketAddress
+	ls.srv = &http.Server{
 		Addr:           resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port)),
 		Handler:        mux,
 		ReadTimeout:    resolveStr2Time(hc.ReadTimeoutStr, 20*time.Second),
@@ -125,124 +119,42 @@ func (l *ListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-pixiu] httpListener start at : %s", l.srv.Addr)
+	logger.Infof("[dubbo-go-pixiu] httpListener start at : %s", ls.srv.Addr)
 
-	log.Println(l.srv.ListenAndServe())
+	log.Println(ls.srv.ListenAndServe())
 }
 
-func (l *ListenerService) allocateContext() *h.HttpContext {
+func (ls *ListenerService) allocateContext() *h.HttpContext {
 	return &h.HttpContext{
-		Listener:              l.GetConfig(),
-		FilterChains:          l.GetConfig().FilterChains,
-		HttpConnectionManager: l.findHttpManager(),
-		BaseContext:           ctx.NewBaseContext(),
+		Listener:     ls.cfg,
+		FilterChains: ls.cfg.FilterChains,
+		BaseContext:  ctx.NewBaseContext(),
 	}
-}
-
-func (l *ListenerService) findHttpManager() model.HttpConnectionManager {
-	for _, fc := range l.GetConfig().FilterChains {
-		for _, f := range fc.Filters {
-			if f.Name == constant.HTTPConnectManagerFilter {
-				return f.Config.(model.HttpConnectionManager)
-			}
-		}
-	}
-
-	return *DefaultHttpConnectionManager()
-}
-
-// DefaultHttpListener
-type DefaultHttpListener struct {
-	pool sync.Pool
 }
 
 // NewDefaultHttpListener create http listener
-func NewDefaultHttpListener() *DefaultHttpListener {
-	return &DefaultHttpListener{
+func CreateDefaultHttpWorker(ls *ListenerService) *DefaultHttpWorker {
+	return &DefaultHttpWorker{
 		pool: sync.Pool{},
+		ls:   ls,
 	}
 }
 
 // ServeHTTP http request entrance.
-func (s *DefaultHttpListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hc := s.pool.Get().(*h.HttpContext)
+	defer s.pool.Put(hc)
+
 	hc.Request = r
 	hc.ResetWritermen(w)
 	hc.Reset()
 
-	api, err := s.routeRequest(hc, r)
+	// now only one filter http_connection_manager, so just get it and call
+	err := s.ls.nf.OnData(hc)
+
 	if err != nil {
-		s.pool.Put(hc)
-		return
+		logger.Errorf("ServeHTTP %s", err)
 	}
-
-	hc.Ctx = context.Background()
-	addFilter(hc, api)
-
-	s.handleHTTPRequest(hc)
-
-	s.pool.Put(hc)
-}
-
-func addFilter(ctx *h.HttpContext, api router.API) {
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.MetricFilter),
-		extension.GetMustFilterFunc(constant.RecoveryFilter), extension.GetMustFilterFunc(constant.TimeoutFilter))
-	alc := config.GetBootstrap().StaticResources.AccessLogConfig
-	if alc.Enable {
-		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.AccessLogFilter))
-	}
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.RateLimitFilter))
-
-	switch api.Method.IntegrationRequest.RequestType {
-	// TODO add some basic filter for diff protocol
-	case fc.DubboRequest:
-
-	case fc.HTTPRequest:
-		httpFilter(ctx, api.Method.IntegrationRequest)
-	}
-
-	ctx.AppendFilterFunc(header.New().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
-	ctx.BuildFilters()
-
-	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
-}
-
-// try to create filter from config.
-func httpFilter(ctx *h.HttpContext, request fc.IntegrationRequest) {
-	if len(request.Host) != 0 {
-		ctx.AppendFilterFunc(host.New(request.Host).Do())
-	}
-}
-
-func (s *DefaultHttpListener) routeRequest(ctx *h.HttpContext, req *http.Request) (router.API, error) {
-	apiDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	api, err := apiDiscSrv.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
-	if err != nil {
-		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
-		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-		e := errors.Errorf("Requested URL %s not found", req.URL.Path)
-		logger.Debug(e.Error())
-		return router.API{}, e
-	}
-	if !api.Method.OnAir {
-		ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body)
-		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)
-		logger.Debug(e.Error())
-		return router.API{}, e
-	}
-	ctx.API(api)
-	return api, nil
-}
-
-func (s *DefaultHttpListener) handleHTTPRequest(c *h.HttpContext) {
-	if len(c.BaseContext.Filters) > 0 {
-		c.Next()
-		c.WriteHeaderNow()
-		return
-	}
-
-	// TODO redirect
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {
@@ -272,4 +184,30 @@ func resolveAddress(addr string) string {
 	}
 
 	return addr
+}
+
+func findHttpManager(l *model.Listener) model.HttpConnectionManager {
+	for _, fc := range l.FilterChains {
+		for _, f := range fc.Filters {
+			if f.Name == constant.HTTPConnectManagerFilter {
+				return f.Config.(model.HttpConnectionManager)
+			}
+		}
+	}
+
+	return *DefaultHttpConnectionManager()
+}
+
+func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *extension.NetworkFilter {
+	p, err := extension.GetNetworkFilterPlugin(constant.HTTPConnectManagerFilter)
+	if err != nil {
+		panic(err)
+	}
+
+	hcmc := findHttpManager(lc)
+	hcm, err := p.CreateFilter(hcmc, bs)
+	if err != nil {
+		panic(err)
+	}
+	return &hcm
 }
