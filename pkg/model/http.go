@@ -32,17 +32,6 @@ type HttpConnectionManager struct {
 	GenerateRequestID bool                   `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
 }
 
-// CorsPolicy
-type CorsPolicy struct {
-	AllowOrigin      []string `yaml:"allow_origin" json:"allow_origin" mapstructure:"allow_origin"`
-	AllowMethods     string   // access-control-allow-methods
-	AllowHeaders     string   // access-control-allow-headers
-	ExposeHeaders    string   // access-control-expose-headers
-	MaxAge           string   // access-control-max-age
-	AllowCredentials bool
-	Enabled          bool `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
-}
-
 // HTTPFilter http filter
 type HTTPFilter struct {
 	Name   string      `yaml:"name" json:"name" mapstructure:"name"`
