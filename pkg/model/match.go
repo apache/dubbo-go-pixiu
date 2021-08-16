@@ -17,6 +17,8 @@
 
 package model
 
+import "regexp"
+
 // StringMatcher matcher string
 type StringMatcher struct {
 	Matcher MatcherType
@@ -49,12 +51,4 @@ var MatcherTypeValue = map[string]int32{
 	"Prefix": 1,
 	"Suffix": 2,
 	"Regex":  3,
-}
-
-// HeaderMatcher header matcher struct
-// Name header key, Value header value, Regex header value is regex
-type HeaderMatcher struct {
-	Name  string `yaml:"name" json:"name" mapstructure:"name"`
-	Value string `yaml:"value" json:"value" mapstructure:"value"`
-	Regex bool   `yaml:"regex" json:"regex" mapstructure:"regex"`
 }

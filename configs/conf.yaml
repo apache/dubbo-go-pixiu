@@ -33,15 +33,15 @@ static_resources:
               filters:
                 - name: dgp.filters.http_connect_manager
                   config:
-                      routes:
-                        - match:
-                            prefix: "/api/v1"
-                            headers:
-                              - name: "X-DGP-WAY"
-                                value: "dubbo"
-                          route:
-                            cluster: "test-dubbo"
-                            cluster_not_found_response_code: 505
+                    routes:
+                      - match:
+                          prefix: "/api/v1"
+                          headers:
+                            - name: "X-DGP-WAY"
+                              value: "dubbo"
+                        route:
+                          cluster: "test-dubbo"
+                          cluster_not_found_response_code: 505
                     http_filters:
                       - name: dgp.filters.http.authority_filter
                         config:
