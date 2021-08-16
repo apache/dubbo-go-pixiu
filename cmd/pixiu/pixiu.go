@@ -137,19 +137,6 @@ func initLog() error {
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
 func initApiConfig() (*model.Bootstrap, bool, error) {
 	bootstrap := config.Load(configPath)
-	// get api config from meta data center
-	if bootstrap.GetAPIMetaConfig() != nil {
-		if _, err := config.LoadAPIConfig(bootstrap.GetAPIMetaConfig()); err != nil {
-			return nil, true, err
-		}
-	}
-
-	// get api config from local file
-	if !initFromRemote {
-		if _, err := config.LoadAPIConfigFromFile(apiConfigPath); err != nil {
-			return nil, false, err
-		}
-	}
 	return bootstrap, false, nil
 }
 

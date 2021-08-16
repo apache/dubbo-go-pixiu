@@ -37,8 +37,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/context"
 	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/api_config/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/service/api"
 )
 
 func getTestContext() *ctxHttp.HttpContext {

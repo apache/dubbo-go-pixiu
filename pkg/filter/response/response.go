@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -43,6 +44,12 @@ import (
 // nolint
 func Init() {
 	extension.SetFilterFunc(constant.ResponseFilter, responseFilterFunc())
+}
+
+func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
+	return func(hc *contexthttp.HttpContext) {
+		hc.AppendFilterFunc(responseFilterFunc())
+	}
 }
 
 func responseFilterFunc() fc.FilterFunc {

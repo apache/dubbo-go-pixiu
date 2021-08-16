@@ -19,6 +19,8 @@ package metric
 
 import (
 	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"sync/atomic"
 	"time"
 )
@@ -46,6 +48,12 @@ var (
 func Init() {
 	extension.SetFilterFunc(constant.MetricFilter, metricFilterFunc())
 	registerOtelMetric()
+}
+
+func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
+	return func(hc *http.HttpContext) {
+		hc.AppendFilterFunc(metricFilterFunc())
+	}
 }
 
 func registerOtelMetric() {

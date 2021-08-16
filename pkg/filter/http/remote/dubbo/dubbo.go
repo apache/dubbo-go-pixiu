@@ -19,6 +19,8 @@ package dubbo
 
 import (
 	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"strings"
 	"sync"
 	"time"
@@ -90,10 +92,9 @@ func NewDubboClient() *Client {
 }
 
 // Init init dubbo, config mapping can do here
-func (dc *Client) Init() error {
-	staticResources := config.GetBootstrap().StaticResources
-	cls := staticResources.Clusters
-	tc := staticResources.TimeoutConfig
+func (dc *Client) Init(dpc *remote.DubboProxyConfig, ds *model.Bootstrap) error {
+
+	tc := ds.StaticResources.TimeoutConfig
 
 	// dubbogo consumer config
 	dgCfg = dg.ConsumerConfig{
@@ -104,25 +105,20 @@ func (dc *Client) Init() error {
 	dgCfg.Connect_Timeout = tc.ConnectTimeoutStr
 	dgCfg.Request_Timeout = tc.RequestTimeoutStr
 	dgCfg.ApplicationConfig = defaultApplication
-	for i := range cls {
-		c := cls[i]
-		for k, v := range c.Registries {
-			if len(v.Protocol) == 0 {
-				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
-				v.Protocol = defaultDubboProtocol
-			}
-			dgCfg.Registries[k] = &dg.RegistryConfig{
-				Protocol:   v.Protocol,
-				Address:    v.Address,
-				TimeoutStr: v.Timeout,
-				Username:   v.Username,
-				Password:   v.Password,
-			}
+	for k, v := range dpc.Registries {
+		if len(v.Protocol) == 0 {
+			logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
+			v.Protocol = defaultDubboProtocol
+		}
+		dgCfg.Registries[k] = &dg.RegistryConfig{
+			Protocol:   v.Protocol,
+			Address:    v.Address,
+			TimeoutStr: v.Timeout,
+			Username:   v.Username,
+			Password:   v.Password,
 		}
 	}
-
 	initDubbogo()
-
 	return nil
 }
 

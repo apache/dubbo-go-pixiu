@@ -21,6 +21,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 	"time"
@@ -32,34 +34,63 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-var accessLogWriter = &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
+const (
+	// Kind is the kind of Fallback.
+	Kind = constant.AccessLogFilter
+)
 
-func Init() {
-	extension.SetFilterFunc(constant.AccessLogFilter, accessLog())
-	accessLogWriter.Write()
+func init() {
+	extension.RegisterHttpFilter(&AccessPlugin{})
 }
 
-// access log filter
-func accessLog() context.FilterFunc {
-	return func(c context.Context) {
-		alc := config.GetBootstrap().StaticResources.AccessLogConfig
-		if !alc.Enable {
-			return
-		}
-		start := time.Now()
-		c.Next()
-		latency := time.Now().Sub(start)
-		// build access_log message
-		accessLogMsg := buildAccessLogMsg(c, latency)
-		if len(accessLogMsg) > 0 {
-			accessLogWriter.Writer(model.AccessLogData{AccessLogConfig: alc, AccessLogMsg: accessLogMsg})
-		}
+type (
+	// AccessPlugin is http filter plugin.
+	AccessPlugin struct {
+	}
+	// AccessFilter is http filter instance
+	AccessFilter struct {
+		cfg *Config
+		alw *model.AccessLogWriter
+		alc *model.AccessLogConfig
+	}
+	// Config describe the config of AccessFilter
+	Config struct{}
+)
+
+func (ap *AccessPlugin) Kind() string {
+	return Kind
+}
+
+func (ap *AccessPlugin) CreateFilter(config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+	alc := bs.StaticResources.AccessLogConfig
+	if !alc.Enable {
+		return nil, errors.Errorf("AccessPlugin CreateFilter error the access_log config not enable")
+	}
+
+	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
+	specConfig := config.(Config)
+	return &AccessFilter{cfg: &specConfig, alw: accessLogWriter, alc: &alc}, nil
+}
+
+func (af *AccessFilter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(af.Handle)
+	return nil
+}
+
+func (af *AccessFilter) Handle(c context.Context) {
+	start := time.Now()
+
+	c.Next()
+
+	latency := time.Now().Sub(start)
+	// build access_log message
+	accessLogMsg := buildAccessLogMsg(c, latency)
+	if len(accessLogMsg) > 0 {
+		af.alw.Writer(model.AccessLogData{AccessLogConfig: *af.alc, AccessLogMsg: accessLogMsg})
 	}
 }
 

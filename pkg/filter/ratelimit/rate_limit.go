@@ -19,6 +19,7 @@ package ratelimit
 
 import (
 	"encoding/json"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"net/http"
 )
 
@@ -51,6 +52,20 @@ func Init(config *ratelimit.Config) {
 	}
 
 	extension.SetFilterFunc(constant.RateLimitFilter, New().Do())
+}
+
+func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
+
+	//if err := rateLimitInit(config); err != nil {
+	//	logger.Errorf("rate limit init fail: %s", err)
+	//	//if sentinel init fail, just return a empty filter func to avoid error.
+	//	extension.SetFilterFunc(constant.RateLimitFilter, func(context fc.Context) {})
+	//	return
+	//}
+
+	return func(hc *contexthttp.HttpContext) {
+		hc.AppendFilterFunc(New().Do())
+	}
 }
 
 // rateLimit

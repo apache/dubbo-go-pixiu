@@ -20,6 +20,7 @@ package timeout
 import (
 	"context"
 	"encoding/json"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"net/http"
 	"time"
 )
@@ -40,6 +41,12 @@ import (
 // nolint
 func Init() {
 	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
+}
+
+func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
+	return func(hc *contexthttp.HttpContext) {
+		hc.AppendFilterFunc(timeoutFilterFunc(0))
+	}
 }
 
 func timeoutFilterFunc(duration time.Duration) fc.FilterFunc {

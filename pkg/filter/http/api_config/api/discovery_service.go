@@ -20,6 +20,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/api_config"
 	"strings"
 )
 
@@ -35,7 +36,6 @@ import (
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
-	"github.com/apache/dubbo-go-pixiu/pkg/service"
 )
 
 // Init set api discovery local_memory service.
@@ -159,7 +159,7 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
-func loadAPIFromResource(parentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv service.APIDiscoveryService) error {
+func loadAPIFromResource(parentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv api_config.APIDiscoveryService) error {
 	errStack := []string{}
 	if len(resources) == 0 {
 		return nil
@@ -188,7 +188,7 @@ func getDefaultPath() (string, string) {
 	return "", ""
 }
 
-func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv service.APIDiscoveryService) error {
+func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv api_config.APIDiscoveryService) error {
 	parentPath, groupPath := getDefaultPath()
 	fullHeaders := make(map[string]string, 9)
 
@@ -201,11 +201,11 @@ func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv se
 	return err
 }
 
-func deleteAPIFromResource(old config.Resource, localSrv service.APIDiscoveryService) error {
+func deleteAPIFromResource(old config.Resource, localSrv api_config.APIDiscoveryService) error {
 	return localSrv.RemoveAPIByPath(old)
 }
 
-func addAPIFromResource(resource config.Resource, localSrv service.APIDiscoveryService, groupPath string, parentPath string, fullHeaders map[string]string) error {
+func addAPIFromResource(resource config.Resource, localSrv api_config.APIDiscoveryService, groupPath string, parentPath string, fullHeaders map[string]string) error {
 	fullPath := getFullPath(groupPath, resource.Path)
 	if !strings.HasPrefix(resource.Path, constant.PathSlash) {
 		return fmt.Errorf("path %s in %s doesn't start with /", resource.Path, parentPath)
@@ -225,7 +225,7 @@ func addAPIFromResource(resource config.Resource, localSrv service.APIDiscoveryS
 	return nil
 }
 
-func addAPIFromMethod(fullPath string, method config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
+func addAPIFromMethod(fullPath string, method config.Method, headers map[string]string, localSrv api_config.APIDiscoveryService) error {
 	api := fr.API{
 		URLPattern: fullPath,
 		Method:     method,
@@ -237,7 +237,7 @@ func addAPIFromMethod(fullPath string, method config.Method, headers map[string]
 	return nil
 }
 
-func modifyAPIFromMethod(fullPath string, new config.Method, old config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
+func modifyAPIFromMethod(fullPath string, new config.Method, old config.Method, headers map[string]string, localSrv api_config.APIDiscoveryService) error {
 	if err := localSrv.RemoveAPI(fullPath, old); err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func modifyAPIFromMethod(fullPath string, new config.Method, old config.Method, 
 	return nil
 }
 
-func deleteAPIFromMethod(fullPath string, deleted config.Method, localSrv service.APIDiscoveryService) error {
+func deleteAPIFromMethod(fullPath string, deleted config.Method, localSrv api_config.APIDiscoveryService) error {
 	return localSrv.RemoveAPI(fullPath, deleted)
 }
 
@@ -257,7 +257,7 @@ func getFullPath(groupPath string, resourcePath string) string {
 	return groupPath + resourcePath
 }
 
-func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[string]string, localSrv service.APIDiscoveryService) error {
+func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[string]string, localSrv api_config.APIDiscoveryService) error {
 	errStack := []string{}
 	for _, method := range methods {
 
