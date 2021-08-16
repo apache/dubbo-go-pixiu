@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package service
+package api_config
 
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"

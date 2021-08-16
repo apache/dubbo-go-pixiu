@@ -18,6 +18,8 @@
 package recovery
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
@@ -31,6 +33,12 @@ import (
 // nolint
 func Init() {
 	extension.SetFilterFunc(constant.RecoveryFilter, recoveryFilterFunc())
+}
+
+func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
+	return func(hc *http.HttpContext) {
+		hc.AppendFilterFunc(recoveryFilterFunc())
+	}
 }
 
 func recoveryFilterFunc() context.FilterFunc {
