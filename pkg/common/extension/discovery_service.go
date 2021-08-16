@@ -18,19 +18,19 @@
 package extension
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/service"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/api_config"
 )
 
-var apiDiscoveryServiceMap = map[string]service.APIDiscoveryService{}
+var apiDiscoveryServiceMap = map[string]api_config.APIDiscoveryService{}
 
 // SetAPIDiscoveryService will store the @filter and @name
-func SetAPIDiscoveryService(name string, ads service.APIDiscoveryService) {
+func SetAPIDiscoveryService(name string, ads api_config.APIDiscoveryService) {
 	apiDiscoveryServiceMap[name] = ads
 }
 
 // GetMustAPIDiscoveryService will return the service.APIDiscoveryService
 // if not found, it will panic
-func GetMustAPIDiscoveryService(name string) service.APIDiscoveryService {
+func GetMustAPIDiscoveryService(name string) api_config.APIDiscoveryService {
 	if ds, ok := apiDiscoveryServiceMap[name]; ok {
 		return ds
 	}
