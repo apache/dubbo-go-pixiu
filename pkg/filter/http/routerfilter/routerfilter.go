@@ -7,7 +7,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -78,8 +77,8 @@ func (rf *RouterFilter) PrepareFilterChain(ctx *http.HttpContext) error {
 	return nil
 }
 
-func (rf *RouterFilter) Handle(ctx context.Context) {
-	rEntry := ctx.GetRouteEntry()
+func (rf *RouterFilter) Handle(c *http.HttpContext) {
+	rEntry := c.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
 	}
@@ -88,9 +87,7 @@ func (rf *RouterFilter) Handle(ctx context.Context) {
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 
-	hc := ctx.(http.HttpContext)
-
-	r, w := hc.Request, hc.SourceResp
+	r, w := c.Request, c.SourceResp
 
 	var errPrefix string
 	defer func() {
