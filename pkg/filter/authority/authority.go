@@ -22,51 +22,62 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.HTTPAuthorityFilter, authorityFilterFunc())
+const (
+	// Kind is the kind of Fallback.
+	Kind = constant.HTTPAuthorityFilter
+)
+
+func init() {
+	extension.RegisterHttpFilter(&Plugin{})
 }
 
-func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
-	return func(hc *http.HttpContext) {
-		hc.AppendFilterFunc(authorityFilterFunc())
+type (
+	// AuthorityPlugin is http filter plugin.
+	Plugin struct {
 	}
-}
-
-func authorityFilterFunc() context.FilterFunc {
-	return New().Do()
-}
-
-// authorityFilter is a filter for blacklist/whitelist.
-type authorityFilter struct{}
-
-// New create blacklist/whitelist filter.
-func New() filter.Filter {
-	return &authorityFilter{}
-}
-
-// Do execute blacklist/whitelist filter logic.
-func (f authorityFilter) Do() context.FilterFunc {
-	return func(c context.Context) {
-		f.doAuthorityFilter(c.(*http.HttpContext))
+	// AccessFilter is http filter instance
+	Filter struct {
+		cfg *AuthorityConfiguration
+		alw *model.AccessLogWriter
+		alc *model.AccessLogConfig
 	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
 }
 
-func (f authorityFilter) doAuthorityFilter(c *http.HttpContext) {
-	for _, r := range c.HttpConnectionManager.AuthorityConfig.Rules {
+func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+	alc := bs.StaticResources.AccessLogConfig
+	if !alc.Enable {
+		return nil, errors.Errorf("AccessPlugin CreateFilter error the access_log config not enable")
+	}
+
+	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
+	specConfig := config.(AuthorityConfiguration)
+	return &Filter{cfg: &specConfig, alw: accessLogWriter, alc: &alc}, nil
+}
+
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
+	return nil
+}
+
+func (f *Filter) Handle(c *http.HttpContext) {
+	for _, r := range f.cfg.Rules {
 		item := c.GetClientIP()
-		if r.Limit == model.App {
+		if r.Limit == App {
 			item = c.GetApplicationName()
 		}
 
@@ -81,7 +92,7 @@ func (f authorityFilter) doAuthorityFilter(c *http.HttpContext) {
 	c.Next()
 }
 
-func passCheck(item string, rule model.AuthorityRule) bool {
+func passCheck(item string, rule AuthorityRule) bool {
 	result := false
 	for _, it := range rule.Items {
 		if it == item {
@@ -90,7 +101,7 @@ func passCheck(item string, rule model.AuthorityRule) bool {
 		}
 	}
 
-	if (rule.Strategy == model.Blacklist && result == true) || (rule.Strategy == model.Whitelist && result == false) {
+	if (rule.Strategy == Blacklist && result == true) || (rule.Strategy == Whitelist && result == false) {
 		return false
 	}
 
