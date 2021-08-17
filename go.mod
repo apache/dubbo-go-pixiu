@@ -41,4 +41,5 @@ replace (
 	github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
 	google.golang.org/api => google.golang.org/api v0.13.0
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c => ../dubbo-go-pixiu-filter
 )

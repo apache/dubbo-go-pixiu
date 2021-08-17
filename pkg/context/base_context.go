@@ -19,12 +19,10 @@ package context
 
 import (
 	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"math"
 	"time"
-)
-
-import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (
@@ -33,21 +31,53 @@ import (
 
 const abortIndex int8 = math.MaxInt8 / 2
 
-// BaseContext
-type BaseContext struct {
-	fc.Context
-	Index   int8
-	Filters fc.FilterChain
-	Timeout time.Duration
-	Ctx     context.Context
+type (
 
-	// the response context will return.
-	TargetResp *client.Response
-	// client call response.
-	SourceResp interface{}
-	// happen error
-	Err error
-}
+	// Context run context
+	Context interface {
+		Next()
+		Abort()
+		AbortWithError(string, error)
+		AppendFilterFunc(ff ...extension.FilterFunc)
+
+		Status(code int)
+		StatusCode() int
+		WriteWithStatus(int, []byte) (int, error)
+		Write([]byte) (int, error)
+		AddHeader(k, v string)
+		GetHeader(k string) string
+		GetUrl() string
+		GetMethod() string
+
+		BuildFilters()
+
+		GetRouteEntry() *model.RouteAction
+		SetRouteEntry(ra *model.RouteAction)
+		GetClientIP() string
+		GetApplicationName() string
+
+		WriteErr(p interface{})
+
+		Request()
+		Response()
+	}
+
+	// BaseContext
+	BaseContext struct {
+		Context
+		Index   int8
+		Filters extension.FilterChain
+		Timeout time.Duration
+		Ctx     context.Context
+
+		// the response context will return.
+		TargetResp *client.Response
+		// client call response.
+		SourceResp interface{}
+		// happen error
+		Err error
+	}
+)
 
 // NewBaseContext create base context.
 func NewBaseContext() *BaseContext {
@@ -76,7 +106,7 @@ func (c *BaseContext) AbortWithError(message string, err error) {
 }
 
 // AppendFilterFunc  append filter func.
-func (c *BaseContext) AppendFilterFunc(ff ...fc.FilterFunc) {
+func (c *BaseContext) AppendFilterFunc(ff ...extension.FilterFunc) {
 	for _, v := range ff {
 		c.Filters = append(c.Filters, v)
 	}

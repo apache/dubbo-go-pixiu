@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package pixiu
+package server
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
@@ -91,9 +91,9 @@ func (ls *ListenerService) httpsListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-pixiu] httpsListener start at : %s", ls.srv.Addr)
+	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
 	err := ls.srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
-	logger.Info("[dubbo-go-pixiu] httpsListener result:", err)
+	logger.Info("[dubbo-go-server] httpsListener result:", err)
 }
 
 func (ls *ListenerService) httpListener() {
@@ -119,7 +119,7 @@ func (ls *ListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-pixiu] httpListener start at : %s", ls.srv.Addr)
+	logger.Infof("[dubbo-go-server] httpListener start at : %s", ls.srv.Addr)
 
 	log.Println(ls.srv.ListenAndServe())
 }

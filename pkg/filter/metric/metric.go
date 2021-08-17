@@ -57,19 +57,19 @@ func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.Filt
 }
 
 func registerOtelMetric() {
-	meter := global.GetMeterProvider().Meter("pixiu")
+	meter := global.GetMeterProvider().Meter("server")
 	observerElapsedCallback := func(_ context.Context, result metric.Int64ObserverResult) {
 		result.Observe(totalElapsed)
 	}
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_elapsed", observerElapsedCallback,
-		metric.WithDescription("request total elapsed in pixiu"),
+		metric.WithDescription("request total elapsed in server"),
 	)
 
 	observerCountCallback := func(_ context.Context, result metric.Int64ObserverResult) {
 		result.Observe(totalCount)
 	}
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
-		metric.WithDescription("request total count in pixiu"),
+		metric.WithDescription("request total count in server"),
 	)
 }
 
@@ -96,6 +96,6 @@ func (f metricFilter) Do() fc.FilterFunc {
 		atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
 		atomic.AddInt64(&totalCount, 1)
 
-		logger.Infof("[dubbo go pixiu] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
+		logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
 	}
 }

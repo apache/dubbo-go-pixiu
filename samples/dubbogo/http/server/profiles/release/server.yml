@@ -39,7 +39,7 @@ services:
     registry: "demoZk"
     protocol: "rest"
     # Equivalent to the interface in the  dubbo.xml file
-    interface: "com.dubbogo.pixiu.UserService"
+    interface: "com.dubbogo.server.UserService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
