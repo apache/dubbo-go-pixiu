@@ -30,10 +30,6 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -82,7 +78,7 @@ func (af *AccessFilter) PrepareFilterChain(ctx *http.HttpContext) error {
 	return nil
 }
 
-func (af *AccessFilter) Handle(c context.Context) {
+func (af *AccessFilter) Handle(c *http.HttpContext) {
 	start := time.Now()
 
 	c.Next()
@@ -95,8 +91,8 @@ func (af *AccessFilter) Handle(c context.Context) {
 	}
 }
 
-func buildAccessLogMsg(c context.Context, cost time.Duration) string {
-	req := c.(*http.HttpContext).Request
+func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
+	req := c.Request
 	valueStr := req.URL.Query().Encode()
 	if len(valueStr) != 0 {
 		valueStr = strings.ReplaceAll(valueStr, "&", ",")
@@ -117,12 +113,12 @@ func buildAccessLogMsg(c context.Context, cost time.Duration) string {
 	}
 	builder.WriteString("cost time [ ")
 	builder.WriteString(strconv.Itoa(int(cost)) + " ]")
-	err := c.(*http.HttpContext).Err
+	err := c.Err
 	if err != nil {
 		builder.WriteString(fmt.Sprintf("invoke err [ %v", err))
 		builder.WriteString("] ")
 	}
-	resp := c.(*http.HttpContext).TargetResp.Data
+	resp := c.TargetResp.Data
 	rbs, err := getBytes(resp)
 	if err != nil {
 		builder.WriteString(fmt.Sprintf(" response can not convert to string"))
