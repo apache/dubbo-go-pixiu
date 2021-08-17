@@ -18,16 +18,58 @@
 package header
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"strings"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
+
+const (
+	// Kind is the kind of Fallback.
+	Kind = constant.HTTPHeaderFilter
+)
+
+func init() {
+	extension.RegisterHttpFilter(&Plugin{})
+}
+
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
+	}
+	// AccessFilter is http filter instance
+	HeaderFilter struct {
+		cfg *Config
+		alw *model.AccessLogWriter
+		alc *model.AccessLogConfig
+	}
+	// Config describe the config of AccessFilter
+	Config struct{}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
+}
+
+func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+	alc := bs.StaticResources.AccessLogConfig
+	if !alc.Enable {
+		return nil, errors.Errorf("AccessPlugin CreateFilter error the access_log config not enable")
+	}
+
+	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
+	specConfig := config.(AuthorityConfiguration)
+	return &Filter{cfg: &specConfig, alw: accessLogWriter, alc: &alc}, nil
+}
 
 type headerFilter struct{}
 

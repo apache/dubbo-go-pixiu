@@ -3,7 +3,6 @@ package extension
 import (
 	"fmt"
 	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
-	context2 "github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/pkg/errors"
 )
 
@@ -28,7 +27,7 @@ type (
 		PrepareFilterChain(ctx *http.HttpContext) error
 
 		// Handle filter hook function
-		Handle(ctx context2.Context)
+		Handle(ctx *http.HttpContext)
 	}
 
 	// NetworkFilter describe network filter plugin
@@ -46,7 +45,7 @@ type (
 	}
 
 	// FilterFunc filter func, filter
-	FilterFunc func(ctx context2.Context)
+	FilterFunc func(c *http.HttpContext)
 
 	// FilterChain filter chain
 	FilterChain []FilterFunc
