@@ -47,7 +47,7 @@ nohup go run ../../sample/http/server/app/ >http_server.out &
 sleep 10
 echo "dubbogo provider started!"
 
-## to start pixiu
+## to start server
 
 echo "starting proxy!"
 

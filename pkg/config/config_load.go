@@ -41,7 +41,7 @@ var (
 	configLoadFunc LoadFunc = LoadYAMLConfig
 )
 
-// LoadFunc ConfigLoadFunc parse a input(usually file path) into a pixiu config
+// LoadFunc ConfigLoadFunc parse a input(usually file path) into a server config
 type LoadFunc func(path string) *model.Bootstrap
 
 // GetBootstrap get config global, need a better name
