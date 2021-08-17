@@ -30,7 +30,7 @@ type Client interface {
 }
 
 /**
- * the following option is designed to support dubbo pixiu model. you can see
+ * the following option is designed to support dubbo server model. you can see
  * https://github.com/apache/dubbo-go-pixiu/tree/master.
  */
 

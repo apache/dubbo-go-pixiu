@@ -22,6 +22,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/pkg/errors"
 	"strconv"
 	"strings"
@@ -65,7 +66,7 @@ func (ap *AccessPlugin) Kind() string {
 	return Kind
 }
 
-func (ap *AccessPlugin) CreateFilter(config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+func (ap *AccessPlugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
 	alc := bs.StaticResources.AccessLogConfig
 	if !alc.Enable {
 		return nil, errors.Errorf("AccessPlugin CreateFilter error the access_log config not enable")

@@ -7,8 +7,8 @@
 ### Api Config
 
 ```yaml
-name: pixiu
-description: pixiu sample
+name: server
+description: server sample
 resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful

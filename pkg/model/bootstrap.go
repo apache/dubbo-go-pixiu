@@ -66,7 +66,7 @@ type StaticResources struct {
 // DynamicResources TODO
 type DynamicResources struct{}
 
-// ShutdownConfig how to shutdown pixiu.
+// ShutdownConfig how to shutdown server.
 type ShutdownConfig struct {
 	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
 	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
@@ -76,7 +76,7 @@ type ShutdownConfig struct {
 // APIMetaConfig how to find api config, file or etcd etc.
 type APIMetaConfig struct {
 	Address       string `yaml:"address" json:"address,omitempty"`
-	APIConfigPath string `default:"/pixiu/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
+	APIConfigPath string `default:"/server/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
 }
 
 // TimeoutConfig the config of ConnectTimeout and RequestTimeout
