@@ -2,11 +2,9 @@ package extension
 
 import (
 	"fmt"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
+	context2 "github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (
@@ -21,7 +19,7 @@ type (
 		Kind() string
 
 		// CreateFilterFactory return the filter callback
-		CreateFilter(config interface{}, bs *model.Bootstrap) (HttpFilter, error)
+		CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (HttpFilter, error)
 	}
 
 	// HttpFilter describe http filter
@@ -30,7 +28,7 @@ type (
 		PrepareFilterChain(ctx *http.HttpContext) error
 
 		// Handle filter hook function
-		Handle(ctx context.Context)
+		Handle(ctx context2.Context)
 	}
 
 	// NetworkFilter describe network filter plugin
@@ -46,6 +44,12 @@ type (
 		// OnData handle the http context from worker
 		OnData(hc *http.HttpContext) error
 	}
+
+	// FilterFunc filter func, filter
+	FilterFunc func(ctx context2.Context)
+
+	// FilterChain filter chain
+	FilterChain []FilterFunc
 )
 
 var (

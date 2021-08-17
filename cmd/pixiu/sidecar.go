@@ -25,7 +25,7 @@ import (
 var (
 	sideCarCmd = &cobra.Command{
 		Use:   "sidecar",
-		Short: "Run dubbo go pixiu in sidecar mode  (implement in the future)",
+		Short: "Run dubbo go server in sidecar mode  (implement in the future)",
 	}
 
 	startSideCarCmd = &cobra.Command{

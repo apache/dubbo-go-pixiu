@@ -41,7 +41,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # Equivalent to the interface in the  dubbo.xml file
-    interface: "com.dubbogo.pixiu.StudentService"
+    interface: "com.dubbogo.server.StudentService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
@@ -55,7 +55,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # Equivalent to the interface in the  dubbo.xml file
-    interface: "com.dubbogo.pixiu.TeacherService"
+    interface: "com.dubbogo.server.TeacherService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"

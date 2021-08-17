@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 							FilterChainMatch: model.FilterChainMatch{
 								Domains: []string{
 									"api.dubbo.com",
-									"api.pixiu.com",
+									"api.server.com",
 								},
 							},
 							Filters: []model.Filter{

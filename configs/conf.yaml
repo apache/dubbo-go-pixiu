@@ -29,7 +29,7 @@ static_resources:
             - filter_chain_match:
               domains:
                 - api.dubbo.com
-                - api.pixiu.com
+                - api.server.com
               filters:
                 - name: dgp.filters.http_connect_manager
                   config:
@@ -91,6 +91,9 @@ static_resources:
   clusters:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
+      endpoints:
+        - ID: 111
+          address:
 
 
   cluster_adpaters:
@@ -117,7 +120,7 @@ static_resources:
         port: 6060
   accessLog:
     enable: true
-    outputpath: logs/dubbo-go-pixiu-access
+    outputpath: logs/dubbo-go-server-access
 metric:
   enable: true
   prometheus_port: 2222

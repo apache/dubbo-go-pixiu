@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package pixiu
+package server
 
 import (
 	"net/http"
@@ -31,24 +31,26 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+var server *Server
+
 // PX is Pixiu start struct
-type PX struct {
+type Server struct {
 	startWG sync.WaitGroup
 
 	listenerManager *ListenerManager
 	clusterManager  *ClusterManager
 }
 
-func (p *PX) initialize(bs *model.Bootstrap) {
-	p.listenerManager = CreateDefaultListenerManager(bs)
-	p.clusterManager = CreateDefaultClusterManager(bs)
+func (s *Server) initialize(bs *model.Bootstrap) {
+	s.listenerManager = CreateDefaultListenerManager(bs)
+	s.clusterManager = CreateDefaultClusterManager(bs)
 }
 
-// Start pixiu start
-func (p *PX) Start() {
+// Start server start
+func (s *Server) Start() {
 	conf := config.GetBootstrap()
 
-	p.startWG.Add(1)
+	s.startWG.Add(1)
 
 	defer func() {
 		if re := recover(); re != nil {
@@ -59,7 +61,7 @@ func (p *PX) Start() {
 
 	registerOtelMetricMeter(conf.Metric)
 
-	p.listenerManager.StartListen()
+	s.listenerManager.StartListen()
 
 	if conf.GetPprof().Enable {
 		addr := conf.GetPprof().Address.SocketAddress
@@ -74,9 +76,9 @@ func (p *PX) Start() {
 	}
 }
 
-// NewPX create pixiu
-func NewPX() *PX {
-	return &PX{
+// NewPX create server
+func NewServer() *Server {
+	return &Server{
 		startWG: sync.WaitGroup{},
 	}
 }
@@ -84,10 +86,16 @@ func NewPX() *PX {
 func Start(bs *model.Bootstrap) {
 	logger.Infof("[dubbopixiu go] start by config : %+v", bs)
 
-	proxy := NewPX()
-	proxy.initialize(bs)
+	server := NewServer()
+	server.initialize(bs)
+	server.Start()
+	server.startWG.Wait()
+}
 
-	proxy.Start()
+func GetServer() *Server {
+	return server
+}
 
-	proxy.startWG.Wait()
+func GetClusterManager() *ClusterManager {
+	return server.clusterManager
 }

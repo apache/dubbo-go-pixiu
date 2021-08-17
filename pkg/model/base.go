@@ -82,7 +82,7 @@ type Address struct {
 }
 
 // Address specify either a logical or physical address and port, which are
-// used to tell pixiu where to bind/listen, connect to upstream and find
+// used to tell server where to bind/listen, connect to upstream and find
 // management servers
 type SocketAddress struct {
 	ProtocolStr  string       `yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`

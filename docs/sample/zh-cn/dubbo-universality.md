@@ -9,8 +9,8 @@
 ### 接口配置
 
 ```yaml
-name: pixiu
-description: pixiu sample
+name: server
+description: server sample
 resources:
   - path: '/api/v1/test-dubbo/:application/:interface'
     type: restful

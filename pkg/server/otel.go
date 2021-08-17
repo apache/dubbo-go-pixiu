@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package pixiu
+package server
 
 import (
 	"net/http"
