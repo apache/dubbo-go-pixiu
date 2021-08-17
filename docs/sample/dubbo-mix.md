@@ -7,8 +7,8 @@
 ### Api Config
 
 ```yaml
-name: pixiu
-description: pixiu sample
+name: server
+description: server sample
 resources:
   - path: '/api/v1/test-dubbo/user/:name'
     type: restful
@@ -29,7 +29,7 @@ resources:
               mapTo: 1
               mapType: "int"
           applicationName: "UserService"
-          interface: "com.dubbogo.pixiu.UserService"
+          interface: "com.dubbogo.server.UserService"
           method: "GetUserByNameAndAge"
           group: "test"
           version: 1.0.0
@@ -49,7 +49,7 @@ resources:
               mapTo: 1
               mapType: "object"
           applicationName: "UserService"
-          interface: "com.dubbogo.pixiu.UserService"
+          interface: "com.dubbogo.server.UserService"
           method: "UpdateUserByName"
           group: "test"
           version: 1.0.0
@@ -73,7 +73,7 @@ resources:
               mapTo: 1
               mapType: "object"
           applicationName: "UserService"
-          interface: "com.dubbogo.pixiu.UserService"
+          interface: "com.dubbogo.server.UserService"
           method: "UpdateUserByName"
           group: "test"
           version: 1.0.0

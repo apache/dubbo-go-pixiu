@@ -1,11 +1,18 @@
 package router
 
-import "github.com/apache/dubbo-go-pixiu/pkg/model"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
 
 type RouterManager struct {
-	config *model.RouteConfiguration
+	activeConfig *model.RouteConfiguration
 }
 
 func CreateRouterManager(hcmc *model.HttpConnectionManager) *RouterManager {
-	return &RouterManager{config: &hcmc.RouteConfig}
+	return &RouterManager{activeConfig: &hcmc.RouteConfig}
+}
+
+func (rm *RouterManager) Route(hc *http.HttpContext) (*model.RouteAction, error) {
+	return rm.activeConfig.Route(hc)
 }

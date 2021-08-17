@@ -20,6 +20,7 @@ package model
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/pkg/errors"
 	"regexp"
 	"strings"
 )
@@ -28,11 +29,8 @@ import (
 
 type (
 	Router struct {
-		Match    RouterMatch `yaml:"match" json:"match" mapstructure:"match"`
-		Route    RouteAction `yaml:"route" json:"route" mapstructure:"route"`
-		Redirect RouteAction `yaml:"redirect" json:"redirect" mapstructure:"redirect"`
-		//"metadata": "{...}",
-		//"decorator": "{...}"
+		Match RouterMatch `yaml:"match" json:"match" mapstructure:"match"`
+		Route RouteAction `yaml:"route" json:"route" mapstructure:"route"`
 	}
 
 	// RouterMatch
@@ -72,28 +70,42 @@ type (
 	}
 )
 
-func (r *Router) MatchRouter(ctx *http.HttpContext) bool {
-	if r.Match.matchPath(ctx) {
+func (rc *RouteConfiguration) Route(hc *http.HttpContext) (*RouteAction, error) {
+	if rc.Routes == nil {
+		return nil, errors.Errorf("router configuration is empty")
+	}
+
+	for _, r := range rc.Routes {
+		if r.MatchRouter(hc) {
+			return &r.Route, nil
+		}
+	}
+
+	return nil, errors.Errorf("no matched route")
+}
+
+func (r *Router) MatchRouter(hc *http.HttpContext) bool {
+	if r.Match.matchPath(hc) {
 		return true
 	}
 
-	if r.Match.matchMethod(ctx) {
+	if r.Match.matchMethod(hc) {
 		return true
 	}
 
-	if r.Match.matchHeader(ctx) {
+	if r.Match.matchHeader(hc) {
 		return true
 	}
 
 	return false
 }
 
-func (rm *RouterMatch) matchPath(ctx *http.HttpContext) bool {
+func (rm *RouterMatch) matchPath(hc *http.HttpContext) bool {
 	if rm.Path == "" && rm.Prefix == "" && rm.PathRE == nil {
 		return true
 	}
 
-	path := ctx.GetUrl()
+	path := hc.GetUrl()
 
 	if rm.Path != "" && rm.Path == path {
 		return true

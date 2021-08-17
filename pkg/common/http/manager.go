@@ -4,6 +4,7 @@ import (
 	"context"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"net/http"
 )
 
@@ -22,22 +23,33 @@ import (
 )
 
 type HttpConnectionManager struct {
-	config *model.HttpConnectionManager
-	rm     *router2.RouterManager
-	hfs    []extension.HttpFilter
+	config         *model.HttpConnectionManager
+	routerManager  *router2.RouterManager
+	clusterManager *server.ClusterManager
+	filters        []extension.HttpFilter
 }
 
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManager, bs *model.Bootstrap) *HttpConnectionManager {
-	rm := router2.CreateRouterManager(hcmc)
-	hfs := initFilterIfNeed(hcmc, bs)
-	return &HttpConnectionManager{config: hcmc, rm: rm, hfs: hfs}
+	hcm := &HttpConnectionManager{config: hcmc}
+	hcm.routerManager = router2.CreateRouterManager(hcmc)
+	hcm.filters = initFilterIfNeed(hcm, hcmc, bs)
+	return hcm
 }
 
 func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	hc.Ctx = context.Background()
+	hcm.findRoute(hc)
 	hcm.addFilter(hc)
 	hcm.handleHTTPRequest(hc)
 	return nil
+}
+
+func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) {
+	ra, err := hcm.routerManager.Route(hc)
+	if err != nil {
+		// return 404
+	}
+	hc.SetRouteEntry(ra)
 }
 
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
@@ -51,7 +63,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 }
 
 func (hcm *HttpConnectionManager) addFilter(ctx *pch.HttpContext) {
-	for _, f := range hcm.hfs {
+	for _, f := range hcm.filters {
 		f.PrepareFilterChain(ctx)
 	}
 }
@@ -77,14 +89,7 @@ func (hcm *HttpConnectionManager) routeRequest(ctx *pch.HttpContext, req *http.R
 	return api, nil
 }
 
-// try to create filter from config.
-func httpFilter(ctx *pch.HttpContext, request fc.IntegrationRequest) {
-	if len(request.Host) != 0 {
-		ctx.AppendFilterFunc(host.New(request.Host).Do())
-	}
-}
-
-func initFilterIfNeed(hcmc *model.HttpConnectionManager, bs *model.Bootstrap) []extension.HttpFilter {
+func initFilterIfNeed(hcm *HttpConnectionManager, hcmc *model.HttpConnectionManager, bs *model.Bootstrap) []extension.HttpFilter {
 	var hfs []extension.HttpFilter
 
 	for _, f := range hcmc.HTTPFilters {
@@ -93,7 +98,7 @@ func initFilterIfNeed(hcmc *model.HttpConnectionManager, bs *model.Bootstrap) []
 			logger.Error("initFilterIfNeed get plugin error %s", err)
 		}
 
-		hf, err := hp.CreateFilter(f.Config, bs)
+		hf, err := hp.CreateFilter(hcm, f.Config, bs)
 		if err != nil {
 			logger.Error("initFilterIfNeed create filter error %s", err)
 		}
