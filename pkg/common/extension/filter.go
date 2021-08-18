@@ -44,6 +44,11 @@ type (
 		OnData(hc *http.HttpContext) error
 	}
 
+	// ErrResponse err response.
+	ErrResponse struct {
+		Message string `json:"message"`
+	}
+
 	// FilterFunc filter func, filter
 	FilterFunc func(c *http.HttpContext)
 

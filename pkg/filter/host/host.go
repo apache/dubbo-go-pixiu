@@ -18,32 +18,51 @@
 package host
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
-)
-
-import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// hostFilter is a filter for host.
-type hostFilter struct {
-	host string
+const (
+	// Kind is the kind of plugin.
+	Kind = constant.HTTPHOSTFilter
+)
+
+func init() {
+	extension.RegisterHttpFilter(&Plugin{})
 }
 
-// New create host filter.
-func New(host string) filter.Filter {
-	return &hostFilter{host: host}
-}
-
-// // Do execute hostFilter filter logic.
-func (f hostFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		f.doHostFilter(c.(*contexthttp.HttpContext))
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
 	}
+	// HostFilter is http filter instance
+	HostFilter struct {
+		cfg *Config
+	}
+	// Config describe the config of HostFilter
+	Config struct {
+		Host string `yaml:"host" json:"host"`
+	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
 }
 
-func (f hostFilter) doHostFilter(c *contexthttp.HttpContext) {
-	c.Request.Host = f.host
+func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+	specConfig := config.(Config)
+	return &HostFilter{cfg: &specConfig}, nil
+}
+
+func (hf *HostFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(hf.Handle)
+	return nil
+}
+
+func (hf *HostFilter) Handle(c *contexthttp.HttpContext) {
+	c.Request.Host = hf.cfg.Host
 	c.Next()
 }
