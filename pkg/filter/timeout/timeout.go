@@ -20,90 +20,92 @@ package timeout
 import (
 	"context"
 	"encoding/json"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"net/http"
 	"time"
-)
-
-import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
+const (
+	// Kind is the kind of Fallback.
+	Kind = constant.HTTPAuthorityFilter
+)
+
+func init() {
+	extension.RegisterHttpFilter(&Plugin{})
 }
 
-func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
-	return func(hc *contexthttp.HttpContext) {
-		hc.AppendFilterFunc(timeoutFilterFunc(0))
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
+	}
+
+	// Filter is http filter instance
+	Filter struct {
+		cfg *Config
+	}
+
+	Config struct {
+		Timeout time.Duration `yaml:"timeout" json:"timeout"`
+	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
+}
+
+func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+	specConfig := config.(Config)
+	if specConfig.Timeout <= 0 {
+		specConfig.Timeout = constant.DefaultTimeout
+	}
+
+	return &Filter{cfg: &specConfig}, nil
+}
+
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
+	return nil
+}
+
+func (f *Filter) Handle(hc *contexthttp.HttpContext) {
+	ctx, cancel := context.WithTimeout(hc.Ctx, f.getTimeout(hc.Timeout))
+	defer cancel()
+	// Channel capacity must be greater than 0.
+	// Otherwise, if the parent coroutine quit due to timeout,
+	// the child coroutine may never be able to quit.
+	finishChan := make(chan struct{}, 1)
+	go func() {
+		// panic by recovery
+		hc.Next()
+		finishChan <- struct{}{}
+	}()
+
+	select {
+	// timeout do.
+	case <-ctx.Done():
+		logger.Warnf("api:%s request timeout", hc.GetUrl())
+		bt, _ := json.Marshal(extension.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
+		hc.SourceResp = bt
+		hc.TargetResp = &client.Response{Data: bt}
+		hc.WriteJSONWithStatus(http.StatusGatewayTimeout, bt)
+		hc.Abort()
+	case <-finishChan:
+		// finish call do something.
 	}
 }
 
-func timeoutFilterFunc(duration time.Duration) fc.FilterFunc {
-	return New(duration).Do()
-}
-
-// timeoutFilter is a filter for control request time out.
-type timeoutFilter struct {
-	// global timeout
-	waitTime time.Duration
-}
-
-// New create timeout filter.
-func New(t time.Duration) filter.Filter {
+func (f *Filter) getTimeout(t time.Duration) time.Duration {
 	if t <= 0 {
-		t = constant.DefaultTimeout
-	}
-	return &timeoutFilter{
-		waitTime: t,
-	}
-}
-
-// Do execute timeoutFilter filter logic.
-func (f timeoutFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		hc := c.(*contexthttp.HttpContext)
-
-		ctx, cancel := context.WithTimeout(hc.Ctx, f.getTimeout(hc.Timeout))
-		defer cancel()
-		// Channel capacity must be greater than 0.
-		// Otherwise, if the parent coroutine quit due to timeout,
-		// the child coroutine may never be able to quit.
-		finishChan := make(chan struct{}, 1)
-		go func() {
-			// panic by recovery
-			c.Next()
-			finishChan <- struct{}{}
-		}()
-
-		select {
-		// timeout do.
-		case <-ctx.Done():
-			logger.Warnf("api:%s request timeout", hc.GetAPI().URLPattern)
-			bt, _ := json.Marshal(filter.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
-			hc.SourceResp = bt
-			hc.TargetResp = &client.Response{Data: bt}
-			hc.WriteJSONWithStatus(http.StatusGatewayTimeout, bt)
-			c.Abort()
-		case <-finishChan:
-			// finish call do something.
-		}
-	}
-}
-
-func (f timeoutFilter) getTimeout(t time.Duration) time.Duration {
-	if t <= 0 {
-		return f.waitTime
+		return f.cfg.Timeout
 	}
 
 	return t

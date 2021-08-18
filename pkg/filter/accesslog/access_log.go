@@ -21,16 +21,19 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
-	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 	"time"
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )

@@ -33,8 +33,6 @@ import (
 	_ "github.com/apache/dubbo-go/registry/zookeeper"
 
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
