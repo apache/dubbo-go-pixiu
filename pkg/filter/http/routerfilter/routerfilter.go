@@ -3,16 +3,25 @@ package routerfilter
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
+	"net"
+	http3 "net/http"
+	"net/url"
+	"time"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
+	ctx "github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"net"
-	http3 "net/http"
-	"time"
 )
 
 const (
@@ -77,8 +86,8 @@ func (rf *RouterFilter) PrepareFilterChain(ctx *http.HttpContext) error {
 	return nil
 }
 
-func (rf *RouterFilter) Handle(c *http.HttpContext) {
-	rEntry := c.GetRouteEntry()
+func (rf *RouterFilter) Handle(hc *http.HttpContext) {
+	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
 	}
@@ -87,38 +96,47 @@ func (rf *RouterFilter) Handle(c *http.HttpContext) {
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 
-	r, w := c.Request, c.SourceResp
+	r, w := hc.Request, hc.SourceResp
 
 	var errPrefix string
 	defer func() {
 		if err := recover(); err != nil {
-
-			w.SetStatusCode(http3.StatusServiceUnavailable)
-			// NOTE: We don't use stringtool.Cat because err needs
-			// the internal reflection of fmt.Sprintf.
-			ctx.AddTag(fmt.Sprintf("remoteFilterErr: %s: %v", errPrefix, err))
-			result = resultFailed
+			bt, _ := json.Marshal(extension.ErrResponse{Message: fmt.Sprintf("remoteFilterErr: %s: %v", errPrefix, err)})
+			hc.SourceResp = bt
+			hc.TargetResp = &client.Response{Data: bt}
+			hc.WriteJSONWithStatus(http3.StatusServiceUnavailable, bt)
+			hc.Abort()
+			return
 		}
 	}()
 
 	var (
-		req *http.Request
+		req *http3.Request
 		err error
 	)
 
-	if rf.spec.timeout > 0 {
-		timeoutCtx, cancelFunc := stdcontext.WithTimeout(stdcontext.Background(), rf.spec.timeout)
-		defer cancelFunc()
-		req, err = http.NewRequestWithContext(timeoutCtx, http.MethodPost, rf.spec.URL, bytes.NewReader(ctxBuff))
-	} else {
-		req, err = http.NewRequest(http.MethodPost, rf.spec.URL, bytes.NewReader(ctxBuff))
+	r.Body = req.IngressRequest.Body
+	r.Header = req.IngressRequest.Header.Clone()
+	queryValues, err := url.ParseQuery(req.IngressRequest.URL.RawQuery)
+	if err != nil {
+		return nil, errors.New("Retrieve request query parameters failed")
 	}
+	r.Query = queryValues
+
+	if router.IsWildCardBackendPath(&req.API) {
+		r.URIParams = router.GetURIParams(&req.API, *req.IngressRequest.URL)
+	}
+	return r, nil
+
+	req, err = http3.NewRequest(http3.MethodPost, rf.spec.URL, bytes.NewReader(hc.Request))
 
 	if err != nil {
-		logger.Errorf("BUG: new request failed: %v", err)
-		w.SetStatusCode(http.StatusInternalServerError)
-		ctx.AddTag(stringtool.Cat("remoteFilterBug: ", err.Error()))
-		return resultFailed
+		bt, _ := json.Marshal(extension.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
+		hc.SourceResp = bt
+		hc.TargetResp = &client.Response{Data: bt}
+		hc.WriteJSONWithStatus(http3.StatusInternalServerError, bt)
+		hc.Abort()
+		return
 	}
 
 	errPrefix = "do request"
