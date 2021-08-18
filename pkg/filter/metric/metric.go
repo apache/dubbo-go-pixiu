@@ -19,16 +19,12 @@ package metric
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+
 	"sync/atomic"
 	"time"
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
-
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/global"
 )
@@ -36,7 +32,15 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+const (
+	// Kind is the kind of Fallback.
+	Kind = constant.MetricFilter
 )
 
 var (
@@ -44,16 +48,45 @@ var (
 	totalCount   int64
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.MetricFilter, metricFilterFunc())
-	registerOtelMetric()
+func init() {
+	extension.RegisterHttpFilter(&Plugin{})
 }
 
-func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
-	return func(hc *http.HttpContext) {
-		hc.AppendFilterFunc(metricFilterFunc())
+type (
+	// MetricFilter is http filter plugin.
+	Plugin struct {
 	}
+	// MetricFilter is http filter instance
+	MetricFilter struct {
+	}
+	// Config describe the config of MetricFilter
+	Config struct{}
+)
+
+func (ap *Plugin) Kind() string {
+	return Kind
+}
+
+func (ap *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+	registerOtelMetric()
+	return &MetricFilter{}, nil
+}
+
+func (mf *MetricFilter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(mf.Handle)
+	return nil
+}
+
+func (mf *MetricFilter) Handle(c *http.HttpContext) {
+	start := time.Now()
+
+	c.Next()
+
+	latency := time.Now().Sub(start)
+	atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
+	atomic.AddInt64(&totalCount, 1)
+
+	logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
 }
 
 func registerOtelMetric() {
@@ -71,31 +104,4 @@ func registerOtelMetric() {
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
 		metric.WithDescription("request total count in server"),
 	)
-}
-
-func metricFilterFunc() fc.FilterFunc {
-	return New().Do()
-}
-
-// loggerFilter is a filter for simple metric.
-type metricFilter struct{}
-
-// New create metric filter.
-func New() filter.Filter {
-	return &metricFilter{}
-}
-
-// Metric filter, record url and latency
-func (f metricFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		start := time.Now()
-
-		c.Next()
-
-		latency := time.Now().Sub(start)
-		atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
-		atomic.AddInt64(&totalCount, 1)
-
-		logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
-	}
 }
