@@ -46,7 +46,7 @@ type (
 	// AuthorityPlugin is http filter plugin.
 	Plugin struct {
 	}
-	// AccessFilter is http filter instance
+	// Filter is http filter instance
 	Filter struct {
 		cfg *AuthorityConfiguration
 		alw *model.AccessLogWriter

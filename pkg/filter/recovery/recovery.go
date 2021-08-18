@@ -18,10 +18,9 @@
 package recovery
 
 import (
+	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 )
 
 import (
@@ -30,39 +29,49 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, recoveryFilterFunc())
+const (
+	// Kind is the kind of plugin.
+	Kind = constant.RecoveryFilter
+)
+
+func init() {
+	extension.RegisterHttpFilter(&Plugin{})
 }
 
-func CreateFilterFactory(config interface{}, bs *model.Bootstrap) extension.FilterFactoryFunc {
-	return func(hc *http.HttpContext) {
-		hc.AppendFilterFunc(recoveryFilterFunc())
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
 	}
-}
-
-func recoveryFilterFunc() context.FilterFunc {
-	return New().Do()
-}
-
-// recoveryFilter is a filter for recover.
-type recoveryFilter struct{}
-
-// New create timeout filter.
-func New() filter.Filter {
-	return &recoveryFilter{}
-}
-
-// Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
-func (f recoveryFilter) Do() context.FilterFunc {
-	return func(c context.Context) {
-		defer func() {
-			if err := recover(); err != nil {
-				logger.Warnf("[dubbopixiu go] error:%+v", err)
-
-				c.WriteErr(err)
-			}
-		}()
-		c.Next()
+	// RecoveryFilter is http filter instance
+	RecoveryFilter struct {
+		cfg *Config
 	}
+	// Config describe the config of RecoveryFilter
+	Config struct {
+		Host string `yaml:"host" json:"host"`
+	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
+}
+
+func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+	specConfig := config.(Config)
+	return &RecoveryFilter{cfg: &specConfig}, nil
+}
+
+func (rf *RecoveryFilter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(rf.Handle)
+	return nil
+}
+
+func (rf *RecoveryFilter) Handle(c *http.HttpContext) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Warnf("[dubbopixiu go] error:%+v", err)
+			c.WriteErr(err)
+		}
+	}()
+	c.Next()
 }

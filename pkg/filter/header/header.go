@@ -22,11 +22,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"strings"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
@@ -46,13 +41,11 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// AccessFilter is http filter instance
+	// HeaderFilter is http filter instance
 	HeaderFilter struct {
 		cfg *Config
-		alw *model.AccessLogWriter
-		alc *model.AccessLogConfig
 	}
-	// Config describe the config of AccessFilter
+	// Config describe the config of HeaderFilter
 	Config struct{}
 )
 
@@ -61,56 +54,41 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
-	alc := bs.StaticResources.AccessLogConfig
-	if !alc.Enable {
-		return nil, errors.Errorf("AccessPlugin CreateFilter error the access_log config not enable")
-	}
-
-	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
-	specConfig := config.(AuthorityConfiguration)
-	return &Filter{cfg: &specConfig, alw: accessLogWriter, alc: &alc}, nil
+	return &HeaderFilter{}, nil
 }
 
-type headerFilter struct{}
-
-// nolint.
-func New() *headerFilter {
-	return &headerFilter{}
+func (hf *HeaderFilter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(hf.Handle)
+	return nil
 }
 
-func (h *headerFilter) Do() context.FilterFunc {
-	return func(c context.Context) {
-		api := c.GetAPI()
-		headers := api.Headers
-		if len(headers) <= 0 {
-			c.Next()
-			return
-		}
-		switch c.(type) {
-		case *http.HttpContext:
-			hc := c.(*http.HttpContext)
-			urlHeaders := hc.AllHeaders()
-			if len(urlHeaders) <= 0 {
-				c.Abort()
-				return
-			}
-
-			for headerName, headerValue := range headers {
-				urlHeaderValues := urlHeaders.Values(strings.ToLower(headerName))
-				if urlHeaderValues == nil {
-					c.Abort()
-					return
-				}
-				for _, urlHeaderValue := range urlHeaderValues {
-					if urlHeaderValue == headerValue {
-						goto FOUND
-					}
-				}
-				c.Abort()
-			FOUND:
-				continue
-			}
-			break
-		}
-	}
+func (hf *HeaderFilter) Handle(hc *http.HttpContext) {
+	//api := hc.GetAPI()
+	//headers := api.Headers
+	//if len(headers) <= 0 {
+	//	hc.Next()
+	//	return
+	//}
+	//
+	//urlHeaders := hc.AllHeaders()
+	//if len(urlHeaders) <= 0 {
+	//	hc.Abort()
+	//	return
+	//}
+	//
+	//for headerName, headerValue := range headers {
+	//	urlHeaderValues := urlHeaders.Values(strings.ToLower(headerName))
+	//	if urlHeaderValues == nil {
+	//		hc.Abort()
+	//		return
+	//	}
+	//	for _, urlHeaderValue := range urlHeaderValues {
+	//		if urlHeaderValue == headerValue {
+	//			goto FOUND
+	//		}
+	//	}
+	//	hc.Abort()
+	//FOUND:
+	//	continue
+	//}
 }
