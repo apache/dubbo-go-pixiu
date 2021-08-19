@@ -35,6 +35,10 @@ const (
 )
 
 const (
+	SpringCloudAdapter = "dgp.adapters.spring_cloud"
+)
+
+const (
 	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
 )
 

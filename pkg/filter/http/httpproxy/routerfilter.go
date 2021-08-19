@@ -92,6 +92,10 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 
+	if endpoint == nil {
+
+	}
+
 	r := hc.Request
 
 	var errPrefix string

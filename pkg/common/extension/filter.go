@@ -61,15 +61,15 @@ var (
 	networkFilterPluginRegistry = map[string]NetworkFilterPlugin{}
 )
 
-// Register registers filter.
+// Register registers filter plugin.
 func RegisterHttpFilter(f HttpFilterPlugin) {
 	if f.Kind() == "" {
 		panic(fmt.Errorf("%T: empty kind", f))
 	}
 
-	existedFilter, existed := httpFilterPluginRegistry[f.Kind()]
+	existedPlugin, existed := httpFilterPluginRegistry[f.Kind()]
 	if existed {
-		panic(fmt.Errorf("%T and %T got same kind: %s", f, existedFilter, f.Kind()))
+		panic(fmt.Errorf("%T and %T got same kind: %s", f, existedPlugin, f.Kind()))
 	}
 
 	httpFilterPluginRegistry[f.Kind()] = f

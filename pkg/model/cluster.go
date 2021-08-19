@@ -17,6 +17,8 @@
 
 package model
 
+import "math/rand"
+
 const (
 	Static DiscoveryType = 0 + iota
 	StrictDNS
@@ -55,7 +57,7 @@ type (
 		LbStr            string           `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
 		Lb               LbPolicy         `yaml:",omitempty" json:",omitempty"` // Lb the cluster select node used loadBalance policy
 		HealthChecks     []HealthCheck    `yaml:"health_checks" json:"health_checks"`
-		Endpoints        []Endpoint       `yaml:"endpoints" json:"endpoints"`
+		Endpoints        []*Endpoint      `yaml:"endpoints" json:"endpoints"`
 	}
 
 	// EdsClusterConfig
@@ -82,3 +84,20 @@ type (
 		ID      string        `yaml:"ID" json:"ID"` // ID indicate one endpoint
 	}
 )
+
+func (c *Cluster) PickOneEndpoint() *Endpoint {
+	// TODO: add lb strategy abstraction
+	if c.Endpoints == nil || len(c.Endpoints) == 0 {
+		return nil
+	}
+
+	if len(c.Endpoints) == 1 {
+		return c.Endpoints[0]
+	}
+
+	if c.Lb == Rand {
+		return c.Endpoints[rand.Intn(len(c.Endpoints))]
+	} else {
+		return c.Endpoints[0]
+	}
+}
