@@ -17,21 +17,6 @@
 
 package model
 
-import "regexp"
-
-// StringMatcher matcher string
-type StringMatcher struct {
-	Matcher MatcherType
-}
-
-// Match
-func (sm *StringMatcher) Match() (bool, error) {
-	return true, nil
-}
-
-// MatcherType matcher type
-type MatcherType int32
-
 const (
 	Exact MatcherType = 0 + iota
 	Prefix
@@ -39,16 +24,33 @@ const (
 	Regex
 )
 
-var MatcherTypeName = map[int32]string{
-	0: "Exact",
-	1: "Prefix",
-	2: "Suffix",
-	3: "Regex",
-}
+var (
+	MatcherTypeName = map[int32]string{
+		0: "Exact",
+		1: "Prefix",
+		2: "Suffix",
+		3: "Regex",
+	}
 
-var MatcherTypeValue = map[string]int32{
-	"Exact":  0,
-	"Prefix": 1,
-	"Suffix": 2,
-	"Regex":  3,
+	MatcherTypeValue = map[string]int32{
+		"Exact":  0,
+		"Prefix": 1,
+		"Suffix": 2,
+		"Regex":  3,
+	}
+)
+
+type (
+	// StringMatcher matcher string
+	StringMatcher struct {
+		Matcher MatcherType
+	}
+
+	// MatcherType matcher type
+	MatcherType int32
+)
+
+// Match
+func (sm *StringMatcher) Match() (bool, error) {
+	return true, nil
 }
