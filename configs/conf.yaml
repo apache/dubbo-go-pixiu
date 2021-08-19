@@ -94,17 +94,16 @@ static_resources:
       endpoints:
         - ID: 111
           address:
-
-
-  cluster_adpaters:
+  adapters:
     - name: "dgp.cluster_adapters.spring_cloud"
-      registries:
-        "zookeeper":
-          protocol: "zookeeper"
-          timeout: "3s"
-          address: "127.0.0.1:2181"
-          username: ""
-          password: ""
+      config:
+        registries:
+          "zookeeper":
+            protocol: "zookeeper"
+            timeout: "3s"
+            address: "127.0.0.1:2181"
+            username: ""
+            password: ""
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
