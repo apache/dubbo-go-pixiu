@@ -54,13 +54,13 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 
 // StaticResources
 type StaticResources struct {
-	Listeners       []*Listener       `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
-	Clusters        []*Cluster        `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
-	ClusterAdapters []*ClusterAdapter `yaml:"cluster_adapters" json:"cluster_adapters" mapstructure:"cluster_adapters"`
-	TimeoutConfig   TimeoutConfig     `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
-	ShutdownConfig  *ShutdownConfig   `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
-	PprofConf       PprofConf         `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
-	AccessLogConfig AccessLogConfig   `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
+	Listeners       []*Listener     `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
+	Clusters        []*Cluster      `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	ClusterAdapters []*Adapter      `yaml:"adapters" json:"adapters" mapstructure:"adapters"`
+	TimeoutConfig   TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
+	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
+	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
+	AccessLogConfig AccessLogConfig `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
 }
 
 // DynamicResources TODO
