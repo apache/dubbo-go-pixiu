@@ -1,13 +1,9 @@
-package routerfilter
+package httpproxy
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"net"
 	http3 "net/http"
 	"net/url"
@@ -15,10 +11,10 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
-	ctx "github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -26,7 +22,7 @@ import (
 
 const (
 	// Kind is the kind of Fallback.
-	Kind = constant.HTTPRouterFilter
+	Kind = constant.HTTPPROXYFilter
 )
 
 // All RemoteFilter instances use one globalClient in order to reuse
@@ -96,7 +92,7 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 
-	r, w := hc.Request, hc.SourceResp
+	r := hc.Request
 
 	var errPrefix string
 	defer func() {
@@ -115,20 +111,15 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 		err error
 	)
 
-	r.Body = req.IngressRequest.Body
-	r.Header = req.IngressRequest.Header.Clone()
-	queryValues, err := url.ParseQuery(req.IngressRequest.URL.RawQuery)
-	if err != nil {
-		return nil, errors.New("Retrieve request query parameters failed")
+	parsedURL := url.URL{
+		Host:     endpoint.Address.GetHost(),
+		Scheme:   r.URL.Scheme,
+		Path:     r.URL.Path,
+		RawQuery: r.URL.RawQuery,
 	}
-	r.Query = queryValues
 
-	if router.IsWildCardBackendPath(&req.API) {
-		r.URIParams = router.GetURIParams(&req.API, *req.IngressRequest.URL)
-	}
-	return r, nil
-
-	req, err = http3.NewRequest(http3.MethodPost, rf.spec.URL, bytes.NewReader(hc.Request))
+	req, err = http3.NewRequest(r.Method, parsedURL.String(), r.Body)
+	req.Header = r.Header
 
 	if err != nil {
 		bt, _ := json.Marshal(extension.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
@@ -144,21 +135,8 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	if err != nil {
 		panic(err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		panic(fmt.Errorf("not 2xx status code: %d", resp.StatusCode))
-	}
 
-	errPrefix = "read remote body"
-	ctxBuff = rf.limitRead(resp.Body, maxContextBytes)
-
-	errPrefix = "unmarshal context"
-	rf.unmarshalHTTPContext(ctxBuff, ctx)
-
-	if resp.StatusCode == 205 {
-		return resultResponseAlready
-	}
-
-	return ""
-
+	hc.SourceResp = resp
+	// response write in response filter.
+	hc.Next()
 }
