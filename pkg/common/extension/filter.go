@@ -17,7 +17,7 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 
-		// CreateFilterFactory return the filter callback
+		// CreateFilter return the filter callback
 		CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (HttpFilter, error)
 	}
 
