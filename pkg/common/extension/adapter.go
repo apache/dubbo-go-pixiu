@@ -1,8 +1,10 @@
 package extension
 
 import (
+	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/go-errors/errors"
 )
 
 type (
@@ -15,5 +17,35 @@ type (
 	}
 
 	Adapter interface {
+		Start()
+		Stop()
 	}
 )
+
+var (
+	adapterPlugins = map[string]AdapterPlugin{}
+)
+
+// Register registers adapter plugin
+func RegisterAdapterPlugin(p AdapterPlugin) {
+	if p.Kind() == "" {
+		panic(fmt.Errorf("%T: empty kind", p))
+	}
+
+	existedPlugin, existed := adapterPlugins[p.Kind()]
+	if existed {
+		panic(fmt.Errorf("%T and %T got same kind: %s", p, existedPlugin, p.Kind()))
+	}
+
+	adapterPlugins[p.Kind()] = p
+}
+
+// GetAdapterPlugin get plugin by kind
+func GetAdapterPlugin(kind string) (AdapterPlugin, error) {
+	existedAdapter, existed := adapterPlugins[kind]
+	if existed {
+		return existedAdapter, nil
+	} else {
+		return nil, errors.Errorf("plugin not found %s", kind)
+	}
+}
