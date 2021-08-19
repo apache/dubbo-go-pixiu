@@ -39,11 +39,28 @@ type Server struct {
 
 	listenerManager *ListenerManager
 	clusterManager  *ClusterManager
+	adapterManager  *AdapterManager
+	routerManager   *RouterManager
 }
 
 func (s *Server) initialize(bs *model.Bootstrap) {
-	s.listenerManager = CreateDefaultListenerManager(bs)
 	s.clusterManager = CreateDefaultClusterManager(bs)
+	s.adapterManager = CreateDefaultAdapterManager(s, bs)
+	s.routerManager = CreateDefaultRouterManager(s, bs)
+	s.listenerManager = CreateDefaultListenerManager(bs)
+
+}
+
+func (s *Server) GetClusterManager() *ClusterManager {
+	return s.clusterManager
+}
+
+func (s *Server) GetListenerManager() *ListenerManager {
+	return s.listenerManager
+}
+
+func (s *Server) GetRouterManager() *RouterManager {
+	return s.routerManager
 }
 
 // Start server start
@@ -62,6 +79,7 @@ func (s *Server) Start() {
 	registerOtelMetricMeter(conf.Metric)
 
 	s.listenerManager.StartListen()
+	s.adapterManager.Start()
 
 	if conf.GetPprof().Enable {
 		addr := conf.GetPprof().Address.SocketAddress
@@ -97,5 +115,9 @@ func GetServer() *Server {
 }
 
 func GetClusterManager() *ClusterManager {
-	return server.clusterManager
+	return server.GetClusterManager()
+}
+
+func GetRouterManager() *RouterManager {
+	return server.GetRouterManager()
 }

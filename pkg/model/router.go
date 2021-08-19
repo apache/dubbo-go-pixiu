@@ -29,6 +29,7 @@ import (
 
 type (
 	Router struct {
+		ID    string      `yaml:"id" json:"id" mapstructure:"id"`
 		Match RouterMatch `yaml:"match" json:"match" mapstructure:"match"`
 		Route RouteAction `yaml:"route" json:"route" mapstructure:"route"`
 	}
@@ -58,7 +59,8 @@ type (
 
 	// RouteConfiguration
 	RouteConfiguration struct {
-		Routes []Router `yaml:"routes" json:"routes" mapstructure:"routes"`
+		Routes  []Router `yaml:"routes" json:"routes" mapstructure:"routes"`
+		Dynamic bool     `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
 	}
 
 	// Name header key, Value header value, Regex header value is regex
