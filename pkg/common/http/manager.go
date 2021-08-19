@@ -12,7 +12,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -23,15 +22,15 @@ import (
 )
 
 type HttpConnectionManager struct {
-	config         *model.HttpConnectionManager
-	routerManager  *router2.RouterManager
-	clusterManager *server.ClusterManager
-	filters        []extension.HttpFilter
+	config            *model.HttpConnectionManager
+	routerCoordinator *router2.RouterCoordinator
+	clusterManager    *server.ClusterManager
+	filters           []extension.HttpFilter
 }
 
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManager, bs *model.Bootstrap) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
-	hcm.routerManager = router2.CreateRouterManager(hcmc)
+	hcm.routerCoordinator = router2.CreateRouterCoordinator(hcmc)
 	hcm.filters = initFilterIfNeed(hcm, hcmc, bs)
 	return hcm
 }
@@ -45,7 +44,7 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 }
 
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) {
-	ra, err := hcm.routerManager.Route(hc)
+	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
 		// return 404
 	}
