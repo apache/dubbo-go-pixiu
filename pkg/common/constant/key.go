@@ -20,7 +20,7 @@ package constant
 const (
 	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
 	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
+	HTTPPROXYFilter          = "dgp.filters.http.http_proxy"
 	HTTPApiFilter            = "dgp.filters.http.api"
 	HTTPHeaderFilter         = "dgp.filters.http.header"
 	HTTPHOSTFilter           = "dgp.filters.http.host"
