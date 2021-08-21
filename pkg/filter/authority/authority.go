@@ -49,8 +49,6 @@ type (
 	// Filter is http filter instance
 	Filter struct {
 		cfg *AuthorityConfiguration
-		alw *model.AccessLogWriter
-		alc *model.AccessLogConfig
 	}
 )
 
@@ -64,9 +62,8 @@ func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface
 		return nil, errors.Errorf("AccessPlugin CreateFilter error the access_log config not enable")
 	}
 
-	accessLogWriter := &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
 	specConfig := config.(AuthorityConfiguration)
-	return &Filter{cfg: &specConfig, alw: accessLogWriter, alc: &alc}, nil
+	return &Filter{cfg: &specConfig}, nil
 }
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
