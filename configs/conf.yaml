@@ -42,6 +42,18 @@ static_resources:
                         route:
                           cluster: "test-dubbo"
                           cluster_not_found_response_code: 505
+                    condition_filters:
+                      - match:
+                          prefix: "/api/v1"
+                          headers:
+                            - name: "X-DGP-WAY"
+                              value: "dubbo"
+                        filter:
+                          index: 1
+                          action: replace
+                          name: dgp.filters.http.authority_filter
+                          config:
+
                     http_filters:
                       - name: dgp.filters.http.authority_filter
                         config:
@@ -70,6 +82,12 @@ static_resources:
                               address: "127.0.0.1:2181"
                               username: ""
                               password: ""
+                      - name: dgp.filters.grpc_proxy
+                        config:
+                          proto_descriptor: "protos/helloworld.pb"
+                          roles:
+                            - selector: endpoints.examples.bookstore.Bookstore.GetShelf
+                                get: /v1/shelves/{shelf}
                     server_name: "test_http_dubbo"
                     generate_request_id: false
       config:

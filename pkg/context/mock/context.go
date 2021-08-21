@@ -24,10 +24,6 @@ import (
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-)
-
-import (
 	pkgcontext "github.com/apache/dubbo-go-pixiu/pkg/context"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
