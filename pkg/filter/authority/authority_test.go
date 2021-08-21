@@ -36,6 +36,10 @@ import (
 func TestAuthority(t *testing.T) {
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
+
+
+	p := Plugin{}
+
 	c := mock.GetMockHTTPAuthContext(request, true, New().Do(), recovery.New().Do())
 	c.Next()
 	assert.Equal(t, int8(math.MaxInt8/2+1), c.BaseContext.Index)
