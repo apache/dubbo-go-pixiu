@@ -31,6 +31,7 @@ const (
 	RecoveryFilter           = "dgp.filters.http.recovery"
 	ResponseFilter           = "dgp.filters.http.response"
 	AccessLogFilter          = "dgp.filters.http.access_log"
+	HTTPGrpcProxyFilter      = "dgp.filters.http.grpc_proxy"
 	RateLimitFilter          = "dgp.filters.http.rate_limit"
 )
 
