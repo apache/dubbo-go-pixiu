@@ -71,7 +71,7 @@ type (
 
 	config struct {
 		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
-		dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
+		Dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
 	}
 )
 
@@ -102,7 +102,7 @@ func (f *clientFilter) Apply() error {
 	}
 	f.conf.Level = level
 	// must init it at apply function
-	dubbo.InitDefaultDubboClient(f.conf.dpc)
+	dubbo.InitDefaultDubboClient(f.conf.Dpc)
 	return nil
 }
 

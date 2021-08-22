@@ -39,8 +39,8 @@ import (
 func TestHeader(t *testing.T) {
 	p := Plugin{}
 
-	filter, err := p.CreateFilter()
-	err = filter.Apply()
+	filter, _ := p.CreateFilter()
+	err := filter.Apply()
 	assert.Nil(t, err)
 
 	api := router.API{
