@@ -32,10 +32,8 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
@@ -67,9 +65,19 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+func (ap *Plugin) CreateFilter() (extension.HttpFilter, error) {
 	registerOtelMetric()
 	return &MetricFilter{}, nil
+}
+
+func (m *MetricFilter) Config() interface{} {
+	return nil
+}
+
+func (m *MetricFilter) Apply() error {
+	// init
+	registerOtelMetric()
+	return nil
 }
 
 func (mf *MetricFilter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -90,18 +98,18 @@ func (mf *MetricFilter) Handle(c *http.HttpContext) {
 }
 
 func registerOtelMetric() {
-	meter := global.GetMeterProvider().Meter("server")
+	meter := global.GetMeterProvider().Meter("pixiu")
 	observerElapsedCallback := func(_ context.Context, result metric.Int64ObserverResult) {
 		result.Observe(totalElapsed)
 	}
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_elapsed", observerElapsedCallback,
-		metric.WithDescription("request total elapsed in server"),
+		metric.WithDescription("request total elapsed in pixiu"),
 	)
 
 	observerCountCallback := func(_ context.Context, result metric.Int64ObserverResult) {
 		result.Observe(totalCount)
 	}
 	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
-		metric.WithDescription("request total count in server"),
+		metric.WithDescription("request total count in pixiu"),
 	)
 }

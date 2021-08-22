@@ -72,8 +72,12 @@ func NewHTTPClient() *Client {
 	return &Client{}
 }
 
-// Init init dubbo, config mapping can do here
-func (dc *Client) Init() error {
+func (dc *Client) Config() interface{} {
+	return nil
+}
+
+// Apply init dubbo, config mapping can do here
+func (dc *Client) Apply() error {
 	return nil
 }
 
