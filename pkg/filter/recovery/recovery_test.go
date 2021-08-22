@@ -18,12 +18,9 @@
 package recovery
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"testing"
 	"time"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (
@@ -32,14 +29,35 @@ import (
 
 // nolint
 func TestRecovery(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, New().Do(), func(c context.Context) {
-		time.Sleep(time.Millisecond * 100)
-		// panic
-		var m map[string]string
-		m["name"] = "1"
-	})
+	filter := GetMock()
+	sleepFilter := &SleepFilter{}
+	c := mock.GetMockHTTPContext(nil, filter, sleepFilter)
 	c.Next()
 	// print
 	// 500
 	// "assignment to entry in nil map"
+}
+
+type SleepFilter struct {
+
+}
+
+func (rf *SleepFilter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(rf.Handle)
+	return nil
+}
+
+func (rf *SleepFilter) Handle(c *http.HttpContext) {
+	time.Sleep(time.Millisecond * 100)
+	// panic
+	var m map[string]string
+	m["name"] = "1"
+}
+
+func (f *SleepFilter) Config() interface{} {
+	return nil
+}
+
+func (f *SleepFilter) Apply() error {
+	return nil
 }

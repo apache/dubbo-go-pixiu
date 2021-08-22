@@ -28,10 +28,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
@@ -62,12 +60,8 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
-	specConfig := config.(Config)
-	if specConfig.Timeout <= 0 {
-		specConfig.Timeout = constant.DefaultTimeout
-	}
-
+func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+	specConfig := Config{constant.DefaultTimeout}
 	return &Filter{cfg: &specConfig}, nil
 }
 
@@ -101,6 +95,17 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 	case <-finishChan:
 		// finish call do something.
 	}
+}
+
+func (f *Filter) Config() interface{} {
+	return nil
+}
+
+func (f *Filter) Apply() error {
+	if f.cfg.Timeout <= 0 {
+		f.cfg.Timeout = constant.DefaultTimeout
+	}
+	return nil
 }
 
 func (f *Filter) getTimeout(t time.Duration) time.Duration {

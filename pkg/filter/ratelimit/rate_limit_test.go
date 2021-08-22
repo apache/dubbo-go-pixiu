@@ -15,52 +15,39 @@
  * limitations under the License.
  */
 
-package matcher
+package ratelimit
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+	"bytes"
+	http2 "net/http"
+	"testing"
 )
 
-var _matcher *Matcher
+import (
+	"github.com/ghodss/yaml"
+	"github.com/stretchr/testify/assert"
+)
 
-// Init matcher
-func Init() {
-	_matcher = NewMatcher()
-}
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
+)
 
-//PathMatcher according the url path find APIResource name
-type PathMatcher interface {
-	load(apis []ratelimit.Resource)
+func TestFilter(t *testing.T) {
+	factory := Plugin{}
+	f, _ := factory.CreateFilter()
+	config, ok := f.Config().(*Config)
+	assert.True(t, ok)
 
-	match(path string) (string, bool)
-}
+	mockYaml, err := yaml.Marshal(mockConfig())
+	assert.Nil(t, err)
+	err = yaml.Unmarshal(mockYaml, config)
+	assert.Nil(t, err)
 
-type Matcher struct {
-	matchers []PathMatcher
-}
+	err = f.Apply()
+	assert.Nil(t, err)
 
-func NewMatcher() *Matcher {
-	return &Matcher{
-		matchers: []PathMatcher{
-			&Exact{},
-			&Regex{},
-		},
-	}
-}
-
-// Load load api resource for matchers
-func Load(apis []ratelimit.Resource) {
-	for _, v := range _matcher.matchers {
-		v.load(apis)
-	}
-}
-
-// Match match resource via url path
-func Match(path string) (string, bool) {
-	for _, m := range _matcher.matchers {
-		if res, ok := m.match(path); ok {
-			return res, ok
-		}
-	}
-	return "", false
+	request, err := http2.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	c := mock.GetMockHTTPContext(request, f, recovery.GetMock())
+	c.Next()
 }

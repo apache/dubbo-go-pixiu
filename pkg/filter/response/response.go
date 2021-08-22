@@ -21,8 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -33,7 +32,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -57,6 +55,7 @@ type (
 	}
 	// Config describe the config of ResponseFilter
 	Config struct {
+		Strategy string `json:"strategy,omitempty" yaml:"strategy,omitempty"`
 	}
 )
 
@@ -64,7 +63,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
 	strategy := defaultNewParams()
 	return &ResponseFilter{strategy: strategy}, nil
 }
@@ -76,6 +75,14 @@ func (rf *ResponseFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error
 
 func (rf *ResponseFilter) Handle(c *contexthttp.HttpContext) {
 	rf.doResponse(c)
+}
+
+func (f *ResponseFilter) Config() interface{} {
+	return f.cfg
+}
+
+func (f *ResponseFilter) Apply() error {
+	return nil
 }
 
 func (rf *ResponseFilter) doResponse(ctx *contexthttp.HttpContext) {
@@ -115,7 +122,7 @@ func (rf *ResponseFilter) doResponse(ctx *contexthttp.HttpContext) {
 
 func (f *ResponseFilter) newResponse(data interface{}) *client.Response {
 	hump := false
-	if f.strategy == constant.ResponseStrategyHump {
+	if f.cfg.Strategy == constant.ResponseStrategyHump {
 		hump = true
 	}
 	r, err := dealResp(data, hump)

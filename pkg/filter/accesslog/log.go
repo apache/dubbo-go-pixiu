@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package model
+package accesslog
 
 import (
 	"os"
@@ -31,7 +31,6 @@ import (
 // access log config, enable default value true, outputpath default value console
 // access log will out put into console
 type AccessLogConfig struct {
-	Enable     bool   `yaml:"enable" json:"enable" mapstructure:"enable" default:"true"`
 	OutPutPath string `yaml:"outPutPath" json:"outPutPath" mapstructure:"outPutPath" default:"console"`
 }
 
