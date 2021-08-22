@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"strconv"
 	"strings"
 	"time"
@@ -28,7 +29,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -38,7 +38,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&AccessPlugin{})
+	filter.RegisterHttpFilter(&AccessPlugin{})
 }
 
 type (
@@ -47,7 +47,7 @@ type (
 	}
 	// AccessFilter is http filter instance
 	AccessFilter struct {
-		cfg *Config
+		cfg  *Config
 		conf *AccessLogConfig
 		alw  *AccessLogWriter
 	}
@@ -59,7 +59,7 @@ func (ap *AccessPlugin) Kind() string {
 	return Kind
 }
 
-func (ap *AccessPlugin) CreateFilter() (extension.HttpFilter, error) {
+func (ap *AccessPlugin) CreateFilter() (filter.HttpFilter, error) {
 	return &AccessFilter{
 		conf: &AccessLogConfig{},
 		alw: &AccessLogWriter{

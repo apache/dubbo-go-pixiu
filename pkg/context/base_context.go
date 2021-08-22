@@ -18,18 +18,8 @@
 package context
 
 import (
-	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"math"
-	"time"
 )
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
-)
-
-const abortIndex int8 = math.MaxInt8 / 2
 
 type (
 
@@ -38,7 +28,6 @@ type (
 		Next()
 		Abort()
 		AbortWithError(string, error)
-		AppendFilterFunc(ff ...extension.FilterFunc)
 
 		Status(code int)
 		StatusCode() int
@@ -61,42 +50,4 @@ type (
 		Request()
 		Response()
 	}
-
-	// BaseContext
-	BaseContext struct {
-		Context
-		Index   int8
-		Filters extension.FilterChain
-		Timeout time.Duration
-		Ctx     context.Context
-
-		// the response context will return.
-		TargetResp *client.Response
-		// client call response.
-		SourceResp interface{}
-		// happen error
-		Err error
-	}
 )
-
-// NewBaseContext create base context.
-func NewBaseContext() *BaseContext {
-	return &BaseContext{Index: -1}
-}
-
-// Abort  filter chain break , filter after the current filter will not executed.
-func (c *BaseContext) Abort() {
-	c.Index = abortIndex
-}
-
-// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
-func (c *BaseContext) AbortWithError(message string, err error) {
-	c.Abort()
-}
-
-// AppendFilterFunc  append filter func.
-func (c *BaseContext) AppendFilterFunc(ff ...extension.FilterFunc) {
-	for _, v := range ff {
-		c.Filters = append(c.Filters, v)
-	}
-}

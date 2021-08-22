@@ -18,7 +18,6 @@
 package filter
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"sync"
@@ -32,27 +31,35 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-
-type filterManager struct {
-	filters []extension.HttpFilter
+type FilterManager struct {
+	filters       []HttpFilter
+	filterConfigs []*model.HTTPFilter
 
 	mu sync.RWMutex
 }
 
-func NewFilterManager() *filterManager {
-	return &filterManager{filters: make([]extension.HttpFilter, 0, 16)}
+func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
+	return &FilterManager{filterConfigs: fs, filters: make([]HttpFilter, 0, 16)}
 }
 
-func (fm *filterManager) GetFilters() []extension.HttpFilter {
+func NewEmptyFilterManager() *FilterManager {
+	return &FilterManager{filters: make([]HttpFilter, 0, 16)}
+}
+
+func (fm *FilterManager) GetFilters() []HttpFilter {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
 
 	return fm.filters
 }
 
+func (fm *FilterManager) Load() {
+	fm.ReLoad(fm.filterConfigs)
+}
+
 // Load init or reload filter configs
-func (fm *filterManager) Load(filters []*model.Filter) {
-	tmp := make([]extension.HttpFilter, 0, len(filters))
+func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
+	tmp := make([]HttpFilter, 0, len(filters))
 	for _, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
@@ -68,8 +75,8 @@ func (fm *filterManager) Load(filters []*model.Filter) {
 }
 
 // Apply return a new filter by name & conf
-func (fm *filterManager) Apply(name string, conf map[string]interface{}) (extension.HttpFilter, error) {
-	plugin, err := extension.GetHttpFilterPlugin(name)
+func (fm *FilterManager) Apply(name string, conf map[string]interface{}) (HttpFilter, error) {
+	plugin, err := GetHttpFilterPlugin(name)
 	if err != nil {
 		return nil, errors.New("filter not found")
 	}

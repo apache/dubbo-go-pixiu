@@ -19,6 +19,7 @@ package ratelimit
 
 import (
 	"encoding/json"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 
 	"net/http"
 )
@@ -34,7 +35,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -45,7 +45,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -55,7 +55,7 @@ type (
 
 	// Filter is http filter instance
 	Filter struct {
-		conf *Config
+		conf    *Config
 		matcher *Matcher
 	}
 )
@@ -64,8 +64,8 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
-	return &Filter{ conf: &Config{}}, nil
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{conf: &Config{}}, nil
 }
 
 func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
@@ -86,7 +86,7 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 
 	//if blockErr not nil, indicates the request was blocked by Sentinel
 	if blockErr != nil {
-		bt, _ := json.Marshal(extension.ErrResponse{Message: "blocked by rate limit"})
+		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "blocked by rate limit"})
 		hc.SourceResp = bt
 		hc.TargetResp = &client.Response{Data: bt}
 		hc.WriteJSONWithStatus(http.StatusTooManyRequests, bt)
@@ -95,7 +95,6 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 	}
 	defer entry.Exit()
 }
-
 
 func (r *Filter) Config() interface{} {
 	return r.conf

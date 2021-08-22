@@ -19,8 +19,9 @@ package header
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"strings"
 )
 
 const (
@@ -29,7 +30,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -48,7 +49,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &HeaderFilter{}, nil
 }
 
@@ -66,32 +67,32 @@ func (hf *HeaderFilter) PrepareFilterChain(ctx *http.HttpContext) error {
 }
 
 func (hf *HeaderFilter) Handle(hc *http.HttpContext) {
-	//api := hc.GetAPI()
-	//headers := api.Headers
-	//if len(headers) <= 0 {
-	//	hc.Next()
-	//	return
-	//}
-	//
-	//urlHeaders := hc.AllHeaders()
-	//if len(urlHeaders) <= 0 {
-	//	hc.Abort()
-	//	return
-	//}
-	//
-	//for headerName, headerValue := range headers {
-	//	urlHeaderValues := urlHeaders.Values(strings.ToLower(headerName))
-	//	if urlHeaderValues == nil {
-	//		hc.Abort()
-	//		return
-	//	}
-	//	for _, urlHeaderValue := range urlHeaderValues {
-	//		if urlHeaderValue == headerValue {
-	//			goto FOUND
-	//		}
-	//	}
-	//	hc.Abort()
-	//FOUND:
-	//	continue
-	//}
+	api := hc.GetAPI()
+	headers := api.Headers
+	if len(headers) <= 0 {
+		hc.Next()
+		return
+	}
+
+	urlHeaders := hc.AllHeaders()
+	if len(urlHeaders) <= 0 {
+		hc.Abort()
+		return
+	}
+
+	for headerName, headerValue := range headers {
+		urlHeaderValues := urlHeaders.Values(strings.ToLower(headerName))
+		if urlHeaderValues == nil {
+			hc.Abort()
+			return
+		}
+		for _, urlHeaderValue := range urlHeaderValues {
+			if urlHeaderValue == headerValue {
+				goto FOUND
+			}
+		}
+		hc.Abort()
+	FOUND:
+		continue
+	}
 }

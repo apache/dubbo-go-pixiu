@@ -147,5 +147,5 @@ type (
 )
 
 func (a SocketAddress) GetHost() string {
-	return fmt.Sprintf("%s:%s", a.Address, a.Port)
+	return fmt.Sprintf("%s:%v", a.Address, a.Port)
 }

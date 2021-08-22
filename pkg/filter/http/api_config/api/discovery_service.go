@@ -20,7 +20,7 @@ package api
 import (
 	"errors"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/api_config"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"strings"
 )
 
@@ -31,14 +31,39 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
+
+var apiDiscoveryServiceMap = map[string]APIDiscoveryService{}
+
+// APIDiscoveryService api discovery service interface
+type APIDiscoveryService interface {
+	pc.APIConfigResourceListener
+	AddAPI(fr.API) error
+	ClearAPI() error
+	GetAPI(string, config.HTTPVerb) (fr.API, error)
+	RemoveAPIByPath(deleted config.Resource) error
+	RemoveAPI(fullPath string, method config.Method) error
+}
+
+// SetAPIDiscoveryService will store the @filter and @name
+func SetAPIDiscoveryService(name string, ads APIDiscoveryService) {
+	apiDiscoveryServiceMap[name] = ads
+}
+
+// GetMustAPIDiscoveryService will return the service.APIDiscoveryService
+// if not found, it will panic
+func GetMustAPIDiscoveryService(name string) APIDiscoveryService {
+	if ds, ok := apiDiscoveryServiceMap[name]; ok {
+		return ds
+	}
+
+	panic("api discovery service for " + name + " is not existing!")
+}
 
 // Init set api discovery local_memory service.
 func Init() {
-	extension.SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, NewLocalMemoryAPIDiscoveryService())
+	SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, NewLocalMemoryAPIDiscoveryService())
 }
 
 // LocalMemoryAPIDiscoveryService is the local cached API discovery service
@@ -148,7 +173,7 @@ func (l *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, metho
 
 // InitAPIsFromConfig inits the router from API config and to local cache
 func InitAPIsFromConfig(apiConfig config.APIConfig) error {
-	localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	localAPIDiscSrv := GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	if len(apiConfig.Resources) == 0 {
 		return nil
 	}
@@ -157,7 +182,7 @@ func InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
 }
 
-func loadAPIFromResource(parentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv api_config.APIDiscoveryService) error {
+func loadAPIFromResource(parentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv APIDiscoveryService) error {
 	errStack := []string{}
 	if len(resources) == 0 {
 		return nil
@@ -186,7 +211,7 @@ func getDefaultPath() (string, string) {
 	return "", ""
 }
 
-func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv api_config.APIDiscoveryService) error {
+func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv APIDiscoveryService) error {
 	parentPath, groupPath := getDefaultPath()
 	fullHeaders := make(map[string]string, 9)
 
@@ -199,11 +224,11 @@ func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv ap
 	return err
 }
 
-func deleteAPIFromResource(old config.Resource, localSrv api_config.APIDiscoveryService) error {
+func deleteAPIFromResource(old config.Resource, localSrv APIDiscoveryService) error {
 	return localSrv.RemoveAPIByPath(old)
 }
 
-func addAPIFromResource(resource config.Resource, localSrv api_config.APIDiscoveryService, groupPath string, parentPath string, fullHeaders map[string]string) error {
+func addAPIFromResource(resource config.Resource, localSrv APIDiscoveryService, groupPath string, parentPath string, fullHeaders map[string]string) error {
 	fullPath := getFullPath(groupPath, resource.Path)
 	if !strings.HasPrefix(resource.Path, constant.PathSlash) {
 		return fmt.Errorf("path %s in %s doesn't start with /", resource.Path, parentPath)
@@ -223,7 +248,7 @@ func addAPIFromResource(resource config.Resource, localSrv api_config.APIDiscove
 	return nil
 }
 
-func addAPIFromMethod(fullPath string, method config.Method, headers map[string]string, localSrv api_config.APIDiscoveryService) error {
+func addAPIFromMethod(fullPath string, method config.Method, headers map[string]string, localSrv APIDiscoveryService) error {
 	api := fr.API{
 		URLPattern: fullPath,
 		Method:     method,
@@ -235,7 +260,7 @@ func addAPIFromMethod(fullPath string, method config.Method, headers map[string]
 	return nil
 }
 
-func modifyAPIFromMethod(fullPath string, new config.Method, old config.Method, headers map[string]string, localSrv api_config.APIDiscoveryService) error {
+func modifyAPIFromMethod(fullPath string, new config.Method, old config.Method, headers map[string]string, localSrv APIDiscoveryService) error {
 	if err := localSrv.RemoveAPI(fullPath, old); err != nil {
 		return err
 	}
@@ -247,7 +272,7 @@ func modifyAPIFromMethod(fullPath string, new config.Method, old config.Method, 
 	return nil
 }
 
-func deleteAPIFromMethod(fullPath string, deleted config.Method, localSrv api_config.APIDiscoveryService) error {
+func deleteAPIFromMethod(fullPath string, deleted config.Method, localSrv APIDiscoveryService) error {
 	return localSrv.RemoveAPI(fullPath, deleted)
 }
 
@@ -255,7 +280,7 @@ func getFullPath(groupPath string, resourcePath string) string {
 	return groupPath + resourcePath
 }
 
-func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[string]string, localSrv api_config.APIDiscoveryService) error {
+func loadAPIFromMethods(fullPath string, methods []config.Method, headers map[string]string, localSrv APIDiscoveryService) error {
 	errStack := []string{}
 	for _, method := range methods {
 

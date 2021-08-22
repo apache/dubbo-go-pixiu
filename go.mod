@@ -11,10 +11,12 @@ require (
 	github.com/dubbogo/gost v1.11.14
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
+	github.com/go-errors/errors v1.0.1
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/hashicorp/consul/api v1.5.0
+	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.29.0 // indirect
@@ -23,8 +25,6 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
-	github.com/urfave/cli v1.22.4
-	go.etcd.io/etcd v0.0.0-20200402134248-51bdeb39e698
 	go.etcd.io/etcd/api/v3 v3.5.0-alpha.0
 	go.opentelemetry.io/otel v1.0.0-RC1
 	go.opentelemetry.io/otel/exporters/prometheus v0.21.0
@@ -37,13 +37,11 @@ require (
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	github.com/jhump/protoreflect v1.9.0
 )
 
 replace (
-	//github.com/dubbogo/dubbo-go-pixiu-filter => /Users/mark4z/GolandProjects/dubbo-go-proxy-filter
 	github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
 	google.golang.org/api => google.golang.org/api v0.13.0
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0
-	//github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c => ../dubbo-go-pixiu-filter
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c => ../dubbo-go-pixiu-filter
 )
