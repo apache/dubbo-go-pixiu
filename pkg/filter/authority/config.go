@@ -21,8 +21,10 @@ package authority
 const (
 	Whitelist StrategyType = 0
 	Blacklist StrategyType = 1
+)
 
-	// LimitType limit type const
+// LimitType limit type const
+const (
 	IP  LimitType = 0
 	App LimitType = 1
 )
@@ -52,6 +54,7 @@ var (
 		"App": 1,
 	}
 )
+
 
 type (
 	// AuthorityConfiguration blacklist/whitelist config

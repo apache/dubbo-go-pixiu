@@ -15,4 +15,39 @@
  * limitations under the License.
  */
 
-package filter
+package ratelimit
+
+import (
+	"sync"
+)
+
+type Exact struct {
+	apiNames map[string]string
+
+	mu sync.RWMutex
+}
+
+func (p *Exact) load(apis []*Resource) {
+	m := map[string]string{}
+
+	for _, api := range apis {
+		apiName := api.Name
+		for _, item := range api.Items {
+			if item.MatchStrategy == EXACT {
+				m[item.Pattern] = apiName
+			}
+		}
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.apiNames = m
+}
+
+func (p *Exact) match(path string) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	resourceName, ok := p.apiNames[path]
+	return resourceName, ok
+}
