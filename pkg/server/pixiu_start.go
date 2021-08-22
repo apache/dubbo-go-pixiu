@@ -94,7 +94,7 @@ func (s *Server) Start() {
 	}
 }
 
-// NewPX create server
+// NewServer create server
 func NewServer() *Server {
 	return &Server{
 		startWG: sync.WaitGroup{},

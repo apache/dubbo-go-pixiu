@@ -15,15 +15,11 @@
  * limitations under the License.
  */
 
-package matcher
+package ratelimit
 
 import (
 	"regexp"
 	"sync"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
 type Regex struct {
@@ -32,13 +28,13 @@ type Regex struct {
 	mu sync.RWMutex
 }
 
-func (p *Regex) load(apis []ratelimit.Resource) {
+func (p *Regex) load(apis []*Resource) {
 	m := map[string]string{}
 
 	for _, api := range apis {
 		apiName := api.Name
 		for _, item := range api.Items {
-			if item.MatchStrategy == ratelimit.REGEX {
+			if item.MatchStrategy == REGEX {
 				m[item.Pattern] = apiName
 			}
 		}

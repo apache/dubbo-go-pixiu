@@ -20,17 +20,18 @@ package mock
 import (
 	"context"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"net/http"
 )
+
 
 import (
 	pkgcontext "github.com/apache/dubbo-go-pixiu/pkg/context"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // GetMockHTTPContext mock context for test.
-func GetMockHTTPContext(r *http.Request, fc ...fc.FilterFunc) *contexthttp.HttpContext {
+func GetMockHTTPContext(r *http.Request, fc ...extension.HttpFilter) *contexthttp.HttpContext {
 	result := &contexthttp.HttpContext{
 		BaseContext: &pkgcontext.BaseContext{
 			Index: -1,
@@ -43,38 +44,7 @@ func GetMockHTTPContext(r *http.Request, fc ...fc.FilterFunc) *contexthttp.HttpC
 	result.Reset()
 	result.BaseContext.Ctx = context.Background()
 	for i := range fc {
-		result.Filters = append(result.Filters, fc[i])
-	}
-
-	return result
-}
-
-// GetMockHTTPAuthContext mock context with auth for test.
-func GetMockHTTPAuthContext(r *http.Request, black bool, fc ...fc.FilterFunc) *contexthttp.HttpContext {
-	var rules []model.AuthorityRule
-	if black {
-		rules = []model.AuthorityRule{{Strategy: model.Blacklist, Items: append([]string{}, "")}}
-	} else {
-		rules = []model.AuthorityRule{{Strategy: model.Whitelist, Items: append([]string{}, "127.0.0.1")}}
-	}
-	result := &contexthttp.HttpContext{
-		BaseContext: &pkgcontext.BaseContext{
-			Index: -1,
-		},
-		HttpConnectionManager: model.HttpConnectionManager{
-			AuthorityConfig: model.AuthorityConfiguration{
-				Rules: rules,
-			},
-		},
-		Request: r,
-	}
-
-	w := mockWriter{header: map[string][]string{}}
-	result.ResetWritermen(&w)
-	result.Reset()
-	result.BaseContext.Ctx = context.Background()
-	for i := range fc {
-		result.Filters = append(result.Filters, fc[i])
+		result.Filters = append(result.Filters, fc[i].Handle)
 	}
 
 	return result
