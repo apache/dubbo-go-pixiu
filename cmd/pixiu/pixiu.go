@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	// Version server version
+	// Version pixiu version
 	Version = "0.3.0"
 
 	flagToLogLevel = map[string]string{
@@ -65,7 +65,7 @@ var (
 	initFromRemote = false
 )
 
-// main server run method
+// main pixiu run method
 func main() {
 	app := getRootCmd()
 
@@ -75,9 +75,9 @@ func main() {
 
 func getRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "dubbogo server",
-		Short: "Dubbogo server is a lightweight gateway.",
-		Long: "dubbo-go-server is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful \n" +
+		Use:   "dubbogo pixiu",
+		Short: "Dubbogo pixiu is a lightweight gateway.",
+		Long: "dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful \n" +
 			"services. It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near \n" +
 			"future. \n" +
 			"(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo",

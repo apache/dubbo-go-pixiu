@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +28,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -55,10 +55,12 @@ type (
 	Config struct{}
 )
 
+// Kind return plugin kind
 func (ap *AccessPlugin) Kind() string {
 	return Kind
 }
 
+// CreateFilter create filter
 func (ap *AccessPlugin) CreateFilter() (filter.HttpFilter, error) {
 	return &AccessFilter{
 		conf: &AccessLogConfig{},
@@ -68,11 +70,13 @@ func (ap *AccessPlugin) CreateFilter() (filter.HttpFilter, error) {
 	}, nil
 }
 
+// PrepareFilterChain prepare chain when http context init
 func (af *AccessFilter) PrepareFilterChain(ctx *http.HttpContext) error {
 	ctx.AppendFilterFunc(af.Handle)
 	return nil
 }
 
+// Handle handle http context
 func (af *AccessFilter) Handle(c *http.HttpContext) {
 	start := time.Now()
 	c.Next()
@@ -84,10 +88,12 @@ func (af *AccessFilter) Handle(c *http.HttpContext) {
 	}
 }
 
+// Config return config of filter
 func (af *AccessFilter) Config() interface{} {
 	return af.conf
 }
 
+// Apply init after config set
 func (af *AccessFilter) Apply() error {
 	// init
 	af.alw.Write()

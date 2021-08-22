@@ -5,7 +5,5 @@ refer to
 
 ```bigquery
     git clone https://github.com/googleapis/go-genproto
-
     GOOGLEAPIS_DIR=<your-local-go-genproto-folder>
-    
 ```

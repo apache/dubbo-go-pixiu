@@ -74,9 +74,9 @@ func init() {
 	startGatewayCmd.PersistentFlags().StringVarP(&configPath, constant.ConfigPathKey, "c", os.Getenv(constant.EnvDubbogoPixiuConfig), "Load configuration from `FILE`")
 	startGatewayCmd.PersistentFlags().StringVarP(&apiConfigPath, constant.ApiConfigPathKey, "a", os.Getenv(constant.EnvDubbogoPixiuApiConfig), "Load api configuration from `FILE`")
 	startGatewayCmd.PersistentFlags().StringVarP(&logConfigPath, constant.LogConfigPathKey, "g", os.Getenv(constant.EnvDubbogoPixiuLogConfig), "Load log configuration from `FILE`")
-	startGatewayCmd.PersistentFlags().StringVarP(&logLevel, constant.LogLevelKey, "l", os.Getenv(constant.EnvDubbogoPixiuLogLevel), "dubbogo server log level, trace|debug|info|warning|error|critical")
-	startGatewayCmd.PersistentFlags().StringVarP(&limitCpus, constant.LimitCpusKey, "m", os.Getenv(constant.EnvDubbogoPixiuLimitCpus), "dubbogo server schedule threads count")
-	startGatewayCmd.PersistentFlags().StringVarP(&logFormat, constant.LogFormatKey, "f", os.Getenv(constant.EnvDubbogoPixiuLogFormat), "dubbogo server log format, currently useless")
+	startGatewayCmd.PersistentFlags().StringVarP(&logLevel, constant.LogLevelKey, "l", os.Getenv(constant.EnvDubbogoPixiuLogLevel), "dubbogo pixiu log level, trace|debug|info|warning|error|critical")
+	startGatewayCmd.PersistentFlags().StringVarP(&limitCpus, constant.LimitCpusKey, "m", os.Getenv(constant.EnvDubbogoPixiuLimitCpus), "dubbogo pixiu schedule threads count")
+	startGatewayCmd.PersistentFlags().StringVarP(&logFormat, constant.LogFormatKey, "f", os.Getenv(constant.EnvDubbogoPixiuLogFormat), "dubbogo pixiu log format, currently useless")
 
 	gatewayCmd.AddCommand(startGatewayCmd)
 }

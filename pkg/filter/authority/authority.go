@@ -18,17 +18,16 @@
 package authority
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	nh "net/http"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 const (
-	// Kind is the kind of Fallback.
 	Kind = constant.HTTPAuthorityFilter
 )
 

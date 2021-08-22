@@ -198,10 +198,10 @@ func (s *TeacherProvider) GetTeacherByCode(ctx context.Context, code int64) (*Te
 	return r, nil
 }
 
-// GetTeacherTimeout query by name, will timeout for server.
+// GetTeacherTimeout query by name, will timeout for pixiu.
 func (s *TeacherProvider) GetTeacherTimeout(ctx context.Context, name string) (*Teacher, error) {
 	outLn("Req GetTeacherByName name:%#v", name)
-	// sleep 10s, server config less than 10s.
+	// sleep 10s, pixiu config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
@@ -261,5 +261,5 @@ func (s *TeacherProvider) Reference() string {
 
 // nolint
 func (s Teacher) JavaClassName() string {
-	return "com.dubbogo.server.TeacherService"
+	return "com.dubbogo.pixiu.TeacherService"
 }

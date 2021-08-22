@@ -20,7 +20,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"strings"
 )
 
@@ -32,6 +31,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 var apiDiscoveryServiceMap = map[string]APIDiscoveryService{}

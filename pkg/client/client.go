@@ -19,7 +19,10 @@ package client
 
 // Client represents the interface of http/dubbo clients
 type Client interface {
+	// Apply to init client
 	Apply() error
+
+	// Close close the clinet
 	Close() error
 
 	// Call invoke the downstream service.
@@ -30,7 +33,7 @@ type Client interface {
 }
 
 /**
- * the following option is designed to support dubbo server model. you can see
+ * the following option is designed to support dubbo pixiu model. you can see
  * https://github.com/apache/dubbo-go-pixiu/tree/master.
  */
 

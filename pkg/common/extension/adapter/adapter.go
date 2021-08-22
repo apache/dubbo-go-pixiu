@@ -7,6 +7,7 @@ import (
 )
 
 type (
+	// AdapterPlugin plugin for adapter
 	AdapterPlugin interface {
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
@@ -15,6 +16,7 @@ type (
 		CreateAdapter(config interface{}, bs *model.Bootstrap) (Adapter, error)
 	}
 
+	// Adapter adapter interface
 	Adapter interface {
 		Start()
 		Stop()

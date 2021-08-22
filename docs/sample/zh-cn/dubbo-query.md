@@ -7,8 +7,8 @@
 ### 接口配置
 
 ```yaml
-name: server
-description: server sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/userByName'
     type: restful
@@ -26,7 +26,7 @@ resources:
               mapTo: 0
               mapType: "string"
           applicationName: "UserService"
-          interface: "com.dubbogo.server.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByName"
           group: "test"
           version: 1.0.0
@@ -50,7 +50,7 @@ resources:
               mapTo: 1
               mapType: "int"
           applicationName: "UserService"
-          interface: "com.dubbogo.server.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByNameAndAge"
           group: "test"
           version: 1.0.0
@@ -71,7 +71,7 @@ resources:
               mapTo: 0
               mapType: "int"
           applicationName: "UserService"
-          interface: "com.dubbogo.server.UserService"
+          interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByCode"
           group: "test"
           version: 1.0.0

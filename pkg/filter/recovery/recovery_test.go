@@ -18,12 +18,12 @@
 package recovery
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"testing"
 	"time"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 

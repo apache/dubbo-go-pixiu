@@ -106,7 +106,7 @@ jobs:
         run: echo Hello world ${{ secrets.PROXY_DING_TOKEN }} ${{ secrets.PROXY_DING_SIGN }}
 
         # Because the contexts of push and PR are different, there are two Notify.
-        # Notifications are triggered only in the dubbogo/dubbo-go-server repository.
+        # Notifications are triggered only in the dubbogo/dubbo-go-pixiu repository.
       - name: DingTalk Message Notify only Push
         uses: ./.github/actions/actions-ding
         # Whether job is successful or not, always () is always true.
