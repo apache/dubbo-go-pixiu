@@ -26,7 +26,7 @@ type FilterChain struct {
 // Filter core struct, filter is extend by user
 type Filter struct {
 	Name   string      `yaml:"name" json:"name" mapstructure:"name"`       // Name filter name unique
-	Config interface{} `yaml:"config" json:"config" mapstructure:"config"` // Config filter config
+	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"` // Config filter config
 }
 
 // FilterChainMatch

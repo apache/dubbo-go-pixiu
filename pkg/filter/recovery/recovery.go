@@ -18,14 +18,9 @@
 package recovery
 
 import (
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -56,9 +51,8 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
-	specConfig := config.(Config)
-	return &RecoveryFilter{cfg: &specConfig}, nil
+func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+	return &RecoveryFilter{}, nil
 }
 
 func (rf *RecoveryFilter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -74,4 +68,19 @@ func (rf *RecoveryFilter) Handle(c *http.HttpContext) {
 		}
 	}()
 	c.Next()
+}
+
+func (f *RecoveryFilter) Config() interface{} {
+	return nil
+}
+
+func (f *RecoveryFilter) Apply() error {
+	return nil
+}
+
+// GetMock return mocked filter
+func GetMock() extension.HttpFilter {
+	filter := &RecoveryFilter{}
+	_ = filter.Apply()
+	return filter
 }

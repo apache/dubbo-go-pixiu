@@ -27,8 +27,6 @@ import (
 
 import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
-
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	perrors "github.com/pkg/errors"
@@ -69,8 +67,6 @@ type APIConfigResourceListener interface {
 	MethodAdd(res fc.Resource, method fc.Method) bool
 	// MethodDelete handle delete method event
 	MethodDelete(res fc.Resource, method fc.Method) bool
-
-	RateLimitChange(*fr.Config)
 }
 
 // LoadAPIConfigFromFile load the api config from file
@@ -116,7 +112,6 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 func initAPIConfigFromKVList(kList, vList []string) error {
 	var skList, svList, mkList, mvList []string
 	var baseInfo string
-	var rateLimit string
 
 	for i, k := range kList {
 		v := vList[i]
@@ -141,13 +136,6 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 			mvList = append(mvList, v)
 			continue
 		}
-
-		//handle rate limit config
-		re = getCheckRatelimitRegexp()
-		if m := re.Match([]byte(k)); m {
-			rateLimit = v
-			continue
-		}
 	}
 
 	lock.Lock()
@@ -164,10 +152,6 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 	}
 	if err := initAPIConfigMethodFromKvList(tmpApiConf, mkList, mvList); err != nil {
 		logger.Errorf("initAPIConfigMethodFromKvList error %s", err)
-		return err
-	}
-	if err := initAPIConfigRatelimitFromString(tmpApiConf, rateLimit); err != nil {
-		logger.Errorf("initAPIConfigRatelimitFromString error %s", err)
 		return err
 	}
 
@@ -187,16 +171,6 @@ func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
 	if v, ok := properties[BASE_INFO_DESC]; ok {
 		conf.Description = v
 	}
-	return nil
-}
-
-func initAPIConfigRatelimitFromString(conf *fc.APIConfig, str string) error {
-	c := fr.Config{}
-	if err := yaml.UnmarshalYML([]byte(str), &c); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %s", err)
-		return err
-	}
-	conf.RateLimit = c
 	return nil
 }
 
@@ -362,12 +336,6 @@ func handleDeleteEvent(key, val []byte) {
 		}
 		deleteApiConfigMethod(resourceId, methodId)
 	}
-
-	re = getCheckRatelimitRegexp()
-	if m := re.Match(key); m {
-		empty := &fr.Config{}
-		listener.RateLimitChange(empty)
-	}
 }
 
 func handlePutEvent(key, val []byte) {
@@ -404,13 +372,6 @@ func handlePutEvent(key, val []byte) {
 		mergeBaseInfo(val)
 		return
 	}
-
-	//handle ratelimit
-	re = getCheckRatelimitRegexp()
-	if m := re.Match(key); m {
-		mergeRatelimit(val)
-		return
-	}
 }
 
 func deleteApiConfigResource(resourceId int) {
@@ -438,16 +399,6 @@ func mergeApiConfigResource(val fc.Resource) {
 	// add one resource
 	apiConfig.Resources = append(apiConfig.Resources, val)
 	listener.ResourceAdd(val)
-}
-
-func mergeRatelimit(val []byte) {
-	c := &fr.Config{}
-	if err := yaml.UnmarshalYML(val, c); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %s", err)
-		return
-	}
-	apiConfig.RateLimit = *c
-	listener.RateLimitChange(c)
 }
 
 func mergeBaseInfo(val []byte) {
