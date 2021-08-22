@@ -59,6 +59,7 @@ func MarshalYML(in interface{}) ([]byte, error) {
 	return yaml.Marshal(in)
 }
 
+// ParseConfig get config struct from map[string]interface{}
 func ParseConfig(factoryConfStruct interface{}, conf map[string]interface{}) error {
 	// conf will be map, convert to yaml
 	yamlBytes, err := yaml.Marshal(conf)

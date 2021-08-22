@@ -17,16 +17,18 @@
 
 package ratelimit
 
-//PathMatcher according the url path find APIResource name
-type PathMatcher interface {
-	load(apis []*Resource)
+type (
+	//PathMatcher according the url path find APIResource name
+	PathMatcher interface {
+		load(apis []*Resource)
 
-	match(path string) (string, bool)
-}
+		match(path string) (string, bool)
+	}
 
-type Matcher struct {
-	matchers []PathMatcher
-}
+	Matcher struct {
+		matchers []PathMatcher
+	}
+)
 
 func newMatcher() *Matcher {
 	return &Matcher{
