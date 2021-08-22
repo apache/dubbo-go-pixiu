@@ -49,7 +49,7 @@ type (
 	// Config describe the config of AccessFilter
 	Config struct {
 		Proto string  `yaml:"proto_descriptor" json:"proto_descriptor"`
-		rules []*Rule `yaml:"rules" json:"rules"`
+		Rules []*Rule `yaml:"rules" json:"rules"`
 	}
 
 	Rule struct {
@@ -58,7 +58,7 @@ type (
 	}
 
 	Match struct {
-		method string `yaml:"method" json:"method"`
+		Method string `yaml:"method" json:"method"`
 	}
 
 	fileSource struct {

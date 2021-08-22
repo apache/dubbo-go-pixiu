@@ -34,7 +34,7 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 
 	return &ListenerManager{
 		activeListener:        sl,
-		activeListenerService: make([]*ListenerService, 0),
+		activeListenerService: ls,
 	}
 }
 

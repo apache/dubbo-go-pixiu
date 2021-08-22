@@ -49,7 +49,7 @@ func (rf *SleepFilter) PrepareFilterChain(ctx *http.HttpContext) error {
 func (rf *SleepFilter) Handle(c *http.HttpContext) {
 	time.Sleep(time.Millisecond * 100)
 	// panic
-	var m map[string]string
+	m := map[string]string{}
 	m["name"] = "1"
 }
 

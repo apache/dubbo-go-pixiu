@@ -53,6 +53,6 @@ type MatchStrategy int32
 
 const (
 	EXACT    MatchStrategy = 0
-	REGEX                  = 1
-	ANT_PATH               = 2
+	REGEX    MatchStrategy = 1
+	ANT_PATH MatchStrategy = 2
 )

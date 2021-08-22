@@ -35,7 +35,6 @@ static_resources:
               config:
                 idle_timeout: "100"
                 route_config:
-                  dynamic: false
                   routes:
                       -id: "1",
                        match:
@@ -47,6 +46,7 @@ static_resources:
                       route:
                         cluster: "test_dubbo"
                         cluster_not_found_response_code: 505
+                  dynamic: false
                 http_filters:
                   - name: dgp.filters.http.api
                     config:
