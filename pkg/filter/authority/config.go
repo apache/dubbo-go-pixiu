@@ -55,7 +55,6 @@ var (
 	}
 )
 
-
 type (
 	// AuthorityConfiguration blacklist/whitelist config
 	AuthorityConfiguration struct {
