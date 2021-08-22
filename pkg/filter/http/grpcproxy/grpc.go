@@ -1,12 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package grpcproxy
 
 import (
 	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
 	"github.com/jhump/protoreflect/dynamic"
@@ -19,7 +34,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -29,22 +44,22 @@ type (
 	// AccessFilter is http filter instance
 	Filter struct {
 		cfg *Config
+		fds []*desc.FileDescriptor
 	}
 	// Config describe the config of AccessFilter
-	Config struct{
-		Proto string     `yaml:"proto_descriptor" json:"proto_descriptor"`
-		rules []*Rule	`yaml:"rules" json:"rules"`
+	Config struct {
+		Proto string  `yaml:"proto_descriptor" json:"proto_descriptor"`
+		rules []*Rule `yaml:"rules" json:"rules"`
 	}
 
 	Rule struct {
-		Selector string     `yaml:"selector" json:"selector"`
-		Match Match `yaml:"match" json:"match"`
+		Selector string `yaml:"selector" json:"selector"`
+		Match    Match  `yaml:"match" json:"match"`
 	}
 
 	Match struct {
 		method string `yaml:"method" json:"method"`
 	}
-
 
 	fileSource struct {
 		files  map[string]*desc.FileDescriptor
@@ -57,7 +72,7 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (extension.HttpFilter, error) {
+func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &Filter{cfg: &Config{}}, nil
 }
 
@@ -76,10 +91,10 @@ func (af *Filter) Config() interface{} {
 }
 
 func (af *Filter) Apply() error {
-
+	return nil
 }
 
-func (af *Filter) initFromFileDescriptor(importPaths []string, fileNames ...string) error{
+func (af *Filter) initFromFileDescriptor(importPaths []string, fileNames ...string) error {
 	fileNames, err := protoparse.ResolveFilenames(importPaths, fileNames...)
 	if err != nil {
 		return err
@@ -89,7 +104,7 @@ func (af *Filter) initFromFileDescriptor(importPaths []string, fileNames ...stri
 		InferImportPaths:      len(importPaths) == 0,
 		IncludeSourceCodeInfo: true,
 	}
-	fds, err := p.ParseFiles(fileNames...)
+	af.fds, err = p.ParseFiles(fileNames...)
 	if err != nil {
 		return fmt.Errorf("could not parse given files: %v", err)
 	}
@@ -105,7 +120,6 @@ func DescriptorSourceFromFileDescriptors(files ...*desc.FileDescriptor) (*fileSo
 	}
 	return &fileSource{files: fds}, nil
 }
-
 
 func addFile(fd *desc.FileDescriptor, fds map[string]*desc.FileDescriptor) error {
 	name := fd.GetName()
@@ -168,6 +182,3 @@ func (fs *fileSource) AllExtensionsForType(typeName string) ([]*desc.FieldDescri
 	})
 	return fs.er.AllExtensionsForType(typeName), nil
 }
-
-
-

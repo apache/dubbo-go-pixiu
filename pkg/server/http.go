@@ -37,7 +37,7 @@ func DefaultHttpConnectionManager() *model.HttpConnectionManager {
 				},
 			},
 		},
-		HTTPFilters: []model.HTTPFilter{
+		HTTPFilters: []*model.HTTPFilter{
 			{
 				Name: constant.HTTPPROXYFilter,
 			},

@@ -20,6 +20,7 @@ package timeout
 import (
 	"context"
 	"encoding/json"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"net/http"
 	"time"
 )
@@ -27,7 +28,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -38,7 +38,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -60,7 +60,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	specConfig := Config{constant.DefaultTimeout}
 	return &Filter{cfg: &specConfig}, nil
 }
@@ -87,7 +87,7 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 	// timeout do.
 	case <-ctx.Done():
 		logger.Warnf("api:%s request timeout", hc.GetUrl())
-		bt, _ := json.Marshal(extension.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
+		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
 		hc.SourceResp = bt
 		hc.TargetResp = &client.Response{Data: bt}
 		hc.WriteJSONWithStatus(http.StatusGatewayTimeout, bt)

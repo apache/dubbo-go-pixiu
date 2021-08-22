@@ -53,20 +53,20 @@ func TestHeader(t *testing.T) {
 	c := mock.GetMockHTTPContext(request, filter, recovery.GetMock())
 	c.API(api)
 	c.Next()
-	assert.Equal(t, int8(len(c.Filters)*2), c.BaseContext.Index)
+	assert.Equal(t, int8(len(c.Filters)*2), c.Index)
 
 	request.Header.Set("filter", "test")
 	api.Headers["filter"] = "test"
 	c1 := mock.GetMockHTTPContext(request, filter, recovery.GetMock())
 	c1.API(api)
 	c1.Next()
-	assert.Equal(t, int8(len(c1.Filters)*2-1), c1.BaseContext.Index)
+	assert.Equal(t, int8(len(c1.Filters)*2-1), c1.Index)
 
 	request.Header.Set("filter", "test1")
 	c2 := mock.GetMockHTTPContext(request, filter, recovery.GetMock())
 	c2.API(api)
 	c2.Next()
-	assert.Equal(t, int8(math.MaxInt8/2+1), c2.BaseContext.Index)
+	assert.Equal(t, int8(math.MaxInt8/2+1), c2.Index)
 }
 
 func getMockMethod(verb config.HTTPVerb) config.Method {

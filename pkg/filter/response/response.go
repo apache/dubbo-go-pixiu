@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -41,7 +41,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -63,7 +63,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	strategy := defaultNewParams()
 	return &ResponseFilter{strategy: strategy}, nil
 }
@@ -88,7 +88,7 @@ func (f *ResponseFilter) Apply() error {
 func (rf *ResponseFilter) doResponse(ctx *contexthttp.HttpContext) {
 	// error do first
 	if ctx.Err != nil {
-		bt, _ := json.Marshal(extension.ErrResponse{Message: ctx.Err.Error()})
+		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: ctx.Err.Error()})
 		ctx.SourceResp = bt
 		ctx.TargetResp = &client.Response{Data: bt}
 		ctx.WriteJSONWithStatus(http.StatusServiceUnavailable, bt)

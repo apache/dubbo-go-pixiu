@@ -18,32 +18,17 @@
 package server
 
 import (
-	"bytes"
-	"net/http"
 	"net/http/httptest"
-	"testing"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
-
-	"github.com/stretchr/testify/assert"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/context"
 	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/api_config/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func getTestContext() *ctxHttp.HttpContext {
 	l := ListenerService{
-		Listener: &model.Listener{
+		cfg: &model.Listener{
 			Name: "test",
 			Address: model.Address{
 				SocketAddress: model.SocketAddress{
@@ -57,50 +42,10 @@ func getTestContext() *ctxHttp.HttpContext {
 	}
 
 	hc := &ctxHttp.HttpContext{
-		Listener:              l.Listener,
-		FilterChains:          l.FilterChains,
-		HttpConnectionManager: l.findHttpManager(),
-		BaseContext:           context.NewBaseContext(),
+		Listener: l.cfg,
+		Filters:  []ctxHttp.FilterFunc{},
 	}
 	hc.ResetWritermen(httptest.NewRecorder())
 	hc.Reset()
 	return hc
-}
-
-func TestRouteRequest(t *testing.T) {
-	api.Init()
-	mockAPI := mock.GetMockAPI(config.MethodPost, "/mock/test")
-	mockAPI.Method.OnAir = false
-
-	apiDiscoverySrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	apiDiscoverySrv.AddAPI(mockAPI)
-	apiDiscoverySrv.AddAPI(mock.GetMockAPI(config.MethodGet, "/mock/test"))
-
-	listener := NewDefaultHttpListener()
-	listener.pool.New = func() interface{} {
-		return getTestContext()
-	}
-	r := bytes.NewReader([]byte("test"))
-
-	req, _ := http.NewRequest("GET", "/mock/test", r)
-	ctx := listener.pool.Get().(*ctxHttp.HttpContext)
-	api, err := listener.routeRequest(ctx, req)
-	assert.Nil(t, err)
-	assert.NotNil(t, api)
-	assert.Equal(t, api.URLPattern, "/mock/test")
-	assert.Equal(t, api.HTTPVerb, config.MethodGet)
-
-	req, _ = http.NewRequest("GET", "/mock/test2", r)
-	ctx = listener.pool.Get().(*ctxHttp.HttpContext)
-	api, err = listener.routeRequest(ctx, req)
-	assert.EqualError(t, err, "Requested URL /mock/test2 not found")
-	assert.Equal(t, ctx.StatusCode(), 404)
-	assert.Equal(t, api, router.API{})
-
-	req, _ = http.NewRequest("POST", "/mock/test", r)
-	ctx = listener.pool.Get().(*ctxHttp.HttpContext)
-	api, err = listener.routeRequest(ctx, req)
-	assert.EqualError(t, err, "Requested API POST /mock/test does not online")
-	assert.Equal(t, ctx.StatusCode(), 406)
-	assert.Equal(t, api, router.API{})
 }
