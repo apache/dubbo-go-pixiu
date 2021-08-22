@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// Kind is the kind of Adpater Plugin.
+	// Kind is the kind of Adapter Plugin.
 	Kind = constant.SpringCloudAdapter
 )
 
