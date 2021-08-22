@@ -19,7 +19,7 @@ package remote
 
 import (
 	"errors"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"os"
 	"strconv"
 	"strings"
@@ -44,7 +44,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-
 const (
 	open = iota
 	close
@@ -57,14 +56,13 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
 	mockLevel int8
 
 	Plugin struct {
-
 	}
 
 	clientFilter struct {
@@ -72,8 +70,8 @@ type (
 	}
 
 	config struct {
-		Level mockLevel `yaml:"level,omitempty" json:"level,omitempty"`
-		dpc * DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
+		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
+		dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
 	}
 )
 
@@ -81,8 +79,8 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (extension.HttpFilter, error) {
-	return &clientFilter{conf: &config{}},nil
+func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &clientFilter{conf: &config{}}, nil
 }
 
 func (f *clientFilter) Config() interface{} {
@@ -117,7 +115,7 @@ func (f *clientFilter) Handle(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
 	if (f.conf.Level == open && api.Mock) || (f.conf.Level == all) {
-		c.SourceResp = &extension.ErrResponse{
+		c.SourceResp = &contexthttp.ErrResponse{
 			Message: "mock success",
 		}
 		c.Next()
@@ -129,6 +127,7 @@ func (f *clientFilter) Handle(c *contexthttp.HttpContext) {
 	cli, err := matchClient(typ)
 	if err != nil {
 		c.Err = err
+		c.Next()
 		return
 	}
 
@@ -136,6 +135,7 @@ func (f *clientFilter) Handle(c *contexthttp.HttpContext) {
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
 		c.Err = err
+		c.Next()
 		return
 	}
 

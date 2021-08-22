@@ -18,9 +18,9 @@
 package recovery
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -30,7 +30,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -51,7 +51,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &RecoveryFilter{}, nil
 }
 
@@ -79,7 +79,7 @@ func (f *RecoveryFilter) Apply() error {
 }
 
 // GetMock return mocked filter
-func GetMock() extension.HttpFilter {
+func GetMock() filter.HttpFilter {
 	filter := &RecoveryFilter{}
 	_ = filter.Apply()
 	return filter

@@ -19,8 +19,6 @@ package filter
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"testing"
@@ -34,18 +32,14 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-func init() {
-	extension.RegisterHttpFilter(&Plugin{})
-}
-
 const (
 	DEMO = "dgp.filters.demo"
 	// Kind is the kind of plugin.
-	Kind = constant.ResponseFilter
+	Kind = DEMO
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -55,7 +49,7 @@ type (
 	// HeaderFilter is http filter instance
 	DemoFilter struct {
 		conf *Config
-		str string
+		str  string
 	}
 	// Config describe the config of ResponseFilter
 	Config struct {
@@ -68,8 +62,8 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
-	return &DemoFilter{conf: &Config{Foo: "default foo", Bar: "default bar"}},nil
+func (p *Plugin) CreateFilter() (HttpFilter, error) {
+	return &DemoFilter{conf: &Config{Foo: "default foo", Bar: "default bar"}}, nil
 }
 
 func (f *DemoFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
@@ -93,7 +87,7 @@ func (f *DemoFilter) Apply() error {
 }
 
 func TestApply(t *testing.T) {
-	fm := NewFilterManager()
+	fm := NewEmptyFilterManager()
 
 	conf := map[string]interface{}{}
 	conf["foo"] = "Cat"
@@ -106,18 +100,18 @@ func TestApply(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	fm := NewFilterManager()
+	fm := NewEmptyFilterManager()
 	conf := map[string]interface{}{}
 	conf["foo"] = "Cat"
 	conf["bar"] = "The Walnut"
 
-	filtersConf := []*model.Filter{
+	filtersConf := []*model.HTTPFilter{
 		{
 			Name:   DEMO,
 			Config: conf,
 		},
 	}
-	fm.Load(filtersConf)
+	fm.ReLoad(filtersConf)
 
 	filters := fm.GetFilters()
 	assert.Equal(t, len(filtersConf), len(filters))

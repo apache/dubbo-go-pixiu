@@ -36,6 +36,51 @@ var b model.Bootstrap
 
 func TestMain(m *testing.M) {
 	log.Println("Prepare Bootstrap")
+
+	hcmc := model.HttpConnectionManager{
+		RouteConfig: model.RouteConfiguration{
+			Routes: []model.Router{
+				{
+					ID: "1",
+					Match: model.RouterMatch{
+						Prefix: "/api/v1",
+						Headers: []model.HeaderMatcher{
+							{Name: "X-DGP-WAY",
+								Values: []string{"Dubbo"},
+							},
+						},
+					},
+					Route: model.RouteAction{
+						Cluster:                     "test_dubbo",
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+			},
+			Dynamic: false,
+		},
+		HTTPFilters: []*model.HTTPFilter{
+			{
+				Name:   "dgp.filters.http.api",
+				Config: nil,
+			},
+			{
+				Name:   "dgp.filters.http.router",
+				Config: nil,
+			},
+			{
+				Name:   "dgp.filters.http_transfer_dubbo",
+				Config: nil,
+			},
+		},
+		ServerName:        "test_http_dubbo",
+		GenerateRequestID: false,
+		IdleTimeoutStr:    "100",
+	}
+
+	var inInterface map[string]interface{}
+	inrec, _ := json.Marshal(hcmc)
+	json.Unmarshal(inrec, &inInterface)
+
 	b = model.Bootstrap{
 		StaticResources: model.StaticResources{
 			Listeners: []*model.Listener{
@@ -63,49 +108,8 @@ func TestMain(m *testing.M) {
 							},
 							Filters: []model.Filter{
 								{
-									Name: "dgp.filters.http_connect_manager",
-									Config: model.HttpConnectionManager{
-										RouteConfig: model.RouteConfiguration{
-											Routes: []model.Router{
-												{
-													Match: model.RouterMatch{
-														Prefix: "/api/v1",
-														Headers: []model.HeaderMatcher{
-															{Name: "X-DGP-WAY",
-																Value: "dubbo",
-															},
-														},
-													},
-													Route: model.RouteAction{
-														Cluster:                     "test_dubbo",
-														ClusterNotFoundResponseCode: 505,
-														Cors: model.CorsPolicy{
-															AllowOrigin: []string{
-																"*",
-															},
-															Enabled: true,
-														},
-													},
-												},
-											},
-										},
-										HTTPFilters: []model.HTTPFilter{
-											{
-												Name:   "dgp.filters.http.api",
-												Config: interface{}(nil),
-											},
-											{
-												Name:   "dgp.filters.http.router",
-												Config: interface{}(nil),
-											},
-											{
-												Name:   "dgp.filters.http_transfer_dubbo",
-												Config: interface{}(nil),
-											},
-										},
-										ServerName:        "test_http_dubbo",
-										GenerateRequestID: false,
-									},
+									Name:   "dgp.filters.http_connect_manager",
+									Config: inInterface,
 								},
 							},
 						},
@@ -118,18 +122,6 @@ func TestMain(m *testing.M) {
 					TypeStr: "EDS",
 					Type:    model.EDS,
 					LbStr:   "RoundRobin",
-					Registries: map[string]model.Registry{
-						"zookeeper": {
-							Timeout:  "3s",
-							Address:  "127.0.0.1:2182",
-							Username: "",
-							Password: "",
-						},
-						"consul": {
-							Timeout: "3s",
-							Address: "127.0.0.1:8500",
-						},
-					},
 				},
 			},
 			TimeoutConfig: model.TimeoutConfig{
@@ -161,7 +153,7 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, 1, len(conf.StaticResources.Listeners))
 	assert.Equal(t, 1, len(conf.StaticResources.Clusters))
 	Adapter(&b)
-	assert.Equal(t, *conf, b)
+	assert.Equal(t, conf.StaticResources, b.StaticResources)
 }
 
 func TestStruct2JSON(t *testing.T) {
