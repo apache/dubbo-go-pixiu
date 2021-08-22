@@ -18,13 +18,9 @@
 package timeout
 
 import (
-	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"testing"
 	"time"
-)
-
-import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 )
 
 import (
@@ -32,37 +28,30 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
+func timeoutFilterFunc(wait time.Duration) extension.HttpFilter {
+	config := &Config{Timeout: wait}
+	t := &Filter{cfg: config}
+	_ = t.Apply()
+	return t
+}
+
 func TestPanic(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), recovery.New().Do(), testPanicFilter)
+	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), recovery.GetMock(), timeoutFilterFunc(time.Millisecond * 100))
 	c.Next()
 	// print
 	// 500
 	// "timeout filter test panic"
 }
 
-var testPanicFilter = func(c fc.Context) {
-	time.Sleep(time.Millisecond * 100)
-	panic("timeout filter test panic")
-}
-
 func TestTimeout(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), testTimeoutFilter)
+	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), timeoutFilterFunc(time.Second * 3))
 	c.Next()
 	// print
 	// 503
 	// {"code":"S005","message":"http: Handler timeout"}
 }
 
-var testTimeoutFilter = func(c fc.Context) {
-	time.Sleep(time.Second * 3)
-}
-
 func TestNormal(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, testNormalFilter)
+	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(time.Millisecond * 200))
 	c.Next()
-}
-
-var testNormalFilter = func(c fc.Context) {
-	time.Sleep(time.Millisecond * 200)
-	fmt.Println("normal call")
 }

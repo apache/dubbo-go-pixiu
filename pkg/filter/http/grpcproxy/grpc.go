@@ -57,9 +57,8 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
-	specConfig := config.(Config)
-	return &Filter{cfg: &specConfig,}, nil
+func (ap *Plugin) CreateFilter() (extension.HttpFilter, error) {
+	return &Filter{cfg: &Config{}}, nil
 }
 
 func (af *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -69,6 +68,14 @@ func (af *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 
 // Handle use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
 func (af *Filter) Handle(c *http.HttpContext) {
+
+}
+
+func (af *Filter) Config() interface{} {
+	return af.cfg
+}
+
+func (af *Filter) Apply() error {
 
 }
 
@@ -86,7 +93,7 @@ func (af *Filter) initFromFileDescriptor(importPaths []string, fileNames ...stri
 	if err != nil {
 		return fmt.Errorf("could not parse given files: %v", err)
 	}
-
+	return nil
 }
 
 func DescriptorSourceFromFileDescriptors(files ...*desc.FileDescriptor) (*fileSource, error) {
@@ -133,10 +140,6 @@ func (fs *fileSource) ListServices() ([]string, error) {
 	return sl, nil
 }
 
-// GetAllFiles returns all of the underlying file descriptors. This is
-// more thorough and more efficient than the fallback strategy used by
-// the GetAllFiles package method, for enumerating all files from a
-// descriptor source.
 func (fs *fileSource) GetAllFiles() ([]*desc.FileDescriptor, error) {
 	files := make([]*desc.FileDescriptor, len(fs.files))
 	i := 0

@@ -60,7 +60,6 @@ type StaticResources struct {
 	TimeoutConfig   TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
 	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
-	AccessLogConfig AccessLogConfig `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
 }
 
 // DynamicResources TODO
