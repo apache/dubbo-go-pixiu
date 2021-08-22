@@ -39,7 +39,6 @@ func TestRecovery(t *testing.T) {
 }
 
 type SleepFilter struct {
-
 }
 
 func (rf *SleepFilter) PrepareFilterChain(ctx *http.HttpContext) error {
