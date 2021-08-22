@@ -19,6 +19,7 @@ package http
 
 import (
 	"encoding/json"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"net"
 	"net/http"
 	"net/url"
@@ -39,6 +40,7 @@ type HttpContext struct {
 	FilterChains          []model.FilterChain
 	Listener              *model.Listener
 	Route                 *model.RouteAction
+	Api                   router.API
 
 	Request   *http.Request
 	writermem responseWriter
@@ -193,4 +195,15 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 // ResetWritermen reset writermen
 func (hc *HttpContext) ResetWritermen(w http.ResponseWriter) {
 	hc.writermem.reset(w)
+}
+
+// API sets the API to http context
+func (hc *HttpContext) API(api router.API) {
+	hc.Timeout = api.Timeout
+	hc.Api = api
+}
+
+// GetAPI get api
+func (hc *HttpContext) GetAPI() *router.API {
+	return &hc.Api
 }

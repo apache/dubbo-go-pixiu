@@ -22,17 +22,15 @@ import (
 )
 
 import (
+	"github.com/alibaba/sentinel-golang/core/flow"
+
 	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
-)
-
 func TestMatch(t *testing.T) {
-	config := GetMockedRateLimitConfig()
-	matcher.Init()
-	matcher.Load(config.Resources)
+	config := mockConfig()
+	m := newMatcher()
+	m.load(config.Resources)
 
 	tests := []struct {
 		give    string
@@ -72,9 +70,43 @@ func TestMatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.give, func(t *testing.T) {
-			res, ok := matcher.Match(tt.give)
+			res, ok := m.match(tt.give)
 			assert.Equal(t, res, tt.res)
 			assert.Equal(t, ok, tt.matched)
 		})
 	}
+}
+
+func mockConfig() *Config {
+	c := Config{
+		Resources: []*Resource{
+			{
+				Name: "test-dubbo",
+				Items: []*Item{
+					{MatchStrategy: EXACT, Pattern: "/api/v1/test-dubbo/user"},
+					{MatchStrategy: REGEX, Pattern: "/api/v1/test-dubbo/user/*"},
+				},
+			},
+			{
+				Name: "test-http",
+				Items: []*Item{
+					{MatchStrategy: EXACT, Pattern: "/api/v1/http/foo"},
+					{MatchStrategy: EXACT, Pattern: "/api/v1/http/bar"},
+
+					{MatchStrategy: REGEX, Pattern: "/api/v1/http/foo/*"},
+					{MatchStrategy: REGEX, Pattern: "/api/v1/http/bar/*"},
+				},
+			},
+		},
+		Rules: []*Rule{
+			{
+				Enable: true,
+				FlowRule: flow.Rule{
+					Threshold:        100,
+					StatIntervalInMs: 1000,
+				},
+			},
+		},
+	}
+	return &c
 }

@@ -20,11 +20,6 @@ package header
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -53,8 +48,16 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
 	return &HeaderFilter{}, nil
+}
+
+func (f *HeaderFilter) Config() interface{} {
+	return f.cfg
+}
+
+func (f *HeaderFilter) Apply() error {
+	return nil
 }
 
 func (hf *HeaderFilter) PrepareFilterChain(ctx *http.HttpContext) error {
