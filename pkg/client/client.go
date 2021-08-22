@@ -19,7 +19,7 @@ package client
 
 // Client represents the interface of http/dubbo clients
 type Client interface {
-	Init() error
+	Apply() error
 	Close() error
 
 	// Call invoke the downstream service.

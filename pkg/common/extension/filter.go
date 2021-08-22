@@ -2,7 +2,6 @@ package extension
 
 import (
 	"fmt"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/pkg/errors"
 )
 
@@ -18,7 +17,9 @@ type (
 		Kind() string
 
 		// CreateFilter return the filter callback
-		CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (HttpFilter, error)
+		CreateFilter() (HttpFilter, error)
+
+
 	}
 
 	// HttpFilter describe http filter
@@ -28,6 +29,11 @@ type (
 
 		// Handle filter hook function
 		Handle(ctx *http.HttpContext)
+
+		Apply() error
+
+		// Config get config for filter
+		Config() interface{}
 	}
 
 	// NetworkFilter describe network filter plugin
