@@ -33,9 +33,13 @@ import (
 
 func TestHost(t *testing.T) {
 	targetHost := "www.dubbogo.com"
+	cfg := Config{
+		Host: targetHost,
+	}
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	host := &HostFilter{}
+	host.cfg = &cfg
 	assert.Nil(t, err)
 	c := mock.GetMockHTTPContext(request, host)
 	c.Next()

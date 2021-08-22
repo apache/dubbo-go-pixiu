@@ -19,7 +19,7 @@ package host
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -29,7 +29,7 @@ const (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -50,7 +50,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &HostFilter{}, nil
 }
 

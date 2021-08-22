@@ -26,7 +26,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )

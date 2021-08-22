@@ -18,7 +18,8 @@
 package server
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"log"
 	"net/http"
 	"strconv"
@@ -28,7 +29,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	ctx "github.com/apache/dubbo-go-pixiu/pkg/context"
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -39,7 +39,7 @@ type (
 	ListenerService struct {
 		cfg *model.Listener
 		// TODO: just temporary because only one network filter
-		nf  extension.NetworkFilter
+		nf  filter.NetworkFilter
 		srv *http.Server
 	}
 
@@ -126,9 +126,7 @@ func (ls *ListenerService) httpListener() {
 
 func (ls *ListenerService) allocateContext() *h.HttpContext {
 	return &h.HttpContext{
-		Listener:     ls.cfg,
-		FilterChains: ls.cfg.FilterChains,
-		BaseContext:  ctx.NewBaseContext(),
+		Listener: ls.cfg,
 	}
 }
 
@@ -186,20 +184,25 @@ func resolveAddress(addr string) string {
 	return addr
 }
 
-func findHttpManager(l *model.Listener) model.HttpConnectionManager {
+func findHttpManager(l *model.Listener) *model.HttpConnectionManager {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == constant.HTTPConnectManagerFilter {
-				return f.Config.(model.HttpConnectionManager)
+				hcmc := &model.HttpConnectionManager{}
+				if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
+					return nil
+				}
+
+				return hcmc
 			}
 		}
 	}
 
-	return *DefaultHttpConnectionManager()
+	return DefaultHttpConnectionManager()
 }
 
-func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *extension.NetworkFilter {
-	p, err := extension.GetNetworkFilterPlugin(constant.HTTPConnectManagerFilter)
+func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *filter.NetworkFilter {
+	p, err := filter.GetNetworkFilterPlugin(constant.HTTPConnectManagerFilter)
 	if err != nil {
 		panic(err)
 	}

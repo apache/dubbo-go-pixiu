@@ -19,8 +19,8 @@ package model
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/pkg/errors"
+	http2 "net/http"
 	"regexp"
 	"strings"
 )
@@ -72,13 +72,13 @@ type (
 	}
 )
 
-func (rc *RouteConfiguration) Route(hc *http.HttpContext) (*RouteAction, error) {
+func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 	if rc.Routes == nil {
 		return nil, errors.Errorf("router configuration is empty")
 	}
 
 	for _, r := range rc.Routes {
-		if r.MatchRouter(hc) {
+		if r.MatchRouter(req) {
 			return &r.Route, nil
 		}
 	}
@@ -86,28 +86,28 @@ func (rc *RouteConfiguration) Route(hc *http.HttpContext) (*RouteAction, error) 
 	return nil, errors.Errorf("no matched route")
 }
 
-func (r *Router) MatchRouter(hc *http.HttpContext) bool {
-	if r.Match.matchPath(hc) {
+func (r *Router) MatchRouter(req *http2.Request) bool {
+	if r.Match.matchPath(req) {
 		return true
 	}
 
-	if r.Match.matchMethod(hc) {
+	if r.Match.matchMethod(req) {
 		return true
 	}
 
-	if r.Match.matchHeader(hc) {
+	if r.Match.matchHeader(req) {
 		return true
 	}
 
 	return false
 }
 
-func (rm *RouterMatch) matchPath(hc *http.HttpContext) bool {
+func (rm *RouterMatch) matchPath(req *http2.Request) bool {
 	if rm.Path == "" && rm.Prefix == "" && rm.PathRE == nil {
 		return true
 	}
 
-	path := hc.GetUrl()
+	path := req.RequestURI
 
 	if rm.Path != "" && rm.Path == path {
 		return true
@@ -122,18 +122,18 @@ func (rm *RouterMatch) matchPath(hc *http.HttpContext) bool {
 	return false
 }
 
-func (rm *RouterMatch) matchMethod(ctx *http.HttpContext) bool {
+func (rm *RouterMatch) matchMethod(req *http2.Request) bool {
 	if len(rm.Methods) == 0 {
 		return true
 	}
 
-	return stringutil.StrInSlice(ctx.GetMethod(), rm.Methods)
+	return stringutil.StrInSlice(req.Method, rm.Methods)
 }
 
-func (rm *RouterMatch) matchHeader(ctx *http.HttpContext) bool {
+func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
 
 	for _, h := range rm.Headers {
-		v := ctx.GetHeader(h.Name)
+		v := req.Header.Get(h.Name)
 		if stringutil.StrInSlice(v, h.Values) {
 			return true
 		}
