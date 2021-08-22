@@ -116,7 +116,12 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	endpoint := clusterManager.PickEndpoint(clusterName)
 
 	if endpoint == nil {
-
+		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("cluster not found endpoint")})
+		hc.SourceResp = bt
+		hc.TargetResp = &client.Response{Data: bt}
+		hc.WriteJSONWithStatus(http3.StatusServiceUnavailable, bt)
+		hc.Abort()
+		return
 	}
 
 	r := hc.Request
