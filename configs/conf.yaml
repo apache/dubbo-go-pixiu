@@ -82,12 +82,6 @@ static_resources:
                               address: "127.0.0.1:2181"
                               username: ""
                               password: ""
-                      - name: dgp.filters.grpc_proxy
-                        config:
-                          proto_descriptor: "protos/helloworld.pb"
-                          roles:
-                            - selector: endpoints.examples.bookstore.Bookstore.GetShelf
-                                get: /v1/shelves/{shelf}
                     server_name: "test_http_dubbo"
                     generate_request_id: false
       config:
@@ -113,15 +107,6 @@ static_resources:
         - ID: 111
           address:
   adapters:
-    - name: "dgp.cluster_adapters.spring_cloud"
-      config:
-        registries:
-          "zookeeper":
-            protocol: "zookeeper"
-            timeout: "3s"
-            address: "127.0.0.1:2181"
-            username: ""
-            password: ""
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"

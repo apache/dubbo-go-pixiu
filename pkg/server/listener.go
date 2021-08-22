@@ -151,6 +151,7 @@ func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := s.ls.nf.OnData(hc)
 
 	if err != nil {
+		s.pool.Put(hc)
 		logger.Errorf("ServeHTTP %s", err)
 	}
 }

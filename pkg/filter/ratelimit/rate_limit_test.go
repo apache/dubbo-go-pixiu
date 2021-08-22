@@ -47,7 +47,7 @@ func TestFilter(t *testing.T) {
 	err = f.Apply()
 	assert.Nil(t, err)
 
-	request, err := http2.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	request, _ := http2.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	c := mock.GetMockHTTPContext(request, f, recovery.GetMock())
 	c.Next()
 }

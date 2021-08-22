@@ -19,10 +19,14 @@ package http
 
 import (
 	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/pkg/errors"
+	"net/http"
 )
 
 import (
@@ -46,18 +50,27 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManager, bs *model.Bo
 
 func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	hc.Ctx = context.Background()
-	hcm.findRoute(hc)
+	err := hcm.findRoute(hc)
+	if err != nil {
+		return err
+	}
 	hcm.addFilter(hc)
 	hcm.handleHTTPRequest(hc)
 	return nil
 }
 
-func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) {
+func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
+		hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
+		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
+		logger.Debug(e.Error())
+		return e
 		// return 404
 	}
 	hc.RouteEntry(ra)
+	return nil
 }
 
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
