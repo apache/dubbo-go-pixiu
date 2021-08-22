@@ -25,7 +25,7 @@ import (
 // HttpConnectionManager
 type HttpConnectionManager struct {
 	RouteConfig       RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
-	HTTPFilters       []HTTPFilter       `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
+	HTTPFilters       []*HTTPFilter      `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
 	ServerName        string             `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
 	IdleTimeoutStr    string             `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
 	GenerateRequestID bool               `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
@@ -44,8 +44,8 @@ type CorsPolicy struct {
 
 // HTTPFilter http filter
 type HTTPFilter struct {
-	Name   string      `yaml:"name" json:"name" mapstructure:"name"`
-	Config interface{} `yaml:"config" json:"config" mapstructure:"config"`
+	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
+	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
 }
 
 type RequestMethod int32

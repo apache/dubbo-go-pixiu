@@ -2,7 +2,7 @@ package springcloud
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
@@ -13,7 +13,7 @@ const (
 )
 
 func init() {
-	extension.RegisterAdapterPlugin(&CloudPlugin{})
+	adapter.RegisterAdapterPlugin(&CloudPlugin{})
 }
 
 type (
@@ -21,8 +21,7 @@ type (
 	}
 
 	CloudAdapter struct {
-		cfg    *Config
-		server *server.Server
+		cfg *Config
 	}
 
 	Config struct {
@@ -43,9 +42,9 @@ func (p *CloudPlugin) Kind() string {
 	return Kind
 }
 
-func (p *CloudPlugin) CreateAdapter(server *server.Server, config interface{}, bs *model.Bootstrap) (extension.Adapter, error) {
+func (p *CloudPlugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
 	specConfig := config.(*Config)
-	return &CloudAdapter{cfg: specConfig, server: server}, nil
+	return &CloudAdapter{cfg: specConfig}, nil
 }
 
 func (a *CloudAdapter) Start() {
@@ -67,7 +66,7 @@ func (a *CloudAdapter) Start() {
 			endpoint,
 		}
 		// add cluster into manager
-		cm := a.server.GetClusterManager()
+		cm := server.GetClusterManager()
 		cm.AddCluster(cluster)
 
 		// transform into route
@@ -79,7 +78,7 @@ func (a *CloudAdapter) Start() {
 		}
 		route := &model.Router{Match: routeMatch, Route: routeAction}
 
-		a.server.GetRouterManager().AddRouter(route)
+		server.GetRouterManager().AddRouter(route)
 
 	}()
 }

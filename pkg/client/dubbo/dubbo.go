@@ -19,7 +19,6 @@ package dubbo
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	"strings"
 	"sync"
 	"time"
@@ -69,7 +68,7 @@ var (
 type Client struct {
 	lock               sync.RWMutex
 	GenericServicePool map[string]*dg.GenericService
-	dpc *remote.DubboProxyConfig
+	dpc                *DubboProxyConfig
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -83,12 +82,11 @@ func SingletonDubboClient() *Client {
 	return dubboClient
 }
 
-func InitDefaultDubboClient(dpc *remote.DubboProxyConfig) {
+func InitDefaultDubboClient(dpc *DubboProxyConfig) {
 	dubboClient = NewDubboClient()
 	dubboClient.SetConfig(dpc)
 	dubboClient.Apply()
 }
-
 
 // NewDubboClient create dubbo client
 func NewDubboClient() *Client {
@@ -98,7 +96,7 @@ func NewDubboClient() *Client {
 	}
 }
 
-func (dc *Client) SetConfig(dpc *remote.DubboProxyConfig) {
+func (dc *Client) SetConfig(dpc *DubboProxyConfig) {
 	dc.dpc = dpc
 }
 

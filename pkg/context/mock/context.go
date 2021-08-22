@@ -20,29 +20,25 @@ package mock
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"net/http"
 )
 
-
 import (
-	pkgcontext "github.com/apache/dubbo-go-pixiu/pkg/context"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 // GetMockHTTPContext mock context for test.
-func GetMockHTTPContext(r *http.Request, fc ...extension.HttpFilter) *contexthttp.HttpContext {
+func GetMockHTTPContext(r *http.Request, fc ...filter.HttpFilter) *contexthttp.HttpContext {
 	result := &contexthttp.HttpContext{
-		BaseContext: &pkgcontext.BaseContext{
-			Index: -1,
-		},
+		Index:   -1,
 		Request: r,
 	}
 
 	w := mockWriter{header: map[string][]string{}}
 	result.ResetWritermen(&w)
 	result.Reset()
-	result.BaseContext.Ctx = context.Background()
+	result.Ctx = context.Background()
 	for i := range fc {
 		result.Filters = append(result.Filters, fc[i].Handle)
 	}

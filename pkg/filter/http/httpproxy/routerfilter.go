@@ -1,9 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package httpproxy
 
 import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"net"
 	http3 "net/http"
 	"net/url"
@@ -13,10 +31,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
@@ -54,7 +69,7 @@ var globalClient = &http3.Client{
 }
 
 func init() {
-	extension.RegisterHttpFilter(&RouterPlugin{})
+	filter.RegisterHttpFilter(&RouterPlugin{})
 }
 
 type (
@@ -63,7 +78,7 @@ type (
 	}
 	// RouterFilter is http filter instance
 	RouterFilter struct {
-		hcm *http2.HttpConnectionManager
+		cfg *Config
 	}
 	// Config describe the config of RouterFilter
 	Config struct{}
@@ -73,8 +88,16 @@ func (rp *RouterPlugin) Kind() string {
 	return Kind
 }
 
-func (rp *RouterPlugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
-	return &RouterFilter{hcm: hcm}, nil
+func (rp *RouterPlugin) CreateFilter() (filter.HttpFilter, error) {
+	return &RouterFilter{cfg: &Config{}}, nil
+}
+
+func (rf *RouterFilter) Config() interface{} {
+	return rf.cfg
+}
+
+func (rf *RouterFilter) Apply() error {
+	return nil
 }
 
 func (rf *RouterFilter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -101,7 +124,7 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	var errPrefix string
 	defer func() {
 		if err := recover(); err != nil {
-			bt, _ := json.Marshal(extension.ErrResponse{Message: fmt.Sprintf("remoteFilterErr: %s: %v", errPrefix, err)})
+			bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("remoteFilterErr: %s: %v", errPrefix, err)})
 			hc.SourceResp = bt
 			hc.TargetResp = &client.Response{Data: bt}
 			hc.WriteJSONWithStatus(http3.StatusServiceUnavailable, bt)
@@ -126,7 +149,7 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	req.Header = r.Header
 
 	if err != nil {
-		bt, _ := json.Marshal(extension.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
+		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
 		hc.SourceResp = bt
 		hc.TargetResp = &client.Response{Data: bt}
 		hc.WriteJSONWithStatus(http3.StatusInternalServerError, bt)

@@ -19,6 +19,7 @@ package metric
 
 import (
 	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 
 	"sync/atomic"
 	"time"
@@ -31,7 +32,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -47,7 +47,7 @@ var (
 )
 
 func init() {
-	extension.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -65,7 +65,7 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (extension.HttpFilter, error) {
+func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	registerOtelMetric()
 	return &MetricFilter{}, nil
 }

@@ -1,9 +1,8 @@
-package extension
+package adapter
 
 import (
 	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/go-errors/errors"
 )
 
@@ -13,7 +12,7 @@ type (
 		Kind() string
 
 		// CreateAdapter return the Adapter callback
-		CreateAdapter(server *server.Server, config interface{}, bs *model.Bootstrap) (Adapter, error)
+		CreateAdapter(config interface{}, bs *model.Bootstrap) (Adapter, error)
 	}
 
 	Adapter interface {
