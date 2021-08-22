@@ -55,7 +55,7 @@ var (
 	onceClient         = sync.Once{}
 	dgCfg              dg.ConsumerConfig
 	defaultApplication = &dg.ApplicationConfig{
-		Organization: "dubbo-go-server",
+		Organization: "dubbo-go-pixiu",
 		Name:         "Dubbogo Pixiu",
 		Module:       "dubbogo Pixiu",
 		Version:      config.Version,
@@ -82,6 +82,7 @@ func SingletonDubboClient() *Client {
 	return dubboClient
 }
 
+// InitDefaultDubboClient init default dubbo client
 func InitDefaultDubboClient(dpc *DubboProxyConfig) {
 	dubboClient = NewDubboClient()
 	dubboClient.SetConfig(dpc)
@@ -96,6 +97,7 @@ func NewDubboClient() *Client {
 	}
 }
 
+// SetConfig set config
 func (dc *Client) SetConfig(dpc *DubboProxyConfig) {
 	dc.dpc = dpc
 }
@@ -158,7 +160,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	dm := req.API.Method.IntegrationRequest
 	method := dm.Method
 
-	logger.Debugf("[dubbo-go-server] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
+	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
 
 	gs := dc.Get(dm)
 
@@ -167,7 +169,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 		return nil, err
 	}
 
-	logger.Debugf("[dubbo-go-server] dubbo client resp:%v", rst)
+	logger.Debugf("[dubbo-go-pixiu] dubbo client resp:%v", rst)
 
 	return rst, nil
 }

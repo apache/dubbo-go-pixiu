@@ -19,8 +19,6 @@ package ratelimit
 
 import (
 	"encoding/json"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-
 	"net/http"
 )
 
@@ -35,12 +33,12 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
-	// Kind is the kind of Fallback.
 	Kind = constant.RateLimitFilter
 )
 

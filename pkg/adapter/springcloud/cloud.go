@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// Kind is the kind of Fallback.
+	// Kind is the kind of Adpater Plugin.
 	Kind = constant.SpringCloudAdapter
 )
 
@@ -17,18 +17,21 @@ func init() {
 }
 
 type (
+	// CloudPlugin the adapter plugin for spring cloud
 	CloudPlugin struct {
 	}
 
+	// CloudAdapter the adapter for spring cloud
 	CloudAdapter struct {
 		cfg *Config
 	}
 
+	// Config the config for CloudAdapter
 	Config struct {
 		Registry *Registry `yaml:"registry" json:"registry" default:"registry"`
 	}
 
-	// Registry remote registry where dubbo apis are registered.
+	// Registry remote registry where spring cloud apis are registered.
 	Registry struct {
 		Protocol string `yaml:"protocol" json:"protocol" default:"zookeeper"`
 		Timeout  string `yaml:"timeout" json:"timeout"`
@@ -38,15 +41,18 @@ type (
 	}
 )
 
+// Kind return plugin kind
 func (p *CloudPlugin) Kind() string {
 	return Kind
 }
 
+// CreateAdapter create adapter
 func (p *CloudPlugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
 	specConfig := config.(*Config)
 	return &CloudAdapter{cfg: specConfig}, nil
 }
 
+// Start start the adapter
 func (a *CloudAdapter) Start() {
 	// do not block the main goroutine
 	go func() {
@@ -83,6 +89,7 @@ func (a *CloudAdapter) Start() {
 	}()
 }
 
+// Stop stop the adapter
 func (a *CloudAdapter) Stop() {
 
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
+// FilterManager manage filters
 type FilterManager struct {
 	filters       []HttpFilter
 	filterConfigs []*model.HTTPFilter
@@ -38,14 +39,17 @@ type FilterManager struct {
 	mu sync.RWMutex
 }
 
+// NewFilterManager create filter manager
 func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
 	return &FilterManager{filterConfigs: fs, filters: make([]HttpFilter, 0, 16)}
 }
 
+// NewEmptyFilterManager create empty filter manager
 func NewEmptyFilterManager() *FilterManager {
 	return &FilterManager{filters: make([]HttpFilter, 0, 16)}
 }
 
+// GetFilters get all filter from manager
 func (fm *FilterManager) GetFilters() []HttpFilter {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
@@ -53,11 +57,12 @@ func (fm *FilterManager) GetFilters() []HttpFilter {
 	return fm.filters
 }
 
+// Load load the filter from config
 func (fm *FilterManager) Load() {
 	fm.ReLoad(fm.filterConfigs)
 }
 
-// Load init or reload filter configs
+// ReLoad reload filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	tmp := make([]HttpFilter, 0, len(filters))
 	for _, f := range filters {

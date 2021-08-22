@@ -29,23 +29,23 @@ import (
 )
 
 // access log config, enable default value true, outputpath default value console
-// access log will out put into console
+// AccessLogConfig access log will out put into console
 type AccessLogConfig struct {
 	OutPutPath string `yaml:"outPutPath" json:"outPutPath" mapstructure:"outPutPath" default:"console"`
 }
 
-// access log chan
+// AccessLogWriter access log chan
 type AccessLogWriter struct {
 	AccessLogDataChan chan AccessLogData
 }
 
-// access log data
+// AccessLogData access log data
 type AccessLogData struct {
 	AccessLogMsg    string
 	AccessLogConfig AccessLogConfig
 }
 
-// writer msg into chan
+// Writer writer msg into chan
 func (alw *AccessLogWriter) Writer(accessLogData AccessLogData) {
 	select {
 	case alw.AccessLogDataChan <- accessLogData:
@@ -56,7 +56,7 @@ func (alw *AccessLogWriter) Writer(accessLogData AccessLogData) {
 	}
 }
 
-// write log into out put path
+// Write write log into out put path
 func (alw *AccessLogWriter) Write() {
 	go func() {
 		for accessLogData := range alw.AccessLogDataChan {
@@ -76,7 +76,7 @@ func (alw *AccessLogWriter) writeLogToFile(ald AccessLogData) {
 	_ = WriteToFile(alm, alc.OutPutPath)
 }
 
-// write message to access log file
+// WriteToFile write message to access log file
 func WriteToFile(accessLogMsg string, filePath string) error {
 	pd := filepath.Dir(filePath)
 	if _, err := os.Stat(pd); err != nil {

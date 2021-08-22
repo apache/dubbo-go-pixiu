@@ -18,11 +18,17 @@
 package model
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
-	"github.com/pkg/errors"
 	http2 "net/http"
 	"regexp"
 	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 )
 
 // Router struct

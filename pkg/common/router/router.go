@@ -24,11 +24,13 @@ import (
 )
 
 type (
+	// RouterCoordinator the router coordinator for http connection manager
 	RouterCoordinator struct {
 		activeConfig *model.RouteConfiguration
 	}
 )
 
+// CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(hcmc *model.HttpConnectionManager) *RouterCoordinator {
 
 	rc := &RouterCoordinator{activeConfig: &hcmc.RouteConfig}
@@ -38,14 +40,17 @@ func CreateRouterCoordinator(hcmc *model.HttpConnectionManager) *RouterCoordinat
 	return rc
 }
 
+// Route find routeAction for request
 func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, error) {
 	return rm.activeConfig.Route(hc.Request)
 }
 
+// OnAddRouter add router
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 
 }
 
+// OnDeleteRouter delete router
 func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 
 }
