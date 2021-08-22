@@ -19,8 +19,6 @@ package metric
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-
 	"sync/atomic"
 	"time"
 )
@@ -32,12 +30,12 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
-	// Kind is the kind of Fallback.
 	Kind = constant.MetricFilter
 )
 

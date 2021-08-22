@@ -72,11 +72,7 @@ func NewHTTPClient() *Client {
 	return &Client{}
 }
 
-func (dc *Client) Config() interface{} {
-	return nil
-}
-
-// Apply init dubbo, config mapping can do here
+// Apply only init dubbo, config mapping can do here
 func (dc *Client) Apply() error {
 	return nil
 }

@@ -18,12 +18,12 @@
 package timeout
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"testing"
 	"time"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )

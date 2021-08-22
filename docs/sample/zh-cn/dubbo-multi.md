@@ -7,8 +7,8 @@
 ### 接口配置
 
 ```yaml
-name: server
-description: server sample
+name: pixiu
+description: pixiu sample
 resources:
   - path: '/api/v1/test-dubbo/student/:name'
     type: restful
@@ -28,7 +28,7 @@ resources:
               mapTo: 0
               mapType: "string"
           applicationName: "StudentService"
-          interface: "com.dubbogo.server.StudentService"
+          interface: "com.dubbogo.pixiu.StudentService"
           method: "GetStudentByName"
           group: "test"
           version: 1.0.0
@@ -48,7 +48,7 @@ resources:
               mapTo: 1
               mapType: "object"
           applicationName: "StudentService"
-          interface: "com.dubbogo.server.StudentService"
+          interface: "com.dubbogo.pixiu.StudentService"
           method: "UpdateStudentByName"
           group: "test"
           version: 1.0.0
@@ -71,7 +71,7 @@ resources:
               mapTo: 0
               mapType: "string"
           applicationName: "TeacherService"
-          interface: "com.dubbogo.server.TeacherService"
+          interface: "com.dubbogo.pixiu.TeacherService"
           method: "GetTeacherByName"
           group: "test"
           version: 1.0.0
@@ -91,7 +91,7 @@ resources:
               mapTo: 1
               mapType: "object"
           applicationName: "TeacherService"
-          interface: "com.dubbogo.server.TeacherService"
+          interface: "com.dubbogo.pixiu.TeacherService"
           method: "UpdateTeacherByName"
           group: "test"
           version: 1.0.0
@@ -125,7 +125,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # Equivalent to the interface in the  dubbo.xml file
-    interface: "com.dubbogo.server.StudentService"
+    interface: "com.dubbogo.pixiu.StudentService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
@@ -139,7 +139,7 @@ services:
     registry: "demoZk1, demoZk2"
     protocol: "dubbo"
     # Equivalent to the interface in the  dubbo.xml file
-    interface: "com.dubbogo.server.TeacherService"
+    interface: "com.dubbogo.pixiu.TeacherService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
