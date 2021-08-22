@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	// Kind is the kind of plugin.
 	Kind = constant.RecoveryFilter
 )
 

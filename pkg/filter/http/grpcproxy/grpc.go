@@ -19,13 +19,19 @@ package grpcproxy
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"sync"
+)
+
+import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
 	"github.com/jhump/protoreflect/dynamic"
-	"sync"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 const (
@@ -51,17 +57,17 @@ type (
 		Proto string  `yaml:"proto_descriptor" json:"proto_descriptor"`
 		Rules []*Rule `yaml:"rules" json:"rules"`
 	}
-
+	// Rule http to grpc rule
 	Rule struct {
 		Selector string `yaml:"selector" json:"selector"`
 		Match    Match  `yaml:"match" json:"match"`
 	}
-
+	// Match match strategy
 	Match struct {
 		Method string `yaml:"method" json:"method"`
 	}
-
-	fileSource struct {
+	// FileSource the proto file info
+	FileSource struct {
 		files  map[string]*desc.FileDescriptor
 		er     *dynamic.ExtensionRegistry
 		erInit sync.Once
@@ -111,14 +117,14 @@ func (af *Filter) initFromFileDescriptor(importPaths []string, fileNames ...stri
 	return nil
 }
 
-func DescriptorSourceFromFileDescriptors(files ...*desc.FileDescriptor) (*fileSource, error) {
+func DescriptorSourceFromFileDescriptors(files ...*desc.FileDescriptor) (*FileSource, error) {
 	fds := map[string]*desc.FileDescriptor{}
 	for _, fd := range files {
 		if err := addFile(fd, fds); err != nil {
 			return nil, err
 		}
 	}
-	return &fileSource{files: fds}, nil
+	return &FileSource{files: fds}, nil
 }
 
 func addFile(fd *desc.FileDescriptor, fds map[string]*desc.FileDescriptor) error {
@@ -140,7 +146,7 @@ func addFile(fd *desc.FileDescriptor, fds map[string]*desc.FileDescriptor) error
 	return nil
 }
 
-func (fs *fileSource) ListServices() ([]string, error) {
+func (fs *FileSource) ListServices() ([]string, error) {
 	set := map[string]bool{}
 	for _, fd := range fs.files {
 		for _, svc := range fd.GetServices() {
@@ -154,7 +160,7 @@ func (fs *fileSource) ListServices() ([]string, error) {
 	return sl, nil
 }
 
-func (fs *fileSource) GetAllFiles() ([]*desc.FileDescriptor, error) {
+func (fs *FileSource) GetAllFiles() ([]*desc.FileDescriptor, error) {
 	files := make([]*desc.FileDescriptor, len(fs.files))
 	i := 0
 	for _, fd := range fs.files {
@@ -164,7 +170,7 @@ func (fs *fileSource) GetAllFiles() ([]*desc.FileDescriptor, error) {
 	return files, nil
 }
 
-func (fs *fileSource) FindSymbol(fullyQualifiedName string) (desc.Descriptor, error) {
+func (fs *FileSource) FindSymbol(fullyQualifiedName string) (desc.Descriptor, error) {
 	for _, fd := range fs.files {
 		if dsc := fd.FindSymbol(fullyQualifiedName); dsc != nil {
 			return dsc, nil
@@ -173,7 +179,7 @@ func (fs *fileSource) FindSymbol(fullyQualifiedName string) (desc.Descriptor, er
 	return nil, fmt.Errorf("could not found symbol %v", fullyQualifiedName)
 }
 
-func (fs *fileSource) AllExtensionsForType(typeName string) ([]*desc.FieldDescriptor, error) {
+func (fs *FileSource) AllExtensionsForType(typeName string) ([]*desc.FieldDescriptor, error) {
 	fs.erInit.Do(func() {
 		fs.er = &dynamic.ExtensionRegistry{}
 		for _, fd := range fs.files {

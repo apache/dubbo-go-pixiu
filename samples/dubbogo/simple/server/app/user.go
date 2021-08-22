@@ -198,10 +198,10 @@ func (u *UserProvider) GetUserByCode(ctx context.Context, code int64) (*User, er
 	return nil, nil
 }
 
-// GetUserTimeout query by name, will timeout for server.
+// GetUserTimeout query by name, will timeout for pixiu.
 func (u *UserProvider) GetUserTimeout(ctx context.Context, name string) (*User, error) {
 	outLn("Req GetUserByName name:%#v", name)
-	// sleep 10s, server config less than 10s.
+	// sleep 10s, pixiu config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := cache.GetByName(name)
 	if ok {
@@ -261,7 +261,7 @@ func (u *UserProvider) Reference() string {
 
 // nolint
 func (u User) JavaClassName() string {
-	return "com.dubbogo.server.User"
+	return "com.dubbogo.pixiu.User"
 }
 
 // nolint

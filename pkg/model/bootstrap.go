@@ -75,7 +75,7 @@ type ShutdownConfig struct {
 // APIMetaConfig how to find api config, file or etcd etc.
 type APIMetaConfig struct {
 	Address       string `yaml:"address" json:"address,omitempty"`
-	APIConfigPath string `default:"/server/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
+	APIConfigPath string `default:"/pixiu/config/api" yaml:"api_config_path" json:"api_config_path,omitempty" mapstructure:"api_config_path"`
 }
 
 // TimeoutConfig the config of ConnectTimeout and RequestTimeout

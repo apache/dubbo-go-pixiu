@@ -97,10 +97,12 @@ func (hc *HttpContext) Status(code int) {
 	hc.Writer.WriteHeader(code)
 }
 
+// RouteEntry set route
 func (hc *HttpContext) RouteEntry(r *model.RouteAction) {
 	hc.Route = r
 }
 
+// GetRouteEntry get route
 func (hc *HttpContext) GetRouteEntry() *model.RouteAction {
 	return hc.Route
 }

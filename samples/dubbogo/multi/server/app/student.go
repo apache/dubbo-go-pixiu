@@ -198,10 +198,10 @@ func (s *StudentProvider) GetStudentByCode(ctx context.Context, code int64) (*St
 	return r, nil
 }
 
-// GetStudentTimeout query by name, will timeout for server.
+// GetStudentTimeout query by name, will timeout for pixiu.
 func (s *StudentProvider) GetStudentTimeout(ctx context.Context, name string) (*Student, error) {
 	outLn("Req GetStudentByName name:%#v", name)
-	// sleep 10s, server config less than 10s.
+	// sleep 10s, pixiu config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := studentCache.GetByName(name)
 	if !ok {
@@ -261,7 +261,7 @@ func (s *StudentProvider) Reference() string {
 
 // nolint
 func (s Student) JavaClassName() string {
-	return "com.dubbogo.server.StudentService"
+	return "com.dubbogo.pixiu.StudentService"
 }
 
 // nolint

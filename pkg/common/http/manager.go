@@ -33,6 +33,7 @@ import (
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
+// HttpConnectionManager network filter for http
 type HttpConnectionManager struct {
 	config            *model.HttpConnectionManager
 	routerCoordinator *router2.RouterCoordinator
@@ -40,6 +41,7 @@ type HttpConnectionManager struct {
 	filterManager     *filter.FilterManager
 }
 
+// CreateHttpConnectionManager create http connection manager
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManager, bs *model.Bootstrap) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(hcmc)
@@ -48,6 +50,7 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManager, bs *model.Bo
 	return hcm
 }
 
+// OnData receive data from listener
 func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	hc.Ctx = context.Background()
 	err := hcm.findRoute(hc)
@@ -59,20 +62,7 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	return nil
 }
 
-func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
-	ra, err := hcm.routerCoordinator.Route(hc)
-	if err != nil {
-		hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
-		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
-		logger.Debug(e.Error())
-		return e
-		// return 404
-	}
-	hc.RouteEntry(ra)
-	return nil
-}
-
+// handleHTTPRequest handle http request
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	if len(c.Filters) > 0 {
 		c.Next()
@@ -87,4 +77,18 @@ func (hcm *HttpConnectionManager) addFilter(ctx *pch.HttpContext) {
 	for _, f := range hcm.filterManager.GetFilters() {
 		f.PrepareFilterChain(ctx)
 	}
+}
+
+func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
+	ra, err := hcm.routerCoordinator.Route(hc)
+	if err != nil {
+		hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
+		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
+		logger.Debug(e.Error())
+		return e
+		// return 404
+	}
+	hc.RouteEntry(ra)
+	return nil
 }

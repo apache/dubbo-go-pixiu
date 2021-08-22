@@ -8,7 +8,6 @@ import (
 )
 
 const (
-	// Kind is the kind of Fallback.
 	Kind = constant.HTTPConnectManagerFilter
 )
 

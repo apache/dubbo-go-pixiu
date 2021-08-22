@@ -29,7 +29,7 @@ static_resources:
             - filter_chain_match:
               domains:
                 - api.dubbo.com
-                - api.server.com
+                - api.pixiu.com
               filters:
                 - name: dgp.filters.http_connect_manager
                   config:
@@ -122,7 +122,7 @@ static_resources:
         port: 6060
   accessLog:
     enable: true
-    outputpath: logs/dubbo-go-server-access
+    outputpath: logs/dubbo-go-pixiu-access
 metric:
   enable: true
   prometheus_port: 2222
