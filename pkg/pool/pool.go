@@ -28,8 +28,8 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/dubbo"
 )
 
 // ClientPool  a pool of client.

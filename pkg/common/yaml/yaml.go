@@ -58,3 +58,17 @@ func UnmarshalYML(data []byte, out interface{}) error {
 func MarshalYML(in interface{}) ([]byte, error) {
 	return yaml.Marshal(in)
 }
+
+func ParseConfig(factoryConfStruct interface{}, conf map[string]interface{}) error {
+	// conf will be map, convert to yaml
+	yamlBytes, err := yaml.Marshal(conf)
+	if err != nil {
+		return err
+	}
+	// Unmarshal yamlStr to factoryConf
+	err = yaml.Unmarshal(yamlBytes, factoryConfStruct)
+	if err != nil {
+		return err
+	}
+	return nil
+}

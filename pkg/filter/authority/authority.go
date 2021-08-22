@@ -22,15 +22,9 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
@@ -56,14 +50,16 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
-	alc := bs.StaticResources.AccessLogConfig
-	if !alc.Enable {
-		return nil, errors.Errorf("AccessPlugin CreateFilter error the access_log config not enable")
-	}
+func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+	return &Filter{cfg: &AuthorityConfiguration{}}, nil
+}
 
-	specConfig := config.(AuthorityConfiguration)
-	return &Filter{cfg: &specConfig}, nil
+func (f *Filter) Config() interface{} {
+	return f.cfg
+}
+
+func (f *Filter) Apply() error {
+	return nil
 }
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -88,6 +84,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 
 	c.Next()
 }
+
 
 func passCheck(item string, rule AuthorityRule) bool {
 	result := false

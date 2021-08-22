@@ -20,9 +20,7 @@ package host
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	http2 "github.com/apache/dubbo-go-pixiu/pkg/common/http"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
@@ -52,9 +50,8 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter(hcm *http2.HttpConnectionManager, config interface{}, bs *model.Bootstrap) (extension.HttpFilter, error) {
-	specConfig := config.(Config)
-	return &HostFilter{cfg: &specConfig}, nil
+func (p *Plugin) CreateFilter() (extension.HttpFilter, error) {
+	return &HostFilter{}, nil
 }
 
 func (hf *HostFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
@@ -65,4 +62,11 @@ func (hf *HostFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
 func (hf *HostFilter) Handle(c *contexthttp.HttpContext) {
 	c.Request.Host = hf.cfg.Host
 	c.Next()
+}
+func (f *HostFilter) Config() interface{} {
+	return f.cfg
+}
+
+func (f *HostFilter) Apply() error {
+	return nil
 }
