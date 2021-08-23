@@ -39,31 +39,12 @@ var apiDiscoveryServiceMap = map[string]APIDiscoveryService{}
 // APIDiscoveryService api discovery service interface
 type APIDiscoveryService interface {
 	pc.APIConfigResourceListener
+	InitAPIsFromConfig(apiConfig config.APIConfig) error
 	AddAPI(fr.API) error
 	ClearAPI() error
 	GetAPI(string, config.HTTPVerb) (fr.API, error)
 	RemoveAPIByPath(deleted config.Resource) error
 	RemoveAPI(fullPath string, method config.Method) error
-}
-
-// SetAPIDiscoveryService will store the @filter and @name
-func SetAPIDiscoveryService(name string, ads APIDiscoveryService) {
-	apiDiscoveryServiceMap[name] = ads
-}
-
-// GetMustAPIDiscoveryService will return the service.APIDiscoveryService
-// if not found, it will panic
-func GetMustAPIDiscoveryService(name string) APIDiscoveryService {
-	if ds, ok := apiDiscoveryServiceMap[name]; ok {
-		return ds
-	}
-
-	panic("api discovery service for " + name + " is not existing!")
-}
-
-// Init set api discovery local_memory service.
-func Init() {
-	SetAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService, NewLocalMemoryAPIDiscoveryService())
 }
 
 // LocalMemoryAPIDiscoveryService is the local cached API discovery service
@@ -172,14 +153,13 @@ func (l *LocalMemoryAPIDiscoveryService) MethodDelete(res config.Resource, metho
 }
 
 // InitAPIsFromConfig inits the router from API config and to local cache
-func InitAPIsFromConfig(apiConfig config.APIConfig) error {
-	localAPIDiscSrv := GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+func (l *LocalMemoryAPIDiscoveryService) InitAPIsFromConfig(apiConfig config.APIConfig) error {
 	if len(apiConfig.Resources) == 0 {
 		return nil
 	}
 	// register config change listener
-	pc.RegisterConfigListener(localAPIDiscSrv)
-	return loadAPIFromResource("", apiConfig.Resources, nil, localAPIDiscSrv)
+	pc.RegisterConfigListener(l)
+	return loadAPIFromResource("", apiConfig.Resources, nil, l)
 }
 
 func loadAPIFromResource(parentPath string, resources []config.Resource, parentHeaders map[string]string, localSrv APIDiscoveryService) error {

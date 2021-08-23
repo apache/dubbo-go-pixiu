@@ -24,11 +24,11 @@ import (
 )
 
 import (
-	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
@@ -39,9 +39,9 @@ func TestFilter(t *testing.T) {
 	config, ok := f.Config().(*Config)
 	assert.True(t, ok)
 
-	mockYaml, err := yaml.Marshal(mockConfig())
+	mockYaml, err := yaml.MarshalYML(mockConfig())
 	assert.Nil(t, err)
-	err = yaml.Unmarshal(mockYaml, config)
+	err = yaml.UnmarshalYML(mockYaml, config)
 	assert.Nil(t, err)
 
 	err = f.Apply()

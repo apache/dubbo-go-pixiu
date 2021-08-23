@@ -30,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/pluginregistry"
 )
 
 import (
