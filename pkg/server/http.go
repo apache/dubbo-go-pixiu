@@ -26,7 +26,7 @@ import (
 func DefaultHttpConnectionManager() *model.HttpConnectionManager {
 	return &model.HttpConnectionManager{
 		RouteConfig: model.RouteConfiguration{
-			Routes: []model.Router{
+			Routes: []*model.Router{
 				{
 					Match: model.RouterMatch{
 						Prefix: "/api/v1",

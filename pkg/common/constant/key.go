@@ -26,7 +26,7 @@ const (
 	HTTPHOSTFilter           = "dgp.filters.http.host"
 	DubboProxyFilter         = "dgp.filters.http.dubbo_proxy"
 	ApiConfigFilter          = "dgp.filters.http.api_config"
-	TimeoutFilter            = "dgp.filters.http.timeout"
+	HTTPTimeoutFilter        = "dgp.filters.http.timeout"
 	MetricFilter             = "dgp.filters.http.metric"
 	RecoveryFilter           = "dgp.filters.http.recovery"
 	ResponseFilter           = "dgp.filters.http.response"

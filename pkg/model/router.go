@@ -42,31 +42,24 @@ type (
 
 	// RouterMatch
 	RouterMatch struct {
-		Prefix  string `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
-		Path    string `yaml:"path" json:"path" mapstructure:"path"`
-		Regex   string `yaml:"regex" json:"regex" mapstructure:"regex"`
-		PathRE  *regexp.Regexp
+		Prefix  string          `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
+		Path    string          `yaml:"path" json:"path" mapstructure:"path"`
+		Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"`
 		Methods []string        `yaml:"methods" json:"methods" mapstructure:"methods"`
 		Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`
+		pathRE  *regexp.Regexp
 	}
 
 	// RouteAction match route should do
 	RouteAction struct {
-		Cluster                     string            `yaml:"cluster" json:"cluster" mapstructure:"cluster"`
-		ClusterNotFoundResponseCode int               `yaml:"cluster_not_found_response_code" json:"cluster_not_found_response_code" mapstructure:"cluster_not_found_response_code"`
-		PrefixRewrite               string            `yaml:"prefix_rewrite" json:"prefix_rewrite" mapstructure:"prefix_rewrite"`
-		HostRewrite                 string            `yaml:"host_rewrite" json:"host_rewrite" mapstructure:"host_rewrite"`
-		Timeout                     string            `yaml:"timeout" json:"timeout" mapstructure:"timeout"`
-		Priority                    int8              `yaml:"priority" json:"priority" mapstructure:"priority"`
-		ResponseHeadersToAdd        HeaderValueOption `yaml:"response_headers_to_add" json:"response_headers_to_add" mapstructure:"response_headers_to_add"`          // ResponseHeadersToAdd add response head
-		ResponseHeadersToRemove     []string          `yaml:"response_headers_to_remove" json:"response_headers_to_remove" mapstructure:"response_headers_to_remove"` // ResponseHeadersToRemove remove response head
-		RequestHeadersToAdd         HeaderValueOption `yaml:"request_headers_to_add" json:"request_headers_to_add" mapstructure:"request_headers_to_add"`             // RequestHeadersToAdd add request head
+		Cluster                     string `yaml:"cluster" json:"cluster" mapstructure:"cluster"`
+		ClusterNotFoundResponseCode int    `yaml:"cluster_not_found_response_code" json:"cluster_not_found_response_code" mapstructure:"cluster_not_found_response_code"`
 	}
 
 	// RouteConfiguration
 	RouteConfiguration struct {
-		Routes  []Router `yaml:"routes" json:"routes" mapstructure:"routes"`
-		Dynamic bool     `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
+		Routes  []*Router `yaml:"routes" json:"routes" mapstructure:"routes"`
+		Dynamic bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
 	}
 
 	// Name header key, Value header value, Regex header value is regex
@@ -74,7 +67,7 @@ type (
 		Name    string   `yaml:"name" json:"name" mapstructure:"name"`
 		Values  []string `yaml:"values" json:"values" mapstructure:"values"`
 		Regex   bool     `yaml:"regex" json:"regex" mapstructure:"regex"`
-		ValueRE *regexp.Regexp
+		valueRE *regexp.Regexp
 	}
 )
 
@@ -109,7 +102,7 @@ func (r *Router) MatchRouter(req *http2.Request) bool {
 }
 
 func (rm *RouterMatch) matchPath(req *http2.Request) bool {
-	if rm.Path == "" && rm.Prefix == "" && rm.PathRE == nil {
+	if rm.Path == "" && rm.Prefix == "" && rm.pathRE == nil {
 		return true
 	}
 
@@ -121,8 +114,8 @@ func (rm *RouterMatch) matchPath(req *http2.Request) bool {
 	if rm.Prefix != "" && strings.HasPrefix(path, rm.Prefix) {
 		return true
 	}
-	if rm.PathRE != nil {
-		return rm.PathRE.MatchString(path)
+	if rm.pathRE != nil {
+		return rm.pathRE.MatchString(path)
 	}
 
 	return false
@@ -144,7 +137,7 @@ func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
 			return true
 		}
 
-		if h.ValueRE != nil && h.ValueRE.MatchString(v) {
+		if h.valueRE != nil && h.valueRE.MatchString(v) {
 			return true
 		}
 	}

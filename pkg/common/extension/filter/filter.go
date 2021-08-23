@@ -19,6 +19,9 @@ package filter
 
 import (
 	"fmt"
+)
+
+import (
 	"github.com/pkg/errors"
 )
 

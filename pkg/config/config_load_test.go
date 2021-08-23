@@ -19,6 +19,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -39,14 +40,20 @@ func TestMain(m *testing.M) {
 
 	hcmc := model.HttpConnectionManager{
 		RouteConfig: model.RouteConfiguration{
-			Routes: []model.Router{
+			Routes: []*model.Router{
 				{
 					ID: "1",
 					Match: model.RouterMatch{
 						Prefix: "/api/v1",
+						Methods: []string{
+							"POST",
+						},
+						Path:  "",
+						Regex: "",
 						Headers: []model.HeaderMatcher{
 							{Name: "X-DGP-WAY",
 								Values: []string{"Dubbo"},
+								Regex:  false,
 							},
 						},
 					},
@@ -153,7 +160,11 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, 1, len(conf.StaticResources.Listeners))
 	assert.Equal(t, 1, len(conf.StaticResources.Clusters))
 	Adapter(&b)
-	assert.Equal(t, conf.StaticResources, b.StaticResources)
+	str1, _ := json.Marshal(conf.StaticResources)
+	str2, _ := json.Marshal(b.StaticResources)
+	fmt.Println(string(str1))
+	fmt.Println(string(str2))
+	assert.Equal(t, string(str1), string(str2))
 }
 
 func TestStruct2JSON(t *testing.T) {

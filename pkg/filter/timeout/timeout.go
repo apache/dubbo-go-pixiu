@@ -34,7 +34,7 @@ import (
 
 const (
 	// Kind is the kind of Fallback.
-	Kind = constant.HTTPAuthorityFilter
+	Kind = constant.HTTPTimeoutFilter
 )
 
 func init() {

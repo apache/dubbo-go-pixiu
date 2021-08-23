@@ -28,7 +28,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
@@ -59,12 +58,11 @@ func TestGetAPI(t *testing.T) {
 }
 
 func TestLoadAPI(t *testing.T) {
-	Init()
+	apiDisSrv := NewLocalMemoryAPIDiscoveryService()
 	apiC, err := config.LoadAPIConfigFromFile("../../../../config/mock/api_config.yml")
 	assert.Empty(t, err)
-	err = InitAPIsFromConfig(*apiC)
+	err = apiDisSrv.InitAPIsFromConfig(*apiC)
 	assert.Nil(t, err)
-	apiDisSrv := GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
 	rsp, _ := apiDisSrv.GetAPI("/", fc.MethodGet)
 	assert.NotNil(t, rsp.URLPattern)
 	rsp, _ = apiDisSrv.GetAPI("/mockTest", fc.MethodGet)
