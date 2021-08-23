@@ -256,9 +256,9 @@ func (z *ZooKeeperClient) GetChildrenW(path string) ([]string, <-chan zk.Event, 
 	if stat == nil {
 		return nil, nil, errors.Errorf("path{%s} get stat is nil", path)
 	}
-	if len(children) == 0 {
-		return nil, nil, ErrNilChildren
-	}
+	//if len(children) == 0 {
+	//	return nil, nil, ErrNilChildren
+	//}
 
 	return children, watcher.EvtCh, nil
 }
