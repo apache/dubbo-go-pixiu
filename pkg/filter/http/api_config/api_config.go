@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package api_config
 
 import (
@@ -32,7 +49,9 @@ type (
 	}
 
 	Filter struct {
-		cfg *ApiConfigConfig
+		cfg        *ApiConfigConfig
+		apiService api.APIDiscoveryService
+		apiConfig  *fc.APIConfig
 	}
 )
 
@@ -49,8 +68,15 @@ func (f *Filter) Config() interface{} {
 }
 
 func (f *Filter) Apply() error {
-	initApiConfig(f.cfg)
-	api.Init()
+	config, err := initApiConfig(f.cfg)
+	if err != nil {
+		logger.Errorf("Get ApiConfig fail: %v", err)
+	}
+	f.apiConfig = config
+	f.apiService = api.NewLocalMemoryAPIDiscoveryService()
+	if err := f.apiService.InitAPIsFromConfig(*f.apiConfig); err != nil {
+		logger.Errorf("InitAPIsFromConfig fail: %v", err)
+	}
 	return nil
 }
 
@@ -61,8 +87,7 @@ func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
 
 func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	req := ctx.Request
-	apiDiscSrv := api.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	api, err := apiDiscSrv.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
+	api, err := f.apiService.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
 		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
@@ -86,19 +111,20 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 }
 
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
-func initApiConfig(cf *ApiConfigConfig) {
-	initFromRemote := false
+func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	if cf.APIMetaConfig != nil {
-		if _, err := config.LoadAPIConfig(cf.APIMetaConfig); err != nil {
+		if a, err := config.LoadAPIConfig(cf.APIMetaConfig); err != nil {
 			logger.Warnf("load api config from etcd error:%+v", err)
+			return nil, err
 		} else {
-			initFromRemote = true
+			return a, nil
 		}
-	}
-
-	if !initFromRemote {
-		if _, err := config.LoadAPIConfigFromFile(cf.Path); err != nil {
+	} else {
+		if a, err := config.LoadAPIConfigFromFile(cf.Path); err != nil {
 			logger.Errorf("load api config error:%+v", err)
+			return nil, err
+		} else {
+			return a, nil
 		}
 	}
 }

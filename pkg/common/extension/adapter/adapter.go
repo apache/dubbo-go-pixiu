@@ -19,8 +19,14 @@ package adapter
 
 import (
 	"fmt"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/go-errors/errors"
 )
 
 type (

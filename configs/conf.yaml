@@ -24,89 +24,54 @@ static_resources:
         socket_address:
           protocol_type: "HTTP"
           address: "0.0.0.0"
-          port: 80
-        filter_chains:
-            - filter_chain_match:
-              domains:
-                - api.dubbo.com
-                - api.pixiu.com
-              filters:
-                - name: dgp.filters.http_connect_manager
-                  config:
-                    routes:
-                      - match:
-                          prefix: "/api/v1"
-                          headers:
-                            - name: "X-DGP-WAY"
-                              value: "dubbo"
-                        route:
-                          cluster: "test-dubbo"
-                          cluster_not_found_response_code: 505
-                    condition_filters:
-                      - match:
-                          prefix: "/api/v1"
-                          headers:
-                            - name: "X-DGP-WAY"
-                              value: "dubbo"
-                        filter:
-                          index: 1
-                          action: replace
-                          name: dgp.filters.http.authority_filter
-                          config:
-
-                    http_filters:
-                      - name: dgp.filters.http.authority_filter
-                        config:
-                          authority_rules:
-                            - strategy: "Blacklist"
-                              limit: "IP"
-                              items:
-                                - "127.0.0.1"
-                            - strategy: "Whitelist"
-                              limit: "App"
-                              items:
-                                - "test_dubbo"
-                      - name: dgp.filters.http.api
-                        config:
-                      - name: dgp.filters.http.router
-                        config:
-                      - name: dgp.filters.http.api_config_router
-                        config:
-                          - path: configs/api_config.yaml
-                      - name: dgp.filters.dubbo_proxy
-                        config:
-                          registries:
-                            "zookeeper":
-                              protocol: "zookeeper"
-                              timeout: "3s"
-                              address: "127.0.0.1:2181"
-                              username: ""
-                              password: ""
-                    server_name: "test_http_dubbo"
-                    generate_request_id: false
+          port: 8881
+      filter_chains:
+        - filter_chain_match:
+          domains:
+            - api.dubbo.com
+            - api.pixiu.com
+          filters:
+            - name: dgp.filters.http_connect_manager
+              config:
+                route_config:
+                  routes:
+                    - match:
+                        prefix: "/api/v1"
+                      route:
+                        cluster: "test-dubbo"
+                        cluster_not_found_response_code: 505
+                http_filters:
+                  - name: dgp.filters.http.api_config
+                    config:
+                      path: $PROJECT_DIR/pixiu/api_config.yaml
+                  - name: dgp.filters.http.dubbo_proxy
+                    config:
+                      dubboProxyConfig:
+                        registries:
+                          "zookeeper":
+                            protocol: "zookeeper"
+                            timeout: "3s"
+                            address: "127.0.0.1:2181"
+                            username: ""
+                            password: ""
+                        timeout_config:
+                          connect_timeout: 5s
+                          request_timeout: 5s
+                server_name: "test_http_dubbo"
+                generate_request_id: false
       config:
         idle_timeout: 5s
         read_timeout: 5s
         write_timeout: 5s
-    - name: "net/http"
-      address:
-        socket_address:
-          protocol_type: "HTTPS"
-          address: "0.0.0.0"
-          port: 4430
-      config:
-        idle_timeout: 5s
-        read_timeout: 5s
-        write_timeout: 5s
-        cert_file: configs/ca/server.crt
-        key_file: configs/ca/server.key
   clusters:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
-      endpoints:
-        - ID: 111
-          address:
-  adapters:
+      registries:
+        "zookeeper":
+          timeout: "3s"
+          address: "127.0.0.1:2181"
+          username: ""
+          password: ""
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
@@ -114,15 +79,3 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
-  pprofConf:
-    enable: true
-    address:
-      socket_address:
-        address: "0.0.0.0"
-        port: 6060
-  accessLog:
-    enable: true
-    outputpath: logs/dubbo-go-pixiu-access
-metric:
-  enable: true
-  prometheus_port: 2222

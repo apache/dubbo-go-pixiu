@@ -25,6 +25,40 @@ static_resources:
           protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 8884
+      filter_chains:
+        - filter_chain_match:
+          domains:
+            - api.dubbo.com
+            - api.pixiu.com
+          filters:
+            - name: dgp.filters.http_connect_manager
+              config:
+                route_config:
+                  routes:
+                    - match:
+                        prefix: "/api/v1"
+                      route:
+                        cluster: "test-dubbo"
+                        cluster_not_found_response_code: 505
+                http_filters:
+                  - name: dgp.filters.http.api_config
+                    config:
+                      path: $PROJECT_DIR/pixiu/api_config.yaml
+                  - name: dgp.filters.http.dubbo_proxy
+                    config:
+                      dubboProxyConfig:
+                        registries:
+                          "zookeeper":
+                            protocol: "zookeeper"
+                            timeout: "3s"
+                            address: "127.0.0.1:2181"
+                            username: ""
+                            password: ""
+                        timeout_config:
+                          connect_timeout: 5s
+                          request_timeout: 5s
+                server_name: "test_http_dubbo"
+                generate_request_id: false
       config:
         idle_timeout: 5s
         read_timeout: 5s
