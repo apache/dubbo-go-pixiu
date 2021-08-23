@@ -40,7 +40,6 @@ import (
 
 var (
 	apiConfig *fc.APIConfig
-	once      sync.Once
 	client    *etcdv3.Client
 	listener  APIConfigResourceListener
 	lock      sync.RWMutex
@@ -462,9 +461,4 @@ func getCheckRatelimitRegexp() *regexp.Regexp {
 // RegisterConfigListener register APIConfigListener
 func RegisterConfigListener(li APIConfigResourceListener) {
 	listener = li
-}
-
-// GetAPIConf returns the init api config
-func GetAPIConf() fc.APIConfig {
-	return *apiConfig
 }
