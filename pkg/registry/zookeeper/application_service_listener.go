@@ -1,31 +1,54 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zookeeper
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
+	"strings"
+	"sync"
+	"time"
+)
+
+import (
 	ex "github.com/apache/dubbo-go/common/extension"
 	"github.com/apache/dubbo-go/metadata/definition"
 	dr "github.com/apache/dubbo-go/registry"
 	"github.com/apache/dubbo-go/remoting/zookeeper/curator_discovery"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/go-zookeeper/zk"
-	"strings"
-	"sync"
-	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
 var _ registry.Listener = new(applicationServiceListener)
 
-// applicationServiceListener normally monitors the /services/[:application]/[:id]
+// applicationServiceListener normally monitors the /services/[:application]
 type applicationServiceListener struct {
-	urls   []interface{}
-	path   string
-	client *zookeeper.ZooKeeperClient
+	urls        []interface{}
+	servicePath string
+	client      *zookeeper.ZooKeeperClient
 
 	exit chan struct{}
 	wg   sync.WaitGroup
@@ -34,9 +57,9 @@ type applicationServiceListener struct {
 // newApplicationServiceListener creates a new zk service listener
 func newApplicationServiceListener(path string, client *zookeeper.ZooKeeperClient) *applicationServiceListener {
 	return &applicationServiceListener{
-		path:   path,
-		client: client,
-		exit:   make(chan struct{}),
+		servicePath: path,
+		client:      client,
+		exit:        make(chan struct{}),
 	}
 }
 
@@ -49,19 +72,19 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 	)
 	defer delayTimer.Stop()
 	for {
-		e, err := asl.client.ExistW(asl.path)
+		children, e, err := asl.client.GetChildrenW(asl.servicePath)
 		// error handling
 		if err != nil {
 			failTimes++
-			logger.Infof("watching (path{%s}) = error{%v}", asl.path, err)
+			logger.Infof("watching (path{%s}) = error{%v}", asl.servicePath, err)
 			// Exit the watch if root node is in error
 			if err == zookeeper.ErrNilNode {
-				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", asl.path)
+				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", asl.servicePath)
 				return
 			}
 			if failTimes > MaxFailTimes {
-				logger.Errorf("Error happens on (path{%s}) exceed max fail times: %s,so exit listen",
-					asl.path, MaxFailTimes)
+				logger.Errorf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen",
+					asl.servicePath, MaxFailTimes)
 				return
 			}
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
@@ -71,23 +94,23 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 		failTimes = 0
 		tickerTTL := defaultTTL
 		ticker := time.NewTicker(tickerTTL)
-		asl.handleEvent(asl.path)
+		asl.handleEvent(children)
 	WATCH:
 		for {
 			select {
 			case <-ticker.C:
-				asl.handleEvent(asl.path)
+				asl.handleEvent(children)
 			case zkEvent := <-e:
 				logger.Warnf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
 					zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, zookeeper.StateToString(zkEvent.State), zkEvent.Err)
 				ticker.Stop()
-				if zkEvent.Type != zk.EventNodeDeleted && zkEvent.Type != zk.EventNodeDataChanged {
+				if zkEvent.Type != zk.EventNodeChildrenChanged {
 					break WATCH
 				}
-				asl.handleEvent(zkEvent.Path)
+				asl.handleEvent(children)
 				break WATCH
 			case <-asl.exit:
-				logger.Warnf("listen(path{%s}) goroutine exit now...", asl.path)
+				logger.Warnf("listen(path{%s}) goroutine exit now...", asl.servicePath)
 				ticker.Stop()
 				return
 			}
@@ -96,11 +119,12 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 	}
 }
 
-func (asl *applicationServiceListener) handleEvent(path string) {
+func (asl *applicationServiceListener) handleEvent(children []string) {
 	localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
-	data, err := asl.client.GetContent(path)
+	children, err := asl.client.GetChildren(asl.servicePath)
+
 	if err != nil {
-		logger.Warnf("Get service instance %s failed due to %s", path, err.Error())
+		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", asl.servicePath, err.Error())
 		// disable the API
 		for _, url := range asl.urls {
 			bkConf, _, _ := registry.ParseDubboString(url.(string))
@@ -112,7 +136,7 @@ func (asl *applicationServiceListener) handleEvent(path string) {
 		return
 	}
 
-	asl.urls = asl.getUrls(data, path)
+	asl.urls = asl.getUrls(children[0])
 	for _, url := range asl.urls {
 		bkConfig, _, err := registry.ParseDubboString(url.(string))
 		if err != nil {
@@ -148,12 +172,20 @@ func (asl *applicationServiceListener) handleEvent(path string) {
 	}
 }
 
-// getUrls get exported urls from instance
-func (asl *applicationServiceListener) getUrls(data []byte, path string) []interface{} {
-	iss := &curator_discovery.ServiceInstance{}
-	err := json.Unmarshal(data, iss)
+// getUrls return exported urls from instance
+func (asl *applicationServiceListener) getUrls(path string) []interface{} {
+	insPath := strings.Join([]string{asl.servicePath, path}, constant.PathSlash)
+	data, err := asl.client.GetContent(insPath)
 	if err != nil {
-		logger.Warnf("Parse service instance %s failed due to %s", path, err.Error())
+		logger.Errorf("Error when get content in path: %s, Error:%s", insPath, err.Error())
+		return nil
+	}
+
+	// convert the data to service instance
+	iss := &curator_discovery.ServiceInstance{}
+	err = json.Unmarshal(data, iss)
+	if err != nil {
+		logger.Warnf("Parse service instance %s failed due to %s", insPath, err.Error())
 		return nil
 	}
 	instance := toZookeeperInstance(iss)
@@ -209,7 +241,7 @@ func toZookeeperInstance(cris *curator_discovery.ServiceInstance) dr.ServiceInst
 	}
 }
 
-// getMethods will return the methods of a service
+// getMethods return the methods of a service
 func (asl *applicationServiceListener) getMethods(in string) ([]string, error) {
 	methods := []string{}
 

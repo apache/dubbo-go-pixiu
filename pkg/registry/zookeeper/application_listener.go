@@ -18,10 +18,12 @@
 package zookeeper
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
+	"strings"
+	"sync"
+	"time"
+)
+
+import (
 	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
 	_ "github.com/apache/dubbo-go/cluster/loadbalance"
 	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
@@ -31,9 +33,13 @@ import (
 	_ "github.com/apache/dubbo-go/registry/protocol"
 	_ "github.com/apache/dubbo-go/registry/zookeeper"
 	"github.com/dubbogo/go-zookeeper/zk"
-	"strings"
-	"sync"
-	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
 const (
@@ -81,7 +87,7 @@ func (z *zkAppListener) watch() {
 	)
 	defer delayTimer.Stop()
 	for {
-		_, e, err := z.client.GetChildrenW(z.servicesPath)
+		children, e, err := z.client.GetChildrenW(z.servicesPath)
 		// error handling
 		if err != nil {
 			failTimes++
@@ -103,12 +109,12 @@ func (z *zkAppListener) watch() {
 		failTimes = 0
 		tickerTTL := defaultTTL
 		ticker := time.NewTicker(tickerTTL)
-		z.handleEvent(z.servicesPath)
+		z.handleEvent(children)
 	WATCH:
 		for {
 			select {
 			case <-ticker.C:
-				z.handleEvent(z.servicesPath)
+				z.handleEvent(children)
 			case zkEvent := <-e:
 				logger.Warnf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
 					zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, zookeeper.StateToString(zkEvent.State), zkEvent.Err)
@@ -116,7 +122,7 @@ func (z *zkAppListener) watch() {
 				if zkEvent.Type != zk.EventNodeChildrenChanged {
 					break WATCH
 				}
-				z.handleEvent(zkEvent.Path)
+				z.handleEvent(children)
 				break WATCH
 			case <-z.exit:
 				logger.Warnf("listen(path{%s}) goroutine exit now...", z.servicesPath)
@@ -128,42 +134,19 @@ func (z *zkAppListener) watch() {
 	}
 }
 
-func (z *zkAppListener) handleEvent(basePath string) {
-	paths := z.getIssPaths(basePath)
-	for _, path := range paths {
-		if z.reg.GetSvcListener(path) != nil {
+func (z *zkAppListener) handleEvent(children []string) {
+	children, err := z.client.GetChildren(z.servicesPath)
+	if err != nil {
+		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", z.servicesPath, err.Error())
+	}
+	for _, path := range children {
+		serviceName := strings.Join([]string{z.servicesPath, path}, constant.PathSlash)
+		if z.reg.GetSvcListener(serviceName) != nil {
 			continue
 		}
-		l := newApplicationServiceListener(path, z.client)
+		l := newApplicationServiceListener(serviceName, z.client)
 		l.wg.Add(1)
 		go l.WatchAndHandle()
-		z.reg.SetSvcListener(path, l)
+		z.reg.SetSvcListener(serviceName, l)
 	}
-}
-
-// getIssPaths will return the paths of instances
-func (z *zkAppListener) getIssPaths(basePath string) []string {
-	subPaths, err := z.client.GetChildren(basePath)
-	if err != nil {
-		logger.Errorf("Error when retrieving newChildren in path: %s, Error:%s", basePath, err.Error())
-		return nil
-	}
-	if len(subPaths) == 0 {
-		return nil
-	}
-
-	paths := []string{}
-	for _, subPath := range subPaths {
-		serviceName := strings.Join([]string{z.servicesPath, subPath}, constant.PathSlash)
-		ids, err := z.client.GetChildren(serviceName)
-		if err != nil {
-			logger.Warnf("Get serviceIDs %s failed due to %s", serviceName, err.Error())
-			continue
-		}
-		for _, id := range ids {
-			insPath := strings.Join([]string{serviceName, id}, constant.PathSlash)
-			paths = append(paths, insPath)
-		}
-	}
-	return paths
 }
