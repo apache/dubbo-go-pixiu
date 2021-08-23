@@ -15,7 +15,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/hashicorp/consul/api v1.5.0
-	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.29.0 // indirect
@@ -39,7 +38,6 @@ require (
 )
 
 replace (
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4-0.20210613012702-8488bf80772c => ../dubbo-go-pixiu-filter
 	github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473 => github.com/envoyproxy/go-control-plane v0.8.0
 	google.golang.org/api => google.golang.org/api v0.13.0
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0
