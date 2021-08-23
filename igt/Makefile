@@ -94,7 +94,7 @@ config:
 	@-test -f $(PROJECT_DIR)/server/profiles/dev/log.yml && cat $(PROJECT_DIR)/server/profiles/dev/log.yml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/server/log.yml && echo "  > $(OUT_DIR)/conf/log.yml"
 	@-test -f $(PROJECT_DIR)/server/profiles/dev/server.yml && cat $(PROJECT_DIR)/server/profiles/dev/server.yml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/server/server.yml && echo "  > $(OUT_DIR)/conf/server.yml"
 	@-test -f $(PROJECT_DIR)/pixiu/api_config.yaml && cat $(PROJECT_DIR)/pixiu/api_config.yaml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/pixiuconf/api_config.yaml && echo "  > $(OUT_DIR)/pixiuconf/api_config.yaml"
-	@-test -f $(PROJECT_DIR)/pixiu/conf.yaml && cat $(PROJECT_DIR)/pixiu/conf.yaml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/pixiuconf/conf.yaml && echo "  > $(OUT_DIR)/pixiuconf/conf.yaml"
+	@-test -f $(PROJECT_DIR)/pixiu/conf.yaml && cat $(PROJECT_DIR)/pixiu/conf.yaml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" | sed "s#\$$PROJECT_DIR#$(PROJECT_DIR)#g" > $(OUT_DIR)/pixiuconf/conf.yaml && echo "  > $(OUT_DIR)/pixiuconf/conf.yaml"
 
 ## docker-up: Shutdown dependency services on docker
 .PHONY: docker-up

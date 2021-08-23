@@ -51,8 +51,7 @@ const (
 )
 
 const (
-	// Kind is the kind of Fallback.
-	Kind = constant.MetricFilter
+	Kind = constant.DubboProxyFilter
 )
 
 func init() {

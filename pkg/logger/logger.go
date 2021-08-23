@@ -25,12 +25,14 @@ import (
 )
 
 import (
-	"github.com/ghodss/yaml"
-
 	perrors "github.com/pkg/errors"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 )
 
 var logger Logger
@@ -83,7 +85,7 @@ func InitLog(logConfFile string) error {
 	}
 
 	conf := &zap.Config{}
-	err = yaml.Unmarshal(confFileStream, conf)
+	err = yaml.UnmarshalYML(confFileStream, conf)
 	if err != nil {
 		InitLogger(nil)
 		return perrors.New(fmt.Sprintf("[Unmarshal]init logger error: %v", err))

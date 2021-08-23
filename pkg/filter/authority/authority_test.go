@@ -23,12 +23,11 @@ import (
 )
 
 import (
-	"github.com/ghodss/yaml"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
@@ -41,9 +40,9 @@ func TestAuth(t *testing.T) {
 	p := Plugin{}
 	authFilter, _ := p.CreateFilter()
 	config := authFilter.Config()
-	mockYaml, err := yaml.Marshal(rules)
+	mockYaml, err := yaml.MarshalYML(rules)
 	assert.Nil(t, err)
-	err = yaml.Unmarshal(mockYaml, config)
+	err = yaml.UnmarshalYML(mockYaml, config)
 	assert.Nil(t, err)
 
 	err = authFilter.Apply()

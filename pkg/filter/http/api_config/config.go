@@ -17,7 +17,9 @@
 
 package api_config
 
-import "github.com/apache/dubbo-go-pixiu/pkg/model"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
 
 // ApiConfigConfig the config for api_config filter
 type ApiConfigConfig struct {

@@ -18,6 +18,10 @@
 package router
 
 import (
+	"sync"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -27,6 +31,8 @@ type (
 	// RouterCoordinator the router coordinator for http connection manager
 	RouterCoordinator struct {
 		activeConfig *model.RouteConfiguration
+
+		rw sync.RWMutex
 	}
 )
 
@@ -42,15 +48,29 @@ func CreateRouterCoordinator(hcmc *model.HttpConnectionManager) *RouterCoordinat
 
 // Route find routeAction for request
 func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, error) {
+	rm.rw.RLock()
+	defer rm.rw.RUnlock()
+
 	return rm.activeConfig.Route(hc.Request)
 }
 
 // OnAddRouter add router
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
+	rm.rw.Lock()
+	defer rm.rw.Unlock()
 
+	rm.activeConfig.Routes = append(rm.activeConfig.Routes, r)
 }
 
 // OnDeleteRouter delete router
-func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
+func (rm *RouterCoordinator) OnDeleteRouter(new *model.Router) {
+	rm.rw.Lock()
+	defer rm.rw.Unlock()
 
+	for i, r := range rm.activeConfig.Routes {
+		if r.ID == new.ID {
+			rm.activeConfig.Routes = append(rm.activeConfig.Routes[:i], rm.activeConfig.Routes[i+1:]...)
+			break
+		}
+	}
 }

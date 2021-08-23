@@ -17,7 +17,9 @@
 
 package server
 
-import "github.com/apache/dubbo-go-pixiu/pkg/model"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
 
 type ListenerManager struct {
 	activeListener        []*model.Listener
