@@ -27,10 +27,10 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+
+	"github.com/pkg/errors"
 )
 
 import (
@@ -41,7 +41,6 @@ import (
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/host"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -56,11 +55,37 @@ func (l *ListenerService) Start() {
 	switch l.Address.SocketAddress.Protocol {
 	case model.HTTP:
 		l.httpListener()
+	case model.HTTPS:
+		l.httpsListener()
 	default:
 		panic("unsupported protocol start: " + l.Address.SocketAddress.ProtocolStr)
 	}
 }
+func (l *ListenerService) httpsListener() {
+	hl := NewDefaultHttpListener()
+	hl.pool.New = func() interface{} {
+		return l.allocateContext()
+	}
+	// user customize http config
+	var hc *model.HttpConfig
+	hc = model.MapInStruct(l.Config)
 
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", hl.ServeHTTP)
+
+	srv := http.Server{
+		Addr:           resolveAddress(l.Address.SocketAddress.Address + ":" + strconv.Itoa(l.Address.SocketAddress.Port)),
+		Handler:        mux,
+		ReadTimeout:    resolveStr2Time(hc.ReadTimeoutStr, 20*time.Second),
+		WriteTimeout:   resolveStr2Time(hc.WriteTimeoutStr, 20*time.Second),
+		IdleTimeout:    resolveStr2Time(hc.IdleTimeoutStr, 20*time.Second),
+		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
+	}
+
+	logger.Infof("[dubbo-go-pixiu] httpsListener start at : %s", srv.Addr)
+	err := srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
+	logger.Info("[dubbo-go-pixiu] httpsListener result:", err)
+}
 func (l *ListenerService) httpListener() {
 	hl := NewDefaultHttpListener()
 	hl.pool.New = func() interface{} {
@@ -68,12 +93,8 @@ func (l *ListenerService) httpListener() {
 	}
 
 	// user customize http config
-	var hc model.HttpConfig
-	if l.Config != nil {
-		if c, ok := l.Config.(*model.HttpConfig); ok {
-			hc = *c
-		}
-	}
+	var hc *model.HttpConfig
+	hc = model.MapInStruct(l.Config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
@@ -154,7 +175,7 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	)
 	trace := config.GetBootstrap().Tracing
 	if trace.URL != "" && trace.Type != "" {
-		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.TracerFilter))
+		ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.TracingFilter))
 	}
 
 	alc := config.GetBootstrap().StaticResources.AccessLogConfig
@@ -170,14 +191,10 @@ func addFilter(ctx *h.HttpContext, api router.API) {
 	case fc.HTTPRequest:
 		httpFilter(ctx, api.Method.IntegrationRequest)
 	}
-	// load plugins
-	pluginsFilter := plugins.GetAPIFilterFuncsWithAPIURL(ctx.Request.URL.Path)
-	ctx.AppendFilterFunc(pluginsFilter.Pre...)
 
 	ctx.AppendFilterFunc(header.New().Do(), extension.GetMustFilterFunc(constant.RemoteCallFilter))
 	ctx.BuildFilters()
 
-	ctx.AppendFilterFunc(pluginsFilter.Post...)
 	ctx.AppendFilterFunc(extension.GetMustFilterFunc(constant.ResponseFilter))
 }
 

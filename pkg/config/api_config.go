@@ -28,10 +28,12 @@ import (
 import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	fr "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
+
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
+
 	perrors "github.com/pkg/errors"
-	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/mvcc/mvccpb"
+
+	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 import (
@@ -51,7 +53,6 @@ var (
 var (
 	BASE_INFO_NAME = "name"
 	BASE_INFO_DESC = "description"
-	BASE_INFO_PFP  = "pluginFilePath"
 )
 
 // APIConfigResourceListener defines api resource and method config listener interface
@@ -68,10 +69,6 @@ type APIConfigResourceListener interface {
 	MethodAdd(res fc.Resource, method fc.Method) bool
 	// MethodDelete handle delete method event
 	MethodDelete(res fc.Resource, method fc.Method) bool
-
-	PluginPathChange(filePath string)
-
-	PluginGroupChange(group []fc.PluginsGroup)
 
 	RateLimitChange(*fr.Config)
 }
@@ -119,7 +116,6 @@ func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
 func initAPIConfigFromKVList(kList, vList []string) error {
 	var skList, svList, mkList, mvList []string
 	var baseInfo string
-	var pluginGroup []string
 	var rateLimit string
 
 	for i, k := range kList {
@@ -143,13 +139,6 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 		if m := re.Match([]byte(k)); m {
 			mkList = append(mkList, k)
 			mvList = append(mvList, v)
-			continue
-		}
-
-		//handle plugin group
-		re = getCheckPluginsGroupRegexp()
-		if m := re.Match([]byte(k)); m {
-			pluginGroup = append(pluginGroup, v)
 			continue
 		}
 
@@ -177,10 +166,6 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 		logger.Errorf("initAPIConfigMethodFromKvList error %s", err)
 		return err
 	}
-	if err := initAPIConfigPluginsFromStringList(tmpApiConf, pluginGroup); err != nil {
-		logger.Errorf("initAPIConfigPluginsFromStringList error %s", err)
-		return err
-	}
 	if err := initAPIConfigRatelimitFromString(tmpApiConf, rateLimit); err != nil {
 		logger.Errorf("initAPIConfigRatelimitFromString error %s", err)
 		return err
@@ -202,9 +187,6 @@ func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
 	if v, ok := properties[BASE_INFO_DESC]; ok {
 		conf.Description = v
 	}
-	if v, ok := properties[BASE_INFO_PFP]; ok {
-		conf.PluginFilePath = v
-	}
 	return nil
 }
 
@@ -215,20 +197,6 @@ func initAPIConfigRatelimitFromString(conf *fc.APIConfig, str string) error {
 		return err
 	}
 	conf.RateLimit = c
-	return nil
-}
-
-func initAPIConfigPluginsFromStringList(conf *fc.APIConfig, plugins []string) error {
-	var groups []fc.PluginsGroup
-	for _, v := range plugins {
-		g := fc.PluginsGroup{}
-		if err := yaml.UnmarshalYML([]byte(v), &g); err != nil {
-			logger.Errorf("unmarshalYmlConfig error %s", err)
-			return err
-		}
-		groups = append(groups, g)
-	}
-	conf.PluginsGroup = groups
 	return nil
 }
 
@@ -308,7 +276,7 @@ func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string)
 
 func listenResourceAndMethodEvent(key string) bool {
 	for {
-		wc, err := client.WatchWithOption(key, clientv3.WithPrefix())
+		wc, err := client.WatchWithPrefix(key)
 		if err != nil {
 			logger.Warnf("Watch api config {key:%s} = error{%s}", key, err)
 			return false
@@ -437,13 +405,6 @@ func handlePutEvent(key, val []byte) {
 		return
 	}
 
-	//handle plugins group
-	re = getCheckPluginsGroupRegexp()
-	if m := re.Match(key); m {
-		mergePluginGroup(val)
-		return
-	}
-
 	//handle ratelimit
 	re = getCheckRatelimitRegexp()
 	if m := re.Match(key); m {
@@ -489,24 +450,8 @@ func mergeRatelimit(val []byte) {
 	listener.RateLimitChange(c)
 }
 
-func mergePluginGroup(val []byte) {
-	g := &fc.PluginsGroup{}
-	if err := yaml.UnmarshalYML(val, g); err != nil {
-		logger.Errorf("unmarshalYmlConfig error %s", err)
-		return
-	}
-	for i, v := range apiConfig.PluginsGroup {
-		if v.GroupName == g.GroupName {
-			apiConfig.PluginsGroup[i] = *g
-		}
-	}
-	listener.PluginGroupChange(apiConfig.PluginsGroup)
-}
-
 func mergeBaseInfo(val []byte) {
 	_ = initBaseInfoFromString(apiConfig, string(val))
-
-	listener.PluginPathChange(apiConfig.PluginFilePath)
 }
 
 func deleteApiConfigMethod(resourceId, methodId int) {
@@ -559,10 +504,6 @@ func getCheckResourceRegexp() *regexp.Regexp {
 
 func getExtractMethodRegexp() *regexp.Regexp {
 	return regexp.MustCompile(".+/resources/([^/]+)/method/[^/]+/?$")
-}
-
-func getCheckPluginsGroupRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/filter/pluginGroup/[^/]+/?$")
 }
 
 func getCheckRatelimitRegexp() *regexp.Regexp {
