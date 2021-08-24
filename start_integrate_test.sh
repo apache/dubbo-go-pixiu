@@ -16,7 +16,7 @@
 
 array=("samples/dubbogo/simple/body")
 array+=("samples/dubbogo/simple/mix")
-#array+=("samples/dubbogo/simple/proxy")
+array+=("samples/dubbogo/simple/proxy")
 array+=("samples/dubbogo/simple/query")
 array+=("samples/dubbogo/simple/uri")
 
