@@ -80,7 +80,7 @@ type (
 
 	// Endpoint
 	Endpoint struct {
-		Address SocketAddress `yaml:"address" json:"address" mapstructure:"address"`
+		Address SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
 		ID      string        `yaml:"ID" json:"ID"` // ID indicate one endpoint
 	}
 )
