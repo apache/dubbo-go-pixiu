@@ -17,7 +17,9 @@
 
 package constant
 
-import "time"
+import (
+	"time"
+)
 
 // default timeout 1s.
 const (
@@ -54,4 +56,13 @@ const (
 	YAML = ".yaml"
 	//YML .yml
 	YML = ".yml"
+)
+
+const (
+	DefaultConfigPath    = "configs/conf.yaml"
+	DefaultApiConfigPath = "configs/api_config.yaml"
+	DefaultLogConfigPath = "configs/log.yml"
+	DefaultLogLevel      = "info"
+	DefaultLimitCpus     = "0"
+	DefaultLogFormat     = ""
 )

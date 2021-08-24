@@ -18,21 +18,25 @@
 package main
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+	"fmt"
+	"github.com/spf13/cobra"
 )
 
-// Trace filter
-type Trace struct{}
-
-// ExternalPluginTrace export filter
-func ExternalPluginTrace() filter.Filter {
-	return &Trace{}
-}
-
-// Do to export func(c context.Context)
-func (r *Trace) Do() context.FilterFunc {
-	return func(c context.Context) {
-		c.AddHeader("trace", "dubbo go pixiu")
+var (
+	sideCarCmd = &cobra.Command{
+		Use:   "sidecar",
+		Short: "Run dubbo go pixiu in sidecar mode  (implement in the future)",
 	}
+
+	startSideCarCmd = &cobra.Command{
+		Use:   "start",
+		Short: "Start sidecar  (implement in the future)",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Meet you in the Future!")
+		},
+	}
+)
+
+func init() {
+	sideCarCmd.AddCommand(startSideCarCmd)
 }
