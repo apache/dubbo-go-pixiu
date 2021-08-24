@@ -26,7 +26,9 @@ import (
 import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/apache/dubbo-go/common/constant"
+
 	consul "github.com/hashicorp/consul/api"
+
 	perrors "github.com/pkg/errors"
 )
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env sh
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,16 +16,31 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-DIR=$(cd "$(dirname "$0")" && pwd)
-echo "$DIR"
+name: Release
+on:
+  release:
+    types: [created]
 
-PLUGIN_DIR=${DIR}/plugin
-OUT_DIR=${DIR}/out
+jobs:
+  releases-matrix:
+    name: Release Go Binary
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # build and publish in parallel: linux/386, linux/amd64, windows/386, windows/amd64, darwin/amd64
+        goos: [linux, windows]
+        goarch: ["386", amd64, arm]
+        exclude:  
+          - goarch: "arm"
+            goos: windows
 
-for f in "${PLUGIN_DIR}"/*.go
-do
-  echo "$f"
-done
-
-go build -o "${OUT_DIR}" -buildmode=plugin "${PLUGIN_DIR}"
-echo 'build successful!'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: wangyoucao577/go-release-action@v1.18
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          goversion: "https://golang.org/dl/go1.14.linux-amd64.tar.gz"
+          project_path: "./cmd/pixiu"
+          binary_name: "dubbo-go-pixiu"

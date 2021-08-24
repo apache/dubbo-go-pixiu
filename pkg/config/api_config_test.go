@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/ghodss/yaml"
+
 	"github.com/stretchr/testify/assert"
 )
 
