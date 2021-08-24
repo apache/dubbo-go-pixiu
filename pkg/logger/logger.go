@@ -26,7 +26,9 @@ import (
 
 import (
 	"github.com/ghodss/yaml"
+
 	perrors "github.com/pkg/errors"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -57,10 +59,9 @@ type Logger interface {
 }
 
 func init() {
-	logConfFile := "./conf/log.yml"
-	err := InitLog(logConfFile)
-	if err != nil {
-		logger.Infof("[InitLog] warn: %v", err)
+	// only use in test case, so just load default config
+	if logger == nil {
+		InitLogger(nil)
 	}
 }
 
