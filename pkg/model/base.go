@@ -149,6 +149,6 @@ type (
 	}
 )
 
-func (a SocketAddress) GetHost() string {
+func (a SocketAddress) GetAddress() string {
 	return fmt.Sprintf("%s:%v", a.Address, a.Port)
 }
