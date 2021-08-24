@@ -18,22 +18,21 @@
 package initialize
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/plugins"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/remote"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/response"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/tracer"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/tracing"
 	sa "github.com/apache/dubbo-go-pixiu/pkg/service/api"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
 // Run start init.
@@ -51,9 +50,8 @@ func filterInit(config *config.APIConfig) {
 	remote.Init()
 	response.Init()
 	timeout.Init()
-	tracer.Init()
+	tracing.Init()
 	ratelimit.Init(&config.RateLimit)
-	plugins.Init(config.PluginsGroup, config.PluginFilePath, config.Resources)
 }
 
 func apiDiscoveryServiceInit() {
