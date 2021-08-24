@@ -102,8 +102,8 @@ func NewServer() *Server {
 
 func Start(bs *model.Bootstrap) {
 	logger.Infof("[dubbopixiu go] start by config : %+v", bs)
-
-	server := NewServer()
+	// global variable
+	server = NewServer()
 	server.initialize(bs)
 	server.Start()
 	server.startWG.Wait()
