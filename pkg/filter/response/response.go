@@ -50,8 +50,7 @@ type (
 	}
 	// HeaderFilter is http filter instance
 	ResponseFilter struct {
-		strategy string
-		cfg      *Config
+		cfg *Config
 	}
 	// Config describe the config of ResponseFilter
 	Config struct {
@@ -64,8 +63,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	strategy := defaultNewParams()
-	return &ResponseFilter{strategy: strategy}, nil
+	return &ResponseFilter{cfg: &Config{}}, nil
 }
 
 func (rf *ResponseFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
@@ -82,6 +80,10 @@ func (f *ResponseFilter) Config() interface{} {
 }
 
 func (f *ResponseFilter) Apply() error {
+	if f.cfg.Strategy == "" {
+		strategy := defaultNewParams()
+		f.cfg.Strategy = strategy
+	}
 	return nil
 }
 

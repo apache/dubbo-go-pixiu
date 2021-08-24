@@ -32,6 +32,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
@@ -110,11 +111,11 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	if rEntry == nil {
 		panic("no route entry")
 	}
+	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", rEntry.Cluster)
 
 	clusterName := rEntry.Cluster
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
-
 	if endpoint == nil {
 		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("cluster not found endpoint")})
 		hc.SourceResp = bt
@@ -124,6 +125,7 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 		return
 	}
 
+	logger.Debugf("[dubbo-go-pixiu] client choose endpoint :%v", endpoint.Address.GetAddress())
 	r := hc.Request
 
 	var errPrefix string
@@ -144,15 +146,13 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	)
 
 	parsedURL := url.URL{
-		Host:     endpoint.Address.GetHost(),
-		Scheme:   r.URL.Scheme,
+		Host:     endpoint.Address.GetAddress(),
+		Scheme:   "http",
 		Path:     r.URL.Path,
 		RawQuery: r.URL.RawQuery,
 	}
 
 	req, err = http3.NewRequest(r.Method, parsedURL.String(), r.Body)
-	req.Header = r.Header
-
 	if err != nil {
 		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
 		hc.SourceResp = bt
@@ -161,12 +161,14 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 		hc.Abort()
 		return
 	}
+	req.Header = r.Header
 
 	errPrefix = "do request"
 	resp, err := globalClient.Do(req)
 	if err != nil {
 		panic(err)
 	}
+	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
 
 	hc.SourceResp = resp
 	// response write in response filter.
