@@ -24,12 +24,12 @@ static_resources:
         socket_address:
           protocol_type: "HTTP"
           address: "0.0.0.0"
-          port: 8888
+          port: 8882
       filter_chains:
         - filter_chain_match:
-            domains:
-              - api.dubbo.com
-              - api.pixiu.com
+          domains:
+            - api.dubbo.com
+            - api.pixiu.com
           filters:
             - name: dgp.filters.http_connect_manager
               config:
@@ -37,22 +37,27 @@ static_resources:
                   routes:
                     - match:
                         prefix: "/api/v1"
-                        headers:
-                          - name: "X-DGP-WAY"
-                            value: "dubbo"
                       route:
-                        cluster: "test_dubbo"
+                        cluster: "test-dubbo"
                         cluster_not_found_response_code: 505
-                        cors:
-                          allow_origin:
-                            - "*"
-                          enabled: true
                 http_filters:
-                  - name: dgp.filters.http.api
+                  - name: dgp.filters.http.api_config
                     config:
-                  - name: dgp.filters.http.router
+                      path: $PROJECT_DIR/pixiu/api_config.yaml
+                  - name: dgp.filters.http.dubbo_proxy
                     config:
-                  - name: dgp.filters.remote_call
+                      dubboProxyConfig:
+                        registries:
+                          "zookeeper":
+                            protocol: "zookeeper"
+                            timeout: "3s"
+                            address: "127.0.0.1:2181"
+                            username: ""
+                            password: ""
+                        timeout_config:
+                          connect_timeout: 5s
+                          request_timeout: 5s
+                  - name: dgp.filters.http.response
                     config:
                 server_name: "test_http_dubbo"
                 generate_request_id: false
@@ -64,14 +69,11 @@ static_resources:
     - name: "test_dubbo"
       lb_policy: "RoundRobin"
       registries:
-        "zookeeper1":
-          protocol: "zookeeper"
+        "zookeeper":
           timeout: "3s"
           address: "127.0.0.1:2181"
-        "zookeeper2":
-          protocol: "zookeeper"
-          timeout: "3s"
-          address: "127.0.0.1:2182"
+          username: ""
+          password: ""
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
