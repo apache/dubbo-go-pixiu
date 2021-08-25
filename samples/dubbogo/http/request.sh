@@ -19,7 +19,7 @@
 ADDRESS="localhost:8888"
 
 API1=$(curl -s -X POST ${ADDRESS}"/api/v1/test-dubbo/user" -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json')
-API2=$(curl -s -X GET ${ADDRESS}"/api/v1/test-dubbo/query-user?name=0001" --header "Content-Type: application/json")
+API2=$(curl -s -X GET ${ADDRESS}"/api/v1/test-dubbo/query-user?name=tc" --header "Content-Type: application/json")
 
 ARRAY_API=(${API1} ${API2})
 
