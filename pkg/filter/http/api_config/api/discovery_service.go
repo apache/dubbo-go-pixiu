@@ -34,8 +34,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
-var apiDiscoveryServiceMap = map[string]APIDiscoveryService{}
-
 // APIDiscoveryService api discovery service interface
 type APIDiscoveryService interface {
 	pc.APIConfigResourceListener
