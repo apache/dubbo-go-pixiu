@@ -51,7 +51,7 @@ func (cm *ClusterManager) UpdateCluster(new *model.Cluster) {
 	for i, c := range cm.cConfig {
 		if c.Name == new.Name {
 			cm.cConfig[i] = new
-			break
+			return
 		}
 	}
 	logger.Warnf("not found modified cluster %s", new.Name)
@@ -64,7 +64,7 @@ func (cm *ClusterManager) AddEndpoint(clusterName string, endpoint *model.Endpoi
 	for _, c := range cm.cConfig {
 		if c.Name == clusterName {
 			c.Endpoints = append(c.Endpoints, endpoint)
-			break
+			return
 		}
 	}
 
@@ -80,11 +80,11 @@ func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) 
 			for i, e := range c.Endpoints {
 				if e.ID == endpointID {
 					c.Endpoints = append(c.Endpoints[:i], c.Endpoints[i+1:]...)
-					break
+					return
 				}
 			}
 			logger.Warnf("not found endpoint %s", endpointID)
-			break
+			return
 		}
 	}
 	logger.Warnf("not found  cluster %s", clusterName)
