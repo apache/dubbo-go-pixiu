@@ -70,7 +70,7 @@ func (rf *RecoveryFilter) Handle(c *http.HttpContext) {
 }
 
 func (f *RecoveryFilter) Config() interface{} {
-	return nil
+	return f.cfg
 }
 
 func (f *RecoveryFilter) Apply() error {

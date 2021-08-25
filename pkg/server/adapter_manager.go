@@ -19,6 +19,7 @@ package server
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -57,7 +58,18 @@ func (am *AdapterManager) initAdapters(server *Server, bs *model.Bootstrap) {
 
 		hf, err := hp.CreateAdapter(f.Config, bs)
 		if err != nil {
-			logger.Error("initFilterIfNeed create filter error %s", err)
+			logger.Error("initFilterIfNeed create adapter error %s", err)
+		}
+
+		cfg := hf.Config()
+		if err := yaml.ParseConfig(cfg, f.Config); err != nil {
+			logger.Error("initAdapters init config error %s", err)
+			return
+		}
+
+		err = hf.Apply()
+		if err != nil {
+			logger.Error("initFilterIfNeed apply adapter error %s", err)
 		}
 		ads = append(ads, hf)
 	}
