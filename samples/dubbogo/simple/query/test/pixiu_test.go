@@ -66,5 +66,4 @@ func TestGet3(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 	s, _ := ioutil.ReadAll(resp.Body)
 	assert.True(t, strings.Contains(string(s), "0001"))
-
 }
