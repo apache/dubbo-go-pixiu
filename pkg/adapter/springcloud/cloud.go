@@ -65,8 +65,7 @@ func (p *CloudPlugin) Kind() string {
 
 // CreateAdapter create adapter
 func (p *CloudPlugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
-	specConfig := config.(*Config)
-	return &CloudAdapter{cfg: specConfig}, nil
+	return &CloudAdapter{cfg: &Config{}}, nil
 }
 
 // Start start the adapter
@@ -109,4 +108,14 @@ func (a *CloudAdapter) Start() {
 // Stop stop the adapter
 func (a *CloudAdapter) Stop() {
 
+}
+
+// Apply init
+func (a *CloudAdapter) Apply() error {
+	return nil
+}
+
+// Config get config for Adapter
+func (a *CloudAdapter) Config() interface{} {
+	return a.cfg
 }
