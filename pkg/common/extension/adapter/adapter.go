@@ -41,8 +41,14 @@ type (
 
 	// Adapter adapter interface
 	Adapter interface {
+		// Start start adapter lifetime
 		Start()
+		// Stop stop adapter lifetime
 		Stop()
+		// Apply init
+		Apply() error
+		// Config get config for Adapter
+		Config() interface{}
 	}
 )
 

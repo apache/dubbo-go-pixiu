@@ -47,6 +47,16 @@ func (p *DemoAdapterPlugin) CreateAdapter(config interface{}, bs *model.Bootstra
 	return &DemoAdapter{cfg: &Config{}}, nil
 }
 
+// Apply init
+func (a *DemoAdapter) Apply() error {
+	return nil
+}
+
+// Config get config for Adapter
+func (a *DemoAdapter) Config() interface{} {
+	return a.cfg
+}
+
 func (a *DemoAdapter) Start() {
 
 }

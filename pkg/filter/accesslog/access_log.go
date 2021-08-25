@@ -47,12 +47,9 @@ type (
 	}
 	// AccessFilter is http filter instance
 	AccessFilter struct {
-		cfg  *Config
 		conf *AccessLogConfig
 		alw  *AccessLogWriter
 	}
-	// Config describe the config of AccessFilter
-	Config struct{}
 )
 
 // Kind return plugin kind
