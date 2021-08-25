@@ -54,6 +54,16 @@ func (a *DemoAdapter) Start() {
 
 }
 
+// Apply init
+func (a *DemoAdapter) Apply() error {
+	return nil
+}
+
+// Config get config for Adapter
+func (a *DemoAdapter) Config() interface{} {
+	return a.cfg
+}
+
 func (a *DemoAdapter) Stop() {
 
 }
@@ -66,7 +76,7 @@ func TestAdapterManager(t *testing.T) {
 			Adapters: []*model.Adapter{
 				&model.Adapter{
 					Name:   "test",
-					Config: "",
+					Config: make(map[string]interface{}),
 				},
 			},
 		},
