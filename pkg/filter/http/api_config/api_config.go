@@ -89,7 +89,9 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	req := ctx.Request
 	api, err := f.apiService.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
-		ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
+		if _, err := ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
+			logger.Errorf("WriteWithStatus fail: %v", err)
+		}
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		e := errors.Errorf("Requested URL %s not found", req.URL.Path)
 		logger.Debug(e.Error())
@@ -98,7 +100,9 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	}
 
 	if !api.Method.OnAir {
-		ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body)
+		if _, err := ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
+			logger.Errorf("WriteWithStatus fail: %v", err)
+		}
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)
 		logger.Debug(e.Error())

@@ -86,7 +86,9 @@ func SingletonDubboClient() *Client {
 func InitDefaultDubboClient(dpc *DubboProxyConfig) {
 	dubboClient = NewDubboClient()
 	dubboClient.SetConfig(dpc)
-	dubboClient.Apply()
+	if err := dubboClient.Apply(); err != nil {
+		logger.Warnf("dubbo client apply error %s", err)
+	}
 }
 
 // NewDubboClient create dubbo client

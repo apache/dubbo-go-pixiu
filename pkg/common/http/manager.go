@@ -78,14 +78,18 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 
 func (hcm *HttpConnectionManager) addFilter(ctx *pch.HttpContext) {
 	for _, f := range hcm.filterManager.GetFilters() {
-		f.PrepareFilterChain(ctx)
+		if err := f.PrepareFilterChain(ctx); err != nil {
+			logger.Warnf("PrepareFilterChain error %s", err)
+		}
 	}
 }
 
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
-		hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body)
+		if _, err := hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
+			logger.Warnf("WriteWithStatus error %s", err)
+		}
 		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
 		logger.Debug(e.Error())

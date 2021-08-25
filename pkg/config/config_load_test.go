@@ -86,8 +86,7 @@ func TestMain(m *testing.M) {
 
 	var inInterface map[string]interface{}
 	inrec, _ := json.Marshal(hcmc)
-	json.Unmarshal(inrec, &inInterface)
-
+	_ = json.Unmarshal(inrec, &inInterface)
 	b = model.Bootstrap{
 		StaticResources: model.StaticResources{
 			Listeners: []*model.Listener{
