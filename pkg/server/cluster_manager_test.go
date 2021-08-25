@@ -18,11 +18,11 @@
 package server
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"testing"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/stretchr/testify/assert"
 )
 
