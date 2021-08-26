@@ -75,7 +75,6 @@ func GetAdapterPlugin(kind string) (AdapterPlugin, error) {
 	existedAdapter, existed := adapterPlugins[kind]
 	if existed {
 		return existedAdapter, nil
-	} else {
-		return nil, errors.Errorf("plugin not found %s", kind)
 	}
+	return nil, errors.Errorf("plugin not found %s", kind)
 }
