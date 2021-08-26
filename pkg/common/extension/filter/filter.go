@@ -93,9 +93,8 @@ func GetHttpFilterPlugin(kind string) (HttpFilterPlugin, error) {
 	existedFilter, existed := httpFilterPluginRegistry[kind]
 	if existed {
 		return existedFilter, nil
-	} else {
-		return nil, errors.Errorf("plugin not found %s", kind)
 	}
+	return nil, errors.Errorf("plugin not found %s", kind)
 }
 
 // Register registers network filter.
@@ -117,7 +116,6 @@ func GetNetworkFilterPlugin(kind string) (NetworkFilterPlugin, error) {
 	existedFilter, existed := networkFilterPluginRegistry[kind]
 	if existed {
 		return existedFilter, nil
-	} else {
-		return nil, errors.Errorf("plugin not found %s", kind)
 	}
+	return nil, errors.Errorf("plugin not found %s", kind)
 }

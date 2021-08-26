@@ -68,7 +68,7 @@ var (
 type Client struct {
 	lock               sync.RWMutex
 	GenericServicePool map[string]*dg.GenericService
-	dpc                *DubboProxyConfig
+	dubboProxyConfig   *DubboProxyConfig
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -101,7 +101,7 @@ func NewDubboClient() *Client {
 
 // SetConfig set config
 func (dc *Client) SetConfig(dpc *DubboProxyConfig) {
-	dc.dpc = dpc
+	dc.dubboProxyConfig = dpc
 }
 
 // Apply init dubbo, config mapping can do here
@@ -113,10 +113,10 @@ func (dc *Client) Apply() error {
 		Registries: make(map[string]*dg.RegistryConfig, 4),
 	}
 	// timeout config
-	dgCfg.Connect_Timeout = dc.dpc.Timeout.ConnectTimeoutStr
-	dgCfg.Request_Timeout = dc.dpc.Timeout.RequestTimeoutStr
+	dgCfg.Connect_Timeout = dc.dubboProxyConfig.Timeout.ConnectTimeoutStr
+	dgCfg.Request_Timeout = dc.dubboProxyConfig.Timeout.RequestTimeoutStr
 	dgCfg.ApplicationConfig = defaultApplication
-	for k, v := range dc.dpc.Registries {
+	for k, v := range dc.dubboProxyConfig.Registries {
 		if len(v.Protocol) == 0 {
 			logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
 			v.Protocol = defaultDubboProtocol

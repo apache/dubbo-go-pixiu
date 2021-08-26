@@ -25,7 +25,7 @@ resources:
     methods:
       - httpVerb: GET
         onAir: true
-        timeout: 100s
+        timeout: 1000ms
         inboundRequest:
           requestType: http
         integrationRequest:
@@ -46,7 +46,7 @@ resources:
     methods:
       - httpVerb: GET
         onAir: true
-        timeout: 100s
+        timeout: 1000ms
         inboundRequest:
           requestType: http
         integrationRequest:
@@ -70,7 +70,7 @@ resources:
     methods:
       - httpVerb: GET
         onAir: true
-        timeout: 100s
+        timeout: 1000ms
         inboundRequest:
           requestType: http
         integrationRequest:
