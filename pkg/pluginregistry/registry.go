@@ -19,13 +19,13 @@ package pluginregistry
 
 import (
 	// network filters
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/http_connection_manager"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
 	// http filters
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/host"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/api_config"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/httpproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"

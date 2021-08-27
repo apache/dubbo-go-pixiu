@@ -37,7 +37,7 @@ import (
 
 const (
 	// Kind is the kind of plugin.
-	Kind = constant.ResponseFilter
+	Kind = constant.HTTPResponseFilter
 )
 
 func init() {

@@ -44,7 +44,7 @@ const (
 	// DefaultLoadBalanceType Set up default load balance type.
 	DefaultLoadBalanceType = "RoundRobin"
 	// DefaultFilterType Set up default filter type.
-	DefaultFilterType = "dgp.filters.http_connect_manager"
+	DefaultFilterType = "dgp.filter.httpconnectionmanager"
 	// DefaultHTTPType Set up default HTTP Type.
 	DefaultHTTPType = "net/http"
 	// DefaultProtocolType Set up default protocol type.

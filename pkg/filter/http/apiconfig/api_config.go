@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package api_config
+package apiconfig
 
 import (
 	"net/http"
@@ -31,13 +31,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/api_config/api"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
 	// Kind is the kind of Fallback.
-	Kind = constant.ApiConfigFilter
+	Kind = constant.HTTPApiConfigFilter
 )
 
 func init() {
