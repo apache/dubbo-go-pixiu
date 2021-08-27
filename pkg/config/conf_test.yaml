@@ -57,7 +57,7 @@ static_resources:
                     config:
                   - name: dgp.filters.http.router
                     config:
-                  - name: dgp.filters.http_transfer_dubbo
+                  - name: dgp.filters.http.dubboproxy
                     config:
                 server_name: "test_http_dubbo"
                 generate_request_id: false
