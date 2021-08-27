@@ -25,7 +25,7 @@ import (
 
 const (
 	// Kind is the kind of plugin.
-	Kind = constant.HTTPHOSTFilter
+	Kind = constant.HTTPHostFilter
 )
 
 func init() {

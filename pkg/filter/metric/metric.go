@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	Kind = constant.MetricFilter
+	Kind = constant.HTTPMetricFilter
 )
 
 var (
@@ -88,7 +88,7 @@ func (mf *MetricFilter) Handle(c *http.HttpContext) {
 
 	c.Next()
 
-	latency := time.Now().Sub(start)
+	latency := time.Since(start)
 	atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
 	atomic.AddInt64(&totalCount, 1)
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package http_connection_manager
+package httpconnectionmanager
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"

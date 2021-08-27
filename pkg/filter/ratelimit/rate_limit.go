@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	Kind = constant.RateLimitFilter
+	Kind = constant.HTTPRateLimitFilter
 )
 
 func init() {

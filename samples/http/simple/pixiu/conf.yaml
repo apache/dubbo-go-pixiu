@@ -31,7 +31,7 @@ static_resources:
             - api.dubbo.com
             - api.pixiu.com
           filters:
-            - name: dgp.filters.http_connect_manager
+            - name: dgp.filter.httpconnectionmanager
               config:
                 route_config:
                   routes:
@@ -41,9 +41,9 @@ static_resources:
                         cluster: "user"
                         cluster_not_found_response_code: 505
                 http_filters:
-                  - name: dgp.filters.http.http_proxy
+                  - name: dgp.filter.http.httpproxy
                     config:
-                  - name: dgp.filters.http.response
+                  - name: dgp.filter.http.response
                     config:
       config:
         idle_timeout: 5s
