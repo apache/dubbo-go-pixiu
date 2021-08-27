@@ -51,7 +51,7 @@ const (
 )
 
 const (
-	Kind = constant.DubboProxyFilter
+	Kind = constant.HTTPDubboProxyFilter
 )
 
 func init() {

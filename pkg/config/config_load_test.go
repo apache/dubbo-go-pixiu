@@ -114,7 +114,7 @@ func TestMain(m *testing.M) {
 							},
 							Filters: []model.Filter{
 								{
-									Name:   "dgp.filters.http_connect_manager",
+									Name:   "dgp.filter.httpconnectionmanager",
 									Config: inInterface,
 								},
 							},
