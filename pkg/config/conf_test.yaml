@@ -31,7 +31,7 @@ static_resources:
               - api.dubbo.com
               - api.pixiu.com
           filters:
-            - name: dgp.filters.http_connect_manager
+            - name: dgp.filter.httpconnectionmanager
               config:
                 idle_timeout: "100"
                 route_config:

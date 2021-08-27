@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	Kind = constant.RecoveryFilter
+	Kind = constant.HTTPRecoveryFilter
 )
 
 func init() {

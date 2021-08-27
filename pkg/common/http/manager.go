@@ -33,14 +33,12 @@ import (
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 // HttpConnectionManager network filter for http
 type HttpConnectionManager struct {
 	config            *model.HttpConnectionManager
 	routerCoordinator *router2.RouterCoordinator
-	clusterManager    *server.ClusterManager
 	filterManager     *filter.FilterManager
 }
 
