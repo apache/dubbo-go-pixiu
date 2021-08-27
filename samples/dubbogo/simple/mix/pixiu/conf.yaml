@@ -31,7 +31,7 @@ static_resources:
             - api.dubbo.com
             - api.pixiu.com
           filters:
-            - name: dgp.filters.http_connect_manager
+            - name: dgp.filter.httpconnectionmanager
               config:
                 route_config:
                   routes:
@@ -41,10 +41,10 @@ static_resources:
                         cluster: "test-dubbo"
                         cluster_not_found_response_code: 505
                 http_filters:
-                  - name: dgp.filters.http.api_config
+                  - name: dgp.filter.http.apiconfig
                     config:
                       path: $PROJECT_DIR/pixiu/api_config.yaml
-                  - name: dgp.filters.http.dubbo_proxy
+                  - name: dgp.filter.http.dubboproxy
                     config:
                       dubboProxyConfig:
                         registries:
@@ -57,7 +57,7 @@ static_resources:
                         timeout_config:
                           connect_timeout: 5s
                           request_timeout: 5s
-                  - name: dgp.filters.http.response
+                  - name: dgp.filter.http.response
                     config:
                 server_name: "test_http_dubbo"
                 generate_request_id: false

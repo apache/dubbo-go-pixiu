@@ -34,7 +34,7 @@ import (
 
 const (
 	// Kind is the kind of Fallback.
-	Kind = constant.AccessLogFilter
+	Kind = constant.HTTPAccessLogFilter
 )
 
 func init() {
@@ -77,7 +77,7 @@ func (af *AccessFilter) PrepareFilterChain(ctx *http.HttpContext) error {
 func (af *AccessFilter) Handle(c *http.HttpContext) {
 	start := time.Now()
 	c.Next()
-	latency := time.Now().Sub(start)
+	latency := time.Since(start)
 	// build access_log message
 	accessLogMsg := buildAccessLogMsg(c, latency)
 	if len(accessLogMsg) > 0 {

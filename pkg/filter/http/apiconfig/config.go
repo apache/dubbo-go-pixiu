@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package api_config
+package apiconfig
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"

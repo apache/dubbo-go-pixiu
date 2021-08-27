@@ -38,7 +38,7 @@ import (
 
 const (
 	// Kind is the kind of Fallback.
-	Kind = constant.HTTPPROXYFilter
+	Kind = constant.HTTPProxyFilter
 )
 
 // All RemoteFilter instances use one globalClient in order to reuse
@@ -117,7 +117,7 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
-		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("cluster not found endpoint")})
+		bt, _ := json.Marshal(http.ErrResponse{Message: "cluster not found endpoint"})
 		hc.SourceResp = bt
 		hc.TargetResp = &client.Response{Data: bt}
 		hc.WriteJSONWithStatus(http3.StatusServiceUnavailable, bt)
