@@ -75,7 +75,7 @@ func TestMain(m *testing.M) {
 				Config: nil,
 			},
 			{
-				Name:   "dgp.filters.http_transfer_dubbo",
+				Name:   "dgp.filters.http.dubboproxy",
 				Config: nil,
 			},
 		},
