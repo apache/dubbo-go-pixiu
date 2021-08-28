@@ -117,18 +117,18 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
 func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	if cf.APIMetaConfig != nil {
-		if a, err := config.LoadAPIConfig(cf.APIMetaConfig); err != nil {
+		a, err := config.LoadAPIConfig(cf.APIMetaConfig)
+		if err != nil {
 			logger.Warnf("load api config from etcd error:%+v", err)
 			return nil, err
 		}
-		
 		return a, nil
 	}
-	
-	if a, err := config.LoadAPIConfigFromFile(cf.Path); err != nil {
+
+	a, err := config.LoadAPIConfigFromFile(cf.Path)
+	if err != nil {
 		logger.Errorf("load api config error:%+v", err)
 		return nil, err
 	}
-
 	return a, nil
 }
