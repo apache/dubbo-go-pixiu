@@ -93,7 +93,7 @@ func passCheck(item string, rule AuthorityRule) bool {
 		}
 	}
 
-	if (rule.Strategy == Blacklist && result == true) || (rule.Strategy == Whitelist && result == false) {
+	if (rule.Strategy == Blacklist && result) || (rule.Strategy == Whitelist && !result) {
 		return false
 	}
 
