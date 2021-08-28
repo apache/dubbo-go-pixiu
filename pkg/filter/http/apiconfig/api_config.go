@@ -120,15 +120,15 @@ func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 		if a, err := config.LoadAPIConfig(cf.APIMetaConfig); err != nil {
 			logger.Warnf("load api config from etcd error:%+v", err)
 			return nil, err
-		} else {
-			return a, nil
 		}
-	} else {
-		if a, err := config.LoadAPIConfigFromFile(cf.Path); err != nil {
-			logger.Errorf("load api config error:%+v", err)
-			return nil, err
-		} else {
-			return a, nil
-		}
+		
+		return a, nil
 	}
+	
+	if a, err := config.LoadAPIConfigFromFile(cf.Path); err != nil {
+		logger.Errorf("load api config error:%+v", err)
+		return nil, err
+	}
+
+	return a, nil
 }
