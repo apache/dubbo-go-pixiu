@@ -101,7 +101,7 @@ func initDefaultValue() {
 		apiConfigPath = constant.DefaultApiConfigPath
 	}
 
-	if logConfigPath != "" {
+	if logConfigPath == "" {
 		logConfigPath = constant.DefaultLogConfigPath
 	}
 
@@ -113,7 +113,7 @@ func initDefaultValue() {
 		limitCpus = constant.DefaultLimitCpus
 	}
 
-	if logFormat != "" {
+	if logFormat == "" {
 		logFormat = constant.DefaultLogFormat
 	}
 }
