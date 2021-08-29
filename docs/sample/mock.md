@@ -15,7 +15,7 @@ resources:
       - httpVerb: GET
         onAir: true
         mock: true
-        timeout: 100s
+        timeout: 1000ms
         inboundRequest:
           requestType: http
 ```

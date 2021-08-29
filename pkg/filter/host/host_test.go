@@ -29,14 +29,19 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestHost(t *testing.T) {
 	targetHost := "www.dubbogo.com"
+	cfg := Config{
+		Host: targetHost,
+	}
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, New(targetHost).Do(), recovery.New().Do())
+	host := &HostFilter{}
+	host.cfg = &cfg
+	assert.Nil(t, err)
+	c := mock.GetMockHTTPContext(request, host)
 	c.Next()
-	assert.Equal(t, c.Request.Host, targetHost)
+	assert.Equal(t, targetHost, c.Request.Host)
 }

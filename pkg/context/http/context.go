@@ -18,39 +18,64 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const abortIndex int8 = math.MaxInt8 / 2
+
 // HttpContext http context
 type HttpContext struct {
-	*context.BaseContext
+	Index   int8
+	Filters FilterChain
+	Timeout time.Duration
+	Ctx     context.Context
+
+	// the response context will return.
+	TargetResp *client.Response
+	// client call response.
+	SourceResp interface{}
+	// happen error
+	Err error
+
 	HttpConnectionManager model.HttpConnectionManager
-	FilterChains          []model.FilterChain
 	Listener              *model.Listener
-	api                   router.API
+	Route                 *model.RouteAction
+	Api                   router.API
 
 	Request   *http.Request
 	writermem responseWriter
 	Writer    ResponseWriter
 }
+
+type (
+	// ErrResponse err response.
+	ErrResponse struct {
+		Message string `json:"message"`
+	}
+
+	// FilterFunc filter func, filter
+	FilterFunc func(c *HttpContext)
+
+	// FilterChain filter chain
+	FilterChain []FilterFunc
+)
 
 // Next logic for lookup filter
 func (hc *HttpContext) Next() {
@@ -64,12 +89,22 @@ func (hc *HttpContext) Next() {
 // Reset reset http context
 func (hc *HttpContext) Reset() {
 	hc.Writer = &hc.writermem
-	hc.BaseContext = context.NewBaseContext()
+	hc.Index = -1
 }
 
 // Status set header status code
 func (hc *HttpContext) Status(code int) {
 	hc.Writer.WriteHeader(code)
+}
+
+// RouteEntry set route
+func (hc *HttpContext) RouteEntry(r *model.RouteAction) {
+	hc.Route = r
+}
+
+// GetRouteEntry get route
+func (hc *HttpContext) GetRouteEntry() *model.RouteAction {
+	return hc.Route
 }
 
 // StatusCode get header status code
@@ -116,22 +151,6 @@ func (hc *HttpContext) GetUrl() string {
 // GetMethod get method, POST/GET ...
 func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
-}
-
-// Api wait do delete
-func (hc *HttpContext) Api(api *api.API) {
-	// hc.api = api
-}
-
-// API sets the API to http context
-func (hc *HttpContext) API(api router.API) {
-	hc.Timeout = api.Timeout
-	hc.api = api
-}
-
-// GetAPI get api
-func (hc *HttpContext) GetAPI() *router.API {
-	return &hc.api
 }
 
 // GetClientIP get client IP
@@ -213,21 +232,35 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 	}
 }
 
-// BuildFilters build filter, from config http_filters
-func (hc *HttpContext) BuildFilters() {
-	var filterFuncs []fc.FilterFunc
-	api := hc.GetAPI()
-
-	if api == nil {
-		return
-	}
-	for _, v := range api.Method.Filters {
-		filterFuncs = append(filterFuncs, extension.GetMustFilterFunc(v))
-	}
-	hc.AppendFilterFunc(filterFuncs...)
-}
-
 // ResetWritermen reset writermen
 func (hc *HttpContext) ResetWritermen(w http.ResponseWriter) {
 	hc.writermem.reset(w)
+}
+
+// API sets the API to http context
+func (hc *HttpContext) API(api router.API) {
+	hc.Timeout = api.Timeout
+	hc.Api = api
+}
+
+// GetAPI get api
+func (hc *HttpContext) GetAPI() *router.API {
+	return &hc.Api
+}
+
+// Abort  filter chain break , filter after the current filter will not executed.
+func (hc *HttpContext) Abort() {
+	hc.Index = abortIndex
+}
+
+// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
+func (hc *HttpContext) AbortWithError(message string, err error) {
+	hc.Abort()
+}
+
+// AppendFilterFunc  append filter func.
+func (hc *HttpContext) AppendFilterFunc(ff ...FilterFunc) {
+	for _, v := range ff {
+		hc.Filters = append(hc.Filters, v)
+	}
 }
