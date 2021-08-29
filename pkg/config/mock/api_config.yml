@@ -24,7 +24,7 @@ resources:
     description: resource documentation
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         inboundRequest:
           requestType: http
           headers:
@@ -55,7 +55,7 @@ resources:
     description: mockTest
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         inboundRequest:
           requestType: http
           headers: 
@@ -82,7 +82,7 @@ resources:
             - java.lang.String
           clusterName: test_dubbo
       - httpVerb: POST
-        onAir: true
+        enable: true
         inboundRequest:
           requestType: http
           headers: 
@@ -112,7 +112,7 @@ resources:
         description: resource documentation
         methods:
           - httpVerb: GET
-            onAir: true
+            enable: true
             inboundRequest:
               requestType: http
               headers: 
