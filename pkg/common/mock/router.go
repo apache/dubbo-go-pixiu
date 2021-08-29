@@ -27,7 +27,7 @@ func GetMockAPI(verb config.HTTPVerb, urlPattern string, filters ...string) rout
 	inbound := config.InboundRequest{}
 	integration := config.IntegrationRequest{RequestType: config.DubboRequest}
 	method := config.Method{
-		OnAir:              true,
+		Enable:             true,
 		HTTPVerb:           verb,
 		InboundRequest:     inbound,
 		IntegrationRequest: integration,
