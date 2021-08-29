@@ -25,78 +25,92 @@ import (
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.TimeoutFilter, timeoutFilterFunc(0))
+const (
+	// Kind is the kind of Fallback.
+	Kind = constant.HTTPTimeoutFilter
+)
+
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
-func timeoutFilterFunc(duration time.Duration) fc.FilterFunc {
-	return New(duration).Do()
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
+	}
+
+	// Filter is http filter instance
+	Filter struct {
+		cfg *Config
+	}
+
+	Config struct {
+		Timeout time.Duration `yaml:"timeout" json:"timeout"`
+	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
 }
 
-// timeoutFilter is a filter for control request time out.
-type timeoutFilter struct {
-	// global timeout
-	waitTime time.Duration
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	specConfig := Config{constant.DefaultTimeout}
+	return &Filter{cfg: &specConfig}, nil
 }
 
-// New create timeout filter.
-func New(t time.Duration) filter.Filter {
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
+	return nil
+}
+
+func (f *Filter) Handle(hc *contexthttp.HttpContext) {
+	ctx, cancel := context.WithTimeout(hc.Ctx, f.getTimeout(hc.Timeout))
+	defer cancel()
+	// Channel capacity must be greater than 0.
+	// Otherwise, if the parent coroutine quit due to timeout,
+	// the child coroutine may never be able to quit.
+	finishChan := make(chan struct{}, 1)
+	go func() {
+		// panic by recovery
+		hc.Next()
+		finishChan <- struct{}{}
+	}()
+
+	select {
+	// timeout do.
+	case <-ctx.Done():
+		logger.Warnf("api:%s request timeout", hc.GetUrl())
+		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
+		hc.SourceResp = bt
+		hc.TargetResp = &client.Response{Data: bt}
+		hc.WriteJSONWithStatus(http.StatusGatewayTimeout, bt)
+		hc.Abort()
+	case <-finishChan:
+		// finish call do something.
+	}
+}
+
+func (f *Filter) Config() interface{} {
+	return nil
+}
+
+func (f *Filter) Apply() error {
+	if f.cfg.Timeout <= 0 {
+		f.cfg.Timeout = constant.DefaultTimeout
+	}
+	return nil
+}
+
+func (f *Filter) getTimeout(t time.Duration) time.Duration {
 	if t <= 0 {
-		t = constant.DefaultTimeout
-	}
-	return &timeoutFilter{
-		waitTime: t,
-	}
-}
-
-// Do execute timeoutFilter filter logic.
-func (f timeoutFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		hc := c.(*contexthttp.HttpContext)
-
-		ctx, cancel := context.WithTimeout(hc.Ctx, f.getTimeout(hc.Timeout))
-		defer cancel()
-		// Channel capacity must be greater than 0.
-		// Otherwise, if the parent coroutine quit due to timeout,
-		// the child coroutine may never be able to quit.
-		finishChan := make(chan struct{}, 1)
-		go func() {
-			// panic by recovery
-			c.Next()
-			finishChan <- struct{}{}
-		}()
-
-		select {
-		// timeout do.
-		case <-ctx.Done():
-			logger.Warnf("api:%s request timeout", hc.GetAPI().URLPattern)
-			bt, _ := json.Marshal(filter.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
-			hc.SourceResp = bt
-			hc.TargetResp = &client.Response{Data: bt}
-			hc.WriteJSONWithStatus(http.StatusGatewayTimeout, bt)
-			c.Abort()
-		case <-finishChan:
-			// finish call do something.
-		}
-	}
-}
-
-func (f timeoutFilter) getTimeout(t time.Duration) time.Duration {
-	if t <= 0 {
-		return f.waitTime
+		return f.cfg.Timeout
 	}
 
 	return t

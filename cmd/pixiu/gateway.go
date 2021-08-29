@@ -28,13 +28,13 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/pixiu"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 var (
 	gatewayCmd = &cobra.Command{
 		Use:   "gateway",
-		Short: "Run dubbo go pixiu in gateway mode",
+		Short: "Run dubbo go server in gateway mode",
 	}
 
 	startGatewayCmd = &cobra.Command{
@@ -64,7 +64,7 @@ var (
 				logger.Errorf("[startCmd] failed to get limit cpu number, %s", err.Error())
 			}
 
-			pixiu.Start(bootstrap)
+			server.Start(bootstrap)
 		},
 	}
 )
