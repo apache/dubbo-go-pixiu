@@ -20,7 +20,7 @@ resources:
       - filter0
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         inboundRequest:
           requestType: http
           queryStrings:
@@ -87,7 +87,7 @@ httpVerb
 :
 > The http method, accept GET/POST/PUT/DELETE/OPTIONS/PATCH/HEAD/HEAD/ANY(Not supported yet)
 
-onAir
+enable
 :
 > Defines the API is online/offline. true -> online, false -> offline. When the API is offline, it returns 406.
 
