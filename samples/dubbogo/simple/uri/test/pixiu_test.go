@@ -18,7 +18,9 @@
 package test
 
 import (
+	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -36,6 +38,8 @@ func TestGet1(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	assert.True(t, strings.Contains(string(s), "0001"))
 }
 
 func TestGet2(t *testing.T) {
@@ -47,6 +51,8 @@ func TestGet2(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	assert.True(t, strings.Contains(string(s), "0001"))
 }
 
 func TestGet3(t *testing.T) {
@@ -58,4 +64,6 @@ func TestGet3(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	assert.True(t, strings.Contains(string(s), "0001"))
 }
