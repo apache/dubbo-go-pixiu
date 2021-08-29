@@ -19,7 +19,10 @@ package client
 
 // Client represents the interface of http/dubbo clients
 type Client interface {
-	Init() error
+	// Apply to init client
+	Apply() error
+
+	// Close close the clinet
 	Close() error
 
 	// Call invoke the downstream service.

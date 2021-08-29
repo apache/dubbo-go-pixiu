@@ -68,6 +68,7 @@ var (
 type Client struct {
 	lock               sync.RWMutex
 	GenericServicePool map[string]*dg.GenericService
+	dubboProxyConfig   *DubboProxyConfig
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -81,6 +82,15 @@ func SingletonDubboClient() *Client {
 	return dubboClient
 }
 
+// InitDefaultDubboClient init default dubbo client
+func InitDefaultDubboClient(dpc *DubboProxyConfig) {
+	dubboClient = NewDubboClient()
+	dubboClient.SetConfig(dpc)
+	if err := dubboClient.Apply(); err != nil {
+		logger.Warnf("dubbo client apply error %s", err)
+	}
+}
+
 // NewDubboClient create dubbo client
 func NewDubboClient() *Client {
 	return &Client{
@@ -89,11 +99,13 @@ func NewDubboClient() *Client {
 	}
 }
 
-// Init init dubbo, config mapping can do here
-func (dc *Client) Init() error {
-	staticResources := config.GetBootstrap().StaticResources
-	cls := staticResources.Clusters
-	tc := staticResources.TimeoutConfig
+// SetConfig set config
+func (dc *Client) SetConfig(dpc *DubboProxyConfig) {
+	dc.dubboProxyConfig = dpc
+}
+
+// Apply init dubbo, config mapping can do here
+func (dc *Client) Apply() error {
 
 	// dubbogo consumer config
 	dgCfg = dg.ConsumerConfig{
@@ -101,28 +113,23 @@ func (dc *Client) Init() error {
 		Registries: make(map[string]*dg.RegistryConfig, 4),
 	}
 	// timeout config
-	dgCfg.Connect_Timeout = tc.ConnectTimeoutStr
-	dgCfg.Request_Timeout = tc.RequestTimeoutStr
+	dgCfg.Connect_Timeout = dc.dubboProxyConfig.Timeout.ConnectTimeoutStr
+	dgCfg.Request_Timeout = dc.dubboProxyConfig.Timeout.RequestTimeoutStr
 	dgCfg.ApplicationConfig = defaultApplication
-	for i := range cls {
-		c := cls[i]
-		for k, v := range c.Registries {
-			if len(v.Protocol) == 0 {
-				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
-				v.Protocol = defaultDubboProtocol
-			}
-			dgCfg.Registries[k] = &dg.RegistryConfig{
-				Protocol:   v.Protocol,
-				Address:    v.Address,
-				TimeoutStr: v.Timeout,
-				Username:   v.Username,
-				Password:   v.Password,
-			}
+	for k, v := range dc.dubboProxyConfig.Registries {
+		if len(v.Protocol) == 0 {
+			logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
+			v.Protocol = defaultDubboProtocol
+		}
+		dgCfg.Registries[k] = &dg.RegistryConfig{
+			Protocol:   v.Protocol,
+			Address:    v.Address,
+			TimeoutStr: v.Timeout,
+			Username:   v.Username,
+			Password:   v.Password,
 		}
 	}
-
 	initDubbogo()
-
 	return nil
 }
 

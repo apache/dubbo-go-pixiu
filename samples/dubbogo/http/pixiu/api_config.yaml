@@ -37,7 +37,7 @@ resources:
           path: /UserProvider/CreateUser
           group: "test"
           version: 1.0.0
-  - path: '/api/v1/test-dubbo/user'
+  - path: '/api/v1/test-dubbo/query-user'
     type: restful
     description: user
     methods:
@@ -58,10 +58,3 @@ resources:
               mapTo: queryStrings.name
           group: "test"
           version: 1.0.0
-      - httpVerb: POST
-        onAir: true
-        timeout: 10s
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: http
