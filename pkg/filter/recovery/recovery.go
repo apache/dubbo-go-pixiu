@@ -18,43 +18,68 @@
 package recovery
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.RecoveryFilter, recoveryFilterFunc())
+const (
+	Kind = constant.HTTPRecoveryFilter
+)
+
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
-func recoveryFilterFunc() context.FilterFunc {
-	return New().Do()
-}
-
-// recoveryFilter is a filter for recover.
-type recoveryFilter struct{}
-
-// New create timeout filter.
-func New() filter.Filter {
-	return &recoveryFilter{}
-}
-
-// Recovery execute recoveryFilter filter logic, if recover happen, print log or do other things.
-func (f recoveryFilter) Do() context.FilterFunc {
-	return func(c context.Context) {
-		defer func() {
-			if err := recover(); err != nil {
-				logger.Warnf("[dubbopixiu go] error:%+v", err)
-
-				c.WriteErr(err)
-			}
-		}()
-		c.Next()
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
 	}
+	// RecoveryFilter is http filter instance
+	RecoveryFilter struct {
+		cfg *Config
+	}
+	// Config describe the config of RecoveryFilter
+	Config struct {
+		Host string `yaml:"host" json:"host"`
+	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
+}
+
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &RecoveryFilter{}, nil
+}
+
+func (rf *RecoveryFilter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(rf.Handle)
+	return nil
+}
+
+func (rf *RecoveryFilter) Handle(c *http.HttpContext) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Warnf("[dubbopixiu go] error:%+v", err)
+			c.WriteErr(err)
+		}
+	}()
+	c.Next()
+}
+
+func (f *RecoveryFilter) Config() interface{} {
+	return f.cfg
+}
+
+func (f *RecoveryFilter) Apply() error {
+	return nil
+}
+
+// GetMock return mocked filter
+func GetMock() filter.HttpFilter {
+	filter := &RecoveryFilter{}
+	_ = filter.Apply()
+	return filter
 }
