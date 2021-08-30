@@ -22,8 +22,6 @@ resources:
   - path: '/api/v1/test-dubbo/student/:name'
     type: restful
     description: student
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         enable: true
@@ -65,8 +63,6 @@ resources:
   - path: '/api/v1/test-dubbo/teacher/:name'
     type: restful
     description: teacher
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         enable: true

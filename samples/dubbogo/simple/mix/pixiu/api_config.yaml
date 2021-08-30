@@ -66,8 +66,6 @@ resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: PUT
         enable: true
