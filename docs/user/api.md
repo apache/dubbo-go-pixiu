@@ -16,8 +16,6 @@ resources:
   - path: '/'
     type: restful
     description: resource documentation
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
         enable: true
