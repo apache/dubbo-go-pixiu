@@ -15,7 +15,7 @@ resources:
     description: user
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -27,7 +27,7 @@ resources:
           host: "127.0.0.1:1314"
           path: "/user"
       - httpVerb: POST
-        onAir: true
+        enable: true
         timeout: 10s
         inboundRequest:
           requestType: http

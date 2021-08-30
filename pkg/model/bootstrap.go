@@ -26,18 +26,17 @@ type Bootstrap struct {
 }
 
 // GetListeners
-func (bs *Bootstrap) GetListeners() []Listener {
+func (bs *Bootstrap) GetListeners() []*Listener {
+	return bs.StaticResources.Listeners
+}
+
+func (bs *Bootstrap) GetStaticListeners() []*Listener {
 	return bs.StaticResources.Listeners
 }
 
 // GetPprof
 func (bs *Bootstrap) GetPprof() PprofConf {
 	return bs.StaticResources.PprofConf
-}
-
-// GetAPIMetaConfig get api meta config from bootstrap
-func (bs *Bootstrap) GetAPIMetaConfig() *APIMetaConfig {
-	return bs.StaticResources.APIMetaConfig
 }
 
 // ExistCluster
@@ -55,19 +54,18 @@ func (bs *Bootstrap) ExistCluster(name string) bool {
 
 // StaticResources
 type StaticResources struct {
-	Listeners       []Listener      `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
-	Clusters        []*Cluster      `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
-	TimeoutConfig   TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
-	ShutdownConfig  *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
-	PprofConf       PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
-	AccessLogConfig AccessLogConfig `yaml:"accessLog" json:"accessLog" mapstructure:"accessLog"`
-	APIMetaConfig   *APIMetaConfig  `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
+	Listeners      []*Listener     `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
+	Clusters       []*Cluster      `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
+	Adapters       []*Adapter      `yaml:"adapters" json:"adapters" mapstructure:"adapters"`
+	TimeoutConfig  TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
+	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
+	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
 }
 
 // DynamicResources TODO
 type DynamicResources struct{}
 
-// ShutdownConfig how to shutdown pixiu.
+// ShutdownConfig how to shutdown server.
 type ShutdownConfig struct {
 	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
 	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
