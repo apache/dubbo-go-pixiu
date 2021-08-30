@@ -24,7 +24,7 @@ resources:
     description: user
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -44,7 +44,7 @@ resources:
           version: 1.0.0
           clusterName: "test_dubbo"
       - httpVerb: PUT
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -66,11 +66,9 @@ resources:
   - path: '/api/v1/test-dubbo/user'
     type: restful
     description: user
-    filters:
-      - filter0
     methods:
       - httpVerb: PUT
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
