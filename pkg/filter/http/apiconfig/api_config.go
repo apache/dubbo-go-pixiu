@@ -99,7 +99,7 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 		return
 	}
 
-	if !api.Method.OnAir {
+	if !api.Method.Enable {
 		if _, err := ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
 			logger.Errorf("WriteWithStatus fail: %v", err)
 		}
