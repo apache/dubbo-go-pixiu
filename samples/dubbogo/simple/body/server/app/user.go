@@ -37,8 +37,12 @@ func init() {
 
 	cache = newUserDB()
 
-	cache.Add(&User{ID: "0001", Code: 1, Name: "tc", Age: 18, Time: time.Now()})
-	cache.Add(&User{ID: "0002", Code: 2, Name: "ic", Age: 88, Time: time.Now()})
+	t1, _ := time.Parse(
+		time.RFC3339,
+		"2021-08-01T10:08:41+00:00")
+
+	cache.Add(&User{ID: "0001", Code: 1, Name: "tc", Age: 18, Time: t1})
+	cache.Add(&User{ID: "0002", Code: 2, Name: "ic", Age: 88, Time: t1})
 }
 
 var cache *userDB

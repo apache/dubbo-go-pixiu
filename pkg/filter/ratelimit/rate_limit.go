@@ -25,65 +25,109 @@ import (
 import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
+	sc "github.com/alibaba/sentinel-golang/core/config"
+	"github.com/alibaba/sentinel-golang/core/flow"
+	"github.com/alibaba/sentinel-golang/logging"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/ratelimit/matcher"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// Init cache the filter func & init sentinel
-func Init(config *ratelimit.Config) {
-	if err := rateLimitInit(config); err != nil {
-		logger.Errorf("rate limit init fail: %s", err)
+const (
+	Kind = constant.HTTPRateLimitFilter
+)
 
-		//if sentinel init fail, just return a empty filter func to avoid error.
-		extension.SetFilterFunc(constant.RateLimitFilter, func(context fc.Context) {})
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
+}
+
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
+	}
+
+	// Filter is http filter instance
+	Filter struct {
+		conf    *Config
+		matcher *Matcher
+	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
+}
+
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{conf: &Config{}}, nil
+}
+
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
+	return nil
+}
+
+func (f *Filter) Handle(hc *contexthttp.HttpContext) {
+
+	path := hc.GetUrl()
+	resourceName, ok := f.matcher.match(path)
+	//if not exists, just skip it.
+	if !ok {
 		return
 	}
 
-	extension.SetFilterFunc(constant.RateLimitFilter, New().Do())
+	entry, blockErr := sentinel.Entry(resourceName, sentinel.WithResourceType(base.ResTypeAPIGateway), sentinel.WithTrafficType(base.Inbound))
+
+	//if blockErr not nil, indicates the request was blocked by Sentinel
+	if blockErr != nil {
+		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "blocked by rate limit"})
+		hc.SourceResp = bt
+		hc.TargetResp = &client.Response{Data: bt}
+		hc.WriteJSONWithStatus(http.StatusTooManyRequests, bt)
+		hc.Abort()
+		return
+	}
+	defer entry.Exit()
 }
 
-// rateLimit
-type rateLimit struct {
+func (r *Filter) Config() interface{} {
+	return r.conf
 }
 
-// New create the rate limit filter
-func New() filter.Filter {
-	return &rateLimit{}
+func (r *Filter) Apply() error {
+	// init matcher
+	r.matcher = newMatcher()
+	conf := r.conf
+	r.matcher.load(conf.Resources)
+
+	// init sentinel
+	sentinelConf := sc.NewDefaultConfig()
+	if len(conf.LogPath) > 0 {
+		sentinelConf.Sentinel.Log.Dir = conf.LogPath
+	}
+	_ = logging.ResetGlobalLogger(getWrappedLogger())
+
+	if err := sentinel.InitWithConfig(sentinelConf); err != nil {
+		return err
+	}
+	OnRulesUpdate(conf.Rules)
+	return nil
 }
 
-// Do extract the url target & pass or block it.
-func (r *rateLimit) Do() fc.FilterFunc {
-	return func(ctx fc.Context) {
-		hc := ctx.(*contexthttp.HttpContext)
-
-		path := hc.GetAPI().URLPattern
-		resourceName, ok := matcher.Match(path)
-		//if not exists, just skip it.
-		if !ok {
-			return
+// OnRulesUpdate update rule
+func OnRulesUpdate(rules []*Rule) {
+	var enableRules []*flow.Rule
+	for _, v := range rules {
+		if v.Enable {
+			enableRules = append(enableRules, &v.FlowRule)
 		}
+	}
 
-		entry, blockErr := sentinel.Entry(resourceName, sentinel.WithResourceType(base.ResTypeAPIGateway), sentinel.WithTrafficType(base.Inbound))
-
-		//if blockErr not nil, indicates the request was blocked by Sentinel
-		if blockErr != nil {
-			bt, _ := json.Marshal(filter.ErrResponse{Message: "blocked by rate limit"})
-			hc.SourceResp = bt
-			hc.TargetResp = &client.Response{Data: bt}
-			hc.WriteJSONWithStatus(http.StatusTooManyRequests, bt)
-			hc.Abort()
-			return
-		}
-		defer entry.Exit()
+	if _, err := flow.LoadRules(enableRules); err != nil {
+		logger.Warnf("rate limit load rules err: %v", err)
 	}
 }

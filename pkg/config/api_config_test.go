@@ -23,11 +23,11 @@ import (
 )
 
 import (
-	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
@@ -39,6 +39,6 @@ func TestLoadAPIConfigFromFile(t *testing.T) {
 	apiC, err = config.LoadAPIConfigFromFile("./mock/api_config.yml")
 	assert.Empty(t, err)
 	assert.Equal(t, apiC.Name, "api name")
-	bytes, _ := yaml.Marshal(apiC)
+	bytes, _ := yaml.MarshalYML(apiC)
 	log.Printf("%s", bytes)
 }
