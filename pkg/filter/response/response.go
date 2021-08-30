@@ -29,56 +29,68 @@ import (
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.ResponseFilter, responseFilterFunc())
+const (
+	// Kind is the kind of plugin.
+	Kind = constant.HTTPResponseFilter
+)
+
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
-func responseFilterFunc() fc.FilterFunc {
-	return New(defaultNewParams()).Do()
-}
-
-func defaultNewParams() string {
-	strategy := os.Getenv(constant.EnvResponseStrategy)
-	if len(strategy) != 0 {
-		strategy = constant.ResponseStrategyNormal
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
 	}
-	return strategy
-}
-
-type responseFilter struct {
-	strategy string
-}
-
-// New create timeout filter.
-func New(strategy string) filter.Filter {
-	return &responseFilter{
-		strategy: strategy,
+	// HeaderFilter is http filter instance
+	ResponseFilter struct {
+		cfg *Config
 	}
-}
-
-// Do execute responseFilter filter logic.
-func (f responseFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		f.doResponse(c.(*contexthttp.HttpContext))
+	// Config describe the config of ResponseFilter
+	Config struct {
+		Strategy string `json:"strategy,omitempty" yaml:"strategy,omitempty"`
 	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
 }
 
-func (f responseFilter) doResponse(ctx *contexthttp.HttpContext) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &ResponseFilter{cfg: &Config{}}, nil
+}
+
+func (rf *ResponseFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(rf.Handle)
+	return nil
+}
+
+func (rf *ResponseFilter) Handle(c *contexthttp.HttpContext) {
+	rf.doResponse(c)
+}
+
+func (f *ResponseFilter) Config() interface{} {
+	return f.cfg
+}
+
+func (f *ResponseFilter) Apply() error {
+	if f.cfg.Strategy == "" {
+		strategy := defaultNewParams()
+		f.cfg.Strategy = strategy
+	}
+	return nil
+}
+
+func (rf *ResponseFilter) doResponse(ctx *contexthttp.HttpContext) {
 	// error do first
 	if ctx.Err != nil {
-		bt, _ := json.Marshal(filter.ErrResponse{Message: ctx.Err.Error()})
+		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: ctx.Err.Error()})
 		ctx.SourceResp = bt
 		ctx.TargetResp = &client.Response{Data: bt}
 		ctx.WriteJSONWithStatus(http.StatusServiceUnavailable, bt)
@@ -105,14 +117,14 @@ func (f responseFilter) doResponse(ctx *contexthttp.HttpContext) {
 		return
 	}
 
-	ctx.TargetResp = f.newResponse(ctx.SourceResp)
+	ctx.TargetResp = rf.newResponse(ctx.SourceResp)
 	ctx.WriteResponse(*ctx.TargetResp)
 	ctx.Abort()
 }
 
-func (f responseFilter) newResponse(data interface{}) *client.Response {
+func (f *ResponseFilter) newResponse(data interface{}) *client.Response {
 	hump := false
-	if f.strategy == constant.ResponseStrategyHump {
+	if f.cfg.Strategy == constant.ResponseStrategyHump {
 		hump = true
 	}
 	r, err := dealResp(data, hump)
@@ -121,6 +133,14 @@ func (f responseFilter) newResponse(data interface{}) *client.Response {
 	}
 
 	return &client.Response{Data: r}
+}
+
+func defaultNewParams() string {
+	strategy := os.Getenv(constant.EnvResponseStrategy)
+	if len(strategy) != 0 {
+		strategy = constant.ResponseStrategyNormal
+	}
+	return strategy
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {

@@ -19,6 +19,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -36,16 +37,66 @@ var b model.Bootstrap
 
 func TestMain(m *testing.M) {
 	log.Println("Prepare Bootstrap")
+
+	hcmc := model.HttpConnectionManager{
+		RouteConfig: model.RouteConfiguration{
+			Routes: []*model.Router{
+				{
+					ID: "1",
+					Match: model.RouterMatch{
+						Prefix: "/api/v1",
+						Methods: []string{
+							"POST",
+						},
+						Path:  "",
+						Regex: "",
+						Headers: []model.HeaderMatcher{
+							{Name: "X-DGP-WAY",
+								Values: []string{"Dubbo"},
+								Regex:  false,
+							},
+						},
+					},
+					Route: model.RouteAction{
+						Cluster:                     "test_dubbo",
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+			},
+			Dynamic: false,
+		},
+		HTTPFilters: []*model.HTTPFilter{
+			{
+				Name:   "dgp.filters.http.api",
+				Config: nil,
+			},
+			{
+				Name:   "dgp.filters.http.router",
+				Config: nil,
+			},
+			{
+				Name:   "dgp.filters.http.dubboproxy",
+				Config: nil,
+			},
+		},
+		ServerName:        "test_http_dubbo",
+		GenerateRequestID: false,
+		IdleTimeoutStr:    "100",
+	}
+
+	var inInterface map[string]interface{}
+	inrec, _ := json.Marshal(hcmc)
+	_ = json.Unmarshal(inrec, &inInterface)
 	b = model.Bootstrap{
 		StaticResources: model.StaticResources{
-			Listeners: []model.Listener{
+			Listeners: []*model.Listener{
 				{
 					Name: "net/http",
 					Address: model.Address{
 						SocketAddress: model.SocketAddress{
-							ProtocolStr: "HTTP",
+							ProtocolStr: "HTTPS",
 							Address:     "0.0.0.0",
-							Port:        8888,
+							Port:        443,
 						},
 					},
 					Config: model.HttpConfig{
@@ -63,49 +114,8 @@ func TestMain(m *testing.M) {
 							},
 							Filters: []model.Filter{
 								{
-									Name: "dgp.filters.http_connect_manager",
-									Config: model.HttpConnectionManager{
-										RouteConfig: model.RouteConfiguration{
-											Routes: []model.Router{
-												{
-													Match: model.RouterMatch{
-														Prefix: "/api/v1",
-														Headers: []model.HeaderMatcher{
-															{Name: "X-DGP-WAY",
-																Value: "dubbo",
-															},
-														},
-													},
-													Route: model.RouteAction{
-														Cluster:                     "test_dubbo",
-														ClusterNotFoundResponseCode: 505,
-														Cors: model.CorsPolicy{
-															AllowOrigin: []string{
-																"*",
-															},
-															Enabled: true,
-														},
-													},
-												},
-											},
-										},
-										HTTPFilters: []model.HTTPFilter{
-											{
-												Name:   "dgp.filters.http.api",
-												Config: interface{}(nil),
-											},
-											{
-												Name:   "dgp.filters.http.router",
-												Config: interface{}(nil),
-											},
-											{
-												Name:   "dgp.filters.http_transfer_dubbo",
-												Config: interface{}(nil),
-											},
-										},
-										ServerName:        "test_http_dubbo",
-										GenerateRequestID: false,
-									},
+									Name:   "dgp.filter.httpconnectionmanager",
+									Config: inInterface,
 								},
 							},
 						},
@@ -118,18 +128,6 @@ func TestMain(m *testing.M) {
 					TypeStr: "EDS",
 					Type:    model.EDS,
 					LbStr:   "RoundRobin",
-					Registries: map[string]model.Registry{
-						"zookeeper": {
-							Timeout:  "3s",
-							Address:  "127.0.0.1:2182",
-							Username: "",
-							Password: "",
-						},
-						"consul": {
-							Timeout: "3s",
-							Address: "127.0.0.1:8500",
-						},
-					},
 				},
 			},
 			TimeoutConfig: model.TimeoutConfig{
@@ -160,7 +158,12 @@ func TestLoad(t *testing.T) {
 	conf := Load("conf_test.yaml")
 	assert.Equal(t, 1, len(conf.StaticResources.Listeners))
 	assert.Equal(t, 1, len(conf.StaticResources.Clusters))
-	assert.Equal(t, *conf, b)
+	Adapter(&b)
+	str1, _ := json.Marshal(conf.StaticResources)
+	str2, _ := json.Marshal(b.StaticResources)
+	fmt.Println(string(str1))
+	fmt.Println(string(str2))
+	assert.Equal(t, string(str1), string(str2))
 }
 
 func TestStruct2JSON(t *testing.T) {

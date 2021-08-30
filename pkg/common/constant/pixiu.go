@@ -17,7 +17,9 @@
 
 package constant
 
-import "time"
+import (
+	"time"
+)
 
 // default timeout 1s.
 const (
@@ -42,7 +44,7 @@ const (
 	// DefaultLoadBalanceType Set up default load balance type.
 	DefaultLoadBalanceType = "RoundRobin"
 	// DefaultFilterType Set up default filter type.
-	DefaultFilterType = "dgp.filters.http_connect_manager"
+	DefaultFilterType = "dgp.filter.httpconnectionmanager"
 	// DefaultHTTPType Set up default HTTP Type.
 	DefaultHTTPType = "net/http"
 	// DefaultProtocolType Set up default protocol type.
@@ -54,4 +56,13 @@ const (
 	YAML = ".yaml"
 	//YML .yml
 	YML = ".yml"
+)
+
+const (
+	DefaultConfigPath    = "configs/conf.yaml"
+	DefaultApiConfigPath = "configs/api_config.yaml"
+	DefaultLogConfigPath = "configs/log.yml"
+	DefaultLogLevel      = "info"
+	DefaultLimitCpus     = "0"
+	DefaultLogFormat     = ""
 )

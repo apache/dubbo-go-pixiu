@@ -22,22 +22,9 @@ resources:
   - path: '/'
     type: restful
     description: resource documentation
-    filters:
-      - filter0
-    plugins:
-      pre:
-        pluginNames:
-          - rate limit
-          - access
-      post:
-        groupNames:
-          - group2
     methods:
       - httpVerb: GET
-        filters:
-          - filterA
-          - filterB
-        onAir: true
+        enable: true
         inboundRequest:
           requestType: http
           headers:
@@ -66,14 +53,9 @@ resources:
   - path: '/mockTest'
     type: restful
     description: mockTest
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
-        filters:
-          - filterA
-          - filterB
-        onAir: true
+        enable: true
         inboundRequest:
           requestType: http
           headers: 
@@ -100,9 +82,7 @@ resources:
             - java.lang.String
           clusterName: test_dubbo
       - httpVerb: POST
-        filters:
-          - filterA
-        onAir: true
+        enable: true
         inboundRequest:
           requestType: http
           headers: 
@@ -130,11 +110,9 @@ resources:
       - path: '/:id'
         type: restful
         description: resource documentation
-        filters:
-          - filter0
         methods:
           - httpVerb: GET
-            onAir: true
+            enable: true
             inboundRequest:
               requestType: http
               headers: 
@@ -174,21 +152,3 @@ definitions:
           }
         }
       }
-pluginFilePath: ""
-pluginsGroup:
-  - groupName: "group1"
-    plugins:
-      - name: "rate limit"
-        version: "0.0.1"
-        priority: 1000
-        externalLookupName: "ExternalPluginRateLimit"
-      - name: "access"
-        version: "0.0.1"
-        priority: 1000
-        externalLookupName: "ExternalPluginAccess"
-  - groupName: "group2"
-    plugins:
-      - name: "blacklist"
-        version: "0.0.1"
-        priority: 1000
-        externalLookupName: "ExternalPluginBlackList"
