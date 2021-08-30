@@ -73,7 +73,7 @@ func getMockMethod(verb config.HTTPVerb) config.Method {
 	inbound := config.InboundRequest{}
 	integration := config.IntegrationRequest{}
 	return config.Method{
-		OnAir:              true,
+		Enable:             true,
 		HTTPVerb:           verb,
 		InboundRequest:     inbound,
 		IntegrationRequest: integration,

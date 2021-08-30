@@ -15,7 +15,7 @@ resources:
     description: user
     methods:
       - httpVerb: POST
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
