@@ -13,7 +13,7 @@ resources:
     description: mock
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         mock: true
         timeout: 1000ms
         inboundRequest:
