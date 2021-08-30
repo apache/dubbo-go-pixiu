@@ -17,14 +17,18 @@
 
 package model
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/mitchellh/mapstructure"
+)
+
 // HttpConnectionManager
 type HttpConnectionManager struct {
-	RouteConfig       RouteConfiguration     `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
-	AuthorityConfig   AuthorityConfiguration `yaml:"authority_config" json:"authority_config" mapstructure:"authority_config"`
-	HTTPFilters       []HTTPFilter           `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
-	ServerName        string                 `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
-	IdleTimeoutStr    string                 `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
-	GenerateRequestID bool                   `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
+	RouteConfig       RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
+	HTTPFilters       []*HTTPFilter      `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
+	ServerName        string             `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
+	IdleTimeoutStr    string             `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
+	GenerateRequestID bool               `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
 }
 
 // CorsPolicy
@@ -40,8 +44,8 @@ type CorsPolicy struct {
 
 // HTTPFilter http filter
 type HTTPFilter struct {
-	Name   string      `yaml:"name" json:"name" mapstructure:"name"`
-	Config interface{} `yaml:"config" json:"config" mapstructure:"config"`
+	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
+	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
 }
 
 type RequestMethod int32
@@ -88,4 +92,16 @@ type HttpConfig struct {
 	ReadTimeoutStr  string `json:"read_timeout,omitempty" yaml:"read_timeout,omitempty" mapstructure:"read_timeout"`
 	WriteTimeoutStr string `json:"write_timeout,omitempty" yaml:"write_timeout,omitempty" mapstructure:"write_timeout"`
 	MaxHeaderBytes  int    `json:"max_header_bytes,omitempty" yaml:"max_header_bytes,omitempty" mapstructure:"max_header_bytes"`
+	CertFile        string `yaml:"cert_file" json:"cert_file" mapstructure:"cert_file"`
+	KeyFile         string `yaml:"key_file" json:"key_file" mapstructure:"key_file"`
+}
+
+func MapInStruct(cfg interface{}) *HttpConfig {
+	var hc *HttpConfig
+	if cfg != nil {
+		if ok := mapstructure.Decode(cfg, &hc); ok != nil {
+			logger.Error("Config error", ok)
+		}
+	}
+	return hc
 }
