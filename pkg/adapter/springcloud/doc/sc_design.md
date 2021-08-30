@@ -12,7 +12,12 @@ Pixiu 作为一个出色的网关，实现与 SpringCloud 服务对接能力。
 
 # 项目说明
 
-TODO
+TODO:
+- 流程图
+    - 启动流程（UML）
+    - 运行时流程（UML）
+    - 停机流程（UML）
+- 代码视角技术方案分层图
 
 
 
@@ -58,12 +63,15 @@ TODO
 
 ## 相关代码
 
-- pixiu 与 sc 交互层 ：[cloud.go](cloud.go)
+- pixiu 与 sc 交互层 ：[cloud.go](../cloud.go)
 - ...
-- nacos 注册中心层：[nacos](../../registry/nacos)
+- nacos 注册中心层：[nacos](../../../registry/nacos)
     - listener : 服务变更事件监听
     - nacos: 服务发现能力
     - refresh: 服务定时刷新？？？
+
+## 启动流程
+![alt PixiuStart](pixiu_start_sc.svg "Pixiu Start Process")
 
 ## 配置文件
 
