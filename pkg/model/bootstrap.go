@@ -60,6 +60,7 @@ type StaticResources struct {
 	TimeoutConfig  TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
 	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
+	GRPCConfig     GRPCConfig      `yaml:"grpc_config" json:"grpc_config" mapstructure:"grpc_config"`
 }
 
 // DynamicResources TODO
@@ -82,4 +83,9 @@ type APIMetaConfig struct {
 type TimeoutConfig struct {
 	ConnectTimeoutStr string `yaml:"connect_timeout" json:"connect_timeout,omitempty"` // ConnectTimeout timeout for connect to cluster node
 	RequestTimeoutStr string `yaml:"request_timeout" json:"request_timeout,omitempty"`
+}
+
+type GRPCConfig struct {
+	ProtoPath string   `yaml:"proto_path"  json:"proto_path"`
+	FileNames []string `yaml:"file_names" json:"file_names"`
 }
