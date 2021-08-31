@@ -92,6 +92,7 @@ func newTracerProvider(url string) (*tracesdk.TracerProvider, error) {
 func New() filter.Filter {
 	tc := config.GetBootstrap().Tracing
 	switch tc.Type {
+	case "":
 	case TracingType_Jaeger:
 		tp, err := newTracerProvider(tc.URL)
 		if err != nil {
