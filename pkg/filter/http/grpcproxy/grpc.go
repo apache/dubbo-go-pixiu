@@ -1,15 +1,21 @@
 package grpcproxy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
+	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	stdHttp "net/http"
 	"strings"
+	"sync"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
@@ -39,6 +45,8 @@ type (
 	// Filter is grpc filter instance
 	Filter struct {
 		cfg *Config
+		// hold grpc.ClientConns
+		pool sync.Pool
 	}
 
 	// Config describe the config of AccessFilter
@@ -72,7 +80,7 @@ func (af *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 
 // Handle use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
 func (af *Filter) Handle(c *http.HttpContext) {
-	paths := strings.Split(c.Request.URL.Path, ",")
+	paths := strings.Split(c.Request.URL.Path, "/")
 	if len(paths) < 2 {
 		writeResp(c, stdHttp.StatusBadRequest, "request path invalid")
 		return
@@ -94,6 +102,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	mthDesc := svcDesc.FindMethodByName(mth)
 
+	// TODO(Kenway): Can extension registry being cached ?
 	var extReg dynamic.ExtensionRegistry
 	registered := make(map[string]bool)
 	err = RegisterExtension(&extReg, mthDesc.GetInputType(), registered)
@@ -117,6 +126,35 @@ func (af *Filter) Handle(c *http.HttpContext) {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var clientConn *grpc.ClientConn
+	clientConn = af.pool.Get().(*grpc.ClientConn)
+	if clientConn == nil {
+		// TODO(Kenway): Support Credential and TLS
+		clientConn, err = grpc.DialContext(ctx, c.GetAPI().IntegrationRequest.Host, grpc.WithInsecure())
+		if err != nil || clientConn == nil {
+			writeResp(c, stdHttp.StatusServiceUnavailable, "connect to grpc server failed")
+			return
+		}
+		af.pool.Put(clientConn)
+	}
+
+	stub := grpcdynamic.NewStubWithMessageFactory(clientConn, msgFac)
+
+	resp, err := Invoke(ctx, stub, mthDesc, grpcReq)
+	if st, ok := status.FromError(err); !ok || isServerError(st) {
+		writeResp(c, stdHttp.StatusInternalServerError, err.Error())
+		return
+	}
+
+	res, err := protoMsgToJson(resp)
+	if err != nil {
+		writeResp(c, stdHttp.StatusInternalServerError, "serialize proto msg to json failed")
+		return
+	}
+	writeResp(c, stdHttp.StatusOK, res)
 }
 
 func RegisterExtension(extReg *dynamic.ExtensionRegistry, msgDesc *desc.MessageDescriptor, registered map[string]bool) error {
@@ -153,9 +191,19 @@ func jsonToProtoMsg(reader io.Reader, msg proto.Message) error {
 	return jsonpb.Unmarshal(reader, msg)
 }
 
+func protoMsgToJson(msg proto.Message) (string, error) {
+	m := jsonpb.Marshaler{}
+	return m.MarshalToString(msg)
+}
+
 func writeResp(c *http.HttpContext, code int, msg string) {
 	resp, _ := json.Marshal(http.ErrResponse{Message: msg})
 	c.WriteJSONWithStatus(code, resp)
+}
+
+func isServerError(st *status.Status) bool {
+	return st.Code() == codes.DeadlineExceeded || st.Code() == codes.ResourceExhausted || st.Code() == codes.Internal ||
+		st.Code() == codes.Unavailable
 }
 
 func (af *Filter) Config() interface{} {
