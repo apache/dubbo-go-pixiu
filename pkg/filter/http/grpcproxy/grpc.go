@@ -19,19 +19,19 @@ package grpcproxy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
+	perrors "github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
 	"io/fs"
-	stdHttp "net/http"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -44,6 +44,8 @@ import (
 const (
 	// Kind is the kind of Fallback.
 	Kind = constant.HTTPGrpcProxyFilter
+
+	loggerHeader = "[grpc-proxy]"
 )
 
 var (
@@ -99,7 +101,9 @@ func (af *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 func (af *Filter) Handle(c *http.HttpContext) {
 	paths := strings.Split(c.Request.URL.Path, "/")
 	if len(paths) < 2 {
-		writeResp(c, stdHttp.StatusBadRequest, "request path invalid")
+		logger.Errorf("%s request from %s, err {%}", loggerHeader, c, "request path invalid")
+		c.Err = perrors.New("request path invalid")
+		c.Next()
 		return
 	}
 	svc := paths[0]
@@ -107,13 +111,16 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	dscp, err := fsrc.FindSymbol(svc + "." + mth)
 	if err != nil {
-		writeResp(c, stdHttp.StatusMethodNotAllowed, "method not found")
+		logger.Errorf("%s request from %s, err {%}", loggerHeader, c.Request.RequestURI, "request path invalid")
+		c.Err = perrors.New("method not allow")
+		c.Next()
 		return
 	}
 
 	svcDesc, ok := dscp.(*desc.ServiceDescriptor)
 	if !ok {
-		writeResp(c, stdHttp.StatusMethodNotAllowed, fmt.Sprintf("service not expose, %s", svc))
+		c.Err = perrors.New(fmt.Sprintf("service not expose, %s", svc))
+		c.Next()
 		return
 	}
 
@@ -124,13 +131,15 @@ func (af *Filter) Handle(c *http.HttpContext) {
 	registered := make(map[string]bool)
 	err = RegisterExtension(&extReg, mthDesc.GetInputType(), registered)
 	if err != nil {
-		writeResp(c, stdHttp.StatusInternalServerError, "register extension failed")
+		c.Err = perrors.New("register extension failed")
+		c.Next()
 		return
 	}
 
 	err = RegisterExtension(&extReg, mthDesc.GetOutputType(), registered)
 	if err != nil {
-		writeResp(c, stdHttp.StatusInternalServerError, "register extension failed")
+		c.Err = perrors.New("register extension failed")
+		c.Next()
 		return
 	}
 
@@ -139,7 +148,9 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	err = jsonToProtoMsg(c.Request.Body, grpcReq)
 	if err != nil {
-		writeResp(c, stdHttp.StatusBadRequest, "convert to proto msg failed")
+		logger.Errorf("failed to convert json to proto msg, %s", err.Error())
+		c.Err = err
+		c.Next()
 		return
 	}
 
@@ -152,7 +163,8 @@ func (af *Filter) Handle(c *http.HttpContext) {
 		// TODO(Kenway): Support Credential and TLS
 		clientConn, err = grpc.DialContext(ctx, c.GetAPI().IntegrationRequest.Host, grpc.WithInsecure())
 		if err != nil || clientConn == nil {
-			writeResp(c, stdHttp.StatusServiceUnavailable, "connect to grpc server failed")
+			logger.Error("failed to connect to grpc service provider")
+			c.Err = err
 			return
 		}
 	}
@@ -161,17 +173,23 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq)
 	if st, ok := status.FromError(err); !ok || isServerError(st) {
-		writeResp(c, stdHttp.StatusInternalServerError, err.Error())
+		logger.Error("failed to invoke grpc service provider, %s", err.Error())
+		c.Err = err
+		c.Next()
 		return
 	}
 
 	res, err := protoMsgToJson(resp)
 	if err != nil {
-		writeResp(c, stdHttp.StatusInternalServerError, "serialize proto msg to json failed")
+		c.Err = err
+		c.Next()
 		return
 	}
-	writeResp(c, stdHttp.StatusOK, res)
+
+	// let response filter handle resp
+	c.SourceResp = res
 	af.pool.Put(clientConn)
+	c.Next()
 }
 
 func RegisterExtension(extReg *dynamic.ExtensionRegistry, msgDesc *desc.MessageDescriptor, registered map[string]bool) error {
@@ -211,11 +229,6 @@ func jsonToProtoMsg(reader io.Reader, msg proto.Message) error {
 func protoMsgToJson(msg proto.Message) (string, error) {
 	m := jsonpb.Marshaler{}
 	return m.MarshalToString(msg)
-}
-
-func writeResp(c *http.HttpContext, code int, msg string) {
-	resp, _ := json.Marshal(http.ErrResponse{Message: msg})
-	c.WriteJSONWithStatus(code, resp)
 }
 
 func isServerError(st *status.Status) bool {
