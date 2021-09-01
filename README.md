@@ -28,56 +28,55 @@ It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supp
 
 ## Quick Start
 
-### 1. start provider
-
-#### 1.1 Modify the zookeeper configuration of the following files
+#### 1 cd samples dir
 
 ```
-samples/dubbogo/http/server/profiles/dev/server.yml
+cd samples/dubbo/simple
 ```
 
-#### 1.2 Switch to the root directory of dubbo-go-pixiu to execute
+we can use start.sh to run samples quickly. for more info, execute command as below for more help
 
 ```
-export CONF_PROVIDER_FILE_PATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
-export APP_LOG_CONF_FILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
+./start.sh [action] [project]
+./start.sh help
+```
+we run body samples below step
+#### 2 prepare config file and docker 
+prepare command will prepare dubbo-server and pixiu config file and start docker container needed
+```
+./start.sh prepare body
 ```
 
-#### 1.3 Compile the provider code
-```
-go build -o server samples/dubbogo/http/server/app/*.go 
-```
+if prepare config file manually, notice:
+- modify $PROJECT_DIR in conf.yaml to absolute path in your compute 
 
-#### 1.4 Execute the binary file in the project root directory
-
+#### 3 start dubbo or http server
 ```
-./server 
+./start.sh startServer body
 ```
 
-### 2. Start pixiu
-
-#### 2.1 Modify the zookeeper configuration of the following files
-
+#### 4 start pixiu 
 ```
-configs/conf.yaml 
+./start.sh startPixiu body
 ```
 
-#### 2.2 Compile pixiu code
+if run pixiu manually, use command as below
 
 ```
-go build -o pixiu cmd/pixiu/*.go 
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
 ```
 
-#### 2.3 Execute the binary file in the project root directory
 
+#### 5. Try a request
+use curl to try or use unit test
 ```
-./pixiu gateway start
+curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+./start.sh startTest body
 ```
 
-### 3. Try a request
-
+#### 6. Clean
 ```
-curl -X POST 'localhost:8888/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+./start.sh clean body
 ```
 
 ## Features

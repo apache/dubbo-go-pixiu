@@ -26,56 +26,51 @@ dubbo-go-pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 
 ## 快速开始
 
-### 1. 启动provider
-
-#### 1.1 修改以下文件的zookeeper配置 
+#### 1 CD到目标路径
 
 ```
-samples/dubbogo/http/server/profiles/dev/server.yml
+cd samples/dubbo/simple
 ```
-
-#### 1.2 切换到dubbo-go-pixiu根目录执行
-
-```
-export CONF_PROVIDER_FILE_PATH=$PWD/samples/dubbogo/http/server/profiles/dev/server.yml
-export APP_LOG_CONF_FILE=$PWD/samples/dubbogo/http/server/profiles/dev/log.yml
-```
-
-#### 1.3 编译provider代码
-```
-go build -o server samples/dubbogo/http/server/app/*.go 
-```
-
-#### 1.4 启动provider，在项目根目录执行
+可以使用 start.sh 脚本快速启动案例项目，可以执行如下命令来获得更多信息
 
 ```
-./server 
+./start.sh [action] [project]
+./start.sh help
+```
+下列步骤中，我们将启动 body 案例项目
+
+#### 2 准备配置文件和外部依赖docker
+使用 start.sh 的 prepare 命令来准备配置文件和外部docker依赖
+```
+./start.sh prepare body
+```
+如果想要手动准备文件，需要注意：
+- 将conf.yaml中的$PROJECT_DIR 修改为本地绝对路径
+
+#### 3 启动 dubbo 服务或者 http 服务
+```
+./start.sh startServer body
+```
+#### 4 启动 pixiu
+```
+./start.sh startPixiu body
+```
+可以使用下列命令来手动启动 pixiu
+```
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
 ```
 
-### 2. 启动pixiu
 
-#### 2.1 修改以下文件的zookeeper配置
-
+#### 5. 尝试请求
+可以使用 curl 或者执行单元测试来验证一下
 ```
-configs/conf.yaml 
-```
-
-#### 2.2 编译pixiu代码
-
-```
-go build -o pixiu cmd/pixiu/*.go 
+curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+./start.sh startTest body
 ```
 
-#### 2.3 启动pixiu，在根目录执行
-
+#### 6. 清除
 ```
-./pixiu gateway start
-```
-
-### 3. 发起请求
-
-```
-curl -X POST 'localhost:8888/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+./start.sh clean body
 ```
 
 ## 特性
