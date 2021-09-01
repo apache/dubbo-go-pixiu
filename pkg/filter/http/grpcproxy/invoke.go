@@ -5,6 +5,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
+	perrors "github.com/pkg/errors"
 	"google.golang.org/grpc/status"
 )
 
@@ -14,11 +15,14 @@ func Invoke(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDesc
 	// TODO(Kenway): use a better way to use bi-direction stream
 	// Bi-direction Stream
 	if mthDesc.IsServerStreaming() && mthDesc.IsClientStreaming() {
-		resp, err = invokeBiDirectionStream(ctx, stub, mthDesc, grpcReq)
+		err = perrors.New("currently not support bi-direction stream")
+		//resp, err = invokeBiDirectionStream(ctx, stub, mthDesc, grpcReq)
 	} else if mthDesc.IsClientStreaming() {
-		resp, err = invokeClientStream(ctx, stub, mthDesc, grpcReq)
+		err = perrors.New("currently not support client side stream")
+		//resp, err = invokeClientStream(ctx, stub, mthDesc, grpcReq)
 	} else if mthDesc.IsServerStreaming() {
-		resp, err = invokeServerStream(ctx, stub, mthDesc, grpcReq)
+		err = perrors.New("currently not support server side stream")
+		//resp, err = invokeServerStream(ctx, stub, mthDesc, grpcReq)
 	} else {
 		resp, err = invokeUnary(ctx, stub, mthDesc, grpcReq)
 	}
