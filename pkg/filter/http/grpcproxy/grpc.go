@@ -101,7 +101,7 @@ func (af *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 func (af *Filter) Handle(c *http.HttpContext) {
 	paths := strings.Split(c.Request.URL.Path, "/")
 	if len(paths) < 2 {
-		logger.Errorf("%s request from %s, err {%}", loggerHeader, c, "request path invalid")
+		logger.Errorf("%s err {%s}", loggerHeader, "request path invalid")
 		c.Err = perrors.New("request path invalid")
 		c.Next()
 		return
@@ -111,7 +111,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	dscp, err := fsrc.FindSymbol(svc + "." + mth)
 	if err != nil {
-		logger.Errorf("%s request from %s, err {%}", loggerHeader, c.Request.RequestURI, "request path invalid")
+		logger.Errorf("%s err {%s}", loggerHeader, "request path invalid")
 		c.Err = perrors.New("method not allow")
 		c.Next()
 		return
@@ -119,6 +119,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	svcDesc, ok := dscp.(*desc.ServiceDescriptor)
 	if !ok {
+		logger.Errorf("%s err {service not expose, %s}", loggerHeader, svc)
 		c.Err = perrors.New(fmt.Sprintf("service not expose, %s", svc))
 		c.Next()
 		return
@@ -131,6 +132,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 	registered := make(map[string]bool)
 	err = RegisterExtension(&extReg, mthDesc.GetInputType(), registered)
 	if err != nil {
+		logger.Errorf("%s err {%s}", loggerHeader, "register extension failed")
 		c.Err = perrors.New("register extension failed")
 		c.Next()
 		return
@@ -138,6 +140,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	err = RegisterExtension(&extReg, mthDesc.GetOutputType(), registered)
 	if err != nil {
+		logger.Errorf("%s err {%s}", loggerHeader, "register extension failed")
 		c.Err = perrors.New("register extension failed")
 		c.Next()
 		return
@@ -148,7 +151,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	err = jsonToProtoMsg(c.Request.Body, grpcReq)
 	if err != nil {
-		logger.Errorf("failed to convert json to proto msg, %s", err.Error())
+		logger.Errorf("%s err {failed to convert json to proto msg, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
 		return
@@ -158,13 +161,16 @@ func (af *Filter) Handle(c *http.HttpContext) {
 	defer cancel()
 
 	var clientConn *grpc.ClientConn
+	re := c.GetRouteEntry()
+	logger.Debugf("%s client choose endpoint from cluster :%v", loggerHeader, re.Cluster)
 	clientConn = af.pool.Get().(*grpc.ClientConn)
 	if clientConn == nil {
 		// TODO(Kenway): Support Credential and TLS
-		clientConn, err = grpc.DialContext(ctx, c.GetAPI().IntegrationRequest.Host, grpc.WithInsecure())
+		clientConn, err = grpc.DialContext(ctx, re.Cluster, grpc.WithInsecure())
 		if err != nil || clientConn == nil {
-			logger.Error("failed to connect to grpc service provider")
+			logger.Errorf("%s err {failed to connect to grpc service provider}", loggerHeader)
 			c.Err = err
+			c.Next()
 			return
 		}
 	}
@@ -173,7 +179,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq)
 	if st, ok := status.FromError(err); !ok || isServerError(st) {
-		logger.Error("failed to invoke grpc service provider, %s", err.Error())
+		logger.Error("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
 		return
@@ -181,6 +187,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	res, err := protoMsgToJson(resp)
 	if err != nil {
+		logger.Error("%s err {failed to convert proto msg to json, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
 		return
