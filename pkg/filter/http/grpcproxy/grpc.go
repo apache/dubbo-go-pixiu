@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package grpcproxy
 
 import (
@@ -13,15 +30,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
+	"io/fs"
 	stdHttp "net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
@@ -30,7 +47,7 @@ const (
 )
 
 var (
-	fs fileSource
+	fsrc fileSource
 )
 
 func init() {
@@ -51,7 +68,7 @@ type (
 
 	// Config describe the config of AccessFilter
 	Config struct {
-		Proto string  `yaml:"proto_descriptor" json:"proto_descriptor"`
+		Path  string  `yaml:"path" json:"path"`
 		rules []*Rule `yaml:"rules" json:"rules"`
 	}
 
@@ -88,7 +105,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 	svc := paths[0]
 	mth := paths[1]
 
-	dscp, err := fs.FindSymbol(svc + "." + mth)
+	dscp, err := fsrc.FindSymbol(svc + "." + mth)
 	if err != nil {
 		writeResp(c, stdHttp.StatusMethodNotAllowed, "method not found")
 		return
@@ -138,7 +155,6 @@ func (af *Filter) Handle(c *http.HttpContext) {
 			writeResp(c, stdHttp.StatusServiceUnavailable, "connect to grpc server failed")
 			return
 		}
-		af.pool.Put(clientConn)
 	}
 
 	stub := grpcdynamic.NewStubWithMessageFactory(clientConn, msgFac)
@@ -155,6 +171,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 		return
 	}
 	writeResp(c, stdHttp.StatusOK, res)
+	af.pool.Put(clientConn)
 }
 
 func RegisterExtension(extReg *dynamic.ExtensionRegistry, msgDesc *desc.MessageDescriptor, registered map[string]bool) error {
@@ -164,7 +181,7 @@ func RegisterExtension(extReg *dynamic.ExtensionRegistry, msgDesc *desc.MessageD
 	}
 
 	if len(msgDesc.GetExtensionRanges()) > 0 {
-		fds, err := fs.AllExtensionsForType(msgType)
+		fds, err := fsrc.AllExtensionsForType(msgType)
 		if err != nil {
 			return fmt.Errorf("failed to find msg type {%s} in file source", msgType)
 		}
@@ -211,11 +228,28 @@ func (af *Filter) Config() interface{} {
 }
 
 func (af *Filter) Apply() error {
-	gc := config.GetBootstrap().StaticResources.GRPCConfig
-	err := af.initFromFileDescriptor([]string{gc.ProtoPath}, gc.FileNames...)
-	if err != nil {
-		logger.Errorf("failed to init proto files, %s", err.Error())
-	}
+	gc := af.cfg
+	fileLists := make([]string, 0)
+	err := filepath.Walk(gc.Path, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
+		if !info.IsDir() {
+			sp := strings.Split(info.Name(), ".")
+			length := len(sp)
+			if length >= 2 && sp[length-1] == "proto" {
+				fileLists = append(fileLists, info.Name())
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	err = af.initFromFileDescriptor([]string{gc.Path}, fileLists...)
+	if err != nil {
+		return err
+	}
 	return nil
 }
