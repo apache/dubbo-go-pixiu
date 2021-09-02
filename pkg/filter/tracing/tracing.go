@@ -22,19 +22,17 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	"go.opentelemetry.io/otel/trace"
 )
 
 import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -93,6 +91,7 @@ func New() filter.Filter {
 	tc := config.GetBootstrap().Tracing
 	switch tc.Type {
 	case "":
+		return tracerFilter{}
 	case TracingType_Jaeger:
 		tp, err := newTracerProvider(tc.URL)
 		if err != nil {
@@ -115,8 +114,6 @@ func (f tracerFilter) Do() fc.FilterFunc {
 		ctx := extractTraceCtxRequest(hc.Request)
 		ctxWithTid, span := tr.Start(ctx, spanName)
 
-		body := contexthttp.ExtractRequestBody(hc.Request)
-		span.SetAttributes(attribute.Key(spanTagBody).String(string(body)))
 		hc.Request = hc.Request.WithContext(ctxWithTid)
 		hc.Next()
 		span.End()
