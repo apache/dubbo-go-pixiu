@@ -53,10 +53,13 @@ cd samples/dubbo/simple
 - 将 conf.yaml 中的 $PROJECT_DIR 修改为本地绝对路径
 
 #### 3 启动 dubbo 服务或者 http 服务
+
 ```
 ./start.sh startServer body
 ```
+
 #### 4 启动 pixiu
+
 ```
 ./start.sh startPixiu body
 ```
@@ -78,6 +81,7 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 ```
 
 #### 6. 清除
+
 ```
 ./start.sh clean body
 ```
