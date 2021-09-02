@@ -31,30 +31,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// HttpHeaderMatch
-func HttpHeaderMatch(c *HttpContext, hm model.HeaderMatcher) bool {
-	if hm.Name == "" {
-		return true
-	}
-
-	if hm.Value == "" {
-		if c.GetHeader(hm.Name) == "" {
-			return true
-		}
-	} else {
-		if hm.Regex {
-			// TODO
-			return true
-		} else {
-			if c.GetHeader(hm.Name) == hm.Value {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 // HttpRouteMatch
 func HttpRouteMatch(c *HttpContext, rm model.RouterMatch) bool {
 	if rm.Prefix != "" {

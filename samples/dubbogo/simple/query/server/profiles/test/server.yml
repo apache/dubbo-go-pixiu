@@ -40,7 +40,7 @@ services:
   "UserProvider":
     protocol: "dubbo"
     # Equivalent to the interface in the  dubbo.xml file
-    interface: "com.dubbogo.UserService"
+    interface: "com.dubbogo.pixiu.UserService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"

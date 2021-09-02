@@ -15,7 +15,7 @@ resources:
     description: user
     methods:
       - httpVerb: POST
-        onAir: true
+        enable: true
         timeout: 10s
         inboundRequest:
           requestType: http
@@ -32,7 +32,7 @@ resources:
           version: 1.0.0
           clusterName: "test_dubbo"
       - httpVerb: PUT
-        onAir: true
+        enable: true
         timeout: 10s
         inboundRequest:
           requestType: http
@@ -53,7 +53,7 @@ resources:
     description: user
     methods:
       - httpVerb: PUT
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
