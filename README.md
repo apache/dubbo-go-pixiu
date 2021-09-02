@@ -40,6 +40,7 @@ we can use start.sh to run samples quickly. for more info, execute command as be
 ./start.sh [action] [project]
 ./start.sh help
 ```
+
 we run body samples below step
 
 #### 2 prepare config file and docker 
@@ -54,11 +55,13 @@ if prepare config file manually, notice:
 - modify $PROJECT_DIR in conf.yaml to absolute path in your compute 
 
 #### 3 start dubbo or http server
+
 ```
 ./start.sh startServer body
 ```
 
 #### 4 start pixiu 
+
 ```
 ./start.sh startPixiu body
 ```
@@ -80,6 +83,7 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 ```
 
 #### 6. Clean
+
 ```
 ./start.sh clean body
 ```
