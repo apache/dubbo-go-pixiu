@@ -18,23 +18,26 @@
 package constant
 
 const (
-	HTTPConnectManagerFilter = "dgp.filters.http_connect_manager"
-	HTTPAuthorityFilter      = "dgp.filters.http.authority_filter"
-	HTTPRouterFilter         = "dgp.filters.http.router"
-	HTTPApiFilter            = "dgp.filters.http.api"
-	HTTPDomainFilter         = "dgp.filters.http.domain"
-	RemoteCallFilter         = "dgp.filters.remote_call"
-	TimeoutFilter            = "dgp.filters.timeout"
-	MetricFilter             = "dgp.filters.metric"
-	RecoveryFilter           = "dgp.filters.recovery"
-	ResponseFilter           = "dgp.filters.response"
-	AccessLogFilter          = "dgp.filters.access_log"
-	RateLimitFilter          = "dgp.filters.rate_limit"
-	TracingFilter            = "dgp.filters.tracing"
+	HTTPConnectManagerFilter = "dgp.filter.httpconnectionmanager"
+
+	HTTPAuthorityFilter  = "dgp.filter.http.authority"
+	HTTPProxyFilter      = "dgp.filter.http.httpproxy"
+	HTTPHeaderFilter     = "dgp.filter.http.header"
+	HTTPHostFilter       = "dgp.filter.http.host"
+	HTTPMetricFilter     = "dgp.filter.http.metric"
+	HTTPRecoveryFilter   = "dgp.filter.http.recovery"
+	HTTPResponseFilter   = "dgp.filter.http.response"
+	HTTPAccessLogFilter  = "dgp.filter.http.accesslog"
+	HTTPRateLimitFilter  = "dgp.filter.http.ratelimit"
+	HTTPGrpcProxyFilter  = "dgp.filter.http.grpcproxy"
+	HTTPDubboProxyFilter = "dgp.filter.http.dubboproxy"
+	HTTPApiConfigFilter  = "dgp.filter.http.apiconfig"
+	HTTPTimeoutFilter    = "dgp.filter.http.timeout"
+	TracingFilter        = "dgp.filters.tracing"
 )
 
 const (
-	LocalMemoryApiDiscoveryService = "api.ds.local_memory"
+	SpringCloudAdapter = "dgp.adapter.springcloud"
 )
 
 const (

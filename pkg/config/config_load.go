@@ -95,7 +95,7 @@ func LoadYAMLConfig(path string) *model.Bootstrap {
 }
 
 func Adapter(cfg *model.Bootstrap) (err error) {
-	if GetFilterChain(cfg) != nil || GetHttpConfig(cfg) != nil || GetProtocol(cfg) != nil ||
+	if GetHttpConfig(cfg) != nil || GetProtocol(cfg) != nil ||
 		GetLoadBalance(cfg) != nil || GetDiscoveryType(cfg) != nil {
 		return err
 	}
@@ -132,34 +132,6 @@ func GetHttpConfig(cfg *model.Bootstrap) (err error) {
 						logger.Error(err)
 					}
 					cfg.StaticResources.Listeners[i].Config = *hc
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func GetFilterChain(cfg *model.Bootstrap) (err error) {
-	if cfg == nil {
-		logger.Error("Bootstrap configuration is null")
-		return err
-	}
-	for _, l := range cfg.StaticResources.Listeners {
-		for _, fc := range l.FilterChains {
-			if fc.Filters != nil {
-				for i, fcf := range fc.Filters {
-					hcm := &model.HttpConnectionManager{}
-					if fcf.Config != nil {
-						switch fcf.Name {
-						case constant.DefaultFilterType:
-							if v, ok := fcf.Config.(map[string]interface{}); ok {
-								if err := mapstructure.Decode(v, hcm); err != nil {
-									logger.Error(err)
-								}
-								fc.Filters[i].Config = *hcm
-							}
-						}
-					}
 				}
 			}
 		}
