@@ -24,7 +24,7 @@ resources:
     description: user
     methods:
       - httpVerb: POST
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -37,12 +37,12 @@ resources:
           path: /UserProvider/CreateUser
           group: "test"
           version: 1.0.0
-  - path: '/api/v1/test-dubbo/user'
+  - path: '/api/v1/test-dubbo/query-user'
     type: restful
     description: user
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -58,10 +58,3 @@ resources:
               mapTo: queryStrings.name
           group: "test"
           version: 1.0.0
-      - httpVerb: POST
-        onAir: true
-        timeout: 10s
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: http

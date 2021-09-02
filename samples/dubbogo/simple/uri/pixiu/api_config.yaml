@@ -24,8 +24,8 @@ resources:
     description: user
     methods:
       - httpVerb: GET
-        onAir: true
-        timeout: 100s
+        enable: true
+        timeout: 1000ms
         inboundRequest:
           requestType: http
           uri:
@@ -48,8 +48,8 @@ resources:
     description: user
     methods:
       - httpVerb: GET
-        onAir: true
-        timeout: 100s
+        enable: true
+        timeout: 1000ms
         inboundRequest:
           requestType: http
           uri:
@@ -72,8 +72,8 @@ resources:
     description: user
     methods:
       - httpVerb: GET
-        onAir: true
-        timeout: 100s
+        enable: true
+        timeout: 1000ms
         inboundRequest:
           requestType: http
           uri:
