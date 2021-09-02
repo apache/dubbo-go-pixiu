@@ -2,7 +2,7 @@
 
 ## 启动 Pixiu
 
-- 打开samples路径
+- 打开 samples 路径
 
 ```bash
 cd /dubbo-go-pixiu/samples/dubbogo/simple
@@ -11,6 +11,7 @@ cd /dubbo-go-pixiu/samples/dubbogo/simple
 - 使用 start.sh 启动案例
 
 使用 start.sh help 来获取帮助信息
+
 ```
 ./start.sh help 
 
