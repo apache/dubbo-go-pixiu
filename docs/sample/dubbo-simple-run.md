@@ -11,6 +11,7 @@ cd /dubbo-go-pixiu/samples/dubbogo/simple
 - use start.sh to start pixiu and server quickly
 
 start.sh help for help info
+
 ```
 ./start.sh help 
 
