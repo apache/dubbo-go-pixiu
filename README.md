@@ -41,8 +41,11 @@ we can use start.sh to run samples quickly. for more info, execute command as be
 ./start.sh help
 ```
 we run body samples below step
+
 #### 2 prepare config file and docker 
+
 prepare command will prepare dubbo-server and pixiu config file and start docker container needed
+
 ```
 ./start.sh prepare body
 ```
@@ -68,7 +71,9 @@ if run pixiu manually, use command as below
 
 
 #### 5. Try a request
+
 use curl to try or use unit test
+
 ```
 curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
 ./start.sh startTest body
