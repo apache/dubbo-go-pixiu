@@ -24,8 +24,8 @@ resources:
     description: common
     methods:
       - httpVerb: POST
-        onAir: true
-        timeout: 100s
+        enable: true
+        timeout: 1000ms
         inboundRequest:
           requestType: http
         integrationRequest:

@@ -13,11 +13,9 @@ resources:
   - path: '/api/v1/test-dubbo/student/:name'
     type: restful
     description: student
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -34,7 +32,7 @@ resources:
           version: 1.0.0
           clusterName: "test_dubbo"
       - httpVerb: PUT
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -56,11 +54,9 @@ resources:
   - path: '/api/v1/test-dubbo/teacher/:name'
     type: restful
     description: teacher
-    filters:
-      - filter0
     methods:
       - httpVerb: GET
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http
@@ -77,7 +73,7 @@ resources:
           version: 1.0.0
           clusterName: "test_dubbo"
       - httpVerb: PUT
-        onAir: true
+        enable: true
         timeout: 1000ms
         inboundRequest:
           requestType: http

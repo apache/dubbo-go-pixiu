@@ -19,32 +19,30 @@ package ratelimit
 
 import (
 	"github.com/alibaba/sentinel-golang/core/flow"
-
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config/ratelimit"
 )
 
-func GetMockedRateLimitConfig() *ratelimit.Config {
-	c := ratelimit.Config{
-		Resources: []ratelimit.Resource{
+func GetMockedRateLimitConfig() *Config {
+	c := Config{
+		Resources: []*Resource{
 			{
 				Name: "test-dubbo",
-				Items: []ratelimit.Item{
-					{MatchStrategy: ratelimit.EXACT, Pattern: "/api/v1/test-dubbo/user"},
-					{MatchStrategy: ratelimit.REGEX, Pattern: "/api/v1/test-dubbo/user/*"},
+				Items: []*Item{
+					{MatchStrategy: EXACT, Pattern: "/api/v1/test-dubbo/user"},
+					{MatchStrategy: REGEX, Pattern: "/api/v1/test-dubbo/user/*"},
 				},
 			},
 			{
 				Name: "test-http",
-				Items: []ratelimit.Item{
-					{MatchStrategy: ratelimit.EXACT, Pattern: "/api/v1/http/foo"},
-					{MatchStrategy: ratelimit.EXACT, Pattern: "/api/v1/http/bar"},
+				Items: []*Item{
+					{MatchStrategy: EXACT, Pattern: "/api/v1/http/foo"},
+					{MatchStrategy: EXACT, Pattern: "/api/v1/http/bar"},
 
-					{MatchStrategy: ratelimit.REGEX, Pattern: "/api/v1/http/foo/*"},
-					{MatchStrategy: ratelimit.REGEX, Pattern: "/api/v1/http/bar/*"},
+					{MatchStrategy: REGEX, Pattern: "/api/v1/http/foo/*"},
+					{MatchStrategy: REGEX, Pattern: "/api/v1/http/bar/*"},
 				},
 			},
 		},
-		Rules: []ratelimit.Rule{
+		Rules: []*Rule{
 			{
 				Enable: true,
 				FlowRule: flow.Rule{
