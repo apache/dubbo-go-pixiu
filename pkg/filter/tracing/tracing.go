@@ -21,12 +21,9 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"time"
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -37,34 +34,52 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 const (
-	TracingType_Jaeger = "jaeger"
-
-	traceName      = "http-server"
-	spanNamePrefix = "HTTP SERVER"
-	spanTagBody    = "body"
-
+	TracingType_Jaeger    = "jaeger"
+	traceName             = "http-server"
+	spanNamePrefix        = "HTTP SERVER"
 	jaegerTraceIDInHeader = "uber-trace-id"
 )
 
 // nolint
-func Init() {
-	extension.SetFilterFunc(constant.TracingFilter, tracerFilterFunc())
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 // tracerFilter is a filter for tracer
-type tracerFilter struct {
-	// global tracer
-	waitTime time.Duration
+type Plugin struct {
 }
 
-func tracerFilterFunc() fc.FilterFunc {
-	return New().Do()
+type TraceFilter struct {
+}
+
+func (ap *Plugin) Kind() string {
+	return constant.TracingFilter
+}
+
+func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	New()
+	return &TraceFilter{}, nil
+}
+
+func (m *TraceFilter) Config() interface{} {
+	return nil
+}
+
+func (m *TraceFilter) Apply() error {
+	// init
+	New()
+	return nil
+}
+
+func (mf *TraceFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(mf.Handle)
+	return nil
 }
 
 func newTracerProvider(url string) (*tracesdk.TracerProvider, error) {
@@ -87,11 +102,11 @@ func newTracerProvider(url string) (*tracesdk.TracerProvider, error) {
 }
 
 // New create tracer filter.
-func New() filter.Filter {
+func New() TraceFilter {
 	tc := config.GetBootstrap().Tracing
 	switch tc.Type {
 	case "":
-		return tracerFilter{}
+		return TraceFilter{}
 	case TracingType_Jaeger:
 		tp, err := newTracerProvider(tc.URL)
 		if err != nil {
@@ -102,22 +117,19 @@ func New() filter.Filter {
 		panic("unsupported tracing")
 	}
 
-	return tracerFilter{}
+	return TraceFilter{}
 }
 
 // Do execute tracerFilter filter logic.
-func (f tracerFilter) Do() fc.FilterFunc {
-	return func(c fc.Context) {
-		hc := c.(*contexthttp.HttpContext)
-		spanName := spanNamePrefix + hc.Request.Method + " " + hc.Request.URL.Path
-		tr := otel.Tracer(traceName)
-		ctx := extractTraceCtxRequest(hc.Request)
-		ctxWithTid, span := tr.Start(ctx, spanName)
+func (f TraceFilter) Handle(hc *contexthttp.HttpContext) {
+	spanName := spanNamePrefix + hc.Request.Method + " " + hc.Request.URL.Path
+	tr := otel.Tracer(traceName)
+	ctx := extractTraceCtxRequest(hc.Request)
+	ctxWithTid, span := tr.Start(ctx, spanName)
 
-		hc.Request = hc.Request.WithContext(ctxWithTid)
-		hc.Next()
-		span.End()
-	}
+	hc.Request = hc.Request.WithContext(ctxWithTid)
+	hc.Next()
+	span.End()
 }
 
 func extractTraceCtxRequest(req *http.Request) context.Context {
