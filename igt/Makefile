@@ -114,7 +114,7 @@ clean: stop
 	$(info   >  Cleanning up $(OUT_DIR))
 	@-rm -rf $(OUT_DIR)
 	@-cat $(PID) | awk '{print $1}' | xargs kill -9
-	@-cat $(PIXIU_PID) | awk '{print $1}' | xargs kill -9 
+	@-cat $(PIXIU_PID) | awk '{print $1}' | xargs kill -9
 
 ## start: Start the application (for server)
 .PHONY: start
@@ -123,6 +123,14 @@ start: build
 	$(info   >  Starting application $(PROJECT_NAME), output is redirected to $(LOG_FILE))
 	@-$(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) > $(LOG_FILE) 2>&1 & echo $$! > $(PID)
 	@cat $(PID) | sed "/^/s/^/  \>  PID: /"
+
+
+## start: Start the application (for server) foreground
+.PHONY: startServer
+startServer: export CONF_PROVIDER_FILE_PATH ?= $(OUT_DIR)/server/server.yml
+startServer: build
+	$(info   >  Starting application $(PROJECT_NAME), output is redirected to $(LOG_FILE))
+	@-$(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME)  2>&1
 
 ## run: Run the application (for client)
 .PHONY: run
@@ -134,7 +142,15 @@ run: buildPixiu
 buildPixiu:
 	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
 	@-$(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) gateway start -a $(API_CONFIG_PATH) -c $(CONFIG_PATH) & echo $$! > $(PIXIU_PID)
-	@cat $(PIXIU_PID) | sed "/^/s/^/  \> PIXIU_PID: /"	
+	@cat $(PIXIU_PID) | sed "/^/s/^/  \> PIXIU_PID: /"
+
+
+## startPixiu: start pixiu foreground
+.PHONY: startPixiu
+startPixiu:
+	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
+	@-$(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) gateway start -a $(API_CONFIG_PATH) -c $(CONFIG_PATH)
+
 ## stop: Stop running the application (for server)
 .PHONY: stop
 stop:
