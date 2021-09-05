@@ -100,14 +100,14 @@ func (af *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 // Handle use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
 func (af *Filter) Handle(c *http.HttpContext) {
 	paths := strings.Split(c.Request.URL.Path, "/")
-	if len(paths) < 2 {
+	if len(paths) < 4 {
 		logger.Errorf("%s err {%s}", loggerHeader, "request path invalid")
 		c.Err = perrors.New("request path invalid")
 		c.Next()
 		return
 	}
-	svc := paths[0]
-	mth := paths[1]
+	svc := paths[2]
+	mth := paths[3]
 
 	dscp, err := fsrc.FindSymbol(svc + "." + mth)
 	if err != nil {
