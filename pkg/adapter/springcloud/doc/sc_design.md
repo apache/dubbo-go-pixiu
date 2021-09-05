@@ -63,12 +63,13 @@ TODO:
 
 ## 相关代码
 
-- pixiu 与 sc 交互层 ：[cloud.go](../cloud.go)
-- ...
-- nacos 注册中心层：[nacos](../../../registry/nacos)
+- Pixiu 集成 SpringCloud 插件 ：[cloud.go](../cloud.go)
+- Nacos 注册中心相关：[nacos](../../../registry/nacos)
     - listener : 服务变更事件监听
     - nacos: 服务发现能力
     - refresh: 服务定时刷新？？？
+- Java 实现的SpringCloud 示例，方便调试 ：[samples/springcloud](../../../../samples/springcloud)
+- ...
 
 ## 启动流程
 ![alt PixiuStart](pixiu_start_sc.svg "Pixiu Start Process")
