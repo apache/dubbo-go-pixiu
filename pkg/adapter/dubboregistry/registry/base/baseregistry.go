@@ -1,7 +1,7 @@
 package baseregistry
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"sync"
 	//"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
