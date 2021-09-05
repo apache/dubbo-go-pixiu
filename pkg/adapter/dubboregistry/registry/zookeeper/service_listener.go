@@ -18,16 +18,21 @@
 package zookeeper
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"sync"
+	"time"
+)
+import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/go-zookeeper/zk"
-	"sync"
-	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 var _ registry.Listener = new(serviceListener)
@@ -108,12 +113,12 @@ func (zkl *serviceListener) WatchAndHandle() {
 
 // whenever it is called, the children node changed and refresh the api configuration.
 func (zkl *serviceListener) handleEvent(children []string) {
-	localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	routerManager := server.GetRouterManager()
 	if len(children) == 0 {
 		// disable the API
 		bkConf, _, _ := registry.ParseDubboString(zkl.url.String())
 		apiPattern := registry.GetAPIPattern(bkConf)
-		if err := localAPIDiscSrv.RemoveAPIByPath(config.Resource{Path: apiPattern}); err != nil {
+		if err := routerManager.DeleteRouter(); err != nil {
 			logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), apiPattern)
 		}
 		return
