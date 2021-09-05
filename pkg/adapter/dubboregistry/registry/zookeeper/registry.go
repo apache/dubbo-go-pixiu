@@ -26,16 +26,15 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
+	baseRegistry "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/base"
+	zk "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry/base"
-	zk "github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
 var (
-	_ baseregistry.FacadeRegistry = new(ZKRegistry)
+	_ baseRegistry.FacadeRegistry = new(ZKRegistry)
 )
 
 const (
@@ -47,18 +46,18 @@ const (
 )
 
 func init() {
-	extension.SetRegistry(constant.Zookeeper, newZKRegistry)
+	registry.SetRegistry(constant.Zookeeper, newZKRegistry)
 }
 
 type ZKRegistry struct {
-	*baseregistry.BaseRegistry
+	*baseRegistry.BaseRegistry
 	zkListeners map[registry.RegisteredType]registry.Listener
 	client      *zk.ZooKeeperClient
 }
 
 func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
 	var zkReg = &ZKRegistry{}
-	baseReg := baseregistry.NewBaseRegistry(zkReg)
+	baseReg := baseRegistry.NewBaseRegistry(zkReg)
 	timeout, err := time.ParseDuration(regConfig.Timeout)
 	if err != nil {
 		return nil, errors.Errorf("Incorrect timeout configuration: %s", regConfig.Timeout)

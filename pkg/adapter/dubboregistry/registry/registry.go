@@ -31,6 +31,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 type RegisteredType int8
@@ -39,6 +40,8 @@ const (
 	RegisteredTypeApplication RegisteredType = iota
 	RegisteredTypeInterface
 )
+
+var registryMap = make(map[string]func(model.Registry) (Registry, error), 8)
 
 func (t *RegisteredType) String() string {
 	return []string{"application", "interface"}[*t]
@@ -52,15 +55,32 @@ type Registry interface {
 	Unsubscribe() error
 }
 
+// SetRegistry will store the registry by name
+func SetRegistry(name string, newRegFunc func(model.Registry) (Registry, error)) {
+	registryMap[name] = newRegFunc
+}
+
+// GetRegistry will return the registry
+// if not found, it will panic
+func GetRegistry(name string, regConfig model.Registry) Registry {
+	if registry, ok := registryMap[name]; ok {
+		reg, err := registry(regConfig)
+		if err != nil {
+			panic("Initialize Registry" + name + "failed due to: " + err.Error())
+		}
+		return reg
+	}
+	panic("Registry " + name + " does not support yet")
+}
+
 // CreateAPIConfig returns router.API struct base on the input
 func CreateAPIConfig(urlPattern string, dboBackendConfig config.DubboBackendConfig, methodString string, mappingParams []config.MappingParam) router.API {
 	dboBackendConfig.Method = methodString
 	url := strings.Join([]string{urlPattern, methodString}, constant.PathSlash)
 	method := config.Method{
-		OnAir:    true,
+		Enable:    true,
 		Timeout:  3 * time.Second,
 		Mock:     false,
-		Filters:  []string{},
 		HTTPVerb: config.MethodPost,
 		InboundRequest: config.InboundRequest{
 			RequestType: config.HTTPRequest,
@@ -102,4 +122,17 @@ func ParseDubboString(urlString string) (config.DubboBackendConfig, []string, er
 // GetAPIPattern generate the API path pattern. /application/interface/version
 func GetAPIPattern(bkConfig config.DubboBackendConfig) string {
 	return strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface, bkConfig.Version}, constant.PathSlash)
+}
+
+func GetRouter() model.Router {
+	return model.Router{
+		Match: model.RouterMatch{
+			Prefix:  "",
+			Path:    "",
+			Regex:   "",
+			Methods: nil,
+			Headers: nil,
+		},
+
+	}
 }
