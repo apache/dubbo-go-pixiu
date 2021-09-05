@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#! /bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -18,8 +18,50 @@
 # under the License.
 #
 
-DIR=$(cd $(dirname $0) && pwd )
+if [ -z "$1" ]; then
+  echo 'Provide test directory please, like : ./start.sh body '
+  exit
+fi
 
-echo $DIR
+ACTION=$1
 
-./dubbo-go-pixiu gateway start -c ${DIR}/$1/pixiu/conf.yaml -a ${DIR}/$1/pixiu/api_config.yaml
+if [ $ACTION = 'help' ]; then
+  echo "dubbo-go-pixiu start helper"
+  echo "./start.sh action project"
+  echo "hint:"
+  echo "./start.sh prepare body for prepare config file and up docker in body project"
+  echo "./start.sh startPixiu body for start dubbo or http server in body project"
+  echo "./start.sh startServer body for start pixiu in body project"
+  echo "./start.sh startTest body for start unit test in body project"
+  echo "./start.sh clean body for clean"
+fi
+
+
+P_DIR=$(pwd)/$2
+
+PIXIU_DIR=$(dirname $(dirname $(dirname "$PWD")))
+
+if [ $ACTION = 'prepare' ]; then
+    # prepare config file
+    echo "prepare config file and docker, please remember clean finally"
+    make PROJECT_DIR=$P_DIR PIXIU_DIR=$PIXIU_DIR PROJECT_NAME=$(basename $P_DIR) BASE_DIR=$P_DIR/dist -f ../../../igt/Makefile config
+    make PROJECT_DIR=$P_DIR PIXIU_DIR=$PIXIU_DIR PROJECT_NAME=$(basename $P_DIR) BASE_DIR=$P_DIR/dist -f ../../../igt/Makefile docker-up
+    sleep 0.5
+elif [ $ACTION = 'startServer' ]; then
+    echo "start server"
+    make PROJECT_DIR=$P_DIR PIXIU_DIR=$PIXIU_DIR PROJECT_NAME=$(basename $P_DIR) BASE_DIR=$P_DIR/dist -f ../../../igt/Makefile startServer
+    sleep 0.5
+elif [ $ACTION = 'startPixiu' ]; then
+    echo "start pixiu"
+    make PROJECT_DIR=$P_DIR PIXIU_DIR=$PIXIU_DIR PROJECT_NAME=$(basename $P_DIR) BASE_DIR=$P_DIR/dist -f ../../../igt/Makefile startPixiu
+elif [ $ACTION = 'startTest' ]; then
+    echo "start unit test"
+    make PROJECT_DIR=$P_DIR PIXIU_DIR=$PIXIU_DIR PROJECT_NAME=$(basename $P_DIR) BASE_DIR=$P_DIR/dist -f ../../../igt/Makefile integration
+    result=$?
+elif [ $ACTION = 'clean' ]; then
+    echo "cleanup for config file and docker"
+    make PROJECT_DIR=$P_DIR PIXIU_DIR=$PIXIU_DIR PROJECT_NAME=$(basename $P_DIR) BASE_DIR=$P_DIR/dist -f ../../../igt/Makefile clean
+    make PROJECT_DIR=$P_DIR PIXIU_DIR=$PIXIU_DIR PROJECT_NAME=$(basename $P_DIR) BASE_DIR=$P_DIR/dist -f ../../../igt/Makefile docker-down
+else
+  echo "wrong action"
+fi
