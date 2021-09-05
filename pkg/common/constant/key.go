@@ -37,6 +37,7 @@ const (
 
 const (
 	SpringCloudAdapter = "dgp.adapter.springcloud"
+	DubboRegistryCenterAdapter = "dgp.adapter.dubboregistrycenter"
 )
 
 const (
