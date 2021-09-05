@@ -114,6 +114,10 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	ctx.Next()
 }
 
+func (f *Filter) GetApiService() api.APIDiscoveryService {
+	return f.apiService
+}
+
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
 func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	if cf.APIMetaConfig != nil {

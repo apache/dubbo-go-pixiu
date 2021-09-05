@@ -18,21 +18,20 @@
 package zookeeper
 
 import (
-	"github.com/apache/dubbo-go/common"
 	"path"
-	//"strings"
 	"sync"
 	"time"
 )
 
 import (
+	"github.com/apache/dubbo-go/common"
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
 const (
@@ -73,14 +72,13 @@ func (z *zkIntfListener) WatchAndHandle() {
 
 func (z *zkIntfListener) watch() {
 	defer z.wg.Done()
-
 	var (
 		failTimes  int64 = 0
 		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
 	)
 	defer delayTimer.Stop()
 	for {
-		e, err := z.client.ExistW(z.path)
+		_, e, err := z.client.GetChildrenW(z.path)
 		// error handling
 		if err != nil {
 			failTimes++
@@ -122,7 +120,6 @@ func (z *zkIntfListener) watch() {
 				return
 			}
 		}
-
 	}
 }
 

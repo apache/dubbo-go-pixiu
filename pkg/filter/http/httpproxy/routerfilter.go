@@ -42,7 +42,7 @@ const (
 )
 
 // All RemoteFilter instances use one globalClient in order to reuse
-// some resounces such as keepalive connections.
+// some resources such as keepalive connections.
 var globalClient = &http3.Client{
 	// NOTE: Timeout could be no limit, real client or server could cancel it.
 	Timeout: 0,
