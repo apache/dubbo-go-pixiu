@@ -32,7 +32,7 @@ func getTestContext() *ctxHttp.HttpContext {
 			Name: "test",
 			Address: model.Address{
 				SocketAddress: model.SocketAddress{
-					Protocol: model.HTTP,
+					Protocol: model.ProtocolTypeHTTP,
 					Address:  "0.0.0.0",
 					Port:     8888,
 				},
