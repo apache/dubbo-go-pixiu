@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto" //nolint
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	perrors "github.com/pkg/errors"
@@ -36,13 +36,13 @@ func Invoke(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDesc
 	// Bi-direction Stream
 	if mthDesc.IsServerStreaming() && mthDesc.IsClientStreaming() {
 		err = perrors.New("currently not support bi-direction stream")
-		//resp, err = invokeBiDirectionStream(ctx, stub, mthDesc, grpcReq)
+		// resp, err = invokeBiDirectionStream(ctx, stub, mthDesc, grpcReq)
 	} else if mthDesc.IsClientStreaming() {
 		err = perrors.New("currently not support client side stream")
-		//resp, err = invokeClientStream(ctx, stub, mthDesc, grpcReq)
+		// resp, err = invokeClientStream(ctx, stub, mthDesc, grpcReq)
 	} else if mthDesc.IsServerStreaming() {
 		err = perrors.New("currently not support server side stream")
-		//resp, err = invokeServerStream(ctx, stub, mthDesc, grpcReq)
+		// resp, err = invokeServerStream(ctx, stub, mthDesc, grpcReq)
 	} else {
 		resp, err = invokeUnary(ctx, stub, mthDesc, grpcReq, opts...)
 	}
