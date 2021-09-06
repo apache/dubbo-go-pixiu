@@ -36,6 +36,10 @@ const (
 	MsgUserQuerySuccessfully = "user(s) query successfully"
 )
 
+// Test Cases
+// curl http://127.0.0.1:8881/api/v1/provider.UserProvider/GetUser
+// curl http://127.0.0.1:8881/api/v1/provider.UserProvider/GetUser -X POST -d '{"userId":1}'
+
 type server struct {
 	users map[int32]*proto.User
 	proto.UnimplementedUserProviderServer
