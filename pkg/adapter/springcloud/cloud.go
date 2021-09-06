@@ -40,6 +40,7 @@ type (
 
 	// CloudAdapter the adapter for spring cloud
 	CloudAdapter struct {
+		boot *model.Bootstrap
 		cfg *Config
 	}
 
@@ -65,13 +66,22 @@ func (p *CloudPlugin) Kind() string {
 
 // CreateAdapter create adapter
 func (p *CloudPlugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
-	return &CloudAdapter{cfg: &Config{}}, nil
+	return &CloudAdapter{
+		cfg: &Config{},
+		boot: bs,
+	}, nil
 }
 
 // Start start the adapter
 func (a *CloudAdapter) Start() {
 	// do not block the main goroutine
 	go func() {
+
+		// init SpringCloud Manager for control initialize
+		cloudManager := SpringCloudManager(a.boot)
+
+		cloudManager.initAll()
+
 		// fetch service instance from consul
 
 		// transform into endpoint and cluster
