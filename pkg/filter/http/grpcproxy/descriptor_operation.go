@@ -20,7 +20,9 @@ package grpcproxy
 import (
 	"fmt"
 	"sync"
+)
 
+import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
 	"github.com/jhump/protoreflect/dynamic"
@@ -50,6 +52,7 @@ func (af *Filter) initFromFileDescriptor(importPaths []string, fileNames ...stri
 		return fmt.Errorf("could not parse given files: %v", err)
 	}
 
+	fsrc.files = make(map[string]*desc.FileDescriptor)
 	for _, fd := range fds {
 		name := fd.GetName()
 		fsrc.files[name] = fd
