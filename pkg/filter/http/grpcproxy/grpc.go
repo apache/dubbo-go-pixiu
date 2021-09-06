@@ -27,8 +27,8 @@ import (
 )
 
 import (
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb" //nolint
+	"github.com/golang/protobuf/proto"  //nolint
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
@@ -77,7 +77,7 @@ type (
 	// Config describe the config of AccessFilter
 	Config struct {
 		Path  string  `yaml:"path" json:"path"`
-		rules []*Rule `yaml:"rules" json:"rules"`
+		rules []*Rule `yaml:"rules" json:"rules"` //nolint
 	}
 
 	Rule struct {
@@ -86,7 +86,7 @@ type (
 	}
 
 	Match struct {
-		method string `yaml:"method" json:"method"`
+		method string `yaml:"method" json:"method"` //nolint
 	}
 )
 
