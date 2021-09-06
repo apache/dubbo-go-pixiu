@@ -20,10 +20,8 @@ package grpcproxy
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"io/ioutil"
 	stdHttp "net/http"
-	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -316,20 +314,21 @@ func (af *Filter) Config() interface{} {
 func (af *Filter) Apply() error {
 	gc := af.cfg
 	fileLists := make([]string, 0)
-	err := filepath.Walk(gc.Path, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	items, err := ioutil.ReadDir(gc.Path)
+	if err != nil {
+		return err
+	}
 
-		if !info.IsDir() {
-			sp := strings.Split(info.Name(), ".")
+	for _, item := range items {
+		if !item.IsDir() {
+			sp := strings.Split(item.Name(), ".")
 			length := len(sp)
 			if length >= 2 && sp[length-1] == "proto" {
-				fileLists = append(fileLists, info.Name())
+				fileLists = append(fileLists, item.Name())
 			}
 		}
-		return nil
-	})
+	}
+
 	if err != nil {
 		return err
 	}
