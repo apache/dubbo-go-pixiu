@@ -58,12 +58,12 @@ func (s *server) GetUser(ctx context.Context, request *proto.GetUserRequest) (*p
 }
 
 func main() {
-	l, err := net.Listen("tcp", ":50001")
+	l, err := net.Listen("tcp", ":50001") //nolint:gosec
 	if err != nil {
 		panic(err)
 	}
 
-	s := &server{users: make(map[int32]*proto.User, 0)}
+	s := &server{users: make(map[int32]*proto.User)}
 	initUsers(s)
 
 	gs := grpc.NewServer()
