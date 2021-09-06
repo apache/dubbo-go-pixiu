@@ -19,17 +19,20 @@ package grpcproxy
 
 import (
 	"context"
+)
+
+import (
 	"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	perrors "github.com/pkg/errors"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
-func Invoke(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message) (proto.Message, error) {
+func Invoke(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message, opts ...grpc.CallOption) (proto.Message, error) {
 	var resp proto.Message
 	var err error
-	// TODO(Kenway): use a better way to use bi-direction stream
 	// Bi-direction Stream
 	if mthDesc.IsServerStreaming() && mthDesc.IsClientStreaming() {
 		err = perrors.New("currently not support bi-direction stream")
@@ -41,7 +44,7 @@ func Invoke(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDesc
 		err = perrors.New("currently not support server side stream")
 		//resp, err = invokeServerStream(ctx, stub, mthDesc, grpcReq)
 	} else {
-		resp, err = invokeUnary(ctx, stub, mthDesc, grpcReq)
+		resp, err = invokeUnary(ctx, stub, mthDesc, grpcReq, opts...)
 	}
 
 	return resp, err
@@ -87,6 +90,6 @@ func invokeServerStream(ctx context.Context, stub grpcdynamic.Stub, mthDesc *des
 	return stream.RecvMsg()
 }
 
-func invokeUnary(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message) (proto.Message, error) {
-	return stub.InvokeRpc(ctx, mthDesc, grpcReq)
+func invokeUnary(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message, opts ...grpc.CallOption) (proto.Message, error) {
+	return stub.InvokeRpc(ctx, mthDesc, grpcReq, opts...)
 }
