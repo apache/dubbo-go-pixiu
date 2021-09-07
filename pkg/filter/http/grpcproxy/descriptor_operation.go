@@ -37,7 +37,7 @@ type fileSource struct {
 // initFromFileDescriptor
 // protoparse.ResolveFilenames(importPaths, fileNames...)
 // rel: https://pkg.go.dev/github.com/jhump/protoreflect/desc/protoparse?utm_source=godoc#ResolveFilenames
-func (af *Filter) initFromFileDescriptor(importPaths []string, fileNames ...string) error {
+func (f *Filter) initFromFileDescriptor(importPaths []string, fileNames ...string) error {
 	fileNames, err := protoparse.ResolveFilenames(importPaths, fileNames...)
 	if err != nil {
 		return err

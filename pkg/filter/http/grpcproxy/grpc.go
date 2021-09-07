@@ -18,6 +18,7 @@
 package grpcproxy
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -70,14 +71,17 @@ type (
 	// Filter is grpc filter instance
 	Filter struct {
 		cfg *Config
-		// hold grpc.ClientConns
+		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
 		pools map[string]*sync.Pool
+
+		extReg     dynamic.ExtensionRegistry
+		registered map[string]bool
 	}
 
 	// Config describe the config of AccessFilter
 	Config struct {
 		Path  string  `yaml:"path" json:"path"`
-		rules []*Rule `yaml:"rules" json:"rules"` //nolint
+		Rules []*Rule `yaml:"rules" json:"rules"` //nolint
 	}
 
 	Rule struct {
@@ -86,20 +90,20 @@ type (
 	}
 
 	Match struct {
-		method string `yaml:"method" json:"method"` //nolint
+		Method string `yaml:"method" json:"method"` //nolint
 	}
 )
 
-func (ap *Plugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &Filter{cfg: &Config{}}, nil
 }
 
-func (af *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(af.Handle)
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
@@ -123,7 +127,7 @@ func getServiceAndMethod(path string) (string, string) {
 }
 
 // Handle use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
-func (af *Filter) Handle(c *http.HttpContext) {
+func (f *Filter) Handle(c *http.HttpContext) {
 	svc, mth := getServiceAndMethod(c.Request.URL.Path)
 
 	dscp, err := fsrc.FindSymbol(svc)
@@ -144,30 +148,19 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	mthDesc := svcDesc.FindMethodByName(mth)
 
-	// TODO(Kenway): Can extension registry being cached ?
-	var extReg dynamic.ExtensionRegistry
-	registered := make(map[string]bool)
-	err = RegisterExtension(&extReg, mthDesc.GetInputType(), registered)
+	err = f.registerExtension(mthDesc)
 	if err != nil {
 		logger.Errorf("%s err {%s}", loggerHeader, "register extension failed")
-		c.Err = perrors.New("register extension failed")
+		c.Err = err
 		c.Next()
 		return
 	}
 
-	err = RegisterExtension(&extReg, mthDesc.GetOutputType(), registered)
-	if err != nil {
-		logger.Errorf("%s err {%s}", loggerHeader, "register extension failed")
-		c.Err = perrors.New("register extension failed")
-		c.Next()
-		return
-	}
-
-	msgFac := dynamic.NewMessageFactoryWithExtensionRegistry(&extReg)
+	msgFac := dynamic.NewMessageFactoryWithExtensionRegistry(&f.extReg)
 	grpcReq := msgFac.NewMessage(mthDesc.GetInputType())
 
 	err = jsonToProtoMsg(c.Request.Body, grpcReq)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		logger.Errorf("%s err {failed to convert json to proto msg, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
@@ -188,7 +181,7 @@ func (af *Filter) Handle(c *http.HttpContext) {
 
 	ep := e.Address.GetAddress()
 
-	p, ok := af.pools[strings.Join([]string{re.Cluster, ep}, ".")]
+	p, ok := f.pools[strings.Join([]string{re.Cluster, ep}, ".")]
 	if !ok {
 		p = &sync.Pool{}
 	}
@@ -244,6 +237,19 @@ func (af *Filter) Handle(c *http.HttpContext) {
 	}
 	p.Put(clientConn)
 	c.Next()
+}
+
+func (f *Filter) registerExtension(mthDesc *desc.MethodDescriptor) error {
+	err := RegisterExtension(&f.extReg, mthDesc.GetInputType(), f.registered)
+	if err != nil {
+		return perrors.New("register extension failed")
+	}
+
+	err = RegisterExtension(&f.extReg, mthDesc.GetOutputType(), f.registered)
+	if err != nil {
+		return perrors.New("register extension failed")
+	}
+	return nil
 }
 
 func RegisterExtension(extReg *dynamic.ExtensionRegistry, msgDesc *desc.MessageDescriptor, registered map[string]bool) error {
@@ -312,12 +318,12 @@ func isServerError(st *status.Status) bool {
 		st.Code() == codes.Unavailable
 }
 
-func (af *Filter) Config() interface{} {
-	return af.cfg
+func (f *Filter) Config() interface{} {
+	return f.cfg
 }
 
-func (af *Filter) Apply() error {
-	gc := af.cfg
+func (f *Filter) Apply() error {
+	gc := f.cfg
 	fileLists := make([]string, 0)
 	items, err := ioutil.ReadDir(gc.Path)
 	if err != nil {
@@ -337,7 +343,7 @@ func (af *Filter) Apply() error {
 	if err != nil {
 		return err
 	}
-	err = af.initFromFileDescriptor([]string{gc.Path}, fileLists...)
+	err = f.initFromFileDescriptor([]string{gc.Path}, fileLists...)
 	if err != nil {
 		return err
 	}
