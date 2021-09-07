@@ -177,21 +177,26 @@ func (af *Filter) Handle(c *http.HttpContext) {
 	var clientConn *grpc.ClientConn
 	re := c.GetRouteEntry()
 	logger.Debugf("%s client choose endpoint from cluster :%v", loggerHeader, re.Cluster)
-	p, ok := af.pools[re.Cluster]
+
+	e := server.GetClusterManager().PickEndpoint(re.Cluster)
+	if e == nil {
+		logger.Errorf("%s err {cluster not exists}", loggerHeader)
+		c.Err = perrors.New("cluster not exists")
+		c.Next()
+		return
+	}
+
+	ep := e.Address.GetAddress()
+
+	p, ok := af.pools[strings.Join([]string{re.Cluster, ep}, ".")]
 	if !ok {
 		p = &sync.Pool{}
 	}
+
 	clientConn, ok = p.Get().(*grpc.ClientConn)
 	if !ok || clientConn == nil {
 		// TODO(Kenway): Support Credential and TLS
-		e := server.GetClusterManager().PickEndpoint(re.Cluster)
-		if e == nil {
-			logger.Errorf("%s err {cluster not exists}", loggerHeader)
-			c.Err = perrors.New("cluster not exists")
-			c.Next()
-			return
-		}
-		clientConn, err = grpc.DialContext(c.Ctx, e.Address.GetAddress(), grpc.WithInsecure())
+		clientConn, err = grpc.DialContext(c.Ctx, ep, grpc.WithInsecure())
 		if err != nil || clientConn == nil {
 			logger.Errorf("%s err {failed to connect to grpc service provider}", loggerHeader)
 			c.Err = err
