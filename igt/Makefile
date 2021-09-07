@@ -100,13 +100,13 @@ config:
 .PHONY: docker-up
 docker-up:
 	$(info   >  Starting dependency services with $(PROJECT_DIR)/docker/docker-compose.yml)
-	@docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml up -d
+	@-test -f $(PROJECT_DIR)/docker/docker-compose.yml && docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml up -d
 
 ## docker-down: Shutdown dependency services on docker
 .PHONY: docker-down
 docker-down:
 	$(info   >  Stopping dependency services with $(PROJECT_DIR)/docker/docker-compose.yml)
-	@docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml down
+	@-test -f $(PROJECT_DIR)/docker/docker-compose.yml && docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml down
 
 ## clean: Clean up the output and the binary of the application
 .PHONY: clean
