@@ -11,7 +11,6 @@ require (
 	github.com/dubbogo/gost v1.11.14
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0 // indirect
