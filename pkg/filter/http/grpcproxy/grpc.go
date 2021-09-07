@@ -23,6 +23,8 @@ import (
 	"io"
 	"io/ioutil"
 	stdHttp "net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -324,8 +326,19 @@ func (f *Filter) Config() interface{} {
 
 func (f *Filter) Apply() error {
 	gc := f.cfg
+
+	cur := gc.Path
+	if len(cur) != 0 && cur[0] != '/' {
+		ex, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		cur = filepath.Dir(ex) + "/" + gc.Path
+	}
+
+	logger.Infof("%s load proto files from %s", loggerHeader, cur)
 	fileLists := make([]string, 0)
-	items, err := ioutil.ReadDir(gc.Path)
+	items, err := ioutil.ReadDir(cur)
 	if err != nil {
 		return err
 	}

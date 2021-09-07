@@ -43,10 +43,10 @@ static_resources:
                 http_filters:
                   - name: dgp.filter.http.apiconfig
                     config:
-                      path: /mnt/d/WorkSpace/GoLandProjects/dubbo-go-pixiu/samples/http/grpc/pixiu/api_config.yaml
+                      path: $PROJECT_DIR/pixiu/api_config.yaml
                   - name: dgp.filter.http.grpcproxy
                     config:
-                      path: /mnt/d/WorkSpace/GoLandProjects/dubbo-go-pixiu/samples/http/grpc/proto
+                      path: $PROJECT_DIR/proto
                   - name: dgp.filter.http.response
                     config:
                 server_name: "test-http-grpc"
