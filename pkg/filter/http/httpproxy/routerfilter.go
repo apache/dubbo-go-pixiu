@@ -39,43 +39,43 @@ const (
 )
 
 func init() {
-	filter.RegisterHttpFilter(&RouterPlugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
-	// RouterPlugin is http filter plugin.
-	RouterPlugin struct {
+	// Plugin is http filter plugin.
+	Plugin struct {
 	}
-	// RouterFilter is http filter instance
-	RouterFilter struct {
+	// Filter is http filter instance
+	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of RouterFilter
+	// Config describe the config of Filter
 	Config struct{}
 )
 
-func (rp *RouterPlugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (rp *RouterPlugin) CreateFilter() (filter.HttpFilter, error) {
-	return &RouterFilter{cfg: &Config{}}, nil
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{cfg: &Config{}}, nil
 }
 
-func (rf *RouterFilter) Config() interface{} {
-	return rf.cfg
+func (f *Filter) Config() interface{} {
+	return f.cfg
 }
 
-func (rf *RouterFilter) Apply() error {
+func (f *Filter) Apply() error {
 	return nil
 }
 
-func (rf *RouterFilter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(rf.Handle)
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (rf *RouterFilter) Handle(hc *http.HttpContext) {
+func (f *Filter) Handle(hc *http.HttpContext) {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
