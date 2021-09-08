@@ -33,7 +33,7 @@ import (
 )
 
 func TestCreateRouterCoordinator(t *testing.T) {
-	hcmc := model.HttpConnectionManager{
+	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
 			Routes: []*model.Router{
 				{
