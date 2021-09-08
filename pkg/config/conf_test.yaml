@@ -59,6 +59,14 @@ static_resources:
                     config:
                   - name: dgp.filters.http.dubboproxy
                     config:
+                cors_policy:
+                  enabled: false
+                  allow_origin:
+                  allow_methods: ""
+                  allow_headers: ""
+                  expose_headers: ""
+                  max_age: ""
+                  allow_credentials: false
                 server_name: "test_http_dubbo"
                 generate_request_id: false
       config:
