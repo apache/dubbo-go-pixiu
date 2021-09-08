@@ -15,11 +15,7 @@
  * limitations under the License.
  */
 
-package header
-
-import (
-	"strings"
-)
+package cors
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
@@ -28,7 +24,8 @@ import (
 )
 
 const (
-	Kind = constant.HTTPHeaderFilter
+	// Kind is the kind of Fallback.
+	Kind = constant.HTTPCorsFilter
 )
 
 func init() {
@@ -52,15 +49,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{}, nil
-}
-
-func (f *Filter) Config() interface{} {
-	return f.cfg
-}
-
-func (f *Filter) Apply() error {
-	return nil
+	return &Filter{cfg: &Config{}}, nil
 }
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -68,33 +57,48 @@ func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 	return nil
 }
 
-func (f *Filter) Handle(hc *http.HttpContext) {
-	api := hc.GetAPI()
-	headers := api.Headers
-	if len(headers) == 0 {
-		hc.Next()
+func (f *Filter) Handle(ctx *http.HttpContext) {
+	f.handleCors(ctx)
+
+	ctx.Next()
+}
+
+func (f *Filter) handleCors(ctx *http.HttpContext) {
+	cp := ctx.HttpConnectionManager.CorsPolicy
+	if cp == nil || !cp.Enabled {
 		return
 	}
 
-	urlHeaders := hc.AllHeaders()
-	if len(urlHeaders) == 0 {
-		hc.Abort()
-		return
-	}
-
-	for headerName, headerValue := range headers {
-		urlHeaderValues := urlHeaders.Values(strings.ToLower(headerName))
-		if urlHeaderValues == nil {
-			hc.Abort()
-			return
-		}
-		for _, urlHeaderValue := range urlHeaderValues {
-			if urlHeaderValue == headerValue {
-				goto FOUND
+	domains := cp.AllowOrigin
+	if len(domains) != 0 {
+		for _, domain := range domains {
+			if ctx.GetHeader("Host") == domain {
+				ctx.AddHeader(constant.HeaderKeyAccessControlAllowOrigin, domain)
 			}
 		}
-		hc.Abort()
-	FOUND:
-		continue
 	}
+
+	if cp.AllowHeaders != "" {
+		ctx.AddHeader(constant.HeaderKeyAccessControlExposeHeaders, cp.AllowHeaders)
+	}
+
+	if cp.AllowMethods != "" {
+		ctx.AddHeader(constant.HeaderKeyAccessControlAllowMethods, cp.AllowMethods)
+	}
+
+	if cp.MaxAge != "" {
+		ctx.AddHeader(constant.HeaderKeyAccessControlMaxAge, cp.MaxAge)
+	}
+
+	if cp.AllowCredentials {
+		ctx.AddHeader(constant.HeaderKeyAccessControlAllowCredentials, "true")
+	}
+}
+
+func (f *Filter) Apply() error {
+	return nil
+}
+
+func (f *Filter) Config() interface{} {
+	return f.cfg
 }

@@ -18,6 +18,7 @@
 package filter
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"sync"
 )
 
@@ -57,18 +58,46 @@ func (fm *FilterManager) GetFilters() []HttpFilter {
 	return fm.filters
 }
 
-// Load load the filter from config
+// Load the filter from config
 func (fm *FilterManager) Load() {
+	found := false
+	for i, config := range fm.filterConfigs {
+		if config.Name == constant.HTTPResponseFilter {
+			found = true
+			configs := fm.filterConfigs[:i]
+			configs = append(configs, &model.HTTPFilter{
+				Name:   constant.HTTPCorsFilter,
+				Config: map[string]interface{}{},
+			})
+			configs = append(configs, fm.filterConfigs[i:]...)
+			fm.filterConfigs = configs
+		}
+	}
+
+	if !found {
+		logger.Warn("response filter not found")
+	}
+
 	fm.ReLoad(fm.filterConfigs)
 }
 
-// ReLoad reload filter configs
+// ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
-	tmp := make([]HttpFilter, 0, len(filters))
+	length := len(filters)
+	tmp := make([]HttpFilter, 0, length+1)
 	for _, f := range filters {
+		// (Kenway) set cors filter before response filter, maybe using a hook is better
+		if f.Name == constant.HTTPResponseFilter {
+			apply, err := fm.Apply(constant.HTTPCorsFilter, map[string]interface{}{})
+			if err != nil {
+				logger.Errorf("apply [%s] init fail, %s", constant.HTTPCorsFilter, err.Error())
+			}
+			tmp = append(tmp, apply)
+		}
+
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
-			logger.Errorf("apply [%s] init fail, %s", err)
+			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
 		}
 		tmp = append(tmp, apply)
 	}
