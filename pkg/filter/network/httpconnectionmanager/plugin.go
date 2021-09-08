@@ -29,18 +29,18 @@ const (
 )
 
 func init() {
-	filter.RegisterNetworkFilter(&HttpConnectionManagerPlugin{})
+	filter.RegisterNetworkFilter(&Plugin{})
 }
 
 type (
-	HttpConnectionManagerPlugin struct{}
+	Plugin struct{}
 )
 
-func (hp *HttpConnectionManagerPlugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (hp *HttpConnectionManagerPlugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+func (p *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.HttpConnectionManagerConfig)
 	return http.CreateHttpConnectionManager(hcmc, bs), nil
 }
