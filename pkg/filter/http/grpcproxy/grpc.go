@@ -130,7 +130,7 @@ func getServiceAndMethod(path string) (string, string) {
 
 // Handle use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
 func (f *Filter) Handle(c *http.HttpContext) {
-	svc, mth := getServiceAndMethod(c.Request.URL.Path)
+	svc, mth := getServiceAndMethod(c.GetUrl())
 
 	dscp, err := fsrc.FindSymbol(svc)
 	if err != nil {
@@ -203,7 +203,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	stub := grpcdynamic.NewStubWithMessageFactory(clientConn, msgFac)
 
 	// metadata in grpc has the same feature in http
-	md := mapHeaderToMetadata(c.Request.Header)
+	md := mapHeaderToMetadata(c.AllHeaders())
 	ctx := metadata.NewOutgoingContext(c.Ctx, md)
 
 	md = metadata.MD{}
