@@ -54,7 +54,7 @@ type HttpContext struct {
 	// happen error
 	Err error
 
-	HttpConnectionManager model.HttpConnectionManager
+	HttpConnectionManager model.HttpConnectionManagerConfig
 	Listener              *model.Listener
 	Route                 *model.RouteAction
 	Api                   router.API
