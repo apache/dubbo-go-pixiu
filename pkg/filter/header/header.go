@@ -39,11 +39,11 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// HeaderFilter is http filter instance
-	HeaderFilter struct {
+	// Filter is http filter instance
+	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of HeaderFilter
+	// Config describe the config of Filter
 	Config struct{}
 )
 
@@ -52,23 +52,23 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &HeaderFilter{}, nil
+	return &Filter{}, nil
 }
 
-func (f *HeaderFilter) Config() interface{} {
+func (f *Filter) Config() interface{} {
 	return f.cfg
 }
 
-func (f *HeaderFilter) Apply() error {
+func (f *Filter) Apply() error {
 	return nil
 }
 
-func (hf *HeaderFilter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(hf.Handle)
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (hf *HeaderFilter) Handle(hc *http.HttpContext) {
+func (f *Filter) Handle(hc *http.HttpContext) {
 	api := hc.GetAPI()
 	headers := api.Headers
 	if len(headers) <= 0 {
