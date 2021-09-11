@@ -18,6 +18,7 @@
 package test
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -34,6 +35,7 @@ func TestPost(t *testing.T) {
 	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":99}"
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("POST", url, strings.NewReader(data))
+	req.Header.Add("Host", "api.dubbo.com") // for cors test
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
@@ -42,6 +44,8 @@ func TestPost(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 	s, _ := ioutil.ReadAll(resp.Body)
 	assert.True(t, strings.Contains(string(s), "dubbogo"))
+	ao := resp.Header.Get(constant.HeaderKeyAccessControlAllowOrigin)
+	assert.Equal(t, "api.dubbo.com", ao)
 }
 
 func TestGET1(t *testing.T) {
@@ -50,10 +54,13 @@ func TestGET1(t *testing.T) {
 	req, err := http.NewRequest("GET", url, nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Host", "api.dubbo.com") // for cors test
 	resp, err := client.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
 	s, _ := ioutil.ReadAll(resp.Body)
 	assert.True(t, strings.Contains(string(s), "0001"))
+	ao := resp.Header.Get(constant.HeaderKeyAccessControlAllowOrigin)
+	assert.Equal(t, "api.dubbo.com", ao)
 }
