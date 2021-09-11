@@ -18,7 +18,6 @@
 package filter
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"sync"
 )
 
@@ -27,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -86,15 +86,6 @@ func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	length := len(filters)
 	tmp := make([]HttpFilter, 0, length+1)
 	for _, f := range filters {
-		// (Kenway) set cors filter before response filter, maybe using a hook is better
-		if f.Name == constant.HTTPResponseFilter {
-			apply, err := fm.Apply(constant.HTTPCorsFilter, map[string]interface{}{})
-			if err != nil {
-				logger.Errorf("apply [%s] init fail, %s", constant.HTTPCorsFilter, err.Error())
-			}
-			tmp = append(tmp, apply)
-		}
-
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
 			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
