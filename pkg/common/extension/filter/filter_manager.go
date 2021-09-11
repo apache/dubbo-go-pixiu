@@ -26,7 +26,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -60,31 +59,12 @@ func (fm *FilterManager) GetFilters() []HttpFilter {
 
 // Load the filter from config
 func (fm *FilterManager) Load() {
-	found := false
-	for i, config := range fm.filterConfigs {
-		if config.Name == constant.HTTPResponseFilter {
-			found = true
-			configs := fm.filterConfigs[:i]
-			configs = append(configs, &model.HTTPFilter{
-				Name:   constant.HTTPCorsFilter,
-				Config: map[string]interface{}{},
-			})
-			configs = append(configs, fm.filterConfigs[i:]...)
-			fm.filterConfigs = configs
-		}
-	}
-
-	if !found {
-		logger.Warn("response filter not found")
-	}
-
 	fm.ReLoad(fm.filterConfigs)
 }
 
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
-	length := len(filters)
-	tmp := make([]HttpFilter, 0, length+1)
+	tmp := make([]HttpFilter, 0, len(filters))
 	for _, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
