@@ -36,12 +36,25 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
+
 	// Filter is http filter instance
 	Filter struct {
 		cfg *Config
 	}
+
 	// Config describe the config of Filter
-	Config struct{}
+	Config struct {
+		AllowOrigin []string `yaml:"allow_origin" json:"allow_origin" mapstructure:"allow_origin"`
+		// AllowMethods access-control-allow-methods
+		AllowMethods string `yaml:"allow_methods" json:"allow_methods" mapstructure:"allow_methods"`
+		// AllowHeaders access-control-allow-headers
+		AllowHeaders string `yaml:"allow_headers" json:"allow_headers" mapstructure:"allow_headers"`
+		// ExposeHeaders access-control-expose-headers
+		ExposeHeaders string `yaml:"expose_headers" json:"expose_headers" mapstructure:"expose_headers"`
+		// MaxAge access-control-max-age
+		MaxAge           string `yaml:"max_age" json:"max_age" mapstructure:"max_age"`
+		AllowCredentials bool   `yaml:"allow_credentials" json:"allow_credentials" mapstructure:"allow_credentials"`
+	}
 )
 
 func (p *Plugin) Kind() string {
@@ -59,17 +72,16 @@ func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 
 func (f *Filter) Handle(ctx *http.HttpContext) {
 	f.handleCors(ctx)
-
 	ctx.Next()
 }
 
 func (f *Filter) handleCors(ctx *http.HttpContext) {
-	cp := ctx.HttpConnectionManager.CorsPolicy
-	if cp == nil || !cp.Enabled {
+	c := f.cfg
+	if c == nil {
 		return
 	}
 
-	domains := cp.AllowOrigin
+	domains := c.AllowOrigin
 	if len(domains) != 0 {
 		for _, domain := range domains {
 			if ctx.GetHeader("Host") == domain {
@@ -78,19 +90,19 @@ func (f *Filter) handleCors(ctx *http.HttpContext) {
 		}
 	}
 
-	if cp.AllowHeaders != "" {
-		ctx.AddHeader(constant.HeaderKeyAccessControlExposeHeaders, cp.AllowHeaders)
+	if c.AllowHeaders != "" {
+		ctx.AddHeader(constant.HeaderKeyAccessControlExposeHeaders, c.AllowHeaders)
 	}
 
-	if cp.AllowMethods != "" {
-		ctx.AddHeader(constant.HeaderKeyAccessControlAllowMethods, cp.AllowMethods)
+	if c.AllowMethods != "" {
+		ctx.AddHeader(constant.HeaderKeyAccessControlAllowMethods, c.AllowMethods)
 	}
 
-	if cp.MaxAge != "" {
-		ctx.AddHeader(constant.HeaderKeyAccessControlMaxAge, cp.MaxAge)
+	if c.MaxAge != "" {
+		ctx.AddHeader(constant.HeaderKeyAccessControlMaxAge, c.MaxAge)
 	}
 
-	if cp.AllowCredentials {
+	if c.AllowCredentials {
 		ctx.AddHeader(constant.HeaderKeyAccessControlAllowCredentials, "true")
 	}
 }

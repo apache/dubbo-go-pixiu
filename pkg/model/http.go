@@ -25,26 +25,10 @@ import (
 // HttpConnectionManagerConfig
 type HttpConnectionManagerConfig struct {
 	RouteConfig       RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
-	CorsPolicy        *CorsPolicy        `yaml:"cors_policy" json:"cors_policy" mapstructure:"cors_policy"`
 	HTTPFilters       []*HTTPFilter      `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
 	ServerName        string             `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
 	IdleTimeoutStr    string             `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
 	GenerateRequestID bool               `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
-}
-
-// CorsPolicy
-type CorsPolicy struct {
-	Enabled     bool     `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
-	AllowOrigin []string `yaml:"allow_origin" json:"allow_origin" mapstructure:"allow_origin"`
-	// AllowMethods access-control-allow-methods
-	AllowMethods string `yaml:"allow_methods" json:"allow_methods" mapstructure:"allow_methods"`
-	// AllowHeaders access-control-allow-headers
-	AllowHeaders string `yaml:"allow_headers" json:"allow_headers" mapstructure:"allow_headers"`
-	// ExposeHeaders access-control-expose-headers
-	ExposeHeaders string `yaml:"expose_headers" json:"expose_headers" mapstructure:"expose_headers"`
-	// MaxAge access-control-max-age
-	MaxAge           string `yaml:"max_age" json:"max_age" mapstructure:"max_age"`
-	AllowCredentials bool   `yaml:"allow_credentials" json:"allow_credentials" mapstructure:"allow_credentials"`
 }
 
 // HTTPFilter http filter
