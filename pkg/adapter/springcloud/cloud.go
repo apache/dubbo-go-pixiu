@@ -78,9 +78,10 @@ func (a *CloudAdapter) Start() {
 	go func() {
 
 		// init SpringCloud Manager for control initialize
-		cloudManager := SpringCloudManager(a.boot)
+		//cloudManager := SpringCloudManager(a.boot)
+		cloudManager := NewSpringCloudManager(&SpringCloudConfig{boot: a.boot})
 
-		cloudManager.initAll()
+		cloudManager.Start()
 
 		// fetch service instance from consul
 
