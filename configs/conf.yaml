@@ -43,7 +43,7 @@ static_resources:
                 http_filters:
                   - name: dgp.filter.http.apiconfig
                     config:
-                      path: $PROJECT_DIR/pixiu/api_config.yaml
+                      path: configs/api_config.yaml
                   - name: dgp.filter.http.dubboproxy
                     config:
                       dubboProxyConfig:
@@ -81,3 +81,24 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+  adapters:
+    - name: "dgp.adapter.springcloud"
+      config:
+        registries:
+          "eureka":
+            protocol: "eureka"
+            enable: true
+            configFile: "configs/eureka.json"
+            evictionDuration: 30 # 剔除服务的最大时间限制，秒
+            heartbeatInterval: 20 # 心跳间隔
+            timeout: "3s"
+            address: "127.0.0.1:2181"
+            username: ""
+            password: ""
+          "zookeeper":
+            protocol: "zookeeper"
+            timeout: "3s"
+            address: "127.0.0.1:2181"
+            username: ""
+            password: ""
+
