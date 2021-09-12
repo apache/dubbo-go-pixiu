@@ -34,7 +34,7 @@ resources:
             - name: requestBody._all
               mapTo: 0
               mapType: "object"
-          applicationName: "UserProvider"
+          applicationName: "service-gateway-provider"
           interface: "com.dubbogo.pixiu.UserService"
           method: "CreateUser"
           group: "test"
