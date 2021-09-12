@@ -43,7 +43,7 @@ static_resources:
                 http_filters:
                   - name: dgp.filter.http.apiconfig
                     config:
-                      path: $PROJECT_DIR/pixiu/api_config.yaml
+                      path: /Users/yami/Documents/dubbo-go-pixiu/configs/api_config.yaml
                   - name: dgp.filter.http.dubboproxy
                     config:
                       dubboProxyConfig:
@@ -81,3 +81,13 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+  adapters:
+    - name: "dgp.adapter.springcloud"
+      config:
+        registries:
+          "Nacos":
+            protocol: "Nacos"
+            timeout: "3s"
+            address: "127.0.0.1:8848"
+            username: ""
+            password: ""

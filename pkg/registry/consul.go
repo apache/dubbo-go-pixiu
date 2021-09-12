@@ -18,6 +18,7 @@
 package registry
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"net/url"
 	"strconv"
 	"strings"
@@ -50,6 +51,10 @@ type ConsulRegistryLoad struct {
 	// Consul client.
 	client  *consul.Client
 	cluster string
+}
+
+func (crl *ConsulRegistryLoad) NewRegistryLoader(ad *model.Adapter) (Loader, error) {
+	return nil, nil
 }
 
 func newConsulRegistryLoad(address, cluster string) (Loader, error) {
@@ -120,4 +125,8 @@ func (crl *ConsulRegistryLoad) LoadAllServices() ([]*common.URL, error) {
 		urls = append(urls, url)
 	}
 	return urls, nil
+}
+
+func (crl *ConsulRegistryLoad) NewRegistry(sr *model.StaticResources) Loader {
+	return nil
 }
