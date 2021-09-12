@@ -1,0 +1,15 @@
+{
+    "config": {
+        "certFile": "",
+        "keyFile": "",
+        "caCertFiles": null,
+        "timeout": 1000000000,
+        "consistency": ""
+    },
+    "cluster": {
+        "leader": "http://127.0.0.1:8000/eureka",
+        "machines": [
+            "http://127.0.0.1:8000/eureka"
+        ]
+    }
+}
