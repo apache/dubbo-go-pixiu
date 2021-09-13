@@ -4,6 +4,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/discovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 // SpringCloudConfig SpringCloud that life cycle configuration
@@ -45,6 +46,35 @@ type scManager struct {
 	Stop func()
 }
 
+func (m *scManager) initCluster() {
+	endpoint := &model.Endpoint{}
+	endpoint.ID = "spring-cloud-producer" // 192.168.0.105:spring-cloud-producer:9000
+	endpoint.Address = model.SocketAddress{
+		Address: "192.168.0.105",
+		Port:    9000,
+	}
+	cluster := &model.Cluster{}
+	cluster.Name = "spring-cloud-producer"
+	cluster.Lb = model.Rand
+	cluster.Endpoints = []*model.Endpoint{
+		endpoint,
+	}
+	// add cluster into manager
+	cm := server.GetClusterManager()
+	cm.AddCluster(cluster)
+
+	// transform into route
+	routeMatch := model.RouterMatch{
+		Prefix: "/scp",
+	}
+	routeAction := model.RouteAction{
+		Cluster: "spring-cloud-producer",
+	}
+	route := &model.Router{Match: routeMatch, Route: routeAction}
+
+	server.GetRouterManager().AddRouter(route)
+}
+
 // load remote registry : nacos, consul...
 func loadRouterByRemoteConfig() {
 
@@ -80,6 +110,7 @@ func NewSpringCloudManager(config *SpringCloudConfig) *scManager {
 		scConfig: config,
 		Start: func() *scManager {
 			manager.initAll()
+			manager.initRouter()
 			return manager
 		},
 		initAll: func() {
@@ -111,7 +142,7 @@ func NewSpringCloudManager(config *SpringCloudConfig) *scManager {
 			//resources
 		},
 		initRouter: func() {
-
+			manager.initCluster()
 		},
 		getServiceInfoById: func(serviceId string) {
 
