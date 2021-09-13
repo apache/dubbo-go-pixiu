@@ -40,6 +40,7 @@ static_resources:
                       route:
                         cluster: "test-dubbo"
                         cluster_not_found_response_code: 505
+                  dynamic: true
                 http_filters:
                   - name: dgp.filter.http.apiconfig
                     config:
@@ -84,6 +85,13 @@ static_resources:
   adapters:
     - name: "dgp.adapter.springcloud"
       config:
+        services:
+          SPRING-CLOUD-PRODUCER:
+            id: SPRING-CLOUD-PRODUCER     # 注册中心的服务名
+            name: SPRING-CLOUD-PRODUCER   # 服务名
+            prefix: /scp                  # router 前缀
+            strip-prefix: true            # 代理请求时移除前缀 rm /scp
+            otherConfig: "pixiu"
         registries:
           "eureka":
             protocol: "eureka"
