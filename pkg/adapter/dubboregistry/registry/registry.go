@@ -62,15 +62,15 @@ func SetRegistry(name string, newRegFunc func(model.Registry) (Registry, error))
 
 // GetRegistry will return the registry
 // if not found, it will panic
-func GetRegistry(name string, regConfig model.Registry) Registry {
+func GetRegistry(name string, regConfig model.Registry) (Registry, error) {
 	if registry, ok := registryMap[name]; ok {
 		reg, err := registry(regConfig)
 		if err != nil {
 			panic("Initialize Registry" + name + "failed due to: " + err.Error())
 		}
-		return reg
+		return reg, nil
 	}
-	panic("Registry " + name + " does not support yet")
+	return nil, errors.New("Registry " + name + " does not support yet")
 }
 
 // CreateAPIConfig returns router.API struct base on the input
