@@ -56,6 +56,10 @@ func CreateListenerService(lc *model.Listener, bs *model.Bootstrap) *ListenerSer
 	return &ListenerService{cfg: lc, nf: *hcm}
 }
 
+func (ls *ListenerService) GetNetworkFilter() filter.NetworkFilter {
+	return ls.nf
+}
+
 // Start start the listener
 func (ls *ListenerService) Start() {
 	sa := ls.cfg.Address.SocketAddress
@@ -209,7 +213,7 @@ func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *filter.NetworkF
 	}
 
 	hcmc := findHttpManager(lc)
-	hcm, err := p.CreateFilter(hcmc, bs)
+	hcm, err := p.CreateFilter(hcmc, bs, lc.Name)
 	if err != nil {
 		panic(err)
 	}

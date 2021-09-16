@@ -18,6 +18,7 @@
 package filter
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/global"
 	"sync"
 )
 
@@ -33,24 +34,26 @@ import (
 
 // FilterManager manage filters
 type FilterManager struct {
-	filters       []HttpFilter
+	filters       map[string]HttpFilter
 	filterConfigs []*model.HTTPFilter
 
 	mu sync.RWMutex
 }
 
 // NewFilterManager create filter manager
-func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
-	return &FilterManager{filterConfigs: fs, filters: make([]HttpFilter, 0, 16)}
+func NewFilterManager(fs []*model.HTTPFilter, listenerName string) *FilterManager {
+	fm := &FilterManager{filterConfigs: fs, filters: make(map[string]HttpFilter)}
+	global.RegisterGlobalFilterManager(listenerName, fm)
+	return fm
 }
 
 // NewEmptyFilterManager create empty filter manager
 func NewEmptyFilterManager() *FilterManager {
-	return &FilterManager{filters: make([]HttpFilter, 0, 16)}
+	return &FilterManager{filters: make(map[string]HttpFilter)}
 }
 
 // GetFilters get all filter from manager
-func (fm *FilterManager) GetFilters() []HttpFilter {
+func (fm *FilterManager) GetFilters() map[string]HttpFilter {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
 
@@ -64,13 +67,13 @@ func (fm *FilterManager) Load() {
 
 // ReLoad reload filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
-	tmp := make([]HttpFilter, 0, len(filters))
+	tmp := make(map[string]HttpFilter)
 	for _, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
 			logger.Errorf("apply [%s] init fail, %s", err)
 		}
-		tmp = append(tmp, apply)
+		tmp[f.Name] = apply
 	}
 	// avoid filter inconsistency
 	fm.mu.Lock()
