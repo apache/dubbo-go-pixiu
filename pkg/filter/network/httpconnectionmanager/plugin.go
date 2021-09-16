@@ -40,8 +40,8 @@ func (hp *HttpConnectionManagerPlugin) Kind() string {
 	return Kind
 }
 
-func (hp *HttpConnectionManagerPlugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+func (hp *HttpConnectionManagerPlugin) CreateFilter(config interface{}, bs *model.Bootstrap, name string) (filter.NetworkFilter, error) {
 
 	hcmc := config.(*model.HttpConnectionManager)
-	return http.CreateHttpConnectionManager(hcmc, bs), nil
+	return http.CreateHttpConnectionManager(hcmc, bs, name), nil
 }

@@ -81,3 +81,8 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+  adapter:
+    - name: dgp.adapter.dubboregistrycenter
+      config:
+        AppointedListener: net/http
+        registries:

@@ -53,3 +53,12 @@ func (lm *ListenerManager) StartListen() {
 func (lm *ListenerManager) addListenerService(ls *ListenerService) {
 	lm.activeListenerService = append(lm.activeListenerService, ls)
 }
+
+func (lm *ListenerManager) GetListenerService(name string) *ListenerService {
+	for i := range lm.activeListenerService {
+		if lm.activeListenerService[i].cfg.Name == name {
+			return lm.activeListenerService[i]
+		}
+	}
+	return nil
+}
