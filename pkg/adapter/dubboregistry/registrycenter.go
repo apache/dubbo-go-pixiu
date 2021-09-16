@@ -5,6 +5,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/pkg/errors"
 )
 
@@ -17,7 +18,10 @@ var (
 	_ adapter.Adapter = new(Adapter)
 )
 
-type AdaptorConfig = map[string]model.Registry
+type AdaptorConfig struct {
+	AppointedListener string                    `yaml:"appointed_listener" json:"appointed_listener" :"appointed_listener" mapstructure: "appointed_listener"`
+	Registries        map[string]model.Registry `yaml:"registries" json:"registries" mapstructure:"registries" :"registries"`
+}
 
 // Plugin to monitor dubbo services on registry center
 type Plugin struct {}
@@ -30,16 +34,21 @@ func (p Plugin) Kind() string {
 // CreateAdapter returns the dubbo registry center adapter
 func (p Plugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
 	c, ok := config.(AdaptorConfig)
+	listenerService := server.GetServer().GetListenerManager().GetListenerService(c.AppointedListener)
+	if listenerService == nil {
+		return nil, errors.New("Appointed Listener not found")
+	}
 	if !ok {
 		return nil, errors.New("Configuration incorrect")
 	}
-	return &Adapter{cfg: c}, nil
+	return &Adapter{cfg: c, boundListenerService: listenerService}, nil
 }
 
 // Adapter to monitor dubbo services on registry center
 type Adapter struct{
 	cfg AdaptorConfig
 	registries map[string]registry.Registry
+	boundListenerService *server.ListenerService
 }
 
 // Start starts the adaptor
@@ -59,10 +68,15 @@ func (a *Adapter) Stop() {
 // Apply inits the registries according to the configuration
 func (a *Adapter) Apply() error {
 	// create registry per config
-	for k, registryConfig := range a.cfg {
-		a.registries[k] = registry.GetRegistry(k, registryConfig)
+	for k, registryConfig := range a.cfg.Registries {
+		var err error
+		a.registries[k], err = registry.GetRegistry(k, registryConfig)
+		if err !=nil {
+			return err
+		}
 	}
-	panic("implement me")
+
+	return nil
 }
 
 // Config returns the config of the adaptor
