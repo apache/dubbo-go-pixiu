@@ -18,6 +18,7 @@
 package config
 
 import (
+	"github.com/creasty/defaults"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -86,6 +87,9 @@ func LoadYAMLConfig(path string) *model.Bootstrap {
 	err = yaml.Unmarshal(content, cfg)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] convert YAML to JSON failed, ", err)
+	}
+	if err = defaults.Set(cfg); err != nil {
+		log.Fatalln("[config] [yaml load] initialize structs with default value failed, ", err)
 	}
 	err = Adapter(cfg)
 	if err != nil {
