@@ -35,8 +35,8 @@ func TestPost(t *testing.T) {
 	data := "{\"id\":\"0003\",\"code\":3,\"name\":\"dubbogo\",\"age\":99}"
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("POST", url, strings.NewReader(data))
-	req.Header.Add("Host", "api.dubbo.com") // for cors test
 	assert.NoError(t, err)
+	req.Host = "api.dubbo.com"
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	assert.NoError(t, err)
@@ -53,8 +53,8 @@ func TestGET1(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	assert.NoError(t, err)
+	req.Host = "api.dubbo.com"
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Host", "api.dubbo.com") // for cors test
 	resp, err := client.Do(req)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)

@@ -18,6 +18,10 @@
 package cors
 
 import (
+	stdHttp "net/http"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -84,26 +88,27 @@ func (f *Filter) handleCors(ctx *http.HttpContext) {
 	domains := c.AllowOrigin
 	if len(domains) != 0 {
 		for _, domain := range domains {
-			if ctx.GetHeader("Host") == domain {
-				ctx.AddHeader(constant.HeaderKeyAccessControlAllowOrigin, domain)
+			if ctx.Request.Host == domain || ctx.Request.URL.Host == domain ||
+				ctx.GetHeader("Host") == domain || ctx.GetHeader("host") == domain {
+				ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlAllowOrigin, domain)
 			}
 		}
 	}
 
 	if c.AllowHeaders != "" {
-		ctx.AddHeader(constant.HeaderKeyAccessControlExposeHeaders, c.AllowHeaders)
+		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlExposeHeaders, c.AllowHeaders)
 	}
 
 	if c.AllowMethods != "" {
-		ctx.AddHeader(constant.HeaderKeyAccessControlAllowMethods, c.AllowMethods)
+		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlAllowMethods, c.AllowMethods)
 	}
 
 	if c.MaxAge != "" {
-		ctx.AddHeader(constant.HeaderKeyAccessControlMaxAge, c.MaxAge)
+		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlMaxAge, c.MaxAge)
 	}
 
 	if c.AllowCredentials {
-		ctx.AddHeader(constant.HeaderKeyAccessControlAllowCredentials, "true")
+		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlAllowCredentials, "true")
 	}
 }
 
