@@ -40,10 +40,11 @@ static_resources:
                       route:
                         cluster: "test-dubbo"
                         cluster_not_found_response_code: 505
+                  dynamic: true
                 http_filters:
                   - name: dgp.filter.http.apiconfig
                     config:
-                      path: /Users/yami/Documents/dubbo-go-pixiu/configs/api_config.yaml
+                      path: configs/api_config.yaml
                   - name: dgp.filter.http.dubboproxy
                     config:
                       dubboProxyConfig:
@@ -84,10 +85,33 @@ static_resources:
   adapters:
     - name: "dgp.adapter.springcloud"
       config:
+        services:
+          SPRING-CLOUD-PRODUCER:
+            id: SPRING-CLOUD-PRODUCER     # 注册中心的服务名
+            name: SPRING-CLOUD-PRODUCER   # 服务名
+            prefix: /scp                  # router 前缀
+            strip-prefix: true            # 代理请求时移除前缀 rm /scp
+            otherConfig: "pixiu"
         registries:
           "Nacos":
             protocol: "Nacos"
             timeout: "3s"
             address: "127.0.0.1:8848"
+            username: ""
+            password: ""
+          "eureka":
+            protocol: "eureka"
+            enable: true
+            configFile: "configs/eureka.json"
+            evictionDuration: 30 # 剔除服务的最大时间限制，秒
+            heartbeatInterval: 20 # 心跳间隔
+            timeout: "3s"
+            address: "127.0.0.1:2181"
+            username: ""
+            password: ""
+          "zookeeper":
+            protocol: "zookeeper"
+            timeout: "3s"
+            address: "127.0.0.1:2181"
             username: ""
             password: ""

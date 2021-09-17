@@ -101,6 +101,12 @@ func (a *CloudAdapter) Start(adapter *model.Adapter) {
 	// do not block the main goroutine
 	go func() {
 		//init registry client
+
+		// init SpringCloud Manager for control initialize
+		cloudManager := NewSpringCloudManager(&SpringCloudConfig{boot: a.boot})
+
+		cloudManager.Start()
+
 		// fetch service instance from consul
 
 		// transform into endpoint and cluster
