@@ -18,11 +18,14 @@
 package registry
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go/common"
 )
 
 // Loader this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
 type Loader interface {
+	//
+	NewRegistryLoader(*model.Adapter) (Loader, error)
 	// LoadAllServices load all services registered in registry
 	LoadAllServices() ([]*common.URL, error)
 	// GetCluster get the registry name
