@@ -117,9 +117,9 @@ type (
 	// management servers
 	SocketAddress struct {
 		ProtocolStr  string       `yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`
-		Protocol     ProtocolType `yaml:"omitempty" json:"omitempty"`
-		Address      string       `yaml:"address" json:"address" mapstructure:"address"`
-		Port         int          `yaml:"port" json:"port" mapstructure:"port"`
+		Protocol     ProtocolType `default:"http" yaml:"omitempty" json:"omitempty"`
+		Address      string       `default:"0.0.0.0" yaml:"address" json:"address" mapstructure:"address"`
+		Port         int          `default:"8881" yaml:"port" json:"port" mapstructure:"port"`
 		ResolverName string       `yaml:"resolver_name" json:"resolver_name" mapstructure:"resolver_name"`
 	}
 
