@@ -18,6 +18,7 @@
 package registry
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"path"
 	"strings"
 	"time"
@@ -65,6 +66,10 @@ func newZookeeperRegistryLoad(address, cluster string) (Loader, error) {
 	return r, nil
 }
 
+func (crl *ZookeeperRegistryLoad) NewRegistryLoader(ad *model.Adapter) (Loader, error) {
+	return nil, nil
+}
+
 // nolint
 func (crl *ZookeeperRegistryLoad) GetCluster() (string, error) {
 	return crl.cluster, nil
@@ -95,4 +100,8 @@ func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]*common.URL, error) {
 		}
 	}
 	return urls, nil
+}
+
+func (crl *ZookeeperRegistryLoad) NewRegistry(sr *model.StaticResources) Loader {
+	return nil
 }
