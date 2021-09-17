@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
 
-[中文](./README_CN.md) 
+[中文](./README_CN.md)  |  [Piuxiu-SpringCloud 说明](./pkg/adapter/springcloud/doc/sc_design.md)
 
 ### Mascot
 
