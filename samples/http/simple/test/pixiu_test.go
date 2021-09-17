@@ -18,7 +18,6 @@
 package test
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -27,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/stretchr/testify/assert"
 )
 
