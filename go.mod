@@ -16,6 +16,7 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/hashicorp/consul/api v1.5.0
 	github.com/mitchellh/mapstructure v1.4.1
+	github.com/nacos-group/nacos-sdk-go v1.0.8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
@@ -23,6 +24,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
+	github.com/wanghongfei/go-eureka-client v1.1.0
 	go.etcd.io/etcd/api/v3 v3.5.0-alpha.0
 	go.opentelemetry.io/otel v1.0.0-RC1
 	go.opentelemetry.io/otel/exporters/prometheus v0.21.0

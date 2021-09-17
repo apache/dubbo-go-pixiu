@@ -36,13 +36,13 @@ type (
 		Kind() string
 
 		// CreateAdapter return the Adapter callback
-		CreateAdapter(config interface{}, bs *model.Bootstrap) (Adapter, error)
+		CreateAdapter(config interface{}, ad *model.Adapter) (Adapter, error)
 	}
 
 	// Adapter adapter interface
 	Adapter interface {
 		// Start start adapter lifetime
-		Start()
+		Start(adapter *model.Adapter)
 		// Stop stop adapter lifetime
 		Stop()
 		// Apply init
