@@ -93,6 +93,12 @@ static_resources:
             strip-prefix: true            # 代理请求时移除前缀 rm /scp
             otherConfig: "pixiu"
         registries:
+          "Nacos":
+            protocol: "Nacos"
+            timeout: "3s"
+            address: "127.0.0.1:8848"
+            username: ""
+            password: ""
           "eureka":
             protocol: "eureka"
             enable: true
@@ -109,4 +115,3 @@ static_resources:
             address: "127.0.0.1:2181"
             username: ""
             password: ""
-
