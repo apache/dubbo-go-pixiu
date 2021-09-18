@@ -48,8 +48,8 @@ type server struct {
 func (s *server) GetUser(ctx context.Context, request *proto.GetUserRequest) (*proto.GetUserResponse, error) {
 	us := make([]*proto.User, 0)
 	if request.GetUserId() == 0 {
-		for _, user := range s.users {
-			us = append(us, user)
+		for i := 1; i <= 2; i++ {
+			us = append(us, s.users[int32(i)])
 		}
 	} else {
 		u, ok := s.users[request.GetUserId()]
