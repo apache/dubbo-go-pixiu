@@ -47,6 +47,7 @@ type (
 
 	// CloudAdapter the adapter for spring cloud
 	CloudAdapter struct {
+		boot *model.Bootstrap
 		cfg        *Config
 		LoaderUsed registry.Loader
 	}
