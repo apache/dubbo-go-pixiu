@@ -49,10 +49,10 @@ type (
 	Plugin struct {
 	}
 	// HeaderFilter is http filter instance
-	ResponseFilter struct {
+	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of ResponseFilter
+	// Config describe the config of Filter
 	Config struct {
 		Strategy string `json:"strategy,omitempty" yaml:"strategy,omitempty"`
 	}
@@ -63,23 +63,23 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &ResponseFilter{cfg: &Config{}}, nil
+	return &Filter{cfg: &Config{}}, nil
 }
 
-func (rf *ResponseFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
-	ctx.AppendFilterFunc(rf.Handle)
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (rf *ResponseFilter) Handle(c *contexthttp.HttpContext) {
-	rf.doResponse(c)
+func (f *Filter) Handle(c *contexthttp.HttpContext) {
+	f.doResponse(c)
 }
 
-func (f *ResponseFilter) Config() interface{} {
+func (f *Filter) Config() interface{} {
 	return f.cfg
 }
 
-func (f *ResponseFilter) Apply() error {
+func (f *Filter) Apply() error {
 	if f.cfg.Strategy == "" {
 		strategy := defaultNewParams()
 		f.cfg.Strategy = strategy
@@ -87,7 +87,7 @@ func (f *ResponseFilter) Apply() error {
 	return nil
 }
 
-func (rf *ResponseFilter) doResponse(ctx *contexthttp.HttpContext) {
+func (f *Filter) doResponse(ctx *contexthttp.HttpContext) {
 	// error do first
 	if ctx.Err != nil {
 		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: ctx.Err.Error()})
@@ -117,12 +117,12 @@ func (rf *ResponseFilter) doResponse(ctx *contexthttp.HttpContext) {
 		return
 	}
 
-	ctx.TargetResp = rf.newResponse(ctx.SourceResp)
+	ctx.TargetResp = f.newResponse(ctx.SourceResp)
 	ctx.WriteResponse(*ctx.TargetResp)
 	ctx.Abort()
 }
 
-func (f *ResponseFilter) newResponse(data interface{}) *client.Response {
+func (f *Filter) newResponse(data interface{}) *client.Response {
 	hump := false
 	if f.cfg.Strategy == constant.ResponseStrategyHump {
 		hump = true

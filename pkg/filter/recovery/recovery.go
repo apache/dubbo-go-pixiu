@@ -36,11 +36,11 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// RecoveryFilter is http filter instance
-	RecoveryFilter struct {
+	// Filter is http filter instance
+	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of RecoveryFilter
+	// Config describe the config of Filter
 	Config struct {
 		Host string `yaml:"host" json:"host"`
 	}
@@ -51,15 +51,15 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &RecoveryFilter{}, nil
+	return &Filter{}, nil
 }
 
-func (rf *RecoveryFilter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(rf.Handle)
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (rf *RecoveryFilter) Handle(c *http.HttpContext) {
+func (f *Filter) Handle(c *http.HttpContext) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Warnf("[dubbopixiu go] error:%+v", err)
@@ -69,17 +69,17 @@ func (rf *RecoveryFilter) Handle(c *http.HttpContext) {
 	c.Next()
 }
 
-func (f *RecoveryFilter) Config() interface{} {
+func (f *Filter) Config() interface{} {
 	return f.cfg
 }
 
-func (f *RecoveryFilter) Apply() error {
+func (f *Filter) Apply() error {
 	return nil
 }
 
 // GetMock return mocked filter
 func GetMock() filter.HttpFilter {
-	filter := &RecoveryFilter{}
+	filter := &Filter{}
 	_ = filter.Apply()
 	return filter
 }
