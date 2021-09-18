@@ -40,6 +40,11 @@ static_resources:
                       route:
                         cluster: "test-dubbo"
                         cluster_not_found_response_code: 505
+                    - match:
+                        prefix: "/scp/"
+                        route:
+                          cluster: "pixiu-spring-cloud"
+                          cluster_not_found_response_code: 509
                   dynamic: true
                 http_filters:
                   - name: dgp.filter.http.apiconfig
@@ -75,6 +80,8 @@ static_resources:
           address: "127.0.0.1:2181"
           username: ""
           password: ""
+    - name: pixiu-spring-cloud
+      lb_policy: "RoundRobin"
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
