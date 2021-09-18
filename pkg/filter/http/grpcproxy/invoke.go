@@ -27,7 +27,6 @@ import (
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	perrors "github.com/pkg/errors"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
 func Invoke(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message, opts ...grpc.CallOption) (proto.Message, error) {
@@ -36,58 +35,15 @@ func Invoke(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDesc
 	// Bi-direction Stream
 	if mthDesc.IsServerStreaming() && mthDesc.IsClientStreaming() {
 		err = perrors.New("currently not support bi-direction stream")
-		// resp, err = invokeBiDirectionStream(ctx, stub, mthDesc, grpcReq)
 	} else if mthDesc.IsClientStreaming() {
 		err = perrors.New("currently not support client side stream")
-		// resp, err = invokeClientStream(ctx, stub, mthDesc, grpcReq)
 	} else if mthDesc.IsServerStreaming() {
 		err = perrors.New("currently not support server side stream")
-		// resp, err = invokeServerStream(ctx, stub, mthDesc, grpcReq)
 	} else {
 		resp, err = invokeUnary(ctx, stub, mthDesc, grpcReq, opts...)
 	}
 
 	return resp, err
-}
-
-func invokeBiDirectionStream(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message) (proto.Message, error) {
-	stream, err := stub.InvokeRpcBidiStream(ctx, mthDesc)
-	if _, ok := status.FromError(err); !ok {
-		return nil, err
-	}
-	defer func(stream *grpcdynamic.BidiStream) {
-		_ = stream.CloseSend()
-	}(stream)
-
-	err = stream.SendMsg(grpcReq)
-	if _, ok := status.FromError(err); !ok {
-		return nil, err
-	}
-
-	return stream.RecvMsg()
-}
-
-func invokeClientStream(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message) (proto.Message, error) {
-	stream, err := stub.InvokeRpcClientStream(ctx, mthDesc)
-	if _, ok := status.FromError(err); !ok {
-		return nil, err
-	}
-
-	err = stream.SendMsg(grpcReq)
-	if _, ok := status.FromError(err); !ok {
-		return nil, err
-	}
-
-	return stream.CloseAndReceive()
-}
-
-func invokeServerStream(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message) (proto.Message, error) {
-	stream, err := stub.InvokeRpcServerStream(ctx, mthDesc, grpcReq)
-	if _, ok := status.FromError(err); !ok {
-		return nil, err
-	}
-
-	return stream.RecvMsg()
 }
 
 func invokeUnary(ctx context.Context, stub grpcdynamic.Stub, mthDesc *desc.MethodDescriptor, grpcReq proto.Message, opts ...grpc.CallOption) (proto.Message, error) {
