@@ -60,9 +60,9 @@ func CreateListenerService(lc *model.Listener, bs *model.Bootstrap) *ListenerSer
 func (ls *ListenerService) Start() {
 	sa := ls.cfg.Address.SocketAddress
 	switch sa.Protocol {
-	case model.HTTP:
+	case model.ProtocolTypeHTTP:
 		ls.httpListener()
-	case model.HTTPS:
+	case model.ProtocolTypeHTTPS:
 		ls.httpsListener()
 	default:
 		panic("unsupported protocol start: " + sa.ProtocolStr)
