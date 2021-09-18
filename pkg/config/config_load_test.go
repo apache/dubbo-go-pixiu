@@ -38,7 +38,7 @@ var b model.Bootstrap
 func TestMain(m *testing.M) {
 	log.Println("Prepare Bootstrap")
 
-	hcmc := model.HttpConnectionManager{
+	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
 			Routes: []*model.Router{
 				{
