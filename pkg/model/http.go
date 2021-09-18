@@ -22,24 +22,13 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-// HttpConnectionManager
-type HttpConnectionManager struct {
+// HttpConnectionManagerConfig
+type HttpConnectionManagerConfig struct {
 	RouteConfig       RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
 	HTTPFilters       []*HTTPFilter      `yaml:"http_filters" json:"http_filters" mapstructure:"http_filters"`
 	ServerName        string             `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
 	IdleTimeoutStr    string             `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
 	GenerateRequestID bool               `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
-}
-
-// CorsPolicy
-type CorsPolicy struct {
-	AllowOrigin      []string `yaml:"allow_origin" json:"allow_origin" mapstructure:"allow_origin"`
-	AllowMethods     string   // access-control-allow-methods
-	AllowHeaders     string   // access-control-allow-headers
-	ExposeHeaders    string   // access-control-expose-headers
-	MaxAge           string   // access-control-max-age
-	AllowCredentials bool
-	Enabled          bool `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
 }
 
 // HTTPFilter http filter
