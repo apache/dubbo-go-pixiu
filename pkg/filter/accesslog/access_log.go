@@ -38,28 +38,28 @@ const (
 )
 
 func init() {
-	filter.RegisterHttpFilter(&AccessPlugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
-	// AccessPlugin is http filter plugin.
-	AccessPlugin struct {
+	// Plugin is http filter plugin.
+	Plugin struct {
 	}
-	// AccessFilter is http filter instance
-	AccessFilter struct {
+	// Filter is http filter instance
+	Filter struct {
 		conf *AccessLogConfig
 		alw  *AccessLogWriter
 	}
 )
 
 // Kind return plugin kind
-func (ap *AccessPlugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
 // CreateFilter create filter
-func (ap *AccessPlugin) CreateFilter() (filter.HttpFilter, error) {
-	return &AccessFilter{
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{
 		conf: &AccessLogConfig{},
 		alw: &AccessLogWriter{
 			AccessLogDataChan: make(chan AccessLogData, constant.LogDataBuffer),
@@ -68,32 +68,32 @@ func (ap *AccessPlugin) CreateFilter() (filter.HttpFilter, error) {
 }
 
 // PrepareFilterChain prepare chain when http context init
-func (af *AccessFilter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(af.Handle)
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-// Handle handle http context
-func (af *AccessFilter) Handle(c *http.HttpContext) {
+// Handle process http context
+func (f *Filter) Handle(c *http.HttpContext) {
 	start := time.Now()
 	c.Next()
 	latency := time.Since(start)
 	// build access_log message
 	accessLogMsg := buildAccessLogMsg(c, latency)
 	if len(accessLogMsg) > 0 {
-		af.alw.Writer(AccessLogData{AccessLogConfig: *af.conf, AccessLogMsg: accessLogMsg})
+		f.alw.Writer(AccessLogData{AccessLogConfig: *f.conf, AccessLogMsg: accessLogMsg})
 	}
 }
 
 // Config return config of filter
-func (af *AccessFilter) Config() interface{} {
-	return af.conf
+func (f *Filter) Config() interface{} {
+	return f.conf
 }
 
 // Apply init after config set
-func (af *AccessFilter) Apply() error {
+func (f *Filter) Apply() error {
 	// init
-	af.alw.Write()
+	f.alw.Write()
 	return nil
 }
 
