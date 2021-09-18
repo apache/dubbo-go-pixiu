@@ -185,11 +185,11 @@ func resolveAddress(addr string) string {
 	return addr
 }
 
-func findHttpManager(l *model.Listener) *model.HttpConnectionManager {
+func findHttpManager(l *model.Listener) *model.HttpConnectionManagerConfig {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == constant.HTTPConnectManagerFilter {
-				hcmc := &model.HttpConnectionManager{}
+				hcmc := &model.HttpConnectionManagerConfig{}
 				if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
 					return nil
 				}
