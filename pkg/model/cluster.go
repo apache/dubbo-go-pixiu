@@ -80,8 +80,11 @@ type (
 
 	// Endpoint
 	Endpoint struct {
+		ID      string        `yaml:"ID" json:"ID"`     // ID indicate one endpoint
+		Name    string        `yaml:"name" json:"name"` // Name the cluster unique name
 		Address SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
-		ID      string        `yaml:"ID" json:"ID"` // ID indicate one endpoint
+		// extra info such as label or other meta data
+		Meta map[string]string `yaml:"meta" json:"meta"`
 	}
 )
 
