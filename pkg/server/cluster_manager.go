@@ -68,7 +68,10 @@ func (cm *ClusterManager) AddEndpoint(clusterName string, endpoint *model.Endpoi
 		}
 	}
 
-	logger.Warnf("not found  cluster %s", clusterName)
+	// not found cluster so add new one
+	c := &model.Cluster{Name: clusterName, Lb: model.RoundRobin, Endpoints: []*model.Endpoint{endpoint}}
+	// not call AddCluster, because lock is not reenter
+	cm.cConfig = append(cm.cConfig, c)
 }
 
 func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) {
@@ -89,6 +92,10 @@ func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) 
 	}
 	logger.Warnf("not found  cluster %s", clusterName)
 
+}
+
+func (cm *ClusterManager) CloneAllCluster() []*model.Cluster {
+	return nil
 }
 
 func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
