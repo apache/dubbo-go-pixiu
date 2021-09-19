@@ -11,11 +11,8 @@ import (
 type SpringCloudConfig struct {
 
 	// runtime context : config properties
-	boot *model.Bootstrap
-
-	discoveryClient			discovery.Client
-
-
+	boot            *model.Bootstrap
+	discoveryClient discovery.DiscoveryClient
 }
 
 // SpringCloud runtime in Pixiu manager
@@ -82,7 +79,6 @@ func loadRouterByRemoteConfig() {
 
 func loadRouterByLocalConfig() {
 
-
 }
 
 // SpringCloud runtime status
@@ -90,7 +86,7 @@ const (
 	Initial = "Initial"
 	Started = "Started"
 	Running = "Running"
-	Muting = "Muting"
+	Muting  = "Muting"
 	Stopped = "Stopped"
 )
 
@@ -160,9 +156,3 @@ func NewSpringCloudManager(config *SpringCloudConfig) *scManager {
 //type registry {
 //
 //}
-
-
-
-
-
-
