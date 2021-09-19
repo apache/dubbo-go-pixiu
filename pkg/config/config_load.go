@@ -18,15 +18,14 @@
 package config
 
 import (
-	"github.com/creasty/defaults"
 	"io/ioutil"
 	"log"
 	"path/filepath"
 )
 
 import (
+	"github.com/creasty/defaults"
 	"github.com/ghodss/yaml"
-
 	"github.com/goinggo/mapstructure"
 )
 
