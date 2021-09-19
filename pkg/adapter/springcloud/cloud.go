@@ -20,6 +20,7 @@ package springcloud
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/nacos"
+	"sync"
 	"time"
 )
 
@@ -54,15 +55,16 @@ type (
 		cfg *Config
 		sd  servicediscovery.ServiceDiscovery
 
+		mutex    sync.Mutex
 		stopChan chan struct{}
 	}
 
 	// Config the config for CloudAdapter
 	Config struct {
 		// Mode default 0 start backgroup fresh and watch, 1 only fresh 2 only watch
-		Mode          int                `yaml:"registry" json:"registry" default:"registry"`
-		Registry      model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
-		FreshInterval time.Duration      `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
+		Mode          int                 `yaml:"registry" json:"registry" default:"registry"`
+		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
+		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
 	}
 )
 
@@ -134,26 +136,60 @@ func (a *CloudAdapter) firstFetch() error {
 	return nil
 }
 
-func (a *CloudAdapter) fetchCompareAndSet() error {
+func (a *CloudAdapter) fetchCompareAndSet() {
 	instances, err := a.sd.QueryServices()
 	if err != nil {
-		logger.Errorf("start query all service error ", err.Error())
-		return err
+		logger.Warnf("fetchCompareAndSet all service error ", err.Error())
 	}
 	// manage cluster and route
 	cm := server.GetClusterManager()
 	rm := server.GetRouterManager()
 
-	clusters := cm.CloneAllCluster()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	oldStore, err := cm.CloneStore()
+
+	if err != nil {
+		logger.Warnf("fetchCompareAndSet clone store error ", err.Error())
+	}
+
+	newStore := cm.NewStore()
+	newStore.Version = oldStore.Version
 
 	for _, instance := range instances {
 		endpoint := instance.ToEndpoint()
-		cm.AddEndpoint(endpoint.Name, endpoint)
+		// endpoint name should equal with cluster name
+		newStore.AddEndpoint(endpoint.Name, endpoint)
 		route := instance.ToRoute()
 		rm.AddRouter(route)
 	}
 
-	return nil
+	// maximize reduction the interval of down state
+	// first remove the router for removed cluster
+	for _, c := range oldStore.Config {
+		if !newStore.HasCluster(c.Name) {
+			delete := &model.Router{ID: c.Name}
+			rm.DeleteRouter(delete)
+		}
+	}
+	// second set cluster
+	ret := cm.CompareAndSetStore(newStore)
+
+	if !ret {
+		// fast fail the delete route at first phase shouldn't recover
+		return
+	}
+
+	// third add new router
+	for _, c := range newStore.Config {
+		if !oldStore.HasCluster(c.Name) {
+			match := model.RouterMatch{Prefix: c.Name}
+			route := model.RouteAction{Cluster: c.Name}
+			added := &model.Router{ID: c.Name, Match: match, Route: route}
+			rm.AddRouter(added)
+		}
+	}
 }
 
 func (a *CloudAdapter) backgroupSyncPeriod() error {
