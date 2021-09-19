@@ -60,15 +60,14 @@ func (am *AdapterManager) initAdapters(server *Server, ad *model.Adapter) {
 			logger.Error("initAdapters get plugin error %s", err)
 		}
 
-		hf, err := hp.CreateAdapter(f.Config, ad)
+		hf, err := hp.CreateAdapter(ad)
 		if err != nil {
 			logger.Error("initFilterIfNeed create adapter error %s", err)
 		}
 
 		cfg := hf.Config()
-		if err := yaml.ParseConfig(&cfg, f.Config["registries"].(map[string]interface{})); err != nil {
+		if err := yaml.ParseConfig(cfg, f.Config); err != nil {
 			logger.Error("initAdapters init config error %s", err)
-			return
 		}
 
 		err = hf.Apply()
