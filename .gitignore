@@ -18,3 +18,5 @@ dubbo-go-pixiu
 dubbo-go-pixiu.exe
 dubbgo_server.out
 samples/dubbogo/simple/server/app/app
+
+target/

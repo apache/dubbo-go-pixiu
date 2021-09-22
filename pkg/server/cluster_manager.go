@@ -19,8 +19,8 @@ package server
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/streadway/handy/atomic"
 	"sync"
+	"sync/atomic"
 )
 
 import (
@@ -39,7 +39,7 @@ type (
 	// ClusterStore store for cluster array
 	ClusterStore struct {
 		Config  []*model.Cluster `yaml:"config" json:"config"`
-		Version atomic.Int       `yaml:"version" json:"version"`
+		Version int32            `yaml:"version" json:"version"`
 	}
 )
 
@@ -95,11 +95,11 @@ func (cm *ClusterManager) CloneStore() (*ClusterStore, error) {
 	return c, nil
 }
 
-func (cm *ClusterManager) NewStore() *ClusterStore {
+func (cm *ClusterManager) NewStore(version int32) *ClusterStore {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
-	return &ClusterStore{}, nil
+	return &ClusterStore{Version: version}
 }
 
 func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
@@ -118,7 +118,7 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
-	for _, cluster := range cm.cConfig {
+	for _, cluster := range cm.store.Config {
 		if cluster.Name == clusterName {
 			// according to lb to choose one endpoint, now only random
 			return cluster.PickOneEndpoint()
@@ -193,5 +193,5 @@ func (s *ClusterStore) HasCluster(clusterName string) bool {
 }
 
 func (s *ClusterStore) IncreaseVersion() {
-	s.Version.Add(1)
+	atomic.AddInt32(&s.Version, 1)
 }

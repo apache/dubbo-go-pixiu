@@ -6,19 +6,23 @@ import (
 )
 
 type (
-	// ServiceInstances the service instance info fetched from registry such as nacos consul
-	ServiceInstances struct {
+	// ServiceInstance the service instance info fetched from registry such as nacos consul
+	ServiceInstance struct {
 		ID          string
 		ServiceName string
 		// host:port
-		Addr string
+		Host        string
+		Port        int
+		Healthy     bool
+		CLusterName string
+		Enable      bool
 		// extra info such as label or other meta data
-		Meta map[string]string
+		Metadata map[string]string
 	}
 
 	ServiceDiscovery interface {
 		// 直接向远程注册中心查询所有服务实例
-		QueryServices() ([]*ServiceInstances, error)
+		QueryServices() ([]ServiceInstance, error)
 
 		// 注册自己
 		Register() error
@@ -38,14 +42,15 @@ type (
 )
 
 // ToEndpoint
-func (i *ServiceInstances) ToEndpoint() *model.Endpoint {
-	a := model.SocketAddress{Address: i.Addr}
-	return &model.Endpoint{ID: i.ID, Address: a, Name: i.ServiceName, Meta: i.Meta}
+func (i *ServiceInstance) ToEndpoint() *model.Endpoint {
+	a := model.SocketAddress{Address: i.Host, Port: i.Port}
+	return &model.Endpoint{ID: i.ID, Address: a, Name: i.ServiceName, Metadata: i.Metadata}
 }
 
 // ToRoute route ID is cluster name, so equal with endpoint name and routerMatch prefix is also service name
-func (i *ServiceInstances) ToRoute() *model.Router {
-	rm := model.RouterMatch{Prefix: i.ServiceName}
+func (i *ServiceInstance) ToRoute() *model.Router {
+	prefix := "/" + i.ServiceName
+	rm := model.RouterMatch{Prefix: prefix}
 	ra := model.RouteAction{Cluster: i.ServiceName}
 	return &model.Router{ID: i.ServiceName, Match: rm, Route: ra}
 }

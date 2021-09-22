@@ -34,13 +34,14 @@ static_resources:
             - name: dgp.filter.httpconnectionmanager
               config:
                 route_config:
+                  dynamic: true
                   routes:
-                    - match:
-                        prefix: "/user"
-                      route:
-                        cluster: "user"
-                        cluster_not_found_response_code: 505
                 http_filters:
+                  - name: dgp.filter.http.proxyrewrite
+                    config:
+                      uri_regex:
+                        - "^/([^/]*)/(.*)$"
+                        - "/$2"
                   - name: dgp.filter.http.httpproxy
                     config:
                   - name: dgp.filter.http.response
@@ -50,13 +51,6 @@ static_resources:
         read_timeout: 5s
         write_timeout: 5s
   clusters:
-    - name: "user"
-      lb_policy: "lb"
-      endpoints:
-        - id: 1
-          socket_address:
-            address: 127.0.0.1
-            port: 1314
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
@@ -67,7 +61,7 @@ static_resources:
   adapters:
     - name: "dgp.adapter.springcloud"
       config:
-        freshInterval: 20 # 刷新配置时间
+        freshInterval: 20s # 刷新配置时间
         services:
           SPRING-CLOUD-PRODUCER:
             id: SPRING-CLOUD-PRODUCER     # 注册中心的服务名
@@ -76,13 +70,8 @@ static_resources:
             strip-prefix: true            # 代理请求时移除前缀 rm /scp
             otherConfig: "pixiu"
         registry:
-          name: "eureka",
-          protocol: "eureka"
-          enable: true
-          configFile: "configs/eureka.json"
-          evictionDuration: 30 # 剔除服务的最大时间限制，秒
-          heartbeatInterval: 20 # 心跳间隔
-          timeout: "3s"
-          address: "127.0.0.1:2181"
-          username: ""
-          password: ""
+          name: naocs
+          protocol: nacos
+          group: DEFAULT_GROUP
+          timeout: 3s
+          address: 127.0.0.1:8848
