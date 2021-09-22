@@ -62,7 +62,7 @@ type (
 	// Config the config for CloudAdapter
 	Config struct {
 		// Mode default 0 start backgroup fresh and watch, 1 only fresh 2 only watch
-		Mode          int                 `yaml:"registry" json:"registry" default:"registry"`
+		Mode          int                 `yaml:"mode" json:"mode" default:"mode"`
 		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
 		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
 	}
@@ -85,7 +85,7 @@ func (a *CloudAdapter) Start(adapter *model.Adapter) {
 	// backgroup sync service instance from remote
 	// do not block the main goroutine
 	a.backgroupSyncPeriod()
-	a.watch()
+	//a.watch()
 }
 
 // Stop stop the adapter
@@ -97,9 +97,10 @@ func (a *CloudAdapter) Stop() {
 func (a *CloudAdapter) Apply() error {
 	//registryUsed := ad.Config["registry"].(map[string]interface{})
 	switch a.cfg.Registry.Protocol {
-	case "eureka":
+	case "nacos":
 		sd, err := nacos.NewNacosServiceDiscovery(a.cfg.Registry)
 		if err != nil {
+			logger.Errorf("Apply NewNacosServiceDiscovery", err.Error())
 			return err
 		}
 		a.sd = sd
@@ -154,15 +155,12 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 		logger.Warnf("fetchCompareAndSet clone store error ", err.Error())
 	}
 
-	newStore := cm.NewStore()
-	newStore.Version = oldStore.Version
+	newStore := cm.NewStore(oldStore.Version)
 
 	for _, instance := range instances {
 		endpoint := instance.ToEndpoint()
 		// endpoint name should equal with cluster name
 		newStore.AddEndpoint(endpoint.Name, endpoint)
-		route := instance.ToRoute()
-		rm.AddRouter(route)
 	}
 
 	// maximize reduction the interval of down state
@@ -211,7 +209,6 @@ func (a *CloudAdapter) backgroupSyncPeriod() error {
 }
 
 func (a *CloudAdapter) watch() error {
-
 	return nil
 }
 
