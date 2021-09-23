@@ -20,19 +20,20 @@ package constant
 const (
 	HTTPConnectManagerFilter = "dgp.filter.httpconnectionmanager"
 
-	HTTPAuthorityFilter  = "dgp.filter.http.authority"
-	HTTPProxyFilter      = "dgp.filter.http.httpproxy"
-	HTTPHeaderFilter     = "dgp.filter.http.header"
-	HTTPHostFilter       = "dgp.filter.http.host"
-	HTTPMetricFilter     = "dgp.filter.http.metric"
-	HTTPRecoveryFilter   = "dgp.filter.http.recovery"
-	HTTPResponseFilter   = "dgp.filter.http.response"
-	HTTPAccessLogFilter  = "dgp.filter.http.accesslog"
-	HTTPRateLimitFilter  = "dgp.filter.http.ratelimit"
-	HTTPGrpcProxyFilter  = "dgp.filter.http.grpcproxy"
-	HTTPDubboProxyFilter = "dgp.filter.http.dubboproxy"
-	HTTPApiConfigFilter  = "dgp.filter.http.apiconfig"
-	HTTPTimeoutFilter    = "dgp.filter.http.timeout"
+	HTTPAuthorityFilter    = "dgp.filter.http.authority"
+	HTTPProxyFilter        = "dgp.filter.http.httpproxy"
+	HTTPHeaderFilter       = "dgp.filter.http.header"
+	HTTPHostFilter         = "dgp.filter.http.host"
+	HTTPMetricFilter       = "dgp.filter.http.metric"
+	HTTPRecoveryFilter     = "dgp.filter.http.recovery"
+	HTTPResponseFilter     = "dgp.filter.http.response"
+	HTTPAccessLogFilter    = "dgp.filter.http.accesslog"
+	HTTPRateLimitFilter    = "dgp.filter.http.ratelimit"
+	HTTPGrpcProxyFilter    = "dgp.filter.http.grpcproxy"
+	HTTPDubboProxyFilter   = "dgp.filter.http.dubboproxy"
+	HTTPApiConfigFilter    = "dgp.filter.http.apiconfig"
+	HTTPTimeoutFilter      = "dgp.filter.http.timeout"
+	HTTPProxyRewriteFilter = "dgp.filter.http.proxyrewrite"
 )
 
 const (
