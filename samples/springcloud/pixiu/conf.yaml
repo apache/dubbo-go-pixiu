@@ -63,12 +63,7 @@ static_resources:
       config:
         freshInterval: 20s # 刷新配置时间
         services:
-          SPRING-CLOUD-PRODUCER:
-            id: SPRING-CLOUD-PRODUCER     # 注册中心的服务名
-            name: SPRING-CLOUD-PRODUCER   # 服务名
-            prefix: /scp                  # router 前缀
-            strip-prefix: true            # 代理请求时移除前缀 rm /scp
-            otherConfig: "pixiu"
+          - service_provider
         registry:
           name: naocs
           protocol: nacos
