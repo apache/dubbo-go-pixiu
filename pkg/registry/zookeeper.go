@@ -66,10 +66,6 @@ func newZookeeperRegistryLoad(address, cluster string) (Loader, error) {
 	return r, nil
 }
 
-func (crl *ZookeeperRegistryLoad) NewRegistryLoader(ad *model.Adapter) (Loader, error) {
-	return nil, nil
-}
-
 // nolint
 func (crl *ZookeeperRegistryLoad) GetCluster() (string, error) {
 	return crl.cluster, nil
