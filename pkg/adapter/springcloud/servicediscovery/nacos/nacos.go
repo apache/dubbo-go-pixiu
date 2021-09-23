@@ -6,6 +6,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/remote/nacos"
+	"github.com/apache/dubbo-go/registry"
+	model2 "github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
 
@@ -16,28 +18,57 @@ type nacosServiceDiscovery struct {
 	registryInstances []servicediscovery.ServiceInstance
 }
 
-func (n *nacosServiceDiscovery) AddListener(s string) {
-	panic("implement me")
+func (n *nacosServiceDiscovery) AddListener(listener servicediscovery.ServiceInstancesChangedListener) {
+	for _, serviceName := range listener.GetServiceNames() {
+		err := n.client.Subscribe(&vo.SubscribeParam{
+			ServiceName: serviceName,
+			SubscribeCallback: func(services []model2.SubscribeService, err error) {
+				if err != nil {
+					logger.Errorf("Could not handle the subscribe notification because the err is not nil."+
+						" service name: %s, err: %v", serviceName, err)
+				}
+
+				instances := make([]registry.ServiceInstance, 0, len(services))
+				for _, service := range services {
+					// we won't use the nacos instance id here but use our instance id
+					metadata := service.Metadata
+					id := metadata[idKey]
+
+					delete(metadata, idKey)
+
+					instances = append(instances, &registry.DefaultServiceInstance{
+						ID:          id,
+						ServiceName: service.ServiceName,
+						Host:        service.Ip,
+						Port:        int(service.Port),
+						Enable:      service.Enable,
+						Healthy:     true,
+						Metadata:    metadata,
+					})
+				}
+
+				e := n.DispatchEventForInstances(serviceName, instances)
+				if e != nil {
+					logger.Errorf("Dispatching event got exception, service name: %s, err: %v", serviceName, err)
+				}
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (n *nacosServiceDiscovery) Stop() error {
 	panic("implement me")
 }
 
-func (n *nacosServiceDiscovery) QueryServices() ([]servicediscovery.ServiceInstance, error) {
-	services, err := n.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
-		GroupName: n.config.Group,
-		PageSize:  10,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	res := make([]servicediscovery.ServiceInstance, 0, len(services.Doms))
+func (n *nacosServiceDiscovery) QueryServicesByName(serviceNames []string) ([]servicediscovery.ServiceInstance, error) {
+	res := make([]servicediscovery.ServiceInstance, 0, len(serviceNames))
 
 	// need get all service instance api
-	for _, serviceName := range services.Doms {
+	for _, serviceName := range serviceNames {
 
 		instances, err := n.client.SelectInstances(vo.SelectInstancesParam{
 			ServiceName: serviceName,
@@ -69,6 +100,19 @@ func (n *nacosServiceDiscovery) QueryServices() ([]servicediscovery.ServiceInsta
 		}
 	}
 	return res, nil
+}
+
+func (n *nacosServiceDiscovery) QueryAllServices() ([]servicediscovery.ServiceInstance, error) {
+	services, err := n.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
+		GroupName: n.config.Group,
+		PageSize:  10,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return n.QueryServicesByName(services.Doms)
 }
 
 func (n *nacosServiceDiscovery) Register() error {
