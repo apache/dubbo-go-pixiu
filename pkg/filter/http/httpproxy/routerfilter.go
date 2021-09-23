@@ -18,13 +18,10 @@
 package httpproxy
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
 	http3 "net/http"
 	"net/url"
-	"time"
 )
 
 import (
@@ -40,34 +37,6 @@ const (
 	// Kind is the kind of Fallback.
 	Kind = constant.HTTPProxyFilter
 )
-
-// All RemoteFilter instances use one globalClient in order to reuse
-// some resounces such as keepalive connections.
-var globalClient = &http3.Client{
-	// NOTE: Timeout could be no limit, real client or server could cancel it.
-	Timeout: 0,
-	Transport: &http3.Transport{
-		Proxy: http3.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 60 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		TLSClientConfig: &tls.Config{
-			// NOTE: Could make it an paramenter,
-			// when the requests need cross WAN.
-			InsecureSkipVerify: true,
-		},
-		DisableCompression: false,
-		// NOTE: The large number of Idle Connections can
-		// reduce overhead of building connections.
-		MaxIdleConns:          10240,
-		MaxIdleConnsPerHost:   512,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	},
-}
 
 func init() {
 	filter.RegisterHttpFilter(&RouterPlugin{})
@@ -164,7 +133,7 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	req.Header = r.Header
 
 	errPrefix = "do request"
-	resp, err := globalClient.Do(req)
+	resp, err := http3.DefaultClient.Do(req)
 	if err != nil {
 		panic(err)
 	}

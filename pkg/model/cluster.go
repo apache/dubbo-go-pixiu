@@ -50,9 +50,9 @@ var (
 type (
 	// Cluster a single upstream cluster
 	Cluster struct {
-		Name             string           `yaml:"name" json:"name"`             // Name the cluster unique name
-		TypeStr          string           `yaml:"type" json:"type"`             // Type the cluster discovery type string value
-		Type             DiscoveryType    `yaml:",omitempty" json:",omitempty"` // Type the cluster discovery type
+		Name             string           `yaml:"name" json:"name"` // Name the cluster unique name
+		TypeStr          string           `yaml:"type" json:"type"` // Type the cluster discovery type string value
+		Type             DiscoveryType    `yaml:"-" json:"-"`       // Type the cluster discovery type
 		EdsClusterConfig EdsClusterConfig `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
 		LbStr            string           `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
 		Lb               LbPolicy         `yaml:",omitempty" json:",omitempty"` // Lb the cluster select node used loadBalance policy
@@ -80,8 +80,11 @@ type (
 
 	// Endpoint
 	Endpoint struct {
+		ID      string        `yaml:"ID" json:"ID"`     // ID indicate one endpoint
+		Name    string        `yaml:"name" json:"name"` // Name the cluster unique name
 		Address SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
-		ID      string        `yaml:"ID" json:"ID"` // ID indicate one endpoint
+		// extra info such as label or other meta data
+		Metadata map[string]string `yaml:"meta" json:"meta"`
 	}
 )
 
