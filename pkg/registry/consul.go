@@ -53,10 +53,6 @@ type ConsulRegistryLoad struct {
 	cluster string
 }
 
-func (crl *ConsulRegistryLoad) NewRegistryLoader(ad *model.Adapter) (Loader, error) {
-	return nil, nil
-}
-
 func newConsulRegistryLoad(address, cluster string) (Loader, error) {
 	config := &consul.Config{Address: address}
 	client, err := consul.NewClient(config)
