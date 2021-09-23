@@ -18,17 +18,22 @@
 package springcloud
 
 import (
-	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/nacos"
+	"sync"
+	"time"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry/nacos"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"net"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -47,23 +52,19 @@ type (
 
 	// CloudAdapter the adapter for spring cloud
 	CloudAdapter struct {
-		boot *model.Bootstrap
-		cfg        *Config
-		LoaderUsed registry.Loader
+		cfg *Config
+		sd  servicediscovery.ServiceDiscovery
+
+		mutex    sync.Mutex
+		stopChan chan struct{}
 	}
 
 	// Config the config for CloudAdapter
 	Config struct {
-		Registry *Registry `yaml:"registrys" json:"registrys" default:"registrys"`
-	}
-
-	// Registry remote registry where spring cloud apis are registered.
-	Registry struct {
-		Protocol string `yaml:"protocol" json:"protocol" default:"zookeeper"`
-		Timeout  string `yaml:"timeout" json:"timeout"`
-		Address  string `yaml:"address" json:"address"`
-		Username string `yaml:"username" json:"username"`
-		Password string `yaml:"password" json:"password"`
+		// Mode default 0 start backgroup fresh and watch, 1 only fresh 2 only watch
+		Mode          int                 `yaml:"mode" json:"mode" default:"mode"`
+		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
+		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
 	}
 )
 
@@ -73,136 +74,146 @@ func (p *CloudPlugin) Kind() string {
 }
 
 // CreateAdapter create adapter
-func (p *CloudPlugin) CreateAdapter(config interface{}, ad *model.Adapter) (adapter.Adapter, error) {
-	//registryUsed := ad.Config["registry"].(map[string]interface{})
-	registryUsed := config.(map[string]interface{})
-	fmt.Println(registryUsed)
-	var loader registry.Loader
-	reg := registryUsed["registries"].(map[string]interface{})
-	for key, _ := range reg {
-		switch key {
-		case "Nacos":
-			loader = new(nacos.NacosRegistry)
-		case "consul":
-			loader = new(registry.ConsulRegistryLoad)
-		case "zookeeper":
-			loader = new(registry.ZookeeperRegistryLoad)
-		}
-	}
-	return &CloudAdapter{cfg: &Config{}, LoaderUsed: loader}, nil
+func (p *CloudPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
+	return &CloudAdapter{cfg: &Config{}, stopChan: make(chan struct{})}, nil
 }
 
 // Start start the adapter
 func (a *CloudAdapter) Start(adapter *model.Adapter) {
-	reg := a.LoaderUsed
-	RegistryLoader, err := reg.NewRegistryLoader(adapter)
-	if err != nil {
-		logger.Info("fail to get registyloader")
-	}
+	// init get all service instance
+	a.firstFetch()
+	// backgroup sync service instance from remote
 	// do not block the main goroutine
-	go func() {
-		//init registry client
-
-		// init SpringCloud Manager for control initialize
-		cloudManager := NewSpringCloudManager(&SpringCloudConfig{boot: a.boot})
-
-		cloudManager.Start()
-
-		// fetch service instance from consul
-
-		// transform into endpoint and cluster
-		//endpoint := &model.Endpoint{}
-		//endpoint.ID = "user-mock-service"
-		//endpoint.Address = model.SocketAddress{
-		//	Address: "127.0.0.1",
-		//	Port:    8080,
-		//}
-		//cluster := &model.Cluster{}
-		//cluster.Name = "userservice"
-		//cluster.Lb = model.Rand
-		//cluster.Endpoints = []*model.Endpoint{
-		//	endpoint,
-		//}
-		//// add cluster into manager
-		//cm := server.GetClusterManager()
-		//cm.AddCluster(cluster)
-		//
-		//// transform into route
-		//routeMatch := model.RouterMatch{
-		//	Prefix: "/user",
-		//}
-		//routeAction := model.RouteAction{
-		//	Cluster: "userservice",
-		//}
-		//route := &model.Router{Match: routeMatch, Route: routeAction}
-		//
-		//server.GetRouterManager().AddRouter(route)
-
-		urls, err := RegistryLoader.LoadAllServices()
-		if err != nil {
-			logger.Error("can't get service for %s re")
-		}
-		var endpoints []*model.Endpoint
-		for _, url := range urls {
-			endpoint := url.GetParam("endpoint", "")
-			tmp := strings.Split(endpoint, ",")
-			for _, path := range tmp {
-				ep := &model.Endpoint{}
-				ip, port, err := net.SplitHostPort(path)
-				porti, err := strconv.Atoi(port)
-				if err != nil {
-					logger.Info("split ip & port failed")
-				}
-				ep.ID = url.GetParam("Name", "")
-				ep.Address = model.SocketAddress{
-					Address: ip,
-					Port:    porti,
-				}
-				endpoints = append(endpoints, ep)
-			}
-			// get cluster
-			cluster := &model.Cluster{}
-			cluster.Name = url.GetParam(constant.NameKey, "")
-			lb := url.GetParam("loadbalance", "")
-			switch lb {
-			case "RoundRobin":
-				cluster.Lb = model.RoundRobin
-			case "IPHash":
-				cluster.Lb = model.IPHash
-			case "WightRobin":
-				cluster.Lb = model.WightRobin
-			case "Rand":
-				cluster.Lb = model.Rand
-			}
-			cluster.Endpoints = endpoints
-			cm := server.GetClusterManager()
-			cm.AddCluster(cluster)
-			// transform into route
-			routeMatch := model.RouterMatch{
-				Prefix: "/user",
-			}
-			routeAction := model.RouteAction{
-				Cluster: "userservice",
-			}
-			route := &model.Router{Match: routeMatch, Route: routeAction}
-
-			server.GetRouterManager().AddRouter(route)
-		}
-	}()
+	a.backgroupSyncPeriod()
+	//a.watch()
 }
 
 // Stop stop the adapter
 func (a *CloudAdapter) Stop() {
-
+	a.stop()
 }
 
 // Apply init
 func (a *CloudAdapter) Apply() error {
-
+	//registryUsed := ad.Config["registry"].(map[string]interface{})
+	switch a.cfg.Registry.Protocol {
+	case "nacos":
+		sd, err := nacos.NewNacosServiceDiscovery(a.cfg.Registry)
+		if err != nil {
+			logger.Errorf("Apply NewNacosServiceDiscovery", err.Error())
+			return err
+		}
+		a.sd = sd
+	case "consul":
+	case "zookeeper":
+	default:
+		return errors.New("adapter init error registry not recognise")
+	}
 	return nil
 }
 
 // Config get config for Adapter
 func (a *CloudAdapter) Config() interface{} {
 	return a.cfg
+}
+
+func (a *CloudAdapter) firstFetch() error {
+	instances, err := a.sd.QueryServices()
+	if err != nil {
+		logger.Errorf("start query all service error ", err.Error())
+		return err
+	}
+	// manage cluster and route
+	cm := server.GetClusterManager()
+	rm := server.GetRouterManager()
+	for _, instance := range instances {
+		endpoint := instance.ToEndpoint()
+		// todo: maybe instance service name not equal with cluster name ?
+		cm.AddEndpoint(endpoint.Name, endpoint)
+		// route ID is cluster name, so equal with endpoint name
+		route := instance.ToRoute()
+		rm.AddRouter(route)
+	}
+	return nil
+}
+
+func (a *CloudAdapter) fetchCompareAndSet() {
+	instances, err := a.sd.QueryServices()
+	if err != nil {
+		logger.Warnf("fetchCompareAndSet all service error ", err.Error())
+	}
+	// manage cluster and route
+	cm := server.GetClusterManager()
+	rm := server.GetRouterManager()
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	oldStore, err := cm.CloneStore()
+
+	if err != nil {
+		logger.Warnf("fetchCompareAndSet clone store error ", err.Error())
+	}
+
+	newStore := cm.NewStore(oldStore.Version)
+
+	for _, instance := range instances {
+		endpoint := instance.ToEndpoint()
+		// endpoint name should equal with cluster name
+		newStore.AddEndpoint(endpoint.Name, endpoint)
+	}
+
+	// maximize reduction the interval of down state
+	// first remove the router for removed cluster
+	for _, c := range oldStore.Config {
+		if !newStore.HasCluster(c.Name) {
+			delete := &model.Router{ID: c.Name}
+			rm.DeleteRouter(delete)
+		}
+	}
+	// second set cluster
+	ret := cm.CompareAndSetStore(newStore)
+
+	if !ret {
+		// fast fail the delete route at first phase shouldn't recover
+		return
+	}
+
+	// third add new router
+	for _, c := range newStore.Config {
+		if !oldStore.HasCluster(c.Name) {
+			match := model.RouterMatch{Prefix: c.Name}
+			route := model.RouteAction{Cluster: c.Name}
+			added := &model.Router{ID: c.Name, Match: match, Route: route}
+			rm.AddRouter(added)
+		}
+	}
+}
+
+func (a *CloudAdapter) backgroupSyncPeriod() error {
+	timer := time.NewTicker(a.cfg.FreshInterval)
+	go func() {
+		defer timer.Stop()
+		for {
+			select {
+			case <-timer.C:
+				a.fetchCompareAndSet()
+				break
+			case <-a.stopChan:
+				logger.Info("stop the adapter")
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+func (a *CloudAdapter) watch() error {
+	return nil
+}
+
+func (a *CloudAdapter) stop() error {
+	a.sd.Stop()
+	close(a.stopChan)
+	return nil
 }
