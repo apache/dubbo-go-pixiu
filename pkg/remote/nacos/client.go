@@ -31,6 +31,10 @@ func (client *NacosClient) SelectInstances(param vo.SelectInstancesParam) ([]mod
 	return client.namingClient.SelectInstances(param)
 }
 
+func (client *NacosClient) Subscribe(param *vo.SubscribeParam) error {
+	return client.namingClient.Subscribe(param)
+}
+
 func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {
 	configMap := make(map[string]interface{}, 2)
 	addresses := strings.Split(config.Address, ",")

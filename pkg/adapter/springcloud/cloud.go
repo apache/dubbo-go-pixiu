@@ -18,17 +18,18 @@
 package springcloud
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/nacos"
 	"sync"
 	"time"
 )
 
 import (
+	gxset "github.com/dubbogo/gost/container/set"
 	"github.com/pkg/errors"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/nacos"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -52,8 +53,9 @@ type (
 
 	// CloudAdapter the adapter for spring cloud
 	CloudAdapter struct {
-		cfg *Config
-		sd  servicediscovery.ServiceDiscovery
+		cfg            *Config
+		sd             servicediscovery.ServiceDiscovery
+		currentService *gxset.HashSet
 
 		mutex    sync.Mutex
 		stopChan chan struct{}
@@ -65,6 +67,11 @@ type (
 		Mode          int                 `yaml:"mode" json:"mode" default:"mode"`
 		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
 		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
+		Services      []string            `yaml:"services" json:"services" default:"services"`
+	}
+
+	Service struct {
+		Name string
 	}
 )
 
@@ -75,17 +82,18 @@ func (p *CloudPlugin) Kind() string {
 
 // CreateAdapter create adapter
 func (p *CloudPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
-	return &CloudAdapter{cfg: &Config{}, stopChan: make(chan struct{})}, nil
+	return &CloudAdapter{cfg: &Config{}, stopChan: make(chan struct{}), currentService: gxset.NewSet()}, nil
 }
 
 // Start start the adapter
 func (a *CloudAdapter) Start(adapter *model.Adapter) {
+	// do not block the main goroutine
 	// init get all service instance
 	a.firstFetch()
-	// backgroup sync service instance from remote
-	// do not block the main goroutine
-	a.backgroupSyncPeriod()
-	//a.watch()
+	// background sync service instance from remote
+	a.backgroundSyncPeriod()
+	// 	// watch then fetch is more safety for consistent but there is background fresh mechanism
+	a.watch()
 }
 
 // Stop stop the adapter
@@ -117,8 +125,27 @@ func (a *CloudAdapter) Config() interface{} {
 	return a.cfg
 }
 
+func (a *CloudAdapter) fetchServiceByConfig() ([]servicediscovery.ServiceInstance, error) {
+	var instances []servicediscovery.ServiceInstance
+	var err error
+	// if configure specific services, then fetch those service instance only
+	if len(a.cfg.Services) > 0 {
+		instances, err = a.sd.QueryServicesByName(a.cfg.Services)
+	} else {
+		instances, err = a.sd.QueryAllServices()
+	}
+
+	if err != nil {
+		logger.Errorf("fetchServiceByConfig error ", err.Error())
+		return instances, err
+	}
+	return instances, nil
+}
+
 func (a *CloudAdapter) firstFetch() error {
-	instances, err := a.sd.QueryServices()
+
+	instances, err := a.fetchServiceByConfig()
+
 	if err != nil {
 		logger.Errorf("start query all service error ", err.Error())
 		return err
@@ -134,13 +161,26 @@ func (a *CloudAdapter) firstFetch() error {
 		route := instance.ToRoute()
 		rm.AddRouter(route)
 	}
+	a.clearAndSetCurrentService(instances)
 	return nil
 }
 
+func (a *CloudAdapter) clearAndSetCurrentService(instances []servicediscovery.ServiceInstance) {
+	a.currentService.Clear()
+
+	for _, instance := range instances {
+		if a.currentService.Contains(instance.ServiceName) {
+			continue
+		}
+		a.currentService.Add(&Service{Name: instance.ServiceName})
+	}
+}
+
 func (a *CloudAdapter) fetchCompareAndSet() {
-	instances, err := a.sd.QueryServices()
+	instances, err := a.fetchServiceByConfig()
 	if err != nil {
 		logger.Warnf("fetchCompareAndSet all service error ", err.Error())
+		return
 	}
 	// manage cluster and route
 	cm := server.GetClusterManager()
@@ -165,12 +205,13 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 
 	// maximize reduction the interval of down state
 	// first remove the router for removed cluster
-	for _, c := range oldStore.Config {
-		if !newStore.HasCluster(c.Name) {
-			delete := &model.Router{ID: c.Name}
-			rm.DeleteRouter(delete)
-		}
-	}
+	// TODO: should delete route when cluster gone ?
+	//for _, c := range oldStore.Config {
+	//	if !newStore.HasCluster(c.Name) {
+	//		delete := &model.Router{ID: c.Name}
+	//		rm.DeleteRouter(delete)
+	//	}
+	//}
 	// second set cluster
 	ret := cm.CompareAndSetStore(newStore)
 
@@ -190,7 +231,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	}
 }
 
-func (a *CloudAdapter) backgroupSyncPeriod() error {
+func (a *CloudAdapter) backgroundSyncPeriod() error {
 	timer := time.NewTicker(a.cfg.FreshInterval)
 	go func() {
 		defer timer.Stop()
@@ -209,6 +250,9 @@ func (a *CloudAdapter) backgroupSyncPeriod() error {
 }
 
 func (a *CloudAdapter) watch() error {
+
+	a.sd.AddListener()
+
 	return nil
 }
 
