@@ -26,10 +26,10 @@ type EurekaClient struct {
 	// 保存服务地址
 	// key: 服务名:版本号, 版本号为eureka注册信息中的metadata[version]值
 	// val: []*InstanceInfo
-	registryMap 			*InsInfoArrSyncMap
+	registryMap *InsInfoArrSyncMap
 }
 
-func NewEurekaClient(confFile string) (Client, error) {
+func NewEurekaClient(confFile string) (DiscoveryClient, error) {
 	c, err := eureka.NewClientFromFile(confFile)
 	if nil != err {
 		logger.Errorf("failed to init eureka client", err)
@@ -89,8 +89,8 @@ func (c *EurekaClient) QueryServices() ([]*InstanceInfo, error) {
 				instances,
 				&InstanceInfo{
 					ServiceName: servName,
-					Addr: addr,
-					Meta: meta,
+					Addr:        addr,
+					Meta:        meta,
 				},
 			)
 		}
@@ -120,7 +120,7 @@ func (c *EurekaClient) Register() error {
 	)
 	gogateApp.Metadata = &eureka.MetaData{
 		Class: "",
-		Map: map[string]string {"version": "1.0.0"},
+		Map:   map[string]string{"version": "1.0.0"},
 	}
 
 	err = c.client.RegisterInstance("Pixiu", gogateApp)
