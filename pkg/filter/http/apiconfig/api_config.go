@@ -55,11 +55,11 @@ type (
 	}
 )
 
-func (ap *Plugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &Filter{cfg: &ApiConfigConfig{}}, nil
 }
 
