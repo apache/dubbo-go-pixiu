@@ -57,18 +57,18 @@ func (fm *FilterManager) GetFilters() []HttpFilter {
 	return fm.filters
 }
 
-// Load load the filter from config
+// Load the filter from config
 func (fm *FilterManager) Load() {
 	fm.ReLoad(fm.filterConfigs)
 }
 
-// ReLoad reload filter configs
+// ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	tmp := make([]HttpFilter, 0, len(filters))
 	for _, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
-			logger.Errorf("apply [%s] init fail, %s", err)
+			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
 		}
 		tmp = append(tmp, apply)
 	}
