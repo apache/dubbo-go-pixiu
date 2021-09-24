@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
 
-[中文](./README_CN.md)  |  [Piuxiu-SpringCloud 说明](./pkg/adapter/springcloud/doc/sc_design.md)
+[中文](./README_CN.md)
 
 ### Mascot
 
@@ -77,17 +77,9 @@ if run pixiu manually, use command as below
 
 use curl to try or use unit test
 
-Dubbo:
-
 ```bash
 curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
 ./start.sh startTest body
-```
-
-SpringCloud:
-
-```bash
-curl http://localhost:8888/service-provider/echo/Pixiu
 ```
 
 #### 6. Clean
