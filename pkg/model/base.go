@@ -42,10 +42,11 @@ const (
 )
 
 const (
-	HTTP ProtocolType = 0 + iota // support for 1.0
-	TCP
-	UDP
-	HTTPS
+	ProtocolTypeHTTP ProtocolType = 0 + iota // support for 1.0
+	ProtocolTypeTCP
+	ProtocolTypeUDP
+	ProtocolTypeHTTPS
+	ProtocolTypeGRPC
 )
 
 const (
@@ -55,9 +56,9 @@ const (
 )
 
 const (
-	REST api.ApiType = 0 + iota // support for 1.0
-	GRPC
-	DUBBO
+	ApiTypeREST api.ApiType = 0 + iota // support for 1.0
+	ApiTypeGRPC
+	ApiTypeDUBBO
 )
 
 var (
@@ -73,20 +74,22 @@ var (
 		"Unknown": 2,
 	}
 
-	// ProtocolTypeName
+	// ProtocolTypeName enum seq to protocol type name
 	ProtocolTypeName = map[int32]string{
 		0: "HTTP",
 		1: "TCP",
 		2: "UDP",
 		3: "HTTPS",
+		4: "GRPC",
 	}
 
-	// ProtocolTypeValue
+	// ProtocolTypeValue protocol type name to enum seq
 	ProtocolTypeValue = map[string]int32{
 		"HTTP":  0,
 		"TCP":   1,
 		"UDP":   2,
 		"HTTPS": 3,
+		"GRPC":  4,
 	}
 
 	ApiTypeName = map[int32]string{
@@ -103,7 +106,7 @@ var (
 )
 
 type (
-	// ProtocolType
+	// ProtocolType protocol type enum
 	ProtocolType int32
 
 	// Address the address
@@ -112,7 +115,7 @@ type (
 		Name          string        `yaml:"name" json:"name" mapstructure:"name"`
 	}
 
-	// Address specify either a logical or physical address and port, which are
+	// SocketAddress specify either a logical or physical address and port, which are
 	// used to tell server where to bind/listen, connect to upstream and find
 	// management servers
 	SocketAddress struct {

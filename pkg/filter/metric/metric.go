@@ -49,41 +49,41 @@ func init() {
 }
 
 type (
-	// MetricFilter is http filter plugin.
+	// Filter is http filter plugin.
 	Plugin struct {
 	}
-	// MetricFilter is http filter instance
-	MetricFilter struct {
+	// Filter is http filter instance
+	Filter struct {
 	}
-	// Config describe the config of MetricFilter
+	// Config describe the config of Filter
 	Config struct{}
 )
 
-func (ap *Plugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	registerOtelMetric()
-	return &MetricFilter{}, nil
+	return &Filter{}, nil
 }
 
-func (m *MetricFilter) Config() interface{} {
+func (f *Filter) Config() interface{} {
 	return nil
 }
 
-func (m *MetricFilter) Apply() error {
+func (f *Filter) Apply() error {
 	// init
 	registerOtelMetric()
 	return nil
 }
 
-func (mf *MetricFilter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(mf.Handle)
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (mf *MetricFilter) Handle(c *http.HttpContext) {
+func (f *Filter) Handle(c *http.HttpContext) {
 	start := time.Now()
 
 	c.Next()
