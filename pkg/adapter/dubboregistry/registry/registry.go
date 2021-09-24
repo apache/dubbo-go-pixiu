@@ -53,6 +53,8 @@ type Registry interface {
 	Subscribe() error
 	// Unsubscribe stops monitoring the target registry.
 	Unsubscribe() error
+	// SetPixiuListenerName set the name of the listener so that it could find corresponding Pixiu listener to modify filter configs
+	SetPixiuListenerName(listenerName string)
 }
 
 // SetRegistry will store the registry by name
@@ -78,7 +80,7 @@ func CreateAPIConfig(urlPattern string, dboBackendConfig config.DubboBackendConf
 	dboBackendConfig.Method = methodString
 	url := strings.Join([]string{urlPattern, methodString}, constant.PathSlash)
 	method := config.Method{
-		Enable:    true,
+		Enable:   true,
 		Timeout:  3 * time.Second,
 		Mock:     false,
 		HTTPVerb: config.MethodPost,
@@ -133,6 +135,5 @@ func GetRouter() model.Router {
 			Methods: nil,
 			Headers: nil,
 		},
-
 	}
 }

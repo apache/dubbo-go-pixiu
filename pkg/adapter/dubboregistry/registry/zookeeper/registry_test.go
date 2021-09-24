@@ -57,6 +57,7 @@ func TestNewZKRegistry(t *testing.T) {
 	assert.Nil(t, reg)
 	assert.NotNil(t, err)
 }
+
 //
 //func TestLoadInterfaces(t *testing.T) {
 //	api.Init()

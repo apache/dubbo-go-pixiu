@@ -4,6 +4,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/pkg/errors"
@@ -15,7 +16,7 @@ func init() {
 
 var (
 	_ adapter.AdapterPlugin = new(Plugin)
-	_ adapter.Adapter = new(Adapter)
+	_ adapter.Adapter       = new(Adapter)
 )
 
 type AdaptorConfig struct {
@@ -24,7 +25,9 @@ type AdaptorConfig struct {
 }
 
 // Plugin to monitor dubbo services on registry center
-type Plugin struct {}
+type Plugin struct{
+	adapterInstance *Adapter
+}
 
 // Kind returns the identifier of the plugin
 func (p Plugin) Kind() string {
@@ -32,7 +35,7 @@ func (p Plugin) Kind() string {
 }
 
 // CreateAdapter returns the dubbo registry center adapter
-func (p Plugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
+func (p *Plugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
 	c, ok := config.(AdaptorConfig)
 	listenerService := server.GetServer().GetListenerManager().GetListenerService(c.AppointedListener)
 	if listenerService == nil {
@@ -41,14 +44,24 @@ func (p Plugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.
 	if !ok {
 		return nil, errors.New("Configuration incorrect")
 	}
-	return &Adapter{cfg: c, boundListenerService: listenerService}, nil
+	adapter := &Adapter{cfg: c, boundListenerService: c.AppointedListener}
+	p.adapterInstance = adapter
+	return adapter, nil
+}
+
+// RegisterAPIDiscovery register the api discovery service to the plugin so that
+//   the plugin can update the api config
+func RegisterAPIDiscovery(apiDiscovery api.APIDiscoveryService) {
+	//adapter := adapter.GetAdapterPlugin(constant.DubboRegistryCenterAdapter)
+	//adapter.
 }
 
 // Adapter to monitor dubbo services on registry center
-type Adapter struct{
-	cfg AdaptorConfig
-	registries map[string]registry.Registry
-	boundListenerService *server.ListenerService
+type Adapter struct {
+	cfg                  AdaptorConfig
+	registries           map[string]registry.Registry
+	boundListenerService string
+	apiDiscoveries api.APIDiscoveryService
 }
 
 // Start starts the adaptor
@@ -71,7 +84,8 @@ func (a *Adapter) Apply() error {
 	for k, registryConfig := range a.cfg.Registries {
 		var err error
 		a.registries[k], err = registry.GetRegistry(k, registryConfig)
-		if err !=nil {
+		a.registries[k].SetPixiuListenerName(a.boundListenerService)
+		if err != nil {
 			return err
 		}
 	}

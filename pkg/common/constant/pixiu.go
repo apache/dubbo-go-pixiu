@@ -59,7 +59,7 @@ const (
 )
 
 const (
-	StringSeparator = ","
+	StringSeparator      = ","
 	DefaultConfigPath    = "configs/conf.yaml"
 	DefaultApiConfigPath = "configs/api_config.yaml"
 	DefaultLogConfigPath = "configs/log.yml"

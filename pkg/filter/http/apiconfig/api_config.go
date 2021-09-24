@@ -46,6 +46,7 @@ func init() {
 
 type (
 	Plugin struct {
+		filterInstance *Filter
 	}
 
 	Filter struct {
@@ -63,6 +64,10 @@ func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &Filter{cfg: &ApiConfigConfig{}}, nil
 }
 
+func (f *Plugin) GetInstance() *Filter {
+	return f.filterInstance
+}
+
 func (f *Filter) Config() interface{} {
 	return f.cfg
 }
@@ -78,6 +83,10 @@ func (f *Filter) Apply() error {
 		logger.Errorf("InitAPIsFromConfig fail: %v", err)
 	}
 	return nil
+}
+
+func (f *Filter) GetAPIService() api.APIDiscoveryService {
+	return f.apiService
 }
 
 func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
@@ -136,3 +145,5 @@ func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	}
 	return a, nil
 }
+
+var _ filter.HttpFilter = new(Filter)

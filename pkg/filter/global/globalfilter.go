@@ -10,7 +10,7 @@ var globalFilterManagers = make(map[string]*filter.FilterManager)
 
 func RegisterGlobalFilterManager(filterManagerName string, filterManager *filter.FilterManager) {
 	if _, ok := globalFilterManagers[filterManagerName]; ok {
-		logger.Warn("FilterManager already exists %s",filterManagerName)
+		logger.Warn("FilterManager already exists %s", filterManagerName)
 		return
 	}
 	globalFilterManagers[filterManagerName] = filterManager
