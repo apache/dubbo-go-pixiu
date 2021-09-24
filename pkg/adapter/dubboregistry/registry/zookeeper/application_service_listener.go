@@ -20,6 +20,8 @@ package zookeeper
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/global"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig"
 	"strings"
 	"sync"
 	"time"
@@ -35,11 +37,10 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/remoting/zookeeper"
 )
 
 var _ registry.Listener = new(applicationServiceListener)
@@ -49,17 +50,19 @@ type applicationServiceListener struct {
 	urls        []interface{}
 	servicePath string
 	client      *zookeeper.ZooKeeperClient
+	boundedListener string
 
 	exit chan struct{}
 	wg   sync.WaitGroup
 }
 
 // newApplicationServiceListener creates a new zk service listener
-func newApplicationServiceListener(path string, client *zookeeper.ZooKeeperClient) *applicationServiceListener {
+func newApplicationServiceListener(path string, client *zookeeper.ZooKeeperClient, boundedListener string) *applicationServiceListener {
 	return &applicationServiceListener{
 		servicePath: path,
 		client:      client,
 		exit:        make(chan struct{}),
+		boundedListener: boundedListener,
 	}
 }
 
@@ -120,7 +123,8 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 }
 
 func (asl *applicationServiceListener) handleEvent(children []string) {
-	localAPIDiscSrv := extension.GetMustAPIDiscoveryService(constant.LocalMemoryApiDiscoveryService)
+	filter := global.GetGlobalFilterManager(asl.boundedListener).GetFilters()[constant.HTTPApiConfigFilter]
+	localAPIDiscSrv := filter.(*apiconfig.Filter).GetAPIService()
 	children, err := asl.client.GetChildren(asl.servicePath)
 
 	if err != nil {

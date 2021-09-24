@@ -55,16 +55,18 @@ type zkAppListener struct {
 	client       *zookeeper.ZooKeeperClient
 	reg          *ZKRegistry
 	wg           sync.WaitGroup
+	boundedListener string
 }
 
 // newZkAppListener returns a new newZkAppListener with pre-defined servicesPath according to the registered type.
-func newZkAppListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry) registry.Listener {
+func newZkAppListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry, boundedListener string) registry.Listener {
 	p := defaultServicesPath
 	return &zkAppListener{
 		servicesPath: p,
 		exit:         make(chan struct{}),
 		client:       client,
 		reg:          reg,
+		boundedListener: boundedListener,
 	}
 }
 
