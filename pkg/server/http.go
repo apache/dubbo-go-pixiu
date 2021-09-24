@@ -23,8 +23,8 @@ import (
 )
 
 // DefaultHttpConnectionManager
-func DefaultHttpConnectionManager() *model.HttpConnectionManager {
-	return &model.HttpConnectionManager{
+func DefaultHttpConnectionManager() *model.HttpConnectionManagerConfig {
+	return &model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
 			Routes: []*model.Router{
 				{

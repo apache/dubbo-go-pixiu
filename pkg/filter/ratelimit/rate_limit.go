@@ -94,15 +94,15 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 	defer entry.Exit()
 }
 
-func (r *Filter) Config() interface{} {
-	return r.conf
+func (f *Filter) Config() interface{} {
+	return f.conf
 }
 
-func (r *Filter) Apply() error {
+func (f *Filter) Apply() error {
 	// init matcher
-	r.matcher = newMatcher()
-	conf := r.conf
-	r.matcher.load(conf.Resources)
+	f.matcher = newMatcher()
+	conf := f.conf
+	f.matcher.load(conf.Resources)
 
 	// init sentinel
 	sentinelConf := sc.NewDefaultConfig()
