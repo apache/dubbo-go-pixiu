@@ -36,11 +36,11 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// HostFilter is http filter instance
-	HostFilter struct {
+	// Filter is http filter instance
+	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of HostFilter
+	// Config describe the config of Filter
 	Config struct {
 		Host string `yaml:"host" json:"host"`
 	}
@@ -51,22 +51,22 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &HostFilter{}, nil
+	return &Filter{}, nil
 }
 
-func (hf *HostFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
-	ctx.AppendFilterFunc(hf.Handle)
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (hf *HostFilter) Handle(c *contexthttp.HttpContext) {
-	c.Request.Host = hf.cfg.Host
+func (f *Filter) Handle(c *contexthttp.HttpContext) {
+	c.Request.Host = f.cfg.Host
 	c.Next()
 }
-func (f *HostFilter) Config() interface{} {
+func (f *Filter) Config() interface{} {
 	return f.cfg
 }
 
-func (f *HostFilter) Apply() error {
+func (f *Filter) Apply() error {
 	return nil
 }

@@ -24,7 +24,7 @@ static_resources:
         socket_address:
           protocol_type: "HTTP"
           address: "0.0.0.0"
-          port: 8888
+          port: 8881
       filter_chains:
         - filter_chain_match:
           domains:
@@ -36,36 +36,33 @@ static_resources:
                 route_config:
                   routes:
                     - match:
-                        prefix: "/user"
+                        prefix: "/api/v1"
                       route:
-                        cluster: "user"
+                        cluster: "test-grpc"
                         cluster_not_found_response_code: 505
                 http_filters:
-                  - name: dgp.filter.http.httpproxy
+                  - name: dgp.filter.http.apiconfig
                     config:
-                  - name: dgp.filter.http.cors
+                      path: $PROJECT_DIR/pixiu/api_config.yaml
+                  - name: dgp.filter.http.grpcproxy
                     config:
-                      allow_origin:
-                        - api.dubbo.com
-                      allow_methods: ""
-                      allow_headers: ""
-                      expose_headers: ""
-                      max_age: ""
-                      allow_credentials: false
+                      path: $PROJECT_DIR/proto
                   - name: dgp.filter.http.response
                     config:
+                server_name: "test-http-grpc"
+                generate_request_id: false
       config:
         idle_timeout: 5s
         read_timeout: 5s
         write_timeout: 5s
   clusters:
-    - name: "user"
-      lb_policy: "lb"
+    - name: "test-grpc"
+      lb_policy: "RoundRobin"
       endpoints:
-        - id: 1
-          socket_address:
+        - socket_address:
             address: 127.0.0.1
-            port: 1314
+            port: 50001
+            protocol_type: "GRPC"
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
