@@ -15,7 +15,7 @@ type FacadeRegistry interface {
 
 type SvcListeners struct {
 	// listeners use url.ServiceKey as the index.
-	listeners map[string]registry.Listener
+	listeners    map[string]registry.Listener
 	listenerLock sync.Mutex
 }
 
@@ -51,17 +51,23 @@ func (s *SvcListeners) GetAllListener() map[string]registry.Listener {
 }
 
 type BaseRegistry struct {
-	svcListeners   *SvcListeners
-	facadeRegistry FacadeRegistry
+	PixiuListenerName string
+	svcListeners      *SvcListeners
+	facadeRegistry    FacadeRegistry
 }
 
 func NewBaseRegistry(facade FacadeRegistry) *BaseRegistry {
 	return &BaseRegistry{
 		facadeRegistry: facade,
-		svcListeners:   &SvcListeners{
+		svcListeners: &SvcListeners{
 			listeners: make(map[string]registry.Listener),
 		},
 	}
+}
+
+// SetPixiuListenerName
+func (r *BaseRegistry) SetPixiuListenerName(name string) {
+	r.PixiuListenerName = name
 }
 
 // GetSvcListener returns existing listener or nil
