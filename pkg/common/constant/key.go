@@ -33,6 +33,8 @@ const (
 	HTTPDubboProxyFilter = "dgp.filter.http.dubboproxy"
 	HTTPApiConfigFilter  = "dgp.filter.http.apiconfig"
 	HTTPTimeoutFilter    = "dgp.filter.http.timeout"
+	TracingFilter        = "dgp.filters.tracing"
+	HTTPCorsFilter       = "dgp.filter.http.cors"
 )
 
 const (
