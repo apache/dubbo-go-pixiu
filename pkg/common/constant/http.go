@@ -18,8 +18,13 @@
 package constant
 
 const (
-	HeaderKeyContextType              = "Content-Type"
-	HeaderKeyAccessControlAllowOrigin = "Access-Control-Allow-Origin"
+	HeaderKeyContextType = "Content-Type"
+
+	HeaderKeyAccessControlAllowOrigin      = "Access-Control-Allow-Origin"
+	HeaderKeyAccessControlExposeHeaders    = "Access-Control-Expose-Headers"
+	HeaderKeyAccessControlAllowMethods     = "Access-Control-Allow-Methods"
+	HeaderKeyAccessControlMaxAge           = "Access-Control-Max-Age"
+	HeaderKeyAccessControlAllowCredentials = "Access-Control-Allow-Credentials"
 
 	HeaderValueJsonUtf8  = "application/json;charset=UTF-8"
 	HeaderValueTextPlain = "text/plain"
