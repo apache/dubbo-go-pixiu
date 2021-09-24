@@ -55,6 +55,8 @@ type ZKRegistry struct {
 	client      *zk.ZooKeeperClient
 }
 
+var _ registry.Registry = new(ZKRegistry)
+
 func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
 	var zkReg = &ZKRegistry{}
 	baseReg := baseRegistry.NewBaseRegistry(zkReg)
@@ -75,9 +77,9 @@ func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
 
 func initZKListeners(reg *ZKRegistry) {
 	reg.zkListeners = make(map[registry.RegisteredType]registry.Listener)
-	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg)
+	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg, reg.PixiuListenerName)
 	go reg.zkListeners[registry.RegisteredTypeInterface].WatchAndHandle()
-	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg)
+	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg, reg.PixiuListenerName)
 	go reg.zkListeners[registry.RegisteredTypeApplication].WatchAndHandle()
 }
 
