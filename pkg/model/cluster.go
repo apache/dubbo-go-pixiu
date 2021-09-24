@@ -68,7 +68,7 @@ type (
 
 	// Registry remote registry where dubbo apis are registered.
 	Registry struct {
-		Protocol string `yaml:"protocol" json:"protocol" default:"zookeeper"`
+		Protocol string `default:"zookeeper" yaml:"protocol" json:"protocol"`
 		Timeout  string `yaml:"timeout" json:"timeout"`
 		Address  string `yaml:"address" json:"address"`
 		Username string `yaml:"username" json:"username"`
