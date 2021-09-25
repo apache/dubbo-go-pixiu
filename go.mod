@@ -15,6 +15,7 @@ require (
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0 // indirect
+	github.com/hashicorp/consul/api v1.5.0
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/nacos-group/nacos-sdk-go v1.0.8
