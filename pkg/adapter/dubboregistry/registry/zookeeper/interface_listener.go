@@ -42,23 +42,23 @@ const (
 var _ registry.Listener = new(zkIntfListener)
 
 type zkIntfListener struct {
-	path            string
-	exit            chan struct{}
-	client          *zookeeper.ZooKeeperClient
-	reg             *ZKRegistry
-	wg              sync.WaitGroup
-	boundedListener string
+	path      string
+	exit      chan struct{}
+	client    *zookeeper.ZooKeeperClient
+	reg       *ZKRegistry
+	wg        sync.WaitGroup
+	adapterID string
 }
 
 // newZKIntfListener returns a new zkIntfListener with pre-defined path according to the registered type.
-func newZKIntfListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry, pixiuListener string) registry.Listener {
+func newZKIntfListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry, adapterID string) registry.Listener {
 	p := rootPath
 	return &zkIntfListener{
-		path:            p,
-		exit:            make(chan struct{}),
-		client:          client,
-		reg:             reg,
-		boundedListener: pixiuListener,
+		path:      p,
+		exit:      make(chan struct{}),
+		client:    client,
+		reg:       reg,
+		adapterID: adapterID,
 	}
 }
 
@@ -149,7 +149,7 @@ func (z *zkIntfListener) handleEvent(basePath string) {
 		if z.reg.GetSvcListener(srvUrl.ServiceKey()) != nil {
 			continue
 		}
-		l := newZkSrvListener(srvUrl, providerPath, z.client, z.boundedListener)
+		l := newZkSrvListener(srvUrl, providerPath, z.client, z.adapterID)
 		l.wg.Add(1)
 		go l.WatchAndHandle()
 		z.reg.SetSvcListener(srvUrl.ServiceKey(), l)
