@@ -18,6 +18,8 @@
 package apiconfig
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"net/http"
 )
 
@@ -46,6 +48,7 @@ func init() {
 
 type (
 	Plugin struct {
+		filterInstance *Filter
 	}
 
 	Filter struct {
@@ -63,6 +66,10 @@ func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &Filter{cfg: &ApiConfigConfig{}}, nil
 }
 
+func (f *Plugin) GetInstance() *Filter {
+	return f.filterInstance
+}
+
 func (f *Filter) Config() interface{} {
 	return f.cfg
 }
@@ -77,7 +84,24 @@ func (f *Filter) Apply() error {
 	if err := f.apiService.InitAPIsFromConfig(*f.apiConfig); err != nil {
 		logger.Errorf("InitAPIsFromConfig fail: %v", err)
 	}
+
+	if f.cfg.Dynamic {
+		server.GetApiConfigManager().AddApiConfigListener(f.cfg.DynamicAdapter, f)
+	}
+
 	return nil
+}
+
+func (f *Filter) OnAddAPI(r router.API) error {
+	return f.apiService.AddAPI(r)
+}
+
+func (f *Filter) OnDeleteRouter(r fc.Resource) error {
+	return f.apiService.RemoveAPIByPath(r)
+}
+
+func (f *Filter) GetAPIService() api.APIDiscoveryService {
+	return f.apiService
 }
 
 func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
@@ -114,6 +138,10 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	ctx.Next()
 }
 
+func (f *Filter) GetApiService() api.APIDiscoveryService {
+	return f.apiService
+}
+
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
 func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	if cf.APIMetaConfig != nil {
@@ -132,3 +160,5 @@ func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	}
 	return a, nil
 }
+
+var _ filter.HttpFilter = new(Filter)

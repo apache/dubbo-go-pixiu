@@ -17,14 +17,10 @@
 
 package registry
 
-import (
-	"github.com/apache/dubbo-go/common"
-)
-
-// Loader this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
-type Loader interface {
-	// LoadAllServices load all services registered in registry
-	LoadAllServices() ([]*common.URL, error)
-	// GetCluster get the registry name
-	GetCluster() (string, error)
+// Listener this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
+type Listener interface {
+	// Close closes this listener
+	Close()
+	// WatchAndHandle watch the target path and handle the event
+	WatchAndHandle()
 }

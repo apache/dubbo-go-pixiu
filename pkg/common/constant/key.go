@@ -38,7 +38,8 @@ const (
 )
 
 const (
-	SpringCloudAdapter = "dgp.adapter.springcloud"
+	SpringCloudAdapter         = "dgp.adapter.springcloud"
+	DubboRegistryCenterAdapter = "dgp.adapter.dubboregistrycenter"
 )
 
 const (
@@ -48,4 +49,21 @@ const (
 	LogLevelKey      = "log-level"
 	LimitCpusKey     = "limit-cpus"
 	LogFormatKey     = "log-format"
+)
+
+const (
+	ApplicationKey = "application"
+	AppVersionKey  = "app.version"
+	ClusterKey     = "cluster"
+	GroupKey       = "group"
+	VersionKey     = "version"
+	InterfaceKey   = "interface"
+	MethodsKey     = "methods"
+	// NameKey name of interface
+	NameKey = "name"
+	// RetriesKey retry times
+	RetriesKey = "retries"
+	// MetadataStorageTypeKey the storage type of metadata
+	MetadataStorageTypeKey     = "dubbo.metadata.storage-type"
+	DefaultMetadataStorageType = "local"
 )
