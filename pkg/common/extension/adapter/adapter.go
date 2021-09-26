@@ -56,7 +56,7 @@ var (
 	adapterPlugins = map[string]AdapterPlugin{}
 )
 
-// Register registers adapter plugin
+// RegisterAdapterPlugin registers adapter plugin
 func RegisterAdapterPlugin(p AdapterPlugin) {
 	if p.Kind() == "" {
 		panic(fmt.Errorf("%T: empty kind", p))
