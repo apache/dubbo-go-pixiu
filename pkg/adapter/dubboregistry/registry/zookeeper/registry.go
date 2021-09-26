@@ -77,9 +77,9 @@ func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
 
 func initZKListeners(reg *ZKRegistry) {
 	reg.zkListeners = make(map[registry.RegisteredType]registry.Listener)
-	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg, reg.PixiuListenerName)
+	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg, reg.AdapterID)
 	go reg.zkListeners[registry.RegisteredTypeInterface].WatchAndHandle()
-	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg, reg.PixiuListenerName)
+	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg, reg.AdapterID)
 	go reg.zkListeners[registry.RegisteredTypeApplication].WatchAndHandle()
 }
 
