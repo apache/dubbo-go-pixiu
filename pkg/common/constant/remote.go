@@ -14,19 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package constant
 
+// env key
 const (
-	// RequestBody name of api config mapping from/to
-	RequestBody = "requestBody"
-	// QueryStrings name of api config mapping from/to
-	QueryStrings = "queryStrings"
-	// Headers name of api config mapping from/to
-	Headers = "headers"
-	// RequestURI name of api config mapping from/to, retrieve parameters from uri
-	// for instance, https://test.com/:id uri.id will retrieve the :id parameter
-	RequestURI = "uri"
-	// Dot defines the . which will be used to present the path to specific field in the body
-	Dot      = "."
-	AnyValue = "*"
+	Zookeeper string = "zookeeper"
+	Consul    string = "consul"
 )
