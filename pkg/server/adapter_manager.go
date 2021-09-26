@@ -56,7 +56,7 @@ func (am *AdapterManager) initAdapters(server *Server, bs *model.Bootstrap) {
 			logger.Error("initAdapters get plugin error %s", err)
 		}
 
-		hf, err := hp.CreateAdapter(f.Config, bs)
+		hf, err := hp.CreateAdapter(f, bs)
 		if err != nil {
 			logger.Error("initFilterIfNeed create adapter error %s", err)
 		}
