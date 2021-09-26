@@ -213,7 +213,7 @@ func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *filter.NetworkF
 	}
 
 	hcmc := findHttpManager(lc)
-	hcm, err := p.CreateFilter(hcmc, bs, lc.Name)
+	hcm, err := p.CreateFilter(hcmc, bs)
 	if err != nil {
 		panic(err)
 	}

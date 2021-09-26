@@ -51,9 +51,9 @@ func (s *SvcListeners) GetAllListener() map[string]registry.Listener {
 }
 
 type BaseRegistry struct {
-	PixiuListenerName string
-	svcListeners      *SvcListeners
-	facadeRegistry    FacadeRegistry
+	AdapterID      string
+	svcListeners   *SvcListeners
+	facadeRegistry FacadeRegistry
 }
 
 func NewBaseRegistry(facade FacadeRegistry) *BaseRegistry {
@@ -65,9 +65,9 @@ func NewBaseRegistry(facade FacadeRegistry) *BaseRegistry {
 	}
 }
 
-// SetPixiuListenerName
-func (r *BaseRegistry) SetPixiuListenerName(name string) {
-	r.PixiuListenerName = name
+// SetAdapterID
+func (r *BaseRegistry) SetAdapterID(id string) {
+	r.AdapterID = id
 }
 
 // GetSvcListener returns existing listener or nil

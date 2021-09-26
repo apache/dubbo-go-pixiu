@@ -40,7 +40,7 @@ type FilterManager struct {
 }
 
 // NewFilterManager create filter manager
-func NewFilterManager(fs []*model.HTTPFilter, listenerName string) *FilterManager {
+func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
 	fm := &FilterManager{filterConfigs: fs, filters: make(map[string]HttpFilter)}
 	return fm
 }

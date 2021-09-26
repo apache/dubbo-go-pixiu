@@ -64,7 +64,7 @@ func (p *CloudPlugin) Kind() string {
 }
 
 // CreateAdapter create adapter
-func (p *CloudPlugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
+func (p *CloudPlugin) CreateAdapter(a *model.Adapter, bs *model.Bootstrap) (adapter.Adapter, error) {
 	return &CloudAdapter{cfg: &Config{}}, nil
 }
 

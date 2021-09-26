@@ -6,8 +6,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/pkg/errors"
 )
 
 func init() {
@@ -26,7 +24,6 @@ type AdaptorConfig struct {
 
 // Plugin to monitor dubbo services on registry center
 type Plugin struct {
-	adapterInstance *Adapter
 }
 
 // Kind returns the identifier of the plugin
@@ -35,33 +32,17 @@ func (p Plugin) Kind() string {
 }
 
 // CreateAdapter returns the dubbo registry center adapter
-func (p *Plugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (adapter.Adapter, error) {
-	c, ok := config.(AdaptorConfig)
-	listenerService := server.GetServer().GetListenerManager().GetListenerService(c.AppointedListener)
-	if listenerService == nil {
-		return nil, errors.New("Appointed Listener not found")
-	}
-	if !ok {
-		return nil, errors.New("Configuration incorrect")
-	}
-	adapter := &Adapter{cfg: c, boundListenerService: c.AppointedListener}
-	p.adapterInstance = adapter
+func (p *Plugin) CreateAdapter(a *model.Adapter, bs *model.Bootstrap) (adapter.Adapter, error) {
+	adapter := &Adapter{id: a.ID}
 	return adapter, nil
-}
-
-// RegisterAPIDiscovery register the api discovery service to the plugin so that
-//   the plugin can update the api config
-func RegisterAPIDiscovery(apiDiscovery api.APIDiscoveryService) {
-	//adapter := adapter.GetAdapterPlugin(constant.DubboRegistryCenterAdapter)
-	//adapter.
 }
 
 // Adapter to monitor dubbo services on registry center
 type Adapter struct {
-	cfg                  AdaptorConfig
-	registries           map[string]registry.Registry
-	boundListenerService string
-	apiDiscoveries       api.APIDiscoveryService
+	id             string
+	cfg            AdaptorConfig
+	registries     map[string]registry.Registry
+	apiDiscoveries api.APIDiscoveryService
 }
 
 // Start starts the adaptor
@@ -84,7 +65,7 @@ func (a *Adapter) Apply() error {
 	for k, registryConfig := range a.cfg.Registries {
 		var err error
 		a.registries[k], err = registry.GetRegistry(k, registryConfig)
-		a.registries[k].SetPixiuListenerName(a.boundListenerService)
+		a.registries[k].SetAdapterID(a.id)
 		if err != nil {
 			return err
 		}
