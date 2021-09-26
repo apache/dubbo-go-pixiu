@@ -53,8 +53,8 @@ type Registry interface {
 	Subscribe() error
 	// Unsubscribe stops monitoring the target registry.
 	Unsubscribe() error
-	// SetPixiuListenerName set the name of the listener so that it could find corresponding Pixiu listener to modify filter configs
-	SetPixiuListenerName(listenerName string)
+	// SetAdapterID set adapter id
+	SetAdapterID(adapterID string)
 }
 
 // SetRegistry will store the registry by name

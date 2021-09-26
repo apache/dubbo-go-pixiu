@@ -44,6 +44,8 @@ static_resources:
                   - name: dgp.filter.http.apiconfig
                     config:
                       path: $PROJECT_DIR/pixiu/api_config.yaml
+                      dynamic: true
+                      dynamic_adapter: test
                   - name: dgp.filter.http.grpcproxy
                     config:
                       path: $PROJECT_DIR/proto
@@ -70,3 +72,8 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+  adapter:
+    - id: test
+      name: dgp.adapter.dubboregistrycenter
+      config:
+        registries:

@@ -36,7 +36,7 @@ type (
 		Kind() string
 
 		// CreateAdapter return the Adapter callback
-		CreateAdapter(config interface{}, bs *model.Bootstrap) (Adapter, error)
+		CreateAdapter(a *model.Adapter, bs *model.Bootstrap) (Adapter, error)
 	}
 
 	// Adapter adapter interface
