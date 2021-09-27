@@ -18,6 +18,8 @@
 package zookeeper
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 	"testing"
 )
 
@@ -29,13 +31,25 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+type DemoListener struct {
+}
+
+func (d *DemoListener) OnAddAPI(r router.API) error {
+	return nil
+}
+
+func (d *DemoListener) OnDeleteRouter(r config.Resource) error {
+	return nil
+}
+
 func TestNewZKRegistry(t *testing.T) {
+
 	regConfig := model.Registry{
 		Protocol: "zookeeper",
 		Timeout:  "2s",
 		Address:  "127.0.0.1:9100",
 	}
-	reg, err := newZKRegistry(regConfig)
+	reg, err := newZKRegistry(regConfig, &DemoListener{})
 	assert.Nil(t, err)
 	assert.NotNil(t, reg)
 
@@ -44,7 +58,7 @@ func TestNewZKRegistry(t *testing.T) {
 		Timeout:  "2xxxxxx",
 		Address:  "127.0.0.1:9100",
 	}
-	reg, err = newZKRegistry(regConfig)
+	reg, err = newZKRegistry(regConfig, &DemoListener{})
 	assert.Nil(t, reg)
 	assert.NotNil(t, err)
 
@@ -53,7 +67,7 @@ func TestNewZKRegistry(t *testing.T) {
 		Timeout:  "2s",
 		Address:  "",
 	}
-	reg, err = newZKRegistry(regConfig)
+	reg, err = newZKRegistry(regConfig, &DemoListener{})
 	assert.Nil(t, reg)
 	assert.NotNil(t, err)
 }
