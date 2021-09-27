@@ -103,6 +103,7 @@ func (z *zkIntfListener) watch() {
 		failTimes = 0
 		tickerTTL := defaultTTL
 		ticker := time.NewTicker(tickerTTL)
+		z.handleEvent(z.path)
 	WATCH:
 		for {
 			select {
