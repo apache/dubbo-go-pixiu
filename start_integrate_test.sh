@@ -14,17 +14,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-array=("samples/dubbogo/simple/body")
-array+=("samples/dubbogo/simple/mix")
-array+=("samples/dubbogo/simple/proxy")
-array+=("samples/dubbogo/simple/query")
-array+=("samples/dubbogo/simple/uri")
+#array=("samples/dubbogo/simple/body")
+#array+=("samples/dubbogo/simple/mix")
+#array+=("samples/dubbogo/simple/proxy")
+#array+=("samples/dubbogo/simple/query")
+#array+=("samples/dubbogo/simple/uri")
+array+=("samples/dubbogo/simple/registry")
 
-array+=("samples/dubbogo/http")
 
-#http
-array+=("samples/http/grpc")
-array+=("samples/http/simple")
+
+#array+=("samples/dubbogo/http")
+#
+##http
+#array+=("samples/http/grpc")
+#array+=("samples/http/simple")
 
 for((i=0;i<${#array[*]};i++))
 do
