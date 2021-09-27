@@ -28,10 +28,10 @@ import (
 )
 
 import (
+	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
@@ -43,19 +43,19 @@ type serviceListener struct {
 	path   string
 	client *zookeeper.ZooKeeperClient
 
-	exit      chan struct{}
-	wg        sync.WaitGroup
-	adapterID string
+	exit            chan struct{}
+	wg              sync.WaitGroup
+	adapterListener common2.RegistryEventListener
 }
 
 // newZkSrvListener creates a new zk service listener
-func newZkSrvListener(url *common.URL, path string, client *zookeeper.ZooKeeperClient, adapterID string) *serviceListener {
+func newZkSrvListener(url *common.URL, path string, client *zookeeper.ZooKeeperClient, adapterListener common2.RegistryEventListener) *serviceListener {
 	return &serviceListener{
-		url:       url,
-		path:      path,
-		client:    client,
-		exit:      make(chan struct{}),
-		adapterID: adapterID,
+		url:             url,
+		path:            path,
+		client:          client,
+		exit:            make(chan struct{}),
+		adapterListener: adapterListener,
 	}
 }
 
@@ -115,13 +115,12 @@ func (zkl *serviceListener) WatchAndHandle() {
 
 // whenever it is called, the children node changed and refresh the api configuration.
 func (zkl *serviceListener) handleEvent(children []string) {
-	apiConfigManager := server.GetApiConfigManager()
 
 	if len(children) == 0 {
 		// disable the API
 		bkConf, _, _ := registry.ParseDubboString(zkl.url.String())
 		apiPattern := registry.GetAPIPattern(bkConf)
-		if err := apiConfigManager.DeleteAPI(zkl.adapterID, config.Resource{Path: apiPattern}); err != nil {
+		if err := zkl.adapterListener.OnDeleteRouter(config.Resource{Path: apiPattern}); err != nil {
 			logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), apiPattern)
 		}
 		return
@@ -153,7 +152,7 @@ func (zkl *serviceListener) handleEvent(children []string) {
 	apiPattern := registry.GetAPIPattern(bkConfig)
 	for i := range methods {
 		api := registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams)
-		if err := apiConfigManager.AddAPI(zkl.adapterID, api); err != nil {
+		if err := zkl.adapterListener.OnAddAPI(api); err != nil {
 			logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
 		}
 	}

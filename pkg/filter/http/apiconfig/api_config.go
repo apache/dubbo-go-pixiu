@@ -54,7 +54,6 @@ type (
 	Filter struct {
 		cfg        *ApiConfigConfig
 		apiService api.APIDiscoveryService
-		apiConfig  *fc.APIConfig
 	}
 )
 
@@ -75,18 +74,19 @@ func (f *Filter) Config() interface{} {
 }
 
 func (f *Filter) Apply() error {
+	f.apiService = api.NewLocalMemoryAPIDiscoveryService()
+
+	if f.cfg.Dynamic {
+		server.GetApiConfigManager().AddApiConfigListener(f.cfg.DynamicAdapter, f)
+		return nil
+	}
+
 	config, err := initApiConfig(f.cfg)
 	if err != nil {
 		logger.Errorf("Get ApiConfig fail: %v", err)
 	}
-	f.apiConfig = config
-	f.apiService = api.NewLocalMemoryAPIDiscoveryService()
-	if err := f.apiService.InitAPIsFromConfig(*f.apiConfig); err != nil {
+	if err := f.apiService.InitAPIsFromConfig(*config); err != nil {
 		logger.Errorf("InitAPIsFromConfig fail: %v", err)
-	}
-
-	if f.cfg.Dynamic {
-		server.GetApiConfigManager().AddApiConfigListener(f.cfg.DynamicAdapter, f)
 	}
 
 	return nil

@@ -36,22 +36,29 @@ static_resources:
                 route_config:
                   routes:
                     - match:
-                        prefix: "/api/v1"
+                        prefix: "/"
                       route:
                         cluster: "test-grpc"
                         cluster_not_found_response_code: 505
                 http_filters:
                   - name: dgp.filter.http.apiconfig
                     config:
-                      path: $PROJECT_DIR/pixiu/api_config.yaml
                       dynamic: true
                       dynamic_adapter: test
-                  - name: dgp.filter.http.grpcproxy
+                  - name: dgp.filter.http.dubboproxy
                     config:
-                      path: $PROJECT_DIR/proto
-                  - name: dgp.filter.http.response
-                    config:
-                server_name: "test-http-grpc"
+                      dubboProxyConfig:
+                        registries:
+                          "zookeeper":
+                            protocol: "zookeeper"
+                            timeout: "3s"
+                            address: "127.0.0.1:2181"
+                            username: ""
+                            password: ""
+                        timeout_config:
+                          connect_timeout: 5s
+                          request_timeout: 5s
+                server_name: "test_http_dubbo"
                 generate_request_id: false
       config:
         idle_timeout: 5s
@@ -72,8 +79,12 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
-  adapter:
+  adapters:
     - id: test
       name: dgp.adapter.dubboregistrycenter
       config:
         registries:
+          "zookeeper":
+            protocol: zookeeper
+            address: "127.0.0.1:2181"
+            timeout: "5s"
