@@ -90,6 +90,8 @@ func (zkl *serviceListener) WatchAndHandle() {
 		failTimes = 0
 		tickerTTL := defaultTTL
 		ticker := time.NewTicker(tickerTTL)
+		zkl.handleEvent(children)
+
 	WATCH:
 		for {
 			select {

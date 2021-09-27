@@ -28,9 +28,11 @@ application:
 
 registries:
   "demoServiceDiscovery":
-    protocol: "zookeeper"
-    timeout: "3s"
-    address: "127.0.0.1:2181"
+    protocol: "service-discovery"
+    params:
+      service_discovery: "zk-dis"
+      name_mapping: "in-memory"
+      metadata: "default"
 
 remote:
   zk1:
