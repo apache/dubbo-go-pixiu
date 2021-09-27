@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	baseRegistry "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/base"
 	zk "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
@@ -57,9 +58,9 @@ type ZKRegistry struct {
 
 var _ registry.Registry = new(ZKRegistry)
 
-func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
+func newZKRegistry(regConfig model.Registry, adapterListener common.RegistryEventListener) (registry.Registry, error) {
 	var zkReg = &ZKRegistry{}
-	baseReg := baseRegistry.NewBaseRegistry(zkReg)
+	baseReg := baseRegistry.NewBaseRegistry(zkReg, adapterListener)
 	timeout, err := time.ParseDuration(regConfig.Timeout)
 	if err != nil {
 		return nil, errors.Errorf("Incorrect timeout configuration: %s", regConfig.Timeout)
@@ -77,9 +78,9 @@ func newZKRegistry(regConfig model.Registry) (registry.Registry, error) {
 
 func initZKListeners(reg *ZKRegistry) {
 	reg.zkListeners = make(map[registry.RegisteredType]registry.Listener)
-	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg, reg.AdapterID)
+	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg, reg.AdapterListener)
 	go reg.zkListeners[registry.RegisteredTypeInterface].WatchAndHandle()
-	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg, reg.AdapterID)
+	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg, reg.AdapterListener)
 	go reg.zkListeners[registry.RegisteredTypeApplication].WatchAndHandle()
 }
 
