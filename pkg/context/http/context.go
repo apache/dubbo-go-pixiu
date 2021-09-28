@@ -54,10 +54,10 @@ type HttpContext struct {
 	// happen error
 	Err error
 
-	HttpConnectionManager model.HttpConnectionManager
+	HttpConnectionManager model.HttpConnectionManagerConfig
 	Listener              *model.Listener
 	Route                 *model.RouteAction
-	Api                   router.API
+	Api                   *router.API
 
 	Request   *http.Request
 	writermem responseWriter
@@ -89,7 +89,15 @@ func (hc *HttpContext) Next() {
 // Reset reset http context
 func (hc *HttpContext) Reset() {
 	hc.Writer = &hc.writermem
+	hc.Ctx = nil
 	hc.Index = -1
+	hc.Filters = []FilterFunc{}
+	hc.Route = nil
+	hc.Api = nil
+	hc.Err = nil
+
+	hc.TargetResp = nil
+	hc.SourceResp = nil
 }
 
 // Status set header status code
@@ -244,12 +252,12 @@ func (hc *HttpContext) ResetWritermen(w http.ResponseWriter) {
 // API sets the API to http context
 func (hc *HttpContext) API(api router.API) {
 	hc.Timeout = api.Timeout
-	hc.Api = api
+	hc.Api = &api
 }
 
 // GetAPI get api
 func (hc *HttpContext) GetAPI() *router.API {
-	return &hc.Api
+	return hc.Api
 }
 
 // Abort  filter chain break , filter after the current filter will not executed.

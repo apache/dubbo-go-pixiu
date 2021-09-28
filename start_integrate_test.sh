@@ -23,9 +23,8 @@ array+=("samples/dubbogo/simple/uri")
 array+=("samples/dubbogo/http")
 
 #http
+array+=("samples/http/grpc")
 array+=("samples/http/simple")
-
-
 
 for((i=0;i<${#array[*]};i++))
 do

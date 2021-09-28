@@ -8,6 +8,7 @@ vendor/
 pkg/registry/zookeeper-4unittest/contrib/fatjar
 coverage.txt
 
+*.iml
 
 *.exe
 test
