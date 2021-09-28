@@ -37,16 +37,16 @@ import (
 
 // HttpConnectionManager network filter for http
 type HttpConnectionManager struct {
-	config            *model.HttpConnectionManager
+	config            *model.HttpConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *filter.FilterManager
 }
 
 // CreateHttpConnectionManager create http connection manager
-func CreateHttpConnectionManager(hcmc *model.HttpConnectionManager, bs *model.Bootstrap, listenerName string) *HttpConnectionManager {
+func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *model.Bootstrap) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(hcmc)
-	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters, listenerName)
+	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
 	hcm.filterManager.Load()
 	return hcm
 }

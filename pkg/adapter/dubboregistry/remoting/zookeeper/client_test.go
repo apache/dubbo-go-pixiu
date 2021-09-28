@@ -142,10 +142,10 @@ wait:
 			assert.Equal(t, children[0], "testchild2")
 
 			children, err = zkClient.GetChildren("/vacancy")
-			assert.EqualError(t, err, "path{/vacancy} does not exist")
+			assert.EqualError(t, err, "path{/vacancy} does not exist: node does not exist")
 			assert.Nil(t, children)
 			children, err = zkClient.GetChildren("/test/testchild1")
-			assert.EqualError(t, err, "path{/test/testchild1} has none children")
+			assert.EqualError(t, err, "has none children")
 			assert.Empty(t, children)
 			zkClient.conn.Close()
 		}

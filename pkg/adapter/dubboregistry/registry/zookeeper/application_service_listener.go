@@ -20,8 +20,6 @@ package zookeeper
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/global"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +35,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
@@ -47,22 +46,22 @@ var _ registry.Listener = new(applicationServiceListener)
 
 // applicationServiceListener normally monitors the /services/[:application]
 type applicationServiceListener struct {
-	urls        []interface{}
-	servicePath string
-	client      *zookeeper.ZooKeeperClient
-	boundedListener string
+	urls            []interface{}
+	servicePath     string
+	client          *zookeeper.ZooKeeperClient
+	adapterListener common.RegistryEventListener
 
 	exit chan struct{}
 	wg   sync.WaitGroup
 }
 
 // newApplicationServiceListener creates a new zk service listener
-func newApplicationServiceListener(path string, client *zookeeper.ZooKeeperClient, boundedListener string) *applicationServiceListener {
+func newApplicationServiceListener(path string, client *zookeeper.ZooKeeperClient, adapterListener common.RegistryEventListener) *applicationServiceListener {
 	return &applicationServiceListener{
-		servicePath: path,
-		client:      client,
-		exit:        make(chan struct{}),
-		boundedListener: boundedListener,
+		servicePath:     path,
+		client:          client,
+		exit:            make(chan struct{}),
+		adapterListener: adapterListener,
 	}
 }
 
@@ -123,17 +122,15 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 }
 
 func (asl *applicationServiceListener) handleEvent(children []string) {
-	filter := global.GetGlobalFilterManager(asl.boundedListener).GetFilters()[constant.HTTPApiConfigFilter]
-	localAPIDiscSrv := filter.(*apiconfig.Filter).GetAPIService()
 	children, err := asl.client.GetChildren(asl.servicePath)
-
 	if err != nil {
 		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", asl.servicePath, err.Error())
 		// disable the API
 		for _, url := range asl.urls {
 			bkConf, _, _ := registry.ParseDubboString(url.(string))
 			apiPattern := registry.GetAPIPattern(bkConf)
-			if err := localAPIDiscSrv.RemoveAPIByPath(config.Resource{Path: apiPattern}); err != nil {
+
+			if err := asl.adapterListener.OnDeleteRouter(config.Resource{Path: apiPattern}); err != nil {
 				logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), apiPattern)
 			}
 		}
@@ -169,7 +166,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 		}
 		for i := range methods {
 			api := registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams)
-			if err := localAPIDiscSrv.AddAPI(api); err != nil {
+			if err := asl.adapterListener.OnAddAPI(api); err != nil {
 				logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
 			}
 		}

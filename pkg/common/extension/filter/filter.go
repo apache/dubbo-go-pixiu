@@ -59,7 +59,7 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 		// CreateFilterFactory return the filter callback
-		CreateFilter(config interface{}, bs *model.Bootstrap, listenerName string) (NetworkFilter, error)
+		CreateFilter(config interface{}, bs *model.Bootstrap) (NetworkFilter, error)
 	}
 
 	// NetworkFilter describe network filter

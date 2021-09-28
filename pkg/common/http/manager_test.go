@@ -89,7 +89,7 @@ func (f *DemoFilter) Apply() error {
 func TestCreateHttpConnectionManager(t *testing.T) {
 	filter.RegisterHttpFilter(&Plugin{})
 
-	hcmc := model.HttpConnectionManager{
+	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
 			Routes: []*model.Router{
 				{
