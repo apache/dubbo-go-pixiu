@@ -23,32 +23,23 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+
 	"github.com/stretchr/testify/assert"
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/context"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func TestBuildContext(t *testing.T) {
-	extension.SetFilterFunc("a", func(ctx fc.Context) { ctx.Next() })
-	extension.SetFilterFunc("b", func(ctx fc.Context) { ctx.Next() })
-	extension.SetFilterFunc("c", func(ctx fc.Context) { ctx.Next() })
-	extension.SetFilterFunc(constant.RemoteCallFilter, func(ctx fc.Context) { ctx.Next() })
-	ctx := HttpContext{
-		FilterChains: []model.FilterChain{},
-		BaseContext:  context.NewBaseContext(),
-	}
+	ctx := HttpContext{}
 	ctx.API(mock.GetMockAPI(config.MethodPost, "/mock/test", "a", "b", "c"))
-	ctx.BuildFilters()
+	ctx.AppendFilterFunc(func(c *HttpContext) {
+		c.Next()
+	})
+	ctx.AppendFilterFunc(func(c *HttpContext) {
+		c.Next()
+	})
 
-	assert.Equal(t, len(ctx.Filters), 3)
+	assert.Equal(t, len(ctx.Filters), 2)
 }
