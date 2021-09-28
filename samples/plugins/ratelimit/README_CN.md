@@ -29,12 +29,14 @@ resources:
 
 - 第二步，设置限流的规则，例如上限设置为100，统计周期为1000ms，这意味着这个`资源`的qps/tps最高只能达到100。
 ```
-rules:
-  #qps sample At most 100 requests can be passed in 1000ms, so qps is 100
-  - resource: "test-dubbo"
-    enable: true
-    threshold: 100
-    statintervalinms: 1000
+  rules:
+    #qps sample At most 100 requests can be passed in 1000ms, so qps is 100
+    - enable: true
+      flowRule:
+        #the resource's name
+        resource: "test-http"
+        threshold: 100
+        statintervalinms: 1000
 ```
 
 ### 测试:
