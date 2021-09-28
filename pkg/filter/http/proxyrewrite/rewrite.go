@@ -45,7 +45,7 @@ type (
 	}
 	Config struct {
 		UriRegex []string          `yaml:"uri_regex" json:"uri_regex"`
-		headers  map[string]string `yaml:"headers" json:"headers"`
+		Headers  map[string]string `yaml:"headers" json:"headers"`
 	}
 )
 
@@ -80,8 +80,8 @@ func (f *Filter) Handle(c *contexthttp.HttpContext) {
 		logger.Infof("proxy rewrite filter change url from %s to %s", url, newUrl)
 		c.SetUrl(newUrl)
 	}
-	if len(f.cfg.headers) > 0 {
-		for k, v := range f.cfg.headers {
+	if len(f.cfg.Headers) > 0 {
+		for k, v := range f.cfg.Headers {
 			logger.Infof("proxy rewrite filter add header  key %s and value %s", k, v)
 			c.AddHeader(k, v)
 		}
