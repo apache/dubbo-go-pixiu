@@ -33,7 +33,7 @@ import (
 )
 
 func TestMetric(t *testing.T) {
-	filter := &MetricFilter{}
+	filter := &Filter{}
 	err := filter.Apply()
 	assert.Nil(t, err)
 

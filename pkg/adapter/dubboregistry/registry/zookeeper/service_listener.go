@@ -21,17 +21,16 @@ import (
 	"sync"
 	"time"
 )
+
 import (
 	"github.com/apache/dubbo-go/common"
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
 import (
+	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/global"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
@@ -44,19 +43,19 @@ type serviceListener struct {
 	path   string
 	client *zookeeper.ZooKeeperClient
 
-	exit chan struct{}
-	wg   sync.WaitGroup
-	boundedListener string
+	exit            chan struct{}
+	wg              sync.WaitGroup
+	adapterListener common2.RegistryEventListener
 }
 
 // newZkSrvListener creates a new zk service listener
-func newZkSrvListener(url *common.URL, path string, client *zookeeper.ZooKeeperClient, boundedListener string) *serviceListener {
+func newZkSrvListener(url *common.URL, path string, client *zookeeper.ZooKeeperClient, adapterListener common2.RegistryEventListener) *serviceListener {
 	return &serviceListener{
-		url:    url,
-		path:   path,
-		client: client,
-		exit:   make(chan struct{}),
-		boundedListener: boundedListener,
+		url:             url,
+		path:            path,
+		client:          client,
+		exit:            make(chan struct{}),
+		adapterListener: adapterListener,
 	}
 }
 
@@ -91,6 +90,8 @@ func (zkl *serviceListener) WatchAndHandle() {
 		failTimes = 0
 		tickerTTL := defaultTTL
 		ticker := time.NewTicker(tickerTTL)
+		zkl.handleEvent(children)
+
 	WATCH:
 		for {
 			select {
@@ -116,14 +117,12 @@ func (zkl *serviceListener) WatchAndHandle() {
 
 // whenever it is called, the children node changed and refresh the api configuration.
 func (zkl *serviceListener) handleEvent(children []string) {
-	filter := global.GetGlobalFilterManager(zkl.boundedListener).GetFilters()[constant.HTTPApiConfigFilter]
-	localAPIDiscSrv := filter.(*apiconfig.Filter).GetAPIService()
 
 	if len(children) == 0 {
 		// disable the API
 		bkConf, _, _ := registry.ParseDubboString(zkl.url.String())
 		apiPattern := registry.GetAPIPattern(bkConf)
-		if err := localAPIDiscSrv.RemoveAPIByPath(config.Resource{Path: apiPattern}); err != nil {
+		if err := zkl.adapterListener.OnDeleteRouter(config.Resource{Path: apiPattern}); err != nil {
 			logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), apiPattern)
 		}
 		return
@@ -155,7 +154,7 @@ func (zkl *serviceListener) handleEvent(children []string) {
 	apiPattern := registry.GetAPIPattern(bkConfig)
 	for i := range methods {
 		api := registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams)
-		if err := localAPIDiscSrv.AddAPI(api); err != nil {
+		if err := zkl.adapterListener.OnAddAPI(api); err != nil {
 			logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
 		}
 	}

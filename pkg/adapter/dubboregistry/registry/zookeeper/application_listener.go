@@ -36,6 +36,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
@@ -50,23 +51,23 @@ const (
 var _ registry.Listener = new(zkAppListener)
 
 type zkAppListener struct {
-	servicesPath string
-	exit         chan struct{}
-	client       *zookeeper.ZooKeeperClient
-	reg          *ZKRegistry
-	wg           sync.WaitGroup
-	boundedListener string
+	servicesPath    string
+	exit            chan struct{}
+	client          *zookeeper.ZooKeeperClient
+	reg             *ZKRegistry
+	wg              sync.WaitGroup
+	adapterListener common.RegistryEventListener
 }
 
 // newZkAppListener returns a new newZkAppListener with pre-defined servicesPath according to the registered type.
-func newZkAppListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry, boundedListener string) registry.Listener {
+func newZkAppListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry, adapterListener common.RegistryEventListener) registry.Listener {
 	p := defaultServicesPath
 	return &zkAppListener{
-		servicesPath: p,
-		exit:         make(chan struct{}),
-		client:       client,
-		reg:          reg,
-		boundedListener: boundedListener,
+		servicesPath:    p,
+		exit:            make(chan struct{}),
+		client:          client,
+		reg:             reg,
+		adapterListener: adapterListener,
 	}
 }
 
@@ -146,7 +147,7 @@ func (z *zkAppListener) handleEvent(children []string) {
 		if z.reg.GetSvcListener(serviceName) != nil {
 			continue
 		}
-		l := newApplicationServiceListener(serviceName, z.client)
+		l := newApplicationServiceListener(serviceName, z.client, z.adapterListener)
 		l.wg.Add(1)
 		go l.WatchAndHandle()
 		z.reg.SetSvcListener(serviceName, l)

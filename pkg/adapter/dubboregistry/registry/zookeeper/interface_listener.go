@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -42,23 +43,23 @@ const (
 var _ registry.Listener = new(zkIntfListener)
 
 type zkIntfListener struct {
-	path   string
-	exit   chan struct{}
-	client *zookeeper.ZooKeeperClient
-	reg    *ZKRegistry
-	wg     sync.WaitGroup
-	boundedListener string
+	path            string
+	exit            chan struct{}
+	client          *zookeeper.ZooKeeperClient
+	reg             *ZKRegistry
+	wg              sync.WaitGroup
+	adapterListener common2.RegistryEventListener
 }
 
 // newZKIntfListener returns a new zkIntfListener with pre-defined path according to the registered type.
-func newZKIntfListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry, pixiuListener string) registry.Listener {
+func newZKIntfListener(client *zookeeper.ZooKeeperClient, reg *ZKRegistry, adapterListener common2.RegistryEventListener) registry.Listener {
 	p := rootPath
 	return &zkIntfListener{
-		path:   p,
-		exit:   make(chan struct{}),
-		client: client,
-		reg:    reg,
-		boundedListener: pixiuListener,
+		path:            p,
+		exit:            make(chan struct{}),
+		client:          client,
+		reg:             reg,
+		adapterListener: adapterListener,
 	}
 }
 
@@ -102,6 +103,7 @@ func (z *zkIntfListener) watch() {
 		failTimes = 0
 		tickerTTL := defaultTTL
 		ticker := time.NewTicker(tickerTTL)
+		z.handleEvent(z.path)
 	WATCH:
 		for {
 			select {
@@ -149,7 +151,7 @@ func (z *zkIntfListener) handleEvent(basePath string) {
 		if z.reg.GetSvcListener(srvUrl.ServiceKey()) != nil {
 			continue
 		}
-		l := newZkSrvListener(srvUrl, providerPath, z.client, z.boundedListener)
+		l := newZkSrvListener(srvUrl, providerPath, z.client, z.adapterListener)
 		l.wg.Add(1)
 		go l.WatchAndHandle()
 		z.reg.SetSvcListener(srvUrl.ServiceKey(), l)
