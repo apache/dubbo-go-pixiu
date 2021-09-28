@@ -51,7 +51,9 @@ type (
 		cfg *Config
 	}
 	// Config describe the config of Filter
-	Config struct{}
+	Config struct {
+		client *http3.Client
+	}
 )
 
 func (p *Plugin) Kind() string {
@@ -59,7 +61,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}}, nil
+	return &Filter{cfg: &Config{client: &http3.Client{}}}, nil
 }
 
 func (f *Filter) Config() interface{} {
@@ -133,7 +135,7 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 	req.Header = r.Header
 
 	errPrefix = "do request"
-	resp, err := http3.DefaultClient.Do(req)
+	resp, err := f.cfg.client.Do(req)
 	if err != nil {
 		panic(err)
 	}
