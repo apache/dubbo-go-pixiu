@@ -69,7 +69,7 @@ type DynamicResources struct{}
 type ShutdownConfig struct {
 	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
 	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
-	RejectPolicy string `yaml:"reject_policy" json:"reject_policy,omitempty"`
+	RejectPolicy string `default:"immediacy" yaml:"reject_policy" json:"reject_policy,omitempty"`
 }
 
 // APIMetaConfig how to find api config, file or etcd etc.
@@ -80,6 +80,6 @@ type APIMetaConfig struct {
 
 // TimeoutConfig the config of ConnectTimeout and RequestTimeout
 type TimeoutConfig struct {
-	ConnectTimeoutStr string `yaml:"connect_timeout" json:"connect_timeout,omitempty"` // ConnectTimeout timeout for connect to cluster node
-	RequestTimeoutStr string `yaml:"request_timeout" json:"request_timeout,omitempty"`
+	ConnectTimeoutStr string `default:"5s" yaml:"connect_timeout" json:"connect_timeout,omitempty"` // ConnectTimeout timeout for connect to cluster node
+	RequestTimeoutStr string `default:"10s" yaml:"request_timeout" json:"request_timeout,omitempty"`
 }

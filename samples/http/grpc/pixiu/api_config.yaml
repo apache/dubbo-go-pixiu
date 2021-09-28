@@ -1,4 +1,3 @@
-#! /bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,13 +16,34 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-
-args=$1
-
-PROJECT_HOME=`pwd`
-PROJECT_HOME=${PROJECT_HOME}"/"
-
-export CONF_CONSUMER_FILE_PATH=${PROJECT_HOME}"conf/client.yml"
-export APP_LOG_CONF_FILE=${PROJECT_HOME}"conf/log.yml"
-
-./dubbo-go-pixiu gateway start ${args}
+name: pixiu
+description: pixiu sample
+resources:
+  - path: '/api/v1/provider.UserProvider/GetUser'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: GET
+        enable: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: grpc
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_grpc"
+  - path: '/api/v1/provider.UserProvider/GetUser'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: POST
+        enable: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: grpc
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_grpc"

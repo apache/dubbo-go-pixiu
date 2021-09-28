@@ -30,6 +30,7 @@ import (
 )
 
 import (
+	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -41,7 +42,7 @@ const (
 	RegisteredTypeInterface
 )
 
-var registryMap = make(map[string]func(model.Registry) (Registry, error), 8)
+var registryMap = make(map[string]func(model.Registry, common2.RegistryEventListener) (Registry, error), 8)
 
 func (t *RegisteredType) String() string {
 	return []string{"application", "interface"}[*t]
@@ -53,20 +54,18 @@ type Registry interface {
 	Subscribe() error
 	// Unsubscribe stops monitoring the target registry.
 	Unsubscribe() error
-	// SetPixiuListenerName set the name of the listener so that it could find corresponding Pixiu listener to modify filter configs
-	SetPixiuListenerName(listenerName string)
 }
 
 // SetRegistry will store the registry by name
-func SetRegistry(name string, newRegFunc func(model.Registry) (Registry, error)) {
+func SetRegistry(name string, newRegFunc func(model.Registry, common2.RegistryEventListener) (Registry, error)) {
 	registryMap[name] = newRegFunc
 }
 
 // GetRegistry will return the registry
 // if not found, it will panic
-func GetRegistry(name string, regConfig model.Registry) (Registry, error) {
+func GetRegistry(name string, regConfig model.Registry, listener common2.RegistryEventListener) (Registry, error) {
 	if registry, ok := registryMap[name]; ok {
-		reg, err := registry(regConfig)
+		reg, err := registry(regConfig, listener)
 		if err != nil {
 			panic("Initialize Registry" + name + "failed due to: " + err.Error())
 		}
