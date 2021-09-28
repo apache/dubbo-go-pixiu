@@ -19,6 +19,7 @@
 * [Response](user/response.md)
 * [Api Model](user/api.md)
 * [Installation](user/installation.md)
+* [Metric](user/metric.md)
 
 ## [Developer Guide](developer/README.md)
 
