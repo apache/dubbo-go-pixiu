@@ -43,7 +43,7 @@ func (d *DemoAdapterPlugin) Kind() string {
 	return "test"
 }
 
-func (p *DemoAdapterPlugin) CreateAdapter(config interface{}, bs *model.Bootstrap) (Adapter, error) {
+func (p *DemoAdapterPlugin) CreateAdapter(a *model.Adapter, bs *model.Bootstrap) (Adapter, error) {
 	return &DemoAdapter{cfg: &Config{}}, nil
 }
 
