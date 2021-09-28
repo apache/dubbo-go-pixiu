@@ -63,12 +63,12 @@ func (cm *ClusterManager) UpdateCluster(new *model.Cluster) {
 	cm.store.UpdateCluster(new)
 }
 
-func (cm *ClusterManager) AddEndpoint(clusterName string, endpoint *model.Endpoint) {
+func (cm *ClusterManager) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
 	cm.store.IncreaseVersion()
-	cm.store.AddEndpoint(clusterName, endpoint)
+	cm.store.SetEndpoint(clusterName, endpoint)
 }
 
 func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) {
@@ -143,14 +143,16 @@ func (s *ClusterStore) UpdateCluster(new *model.Cluster) {
 	logger.Warnf("not found modified cluster %s", new.Name)
 }
 
-func (s *ClusterStore) AddEndpoint(clusterName string, endpoint *model.Endpoint) {
+func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
 
 	for _, c := range s.Config {
 		if c.Name == clusterName {
 			for _, e := range c.Endpoints {
 				// endpoint update
 				if e.ID == endpoint.ID {
-
+					e.Name = endpoint.Name
+					e.Metadata = endpoint.Metadata
+					e.Address = endpoint.Address
 					return
 				}
 			}

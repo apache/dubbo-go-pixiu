@@ -18,8 +18,8 @@
 package servicediscovery
 
 import (
+	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go/common/observer"
 )
 
 type (
@@ -37,6 +37,13 @@ type (
 		Metadata map[string]string
 	}
 
+	ServiceEventListener interface {
+		OnAddServiceInstance(r *ServiceInstance)
+		OnDeleteServiceInstance(r *ServiceInstance)
+		OnUpdateServiceInstance(r *ServiceInstance)
+		GetServiceNames() []string
+	}
+
 	ServiceDiscovery interface {
 		// 直接向远程注册中心查询所有服务实例
 		QueryAllServices() ([]ServiceInstance, error)
@@ -49,17 +56,14 @@ type (
 		// 取消注册自己
 		UnRegister() error
 
-		AddListener(string)
-
-		Stop() error
-	}
-
-	ServiceInstancesChangedListener interface {
-		// OnEvent on ServiceInstancesChangedEvent the service instances change event
-		OnEvent(e observer.Event) error
-		GetServiceNames() []string
+		Subscribe() error
+		Unsubscribe() error
 	}
 )
+
+func (i *ServiceInstance) GetUniqKey() string {
+	return i.ServiceName + i.Host + fmt.Sprint(i.Port)
+}
 
 // ToEndpoint
 func (i *ServiceInstance) ToEndpoint() *model.Endpoint {
