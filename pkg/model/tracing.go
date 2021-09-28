@@ -19,7 +19,9 @@ package model
 
 // Tracing
 type Tracing struct {
-	Http Http `yaml:"http" json:"http,omitempty"`
+	Http Http   `yaml:"http" json:"http,omitempty"`
+	URL  string `yaml:"url" json:"url,omitempty"`
+	Type string `yaml:"type" json:"type,omitempty"`
 }
 
 // Tracing
