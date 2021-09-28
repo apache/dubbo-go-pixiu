@@ -39,7 +39,9 @@ type (
 
 	ServiceDiscovery interface {
 		// 直接向远程注册中心查询所有服务实例
-		QueryServices() ([]ServiceInstance, error)
+		QueryAllServices() ([]ServiceInstance, error)
+
+		QueryServicesByName(serviceNames []string) ([]ServiceInstance, error)
 
 		// 注册自己
 		Register() error
@@ -55,6 +57,7 @@ type (
 	ServiceInstancesChangedListener interface {
 		// OnEvent on ServiceInstancesChangedEvent the service instances change event
 		OnEvent(e observer.Event) error
+		GetServiceNames() []string
 	}
 )
 
