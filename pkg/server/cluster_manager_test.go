@@ -58,7 +58,7 @@ func TestClusterManager(t *testing.T) {
 
 	assert.Equal(t, len(cm.cConfig), 2)
 
-	cm.AddEndpoint("test2", &model.Endpoint{
+	cm.SetEndpoint("test2", &model.Endpoint{
 		Address: model.SocketAddress{},
 		ID:      "2",
 	})

@@ -22,7 +22,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>dubbogo-pxiu</groupId>
-    <artifactId>spring-cloud-nacos</artifactId>
+    <artifactId>spring-cloud-user-service</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
