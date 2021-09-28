@@ -29,16 +29,30 @@ import (
 )
 
 type consulServiceDiscovery struct {
+	targetService     []string
 	client            *api.Client
 	config            *model.RemoteConfig
 	registryInstances []servicediscovery.ServiceInstance
+	listener          servicediscovery.ServiceEventListener
 }
 
-func (c *consulServiceDiscovery) AddListener(s string) {
+func (c *consulServiceDiscovery) QueryAllServices() ([]servicediscovery.ServiceInstance, error) {
 	panic("implement me")
 }
 
-func (c *consulServiceDiscovery) Stop() error {
+func (c *consulServiceDiscovery) QueryServicesByName(serviceNames []string) ([]servicediscovery.ServiceInstance, error) {
+	panic("implement me")
+}
+
+func (c *consulServiceDiscovery) Subscribe() error {
+	panic("implement me")
+}
+
+func (c *consulServiceDiscovery) Unsubscribe() error {
+	panic("implement me")
+}
+
+func (c *consulServiceDiscovery) AddListener(s string) {
 	panic("implement me")
 }
 
@@ -82,10 +96,10 @@ func (c *consulServiceDiscovery) UnRegister() error {
 }
 
 // NewConsulServiceDiscovery
-func NewConsulServiceDiscovery(config *model.RemoteConfig) (servicediscovery.ServiceDiscovery, error) {
+func NewConsulServiceDiscovery(targetService []string, config *model.RemoteConfig, l servicediscovery.ServiceEventListener) (servicediscovery.ServiceDiscovery, error) {
 	client, err := consul.NewConsulClient(config)
 	if err != nil {
 		return nil, err
 	}
-	return &consulServiceDiscovery{client: client, config: config}, nil
+	return &consulServiceDiscovery{targetService: targetService, client: client, config: config, listener: l}, nil
 }

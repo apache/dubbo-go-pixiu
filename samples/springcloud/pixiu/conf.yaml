@@ -63,9 +63,10 @@ static_resources:
     - id: "springcloud"
       name: "dgp.adapter.springcloud"
       config:
-        freshInterval: 20s # 刷新配置时间
-        services:
-          - service_provider
+        freshInterval: 60s # 刷新配置时间
+#        services:
+#          - user-service
+#          - auth-service
         registry:
           name: naocs
           protocol: nacos
