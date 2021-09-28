@@ -18,64 +18,36 @@
 package context
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-import (
-	"context"
-	"math"
-	"time"
+type (
 
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	// Context run context
+	Context interface {
+		Next()
+		Abort()
+		AbortWithError(string, error)
+
+		Status(code int)
+		StatusCode() int
+		WriteWithStatus(int, []byte) (int, error)
+		Write([]byte) (int, error)
+		AddHeader(k, v string)
+		GetHeader(k string) string
+		GetUrl() string
+		GetMethod() string
+
+		BuildFilters()
+
+		GetRouteEntry() *model.RouteAction
+		SetRouteEntry(ra *model.RouteAction)
+		GetClientIP() string
+		GetApplicationName() string
+
+		WriteErr(p interface{})
+
+		Request()
+		Response()
+	}
 )
-
-const abortIndex int8 = math.MaxInt8 / 2
-
-// BaseContext
-type BaseContext struct {
-	fc.Context
-	Index   int8
-	Filters fc.FilterChain
-	Timeout time.Duration
-	Ctx     context.Context
-
-	// the response context will return.
-	TargetResp *client.Response
-	// client call response.
-	SourceResp interface{}
-	// happen error
-	Err error
-}
-
-// NewBaseContext create base context.
-func NewBaseContext() *BaseContext {
-	return &BaseContext{Index: -1}
-}
-
-// Next should be used only inside middleware.
-// It executes the pending handlers in the chain inside the calling handler.
-// See example in GitHub.
-func (c *BaseContext) Next() {
-	c.Index++
-	for c.Index < int8(len(c.Filters)) {
-		c.Filters[c.Index](c)
-		c.Index++
-	}
-}
-
-// Abort  filter chain break , filter after the current filter will not executed.
-func (c *BaseContext) Abort() {
-	c.Index = abortIndex
-}
-
-// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
-func (c *BaseContext) AbortWithError(message string, err error) {
-	c.Abort()
-}
-
-// AppendFilterFunc  append filter func.
-func (c *BaseContext) AppendFilterFunc(ff ...fc.FilterFunc) {
-	for _, v := range ff {
-		c.Filters = append(c.Filters, v)
-	}
-}
