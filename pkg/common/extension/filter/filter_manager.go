@@ -18,7 +18,6 @@
 package filter
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/global"
 	"sync"
 )
 
@@ -41,9 +40,8 @@ type FilterManager struct {
 }
 
 // NewFilterManager create filter manager
-func NewFilterManager(fs []*model.HTTPFilter, listenerName string) *FilterManager {
+func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
 	fm := &FilterManager{filterConfigs: fs, filters: make(map[string]HttpFilter)}
-	global.RegisterGlobalFilterManager(listenerName, fm)
 	return fm
 }
 
@@ -60,18 +58,18 @@ func (fm *FilterManager) GetFilters() map[string]HttpFilter {
 	return fm.filters
 }
 
-// Load load the filter from config
+// Load the filter from config
 func (fm *FilterManager) Load() {
 	fm.ReLoad(fm.filterConfigs)
 }
 
-// ReLoad reload filter configs
+// ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	tmp := make(map[string]HttpFilter)
 	for _, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
-			logger.Errorf("apply [%s] init fail, %s", err)
+			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
 		}
 		tmp[f.Name] = apply
 	}

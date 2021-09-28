@@ -64,9 +64,9 @@ func (ls *ListenerService) GetNetworkFilter() filter.NetworkFilter {
 func (ls *ListenerService) Start() {
 	sa := ls.cfg.Address.SocketAddress
 	switch sa.Protocol {
-	case model.HTTP:
+	case model.ProtocolTypeHTTP:
 		ls.httpListener()
-	case model.HTTPS:
+	case model.ProtocolTypeHTTPS:
 		ls.httpsListener()
 	default:
 		panic("unsupported protocol start: " + sa.ProtocolStr)
@@ -189,11 +189,11 @@ func resolveAddress(addr string) string {
 	return addr
 }
 
-func findHttpManager(l *model.Listener) *model.HttpConnectionManager {
+func findHttpManager(l *model.Listener) *model.HttpConnectionManagerConfig {
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == constant.HTTPConnectManagerFilter {
-				hcmc := &model.HttpConnectionManager{}
+				hcmc := &model.HttpConnectionManagerConfig{}
 				if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
 					return nil
 				}
@@ -213,7 +213,7 @@ func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *filter.NetworkF
 	}
 
 	hcmc := findHttpManager(lc)
-	hcm, err := p.CreateFilter(hcmc, bs, lc.Name)
+	hcm, err := p.CreateFilter(hcmc, bs)
 	if err != nil {
 		panic(err)
 	}

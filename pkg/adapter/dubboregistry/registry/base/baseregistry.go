@@ -1,9 +1,9 @@
 package baseregistry
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"sync"
-	//"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 type FacadeRegistry interface {
@@ -51,23 +51,19 @@ func (s *SvcListeners) GetAllListener() map[string]registry.Listener {
 }
 
 type BaseRegistry struct {
-	PixiuListenerName string
-	svcListeners      *SvcListeners
-	facadeRegistry    FacadeRegistry
+	svcListeners    *SvcListeners
+	facadeRegistry  FacadeRegistry
+	AdapterListener common.RegistryEventListener
 }
 
-func NewBaseRegistry(facade FacadeRegistry) *BaseRegistry {
+func NewBaseRegistry(facade FacadeRegistry, adapterListener common.RegistryEventListener) *BaseRegistry {
 	return &BaseRegistry{
 		facadeRegistry: facade,
 		svcListeners: &SvcListeners{
 			listeners: make(map[string]registry.Listener),
 		},
+		AdapterListener: adapterListener,
 	}
-}
-
-// SetPixiuListenerName
-func (r *BaseRegistry) SetPixiuListenerName(name string) {
-	r.PixiuListenerName = name
 }
 
 // GetSvcListener returns existing listener or nil

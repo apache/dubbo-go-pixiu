@@ -23,9 +23,11 @@ import (
 	// http filters
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/cors"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/grpcproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/httpproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
@@ -33,5 +35,6 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 
 	// adapter
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
 )

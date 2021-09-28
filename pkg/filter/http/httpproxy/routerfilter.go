@@ -18,13 +18,10 @@
 package httpproxy
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
 	http3 "net/http"
 	"net/url"
-	"time"
 )
 
 import (
@@ -41,72 +38,44 @@ const (
 	Kind = constant.HTTPProxyFilter
 )
 
-// All RemoteFilter instances use one globalClient in order to reuse
-// some resources such as keepalive connections.
-var globalClient = &http3.Client{
-	// NOTE: Timeout could be no limit, real client or server could cancel it.
-	Timeout: 0,
-	Transport: &http3.Transport{
-		Proxy: http3.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 60 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		TLSClientConfig: &tls.Config{
-			// NOTE: Could make it an paramenter,
-			// when the requests need cross WAN.
-			InsecureSkipVerify: true,
-		},
-		DisableCompression: false,
-		// NOTE: The large number of Idle Connections can
-		// reduce overhead of building connections.
-		MaxIdleConns:          10240,
-		MaxIdleConnsPerHost:   512,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	},
-}
-
 func init() {
-	filter.RegisterHttpFilter(&RouterPlugin{})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
-	// RouterPlugin is http filter plugin.
-	RouterPlugin struct {
+	// Plugin is http filter plugin.
+	Plugin struct {
 	}
-	// RouterFilter is http filter instance
-	RouterFilter struct {
+	// Filter is http filter instance
+	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of RouterFilter
+	// Config describe the config of Filter
 	Config struct{}
 )
 
-func (rp *RouterPlugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (rp *RouterPlugin) CreateFilter() (filter.HttpFilter, error) {
-	return &RouterFilter{cfg: &Config{}}, nil
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{cfg: &Config{}}, nil
 }
 
-func (rf *RouterFilter) Config() interface{} {
-	return rf.cfg
+func (f *Filter) Config() interface{} {
+	return f.cfg
 }
 
-func (rf *RouterFilter) Apply() error {
+func (f *Filter) Apply() error {
 	return nil
 }
 
-func (rf *RouterFilter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(rf.Handle)
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (rf *RouterFilter) Handle(hc *http.HttpContext) {
+func (f *Filter) Handle(hc *http.HttpContext) {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
@@ -164,7 +133,7 @@ func (rf *RouterFilter) Handle(hc *http.HttpContext) {
 	req.Header = r.Header
 
 	errPrefix = "do request"
-	resp, err := globalClient.Do(req)
+	resp, err := http3.DefaultClient.Do(req)
 	if err != nil {
 		panic(err)
 	}
