@@ -18,18 +18,19 @@
 package config
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"io/ioutil"
 	"log"
 	"path/filepath"
 )
 
 import (
+	"github.com/creasty/defaults"
 	"github.com/ghodss/yaml"
 	"github.com/goinggo/mapstructure"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -86,6 +87,9 @@ func LoadYAMLConfig(path string) *model.Bootstrap {
 	if err != nil {
 		log.Fatalln("[config] [yaml load] convert YAML to JSON failed, ", err)
 	}
+	if err = defaults.Set(cfg); err != nil {
+		log.Fatalln("[config] [yaml load] initialize structs with default value failed, ", err)
+	}
 	err = Adapter(cfg)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] yaml unmarshal config failed, ", err)
@@ -94,7 +98,7 @@ func LoadYAMLConfig(path string) *model.Bootstrap {
 }
 
 func Adapter(cfg *model.Bootstrap) (err error) {
-	if GetFilterChain(cfg) != nil || GetHttpConfig(cfg) != nil || GetProtocol(cfg) != nil ||
+	if GetHttpConfig(cfg) != nil || GetProtocol(cfg) != nil ||
 		GetLoadBalance(cfg) != nil || GetDiscoveryType(cfg) != nil {
 		return err
 	}
@@ -124,40 +128,13 @@ func GetHttpConfig(cfg *model.Bootstrap) (err error) {
 		hc := &model.HttpConfig{}
 		if l.Config != nil {
 			if v, ok := l.Config.(map[string]interface{}); ok {
+				logger.Info("http config:", v, ok)
 				switch l.Name {
 				case constant.DefaultHTTPType:
 					if err := mapstructure.Decode(v, hc); err != nil {
 						logger.Error(err)
 					}
 					cfg.StaticResources.Listeners[i].Config = *hc
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func GetFilterChain(cfg *model.Bootstrap) (err error) {
-	if cfg == nil {
-		logger.Error("Bootstrap configuration is null")
-		return err
-	}
-	for _, l := range cfg.StaticResources.Listeners {
-		for _, fc := range l.FilterChains {
-			if fc.Filters != nil {
-				for i, fcf := range fc.Filters {
-					hcm := &model.HttpConnectionManager{}
-					if fcf.Config != nil {
-						switch fcf.Name {
-						case constant.DefaultFilterType:
-							if v, ok := fcf.Config.(map[string]interface{}); ok {
-								if err := mapstructure.Decode(v, hcm); err != nil {
-									logger.Error(err)
-								}
-								fc.Filters[i].Config = *hcm
-							}
-						}
-					}
 				}
 			}
 		}
@@ -183,7 +160,7 @@ func GetLoadBalance(cfg *model.Bootstrap) (err error) {
 			c.LbStr = constant.DefaultLoadBalanceType
 			lbPolicy = model.LbPolicyValue[c.LbStr]
 		}
-		c.Type = model.DiscoveryType(lbPolicy)
+		c.Lb = model.LbPolicy(lbPolicy)
 	}
 	return nil
 }

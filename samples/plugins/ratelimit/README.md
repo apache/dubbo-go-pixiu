@@ -32,12 +32,14 @@ resources:
 
 - The second step is to set the rules. for example, the threshold is 100, and the statistical statintervalinms is 1000ms, which means that the qps/tps of the `resource` will not exceed 100.
 ```
-rules:
-  #qps sample At most 100 requests can be passed in 1000ms, so qps is 100
-  - resource: "test-dubbo"
-    enable: true
-    threshold: 100
-    statintervalinms: 1000
+  rules:
+    #qps sample At most 100 requests can be passed in 1000ms, so qps is 100
+    - enable: true
+      flowRule:
+        #the resource's name
+        resource: "test-http"
+        threshold: 100
+        statintervalinms: 1000
 ```
 
 ### Test:
