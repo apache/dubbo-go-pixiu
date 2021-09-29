@@ -19,66 +19,120 @@ package nacos
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+	"sync"
+)
+
+import (
+	model2 "github.com/nacos-group/nacos-sdk-go/model"
+	"github.com/nacos-group/nacos-sdk-go/vo"
+	perrors "github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/remote/nacos"
-	"github.com/apache/dubbo-go/registry"
-	model2 "github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/vo"
 )
 
 type nacosServiceDiscovery struct {
-	descriptor        string
-	client            *nacos.NacosClient
-	config            *model.RemoteConfig
-	registryInstances []servicediscovery.ServiceInstance
+	targetService []string
+	descriptor    string
+	client        *nacos.NacosClient
+	config        *model.RemoteConfig
+	listener      servicediscovery.ServiceEventListener
+	instanceMap   map[string]servicediscovery.ServiceInstance
+
+	cacheLock sync.Mutex
+	done      chan struct{}
 }
 
-func (n *nacosServiceDiscovery) AddListener(listener servicediscovery.ServiceInstancesChangedListener) {
-	for _, serviceName := range listener.GetServiceNames() {
-		err := n.client.Subscribe(&vo.SubscribeParam{
-			ServiceName: serviceName,
-			SubscribeCallback: func(services []model2.SubscribeService, err error) {
-				if err != nil {
-					logger.Errorf("Could not handle the subscribe notification because the err is not nil."+
-						" service name: %s, err: %v", serviceName, err)
-				}
+func (n *nacosServiceDiscovery) Subscribe() error {
+	if n.client == nil {
+		return perrors.New("nacos naming client stopped")
+	}
 
-				instances := make([]registry.ServiceInstance, 0, len(services))
-				for _, service := range services {
-					// we won't use the nacos instance id here but use our instance id
-					metadata := service.Metadata
-					id := metadata[idKey]
+	serviceNames := n.listener.GetServiceNames()
 
-					delete(metadata, idKey)
-
-					instances = append(instances, &registry.DefaultServiceInstance{
-						ID:          id,
-						ServiceName: service.ServiceName,
-						Host:        service.Ip,
-						Port:        int(service.Port),
-						Enable:      service.Enable,
-						Healthy:     true,
-						Metadata:    metadata,
-					})
-				}
-
-				e := n.DispatchEventForInstances(serviceName, instances)
-				if e != nil {
-					logger.Errorf("Dispatching event got exception, service name: %s, err: %v", serviceName, err)
-				}
-			},
-		})
-		if err != nil {
-			return err
-		}
+	for _, serviceName := range serviceNames {
+		subscribeParam := &vo.SubscribeParam{ServiceName: serviceName, SubscribeCallback: n.Callback}
+		go func() {
+			_ = n.client.Subscribe(subscribeParam)
+		}()
 	}
 	return nil
 }
 
-func (n *nacosServiceDiscovery) Stop() error {
-	panic("implement me")
+func (n *nacosServiceDiscovery) Unsubscribe() error {
+	if n.client == nil {
+		return perrors.New("nacos naming client stopped")
+	}
+
+	serviceNames := n.listener.GetServiceNames()
+
+	for _, serviceName := range serviceNames {
+		subscribeParam := &vo.SubscribeParam{
+			ServiceName:       serviceName,
+			Clusters:          []string{"DEFAULT"},
+			SubscribeCallback: n.Callback,
+		}
+		_ = n.client.Unsubscribe(subscribeParam)
+	}
+	return nil
+}
+
+func (n *nacosServiceDiscovery) Callback(services []model2.SubscribeService, err error) {
+
+	addInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
+	delInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
+	updateInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
+	newInstanceMap := make(map[string]servicediscovery.ServiceInstance, len(services))
+
+	n.cacheLock.Lock()
+
+	for i := range services {
+		service := services[i]
+		if !service.Enable {
+			// instance is not available,so ignore it
+			continue
+		}
+
+		instance := fromSubscribeServiceToServiceInstance(service)
+		key := instance.GetUniqKey()
+		newInstanceMap[instance.GetUniqKey()] = instance
+		if old, ok := n.instanceMap[key]; !ok {
+			// instance does not exist in cache, add it to cache
+			addInstances = append(addInstances, instance)
+		} else {
+			// instance is not different from cache, update it to cache
+			if !reflect.DeepEqual(old, instance) {
+				updateInstances = append(updateInstances, instance)
+			}
+		}
+	}
+
+	for host, inst := range n.instanceMap {
+		if _, ok := newInstanceMap[host]; !ok {
+			// cache instance does not exist in new instance list, remove it from cache
+			delInstances = append(delInstances, inst)
+		}
+	}
+
+	n.instanceMap = newInstanceMap
+	n.cacheLock.Unlock()
+
+	for _, instance := range addInstances {
+		n.listener.OnAddServiceInstance(&instance)
+	}
+	for _, instance := range delInstances {
+		n.listener.OnDeleteServiceInstance(&instance)
+	}
+
+	for _, instance := range updateInstances {
+		n.listener.OnUpdateServiceInstance(&instance)
+	}
 }
 
 func (n *nacosServiceDiscovery) QueryServicesByName(serviceNames []string) ([]servicediscovery.ServiceInstance, error) {
@@ -99,23 +153,21 @@ func (n *nacosServiceDiscovery) QueryServicesByName(serviceNames []string) ([]se
 		}
 
 		for _, instance := range instances {
-			addr := instance.Ip + ":" + fmt.Sprint(instance.Port)
-			si := servicediscovery.ServiceInstance{
-				// nacos sdk return empty instanceId, so use addr
-				//ID: instance.InstanceId,
-				ID:          addr,
-				ServiceName: serviceName,
-				Host:        instance.Ip,
-				Port:        int(instance.Port),
-				// SelectInstances default return all health instance, not unhealthy
-				Healthy:     instance.Healthy,
-				Enable:      instance.Enable,
-				CLusterName: instance.ClusterName,
-				Metadata:    instance.Metadata,
-			}
+			//if !(instance.Valid && instance.Healthy && instance.Enable) {
+			//	continue
+			//}
+			si := fromInstanceToServiceInstance(serviceName, instance)
 			res = append(res, si)
 		}
 	}
+
+	n.cacheLock.Lock()
+	defer n.cacheLock.Unlock()
+
+	for _, instance := range res {
+		n.instanceMap[instance.GetUniqKey()] = instance
+	}
+
 	return res, nil
 }
 
@@ -148,10 +200,52 @@ func (n *nacosServiceDiscovery) StartPeriodicalRefresh() error {
 	panic("implement me")
 }
 
-func NewNacosServiceDiscovery(config *model.RemoteConfig) (servicediscovery.ServiceDiscovery, error) {
+func NewNacosServiceDiscovery(targetService []string, config *model.RemoteConfig, l servicediscovery.ServiceEventListener) (servicediscovery.ServiceDiscovery, error) {
 	client, err := nacos.NewNacosClient(config)
 	if err != nil {
 		return nil, err
 	}
-	return &nacosServiceDiscovery{client: client, config: config}, nil
+	return &nacosServiceDiscovery{targetService: targetService, client: client, config: config, listener: l, instanceMap: make(map[string]servicediscovery.ServiceInstance)}, nil
+}
+
+func fromInstanceToServiceInstance(serviceName string, instance model2.Instance) servicediscovery.ServiceInstance {
+	addr := instance.Ip + ":" + fmt.Sprint(instance.Port)
+
+	return servicediscovery.ServiceInstance{
+		// nacos sdk return empty instanceId, so use addr
+		//ID: instance.InstanceId,
+		ID:          addr,
+		ServiceName: serviceName,
+		Host:        instance.Ip,
+		Port:        int(instance.Port),
+		// SelectInstances default return all health instance, not unhealthy
+		Healthy:     instance.Healthy,
+		Enable:      instance.Enable,
+		CLusterName: instance.ClusterName,
+		Metadata:    instance.Metadata,
+	}
+}
+
+func fromSubscribeServiceToServiceInstance(instance model2.SubscribeService) servicediscovery.ServiceInstance {
+	addr := instance.Ip + ":" + fmt.Sprint(instance.Port)
+	// because it value is DEFAULT_GROUP@@user-service, so split it with @@, and get service name
+	serviceName := instance.ServiceName
+	tmp := strings.Split(serviceName, "@@")
+	if len(tmp) == 2 {
+		serviceName = tmp[1]
+	}
+
+	return servicediscovery.ServiceInstance{
+		// nacos sdk return empty instanceId, so use addr
+		//ID: instance.InstanceId,
+		ID:          addr,
+		ServiceName: serviceName,
+		Host:        instance.Ip,
+		Port:        int(instance.Port),
+		// subscribe callback service should be healthy
+		Healthy:     true,
+		Enable:      instance.Enable,
+		CLusterName: instance.ClusterName,
+		Metadata:    instance.Metadata,
+	}
 }

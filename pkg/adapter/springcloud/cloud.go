@@ -23,7 +23,6 @@ import (
 )
 
 import (
-	gxset "github.com/dubbogo/gost/container/set"
 	"github.com/pkg/errors"
 )
 
@@ -56,7 +55,7 @@ type (
 	CloudAdapter struct {
 		cfg            *Config
 		sd             servicediscovery.ServiceDiscovery
-		currentService *gxset.HashSet
+		currentService map[string]*Service
 
 		mutex    sync.Mutex
 		stopChan chan struct{}
@@ -83,7 +82,7 @@ func (p *CloudPlugin) Kind() string {
 
 // CreateAdapter create adapter
 func (p *CloudPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
-	return &CloudAdapter{cfg: &Config{}, stopChan: make(chan struct{}), currentService: gxset.NewSet()}, nil
+	return &CloudAdapter{cfg: &Config{}, stopChan: make(chan struct{}), currentService: make(map[string]*Service)}, nil
 }
 
 // Start start the adapter
@@ -107,14 +106,14 @@ func (a *CloudAdapter) Apply() error {
 	//registryUsed := ad.Config["registry"].(map[string]interface{})
 	switch a.cfg.Registry.Protocol {
 	case "nacos":
-		sd, err := nacos.NewNacosServiceDiscovery(a.cfg.Registry)
+		sd, err := nacos.NewNacosServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
 		if err != nil {
 			logger.Errorf("Apply NewNacosServiceDiscovery", err.Error())
 			return err
 		}
 		a.sd = sd
 	case "consul":
-		sd, err := consul.NewConsulServiceDiscovery(a.cfg.Registry)
+		sd, err := consul.NewConsulServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
 		if err != nil {
 			logger.Errorf("new consul client fail : ", err.Error())
 			return err
@@ -125,6 +124,54 @@ func (a *CloudAdapter) Apply() error {
 		return errors.New("adapter init error registry not recognise")
 	}
 	return nil
+}
+
+func (a *CloudAdapter) OnAddServiceInstance(instance *servicediscovery.ServiceInstance) {
+	cm := server.GetClusterManager()
+	endpoint := instance.ToEndpoint()
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	// endpoint name should equal with cluster name
+	cm.SetEndpoint(endpoint.Name, endpoint)
+	if a.checkHasExistService(endpoint.Name) {
+		return
+	}
+	// new service, so add route and into CurrentService map
+	a.addNewService(instance)
+	// route ID is cluster name, so equal with endpoint name
+	rm := server.GetRouterManager()
+	route := instance.ToRoute()
+	rm.AddRouter(route)
+}
+
+func (a *CloudAdapter) OnDeleteServiceInstance(instance *servicediscovery.ServiceInstance) {
+	cm := server.GetClusterManager()
+	endpoint := instance.ToEndpoint()
+
+	cm.DeleteEndpoint(endpoint.Name, endpoint.ID)
+
+}
+
+func (a *CloudAdapter) OnUpdateServiceInstance(instance *servicediscovery.ServiceInstance) {
+	cm := server.GetClusterManager()
+	endpoint := instance.ToEndpoint()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	cm.SetEndpoint(endpoint.Name, endpoint)
+}
+
+func (a *CloudAdapter) GetServiceNames() []string {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	var res []string
+
+	for k, _ := range a.currentService {
+		res = append(res, k)
+	}
+	return res
 }
 
 // Config get config for Adapter
@@ -163,7 +210,7 @@ func (a *CloudAdapter) firstFetch() error {
 	for _, instance := range instances {
 		endpoint := instance.ToEndpoint()
 		// todo: maybe instance service name not equal with cluster name ?
-		cm.AddEndpoint(endpoint.Name, endpoint)
+		cm.SetEndpoint(endpoint.Name, endpoint)
 		// route ID is cluster name, so equal with endpoint name
 		route := instance.ToRoute()
 		rm.AddRouter(route)
@@ -173,14 +220,23 @@ func (a *CloudAdapter) firstFetch() error {
 }
 
 func (a *CloudAdapter) clearAndSetCurrentService(instances []servicediscovery.ServiceInstance) {
-	a.currentService.Clear()
+	a.currentService = make(map[string]*Service)
 
 	for _, instance := range instances {
-		if a.currentService.Contains(instance.ServiceName) {
+		if _, ok := a.currentService[instance.ServiceName]; ok {
 			continue
 		}
-		a.currentService.Add(&Service{Name: instance.ServiceName})
+		a.currentService[instance.ServiceName] = &Service{Name: instance.ServiceName}
 	}
+}
+
+func (a *CloudAdapter) checkHasExistService(name string) bool {
+	_, ok := a.currentService[name]
+	return ok
+}
+
+func (a *CloudAdapter) addNewService(instance *servicediscovery.ServiceInstance) {
+	a.currentService[instance.ServiceName] = &Service{Name: instance.ServiceName}
 }
 
 func (a *CloudAdapter) fetchCompareAndSet() {
@@ -207,18 +263,17 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	for _, instance := range instances {
 		endpoint := instance.ToEndpoint()
 		// endpoint name should equal with cluster name
-		newStore.AddEndpoint(endpoint.Name, endpoint)
+		newStore.SetEndpoint(endpoint.Name, endpoint)
 	}
 
 	// maximize reduction the interval of down state
 	// first remove the router for removed cluster
-	// TODO: should delete route when cluster gone ?
-	//for _, c := range oldStore.Config {
-	//	if !newStore.HasCluster(c.Name) {
-	//		delete := &model.Router{ID: c.Name}
-	//		rm.DeleteRouter(delete)
-	//	}
-	//}
+	for _, c := range oldStore.Config {
+		if !newStore.HasCluster(c.Name) {
+			delete := &model.Router{ID: c.Name}
+			rm.DeleteRouter(delete)
+		}
+	}
 	// second set cluster
 	ret := cm.CompareAndSetStore(newStore)
 
@@ -230,7 +285,8 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	// third add new router
 	for _, c := range newStore.Config {
 		if !oldStore.HasCluster(c.Name) {
-			match := model.RouterMatch{Prefix: c.Name}
+			prefix := "/" + c.Name
+			match := model.RouterMatch{Prefix: prefix}
 			route := model.RouteAction{Cluster: c.Name}
 			added := &model.Router{ID: c.Name, Match: match, Route: route}
 			rm.AddRouter(added)
@@ -257,14 +313,11 @@ func (a *CloudAdapter) backgroundSyncPeriod() error {
 }
 
 func (a *CloudAdapter) watch() error {
-
-	a.sd.AddListener()
-
-	return nil
+	return a.sd.Subscribe()
 }
 
 func (a *CloudAdapter) stop() error {
-	a.sd.Stop()
+	a.sd.Unsubscribe()
 	close(a.stopChan)
 	return nil
 }
