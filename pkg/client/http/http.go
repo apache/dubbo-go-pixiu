@@ -23,10 +23,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
+)
+
+import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
