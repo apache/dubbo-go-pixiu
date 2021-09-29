@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"io"
 	"io/ioutil"
 	http2 "net/http"
 	"strconv"
@@ -88,7 +87,15 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 		return false
 	}
 
-	bodyBytes, _ := io.ReadAll(ctx.Request.Body)
+	bodyBytes, err := ioutil.ReadAll(ctx.Request.Body)
+	if err != nil {
+		logger.Error(err)
+		ctx.Abort()
+		ctx.WriteJSONWithStatus(http2.StatusInternalServerError, map[string]string{
+			"error": "failed to retrieve request body",
+		})
+		return false
+	}
 
 	requestContext := &RequestContext{
 		ActionContext: make(map[string]string),
