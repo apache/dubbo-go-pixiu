@@ -32,6 +32,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/response"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/seata"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 
 	// adapter
