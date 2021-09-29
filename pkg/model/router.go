@@ -107,7 +107,7 @@ func (rm *RouterMatch) matchPath(req *http2.Request) bool {
 		return true
 	}
 
-	path := req.RequestURI
+	path := req.URL.Path
 
 	if rm.Path != "" && rm.Path == path {
 		return true

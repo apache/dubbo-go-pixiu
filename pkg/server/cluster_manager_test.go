@@ -44,7 +44,7 @@ func TestClusterManager(t *testing.T) {
 	}
 
 	cm := CreateDefaultClusterManager(bs)
-	assert.Equal(t, len(cm.cConfig), 1)
+	assert.Equal(t, len(cm.store.Config), 1)
 
 	cm.AddCluster(&model.Cluster{
 		Name: "test2",
@@ -56,9 +56,9 @@ func TestClusterManager(t *testing.T) {
 		},
 	})
 
-	assert.Equal(t, len(cm.cConfig), 2)
+	assert.Equal(t, len(cm.store.Config), 2)
 
-	cm.AddEndpoint("test2", &model.Endpoint{
+	cm.SetEndpoint("test2", &model.Endpoint{
 		Address: model.SocketAddress{},
 		ID:      "2",
 	})

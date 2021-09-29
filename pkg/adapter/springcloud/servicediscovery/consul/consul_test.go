@@ -18,10 +18,28 @@
 package consul
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"testing"
 )
+
+type DemoListener struct {
+}
+
+func (a *DemoListener) OnAddServiceInstance(instance *servicediscovery.ServiceInstance) {
+
+}
+
+func (a *DemoListener) OnDeleteServiceInstance(instance *servicediscovery.ServiceInstance) {
+}
+
+func (a *DemoListener) OnUpdateServiceInstance(instance *servicediscovery.ServiceInstance) {
+}
+
+func (a *DemoListener) GetServiceNames() []string {
+	return nil
+}
 
 func TestNewConsulServiceDiscovery(t *testing.T) {
 
@@ -29,13 +47,13 @@ func TestNewConsulServiceDiscovery(t *testing.T) {
 		Address: "127.0.0.1:8500",
 	}
 
-	discovery, err := NewConsulServiceDiscovery(config)
+	discovery, err := NewConsulServiceDiscovery(make([]string, 0), config, &DemoListener{})
 
 	if err != nil {
 		panic(err)
 	}
 
-	services, err := discovery.QueryServices()
+	services, err := discovery.QueryAllServices()
 
 	if err != nil {
 		panic(err)
