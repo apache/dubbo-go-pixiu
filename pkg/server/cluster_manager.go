@@ -32,7 +32,7 @@ type (
 	ClusterManager struct {
 		rw sync.RWMutex
 
-		store   *ClusterStore
+		store *ClusterStore
 		//cConfig []*model.Cluster
 	}
 
