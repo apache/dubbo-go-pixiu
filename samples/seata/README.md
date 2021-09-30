@@ -81,7 +81,7 @@ cd ${targetpath}
 ## 目录结构
 
 ```
-main        // 编译完成的 MOSN 程序
+main        // 编译完成的 Pixiu 程序
 |-- server_a
 |-- |-- server_a.go 
 |-- |-- server_a_config.json 
@@ -99,7 +99,7 @@ main        // 编译完成的 MOSN 程序
 
 参考 https://github.com/opentrx/seata-golang/tree/v2
 
-### 启动 MOSN
+### 启动 Pixiu
 
 + 使用 server_a_config.json 启动 Pixiu
 
