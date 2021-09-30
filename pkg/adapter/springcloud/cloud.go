@@ -89,16 +89,34 @@ func (p *CloudPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) 
 func (a *CloudAdapter) Start(adapter *model.Adapter) {
 	// do not block the main goroutine
 	// init get all service instance
-	a.firstFetch()
+	err := a.firstFetch()
+	if err != nil {
+		logger.Errorf("init fetch service fail", err.Error())
+		return
+	}
+
 	// background sync service instance from remote
-	a.backgroundSyncPeriod()
-	// 	// watch then fetch is more safety for consistent but there is background fresh mechanism
-	a.watch()
+	err = a.backgroundSyncPeriod()
+	if err != nil {
+		logger.Errorf("init periodicity fetch service task fail", err.Error())
+		return
+	}
+
+	// watch then fetch is more safety for consistent but there is background fresh mechanism
+	err = a.watch()
+	if err != nil {
+		logger.Errorf("init watch the register fail", err.Error())
+		return
+	}
 }
 
 // Stop stop the adapter
 func (a *CloudAdapter) Stop() {
-	a.stop()
+	err := a.stop()
+	if err != nil {
+		logger.Errorf("stop the adapter fail", err.Error())
+		return
+	}
 }
 
 // Apply init
@@ -317,7 +335,11 @@ func (a *CloudAdapter) watch() error {
 }
 
 func (a *CloudAdapter) stop() error {
-	a.sd.Unsubscribe()
+	err := a.sd.Unsubscribe()
+	if err != nil {
+		logger.Errorf("unsubscribe registry fail ", err.Error())
+		//return err
+	}
 	close(a.stopChan)
 	return nil
 }
