@@ -38,7 +38,7 @@ static_resources:
                     - match:
                         prefix: "/"
                       route:
-                        cluster: "test-grpc"
+                        cluster: "test-dubbo"
                         cluster_not_found_response_code: 505
                 http_filters:
                   - name: dgp.filter.http.apiconfig
@@ -58,6 +58,8 @@ static_resources:
                         timeout_config:
                           connect_timeout: 5s
                           request_timeout: 5s
+                  - name: dgp.filter.http.response
+                    config:
                 server_name: "test_http_dubbo"
                 generate_request_id: false
       config:
@@ -65,13 +67,14 @@ static_resources:
         read_timeout: 5s
         write_timeout: 5s
   clusters:
-    - name: "test-grpc"
+    - name: "test-dubbo"
       lb_policy: "RoundRobin"
-      endpoints:
-        - socket_address:
-            address: 127.0.0.1
-            port: 50001
-            protocol_type: "GRPC"
+      registries:
+        "zookeeper":
+          timeout: "3s"
+          address: "127.0.0.1:2181"
+          username: ""
+          password: ""
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
