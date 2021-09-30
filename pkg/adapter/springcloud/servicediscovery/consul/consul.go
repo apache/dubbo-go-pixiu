@@ -32,7 +32,7 @@ type consulServiceDiscovery struct {
 	targetService     []string
 	client            *api.Client
 	config            *model.RemoteConfig
-	registryInstances []servicediscovery.ServiceInstance
+	//registryInstances []servicediscovery.ServiceInstance
 	listener          servicediscovery.ServiceEventListener
 }
 
