@@ -85,6 +85,8 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 	return nil, errors.Errorf("no matched route")
 }
 
+// MatchRouter find router (cluster) by request path and method and header
+// fixme the relation of match condition must `and`， not `or`
 func (r *Router) MatchRouter(req *http2.Request) bool {
 	if r.Match.matchPath(req) {
 		return true
