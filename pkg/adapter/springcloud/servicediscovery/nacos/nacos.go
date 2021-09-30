@@ -40,10 +40,10 @@ import (
 type nacosServiceDiscovery struct {
 	targetService []string
 	//descriptor    string
-	client        *nacos.NacosClient
-	config        *model.RemoteConfig
-	listener      servicediscovery.ServiceEventListener
-	instanceMap   map[string]servicediscovery.ServiceInstance
+	client      *nacos.NacosClient
+	config      *model.RemoteConfig
+	listener    servicediscovery.ServiceEventListener
+	instanceMap map[string]servicediscovery.ServiceInstance
 
 	cacheLock sync.Mutex
 	//done      chan struct{}
