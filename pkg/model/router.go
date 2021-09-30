@@ -90,10 +90,9 @@ func (r *Router) MatchRouter(req *http2.Request) bool {
 		return true
 	}
 
-	// pi 这地方 match method 可能需要调整，当前逻辑是只要为空就会返回true
-	//if r.Match.matchMethod(req) {
-	//	return true
-	//}
+	if r.Match.matchMethod(req) {
+		return true
+	}
 
 	if r.Match.matchHeader(req) {
 		return true
