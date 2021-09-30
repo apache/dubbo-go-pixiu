@@ -138,7 +138,7 @@ func (node *Node) Put(keys []string, bizInfo interface{}) (bool, error) {
 	if stringutil.IsPathVariableOrWildcard(key) {
 		return node.PathVariableNode.Put(childKeys, bizInfo)
 	} else if stringutil.IsMatchAll(key) {
-		return false, errors.Errorf("router configuration is empty")
+		return isSuccess, nil
 	} else {
 		return node.children[key].Put(childKeys, bizInfo)
 	}
@@ -244,9 +244,11 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 	//不涉及递归，屏蔽变量 非变量 put 细节
 	if !stringutil.IsPathVariableOrWildcard(key) {
-		return node.putNode(key, isReal, bizInfo)
-	} else if stringutil.IsMatchAll(key) {
-		return node.putMatchAllNode(key, isReal, bizInfo)
+		if stringutil.IsMatchAll(key) {
+			return node.putMatchAllNode(key, isReal, bizInfo)
+		} else {
+			return node.putNode(key, isReal, bizInfo)
+		}
 	}
 	pathVariable := stringutil.VariableName(key)
 	return node.putPathVariable(pathVariable, isReal, bizInfo)

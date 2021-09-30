@@ -26,6 +26,10 @@ func TestTrie_Put(t *testing.T) {
 	trie := NewTrie()
 	ret, _ := trie.Put("/path1/:pathvarible1/path2/:pathvarible2", nil)
 	assert.True(t, ret)
+
+	ret, _ = trie.Put("/path1/:pathvarible1/path2/:pathvarible2/**", nil)
+	assert.True(t, ret)
+
 	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", nil)
 	assert.True(t, ret)
 	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", nil)
@@ -85,7 +89,19 @@ func TestTrie_MatchAndGet(t *testing.T) {
 	ret, _ = trie.Put("/path1/:432/path2/:34", nil)
 	assert.False(t, ret)
 
-	node, param, ok := trie.Match("/path1/v1/path2/v2")
+	ret, _ = trie.Put("/path1/:432/path2/:34/**", nil)
+	assert.True(t, ret)
+
+	ret, _ = trie.Put("/path1/:432/path2/:34/**", nil)
+	assert.False(t, ret)
+
+	node, param, ok := trie.Match("/path1/v1/path2/v2/sadf/asdf")
+	assert.True(t, ok)
+
+	node, param, ok = trie.Match("/path1/v1/path2/v2/sadf")
+	assert.True(t, ok)
+
+	node, param, ok = trie.Match("/path1/v1/path2/v2")
 	assert.True(t, ok)
 	assert.True(t, len(param) == 2)
 	assert.Equal(t, (param)[0], "v1")
