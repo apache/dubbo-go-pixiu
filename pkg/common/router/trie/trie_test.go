@@ -60,8 +60,13 @@ func TestTrie_Put(t *testing.T) {
 
 func TestTrie_MatchAndGet(t *testing.T) {
 	trie := NewTrie()
+
 	ret, _ := trie.Put("/path1/:pathvarible1/path2/:pathvarible2", "test1")
 	assert.True(t, ret)
+
+	trie.Put("/a/b", "ab")
+	result, _, _ := trie.Match("/a/b")
+	assert.Equal(t, result, "ab")
 	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", nil)
 	assert.True(t, ret)
 	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", nil)

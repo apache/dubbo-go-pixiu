@@ -22,6 +22,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	http2 "net/http"
 	"regexp"
+	"strings"
 )
 
 import (
@@ -69,6 +70,9 @@ type (
 )
 
 func getTrieKey(method string, path string) string {
+	if strings.HasPrefix(path, constant.PathSlash) {
+		return method + path
+	}
 	return method + constant.PathSlash + path
 }
 
@@ -78,6 +82,12 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 	}
 
 	node, _, _ := rc.RouteTrie.Match(getTrieKey(req.Method, req.RequestURI))
+	if node == nil {
+		return nil, nil
+	}
+	if node.GetBizInfo() == nil {
+		return nil, nil
+	}
 	ret := (node.GetBizInfo()).(RouteAction)
 	return &ret, nil
 }

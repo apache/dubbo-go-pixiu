@@ -193,6 +193,7 @@ func (node *Node) Match(parts []string) (*Node, []string, bool) {
 			}
 		}
 	}
+
 	if node.MatchAllNode != nil {
 		return node.MatchAllNode, []string{}, true
 	}
