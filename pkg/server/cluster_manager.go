@@ -33,7 +33,7 @@ type (
 		rw sync.RWMutex
 
 		store   *ClusterStore
-		cConfig []*model.Cluster
+		//cConfig []*model.Cluster
 	}
 
 	// ClusterStore store for cluster array
