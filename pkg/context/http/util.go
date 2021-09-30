@@ -22,37 +22,12 @@ import (
 	"io/ioutil"
 	"mime"
 	"net/http"
-	"regexp"
-	"strings"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
-
-// HttpRouteMatch
-func HttpRouteMatch(c *HttpContext, rm model.RouterMatch) bool {
-	if rm.Prefix != "" {
-		if !strings.HasPrefix(c.GetUrl(), rm.Path) {
-			return false
-		}
-	}
-
-	if rm.Path != "" {
-		if c.GetUrl() != rm.Path {
-			return false
-		}
-	}
-
-	if rm.Regex != "" {
-		if !regexp.MustCompile(rm.Regex).MatchString(c.GetUrl()) {
-			return false
-		}
-	}
-
-	return true
-}
 
 // HttpRouteActionMatch
 func HttpRouteActionMatch(c *HttpContext, ra model.RouteAction) bool {
