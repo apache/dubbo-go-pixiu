@@ -18,12 +18,12 @@
 package server
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"sync"
 	"sync/atomic"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
