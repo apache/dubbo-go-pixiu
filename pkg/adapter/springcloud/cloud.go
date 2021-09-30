@@ -179,7 +179,7 @@ func (a *CloudAdapter) GetServiceNames() []string {
 
 	var res []string
 
-	for k, _ := range a.currentService {
+	for k := range a.currentService {
 		res = append(res, k)
 	}
 	return res
