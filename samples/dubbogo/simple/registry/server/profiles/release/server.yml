@@ -17,6 +17,8 @@
 # under the License.
 #
 # dubbo server yaml configure file
+
+
 # application config
 application:
   organization: "dubbogopixiu.com"
@@ -24,51 +26,36 @@ application:
   module: "dubbogo user-info server"
   version: "0.0.1"
   owner: "ZX"
-  environment: "dev"
+  environment: "release"
 
 registries:
-  "demoServiceDiscovery":
-    protocol: "service-discovery"
-    params:
-      service_discovery: "zk-dis"
-      name_mapping: "in-memory"
-      metadata: "default"
-
-remote:
-  zk1:
-    address: "127.0.0.1:2181"
-    timeout: "5s"
-
-service_discovery:
-  zk-dis:
+  "hangzhouzk":
     protocol: "zookeeper"
-    remote_ref: "zk1"
-
-metadata_report:
-  protocol: "zookeeper"
-  remote_ref: "zk1"
-
+    timeout: "3s"
+    address: "127.0.0.1:2181"
+    username: ""
+    password: ""
 
 services:
   "UserProvider":
-    registry: "demoServiceDiscovery"
     protocol: "dubbo"
     # Equivalent to the interface in the  dubbo.xml file
     interface: "com.dubbogo.pixiu.UserService"
     loadbalance: "random"
     warmup: "100"
     cluster: "failover"
-    group: test
-    version: 1.0.0
     methods:
-      - name: "GetUserByName"
+      - name: "GetUser"
         retries: 1
         loadbalance: "random"
+
 
 protocols:
   "dubbo":
     name: "dubbo"
+    #    ip : "127.0.0.1"
     port: 20000
+
 
 protocol_conf:
   dubbo:

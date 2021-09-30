@@ -15,7 +15,31 @@
  * limitations under the License.
  */
 
-package main
+package test
 
-// Version dubbo version
-var Version = "2.7.5"
+import (
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestPost1(t *testing.T) {
+	url := "http://localhost:8881/BDTService/com.dubbogo.pixiu.UserService/1.0.0/GetUserByName"
+	data := "{\"types\":\"string\",\"values\":\"tc\"}"
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("POST", url, strings.NewReader(data))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	assert.True(t, strings.Contains(string(s), "0001"))
+}
