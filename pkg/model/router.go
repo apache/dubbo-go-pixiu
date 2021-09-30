@@ -18,17 +18,14 @@
 package model
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	http2 "net/http"
 	"regexp"
-	"strings"
 )
 
 import (
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 )
 
 // Router struct
@@ -42,12 +39,12 @@ type (
 
 	// RouterMatch
 	RouterMatch struct {
-		Prefix  string          `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
-		Path    string          `yaml:"path" json:"path" mapstructure:"path"`
-		Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"`
-		Methods []string        `yaml:"methods" json:"methods" mapstructure:"methods"`
-		Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`
-		pathRE  *regexp.Regexp
+		Prefix string `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
+		Path   string `yaml:"path" json:"path" mapstructure:"path"`
+		//Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"` 下一期再支持
+		Methods []string `yaml:"methods" json:"methods" mapstructure:"methods"`
+		//Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`  下一期再支持
+		//pathRE  *regexp.Regexp  废弃，如果有必要引入规则引擎，正则不合适
 	}
 
 	// RouteAction match route should do
@@ -58,8 +55,8 @@ type (
 
 	// RouteConfiguration
 	RouteConfiguration struct {
-		Routes  []*Router `yaml:"routes" json:"routes" mapstructure:"routes"`
-		Dynamic bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
+		RouteTrie trie.Trie `yaml:"routes" json:"routes" mapstructure:"routes"`
+		Dynamic   bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
 	}
 
 	// Name header key, Value header value, Regex header value is regex
@@ -71,76 +68,16 @@ type (
 	}
 )
 
+func getTrieKey(method string, path string) string {
+	return method + constant.PathSlash + path
+}
+
 func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
-	if rc.Routes == nil {
+	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
 
-	for _, r := range rc.Routes {
-		if r.MatchRouter(req) {
-			return &r.Route, nil
-		}
-	}
-
-	return nil, errors.Errorf("no matched route")
-}
-
-func (r *Router) MatchRouter(req *http2.Request) bool {
-	if r.Match.matchPath(req) {
-		return true
-	}
-
-	if r.Match.matchMethod(req) {
-		return true
-	}
-
-	if r.Match.matchHeader(req) {
-		return true
-	}
-
-	return false
-}
-
-func (rm *RouterMatch) matchPath(req *http2.Request) bool {
-	if rm.Path == "" && rm.Prefix == "" && rm.pathRE == nil {
-		return true
-	}
-
-	path := req.RequestURI
-
-	if rm.Path != "" && rm.Path == path {
-		return true
-	}
-	if rm.Prefix != "" && strings.HasPrefix(path, rm.Prefix) {
-		return true
-	}
-	if rm.pathRE != nil {
-		return rm.pathRE.MatchString(path)
-	}
-
-	return false
-}
-
-func (rm *RouterMatch) matchMethod(req *http2.Request) bool {
-	if len(rm.Methods) == 0 {
-		return true
-	}
-
-	return stringutil.StrInSlice(req.Method, rm.Methods)
-}
-
-func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
-
-	for _, h := range rm.Headers {
-		v := req.Header.Get(h.Name)
-		if stringutil.StrInSlice(v, h.Values) {
-			return true
-		}
-
-		if h.valueRE != nil && h.valueRE.MatchString(v) {
-			return true
-		}
-	}
-
-	return false
+	node, _, _ := rc.RouteTrie.Match(getTrieKey(req.Method, req.RequestURI))
+	ret := (node.GetBizInfo()).(RouteAction)
+	return &ret, nil
 }

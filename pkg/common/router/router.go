@@ -18,6 +18,7 @@
 package router
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"sync"
 )
 
@@ -54,23 +55,50 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 	return rm.activeConfig.Route(hc.Request)
 }
 
+func getTrieKey(method string, path string, isPrefix bool) string {
+	if isPrefix {
+		return method + constant.PathSlash + path + constant.PathSlash + "**"
+	}
+	return method + constant.PathSlash + path
+}
+
 // OnAddRouter add router
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
+	//锁粒度 下期优化到 字典树node 级别
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
+	if r.Match.Methods == nil {
+		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post}
+	}
+	isPrefix := r.Match.Prefix != ""
+	for _, method := range r.Match.Methods {
+		var key string
+		if isPrefix {
+			key = getTrieKey(method, r.Match.Prefix, isPrefix)
+		} else {
+			key = getTrieKey(method, r.Match.Path, isPrefix)
+		}
+		rm.activeConfig.RouteTrie.Put(key, r.Route)
+	}
 
-	rm.activeConfig.Routes = append(rm.activeConfig.Routes, r)
 }
 
 // OnDeleteRouter delete router
-func (rm *RouterCoordinator) OnDeleteRouter(new *model.Router) {
+func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
 
-	for i, r := range rm.activeConfig.Routes {
-		if r.ID == new.ID {
-			rm.activeConfig.Routes = append(rm.activeConfig.Routes[:i], rm.activeConfig.Routes[i+1:]...)
-			break
+	if r.Match.Methods == nil {
+		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post}
+	}
+	isPrefix := r.Match.Prefix != ""
+	for _, method := range r.Match.Methods {
+		var key string
+		if isPrefix {
+			key = getTrieKey(method, r.Match.Prefix, isPrefix)
+		} else {
+			key = getTrieKey(method, r.Match.Path, isPrefix)
 		}
+		rm.activeConfig.RouteTrie.Remove(key)
 	}
 }
