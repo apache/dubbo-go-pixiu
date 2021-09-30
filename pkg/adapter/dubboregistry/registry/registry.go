@@ -112,7 +112,7 @@ func ParseDubboString(urlString string) (config.DubboBackendConfig, []string, er
 	return config.DubboBackendConfig{
 		ClusterName:     url.GetParam(constant.ClusterKey, ""),
 		ApplicationName: url.GetParam(constant.ApplicationKey, ""),
-		Version:         url.GetParam(constant.AppVersionKey, ""),
+		Version:         url.GetParam(constant.VersionKey, ""),
 		Protocol:        string(config.DubboRequest),
 		Group:           url.GetParam(constant.GroupKey, ""),
 		Interface:       url.GetParam(constant.InterfaceKey, ""),
