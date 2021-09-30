@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"mime"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
 import (
@@ -38,32 +40,4 @@ func HttpRouteActionMatch(c *HttpContext, ra model.RouteAction) bool {
 	}
 
 	return true
-}
-
-// ExtractRequestBody extract body of http request
-func ExtractRequestBody(req *http.Request) []byte {
-	isUpload := isUpload(req)
-	if isUpload {
-		return nil
-	}
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		return nil
-	}
-	req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-	return body
-}
-
-// isUpload determine whether it is a file upload request
-func isUpload(req *http.Request) bool {
-	var ret bool
-	v := req.Header.Get("Content-Type")
-	if v == "" {
-		return ret
-	}
-	d, _, err := mime.ParseMediaType(v)
-	if err == nil && d == "multipart/form-data" {
-		ret = true
-	}
-	return ret
 }
