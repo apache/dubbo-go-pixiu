@@ -21,16 +21,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"io/ioutil"
 	http2 "net/http"
 	"strconv"
+)
 
+import (
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/pkg/errors"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 // handleHttp1GlobalBegin return bool, represent whether continue
