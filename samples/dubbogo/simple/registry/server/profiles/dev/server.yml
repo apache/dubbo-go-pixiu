@@ -27,29 +27,14 @@ application:
   environment: "dev"
 
 registries:
-  "demoServiceDiscovery":
+  "demoZk":
     protocol: "zookeeper"
     timeout: "3s"
     address: "127.0.0.1:2181"
 
-remote:
-  zk1:
-    address: "127.0.0.1:2181"
-    timeout: "5s"
-
-service_discovery:
-  zk-dis:
-    protocol: "zookeeper"
-    remote_ref: "zk1"
-
-metadata_report:
-  protocol: "zookeeper"
-  remote_ref: "zk1"
-
-
 services:
   "UserProvider":
-    registry: "demoServiceDiscovery"
+    registry: "demoZk"
     protocol: "dubbo"
     # Equivalent to the interface in the  dubbo.xml file
     interface: "com.dubbogo.pixiu.UserService"
@@ -59,7 +44,7 @@ services:
     group: test
     version: 1.0.0
     methods:
-      - name: "GetUserByName"
+      - name: "CreateUser"
         retries: 1
         loadbalance: "random"
 
