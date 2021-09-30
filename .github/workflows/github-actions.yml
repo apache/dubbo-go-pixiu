@@ -83,7 +83,7 @@ jobs:
 
       - name: Go Fmt
         run: |
-          go fmt ./... && [[ -z `git status -s` ]]
+          go fmt ./... && git status && [[ -z `git status -s` ]]
           # diff -u <(echo -n) <(gofmt -d -s .)
 
       - name: Install go ci lint
