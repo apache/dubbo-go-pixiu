@@ -89,7 +89,7 @@ func TestTrie_MatchAndGet(t *testing.T) {
 	ret, _ = trie.Put("/path1/:432/path2/:34", nil)
 	assert.False(t, ret)
 
-	ret, _ = trie.Put("/a/:432/b/:34/**", nil)
+	ret, _ = trie.Put("/a/:432/b/:34/**", "test**")
 	assert.True(t, ret)
 
 	ret, _ = trie.Put("/a/:432/b/:34/**", nil)
@@ -98,9 +98,10 @@ func TestTrie_MatchAndGet(t *testing.T) {
 	node, param, ok := trie.Match("/a/v1/b/v2/sadf/asdf")
 	assert.Equal(t, (param)[0], "v1")
 	assert.Equal(t, (param)[1], "v2")
+	assert.Equal(t, node.GetBizInfo(), "test**")
 	assert.True(t, ok)
 
-	node, param, ok = trie.Match("/a/v1/b/v2/sadf")
+	_, param, ok = trie.Match("/a/v1/b/v2/sadf")
 	assert.Equal(t, (param)[0], "v1")
 	assert.Equal(t, (param)[1], "v2")
 	assert.True(t, ok)
