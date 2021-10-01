@@ -122,7 +122,7 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 }
 
 func (asl *applicationServiceListener) handleEvent(children []string) {
-	children, err := asl.client.GetChildren(asl.servicePath)
+	fetchChildren, err := asl.client.GetChildren(asl.servicePath)
 	if err != nil {
 		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", asl.servicePath, err.Error())
 		// disable the API
@@ -137,7 +137,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 		return
 	}
 
-	asl.urls = asl.getUrls(children[0])
+	asl.urls = asl.getUrls(fetchChildren[0])
 	for _, url := range asl.urls {
 		bkConfig, _, err := registry.ParseDubboString(url.(string))
 		if err != nil {
