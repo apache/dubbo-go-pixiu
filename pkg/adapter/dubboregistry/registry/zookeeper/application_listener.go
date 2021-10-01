@@ -138,11 +138,11 @@ func (z *zkAppListener) watch() {
 }
 
 func (z *zkAppListener) handleEvent(children []string) {
-	children, err := z.client.GetChildren(z.servicesPath)
+	fetchChildren, err := z.client.GetChildren(z.servicesPath)
 	if err != nil {
 		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", z.servicesPath, err.Error())
 	}
-	for _, path := range children {
+	for _, path := range fetchChildren {
 		serviceName := strings.Join([]string{z.servicesPath, path}, constant.PathSlash)
 		if z.reg.GetSvcListener(serviceName) != nil {
 			continue
