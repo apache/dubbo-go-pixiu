@@ -42,7 +42,6 @@ import (
 const (
 	TracingType_Jaeger    = "jaeger"
 	traceName             = "http-server"
-	spanNamePrefix        = "HTTP SERVER"
 	jaegerTraceIDInHeader = "uber-trace-id"
 )
 
@@ -122,10 +121,10 @@ func New() TraceFilter {
 
 // Do execute tracerFilter filter logic.
 func (f TraceFilter) Handle(hc *contexthttp.HttpContext) {
-	spanName := spanNamePrefix + hc.Request.Method + " " + hc.Request.URL.Path
+	spanName := "HTTP " + hc.Request.Method
 	tr := otel.Tracer(traceName)
 	ctx := extractTraceCtxRequest(hc.Request)
-	ctxWithTid, span := tr.Start(ctx, spanName)
+	ctxWithTid, span := tr.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindServer))
 
 	hc.Request = hc.Request.WithContext(ctxWithTid)
 	hc.Next()

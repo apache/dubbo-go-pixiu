@@ -15,7 +15,6 @@ require (
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0 // indirect
-	github.com/hashicorp/consul/api v1.5.0
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/nacos-group/nacos-sdk-go v1.0.8
@@ -26,7 +25,6 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
-	//github.com/wanghongfei/go-eureka-client v1.1.0
 	go.etcd.io/etcd/api/v3 v3.5.0-alpha.0
 	go.opentelemetry.io/otel v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC2
