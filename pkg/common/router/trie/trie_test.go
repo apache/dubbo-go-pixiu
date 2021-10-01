@@ -66,7 +66,12 @@ func TestTrie_MatchAndGet(t *testing.T) {
 
 	trie.Put("/a/b", "ab")
 	result, _, _ := trie.Match("/a/b")
-	assert.Equal(t, result, "ab")
+	assert.Equal(t, result.GetBizInfo(), "ab")
+
+	trie.Put("POST/api/v1/**", "ab")
+	result, _, _ = trie.Match("POST/api/v1")
+	assert.Equal(t, result.GetBizInfo(), "ab")
+
 	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", nil)
 	assert.True(t, ret)
 	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", nil)

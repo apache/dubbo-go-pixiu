@@ -193,7 +193,9 @@ func (node *Node) Match(parts []string) (*Node, []string, bool) {
 			}
 		}
 	}
-
+	if node.children != nil && node.children[key] != nil && node.children[key].MatchAllNode != nil {
+		return node.children[key].MatchAllNode, []string{}, true
+	}
 	if node.MatchAllNode != nil {
 		return node.MatchAllNode, []string{}, true
 	}
