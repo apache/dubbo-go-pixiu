@@ -19,6 +19,9 @@ package servicediscovery
 
 import (
 	"fmt"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
