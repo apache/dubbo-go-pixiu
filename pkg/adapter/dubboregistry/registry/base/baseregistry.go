@@ -18,9 +18,12 @@
 package baseregistry
 
 import (
+	"sync"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
-	"sync"
 )
 
 type FacadeRegistry interface {
