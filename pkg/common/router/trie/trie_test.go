@@ -70,7 +70,7 @@ func TestTrie_MatchAndGet(t *testing.T) {
 
 	trie.Put("POST/api/v1/**", "ab")
 	result, _, _ = trie.Match("POST/api/v1")
-	assert.Equal(t, result.GetBizInfo(), "ab")
+	assert.Equal(t, "ab", result.GetBizInfo())
 
 	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", nil)
 	assert.True(t, ret)
@@ -114,6 +114,7 @@ func TestTrie_MatchAndGet(t *testing.T) {
 	_, param, ok = trie.Match("/a/v1/b/v2/sadf")
 	assert.Equal(t, (param)[0], "v1")
 	assert.Equal(t, (param)[1], "v2")
+	assert.Equal(t, node.GetBizInfo(), "test**")
 	assert.True(t, ok)
 
 	node, param, ok = trie.Match("/path1/v1/path2/v2")

@@ -81,7 +81,7 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 		return nil, errors.Errorf("router configuration is empty")
 	}
 
-	node, _, _ := rc.RouteTrie.Match(getTrieKey(req.Method, req.RequestURI))
+	node, _, _ := rc.RouteTrie.Match(getTrieKey(req.Method, req.URL.Path))
 	if node == nil {
 		return nil, nil
 	}
