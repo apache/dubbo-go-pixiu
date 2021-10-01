@@ -45,18 +45,23 @@ type (
 	}
 
 	ServiceDiscovery interface {
-		// 直接向远程注册中心查询所有服务实例
+
+		// QueryAllServices get all service from remote registry center
 		QueryAllServices() ([]ServiceInstance, error)
 
+		// QueryServicesByName get service by serviceName from remote registry center
 		QueryServicesByName(serviceNames []string) ([]ServiceInstance, error)
 
-		// 注册自己
+		// Register register to remote registry center
 		Register() error
 
-		// 取消注册自己
+		// UnRegister unregister to remote registry center
 		UnRegister() error
 
+		// Subscribe subscribe the service event from remote registry center
 		Subscribe() error
+
+		// Unsubscribe unsubscribe from remote registry center
 		Unsubscribe() error
 	}
 )
