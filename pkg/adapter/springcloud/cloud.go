@@ -177,7 +177,7 @@ func (a *CloudAdapter) GetServiceNames() []string {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	var res []string
+	res := make([]string, 0, len(a.currentService))
 
 	for k := range a.currentService {
 		res = append(res, k)
