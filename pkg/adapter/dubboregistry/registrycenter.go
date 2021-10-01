@@ -22,7 +22,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
@@ -44,7 +44,7 @@ type (
 	}
 
 	AdaptorConfig struct {
-		Registries map[string]model.Registry `yaml:"registries" json:"registries" mapstructure:"registries" :"registries"`
+		Registries map[string]model.Registry `yaml:"registries" json:"registries" mapstructure:"registries"`
 	}
 )
 
@@ -63,23 +63,26 @@ func (p *Plugin) CreateAdapter(a *model.Adapter, bs *model.Bootstrap) (adapter.A
 
 // Adapter to monitor dubbo services on registry center
 type Adapter struct {
-	id             string
-	cfg            AdaptorConfig
-	registries     map[string]registry.Registry
-	apiDiscoveries api.APIDiscoveryService
+	id         string
+	cfg        AdaptorConfig
+	registries map[string]registry.Registry
 }
 
 // Start starts the adaptor
 func (a Adapter) Start() {
 	for _, reg := range a.registries {
-		reg.Subscribe()
+		if err := reg.Subscribe(); err != nil {
+			logger.Errorf("Subscribe fail, error is {%s}", err.Error())
+		}
 	}
 }
 
 // Stop stops the adaptor
 func (a *Adapter) Stop() {
 	for _, reg := range a.registries {
-		reg.Unsubscribe()
+		if err := reg.Unsubscribe(); err != nil {
+			logger.Errorf("Unsubscribe fail, error is {%s}", err.Error())
+		}
 	}
 }
 
