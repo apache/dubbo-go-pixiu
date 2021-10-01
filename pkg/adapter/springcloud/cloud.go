@@ -182,6 +182,7 @@ func (a *CloudAdapter) GetServiceNames() []string {
 	for k := range a.currentService {
 		res = append(res, k)
 	}
+
 	return res
 }
 
