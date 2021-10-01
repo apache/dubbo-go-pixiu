@@ -16,8 +16,12 @@ go run cmd/pixiu/*.go gateway start -c  ${absolute-path}/dubbo-go-pixiu/samples/
 Call the server of SpringCloud by Pixiu :
 
 ```bash
-# the serviceId is `service-provider`
-curl http://localhost:8888/service-provider/echo/Pixiu
+
+# the serviceId is `user-provider`
+curl http://localhost:8888/user-service/echo/Pixiu
+
+# the serviceId is `auth-provider`
+curl http://localhost:8888/auth-service/echo/Pixiu
 ```
 result on console  : 
 ```log

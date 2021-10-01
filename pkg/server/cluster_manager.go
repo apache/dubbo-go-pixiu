@@ -18,12 +18,12 @@
 package server
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"sync"
 	"sync/atomic"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -32,8 +32,8 @@ type (
 	ClusterManager struct {
 		rw sync.RWMutex
 
-		store   *ClusterStore
-		cConfig []*model.Cluster
+		store *ClusterStore
+		//cConfig []*model.Cluster
 	}
 
 	// ClusterStore store for cluster array
