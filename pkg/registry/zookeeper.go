@@ -18,7 +18,6 @@
 package registry
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"path"
 	"strings"
 	"time"
@@ -26,12 +25,12 @@ import (
 
 import (
 	"github.com/apache/dubbo-go/common"
-
 	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
