@@ -48,7 +48,8 @@ type (
 	}
 	// Filter is http filter instance
 	Filter struct {
-		cfg *Config
+		cfg       *Config
+		transport http3.RoundTripper
 	}
 	// Config describe the config of Filter
 	Config struct{}
@@ -59,7 +60,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}}, nil
+	return &Filter{cfg: &Config{}, transport: &http3.Transport{}}, nil
 }
 
 func (f *Filter) Config() interface{} {
@@ -133,7 +134,7 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 	req.Header = r.Header
 
 	errPrefix = "do request"
-	resp, err := http3.DefaultClient.Do(req)
+	resp, err := (&http3.Client{Transport: f.transport}).Do(req)
 	if err != nil {
 		panic(err)
 	}
