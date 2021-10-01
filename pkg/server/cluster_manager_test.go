@@ -30,10 +30,10 @@ func TestClusterManager(t *testing.T) {
 	bs := &model.Bootstrap{
 		StaticResources: model.StaticResources{
 			Clusters: []*model.Cluster{
-				&model.Cluster{
+				{
 					Name: "test",
 					Endpoints: []*model.Endpoint{
-						&model.Endpoint{
+						{
 							Address: model.SocketAddress{},
 							ID:      "1",
 						},
@@ -49,7 +49,7 @@ func TestClusterManager(t *testing.T) {
 	cm.AddCluster(&model.Cluster{
 		Name: "test2",
 		Endpoints: []*model.Endpoint{
-			&model.Endpoint{
+			{
 				Address: model.SocketAddress{},
 				ID:      "1",
 			},
