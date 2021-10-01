@@ -23,15 +23,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
-	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
+)
+
+import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -55,12 +58,8 @@ var (
 )
 
 const (
-	traceNameHTTPClient = "http-client"
-	spanNameHTTPClient  = "HTTP CLIENT"
-
-	spanTagMethod = "method"
-	spanTagURL    = "url"
-	spanTagBody   = "body"
+	traceNameHTTPClient   = "http-client"
+	jaegerTraceIDInHeader = "uber-trace-id"
 )
 
 // Client client to generic invoke dubbo
@@ -93,10 +92,6 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
-	if err != nil {
-		return nil, err
-	}
-
 	// Map the origin parameters to backend parameters according to the API configure
 	transformedParams, err := dc.MapParams(req)
 	if err != nil {
@@ -114,15 +109,21 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 
 	tr := otel.Tracer(traceNameHTTPClient)
-	_, span := tr.Start(req.Context, spanNameHTTPClient)
+	_, span := tr.Start(req.Context, "HTTP "+newReq.Method, trace.WithSpanKind(trace.SpanKindClient))
 	trace.SpanFromContext(req.Context).SpanContext()
-	span.SetAttributes(attribute.Key(spanTagMethod).String(req.IngressRequest.Method))
-	span.SetAttributes(attribute.Key(spanTagURL).String(targetURL))
-	body := contexthttp.ExtractRequestBody(newReq)
-	span.SetAttributes(attribute.Key(spanTagBody).String(string(body)))
+	span.SetAttributes(semconv.HTTPMethodKey.String(newReq.Method))
+	span.SetAttributes(semconv.HTTPTargetKey.String(targetURL))
+	span.SetAttributes(semconv.HTTPFlavorKey.String(newReq.Proto))
+	newReq.Header.Set(jaegerTraceIDInHeader, span.SpanContext().TraceID().String())
 	defer span.End()
 
 	tmpRet, err := httpClient.Do(newReq)
+	if tmpRet != nil {
+		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(tmpRet.StatusCode))
+	}
+	if err != nil {
+		span.AddEvent(semconv.ExceptionEventName, trace.WithAttributes(semconv.ExceptionMessageKey.String(err.Error())))
+	}
 
 	return tmpRet, err
 }
