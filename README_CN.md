@@ -24,19 +24,67 @@ dubbo-go-pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 
 现在dubbo-go-pixiu 已经支持以dubbo协议和http协议调用远程的 dubbo 集群，未来还会支持更多的协议。
 
-## 开始
+## 快速开始
 
-#### 启动 Pixiu
+#### 1 CD 到目标路径
 
-1. `make build` 构建出二进制包
-2. `make start` 启动pixiu
+```
+cd samples/dubbo/simple
+```
 
-#### 快速入门
+可以使用 start.sh 脚本快速启动案例项目，可以执行如下命令来获得更多信息
 
-dubbo-go-pixiu支持2种协议的调用:
+```
+./start.sh [action] [project]
+./start.sh help
+```
 
-1. [Http协议调用](./develop/docs/sample/http.md) 
-2. [Dubbo协议调用](./develop/docs/sample/dubbo.md)
+下列步骤中，我们将启动 body 案例项目
+
+#### 2 准备配置文件和外部依赖 docker
+
+使用 start.sh 的 prepare 命令来准备配置文件和外部docker依赖
+
+```
+./start.sh prepare body
+```
+
+如果想要手动准备文件，需要注意：
+- 将 conf.yaml 中的 $PROJECT_DIR 修改为本地绝对路径
+
+#### 3 启动 dubbo 服务或者 http 服务
+
+```
+./start.sh startServer body
+```
+
+#### 4 启动 pixiu
+
+```
+./start.sh startPixiu body
+```
+
+可以使用下列命令来手动启动 pixiu
+
+```
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
+```
+
+
+#### 5. 尝试请求
+
+可以使用 curl 或者执行单元测试来验证一下
+
+```
+curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+./start.sh startTest body
+```
+
+#### 6. 清除
+
+```
+./start.sh clean body
+```
 
 ## 特性
 
