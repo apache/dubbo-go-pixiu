@@ -67,7 +67,7 @@ func (fm *FilterManager) Load() {
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	tmp := make(map[string]HttpFilter)
-	filtersArray := make([]HttpFilter, len(filters))
+	filtersArray := make([]*HttpFilter, len(filters))
 	for i, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
