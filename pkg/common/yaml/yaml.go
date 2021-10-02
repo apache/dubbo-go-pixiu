@@ -18,6 +18,7 @@
 package yaml
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path"
 )
@@ -69,6 +70,7 @@ func ParseConfig(factoryConfStruct interface{}, conf map[string]interface{}) err
 	// Unmarshal yamlStr to factoryConf
 	err = yaml.Unmarshal(yamlBytes, factoryConfStruct)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	return nil
