@@ -24,29 +24,23 @@ import (
 )
 
 import (
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-)
-
-import (
-	pkgcontext "github.com/apache/dubbo-go-pixiu/pkg/context"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 // GetMockHTTPContext mock context for test.
-func GetMockHTTPContext(r *http.Request, fc ...fc.FilterFunc) *contexthttp.HttpContext {
+func GetMockHTTPContext(r *http.Request, fc ...filter.HttpFilter) *contexthttp.HttpContext {
 	result := &contexthttp.HttpContext{
-		BaseContext: &pkgcontext.BaseContext{
-			Index: -1,
-		},
+		Index:   -1,
 		Request: r,
 	}
 
 	w := mockWriter{header: map[string][]string{}}
 	result.ResetWritermen(&w)
 	result.Reset()
-	result.BaseContext.Ctx = context.Background()
+	result.Ctx = context.Background()
 	for i := range fc {
-		result.Filters = append(result.Filters, fc[i])
+		result.Filters = append(result.Filters, fc[i].Handle)
 	}
 
 	return result
