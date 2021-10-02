@@ -22,8 +22,6 @@ import (
 )
 
 import (
-	hessian "github.com/apache/dubbo-go-hessian2"
-
 	"github.com/pkg/errors"
 )
 
@@ -149,16 +147,16 @@ func (opt *valuesOpt) Action(target, val interface{}) error {
 	if !ok {
 		return errors.New("The value must be [2]interface{}")
 	}
-	var toVals []hessian.Object
+	var toVals []interface{}
 	toTypes := []string{}
 
 	if t, tok := v[1].(string); tok && len(t) != 0 {
 		toTypes = strings.Split(t, ",")
 	}
-	if val, vok := v[0].([]hessian.Object); vok {
+	if val, vok := v[0].([]interface{}); vok {
 		toVals = val
 	} else {
-		toVals = []hessian.Object{v[0]}
+		toVals = []interface{}{v[0]}
 	}
 	if !(len(toTypes) != 0 && len(toTypes) == len(toVals)) {
 		dubboTarget.Types = toTypes
