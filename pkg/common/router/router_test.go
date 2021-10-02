@@ -45,12 +45,6 @@ func TestCreateRouterCoordinator(t *testing.T) {
 						},
 						Path:  "",
 						Regex: "",
-						Headers: []model.HeaderMatcher{
-							{Name: "X-DGP-WAY",
-								Values: []string{"Dubbo"},
-								Regex:  false,
-							},
-						},
 					},
 					Route: model.RouteAction{
 						Cluster:                     "test_dubbo",
