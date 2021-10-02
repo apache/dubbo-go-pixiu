@@ -119,6 +119,6 @@ func TestLoad(t *testing.T) {
 	baseContext := &contexthttp.HttpContext{}
 
 	for i := range filters {
-		filters[i].Handle(baseContext)
+		(*filters[i]).Handle(baseContext)
 	}
 }
