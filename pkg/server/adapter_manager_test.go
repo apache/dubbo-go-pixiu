@@ -46,7 +46,7 @@ func (d *DemoAdapterPlugin) Kind() string {
 	return "test"
 }
 
-func (p *DemoAdapterPlugin) CreateAdapter(a *model.Adapter, bs *model.Bootstrap) (adapter.Adapter, error) {
+func (p *DemoAdapterPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
 	return &DemoAdapter{cfg: &Config{}}, nil
 }
 
