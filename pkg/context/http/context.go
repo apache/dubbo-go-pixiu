@@ -156,6 +156,10 @@ func (hc *HttpContext) GetUrl() string {
 	return hc.Request.URL.Path
 }
 
+func (hc *HttpContext) SetUrl(url string) {
+	hc.Request.URL.Path = url
+}
+
 // GetMethod get method, POST/GET ...
 func (hc *HttpContext) GetMethod() string {
 	return hc.Request.Method
