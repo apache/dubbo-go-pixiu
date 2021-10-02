@@ -22,45 +22,54 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/filter"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// nolint
-func Init() {
-	extension.SetFilterFunc(constant.HTTPAuthorityFilter, authorityFilterFunc())
+const (
+	Kind = constant.HTTPAuthorityFilter
+)
+
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
-func authorityFilterFunc() context.FilterFunc {
-	return New().Do()
-}
-
-// authorityFilter is a filter for blacklist/whitelist.
-type authorityFilter struct{}
-
-// New create blacklist/whitelist filter.
-func New() filter.Filter {
-	return &authorityFilter{}
-}
-
-// Do execute blacklist/whitelist filter logic.
-func (f authorityFilter) Do() context.FilterFunc {
-	return func(c context.Context) {
-		f.doAuthorityFilter(c.(*http.HttpContext))
+type (
+	// AuthorityPlugin is http filter plugin.
+	Plugin struct {
 	}
+	// Filter is http filter instance
+	Filter struct {
+		cfg *AuthorityConfiguration
+	}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
 }
 
-func (f authorityFilter) doAuthorityFilter(c *http.HttpContext) {
-	for _, r := range c.HttpConnectionManager.AuthorityConfig.Rules {
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{cfg: &AuthorityConfiguration{}}, nil
+}
+
+func (f *Filter) Config() interface{} {
+	return f.cfg
+}
+
+func (f *Filter) Apply() error {
+	return nil
+}
+
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
+	return nil
+}
+
+func (f *Filter) Handle(c *http.HttpContext) {
+	for _, r := range f.cfg.Rules {
 		item := c.GetClientIP()
-		if r.Limit == model.App {
+		if r.Limit == App {
 			item = c.GetApplicationName()
 		}
 
@@ -75,7 +84,7 @@ func (f authorityFilter) doAuthorityFilter(c *http.HttpContext) {
 	c.Next()
 }
 
-func passCheck(item string, rule model.AuthorityRule) bool {
+func passCheck(item string, rule AuthorityRule) bool {
 	result := false
 	for _, it := range rule.Items {
 		if it == item {
@@ -84,7 +93,7 @@ func passCheck(item string, rule model.AuthorityRule) bool {
 		}
 	}
 
-	if (rule.Strategy == model.Blacklist && result == true) || (rule.Strategy == model.Whitelist && result == false) {
+	if (rule.Strategy == Blacklist && result) || (rule.Strategy == Whitelist && !result) {
 		return false
 	}
 

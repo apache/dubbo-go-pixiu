@@ -22,20 +22,19 @@ import (
 )
 
 import (
-	"github.com/emirpasic/gods/trees/avltree"
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+
+	"github.com/emirpasic/gods/trees/avltree"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func getMockMethod(verb config.HTTPVerb) config.Method {
 	inbound := config.InboundRequest{}
 	integration := config.IntegrationRequest{}
 	return config.Method{
-		OnAir:              true,
+		Enable:             true,
 		HTTPVerb:           verb,
 		InboundRequest:     inbound,
 		IntegrationRequest: integration,
