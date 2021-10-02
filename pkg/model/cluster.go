@@ -50,14 +50,15 @@ var (
 type (
 	// Cluster a single upstream cluster
 	Cluster struct {
-		Name             string           `yaml:"name" json:"name"`             // Name the cluster unique name
-		TypeStr          string           `yaml:"type" json:"type"`             // Type the cluster discovery type string value
-		Type             DiscoveryType    `yaml:",omitempty" json:",omitempty"` // Type the cluster discovery type
-		EdsClusterConfig EdsClusterConfig `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
-		LbStr            string           `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
-		Lb               LbPolicy         `yaml:",omitempty" json:",omitempty"` // Lb the cluster select node used loadBalance policy
-		HealthChecks     []HealthCheck    `yaml:"health_checks" json:"health_checks"`
-		Endpoints        []*Endpoint      `yaml:"endpoints" json:"endpoints"`
+		Name                 string           `yaml:"name" json:"name"` // Name the cluster unique name
+		TypeStr              string           `yaml:"type" json:"type"` // Type the cluster discovery type string value
+		Type                 DiscoveryType    `yaml:"-" json:"-"`       // Type the cluster discovery type
+		EdsClusterConfig     EdsClusterConfig `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
+		LbStr                string           `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
+		Lb                   LbPolicy         `yaml:",omitempty" json:",omitempty"` // Lb the cluster select node used loadBalance policy
+		HealthChecks         []HealthCheck    `yaml:"health_checks" json:"health_checks"`
+		Endpoints            []*Endpoint      `yaml:"endpoints" json:"endpoints"`
+		prePickEndpointIndex int
 	}
 
 	// EdsClusterConfig
@@ -80,8 +81,11 @@ type (
 
 	// Endpoint
 	Endpoint struct {
+		ID      string        `yaml:"ID" json:"ID"`     // ID indicate one endpoint
+		Name    string        `yaml:"name" json:"name"` // Name the cluster unique name
 		Address SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
-		ID      string        `yaml:"ID" json:"ID"` // ID indicate one endpoint
+		// extra info such as label or other meta data
+		Metadata map[string]string `yaml:"meta" json:"meta"`
 	}
 )
 
@@ -97,7 +101,16 @@ func (c *Cluster) PickOneEndpoint() *Endpoint {
 
 	if c.Lb == Rand {
 		return c.Endpoints[rand.Intn(len(c.Endpoints))]
+	} else if c.Lb == RoundRobin {
+
+		lens := len(c.Endpoints)
+		if c.prePickEndpointIndex >= lens {
+			c.prePickEndpointIndex = 0
+		}
+		e := c.Endpoints[c.prePickEndpointIndex]
+		c.prePickEndpointIndex = (c.prePickEndpointIndex + 1) % lens
+		return e
 	} else {
-		return c.Endpoints[0]
+		return c.Endpoints[rand.Intn(len(c.Endpoints))]
 	}
 }
