@@ -29,8 +29,6 @@ import (
 )
 
 import (
-	hessian "github.com/apache/dubbo-go-hessian2"
-
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 
 	"github.com/pkg/errors"
@@ -52,8 +50,8 @@ var mappers = map[string]client.ParamMapper{
 }
 
 type dubboTarget struct {
-	Values []hessian.Object // the slice contains the parameters.
-	Types  []string         // the slice contains the parameters' types. It should match the values one by one.
+	Values []interface{} // the slice contains the parameters.
+	Types  []string      // the slice contains the parameters' types. It should match the values one by one.
 }
 
 // pre-allocate proper memory according to the params' usability.
@@ -69,7 +67,7 @@ func newDubboTarget(mps []config.MappingParam) *dubboTarget {
 	}
 
 	if length > 0 {
-		val := make([]hessian.Object, length)
+		val := make([]interface{}, length)
 		target := &dubboTarget{
 			Values: val,
 			Types:  make([]string, length),
@@ -227,7 +225,7 @@ func setCommonTarget(target *dubboTarget, pos int, value interface{}, targetType
 	// if the mapTo position is greater than the numbers of usable parameters,
 	// extend the values and types slices. It changes the address of the the target.
 	if cap(target.Values) <= pos {
-		list := make([]hessian.Object, pos+1-len(target.Values))
+		list := make([]interface{}, pos+1-len(target.Values))
 		typeList := make([]string, pos+1-len(target.Types))
 		target.Values = append(target.Values, list...)
 		target.Types = append(target.Types, typeList...)
