@@ -1,3 +1,7 @@
+logs/
+.idea
+.vscode
+.mvn/
 
 # app
 dubbo-go-pixiu
@@ -12,6 +16,14 @@ pkg/registry/zookeeper-4unittest/contrib/fatjar
 
 
 .DS_Store
+vendor/
 
-/*.exe
+coverage.txt
+
+*.iml
+
+*.exe
 test
+
+
+target/
