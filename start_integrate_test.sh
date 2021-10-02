@@ -22,7 +22,6 @@ array+=("samples/dubbogo/simple/uri")
 array+=("samples/dubbogo/simple/registry")
 
 
-
 array+=("samples/dubbogo/http")
 #
 ##http
