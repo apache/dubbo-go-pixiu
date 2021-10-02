@@ -161,28 +161,32 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
-	// method, paramType, paramValue
-	gsReq := make([]interface{}, 3)
+	//// method, paramType, paramValue
+	//gsReq := make([]interface{}, 3)
 	// if GET with no args, values would be nil
 	values, err := dc.genericArgs(req)
 	if err != nil {
 		return nil, err
 	}
-	val, ok := values.(*dubboTarget)
+	target, ok := values.(*dubboTarget)
 	if !ok {
 		return nil, errors.New("map parameters failed")
 	}
 
 	dm := req.API.Method.IntegrationRequest
 	method := dm.Method
-	gsReq[0] = method
+	types := []string{}
+	vals := []hessian.Object{}
 
-	if val != nil {
-		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
-		gsReq[1], gsReq[2] = val.Types, val.Values
+	if target != nil {
+		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, target.Types, target.Values)
+		types = target.Types
+		vals = make([]hessian.Object, len(target.Values))
+		for i, v := range target.Values {
+			vals[i] = v
+		}
 	} else {
 		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
-		gsReq[1], gsReq[2] = []string{}, []hessian.Object{}
 	}
 
 	gs := dc.Get(dm)
@@ -190,12 +194,12 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	_, span := tr.Start(req.Context, spanNameDubbogoClient)
 	trace.SpanFromContext(req.Context).SpanContext()
 	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
-	span.SetAttributes(attribute.Key(spanTagType).Array(gsReq[1]))
-	span.SetAttributes(attribute.Key(spanTagValues).Array(gsReq[2]))
+	span.SetAttributes(attribute.Key(spanTagType).Array(types))
+	span.SetAttributes(attribute.Key(spanTagValues).Array(vals))
 	defer span.End()
 	ctx := context.WithValue(req.Context, constant.TRACING_REMOTE_SPAN_CTX, trace.SpanFromContext(req.Context).SpanContext())
 
-	rst, err := gs.Invoke(ctx, gsReq)
+	rst, err := gs.Invoke(ctx, []interface{}{method, types, vals})
 	if err != nil {
 		return nil, err
 	}
