@@ -25,12 +25,12 @@ import (
 
 import (
 	"github.com/apache/dubbo-go/common"
-
 	gxzookeeper "github.com/dubbogo/gost/database/kv/zk"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
@@ -95,4 +95,8 @@ func (crl *ZookeeperRegistryLoad) LoadAllServices() ([]*common.URL, error) {
 		}
 	}
 	return urls, nil
+}
+
+func (crl *ZookeeperRegistryLoad) NewRegistry(sr *model.StaticResources) Loader {
+	return nil
 }
