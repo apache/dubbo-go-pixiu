@@ -25,6 +25,7 @@ import (
 )
 
 import (
+	hessian "github.com/apache/dubbo-go-hessian2"
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
@@ -160,6 +161,9 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
+	// method, paramType, paramValue
+	gsReq := make([]interface{}, 3)
+	// if GET with no args, values would be nil
 	values, err := dc.genericArgs(req)
 	if err != nil {
 		return nil, err
@@ -171,19 +175,27 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 
 	dm := req.API.Method.IntegrationRequest
 	method := dm.Method
+	gsReq[0] = method
 
-	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
+	if val != nil {
+		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
+		gsReq[1], gsReq[2] = val.Types, val.Values
+	} else {
+		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
+		gsReq[1], gsReq[2] = []string{}, []hessian.Object{}
+	}
 
 	gs := dc.Get(dm)
 	tr := otel.Tracer(traceNameDubbogoClient)
 	_, span := tr.Start(req.Context, spanNameDubbogoClient)
 	trace.SpanFromContext(req.Context).SpanContext()
 	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
-	span.SetAttributes(attribute.Key(spanTagType).Array(val.Types))
-	span.SetAttributes(attribute.Key(spanTagValues).Array(val.Values))
+	span.SetAttributes(attribute.Key(spanTagType).Array(gsReq[1]))
+	span.SetAttributes(attribute.Key(spanTagValues).Array(gsReq[2]))
 	defer span.End()
 	ctx := context.WithValue(req.Context, constant.TRACING_REMOTE_SPAN_CTX, trace.SpanFromContext(req.Context).SpanContext())
-	rst, err := gs.Invoke(ctx, []interface{}{method, val.Types, val.Values})
+
+	rst, err := gs.Invoke(ctx, gsReq)
 	if err != nil {
 		return nil, err
 	}
