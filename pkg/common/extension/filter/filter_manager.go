@@ -34,6 +34,7 @@ import (
 // FilterManager manage filters
 type FilterManager struct {
 	filters       map[string]HttpFilter
+	filtersArray  []*HttpFilter
 	filterConfigs []*model.HTTPFilter
 
 	mu sync.RWMutex
@@ -51,11 +52,11 @@ func NewEmptyFilterManager() *FilterManager {
 }
 
 // GetFilters get all filter from manager
-func (fm *FilterManager) GetFilters() map[string]HttpFilter {
+func (fm *FilterManager) GetFilters() []*HttpFilter {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
 
-	return fm.filters
+	return fm.filtersArray
 }
 
 // Load the filter from config
@@ -66,18 +67,21 @@ func (fm *FilterManager) Load() {
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	tmp := make(map[string]HttpFilter)
-	for _, f := range filters {
+	filtersArray := make([]*HttpFilter, len(filters))
+	for i, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
 			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
 		}
 		tmp[f.Name] = apply
+		filtersArray[i] = &apply
 	}
 	// avoid filter inconsistency
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
 	fm.filters = tmp
+	fm.filtersArray = filtersArray
 }
 
 // Apply return a new filter by name & conf
