@@ -164,7 +164,6 @@ func (zkl *serviceListener) handleEvent(children []string) {
 			logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
 		}
 	}
-	return
 }
 
 // Close closes this listener
