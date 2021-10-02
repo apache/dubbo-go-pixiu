@@ -67,18 +67,21 @@ func (fm *FilterManager) Load() {
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	tmp := make(map[string]HttpFilter)
-	for _, f := range filters {
+	filtersArray := make([]HttpFilter, len(filters))
+	for i, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
 			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
 		}
 		tmp[f.Name] = apply
+		filtersArray[i] = &apply
 	}
 	// avoid filter inconsistency
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
 	fm.filters = tmp
+	fm.filtersArray = filtersArray
 }
 
 // Apply return a new filter by name & conf
