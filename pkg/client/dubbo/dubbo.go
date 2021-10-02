@@ -161,8 +161,6 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
-	//// method, paramType, paramValue
-	//gsReq := make([]interface{}, 3)
 	// if GET with no args, values would be nil
 	values, err := dc.genericArgs(req)
 	if err != nil {
