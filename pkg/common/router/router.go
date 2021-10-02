@@ -59,6 +59,14 @@ func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
 
+	for _, old := range rm.activeConfig.Routes {
+		if old.ID == r.ID {
+			old.Route = r.Route
+			old.Match = r.Match
+			return
+		}
+	}
+
 	rm.activeConfig.Routes = append(rm.activeConfig.Routes, r)
 }
 
