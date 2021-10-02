@@ -101,28 +101,32 @@ func (z *zkIntfListener) watch() {
 			continue
 		}
 		failTimes = 0
-		tickerTTL := defaultTTL
-		ticker := time.NewTicker(tickerTTL)
-		z.handleEvent(z.path)
-	WATCH:
-		for {
-			select {
-			case <-ticker.C:
-				z.handleEvent(z.path)
-			case zkEvent := <-e:
-				logger.Warnf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
-					zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, zookeeper.StateToString(zkEvent.State), zkEvent.Err)
-				ticker.Stop()
-				if zkEvent.Type != zk.EventNodeChildrenChanged {
-					break WATCH
-				}
-				z.handleEvent(zkEvent.Path)
-				break WATCH
-			case <-z.exit:
-				logger.Warnf("listen(path{%s}) goroutine exit now...", z.path)
-				ticker.Stop()
-				return
+		if continueLoop := z.waitEventAndHandlePeriod(z.path, e); !continueLoop {
+			return
+		}
+	}
+}
+
+func (z *zkIntfListener) waitEventAndHandlePeriod(path string, e <-chan zk.Event) bool {
+	tickerTTL := defaultTTL
+	ticker := time.NewTicker(tickerTTL)
+	defer ticker.Stop()
+	z.handleEvent(z.path)
+	for {
+		select {
+		case <-ticker.C:
+			z.handleEvent(z.path)
+		case zkEvent := <-e:
+			logger.Warnf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
+				zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, zookeeper.StateToString(zkEvent.State), zkEvent.Err)
+			if zkEvent.Type != zk.EventNodeChildrenChanged {
+				return true
 			}
+			z.handleEvent(zkEvent.Path)
+			return true
+		case <-z.exit:
+			logger.Warnf("listen(path{%s}) goroutine exit now...", z.path)
+			return false
 		}
 	}
 }
