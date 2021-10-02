@@ -80,8 +80,6 @@ func initZKListeners(reg *ZKRegistry) {
 	reg.zkListeners = make(map[registry.RegisteredType]registry.Listener)
 	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg, reg.AdapterListener)
 	go reg.zkListeners[registry.RegisteredTypeInterface].WatchAndHandle()
-	reg.zkListeners[registry.RegisteredTypeApplication] = newZkAppListener(reg.client, reg, reg.AdapterListener)
-	go reg.zkListeners[registry.RegisteredTypeApplication].WatchAndHandle()
 }
 
 func (r *ZKRegistry) GetClient() *zk.ZooKeeperClient {
