@@ -18,6 +18,10 @@
 package model
 
 import (
+	"fmt"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
 )
 
@@ -37,70 +41,13 @@ const (
 	Unknown api.Status = 2
 )
 
-var StatusName = map[int32]string{
-	0: "Down",
-	1: "Up",
-	2: "Unknown",
-}
-
-var StatusValue = map[string]int32{
-	"Down":    0,
-	"Up":      1,
-	"Unknown": 2,
-}
-
-// ProtocolType
-type ProtocolType int32
-
 const (
-	HTTP ProtocolType = 0 + iota // support for 1.0
-	TCP
-	UDP
+	ProtocolTypeHTTP ProtocolType = 0 + iota // support for 1.0
+	ProtocolTypeTCP
+	ProtocolTypeUDP
+	ProtocolTypeHTTPS
+	ProtocolTypeGRPC
 )
-
-// ProtocolTypeName
-var ProtocolTypeName = map[int32]string{
-	0: "HTTP",
-	1: "TCP",
-	2: "UDP",
-}
-
-// ProtocolTypeValue
-var ProtocolTypeValue = map[string]int32{
-	"HTTP": 0,
-	"TCP":  1,
-	"UDP":  2,
-}
-
-// Address the address
-type Address struct {
-	SocketAddress SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
-	Name          string        `yaml:"name" json:"name" mapstructure:"name"`
-}
-
-// Address specify either a logical or physical address and port, which are
-// used to tell pixiu where to bind/listen, connect to upstream and find
-// management servers
-type SocketAddress struct {
-	ProtocolStr  string       `yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`
-	Protocol     ProtocolType `yaml:"omitempty" json:"omitempty"`
-	Address      string       `yaml:"address" json:"address" mapstructure:"address"`
-	Port         int          `yaml:"port" json:"port" mapstructure:"port"`
-	ResolverName string       `yaml:"resolver_name" json:"resolver_name" mapstructure:"resolver_name"`
-}
-
-// ConfigSource
-type ConfigSource struct {
-	Path            string          `yaml:"path" json:"path" mapstructure:"path"`
-	ApiConfigSource ApiConfigSource `yaml:"api_config_source" json:"api_config_source" mapstructure:"api_config_source"`
-}
-
-// ApiConfigSource
-type ApiConfigSource struct {
-	APIType     api.ApiType `yaml:"omitempty" json:"omitempty"`
-	APITypeStr  string      `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
-	ClusterName []string    `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
-}
 
 const (
 	REST_VALUE  = "REST"
@@ -109,31 +56,102 @@ const (
 )
 
 const (
-	REST api.ApiType = 0 + iota // support for 1.0
-	GRPC
-	DUBBO
+	ApiTypeREST api.ApiType = 0 + iota // support for 1.0
+	ApiTypeGRPC
+	ApiTypeDUBBO
 )
 
-var ApiTypeName = map[int32]string{
-	0: REST_VALUE,
-	1: GRPC_VALUE,
-	2: DUBBO_VALUE,
-}
+var (
+	StatusName = map[int32]string{
+		0: "Down",
+		1: "Up",
+		2: "Unknown",
+	}
 
-var ApiTypeValue = map[string]int32{
-	REST_VALUE:  0,
-	GRPC_VALUE:  1,
-	DUBBO_VALUE: 2,
-}
+	StatusValue = map[string]int32{
+		"Down":    0,
+		"Up":      1,
+		"Unknown": 2,
+	}
 
-// HeaderValueOption
-type HeaderValueOption struct {
-	Header []HeaderValue `yaml:"header" json:"header" mapstructure:"header"`
-	Append []bool        `yaml:"append" json:"append" mapstructure:"append"`
-}
+	// ProtocolTypeName enum seq to protocol type name
+	ProtocolTypeName = map[int32]string{
+		0: "HTTP",
+		1: "TCP",
+		2: "UDP",
+		3: "HTTPS",
+		4: "GRPC",
+	}
 
-// HeaderValue
-type HeaderValue struct {
-	Key   string `yaml:"key" json:"key" mapstructure:"key"`
-	Value string `yaml:"value" json:"value" mapstructure:"value"`
+	// ProtocolTypeValue protocol type name to enum seq
+	ProtocolTypeValue = map[string]int32{
+		"HTTP":  0,
+		"TCP":   1,
+		"UDP":   2,
+		"HTTPS": 3,
+		"GRPC":  4,
+	}
+
+	ApiTypeName = map[int32]string{
+		0: REST_VALUE,
+		1: GRPC_VALUE,
+		2: DUBBO_VALUE,
+	}
+
+	ApiTypeValue = map[string]int32{
+		REST_VALUE:  0,
+		GRPC_VALUE:  1,
+		DUBBO_VALUE: 2,
+	}
+)
+
+type (
+	// ProtocolType protocol type enum
+	ProtocolType int32
+
+	// Address the address
+	Address struct {
+		SocketAddress SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
+		Name          string        `yaml:"name" json:"name" mapstructure:"name"`
+	}
+
+	// SocketAddress specify either a logical or physical address and port, which are
+	// used to tell server where to bind/listen, connect to upstream and find
+	// management servers
+	SocketAddress struct {
+		ProtocolStr  string       `yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`
+		Protocol     ProtocolType `default:"http" yaml:"omitempty" json:"omitempty"`
+		Address      string       `default:"0.0.0.0" yaml:"address" json:"address" mapstructure:"address"`
+		Port         int          `default:"8881" yaml:"port" json:"port" mapstructure:"port"`
+		ResolverName string       `yaml:"resolver_name" json:"resolver_name" mapstructure:"resolver_name"`
+	}
+
+	// ConfigSource
+	ConfigSource struct {
+		Path            string          `yaml:"path" json:"path" mapstructure:"path"`
+		ApiConfigSource ApiConfigSource `yaml:"api_config_source" json:"api_config_source" mapstructure:"api_config_source"`
+	}
+
+	// ApiConfigSource
+	ApiConfigSource struct {
+		APIType     api.ApiType `yaml:"omitempty" json:"omitempty"`
+		APITypeStr  string      `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
+		ClusterName []string    `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
+	}
+
+	// HeaderValueOption
+	HeaderValueOption struct {
+		Header []HeaderValue `yaml:"header" json:"header" mapstructure:"header"`
+		Append []bool        `yaml:"append" json:"append" mapstructure:"append"`
+	}
+
+	// HeaderValue
+	HeaderValue struct {
+		Key   string `yaml:"key" json:"key" mapstructure:"key"`
+		Value string `yaml:"value" json:"value" mapstructure:"value"`
+	}
+)
+
+func (a SocketAddress) GetAddress() string {
+	return fmt.Sprintf("%s:%v", a.Address, a.Port)
 }

@@ -26,13 +26,16 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
+)
+
+import (
+	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // RestMetadata http metadata, api config
@@ -54,6 +57,11 @@ var (
 	countDown  = sync.Once{}
 )
 
+const (
+	traceNameHTTPClient   = "http-client"
+	jaegerTraceIDInHeader = "uber-trace-id"
+)
+
 // Client client to generic invoke dubbo
 type Client struct{}
 
@@ -72,8 +80,8 @@ func NewHTTPClient() *Client {
 	return &Client{}
 }
 
-// Init init dubbo, config mapping can do here
-func (dc *Client) Init() error {
+// Apply only init dubbo, config mapping can do here
+func (dc *Client) Apply() error {
 	return nil
 }
 
@@ -84,10 +92,6 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
-	if err != nil {
-		return nil, err
-	}
-
 	// Map the origin parameters to backend parameters according to the API configure
 	transformedParams, err := dc.MapParams(req)
 	if err != nil {
@@ -103,7 +107,23 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	newReq, _ := http.NewRequest(req.IngressRequest.Method, targetURL, params.Body)
 	newReq.Header = params.Header
 	httpClient := &http.Client{Timeout: 5 * time.Second}
+
+	tr := otel.Tracer(traceNameHTTPClient)
+	_, span := tr.Start(req.Context, "HTTP "+newReq.Method, trace.WithSpanKind(trace.SpanKindClient))
+	trace.SpanFromContext(req.Context).SpanContext()
+	span.SetAttributes(semconv.HTTPMethodKey.String(newReq.Method))
+	span.SetAttributes(semconv.HTTPTargetKey.String(targetURL))
+	span.SetAttributes(semconv.HTTPFlavorKey.String(newReq.Proto))
+	newReq.Header.Set(jaegerTraceIDInHeader, span.SpanContext().TraceID().String())
+	defer span.End()
+
 	tmpRet, err := httpClient.Do(newReq)
+	if tmpRet != nil {
+		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(tmpRet.StatusCode))
+	}
+	if err != nil {
+		span.AddEvent(semconv.ExceptionEventName, trace.WithAttributes(semconv.ExceptionMessageKey.String(err.Error())))
+	}
 
 	return tmpRet, err
 }
