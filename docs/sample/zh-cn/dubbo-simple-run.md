@@ -2,30 +2,38 @@
 
 ## 启动 Pixiu
 
-- 构建 Pixiu
+- 打开 samples 路径
 
 ```bash
-cd /dubbogo-go-pixiu/cmd/pixiu
-
-go build
+cd /dubbo-go-pixiu/samples/dubbogo/simple
 ```
 
-- 把 Pixiu 移动到运行目录
+- 使用 start.sh 启动案例
 
-```bash
-mv -b pixiu ../../samples/dubbogo/simple
+使用 start.sh help 来获取帮助信息
+
+```
+./start.sh help 
+
+dubbo-go-pixiu start helper
+./start.sh action project
+hint:
+./start.sh prepare body for prepare config file and up docker in body project
+./start.sh startPixiu body for start dubbo or http server in body project
+./start.sh startServer body for start pixiu in body project
+./start.sh startTest body for start unit test in body project
+./start.sh clean body for clean
+
 ```
 
-- 启动某个例子
-
-通过 `./start.sh [name]` 启动 pixiu，可以选择如下：
+使用  `./start.sh [action] [project]` 来启动案例，比如说：
 
 ```bash
-./start.sh body
-./start.sh mix
-./start.sh query
-./start.sh uri
-./start.sh pixiu
+./start.sh prepare body
+./start.sh startPixiu body
+./start.sh startServer body
+./start.sh startTest body
+./start.sh clean body
 ```
 
 - 接口访问

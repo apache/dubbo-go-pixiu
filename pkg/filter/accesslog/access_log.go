@@ -27,44 +27,78 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/context"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-var accessLogWriter = &model.AccessLogWriter{AccessLogDataChan: make(chan model.AccessLogData, constant.LogDataBuffer)}
+const (
+	// Kind is the kind of Fallback.
+	Kind = constant.HTTPAccessLogFilter
+)
 
-func Init() {
-	extension.SetFilterFunc(constant.AccessLogFilter, accessLog())
-	accessLogWriter.Write()
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
-// access log filter
-func accessLog() context.FilterFunc {
-	return func(c context.Context) {
-		alc := config.GetBootstrap().StaticResources.AccessLogConfig
-		if !alc.Enable {
-			return
-		}
-		start := time.Now()
-		c.Next()
-		latency := time.Now().Sub(start)
-		// build access_log message
-		accessLogMsg := buildAccessLogMsg(c, latency)
-		if len(accessLogMsg) > 0 {
-			accessLogWriter.Writer(model.AccessLogData{AccessLogConfig: alc, AccessLogMsg: accessLogMsg})
-		}
+type (
+	// Plugin is http filter plugin.
+	Plugin struct {
+	}
+	// Filter is http filter instance
+	Filter struct {
+		conf *AccessLogConfig
+		alw  *AccessLogWriter
+	}
+)
+
+// Kind return plugin kind
+func (p *Plugin) Kind() string {
+	return Kind
+}
+
+// CreateFilter create filter
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{
+		conf: &AccessLogConfig{},
+		alw: &AccessLogWriter{
+			AccessLogDataChan: make(chan AccessLogData, constant.LogDataBuffer),
+		},
+	}, nil
+}
+
+// PrepareFilterChain prepare chain when http context init
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+	ctx.AppendFilterFunc(f.Handle)
+	return nil
+}
+
+// Handle process http context
+func (f *Filter) Handle(c *http.HttpContext) {
+	start := time.Now()
+	c.Next()
+	latency := time.Since(start)
+	// build access_log message
+	accessLogMsg := buildAccessLogMsg(c, latency)
+	if len(accessLogMsg) > 0 {
+		f.alw.Writer(AccessLogData{AccessLogConfig: *f.conf, AccessLogMsg: accessLogMsg})
 	}
 }
 
-func buildAccessLogMsg(c context.Context, cost time.Duration) string {
-	req := c.(*http.HttpContext).Request
+// Config return config of filter
+func (f *Filter) Config() interface{} {
+	return f.conf
+}
+
+// Apply init after config set
+func (f *Filter) Apply() error {
+	// init
+	f.alw.Write()
+	return nil
+}
+
+func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
+	req := c.Request
 	valueStr := req.URL.Query().Encode()
 	if len(valueStr) != 0 {
 		valueStr = strings.ReplaceAll(valueStr, "&", ",")
@@ -85,12 +119,12 @@ func buildAccessLogMsg(c context.Context, cost time.Duration) string {
 	}
 	builder.WriteString("cost time [ ")
 	builder.WriteString(strconv.Itoa(int(cost)) + " ]")
-	err := c.(*http.HttpContext).Err
+	err := c.Err
 	if err != nil {
 		builder.WriteString(fmt.Sprintf("invoke err [ %v", err))
 		builder.WriteString("] ")
 	}
-	resp := c.(*http.HttpContext).TargetResp.Data
+	resp := c.TargetResp.Data
 	rbs, err := getBytes(resp)
 	if err != nil {
 		builder.WriteString(fmt.Sprintf(" response can not convert to string"))

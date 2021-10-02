@@ -24,6 +24,7 @@ import (
 
 import (
 	perrors "github.com/pkg/errors"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -56,4 +57,19 @@ func UnmarshalYML(data []byte, out interface{}) error {
 // MarshalYML serializes the value provided into a YAML document.
 func MarshalYML(in interface{}) ([]byte, error) {
 	return yaml.Marshal(in)
+}
+
+// ParseConfig get config struct from map[string]interface{}
+func ParseConfig(factoryConfStruct interface{}, conf map[string]interface{}) error {
+	// conf will be map, convert to yaml
+	yamlBytes, err := yaml.Marshal(conf)
+	if err != nil {
+		return err
+	}
+	// Unmarshal yamlStr to factoryConf
+	err = yaml.Unmarshal(yamlBytes, factoryConfStruct)
+	if err != nil {
+		return err
+	}
+	return nil
 }

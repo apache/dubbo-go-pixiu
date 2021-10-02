@@ -19,6 +19,7 @@ package registry
 
 import (
 	"github.com/apache/dubbo-go/common"
+
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 

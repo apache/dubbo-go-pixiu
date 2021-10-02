@@ -22,7 +22,7 @@ github:
       required_status_checks:
         strict: true
         contexts:
-          - "ubuntu-latest - Go 1.15"
+          - "ubuntu-latest - Go 1.14"
 
 notifications:
      commits:      commits@dubbo.apache.org
