@@ -82,7 +82,6 @@ func (s *Server) Start() {
 	}()
 
 	registerOtelMetricMeter(conf.Metric)
-
 	s.listenerManager.StartListen()
 	s.adapterManager.Start()
 
