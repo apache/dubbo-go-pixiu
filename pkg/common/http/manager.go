@@ -76,7 +76,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 
 func (hcm *HttpConnectionManager) addFilter(ctx *pch.HttpContext) {
 	for _, f := range hcm.filterManager.GetFilters() {
-		if err := f.PrepareFilterChain(ctx); err != nil {
+		if err := (*f).PrepareFilterChain(ctx); err != nil {
 			logger.Warnf("PrepareFilterChain error %s", err)
 		}
 	}
