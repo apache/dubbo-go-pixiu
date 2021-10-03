@@ -50,7 +50,7 @@ func (p *DemoAdapterPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, e
 	return &DemoAdapter{cfg: &Config{}}, nil
 }
 
-func (a *DemoAdapter) Start(adapter *model.Adapter) {
+func (a *DemoAdapter) Start() {
 
 }
 
