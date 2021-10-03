@@ -85,7 +85,7 @@ func (p *CloudPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) 
 }
 
 // Start start the adapter
-func (a *CloudAdapter) Start(adapter *model.Adapter) {
+func (a *CloudAdapter) Start() {
 	// do not block the main goroutine
 	// init get all service instance
 	err := a.firstFetch()
