@@ -93,7 +93,12 @@ func TestNewZooKeeperClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tc.Stop()
+	defer func(tc *zk.TestCluster) {
+		err := tc.Stop()
+		if err != nil {
+			t.Errorf("failed to stop cluster, %s", err.Error())
+		}
+	}(tc)
 
 	hosts := make([]string, len(tc.Servers))
 	for i, srv := range tc.Servers {
@@ -116,12 +121,20 @@ func TestGetChildren(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tc.Stop()
+	defer func(tc *zk.TestCluster) {
+		err := tc.Stop()
+		if err != nil {
+			t.Errorf("failed to stop cluster, %s", err.Error())
+		}
+	}(tc)
 
 	conn, _, _ := tc.ConnectAll()
-	conn.Create("/test", nil, 0, zk.WorldACL(zk.PermAll))
-	conn.Create("/test/testchild1", nil, 0, zk.WorldACL(zk.PermAll))
-	conn.Create("/test/testchild2", nil, 0, zk.WorldACL(zk.PermAll))
+	_, err = conn.Create("/test", nil, 0, zk.WorldACL(zk.PermAll))
+	assert.NoError(t, err)
+	_, err = conn.Create("/test/testchild1", nil, 0, zk.WorldACL(zk.PermAll))
+	assert.NoError(t, err)
+	_, err = conn.Create("/test/testchild2", nil, 0, zk.WorldACL(zk.PermAll))
+	assert.NoError(t, err)
 
 	hosts := make([]string, len(tc.Servers))
 	for i, srv := range tc.Servers {
