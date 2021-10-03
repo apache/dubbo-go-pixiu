@@ -40,7 +40,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+func (hp *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.HttpConnectionManagerConfig)
 	return http.CreateHttpConnectionManager(hcmc, bs), nil
 }

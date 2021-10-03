@@ -57,7 +57,7 @@ func (a *DemoAdapter) Config() interface{} {
 	return a.cfg
 }
 
-func (a *DemoAdapter) Start(adapter *model.Adapter) {
+func (a *DemoAdapter) Start() {
 
 }
 
