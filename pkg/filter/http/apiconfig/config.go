@@ -23,6 +23,8 @@ import (
 
 // ApiConfigConfig the config for api_config filter
 type ApiConfigConfig struct {
-	APIMetaConfig *model.APIMetaConfig `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
-	Path          string               `yaml:"path" json:"path,omitempty"`
+	APIMetaConfig  *model.APIMetaConfig `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
+	Path           string               `yaml:"path" json:"path,omitempty"`
+	Dynamic        bool                 `yaml:"dynamic" json:"dynamic,omitempty"`
+	DynamicAdapter string               `yaml:"dynamic_adapter" json:"dynamic_adapter,omitempty"`
 }
