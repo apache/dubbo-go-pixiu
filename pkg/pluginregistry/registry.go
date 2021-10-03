@@ -36,5 +36,6 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 
 	// adapter
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
 )
