@@ -19,10 +19,12 @@ array+=("samples/dubbogo/simple/mix")
 array+=("samples/dubbogo/simple/proxy")
 array+=("samples/dubbogo/simple/query")
 array+=("samples/dubbogo/simple/uri")
+array+=("samples/dubbogo/simple/registry")
+
 
 array+=("samples/dubbogo/http")
-
-#http
+#
+##http
 array+=("samples/http/grpc")
 array+=("samples/http/simple")
 
