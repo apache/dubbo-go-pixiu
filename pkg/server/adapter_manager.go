@@ -39,8 +39,8 @@ func CreateDefaultAdapterManager(server *Server, bs *model.Bootstrap) *AdapterMa
 }
 
 func (am *AdapterManager) Start() {
-	for i, a := range am.adapters {
-		a.Start(am.configs[i])
+	for _, a := range am.adapters {
+		a.Start()
 	}
 }
 
@@ -60,7 +60,7 @@ func (am *AdapterManager) initAdapters(server *Server, ad *model.Adapter) {
 			logger.Error("initAdapters get plugin error %s", err)
 		}
 
-		hf, err := hp.CreateAdapter(ad)
+		hf, err := hp.CreateAdapter(f)
 		if err != nil {
 			logger.Error("initFilterIfNeed create adapter error %s", err)
 		}
