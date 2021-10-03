@@ -33,6 +33,8 @@ import (
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 const (
@@ -46,12 +48,12 @@ func init() {
 
 type (
 	Plugin struct {
+		filterInstance *Filter
 	}
 
 	Filter struct {
 		cfg        *ApiConfigConfig
 		apiService api.APIDiscoveryService
-		apiConfig  *fc.APIConfig
 	}
 )
 
@@ -63,21 +65,43 @@ func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	return &Filter{cfg: &ApiConfigConfig{}}, nil
 }
 
+func (f *Plugin) GetInstance() *Filter {
+	return f.filterInstance
+}
+
 func (f *Filter) Config() interface{} {
 	return f.cfg
 }
 
 func (f *Filter) Apply() error {
+	f.apiService = api.NewLocalMemoryAPIDiscoveryService()
+
+	if f.cfg.Dynamic {
+		server.GetApiConfigManager().AddApiConfigListener(f.cfg.DynamicAdapter, f)
+		return nil
+	}
+
 	config, err := initApiConfig(f.cfg)
 	if err != nil {
 		logger.Errorf("Get ApiConfig fail: %v", err)
 	}
-	f.apiConfig = config
-	f.apiService = api.NewLocalMemoryAPIDiscoveryService()
-	if err := f.apiService.InitAPIsFromConfig(*f.apiConfig); err != nil {
+	if err := f.apiService.InitAPIsFromConfig(*config); err != nil {
 		logger.Errorf("InitAPIsFromConfig fail: %v", err)
 	}
+
 	return nil
+}
+
+func (f *Filter) OnAddAPI(r router.API) error {
+	return f.apiService.AddAPI(r)
+}
+
+func (f *Filter) OnDeleteRouter(r fc.Resource) error {
+	return f.apiService.RemoveAPIByPath(r)
+}
+
+func (f *Filter) GetAPIService() api.APIDiscoveryService {
+	return f.apiService
 }
 
 func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
@@ -114,6 +138,10 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	ctx.Next()
 }
 
+func (f *Filter) GetApiService() api.APIDiscoveryService {
+	return f.apiService
+}
+
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
 func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	if cf.APIMetaConfig != nil {
@@ -132,3 +160,5 @@ func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	}
 	return a, nil
 }
+
+var _ filter.HttpFilter = new(Filter)

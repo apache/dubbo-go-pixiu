@@ -42,7 +42,7 @@ type (
 	// Adapter adapter interface
 	Adapter interface {
 		// Start start adapter lifetime
-		Start(adapter *model.Adapter)
+		Start()
 		// Stop stop adapter lifetime
 		Stop()
 		// Apply init
@@ -56,7 +56,7 @@ var (
 	adapterPlugins = map[string]AdapterPlugin{}
 )
 
-// Register registers adapter plugin
+// RegisterAdapterPlugin registers adapter plugin
 func RegisterAdapterPlugin(p AdapterPlugin) {
 	if p.Kind() == "" {
 		panic(fmt.Errorf("%T: empty kind", p))
