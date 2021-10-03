@@ -44,5 +44,4 @@ require (
 
 replace (
 	github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0
-	google.golang.org/api => google.golang.org/api v0.13.0
 )
