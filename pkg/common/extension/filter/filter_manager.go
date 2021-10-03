@@ -33,7 +33,8 @@ import (
 
 // FilterManager manage filters
 type FilterManager struct {
-	filters       []HttpFilter
+	filters       map[string]HttpFilter
+	filtersArray  []*HttpFilter
 	filterConfigs []*model.HTTPFilter
 
 	mu sync.RWMutex
@@ -41,20 +42,21 @@ type FilterManager struct {
 
 // NewFilterManager create filter manager
 func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
-	return &FilterManager{filterConfigs: fs, filters: make([]HttpFilter, 0, 16)}
+	fm := &FilterManager{filterConfigs: fs, filters: make(map[string]HttpFilter)}
+	return fm
 }
 
 // NewEmptyFilterManager create empty filter manager
 func NewEmptyFilterManager() *FilterManager {
-	return &FilterManager{filters: make([]HttpFilter, 0, 16)}
+	return &FilterManager{filters: make(map[string]HttpFilter)}
 }
 
 // GetFilters get all filter from manager
-func (fm *FilterManager) GetFilters() []HttpFilter {
+func (fm *FilterManager) GetFilters() []*HttpFilter {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
 
-	return fm.filters
+	return fm.filtersArray
 }
 
 // Load the filter from config
@@ -64,19 +66,22 @@ func (fm *FilterManager) Load() {
 
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
-	tmp := make([]HttpFilter, 0, len(filters))
-	for _, f := range filters {
+	tmp := make(map[string]HttpFilter)
+	filtersArray := make([]*HttpFilter, len(filters))
+	for i, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
 			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
 		}
-		tmp = append(tmp, apply)
+		tmp[f.Name] = apply
+		filtersArray[i] = &apply
 	}
 	// avoid filter inconsistency
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
 	fm.filters = tmp
+	fm.filtersArray = filtersArray
 }
 
 // Apply return a new filter by name & conf
