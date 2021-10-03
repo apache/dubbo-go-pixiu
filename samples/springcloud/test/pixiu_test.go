@@ -15,16 +15,30 @@
  * limitations under the License.
  */
 
-package registry
+package test
 
 import (
-	"github.com/apache/dubbo-go/common"
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
 )
 
-// Loader this interface defined for load services from different kinds registry, such as nacos,consul,zookeeper.
-type Loader interface {
-	// LoadAllServices load all services registered in registry
-	LoadAllServices() ([]*common.URL, error)
-	// GetCluster get the registry name
-	GetCluster() (string, error)
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestAuth(t *testing.T) {
+	url := "http://localhost:8888/auth-service/echo/test"
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	assert.True(t, strings.Contains(string(s), "test"))
 }
