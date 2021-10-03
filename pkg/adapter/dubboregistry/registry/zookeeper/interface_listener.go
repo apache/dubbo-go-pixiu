@@ -160,5 +160,4 @@ func (z *zkIntfListener) handleEvent(basePath string) {
 		go l.WatchAndHandle()
 		z.reg.SetSvcListener(srvUrl.ServiceKey(), l)
 	}
-	return
 }
