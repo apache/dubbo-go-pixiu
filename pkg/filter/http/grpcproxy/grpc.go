@@ -328,12 +328,12 @@ func (f *Filter) Apply() error {
 	gc := f.cfg
 
 	cur := gc.Path
-	if len(cur) != 0 && cur[0] != '/' {
+	if !filepath.IsAbs(cur) {
 		ex, err := os.Executable()
 		if err != nil {
 			return err
 		}
-		cur = filepath.Dir(ex) + "/" + gc.Path
+		cur = filepath.Dir(ex) + string(os.PathSeparator) + gc.Path
 	}
 
 	logger.Infof("%s load proto files from %s", loggerHeader, cur)
