@@ -53,6 +53,11 @@ const (
 )
 
 const (
+	MQTypeKafka    = "kafka"
+	MQTypeRocketMQ = "rocketmq"
+)
+
+const (
 	ApplicationKey = "application"
 	AppVersionKey  = "app.version"
 	ClusterKey     = "cluster"
