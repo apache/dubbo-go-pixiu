@@ -184,7 +184,7 @@ func (opt *valuesOpt) Action(target, val interface{}) error {
 type paramTypesOpt struct{}
 
 // Action for paramTypesOpt override the other param types mapping/config.
-// The val must be []string, and will then assign to the target.(dubboTarget).Types
+// The val must be string(e.g. "int, object"), and will then assign to the target.(dubboTarget).Types
 func (opt *paramTypesOpt) Action(target, val interface{}) error {
 	v, ok := val.(string)
 	if !ok {
