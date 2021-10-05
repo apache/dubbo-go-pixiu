@@ -139,6 +139,7 @@ func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
 	}
 
 	for _, h := range rm.Headers {
+		// notice use canonical keys
 		v := req.Header.Get(h.Name)
 		if stringutil.StrInSlice(v, h.Values) {
 			return true
