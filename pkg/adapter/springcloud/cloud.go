@@ -297,7 +297,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	// third add new router
 	for _, c := range newStore.Config {
 		if !oldStore.HasCluster(c.Name) {
-			prefix := "/" + c.Name
+			prefix := "/" + c.Name + "/"
 			match := model.RouterMatch{Prefix: prefix}
 			route := model.RouteAction{Cluster: c.Name}
 			added := &model.Router{ID: c.Name, Match: match, Route: route}
