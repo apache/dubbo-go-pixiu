@@ -81,7 +81,7 @@ func (i *ServiceInstance) ToEndpoint() *model.Endpoint {
 
 // ToRoute route ID is cluster name, so equal with endpoint name and routerMatch prefix is also service name
 func (i *ServiceInstance) ToRoute() *model.Router {
-	prefix := "/" + i.ServiceName
+	prefix := "/" + i.ServiceName + "/"
 	rm := model.RouterMatch{Prefix: prefix}
 	ra := model.RouteAction{Cluster: i.ServiceName}
 	return &model.Router{ID: i.ServiceName, Match: rm, Route: ra}
