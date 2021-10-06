@@ -56,7 +56,8 @@ type (
 
 	// RouteConfiguration
 	RouteConfiguration struct {
-		RouteTrie trie.Trie `yaml:"routes" json:"routes" mapstructure:"routes"`
+		RouteTrie trie.Trie
+		Routes    []*Router `yaml:"routes" json:"routes" mapstructure:"routes"`
 		Dynamic   bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
 	}
 

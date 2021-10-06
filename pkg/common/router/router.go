@@ -18,11 +18,12 @@
 package router
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"sync"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -32,8 +33,8 @@ type (
 	// RouterCoordinator the router coordinator for http connection manager
 	RouterCoordinator struct {
 		activeConfig *model.RouteConfiguration
-
-		rw sync.RWMutex
+		trie         trie.Trie
+		rw           sync.RWMutex
 	}
 )
 
@@ -62,9 +63,16 @@ func getTrieKey(method string, path string, isPrefix bool) string {
 	return method + constant.PathSlash + path
 }
 
+func (rm *RouterCoordinator) initTrie() {
+	rm.activeConfig.RouteTrie = trie.NewTrie()
+	for _, router := range rm.activeConfig.Routes {
+		rm.OnAddRouter(router)
+	}
+}
+
 // OnAddRouter add router
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
-	//锁粒度 下期优化到 字典树node 级别
+	//TODO: lock move to trie node
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
 	if r.Match.Methods == nil {
@@ -78,7 +86,7 @@ func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 		} else {
 			key = getTrieKey(method, r.Match.Path, isPrefix)
 		}
-		rm.activeConfig.RouteTrie.Put(key, r.Route)
+		_, _ = rm.activeConfig.RouteTrie.Put(key, r.Route)
 	}
 
 }
@@ -99,6 +107,6 @@ func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 		} else {
 			key = getTrieKey(method, r.Match.Path, isPrefix)
 		}
-		rm.activeConfig.RouteTrie.Remove(key)
+		_ = rm.activeConfig.RouteTrie.Remove(key)
 	}
 }

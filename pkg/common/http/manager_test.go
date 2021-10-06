@@ -20,7 +20,6 @@ package http
 import (
 	"bytes"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"net/http"
 	"testing"
 )
@@ -31,6 +30,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"

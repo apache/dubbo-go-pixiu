@@ -20,6 +20,7 @@ package trie
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/pkg/errors"
+	"sync"
 )
 
 // Trie
@@ -41,7 +42,9 @@ func NewTrieWithDefault(path string, defVal interface{}) Trie {
 
 // Node
 type Node struct {
-	matchStr         string           //冗余信息 通配节点冗余变量名，普通节点冗余节点名
+	lock             sync.RWMutex
+	matchStr         string //冗余信息 通配节点冗余变量名，普通节点冗余节点名
+	childInitOnce    sync.Once
 	children         map[string]*Node //子树
 	PathVariablesSet map[string]*Node //变量名集合 找不到set先用map todo
 	PathVariableNode *Node            //通配变量节点后的子树
@@ -49,8 +52,6 @@ type Node struct {
 	endOfPath        bool             //是否是路径末尾
 	bizInfo          interface{}      //随便塞啥
 }
-
-//Trie对外暴露 推荐外部使用
 
 //IsEmpty put key and values into trie as map.
 func (trie *Trie) IsEmpty() bool {
@@ -96,7 +97,9 @@ func (trie Trie) Remove(withOutHost string) error {
 		return e
 	}
 	if n != nil {
+		n.lock.Lock()
 		n.endOfPath = false
+		n.lock.Unlock()
 	}
 	return errors.Errorf("path not exists.")
 }
@@ -116,9 +119,12 @@ func (trie Trie) Contains(withOutHost string) (bool, error) {
 //Put node put
 func (node *Node) Put(keys []string, bizInfo interface{}) (bool, error) {
 	//空节点初始化
-	if node.children == nil {
-		node.children = map[string]*Node{}
-	}
+	node.childInitOnce.Do(func() {
+		if node.children == nil {
+			node.children = map[string]*Node{}
+		}
+	})
+
 	if len(keys) == 0 {
 		return true, nil
 	}
@@ -246,6 +252,8 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 	//不涉及递归，屏蔽变量 非变量 put 细节
+	node.lock.Lock()
+	defer node.lock.Unlock()
 	if !stringutil.IsPathVariableOrWildcard(key) {
 		if stringutil.IsMatchAll(key) {
 			return node.putMatchAllNode(key, isReal, bizInfo)
