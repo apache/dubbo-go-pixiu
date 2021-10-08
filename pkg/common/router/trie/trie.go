@@ -20,7 +20,6 @@ package trie
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/pkg/errors"
-	"sync"
 )
 
 // Trie
@@ -43,7 +42,6 @@ func NewTrieWithDefault(path string, defVal interface{}) Trie {
 // Node
 type Node struct {
 	matchStr         string
-	childInitOnce    sync.Once
 	children         map[string]*Node
 	PathVariablesSet map[string]*Node
 	PathVariableNode *Node
@@ -116,12 +114,9 @@ func (trie Trie) Contains(withOutHost string) (bool, error) {
 //Put node put
 func (node *Node) Put(keys []string, bizInfo interface{}) (bool, error) {
 	//空节点初始化
-	node.childInitOnce.Do(func() {
-		if node.children == nil {
-			node.children = map[string]*Node{}
-		}
-	})
-
+	if node.children == nil {
+		node.children = map[string]*Node{}
+	}
 	if len(keys) == 0 {
 		return true, nil
 	}
