@@ -33,7 +33,6 @@ type (
 	// RouterCoordinator the router coordinator for http connection manager
 	RouterCoordinator struct {
 		activeConfig *model.RouteConfiguration
-		trie         trie.Trie
 		rw           sync.RWMutex
 	}
 )

@@ -20,7 +20,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"log"
 	"os"
 	"testing"
@@ -41,10 +40,22 @@ func TestMain(m *testing.M) {
 
 	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			RouteTrie: trie.NewTrieWithDefault("POST/api/v1/**", model.RouteAction{
-				Cluster:                     "test_dubbo",
-				ClusterNotFoundResponseCode: 505,
-			}),
+			Routes: []*model.Router{
+				{
+					ID: "1",
+					Match: model.RouterMatch{
+						Prefix: "/api/v1",
+						Methods: []string{
+							"POST",
+						},
+						Path: "",
+					},
+					Route: model.RouteAction{
+						Cluster:                     "test_dubbo",
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+			},
 			Dynamic: false,
 		},
 		HTTPFilters: []*model.HTTPFilter{
