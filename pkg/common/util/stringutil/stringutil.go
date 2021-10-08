@@ -60,15 +60,9 @@ func IsPathVariableOrWildcard(key string) bool {
 
 //IsWildcard return if is *
 func IsWildcard(key string) bool {
-	if key == "*" {
-		return true
-	}
-	return false
+	return key == "*"
 }
 
 func IsMatchAll(key string) bool {
-	if key == "**" {
-		return true
-	}
-	return false
+	return key == "**"
 }
