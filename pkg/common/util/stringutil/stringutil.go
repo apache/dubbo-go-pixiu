@@ -68,8 +68,15 @@ func IsMatchAll(key string) bool {
 }
 
 func GetTrieKey(method string, path string) string {
+	ret := ""
 	if strings.HasPrefix(path, constant.PathSlash) {
-		return method + path
+		ret = method + path
+	} else {
+		ret = method + constant.PathSlash + path
 	}
-	return method + constant.PathSlash + path
+
+	if strings.HasSuffix(ret, constant.PathSlash) {
+		ret = ret[0 : len(ret)-1]
+	}
+	return ret
 }
