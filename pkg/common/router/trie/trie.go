@@ -57,6 +57,9 @@ func (trie *Trie) IsEmpty() bool {
 
 //Put put key and values into trie as map.
 func (trie *Trie) Put(withOutHost string, bizInfo interface{}) (bool, error) {
+	if bizInfo == nil {
+		return false, errors.Errorf("data to put should not be nil.")
+	}
 	parts := stringutil.Split(withOutHost)
 	return trie.root.Put(parts, bizInfo)
 }

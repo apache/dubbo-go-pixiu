@@ -76,10 +76,10 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 
 	node, _, _ := rc.RouteTrie.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
 	if node == nil {
-		return nil, nil
+		return nil, errors.Errorf("route failed for %s,no rules matched.", stringutil.GetTrieKey(req.Method, req.URL.Path))
 	}
 	if node.GetBizInfo() == nil {
-		return nil, nil
+		return nil, errors.Errorf("info is nil.please check your configuration.")
 	}
 	ret := (node.GetBizInfo()).(RouteAction)
 	return &ret, nil
