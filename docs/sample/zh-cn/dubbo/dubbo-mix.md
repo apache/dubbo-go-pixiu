@@ -1,6 +1,6 @@
-# 从请求的URI部分获取参数
+# 从 URI，Query，Body 各个部分获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/uri)
+> GET 请求 [samples](https://github.com/apache/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/mix)
 
 ## 简单示例
 
@@ -10,7 +10,7 @@
 name: pixiu
 description: pixiu sample
 resources:
-  - path: '/api/v1/test-dubbo/user/name/:name'
+  - path: '/api/v1/test-dubbo/user/:name'
     type: restful
     description: user
     methods:
@@ -19,71 +19,62 @@ resources:
         timeout: 1000ms
         inboundRequest:
           requestType: http
-          uri:
-            - name: name
-              required: true
         integrationRequest:
           requestType: dubbo
           mappingParams:
             - name: uri.name
               mapTo: 0
               mapType: "string"
-          applicationName: "UserProvider"
-          interface: "com.dubbogo.pixiu.UserService"
-          method: "GetUserByName"
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_dubbo"
-  - path: '/api/v1/test-dubbo/user/code/:code'
-    type: restful
-    description: user
-    methods:
-      - httpVerb: GET
-        enable: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-          uri:
-            - name: code
-              required: true
-        integrationRequest:
-          requestType: dubbo
-          mappingParams:
-            - name: uri.code
-              mapTo: 0
-              mapType: "int"
-          applicationName: "UserProvider"
-          interface: "com.dubbogo.pixiu.UserService"
-          method: "GetUserByCode"
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_dubbo"
-  - path: '/api/v1/test-dubbo/user/name/:name/age/:age'
-    type: restful
-    description: user
-    methods:
-      - httpVerb: GET
-        enable: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-          uri:
-            - name: name
-              required: true
-            - name: age
-              required: true
-        integrationRequest:
-          requestType: dubbo
-          mappingParams:
-            - name: uri.name
-              mapTo: 0
-              mapType: "string"
-            - name: uri.age
+            - name: queryStrings.age
               mapTo: 1
               mapType: "int"
-          applicationName: "UserProvider"
+          applicationName: "UserService"
           interface: "com.dubbogo.pixiu.UserService"
           method: "GetUserByNameAndAge"
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+      - httpVerb: PUT
+        enable: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: uri.name
+              mapTo: 0
+              mapType: "string"
+            - name: requestBody._all
+              mapTo: 1
+              mapType: "object"
+          applicationName: "UserService"
+          interface: "com.dubbogo.pixiu.UserService"
+          method: "UpdateUserByName"
+          group: "test"
+          version: 1.0.0
+          clusterName: "test_dubbo"
+  - path: '/api/v1/test-dubbo/user'
+    type: restful
+    description: user
+    methods:
+      - httpVerb: PUT
+        enable: true
+        timeout: 1000ms
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          mappingParams:
+            - name: queryStrings.name
+              mapTo: 0
+              mapType: "string"
+            - name: requestBody._all
+              mapTo: 1
+              mapType: "object"
+          applicationName: "UserService"
+          interface: "com.dubbogo.pixiu.UserService"
+          method: "UpdateUserByName"
           group: "test"
           version: 1.0.0
           clusterName: "test_dubbo"
@@ -91,42 +82,34 @@ resources:
 
 ### 测试
 
-- 单个 string 参数
+- 来自 uri 和 query
 
 ```bash
-curl localhost:port/api/v1/test-dubbo/user/name/tc -X GET 
-```
-
-如果存在数据，返回:
-
-```bash
-{
-  "age": 18,
-  "code": 1,
-  "iD": "0001",
-  "name": "tc",
-  "time": "2020-12-20T15:51:36.333+08:00"
-}
-```
-
-不存在，返回空
-
-- 多个参数
-
-```bash
-curl localhost:port/api/v1/test-dubbo/user/name/tc/age/99 -X GET 
+curl localhost:port/api/v1/test-dubbo/user/tc?age=99 -X GET 
 ```
 
 结果
 
 ```bash
 {
-  "age": 18,
+  "age": 15,
   "code": 1,
   "iD": "0001",
   "name": "tc",
-  "time": "2020-12-20T15:51:36.333+08:00"
+  "time": "2020-12-20T20:54:38.746+08:00"
 }
 ```
 
-[上一页](./dubbo.md)
+- 来自 body 和 query
+
+```bash
+curl localhost:port/api/v1/test-dubbo/user?name=tc -X PUT -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json"
+```
+
+结果
+
+```bash
+true
+```
+
+[上一页](dubbo.md)
