@@ -63,7 +63,9 @@ func getTrieKey(method string, path string, isPrefix bool) string {
 }
 
 func (rm *RouterCoordinator) initTrie() {
-	rm.activeConfig.RouteTrie = trie.NewTrie()
+	if rm.activeConfig.RouteTrie.IsEmpty() {
+		rm.activeConfig.RouteTrie = trie.NewTrie()
+	}
 	for _, router := range rm.activeConfig.Routes {
 		rm.OnAddRouter(router)
 	}
