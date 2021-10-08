@@ -9,7 +9,7 @@
 ## [Samples](sample/README.md)
 
 * [dubbo](sample/dubbo.md)
-* [http](sample/http.md)
+* [http](sample/http/http.md)
 * [mock](sample/mock.md)
 * [plugins](../samples/plugins/index.md)
 

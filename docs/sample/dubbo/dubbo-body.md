@@ -126,4 +126,4 @@ result
 true
 ```
 
-[Previous](./dubbo.md)
+[Previous](dubbo.md)
