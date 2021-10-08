@@ -43,14 +43,14 @@ func NewTrieWithDefault(path string, defVal interface{}) Trie {
 // Node
 type Node struct {
 	lock             sync.RWMutex
-	matchStr         string //冗余信息 通配节点冗余变量名，普通节点冗余节点名
+	matchStr         string
 	childInitOnce    sync.Once
-	children         map[string]*Node //子树
-	PathVariablesSet map[string]*Node //变量名集合 找不到set先用map todo
-	PathVariableNode *Node            //通配变量节点后的子树
-	MatchAllNode     *Node            //通配变量节点后的子树
-	endOfPath        bool             //是否是路径末尾
-	bizInfo          interface{}      //随便塞啥
+	children         map[string]*Node
+	PathVariablesSet map[string]*Node
+	PathVariableNode *Node
+	MatchAllNode     *Node
+	endOfPath        bool
+	bizInfo          interface{}
 }
 
 //IsEmpty put key and values into trie as map.
@@ -90,7 +90,7 @@ func (trie Trie) Match(withOutHost string) (*Node, []string, bool) {
 	return node, param, ok
 }
 
-//Remove remove key and value from trie. 不释放内存，释放内存需要使用方rebuild 整个字典树
+//Remove remove key and value from trie.  logic delete can't release memory, rebuild if necessary when lake of memory.
 func (trie Trie) Remove(withOutHost string) error {
 	n, _, _, e := trie.Get(withOutHost)
 	if e != nil {
