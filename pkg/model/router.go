@@ -69,6 +69,7 @@ type (
 		valueRE *regexp.Regexp
 	}
 )
+
 func getTrieKey(method string, path string) string {
 	if strings.HasPrefix(path, constant.PathSlash) {
 		return method + path
@@ -92,23 +93,24 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 	return &ret, nil
 }
 
-func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
-  //TODO : using rete instead.
-	if len(rm.Headers) == 0 {
-		return true
-	}
-
-	for _, h := range rm.Headers {
-		// notice use canonical keys
-		v := req.Header.Get(h.Name)
-		if stringutil.StrInSlice(v, h.Values) {
-			return true
-		}
-
-		if h.valueRE != nil && h.valueRE.MatchString(v) {
-			return true
-		}
-	}
-
-	return false
-}
+//
+//func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
+//	//TODO : using rete instead.
+//	if len(rm.Headers) == 0 {
+//		return true
+//	}
+//
+//	for _, h := range rm.Headers {
+//		// notice use canonical keys
+//		v := req.Header.Get(h.Name)
+//		if stringutil.StrInSlice(v, h.Values) {
+//			return true
+//		}
+//
+//		if h.valueRE != nil && h.valueRE.MatchString(v) {
+//			return true
+//		}
+//	}
+//
+//	return false
+//}
