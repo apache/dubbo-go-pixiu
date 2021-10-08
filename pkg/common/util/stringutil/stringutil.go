@@ -66,3 +66,10 @@ func IsWildcard(key string) bool {
 func IsMatchAll(key string) bool {
 	return key == "**"
 }
+
+func GetTrieKey(method string, path string) string {
+	if strings.HasPrefix(path, constant.PathSlash) {
+		return method + path
+	}
+	return method + constant.PathSlash + path
+}

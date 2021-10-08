@@ -18,11 +18,10 @@
 package model
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	http2 "net/http"
 	"regexp"
-	"strings"
 )
 
 import (
@@ -70,19 +69,12 @@ type (
 	}
 )
 
-func getTrieKey(method string, path string) string {
-	if strings.HasPrefix(path, constant.PathSlash) {
-		return method + path
-	}
-	return method + constant.PathSlash + path
-}
-
 func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
 
-	node, _, _ := rc.RouteTrie.Match(getTrieKey(req.Method, req.URL.Path))
+	node, _, _ := rc.RouteTrie.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
 	if node == nil {
 		return nil, nil
 	}

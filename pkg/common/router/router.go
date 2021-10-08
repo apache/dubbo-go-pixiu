@@ -19,6 +19,7 @@ package router
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"sync"
 )
 
@@ -57,9 +58,9 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 
 func getTrieKey(method string, path string, isPrefix bool) string {
 	if isPrefix {
-		return method + constant.PathSlash + path + constant.PathSlash + "**"
+		path = path + constant.PathSlash + "**"
 	}
-	return method + constant.PathSlash + path
+	return stringutil.GetTrieKey(method, path)
 }
 
 func (rm *RouterCoordinator) initTrie() {
