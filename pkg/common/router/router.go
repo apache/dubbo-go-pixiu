@@ -40,11 +40,11 @@ type (
 
 // CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(hcmc *model.HttpConnectionManagerConfig) *RouterCoordinator {
-
 	rc := &RouterCoordinator{activeConfig: &hcmc.RouteConfig}
 	if hcmc.RouteConfig.Dynamic {
 		server.GetRouterManager().AddRouterListener(rc)
 	}
+	rc.initTrie()
 	return rc
 }
 
