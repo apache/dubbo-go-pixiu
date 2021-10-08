@@ -42,7 +42,6 @@ func NewTrieWithDefault(path string, defVal interface{}) Trie {
 
 // Node
 type Node struct {
-	lock             sync.RWMutex
 	matchStr         string
 	childInitOnce    sync.Once
 	children         map[string]*Node
@@ -97,9 +96,7 @@ func (trie Trie) Remove(withOutHost string) error {
 		return e
 	}
 	if n != nil {
-		n.lock.Lock()
 		n.endOfPath = false
-		n.lock.Unlock()
 	}
 	return errors.Errorf("path not exists.")
 }
@@ -252,8 +249,6 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 	//不涉及递归，屏蔽变量 非变量 put 细节
-	node.lock.Lock()
-	defer node.lock.Unlock()
 	if !stringutil.IsPathVariableOrWildcard(key) {
 		if stringutil.IsMatchAll(key) {
 			return node.putMatchAllNode(key, isReal, bizInfo)
