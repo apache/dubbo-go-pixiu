@@ -88,7 +88,6 @@ func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 		}
 		_, _ = rm.activeConfig.RouteTrie.Put(key, r.Route)
 	}
-
 }
 
 // OnDeleteRouter delete router

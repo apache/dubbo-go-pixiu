@@ -113,6 +113,10 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 	assert.Equal(t, len(hcm.filterManager.GetFilters()), 1)
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/api/v1?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
+	request.Header = map[string][]string{
+		"X-Dgp-Way": []string{"Dubbo"},
+	}
+	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request)
 	hcm.addFilter(c)
 	assert.Equal(t, len(c.Filters), 1)

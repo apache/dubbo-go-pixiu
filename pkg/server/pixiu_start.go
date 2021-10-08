@@ -39,15 +39,17 @@ type Server struct {
 	listenerManager *ListenerManager
 	clusterManager  *ClusterManager
 	adapterManager  *AdapterManager
-	routerManager   *RouterManager
+	// routerManager and apiConfigManager are duplicate, because route and dubbo-protocol api_config  are a bit repetitive
+	routerManager    *RouterManager
+	apiConfigManager *ApiConfigManager
 }
 
 func (s *Server) initialize(bs *model.Bootstrap) {
 	s.clusterManager = CreateDefaultClusterManager(bs)
-	s.adapterManager = CreateDefaultAdapterManager(s, bs)
 	s.routerManager = CreateDefaultRouterManager(s, bs)
+	s.apiConfigManager = CreateDefaultApiConfigManager(s, bs)
+	s.adapterManager = CreateDefaultAdapterManager(s, bs)
 	s.listenerManager = CreateDefaultListenerManager(bs)
-
 }
 
 func (s *Server) GetClusterManager() *ClusterManager {
@@ -60,6 +62,10 @@ func (s *Server) GetListenerManager() *ListenerManager {
 
 func (s *Server) GetRouterManager() *RouterManager {
 	return s.routerManager
+}
+
+func (s *Server) GetApiConfigManager() *ApiConfigManager {
+	return s.apiConfigManager
 }
 
 // Start server start
@@ -76,7 +82,6 @@ func (s *Server) Start() {
 	}()
 
 	registerOtelMetricMeter(conf.Metric)
-
 	s.listenerManager.StartListen()
 	s.adapterManager.Start()
 
@@ -119,4 +124,8 @@ func GetClusterManager() *ClusterManager {
 
 func GetRouterManager() *RouterManager {
 	return server.GetRouterManager()
+}
+
+func GetApiConfigManager() *ApiConfigManager {
+	return server.GetApiConfigManager()
 }
