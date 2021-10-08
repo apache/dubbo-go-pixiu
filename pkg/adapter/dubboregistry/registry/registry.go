@@ -130,9 +130,7 @@ func GetRouter() model.Router {
 		Match: model.RouterMatch{
 			Prefix:  "",
 			Path:    "",
-			Regex:   "",
 			Methods: nil,
-			Headers: nil,
 		},
 	}
 }
