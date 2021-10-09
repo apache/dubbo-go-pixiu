@@ -38,4 +38,4 @@ curl localhost:8888/api/v1/test-dubbo/mock -X GET
 
 We plan use can config custom result in the future. Not only api config way, but also create a match rule.
 
-[Previous](./README.md)  
+[Previous](README.md)  
