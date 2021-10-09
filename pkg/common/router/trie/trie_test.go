@@ -24,37 +24,37 @@ import (
 
 func TestTrie_Put(t *testing.T) {
 	trie := NewTrie()
-	ret, _ := trie.Put("/path1/:pathvarible1/path2/:pathvarible2", nil)
+	ret, _ := trie.Put("/path1/:pathvarible1/path2/:pathvarible2", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path1/:pathvarible1/path2/:pathvarible2/**", nil)
+	ret, _ = trie.Put("/path1/:pathvarible1/path2/:pathvarible2/**", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", nil)
+	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", "")
 	assert.True(t, ret)
-	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", nil)
+	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", nil)
+	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", "")
 	assert.False(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:pathvarible2/3", nil)
+	ret, _ = trie.Put("/path2/3/path2/:pathvarible2/3", "")
 	assert.True(t, ret)
-	ret, _ = trie.Put("/path2/3/path2/:432423/3", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3", "")
 	assert.False(t, ret)
-	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/d/:fdsa", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/d/:fdsa", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsa", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsa", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsafdsafsdafsda", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsafdsafsdafsda", "")
 	assert.False(t, ret)
 
-	ret, _ = trie.Put("/path1/:pathvarible1/path2/:pathvarible2/:fdsa", nil)
+	ret, _ = trie.Put("/path1/:pathvarible1/path2/:pathvarible2/:fdsa", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path1/:432/path2/:34", nil)
+	ret, _ = trie.Put("/path1/:432/path2/:34", "")
 	assert.False(t, ret)
 }
 
@@ -72,37 +72,37 @@ func TestTrie_MatchAndGet(t *testing.T) {
 	result, _, _ = trie.Match("POST/api/v1")
 	assert.Equal(t, "ab", result.GetBizInfo())
 
-	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", nil)
+	ret, _ = trie.Put("/path2/:pathvarible1/path2/:pathvarible2", "")
 	assert.True(t, ret)
-	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", nil)
+	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", nil)
+	ret, _ = trie.Put("/path2/3/path2/:pathvarible2", "")
 	assert.False(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:pathvarible2/3", nil)
+	ret, _ = trie.Put("/path2/3/path2/:pathvarible2/3", "")
 	assert.True(t, ret)
-	ret, _ = trie.Put("/path2/3/path2/:432423/3", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3", "")
 	assert.False(t, ret)
-	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/d/:fdsa", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/d/:fdsa", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsa", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsa", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsafdsafsdafsda", nil)
+	ret, _ = trie.Put("/path2/3/path2/:432423/3/a/b/c/c/:fdsafdsafsdafsda", "")
 	assert.False(t, ret)
 
-	ret, _ = trie.Put("/path1/:pathvarible1/path2/:pathvarible2/:fdsa", nil)
+	ret, _ = trie.Put("/path1/:pathvarible1/path2/:pathvarible2/:fdsa", "")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/path1/:432/path2/:34", nil)
+	ret, _ = trie.Put("/path1/:432/path2/:34", "")
 	assert.False(t, ret)
 
 	ret, _ = trie.Put("/a/:432/b/:34/**", "test**")
 	assert.True(t, ret)
 
-	ret, _ = trie.Put("/a/:432/b/:34/**", nil)
+	ret, _ = trie.Put("/a/:432/b/:34/**", "")
 	assert.False(t, ret)
 
 	node, param, ok := trie.Match("/a/v1/b/v2/sadf/asdf")
