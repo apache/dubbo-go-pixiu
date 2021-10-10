@@ -59,15 +59,8 @@ type (
 
 	// Tracing
 	TraceConfig struct {
-		Http Http   `yaml:"http" json:"http,omitempty"`
 		URL  string `yaml:"url" json:"url,omitempty"`
 		Type string `yaml:"type" json:"type,omitempty"`
-	}
-
-	// Tracing
-	Http struct {
-		Name   string      `yaml:"name"`
-		Config interface{} `yaml:"config"`
 	}
 )
 
