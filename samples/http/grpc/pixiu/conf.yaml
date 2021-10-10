@@ -41,9 +41,6 @@ static_resources:
                         cluster: "test-grpc"
                         cluster_not_found_response_code: 505
                 http_filters:
-                  - name: dgp.filter.http.apiconfig
-                    config:
-                      path: $PROJECT_DIR/pixiu/api_config.yaml
                   - name: dgp.filter.http.grpcproxy
                     config:
                       path: $PROJECT_DIR/proto
