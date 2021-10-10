@@ -1,10 +1,10 @@
-# Get the parameter from the query
+# 从表单请求里面获取参数
 
-> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/query)
+> GET 请求 [samples](https://github.com/apache/dubbo-go-pixiu/tree/develop/samples/dubbogo/simple/query)
 
-## Simple Demo
+## 简单示例
 
-### Api Config
+### 接口配置
 
 ```yaml
 name: pixiu
@@ -78,15 +78,15 @@ resources:
           clusterName: "test_dubbo"
 ```
 
-### Test
+### 测试
 
-- single param string
+- 单个 string 参数
 
 ```bash
 curl localhost:port/api/v1/test-dubbo/userByName?name=tc -X GET 
 ```
 
-If exist, will return:
+如果存在数据，返回:
 
 ```bash
 {
@@ -98,15 +98,15 @@ If exist, will return:
 }
 ```
 
-Not found, return: nil
+不存在，返回空
 
-- multi params
+- 多个参数
 
 ```bash
 curl localhost:port/api/v1/test-dubbo/userByNameAndAge?name=tc&age=99 -X GET 
 ```
 
-result
+结果
 
 ```bash
 {
@@ -118,4 +118,4 @@ result
 }
 ```
 
-[Previous](./dubbo.md)
+[上一页](dubbo.md)
