@@ -79,7 +79,6 @@ func newZKRegistry(regConfig model.Registry, adapterListener common.RegistryEven
 func initZKListeners(reg *ZKRegistry) {
 	reg.zkListeners = make(map[registry.RegisteredType]registry.Listener)
 	reg.zkListeners[registry.RegisteredTypeInterface] = newZKIntfListener(reg.client, reg, reg.AdapterListener)
-	go reg.zkListeners[registry.RegisteredTypeInterface].WatchAndHandle()
 }
 
 func (r *ZKRegistry) GetClient() *zk.ZooKeeperClient {
@@ -89,9 +88,6 @@ func (r *ZKRegistry) GetClient() *zk.ZooKeeperClient {
 // DoSubscribe is the implementation of subscription on the target registry.
 func (r *ZKRegistry) DoSubscribe() error {
 	if err := r.interfaceSubscribe(); err != nil {
-		return err
-	}
-	if err := r.applicationSubscribe(); err != nil {
 		return err
 	}
 	return nil
@@ -107,16 +103,6 @@ func (r *ZKRegistry) interfaceSubscribe() error {
 	return nil
 }
 
-// To subscribe application level service discovery
-func (r *ZKRegistry) applicationSubscribe() error {
-	appListener, ok := r.zkListeners[registry.RegisteredTypeApplication]
-	if !ok {
-		return errors.New("Listener for interface level registration does not initialized")
-	}
-	go appListener.WatchAndHandle()
-	return nil
-}
-
 // DoUnsubscribe stops monitoring the target registry.
 func (r *ZKRegistry) DoUnsubscribe() error {
 	intfListener, ok := r.zkListeners[registry.RegisteredTypeInterface]
@@ -124,11 +110,6 @@ func (r *ZKRegistry) DoUnsubscribe() error {
 		return errors.New("Listener for interface level registration does not initialized")
 	}
 	intfListener.Close()
-	appListener, ok := r.zkListeners[registry.RegisteredTypeApplication]
-	if !ok {
-		return errors.New("Listener for interface level registration does not initialized")
-	}
-	appListener.Close()
 	for k, l := range r.GetAllSvcListener() {
 		l.Close()
 		r.RemoveSvcListener(k)
