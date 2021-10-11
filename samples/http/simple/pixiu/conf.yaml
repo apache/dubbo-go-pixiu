@@ -66,9 +66,6 @@ static_resources:
           socket_address:
             address: 127.0.0.1
             port: 1314
-  timeout_config:
-    connect_timeout: "5s"
-    request_timeout: "10s"
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"
