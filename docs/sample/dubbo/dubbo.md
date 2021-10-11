@@ -1,4 +1,4 @@
-# Dubbo
+# Dubbo Catalog
 
 * [dubbo-query](dubbo-query.md)
 * [dubbo-body](dubbo-body.md)
@@ -12,4 +12,4 @@
 
 How do I run a simple test example [document](dubbo-simple-run.md)
 
-[Previous](./README.md)
+[Previous](../README.md)
