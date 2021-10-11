@@ -19,4 +19,4 @@ Although User struct has Time value, generic invoke will return nil. [the simple
 
 So I suggest you can use string to time type for a short time.
 
-[Previous](./dubbo.md)
+[Previous](dubbo.md)

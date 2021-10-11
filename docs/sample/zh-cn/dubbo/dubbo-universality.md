@@ -202,4 +202,4 @@ Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
 
 请注意这种特殊情况的配置目前自由度不是很高，如果有不能满足的场景请及时反馈到[问题](https://github.com/dubbogo/dubbo-go-proxy/issues)
 
-[上一页](./dubbo.md)
+[上一页](dubbo.md)

@@ -195,4 +195,4 @@ request body
 
 Please pay attention to the special situation of configuration the degrees of freedom is not very high, if can't meet the scene, please mention [issue](https://github.com/dubbogo/dubbo-go-proxy/issues), thank you.
 
-[Previous](./dubbo.md)
+[Previous](dubbo.md)
