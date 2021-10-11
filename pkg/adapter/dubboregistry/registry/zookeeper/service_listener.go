@@ -18,6 +18,7 @@
 package zookeeper
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -31,6 +32,7 @@ import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
@@ -98,12 +100,12 @@ func (zkl *serviceListener) waitEventAndHandlePeriod(children []string, e <-chan
 	tickerTTL := defaultTTL
 	ticker := time.NewTicker(tickerTTL)
 	defer ticker.Stop()
-	zkl.handleEvent(children)
+	zkl.handleEvent()
 
 	for {
 		select {
 		case <-ticker.C:
-			zkl.handleEvent(children)
+			zkl.handleEvent()
 		case zkEvent := <-e:
 			logger.Warnf("get a zookeeper childEventCh{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
 				zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, zookeeper.StateToString(zkEvent.State), zkEvent.Err)
@@ -111,7 +113,7 @@ func (zkl *serviceListener) waitEventAndHandlePeriod(children []string, e <-chan
 			if zkEvent.Type != zk.EventNodeChildrenChanged {
 				return true
 			}
-			zkl.handleEvent(children)
+			zkl.handleEvent()
 			return true
 		case <-zkl.exit:
 			logger.Warnf("listen(path{%s}) goroutine exit now...", zkl.path)
@@ -122,18 +124,20 @@ func (zkl *serviceListener) waitEventAndHandlePeriod(children []string, e <-chan
 }
 
 // whenever it is called, the children node changed and refresh the api configuration.
-func (zkl *serviceListener) handleEvent(children []string) {
-
-	if len(children) == 0 {
+func (zkl *serviceListener) handleEvent() {
+	children, err := zkl.client.GetChildren(zkl.path)
+	if err != nil {
 		// disable the API
-		bkConf, _, _ := registry.ParseDubboString(zkl.url.String())
+		bkConf, methods, _ := registry.ParseDubboString(zkl.url.String())
 		apiPattern := registry.GetAPIPattern(bkConf)
-		if err := zkl.adapterListener.OnDeleteRouter(config.Resource{Path: apiPattern}); err != nil {
-			logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), apiPattern)
+		for i := range methods {
+			path := strings.Join([]string{apiPattern, methods[i]}, constant.PathSlash)
+			if err := zkl.adapterListener.OnDeleteRouter(config.Resource{Path: path}); err != nil {
+				logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), path)
+			}
 		}
 		return
 	}
-	var err error
 	zkl.url, err = common.NewURL(children[0])
 	if err != nil {
 		logger.Warnf("Parse service path failed: %s", children[0])
