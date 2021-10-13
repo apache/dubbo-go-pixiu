@@ -2,41 +2,62 @@
 
 > Doc metions below fit the code in the `samples/http/grpc`
 
-## Define Apis in the pixiu/api_config.yaml
+## Define Pixiu Config
 
 ```yaml
-name: pixiu
-description: pixiu sample
-resources:
-  - path: '/api/v1/provider.UserProvider/GetUser'
-    type: restful
-    description: user
-    methods:
-      - httpVerb: GET
-        enable: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: grpc
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_grpc"
-  - path: '/api/v1/provider.UserProvider/GetUser'
-    type: restful
-    description: user
-    methods:
-      - httpVerb: POST
-        enable: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: grpc
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_grpc"
+static_resources:
+  listeners:
+    - name: "net/http"
+      address:
+        socket_address:
+          protocol_type: "HTTP"
+          address: "0.0.0.0"
+          port: 8881
+      filter_chains:
+        - filter_chain_match:
+          domains:
+            - api.dubbo.com
+            - api.pixiu.com
+          filters:
+            - name: dgp.filter.httpconnectionmanager
+              config:
+                route_config:
+                  routes:
+                    - match:
+                        prefix: "/api/v1"
+                      route:
+                        cluster: "test-grpc"
+                        cluster_not_found_response_code: 505
+                http_filters:
+                  - name: dgp.filter.http.grpcproxy
+                    config:
+                      path: /mnt/d/WorkSpace/GoLandProjects/dubbo-go-pixiu/samples/http/grpc/proto
+                  - name: dgp.filter.http.response
+                    config:
+                server_name: "test-http-grpc"
+                generate_request_id: false
+      config:
+        idle_timeout: 5s
+        read_timeout: 5s
+        write_timeout: 5s
+  clusters:
+    - name: "test-grpc"
+      lb_policy: "RoundRobin"
+      endpoints:
+        - socket_address:
+            address: 127.0.0.1
+            port: 50001
+            protocol_type: "GRPC"
+  timeout_config:
+    connect_timeout: "5s"
+    request_timeout: "10s"
+  shutdown_config:
+    timeout: "60s"
+    step_timeout: "10s"
+    reject_policy: "immediacy"
 ```
+
+> Grpc server is defined in the `clusters`
 
 > WARN: currently http request only support json body to parse params
 
