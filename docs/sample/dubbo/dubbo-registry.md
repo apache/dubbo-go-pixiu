@@ -79,18 +79,16 @@ static_resources:
             timeout: "5s"
 ```
 
-We should configure the `dgp.filter.http.dubboproxy` filter in the configuration file. The default API path is ``.
+We should configure the `dgp.filter.http.dubboproxy` filter in the configuration file. 
 
 ## Test
+
+The default API path is `/application/interface/version/method`. The types and values of the parameters should be placed in the request body.
 
 Run command curl using: 
 
 ```
-curl http://127.0.0.1:8881/api/v1/provider.UserProvider/GetUser
+curl http://localhost:8881/BDTService/com.dubbogo.pixiu.UserService/1.0.0/GetUserByCode -X POST -d '{"types":"int", "values":1}'
 ```
 
-and 
-
-```
-curl http://127.0.0.1:8881/api/v1/provider.UserProvider/GetUser -X POST -d '{"userId":1}'
-```
+[Previous](dubbo.md)
