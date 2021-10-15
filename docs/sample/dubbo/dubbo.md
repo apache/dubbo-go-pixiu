@@ -7,6 +7,7 @@
 * [dubbo-universality...dubbo proxy model](dubbo-universality.md)
 * [dubbo-error](dubbo-error.md)
 * [dubbo-incomplete](dubbo-incomplete.md)
+* [dubbo-registry](dubbo-registry.md)
 
 > Based on [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple)
 
