@@ -2,14 +2,15 @@
 
 ### Config
  
-pixiu supports specifying local config file with argument -c which you can find in those samples pixiu dir. 
+Pixiu supports specifying local config file with argument -c which you can find in those samples pixiu dir. 
 
-pixiu use the config abstraction like envoy such as listener, filter, route and cluster.
+Pixiu use the config abstraction like envoy such as listener, filter, route and cluster.
 
-Besides, pixiu provider another dubbo-specific config named api_config which dubbo-filter used to  transform http request to dubbo generic call. you can find it in those samples pixiu dir too
-the api_config specification you can refer to this document [Api Model](api.md)
+Besides, pixiu provides another dubbo-specific config named api_config which dubbo-filter used to  transform http request to dubbo generic call. you can find it in those samples pixiu dir too.
 
-this document mainly describe the pixiu config abstraction, there is a example below:
+The api_config specification you can refer to this document [Api Model](api.md).
+
+This document mainly describes the pixiu config abstraction, there is a example below:
 ```yaml
 
 static_resources:
@@ -49,12 +50,12 @@ static_resources:
             address: 127.0.0.1
             port: 1314
 ```
-the more detail will be found in pkg/model/bootstrap.go
+The more detail will be found in pkg/model/bootstrap.go
 
 ### static_resources 
-static_resources are used to specify unchanged config, meanwhile the dynamic_resources are used for dynamic config. supporting dynamic_resource is still in develop
+the static_resources are used to specify unchanged config, meanwhile the dynamic_resources are used for dynamic config. supporting dynamic_resource is still in develop.
 
-there are four import abstraction in static_resources:
+There are four import abstraction in static_resources:
 - listener
 - filter
 - route
@@ -62,19 +63,19 @@ there are four import abstraction in static_resources:
 
 #### listener
 
-listener provider external network server which support many network protocol, such as http, http2 or tcp
+Listener provides external network server function which support many network protocol, such as http, http2 or tcp.
 
-user can set the protocol and host to allow pixiu listen to it
+User can set the protocol and host to allow pixiu listen to it.
 
-when listener receive request from client, it will handle it and pass it to filter
+When listener receives request from client, it will handle it and pass it to filter.
 
 #### filter
 
-filter provider request handle abstraction. user can combinate many filter together into filter-chain.
+Filter provides request handle abstraction. user can combine many filter together into filter-chain.
 
-when receive request from listener, filter will handle it in the order at pre or post phase.
+When receives request from the listener, filter will handle it in the order at pre or post phase.
 
-because pixiu want offer network protocol transform function, so the filter contains network filter and the filter below network filter such as http filter
+Because pixiu wants offer network protocol transform function, so the filter contains network filter and the filter below network filter such as http filter
 
 the request handle process like below
 ```
@@ -84,17 +85,17 @@ client -> listner -> network filter such as httpconnectionmanager -> http filter
 
 ##### network filter
 
-support http protocol only. for example dgp.filter.httpconnectionmanager in config above
+Pixiu supports http protocol only. for example dgp.filter.httpconnectionmanager in config above.
 
 ##### http filter 
 
-there are also many protocol-specific filter such as http-to-grpc filter、http-to-dubbo filter etc. for example, dgp.filter.http.httpproxy in config above
+There also are many protocol-specific filters such as http-to-grpc filter、http-to-dubbo filter etc. for example, dgp.filter.http.httpproxy in config above.
 
-there are many build-in filter such as cors、metric、ratelimit or timeout. for example, dgp.filter.http.response in config above
+There are many build-in filter such as cors、metric、ratelimit or timeout. for example, dgp.filter.http.response in config above.
 
 #### route
 
-after filter handle, pixiu will forward the request to upstream server by route. the route provider forward rules such as path、method and header maetches
+After filter handled, pixiu will forward the request to upstream server by route. the route provider forward rules such as path、method and header matches
 
 ```
 routes:
@@ -123,7 +124,7 @@ clusters:
 
 #### Adapter
 
-the adapter communicated with service-registry such as zk, nacos to fetch service instance info and produce route and cluster config automaticly
+the adapter communicates with service-registry such as zk, nacos to fetch service instance info and produce route and cluster config automatically.
 
-there are two adapter you can find in pkg/adapter
+There are two adapter you can find in pkg/adapter.
 
