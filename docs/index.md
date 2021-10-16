@@ -13,6 +13,7 @@
 * [mock](sample/mock.md)
 * [plugins](../samples/plugins/index.md)
 * [Tracing](sample/others/jaeger.md)
+* [springcloud](sample/springcloud/README.md)
 
 
 ## [Developer Guide](developer/README.md)

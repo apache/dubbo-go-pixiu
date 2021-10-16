@@ -130,10 +130,6 @@ func TestMain(m *testing.M) {
 					LbStr:   "RoundRobin",
 				},
 			},
-			TimeoutConfig: model.TimeoutConfig{
-				ConnectTimeoutStr: "5s",
-				RequestTimeoutStr: "10s",
-			},
 			ShutdownConfig: &model.ShutdownConfig{
 				Timeout:      "60s",
 				StepTimeout:  "10s",
