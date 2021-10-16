@@ -35,7 +35,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -51,28 +50,45 @@ func init() {
 }
 
 // tracerFilter is a filter for tracer
-type Plugin struct {
-}
+type (
+	Plugin struct {
+	}
+	TraceFilter struct {
+		cfg *TraceConfig
+	}
 
-type TraceFilter struct {
-}
+	// Tracing
+	TraceConfig struct {
+		URL  string `yaml:"url" json:"url,omitempty"`
+		Type string `yaml:"type" json:"type,omitempty"`
+	}
+)
 
 func (ap *Plugin) Kind() string {
 	return constant.TracingFilter
 }
 
 func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	New()
-	return &TraceFilter{}, nil
+	return &TraceFilter{cfg: &TraceConfig{}}, nil
 }
 
 func (m *TraceFilter) Config() interface{} {
-	return nil
+	return m.cfg
 }
 
 func (m *TraceFilter) Apply() error {
 	// init
-	New()
+	tc := m.cfg
+	switch tc.Type {
+	case TracingType_Jaeger:
+		tp, err := newTracerProvider(tc.URL)
+		if err != nil {
+			log.Fatal(err)
+		}
+		otel.SetTracerProvider(tp)
+	default:
+		panic("unsupported tracing")
+	}
 	return nil
 }
 
@@ -98,25 +114,6 @@ func newTracerProvider(url string) (*tracesdk.TracerProvider, error) {
 	)
 
 	return tp, nil
-}
-
-// New create tracer filter.
-func New() TraceFilter {
-	tc := config.GetBootstrap().Tracing
-	switch tc.Type {
-	case "":
-		return TraceFilter{}
-	case TracingType_Jaeger:
-		tp, err := newTracerProvider(tc.URL)
-		if err != nil {
-			log.Fatal(err)
-		}
-		otel.SetTracerProvider(tp)
-	default:
-		panic("unsupported tracing")
-	}
-
-	return TraceFilter{}
 }
 
 // Do execute tracerFilter filter logic.
