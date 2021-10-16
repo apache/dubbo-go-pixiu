@@ -9,6 +9,7 @@
 * [dubbo-universality...dubbo proxy model](dubbo-universality.md)
 * [dubbo-error](dubbo-error.md)
 * [dubbo-incomplete](dubbo-incomplete.md)
+* [dubbo-registry](dubbo-registry.md)
 
 
 ### http to http-protocl-base dubbo request
