@@ -98,7 +98,7 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 }
 
 func (f *Filter) Config() interface{} {
-	return nil
+	return f.cfg.Timeout
 }
 
 func (f *Filter) Apply() error {

@@ -16,34 +16,30 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-name: pixiu
-description: pixiu sample
-resources:
-  - path: '/api/v1/provider.UserProvider/GetUser'
-    type: restful
-    description: user
-    methods:
-      - httpVerb: GET
-        enable: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: grpc
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_grpc"
-  - path: '/api/v1/provider.UserProvider/GetUser'
-    type: restful
-    description: user
-    methods:
-      - httpVerb: POST
-        enable: true
-        timeout: 1000ms
-        inboundRequest:
-          requestType: http
-        integrationRequest:
-          requestType: grpc
-          group: "test"
-          version: 1.0.0
-          clusterName: "test_grpc"
+level: "debug"
+development: true
+disableCaller: false
+disableStacktrace: false
+sampling:
+encoding: "console"
+
+# encoder
+encoderConfig:
+  messageKey: "message"
+  levelKey: "level"
+  timeKey: "time"
+  nameKey: "logger"
+  callerKey: "caller"
+  stacktraceKey: "stacktrace"
+  lineEnding: ""
+  levelEncoder: "capitalColor"
+  timeEncoder: "iso8601"
+  durationEncoder: "seconds"
+  callerEncoder: "short"
+  nameEncoder: ""
+
+outputPaths:
+  - "stderr"
+errorOutputPaths:
+  - "stderr"
+initialFields:
