@@ -12,6 +12,7 @@
 * [http](sample/http/http.md)
 * [mock](sample/mock.md)
 * [plugins](../samples/plugins/index.md)
+* [springcloud](sample/springcloud/README.md)
 
 ## [User Guide](user/README.md)
 
