@@ -3,7 +3,8 @@
 #### Tracing with Jaeger
 
 
-there is tracing filter, we can use it to add tracing function for pixiu
+There is a tracing filter, by which we can add tracing function for pixiu
+
 
 ```go
 http_filters:

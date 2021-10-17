@@ -1,13 +1,14 @@
 # Filter
 
 
-Filter provides request handle abstraction. user can combinate many filter together into filter-chain.
+Filter provides request handle abstraction. User can combinate many filters together into filter-chain.
 
-When receive request from listener, filter will handle it in the order at pre or post phase.
+When receiving request from the listener, filter will handle it one by one at its pre or post phase.
 
-Because pixiu want offer network protocol transform function, so the filter contains network filter and the filter below network filter such as http filter.
+Because pixiu want to provide network protocol transform function, so the filter contains network filter and the filter below network filter such as http filter.
 
-the request handle process like below.
+the request processing order is as follows.
+
 ```
 client -> listner -> network filter such as httpconnectionmanager -> http filter chain
 
@@ -15,7 +16,8 @@ client -> listner -> network filter such as httpconnectionmanager -> http filter
 
 ### Http Filter List
 
-You can find out all filters in pkg/filter, just list some import ones.
+You can find out all filters in `pkg/filter`. Just list some filters as the following.
+
 
 - ratelimit the filter provides rate limit function using sentinel-go;
 - timeout the filter provides timeout function;
@@ -82,7 +84,7 @@ type Config struct {
 }
 ```
 
-You can initialize filter-own config instance when plugin CreateFilter, and return it at config function.
+You can initialize filter-own config instance at plugin `CreateFilter` function, and return it at `config` function.
 
 ```go
 
@@ -94,11 +96,11 @@ func (f *Filter) Config() interface{} {
 	return f.cfg
 }
 ```
-Then pixiu will fill it's value using the value in pixiu config yaml.
+Then pixiu will fill it's value by pixiu config yaml.
 
-After filling config value, pixiu will call Apply function, you should prepare filter, such as fetch remote info etc.
+After filling config value, pixiu will call `Apply` function, you should prepare filter, such as fetch remote info etc.
 
-when request comes, pixiu will call PrepareFilterChain function to allow filter add itself into request-filter-chain.
+when request comes, pixiu will call `PrepareFilterChain` function to allow filter add itself into request-filter-chain.
 
 ```go
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -106,9 +108,9 @@ func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 	return nil
 }
 ```
-If not use AppendFilterFunc to add self into filter-chain, then filter will not handle the request this time.
+If not use `AppendFilterFunc` to add self into filter-chain, then filter will not handle the request this time.
 
-Finally pixiu will call Handle function.
+Finally pixiu will call `Handle` function.
 
 ```go
 func (f *Filter) Handle(ctx *http.HttpContext) {
@@ -118,7 +120,8 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 
 ```
 
-There are two phase during request handle, pre and post. before calling ctx.Next function, there is pre phase,otherwise there is post phase.
+There are two phases during handle the request, the pre and the post. Before calling `ctx.Next` function, the phase is pre. And After calling it, the phase is post.
+
 
 
 
@@ -139,7 +142,7 @@ func init() {
 
 #### step three
 
-Add unnamed import in pkg/pluginregistry/registry.go file to make init function invoking.
+Add unnamed import in `pkg/pluginregistry/registry.go` file to make `init` function invoking.
 
 ```go
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/cors"
@@ -168,7 +171,8 @@ http_filters:
 
 #### example
 
-There is a simple filter located in pkg/filter/cors which provider http cors function.
+There is a simple filter located in `pkg/filter/cors` which provider http `cors` function.
+
 
 ```go
 type (
