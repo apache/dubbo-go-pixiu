@@ -2,4 +2,4 @@
 
 * [FAQ](faq.md)
 * [Roadmap](roadmap.md)
-* [Proxy arguments](proxy-arguments.md)
+* [Proxy arguments](pixiu-arguments.md)
