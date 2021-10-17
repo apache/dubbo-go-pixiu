@@ -35,7 +35,7 @@ type KafkaConsumerFacade struct {
 	wg              sync.WaitGroup
 }
 
-func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, topic string, partition int32, consumeHook string, checkUrl string) error {
+func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...mq.Option) error {
 	partConsumer, err := f.consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (f *KafkaConsumerFacade) checkConsumeHookAlive(ctx context.Context, key str
 	}
 }
 
-func (f *KafkaConsumerFacade) UnSubscribe(topic string, partition int32) error {
+func (f *KafkaConsumerFacade) UnSubscribe(opts ...mq.Option) error {
 	key := mq.GetConsumerManagerKey(topic, partition)
 	if cancel, ok := f.consumerManager[key]; !ok {
 		return perrors.New("consumer goroutine not found")
