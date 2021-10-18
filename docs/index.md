@@ -1,25 +1,20 @@
 # dubbo-go-pixiu Documentation
 
-## [Common](common/README.md)
-
-* [FAQ](common/faq.md)
-* [Roadmap](common/roadmap.md)
-* [Pixiu arguments](common/pixiu-arguments.md)
-
-## [Samples](sample/README.md)
-
-* [dubbo](sample/dubbo.md)
-* [http](sample/http/http.md)
-* [mock](sample/mock.md)
-* [plugins](../samples/plugins/index.md)
-
 ## [User Guide](user/README.md)
 
 * [Quick Start](user/start.md)
-* [Response](user/response.md)
-* [Api Model](user/api.md)
-* [Installation](user/installation.md)
+* [Config](user/config.md)
 * [Metric](user/metric.md)
+
+## [Samples](sample/README.md)
+
+* [dubbo](sample/dubbo/dubbo.md)
+* [http](sample/http/http.md)
+* [mock](sample/mock.md)
+* [plugins](../samples/plugins/index.md)
+* [Tracing](sample/others/jaeger.md)
+* [springcloud](sample/springcloud/README.md)
+
 
 ## [Developer Guide](developer/README.md)
 
@@ -27,3 +22,7 @@
 * [Auto Registry](developer/auto-registy.md)
 * [Filter](developer/filter.md)
 * [Log](developer/log.md)
+
+## [Common](common/README.md)
+
+* [FAQ](common/faq.md)
