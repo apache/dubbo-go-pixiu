@@ -18,12 +18,15 @@
 package csrf
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCsrfHeader(t *testing.T) {
