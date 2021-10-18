@@ -64,6 +64,19 @@ func (trie *Trie) Put(withOutHost string, bizInfo interface{}) (bool, error) {
 	return trie.root.Put(parts, bizInfo)
 }
 
+//Put put key and values into trie as map.
+func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo interface{}) (bool, error) {
+	if bizInfo == nil {
+		return false, errors.Errorf("data to put should not be nil.")
+	}
+	parts := stringutil.Split(withOutHost)
+	n, _ := trie.Remove(withOutHost)
+	if n != nil {
+		//TODO: log n.bizInfo for trouble shooting
+	}
+	return trie.root.Put(parts, bizInfo)
+}
+
 //Get get values according key.pathVariable not supported.
 func (trie Trie) Get(withOutHost string) (*Node, []string, bool, error) {
 	parts := stringutil.Split(withOutHost)
@@ -78,6 +91,11 @@ func (trie Trie) Get(withOutHost string) (*Node, []string, bool, error) {
 }
 
 //Match get values according url , pathVariable supported.
+// returns:
+//*Node this node in path, if not exists return nil
+//[]string   reversed array of pathVariable value   /valA/valB/valC matchs  /:aa/:bb/:cc  returns array of (valC,valB,valA)
+//bool is ok
+//error
 func (trie Trie) Match(withOutHost string) (*Node, []string, bool) {
 	parts := stringutil.Split(withOutHost)
 	node, param, ok := trie.root.Match(parts)
@@ -91,15 +109,15 @@ func (trie Trie) Match(withOutHost string) (*Node, []string, bool) {
 }
 
 //Remove remove key and value from trie.  logic delete can't release memory, rebuild if necessary when lake of memory.
-func (trie Trie) Remove(withOutHost string) error {
+func (trie Trie) Remove(withOutHost string) (*Node, error) {
 	n, _, _, e := trie.Get(withOutHost)
 	if e != nil {
-		return e
+		return nil, e
 	}
 	if n != nil {
 		n.endOfPath = false
 	}
-	return errors.Errorf("path not exists.")
+	return n, nil
 }
 
 //Contains return if key exists in trie
@@ -160,6 +178,7 @@ func (node *Node) GetBizInfo() interface{} {
 }
 
 //Match node match
+
 func (node *Node) Match(parts []string) (*Node, []string, bool) {
 	key := parts[0]
 	childKeys := parts[1:]
@@ -204,6 +223,11 @@ func (node *Node) Match(parts []string) (*Node, []string, bool) {
 }
 
 //Get node get
+// returns:
+//*Node this node in path, if not exists return nil
+//[]string key reversed array of pathVariable   /:aa/:bb/:cc  returns array of (cc,bb,aa)
+//bool is ok
+//error
 func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 	key := keys[0]
 	childKeys := keys[1:]

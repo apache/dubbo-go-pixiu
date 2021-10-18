@@ -108,6 +108,6 @@ func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 		} else {
 			key = getTrieKey(method, r.Match.Path, isPrefix)
 		}
-		_ = rm.activeConfig.RouteTrie.Remove(key)
+		_, _ = rm.activeConfig.RouteTrie.Remove(key)
 	}
 }
