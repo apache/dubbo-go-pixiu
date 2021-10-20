@@ -1,5 +1,35 @@
 # Release Notes
 ---
+## 0.4.0
+
+### New Features
+- [dynamic cluster and route configuration from spring cloud nacos registry](https://github.com/apache/dubbo-go-pixiu/pull/255)
+- [dynamic dubbo proxy configuration from zk registry](https://github.com/apache/dubbo-go-pixiu/pull/256)
+- [http to grpc proxy](https://github.com/apache/dubbo-go-pixiu/pull/244)
+- [http to http proxy](https://github.com/apache/dubbo-go-pixiu/pull/242)
+- [tracing with jaeger](https://github.com/apache/dubbo-go-pixiu/pull/236)
+- [cors policy](https://github.com/apache/dubbo-go-pixiu/pull/249)
+
+### Enhancement
+
+- [add more samples](https://github.com/apache/dubbo-go-pixiu/pull/271)
+- [use cobra cmd tool](https://github.com/apache/dubbo-go-pixiu/pull/234)
+- [add samples quick start script](https://github.com/apache/dubbo-go-pixiu/pull/226)
+- [upgrade hessian2 to v1.9.3](https://github.com/apache/dubbo-go-pixiu/pull/248)
+- [rename onAir property to enable](https://github.com/apache/dubbo-go-pixiu/pull/243)
+- [tracing optimize](https://github.com/apache/dubbo-go-pixiu/pull/257/files)
+- [support https](https://github.com/apache/dubbo-go-pixiu/pull/213)
+
+### Bugfixes
+
+- [Fix request body miss problem](https://github.com/apache/dubbo-go-pixiu/pull/260)
+- [Fix HttpContext reset bug](https://github.com/apache/dubbo-go-pixiu/pull/254)
+- [Fix env value can't be set](https://github.com/apache/dubbo-go-pixiu/pull/239)
+- [Fix filterManager get filters with random order](https://github.com/apache/dubbo-go-pixiu/pull/264)
+- [Fix nil issue for timeout filter](https://github.com/apache/dubbo-go-pixiu/pull/278)
+
+Milestone: [0.0.4](https://github.com/apache/dubbo-go-pixiu/milestone/5) 
+
 
 ## 0.3.0
 
