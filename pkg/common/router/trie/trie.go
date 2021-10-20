@@ -70,10 +70,10 @@ func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo interface{}) (bool, er
 		return false, errors.Errorf("data to put should not be nil.")
 	}
 	parts := stringutil.Split(withOutHost)
-	n, _ := trie.Remove(withOutHost)
-	if n != nil {
-		//TODO: log n.bizInfo for trouble shooting
-	}
+	trie.Remove(withOutHost)
+	//if n != nil {
+	//	//TODO: log n.bizInfo for trouble shooting
+	//}
 	return trie.root.Put(parts, bizInfo)
 }
 
