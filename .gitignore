@@ -1,18 +1,29 @@
+logs/
+.idea
+.vscode
+.mvn/
 
 # app
 dubbo-go-pixiu
 dubbo-go-pixiu.exe
 dubbgo_server.out
 samples/dubbogo/simple/server/app/app
-
+.scannerwork
 /logs
 /.idea
 /.vscode
 pkg/registry/zookeeper-4unittest/contrib/fatjar
 
+
+.DS_Store
+vendor/
+
 coverage.txt
 
-/vendor/
+*.iml
 
-/*.exe
+*.exe
 test
+
+
+target/

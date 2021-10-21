@@ -85,28 +85,29 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 	return nil, errors.Errorf("no matched route")
 }
 
+// MatchRouter find router (cluster) by request path and method and header
 func (r *Router) MatchRouter(req *http2.Request) bool {
-	if r.Match.matchPath(req) {
-		return true
+	if !r.Match.matchPath(req) {
+		return false
 	}
 
-	if r.Match.matchMethod(req) {
-		return true
+	if !r.Match.matchMethod(req) {
+		return false
 	}
 
-	if r.Match.matchHeader(req) {
-		return true
+	if !r.Match.matchHeader(req) {
+		return false
 	}
 
-	return false
+	return true
 }
 
 func (rm *RouterMatch) matchPath(req *http2.Request) bool {
-	if rm.Path == "" && rm.Prefix == "" && rm.pathRE == nil {
+	if rm.Path == "" && rm.Prefix == "" && rm.Regex == "" {
 		return true
 	}
 
-	path := req.RequestURI
+	path := req.URL.Path
 
 	if rm.Path != "" && rm.Path == path {
 		return true
@@ -114,7 +115,10 @@ func (rm *RouterMatch) matchPath(req *http2.Request) bool {
 	if rm.Prefix != "" && strings.HasPrefix(path, rm.Prefix) {
 		return true
 	}
-	if rm.pathRE != nil {
+	if rm.Regex != "" {
+		if rm.pathRE == nil {
+			rm.pathRE = regexp.MustCompile(rm.Regex)
+		}
 		return rm.pathRE.MatchString(path)
 	}
 
@@ -130,8 +134,12 @@ func (rm *RouterMatch) matchMethod(req *http2.Request) bool {
 }
 
 func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
+	if len(rm.Headers) == 0 {
+		return true
+	}
 
 	for _, h := range rm.Headers {
+		// notice use canonical keys
 		v := req.Header.Get(h.Name)
 		if stringutil.StrInSlice(v, h.Values) {
 			return true

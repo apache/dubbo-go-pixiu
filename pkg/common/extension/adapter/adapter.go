@@ -36,7 +36,7 @@ type (
 		Kind() string
 
 		// CreateAdapter return the Adapter callback
-		CreateAdapter(config interface{}, bs *model.Bootstrap) (Adapter, error)
+		CreateAdapter(ad *model.Adapter) (Adapter, error)
 	}
 
 	// Adapter adapter interface
@@ -56,7 +56,7 @@ var (
 	adapterPlugins = map[string]AdapterPlugin{}
 )
 
-// Register registers adapter plugin
+// RegisterAdapterPlugin registers adapter plugin
 func RegisterAdapterPlugin(p AdapterPlugin) {
 	if p.Kind() == "" {
 		panic(fmt.Errorf("%T: empty kind", p))

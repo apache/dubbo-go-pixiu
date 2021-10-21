@@ -56,6 +56,10 @@ func CreateListenerService(lc *model.Listener, bs *model.Bootstrap) *ListenerSer
 	return &ListenerService{cfg: lc, nf: *hcm}
 }
 
+func (ls *ListenerService) GetNetworkFilter() filter.NetworkFilter {
+	return ls.nf
+}
+
 // Start start the listener
 func (ls *ListenerService) Start() {
 	sa := ls.cfg.Address.SocketAddress

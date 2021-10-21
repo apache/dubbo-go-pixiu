@@ -31,7 +31,10 @@ type AdapterManager struct {
 
 func CreateDefaultAdapterManager(server *Server, bs *model.Bootstrap) *AdapterManager {
 	am := &AdapterManager{configs: bs.StaticResources.Adapters}
-	am.initAdapters(server, bs)
+	sr := bs.StaticResources
+	for _, ad := range sr.Adapters {
+		am.initAdapters(server, ad)
+	}
 	return am
 }
 
@@ -47,7 +50,8 @@ func (am *AdapterManager) Stop() {
 	}
 }
 
-func (am *AdapterManager) initAdapters(server *Server, bs *model.Bootstrap) {
+func (am *AdapterManager) initAdapters(server *Server, ad *model.Adapter) {
+
 	var ads []adapter.Adapter
 
 	for _, f := range am.configs {
@@ -56,7 +60,7 @@ func (am *AdapterManager) initAdapters(server *Server, bs *model.Bootstrap) {
 			logger.Error("initAdapters get plugin error %s", err)
 		}
 
-		hf, err := hp.CreateAdapter(f.Config, bs)
+		hf, err := hp.CreateAdapter(f)
 		if err != nil {
 			logger.Error("initFilterIfNeed create adapter error %s", err)
 		}
@@ -64,7 +68,6 @@ func (am *AdapterManager) initAdapters(server *Server, bs *model.Bootstrap) {
 		cfg := hf.Config()
 		if err := yaml.ParseConfig(cfg, f.Config); err != nil {
 			logger.Error("initAdapters init config error %s", err)
-			return
 		}
 
 		err = hf.Apply()
