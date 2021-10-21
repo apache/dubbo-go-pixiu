@@ -143,17 +143,15 @@ func (node *Node) Put(keys []string, bizInfo interface{}) (bool, error) {
 	}
 
 	key := keys[0]
-	// isReal 代表是否是输入url 最末尾那段,对应trie 上的节点是否真实存在。
+	// isReal is the end of url path, means node is a place of url end,so the path with parentNode has a real url exists.
 	isReal := len(keys) == 1
-	//屏蔽 通配和非统配的细节put 方法，不涉及递归
 	isSuccess := node.put(key, isReal, bizInfo)
-	//递归退出条件
+
 	if !isSuccess {
 		return false, nil
 	}
 	childKeys := keys[1:]
 
-	//递归体
 	if stringutil.IsPathVariableOrWildcard(key) {
 		return node.PathVariableNode.Put(childKeys, bizInfo)
 	} else if stringutil.IsMatchAll(key) {
@@ -182,14 +180,14 @@ func (node *Node) GetBizInfo() interface{} {
 func (node *Node) Match(parts []string) (*Node, []string, bool) {
 	key := parts[0]
 	childKeys := parts[1:]
-	// isEnd 代表是否是输入url 最末尾那段,对应trie 上的节点是否真实存在。
+	// isEnd is the end of url path, means node is a place of url end,so the path with parentNode has a real url exists.
 	isEnd := len(childKeys) == 0
 	if isEnd {
-		//退出条件
+
 		if node.children != nil && node.children[key] != nil && node.children[key].endOfPath {
 			return node.children[key], []string{}, true
 		}
-		//不能直接return 需要一次回朔 O（2n）    trie下存在：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   输入url：/aaa/bbb/xxxxx/ccc
+		//consider  trie node ：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   and request url is ：/aaa/bbb/xxxxx/ccc
 		if node.PathVariableNode != nil {
 			if node.PathVariableNode.endOfPath {
 				return node.PathVariableNode, []string{key}, true
@@ -197,14 +195,12 @@ func (node *Node) Match(parts []string) (*Node, []string, bool) {
 		}
 
 	} else {
-		//递归体
 		if node.children != nil && node.children[key] != nil {
 			n, param, ok := node.children[key].Match(childKeys)
 			if ok {
 				return n, param, ok
 			}
 		}
-		//同理需要回朔
 		if node.PathVariableNode != nil {
 			n, param, ok := node.PathVariableNode.Match(childKeys)
 			param = append(param, key)
@@ -248,7 +244,7 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 			return node.children[key], nil, true, nil
 		}
 	} else {
-		//递归体
+
 		if stringutil.IsPathVariableOrWildcard(key) {
 			if node.PathVariableNode == nil {
 				return nil, nil, false, nil
@@ -270,7 +266,7 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 }
 
 func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
-	//不涉及递归，屏蔽变量 非变量 put 细节
+
 	if !stringutil.IsPathVariableOrWildcard(key) {
 		if stringutil.IsMatchAll(key) {
 			return node.putMatchAllNode(key, isReal, bizInfo)
@@ -283,12 +279,12 @@ func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 }
 
 func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo interface{}) bool {
-	//变量put
+	//path variable put
 	if node.PathVariableNode == nil {
 		node.PathVariableNode = &Node{endOfPath: false}
 	}
 	if node.PathVariableNode.endOfPath && isReal {
-		//已经有一个同路径变量结尾的url 冲突
+		//has a node with same path exists. conflicted.
 		return false
 	}
 	if isReal {
@@ -304,7 +300,7 @@ func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo inte
 }
 
 func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) bool {
-	//普通node put
+
 	selfNode := &Node{endOfPath: isReal, matchStr: matchStr}
 	old := node.children[matchStr]
 	if old != nil {
@@ -326,7 +322,7 @@ func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) boo
 }
 
 func (node *Node) putMatchAllNode(matchStr string, isReal bool, bizInfo interface{}) bool {
-	//普通node put
+
 	selfNode := &Node{endOfPath: isReal, matchStr: matchStr}
 	old := node.MatchAllNode
 	if old != nil {
