@@ -37,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-
 const (
 	CommitRequestPath   = "tcc_commit_request_path"
 	RollbackRequestPath = "tcc_rollback_request_path"
