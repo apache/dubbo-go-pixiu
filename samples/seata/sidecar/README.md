@@ -28,7 +28,7 @@
 ```
 1. addressing 为被代理的服务的唯一标识，可以是 applicationID，也可以是 k8s 中 service name.
 2. serverAddressing 为 seata tc server 的访问地址，在 k8s 中，可以配置为 ${FQDN}:{service 端口}。
-3. transactionInfos 配置了要开启全局事务的接口。通过 requestPath 与接口 url 匹配，匹配成功则 mosn 会与 
+3. transactionInfos 配置了要开启全局事务的接口。通过 requestPath 与接口 url 匹配，匹配成功则 Pixiu 会与 
 seata tc server 交互开启全局事务。timeout 单位为毫秒，用来标识全局事务的超时时间。
 
 + 下面的配置见 `samples/seata/server_b/conf.yaml`：
@@ -49,9 +49,9 @@ seata tc server 交互开启全局事务。timeout 单位为毫秒，用来标�
         rollbackRequestPath: "/service-b/cancel"
 ```
 tccResources 配置了 TCC 分支事务对应的接口。如果请求 url 与 `prepareRequestPath` 匹配，并且 
-requestHeader 中存在 key `x_seata_xid`，则 mosn 将向 seata tc server 注册分支事务。当全
-局事务提交时，seata tc server 会通知 mosn 提交分支事务，mosn 将自动调用 `commitRequestPath`
-对应的接口。全局回滚时，seata tc server 会通知 mosn 回滚分支事务，mosn 将自动调用 
+requestHeader 中存在 key `x_seata_xid`，则 Pixiu 将向 seata tc server 注册分支事务。当全
+局事务提交时，seata tc server 会通知 Pixiu 提交分支事务，Pixiu 将自动调用 `commitRequestPath`
+对应的接口。全局回滚时，seata tc server 会通知 Pixiu 回滚分支事务，Pixiu 将自动调用 
 `rollbackRequestPath` 对应的接口来回滚。
 
 ## 准备
@@ -84,13 +84,13 @@ cd ${targetpath}
 main        // 编译完成的 Pixiu 程序
 |-- server_a
 |-- |-- server_a.go 
-|-- |-- server_a_config.json 
+|-- |-- conf.yaml 
 |-- server_b
 |-- |-- server_b.go 
-|-- |-- server_b_config.json 
+|-- |-- conf.yaml
 |-- server_c
 |-- |-- server_c.go 
-|-- |-- server_c_config.json 
+|-- |-- conf.yaml
 ```
 
 ## 运行说明
@@ -101,19 +101,19 @@ main        // 编译完成的 Pixiu 程序
 
 ### 启动 Pixiu
 
-+ 使用 server_a_config.json 启动 Pixiu
++ 使用 server_a/conf.yaml 启动 Pixiu
 
 ```
 ./pixiu gateway start -c server_a/conf.yaml
 ```
 
-+ 使用 server_b_config.json 启动 Pixiu
++ 使用 server_b/conf.yaml 启动 Pixiu
 
 ```
 ./pixiu gateway start -c server_b/conf.yaml
 ```
 
-+ 使用 server_c_config.json 启动 Pixiu
++ 使用 server_c/conf.yaml 启动 Pixiu
 
 ```
 ./pixiu gateway start -c server_c/conf.yaml
