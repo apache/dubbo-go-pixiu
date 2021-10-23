@@ -138,10 +138,10 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 					}
 
 					resp, err := f.httpClient.Do(req)
-					defer resp.Body.Close()
 					if err != nil {
 						logger.Warn()
 					}
+					defer resp.Body.Close()
 
 					lastCheck = resp.StatusCode
 					if resp.StatusCode != http.StatusOK {
