@@ -36,6 +36,7 @@ const (
 	TracingFilter          = "dgp.filters.tracing"
 	HTTPCorsFilter         = "dgp.filter.http.cors"
 	HTTPProxyRewriteFilter = "dgp.filter.http.proxyrewrite"
+	HTTPEventFilter        = "dgp.filter.http.event"
 )
 
 const (

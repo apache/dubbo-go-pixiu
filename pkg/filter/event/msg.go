@@ -29,8 +29,10 @@ var MQActionStrToInt = map[string]MQAction{
 
 // MQRequest url format http://domain/publish/broker/topic
 type MQRequest struct {
-	ConsumerHook string `json:"consumer_hook"` // not empty when subscribe msg, eg: http://10.0.0.1:11451/consume
-	Msg          string `json:"msg"`           // not empty when publish msg, msg body
+	Partition  int      `json:"partition"`   // for kafka
+	ConsumeUrl string   `json:"consume_url"` // not empty when subscribe msg, eg: http://10.0.0.1:11451/consume
+	CheckUrl   string   `json:"check_url"`   // not empty when subscribe msg, eg: http://10.0.0.1:11451/health
+	Msg        []string `json:"msg"`         // not empty when publish msg, msg body
 }
 
 type MQMsgPush struct {

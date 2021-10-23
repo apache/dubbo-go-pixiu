@@ -17,9 +17,9 @@ func GetConsumerManagerKey(topic string, partition int32) string {
 	return strings.Join([]string{topic, strconv.Itoa(int(partition))}, ".")
 }
 
-// ConsumeOptions Consumer options
+// MQOptions Consumer options
 // TODO: Add rocketmq params
-type ConsumeOptions struct {
+type MQOptions struct {
 	Topic      string
 	Partition  int
 	ConsumeUrl string
@@ -27,47 +27,47 @@ type ConsumeOptions struct {
 	Offset     int64
 }
 
-func (o *ConsumeOptions) ApplyOpts(opts ...Option) {
+func (o *MQOptions) ApplyOpts(opts ...Option) {
 	for _, opt := range opts {
 		opt(o)
 	}
 }
 
-func DefaultOptions() *ConsumeOptions {
-	return &ConsumeOptions{
-		Topic:     "dubbo-go-pixiu-test-Topic",
+func DefaultOptions() *MQOptions {
+	return &MQOptions{
+		Topic:     "dubbo-go-pixiu-default-topic",
 		Partition: 1,
 		Offset:    -2,
 	}
 }
 
-type Option func(o *ConsumeOptions)
+type Option func(o *MQOptions)
 
 func WithTopic(t string) Option {
-	return func(o *ConsumeOptions) {
+	return func(o *MQOptions) {
 		o.Topic = t
 	}
 }
 
 func WithPartition(p int) Option {
-	return func(o *ConsumeOptions) {
+	return func(o *MQOptions) {
 		o.Partition = p
 	}
 }
 
-func WithConsumeHook(ch string) Option {
-	return func(o *ConsumeOptions) {
+func WithConsumeUrl(ch string) Option {
+	return func(o *MQOptions) {
 		o.ConsumeUrl = ch
 	}
 }
 
 func WithOffset(offset int64) Option {
-	return func(o *ConsumeOptions) {
+	return func(o *MQOptions) {
 		o.Offset = offset
 	}
 }
 
 type ProducerFacade interface {
 	// Send msg to specified broker and Topic
-	Send(ctx context.Context, broker string, topic string) error
+	Send(msgs []string, opts ...Option) error
 }

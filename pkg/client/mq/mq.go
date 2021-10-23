@@ -3,17 +3,20 @@ package mq
 import (
 	"context"
 	"encoding/json"
-	"github.com/Shopify/sarama"
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/client/mq/impl"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"io/ioutil"
 	"strings"
 	"sync"
+)
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/client/mq/kafkaclient"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/event"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
 
+import (
 	perrors "github.com/pkg/errors"
 )
 
@@ -25,9 +28,10 @@ var (
 func NewSingletonMQClient(config event.Config) *Client {
 	if mqClient == nil {
 		once.Do(func() {
-			mqClient, err := NewMQClient(config)
+			var err error
+			mqClient, err = NewMQClient(config)
 			if err != nil {
-				logger.Errorf()
+				logger.Errorf("create mq client failed, %s", err.Error())
 			}
 		})
 	}
@@ -38,27 +42,30 @@ func NewMQClient(config event.Config) (*Client, error) {
 	var c *Client
 	ctx, cancel := context.WithCancel(context.Background())
 
-	switch mqType {
+	sc := config.ToSaramaConfig()
+	addrs := strings.Split(config.Endpoints, ",")
+	cf, err := kafkaclient.NewKafkaConsumerFacade(addrs, sc)
+	if err != nil {
+		return nil, err
+	}
+	pf, err := kafkaclient.NewKafkaProviderFacade(addrs, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	switch config.MqType {
 	case constant.MQTypeKafka:
 		c = &Client{
 			ctx:            ctx,
-			consumerFacade: impl.NewKafkaConsumerFacade(),
-			producerFacade: nil,
+			consumerFacade: cf,
+			producerFacade: pf,
 			stop:           cancel,
 		}
 	case constant.MQTypeRocketMQ:
+		return nil, perrors.New("rocketmq not support")
 	}
-	return c, nil
-}
 
-func EventConfigToSaramaConfig(config event.Config) (sarama.Config, error) {
-	c := sarama.NewConfig()
-	var err error
-	c.Version, err = sarama.ParseKafkaVersion(config.KafkaVersion)
-	if err != nil {
-		return c, err
-	}
-	return
+	return c, nil
 }
 
 type Client struct {
@@ -97,6 +104,7 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 
 	switch event.MQActionStrToInt[paths[0]] {
 	case event.MQActionPublish:
+
 	case event.MQActionSubscribe:
 	case event.MQActionUnSubscribe:
 	case event.MQActionConsumeAck:

@@ -1,4 +1,4 @@
-package impl
+package kafkaclient
 
 import (
 	"bytes"
@@ -8,11 +8,15 @@ import (
 	"strconv"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client/mq"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/event"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
 
+import (
 	"github.com/Shopify/sarama"
 	perrors "github.com/pkg/errors"
 )
@@ -49,11 +53,12 @@ func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...mq.Option) 
 	f.consumerManager[key] = cancel
 	f.wg.Add(2)
 	go f.ConsumePartitions(c, partConsumer, cOpt.ConsumeUrl)
-	go f.checkConsumeHookAlive(c, key, cOpt.CheckUrl)
+	go f.checkConsumerIsAlive(c, key, cOpt.CheckUrl)
 	return nil
 }
 
-func (f *KafkaConsumerFacade) ConsumePartitions(ctx context.Context, partConsumer sarama.PartitionConsumer, consumeHook string) {
+// ConsumePartitions consume function
+func (f *KafkaConsumerFacade) ConsumePartitions(ctx context.Context, partConsumer sarama.PartitionConsumer, consumeUrl string) {
 	defer f.wg.Done()
 
 	for {
@@ -67,7 +72,7 @@ func (f *KafkaConsumerFacade) ConsumePartitions(ctx context.Context, partConsume
 				continue
 			}
 
-			req, err := http.NewRequest(http.MethodPost, consumeHook, bytes.NewReader(data))
+			req, err := http.NewRequest(http.MethodPost, consumeUrl, bytes.NewReader(data))
 			if err != nil {
 				logger.Warn()
 				continue
@@ -97,7 +102,8 @@ func (f *KafkaConsumerFacade) ConsumePartitions(ctx context.Context, partConsume
 	}
 }
 
-func (f *KafkaConsumerFacade) checkConsumeHookAlive(ctx context.Context, key string, checkUrl string) {
+// checkConsumerIsAlive make sure consumer is alive or would be removed from consumer list
+func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key string, checkUrl string) {
 	defer f.wg.Done()
 
 	ticker := time.NewTicker(15 * time.Second)
@@ -174,6 +180,14 @@ type KafkaProducerFacade struct {
 	producer sarama.SyncProducer
 }
 
-func (k *KafkaProducerFacade) Send(ctx context.Context, topic string, partition int32) error {
-	panic("implement me")
+func (k *KafkaProducerFacade) Send(msgs []string, opts ...mq.Option) error {
+	pOpt := mq.DefaultOptions()
+	pOpt.ApplyOpts(opts...)
+
+	pMsgs := make([]*sarama.ProducerMessage, 0)
+	for _, msg := range msgs {
+		pMsgs = append(pMsgs, &sarama.ProducerMessage{Topic: pOpt.Topic, Value: sarama.StringEncoder(msg)})
+	}
+
+	return k.producer.SendMessages(pMsgs)
 }

@@ -1,14 +1,23 @@
 package event
 
 import (
+	"time"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
+
+import (
+	"github.com/Shopify/sarama"
 )
 
 const (
 	// Kind is the kind of Fallback.
-	Kind = constant.HTTPCorsFilter
+	Kind = constant.HTTPEventFilter
 )
 
 func init() {
@@ -26,11 +35,48 @@ type (
 	}
 
 	Config struct {
-		mqType       MQType
-		KafkaVersion string
-		LoadBalance  string
+		ClientId     string        `yaml:"client_id" json:"client_id"`
+		Endpoints    string        `yaml:"endpoints" json:"endpoints"`
+		MqType       MQType        `yaml:"type" json:"type"`
+		KafkaVersion string        `yaml:"kafka_version" json:"kafka_version"`
+		Retry        int           `yaml:"retry" json:"retry" default:"5"`
+		Timeout      time.Duration `yaml:"timeout" json:"timeout" default:"2s"`
+		Offset       string        `yaml:"offset" json:"offset" default:"oldest"` // Offset newest or oldest
 	}
 )
+
+func (c *Config) ToSaramaConfig() *sarama.Config {
+	config := sarama.NewConfig()
+
+	version, err := sarama.ParseKafkaVersion(c.KafkaVersion)
+	if err != nil {
+		version = sarama.V2_0_0_0
+		logger.Warnf("kafka version is invalid, use sarama.V2_0_0_0 instead, err: %s", err.Error())
+	}
+	config.Version = version
+
+	offset := sarama.OffsetNewest
+	switch c.Offset {
+	case "newest":
+		offset = sarama.OffsetNewest
+	case "oldest":
+		offset = sarama.OffsetOldest
+	default:
+		logger.Warn("offset is invalid, use oldest instead")
+	}
+	config.Consumer.Offsets.Initial = offset
+
+	config.ClientID = "pixiu-kafka"
+	if c.ClientId != "" {
+		config.ClientID = c.ClientId
+	}
+	logger.Infof("kafka client id is %s", config.ClientID)
+
+	config.Producer.Retry.Max = c.Retry
+	config.Producer.Timeout = c.Timeout
+
+	return config
+}
 
 func (p *Plugin) Kind() string {
 	return Kind
@@ -50,7 +96,7 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 }
 
 func (f *Filter) Apply() error {
-	// TODO init mq facade here
+	// TODO init mq client here
 	return nil
 }
 
