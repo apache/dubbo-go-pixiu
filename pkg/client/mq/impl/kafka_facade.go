@@ -36,18 +36,20 @@ type KafkaConsumerFacade struct {
 }
 
 func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...mq.Option) error {
-	partConsumer, err := f.consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+	cOpt := mq.DefaultOptions()
+	cOpt.ApplyOpts(opts...)
+	partConsumer, err := f.consumer.ConsumePartition(cOpt.Topic, int32(cOpt.Partition), sarama.OffsetOldest)
 	if err != nil {
 		return err
 	}
 	c, cancel := context.WithCancel(ctx)
-	key := mq.GetConsumerManagerKey(topic, partition)
+	key := mq.GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
 	f.rwLock.Lock()
 	defer f.rwLock.Unlock()
 	f.consumerManager[key] = cancel
 	f.wg.Add(2)
-	go f.ConsumePartitions(c, partConsumer, consumeHook)
-	go f.checkConsumeHookAlive(c, key, checkUrl)
+	go f.ConsumePartitions(c, partConsumer, cOpt.ConsumeUrl)
+	go f.checkConsumeHookAlive(c, key, cOpt.CheckUrl)
 	return nil
 }
 
@@ -144,7 +146,9 @@ func (f *KafkaConsumerFacade) checkConsumeHookAlive(ctx context.Context, key str
 }
 
 func (f *KafkaConsumerFacade) UnSubscribe(opts ...mq.Option) error {
-	key := mq.GetConsumerManagerKey(topic, partition)
+	cOpt := mq.DefaultOptions()
+	cOpt.ApplyOpts(opts...)
+	key := mq.GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
 	if cancel, ok := f.consumerManager[key]; !ok {
 		return perrors.New("consumer goroutine not found")
 	} else {

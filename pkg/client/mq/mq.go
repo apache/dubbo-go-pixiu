@@ -92,7 +92,7 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 
 	paths := strings.Split(req.API.Path, "/")
 	if len(paths) < 3 {
-		return nil, perrors.New("failed to send message, broker or topic not found")
+		return nil, perrors.New("failed to send message, broker or Topic not found")
 	}
 
 	switch event.MQActionStrToInt[paths[0]] {
