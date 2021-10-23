@@ -3,6 +3,7 @@ module github.com/apache/dubbo-go-pixiu
 go 1.14
 
 require (
+	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
 	github.com/apache/dubbo-go-hessian2 v1.9.3
