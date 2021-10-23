@@ -108,12 +108,6 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 		return nil, err
 	}
 
-	var mqReq event.MQRequest
-	err = json.Unmarshal(body, &mqReq)
-	if err != nil {
-		return nil, err
-	}
-
 	paths := strings.Split(req.API.Path, "/")
 	if len(paths) < 3 {
 		return nil, perrors.New("failed to send message, broker or Topic not found")
@@ -121,8 +115,26 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 
 	switch event.MQActionStrToInt[paths[0]] {
 	case event.MQActionPublish:
-
+		var pReq event.MQProduceRequest
+		err = json.Unmarshal(body, &pReq)
+		if err != nil {
+			return nil, err
+		}
+		err = c.producerFacade.Send(pReq.Msg, WithTopic(pReq.Topic))
+		if err != nil {
+			return nil, err
+		}
 	case event.MQActionSubscribe:
+		var cReq event.MQConsumeRequest
+		err = json.Unmarshal(body, &cReq)
+		if err != nil {
+			return nil, err
+		}
+		err = c.consumerFacade.Subscribe(c.ctx, WithTopic(cReq.Topic), WithPartition(cReq.Partition),
+			WithOffset(cReq.Offset), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl))
+		if err != nil {
+			return nil, err
+		}
 	case event.MQActionUnSubscribe:
 	case event.MQActionConsumeAck:
 	default:

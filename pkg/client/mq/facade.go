@@ -38,7 +38,7 @@ func GetConsumerManagerKey(topic string, partition int32) string {
 // TODO: Add rocketmq params
 type MQOptions struct {
 	Topic      string
-	Partition  int
+	Partition  int64
 	ConsumeUrl string
 	CheckUrl   string
 	Offset     int64
@@ -66,7 +66,7 @@ func WithTopic(t string) Option {
 	}
 }
 
-func WithPartition(p int) Option {
+func WithPartition(p int64) Option {
 	return func(o *MQOptions) {
 		o.Partition = p
 	}
@@ -75,6 +75,12 @@ func WithPartition(p int) Option {
 func WithConsumeUrl(ch string) Option {
 	return func(o *MQOptions) {
 		o.ConsumeUrl = ch
+	}
+}
+
+func WithCheckUrl(ck string) Option {
+	return func(o *MQOptions) {
+		o.CheckUrl = ck
 	}
 }
 
