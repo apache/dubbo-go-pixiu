@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package kafkaclient
+package mq
 
 import (
 	"bytes"
@@ -28,7 +28,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/client/mq"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/event"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -56,15 +55,15 @@ type KafkaConsumerFacade struct {
 	wg              sync.WaitGroup
 }
 
-func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...mq.Option) error {
-	cOpt := mq.DefaultOptions()
+func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) error {
+	cOpt := DefaultOptions()
 	cOpt.ApplyOpts(opts...)
 	partConsumer, err := f.consumer.ConsumePartition(cOpt.Topic, int32(cOpt.Partition), sarama.OffsetOldest)
 	if err != nil {
 		return err
 	}
 	c, cancel := context.WithCancel(ctx)
-	key := mq.GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
+	key := GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
 	f.rwLock.Lock()
 	defer f.rwLock.Unlock()
 	f.consumerManager[key] = cancel
@@ -168,10 +167,10 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 	}
 }
 
-func (f *KafkaConsumerFacade) UnSubscribe(opts ...mq.Option) error {
-	cOpt := mq.DefaultOptions()
+func (f *KafkaConsumerFacade) UnSubscribe(opts ...Option) error {
+	cOpt := DefaultOptions()
 	cOpt.ApplyOpts(opts...)
-	key := mq.GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
+	key := GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
 	if cancel, ok := f.consumerManager[key]; !ok {
 		return perrors.New("consumer goroutine not found")
 	} else {
@@ -197,8 +196,8 @@ type KafkaProducerFacade struct {
 	producer sarama.SyncProducer
 }
 
-func (k *KafkaProducerFacade) Send(msgs []string, opts ...mq.Option) error {
-	pOpt := mq.DefaultOptions()
+func (k *KafkaProducerFacade) Send(msgs []string, opts ...Option) error {
+	pOpt := DefaultOptions()
 	pOpt.ApplyOpts(opts...)
 
 	pMsgs := make([]*sarama.ProducerMessage, 0)

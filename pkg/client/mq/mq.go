@@ -27,7 +27,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/client/mq/kafkaclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/event"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -61,11 +60,11 @@ func NewMQClient(config event.Config) (*Client, error) {
 
 	sc := config.ToSaramaConfig()
 	addrs := strings.Split(config.Endpoints, ",")
-	cf, err := kafkaclient.NewKafkaConsumerFacade(addrs, sc)
+	cf, err := NewKafkaConsumerFacade(addrs, sc)
 	if err != nil {
 		return nil, err
 	}
-	pf, err := kafkaclient.NewKafkaProviderFacade(addrs, sc)
+	pf, err := NewKafkaProviderFacade(addrs, sc)
 	if err != nil {
 		return nil, err
 	}
