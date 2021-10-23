@@ -56,7 +56,7 @@ func NewSingletonMQClient(config event.Config) *Client {
 
 func NewMQClient(config event.Config) (*Client, error) {
 	var c *Client
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 
 	sc := config.ToSaramaConfig()
 	addrs := strings.Split(config.Endpoints, ",")
@@ -75,7 +75,6 @@ func NewMQClient(config event.Config) (*Client, error) {
 			ctx:            ctx,
 			consumerFacade: cf,
 			producerFacade: pf,
-			stop:           cancel,
 		}
 	case constant.MQTypeRocketMQ:
 		return nil, perrors.New("rocketmq not support")
@@ -88,7 +87,6 @@ type Client struct {
 	ctx            context.Context
 	consumerFacade ConsumerFacade
 	producerFacade ProducerFacade
-	stop           func()
 }
 
 func (c Client) Apply() error {
@@ -96,7 +94,6 @@ func (c Client) Apply() error {
 }
 
 func (c Client) Close() error {
-	c.stop()
 	c.consumerFacade.Stop()
 	return nil
 }

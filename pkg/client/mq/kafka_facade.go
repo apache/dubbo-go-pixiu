@@ -44,7 +44,7 @@ func NewKafkaConsumerFacade(addrs []string, config *sarama.Config) (*KafkaConsum
 	}
 
 	// does not set up cookiejar may cause some problem
-	return &KafkaConsumerFacade{consumer: consumer, httpClient: &http.Client{Timeout: 5 * time.Second}}, nil
+	return &KafkaConsumerFacade{consumer: consumer, httpClient: &http.Client{Timeout: 5 * time.Second}, done: make(chan struct{})}, nil
 }
 
 type KafkaConsumerFacade struct {
@@ -53,6 +53,7 @@ type KafkaConsumerFacade struct {
 	rwLock          sync.RWMutex
 	httpClient      *http.Client
 	wg              sync.WaitGroup
+	done            chan struct{}
 }
 
 func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) error {
@@ -79,7 +80,7 @@ func (f *KafkaConsumerFacade) ConsumePartitions(ctx context.Context, partConsume
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-f.done:
 			logger.Info()
 		case msg := <-partConsumer.Messages():
 			data, err := json.Marshal(event.MQMsgPush{Msg: []string{string(msg.Value)}})
@@ -125,7 +126,7 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 	ticker := time.NewTicker(15 * time.Second)
 	for {
 		select {
-		case <-ctx.Done():
+		case <-f.done:
 			logger.Info()
 		case <-ticker.C:
 			lastCheck := 0
@@ -181,6 +182,7 @@ func (f *KafkaConsumerFacade) UnSubscribe(opts ...Option) error {
 }
 
 func (f *KafkaConsumerFacade) Stop() {
+	close(f.done)
 	f.wg.Wait()
 }
 
