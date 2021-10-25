@@ -92,7 +92,7 @@ var (
 		"UDP":   2,
 		"HTTPS": 3,
 		"GRPC":  4,
-		"MYSQL":  5,
+		"MYSQL": 5,
 	}
 
 	ApiTypeName = map[int32]string{

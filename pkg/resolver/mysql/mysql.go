@@ -55,10 +55,10 @@ type MysqlResolver struct {
 
 func NewMysqlResolver(listener net.Listener, conf *model.MysqlConfig) *MysqlResolver {
 	return &MysqlResolver{
-		listener:           listener,
-		salt:               []byte(conf.Salt),
-		ServerVersion:      conf.ServerVersion,
-		users:              conf.Users,
+		listener:      listener,
+		salt:          []byte(conf.Salt),
+		ServerVersion: conf.ServerVersion,
+		users:         conf.Users,
 	}
 }
 

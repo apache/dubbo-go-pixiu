@@ -6,7 +6,4 @@ import (
 )
 
 type ProtocolResolver interface {
-
 }
-
-

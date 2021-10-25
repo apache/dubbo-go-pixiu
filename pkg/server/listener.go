@@ -138,7 +138,7 @@ func (ls *ListenerService) mysqlListener() {
 	mc = model.MapToMysqlConfig(ls.cfg.Config)
 
 	sa := ls.cfg.Address.SocketAddress
-	listener, err := net.Listen("tcp", sa.Address + ":" + strconv.Itoa(sa.Port))
+	listener, err := net.Listen("tcp", sa.Address+":"+strconv.Itoa(sa.Port))
 	if err != nil {
 		log.Println(err)
 		return
