@@ -59,18 +59,14 @@ func NewMQClient(config event.Config) (*Client, error) {
 	ctx := context.Background()
 	switch config.MqType {
 	case constant.MQTypeKafka:
-		cf, err := NewKafkaConsumerFacade(config.KafkaConsumerConfig)
-		if err != nil {
-			return nil, err
-		}
 		pf, err := NewKafkaProviderFacade(config.KafkaProducerConfig)
 		if err != nil {
 			return nil, err
 		}
 		c = &Client{
-			ctx:            ctx,
-			consumerFacade: cf,
-			producerFacade: pf,
+			ctx:                 ctx,
+			producerFacade:      pf,
+			kafkaConsumerConfig: config.KafkaConsumerConfig,
 		}
 	case constant.MQTypeRocketMQ:
 		return nil, perrors.New("rocketmq not support")
@@ -80,9 +76,10 @@ func NewMQClient(config event.Config) (*Client, error) {
 }
 
 type Client struct {
-	ctx            context.Context
-	consumerFacade ConsumerFacade
-	producerFacade ProducerFacade
+	ctx                 context.Context
+	producerFacade      ProducerFacade
+	kafkaConsumerConfig event.KafkaConsumerConfig
+	consumerFacadeMap   map[string]ConsumerFacade
 }
 
 func (c Client) Apply() error {
@@ -90,7 +87,6 @@ func (c Client) Apply() error {
 }
 
 func (c Client) Close() error {
-	c.consumerFacade.Stop()
 	return nil
 }
 
@@ -117,18 +113,37 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 			return nil, err
 		}
 	case event.MQActionSubscribe:
-		var cReq event.MQConsumeRequest
+		var cReq event.MQSubscribeRequest
 		err = json.Unmarshal(body, &cReq)
 		if err != nil {
 			return nil, err
 		}
-		err = c.consumerFacade.Subscribe(c.ctx, WithTopic(cReq.Topic), WithPartition(cReq.Partition),
-			WithOffset(cReq.Offset), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl))
+		if c.consumerFacadeMap[cReq.ConsumerGroup] == nil {
+			facade, err := NewKafkaConsumerFacade(c.kafkaConsumerConfig, cReq.ConsumerGroup)
+			if err != nil {
+				return nil, err
+			}
+			c.consumerFacadeMap[cReq.ConsumerGroup] = facade
+			cf := c.consumerFacadeMap[cReq.ConsumerGroup]
+			err = cf.Subscribe(c.ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl))
+			if err != nil {
+				facade.Stop()
+				c.consumerFacadeMap[cReq.ConsumerGroup] = nil
+				return nil, err
+			}
+		}
+	case event.MQActionUnSubscribe:
+		var cReq event.MQUnSubscribeRequest
+		err = json.Unmarshal(body, &cReq)
 		if err != nil {
 			return nil, err
 		}
-	case event.MQActionUnSubscribe:
-	case event.MQActionConsumeAck:
+		if c.consumerFacadeMap[cReq.ConsumerGroup] == nil {
+			facade := c.consumerFacadeMap[cReq.ConsumerGroup]
+			facade.Stop()
+			c.consumerFacadeMap[cReq.ConsumerGroup] = nil
+			return nil, err
+		}
 	default:
 		return nil, perrors.New("failed to get mq action")
 	}
