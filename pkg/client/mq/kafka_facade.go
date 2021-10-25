@@ -80,11 +80,11 @@ type KafkaConsumerFacade struct {
 func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) error {
 	cOpt := DefaultOptions()
 	cOpt.ApplyOpts(opts...)
-	go f.consumeLoop(ctx, cOpt.TopicList, &consumerGroupHandler{cOpt.ConsumeUrl, f.httpClient})
 	c, cancel := context.WithCancel(ctx)
 	key := GetConsumerManagerKey(cOpt.TopicList)
 	f.consumerManager[key] = cancel
 	f.wg.Add(2)
+	go f.consumeLoop(ctx, cOpt.TopicList, &consumerGroupHandler{cOpt.ConsumeUrl, f.httpClient})
 	go f.checkConsumerIsAlive(c, key, cOpt.CheckUrl)
 	return nil
 }
