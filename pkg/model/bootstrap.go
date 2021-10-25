@@ -21,7 +21,6 @@ package model
 type Bootstrap struct {
 	StaticResources  StaticResources  `yaml:"static_resources" json:"static_resources" mapstructure:"static_resources"`
 	DynamicResources DynamicResources `yaml:"dynamic_resources" json:"dynamic_resources" mapstructure:"dynamic_resources"`
-	Tracing          Tracing          `yaml:"tracing" json:"tracing" mapstructure:"tracing"`
 	Metric           Metric           `yaml:"metric" json:"metric" mapstructure:"metric"`
 }
 
@@ -57,7 +56,6 @@ type StaticResources struct {
 	Listeners      []*Listener     `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
 	Clusters       []*Cluster      `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
 	Adapters       []*Adapter      `yaml:"adapters" json:"adapters" mapstructure:"adapters"`
-	TimeoutConfig  TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
 	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
 }
