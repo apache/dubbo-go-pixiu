@@ -18,14 +18,25 @@
 package main
 
 import (
+	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 )
 
 func main() {
+	http.HandleFunc("/login/", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		_, _ = w.Write([]byte(tokenize(query.Get("secret"), query.Get("key"))))
+	})
+
 	http.HandleFunc("/user/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"message":"success","status":200}`))
 	})
 	log.Println("Starting sample server ...")
 	log.Fatal(http.ListenAndServe(":1314", nil))
+}
+
+func tokenize(secret, salt string) string {
+	return base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s-%s", salt, secret)))
 }
