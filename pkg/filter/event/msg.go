@@ -27,30 +27,31 @@ const (
 	MQActionPublish = 1 + iota
 	MQActionSubscribe
 	MQActionUnSubscribe
-	MQActionConsumeAck
 )
 
 var MQActionIntToStr = map[MQAction]string{
 	MQActionPublish:     "publish",
 	MQActionSubscribe:   "subscribe",
 	MQActionUnSubscribe: "unsubscribe",
-	MQActionConsumeAck:  "consumeack",
 }
 
 var MQActionStrToInt = map[string]MQAction{
 	"publish":     MQActionPublish,
 	"subscribe":   MQActionSubscribe,
 	"unsubscribe": MQActionUnSubscribe,
-	"consumeack":  MQActionConsumeAck,
 }
 
-// MQConsumeRequest url format http://domain/publish/broker/topic
-type MQConsumeRequest struct {
-	Topic      string `json:"topic"`
-	Partition  int64  `json:"partition"` // for kafka
-	Offset     int64  `json:"offset"`
-	ConsumeUrl string `json:"consume_url"` // not empty when subscribe msg, eg: http://10.0.0.1:11451/consume
-	CheckUrl   string `json:"check_url"`   // not empty when subscribe msg, eg: http://10.0.0.1:11451/health
+// MQSubscribeRequest url format http://domain/publish/broker/topic
+type MQSubscribeRequest struct {
+	TopicList     []string `json:"topic_list"`
+	ConsumerGroup string   `json:"consumer_group"`
+	ConsumeUrl    string   `json:"consume_url"` // not empty when subscribe msg, eg: http://10.0.0.1:11451/consume
+	CheckUrl      string   `json:"check_url"`   // not empty when subscribe msg, eg: http://10.0.0.1:11451/health
+}
+
+// MQUnSubscribeRequest url format http://domain/publish/broker/topic
+type MQUnSubscribeRequest struct {
+	ConsumerGroup string `json:"consumer_group"`
 }
 
 type MQProduceRequest struct {
