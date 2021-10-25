@@ -21,7 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	http2 "net/http"
+	stdHttp "net/http"
 )
 
 import (
@@ -92,7 +92,7 @@ func (f *Filter) handleCsrf(ctx *http.HttpContext) {
 
 	if salt == "" {
 		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.WriteJSONWithStatus(http2.StatusForbidden, bt)
+		ctx.WriteJSONWithStatus(stdHttp.StatusForbidden, bt)
 		ctx.Abort()
 		return
 	}
@@ -101,7 +101,7 @@ func (f *Filter) handleCsrf(ctx *http.HttpContext) {
 
 	if token != tokenGetter(ctx, f.cfg.Key) {
 		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.WriteJSONWithStatus(http2.StatusForbidden, bt)
+		ctx.WriteJSONWithStatus(stdHttp.StatusForbidden, bt)
 		ctx.Abort()
 		return
 	}
