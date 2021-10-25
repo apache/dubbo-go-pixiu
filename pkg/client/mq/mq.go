@@ -57,20 +57,16 @@ func NewSingletonMQClient(config event.Config) *Client {
 func NewMQClient(config event.Config) (*Client, error) {
 	var c *Client
 	ctx := context.Background()
-
-	sc := config.ToSaramaConfig()
-	addrs := strings.Split(config.Endpoints, ",")
-	cf, err := NewKafkaConsumerFacade(addrs, sc)
-	if err != nil {
-		return nil, err
-	}
-	pf, err := NewKafkaProviderFacade(addrs, sc)
-	if err != nil {
-		return nil, err
-	}
-
 	switch config.MqType {
 	case constant.MQTypeKafka:
+		cf, err := NewKafkaConsumerFacade(config.KafkaConsumerConfig)
+		if err != nil {
+			return nil, err
+		}
+		pf, err := NewKafkaProviderFacade(config.KafkaProducerConfig)
+		if err != nil {
+			return nil, err
+		}
 		c = &Client{
 			ctx:            ctx,
 			consumerFacade: cf,
