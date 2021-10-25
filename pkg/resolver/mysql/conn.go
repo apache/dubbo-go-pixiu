@@ -83,6 +83,13 @@ type Conn struct {
 	// currentEphemeralBuffer for tracking allocated temporary buffer for writes and reads respectively.
 	// It can be allocated from bufPool or heap and should be recycled in the same manner.
 	currentEphemeralBuffer *[]byte
+
+	// StatusFlags are the status flags we will base our returned flags on.
+	// This is a bit field, with values documented in constants.go.
+	// An interesting value here would be ServerStatusAutocommit.
+	// It is only used by the server. These flags can be changed
+	// by Handler methods.
+	StatusFlags uint16
 }
 
 // newConn is an internal method to create a Conn. Used by client and server

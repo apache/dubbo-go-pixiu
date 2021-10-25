@@ -3,6 +3,8 @@ package mysql
 import (
 	"bytes"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/google/martian/log"
 	"github.com/pkg/errors"
 	"io"
 	"net"
@@ -22,6 +24,9 @@ type MysqlResolver struct {
 	connReadBufferSize int
 
 	salt []byte
+
+	// ServerVersion is the version we will advertise.
+	ServerVersion string
 
 	// Capabilities is the current set of features this connection
 	// is using.  It is the features that are both supported by
@@ -46,6 +51,15 @@ type MysqlResolver struct {
 	schemaName string
 
 	users map[string]string
+}
+
+func NewMysqlResolver(listener net.Listener, conf *model.MysqlConfig) *MysqlResolver {
+	return &MysqlResolver{
+		listener:           listener,
+		salt:               []byte(conf.Salt),
+		ServerVersion:      conf.ServerVersion,
+		users:              conf.Users,
+	}
 }
 
 func (r *MysqlResolver) Accept() {
@@ -74,22 +88,63 @@ func (r *MysqlResolver) handle(conn net.Conn, connectionID uint32) {
 
 		conn.Close()
 	}()
+
+	err := r.handshake(c)
+	if err != nil {
+		c.writeErrorPacketFromError(err)
+		return
+	}
+
+	// Negotiation worked, send OK packet.
+	if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
+		log.Errorf("Cannot write OK packet to %s: %v", c, err)
+		return
+	}
+
+	for {
+		// todo parse sql, execute sql
+	}
 }
 
-func (r *MysqlResolver) Handshake() error {
-	//// First build and send the server handshake packet.
-	//salt, err := r.c.writeHandshakeV10(l.ServerVersion, l.authServer, l.TLSConfig != nil)
-	//if err != nil {
-	//	if err != io.EOF {
-	//		log.Errorf("Cannot send HandshakeV10 packet to %s: %v", c, err)
-	//	}
-	//	return
-	//}
+func (r *MysqlResolver) handshake(conn *Conn) error {
+	// First build and send the server handshake packet.
+	err := r.writeHandshakeV10(conn, false, r.salt)
+	if err != nil {
+		if err != io.EOF {
+			log.Errorf("Cannot send HandshakeV10 packet to %s: %v", conn, err)
+		}
+		return err
+	}
+
+	// Wait for the client response. This has to be a direct read,
+	// so we don't buffer the TLS negotiation packets.
+	response, err := conn.readEphemeralPacketDirect()
+	if err != nil {
+		// Don't log EOF errors. They cause too much spam, same as main read loop.
+		if err != io.EOF {
+			log.Infof("Cannot read client handshake response from %s: %v, it may not be a valid MySQL client", conn, err)
+		}
+		return err
+	}
+
+	user, _, authResponse, err := r.parseClientHandshakePacket(conn, true, response)
+	if err != nil {
+		log.Errorf("Cannot parse client handshake response from %s: %v", conn, err)
+		return err
+	}
+	conn.recycleReadPacket()
+
+	err = r.ValidateHash(user, authResponse)
+	if err != nil {
+		log.Errorf("Error authenticating user using MySQL native password: %v", err)
+		return err
+	}
+	return nil
 }
 
 // writeHandshakeV10 writes the Initial Handshake Packet, server side.
 // It returns the salt data.
-func (c *Conn) writeHandshakeV10(serverVersion string, enableTLS bool, salt []byte) error {
+func (r *MysqlResolver) writeHandshakeV10(c *Conn, enableTLS bool, salt []byte) error {
 	capabilities := CapabilityClientLongPassword |
 		CapabilityClientFoundRows |
 		CapabilityClientLongFlag |
@@ -109,7 +164,7 @@ func (c *Conn) writeHandshakeV10(serverVersion string, enableTLS bool, salt []by
 
 	length :=
 		1 + // protocol version
-			lenNullString(serverVersion) +
+			lenNullString(r.ServerVersion) +
 			4 + // connection ID
 			8 + // first part of salt data
 			1 + // filler byte
@@ -129,7 +184,7 @@ func (c *Conn) writeHandshakeV10(serverVersion string, enableTLS bool, salt []by
 	pos = writeByte(data, pos, protocolVersion)
 
 	// Copy server version.
-	pos = writeNullString(data, pos, serverVersion)
+	pos = writeNullString(data, pos, r.ServerVersion)
 
 	// Add connectionID in.
 	pos = writeUint32(data, pos, c.ConnectionID)

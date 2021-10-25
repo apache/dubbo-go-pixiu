@@ -47,6 +47,7 @@ const (
 	ProtocolTypeUDP
 	ProtocolTypeHTTPS
 	ProtocolTypeGRPC
+	ProtocolMysql
 )
 
 const (
@@ -81,6 +82,7 @@ var (
 		2: "UDP",
 		3: "HTTPS",
 		4: "GRPC",
+		5: "MYSQL",
 	}
 
 	// ProtocolTypeValue protocol type name to enum seq
@@ -90,6 +92,7 @@ var (
 		"UDP":   2,
 		"HTTPS": 3,
 		"GRPC":  4,
+		"MYSQL":  5,
 	}
 
 	ApiTypeName = map[int32]string{
