@@ -37,13 +37,24 @@ import (
 	perrors "github.com/pkg/errors"
 )
 
-func NewKafkaConsumerFacade(addrs []string, config *sarama.Config) (*KafkaConsumerFacade, error) {
-	consumer, err := sarama.NewConsumer(addrs, config)
+func NewKafkaConsumerFacade(config event.KafkaConsumerConfig) (*KafkaConsumerFacade, error) {
+	c := sarama.NewConfig()
+	c.ClientID = config.ClientID
+	c.Metadata.Full = config.Metadata.Full
+	c.Metadata.Retry.Max = config.Metadata.Retry.Max
+	c.Metadata.Retry.Backoff = config.Metadata.Retry.Backoff
+	if config.ProtocolVersion != "" {
+		version, err := sarama.ParseKafkaVersion(config.ProtocolVersion)
+		if err != nil {
+			return nil, err
+		}
+		c.Version = version
+	}
+	consumer, err := sarama.NewConsumer(config.Brokers, c)
 	if err != nil {
 		return nil, err
 	}
 
-	// does not set up cookiejar may cause some problem
 	return &KafkaConsumerFacade{consumer: consumer, httpClient: &http.Client{Timeout: 5 * time.Second}, done: make(chan struct{})}, nil
 }
 
@@ -186,8 +197,23 @@ func (f *KafkaConsumerFacade) Stop() {
 	f.wg.Wait()
 }
 
-func NewKafkaProviderFacade(addrs []string, config *sarama.Config) (*KafkaProducerFacade, error) {
-	producer, err := sarama.NewSyncProducer(addrs, config)
+func NewKafkaProviderFacade(config event.KafkaProducerConfig) (*KafkaProducerFacade, error) {
+	c := sarama.NewConfig()
+	c.Producer.Return.Successes = true
+	c.Producer.Return.Errors = true
+	c.Producer.RequiredAcks = sarama.WaitForLocal
+	c.Metadata.Full = config.Metadata.Full
+	c.Metadata.Retry.Max = config.Metadata.Retry.Max
+	c.Metadata.Retry.Backoff = config.Metadata.Retry.Backoff
+	c.Producer.MaxMessageBytes = config.Producer.MaxMessageBytes
+	if config.ProtocolVersion != "" {
+		version, err := sarama.ParseKafkaVersion(config.ProtocolVersion)
+		if err != nil {
+			return nil, err
+		}
+		c.Version = version
+	}
+	producer, err := sarama.NewSyncProducer(config.Brokers, c)
 	if err != nil {
 		return nil, err
 	}
