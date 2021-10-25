@@ -25,11 +25,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-)
-
-import (
-	"github.com/Shopify/sarama"
 )
 
 const (
@@ -52,48 +47,43 @@ type (
 	}
 
 	Config struct {
-		ClientId     string        `yaml:"client_id" json:"client_id"`
-		Endpoints    string        `yaml:"endpoints" json:"endpoints"`
-		MqType       MQType        `yaml:"type" json:"type"`
-		KafkaVersion string        `yaml:"kafka_version" json:"kafka_version"`
-		Retry        int           `yaml:"retry" json:"retry" default:"5"`
-		Timeout      time.Duration `yaml:"timeout" json:"timeout" default:"2s"`
-		Offset       string        `yaml:"offset" json:"offset" default:"oldest"` // Offset newest or oldest
+		ClientId            string              `yaml:"client_id" json:"client_id"`
+		Endpoints           string              `yaml:"endpoints" json:"endpoints"`
+		MqType              MQType              `yaml:"type" json:"type"`
+		Retry               int                 `yaml:"retry" json:"retry" default:"5"`
+		Timeout             time.Duration       `yaml:"timeout" json:"timeout" default:"2s"`
+		KafkaConsumerConfig KafkaConsumerConfig `yaml:"kafka_consumer_config" json:"kafka_consumer_config"`
+		KafkaProducerConfig KafkaProducerConfig `yaml:"kafka_producer_config" json:"kafka_producer_config"`
+	}
+
+	KafkaConsumerConfig struct {
+		Brokers         []string `yaml:"brokers" json:"brokers"`
+		ProtocolVersion string   `yaml:"protocol_version" json:"protocol_version"`
+		ClientID        string   `yaml:"client_id" json:"client_id"`
+		Metadata        Metadata `yaml:"metadata" json:"metadata"`
+	}
+
+	KafkaProducerConfig struct {
+		Brokers         []string `yaml:"brokers" json:"brokers"`
+		ProtocolVersion string   `yaml:"protocol_version" json:"protocol_version"`
+		Metadata        Metadata `yaml:"metadata" json:"metadata"`
+		Producer        Producer `yaml:"producer" json:"producer"`
+	}
+
+	Metadata struct {
+		Full  bool          `yaml:"full" json:"full"`
+		Retry MetadataRetry `yaml:"retry" json:"retry"`
+	}
+
+	MetadataRetry struct {
+		Max     int           `yaml:"max" json:"max"`
+		Backoff time.Duration `yaml:"backoff" json:"backoff"`
+	}
+
+	Producer struct {
+		MaxMessageBytes int `yaml:"max_message_bytes" json:"max_message_bytes"`
 	}
 )
-
-func (c *Config) ToSaramaConfig() *sarama.Config {
-	config := sarama.NewConfig()
-
-	version, err := sarama.ParseKafkaVersion(c.KafkaVersion)
-	if err != nil {
-		version = sarama.V2_0_0_0
-		logger.Warnf("kafka version is invalid, use sarama.V2_0_0_0 instead, err: %s", err.Error())
-	}
-	config.Version = version
-
-	offset := sarama.OffsetNewest
-	switch c.Offset {
-	case "newest":
-		offset = sarama.OffsetNewest
-	case "oldest":
-		offset = sarama.OffsetOldest
-	default:
-		logger.Warn("offset is invalid, use oldest instead")
-	}
-	config.Consumer.Offsets.Initial = offset
-
-	config.ClientID = "pixiu-kafka"
-	if c.ClientId != "" {
-		config.ClientID = c.ClientId
-	}
-	logger.Infof("kafka client id is %s", config.ClientID)
-
-	config.Producer.Retry.Max = c.Retry
-	config.Producer.Timeout = c.Timeout
-
-	return config
-}
 
 func (p *Plugin) Kind() string {
 	return Kind
