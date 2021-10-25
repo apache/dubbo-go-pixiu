@@ -89,7 +89,7 @@ func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) err
 	return nil
 }
 
-func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) {
 	for {
 		select {
 		case <-f.done:
@@ -101,7 +101,8 @@ func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, 
 		}
 		if ctx.Err() != nil {
 			// log consume stop
-			return ctx.Err()
+			logger.Error()
+			break
 		}
 	}
 }
