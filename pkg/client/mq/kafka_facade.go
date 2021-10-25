@@ -81,7 +81,7 @@ func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) err
 	cOpt := DefaultOptions()
 	cOpt.ApplyOpts(opts...)
 	c, cancel := context.WithCancel(ctx)
-	key := GetConsumerManagerKey(cOpt.TopicList)
+	key := GetConsumerManagerKey(cOpt.TopicList, cOpt.ConsumerGroup)
 	f.consumerManager[key] = cancel
 	f.wg.Add(2)
 	go f.consumeLoop(ctx, cOpt.TopicList, &consumerGroupHandler{cOpt.ConsumeUrl, f.httpClient})
@@ -97,7 +97,7 @@ func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, 
 			break
 		}
 		if err := f.consumerGroup.Consume(ctx, topics, handler); err != nil {
-			// log error
+			logger.Warn()
 		}
 		if ctx.Err() != nil {
 			// log consume stop
