@@ -1,15 +1,33 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package mysql
 
 import (
 	"bytes"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/google/martian/log"
-	"github.com/pkg/errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
-	"vitess.io/vitess/go/tb"
+
+	"github.com/pkg/errors"
+
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const initClientConnStatus = ServerStatusAutocommit
@@ -83,7 +101,7 @@ func (r *MysqlResolver) handle(conn net.Conn, connectionID uint32) {
 	// Catch panics, and close the connection in any case.
 	defer func() {
 		if x := recover(); x != nil {
-			logger.Errorf("mysql_server caught panic:\n%v\n%s", x, tb.Stack(4))
+			logger.Errorf("mysql_server caught panic:\n%v", x)
 		}
 
 		conn.Close()
@@ -97,12 +115,16 @@ func (r *MysqlResolver) handle(conn net.Conn, connectionID uint32) {
 
 	// Negotiation worked, send OK packet.
 	if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
-		log.Errorf("Cannot write OK packet to %s: %v", c, err)
+		logger.Errorf("Cannot write OK packet to %s: %v", c, err)
 		return
 	}
 
 	for {
 		// todo parse sql, execute sql
+		c.sequence = 0
+		data, err := c.readEphemeralPacket()
+		fmt.Println(data)
+		fmt.Println(err)
 	}
 }
 
@@ -111,7 +133,7 @@ func (r *MysqlResolver) handshake(conn *Conn) error {
 	err := r.writeHandshakeV10(conn, false, r.salt)
 	if err != nil {
 		if err != io.EOF {
-			log.Errorf("Cannot send HandshakeV10 packet to %s: %v", conn, err)
+			logger.Errorf("Cannot send HandshakeV10 packet to %s: %v", conn, err)
 		}
 		return err
 	}
@@ -122,21 +144,21 @@ func (r *MysqlResolver) handshake(conn *Conn) error {
 	if err != nil {
 		// Don't log EOF errors. They cause too much spam, same as main read loop.
 		if err != io.EOF {
-			log.Infof("Cannot read client handshake response from %s: %v, it may not be a valid MySQL client", conn, err)
+			logger.Infof("Cannot read client handshake response from %s: %v, it may not be a valid MySQL client", conn, err)
 		}
 		return err
 	}
 
 	user, _, authResponse, err := r.parseClientHandshakePacket(conn, true, response)
 	if err != nil {
-		log.Errorf("Cannot parse client handshake response from %s: %v", conn, err)
+		logger.Errorf("Cannot parse client handshake response from %s: %v", conn, err)
 		return err
 	}
 	conn.recycleReadPacket()
 
 	err = r.ValidateHash(user, authResponse)
 	if err != nil {
-		log.Errorf("Error authenticating user using MySQL native password: %v", err)
+		logger.Errorf("Error authenticating user using MySQL native password: %v", err)
 		return err
 	}
 	return nil
