@@ -29,33 +29,54 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var token string
+
+func GetToken(t *testing.T) bool {
+	return t.Run("token", func(t *testing.T) {
+		urlStr := "http://localhost:1314/login?key=pixiu&secret=pixiu888"
+		client := &http.Client{Timeout: 5 * time.Second}
+		req, err := http.NewRequest("GET", urlStr, nil)
+		assert.NoError(t, err)
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.NotNil(t, resp)
+		s, _ := ioutil.ReadAll(resp.Body)
+		token = string(s)
+	})
+}
+
 func TestCsrfHeader(t *testing.T) {
-	urlStr := "http://localhost:8888/user/"
-	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("GET", urlStr, nil)
-	assert.NoError(t, err)
-	req.Header.Set("csrfSalt", "pixiu")
-	req.Header.Set("pixiu", "cGl4aXUtcGl4aXU4ODg=")
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.NotNil(t, resp)
-	s, _ := ioutil.ReadAll(resp.Body)
-	t.Log(string(s))
-	assert.True(t, strings.Contains(string(s), "success"))
+	if GetToken(t) && token != "" {
+		urlStr := "http://localhost:8888/user/"
+		client := &http.Client{Timeout: 5 * time.Second}
+		req, err := http.NewRequest("GET", urlStr, nil)
+		assert.NoError(t, err)
+		req.Header.Set("csrfSalt", "pixiu")
+		req.Header.Set("pixiu", token)
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.NotNil(t, resp)
+		s, _ := ioutil.ReadAll(resp.Body)
+		t.Log(string(s))
+		assert.True(t, strings.Contains(string(s), "success"))
+	}
 }
 
 func TestCsrfQuery(t *testing.T) {
-	urlStr := "http://localhost:8888/user?pixiu=cGl4aXUtcGl4aXU4ODg="
-	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("GET", urlStr, nil)
-	assert.NoError(t, err)
-	req.Header.Set("csrfSalt", "pixiu")
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.NotNil(t, resp)
-	s, _ := ioutil.ReadAll(resp.Body)
-	t.Log(string(s))
-	assert.True(t, strings.Contains(string(s), "success"))
+	if GetToken(t) && token != "" {
+		urlStr := "http://localhost:8888/user?pixiu=" + token
+		client := &http.Client{Timeout: 5 * time.Second}
+		req, err := http.NewRequest("GET", urlStr, nil)
+		assert.NoError(t, err)
+		req.Header.Set("csrfSalt", "pixiu")
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.NotNil(t, resp)
+		s, _ := ioutil.ReadAll(resp.Body)
+		t.Log(string(s))
+		assert.True(t, strings.Contains(string(s), "success"))
+	}
 }
