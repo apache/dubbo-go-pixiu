@@ -125,7 +125,7 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 			}
 			c.consumerFacadeMap[cReq.ConsumerGroup] = facade
 			cf := c.consumerFacadeMap[cReq.ConsumerGroup]
-			err = cf.Subscribe(c.ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl))
+			err = cf.Subscribe(c.ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl), WithConsumerGroup(cReq.ConsumerGroup))
 			if err != nil {
 				facade.Stop()
 				c.consumerFacadeMap[cReq.ConsumerGroup] = nil

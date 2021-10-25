@@ -29,18 +29,17 @@ type ConsumerFacade interface {
 	Stop()
 }
 
-func GetConsumerManagerKey(topic []string) string {
-	return strings.Join((topic), ".")
+func GetConsumerManagerKey(topic []string, consumerGroup string) string {
+	return strings.Join((topic), ".") + "_" + consumerGroup
 }
 
 // MQOptions Consumer options
 // TODO: Add rocketmq params
 type MQOptions struct {
-	TopicList  []string
-	Partition  int64
-	ConsumeUrl string
-	CheckUrl   string
-	Offset     int64
+	TopicList     []string
+	ConsumeUrl    string
+	CheckUrl      string
+	ConsumerGroup string
 }
 
 func (o *MQOptions) ApplyOpts(opts ...Option) {
@@ -78,6 +77,12 @@ func WithConsumeUrl(ch string) Option {
 func WithCheckUrl(ck string) Option {
 	return func(o *MQOptions) {
 		o.CheckUrl = ck
+	}
+}
+
+func WithConsumerGroup(cp string) Option {
+	return func(o *MQOptions) {
+		o.ConsumerGroup = cp
 	}
 }
 
