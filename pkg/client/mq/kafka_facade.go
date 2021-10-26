@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"sync"
@@ -37,7 +38,16 @@ import (
 	perrors "github.com/pkg/errors"
 )
 
-func NewKafkaConsumerFacade(config event.KafkaConsumerConfig) (*KafkaConsumerFacade, error) {
+type kafkaErrors struct {
+	count int
+	err   string
+}
+
+func (ke kafkaErrors) Error() string {
+	return fmt.Sprintf("Failed to deliver %d messages due to %s", ke.count, ke.err)
+}
+
+func NewKafkaConsumerFacade(config event.KafkaConsumerConfig, consumerGroup string) (*KafkaConsumerFacade, error) {
 	c := sarama.NewConfig()
 	c.ClientID = config.ClientID
 	c.Metadata.Full = config.Metadata.Full
@@ -50,16 +60,16 @@ func NewKafkaConsumerFacade(config event.KafkaConsumerConfig) (*KafkaConsumerFac
 		}
 		c.Version = version
 	}
-	consumer, err := sarama.NewConsumer(config.Brokers, c)
+	client, err := sarama.NewConsumerGroup(config.Brokers, consumerGroup, c)
 	if err != nil {
 		return nil, err
 	}
 
-	return &KafkaConsumerFacade{consumer: consumer, httpClient: &http.Client{Timeout: 5 * time.Second}, done: make(chan struct{})}, nil
+	return &KafkaConsumerFacade{consumerGroup: client, httpClient: &http.Client{Timeout: 5 * time.Second}, done: make(chan struct{})}, nil
 }
 
 type KafkaConsumerFacade struct {
-	consumer        sarama.Consumer
+	consumerGroup   sarama.ConsumerGroup
 	consumerManager map[string]func()
 	rwLock          sync.RWMutex
 	httpClient      *http.Client
@@ -70,64 +80,77 @@ type KafkaConsumerFacade struct {
 func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) error {
 	cOpt := DefaultOptions()
 	cOpt.ApplyOpts(opts...)
-	partConsumer, err := f.consumer.ConsumePartition(cOpt.Topic, int32(cOpt.Partition), sarama.OffsetOldest)
-	if err != nil {
-		return err
-	}
 	c, cancel := context.WithCancel(ctx)
-	key := GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
-	f.rwLock.Lock()
-	defer f.rwLock.Unlock()
+	key := GetConsumerManagerKey(cOpt.TopicList, cOpt.ConsumerGroup)
 	f.consumerManager[key] = cancel
 	f.wg.Add(2)
-	go f.ConsumePartitions(c, partConsumer, cOpt.ConsumeUrl)
+	go f.consumeLoop(ctx, cOpt.TopicList, &consumerGroupHandler{cOpt.ConsumeUrl, f.httpClient})
 	go f.checkConsumerIsAlive(c, key, cOpt.CheckUrl)
 	return nil
 }
 
-// ConsumePartitions consume function
-func (f *KafkaConsumerFacade) ConsumePartitions(ctx context.Context, partConsumer sarama.PartitionConsumer, consumeUrl string) {
-	defer f.wg.Done()
-
+func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) {
 	for {
 		select {
 		case <-f.done:
 			logger.Info()
-		case msg := <-partConsumer.Messages():
-			data, err := json.Marshal(event.MQMsgPush{Msg: []string{string(msg.Value)}})
-			if err != nil {
-				logger.Warn()
-				continue
-			}
-
-			req, err := http.NewRequest(http.MethodPost, consumeUrl, bytes.NewReader(data))
-			if err != nil {
-				logger.Warn()
-				continue
-			}
-
-			for i := 0; i < 5; i++ {
-				err := func() error {
-					resp, err := f.httpClient.Do(req)
-					if err != nil {
-						return err
-					}
-					defer resp.Body.Close()
-
-					if resp.StatusCode == http.StatusOK {
-						return nil
-					}
-					return perrors.New("failed send msg to consumer with status code " + strconv.Itoa(resp.StatusCode))
-				}()
-				if err != nil {
-					logger.Warn(err.Error())
-					time.Sleep(10 * time.Millisecond)
-				} else {
-					break
-				}
-			}
+			break
+		}
+		if err := f.consumerGroup.Consume(ctx, topics, handler); err != nil {
+			logger.Warn()
+		}
+		if ctx.Err() != nil {
+			// log consume stop
+			logger.Error()
+			break
 		}
 	}
+}
+
+type consumerGroupHandler struct {
+	consumerUrl string
+	httpClient  *http.Client
+}
+
+func (c *consumerGroupHandler) Setup(session sarama.ConsumerGroupSession) error {
+	return nil
+}
+
+func (c *consumerGroupHandler) Cleanup(session sarama.ConsumerGroupSession) error {
+	return nil
+}
+
+func (c *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	for msg := range claim.Messages() {
+		session.MarkMessage(msg, "")
+		data, err := json.Marshal(event.MQMsgPush{Msg: []string{string(msg.Value)}})
+		if err != nil {
+			logger.Warn()
+			continue
+		}
+
+		req, err := http.NewRequest(http.MethodPost, c.consumerUrl, bytes.NewReader(data))
+		if err != nil {
+			logger.Warn()
+			continue
+		}
+		err = func() error {
+			resp, err := c.httpClient.Do(req)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			return perrors.New("failed send msg to consumer with status code " + strconv.Itoa(resp.StatusCode))
+		}()
+		if err != nil {
+			logger.Warn(err.Error())
+		}
+	}
+	return nil
 }
 
 // checkConsumerIsAlive make sure consumer is alive or would be removed from consumer list
@@ -180,15 +203,6 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 }
 
 func (f *KafkaConsumerFacade) UnSubscribe(opts ...Option) error {
-	cOpt := DefaultOptions()
-	cOpt.ApplyOpts(opts...)
-	key := GetConsumerManagerKey(cOpt.Topic, int32(cOpt.Partition))
-	if cancel, ok := f.consumerManager[key]; !ok {
-		return perrors.New("consumer goroutine not found")
-	} else {
-		cancel()
-		delete(f.consumerManager, key)
-	}
 	return nil
 }
 
@@ -230,8 +244,16 @@ func (k *KafkaProducerFacade) Send(msgs []string, opts ...Option) error {
 
 	pMsgs := make([]*sarama.ProducerMessage, 0)
 	for _, msg := range msgs {
-		pMsgs = append(pMsgs, &sarama.ProducerMessage{Topic: pOpt.Topic, Value: sarama.StringEncoder(msg)})
+		pMsgs = append(pMsgs, &sarama.ProducerMessage{Topic: pOpt.TopicList[0], Value: sarama.StringEncoder(msg)})
 	}
-
-	return k.producer.SendMessages(pMsgs)
+	err := k.producer.SendMessages(pMsgs)
+	if err != nil {
+		if value, ok := err.(sarama.ProducerErrors); ok {
+			if len(value) > 0 {
+				return kafkaErrors{len(value), value[0].Err.Error()}
+			}
+		}
+		return err
+	}
+	return nil
 }
