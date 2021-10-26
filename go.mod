@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
-	github.com/apache/dubbo-go-hessian2 v1.9.3
+	github.com/apache/dubbo-go-hessian2 v1.9.4
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
 	github.com/dubbogo/go-zookeeper v1.0.3

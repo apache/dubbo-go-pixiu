@@ -52,9 +52,6 @@ static_resources:
         read_timeout: 5s
         write_timeout: 5s
   clusters:
-  timeout_config:
-    connect_timeout: "5s"
-    request_timeout: "10s"
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"
