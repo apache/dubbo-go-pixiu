@@ -37,8 +37,9 @@ import (
 )
 
 var (
-	mqClient *Client
-	once     sync.Once
+	mqClient          *Client
+	once              sync.Once
+	consumerFacadeMap sync.Map
 )
 
 func NewSingletonMQClient(config event.Config) *Client {
@@ -79,7 +80,6 @@ type Client struct {
 	ctx                 context.Context
 	producerFacade      ProducerFacade
 	kafkaConsumerConfig event.KafkaConsumerConfig
-	consumerFacadeMap   map[string]ConsumerFacade
 }
 
 func (c Client) Apply() error {
@@ -118,18 +118,20 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 		if err != nil {
 			return nil, err
 		}
-		if c.consumerFacadeMap[cReq.ConsumerGroup] == nil {
+		if _, ok := consumerFacadeMap.Load(cReq.ConsumerGroup); !ok {
 			facade, err := NewKafkaConsumerFacade(c.kafkaConsumerConfig, cReq.ConsumerGroup)
 			if err != nil {
 				return nil, err
 			}
-			c.consumerFacadeMap[cReq.ConsumerGroup] = facade
-			cf := c.consumerFacadeMap[cReq.ConsumerGroup]
-			err = cf.Subscribe(c.ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl), WithConsumerGroup(cReq.ConsumerGroup))
-			if err != nil {
-				facade.Stop()
-				c.consumerFacadeMap[cReq.ConsumerGroup] = nil
-				return nil, err
+			consumerFacadeMap.Store(cReq.ConsumerGroup, facade)
+			if f, ok := consumerFacadeMap.Load(cReq.ConsumerGroup); ok {
+				cf := f.(ConsumerFacade)
+				err = cf.Subscribe(c.ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl), WithConsumerGroup(cReq.ConsumerGroup))
+				if err != nil {
+					facade.Stop()
+					consumerFacadeMap.Delete(cReq.ConsumerGroup)
+					return nil, err
+				}
 			}
 		}
 	case event.MQActionUnSubscribe:
@@ -138,10 +140,9 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 		if err != nil {
 			return nil, err
 		}
-		if c.consumerFacadeMap[cReq.ConsumerGroup] == nil {
-			facade := c.consumerFacadeMap[cReq.ConsumerGroup]
-			facade.Stop()
-			c.consumerFacadeMap[cReq.ConsumerGroup] = nil
+		if facade, ok := consumerFacadeMap.Load(cReq.ConsumerGroup); ok {
+			facade.(ConsumerFacade).Stop()
+			consumerFacadeMap.Delete(cReq.ConsumerGroup)
 			return nil, err
 		}
 	default:
