@@ -22,7 +22,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	http2 "net/http"
+	netHttp "net/http"
 	"strconv"
 )
 
@@ -45,7 +45,7 @@ func (f *Filter) handleHttp1GlobalBegin(ctx *http.HttpContext, transactionInfo *
 		logger.Errorf("failed to begin global transaction, transaction info: %v, err: %v",
 			transactionInfo, err)
 		ctx.Abort()
-		ctx.WriteJSONWithStatus(http2.StatusInternalServerError, map[string]string{
+		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
 			"error": fmt.Sprintf("failed to begin global transaction, %v", err),
 		})
 		return false
@@ -58,9 +58,9 @@ func (f *Filter) handleHttp1GlobalBegin(ctx *http.HttpContext, transactionInfo *
 func (f *Filter) handleHttp1GlobalEnd(ctx *http.HttpContext) {
 	xidParam := ctx.Params[XID]
 	xid := xidParam.(string)
-	response, ok := ctx.SourceResp.(*http2.Response)
+	response, ok := ctx.SourceResp.(*netHttp.Response)
 	if ok {
-		if response.StatusCode == http2.StatusOK {
+		if response.StatusCode == netHttp.StatusOK {
 			err := f.globalCommit(ctx, xid)
 			if err != nil {
 				logger.Error(err)
@@ -85,7 +85,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	if xid == "" {
 		logger.Error("failed to get xid from request header")
 		ctx.Abort()
-		ctx.WriteJSONWithStatus(http2.StatusInternalServerError, map[string]string{
+		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
 			"error": "failed to get xid from request header",
 		})
 		return false
@@ -95,7 +95,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	if err != nil {
 		logger.Error(err)
 		ctx.Abort()
-		ctx.WriteJSONWithStatus(http2.StatusInternalServerError, map[string]string{
+		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
 			"error": "failed to retrieve request body",
 		})
 		return false
@@ -121,7 +121,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
 		ctx.Abort()
-		ctx.WriteJSONWithStatus(http2.StatusServiceUnavailable, map[string]string{
+		ctx.WriteJSONWithStatus(netHttp.StatusServiceUnavailable, map[string]string{
 			"error": "cluster not found endpoint",
 		})
 		return false
@@ -139,7 +139,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	if err != nil {
 		logger.Errorf("encode request context failed, request context: %v, err: %v", requestContext, err)
 		ctx.Abort()
-		ctx.WriteJSONWithStatus(http2.StatusInternalServerError, map[string]string{
+		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
 			"error": fmt.Sprintf("encode request context failed, %v", err),
 		})
 		return false
@@ -149,7 +149,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	if err != nil {
 		logger.Errorf("branch transaction register failed, xid: %s, err: %v", xid, err)
 		ctx.Abort()
-		ctx.WriteJSONWithStatus(http2.StatusInternalServerError, map[string]string{
+		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
 			"error": fmt.Sprintf("branch transaction register failed, %v", err),
 		})
 		return false
@@ -167,9 +167,9 @@ func (f *Filter) handleHttp1BranchEnd(ctx *http.HttpContext) {
 	if err != nil {
 		logger.Error(err)
 	}
-	response, ok := ctx.SourceResp.(*http2.Response)
+	response, ok := ctx.SourceResp.(*netHttp.Response)
 	if ok {
-		if response.StatusCode != http2.StatusOK {
+		if response.StatusCode != netHttp.StatusOK {
 			err := f.branchReport(ctx.Ctx, xid, branchID, apis.TCC, apis.PhaseOneFailed, nil)
 			if err != nil {
 				logger.Error(err)

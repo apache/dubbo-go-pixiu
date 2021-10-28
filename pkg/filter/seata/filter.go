@@ -18,7 +18,7 @@
 package seata
 
 import (
-	http2 "net/http"
+	netHttp "net/http"
 	"strings"
 )
 
@@ -111,7 +111,7 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 	path := ctx.Request.URL.Path
 	method := ctx.Request.Method
 
-	if method != http2.MethodPost {
+	if method != netHttp.MethodPost {
 		ctx.Next()
 		return
 	}

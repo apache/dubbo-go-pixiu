@@ -10,7 +10,10 @@
 
 ## 配置说明
 
-+ 下面的配置见 `samples/seata/gateway/conf.yaml`：
++ 下面的配置见:
+
+```samples/seata/gateway/conf.yaml```
+
 ```
 - name: dgp.filter.http.seata
   config:
@@ -26,12 +29,16 @@
     - requestPath: "/service-a/begin"
       timeout: 60000
 ```
+
 1. addressing 为被代理的服务的唯一标识，可以是 applicationID，也可以是 k8s 中 service name.
 2. serverAddressing 为 seata tc server 的访问地址，在 k8s 中，可以配置为 ${FQDN}:{service 端口}。
 3. transactionInfos 配置了要开启全局事务的接口。通过 requestPath 与接口 url 匹配，匹配成功则 Pixiu 会与 
 seata tc server 交互开启全局事务。timeout 单位为毫秒，用来标识全局事务的超时时间。
 
-+ 下面的配置见 `samples/seata/gateway/conf.yaml`：
++ 下面的配置见 
+
+```samples/seata/gateway/conf.yaml```：
+
 ```
 - name: dgp.filter.http.seata
   config:
@@ -48,6 +55,7 @@ seata tc server 交互开启全局事务。timeout 单位为毫秒，用来标�
         commitRequestPath: "/service-b/confirm"
         rollbackRequestPath: "/service-b/cancel"
 ```
+
 tccResources 配置了 TCC 分支事务对应的接口。如果请求 url 与 `prepareRequestPath` 匹配，并且 
 requestHeader 中存在 key `x_seata_xid`，则 Pixiu 将向 seata tc server 注册分支事务。当全
 局事务提交时，seata tc server 会通知 Pixiu 提交分支事务，Pixiu 将自动调用 `commitRequestPath`
@@ -57,6 +65,7 @@ requestHeader 中存在 key `x_seata_xid`，则 Pixiu 将向 seata tc server 注
 ## 准备
 
 需要一个编译好的 Pixiu 程序
+
 ```
 cd ${projectpath}/cmd/pixiu/pixiu
 go build
