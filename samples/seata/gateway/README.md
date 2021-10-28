@@ -10,7 +10,7 @@
 
 ## 配置说明
 
-+ 下面的配置见:
++ 下面的配置见：
 
 ```samples/seata/gateway/conf.yaml```
 
@@ -35,9 +35,9 @@
 3. transactionInfos 配置了要开启全局事务的接口。通过 requestPath 与接口 url 匹配，匹配成功则 Pixiu 会与 
 seata tc server 交互开启全局事务。timeout 单位为毫秒，用来标识全局事务的超时时间。
 
-+ 下面的配置见 
++ 下面的配置见：
 
-```samples/seata/gateway/conf.yaml```：
+```samples/seata/gateway/conf.yaml```
 
 ```
 - name: dgp.filter.http.seata
