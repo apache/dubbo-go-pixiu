@@ -18,7 +18,7 @@
 package model
 
 import (
-	http2 "net/http"
+	stdHttp "net/http"
 	"regexp"
 	"strings"
 )
@@ -71,7 +71,7 @@ type (
 	}
 )
 
-func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
+func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) {
 	if rc.Routes == nil {
 		return nil, errors.Errorf("router configuration is empty")
 	}
@@ -86,7 +86,7 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 }
 
 // MatchRouter find router (cluster) by request path and method and header
-func (r *Router) MatchRouter(req *http2.Request) bool {
+func (r *Router) MatchRouter(req *stdHttp.Request) bool {
 	if !r.Match.matchPath(req) {
 		return false
 	}
@@ -102,7 +102,7 @@ func (r *Router) MatchRouter(req *http2.Request) bool {
 	return true
 }
 
-func (rm *RouterMatch) matchPath(req *http2.Request) bool {
+func (rm *RouterMatch) matchPath(req *stdHttp.Request) bool {
 	if rm.Path == "" && rm.Prefix == "" && rm.Regex == "" {
 		return true
 	}
@@ -125,7 +125,7 @@ func (rm *RouterMatch) matchPath(req *http2.Request) bool {
 	return false
 }
 
-func (rm *RouterMatch) matchMethod(req *http2.Request) bool {
+func (rm *RouterMatch) matchMethod(req *stdHttp.Request) bool {
 	if len(rm.Methods) == 0 {
 		return true
 	}
@@ -133,7 +133,7 @@ func (rm *RouterMatch) matchMethod(req *http2.Request) bool {
 	return stringutil.StrInSlice(req.Method, rm.Methods)
 }
 
-func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
+func (rm *RouterMatch) matchHeader(req *stdHttp.Request) bool {
 	if len(rm.Headers) == 0 {
 		return true
 	}
