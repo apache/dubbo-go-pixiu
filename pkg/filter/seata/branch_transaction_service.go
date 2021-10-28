@@ -131,7 +131,14 @@ func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis
 		Trailers:      http.Header{},
 	}
 
-	requestContext.Decode(request.ApplicationData)
+	err := requestContext.Decode(request.ApplicationData)
+	if err != nil {
+		logger.Errorf("commit failed, err: %v", err)
+		return &apis.BranchCommitResponse{
+			ResultCode: apis.ResultCodeFailed,
+			Message:    err.Error(),
+		}, nil
+	}
 
 	resp, err := doHttp1Request(requestContext, true)
 	if err != nil {
@@ -166,11 +173,18 @@ func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*
 		Trailers:      http.Header{},
 	}
 
-	requestContext.Decode(request.ApplicationData)
+	err := requestContext.Decode(request.ApplicationData)
+	if err != nil {
+		logger.Errorf("rollback failed, err: %v", err)
+		return &apis.BranchRollbackResponse{
+			ResultCode: apis.ResultCodeFailed,
+			Message:    err.Error(),
+		}, nil
+	}
 
 	resp, err := doHttp1Request(requestContext, false)
 	if err != nil {
-		logger.Errorf("commit failed, err: %v", err)
+		logger.Errorf("rollback failed, err: %v", err)
 		return &apis.BranchRollbackResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),

@@ -94,10 +94,8 @@ func (ctx *RequestContext) Encode() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (ctx *RequestContext) Decode(b []byte) {
+func (ctx *RequestContext) Decode(b []byte) error {
 	var (
-		length32          uint32 = 0
-		err               error
 		actionContextData []byte
 		headersData       []byte
 		bodyData          []byte
@@ -105,27 +103,39 @@ func (ctx *RequestContext) Decode(b []byte) {
 	)
 	r := byteio.BigEndianReader{Reader: bytes.NewReader(b)}
 
-	length32, _, _ = r.ReadUint32()
-	if length32 > 0 {
-		actionContextData = make([]byte, length32, length32)
+	contextLength, _, err := r.ReadUint32()
+	if err != nil {
+		return err
+	}
+	if contextLength > 0 {
+		actionContextData = make([]byte, contextLength, contextLength)
 		r.Read(actionContextData)
 	}
 
-	length32, _, _ = r.ReadUint32()
-	if length32 > 0 {
-		headersData = make([]byte, length32, length32)
+	headerLength, _, err := r.ReadUint32()
+	if err != nil {
+		return err
+	}
+	if headerLength > 0 {
+		headersData = make([]byte, headerLength, headerLength)
 		r.Read(headersData)
 	}
 
-	length32, _, _ = r.ReadUint32()
-	if length32 > 0 {
-		trailersData = make([]byte, length32, length32)
+	trailersLength, _, err := r.ReadUint32()
+	if err != nil {
+		return err
+	}
+	if trailersLength > 0 {
+		trailersData = make([]byte, trailersLength, trailersLength)
 		r.Read(trailersData)
 	}
 
-	length32, _, _ = r.ReadUint32()
-	if length32 > 0 {
-		bodyData = make([]byte, length32, length32)
+	bodyLength, _, err := r.ReadUint32()
+	if err != nil {
+		return err
+	}
+	if bodyLength > 0 {
+		bodyData = make([]byte, bodyLength, bodyLength)
 		r.Read(bodyData)
 	}
 
@@ -151,4 +161,5 @@ func (ctx *RequestContext) Decode(b []byte) {
 	}
 
 	ctx.Body = bodyData
+	return nil
 }
