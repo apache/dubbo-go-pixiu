@@ -19,7 +19,9 @@ package model
 
 import (
 	"github.com/mitchellh/mapstructure"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

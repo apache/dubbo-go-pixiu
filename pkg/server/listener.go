@@ -18,7 +18,6 @@
 package server
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/resolver/mysql"
 	"log"
 	"net"
 	"net/http"
@@ -34,6 +33,7 @@ import (
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/resolver/mysql"
 )
 
 type (

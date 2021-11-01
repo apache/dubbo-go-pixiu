@@ -9,12 +9,12 @@ require (
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
 	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.14
+	github.com/dubbogo/gost v1.11.20-0.20211030041252-9220bf26b342
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2
-	github.com/google/martian v2.1.0+incompatible
+	github.com/google/martian v2.1.0+incompatible // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
@@ -39,7 +39,6 @@ require (
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
-	vitess.io/vitess v0.11.1
 )
 
 replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0

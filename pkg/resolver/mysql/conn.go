@@ -48,8 +48,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/apache/dubbo-go-pixiu/pkg/common/bucketpool"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/sync2"
+	"github.com/dubbogo/gost/container/gxbucketpool"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -75,7 +75,7 @@ const (
 var mysqlServerFlushDelay = flag.Duration("mysql_server_flush_delay", 100*time.Millisecond, "Delay after which buffered response will flushed to client.")
 
 // bufPool is used to allocate and free buffers in an efficient way.
-var bufPool = bucketpool.New(connBufferSize, MaxPacketSize)
+var bufPool = gxbucketpool.New(connBufferSize, MaxPacketSize)
 
 // writersPool is used for pooling bufio.Writer objects.
 var writersPool = sync.Pool{New: func() interface{} { return bufio.NewWriterSize(nil, connBufferSize) }}
@@ -99,7 +99,7 @@ type Conn struct {
 	ConnectionID uint32
 
 	// closed is set to true when Close() is called on the connection.
-	closed sync2.AtomicBool
+	closed *atomic.Bool
 
 	// Packet encoding variables.
 	sequence       uint8
@@ -133,7 +133,7 @@ type Conn struct {
 func newConn(conn net.Conn) *Conn {
 	return &Conn{
 		conn:           conn,
-		closed:         sync2.NewAtomicBool(false),
+		closed:         atomic.NewBool(false),
 		bufferedReader: bufio.NewReaderSize(conn, connBufferSize),
 	}
 }
@@ -568,7 +568,7 @@ func (c *Conn) String() string {
 // Close closes the connection. It can be called from a different go
 // routine to interrupt the current connection.
 func (c *Conn) Close() {
-	if c.closed.CompareAndSwap(false, true) {
+	if c.closed.CAS(false, true) {
 		c.conn.Close()
 	}
 }
@@ -577,7 +577,7 @@ func (c *Conn) Close() {
 // Close() method.  Note if the other side closes the connection, but
 // Close() wasn't called, this will return false.
 func (c *Conn) IsClosed() bool {
-	return c.closed.Get()
+	return c.closed.Load()
 }
 
 //
