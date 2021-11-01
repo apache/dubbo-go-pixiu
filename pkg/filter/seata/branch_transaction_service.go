@@ -47,6 +47,7 @@ func (f *Filter) branchCommunicate() {
 		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", f.conf.Addressing)
 		stream, err := f.resourceClient.BranchCommunicate(ctx)
 		if err != nil {
+			logger.Warn("connect with tc server failed, tc server addressing: %s", f.conf.Addressing)
 			time.Sleep(time.Second)
 			continue
 		}
@@ -87,15 +88,13 @@ func (f *Filter) branchCommunicate() {
 					logger.Errorf(err.Error(), nil)
 					continue
 				}
-				response, err := branchCommit(context.Background(), request)
+				response := branchCommit(context.Background(), request)
+				content, err := types.MarshalAny(response)
 				if err == nil {
-					content, err := types.MarshalAny(response)
-					if err == nil {
-						f.branchMessages <- &apis.BranchMessage{
-							ID:                msg.ID,
-							BranchMessageType: apis.TypeBranchCommitResult,
-							Message:           content,
-						}
+					f.branchMessages <- &apis.BranchMessage{
+						ID:                msg.ID,
+						BranchMessageType: apis.TypeBranchCommitResult,
+						Message:           content,
 					}
 				}
 			case apis.TypeBranchRollback:
@@ -106,15 +105,13 @@ func (f *Filter) branchCommunicate() {
 					logger.Error(err.Error())
 					continue
 				}
-				response, err := branchRollback(context.Background(), request)
+				response := branchRollback(context.Background(), request)
+				content, err := types.MarshalAny(response)
 				if err == nil {
-					content, err := types.MarshalAny(response)
-					if err == nil {
-						f.branchMessages <- &apis.BranchMessage{
-							ID:                msg.ID,
-							BranchMessageType: apis.TypeBranchRollBackResult,
-							Message:           content,
-						}
+					f.branchMessages <- &apis.BranchMessage{
+						ID:                msg.ID,
+						BranchMessageType: apis.TypeBranchRollBackResult,
+						Message:           content,
 					}
 				}
 			}
@@ -124,7 +121,7 @@ func (f *Filter) branchCommunicate() {
 }
 
 // branchCommit commit branch transaction
-func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis.BranchCommitResponse, error) {
+func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) *apis.BranchCommitResponse {
 	requestContext := &RequestContext{
 		ActionContext: make(map[string]string),
 		Headers:       http.Header{},
@@ -137,7 +134,7 @@ func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis
 		return &apis.BranchCommitResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),
-		}, nil
+		}
 	}
 
 	resp, err := doHttp1Request(requestContext, true)
@@ -146,7 +143,7 @@ func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis
 		return &apis.BranchCommitResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),
-		}, nil
+		}
 	}
 
 	if resp.StatusCode() == http.StatusOK {
@@ -155,18 +152,18 @@ func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) (*apis
 			XID:          request.XID,
 			BranchID:     request.BranchID,
 			BranchStatus: apis.PhaseTwoCommitted,
-		}, nil
+		}
 	}
 	return &apis.BranchCommitResponse{
 		ResultCode:   apis.ResultCodeSuccess,
 		XID:          request.XID,
 		BranchID:     request.BranchID,
 		BranchStatus: apis.PhaseTwoCommitFailedRetryable,
-	}, nil
+	}
 }
 
 // branchRollback rollback branch transaction
-func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*apis.BranchRollbackResponse, error) {
+func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) *apis.BranchRollbackResponse {
 	requestContext := &RequestContext{
 		ActionContext: make(map[string]string),
 		Headers:       http.Header{},
@@ -179,7 +176,7 @@ func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*
 		return &apis.BranchRollbackResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),
-		}, nil
+		}
 	}
 
 	resp, err := doHttp1Request(requestContext, false)
@@ -188,7 +185,7 @@ func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*
 		return &apis.BranchRollbackResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),
-		}, nil
+		}
 	}
 
 	if resp.StatusCode() == http.StatusOK {
@@ -197,14 +194,14 @@ func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) (*
 			XID:          request.XID,
 			BranchID:     request.BranchID,
 			BranchStatus: apis.PhaseTwoRolledBack,
-		}, nil
+		}
 	}
 	return &apis.BranchRollbackResponse{
 		ResultCode:   apis.ResultCodeSuccess,
 		XID:          request.XID,
 		BranchID:     request.BranchID,
 		BranchStatus: apis.PhaseTwoRollbackFailedRetryable,
-	}, nil
+	}
 }
 
 func doHttp1Request(requestContext *RequestContext, commit bool) (*resty.Response, error) {

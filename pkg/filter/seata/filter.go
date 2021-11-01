@@ -123,6 +123,8 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 		if result {
 			f.handleHttp1GlobalEnd(ctx)
 		}
+	} else {
+		ctx.Next()
 	}
 
 	tccResource, exists := f.tccResources[strings.ToLower(path)]
@@ -132,5 +134,7 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 		if result {
 			f.handleHttp1BranchEnd(ctx)
 		}
+	} else {
+		ctx.Next()
 	}
 }
