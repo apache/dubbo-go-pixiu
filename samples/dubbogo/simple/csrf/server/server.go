@@ -15,39 +15,28 @@
  * limitations under the License.
  */
 
-package ratelimit
+package main
 
 import (
-	"bytes"
-	stdHttp "net/http"
-	"testing"
+	"encoding/base64"
+	"fmt"
+	"log"
+	"net/http"
 )
 
-import (
-	"github.com/stretchr/testify/assert"
-)
+func main() {
+	http.HandleFunc("/login/", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		_, _ = w.Write([]byte(tokenize(query.Get("secret"), query.Get("key"))))
+	})
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
-)
+	http.HandleFunc("/user/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"message":"success","status":200}`))
+	})
+	log.Println("Starting sample server ...")
+	log.Fatal(http.ListenAndServe(":1314", nil))
+}
 
-func TestFilter(t *testing.T) {
-	factory := Plugin{}
-	f, _ := factory.CreateFilter()
-	config, ok := f.Config().(*Config)
-	assert.True(t, ok)
-
-	mockYaml, err := yaml.MarshalYML(mockConfig())
-	assert.Nil(t, err)
-	err = yaml.UnmarshalYML(mockYaml, config)
-	assert.Nil(t, err)
-
-	err = f.Apply()
-	assert.Nil(t, err)
-
-	request, _ := stdHttp.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
-	c := mock.GetMockHTTPContext(request, f, recovery.GetMock())
-	c.Next()
+func tokenize(secret, salt string) string {
+	return base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s-%s", salt, secret)))
 }
