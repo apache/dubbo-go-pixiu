@@ -18,6 +18,7 @@
 package server
 
 import (
+	"golang.org/x/crypto/acme/autocert"
 	"log"
 	"net/http"
 	"strconv"
@@ -84,19 +85,23 @@ func (ls *ListenerService) httpsListener() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
-
-	sa := ls.cfg.Address.SocketAddress
+	m := &autocert.Manager{
+		Cache:      autocert.DirCache(ls.cfg.Address.SocketAddress.CertsDir),
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist(ls.cfg.Address.SocketAddress.Domains...),
+	}
 	ls.srv = &http.Server{
-		Addr:           resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port)),
+		Addr:           ":https",
 		Handler:        mux,
 		ReadTimeout:    resolveStr2Time(hc.ReadTimeoutStr, 20*time.Second),
 		WriteTimeout:   resolveStr2Time(hc.WriteTimeoutStr, 20*time.Second),
 		IdleTimeout:    resolveStr2Time(hc.IdleTimeoutStr, 20*time.Second),
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
+		TLSConfig:      m.TLSConfig(),
 	}
 
 	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
-	err := ls.srv.ListenAndServeTLS(hc.CertFile, hc.KeyFile)
+	err := ls.srv.ListenAndServeTLS("", "")
 	logger.Info("[dubbo-go-server] httpsListener result:", err)
 }
 
