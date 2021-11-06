@@ -73,6 +73,11 @@ header: # `header` section is configurations for source codes license header.
     - '.travis.yml'
     - '.gitignore'
     - '.gitmodules'
+    # with two license: apache and Vitess
+    - 'pkg/resolver/mysql/constants.go'
+    - 'pkg/resolver/mysql/encoding.go'
+    - 'pkg/resolver/mysql/sql_error.go'
+    - 'pkg/resolver/mysql/type.go'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
 
   # license-location-threshold specifies the index threshold where the license header can be located,
