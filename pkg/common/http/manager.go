@@ -70,6 +70,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 		c.WriteHeaderNow()
 		return
 	}
+
 	// TODO redirect
 }
 

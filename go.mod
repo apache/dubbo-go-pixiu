@@ -12,15 +12,11 @@ require (
 	github.com/dubbogo/gost v1.11.14
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/gin-gonic/gin v1.7.4
-	github.com/go-resty/resty/v2 v2.3.0
-	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
-	github.com/opentrx/seata-golang/v2 v2.0.5
 	github.com/nacos-group/nacos-sdk-go v1.0.8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.29.0 // indirect
@@ -38,13 +34,12 @@ require (
 	go.opentelemetry.io/otel/sdk/export/metric v0.21.0
 	go.opentelemetry.io/otel/sdk/metric v0.21.0
 	go.opentelemetry.io/otel/trace v1.0.0-RC2
-	go.uber.org/zap v1.17.0
+	go.uber.org/zap v1.16.0
+	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
-	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
-	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 
 replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0

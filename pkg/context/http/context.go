@@ -46,7 +46,6 @@ type HttpContext struct {
 	Filters FilterChain
 	Timeout time.Duration
 	Ctx     context.Context
-	Params  map[string]interface{}
 
 	// the response context will return.
 	TargetResp *client.Response
