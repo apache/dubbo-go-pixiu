@@ -218,7 +218,7 @@ func (dc *Client) genericArgs(req *client.Request) (interface{}, error) {
 // MapParams params mapping to api.
 func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
 	r := req.API.Method.IntegrationRequest
-	values := newDubboTarget(r.MappingParams)
+	values := newDubboTarget(getMappingParams(r.MappingParams))
 	for _, mappingParam := range r.MappingParams {
 		source, _, err := client.ParseMapSource(mappingParam.Name)
 		if err != nil {
