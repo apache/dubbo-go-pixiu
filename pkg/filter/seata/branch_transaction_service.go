@@ -116,7 +116,9 @@ func (f *Filter) branchCommunicate() {
 				}
 			}
 		}
-		stream.CloseSend()
+		if err := stream.CloseSend(); err != nil {
+			logger.Error(err)
+		}
 	}
 }
 
