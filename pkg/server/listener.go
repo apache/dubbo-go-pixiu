@@ -151,6 +151,7 @@ func (ls *ListenerService) mysqlListener() {
 func (ls *ListenerService) allocateContext() *h.HttpContext {
 	return &h.HttpContext{
 		Listener: ls.cfg,
+		Params:   make(map[string]interface{}),
 	}
 }
 
