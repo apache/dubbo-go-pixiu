@@ -21,8 +21,8 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
-	github.com/opentrx/seata-golang/v2 v2.0.5
 	github.com/nacos-group/nacos-sdk-go v1.0.8
+	github.com/opentrx/seata-golang/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
 	github.com/spf13/cast v1.3.1
@@ -38,9 +38,10 @@ require (
 	go.opentelemetry.io/otel/sdk/export/metric v0.21.0
 	go.opentelemetry.io/otel/sdk/metric v0.21.0
 	go.opentelemetry.io/otel/trace v1.0.0-RC2
+	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.17.0
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc // indirect
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0

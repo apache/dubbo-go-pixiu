@@ -188,7 +188,7 @@ func IsIntegerType(tp byte) bool {
 	return false
 }
 
-// GetDefaultFieldLengthAndDecimal returns the default display length (flen) and decimal length for column.
+// GetDefaultFieldLengthAndDecimal returns the default display length (flengo ) and decimal length for column.
 // Call this when no Flen assigned in ddl.
 // or column value is calculated from an expression.
 // For example: "select count(*) from t;", the column type is int64 and Flen in ResultField will be 21.
