@@ -19,6 +19,7 @@ package server
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -32,6 +33,7 @@ import (
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/resolver/mysql"
 )
 
 type (
@@ -68,6 +70,8 @@ func (ls *ListenerService) Start() {
 		ls.httpListener()
 	case model.ProtocolTypeHTTPS:
 		ls.httpsListener()
+	case model.ProtocolMysql:
+		ls.mysqlListener()
 	default:
 		panic("unsupported protocol start: " + sa.ProtocolStr)
 	}
@@ -126,6 +130,22 @@ func (ls *ListenerService) httpListener() {
 	logger.Infof("[dubbo-go-server] httpListener start at : %s", ls.srv.Addr)
 
 	log.Println(ls.srv.ListenAndServe())
+}
+
+func (ls *ListenerService) mysqlListener() {
+	// user customize http config
+	var mc *model.MysqlConfig
+	mc = model.MapToMysqlConfig(ls.cfg.Config)
+
+	sa := ls.cfg.Address.SocketAddress
+	listener, err := net.Listen("tcp", sa.Address+":"+strconv.Itoa(sa.Port))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	resolver := mysql.NewMysqlResolver(listener, mc)
+	resolver.Accept()
 }
 
 func (ls *ListenerService) allocateContext() *h.HttpContext {
