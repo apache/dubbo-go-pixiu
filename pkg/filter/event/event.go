@@ -22,9 +22,12 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	mq "github.com/apache/dubbo-go-pixiu/pkg/client/mq"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
@@ -99,11 +102,22 @@ func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 }
 
 func (f *Filter) Handle(ctx *http.HttpContext) {
-	// TODO handle request
+	mqClient := mq.NewSingletonMQClient(*f.cfg)
+	req := client.NewReq(ctx.Request.Context(), ctx.Request, *ctx.GetAPI())
+	resp, err := mqClient.Call(req)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] event client call err:%v!", err)
+		ctx.Err = err
+		ctx.Next()
+		return
+	}
+	logger.Debugf("[dubbo-go-pixiu] event client call resp:%v", resp)
+	ctx.SourceResp = resp
+	ctx.Next()
 }
 
 func (f *Filter) Apply() error {
-	// TODO init mq client here
+	mq.NewSingletonMQClient(*f.cfg)
 	return nil
 }
 
