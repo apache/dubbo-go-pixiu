@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package event
+package mq
 
 // Msq Request Action Type Enum
 

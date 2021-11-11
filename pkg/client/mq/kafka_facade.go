@@ -29,7 +29,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/event"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -47,7 +46,7 @@ func (ke kafkaErrors) Error() string {
 	return fmt.Sprintf("Failed to deliver %d messages due to %s", ke.count, ke.err)
 }
 
-func NewKafkaConsumerFacade(config event.KafkaConsumerConfig, consumerGroup string) (*KafkaConsumerFacade, error) {
+func NewKafkaConsumerFacade(config KafkaConsumerConfig, consumerGroup string) (*KafkaConsumerFacade, error) {
 	c := sarama.NewConfig()
 	c.ClientID = config.ClientID
 	c.Metadata.Full = config.Metadata.Full
@@ -123,7 +122,7 @@ func (c *consumerGroupHandler) Cleanup(session sarama.ConsumerGroupSession) erro
 func (c *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
 		session.MarkMessage(msg, "")
-		data, err := json.Marshal(event.MQMsgPush{Msg: []string{string(msg.Value)}})
+		data, err := json.Marshal(MQMsgPush{Msg: []string{string(msg.Value)}})
 		if err != nil {
 			logger.Warn()
 			continue
@@ -211,7 +210,7 @@ func (f *KafkaConsumerFacade) Stop() {
 	f.wg.Wait()
 }
 
-func NewKafkaProviderFacade(config event.KafkaProducerConfig) (*KafkaProducerFacade, error) {
+func NewKafkaProviderFacade(config KafkaProducerConfig) (*KafkaProducerFacade, error) {
 	c := sarama.NewConfig()
 	c.Producer.Return.Successes = true
 	c.Producer.Return.Errors = true

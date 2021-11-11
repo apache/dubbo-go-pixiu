@@ -28,7 +28,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/event"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -42,7 +41,7 @@ var (
 	consumerFacadeMap sync.Map
 )
 
-func NewSingletonMQClient(config event.Config) *Client {
+func NewSingletonMQClient(config Config) *Client {
 	if mqClient == nil {
 		once.Do(func() {
 			var err error
@@ -55,7 +54,7 @@ func NewSingletonMQClient(config event.Config) *Client {
 	return mqClient
 }
 
-func NewMQClient(config event.Config) (*Client, error) {
+func NewMQClient(config Config) (*Client, error) {
 	var c *Client
 	ctx := context.Background()
 	switch config.MqType {
@@ -79,7 +78,7 @@ func NewMQClient(config event.Config) (*Client, error) {
 type Client struct {
 	ctx                 context.Context
 	producerFacade      ProducerFacade
-	kafkaConsumerConfig event.KafkaConsumerConfig
+	kafkaConsumerConfig KafkaConsumerConfig
 }
 
 func (c Client) Apply() error {
@@ -101,9 +100,9 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 		return nil, perrors.New("failed to send message, broker or Topic not found")
 	}
 
-	switch event.MQActionStrToInt[paths[0]] {
-	case event.MQActionPublish:
-		var pReq event.MQProduceRequest
+	switch MQActionStrToInt[paths[0]] {
+	case MQActionPublish:
+		var pReq MQProduceRequest
 		err = json.Unmarshal(body, &pReq)
 		if err != nil {
 			return nil, err
@@ -112,8 +111,8 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 		if err != nil {
 			return nil, err
 		}
-	case event.MQActionSubscribe:
-		var cReq event.MQSubscribeRequest
+	case MQActionSubscribe:
+		var cReq MQSubscribeRequest
 		err = json.Unmarshal(body, &cReq)
 		if err != nil {
 			return nil, err
@@ -134,8 +133,8 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 				}
 			}
 		}
-	case event.MQActionUnSubscribe:
-		var cReq event.MQUnSubscribeRequest
+	case MQActionUnSubscribe:
+		var cReq MQUnSubscribeRequest
 		err = json.Unmarshal(body, &cReq)
 		if err != nil {
 			return nil, err

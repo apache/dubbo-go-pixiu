@@ -18,12 +18,8 @@
 package event
 
 import (
-	"time"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	mq "github.com/apache/dubbo-go-pixiu/pkg/client/mq"
+	"github.com/apache/dubbo-go-pixiu/pkg/client/mq"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -46,45 +42,7 @@ type (
 
 	// Filter is http filter instance
 	Filter struct {
-		cfg *Config
-	}
-
-	Config struct {
-		ClientId            string              `yaml:"client_id" json:"client_id"`
-		Endpoints           string              `yaml:"endpoints" json:"endpoints"`
-		MqType              MQType              `yaml:"type" json:"type"`
-		Retry               int                 `yaml:"retry" json:"retry" default:"5"`
-		Timeout             time.Duration       `yaml:"timeout" json:"timeout" default:"2s"`
-		KafkaConsumerConfig KafkaConsumerConfig `yaml:"kafka_consumer_config" json:"kafka_consumer_config"`
-		KafkaProducerConfig KafkaProducerConfig `yaml:"kafka_producer_config" json:"kafka_producer_config"`
-	}
-
-	KafkaConsumerConfig struct {
-		Brokers         []string `yaml:"brokers" json:"brokers"`
-		ProtocolVersion string   `yaml:"protocol_version" json:"protocol_version"`
-		ClientID        string   `yaml:"client_id" json:"client_id"`
-		Metadata        Metadata `yaml:"metadata" json:"metadata"`
-	}
-
-	KafkaProducerConfig struct {
-		Brokers         []string `yaml:"brokers" json:"brokers"`
-		ProtocolVersion string   `yaml:"protocol_version" json:"protocol_version"`
-		Metadata        Metadata `yaml:"metadata" json:"metadata"`
-		Producer        Producer `yaml:"producer" json:"producer"`
-	}
-
-	Metadata struct {
-		Full  bool          `yaml:"full" json:"full"`
-		Retry MetadataRetry `yaml:"retry" json:"retry"`
-	}
-
-	MetadataRetry struct {
-		Max     int           `yaml:"max" json:"max"`
-		Backoff time.Duration `yaml:"backoff" json:"backoff"`
-	}
-
-	Producer struct {
-		MaxMessageBytes int `yaml:"max_message_bytes" json:"max_message_bytes"`
+		cfg *mq.Config
 	}
 )
 
@@ -93,7 +51,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}}, nil
+	return &Filter{cfg: &mq.Config{}}, nil
 }
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
