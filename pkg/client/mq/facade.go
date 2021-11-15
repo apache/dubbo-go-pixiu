@@ -19,7 +19,6 @@ package mq
 
 import (
 	"context"
-	"strconv"
 	"strings"
 )
 
@@ -30,18 +29,17 @@ type ConsumerFacade interface {
 	Stop()
 }
 
-func GetConsumerManagerKey(topic string, partition int32) string {
-	return strings.Join([]string{topic, strconv.Itoa(int(partition))}, ".")
+func GetConsumerManagerKey(topic []string, consumerGroup string) string {
+	return strings.Join((topic), ".") + "_" + consumerGroup
 }
 
 // MQOptions Consumer options
 // TODO: Add rocketmq params
 type MQOptions struct {
-	Topic      string
-	Partition  int64
-	ConsumeUrl string
-	CheckUrl   string
-	Offset     int64
+	TopicList     []string
+	ConsumeUrl    string
+	CheckUrl      string
+	ConsumerGroup string
 }
 
 func (o *MQOptions) ApplyOpts(opts ...Option) {
@@ -52,23 +50,21 @@ func (o *MQOptions) ApplyOpts(opts ...Option) {
 
 func DefaultOptions() *MQOptions {
 	return &MQOptions{
-		Topic:     "dubbo-go-pixiu-default-topic",
-		Partition: 1,
-		Offset:    -2,
+		TopicList: []string{"demo-topic"},
 	}
 }
 
 type Option func(o *MQOptions)
 
-func WithTopic(t string) Option {
+func WithTopics(t []string) Option {
 	return func(o *MQOptions) {
-		o.Topic = t
+		o.TopicList = t
 	}
 }
 
-func WithPartition(p int64) Option {
+func WithTopic(t string) Option {
 	return func(o *MQOptions) {
-		o.Partition = p
+		o.TopicList = []string{t}
 	}
 }
 
@@ -84,9 +80,9 @@ func WithCheckUrl(ck string) Option {
 	}
 }
 
-func WithOffset(offset int64) Option {
+func WithConsumerGroup(cp string) Option {
 	return func(o *MQOptions) {
-		o.Offset = offset
+		o.ConsumerGroup = cp
 	}
 }
 
