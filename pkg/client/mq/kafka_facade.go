@@ -70,7 +70,6 @@ func NewKafkaConsumerFacade(config KafkaConsumerConfig, consumerGroup string) (*
 type KafkaConsumerFacade struct {
 	consumerGroup   sarama.ConsumerGroup
 	consumerManager map[string]func()
-	rwLock          sync.RWMutex
 	httpClient      *http.Client
 	wg              sync.WaitGroup
 	done            chan struct{}
@@ -90,8 +89,7 @@ func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) err
 
 func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) {
 	for {
-		select {
-		case <-f.done:
+		if _, ok := <-f.done; ok {
 			logger.Info("shutdown the consume loop")
 			break
 		}
