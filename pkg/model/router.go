@@ -18,14 +18,17 @@
 package model
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
-	http2 "net/http"
+	stdHttp "net/http"
 	"regexp"
 )
 
 import (
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 )
 
 // Router struct
@@ -69,7 +72,7 @@ type (
 	}
 )
 
-func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
+func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) {
 	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
@@ -84,25 +87,3 @@ func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
 	ret := (node.GetBizInfo()).(RouteAction)
 	return &ret, nil
 }
-
-//
-//func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
-//	//TODO : using rete instead.
-//	if len(rm.Headers) == 0 {
-//		return true
-//	}
-//
-//	for _, h := range rm.Headers {
-//		// notice use canonical keys
-//		v := req.Header.Get(h.Name)
-//		if stringutil.StrInSlice(v, h.Values) {
-//			return true
-//		}
-//
-//		if h.valueRE != nil && h.valueRE.MatchString(v) {
-//			return true
-//		}
-//	}
-//
-//	return false
-//}

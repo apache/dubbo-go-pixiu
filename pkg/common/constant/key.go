@@ -35,6 +35,7 @@ const (
 	HTTPTimeoutFilter      = "dgp.filter.http.timeout"
 	TracingFilter          = "dgp.filters.tracing"
 	HTTPCorsFilter         = "dgp.filter.http.cors"
+	HTTPCsrfFilter         = "dgp.filter.http.csrf"
 	HTTPProxyRewriteFilter = "dgp.filter.http.proxyrewrite"
 )
 

@@ -18,13 +18,14 @@
 package router
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
+	"strings"
 	"sync"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -58,7 +59,10 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 
 func getTrieKey(method string, path string, isPrefix bool) string {
 	if isPrefix {
-		path = path + constant.PathSlash + "**"
+		if !strings.HasSuffix(path, constant.PathSlash) {
+			path = path + constant.PathSlash
+		}
+		path = path + "**"
 	}
 	return stringutil.GetTrieKey(method, path)
 }
