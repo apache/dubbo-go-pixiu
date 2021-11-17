@@ -103,9 +103,9 @@ func (ls *ListenerService) httpsListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 		TLSConfig:      m.TLSConfig(),
 	}
-
+	autoLs := autocert.NewListener(ls.cfg.Address.SocketAddress.Domains...)
 	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
-	err := ls.srv.ListenAndServeTLS("", "")
+	err := ls.srv.Serve(autoLs)
 	logger.Info("[dubbo-go-server] httpsListener result:", err)
 }
 
