@@ -18,17 +18,14 @@
 package model
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	http2 "net/http"
 	"regexp"
-	"strings"
 )
 
 import (
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 )
 
 // Router struct
@@ -42,12 +39,12 @@ type (
 
 	// RouterMatch
 	RouterMatch struct {
-		Prefix  string          `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
-		Path    string          `yaml:"path" json:"path" mapstructure:"path"`
-		Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"`
-		Methods []string        `yaml:"methods" json:"methods" mapstructure:"methods"`
-		Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`
-		pathRE  *regexp.Regexp
+		Prefix string `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
+		Path   string `yaml:"path" json:"path" mapstructure:"path"`
+		//Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"` 下一期再支持
+		Methods []string `yaml:"methods" json:"methods" mapstructure:"methods"`
+		//Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`  下一期再支持
+		//pathRE  *regexp.Regexp  废弃，如果有必要引入规则引擎，正则不合适
 	}
 
 	// RouteAction match route should do
@@ -58,8 +55,9 @@ type (
 
 	// RouteConfiguration
 	RouteConfiguration struct {
-		Routes  []*Router `yaml:"routes" json:"routes" mapstructure:"routes"`
-		Dynamic bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
+		RouteTrie trie.Trie `yaml:"-" json:"-" mapstructure:"-"`
+		Routes    []*Router `yaml:"routes" json:"routes" mapstructure:"routes"`
+		Dynamic   bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
 	}
 
 	// Name header key, Value header value, Regex header value is regex
@@ -72,83 +70,39 @@ type (
 )
 
 func (rc *RouteConfiguration) Route(req *http2.Request) (*RouteAction, error) {
-	if rc.Routes == nil {
+	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
 
-	for _, r := range rc.Routes {
-		if r.MatchRouter(req) {
-			return &r.Route, nil
-		}
+	node, _, _ := rc.RouteTrie.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
+	if node == nil {
+		return nil, errors.Errorf("route failed for %s,no rules matched.", stringutil.GetTrieKey(req.Method, req.URL.Path))
 	}
-
-	return nil, errors.Errorf("no matched route")
+	if node.GetBizInfo() == nil {
+		return nil, errors.Errorf("info is nil.please check your configuration.")
+	}
+	ret := (node.GetBizInfo()).(RouteAction)
+	return &ret, nil
 }
 
-// MatchRouter find router (cluster) by request path and method and header
-func (r *Router) MatchRouter(req *http2.Request) bool {
-	if !r.Match.matchPath(req) {
-		return false
-	}
-
-	if !r.Match.matchMethod(req) {
-		return false
-	}
-
-	if !r.Match.matchHeader(req) {
-		return false
-	}
-
-	return true
-}
-
-func (rm *RouterMatch) matchPath(req *http2.Request) bool {
-	if rm.Path == "" && rm.Prefix == "" && rm.Regex == "" {
-		return true
-	}
-
-	path := req.URL.Path
-
-	if rm.Path != "" && rm.Path == path {
-		return true
-	}
-	if rm.Prefix != "" && strings.HasPrefix(path, rm.Prefix) {
-		return true
-	}
-	if rm.Regex != "" {
-		if rm.pathRE == nil {
-			rm.pathRE = regexp.MustCompile(rm.Regex)
-		}
-		return rm.pathRE.MatchString(path)
-	}
-
-	return false
-}
-
-func (rm *RouterMatch) matchMethod(req *http2.Request) bool {
-	if len(rm.Methods) == 0 {
-		return true
-	}
-
-	return stringutil.StrInSlice(req.Method, rm.Methods)
-}
-
-func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
-	if len(rm.Headers) == 0 {
-		return true
-	}
-
-	for _, h := range rm.Headers {
-		// notice use canonical keys
-		v := req.Header.Get(h.Name)
-		if stringutil.StrInSlice(v, h.Values) {
-			return true
-		}
-
-		if h.valueRE != nil && h.valueRE.MatchString(v) {
-			return true
-		}
-	}
-
-	return false
-}
+//
+//func (rm *RouterMatch) matchHeader(req *http2.Request) bool {
+//	//TODO : using rete instead.
+//	if len(rm.Headers) == 0 {
+//		return true
+//	}
+//
+//	for _, h := range rm.Headers {
+//		// notice use canonical keys
+//		v := req.Header.Get(h.Name)
+//		if stringutil.StrInSlice(v, h.Values) {
+//			return true
+//		}
+//
+//		if h.valueRE != nil && h.valueRE.MatchString(v) {
+//			return true
+//		}
+//	}
+//
+//	return false
+//}
