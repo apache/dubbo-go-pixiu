@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
-	github.com/apache/dubbo-go-hessian2 v1.9.4
+	github.com/apache/dubbo-go-hessian2 v1.9.5
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
 	github.com/dubbogo/go-zookeeper v1.0.3
@@ -20,8 +20,8 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.4.1
-	github.com/opentrx/seata-golang/v2 v2.0.5
 	github.com/nacos-group/nacos-sdk-go v1.0.8
+	github.com/opentrx/seata-golang/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
