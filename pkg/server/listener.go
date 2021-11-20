@@ -140,6 +140,7 @@ func (ls *ListenerService) httpListener() {
 func (ls *ListenerService) allocateContext() *h.HttpContext {
 	return &h.HttpContext{
 		Listener: ls.cfg,
+		Params:   make(map[string]interface{}),
 	}
 }
 
