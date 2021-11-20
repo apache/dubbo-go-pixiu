@@ -38,7 +38,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-
 type (
 	// ListenerService the facade of a listener
 	ListenerService struct {
