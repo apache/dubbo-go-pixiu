@@ -37,7 +37,7 @@ type (
 )
 
 // CreateRouterCoordinator create coordinator for http connection manager
-func CreateRouterCoordinator(hcmc *model.HttpConnectionManager) *RouterCoordinator {
+func CreateRouterCoordinator(hcmc *model.HttpConnectionManagerConfig) *RouterCoordinator {
 
 	rc := &RouterCoordinator{activeConfig: &hcmc.RouteConfig}
 	if hcmc.RouteConfig.Dynamic {
@@ -58,6 +58,14 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
+
+	for _, old := range rm.activeConfig.Routes {
+		if old.ID == r.ID {
+			old.Route = r.Route
+			old.Match = r.Match
+			return
+		}
+	}
 
 	rm.activeConfig.Routes = append(rm.activeConfig.Routes, r)
 }

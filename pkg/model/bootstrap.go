@@ -21,7 +21,6 @@ package model
 type Bootstrap struct {
 	StaticResources  StaticResources  `yaml:"static_resources" json:"static_resources" mapstructure:"static_resources"`
 	DynamicResources DynamicResources `yaml:"dynamic_resources" json:"dynamic_resources" mapstructure:"dynamic_resources"`
-	Tracing          Tracing          `yaml:"tracing" json:"tracing" mapstructure:"tracing"`
 	Metric           Metric           `yaml:"metric" json:"metric" mapstructure:"metric"`
 }
 
@@ -57,7 +56,6 @@ type StaticResources struct {
 	Listeners      []*Listener     `yaml:"listeners" json:"listeners" mapstructure:"listeners"`
 	Clusters       []*Cluster      `yaml:"clusters" json:"clusters" mapstructure:"clusters"`
 	Adapters       []*Adapter      `yaml:"adapters" json:"adapters" mapstructure:"adapters"`
-	TimeoutConfig  TimeoutConfig   `yaml:"timeout_config" json:"timeout_config" mapstructure:"timeout_config"`
 	ShutdownConfig *ShutdownConfig `yaml:"shutdown_config" json:"shutdown_config" mapstructure:"shutdown_config"`
 	PprofConf      PprofConf       `yaml:"pprofConf" json:"pprofConf" mapstructure:"pprofConf"`
 }
@@ -69,7 +67,7 @@ type DynamicResources struct{}
 type ShutdownConfig struct {
 	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
 	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
-	RejectPolicy string `yaml:"reject_policy" json:"reject_policy,omitempty"`
+	RejectPolicy string `default:"immediacy" yaml:"reject_policy" json:"reject_policy,omitempty"`
 }
 
 // APIMetaConfig how to find api config, file or etcd etc.
@@ -80,6 +78,6 @@ type APIMetaConfig struct {
 
 // TimeoutConfig the config of ConnectTimeout and RequestTimeout
 type TimeoutConfig struct {
-	ConnectTimeoutStr string `yaml:"connect_timeout" json:"connect_timeout,omitempty"` // ConnectTimeout timeout for connect to cluster node
-	RequestTimeoutStr string `yaml:"request_timeout" json:"request_timeout,omitempty"`
+	ConnectTimeoutStr string `default:"5s" yaml:"connect_timeout" json:"connect_timeout,omitempty"` // ConnectTimeout timeout for connect to cluster node
+	RequestTimeoutStr string `default:"10s" yaml:"request_timeout" json:"request_timeout,omitempty"`
 }

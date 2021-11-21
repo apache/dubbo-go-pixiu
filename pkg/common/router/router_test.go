@@ -33,7 +33,7 @@ import (
 )
 
 func TestCreateRouterCoordinator(t *testing.T) {
-	hcmc := model.HttpConnectionManager{
+	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
 			Routes: []*model.Router{
 				{
@@ -45,12 +45,6 @@ func TestCreateRouterCoordinator(t *testing.T) {
 						},
 						Path:  "",
 						Regex: "",
-						Headers: []model.HeaderMatcher{
-							{Name: "X-DGP-WAY",
-								Values: []string{"Dubbo"},
-								Regex:  false,
-							},
-						},
 					},
 					Route: model.RouteAction{
 						Cluster:                     "test_dubbo",

@@ -38,7 +38,7 @@ var b model.Bootstrap
 func TestMain(m *testing.M) {
 	log.Println("Prepare Bootstrap")
 
-	hcmc := model.HttpConnectionManager{
+	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
 			Routes: []*model.Router{
 				{
@@ -129,10 +129,6 @@ func TestMain(m *testing.M) {
 					Type:    model.EDS,
 					LbStr:   "RoundRobin",
 				},
-			},
-			TimeoutConfig: model.TimeoutConfig{
-				ConnectTimeoutStr: "5s",
-				RequestTimeoutStr: "10s",
 			},
 			ShutdownConfig: &model.ShutdownConfig{
 				Timeout:      "60s",

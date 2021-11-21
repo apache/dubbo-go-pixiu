@@ -21,10 +21,10 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 )
 
 import (
+	hessian "github.com/apache/dubbo-go-hessian2"
 	"github.com/apache/dubbo-go/common/constant"
 	dg "github.com/apache/dubbo-go/config"
 	"github.com/apache/dubbo-go/protocol/dubbo"
@@ -32,6 +32,9 @@ import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -48,6 +51,13 @@ const (
 
 const (
 	defaultDubboProtocol = "zookeeper"
+
+	traceNameDubbogoClient = "dubbogo-client"
+	spanNameDubbogoClient  = "DUBBOGO CLIENT"
+
+	spanTagMethod = "method"
+	spanTagType   = "type"
+	spanTagValues = "values"
 )
 
 var (
@@ -112,7 +122,7 @@ func (dc *Client) Apply() error {
 		Check:      new(bool),
 		Registries: make(map[string]*dg.RegistryConfig, 4),
 	}
-	if dc.dubboProxyConfig == nil{
+	if dc.dubboProxyConfig == nil {
 		return nil
 	}
 	// timeout config
@@ -153,23 +163,43 @@ func (dc *Client) Close() error {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
+	// if GET with no args, values would be nil
 	values, err := dc.genericArgs(req)
 	if err != nil {
 		return nil, err
 	}
-	val, ok := values.(*dubboTarget)
+	target, ok := values.(*dubboTarget)
 	if !ok {
 		return nil, errors.New("map parameters failed")
 	}
 
 	dm := req.API.Method.IntegrationRequest
 	method := dm.Method
+	types := []string{}
+	vals := []hessian.Object{}
 
-	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, val.Types, val.Values)
+	if target != nil {
+		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, target.Types, target.Values)
+		types = target.Types
+		vals = make([]hessian.Object, len(target.Values))
+		for i, v := range target.Values {
+			vals[i] = v
+		}
+	} else {
+		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
+	}
 
 	gs := dc.Get(dm)
+	tr := otel.Tracer(traceNameDubbogoClient)
+	_, span := tr.Start(req.Context, spanNameDubbogoClient)
+	trace.SpanFromContext(req.Context).SpanContext()
+	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
+	span.SetAttributes(attribute.Key(spanTagType).Array(types))
+	span.SetAttributes(attribute.Key(spanTagValues).Array(vals))
+	defer span.End()
+	ctx := context.WithValue(req.Context, constant.TRACING_REMOTE_SPAN_CTX, trace.SpanFromContext(req.Context).SpanContext())
 
-	rst, err := gs.Invoke(req.Context, []interface{}{method, val.Types, val.Values})
+	rst, err := gs.Invoke(ctx, []interface{}{method, types, vals})
 	if err != nil {
 		return nil, err
 	}
@@ -272,11 +302,8 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *dg.Generic
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 	referenceConfig.GenericLoad(key)
-	//TODO: fix it later
-	// sleep to wait invoker create
-	time.Sleep(500 * time.Millisecond)
-	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 
+	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 	dc.GenericServicePool[key] = clientService
 	return clientService
 }
