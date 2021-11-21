@@ -93,8 +93,8 @@ github.com/apache/dubbo-getty v1.4.5/go.mod h1:mcDyiu7M/TVrYDyL8TxDemQkOdvEqqHSQ
 github.com/apache/dubbo-go v1.5.7 h1:aEdQyUH3duDYMw8wBYziuDBUwNBSVyYlUqqAQJ2ikZA=
 github.com/apache/dubbo-go v1.5.7/go.mod h1:KHmSHx2/foxW0dVlQIrqQ4Vs1Clg3d4UIkwKkuhaZt8=
 github.com/apache/dubbo-go-hessian2 v1.9.1/go.mod h1:xQUjE7F8PX49nm80kChFvepA/AvqAZ0oh/UaB6+6pBE=
-github.com/apache/dubbo-go-hessian2 v1.9.4 h1:dj8yT7Jjq7q6skix7Tn/oH/IRmw9dQBQvATnpUDuaHg=
-github.com/apache/dubbo-go-hessian2 v1.9.4/go.mod h1:7rEw9guWABQa6Aqb8HeZcsYPHsOS7XT1qtJvkmI6c5w=
+github.com/apache/dubbo-go-hessian2 v1.9.5 h1:2bsVZpoDrlQtmNlddWxIKvnkjjrEg/9eIsXEzR2YFqY=
+github.com/apache/dubbo-go-hessian2 v1.9.5/go.mod h1:7rEw9guWABQa6Aqb8HeZcsYPHsOS7XT1qtJvkmI6c5w=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
@@ -191,7 +191,6 @@ github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4/go.mod h1:d6SDK5BHl/QCvg84BN+g6L
 github.com/dubbogo/go-zookeeper v1.0.3 h1:UkuY+rBsxdT7Bs63QAzp9z7XqQ53W1j8E5rwl83me8g=
 github.com/dubbogo/go-zookeeper v1.0.3/go.mod h1:fn6n2CAEer3novYgk9ULLwAjuV8/g4DdC2ENwRb6E+c=
 github.com/dubbogo/gost v1.9.0/go.mod h1:pPTjVyoJan3aPxBPNUX0ADkXjPibLo+/Ib0/fADXSG8=
-github.com/dubbogo/gost v1.10.1/go.mod h1:+mQGS51XQEUWZP2JeGZTxJwipjRKtJO7Tr+FOg+72rI=
 github.com/dubbogo/gost v1.11.11/go.mod h1:vIcP9rqz2KsXHPjsAwIUtfJIJjppQLQDcYaZTy/61jI=
 github.com/dubbogo/gost v1.11.12/go.mod h1:vIcP9rqz2KsXHPjsAwIUtfJIJjppQLQDcYaZTy/61jI=
 github.com/dubbogo/gost v1.11.14 h1:9lfcdILOmqTOVAW1fPHa5uf1NrD6jlIOBe4vf8576yQ=
