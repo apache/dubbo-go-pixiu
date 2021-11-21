@@ -166,8 +166,8 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 					req, err := http.NewRequest(http.MethodGet, checkUrl, bytes.NewReader([]byte{}))
 					if err == nil {
 						resp, err := f.httpClient.Do(req)
-						defer resp.Body.Close()
 						if err == nil {
+							defer resp.Body.Close()
 							lastCheck = resp.StatusCode
 							if resp.StatusCode != http.StatusOK {
 								return perrors.New("failed check consumer alive or not with status code " + strconv.Itoa(resp.StatusCode))
