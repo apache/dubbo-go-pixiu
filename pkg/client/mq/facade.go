@@ -49,9 +49,7 @@ func (o *MQOptions) ApplyOpts(opts ...Option) {
 }
 
 func DefaultOptions() *MQOptions {
-	return &MQOptions{
-		TopicList: []string{"demo-topic"},
-	}
+	return &MQOptions{}
 }
 
 type Option func(o *MQOptions)

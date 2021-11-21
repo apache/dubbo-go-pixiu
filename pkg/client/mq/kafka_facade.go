@@ -158,32 +158,26 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 	for {
 		select {
 		case <-f.done:
-			logger.Info()
+			ticker.Stop()
 		case <-ticker.C:
 			lastCheck := 0
 			for i := 0; i < 5; i++ {
 				err := func() error {
 					req, err := http.NewRequest(http.MethodGet, checkUrl, bytes.NewReader([]byte{}))
-					if err != nil {
-						logger.Warn()
+					if err == nil {
+						resp, err := f.httpClient.Do(req)
+						defer resp.Body.Close()
+						if err == nil {
+							lastCheck = resp.StatusCode
+							if resp.StatusCode != http.StatusOK {
+								return perrors.New("failed check consumer alive or not with status code " + strconv.Itoa(resp.StatusCode))
+							}
+							return nil
+						}
 					}
-
-					resp, err := f.httpClient.Do(req)
-					if err != nil {
-						logger.Warn()
-					}
-					defer resp.Body.Close()
-
-					lastCheck = resp.StatusCode
-					if resp.StatusCode != http.StatusOK {
-						return perrors.New("failed check consumer alive or not with status code " + strconv.Itoa(resp.StatusCode))
-					}
-
-					logger.Warn()
-					return nil
+					return perrors.New("failed to check consumer alive due to: " + err.Error())
 				}()
 				if err != nil {
-					logger.Warn()
 					time.Sleep(10 * time.Millisecond)
 				} else {
 					break
