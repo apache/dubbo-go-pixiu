@@ -66,13 +66,28 @@ func (p *Plugin) CreateFilter() (HttpFilter, error) {
 	return &DemoFilter{conf: &Config{Foo: "default foo", Bar: "default bar"}}, nil
 }
 
-func (f *DemoFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
-	return nil
+func (f *DemoFilter) Decode(ctx *contexthttp.HttpContext) FilterStatus {
+	logger.Info("decode phase: ", f.str)
+
+	runes := []rune(f.str)
+	for i := 0; i < len(runes)/2; i += 1 {
+		runes[i], runes[len(runes)-1-i] = runes[len(runes)-1-i], runes[i]
+	}
+	f.str = string(runes)
+
+	return Continue
 }
 
-func (f *DemoFilter) Handle(c *contexthttp.HttpContext) {
-	logger.Info(f.str)
+func (f *DemoFilter) Encode(ctx *contexthttp.HttpContext) FilterStatus {
+	logger.Info("encode phase: ", f.str)
+	return Continue
+}
+
+func (f *DemoFilter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain FilterChain) error {
+
+	chain.AppendDecodeFilters(f)
+	chain.AppendEncodeFilters(f)
+	return nil
 }
 
 func (f *DemoFilter) Config() interface{} {
@@ -82,7 +97,6 @@ func (f *DemoFilter) Config() interface{} {
 func (f *DemoFilter) Apply() error {
 	c := f.conf
 	f.str = fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
-	//return the filter func
 	return nil
 }
 
@@ -96,7 +110,9 @@ func TestApply(t *testing.T) {
 	assert.Nil(t, err)
 
 	baseContext := &contexthttp.HttpContext{}
-	f.Handle(baseContext)
+	chain := newDefaultFilterChain()
+	_ = f.PrepareFilterChain(baseContext, chain)
+	chain.OnDecode(baseContext)
 }
 
 func TestLoad(t *testing.T) {
@@ -117,8 +133,9 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, len(filtersConf), len(filters))
 
 	baseContext := &contexthttp.HttpContext{}
+	baseContext.Reset()
 
-	for i := range filters {
-		(*filters[i]).Handle(baseContext)
-	}
+	chain := fm.CreateFilterChain(baseContext)
+	chain.OnDecode(baseContext)
+	chain.OnEncode(baseContext)
 }
