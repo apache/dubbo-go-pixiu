@@ -22,8 +22,11 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func TestClusterManager(t *testing.T) {

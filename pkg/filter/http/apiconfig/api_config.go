@@ -23,6 +23,8 @@ import (
 
 import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+
 	"github.com/pkg/errors"
 )
 
@@ -34,7 +36,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 const (

@@ -18,6 +18,11 @@
 package dubboregistry
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
@@ -25,8 +30,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 func init() {

@@ -2,13 +2,19 @@ package triple
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	proxymeta "github.com/mercari/grpc-http-proxy/metadata"
-	"github.com/mercari/grpc-http-proxy/proxy"
 	"io/ioutil"
 	"net/url"
 	"strings"
 	"sync"
+)
+
+import (
+	proxymeta "github.com/mercari/grpc-http-proxy/metadata"
+	"github.com/mercari/grpc-http-proxy/proxy"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 )
 
 // InitDefaultTripleClient init default dubbo client
