@@ -25,6 +25,9 @@ import (
 
 import (
 	"github.com/apache/dubbo-go/common"
+
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
@@ -34,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
 var _ registry.Listener = new(serviceListener)

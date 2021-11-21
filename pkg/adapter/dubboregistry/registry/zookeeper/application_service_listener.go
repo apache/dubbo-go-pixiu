@@ -30,7 +30,9 @@ import (
 	"github.com/apache/dubbo-go/metadata/definition"
 	dr "github.com/apache/dubbo-go/registry"
 	"github.com/apache/dubbo-go/remoting/zookeeper/curator_discovery"
+
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
