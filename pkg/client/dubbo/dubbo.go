@@ -112,6 +112,9 @@ func (dc *Client) Apply() error {
 		Check:      new(bool),
 		Registries: make(map[string]*dg.RegistryConfig, 4),
 	}
+	if dc.dubboProxyConfig == nil{
+		return nil
+	}
 	// timeout config
 	dgCfg.Connect_Timeout = dc.dubboProxyConfig.Timeout.ConnectTimeoutStr
 	dgCfg.Request_Timeout = dc.dubboProxyConfig.Timeout.RequestTimeoutStr

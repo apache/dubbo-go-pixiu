@@ -19,6 +19,7 @@ package remote
 
 import (
 	"errors"
+	"github.com/apache/dubbo-go-pixiu/pkg/client/triple"
 	"os"
 	"strconv"
 	"strings"
@@ -71,6 +72,7 @@ type (
 	config struct {
 		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
 		Dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
+		Tpc   *triple.TripleProxyConfig `yaml:"tripleProxyConfig,omitempty" json:"tripleProxyConfig,omitempty"`
 	}
 )
 
@@ -102,6 +104,7 @@ func (f *clientFilter) Apply() error {
 	f.conf.Level = level
 	// must init it at apply function
 	dubbo.InitDefaultDubboClient(f.conf.Dpc)
+	triple.InitDefaultTripleClient(f.conf.Tpc)
 	return nil
 }
 
@@ -149,6 +152,9 @@ func matchClient(typ apiConf.RequestType) (client.Client, error) {
 	switch strings.ToLower(string(typ)) {
 	case string(apiConf.DubboRequest):
 		return dubbo.SingletonDubboClient(), nil
+	// todo @(laurence) add triple to apiConf
+	case "triple":
+		return triple.SingletonTripleClient(), nil
 	case string(apiConf.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
