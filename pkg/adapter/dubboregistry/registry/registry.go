@@ -82,11 +82,12 @@ func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboB
 	url := strings.Join([]string{urlPattern, methodString}, constant.PathSlash)
 	var requestType config.RequestType
 	switch dboBackendConfig.Protocol {
-	case "dubbo":
+	case string(config.DubboRequest):
 		requestType = config.DubboRequest
 	case "tri":
 		requestType = "triple"
-
+	default:
+		requestType = config.DubboRequest
 	}
 	method := config.Method{
 		Enable:   true,
