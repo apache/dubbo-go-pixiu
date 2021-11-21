@@ -36,6 +36,11 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 
+		// Config get config for filter
+		Config() interface{}
+
+		Apply() error
+
 		// CreateFilter return the filter callback
 		CreateFilter() (HttpFilter, error)
 	}
@@ -43,15 +48,25 @@ type (
 	// HttpFilter describe http filter
 	HttpFilter interface {
 		// PrepareFilterChain add filter into chain
-		PrepareFilterChain(ctx *http.HttpContext) error
+		PrepareFilterChain(ctx *http.HttpContext, chain FilterChain) error
+	}
 
-		// Handle filter hook function
-		Handle(ctx *http.HttpContext)
+	// HttpDecodeFilter before invoke upstream, like add/remove Header, route mutation etc..
+	//
+	// if config like this:
+	// - A
+	// - B
+	// - C
+	// decode filters will be invoked in the config order: A、B、C, and decode filters will be
+	// invoked in the reverse order: C、B、A
+	HttpDecodeFilter interface {
+		Decode(ctx *http.HttpContext) FilterStatus
+	}
 
-		Apply() error
-
-		// Config get config for filter
-		Config() interface{}
+	// HttpEncodeFilter after invoke upstream,
+	// decode filters will be invoked in the reverse order
+	HttpEncodeFilter interface {
+		Encode(ctx *http.HttpContext) FilterStatus
 	}
 
 	// NetworkFilter describe network filter plugin
