@@ -54,6 +54,24 @@ type (
 		Config() interface{}
 	}
 
+	// HttpDecodeFilter before invoke upstream, like add/remove Header, route mutation etc..
+	//
+	// if config like this:
+	// - A
+	// - B
+	// - C
+	// decode filters will be invoked in the config order: A、B、C, and decode filters will be
+	// invoked in the reverse order: C、B、A
+	HttpDecodeFilter interface {
+		Decode(ctx *http.HttpContext) FilterStatus
+	}
+
+	// HttpEncodeFilter after invoke upstream,
+	// decode filters will be invoked in the reverse order
+	HttpEncodeFilter interface {
+		Encode(ctx *http.HttpContext) FilterStatus
+	}
+
 	// NetworkFilter describe network filter plugin
 	NetworkFilterPlugin interface {
 		// Kind returns the unique kind name to represent itself.

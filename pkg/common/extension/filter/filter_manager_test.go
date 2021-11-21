@@ -66,7 +66,20 @@ func (p *Plugin) CreateFilter() (HttpFilter, error) {
 	return &DemoFilter{conf: &Config{Foo: "default foo", Bar: "default bar"}}, nil
 }
 
+func (f *DemoFilter) Decode(ctx *contexthttp.HttpContext) FilterStatus {
+	logger.Info(ctx.StatusCode())
+	return Continue
+}
+
+func (f *DemoFilter) Encode(ctx *contexthttp.HttpContext) FilterStatus {
+	logger.Info(ctx.StatusCode())
+	return Continue
+}
+
 func (f *DemoFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+	c := f.conf
+	f.str = fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
+
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
@@ -80,9 +93,6 @@ func (f *DemoFilter) Config() interface{} {
 }
 
 func (f *DemoFilter) Apply() error {
-	c := f.conf
-	f.str = fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
-	//return the filter func
 	return nil
 }
 
@@ -117,8 +127,10 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, len(filtersConf), len(filters))
 
 	baseContext := &contexthttp.HttpContext{}
-
-	for i := range filters {
-		(*filters[i]).Handle(baseContext)
+	baseContext.Reset()
+	for _, f := range filters {
+		_ = (*f).PrepareFilterChain(baseContext)
 	}
+
+	baseContext.Next()
 }
