@@ -124,6 +124,8 @@ type (
 		Address      string       `default:"0.0.0.0" yaml:"address" json:"address" mapstructure:"address"`
 		Port         int          `default:"8881" yaml:"port" json:"port" mapstructure:"port"`
 		ResolverName string       `yaml:"resolver_name" json:"resolver_name" mapstructure:"resolver_name"`
+		Domains      []string     `yaml:"domains" json:"domains" mapstructure:"domains"`
+		CertsDir     string       `yaml:"certs_dir" json:"certs_dir" mapstructure:"certs_dir"`
 	}
 
 	// ConfigSource
