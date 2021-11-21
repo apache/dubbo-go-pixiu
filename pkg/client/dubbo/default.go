@@ -21,7 +21,31 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
-var defaultMappingParams []config.MappingParam
+// defaultMappingParams default http to dubbo config
+var defaultMappingParams = []config.MappingParam{
+	{
+		Name:  "requestBody.values",
+		MapTo: "opt.values",
+	}, {
+		Name:  "requestBody.types",
+		MapTo: "opt.types",
+	}, {
+		Name:  "uri.application",
+		MapTo: "opt.application",
+	}, {
+		Name:  "uri.interface",
+		MapTo: "opt.interface",
+	}, {
+		Name:  "queryStrings.method",
+		MapTo: "opt.method",
+	}, {
+		Name:  "queryStrings.group",
+		MapTo: "opt.group",
+	}, {
+		Name:  "queryStrings.version",
+		MapTo: "opt.version",
+	},
+}
 
 // getMappingParams If configuration items are set in the api_config configuration file, then the configuration in api_config will be used first,
 // if not, the default will be used, and a total rule for obtaining the original data will be generated at the end
