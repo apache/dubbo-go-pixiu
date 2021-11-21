@@ -82,8 +82,6 @@ func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 
 func (f *Filter) Handle(ctx *http.HttpContext) {
 
-	ctx.Request.Header.Set("wxx", "wxx")
-
 	path := ctx.Request.RequestURI
 
 	router := false
