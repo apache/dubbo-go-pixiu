@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="pixiu-triple" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="dubbo-go-pixiu" />
+    <working_directory value="$PROJECT_DIR$" />
+    <parameters value="gateway start -c $PROJECT_DIR$/samples/dubbogo/simple/triple/pixiu/conf.yaml" />
+    <kind value="PACKAGE" />
+    <package value="github.com/apache/dubbo-go-pixiu/cmd/pixiu" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/cmd/pixiu/pixiu.go" />
+    <method v="2" />
+  </configuration>
+</component>
