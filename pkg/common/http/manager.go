@@ -37,13 +37,13 @@ import (
 
 // HttpConnectionManager network filter for http
 type HttpConnectionManager struct {
-	config            *model.HttpConnectionManager
+	config            *model.HttpConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *filter.FilterManager
 }
 
 // CreateHttpConnectionManager create http connection manager
-func CreateHttpConnectionManager(hcmc *model.HttpConnectionManager, bs *model.Bootstrap) *HttpConnectionManager {
+func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *model.Bootstrap) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(hcmc)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
@@ -70,13 +70,12 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 		c.WriteHeaderNow()
 		return
 	}
-
 	// TODO redirect
 }
 
 func (hcm *HttpConnectionManager) addFilter(ctx *pch.HttpContext) {
 	for _, f := range hcm.filterManager.GetFilters() {
-		if err := f.PrepareFilterChain(ctx); err != nil {
+		if err := (*f).PrepareFilterChain(ctx); err != nil {
 			logger.Warnf("PrepareFilterChain error %s", err)
 		}
 	}

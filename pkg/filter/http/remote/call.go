@@ -65,30 +65,29 @@ type (
 	Plugin struct {
 	}
 
-	clientFilter struct {
+	Filter struct {
 		conf *config
 	}
 
 	config struct {
 		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
 		Dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
-		Tpc   *triple.TripleProxyConfig `yaml:"tripleProxyConfig,omitempty" json:"tripleProxyConfig,omitempty"`
 	}
 )
 
-func (ap *Plugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &clientFilter{conf: &config{}}, nil
+func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+	return &Filter{conf: &config{}}, nil
 }
 
-func (f *clientFilter) Config() interface{} {
+func (f *Filter) Config() interface{} {
 	return f.conf
 }
 
-func (f *clientFilter) Apply() error {
+func (f *Filter) Apply() error {
 	mock := 1
 	mockStr := os.Getenv(constant.EnvMock)
 	if len(mockStr) > 0 {
@@ -104,16 +103,16 @@ func (f *clientFilter) Apply() error {
 	f.conf.Level = level
 	// must init it at apply function
 	dubbo.InitDefaultDubboClient(f.conf.Dpc)
-	triple.InitDefaultTripleClient(f.conf.Tpc)
+	triple.InitDefaultTripleClient()
 	return nil
 }
 
-func (f *clientFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
 
-func (f *clientFilter) Handle(c *contexthttp.HttpContext) {
+func (f *Filter) Handle(c *contexthttp.HttpContext) {
 	api := c.GetAPI()
 
 	if (f.conf.Level == open && api.Mock) || (f.conf.Level == all) {
@@ -133,7 +132,8 @@ func (f *clientFilter) Handle(c *contexthttp.HttpContext) {
 		return
 	}
 
-	resp, err := cli.Call(client.NewReq(c.Ctx, c.Request, *api))
+	req := client.NewReq(c.Request.Context(), c.Request, *api)
+	resp, err := cli.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
 		c.Err = err

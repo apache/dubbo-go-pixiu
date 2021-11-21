@@ -24,8 +24,8 @@ import (
 )
 
 import (
+	"github.com/creasty/defaults"
 	"github.com/ghodss/yaml"
-
 	"github.com/goinggo/mapstructure"
 )
 
@@ -86,6 +86,9 @@ func LoadYAMLConfig(path string) *model.Bootstrap {
 	err = yaml.Unmarshal(content, cfg)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] convert YAML to JSON failed, ", err)
+	}
+	if err = defaults.Set(cfg); err != nil {
+		log.Fatalln("[config] [yaml load] initialize structs with default value failed, ", err)
 	}
 	err = Adapter(cfg)
 	if err != nil {
@@ -157,7 +160,7 @@ func GetLoadBalance(cfg *model.Bootstrap) (err error) {
 			c.LbStr = constant.DefaultLoadBalanceType
 			lbPolicy = model.LbPolicyValue[c.LbStr]
 		}
-		c.Type = model.DiscoveryType(lbPolicy)
+		c.Lb = model.LbPolicy(lbPolicy)
 	}
 	return nil
 }

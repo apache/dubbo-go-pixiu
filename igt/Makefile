@@ -82,7 +82,7 @@ build: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME) config
 .PHONY: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME)
 $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME):
 	$(info   >  Buiding application binary: $(OUT_DIR)/$(PROJECT_NAME)$(EXT_NAME))
-	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) $(SOURCES)
+	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -o $(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) $(SOURCES)
 
 
 ## config: Setup config files
@@ -91,6 +91,7 @@ config:
 	$(info   >  Setting up config files)
 	@mkdir -p $(OUT_DIR)/server
 	@mkdir -p $(OUT_DIR)/pixiuconf
+	@mkdir -p $(OUT_DIR)/proto
 	@-test -f $(PROJECT_DIR)/server/profiles/dev/log.yml && cat $(PROJECT_DIR)/server/profiles/dev/log.yml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/server/log.yml && echo "  > $(OUT_DIR)/conf/log.yml"
 	@-test -f $(PROJECT_DIR)/server/profiles/dev/server.yml && cat $(PROJECT_DIR)/server/profiles/dev/server.yml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/server/server.yml && echo "  > $(OUT_DIR)/conf/server.yml"
 	@-test -f $(PROJECT_DIR)/pixiu/api_config.yaml && cat $(PROJECT_DIR)/pixiu/api_config.yaml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/pixiuconf/api_config.yaml && echo "  > $(OUT_DIR)/pixiuconf/api_config.yaml"
@@ -100,13 +101,13 @@ config:
 .PHONY: docker-up
 docker-up:
 	$(info   >  Starting dependency services with $(PROJECT_DIR)/docker/docker-compose.yml)
-	@docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml up -d
+	@-test -f $(PROJECT_DIR)/docker/docker-compose.yml && docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml up -d
 
 ## docker-down: Shutdown dependency services on docker
 .PHONY: docker-down
 docker-down:
 	$(info   >  Stopping dependency services with $(PROJECT_DIR)/docker/docker-compose.yml)
-	@docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml down
+	@-test -f $(PROJECT_DIR)/docker/docker-compose.yml && docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml down
 
 ## clean: Clean up the output and the binary of the application
 .PHONY: clean
@@ -140,7 +141,7 @@ run: buildPixiu
 ## buildPixiu: start pixiu
 .PHONY: buildPixiu
 buildPixiu:
-	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
+	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
 	@-$(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) gateway start -a $(API_CONFIG_PATH) -c $(CONFIG_PATH) & echo $$! > $(PIXIU_PID)
 	@cat $(PIXIU_PID) | sed "/^/s/^/  \> PIXIU_PID: /"
 
@@ -148,7 +149,7 @@ buildPixiu:
 ## startPixiu: start pixiu foreground
 .PHONY: startPixiu
 startPixiu:
-	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -i -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
+	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
 	@-$(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) gateway start -a $(API_CONFIG_PATH) -c $(CONFIG_PATH)
 
 ## stop: Stop running the application (for server)
