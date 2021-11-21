@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -49,6 +50,15 @@ func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
 // NewEmptyFilterManager create empty filter manager
 func NewEmptyFilterManager() *FilterManager {
 	return &FilterManager{filters: make(map[string]HttpFilter)}
+}
+
+func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
+	chain := newDefaultFilterChain()
+
+	for _, f := range fm.GetFilters() {
+		_ = (*f).PrepareFilterChain(ctx, chain)
+	}
+	return chain
 }
 
 // GetFilters get all filter from manager
