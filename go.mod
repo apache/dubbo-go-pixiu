@@ -67,6 +67,5 @@ require (
 replace (
 	github.com/apache/dubbo-getty => github.com/apache/dubbo-getty v1.4.3
 	github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0
-	github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1
 	google.golang.org/api => google.golang.org/api v0.13.0
 )
