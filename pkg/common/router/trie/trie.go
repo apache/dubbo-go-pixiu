@@ -18,8 +18,12 @@
 package trie
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // Trie
@@ -61,7 +65,7 @@ func (trie *Trie) Put(withOutHost string, bizInfo interface{}) (bool, error) {
 		return false, errors.Errorf("data to put should not be nil.")
 	}
 	parts := stringutil.Split(withOutHost)
-	return trie.root.Put(parts, bizInfo)
+	return trie.root.internalPut(parts, bizInfo)
 }
 
 //Put put key and values into trie as map.
@@ -70,11 +74,13 @@ func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo interface{}) (bool, er
 		return false, errors.Errorf("data to put should not be nil.")
 	}
 	parts := stringutil.Split(withOutHost)
-	trie.Remove(withOutHost)
+	if _, err := trie.Remove(withOutHost); err != nil {
+		logger.Infof("PutOrUpdate function remote (withOutHost{%s}) = error{%v}", withOutHost, err)
+	}
 	//if n != nil {
 	//	//TODO: log n.bizInfo for trouble shooting
 	//}
-	return trie.root.Put(parts, bizInfo)
+	return trie.root.internalPut(parts, bizInfo)
 }
 
 //Get get values according key.pathVariable not supported.
@@ -130,11 +136,9 @@ func (trie Trie) Contains(withOutHost string) (bool, error) {
 	return !(ret == nil), nil
 }
 
-//不对外暴露，不推荐外部使用
-
 //Put node put
-func (node *Node) Put(keys []string, bizInfo interface{}) (bool, error) {
-	//空节点初始化
+func (node *Node) internalPut(keys []string, bizInfo interface{}) (bool, error) {
+	// empty node initialization
 	if node.children == nil {
 		node.children = map[string]*Node{}
 	}
@@ -153,11 +157,11 @@ func (node *Node) Put(keys []string, bizInfo interface{}) (bool, error) {
 	childKeys := keys[1:]
 
 	if stringutil.IsPathVariableOrWildcard(key) {
-		return node.PathVariableNode.Put(childKeys, bizInfo)
+		return node.PathVariableNode.internalPut(childKeys, bizInfo)
 	} else if stringutil.IsMatchAll(key) {
 		return isSuccess, nil
 	} else {
-		return node.children[key].Put(childKeys, bizInfo)
+		return node.children[key].internalPut(childKeys, bizInfo)
 	}
 
 }
@@ -229,7 +233,7 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 	childKeys := keys[1:]
 	isReal := len(childKeys) == 0
 	if isReal {
-		//退出条件
+		// exit condition
 		if stringutil.IsPathVariableOrWildcard(key) {
 			if node.PathVariableNode == nil || !node.PathVariableNode.endOfPath {
 				return nil, nil, false, nil
@@ -305,7 +309,7 @@ func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) boo
 	old := node.children[matchStr]
 	if old != nil {
 		if old.endOfPath && isReal {
-			//已经有一个同路径的url 冲突
+			// already has one same path url
 			return false
 		}
 		selfNode = old
@@ -327,7 +331,7 @@ func (node *Node) putMatchAllNode(matchStr string, isReal bool, bizInfo interfac
 	old := node.MatchAllNode
 	if old != nil {
 		if old.endOfPath && isReal {
-			//已经有一个同路径的url 冲突
+			// already has one same path url
 			return false
 		}
 		selfNode = old

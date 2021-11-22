@@ -44,10 +44,10 @@ type (
 	RouterMatch struct {
 		Prefix string `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
 		Path   string `yaml:"path" json:"path" mapstructure:"path"`
-		//Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"` 下一期再支持
+		// Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"` TODO: next version
 		Methods []string `yaml:"methods" json:"methods" mapstructure:"methods"`
-		//Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`  下一期再支持
-		//pathRE  *regexp.Regexp  废弃，如果有必要引入规则引擎，正则不合适
+		// Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`
+		// pathRE  *regexp.Regexp
 	}
 
 	// RouteAction match route should do
