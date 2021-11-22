@@ -22,8 +22,8 @@ import "github.com/MicahParks/keyfunc"
 type (
 	// FromHeaders Get the token from a field in the header，default Authorization: Bearer <token>
 	FromHeaders struct {
-		Name        string `yaml:"name" json:"name" mapstructure:"name"`
-		ValuePrefix string `yaml:"value_prefix" json:"value_prefix" mapstructure:"value_prefix"`
+		Name        string `default:"Authorization" yaml:"name" json:"name" mapstructure:"name"`
+		ValuePrefix string `default:"Bearer " yaml:"value_prefix" json:"value_prefix" mapstructure:"value_prefix"`
 	}
 
 	Rules struct {
