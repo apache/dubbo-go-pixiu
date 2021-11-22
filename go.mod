@@ -1,6 +1,6 @@
 module github.com/apache/dubbo-go-pixiu
 
-go 1.14
+go 1.15
 
 require (
 	github.com/alibaba/sentinel-golang v1.0.2
