@@ -175,7 +175,7 @@ func (f *Filter) Apply() error {
 		}
 
 		if provider.Remote != nil {
-			uri := provider.Remote.HttpUri
+			uri := provider.Remote.HttpURI
 			timeout, err := time.ParseDuration(uri.TimeOut)
 			if err != nil {
 				logger.Warnf("jwt provides timeout parse fail: %s", err.Error())
