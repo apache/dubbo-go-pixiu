@@ -58,10 +58,10 @@ type (
 	}
 
 	Remote struct {
-		HttpUri HttpUri `yaml:"http_uri" json:"http_uri" mapstructure:"http_uri"`
+		HttpURI HttpURI `yaml:"http_uri" json:"http_uri" mapstructure:"http_uri"`
 	}
 
-	HttpUri struct {
+	HttpURI struct {
 		Uri     string `yaml:"uri" json:"uri" mapstructure:"uri"`
 		Cluster string `yaml:"cluster" json:"cluster" mapstructure:"cluster"`
 		TimeOut string `default:"5s" yaml:"timeout" json:"timeout" mapstructure:"timeout"`
