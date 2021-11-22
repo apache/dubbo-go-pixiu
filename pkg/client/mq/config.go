@@ -23,7 +23,7 @@ import (
 
 type (
 	Config struct {
-		ClientId            string              `yaml:"client_id" json:"client_id"`
+		ClientID            string              `yaml:"client_id" json:"client_id"`
 		Endpoints           string              `yaml:"endpoints" json:"endpoints"`
 		MqType              MQType              `yaml:"type" json:"type"`
 		Retry               int                 `yaml:"retry" json:"retry" default:"5"`
