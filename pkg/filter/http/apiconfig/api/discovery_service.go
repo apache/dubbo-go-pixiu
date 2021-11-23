@@ -42,6 +42,7 @@ type APIDiscoveryService interface {
 	ClearAPI() error
 	GetAPI(string, config.HTTPVerb) (fr.API, error)
 	RemoveAPIByPath(deleted config.Resource) error
+	RemoveAPIByIntance(api fr.API) error
 	RemoveAPI(fullPath string, method config.Method) error
 }
 
@@ -82,6 +83,11 @@ func (l *LocalMemoryAPIDiscoveryService) RemoveAPIByPath(deleted config.Resource
 	fullPath := getFullPath(groupPath, deleted.Path)
 
 	l.router.DeleteNode(fullPath)
+	return nil
+}
+
+func (l *LocalMemoryAPIDiscoveryService) RemoveAPIByIntance(api fr.API) error {
+	l.router.RemoveAPI(api)
 	return nil
 }
 

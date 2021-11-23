@@ -39,6 +39,10 @@ func (d *DemoListener) OnAddAPI(r router.API) error {
 	return nil
 }
 
+func (d *DemoListener) OnRemoveAPI(r router.API) error {
+	return nil
+}
+
 func (d *DemoListener) OnDeleteRouter(r config.Resource) error {
 	return nil
 }
