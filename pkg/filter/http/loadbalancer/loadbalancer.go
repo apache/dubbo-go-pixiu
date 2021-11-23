@@ -19,7 +19,6 @@ package loadbalancer
 
 import (
 	"math/rand"
-	"regexp"
 	"strings"
 )
 
@@ -44,8 +43,7 @@ type (
 
 	// Filter is http filter instance
 	Filter struct {
-		cfg      *Config
-		uriRegex *regexp.Regexp
+		cfg *Config
 	}
 	Config struct{}
 )

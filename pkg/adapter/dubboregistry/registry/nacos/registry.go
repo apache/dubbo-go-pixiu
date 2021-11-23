@@ -47,7 +47,6 @@ type NacosRegistry struct {
 	*baseRegistry.BaseRegistry
 	nacosListeners map[registry.RegisteredType]registry.Listener
 	client         naming_client.INamingClient
-	addr           string
 }
 
 func (n *NacosRegistry) DoSubscribe() error {
