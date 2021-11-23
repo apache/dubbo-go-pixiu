@@ -1,6 +1,6 @@
 module github.com/apache/dubbo-go-pixiu
 
-go 1.14
+go 1.15
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
