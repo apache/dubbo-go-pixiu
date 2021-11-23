@@ -28,6 +28,8 @@ import (
 import (
 	proxymeta "github.com/mercari/grpc-http-proxy/metadata"
 	"github.com/mercari/grpc-http-proxy/proxy"
+
+	"github.com/pkg/errors"
 )
 
 import (
@@ -81,13 +83,13 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 		Opaque: address[1],
 	}
 	if err := p.Connect(context.Background(), targetURL); err != nil {
-		panic(err)
+		return "", errors.Errorf("connect triple server error = %s", err)
 	}
 	meta := make(map[string][]string)
 	reqData, _ := ioutil.ReadAll(req.IngressRequest.Body)
 	call, err := p.Call(context.Background(), req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
 	if err != nil {
-		panic(err)
+		return "", errors.Errorf("call triple server error = %s", err)
 	}
 	return string(call), nil
 }

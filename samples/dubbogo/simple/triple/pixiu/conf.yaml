@@ -39,6 +39,7 @@ static_resources:
                     config:
                       dynamic: true
                       dynamic_adapter: test
+                  - name: dgp.filter.http.loadbalance
                   - name: dgp.filter.http.dubboproxy
                   - name: dgp.filter.http.response
                     config:
@@ -60,7 +61,6 @@ static_resources:
       name: dgp.adapter.dubboregistrycenter
       config:
         registries:
-          "zookeeper":
-            protocol: zookeeper
-            address: "127.0.0.1:2181"
-            timeout: "5s"
+          nacos:
+            protocol: nacos
+            address: mse-be245cc0-p.nacos-ans.mse.aliyuncs.com:8848

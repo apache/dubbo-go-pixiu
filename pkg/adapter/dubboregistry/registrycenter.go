@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/nacos"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
@@ -113,7 +114,12 @@ func (a *Adapter) OnAddAPI(r router.API) error {
 	return acm.AddAPI(a.id, r)
 }
 
+func (a *Adapter) OnRemoveAPI(r router.API) error {
+	acm := server.GetApiConfigManager()
+	return acm.RemoveAPI(a.id, r)
+}
+
 func (a *Adapter) OnDeleteRouter(r config.Resource) error {
 	acm := server.GetApiConfigManager()
-	return acm.DeleteAPI(a.id, r)
+	return acm.DeleteRouter(a.id, r)
 }

@@ -96,6 +96,9 @@ func (f *Filter) Apply() error {
 func (f *Filter) OnAddAPI(r router.API) error {
 	return f.apiService.AddAPI(r)
 }
+func (f *Filter) OnRemoveAPI(r router.API) error {
+	return f.apiService.RemoveAPIByIntance(r)
+}
 
 func (f *Filter) OnDeleteRouter(r fc.Resource) error {
 	return f.apiService.RemoveAPIByPath(r)
