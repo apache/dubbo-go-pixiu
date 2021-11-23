@@ -42,7 +42,6 @@ import (
 // serviceListener normally monitors the /dubbo/[:url.service()]/providers
 type serviceListener struct {
 	url    *dubboCommon.URL
-	path   string
 	client naming_client.INamingClient
 
 	exit            chan struct{}

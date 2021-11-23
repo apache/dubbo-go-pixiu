@@ -44,16 +44,8 @@ import (
 )
 
 const (
-	// RegistryZkClient zk client name
-	RegistryZkClient = "zk registry"
-	MaxFailTimes     = 2
-	ConnDelay        = 3 * time.Second
-	defaultTTL       = 10 * time.Minute
-)
-
-const (
-	rootPath         = "/dubbo"
-	providerCategory = "providers"
+	MaxFailTimes = 2
+	ConnDelay    = 3 * time.Second
 )
 
 var _ registry.Listener = new(nacosIntfListener)
@@ -161,7 +153,7 @@ func (z *nacosIntfListener) updateServiceList(serviceList []string) error {
 
 	allSvcListener := z.reg.GetAllSvcListener()
 	subscribedServiceKeysMap := make(map[string]bool)
-	for k, _ := range allSvcListener {
+	for k := range allSvcListener {
 		subscribedServiceKeysMap[k] = true
 	}
 	serviceNeedUpdate := make([]*serviceInfo, 0)
@@ -202,7 +194,7 @@ func (z *nacosIntfListener) updateServiceList(serviceList []string) error {
 		}(v)
 	}
 	// todo deal with subscribedServiceKeysMap services to be removed
-	for k, _ := range subscribedServiceKeysMap {
+	for k := range subscribedServiceKeysMap {
 		z.reg.RemoveSvcListener(k)
 	}
 	return nil
