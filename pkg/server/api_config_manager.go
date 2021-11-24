@@ -22,18 +22,20 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 type (
 	ApiConfigListener interface {
 		OnAddAPI(r router.API) error
+		OnRemoveAPI(r router.API) error
 		OnDeleteRouter(r config.Resource) error
 	}
 	// ApiConfigManager similar to RouterManager
@@ -63,7 +65,15 @@ func (acm *ApiConfigManager) AddAPI(adapterID string, r router.API) error {
 	return l.OnAddAPI(r)
 }
 
-func (acm *ApiConfigManager) DeleteAPI(adapterID string, r config.Resource) error {
+func (acm *ApiConfigManager) RemoveAPI(adapterID string, r router.API) error {
+	l, existed := acm.als[adapterID]
+	if !existed {
+		return errors.Errorf("no listener found")
+	}
+	return l.OnRemoveAPI(r)
+}
+
+func (acm *ApiConfigManager) DeleteRouter(adapterID string, r config.Resource) error {
 	l, existed := acm.als[adapterID]
 	if !existed {
 		return errors.Errorf("no listener found")

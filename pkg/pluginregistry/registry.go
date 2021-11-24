@@ -18,9 +18,8 @@
 package pluginregistry
 
 import (
-	// network filters
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
-	// http filters
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/cors"
@@ -30,15 +29,13 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/grpcproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/httpproxy"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/loadbalancer"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/proxyrewrite"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/response"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/seata"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/tracing"
-
-	// adapter
-	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
 )
