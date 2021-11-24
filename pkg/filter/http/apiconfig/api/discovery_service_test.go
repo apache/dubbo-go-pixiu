@@ -165,10 +165,15 @@ func TestLoadAPIFromResource(t *testing.T) {
 }
 
 func TestLoadAPIFromMethods(t *testing.T) {
+	mockPutAPIMethod := mock.GetMockAPI(fc.MethodPut, "").Method
+	mockPutAPIMethod2 := mock.GetMockAPI(fc.MethodPut, "").Method
+	mockPutAPIMethod.IntegrationRequest.URL = "localhost:8080"
+	mockPutAPIMethod2.IntegrationRequest.URL = "localhost:8081"
 	tempMethods := []fc.Method{
-		mock.GetMockAPI(fc.MethodPut, "").Method,
+		mockPutAPIMethod,
+		mockPutAPIMethod2,
 		mock.GetMockAPI(fc.MethodGet, "").Method,
-		mock.GetMockAPI(fc.MethodPut, "").Method,
+		mockPutAPIMethod,
 	}
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
 	err := loadAPIFromMethods("/mock", tempMethods, nil, apiDiscSrv)
@@ -176,5 +181,5 @@ func TestLoadAPIFromMethods(t *testing.T) {
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	assert.EqualError(t, err, "path: /mock, Method: PUT, error: Method PUT already exists in path /mock")
+	assert.EqualError(t, err, "path: /mock, Method: PUT, error: Method PUT with address localhost:8080 already exists in path /mock")
 }

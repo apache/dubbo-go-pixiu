@@ -24,5 +24,6 @@ import (
 
 type RegistryEventListener interface {
 	OnAddAPI(r router.API) error
+	OnRemoveAPI(r router.API) error
 	OnDeleteRouter(r config.Resource) error
 }

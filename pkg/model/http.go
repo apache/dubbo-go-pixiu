@@ -18,8 +18,11 @@
 package model
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/mitchellh/mapstructure"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // HttpConnectionManagerConfig

@@ -17,7 +17,9 @@
 
 package model
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 const (
 	Static DiscoveryType = 0 + iota
