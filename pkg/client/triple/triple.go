@@ -41,8 +41,10 @@ func InitDefaultTripleClient() {
 	tripleClient = NewTripleClient()
 }
 
-var tripleClient *Client
-var clientOnce sync.Once
+var (
+	clientOnce   sync.Once
+	tripleClient *Client
+)
 
 // NewTripleClient create dubbo client
 func NewTripleClient() *Client {
