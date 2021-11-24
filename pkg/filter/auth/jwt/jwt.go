@@ -41,10 +41,6 @@ const (
 	Kind = constant.HTTPAuthJwtFilter
 )
 
-var (
-	tokenError, _ = json.Marshal(http.ErrResponse{Message: "token invalid"})
-)
-
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
@@ -57,11 +53,13 @@ type (
 	// Filter is http filter instance
 	Filter struct {
 		cfg          *Config
+		errMsg       []byte
 		providerJwks map[string]Provider
 	}
 
 	// Config describe the config of Filter
 	Config struct {
+		ErrMsg    string      `default:"token invalid" yaml:"err_msg" json:"err_msg" mapstructure:"err_msg"`
 		Rules     []Rules     `yaml:"rules" json:"rules" mapstructure:"rules"`
 		Providers []Providers `yaml:"providers" json:"providers" mapstructure:"providers"`
 	}
@@ -97,7 +95,7 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 	}
 
 	if router {
-		ctx.WriteJSONWithStatus(stdHttp.StatusUnauthorized, tokenError)
+		ctx.WriteJSONWithStatus(stdHttp.StatusUnauthorized, f.errMsg)
 		ctx.Abort()
 		return
 	}
@@ -155,6 +153,9 @@ func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 }
 
 func (f *Filter) Apply() error {
+
+	errMsg, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrMsg})
+	f.errMsg = errMsg
 
 	if len(f.cfg.Providers) == 0 {
 		return fmt.Errorf("providers is null")
