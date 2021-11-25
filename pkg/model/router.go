@@ -32,7 +32,6 @@ import (
 )
 
 // Router struct
-
 type (
 	Router struct {
 		ID    string      `yaml:"id" json:"id" mapstructure:"id"`
