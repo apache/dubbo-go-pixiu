@@ -18,10 +18,14 @@
 package router
 
 import (
+	"strings"
 	"sync"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -31,18 +35,17 @@ type (
 	// RouterCoordinator the router coordinator for http connection manager
 	RouterCoordinator struct {
 		activeConfig *model.RouteConfiguration
-
-		rw sync.RWMutex
+		rw           sync.RWMutex
 	}
 )
 
 // CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(hcmc *model.HttpConnectionManagerConfig) *RouterCoordinator {
-
 	rc := &RouterCoordinator{activeConfig: &hcmc.RouteConfig}
 	if hcmc.RouteConfig.Dynamic {
 		server.GetRouterManager().AddRouterListener(rc)
 	}
+	rc.initTrie()
 	return rc
 }
 
@@ -54,31 +57,61 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 	return rm.activeConfig.Route(hc.Request)
 }
 
+func getTrieKey(method string, path string, isPrefix bool) string {
+	if isPrefix {
+		if !strings.HasSuffix(path, constant.PathSlash) {
+			path = path + constant.PathSlash
+		}
+		path = path + "**"
+	}
+	return stringutil.GetTrieKey(method, path)
+}
+
+func (rm *RouterCoordinator) initTrie() {
+	if rm.activeConfig.RouteTrie.IsEmpty() {
+		rm.activeConfig.RouteTrie = trie.NewTrie()
+	}
+	for _, router := range rm.activeConfig.Routes {
+		rm.OnAddRouter(router)
+	}
+}
+
 // OnAddRouter add router
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
+	//TODO: lock move to trie node
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
-
-	for _, old := range rm.activeConfig.Routes {
-		if old.ID == r.ID {
-			old.Route = r.Route
-			old.Match = r.Match
-			return
-		}
+	if r.Match.Methods == nil {
+		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post}
 	}
-
-	rm.activeConfig.Routes = append(rm.activeConfig.Routes, r)
+	isPrefix := r.Match.Prefix != ""
+	for _, method := range r.Match.Methods {
+		var key string
+		if isPrefix {
+			key = getTrieKey(method, r.Match.Prefix, isPrefix)
+		} else {
+			key = getTrieKey(method, r.Match.Path, isPrefix)
+		}
+		_, _ = rm.activeConfig.RouteTrie.Put(key, r.Route)
+	}
 }
 
 // OnDeleteRouter delete router
-func (rm *RouterCoordinator) OnDeleteRouter(new *model.Router) {
+func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
 
-	for i, r := range rm.activeConfig.Routes {
-		if r.ID == new.ID {
-			rm.activeConfig.Routes = append(rm.activeConfig.Routes[:i], rm.activeConfig.Routes[i+1:]...)
-			break
+	if r.Match.Methods == nil {
+		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post}
+	}
+	isPrefix := r.Match.Prefix != ""
+	for _, method := range r.Match.Methods {
+		var key string
+		if isPrefix {
+			key = getTrieKey(method, r.Match.Prefix, isPrefix)
+		} else {
+			key = getTrieKey(method, r.Match.Path, isPrefix)
 		}
+		_, _ = rm.activeConfig.RouteTrie.Remove(key)
 	}
 }

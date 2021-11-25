@@ -48,14 +48,7 @@ func TestMain(m *testing.M) {
 						Methods: []string{
 							"POST",
 						},
-						Path:  "",
-						Regex: "",
-						Headers: []model.HeaderMatcher{
-							{Name: "X-DGP-WAY",
-								Values: []string{"Dubbo"},
-								Regex:  false,
-							},
-						},
+						Path: "",
 					},
 					Route: model.RouteAction{
 						Cluster:                     "test_dubbo",
