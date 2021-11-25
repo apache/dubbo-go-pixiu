@@ -19,6 +19,7 @@ package router
 
 import (
 	"bytes"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"net/http"
 	"testing"
 )
@@ -35,23 +36,10 @@ import (
 func TestCreateRouterCoordinator(t *testing.T) {
 	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			Routes: []*model.Router{
-				{
-					ID: "1",
-					Match: model.RouterMatch{
-						Prefix: "/api/v1",
-						Methods: []string{
-							"POST",
-						},
-						Path:  "",
-						Regex: "",
-					},
-					Route: model.RouteAction{
-						Cluster:                     "test_dubbo",
-						ClusterNotFoundResponseCode: 505,
-					},
-				},
-			},
+			RouteTrie: trie.NewTrieWithDefault("POST/api/v1/**", model.RouteAction{
+				Cluster:                     "test_dubbo",
+				ClusterNotFoundResponseCode: 505,
+			}),
 			Dynamic: false,
 		},
 		HTTPFilters: []*model.HTTPFilter{
