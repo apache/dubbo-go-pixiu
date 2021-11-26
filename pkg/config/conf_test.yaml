@@ -41,14 +41,8 @@ static_resources:
                       match:
                         prefix: "/api/v1"
                         path: ""
-                        regex: ""
                         methods:
                           - POST
-                        headers:
-                          - name: "X-DGP-WAY"
-                            regex: false
-                            values:
-                              - "Dubbo"
                       route:
                         cluster: "test_dubbo"
                         cluster_not_found_response_code: 505
