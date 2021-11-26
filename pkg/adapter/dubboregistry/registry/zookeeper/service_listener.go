@@ -25,6 +25,9 @@ import (
 
 import (
 	"github.com/apache/dubbo-go/common"
+
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
@@ -34,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
 var _ registry.Listener = new(serviceListener)
@@ -128,7 +130,7 @@ func (zkl *serviceListener) handleEvent() {
 	children, err := zkl.client.GetChildren(zkl.path)
 	if err != nil {
 		// disable the API
-		bkConf, methods, _ := registry.ParseDubboString(zkl.url.String())
+		bkConf, methods, _, _ := registry.ParseDubboString(zkl.url.String())
 		apiPattern := registry.GetAPIPattern(bkConf)
 		for i := range methods {
 			path := strings.Join([]string{apiPattern, methods[i]}, constant.PathSlash)
@@ -142,7 +144,7 @@ func (zkl *serviceListener) handleEvent() {
 	if err != nil {
 		logger.Warnf("Parse service path failed: %s", children[0])
 	}
-	bkConfig, methods, err := registry.ParseDubboString(children[0])
+	bkConfig, methods, location, err := registry.ParseDubboString(children[0])
 	if err != nil {
 		logger.Warnf("Parse dubbo interface provider %s failed; due to \n %s", children[0], err.Error())
 		return
@@ -163,7 +165,7 @@ func (zkl *serviceListener) handleEvent() {
 	}
 	apiPattern := registry.GetAPIPattern(bkConfig)
 	for i := range methods {
-		api := registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams)
+		api := registry.CreateAPIConfig(apiPattern, location, bkConfig, methods[i], mappingParams)
 		if err := zkl.adapterListener.OnAddAPI(api); err != nil {
 			logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
 		}

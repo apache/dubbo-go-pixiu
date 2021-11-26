@@ -20,13 +20,19 @@ package test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/apache/dubbo-go-pixiu/samples/http/grpc/proto"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/samples/http/grpc/proto"
 )
 
 const (

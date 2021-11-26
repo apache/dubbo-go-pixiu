@@ -38,6 +38,7 @@ const (
 	HTTPCorsFilter         = "dgp.filter.http.cors"
 	HTTPCsrfFilter         = "dgp.filter.http.csrf"
 	HTTPProxyRewriteFilter = "dgp.filter.http.proxyrewrite"
+	HTTPLoadBalanceFilter  = "dgp.filter.http.loadbalance"
 )
 
 const (

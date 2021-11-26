@@ -38,6 +38,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/client/triple"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -102,6 +103,7 @@ func (f *Filter) Apply() error {
 	f.conf.Level = level
 	// must init it at apply function
 	dubbo.InitDefaultDubboClient(f.conf.Dpc)
+	triple.InitDefaultTripleClient()
 	return nil
 }
 
@@ -150,6 +152,9 @@ func matchClient(typ apiConf.RequestType) (client.Client, error) {
 	switch strings.ToLower(string(typ)) {
 	case string(apiConf.DubboRequest):
 		return dubbo.SingletonDubboClient(), nil
+	// todo @(laurence) add triple to apiConf
+	case "triple":
+		return triple.SingletonTripleClient(), nil
 	case string(apiConf.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
