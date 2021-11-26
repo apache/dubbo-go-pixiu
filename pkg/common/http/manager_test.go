@@ -62,11 +62,11 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
 	return &DemoFilter{conf: &Config{Foo: "default foo", Bar: "default bar"}}, nil
 }
 
-func (f *DemoFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+func (f *DemoFilter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }

@@ -61,7 +61,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
 	return &Filter{cfg: &ApiConfigConfig{}}, nil
 }
 
@@ -104,7 +104,7 @@ func (f *Filter) GetAPIService() api.APIDiscoveryService {
 	return f.apiService
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
@@ -161,4 +161,4 @@ func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	return a, nil
 }
 
-var _ filter.HttpFilter = new(Filter)
+var _ filter.HttpFilterFactory = new(Filter)

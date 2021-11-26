@@ -28,7 +28,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
-func timeoutFilterFunc(wait time.Duration) filter.HttpFilter {
+func timeoutFilterFunc(wait time.Duration) filter.HttpFilterFactory {
 	config := &Config{Timeout: wait}
 	t := &Filter{cfg: config}
 	_ = t.Apply()
