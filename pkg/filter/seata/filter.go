@@ -65,7 +65,7 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (ap *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
 	return &Filter{
 		conf:             &Seata{},
 		transactionInfos: make(map[string]*TransactionInfo),
@@ -103,7 +103,7 @@ func (f *Filter) Apply() error {
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }

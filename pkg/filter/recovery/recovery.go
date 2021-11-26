@@ -50,11 +50,11 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
 	return &Filter{}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
@@ -78,7 +78,7 @@ func (f *Filter) Apply() error {
 }
 
 // GetMock return mocked filter
-func GetMock() filter.HttpFilter {
+func GetMock() filter.HttpFilterFactory {
 	filter := &Filter{}
 	_ = filter.Apply()
 	return filter

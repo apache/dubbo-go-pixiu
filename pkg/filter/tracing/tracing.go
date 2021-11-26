@@ -68,7 +68,7 @@ func (ap *Plugin) Kind() string {
 	return constant.TracingFilter
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (ap *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
 	return &TraceFilter{cfg: &TraceConfig{}}, nil
 }
 
@@ -92,7 +92,7 @@ func (m *TraceFilter) Apply() error {
 	return nil
 }
 
-func (mf *TraceFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+func (mf *TraceFilter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(mf.Handle)
 	return nil
 }
