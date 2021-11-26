@@ -244,4 +244,4 @@ dubbogo 社区已经开通微信公众号 "dubbogo大区"，可在微信搜索 "
 
 ## License
 
-Apache License, Version 2.0
+Apache License, Version 2.0 test
