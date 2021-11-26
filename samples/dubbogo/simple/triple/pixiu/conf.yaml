@@ -22,46 +22,33 @@ static_resources:
     - name: "net/http"
       address:
         socket_address:
-          protocol_type: "HTTPS"
+          protocol_type: "HTTP"
           address: "0.0.0.0"
-          port: 443
+          port: 8881
       filter_chains:
         - filter_chain_match:
-            domains:
-              - api.dubbo.com
-              - api.pixiu.com
           filters:
             - name: dgp.filter.httpconnectionmanager
               config:
-                idle_timeout: "100"
                 route_config:
-                  dynamic: false
                   routes:
-                    - id: "1"
-                      match:
-                        prefix: "/api/v1"
-                        path: ""
-                        methods:
-                          - POST
-                      route:
-                        cluster: "test_dubbo"
-                        cluster_not_found_response_code: 505
+                    - match:
+                        prefix: "/"
                 http_filters:
-                  - name: dgp.filters.http.api
+                  - name: dgp.filter.http.apiconfig
                     config:
-                  - name: dgp.filters.http.router
+                      dynamic: true
+                      dynamic_adapter: test
+                  - name: dgp.filter.http.loadbalance
+                  - name: dgp.filter.http.dubboproxy
+                  - name: dgp.filter.http.response
                     config:
-                  - name: dgp.filters.http.dubboproxy
-                    config:
-                server_name: "test_http_dubbo"
-                generate_request_id: false
+                      server_name: "test_http_dubbo"
+                      generate_request_id: false
       config:
         idle_timeout: 5s
         read_timeout: 5s
         write_timeout: 5s
-  clusters:
-    - name: "test_dubbo"
-      lb_policy: "RoundRobin"
   timeout_config:
     connect_timeout: "5s"
     request_timeout: "10s"
@@ -69,9 +56,11 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
-  pprofConf:
-    enable: true
-    address:
-      socket_address:
-        address: "0.0.0.0"
-        port: 6060
+  adapters:
+    - id: test
+      name: dgp.adapter.dubboregistrycenter
+      config:
+        registries:
+          nacos:
+            protocol: nacos
+            address: mse-be245cc0-p.nacos-ans.mse.aliyuncs.com:8848

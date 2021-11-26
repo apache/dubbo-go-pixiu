@@ -38,7 +38,7 @@ func main() {
 
 func user(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
-	case "POST":
+	case constant.Post:
 		byts, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			w.Write([]byte(err.Error()))
@@ -62,7 +62,7 @@ func user(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Write(nil)
-	case "GET":
+	case constant.Get:
 		subPath := strings.TrimPrefix(r.URL.Path, "/user/")
 		userName := strings.Split(subPath, "/")[0]
 		var u *User

@@ -19,6 +19,7 @@ package server
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -26,16 +27,9 @@ import (
 func DefaultHttpConnectionManager() *model.HttpConnectionManagerConfig {
 	return &model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			Routes: []*model.Router{
-				{
-					Match: model.RouterMatch{
-						Prefix: "/api/v1",
-					},
-					Route: model.RouteAction{
-						Cluster: constant.HeaderValueAll,
-					},
-				},
-			},
+			RouteTrie: trie.NewTrieWithDefault("/api/v1/**", model.RouteAction{
+				Cluster: constant.HeaderValueAll,
+			}),
 		},
 		HTTPFilters: []*model.HTTPFilter{
 			{

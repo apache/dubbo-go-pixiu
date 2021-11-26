@@ -25,7 +25,9 @@ import (
 
 import (
 	"github.com/creasty/defaults"
+
 	"github.com/ghodss/yaml"
+
 	"github.com/goinggo/mapstructure"
 )
 
@@ -135,6 +137,7 @@ func GetHttpConfig(cfg *model.Bootstrap) (err error) {
 						logger.Error(err)
 					}
 					cfg.StaticResources.Listeners[i].Config = *hc
+					//cfg.StaticResources.Listeners[i].FilterChains
 				}
 			}
 		}

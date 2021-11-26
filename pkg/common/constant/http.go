@@ -43,3 +43,10 @@ const (
 	PprofDefaultAddress = "0.0.0.0"
 	PprofDefaultPort    = 7070
 )
+
+const (
+	Get    = "GET"
+	Put    = "PUT"
+	Post   = "POST"
+	Delete = "DELETE"
+)
