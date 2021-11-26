@@ -34,8 +34,8 @@ import (
 
 // FilterManager manage filters
 type FilterManager struct {
-	filters       map[string]HttpFilter
-	filtersArray  []*HttpFilter
+	filters       map[string]HttpFilterFactory
+	filtersArray  []*HttpFilterFactory
 	filterConfigs []*model.HTTPFilter
 
 	mu sync.RWMutex
@@ -43,13 +43,13 @@ type FilterManager struct {
 
 // NewFilterManager create filter manager
 func NewFilterManager(fs []*model.HTTPFilter) *FilterManager {
-	fm := &FilterManager{filterConfigs: fs, filters: make(map[string]HttpFilter)}
+	fm := &FilterManager{filterConfigs: fs, filters: make(map[string]HttpFilterFactory)}
 	return fm
 }
 
 // NewEmptyFilterManager create empty filter manager
 func NewEmptyFilterManager() *FilterManager {
-	return &FilterManager{filters: make(map[string]HttpFilter)}
+	return &FilterManager{filters: make(map[string]HttpFilterFactory)}
 }
 
 func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
@@ -62,7 +62,7 @@ func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
 }
 
 // GetFilters get all filter from manager
-func (fm *FilterManager) GetFilters() []*HttpFilter {
+func (fm *FilterManager) GetFilters() []*HttpFilterFactory {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
 
@@ -76,8 +76,8 @@ func (fm *FilterManager) Load() {
 
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
-	tmp := make(map[string]HttpFilter)
-	filtersArray := make([]*HttpFilter, len(filters))
+	tmp := make(map[string]HttpFilterFactory)
+	filtersArray := make([]*HttpFilterFactory, len(filters))
 	for i, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
@@ -95,7 +95,7 @@ func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 }
 
 // Apply return a new filter by name & conf
-func (fm *FilterManager) Apply(name string, conf map[string]interface{}) (HttpFilter, error) {
+func (fm *FilterManager) Apply(name string, conf map[string]interface{}) (HttpFilterFactory, error) {
 	plugin, err := GetHttpFilterPlugin(name)
 	if err != nil {
 		return nil, errors.New("filter not found")

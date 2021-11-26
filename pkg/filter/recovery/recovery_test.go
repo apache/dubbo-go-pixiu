@@ -18,6 +18,7 @@
 package recovery
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"testing"
 	"time"
 )
@@ -41,7 +42,7 @@ func TestRecovery(t *testing.T) {
 type SleepFilter struct {
 }
 
-func (rf *SleepFilter) PrepareFilterChain(ctx *http.HttpContext) error {
+func (rf *SleepFilter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(rf.Handle)
 	return nil
 }

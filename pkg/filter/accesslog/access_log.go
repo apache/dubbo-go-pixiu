@@ -58,7 +58,7 @@ func (p *Plugin) Kind() string {
 }
 
 // CreateFilter create filter
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
 	return &Filter{
 		conf: &AccessLogConfig{},
 		alw: &AccessLogWriter{
@@ -68,7 +68,7 @@ func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 }
 
 // PrepareFilterChain prepare chain when http context init
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
