@@ -75,7 +75,6 @@ func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 	ctx.AppendFilterFunc(f.Handle)
-	//f.Handle(ctx)
 	return nil
 }
 
