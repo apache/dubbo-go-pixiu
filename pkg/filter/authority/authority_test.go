@@ -18,7 +18,6 @@
 package authority
 
 import (
-	"net/http"
 	"testing"
 )
 
@@ -28,7 +27,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
 func TestAuth(t *testing.T) {
@@ -48,6 +46,6 @@ func TestAuth(t *testing.T) {
 	err = authFilter.Apply()
 	assert.Nil(t, err)
 
-	request, _ := http.NewRequest("GET", "/", nil)
-	authFilter.Handle(mock.GetMockHTTPContext(request))
+	//request, _ := http.NewRequest("GET", "/", nil)
+	//authFilter.Handle(mock.GetMockHTTPContext(request))
 }

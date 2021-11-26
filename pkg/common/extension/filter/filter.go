@@ -36,17 +36,17 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 
+		// CreateFilter return the filter callback
+		CreateFilter() (HttpFilterFactory, error)
+	}
+
+	// HttpFilterFactory describe http filter
+	HttpFilterFactory interface {
 		// Config get config for filter
 		Config() interface{}
 
 		Apply() error
 
-		// CreateFilter return the filter callback
-		CreateFilter() (HttpFilter, error)
-	}
-
-	// HttpFilter describe http filter
-	HttpFilter interface {
 		// PrepareFilterChain add filter into chain
 		PrepareFilterChain(ctx *http.HttpContext, chain FilterChain) error
 	}

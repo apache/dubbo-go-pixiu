@@ -79,7 +79,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
 	return &Filter{conf: &config{}}, nil
 }
 
@@ -107,7 +107,7 @@ func (f *Filter) Apply() error {
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
+func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }
