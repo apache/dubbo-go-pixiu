@@ -59,7 +59,7 @@ type (
 
 	// Config describe the config of Filter
 	Config struct {
-		ErrMsg    string      `default:"token invalid" yaml:"err_msg" json:"err_msg" mapstructure:"err_msg"`
+		ErrMsg    string      `yaml:"err_msg" json:"err_msg" mapstructure:"err_msg"`
 		Rules     []Rules     `yaml:"rules" json:"rules" mapstructure:"rules"`
 		Providers []Providers `yaml:"providers" json:"providers" mapstructure:"providers"`
 	}
@@ -75,6 +75,7 @@ func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
 	ctx.AppendFilterFunc(f.Handle)
+	//f.Handle(ctx)
 	return nil
 }
 
@@ -154,6 +155,10 @@ func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 
 func (f *Filter) Apply() error {
 
+	if f.cfg.ErrMsg == "" {
+		f.cfg.ErrMsg = "token invalid"
+	}
+
 	errMsg, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrMsg})
 	f.errMsg = errMsg
 
@@ -169,6 +174,7 @@ func (f *Filter) Apply() error {
 			if err != nil {
 				logger.Warnf("failed to create JWKs from JSON. provider：%s Error: %s", provider.Name, err.Error())
 			} else {
+				provider.FromHeaders.setDefault()
 				f.providerJwks[provider.Name] = Provider{jwk: jwks, headers: provider.FromHeaders,
 					issuer: provider.Issuer, forwardPayloadHeader: provider.ForwardPayloadHeader}
 				continue
@@ -188,6 +194,7 @@ func (f *Filter) Apply() error {
 			if err != nil {
 				logger.Warnf("failed to create JWKs from resource at the given URL. provider：%s Error: %s", provider.Name, err.Error())
 			} else {
+				provider.FromHeaders.setDefault()
 				f.providerJwks[provider.Name] = Provider{jwk: jwks, headers: provider.FromHeaders,
 					issuer: provider.Issuer, forwardPayloadHeader: provider.ForwardPayloadHeader}
 			}
@@ -199,6 +206,16 @@ func (f *Filter) Apply() error {
 	}
 
 	return nil
+}
+
+func (h *FromHeaders) setDefault() {
+	if h.Name == "" {
+		h.Name = "Authorization"
+	}
+
+	if h.ValuePrefix == "" {
+		h.ValuePrefix = "Bearer "
+	}
 }
 
 func (f *Filter) Config() interface{} {
