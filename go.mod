@@ -3,9 +3,9 @@ module github.com/apache/dubbo-go-pixiu
 go 1.15
 
 require (
+	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
 	github.com/MicahParks/keyfunc v0.10.0
 	github.com/RoaringBitmap/roaring v0.7.1 // indirect
-	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
 	github.com/apache/dubbo-go-hessian2 v1.9.5
@@ -32,7 +32,6 @@ require (
 	github.com/jinzhu/copier v0.3.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
-	github.com/jhump/protoreflect v1.9.0
 	github.com/mercari/grpc-http-proxy v0.1.2
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/nacos-group/nacos-sdk-go v1.0.9
@@ -48,7 +47,6 @@ require (
 	github.com/ugorji/go v1.2.6 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.etcd.io/etcd/client/v3 v3.5.0 // indirect
-	go.etcd.io/etcd/api/v3 v3.5.1
 	go.opentelemetry.io/otel v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/prometheus v0.21.0
@@ -63,8 +61,6 @@ require (
 	golang.org/x/net v0.0.0-20211105192438-b53810dc28af // indirect
 	golang.org/x/sys v0.0.0-20211106132015-ebca88c72f68 // indirect
 	google.golang.org/genproto v0.0.0-20211104193956-4c6863e31247 // indirect
-	go.uber.org/zap v1.19.1
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
