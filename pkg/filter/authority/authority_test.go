@@ -36,7 +36,7 @@ func TestAuth(t *testing.T) {
 	}
 	//rules = []AuthorityRule{{Strategy: Whitelist, Items: append([]string{}, "127.0.0.1")}}
 	p := Plugin{}
-	authFilter, _ := p.CreateFilter()
+	authFilter, _ := p.CreateFilterFactory()
 	config := authFilter.Config()
 	mockYaml, err := yaml.MarshalYML(rules)
 	assert.Nil(t, err)
