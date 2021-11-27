@@ -68,7 +68,7 @@ func (ap *Plugin) Kind() string {
 	return constant.TracingFilter
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
+func (ap *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &TraceFilter{cfg: &TraceConfig{}}, nil
 }
 

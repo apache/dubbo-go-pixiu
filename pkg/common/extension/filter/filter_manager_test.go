@@ -64,7 +64,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (HttpFilterFactory, error) {
+func (p *Plugin) CreateFilterFactory() (HttpFilterFactory, error) {
 	return &DemoFilterFactory{conf: &Config{Foo: "default foo", Bar: "default bar"}}, nil
 }
 
@@ -113,7 +113,7 @@ func TestApply(t *testing.T) {
 	assert.Nil(t, err)
 
 	baseContext := &contexthttp.HttpContext{}
-	chain := newDefaultFilterChain()
+	chain := NewDefaultFilterChain()
 	_ = f.PrepareFilterChain(baseContext, chain)
 	chain.OnDecode(baseContext)
 }

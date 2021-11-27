@@ -20,7 +20,7 @@ type defaultFilterChain struct {
 	encodeFiltersIndex int
 }
 
-func newDefaultFilterChain() FilterChain {
+func NewDefaultFilterChain() FilterChain {
 	return &defaultFilterChain{
 		decodeFilters:      []HttpDecodeFilter{},
 		decodeFiltersIndex: 0,
