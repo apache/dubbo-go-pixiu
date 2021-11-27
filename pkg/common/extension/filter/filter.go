@@ -36,18 +36,22 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 
-		// CreateFilter return the filter callback
-		CreateFilter() (HttpFilterFactory, error)
+		// CreateFilterFactory return the filter factory
+		CreateFilterFactory() (HttpFilterFactory, error)
 	}
 
 	// HttpFilterFactory describe http filter
 	HttpFilterFactory interface {
-		// Config get config for filter
+		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
 		Config() interface{}
 
+		// Apply After the config is injected, check it or make it to default
 		Apply() error
 
-		// PrepareFilterChain add filter into chain
+		// PrepareFilterChain create filter and append it to FilterChain
+		//
+		// Be Careful !!! Do not pass the Factory's config pointer to the Filter instance,
+		// Factory's config may be updated by FilterManager
 		PrepareFilterChain(ctx *http.HttpContext, chain FilterChain) error
 	}
 

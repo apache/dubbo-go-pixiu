@@ -51,7 +51,7 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &Filter{}, nil
 }
 

@@ -35,7 +35,7 @@ import (
 
 func TestFilter(t *testing.T) {
 	factory := Plugin{}
-	f, _ := factory.CreateFilter()
+	f, _ := factory.CreateFilterFactory()
 	config, ok := f.Config().(*Config)
 	assert.True(t, ok)
 
