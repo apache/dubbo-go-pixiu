@@ -53,7 +53,7 @@ func NewEmptyFilterManager() *FilterManager {
 }
 
 func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
-	chain := newDefaultFilterChain()
+	chain := NewDefaultFilterChain()
 
 	for _, f := range fm.GetFilters() {
 		_ = (*f).PrepareFilterChain(ctx, chain)
@@ -101,7 +101,7 @@ func (fm *FilterManager) Apply(name string, conf map[string]interface{}) (HttpFi
 		return nil, errors.New("filter not found")
 	}
 
-	filter, err := plugin.CreateFilter()
+	filter, err := plugin.CreateFilterFactory()
 
 	if err != nil {
 		return nil, errors.New("plugin create filter error")

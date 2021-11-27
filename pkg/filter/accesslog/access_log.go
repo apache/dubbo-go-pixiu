@@ -58,7 +58,7 @@ func (p *Plugin) Kind() string {
 }
 
 // CreateFilter create filter
-func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &Filter{
 		conf: &AccessLogConfig{},
 		alw: &AccessLogWriter{

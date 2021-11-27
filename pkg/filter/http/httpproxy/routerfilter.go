@@ -46,12 +46,15 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// Filter is http filter instance
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *Config
+	}
+	//Filter
 	Filter struct {
-		cfg       *Config
 		transport http3.RoundTripper
 	}
-	// Config describe the config of Filter
+	// Config describe the config of FilterFactory
 	Config struct{}
 )
 
@@ -59,24 +62,25 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
-	return &Filter{cfg: &Config{}, transport: &http3.Transport{}}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{transport: &http3.Transport{}}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(hc *http.HttpContext) {
+func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
@@ -92,7 +96,7 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 		hc.TargetResp = &client.Response{Data: bt}
 		hc.WriteJSONWithStatus(http3.StatusServiceUnavailable, bt)
 		hc.Abort()
-		return
+		return filter.Stop
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint :%v", endpoint.Address.GetAddress())
@@ -129,7 +133,7 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 		hc.TargetResp = &client.Response{Data: bt}
 		hc.WriteJSONWithStatus(http3.StatusInternalServerError, bt)
 		hc.Abort()
-		return
+		return filter.Stop
 	}
 	req.Header = r.Header
 
@@ -142,5 +146,5 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 
 	hc.SourceResp = resp
 	// response write in response filter.
-	hc.Next()
+	return filter.Continue
 }

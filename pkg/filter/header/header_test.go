@@ -39,7 +39,7 @@ import (
 func TestHeader(t *testing.T) {
 	p := Plugin{}
 
-	filter, _ := p.CreateFilter()
+	filter, _ := p.CreateFilterFactory()
 	err := filter.Apply()
 	assert.Nil(t, err)
 

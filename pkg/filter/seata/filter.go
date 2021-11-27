@@ -65,7 +65,7 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilterFactory, error) {
+func (ap *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &Filter{
 		conf:             &Seata{},
 		transactionInfos: make(map[string]*TransactionInfo),
