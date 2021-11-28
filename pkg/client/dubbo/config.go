@@ -17,7 +17,9 @@
 
 package dubbo
 
-import "github.com/apache/dubbo-go-pixiu/pkg/model"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
 
 // DubboProxyConfig the config for dubbo proxy
 type DubboProxyConfig struct {

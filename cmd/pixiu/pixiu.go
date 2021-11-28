@@ -26,17 +26,18 @@ import (
 )
 
 import (
+	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
+	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
+
+	"github.com/spf13/cobra"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/pluginregistry"
-)
-
-import (
-	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
-	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
-	"github.com/spf13/cobra"
 )
 
 var (

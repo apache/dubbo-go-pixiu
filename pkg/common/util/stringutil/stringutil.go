@@ -17,6 +17,11 @@
 
 package stringutil
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"strings"
+)
+
 // StrInSlice returns whether the string is in the slice.
 func StrInSlice(str string, slice []string) bool {
 	for _, s := range slice {
@@ -25,4 +30,53 @@ func StrInSlice(str string, slice []string) bool {
 		}
 	}
 	return false
+}
+
+//Split url split to []string by "/"
+func Split(path string) []string {
+	return strings.Split(strings.TrimLeft(path, constant.PathSlash), constant.PathSlash)
+}
+
+//VariableName extract VariableName      (:id, name = id)
+func VariableName(key string) string {
+	return strings.TrimPrefix(key, constant.PathParamIdentifier)
+}
+
+//IsPathVariableOrWildcard return if is a PathVariable     (:id, true)
+func IsPathVariableOrWildcard(key string) bool {
+	if key == "" {
+		return false
+	}
+	if strings.HasPrefix(key, constant.PathParamIdentifier) {
+		return true
+	}
+
+	if IsWildcard(key) {
+		return true
+	}
+	//return key[0] == '{' && key[len(key)-1] == '}'
+	return false
+}
+
+//IsWildcard return if is *
+func IsWildcard(key string) bool {
+	return key == "*"
+}
+
+func IsMatchAll(key string) bool {
+	return key == "**"
+}
+
+func GetTrieKey(method string, path string) string {
+	ret := ""
+	if strings.HasPrefix(path, constant.PathSlash) {
+		ret = method + path
+	} else {
+		ret = method + constant.PathSlash + path
+	}
+
+	if strings.HasSuffix(ret, constant.PathSlash) {
+		ret = ret[0 : len(ret)-1]
+	}
+	return ret
 }

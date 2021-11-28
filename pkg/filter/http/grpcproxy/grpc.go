@@ -32,10 +32,13 @@ import (
 import (
 	"github.com/golang/protobuf/jsonpb" //nolint
 	"github.com/golang/protobuf/proto"  //nolint
+
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
+
 	perrors "github.com/pkg/errors"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
