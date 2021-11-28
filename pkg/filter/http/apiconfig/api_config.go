@@ -23,6 +23,8 @@ import (
 
 import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+
 	"github.com/pkg/errors"
 )
 
@@ -34,7 +36,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 const (
@@ -94,6 +95,9 @@ func (f *Filter) Apply() error {
 
 func (f *Filter) OnAddAPI(r router.API) error {
 	return f.apiService.AddAPI(r)
+}
+func (f *Filter) OnRemoveAPI(r router.API) error {
+	return f.apiService.RemoveAPIByIntance(r)
 }
 
 func (f *Filter) OnDeleteRouter(r fc.Resource) error {
