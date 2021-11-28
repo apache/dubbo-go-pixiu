@@ -167,7 +167,7 @@ func (zkl *serviceListener) handleEvent() {
 	}
 	apiPattern := registry.GetAPIPattern(bkConfig)
 	for i := range methods {
-    api := registry.CreateAPIConfig(apiPattern, location, bkConfig, methods[i], mappingParams)
+		api := registry.CreateAPIConfig(apiPattern, location, bkConfig, methods[i], mappingParams)
 		key := api.URLPattern + ":" + string(api.Method.HTTPVerb)
 		if _, ok := zkl.registryMethod[key]; ok {
 			return
