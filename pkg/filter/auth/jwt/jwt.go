@@ -111,6 +111,7 @@ func valuePrefix(value, prefix string) string {
 	return strings.TrimPrefix(value, prefix)
 }
 
+// validAny route single provider verification
 func (f *Filter) validAny(rule Rules, ctx *http.HttpContext) bool {
 
 	providerName := rule.Requires.RequiresAny.ProviderName
@@ -130,6 +131,7 @@ func (f *Filter) validAny(rule Rules, ctx *http.HttpContext) bool {
 	return false
 }
 
+// validAll route multiple provider verification
 func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 
 	for _, requirement := range rule.Requires.RequiresAll {
