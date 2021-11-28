@@ -58,27 +58,17 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	if err != nil {
 		return err
 	}
-	hcm.addFilter(hc)
 	hcm.handleHTTPRequest(hc)
 	return nil
 }
 
 // handleHTTPRequest handle http request
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
-	if len(c.Filters) > 0 {
-		c.Next()
-		c.WriteHeaderNow()
-		return
-	}
-	// TODO redirect
-}
+	filterChain := hcm.filterManager.CreateFilterChain(c)
+	filterChain.OnDecode(c)
 
-func (hcm *HttpConnectionManager) addFilter(ctx *pch.HttpContext) {
-	for _, f := range hcm.filterManager.GetFilters() {
-		if err := (*f).PrepareFilterChain(ctx, nil); err != nil {
-			logger.Warnf("PrepareFilterChain error %s", err)
-		}
-	}
+	//c.WriteHeaderNow()
+	// TODO redirect
 }
 
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {

@@ -48,41 +48,47 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// HeaderFilter is http filter instance
-	Filter struct {
+	// FilterFactory HeaderFilter is http filter instance
+	FilterFactory struct {
 		cfg *Config
 	}
-	// Config describe the config of Filter
+	// Filter
+	Filter struct {
+		Strategy string
+	}
+	// Config describe the config of FilterFactory
 	Config struct {
 		Strategy string `json:"strategy,omitempty" yaml:"strategy,omitempty"`
 	}
 )
+
+func (f Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
+	f.doResponse(ctx)
+	return filter.Continue
+}
 
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{cfg: &Config{}}, nil
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{Strategy: factory.cfg.Strategy}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(c *contexthttp.HttpContext) {
-	f.doResponse(c)
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
-}
-
-func (f *Filter) Apply() error {
-	if f.cfg.Strategy == "" {
+func (factory *FilterFactory) Apply() error {
+	if factory.cfg.Strategy == "" {
 		strategy := defaultNewParams()
-		f.cfg.Strategy = strategy
+		factory.cfg.Strategy = strategy
 	}
 	return nil
 }
@@ -124,7 +130,7 @@ func (f *Filter) doResponse(ctx *contexthttp.HttpContext) {
 
 func (f *Filter) newResponse(data interface{}) *client.Response {
 	hump := false
-	if f.cfg.Strategy == constant.ResponseStrategyHump {
+	if f.Strategy == constant.ResponseStrategyHump {
 		hump = true
 	}
 	r, err := dealResp(data, hump)
