@@ -31,10 +31,7 @@ type AdapterManager struct {
 
 func CreateDefaultAdapterManager(server *Server, bs *model.Bootstrap) *AdapterManager {
 	am := &AdapterManager{configs: bs.StaticResources.Adapters}
-	sr := bs.StaticResources
-	for _, ad := range sr.Adapters {
-		am.initAdapters(server, ad)
-	}
+	am.initAdapters()
 	return am
 }
 
@@ -50,7 +47,7 @@ func (am *AdapterManager) Stop() {
 	}
 }
 
-func (am *AdapterManager) initAdapters(server *Server, ad *model.Adapter) {
+func (am *AdapterManager) initAdapters() {
 
 	var ads []adapter.Adapter
 
