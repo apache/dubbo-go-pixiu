@@ -128,7 +128,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 	assert.Equal(t, rsp.URLPattern, "/")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	rsp, _ = apiDiscSrv.GetAPI("/mock2/12345", fc.MethodPut)
+	rsp, _ = apiDiscSrv.MatchAPI("/mock2/12345", fc.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/mock2/:id")
 
 	tempResources = []fc.Resource{
