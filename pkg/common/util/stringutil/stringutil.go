@@ -69,12 +69,16 @@ func IsMatchAll(key string) bool {
 
 func GetTrieKey(method string, path string) string {
 	ret := ""
+	//"http://localhost:8882/api/v1/test-dubbo/user?name=tc"
+	if strings.Contains(path, constant.ProtocolSlash) {
+		path = path[strings.Index(path, constant.ProtocolSlash)+len(constant.ProtocolSlash):]
+		path = path[strings.Index(path, constant.PathSlash)+1:]
+	}
 	if strings.HasPrefix(path, constant.PathSlash) {
 		ret = method + path
 	} else {
 		ret = method + constant.PathSlash + path
 	}
-
 	if strings.HasSuffix(ret, constant.PathSlash) {
 		ret = ret[0 : len(ret)-1]
 	}

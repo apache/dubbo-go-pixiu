@@ -18,7 +18,10 @@
 package trie
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/stretchr/testify/assert"
+)
+import (
 	"testing"
 )
 
@@ -136,6 +139,10 @@ func TestTrie_MatchAndGet(t *testing.T) {
 }
 
 func TestTrie_Clear(t *testing.T) {
+	v := "http://baidu.com/aa/bb"
+	v = stringutil.GetTrieKey("PUT", v)
+	assert.Equal(t, "PUT/aa/bb", v)
+
 	trie := NewTrie()
 	ret, _ := trie.Put("/path1/:pathvarible1/path2/:pathvarible2", "")
 	assert.True(t, ret)
