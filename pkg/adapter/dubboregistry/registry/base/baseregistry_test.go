@@ -23,8 +23,11 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 )
 
 var _ registry.Registry = new(mockRegFacade)

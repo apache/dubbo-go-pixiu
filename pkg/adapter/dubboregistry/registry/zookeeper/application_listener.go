@@ -32,6 +32,7 @@ import (
 	_ "github.com/apache/dubbo-go/metadata/service/remote"
 	_ "github.com/apache/dubbo-go/registry/protocol"
 	_ "github.com/apache/dubbo-go/registry/zookeeper"
+
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
