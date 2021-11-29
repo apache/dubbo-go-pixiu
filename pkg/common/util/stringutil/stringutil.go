@@ -78,5 +78,6 @@ func GetTrieKey(method string, path string) string {
 	if strings.HasSuffix(ret, constant.PathSlash) {
 		ret = ret[0 : len(ret)-1]
 	}
+	ret = strings.Split(ret, "?")[0]
 	return ret
 }

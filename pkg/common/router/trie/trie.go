@@ -18,12 +18,13 @@
 package trie
 
 import (
-	"github.com/pkg/errors"
+	"strings"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/pkg/errors"
 )
 
 // Trie
@@ -107,6 +108,7 @@ func (trie Trie) Get(withOutHost string) (*Node, []string, bool, error) {
 //bool is ok
 //error
 func (trie Trie) Match(withOutHost string) (*Node, []string, bool) {
+	withOutHost = strings.Split(withOutHost, "?")[0]
 	parts := stringutil.Split(withOutHost)
 	node, param, ok := trie.root.Match(parts)
 	length := len(param)
