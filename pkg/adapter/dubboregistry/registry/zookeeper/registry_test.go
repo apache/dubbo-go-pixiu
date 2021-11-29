@@ -22,19 +22,24 @@ import (
 )
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
 
 type DemoListener struct {
 }
 
 func (d *DemoListener) OnAddAPI(r router.API) error {
+	return nil
+}
+
+func (d *DemoListener) OnRemoveAPI(r router.API) error {
 	return nil
 }
 

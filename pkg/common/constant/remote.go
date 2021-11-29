@@ -20,5 +20,6 @@ package constant
 // env key
 const (
 	Zookeeper string = "zookeeper"
+	Nacos     string = "nacos"
 	Consul    string = "consul"
 )

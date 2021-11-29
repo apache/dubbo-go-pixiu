@@ -12,8 +12,8 @@ samples/dubbogo/simple/server/app/app
 /logs
 /.idea
 /.vscode
-pkg/registry/zookeeper-4unittest/contrib/fatjar
-
+log
+cache
 
 .DS_Store
 vendor/

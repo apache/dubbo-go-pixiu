@@ -21,7 +21,6 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 )
 
 import (
@@ -33,6 +32,7 @@ import (
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 
 	"github.com/pkg/errors"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -122,6 +122,9 @@ func (dc *Client) Apply() error {
 	dgCfg = dg.ConsumerConfig{
 		Check:      new(bool),
 		Registries: make(map[string]*dg.RegistryConfig, 4),
+	}
+	if dc.dubboProxyConfig == nil {
+		return nil
 	}
 	// timeout config
 	dgCfg.Connect_Timeout = dc.dubboProxyConfig.Timeout.ConnectTimeoutStr
@@ -300,11 +303,8 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *dg.Generic
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 	referenceConfig.GenericLoad(key)
-	//TODO: fix it later
-	// sleep to wait invoker create
-	time.Sleep(500 * time.Millisecond)
-	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 
+	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
 	dc.GenericServicePool[key] = clientService
 	return clientService
 }
