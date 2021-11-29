@@ -18,14 +18,12 @@
 package router
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"testing"
 )
-
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
-
 	"github.com/stretchr/testify/assert"
 )
 
