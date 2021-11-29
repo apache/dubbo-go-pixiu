@@ -30,7 +30,9 @@ import (
 	"github.com/apache/dubbo-go/metadata/definition"
 	dr "github.com/apache/dubbo-go/registry"
 	"github.com/apache/dubbo-go/remoting/zookeeper/curator_discovery"
+
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
@@ -131,7 +133,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", asl.servicePath, err.Error())
 		// disable the API
 		for _, url := range asl.urls {
-			bkConf, _, _ := registry.ParseDubboString(url.(string))
+			bkConf, _, _, _ := registry.ParseDubboString(url.(string))
 			apiPattern := registry.GetAPIPattern(bkConf)
 
 			if err := asl.adapterListener.OnDeleteRouter(config.Resource{Path: apiPattern}); err != nil {
@@ -143,7 +145,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 
 	asl.urls = asl.getUrls(fetchChildren[0])
 	for _, url := range asl.urls {
-		bkConfig, _, err := registry.ParseDubboString(url.(string))
+		bkConfig, _, location, err := registry.ParseDubboString(url.(string))
 		if err != nil {
 			logger.Warnf("Parse dubbo interface provider %s failed; due to %s", url.(string), err.Error())
 			continue
@@ -169,7 +171,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 			},
 		}
 		for i := range methods {
-			api := registry.CreateAPIConfig(apiPattern, bkConfig, methods[i], mappingParams)
+			api := registry.CreateAPIConfig(apiPattern, location, bkConfig, methods[i], mappingParams)
 			if err := asl.adapterListener.OnAddAPI(api); err != nil {
 				logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
 			}

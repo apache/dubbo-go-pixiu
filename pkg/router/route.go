@@ -61,6 +61,28 @@ func (rt *Route) ClearAPI() error {
 	return nil
 }
 
+func (r *Route) RemoveAPI(api router.API) {
+	fullPath := api.URLPattern
+	node, ok := r.findNode(fullPath)
+	if !ok {
+		return
+	}
+	if tempMethod, ok := node.methods[api.HTTPVerb]; ok {
+		splitedURLs := strings.Split(tempMethod.IntegrationRequest.HTTPBackendConfig.URL, ",")
+		afterRemoveedURL := make([]string, 0, len(splitedURLs))
+		for _, v := range splitedURLs {
+			if v != api.IntegrationRequest.HTTPBackendConfig.URL {
+				afterRemoveedURL = append(afterRemoveedURL, v)
+			}
+		}
+		if len(afterRemoveedURL) == 0 {
+			delete(node.methods, api.HTTPVerb)
+		}
+		node.methods[api.HTTPVerb].IntegrationRequest.HTTPBackendConfig.URL = strings.Join(afterRemoveedURL, ",")
+		return
+	}
+}
+
 // PutAPI puts an api into the resource
 func (rt *Route) PutAPI(api router.API) error {
 	fullPath := api.URLPattern
@@ -85,8 +107,19 @@ func (rt *Route) PutAPI(api router.API) error {
 }
 
 func (node *Node) putMethod(method config.Method, headers map[string]string) error {
-	if _, ok := node.methods[method.HTTPVerb]; ok {
-		return errors.Errorf("Method %s already exists in path %s", method.HTTPVerb, node.fullPath)
+	// todo lock
+	if tempMethod, ok := node.methods[method.HTTPVerb]; ok {
+		splitedURLs := strings.Split(tempMethod.IntegrationRequest.HTTPBackendConfig.URL, ",")
+		for _, v := range splitedURLs {
+			if v == method.IntegrationRequest.HTTPBackendConfig.URL {
+				return errors.Errorf("Method %s with address %s already exists in path %s",
+					method.HTTPVerb, v, node.fullPath)
+			}
+		}
+		splitedURLs = append(splitedURLs, method.IntegrationRequest.HTTPBackendConfig.URL)
+		node.methods[method.HTTPVerb].IntegrationRequest.HTTPBackendConfig.URL = strings.Join(splitedURLs, ",")
+		node.headers = headers
+		return nil
 	}
 	node.methods[method.HTTPVerb] = &method
 	node.headers = headers
