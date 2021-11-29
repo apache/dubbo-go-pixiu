@@ -54,6 +54,10 @@ type Node struct {
 	bizInfo          interface{}      // route info and any other info store here.
 }
 
+func (trie *Trie) Clear() bool {
+	return trie.root.Clear()
+}
+
 //IsEmpty put key and values into trie as map.
 func (trie *Trie) IsEmpty() bool {
 	return trie.root.IsEmpty()
@@ -164,6 +168,17 @@ func (node *Node) internalPut(keys []string, bizInfo interface{}) (bool, error) 
 		return node.children[key].internalPut(childKeys, bizInfo)
 	}
 
+}
+
+func (node *Node) Clear() bool {
+	node.children = nil
+	node.matchStr = ""
+	node.PathVariableNode = nil
+	node.PathVariablesSet = nil
+	node.MatchAllNode = nil
+	node.endOfPath = false
+	node.bizInfo = nil
+	return true
 }
 
 //IsEmpty return true if empty
