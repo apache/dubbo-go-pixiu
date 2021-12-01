@@ -88,7 +88,6 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 		if strings.HasPrefix(path, rule.Match.Prefix) {
 			router = true
 			if f.validAny(rule, ctx) || f.validAll(rule, ctx) {
-				ctx.Next()
 				router = false
 				break
 			}
