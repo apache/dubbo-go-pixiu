@@ -89,6 +89,7 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 			router = true
 			if f.validAny(rule, ctx) || f.validAll(rule, ctx) {
 				ctx.Next()
+				router = false
 				break
 			}
 		}
