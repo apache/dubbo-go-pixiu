@@ -6,6 +6,7 @@ require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
 	github.com/MicahParks/keyfunc v0.10.0
 	github.com/RoaringBitmap/roaring v0.7.1 // indirect
+	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
 	github.com/apache/dubbo-go-hessian2 v1.9.5
