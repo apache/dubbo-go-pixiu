@@ -18,6 +18,10 @@
 package dubboregistry
 
 import (
+	"os"
+)
+
+import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 )
@@ -93,8 +97,12 @@ func (a *Adapter) Stop() {
 // Apply inits the registries according to the configuration
 func (a *Adapter) Apply() error {
 	// create registry per config
+	nacosAddrFromEnv := os.Getenv(constant.EnvDubbogoPixiuNacosRegistryAddress)
 	for k, registryConfig := range a.cfg.Registries {
 		var err error
+		if nacosAddrFromEnv != "" && registryConfig.Protocol == constant.Nacos {
+			registryConfig.Address = nacosAddrFromEnv
+		}
 		a.registries[k], err = registry.GetRegistry(k, registryConfig, a)
 		if err != nil {
 			return err
