@@ -67,7 +67,6 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	if len(c.Filters) > 0 {
 		c.Next()
-		c.WriteHeaderNow()
 		return
 	}
 	// TODO redirect
