@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package server
+package listener
 
 import (
 	"net/http/httptest"
@@ -27,14 +27,14 @@ import (
 )
 
 func getTestContext() *ctxHttp.HttpContext {
-	l := ListenerService{
-		cfg: &model.Listener{
-			Name: "test",
+	l := BaseListenerService{
+		Config: &model.Listener{
+			Name:     "test",
+			Protocol: model.ProtocolTypeHTTP,
 			Address: model.Address{
 				SocketAddress: model.SocketAddress{
-					Protocol: model.ProtocolTypeHTTP,
-					Address:  "0.0.0.0",
-					Port:     8888,
+					Address: "0.0.0.0",
+					Port:    8888,
 				},
 			},
 			FilterChains: []model.FilterChain{},
@@ -42,7 +42,7 @@ func getTestContext() *ctxHttp.HttpContext {
 	}
 
 	hc := &ctxHttp.HttpContext{
-		Listener: l.cfg,
+		Listener: l.Config,
 		Filters:  []ctxHttp.FilterFunc{},
 	}
 	hc.ResetWritermen(httptest.NewRecorder())

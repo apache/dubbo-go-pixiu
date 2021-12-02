@@ -16,9 +16,9 @@ This document mainly describes the pixiu config abstraction, there is a example 
 static_resources:
   listeners:
     - name: "net/http"
+      protocol_type: "HTTP"
       address:
         socket_address:
-          protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 8888
       filter_chains:

@@ -84,12 +84,12 @@ func TestMain(m *testing.M) {
 		StaticResources: model.StaticResources{
 			Listeners: []*model.Listener{
 				{
-					Name: "net/http",
+					Name:        "net/http",
+					ProtocolStr: "HTTPS",
 					Address: model.Address{
 						SocketAddress: model.SocketAddress{
-							ProtocolStr: "HTTPS",
-							Address:     "0.0.0.0",
-							Port:        443,
+							Address: "0.0.0.0",
+							Port:    443,
 						},
 					},
 					Config: model.HttpConfig{
