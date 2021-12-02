@@ -20,9 +20,9 @@
 static_resources:
   listeners:
     - name: "net/http"
+      protocol_type: "HTTPS"
       address:
         socket_address:
-          protocol_type: "HTTPS"
           domains:
             - "sample.domain.com"
             - "sample.domain-1.com"

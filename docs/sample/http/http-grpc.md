@@ -8,9 +8,9 @@
 static_resources:
   listeners:
     - name: "net/http"
+      protocol_type: "HTTP"
       address:
         socket_address:
-          protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 8881
       filter_chains:

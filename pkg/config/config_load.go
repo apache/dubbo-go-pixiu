@@ -113,10 +113,10 @@ func GetProtocol(cfg *model.Bootstrap) (err error) {
 		return err
 	}
 	for _, l := range cfg.StaticResources.Listeners {
-		if l.Address.SocketAddress.ProtocolStr == "" {
-			l.Address.SocketAddress.ProtocolStr = constant.DefaultProtocolType
+		if l.ProtocolStr == "" {
+			l.ProtocolStr = constant.DefaultProtocolType
 		}
-		l.Address.SocketAddress.Protocol = model.ProtocolType(model.ProtocolTypeValue[l.Address.SocketAddress.ProtocolStr])
+		l.Protocol = model.ProtocolType(model.ProtocolTypeValue[l.ProtocolStr])
 	}
 	return nil
 }
