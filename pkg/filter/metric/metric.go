@@ -92,7 +92,8 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
 	atomic.AddInt64(&totalCount, 1)
 
-	logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.StatusCode(), latency, c.GetMethod(), c.GetUrl())
+	//todo status code
+	logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", nil, latency, c.GetMethod(), c.GetUrl())
 }
 
 func registerOtelMetric() {
