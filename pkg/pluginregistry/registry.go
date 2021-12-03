@@ -33,6 +33,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/proxyrewrite"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/grpcconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/response"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/seata"

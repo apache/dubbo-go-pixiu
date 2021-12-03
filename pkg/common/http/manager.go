@@ -45,7 +45,7 @@ type HttpConnectionManager struct {
 // CreateHttpConnectionManager create http connection manager
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *model.Bootstrap) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
-	hcm.routerCoordinator = router2.CreateRouterCoordinator(hcmc)
+	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
 	hcm.filterManager.Load()
 	return hcm
