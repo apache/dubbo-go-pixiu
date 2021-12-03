@@ -9,6 +9,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/pkg/errors"
+	ggrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"net/http"
 )
 
@@ -17,6 +20,8 @@ type GrpcConnectionManager struct {
 	config            *model.GRPCConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *filter.FilterManager
+
+	serverClientConn map[string][ggrpc.ClientConn]
 }
 
 // CreateHttpConnectionManager create http connection manager
@@ -27,18 +32,38 @@ func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig, bs *mo
 }
 
 // OnData receive data from listener
-func (hcm *GrpcConnectionManager) OnData(hc *pch.HttpContext) error {
-	hc.Ctx = context.Background()
-	err := hcm.findRoute(hc)
+func (gcm *GrpcConnectionManager) OnData(hc *pch.HttpContext) error {
+	panic("grpc connection manager OnData function shouldn't be called")
+}
+
+func (gcm *GrpcConnectionManager) handler(srv interface{}, ss ggrpc.ServerStream) error {
+
+	fullMethodName, ok := ggrpc.MethodFromServerStream(ss)
+	if !ok {
+		return ggrpc.Errorf(codes.Internal, "handler not found method name")
+	}
+
+	err := gcm.findRoute()
 	if err != nil {
 		return err
 	}
 
+	ctx := ss.Context()
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		logger.Infof("GrpcConnectionManager handler grpc FromIncomingContext not ok")
+	}
+
+	outCtx, _ := context.WithCancel(ctx)
+	outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
+
+
+
 	return nil
 }
 
-func (hcm *GrpcConnectionManager) findRoute(hc *pch.HttpContext) error {
-	ra, err := hcm.routerCoordinator.Route(hc)
+func (gcm *GrpcConnectionManager) findRoute(hc *pch.HttpContext) error {
+	ra, err := gcm.routerCoordinator.Route(hc)
 	if err != nil {
 		if _, err := hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
 			logger.Warnf("WriteWithStatus error %s", err)

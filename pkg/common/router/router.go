@@ -57,6 +57,13 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 	return rm.activeConfig.Route(hc.Request)
 }
 
+func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.RouteAction, error) {
+	rm.rw.RLock()
+	defer rm.rw.RUnlock()
+
+	return rm.activeConfig.Route(hc.Request)
+}
+
 func getTrieKey(method string, path string, isPrefix bool) string {
 	if isPrefix {
 		if !strings.HasSuffix(path, constant.PathSlash) {
