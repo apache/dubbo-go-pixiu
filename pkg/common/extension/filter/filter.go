@@ -19,6 +19,7 @@ package filter
 
 import (
 	"fmt"
+	stdHttp "net/http"
 )
 
 import (
@@ -66,6 +67,7 @@ type (
 	NetworkFilter interface {
 		// OnData handle the http context from worker
 		OnData(hc *http.HttpContext) error
+		ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request)
 	}
 )
 

@@ -31,6 +31,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.1
+	github.com/gorilla/mux v1.7.3
 	go.opentelemetry.io/otel v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/prometheus v0.21.0

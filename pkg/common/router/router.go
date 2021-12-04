@@ -61,7 +61,7 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 	rm.rw.RLock()
 	defer rm.rw.RUnlock()
 
-	return rm.activeConfig.Route(hc.Request)
+	return rm.activeConfig.RouteByPathAndMethod(path, method)
 }
 
 func getTrieKey(method string, path string, isPrefix bool) string {

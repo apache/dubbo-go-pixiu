@@ -58,11 +58,11 @@ type (
 
 	// Listener is a server, listener a port
 	Listener struct {
-		Name         string        `yaml:"name" json:"name" mapstructure:"name"`
-		Address      Address       `yaml:"address" json:"address" mapstructure:"address"`
-		ProtocolStr  string        `default:"http" yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`
-		Protocol     ProtocolType  `default:"http" yaml:"omitempty" json:"omitempty"`
-		FilterChains []FilterChain `yaml:"filter_chains" json:"filter_chains" mapstructure:"filter_chains"`
-		Config       interface{}   `yaml:"config" json:"config" mapstructure:"config"`
+		Name        string       `yaml:"name" json:"name" mapstructure:"name"`
+		Address     Address      `yaml:"address" json:"address" mapstructure:"address"`
+		ProtocolStr string       `default:"http" yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`
+		Protocol    ProtocolType `default:"http" yaml:"omitempty" json:"omitempty"`
+		FilterChain FilterChain  `yaml:"filter_chains" json:"filter_chains" mapstructure:"filter_chains"`
+		Config      interface{}  `yaml:"config" json:"config" mapstructure:"config"`
 	}
 )

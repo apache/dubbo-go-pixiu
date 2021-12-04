@@ -19,7 +19,7 @@ package listener
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/grpc"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/model"

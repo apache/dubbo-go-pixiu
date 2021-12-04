@@ -63,16 +63,14 @@ func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *filter.NetworkF
 }
 
 func findHttpManager(l *model.Listener) *model.HttpConnectionManagerConfig {
-	for _, fc := range l.FilterChains {
-		for _, f := range fc.Filters {
-			if f.Name == constant.HTTPConnectManagerFilter {
-				hcmc := &model.HttpConnectionManagerConfig{}
-				if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
-					return nil
-				}
-
-				return hcmc
+	for _, f := range l.FilterChain.Filters {
+		if f.Name == constant.HTTPConnectManagerFilter {
+			hcmc := &model.HttpConnectionManagerConfig{}
+			if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
+				return nil
 			}
+
+			return hcmc
 		}
 	}
 
@@ -184,7 +182,7 @@ func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		s.pool.Put(hc)
-		logger.Errorf("ServeHTTP %s", err)
+		logger.Errorf("ServeHTTP %v", err)
 	}
 }
 
