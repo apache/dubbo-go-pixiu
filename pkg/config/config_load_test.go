@@ -105,7 +105,7 @@ func TestMain(m *testing.M) {
 									"api.pixiu.com",
 								},
 							},
-							Filters: []model.Filter{
+							Filters: []model.NetworkFilter{
 								{
 									Name:   "dgp.filter.httpconnectionmanager",
 									Config: inInterface,

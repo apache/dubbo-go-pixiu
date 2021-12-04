@@ -29,10 +29,6 @@ static_resources:
             - "sample.domain-2.com"
           certs_dir: $PROJECT_DIR/cert
       filter_chains:
-        - filter_chain_match:
-          domains:
-            - api.dubbo.com
-            - api.pixiu.com
           filters:
             - name: dgp.filter.httpconnectionmanager
               config:
