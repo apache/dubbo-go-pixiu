@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
-	github.com/MicahParks/keyfunc v0.10.0
+	github.com/MicahParks/keyfunc v0.10.1-0.20211203185044-1ed9d36ab59c
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
