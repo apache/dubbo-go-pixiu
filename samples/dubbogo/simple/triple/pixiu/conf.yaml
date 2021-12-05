@@ -42,7 +42,6 @@ static_resources:
                   - name: dgp.filter.http.dubboproxy
                   - name: dgp.filter.http.response
                     config:
-                      server_name: "test_http_dubbo"
                       generate_request_id: false
       config:
         idle_timeout: 5s
@@ -62,4 +61,4 @@ static_resources:
         registries:
           nacos:
             protocol: nacos
-            address: mse-be245cc0-p.nacos-ans.mse.aliyuncs.com:8848
+            address:  dubbo-go-nacos:8848

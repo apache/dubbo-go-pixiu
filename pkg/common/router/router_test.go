@@ -19,7 +19,6 @@ package router
 
 import (
 	"bytes"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"net/http"
 	"testing"
 )
@@ -29,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
