@@ -18,12 +18,15 @@
 package server
 
 import (
+	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"runtime/debug"
 )
 
 type ListenerManager struct {
 	activeListener        []*model.Listener
 	activeListenerService []*ListenerService
+	bootstrap             *model.Bootstrap
 }
 
 func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
@@ -37,17 +40,50 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	return &ListenerManager{
 		activeListener:        sl,
 		activeListenerService: ls,
+		bootstrap:             bs,
 	}
 }
 
-func (lm *ListenerManager) addOrUpdateListener(l *model.Listener) {
+func (lm *ListenerManager) AddOrUpdateListener(l *model.Listener) {
+	if theListener := lm.getListener(l.Name); theListener != nil {
+		//todo to implement update
+		panic("to implement")
+	}
+	listener := CreateListenerService(l, lm.bootstrap)
+	lm.startListenerServiceAsync(listener)
+	lm.addListenerService(listener)
 	lm.activeListener = append(lm.activeListener, l)
+}
+
+func (lm *ListenerManager) getListener(name string) *model.Listener {
+	for _, l := range lm.activeListener {
+		if l.Name == name {
+			return l
+		}
+	}
+	return nil
 }
 
 func (lm *ListenerManager) StartListen() {
 	for _, s := range lm.activeListenerService {
-		go s.Start()
+		lm.startListenerServiceAsync(s)
 	}
+}
+
+func (lm *ListenerManager) startListenerServiceAsync(s *ListenerService) chan<- struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer func() {
+			panicErr := recover()
+			if panicErr != nil {
+				logger.Errorf("recover from panic %v", panicErr)
+				debug.PrintStack()
+			}
+			close(done)
+		}()
+		s.Start()
+	}()
+	return done
 }
 
 func (lm *ListenerManager) addListenerService(ls *ListenerService) {

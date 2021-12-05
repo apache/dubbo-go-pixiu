@@ -128,17 +128,39 @@ type (
 		CertsDir     string       `yaml:"certs_dir" json:"certs_dir" mapstructure:"certs_dir"`
 	}
 
-	// ConfigSource
+	// ConfigSource todo remove un-used
 	ConfigSource struct {
 		Path            string          `yaml:"path" json:"path" mapstructure:"path"`
 		ApiConfigSource ApiConfigSource `yaml:"api_config_source" json:"api_config_source" mapstructure:"api_config_source"`
 	}
 
-	// ApiConfigSource
+	// ApiConfigSource config the api info. compatible with envoy xDS API
+	//	{
+	//  "api_type": "...",
+	//  "transport_api_version": "...",
+	//  "cluster_names": [],
+	//  "grpc_services": [],
+	//  "refresh_delay": "{...}",
+	//  "request_timeout": "{...}",
+	//  "rate_limit_settings": "{...}",
+	//  "set_node_on_first_message_only": "..."
+	//	}
 	ApiConfigSource struct {
-		APIType     api.ApiType `yaml:"omitempty" json:"omitempty"`
-		APITypeStr  string      `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
-		ClusterName []string    `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
+		APIType        api.ApiType   `yaml:"omitempty" json:"omitempty"`
+		APITypeStr     string        `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
+		ClusterName    []string      `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
+		RefreshDelay   string        `yaml:"refresh_delay" json:"refresh_delay" mapstructure:"refresh_delay"`
+		RequestTimeout string        `yaml:"request_timeout" json:"request_timeout" mapstructure:"request_timeout"`
+		GrpcServices   []GrpcService `yaml:"grpc_services" json:"grpc_services" mapstructure:"grpc_services"`
+		//rate_limit_settings todo implement
+		//set_node_on_first_message_only todo implement
+
+	}
+
+	// GrpcService define grpc service context
+	GrpcService struct {
+		Timeout         string        `yaml:"timeout" json:"timeout" mapstructure:"timeout"`
+		InitialMetadata []HeaderValue `yaml:"initial_metadata" json:"initial_metadata" mapstructure:"initial_metadata"`
 	}
 
 	// HeaderValueOption

@@ -20,6 +20,7 @@ package pluginregistry
 import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/xds"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/cors"

@@ -1,0 +1,8 @@
+syntax = "proto3";
+package pixiu.api.v1;
+
+// Adapter the adapter plugin for manage cluster or router
+message Adapter {
+	string id = 1;
+	string name = 2;
+}

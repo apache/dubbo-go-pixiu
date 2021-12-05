@@ -63,7 +63,7 @@ type (
 		prePickEndpointIndex int
 	}
 
-	// EdsClusterConfig
+	// EdsClusterConfig todo remove un-used EdsClusterConfig
 	EdsClusterConfig struct {
 		EdsConfig   ConfigSource `yaml:"eds_config" json:"eds_config" mapstructure:"eds_config"`
 		ServiceName string       `yaml:"service_name" json:"service_name" mapstructure:"service_name"`
@@ -83,7 +83,7 @@ type (
 
 	// Endpoint
 	Endpoint struct {
-		ID      string        `yaml:"ID" json:"ID"`     // ID indicate one endpoint
+		ID      string        `yaml:"Id" json:"Id"`     // ID indicate one endpoint
 		Name    string        `yaml:"name" json:"name"` // Name the cluster unique name
 		Address SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
 		// extra info such as label or other meta data
