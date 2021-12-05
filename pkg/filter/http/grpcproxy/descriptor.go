@@ -60,9 +60,6 @@ func (dr *Descriptor) getDescriptorSource(ctx context.Context, cfg *Config) (Des
 	var ds DescriptorSource
 	var err error
 
-	logger.Infof("%s get descriptor source strategy : %s", loggerHeader, cfg.DescriptorSourceStrategy)
-
-	// none, local, remote, compose
 	switch cfg.DescriptorSourceStrategy {
 	case LOCAL:
 		// file only
@@ -96,7 +93,7 @@ func (dr *Descriptor) getDescriptorSource(ctx context.Context, cfg *Config) (Des
 	}
 
 	if err == nil {
-		ctx = context.WithValue(ctx, DescriptorSourceKey, ds)
+		context.WithValue(ctx, DescriptorSourceKey, ds)
 	}
 
 	return ds, err

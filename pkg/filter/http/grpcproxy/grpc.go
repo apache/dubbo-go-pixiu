@@ -74,8 +74,21 @@ const (
 	AUTO
 	LOCAL
 	REMOTE
-
 )
+
+func (c DescriptorSourceStrategy) String() string {
+	switch c {
+	case NONE:
+		return "NONE"
+	case AUTO:
+		return "AUTO"
+	case LOCAL:
+		return "LOCAL"
+	case REMOTE:
+		return "REMOTE"
+	}
+	return "N/A"
+}
 
 type (
 	DescriptorSourceStrategy int
