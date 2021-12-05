@@ -31,3 +31,8 @@ const (
 	EnvDubbogoPixiuLogFormat = "DUBBOGO_PIXIU_LOG_FORMAT"
 	EnvDubbogoPixiuLimitCpus = "DUBBOGO_PIXIU_LIMIT_CPUS"
 )
+
+// registry configuration
+const (
+	EnvDubbogoPixiuNacosRegistryAddress = "NACOS_ADDRESS"
+)
