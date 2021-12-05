@@ -50,11 +50,11 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &Filter{cfg: &mq.Config{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
+func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	ctx.AppendFilterFunc(f.Handle)
 	return nil
 }

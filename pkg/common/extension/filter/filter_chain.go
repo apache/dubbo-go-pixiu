@@ -8,6 +8,7 @@ import (
 type FilterChain interface {
 	AppendDecodeFilters(f ...HttpDecodeFilter)
 	AppendEncodeFilters(f ...HttpEncodeFilter)
+
 	OnDecode(ctx *http.HttpContext)
 	OnEncode(ctx *http.HttpContext)
 }

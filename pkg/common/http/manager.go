@@ -19,6 +19,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 )
 
@@ -65,19 +66,28 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 // handleHTTPRequest handle http request
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	filterChain := hcm.filterManager.CreateFilterChain(c)
-	filterChain.OnDecode(c)
 
-	//c.WriteHeaderNow()
-	// TODO redirect
+	// recover any err when filterChain run
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Warnf("[dubbopixiu go] Occur An Unexpected Err: %+v", err)
+			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("Occur An Unexpected Err: %v", err)))
+		}
+	}()
+
+	//todo timeout
+	filterChain.OnDecode(c)
+	//todo build target response
+	filterChain.OnEncode(c)
+	//todo doResponse
 }
 
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
-		if _, err := hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
-			logger.Warnf("WriteWithStatus error %s", err)
-		}
 		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		hc.SendLocalReply(http.StatusNotFound, constant.Default404Body)
+
 		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
 		logger.Debug(e.Error())
 		return e
