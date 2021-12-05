@@ -22,7 +22,6 @@ import (
 )
 
 type (
-
 	ContextKey string
 
 	// Context run context
