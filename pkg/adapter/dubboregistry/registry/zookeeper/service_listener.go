@@ -50,6 +50,7 @@ type serviceListener struct {
 	exit            chan struct{}
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
+	registryMethod  map[string]*config.Method
 }
 
 // newZkSrvListener creates a new zk service listener
@@ -60,6 +61,7 @@ func newZkSrvListener(url *common.URL, path string, client *zookeeper.ZooKeeperC
 		client:          client,
 		exit:            make(chan struct{}),
 		adapterListener: adapterListener,
+		registryMethod:  make(map[string]*config.Method),
 	}
 }
 
@@ -166,8 +168,14 @@ func (zkl *serviceListener) handleEvent() {
 	apiPattern := registry.GetAPIPattern(bkConfig)
 	for i := range methods {
 		api := registry.CreateAPIConfig(apiPattern, location, bkConfig, methods[i], mappingParams)
+		key := api.URLPattern + ":" + string(api.Method.HTTPVerb)
+		if _, ok := zkl.registryMethod[key]; ok {
+			return
+		}
 		if err := zkl.adapterListener.OnAddAPI(api); err != nil {
 			logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
+		} else {
+			zkl.registryMethod[key] = &api.Method
 		}
 	}
 }
