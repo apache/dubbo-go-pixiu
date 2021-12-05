@@ -27,6 +27,8 @@ array+=("samples/dubbogo/http")
 ##http
 array+=("samples/http/grpc")
 array+=("samples/http/simple")
+## grpc proxy
+array+=("samples/grpc")
 
 for((i=0;i<${#array[*]};i++))
 do

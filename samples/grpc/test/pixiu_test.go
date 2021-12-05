@@ -20,11 +20,14 @@ package test
 import (
 	"context"
 	"flag"
-	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
 	"log"
 	"testing"
 	"time"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 )
 
 import (

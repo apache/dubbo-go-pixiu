@@ -1,12 +1,15 @@
 package filterchain
 
 import (
+	"net/http"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"net/http"
 )
 
 type FilterChain struct {
@@ -16,6 +19,7 @@ type FilterChain struct {
 }
 
 func (fc FilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		filter.ServeHTTP(w, r)
 	}
@@ -24,6 +28,7 @@ func (fc FilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterChain {
 	filtersArray := make([]filter.NetworkFilter, len(config.Filters))
 	// todo: split code block like http filter manager
+	// todo: only one filter will exist for now, needs change when more than one
 	for i, f := range config.Filters {
 		if f.Name == constant.GRPCConnectManagerFilter {
 			gcmc := &model.GRPCConnectionManagerConfig{}

@@ -1,16 +1,22 @@
 package http2
 
 import (
+	"net"
+	"net/http"
+	"strconv"
+)
+
+import (
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-	"net"
-	"net/http"
-	"strconv"
 )
 
 func init() {
