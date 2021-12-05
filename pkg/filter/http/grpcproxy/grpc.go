@@ -47,6 +47,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	ct "github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -196,7 +197,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	}
 
 	// get DescriptorSource, contain file and reflection
-	source, err := f.getDescriptorSource(context.WithValue(c.Ctx, GrpcClientConnKey, clientConn), f.cfg)
+	source, err := f.getDescriptorSource(context.WithValue(c.Ctx, ct.ContextKey(GrpcClientConnKey), clientConn), f.cfg)
 	if err != nil {
 		logger.Errorf("%s err %s : %s ", loggerHeader, "get desc source fail", err)
 		c.Err = perrors.New("service not config proto file or the server not support reflection API")

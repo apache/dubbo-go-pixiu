@@ -20,6 +20,7 @@ package grpcproxy
 import (
 	"context"
 	"fmt"
+	cnt "github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
@@ -41,7 +42,7 @@ type Descriptor struct {
 	fileSource *fileSource
 }
 
-func (dr *Descriptor) GetCurrentDescriptor(ctx context.Context) (DescriptorSource, error) {
+func (dr *Descriptor) GetCurrentDescriptorSource(ctx context.Context) (DescriptorSource, error) {
 
 	value := ctx.Value(DescriptorSourceKey)
 
@@ -70,7 +71,7 @@ func (dr *Descriptor) getDescriptorSource(ctx context.Context, cfg *Config) (Des
 	case REMOTE:
 		// server reflection only
 		var cc *grpc.ClientConn
-		gconn := ctx.Value(GrpcClientConnKey)
+		gconn := ctx.Value(cnt.ContextKey(GrpcClientConnKey))
 		switch t := gconn.(type) {
 		case *grpc.ClientConn:
 			cc = gconn.(*grpc.ClientConn)
@@ -92,9 +93,7 @@ func (dr *Descriptor) getDescriptorSource(ctx context.Context, cfg *Config) (Des
 		err = errors.Errorf("grpc descriptor source not initialized cause the config of `descriptor_source_strategy` is %s, maybe set it `AUTO`", cfg.DescriptorSourceStrategy)
 	}
 
-	if err == nil {
-		context.WithValue(ctx, DescriptorSourceKey, ds)
-	}
+	// ctx = context.WithValue(ctx, ct.ContextKey(DescriptorSourceKey), source)
 
 	return ds, err
 }
