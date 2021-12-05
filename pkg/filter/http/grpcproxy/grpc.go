@@ -18,6 +18,7 @@
 package grpcproxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -59,13 +60,26 @@ const (
 
 	// DescriptorSourceKey current ds
 	DescriptorSourceKey = "DescriptorSource"
+
+	// GrpcClientConnKey the grpc-client-conn by the coroutine local
+	GrpcClientConnKey = "GrpcClientConn"
 )
 
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
 
+const (
+	NONE DescriptorSourceStrategy = iota    // dss enum 0
+	AUTO
+	LOCAL
+	REMOTE
+
+)
+
 type (
+	DescriptorSourceStrategy int
+
 	// Plugin is grpc filter plugin.
 	Plugin struct {
 	}
@@ -83,7 +97,7 @@ type (
 
 	// Config describe the config of AccessFilter
 	Config struct {
-		//DescriptorSourceStrategy string `yaml:"descriptor_source_strategy" json:"descriptor_source_strategy"`
+		DescriptorSourceStrategy DescriptorSourceStrategy `yaml:"descriptor_source_strategy" json:"descriptor_source_strategy"`
 		Path  string  `yaml:"path" json:"path"`
 		Rules []*Rule `yaml:"rules" json:"rules"` //nolint
 	}
@@ -169,7 +183,13 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	}
 
 	// get DescriptorSource, contain file and reflection
-	source := f.getDescriptorByGrpcReflect(c.Ctx, clientConn)
+	source, err := f.getDescriptorSource(context.WithValue(c.Ctx, GrpcClientConnKey, clientConn), f.cfg)
+	if err != nil {
+		logger.Errorf("%s err %s : %s ", loggerHeader, "get desc source fail", err)
+		c.Err = perrors.New("service not config proto file or the server not support reflection API")
+		c.Next()
+		return
+	}
 
 	dscp, err := source.FindSymbol(svc)
 	if err != nil {
@@ -220,7 +240,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq, grpc.Header(&md), grpc.Trailer(&t))
 	// judge err is server side error or not
 	if st, ok := status.FromError(err); !ok || isServerError(st) {
-		logger.Error("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
+		logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
 		return
@@ -228,7 +248,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 
 	res, err := protoMsgToJson(resp)
 	if err != nil {
-		logger.Error("%s err {failed to convert proto msg to json, %s}", loggerHeader, err.Error())
+		logger.Errorf("%s err {failed to convert proto msg to json, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
 		return
