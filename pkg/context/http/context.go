@@ -48,12 +48,16 @@ type HttpContext struct {
 	Ctx     context.Context
 	Params  map[string]interface{}
 
+	// It's localReply
+	localReply bool
+	// status code will be return
+	status int
+	// happen error
+	Err error
 	// the response context will return.
 	TargetResp *client.Response
 	// client call response.
 	SourceResp interface{}
-	// happen error
-	Err error
 
 	HttpConnectionManager model.HttpConnectionManagerConfig
 	Listener              *model.Listener
@@ -99,11 +103,6 @@ func (hc *HttpContext) Reset() {
 	hc.SourceResp = nil
 }
 
-// Status set header status code
-func (hc *HttpContext) Status(code int) {
-	hc.Writer.WriteHeader(code)
-}
-
 // RouteEntry set route
 func (hc *HttpContext) RouteEntry(r *model.RouteAction) {
 	hc.Route = r
@@ -112,17 +111,6 @@ func (hc *HttpContext) RouteEntry(r *model.RouteAction) {
 // GetRouteEntry get route
 func (hc *HttpContext) GetRouteEntry() *model.RouteAction {
 	return hc.Route
-}
-
-// Write write body data
-func (hc *HttpContext) Write(b []byte) (int, error) {
-	return hc.Writer.Write(b)
-}
-
-// WriteWithStatus status must set first
-func (hc *HttpContext) WriteWithStatus(code int, b []byte) (int, error) {
-	hc.Writer.WriteHeader(code)
-	return hc.Writer.Write(b)
 }
 
 // AddHeader add header
@@ -183,6 +171,20 @@ func (hc *HttpContext) GetApplicationName() string {
 	return ""
 }
 
+// SendLocalReply
+func (hc *HttpContext) SendLocalReply(status int, body []byte) {
+	hc.status = status
+	hc.TargetResp = &client.Response{Data: body}
+
+	hc.doWrite(nil, status, body)
+}
+
+// WriteWithStatus status must set first
+func (hc *HttpContext) WriteWithStatus(code int, b []byte) (int, error) {
+	hc.Writer.WriteHeader(code)
+	return hc.Writer.Write(b)
+}
+
 // WriteJSONWithStatus write fail, auto add context-type json.
 func (hc *HttpContext) WriteJSONWithStatus(code int, res interface{}) {
 	hc.doWriteJSON(nil, code, res)
@@ -191,11 +193,6 @@ func (hc *HttpContext) WriteJSONWithStatus(code int, res interface{}) {
 // WriteErr
 func (hc *HttpContext) WriteErr(p interface{}) {
 	hc.doWriteJSON(nil, http.StatusInternalServerError, p)
-}
-
-// WriteSuccess
-func (hc *HttpContext) WriteSuccess() {
-	hc.doWriteJSON(nil, http.StatusOK, nil)
 }
 
 // WriteResponse
@@ -244,17 +241,12 @@ func (hc *HttpContext) GetAPI() *router.API {
 	return hc.Api
 }
 
-// Abort  filter chain break , filter after the current filter will not executed.
+// Deprecated: Abort  filter chain break , filter after the current filter will not executed.
 func (hc *HttpContext) Abort() {
 	hc.Index = abortIndex
 }
 
-// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
-func (hc *HttpContext) AbortWithError(message string, err error) {
-	hc.Abort()
-}
-
-// AppendFilterFunc  append filter func.
+// Deprecated: AppendFilterFunc append filter func.
 func (hc *HttpContext) AppendFilterFunc(ff ...FilterFunc) {
 	for _, v := range ff {
 		hc.Filters = append(hc.Filters, v)
