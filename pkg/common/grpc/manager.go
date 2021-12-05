@@ -3,9 +3,11 @@ package grpc
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -13,12 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 	"io/ioutil"
-	stdHttp "net/http"
-	"strings"
 	"net"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"encoding/json"
-	"time"
+	stdHttp "net/http"
 )
 
 // HttpConnectionManager network filter for http
@@ -41,7 +39,6 @@ func (gcm *GrpcConnectionManager) OnData(hc *pch.HttpContext) error {
 }
 
 func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
-	logger.Info("GrpcConnectionManager ServeHTTP")
 
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
@@ -80,51 +77,49 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 	if err != nil {
 		logger.Info("GrpcConnectionManager forward request error %v", err)
+		bt, _ := json.Marshal(http.ErrResponse{Message: "pixiu forward error"})
+		w.WriteHeader(stdHttp.StatusServiceUnavailable)
+		w.Write(bt)
+		return
 	}
 
-	inres := new(stdHttp.Response)
-	*inres = *res
-	inres.StatusCode = res.StatusCode
-	inres.ContentLength = res.ContentLength
-
-	if err := gcm.response(w, inres); err != nil {
-
+	if err := gcm.response(w, res); err != nil {
+		logger.Info("GrpcConnectionManager response  error %v", err)
 	}
 }
 
-func (gmc *GrpcConnectionManager) response(w stdHttp.ResponseWriter, res *stdHttp.Response) error{
+func (gcm *GrpcConnectionManager) response(w stdHttp.ResponseWriter, res *stdHttp.Response) error {
+	defer res.Body.Close()
+
 	copyHeader(w.Header(), res.Header)
-
-	announcedTrailers := len(res.Trailer)
-	if announcedTrailers > 0 {
-		trailerKeys := make([]string, 0, len(res.Trailer))
-		for k := range res.Trailer {
-			trailerKeys = append(trailerKeys, k)
-		}
-		w.Header().Add("Trailer", strings.Join(trailerKeys, ", "))
-	}
-
 	w.WriteHeader(res.StatusCode)
+
 	byts, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
 	w.Write(byts)
+
+	for k, vv := range res.Trailer {
+		k = stdHttp.TrailerPrefix + k
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
 	return nil
 }
 
-func (gcm *GrpcConnectionManager) newHttpForwarder() * HttpForwarder{
+func (gcm *GrpcConnectionManager) newHttpForwarder() *HttpForwarder {
 	transport := &http2.Transport{
 		DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
 			return net.Dial(network, addr)
 		},
 		AllowHTTP: true,
 	}
-	return &HttpForwarder{ transport: transport}
+	return &HttpForwarder{transport: transport}
 }
 
 func copyHeader(dst, src stdHttp.Header) {
-
 	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)

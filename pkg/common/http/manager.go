@@ -19,7 +19,7 @@ package http
 
 import (
 	"context"
-	"net/http"
+	stdHttp "net/http"
 )
 
 import (
@@ -63,6 +63,10 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	return nil
 }
 
+func (gcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
+
+}
+
 // handleHTTPRequest handle http request
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	if len(c.Filters) > 0 {
@@ -84,7 +88,7 @@ func (hcm *HttpConnectionManager) addFilter(ctx *pch.HttpContext) {
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
-		if _, err := hc.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
+		if _, err := hc.WriteWithStatus(stdHttp.StatusNotFound, constant.Default404Body); err != nil {
 			logger.Warnf("WriteWithStatus error %s", err)
 		}
 		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)

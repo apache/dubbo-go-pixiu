@@ -6,7 +6,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/gorilla/mux"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"net"
@@ -21,15 +20,15 @@ func init() {
 type (
 	// ListenerService the facade of a listener
 	Http2ListenerService struct {
-		Config  *model.Listener
-		listener         net.Listener
-		server  *http.Server
-		fc *filterchain.FilterChain
+		Config   *model.Listener
+		listener net.Listener
+		server   *http.Server
+		fc       *filterchain.FilterChain
 	}
 )
 
 type handleWrapper struct {
-	router *mux.Router
+	fc *filterchain.FilterChain
 }
 
 type h2cWrapper struct {
@@ -40,17 +39,17 @@ type h2cWrapper struct {
 func (h *h2cWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.h.ServeHTTP(w, r)
 }
+
 // 转发 grpc 的请求
 func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.router.ServeHTTP(w, r)
-
+	h.fc.ServeHTTP(w, r)
 }
 
 func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
-	return &Http2ListenerService {
-		Config:  lc,
-		fc: fc,
+	return &Http2ListenerService{
+		Config: lc,
+		fc:     fc,
 	}, nil
 }
 
@@ -69,18 +68,16 @@ func (ls Http2ListenerService) Start() error {
 	}
 	ls.listener = l
 
-	var h http.Handler
-	router := mux.NewRouter()
-	h = &handleWrapper{router}
+	handlerWrapper := &handleWrapper{ls.fc}
 	h2s := &http2.Server{}
-	h = &h2cWrapper{
-		w: h.(*handleWrapper),
-		h: h2c.NewHandler(h, h2s),
+	h := &h2cWrapper{
+		w: handlerWrapper,
+		h: h2c.NewHandler(handlerWrapper, h2s),
 	}
 
 	ls.server = &http.Server{
-		Addr:         addr,
-		Handler:      h,
+		Addr:    addr,
+		Handler: h,
 	}
 
 	go ls.server.Serve(ls.listener)

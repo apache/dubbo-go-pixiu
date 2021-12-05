@@ -34,7 +34,7 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	for _, l := range bs.StaticResources.Listeners {
 		listener, err := listener.CreateListenerService(l, bs)
 		if err != nil {
-			logger.Infof("CreateDefaultListenerManager %s error: %s", l.Name, err)
+			logger.Error("CreateDefaultListenerManager %s error: %v", l.Name, err)
 		}
 		ls = append(ls, listener)
 	}
