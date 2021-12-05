@@ -97,19 +97,11 @@ func TestMain(m *testing.M) {
 						WriteTimeoutStr: "5s",
 						ReadTimeoutStr:  "5s",
 					},
-					FilterChains: []model.FilterChain{
-						{
-							FilterChainMatch: model.FilterChainMatch{
-								Domains: []string{
-									"api.dubbo.com",
-									"api.pixiu.com",
-								},
-							},
-							Filters: []model.NetworkFilter{
-								{
-									Name:   "dgp.filter.httpconnectionmanager",
-									Config: inInterface,
-								},
+					FilterChain: model.FilterChain{
+						Filters: []model.NetworkFilter{
+							{
+								Name:   "dgp.filter.httpconnectionmanager",
+								Config: inInterface,
 							},
 						},
 					},
