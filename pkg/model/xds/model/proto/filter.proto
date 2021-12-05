@@ -1,0 +1,23 @@
+syntax = "proto3";
+package pixiu.api.v1;
+
+// Filter core struct, filter is extend by user
+message Filter {
+	string name = 1;
+}
+
+// FilterChain filter chain
+message FilterChain {
+	pixiu.api.v1.FilterChainMatch filter_chain_match = 1;
+	repeated pixiu.api.v1.Filter filters = 2;
+}
+
+// FilterChainMatch
+message FilterChainMatch {
+	repeated string domains = 1;
+}
+
+// HTTPFilter http filter
+message HTTPFilter {
+	string name = 1;
+}

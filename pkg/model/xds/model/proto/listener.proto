@@ -1,0 +1,12 @@
+syntax = "proto3";
+package pixiu.api.v1;
+
+import "address.proto";
+import "filter.proto";
+
+// Listener is a server, listener a port
+message Listener {
+	string name = 1;
+	pixiu.api.v1.Address address = 2 ;
+	repeated pixiu.api.v1.FilterChain filter_chains = 3 ;
+}

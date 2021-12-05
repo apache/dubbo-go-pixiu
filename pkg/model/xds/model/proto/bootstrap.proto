@@ -1,0 +1,51 @@
+syntax = "proto3";
+package pixiu.api.v1;
+
+import "address.proto";
+import "cluster.proto";
+import "adapter.proto";
+import "listener.proto";
+
+
+option go_package = "model";
+
+// HeaderValue
+message HeaderValue {
+	string key = 1;
+	string value = 2;
+}
+
+// Tracing
+message Http {
+	string name = 1;
+}
+
+// Metirc config for otel metric.
+message Metric {
+	bool enable = 1;
+	int64 prometheus_port = 2;
+}
+
+message PprofConf {
+	bool enable = 1;
+	pixiu.api.v1.Address address = 2;
+}
+
+// ShutdownConfig how to shutdown server.
+message ShutdownConfig {
+	string timeout = 1;
+	string step_timeout = 2;
+	string reject_policy = 3;
+}
+
+
+
+// StaticResources
+message StaticResources {
+	repeated pixiu.api.v1.Listener listeners = 1;
+	repeated pixiu.api.v1.Cluster clusters = 2;
+	repeated pixiu.api.v1.Adapter adapters = 3;
+	pixiu.api.v1.ShutdownConfig shutdown_config = 4;
+	pixiu.api.v1.PprofConf pprof_conf = 5;
+}
+
