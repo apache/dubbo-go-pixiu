@@ -18,10 +18,12 @@
 package listener
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 var factoryMap = make(map[model.ProtocolType]func(lc *model.Listener, bs *model.Bootstrap) (ListenerService, error), 8)

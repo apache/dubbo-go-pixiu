@@ -1,8 +1,11 @@
 package grpc
 
 import (
-	"golang.org/x/net/http2"
 	"net/http"
+)
+
+import (
+	"golang.org/x/net/http2"
 )
 
 type HttpForwarder struct {
