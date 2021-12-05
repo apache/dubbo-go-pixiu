@@ -70,25 +70,11 @@ func init() {
 }
 
 const (
-	NONE DescriptorSourceStrategy = iota    // dss enum 0
+	NONE DescriptorSourceStrategy = iota // dss enum 0
 	AUTO
 	LOCAL
 	REMOTE
 )
-
-func (c DescriptorSourceStrategy) String() string {
-	switch c {
-	case NONE:
-		return "NONE"
-	case AUTO:
-		return "AUTO"
-	case LOCAL:
-		return "LOCAL"
-	case REMOTE:
-		return "REMOTE"
-	}
-	return "N/A"
-}
 
 type (
 	DescriptorSourceStrategy int
@@ -111,8 +97,8 @@ type (
 	// Config describe the config of AccessFilter
 	Config struct {
 		DescriptorSourceStrategy DescriptorSourceStrategy `yaml:"descriptor_source_strategy" json:"descriptor_source_strategy"`
-		Path  string  `yaml:"path" json:"path"`
-		Rules []*Rule `yaml:"rules" json:"rules"` //nolint
+		Path                     string                   `yaml:"path" json:"path"`
+		Rules                    []*Rule                  `yaml:"rules" json:"rules"` //nolint
 	}
 
 	Rule struct {
@@ -124,6 +110,20 @@ type (
 		Method string `yaml:"method" json:"method"` //nolint
 	}
 )
+
+func (c DescriptorSourceStrategy) String() string {
+	switch c {
+	case NONE:
+		return "NONE"
+	case AUTO:
+		return "AUTO"
+	case LOCAL:
+		return "LOCAL"
+	case REMOTE:
+		return "REMOTE"
+	}
+	return "N/A"
+}
 
 func (p *Plugin) Kind() string {
 	return Kind
