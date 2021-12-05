@@ -338,4 +338,3 @@ func (f *Filter) Apply() error {
 
 	return nil
 }
-
