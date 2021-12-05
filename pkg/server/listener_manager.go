@@ -51,6 +51,7 @@ func (lm *ListenerManager) addOrUpdateListener(l *model.Listener) {
 
 func (lm *ListenerManager) StartListen() {
 	for _, s := range lm.activeListenerService {
+		s := s
 		go func() {
 			err := s.Start()
 			if err != nil {

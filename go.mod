@@ -18,7 +18,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang/protobuf v1.5.2
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mercari/grpc-http-proxy v0.1.2
 	github.com/mitchellh/mapstructure v1.4.2
