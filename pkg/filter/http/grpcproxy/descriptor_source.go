@@ -19,14 +19,20 @@ package grpcproxy
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"sync"
+)
+
+import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sync"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type DescriptorSource interface {
