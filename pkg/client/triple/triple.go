@@ -93,5 +93,5 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	if err != nil {
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
-	return string(call), nil
+	return call, nil
 }
