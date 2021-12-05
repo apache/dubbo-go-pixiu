@@ -19,8 +19,6 @@ package listener
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/pkg/errors"
@@ -54,5 +52,5 @@ func CreateListenerService(lc *model.Listener, bs *model.Bootstrap) (ListenerSer
 		}
 		return reg, nil
 	}
-	return nil, errors.New("Registry " + lc.Name + " does not support yet")
+	return nil, errors.New("Registry " + lc.ProtocolStr + " does not support yet")
 }

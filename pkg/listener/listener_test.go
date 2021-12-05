@@ -37,7 +37,7 @@ func getTestContext() *ctxHttp.HttpContext {
 					Port:    8888,
 				},
 			},
-			FilterChains: []model.FilterChain{},
+			FilterChain: model.FilterChain{},
 		},
 	}
 

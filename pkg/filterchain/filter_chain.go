@@ -24,7 +24,7 @@ func (fc FilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterChain {
 	filtersArray := make([]filter.NetworkFilter, len(config.Filters))
 	// todo: split code block like http filter manager
-	for _, f := range config.Filters {
+	for i, f := range config.Filters {
 		if f.Name == constant.GRPCConnectManagerFilter {
 			gcmc := &model.GRPCConnectionManagerConfig{}
 			if err := yaml.ParseConfig(gcmc, f.Config); err != nil {
@@ -38,7 +38,7 @@ func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterCha
 			if err != nil {
 				logger.Error("CreateFilterChain %s createFilter error %s", f.Name, err)
 			}
-			filtersArray = append(filtersArray, filter)
+			filtersArray[i] = filter
 		} else if f.Name == constant.HTTPConnectManagerFilter {
 			hcmc := &model.HttpConnectionManagerConfig{}
 			if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
@@ -52,7 +52,7 @@ func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterCha
 			if err != nil {
 				logger.Error("CreateFilterChain %s createFilter error %s", f.Name, err)
 			}
-			filtersArray = append(filtersArray, filter)
+			filtersArray[i] = filter
 		}
 	}
 
