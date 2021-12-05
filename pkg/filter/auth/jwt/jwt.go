@@ -117,8 +117,8 @@ func (f *Filter) validAny(rule Rules, ctx *http.HttpContext) bool {
 	providerName := rule.Requires.RequiresAny.ProviderName
 
 	if provider, ok := f.providerJwks[providerName]; ok {
-		ctx.Request.Header.Set(provider.forwardPayloadHeader, provider.issuer)
-		if key := ctx.Request.Header.Get(provider.headers.Name); key != "" {
+		ctx.AddHeader(provider.forwardPayloadHeader, provider.issuer)
+		if key := ctx.GetHeader(provider.headers.Name); key != "" {
 			token, err := jwt4.Parse(valuePrefix(key, provider.headers.ValuePrefix), provider.jwk.Keyfunc)
 			if err != nil {
 				logger.Warnf("failed to parse JWKs from JSON. provider：%s Error: %s", providerName, err.Error())
@@ -136,8 +136,8 @@ func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 
 	for _, requirement := range rule.Requires.RequiresAll {
 		if provider, ok := f.providerJwks[requirement.ProviderName]; ok {
-			ctx.Request.Header.Set(provider.forwardPayloadHeader, provider.issuer)
-			if key := ctx.Request.Header.Get(provider.headers.Name); key != "" {
+			ctx.AddHeader(provider.forwardPayloadHeader, provider.issuer)
+			if key := ctx.GetHeader(provider.headers.Name); key != "" {
 				token, err := jwt4.Parse(valuePrefix(key, provider.headers.ValuePrefix), provider.jwk.Keyfunc)
 				if err != nil {
 					logger.Warnf("failed to parse JWKs from JSON. provider：%s Error: %s", requirement.ProviderName, err.Error())
