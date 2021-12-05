@@ -43,7 +43,9 @@ static_resources:
                 http_filters:
                   - name: dgp.filter.http.grpcproxy
                     config:
-                      path: $PROJECT_DIR/proto
+                      # todo transform to string
+                      descriptor_source_strategy: 3 # none-0, auto-1( ->reflection->file), local-2, remote-3,  ## default: auto
+                      path: samples/http/grpc/pixiu/proto
                   - name: dgp.filter.http.response
                     config:
                 server_name: "test-http-grpc"

@@ -55,36 +55,72 @@ func (dr *Descriptor) GetCurrentDescriptor(ctx context.Context) (DescriptorSourc
 	}
 }
 
-func (dr *Descriptor) getDescriptor(ctx context.Context) DescriptorSource {
-	// file
-	cs := &compositeSource{}
-	cs.file = dr.fileSource
+func (dr *Descriptor) getDescriptorSource(ctx context.Context, cfg *Config) (DescriptorSource, error) {
 
-	return cs
+	var ds DescriptorSource
+	var err error
+
+	logger.Infof("%s get descriptor source strategy : %s", loggerHeader, cfg.DescriptorSourceStrategy)
+
+	// none, local, remote, compose
+	switch cfg.DescriptorSourceStrategy {
+	case LOCAL:
+		// file only
+		if dr.fileSource == nil {
+			dr.initFileDescriptorSource(cfg)
+		}
+		ds = dr.fileSource
+	case REMOTE:
+		// server reflection only
+		var cc *grpc.ClientConn
+		gconn := ctx.Value(GrpcClientConnKey)
+		switch t := gconn.(type) {
+		case *grpc.ClientConn:
+			cc = gconn.(*grpc.ClientConn)
+		case nil:
+			err = errors.New("the descriptor source not found!")
+		default:
+			err = errors.Errorf("found a value of type %s, which is not *grpc.ClientConn, ", t)
+		}
+		ds = dr.getServerDescriptorSource(ctx, cc)
+	case AUTO:
+		// file + reflection
+		cs := &compositeSource{}
+		cs.file = dr.fileSource
+		cs.reflection = dr.getDescriptorCompose(ctx, nil)
+	case NONE:
+		// nope
+		logger.Warnf("%s grpc descriptor source is no need initialize cause the strategy is %s ", loggerHeader, cfg.DescriptorSourceStrategy)
+	default:
+		err = errors.Errorf("grpc descriptor source not initialized cause the config of `descriptor_source_strategy` is %s, maybe set it `AUTO`", cfg.DescriptorSourceStrategy)
+	}
+
+	if err == nil {
+		ctx = context.WithValue(ctx, DescriptorSourceKey, ds)
+	}
+
+	return ds, err
 }
 
-func (dr *Descriptor) getDescriptorByGrpcReflect(ctx context.Context, cc *grpc.ClientConn) DescriptorSource {
+func (dr *Descriptor) getDescriptorCompose(ctx context.Context, cc *grpc.ClientConn) DescriptorSource {
 
 	cs := &compositeSource{}
 	cs.reflection = dr.getServerDescriptorSource(ctx, cc)
 	cs.file = dr.fileSource
-
-	var source DescriptorSource = cs
-
-	context.WithValue(ctx, DescriptorSourceKey, source)
 
 	return cs
 }
 
 func (dr *Descriptor) initDescriptorSource(cfg *Config) *Descriptor {
 
-	dr.initFileDescriptorSource(cfg)
+	if cfg.DescriptorSourceStrategy == LOCAL {
+		dr.initFileDescriptorSource(cfg)
+	}
 
 	return dr
 }
 
 func (dr *Descriptor) getServerDescriptorSource(refCtx context.Context, cc *grpc.ClientConn) DescriptorSource {
-	// server descriptor
 	return &serverSource{client: grpcreflect.NewClient(refCtx, reflectpb.NewServerReflectionClient(cc))}
 }
 
@@ -106,11 +142,9 @@ func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {
 	return dr
 }
 
-func loadFileSource(cfg *Config) (*fileSource, error) {
+func loadFileSource(gc *Config) (*fileSource, error) {
 
 	var fsrc fileSource
-
-	gc := cfg
 
 	cur := gc.Path
 	if !filepath.IsAbs(cur) {
