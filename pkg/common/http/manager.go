@@ -77,14 +77,14 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc := hcm.pool.Get().(*pch.HttpContext)
 	defer hcm.pool.Put(hc)
 
-	err := hcm.OnData(hc)
-
-	if err != nil {
-		logger.Errorf("ServeHTTP %v", err)
-	}
 	hc.Request = r
 	hc.ResetWritermen(w)
 	hc.Reset()
+
+	err := hcm.OnData(hc)
+	if err != nil {
+		logger.Errorf("ServeHTTP %v", err)
+	}
 }
 
 // handleHTTPRequest handle http request
