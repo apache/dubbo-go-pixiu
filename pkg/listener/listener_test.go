@@ -23,23 +23,9 @@ import (
 
 import (
 	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func getTestContext() *ctxHttp.HttpContext {
-	l := BaseListenerService{
-		Config: &model.Listener{
-			Name:     "test",
-			Protocol: model.ProtocolTypeHTTP,
-			Address: model.Address{
-				SocketAddress: model.SocketAddress{
-					Address: "0.0.0.0",
-					Port:    8888,
-				},
-			},
-			FilterChain: model.FilterChain{},
-		},
-	}
 
 	hc := &ctxHttp.HttpContext{
 		Filters: []ctxHttp.FilterFunc{},
