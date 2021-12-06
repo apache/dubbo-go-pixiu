@@ -18,11 +18,11 @@
 package listener
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/pkg/errors"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -30,13 +30,12 @@ var factoryMap = make(map[model.ProtocolType]func(lc *model.Listener, bs *model.
 
 type (
 	ListenerService interface {
-		GetNetworkFilter() filter.NetworkFilter
 		Start() error
 	}
 
 	BaseListenerService struct {
-		Config        *model.Listener
-		NetworkFilter filter.NetworkFilter
+		Config      *model.Listener
+		FilterChain *filterchain.FilterChain
 	}
 )
 

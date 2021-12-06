@@ -20,6 +20,7 @@ package http
 import (
 	"context"
 	stdHttp "net/http"
+	"sync"
 )
 
 import (
@@ -40,18 +41,27 @@ type HttpConnectionManager struct {
 	config            *model.HttpConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *filter.FilterManager
+	pool              sync.Pool
 }
 
 // CreateHttpConnectionManager create http connection manager
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *model.Bootstrap) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
+	hcm.pool.New = func() interface{} {
+		return hcm.allocateContext()
+	}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
 	hcm.filterManager.Load()
 	return hcm
 }
 
-// OnData receive data from listener
+func (ls *HttpConnectionManager) allocateContext() *pch.HttpContext {
+	return &pch.HttpContext{
+		Params: make(map[string]interface{}),
+	}
+}
+
 func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	hc.Ctx = context.Background()
 	err := hcm.findRoute(hc)
@@ -63,8 +73,18 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	return nil
 }
 
-func (gcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
+func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
+	hc := hcm.pool.Get().(*pch.HttpContext)
+	defer hcm.pool.Put(hc)
 
+	err := hcm.OnData(hc)
+
+	if err != nil {
+		logger.Errorf("ServeHTTP %v", err)
+	}
+	hc.Request = r
+	hc.ResetWritermen(w)
+	hc.Reset()
 }
 
 // handleHTTPRequest handle http request

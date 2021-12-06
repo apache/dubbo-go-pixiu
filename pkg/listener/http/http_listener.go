@@ -19,11 +19,9 @@ package http
 
 import (
 	"fmt"
-
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -33,10 +31,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -55,51 +50,19 @@ type (
 
 	// DefaultHttpListener
 	DefaultHttpWorker struct {
-		pool sync.Pool
-		ls   *HttpListenerService
+		ls *HttpListenerService
 	}
 )
 
 func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	hcm := createHttpManager(lc, bs)
-
+	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
 	return &HttpListenerService{
-		listener.BaseListenerService{Config: lc, NetworkFilter: *hcm},
-		nil,
+		BaseListenerService: listener.BaseListenerService{
+			Config:      lc,
+			FilterChain: fc,
+		},
+		srv: nil,
 	}, nil
-}
-
-func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *filter.NetworkFilter {
-	p, err := filter.GetNetworkFilterPlugin(constant.HTTPConnectManagerFilter)
-	if err != nil {
-		panic(err)
-	}
-
-	hcmc := findHttpManager(lc)
-	hcm, err := p.CreateFilter(hcmc, bs)
-	if err != nil {
-		panic(err)
-	}
-	return &hcm
-}
-
-func findHttpManager(l *model.Listener) *model.HttpConnectionManagerConfig {
-	for _, f := range l.FilterChain.Filters {
-		if f.Name == constant.HTTPConnectManagerFilter {
-			hcmc := &model.HttpConnectionManagerConfig{}
-			if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
-				return nil
-			}
-
-			return hcmc
-		}
-	}
-
-	panic("http listener filter chain don't contain http connection manager")
-}
-
-func (ls *HttpListenerService) GetNetworkFilter() filter.NetworkFilter {
-	return ls.NetworkFilter
 }
 
 // Start start the listener
@@ -117,9 +80,7 @@ func (ls *HttpListenerService) Start() error {
 
 func (ls *HttpListenerService) httpsListener() {
 	hl := createDefaultHttpWorker(ls)
-	hl.pool.New = func() interface{} {
-		return ls.allocateContext()
-	}
+
 	// user customize http config
 	var hc *model.HttpConfig
 	hc = model.MapInStruct(ls.Config)
@@ -148,9 +109,6 @@ func (ls *HttpListenerService) httpsListener() {
 
 func (ls *HttpListenerService) httpListener() {
 	hl := createDefaultHttpWorker(ls)
-	hl.pool.New = func() interface{} {
-		return ls.allocateContext()
-	}
 
 	// user customize http config
 	var hc *model.HttpConfig
@@ -174,37 +132,16 @@ func (ls *HttpListenerService) httpListener() {
 	log.Println(ls.srv.ListenAndServe())
 }
 
-func (ls *HttpListenerService) allocateContext() *h.HttpContext {
-	return &h.HttpContext{
-		Listener: ls.Config,
-		Params:   make(map[string]interface{}),
-	}
-}
-
 // createDefaultHttpWorker create http listener
 func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 	return &DefaultHttpWorker{
-		pool: sync.Pool{},
-		ls:   ls,
+		ls: ls,
 	}
 }
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hc := s.pool.Get().(*h.HttpContext)
-	defer s.pool.Put(hc)
-
-	hc.Request = r
-	hc.ResetWritermen(w)
-	hc.Reset()
-
-	// now only one filter http_connection_manager, so just get it and call
-	err := s.ls.NetworkFilter.OnData(hc)
-
-	if err != nil {
-		s.pool.Put(hc)
-		logger.Errorf("ServeHTTP %v", err)
-	}
+	s.ls.FilterChain.ServeHTTP(w, r)
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {

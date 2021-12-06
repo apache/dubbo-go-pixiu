@@ -65,8 +65,7 @@ type (
 
 	// NetworkFilter describe network filter
 	NetworkFilter interface {
-		// OnData handle the http context from worker
-		OnData(hc *http.HttpContext) error
+		// ServeHTTP handle request and response
 		ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request)
 	}
 )
