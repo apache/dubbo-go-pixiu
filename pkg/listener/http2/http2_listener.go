@@ -29,7 +29,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -79,10 +78,6 @@ func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.
 	}, nil
 }
 
-func (g Http2ListenerService) GetNetworkFilter() filter.NetworkFilter {
-	panic("implement me")
-}
-
 func (ls Http2ListenerService) Start() error {
 
 	sa := ls.Config.Address.SocketAddress
@@ -106,7 +101,11 @@ func (ls Http2ListenerService) Start() error {
 		Handler: h,
 	}
 
-	go ls.server.Serve(ls.listener)
+	go func() {
+		if err := ls.server.Serve(ls.listener); err != nil {
+			logger.Error("Http2ListenerService Start error %s", err)
+		}
+	}()
 	return nil
 }
 

@@ -36,7 +36,6 @@ import (
 
 var (
 	addr = flag.String("addr", "localhost:8881", "the address to connect to")
-	name = flag.String("name", "world", "Name to greet")
 )
 
 func TestGet(t *testing.T) {

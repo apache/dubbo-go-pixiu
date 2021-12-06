@@ -60,7 +60,3 @@ func (lm *ListenerManager) StartListen() {
 		}()
 	}
 }
-
-func (lm *ListenerManager) addListenerService(ls listener.ListenerService) {
-	lm.activeListenerService = append(lm.activeListenerService, ls)
-}
