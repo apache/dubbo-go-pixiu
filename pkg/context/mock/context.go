@@ -36,7 +36,7 @@ func GetMockHTTPContext(r *http.Request, fc ...filter.HttpFilter) *contexthttp.H
 	}
 
 	w := mockWriter{header: map[string][]string{}}
-	result.ResetWritermen(&w)
+	result.Writer = &w
 	result.Reset()
 	result.Ctx = context.Background()
 	for i := range fc {
