@@ -18,11 +18,11 @@
 package listener
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/pkg/errors"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
