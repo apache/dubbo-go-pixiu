@@ -42,8 +42,7 @@ func getTestContext() *ctxHttp.HttpContext {
 	}
 
 	hc := &ctxHttp.HttpContext{
-		Listener: l.Config,
-		Filters:  []ctxHttp.FilterFunc{},
+		Filters: []ctxHttp.FilterFunc{},
 	}
 	hc.ResetWritermen(httptest.NewRecorder())
 	hc.Reset()

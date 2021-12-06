@@ -43,10 +43,9 @@ func init() {
 type (
 	// ListenerService the facade of a listener
 	Http2ListenerService struct {
-		Config   *model.Listener
+		listener.BaseListenerService
 		listener net.Listener
 		server   *http.Server
-		fc       *filterchain.FilterChain
 	}
 )
 
@@ -71,8 +70,12 @@ func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
 	return &Http2ListenerService{
-		Config: lc,
-		fc:     fc,
+		BaseListenerService: listener.BaseListenerService{
+			Config:      lc,
+			FilterChain: fc,
+		},
+		listener: nil,
+		server:   nil,
 	}, nil
 }
 
@@ -91,7 +94,7 @@ func (ls Http2ListenerService) Start() error {
 	}
 	ls.listener = l
 
-	handlerWrapper := &handleWrapper{ls.fc}
+	handlerWrapper := &handleWrapper{ls.FilterChain}
 	h2s := &http2.Server{}
 	h := &h2cWrapper{
 		w: handlerWrapper,
