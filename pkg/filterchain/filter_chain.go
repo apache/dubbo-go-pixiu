@@ -31,7 +31,6 @@ import (
 
 type FilterChain struct {
 	filtersArray []filter.NetworkFilter
-	chain        http.Handler
 	config       model.FilterChain
 }
 

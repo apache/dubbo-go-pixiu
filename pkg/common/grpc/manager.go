@@ -33,7 +33,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -46,7 +45,6 @@ import (
 type GrpcConnectionManager struct {
 	config            *model.GRPCConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
-	filterManager     *filter.FilterManager
 }
 
 // CreateHttpConnectionManager create http connection manager
