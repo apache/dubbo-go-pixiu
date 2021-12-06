@@ -157,7 +157,7 @@ func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer s.pool.Put(hc)
 
 	hc.Request = r
-	hc.ResetWritermen(w)
+	hc.Writer = w
 	hc.Reset()
 
 	// now only one filter http_connection_manager, so just get it and call
