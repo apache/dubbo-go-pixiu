@@ -18,10 +18,6 @@
 package listener
 
 import (
-	"net/http/httptest"
-)
-
-import (
 	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -30,7 +26,6 @@ func getTestContext() *ctxHttp.HttpContext {
 	hc := &ctxHttp.HttpContext{
 		Filters: []ctxHttp.FilterFunc{},
 	}
-	hc.ResetWritermen(httptest.NewRecorder())
 	hc.Reset()
 	return hc
 }

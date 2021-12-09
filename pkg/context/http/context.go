@@ -59,9 +59,8 @@ type HttpContext struct {
 	Route                 *model.RouteAction
 	Api                   *router.API
 
-	Request   *http.Request
-	writermem responseWriter
-	Writer    ResponseWriter
+	Request *http.Request
+	Writer  http.ResponseWriter
 }
 
 type (
@@ -88,7 +87,6 @@ func (hc *HttpContext) Next() {
 
 // Reset reset http context
 func (hc *HttpContext) Reset() {
-	hc.Writer = &hc.writermem
 	hc.Ctx = nil
 	hc.Index = -1
 	hc.Filters = []FilterFunc{}
@@ -115,19 +113,9 @@ func (hc *HttpContext) GetRouteEntry() *model.RouteAction {
 	return hc.Route
 }
 
-// StatusCode get header status code
-func (hc *HttpContext) StatusCode() int {
-	return hc.Writer.Status()
-}
-
 // Write write body data
 func (hc *HttpContext) Write(b []byte) (int, error) {
 	return hc.Writer.Write(b)
-}
-
-// WriteHeaderNow write header now
-func (hc *HttpContext) WriteHeaderNow() {
-	hc.writermem.WriteHeaderNow()
 }
 
 // WriteWithStatus status must set first
@@ -242,11 +230,6 @@ func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
 			hc.Writer.Write(b)
 		}
 	}
-}
-
-// ResetWritermen reset writermen
-func (hc *HttpContext) ResetWritermen(w http.ResponseWriter) {
-	hc.writermem.reset(w)
 }
 
 // API sets the API to http context

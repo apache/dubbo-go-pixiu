@@ -78,7 +78,7 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	defer hcm.pool.Put(hc)
 
 	hc.Request = r
-	hc.ResetWritermen(w)
+	hc.Writer = w
 	hc.Reset()
 
 	err := hcm.OnData(hc)
@@ -91,7 +91,6 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	if len(c.Filters) > 0 {
 		c.Next()
-		c.WriteHeaderNow()
 		return
 	}
 	// TODO redirect
