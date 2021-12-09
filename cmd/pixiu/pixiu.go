@@ -28,7 +28,7 @@ import (
 import (
 	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
 	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
-
+	"github.com/shirou/gopsutil/cpu"
 	"github.com/spf13/cobra"
 )
 
@@ -147,10 +147,16 @@ func initLimitCpus() error {
 	if err != nil {
 		return err
 	}
-	if limitCpuNumber <= 0 {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-	} else {
+
+	if limitCpuNumber > 0 {
 		runtime.GOMAXPROCS(int(limitCpuNumber))
+		return nil
 	}
+
+	logicalCnt, err := cpu.Counts(true)
+	if err != nil {
+		return err
+	}
+	runtime.GOMAXPROCS(logicalCnt)
 	return nil
 }
