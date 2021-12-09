@@ -50,7 +50,7 @@ func (f *Filter) branchCommunicate() {
 		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", f.conf.Addressing)
 		stream, err := f.resourceClient.BranchCommunicate(ctx)
 		if err != nil {
-			logger.Warn("connect with tc server failed, tc server addressing: %s", f.conf.Addressing)
+			logger.Warn("connect with tc server failed, tc server addressing: ", f.conf.Addressing)
 			time.Sleep(time.Second)
 			continue
 		}
@@ -133,7 +133,7 @@ func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) *apis.
 
 	err := requestContext.Decode(request.ApplicationData)
 	if err != nil {
-		logger.Errorf("commit failed, err: %v", err)
+		logger.Error("commit failed, err: ", err)
 		return &apis.BranchCommitResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),
@@ -142,7 +142,7 @@ func branchCommit(ctx context.Context, request *apis.BranchCommitRequest) *apis.
 
 	resp, err := doHttp1Request(requestContext, true)
 	if err != nil {
-		logger.Errorf("commit failed, err: %v", err)
+		logger.Error("commit failed, err: ", err)
 		return &apis.BranchCommitResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),
@@ -175,7 +175,7 @@ func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) *a
 
 	err := requestContext.Decode(request.ApplicationData)
 	if err != nil {
-		logger.Errorf("rollback failed, err: %v", err)
+		logger.Error("rollback failed, err: ", err)
 		return &apis.BranchRollbackResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),
@@ -184,7 +184,7 @@ func branchRollback(ctx context.Context, request *apis.BranchRollbackRequest) *a
 
 	resp, err := doHttp1Request(requestContext, false)
 	if err != nil {
-		logger.Errorf("rollback failed, err: %v", err)
+		logger.Error("rollback failed, err: ", err)
 		return &apis.BranchRollbackResponse{
 			ResultCode: apis.ResultCodeFailed,
 			Message:    err.Error(),

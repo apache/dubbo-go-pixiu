@@ -60,7 +60,7 @@ func registerOtelMetricMeter(conf model.Metric) {
 		)
 		exporter, err := prometheus.New(config, c)
 		if err != nil {
-			logger.Error("failed to initialize prometheus exporter %v", err)
+			logger.Error("failed to initialize prometheus exporter ", err)
 		}
 		global.SetMeterProvider(exporter.MeterProvider())
 

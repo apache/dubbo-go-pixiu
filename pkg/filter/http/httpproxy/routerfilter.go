@@ -81,7 +81,7 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 	if rEntry == nil {
 		panic("no route entry")
 	}
-	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", rEntry.Cluster)
+	logger.Debug("[dubbo-go-pixiu] client choose endpoint from cluster :", rEntry.Cluster)
 
 	clusterName := rEntry.Cluster
 	clusterManager := server.GetClusterManager()
@@ -95,7 +95,7 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 		return
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] client choose endpoint :%v", endpoint.Address.GetAddress())
+	logger.Debug("[dubbo-go-pixiu] client choose endpoint :", endpoint.Address.GetAddress())
 	r := hc.Request
 
 	var errPrefix string

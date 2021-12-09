@@ -144,7 +144,7 @@ func (zkl *serviceListener) handleEvent() {
 	}
 	zkl.url, err = common.NewURL(children[0])
 	if err != nil {
-		logger.Warnf("Parse service path failed: %s", children[0])
+		logger.Warn("Parse service path failed: ", children[0])
 	}
 	bkConfig, methods, location, err := registry.ParseDubboString(children[0])
 	if err != nil {

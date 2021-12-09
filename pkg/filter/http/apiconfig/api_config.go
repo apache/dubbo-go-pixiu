@@ -84,10 +84,10 @@ func (f *Filter) Apply() error {
 
 	config, err := initApiConfig(f.cfg)
 	if err != nil {
-		logger.Errorf("Get ApiConfig fail: %v", err)
+		logger.Error("Get ApiConfig fail: ", err)
 	}
-	if err := f.apiService.InitAPIsFromConfig(*config); err != nil {
-		logger.Errorf("InitAPIsFromConfig fail: %v", err)
+	if err = f.apiService.InitAPIsFromConfig(*config); err != nil {
+		logger.Error("InitAPIsFromConfig fail: ", err)
 	}
 
 	return nil
@@ -117,8 +117,8 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	req := ctx.Request
 	api, err := f.apiService.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
-		if _, err := ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
-			logger.Errorf("WriteWithStatus fail: %v", err)
+		if _, err = ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
+			logger.Error("WriteWithStatus fail: ", err)
 		}
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		e := errors.Errorf("Requested URL %s not found", req.URL.Path)
@@ -128,8 +128,8 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	}
 
 	if !api.Method.Enable {
-		if _, err := ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
-			logger.Errorf("WriteWithStatus fail: %v", err)
+		if _, err = ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
+			logger.Error("WriteWithStatus fail: ", err)
 		}
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)

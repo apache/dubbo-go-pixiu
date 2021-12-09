@@ -142,21 +142,21 @@ func (ctx *RequestContext) Decode(b []byte) error {
 	if actionContextData != nil {
 		err = json.Unmarshal(actionContextData, &(ctx.ActionContext))
 		if err != nil {
-			logger.Errorf("unmarshal action context failed, %v", err)
+			logger.Error("unmarshal action context failed, ", err)
 		}
 	}
 
 	if headersData != nil {
 		err = json.Unmarshal(headersData, &(ctx.Headers))
 		if err != nil {
-			logger.Errorf("unmarshal headers failed, %v", err)
+			logger.Error("unmarshal headers failed, ", err)
 		}
 	}
 
 	if trailersData != nil {
 		err = json.Unmarshal(trailersData, &(ctx.ActionContext))
 		if err != nil {
-			logger.Errorf("unmarshal trailers failed, %v", err)
+			logger.Error("unmarshal trailers failed, ", err)
 		}
 	}
 

@@ -98,7 +98,7 @@ func InitDefaultDubboClient(dpc *DubboProxyConfig) {
 	dubboClient = NewDubboClient()
 	dubboClient.SetConfig(dpc)
 	if err := dubboClient.Apply(); err != nil {
-		logger.Warnf("dubbo client apply error %s", err)
+		logger.Warn("dubbo client apply error ", err)
 	}
 }
 
@@ -132,7 +132,7 @@ func (dc *Client) Apply() error {
 	dgCfg.ApplicationConfig = defaultApplication
 	for k, v := range dc.dubboProxyConfig.Registries {
 		if len(v.Protocol) == 0 {
-			logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
+			logger.Warn("can not find registry protocol config, use default type 'zookeeper'")
 			v.Protocol = defaultDubboProtocol
 		}
 		dgCfg.Registries[k] = &dg.RegistryConfig{

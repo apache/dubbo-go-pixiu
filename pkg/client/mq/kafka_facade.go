@@ -95,11 +95,11 @@ func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, 
 			break
 		}
 		if err := f.consumerGroup.Consume(ctx, topics, handler); err != nil {
-			logger.Warn("failed to consume the msg from kafka, %s", err.Error())
+			logger.Warn("failed to consume the msg from kafka, ", err.Error())
 		}
 		if ctx.Err() != nil {
 			// log consume stop
-			logger.Error("shutdown the consume loop due to %s", ctx.Err().Error())
+			logger.Error("shutdown the consume loop due to ", ctx.Err().Error())
 			break
 		}
 	}

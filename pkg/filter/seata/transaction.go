@@ -115,7 +115,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	if rEntry == nil {
 		panic("no route entry")
 	}
-	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", rEntry.Cluster)
+	logger.Debug("[dubbo-go-pixiu] client choose endpoint from cluster :", rEntry.Cluster)
 
 	clusterName := rEntry.Cluster
 	clusterManager := server.GetClusterManager()

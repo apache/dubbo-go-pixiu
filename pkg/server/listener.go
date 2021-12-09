@@ -18,7 +18,6 @@
 package server
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -103,7 +102,7 @@ func (ls *ListenerService) httpsListener() {
 		TLSConfig:      m.TLSConfig(),
 	}
 	autoLs := autocert.NewListener(ls.cfg.Address.SocketAddress.Domains...)
-	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
+	logger.Info("[dubbo-go-server] httpsListener start at : ", ls.srv.Addr)
 	err := ls.srv.Serve(autoLs)
 	logger.Info("[dubbo-go-server] httpsListener result:", err)
 }
@@ -131,9 +130,9 @@ func (ls *ListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-server] httpListener start at : %s", ls.srv.Addr)
+	logger.Info("[dubbo-go-server] httpListener start at : ", ls.srv.Addr)
 
-	log.Println(ls.srv.ListenAndServe())
+	logger.Info(ls.srv.ListenAndServe())
 }
 
 func (ls *ListenerService) allocateContext() *h.HttpContext {

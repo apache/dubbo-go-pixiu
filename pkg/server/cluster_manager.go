@@ -140,7 +140,7 @@ func (s *ClusterStore) UpdateCluster(new *model.Cluster) {
 			return
 		}
 	}
-	logger.Warnf("not found modified cluster %s", new.Name)
+	logger.Warn("not found modified cluster ", new.Name)
 }
 
 func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
@@ -178,11 +178,11 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 					return
 				}
 			}
-			logger.Warnf("not found endpoint %s", endpointID)
+			logger.Warn("not found endpoint ", endpointID)
 			return
 		}
 	}
-	logger.Warnf("not found  cluster %s", clusterName)
+	logger.Warn("not found  cluster ", clusterName)
 }
 
 func (s *ClusterStore) HasCluster(clusterName string) bool {

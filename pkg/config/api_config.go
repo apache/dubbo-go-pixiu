@@ -74,7 +74,7 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 	if len(path) == 0 {
 		return nil, perrors.Errorf("Config file not specified")
 	}
-	logger.Infof("Load API configuration file form %s", path)
+	logger.Info("Load API configuration file form ", path)
 	apiConf := &fc.APIConfig{}
 	err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {
@@ -221,7 +221,7 @@ func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string)
 		resource := &fc.Resource{}
 		err := yaml.UnmarshalYML([]byte(v), resource)
 		if err != nil {
-			logger.Errorf("unmarshalYmlConfig error %s", err)
+			logger.Error("unmarshalYmlConfig error ", err)
 			return err
 		}
 
@@ -260,13 +260,13 @@ func listenResourceAndMethodEvent(key string) bool {
 
 		// client stopped
 		case <-client.Done():
-			logger.Warnf("client stopped")
+			logger.Warn("client stopped")
 			return false
 		// client ctx stop
 		// handle etcd events
 		case e, ok := <-wc:
 			if !ok {
-				logger.Warnf("watch-chan closed")
+				logger.Warn("watch-chan closed")
 				return false
 			}
 
@@ -301,13 +301,13 @@ func handleDeleteEvent(key, val []byte) {
 	if m := re.Match(key); m {
 		pathArray := strings.Split(keyStr, "/")
 		if len(pathArray) == 0 {
-			logger.Errorf("handleDeleteEvent key format error")
+			logger.Error("handleDeleteEvent key format error")
 			return
 		}
 		resourceIdStr := pathArray[len(pathArray)-1]
 		ID, err := strconv.Atoi(resourceIdStr)
 		if err != nil {
-			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
+			logger.Error("handleDeleteEvent ID is not int error ", err)
 			return
 		}
 		deleteApiConfigResource(ID)
@@ -318,20 +318,20 @@ func handleDeleteEvent(key, val []byte) {
 	if m := re.Match(key); m {
 		pathArray := strings.Split(keyStr, "/")
 		if len(pathArray) < 3 {
-			logger.Errorf("handleDeleteEvent key format error")
+			logger.Error("handleDeleteEvent key format error")
 			return
 		}
 		resourceIdStr := pathArray[len(pathArray)-3]
 		resourceId, err := strconv.Atoi(resourceIdStr)
 		if err != nil {
-			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
+			logger.Error("handleDeleteEvent ID is not int error ", err)
 			return
 		}
 
 		methodIdStr := pathArray[len(pathArray)-1]
 		methodId, err := strconv.Atoi(methodIdStr)
 		if err != nil {
-			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
+			logger.Error("handleDeleteEvent ID is not int error ", err)
 			return
 		}
 		deleteApiConfigMethod(resourceId, methodId)
@@ -347,7 +347,7 @@ func handlePutEvent(key, val []byte) {
 		res := &fc.Resource{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
-			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
+			logger.Error("handlePutEvent UnmarshalYML error ", err)
 			return
 		}
 		mergeApiConfigResource(*res)
@@ -359,7 +359,7 @@ func handlePutEvent(key, val []byte) {
 		res := &fc.Method{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
-			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
+			logger.Error("handlePutEvent UnmarshalYML error ", err)
 			return
 		}
 		mergeApiConfigMethod(res.ResourcePath, *res)

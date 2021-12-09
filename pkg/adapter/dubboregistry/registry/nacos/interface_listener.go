@@ -107,7 +107,7 @@ func (z *nacosIntfListener) watch() {
 			logger.Infof("watching nacos interface with error{%v}", err)
 			// Exit the watch if root node is in error
 			if err == zookeeper.ErrNilNode {
-				logger.Errorf("watching nacos services got errNilNode,so exit listen")
+				logger.Error("watching nacos services got errNilNode,so exit listen")
 				return
 			}
 			if failTimes > MaxFailTimes {
@@ -119,8 +119,8 @@ func (z *nacosIntfListener) watch() {
 			continue
 		}
 		failTimes = 0
-		if err := z.updateServiceList(serviceList.Doms); err != nil {
-			logger.Errorf("update service list failed %s", err)
+		if err = z.updateServiceList(serviceList.Doms); err != nil {
+			logger.Error("update service list failed ", err)
 		}
 		time.Sleep(time.Second * 3)
 	}

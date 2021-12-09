@@ -215,7 +215,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq, grpc.Header(&md), grpc.Trailer(&t))
 	// judge err is server side error or not
 	if st, ok := status.FromError(err); !ok || isServerError(st) {
-		logger.Error("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
+		logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
 		return
@@ -223,7 +223,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 
 	res, err := protoMsgToJson(resp)
 	if err != nil {
-		logger.Error("%s err {failed to convert proto msg to json, %s}", loggerHeader, err.Error())
+		logger.Errorf("%s err {failed to convert proto msg to json, %s}", loggerHeader, err.Error())
 		c.Err = err
 		c.Next()
 		return

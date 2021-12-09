@@ -54,22 +54,22 @@ func (am *AdapterManager) initAdapters() {
 	for _, f := range am.configs {
 		hp, err := adapter.GetAdapterPlugin(f.Name)
 		if err != nil {
-			logger.Error("initAdapters get plugin error %s", err)
+			logger.Error("initAdapters get plugin error ", err)
 		}
 
 		hf, err := hp.CreateAdapter(f)
 		if err != nil {
-			logger.Error("initFilterIfNeed create adapter error %s", err)
+			logger.Error("initFilterIfNeed create adapter error ", err)
 		}
 
 		cfg := hf.Config()
 		if err := yaml.ParseConfig(cfg, f.Config); err != nil {
-			logger.Error("initAdapters init config error %s", err)
+			logger.Error("initAdapters init config error ", err)
 		}
 
 		err = hf.Apply()
 		if err != nil {
-			logger.Error("initFilterIfNeed apply adapter error %s", err)
+			logger.Error("initFilterIfNeed apply adapter error ", err)
 		}
 		ads = append(ads, hf)
 	}

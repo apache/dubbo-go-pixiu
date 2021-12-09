@@ -90,21 +90,21 @@ func (a *CloudAdapter) Start() {
 	// init get all service instance
 	err := a.firstFetch()
 	if err != nil {
-		logger.Errorf("init fetch service fail", err.Error())
+		logger.Error("init fetch service fail", err.Error())
 		return
 	}
 
 	// background sync service instance from remote
 	err = a.backgroundSyncPeriod()
 	if err != nil {
-		logger.Errorf("init periodicity fetch service task fail", err.Error())
+		logger.Error("init periodicity fetch service task fail", err.Error())
 		return
 	}
 
 	// watch then fetch is more safety for consistent but there is background fresh mechanism
 	err = a.watch()
 	if err != nil {
-		logger.Errorf("init watch the register fail", err.Error())
+		logger.Error("init watch the register fail", err.Error())
 		return
 	}
 }
@@ -202,7 +202,7 @@ func (a *CloudAdapter) fetchServiceByConfig() ([]servicediscovery.ServiceInstanc
 	}
 
 	if err != nil {
-		logger.Errorf("fetchServiceByConfig error ", err.Error())
+		logger.Error("fetchServiceByConfig error ", err.Error())
 		return instances, err
 	}
 	return instances, nil
@@ -213,7 +213,7 @@ func (a *CloudAdapter) firstFetch() error {
 	instances, err := a.fetchServiceByConfig()
 
 	if err != nil {
-		logger.Errorf("start query all service error ", err.Error())
+		logger.Error("start query all service error ", err.Error())
 		return err
 	}
 	// manage cluster and route
@@ -254,7 +254,7 @@ func (a *CloudAdapter) addNewService(instance *servicediscovery.ServiceInstance)
 func (a *CloudAdapter) fetchCompareAndSet() {
 	instances, err := a.fetchServiceByConfig()
 	if err != nil {
-		logger.Warnf("fetchCompareAndSet all service error ", err.Error())
+		logger.Warn("fetchCompareAndSet all service error ", err.Error())
 		return
 	}
 	// manage cluster and route
@@ -267,7 +267,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	oldStore, err := cm.CloneStore()
 
 	if err != nil {
-		logger.Warnf("fetchCompareAndSet clone store error ", err.Error())
+		logger.Warn("fetchCompareAndSet clone store error ", err.Error())
 	}
 
 	newStore := cm.NewStore(oldStore.Version)

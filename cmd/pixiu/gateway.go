@@ -47,21 +47,21 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			err := initLog()
 			if err != nil {
-				logger.Warnf("[startGatewayCmd] failed to init logger, %s", err.Error())
+				logger.Warn("[startGatewayCmd] failed to init logger, ", err.Error())
 			}
 
 			bootstrap, meta, err := initApiConfig()
 			if err != nil {
 				if meta {
-					logger.Warnf("[startGatewayCmd] failed to get api meta config, %s", err.Error())
+					logger.Warn("[startGatewayCmd] failed to get api meta config, ", err.Error())
 				} else {
-					logger.Errorf("[startGatewayCmd] failed to get api meta config, %s", err.Error())
+					logger.Error("[startGatewayCmd] failed to get api meta config, ", err.Error())
 				}
 			}
 
 			err = initLimitCpus()
 			if err != nil {
-				logger.Errorf("[startCmd] failed to get limit cpu number, %s", err.Error())
+				logger.Error("[startCmd] failed to get limit cpu number, ", err.Error())
 			}
 
 			server.Start(bootstrap)
