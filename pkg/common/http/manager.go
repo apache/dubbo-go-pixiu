@@ -20,6 +20,8 @@ package http
 import (
 	"context"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -77,9 +79,35 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 
 	//todo timeout
 	filterChain.OnDecode(c)
-	//todo build target response
+
+	//build target response
+	if !c.LocalReply() {
+		if res, ok := c.SourceResp.(*http.Response); ok {
+			body, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				panic(err)
+			}
+			//Merge header
+			remoterHeader := res.Header
+			for k, _ := range remoterHeader {
+				c.AddHeader(k, remoterHeader.Get(k))
+			}
+			//status code
+			c.StatusCode(res.StatusCode)
+
+			c.TargetResp = &client.Response{Data: body}
+		} else {
+			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+			c.TargetResp = &client.Response{Data: c.SourceResp}
+		}
+	}
+
 	filterChain.OnEncode(c)
-	//todo doResponse
+	//write response
+	if !c.LocalReply() {
+		c.Writer.WriteHeader(c.GetStatusCode())
+		c.WriteResponse(*c.TargetResp)
+	}
 }
 
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {

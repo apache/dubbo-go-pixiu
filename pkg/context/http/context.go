@@ -50,8 +50,8 @@ type HttpContext struct {
 
 	// It's localReply
 	localReply bool
-	// status code will be return
-	status int
+	// statusCode code will be return
+	statusCode int
 	// happen error
 	Err error
 	// the response context will return.
@@ -81,7 +81,7 @@ type (
 	FilterChain []FilterFunc
 )
 
-// Next logic for lookup filter
+// Deprecated: Next logic for lookup filter
 func (hc *HttpContext) Next() {
 	hc.Index++
 	for hc.Index < int8(len(hc.Filters)) {
@@ -101,6 +101,8 @@ func (hc *HttpContext) Reset() {
 
 	hc.TargetResp = nil
 	hc.SourceResp = nil
+	hc.statusCode = 200
+	hc.localReply = false
 }
 
 // RouteEntry set route
@@ -173,13 +175,29 @@ func (hc *HttpContext) GetApplicationName() string {
 
 // SendLocalReply
 func (hc *HttpContext) SendLocalReply(status int, body []byte) {
-	hc.status = status
+	hc.localReply = true
+	hc.statusCode = status
 	hc.TargetResp = &client.Response{Data: body}
 
 	hc.doWrite(nil, status, body)
 }
 
-// WriteWithStatus status must set first
+// LocalReply
+func (hc *HttpContext) GetStatusCode() int {
+	return hc.statusCode
+}
+
+// LocalReply
+func (hc *HttpContext) StatusCode(code int) {
+	hc.statusCode = code
+}
+
+// LocalReply
+func (hc *HttpContext) LocalReply() bool {
+	return hc.localReply
+}
+
+// WriteWithStatus statusCode must set first
 func (hc *HttpContext) WriteWithStatus(code int, b []byte) (int, error) {
 	hc.Writer.WriteHeader(code)
 	return hc.Writer.Write(b)
