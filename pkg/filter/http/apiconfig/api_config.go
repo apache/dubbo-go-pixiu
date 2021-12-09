@@ -49,11 +49,14 @@ func init() {
 
 type (
 	Plugin struct {
-		filterInstance *Filter
+		filterInstance *FilterFactory
 	}
 
-	Filter struct {
+	FilterFactory struct {
 		cfg        *ApiConfigConfig
+		apiService api.APIDiscoveryService
+	}
+	Filter struct {
 		apiService api.APIDiscoveryService
 	}
 )
@@ -63,87 +66,76 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{cfg: &ApiConfigConfig{}}, nil
+	return &FilterFactory{cfg: &ApiConfigConfig{}}, nil
 }
 
-func (f *Plugin) GetInstance() *Filter {
-	return f.filterInstance
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
-}
+func (factory *FilterFactory) Apply() error {
+	factory.apiService = api.NewLocalMemoryAPIDiscoveryService()
 
-func (f *Filter) Apply() error {
-	f.apiService = api.NewLocalMemoryAPIDiscoveryService()
-
-	if f.cfg.Dynamic {
-		server.GetApiConfigManager().AddApiConfigListener(f.cfg.DynamicAdapter, f)
+	if factory.cfg.Dynamic {
+		server.GetApiConfigManager().AddApiConfigListener(factory.cfg.DynamicAdapter, factory)
 		return nil
 	}
 
-	config, err := initApiConfig(f.cfg)
+	config, err := initApiConfig(factory.cfg)
 	if err != nil {
 		logger.Errorf("Get ApiConfig fail: %v", err)
 	}
-	if err := f.apiService.InitAPIsFromConfig(*config); err != nil {
+	if err := factory.apiService.InitAPIsFromConfig(*config); err != nil {
 		logger.Errorf("InitAPIsFromConfig fail: %v", err)
 	}
 
 	return nil
 }
 
-func (f *Filter) OnAddAPI(r router.API) error {
-	return f.apiService.AddAPI(r)
+func (factory *FilterFactory) OnAddAPI(r router.API) error {
+	return factory.apiService.AddAPI(r)
 }
-func (f *Filter) OnRemoveAPI(r router.API) error {
-	return f.apiService.RemoveAPIByIntance(r)
-}
-
-func (f *Filter) OnDeleteRouter(r fc.Resource) error {
-	return f.apiService.RemoveAPIByPath(r)
+func (factory *FilterFactory) OnRemoveAPI(r router.API) error {
+	return factory.apiService.RemoveAPIByIntance(r)
 }
 
-func (f *Filter) GetAPIService() api.APIDiscoveryService {
-	return f.apiService
+func (factory *FilterFactory) OnDeleteRouter(r fc.Resource) error {
+	return factory.apiService.RemoveAPIByPath(r)
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) GetAPIService() api.APIDiscoveryService {
+	return factory.apiService
+}
+
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{apiService: factory.apiService}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
+func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	req := ctx.Request
 	api, err := f.apiService.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
-		if _, err := ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
-			logger.Errorf("WriteWithStatus fail: %v", err)
-		}
-		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		ctx.SendLocalReply(http.StatusNotFound, constant.Default404Body)
 		e := errors.Errorf("Requested URL %s not found", req.URL.Path)
 		logger.Debug(e.Error())
-		ctx.Abort()
-		return
+		return filter.Stop
 	}
 
 	if !api.Method.Enable {
-		if _, err := ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
-			logger.Errorf("WriteWithStatus fail: %v", err)
-		}
-		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		ctx.SendLocalReply(http.StatusNotAcceptable, constant.Default406Body)
 		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)
 		logger.Debug(e.Error())
 		ctx.Err = e
-		ctx.Abort()
-		return
+		return filter.Stop
 	}
 	ctx.API(api)
-	ctx.Next()
+	return filter.Continue
 }
 
-func (f *Filter) GetApiService() api.APIDiscoveryService {
-	return f.apiService
+func (factory *FilterFactory) GetApiService() api.APIDiscoveryService {
+	return factory.apiService
 }
 
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
@@ -165,4 +157,4 @@ func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
 	return a, nil
 }
 
-var _ filter.HttpFilterFactory = new(Filter)
+var _ filter.HttpFilterFactory = new(FilterFactory)

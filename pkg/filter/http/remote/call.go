@@ -19,6 +19,8 @@ package remote
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -65,8 +67,12 @@ type (
 	Plugin struct {
 	}
 
-	Filter struct {
+	FilterFactory struct {
 		conf *config
+	}
+
+	Filter struct {
+		conf config
 	}
 
 	config struct {
@@ -80,14 +86,14 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{conf: &config{}}, nil
+	return &FilterFactory{conf: &config{}}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.conf
+func (factory *FilterFactory) Config() interface{} {
+	return factory.conf
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	mock := 1
 	mockStr := os.Getenv(constant.EnvMock)
 	if len(mockStr) > 0 {
@@ -100,52 +106,48 @@ func (f *Filter) Apply() error {
 	if level < 0 || level > 2 {
 		level = close
 	}
-	f.conf.Level = level
+	factory.conf.Level = level
 	// must init it at apply function
-	dubbo.InitDefaultDubboClient(f.conf.Dpc)
+	dubbo.InitDefaultDubboClient(factory.conf.Dpc)
 	triple.InitDefaultTripleClient()
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{conf: *factory.conf}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(c *contexthttp.HttpContext) {
+func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	api := c.GetAPI()
 
 	if (f.conf.Level == open && api.Mock) || (f.conf.Level == all) {
 		c.SourceResp = &contexthttp.ErrResponse{
 			Message: "mock success",
 		}
-		c.Next()
-		return
+		return filter.Continue
 	}
 
 	typ := api.Method.IntegrationRequest.RequestType
 
 	cli, err := matchClient(typ)
 	if err != nil {
-		c.Err = err
-		c.Next()
-		return
+		panic(err)
 	}
 
 	req := client.NewReq(c.Request.Context(), c.Request, *api)
 	resp, err := cli.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
-		c.Err = err
-		c.Next()
-		return
+		c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("client call err: %s", err)))
+		return filter.Stop
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
 
 	c.SourceResp = resp
-	// response write in response filter.
-	c.Next()
+	return filter.Continue
 }
 
 func matchClient(typ apiConf.RequestType) (client.Client, error) {

@@ -75,9 +75,10 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
+// PrepareFilterChain do nothing and waiting delete
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{Strategy: factory.cfg.Strategy}
-	chain.AppendDecodeFilters(f)
+	//f := &Filter{Strategy: factory.cfg.Strategy}
+	//chain.AppendDecodeFilters(f)
 	return nil
 }
 
