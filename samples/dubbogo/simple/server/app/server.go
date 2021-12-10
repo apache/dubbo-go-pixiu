@@ -40,8 +40,8 @@ import (
 var survivalTimeout = int(3e9)
 
 // they are necessary:
-// 		export CONF_PROVIDER_FILE_PATH="xxx"
-// 		export APP_LOG_CONF_FILE="xxx"
+// export CONF_PROVIDER_FILE_PATH="../profiles/dev/server.yml"
+// export APP_LOG_CONF_FILE="../profiles/dev/log.yml"
 func main() {
 	config.Load()
 

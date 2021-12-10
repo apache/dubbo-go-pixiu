@@ -69,10 +69,6 @@ func init() {
 
 // InitLog load from config path
 func InitLog(logConfFile string) error {
-	if logConfFile == "" {
-		InitLogger(nil)
-		return perrors.New("log configure file name is nil")
-	}
 	if path.Ext(logConfFile) != ".yml" {
 		InitLogger(nil)
 		return perrors.New(fmt.Sprintf("log configure file name %s suffix must be .yml", logConfFile))

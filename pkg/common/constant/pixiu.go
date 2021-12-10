@@ -60,10 +60,10 @@ const (
 
 const (
 	StringSeparator      = ","
-	DefaultConfigPath    = "configs/conf.yaml"
-	DefaultApiConfigPath = "configs/api_config.yaml"
-	DefaultLogConfigPath = "configs/log.yml"
-	DefaultLogLevel      = "info"
+	DefaultConfigPath    = "conf/conf.yaml"
+	DefaultApiConfigPath = "conf/api_config.yaml"
+	DefaultLogConfigPath = "conf/log.yml"
+	DefaultLogLevel      = "debug"
 	DefaultLimitCpus     = "0"
 	DefaultLogFormat     = ""
 )

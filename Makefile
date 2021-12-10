@@ -17,38 +17,29 @@
 # under the License.
 #
 
-cur_mkfile := $(abspath $(lastword $(MAKEFILE_LIST)))
-currentPath := $(patsubst %/, %, $(dir $(cur_mkfile)))
-pixiuPath := /cmd/pixiu/
-mainPath := $(currentPath)$(pixiuPath)
+CUR_MK_FILE := $(abspath $(lastword $(MAKEFILE_LIST)))
+CURRENT_PATH := $(patsubst %/, %, $(dir $(CUR_MK_FILE)))
+PIXIU_PATH := cmd/pixiu/
+MAIN_PATH := $(CURRENT_PATH)/$(PIXIU_PATH)
 
-targetName := dubbo-go-pixiu
+EXE := pixiu
 
-api-config-path:=${api-config}
-ifeq (,$(api-config-path))
-$(warning api-config-path is nil, default: configs/api_config.yaml)
-api-config-path = configs/api_config.yaml
-endif
+API_CONF_PATH:=conf/api_config.yaml
+CONF_PATH:=conf/conf.yaml
 
-config-path:=${config-path}
-ifeq (,$(config-path))
-$(warning config-path is nil, default: configs/conf.yaml)
-config-path = configs/conf.yaml
-endif
-
-$(info api-config-path = $(api-config-path))
-$(info config-path = $(config-path))
+$(info API_CONF_PATH = $(API_CONF_PATH))
+$(info CONF_PATH = $(CONF_PATH))
 
 os := $(shell go env GOOS)
 ifeq (windows,$(os))
-	targetName = dubbo-go-pixiu.exe
+	EXE = $(EXE).exe
 endif
-exe := $(mainPath)$(targetName)
+
 build:
-	cd $(mainPath) && go build  -o $(currentPath)/$(targetName) *.go
+	cd $(MAIN_PATH) && go build  -o $(CURRENT_PATH)/$(EXE) *.go
 
 run: build
-	./dubbo-go-pixiu gateway start -a $(api-config-path) -c $(config-path)
+	./$(EXE) gateway start -a $(API_CONF_PATH) -c $(CONF_PATH)
 
 license-check-util:
 	go install github.com/lsm-dev/license-header-checker/cmd/license-header-checker@latest
@@ -62,3 +53,5 @@ test:
 
 integrate-test:
 	sh start_integrate_test.sh
+
+clean:
