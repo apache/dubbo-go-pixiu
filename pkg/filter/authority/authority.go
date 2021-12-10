@@ -75,7 +75,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 
 		result := passCheck(item, r)
 		if !result {
-			c.WriteWithStatus(nh.StatusForbidden, constant.Default403Body)
+			c.SendLocalReply(nh.StatusForbidden, constant.Default403Body)
 			c.Abort()
 			return
 		}

@@ -92,7 +92,7 @@ func (f *Filter) handleCsrf(ctx *http.HttpContext) {
 
 	if salt == "" {
 		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.WriteJSONWithStatus(stdHttp.StatusForbidden, bt)
+		ctx.SendLocalReply(stdHttp.StatusForbidden, bt)
 		ctx.Abort()
 		return
 	}
@@ -101,7 +101,7 @@ func (f *Filter) handleCsrf(ctx *http.HttpContext) {
 
 	if token != tokenGetter(ctx, f.cfg.Key) {
 		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.WriteJSONWithStatus(stdHttp.StatusForbidden, bt)
+		ctx.SendLocalReply(stdHttp.StatusForbidden, bt)
 		ctx.Abort()
 		return
 	}

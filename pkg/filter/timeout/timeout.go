@@ -90,7 +90,7 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: http.ErrHandlerTimeout.Error()})
 		hc.SourceResp = bt
 		hc.TargetResp = &client.Response{Data: bt}
-		hc.WriteJSONWithStatus(http.StatusGatewayTimeout, bt)
+		hc.SendLocalReply(http.StatusGatewayTimeout, bt)
 		hc.Abort()
 	case <-finishChan:
 		// finish call do something.

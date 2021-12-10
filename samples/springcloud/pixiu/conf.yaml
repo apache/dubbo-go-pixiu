@@ -38,14 +38,14 @@ static_resources:
                   dynamic_apdter: "springcloud"
                   routes:
                 http_filters:
+                  - name: dgp.filter.http.metric
+                    config:
                   - name: dgp.filter.http.proxyrewrite
                     config:
                       uri_regex:
                         - "^/([^/]*)/(.*)$"
                         - "/$2"
                   - name: dgp.filter.http.httpproxy
-                    config:
-                  - name: dgp.filter.http.response
                     config:
       config:
         idle_timeout: 5s
