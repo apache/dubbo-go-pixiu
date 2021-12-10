@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package response
+package util
 
 import (
 	"testing"

@@ -20,7 +20,6 @@ package http
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"io/ioutil"
 	"net/http"
 )
@@ -30,9 +29,11 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util"
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -79,34 +80,48 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 
 	//todo timeout
 	filterChain.OnDecode(c)
+	hcm.buildTargetResponse(c)
+	filterChain.OnEncode(c)
+	hcm.writerResponse(c)
+}
 
-	//build target response
+func (hcm *HttpConnectionManager) writerResponse(c *pch.HttpContext) {
 	if !c.LocalReply() {
-		if res, ok := c.SourceResp.(*http.Response); ok {
+		writer := c.Writer
+		writer.WriteHeader(c.GetStatusCode())
+		if _, err := writer.Write(c.TargetResp.Data); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
+	if !c.LocalReply() {
+		switch res := c.SourceResp.(type) {
+		case *http.Response:
 			body, err := ioutil.ReadAll(res.Body)
 			if err != nil {
 				panic(err)
 			}
 			//Merge header
-			remoterHeader := res.Header
-			for k, _ := range remoterHeader {
-				c.AddHeader(k, remoterHeader.Get(k))
+			remoteHeader := res.Header
+			for k, _ := range remoteHeader {
+				c.AddHeader(k, remoteHeader.Get(k))
 			}
 			//status code
 			c.StatusCode(res.StatusCode)
-
 			c.TargetResp = &client.Response{Data: body}
-		} else {
+		case []byte:
+			c.StatusCode(http.StatusOK)
 			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-			c.TargetResp = &client.Response{Data: c.SourceResp}
+			c.TargetResp = &client.Response{Data: res}
+		default:
+			//dubbo go generic invoke
+			response := util.NewDubboResponse(res, false)
+			c.StatusCode(http.StatusOK)
+			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+			c.TargetResp = response
 		}
-	}
-
-	filterChain.OnEncode(c)
-	//write response
-	if !c.LocalReply() {
-		c.Writer.WriteHeader(c.GetStatusCode())
-		c.WriteResponse(*c.TargetResp)
 	}
 }
 

@@ -1,11 +1,17 @@
 package proxyrewrite
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/go-playground/assert/v2"
 	"net/http"
 	"testing"
+)
+
+import (
+	"github.com/go-playground/assert/v2"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
 func TestDecode(t *testing.T) {

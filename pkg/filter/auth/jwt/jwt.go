@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/MicahParks/keyfunc"
+
 	jwt4 "github.com/golang-jwt/jwt/v4"
 )
 
@@ -95,7 +96,7 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 	}
 
 	if router {
-		ctx.WriteJSONWithStatus(stdHttp.StatusUnauthorized, f.errMsg)
+		ctx.SendLocalReply(stdHttp.StatusUnauthorized, f.errMsg)
 		ctx.Abort()
 		return
 	}

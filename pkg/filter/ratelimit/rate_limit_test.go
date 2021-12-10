@@ -30,7 +30,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestFilter(t *testing.T) {
@@ -48,6 +47,6 @@ func TestFilter(t *testing.T) {
 	assert.Nil(t, err)
 
 	request, _ := stdHttp.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
-	c := mock.GetMockHTTPContext(request, f, recovery.GetMock())
+	c := mock.GetMockHTTPContext(request, f)
 	c.Next()
 }

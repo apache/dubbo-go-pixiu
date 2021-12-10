@@ -87,7 +87,7 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "blocked by rate limit"})
 		hc.SourceResp = bt
 		hc.TargetResp = &client.Response{Data: bt}
-		hc.WriteJSONWithStatus(http.StatusTooManyRequests, bt)
+		hc.SendLocalReply(http.StatusTooManyRequests, bt)
 		hc.Abort()
 		return
 	}

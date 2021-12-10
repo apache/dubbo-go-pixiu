@@ -18,8 +18,11 @@
 package proxyrewrite
 
 import (
-	"github.com/pkg/errors"
 	"regexp"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (

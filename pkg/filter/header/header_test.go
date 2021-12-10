@@ -19,7 +19,6 @@ package header
 
 import (
 	"bytes"
-	"math"
 	"net/http"
 	"testing"
 )
@@ -33,7 +32,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestHeader(t *testing.T) {
@@ -50,23 +48,18 @@ func TestHeader(t *testing.T) {
 	}
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, filter, recovery.GetMock())
+	c := mock.GetMockHTTPContext(request, filter)
 	c.API(api)
 	c.Next()
-	assert.Equal(t, int8(len(c.Filters)*2), c.Index)
 
 	request.Header.Set("filter", "test")
 	api.Headers["filter"] = "test"
-	c1 := mock.GetMockHTTPContext(request, filter, recovery.GetMock())
+	c1 := mock.GetMockHTTPContext(request, filter)
 	c1.API(api)
-	c1.Next()
-	assert.Equal(t, int8(len(c1.Filters)*2-1), c1.Index)
 
 	request.Header.Set("filter", "test1")
-	c2 := mock.GetMockHTTPContext(request, filter, recovery.GetMock())
+	c2 := mock.GetMockHTTPContext(request, filter)
 	c2.API(api)
-	c2.Next()
-	assert.Equal(t, int8(math.MaxInt8/2+1), c2.Index)
 }
 
 func getMockMethod(verb config.HTTPVerb) config.Method {

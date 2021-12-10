@@ -15,25 +15,34 @@
  * limitations under the License.
  */
 
-package http
+package util
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
-// NewDubboResponse creates dubbo response
-func NewDubboResponse(data interface{}) *client.Response {
-	r, err := dealResp(data, true)
-	if err != nil {
-		return &client.Response{Data: data}
+func NewDubboResponse(data interface{}, hump bool) *client.Response {
+	r, _ := dealResp(data, hump)
+	bytes, _ := json.Marshal(r)
+	return &client.Response{Data: bytes}
+}
+
+func defaultNewParams() string {
+	strategy := os.Getenv(constant.EnvResponseStrategy)
+	if len(strategy) != 0 {
+		strategy = constant.ResponseStrategyNormal
 	}
-	return &client.Response{Data: r}
+	return strategy
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
@@ -56,6 +65,10 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 			return inm, nil
 		}
 	case reflect.Slice:
+		if data, ok := in.([]byte); ok {
+			// raw bytes data should return directly
+			return data, nil
+		}
 		value := reflect.ValueOf(in)
 		newTemps := make([]interface{}, 0, value.Len())
 		for i := 0; i < value.Len(); i++ {
@@ -66,7 +79,7 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 				}
 				newTemps = append(newTemps, newTemp)
 			} else {
-				return nil, fmt.Errorf("unexpect err,value:%+v", value)
+				return nil, errors.New(fmt.Sprintf("unexpect err,value:%+v", value))
 			}
 		}
 		return newTemps, nil
@@ -77,11 +90,12 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 }
 
 func mapIItoMapSI(in interface{}) interface{} {
-	v, ok := in.(map[interface{}]interface{})
-	if ok {
+	var inMap map[interface{}]interface{}
+	if v, ok := in.(map[interface{}]interface{}); !ok {
 		return in
+	} else {
+		inMap = v
 	}
-	inMap := v
 	outMap := make(map[string]interface{}, len(inMap))
 
 	for k, v := range inMap {
