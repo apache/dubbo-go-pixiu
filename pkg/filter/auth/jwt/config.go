@@ -69,7 +69,7 @@ type (
 )
 
 type Provider struct {
-	jwk                  *keyfunc.JWKs
+	jwk                  *keyfunc.JWKS
 	issuer               string
 	forwardPayloadHeader string
 	headers              FromHeaders
