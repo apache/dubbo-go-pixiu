@@ -13,7 +13,6 @@ require (
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
 	github.com/dubbogo/go-zookeeper v1.0.3
 	github.com/dubbogo/gost v1.11.20
-	github.com/dubbogo/tools v1.0.7 // indirect
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4

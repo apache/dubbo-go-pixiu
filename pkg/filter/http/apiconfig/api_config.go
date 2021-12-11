@@ -49,7 +49,6 @@ func init() {
 
 type (
 	Plugin struct {
-		filterInstance *FilterFactory
 	}
 
 	FilterFactory struct {
