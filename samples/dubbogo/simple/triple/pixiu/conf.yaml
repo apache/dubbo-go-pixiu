@@ -41,8 +41,7 @@ static_resources:
                       dynamic_adapter: test
                   - name: dgp.filter.http.loadbalance
                   - name: dgp.filter.http.dubboproxy
-                  - name: dgp.filter.http.response
-                    config:
+
                       generate_request_id: false
       config:
         idle_timeout: 5s

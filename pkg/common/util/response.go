@@ -19,7 +19,6 @@ package util
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -79,7 +78,7 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 				}
 				newTemps = append(newTemps, newTemp)
 			} else {
-				return nil, errors.New(fmt.Sprintf("unexpect err,value:%v", value))
+				return nil, fmt.Errorf("unexpect err,value:%v", value)
 			}
 		}
 		return newTemps, nil

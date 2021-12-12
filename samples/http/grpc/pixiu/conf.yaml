@@ -44,8 +44,7 @@ static_resources:
                   - name: dgp.filter.http.grpcproxy
                     config:
                       path: $PROJECT_DIR/proto
-                  - name: dgp.filter.http.response
-                    config:
+
                 server_name: "test-http-grpc"
                 generate_request_id: false
       config:
