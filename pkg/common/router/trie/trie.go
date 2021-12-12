@@ -173,13 +173,7 @@ func (node *Node) internalPut(keys []string, bizInfo interface{}) (bool, error) 
 }
 
 func (node *Node) Clear() bool {
-	node.children = nil
-	node.matchStr = ""
-	node.PathVariableNode = nil
-	node.PathVariablesSet = nil
-	node.MatchAllNode = nil
-	node.endOfPath = false
-	node.bizInfo = nil
+	*node = Node{}
 	return true
 }
 

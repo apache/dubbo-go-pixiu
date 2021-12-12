@@ -58,6 +58,8 @@ func (rt *Route) ClearAPI() error {
 }
 
 func (r *Route) RemoveAPI(api router.API) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
 	lowerCasePath := strings.ToLower(api.URLPattern)
 	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
 	_, _ = r.tree.Remove(key)
@@ -78,36 +80,20 @@ func (rt *Route) PutAPI(api router.API) error {
 	lowerCasePath := strings.ToLower(api.URLPattern)
 	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
 	node, ok := rt.getNode(key)
-	rt.lock.Lock()
-	defer rt.lock.Unlock()
 	if !ok {
 		rn := &Node{
 			fullPath: lowerCasePath,
 			method:   &api.Method,
 			headers:  api.Headers,
 		}
+		rt.lock.Lock()
+		defer rt.lock.Unlock()
 		_, _ = rt.tree.Put(key, rn)
 		return nil
 	}
 	return errors.Errorf("Method %s with address %s already exists in path %s",
 		api.Method.HTTPVerb, lowerCasePath, node.fullPath)
 }
-
-//// UpdateAPI update the api method in the existing router node
-//func (rt *Route) UpdateAPI(api router.API) error {
-//	lowerCasePath := strings.ToLower(api.URLPattern)
-//	key := getTrieKey(api.Method.HTTPVerb,lowerCasePath,false)
-//	node, found := rt.getNode(key)
-//	if found {
-//
-//		if _, ok := node.methods[api.Method.HTTPVerb]; ok {
-//			rt.lock.Lock()
-//			defer rt.lock.Unlock()
-//			node.methods[api.Method.HTTPVerb] = &api.Method
-//		}
-//	}
-//	return nil
-//}
 
 // FindAPI return if api has path in trie,or nil
 func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API, bool) {
@@ -200,22 +186,6 @@ func (rt *Route) matchNode(fullPath string) (*Node, bool) {
 	return n.(*Node), found
 }
 
-//func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
-//	rt.lock.RLock()
-//	defer rt.lock.RUnlock()
-//	wildcardPaths := rt.wildcardTree.Keys()
-//	for _, p := range wildcardPaths {
-//		if wildcardMatch(p.(string), fullPath) != nil {
-//			n, ok := rt.wildcardTree.Get(p)
-//			return n.(*Node), ok
-//		}
-//	}
-//	return nil, false
-//}
-
-// wildcardMatch validate if the checkPath meets the wildcardPath,
-// for example /vought/12345 should match wildcard path /vought/:id;
-// /vought/1234abcd/status should not match /vought/:id;
 func wildcardMatch(wildcardPath string, checkPath string) url.Values {
 
 	cPaths := strings.Split(strings.TrimLeft(checkPath, constant.PathSlash), constant.PathSlash)
