@@ -48,17 +48,17 @@ func TestHeader(t *testing.T) {
 	}
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, filter)
+	c := mock.GetMockHTTPContext(request)
 	c.API(api)
 	c.Next()
 
 	request.Header.Set("filter", "test")
 	api.Headers["filter"] = "test"
-	c1 := mock.GetMockHTTPContext(request, filter)
+	c1 := mock.GetMockHTTPContext(request)
 	c1.API(api)
 
 	request.Header.Set("filter", "test1")
-	c2 := mock.GetMockHTTPContext(request, filter)
+	c2 := mock.GetMockHTTPContext(request)
 	c2.API(api)
 }
 

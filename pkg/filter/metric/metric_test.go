@@ -32,13 +32,12 @@ import (
 )
 
 func TestMetric(t *testing.T) {
-	filter := &FilterFactory{}
-	err := filter.Apply()
-	assert.Nil(t, err)
+	filter := &Filter{}
 
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, filter)
-	c.Next()
+	c := mock.GetMockHTTPContext(request)
+	filter.Decode(c)
+	filter.Encode(c)
 	t.Log("log filter test is finished")
 }
