@@ -71,14 +71,14 @@ func init() {
 }
 
 const (
-	NONE DescriptorSourceStrategy = iota // dss enum 0
-	AUTO
-	LOCAL
-	REMOTE
+	NONE 		= "none"
+	AUTO		= "auto"
+	LOCAL		= "local"
+	REMOTE		= "remote"
 )
 
 type (
-	DescriptorSourceStrategy int
+	DescriptorSourceStrategy string
 
 	// Plugin is grpc filter plugin.
 	Plugin struct {
@@ -86,8 +86,9 @@ type (
 
 	// Filter is grpc filter instance
 	Filter struct {
-		Descriptor
 		cfg *Config
+		// grpc descriptor source factory
+		descriptor *Descriptor
 		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
 		pools map[string]*sync.Pool
 
@@ -97,7 +98,7 @@ type (
 
 	// Config describe the config of AccessFilter
 	Config struct {
-		DescriptorSourceStrategy DescriptorSourceStrategy `yaml:"descriptor_source_strategy" json:"descriptor_source_strategy"`
+		DescriptorSourceStrategy DescriptorSourceStrategy `yaml:"descriptor_source_strategy" json:"descriptor_source_strategy" default:"auto"`
 		Path                     string                   `yaml:"path" json:"path"`
 		Rules                    []*Rule                  `yaml:"rules" json:"rules"` //nolint
 	}
@@ -111,19 +112,22 @@ type (
 		Method string `yaml:"method" json:"method"` //nolint
 	}
 )
-
 func (c DescriptorSourceStrategy) String() string {
+	return string(c)
+}
+
+func (c DescriptorSourceStrategy) Val() DescriptorSourceStrategy {
 	switch c {
 	case NONE:
-		return "NONE"
+		return NONE
 	case AUTO:
-		return "AUTO"
+		return AUTO
 	case LOCAL:
-		return "LOCAL"
+		return LOCAL
 	case REMOTE:
-		return "REMOTE"
+		return REMOTE
 	}
-	return "N/A"
+	return ""
 }
 
 func (p *Plugin) Kind() string {
@@ -131,7 +135,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}}, nil
+	return &Filter{cfg: &Config{ DescriptorSourceStrategy: AUTO}, descriptor: &Descriptor{}}, nil
 }
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
@@ -197,13 +201,15 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	}
 
 	// get DescriptorSource, contain file and reflection
-	source, err := f.getDescriptorSource(context.WithValue(c.Ctx, ct.ContextKey(GrpcClientConnKey), clientConn), f.cfg)
+	source, err := f.descriptor.getDescriptorSource(context.WithValue(c.Ctx, ct.ContextKey(GrpcClientConnKey), clientConn), f.cfg)
 	if err != nil {
 		logger.Errorf("%s err %s : %s ", loggerHeader, "get desc source fail", err)
 		c.Err = perrors.New("service not config proto file or the server not support reflection API")
 		c.Next()
 		return
 	}
+	//put DescriptorSource concurrent, del if no need
+	c.Ctx = context.WithValue(c.Ctx, ct.ContextKey(DescriptorSourceKey), source)
 
 	dscp, err := source.FindSymbol(svc)
 	if err != nil {
@@ -368,7 +374,19 @@ func (f *Filter) Config() interface{} {
 
 func (f *Filter) Apply() error {
 
-	f.initDescriptorSource(f.cfg)
+	err := configCheck(f.cfg)
+	if err != nil {
+		return err
+	}
 
+	f.descriptor.initDescriptorSource(f.cfg)
+
+	return nil
+}
+
+func configCheck(cfg *Config) error {
+	if len(cfg.DescriptorSourceStrategy.Val()) == 0 {
+		return perrors.Errorf("grpc descriptor source config `descriptor_source_strategy` is `%s`, maybe set it `%s`", cfg.DescriptorSourceStrategy.String(), AUTO)
+	}
 	return nil
 }
