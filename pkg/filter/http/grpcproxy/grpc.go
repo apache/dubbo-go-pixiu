@@ -79,7 +79,6 @@ type (
 		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
 		pools map[string]*sync.Pool
 
-		extReg     dynamic.ExtensionRegistry
 		registered map[string]bool
 	}
 
@@ -121,7 +120,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 	f := &Filter{
 		cfg:        factory.cfg,
 		pools:      factory.pools,
-		extReg:     factory.extReg,
 		registered: factory.registered,
 	}
 	chain.AppendDecodeFilters(f)
