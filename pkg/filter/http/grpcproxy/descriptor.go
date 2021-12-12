@@ -36,21 +36,18 @@ import (
 )
 
 import (
-	cnt "github.com/apache/dubbo-go-pixiu/pkg/context"
+	ct "github.com/apache/dubbo-go-pixiu/pkg/context"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type Descriptor struct {
-
-	//descSource DescriptorSource
-	//reflSource *serverSource
 
 	fileSource *fileSource
 }
 
 func (dr *Descriptor) GetCurrentDescriptorSource(ctx context.Context) (DescriptorSource, error) {
 
-	value := ctx.Value(DescriptorSourceKey)
+	value := ctx.Value(ct.ContextKey(DescriptorSourceKey))
 
 	switch t := value.(type) {
 	case *DescriptorSource:
@@ -67,63 +64,74 @@ func (dr *Descriptor) getDescriptorSource(ctx context.Context, cfg *Config) (Des
 	var ds DescriptorSource
 	var err error
 
-	switch cfg.DescriptorSourceStrategy {
+	switch strings.ToLower(cfg.DescriptorSourceStrategy.String()) {
 	case LOCAL:
 		// file only
-		if dr.fileSource == nil {
-			dr.initFileDescriptorSource(cfg)
-		}
-		ds = dr.fileSource
+		ds, err = dr.getFileDescriptorCompose(ctx,cfg)
 	case REMOTE:
 		// server reflection only
-		var cc *grpc.ClientConn
-		gconn := ctx.Value(cnt.ContextKey(GrpcClientConnKey))
-		switch t := gconn.(type) {
-		case *grpc.ClientConn:
-			cc = gconn.(*grpc.ClientConn)
-		case nil:
-			err = errors.New("the descriptor source not found!")
-		default:
-			err = errors.Errorf("found a value of type %s, which is not *grpc.ClientConn, ", t)
-		}
-		ds = dr.getServerDescriptorSource(ctx, cc)
+		ds, err = dr.getServerDescriptorSourceCtx(ctx, cfg)
 	case AUTO:
 		// file + reflection
-		cs := &compositeSource{}
-		cs.file = dr.fileSource
-		cs.reflection = dr.getDescriptorCompose(ctx, nil)
+		ds, err = dr.getDescriptorCompose(ctx, cfg)
 	case NONE:
 		// nope
-		logger.Warnf("%s grpc descriptor source is no need initialize cause the strategy is %s ", loggerHeader, cfg.DescriptorSourceStrategy)
+		logger.Warnf("%s grpc descriptor source is none config , check descriptor_source_strategy %s ", loggerHeader, cfg.DescriptorSourceStrategy.String())
 	default:
 		err = errors.Errorf("grpc descriptor source not initialized cause the config of `descriptor_source_strategy` is %s, maybe set it `AUTO`", cfg.DescriptorSourceStrategy)
 	}
 
-	// ctx = context.WithValue(ctx, ct.ContextKey(DescriptorSourceKey), source)
-
 	return ds, err
 }
 
-func (dr *Descriptor) getDescriptorCompose(ctx context.Context, cc *grpc.ClientConn) DescriptorSource {
+func (dr *Descriptor) getDescriptorCompose(ctx context.Context, cfg *Config) (DescriptorSource, error) {
+
+	var err error
 
 	cs := &compositeSource{}
-	cs.reflection = dr.getServerDescriptorSource(ctx, cc)
+	cs.reflection, err = dr.getServerDescriptorSourceCtx(ctx, cfg)
 	cs.file = dr.fileSource
 
-	return cs
+	return cs, err
 }
 
 func (dr *Descriptor) initDescriptorSource(cfg *Config) *Descriptor {
 
-	if cfg.DescriptorSourceStrategy == LOCAL {
+	if cfg.DescriptorSourceStrategy.String() == LOCAL {
 		dr.initFileDescriptorSource(cfg)
 	}
 
 	return dr
 }
 
+func (dr *Descriptor) getServerDescriptorSourceCtx(refCtx context.Context, cfg *Config) (DescriptorSource, error) {
+	var cc *grpc.ClientConn
+	var err error
+	gconn := refCtx.Value(ct.ContextKey(GrpcClientConnKey))
+	switch t := gconn.(type) {
+	case *grpc.ClientConn:
+		cc = gconn.(*grpc.ClientConn)
+	case nil:
+		err = errors.New("the descriptor source not found!")
+	default:
+		err = errors.Errorf("found a value of type %s, which is not *grpc.ClientConn, ", t)
+	}
+	return &serverSource{client: grpcreflect.NewClient(refCtx, reflectpb.NewServerReflectionClient(cc))}, err
+}
+
 func (dr *Descriptor) getServerDescriptorSource(refCtx context.Context, cc *grpc.ClientConn) DescriptorSource {
 	return &serverSource{client: grpcreflect.NewClient(refCtx, reflectpb.NewServerReflectionClient(cc))}
+}
+
+func (dr *Descriptor) getFileDescriptorCompose(ctx context.Context, cfg *Config) (DescriptorSource, error) {
+
+	var err error
+
+	if dr.fileSource == nil {
+		dr.initFileDescriptorSource(cfg)
+	}
+
+	return dr.fileSource, err
 }
 
 func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {
