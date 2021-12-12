@@ -118,7 +118,6 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 	}
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request)
-	assert.Equal(t, len(c.Filters), 1)
 	err = hcm.findRoute(c)
 	assert.NoError(t, err)
 	err = hcm.OnData(c)

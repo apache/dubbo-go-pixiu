@@ -41,7 +41,7 @@ func TestHost(t *testing.T) {
 	host := &Filter{}
 	host.cfg = &cfg
 	assert.Nil(t, err)
-	c := mock.GetMockHTTPContext(request, host)
-	c.Next()
+	c := mock.GetMockHTTPContext(request)
+	host.Handle(c)
 	assert.Equal(t, targetHost, c.Request.Host)
 }

@@ -82,10 +82,10 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	filterChain.OnDecode(c)
 	hcm.buildTargetResponse(c)
 	filterChain.OnEncode(c)
-	hcm.writerResponse(c)
+	hcm.writeResponse(c)
 }
 
-func (hcm *HttpConnectionManager) writerResponse(c *pch.HttpContext) {
+func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 	if !c.LocalReply() {
 		writer := c.Writer
 		writer.WriteHeader(c.GetStatusCode())
@@ -105,7 +105,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 			}
 			//Merge header
 			remoteHeader := res.Header
-			for k, _ := range remoteHeader {
+			for k := range remoteHeader {
 				c.AddHeader(k, remoteHeader.Get(k))
 			}
 			//status code
