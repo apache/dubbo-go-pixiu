@@ -20,6 +20,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/test/v3"
 	"os"
+	"time"
 )
 
 var (
@@ -39,19 +40,33 @@ func main() {
 	// Create a snaphost
 	snaphost := cache.NewSnapshotCache(false, cache.IDHash{}, l)
 
-	// Create the snapshot that we'll serve to Envoy
-	snapshot := GenerateSnapshotPixiu()
-	if err := snapshot.Consistent(); err != nil {
-		l.Errorf("snapshot inconsistency: %+v\n%+v", snapshot, err)
-		os.Exit(1)
-	}
-	l.Debugf("will serve snapshot %+v", snapshot)
+	go func() {
+		time.Sleep(30 * time.Second)
+		// Create the config that we'll serve to Envoy
+		config := GenerateSnapshotPixiu()
+		if err := config.Consistent(); err != nil {
+			l.Errorf("config inconsistency: %+v\n%+v", config, err)
+			os.Exit(1)
+		}
+		l.Debugf("will serve config %+v", config)
 
-	// Add the snapshot to the snaphost
-	if err := snaphost.SetSnapshot(context.Background(), nodeID, snapshot); err != nil {
-		l.Errorf("snapshot error %q for %+v", err, snapshot)
-		os.Exit(1)
-	}
+		// Add the config to the snaphost
+		if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
+			l.Errorf("config error %q for %+v", err, config)
+			os.Exit(1)
+		}
+
+		time.Sleep(30 * time.Second)
+		config2 := GenerateSnapshotPixiu2()
+		if err := config2.Consistent(); err != nil {
+			l.Errorf("config inconsistency: %+v\n%+v", config, err)
+			os.Exit(1)
+		}
+		if err := snaphost.SetSnapshot(context.Background(), nodeID, config2); err != nil {
+			l.Errorf("config error %q for %+v", err, config)
+			os.Exit(1)
+		}
+	}()
 
 	// Run the xDS server
 	ctx := context.Background()

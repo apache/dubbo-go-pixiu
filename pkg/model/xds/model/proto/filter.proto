@@ -4,6 +4,14 @@ package pixiu.api.v1;
 // Filter core struct, filter is extend by user
 message Filter {
 	string name = 1;
+	oneof config {
+		Config yaml = 2;
+		Config json = 3;
+	}
+}
+
+message Config {
+	string content = 1;
 }
 
 // FilterChain filter chain

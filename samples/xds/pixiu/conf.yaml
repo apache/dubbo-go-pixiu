@@ -30,6 +30,13 @@ dynamic_resources:
     request_timeout: "10s"
     grpc_services:
       - timeout: "5s"
+  cds_config:
+    cluster_name: ["xds-server"]
+    api_type: "GRPC"
+    refresh_delay: "5s"
+    request_timeout: "10s"
+    grpc_services:
+      - timeout: "5s"
 static_resources:
   clusters:
     - name: "xds-server"

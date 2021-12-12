@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/model/xds"
 	pixiupb "github.com/apache/dubbo-go-pixiu/pkg/model/xds/model"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -11,6 +12,21 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+var httpManagerConfigYaml = `
+route_config:
+  routes:
+    - match:
+        prefix: "/"
+      route:
+        cluster: "http-baidu"
+        cluster_not_found_response_code: 505
+http_filters:
+  - name: dgp.filter.http.httpproxy
+    config:
+  - name: dgp.filter.http.response
+    config:
+`
+
 func makeHttpFilter() []*pixiupb.FilterChain {
 	return []*pixiupb.FilterChain{
 		{
@@ -20,7 +36,14 @@ func makeHttpFilter() []*pixiupb.FilterChain {
 					"api.pixiu.com",
 				},
 			},
-			Filters: nil,
+			Filters: []*pixiupb.Filter{
+				{
+					Name: constant.HTTPConnectManagerFilter,
+					Config: &pixiupb.Filter_Yaml{Yaml: &pixiupb.Config{
+						Content: httpManagerConfigYaml,
+					}},
+				},
+			},
 		},
 	}
 }
@@ -41,14 +64,14 @@ func makeListeners() *pixiupb.Listener {
 
 func makeClusters() *pixiupb.Cluster {
 	return &pixiupb.Cluster{
-		Name:    "http",
+		Name:    "http-baidu",
 		TypeStr: "http",
 		Endpoints: &pixiupb.Endpoint{
 			Id: "backend",
 			Address: &pixiupb.SocketAddress{
 				ProtocolStr: "http",
-				Address:     "127.0.0.1",
-				Port:        8080,
+				Address:     "httpbin.org",
+				Port:        80,
 			},
 		},
 	}

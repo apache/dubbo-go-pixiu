@@ -45,14 +45,20 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 }
 
 func (lm *ListenerManager) AddOrUpdateListener(l *model.Listener) {
+	//todo add sync lock for concurrent using
 	if theListener := lm.getListener(l.Name); theListener != nil {
-		//todo to implement update
-		panic("to implement")
+		lm.updateListener(theListener, l)
+		return
 	}
 	listener := CreateListenerService(l, lm.bootstrap)
 	lm.startListenerServiceAsync(listener)
 	lm.addListenerService(listener)
 	lm.activeListener = append(lm.activeListener, l)
+}
+
+func (lm *ListenerManager) updateListener(listener *model.Listener, to *model.Listener) {
+	//todo update listener and service
+	panic("not implement")
 }
 
 func (lm *ListenerManager) getListener(name string) *model.Listener {
@@ -97,4 +103,8 @@ func (lm *ListenerManager) GetListenerService(name string) *ListenerService {
 		}
 	}
 	return nil
+}
+
+func (lm *ListenerManager) RemoveListener(names []string) {
+	//todo implement remove Listener and ListenerService
 }

@@ -19,15 +19,16 @@ package apiclient
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/pkg/errors"
-	"google.golang.org/grpc"
-
 	"dubbo.apache.org/dubbo-go/v3/common/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"time"
 )
 
 // agent name to talk with xDS server
@@ -41,6 +42,12 @@ type (
 		xDSExtensionClient extensionpb.ExtensionConfigDiscoveryServiceClient
 		lastExtension      *envoy_config_core_v3.TypedExtensionConfig
 		resourceNames      []ResourceTypeName
+		exitCh             chan struct{}
+		xdsState           xdsState
+	}
+	xdsState struct {
+		nonce        string
+		deltaVersion map[string]string
 	}
 
 	GrpcCluster interface {
@@ -53,12 +60,14 @@ type (
 
 func CreateGrpcApiClient(config *model.ApiConfigSource, node *model.Node,
 	grpcMg GrpcClusterManager,
+	exitCh chan struct{},
 	typeNames ...ResourceTypeName) *GrpcApiClient {
 	v := &GrpcApiClient{
 		config:        *config,
 		node:          node,
 		resourceNames: typeNames,
 		grpcMg:        grpcMg,
+		exitCh:        exitCh,
 	}
 	v.init()
 	return v
@@ -67,28 +76,196 @@ func CreateGrpcApiClient(config *model.ApiConfigSource, node *model.Node,
 // Fetch get config data from discovery service and return Any type.
 func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 	clsRsp, err := g.xDSExtensionClient.FetchExtensionConfigs(context.Background(), &discoverypb.DiscoveryRequest{
-		VersionInfo: localVersion,
-		Node: &envoy_config_core_v3.Node{
-			Id:            g.node.Id,
-			Cluster:       g.node.Cluster,
-			UserAgentName: xdsAgentName,
-		},
+		VersionInfo:   localVersion,
+		Node:          g.makeNode(),
 		ResourceNames: g.resourceNames,
 		TypeUrl:       resource.ExtensionConfigType, //"type.googleapis.com/pixiu.config.listener.v3.Listener", //resource.ListenerType,
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
 	}
+	logger.Infof("init the from xds server typeUrl=%s version=%s", clsRsp.TypeUrl, clsRsp.VersionInfo)
 	extensions := make([]*ProtoAny, 0, len(clsRsp.Resources))
 	for _, _resource := range clsRsp.Resources {
-		extension := envoy_config_core_v3.TypedExtensionConfig{}
-		err := _resource.UnmarshalTo(&extension)
+		elems, err := g.decodeSource(_resource)
 		if err != nil {
-			return nil, errors.Wrapf(err, "typed extension as expected.(%s)", g.resourceNames)
+			return nil, err
 		}
-		extensions = append(extensions, &ProtoAny{&extension})
+		extensions = append(extensions, elems)
 	}
 	return extensions, nil
+}
+
+func (g *GrpcApiClient) decodeSource(_resource *any.Any) (*ProtoAny, error) {
+	extension := envoy_config_core_v3.TypedExtensionConfig{}
+	err := _resource.UnmarshalTo(&extension)
+	if err != nil {
+		return nil, errors.Wrapf(err, "typed extension as expected.(%s)", g.resourceNames)
+	}
+	elems := &ProtoAny{&extension}
+	return elems, nil
+}
+
+func (g *GrpcApiClient) makeNode() *envoy_config_core_v3.Node {
+	return &envoy_config_core_v3.Node{
+		Id:            g.node.Id,
+		Cluster:       g.node.Cluster,
+		UserAgentName: xdsAgentName,
+	}
+}
+
+func (g *GrpcApiClient) Delta() (chan *DeltaResources, error) {
+	outputCh := make(chan *DeltaResources)
+	return outputCh, g.runDelta(outputCh)
+	//return outputCh, g.runStream(outputCh)
+}
+
+func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
+	delta, err := g.sendInitDeltaRequest()
+	if err != nil {
+		return err
+	}
+	//get message
+	go func() {
+		for {
+			resp, err := delta.Recv()
+			if err != nil { //todo backoff retry
+				logger.Error("can not recv delta discovery request", err)
+				break
+			}
+			// save the xds state
+			g.xdsState.deltaVersion = make(map[string]string, 1)
+			g.xdsState.nonce = resp.Nonce
+
+			resources := &DeltaResources{
+				NewResources:    make([]*ProtoAny, 0, 1),
+				RemovedResource: make([]string, 0, 1),
+			}
+			logger.Infof("get xDS message nonce, %s", resp.Nonce)
+			for _, res := range resp.RemovedResources {
+				logger.Infof("remove resource found ", res)
+				resources.RemovedResource = append(resources.RemovedResource, res)
+			}
+
+			for _, res := range resp.Resources {
+				logger.Infof("new resource found %s version=%s", res.Name, res.Version)
+				g.xdsState.deltaVersion[res.Name] = res.Version
+				elems, err := g.decodeSource(res.Resource)
+				if err != nil {
+					logger.Infof("can not decode source %s version=%s", res.Name, res.Version, err)
+				}
+				resources.NewResources = append(resources.NewResources, elems)
+			}
+			//notify the resource change handler
+			output <- resources
+
+			err = g.subscribeOnGoingChang(err, delta)
+			if err != nil {
+				logger.Error("can not recv delta discovery request; backoff 1 second later", err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (g *GrpcApiClient) subscribeOnGoingChang(err error, delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient) error {
+	err = delta.Send(&discoverypb.DeltaDiscoveryRequest{
+		Node:                    g.makeNode(),
+		TypeUrl:                 resource.ExtensionConfigType,
+		InitialResourceVersions: g.xdsState.deltaVersion,
+		ResponseNonce:           g.xdsState.nonce,
+	})
+	return err
+}
+
+func (g *GrpcApiClient) sendInitDeltaRequest() (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
+	delta, err := g.xDSExtensionClient.DeltaExtensionConfigs(context.Background())
+	if err != nil {
+		return nil, errors.Wrapf(err, "can not start delta stream with xds server ")
+	}
+	err = delta.Send(&discoverypb.DeltaDiscoveryRequest{
+		Node:                     g.makeNode(),
+		TypeUrl:                  resource.ExtensionConfigType,
+		ResourceNamesSubscribe:   g.resourceNames,
+		ResourceNamesUnsubscribe: nil,
+		InitialResourceVersions:  g.xdsState.deltaVersion,
+		ResponseNonce:            g.xdsState.nonce,
+		ErrorDetail:              nil,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "can not send delta discovery request")
+	}
+	return delta, nil
+}
+
+func (g *GrpcApiClient) runStream(output chan<- *DeltaResources) error {
+	delta, err := g.xDSExtensionClient.StreamExtensionConfigs(context.Background())
+	if err != nil {
+		return errors.Wrapf(err, "can not start delta stream with xds server ")
+	}
+	err = delta.Send(&discoverypb.DiscoveryRequest{
+		VersionInfo:   "", //todo load local version
+		Node:          g.makeNode(),
+		ResourceNames: g.resourceNames,
+		TypeUrl:       resource.ExtensionConfigType, //"type.googleapis.com/pixiu.config.listener.v3.Listener", //resource.ListenerType,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "can not send delta discovery request")
+	}
+
+	ch := make(chan *discoverypb.DiscoveryResponse)
+	//get message
+	go func() {
+		for {
+			resp, err := delta.Recv()
+			if err != nil { //todo backoff retry
+				logger.Error("can not recv delta discovery request", err)
+				break
+			}
+			ch <- resp
+		}
+	}()
+
+	go func() {
+		defer func() {
+			close(output)
+		}()
+	LOOP:
+		for {
+			select {
+			case <-g.exitCh:
+				logger.Infof("stop recv delta of xds (%s)", g.resourceNames)
+				if err := delta.CloseSend(); err != nil {
+					logger.Errorf("close Send error ", err)
+				}
+				break LOOP
+			case resp := <-ch:
+				resources := &DeltaResources{
+					NewResources:    make([]*ProtoAny, 0, 1),
+					RemovedResource: make([]string, 0, 1),
+				}
+				logger.Infof("get xDS message nonce, %s", resp.Nonce)
+
+				//for _, res := range resp.RemovedResources {
+				//	logger.Infof("remove resource found ", res)
+				//	resources.RemovedResource = append(resources.RemovedResource, res)
+				//}
+
+				for _, res := range resp.Resources {
+					elems, err := g.decodeSource(res)
+					if err != nil {
+						logger.Infof("can not decode source %s", res, err)
+					}
+					resources.NewResources = append(resources.NewResources, elems)
+				}
+				output <- resources
+			}
+		}
+	}()
+	return nil
 }
 
 func (g *GrpcApiClient) init() {
