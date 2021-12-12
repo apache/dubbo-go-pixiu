@@ -73,6 +73,16 @@ type (
 	Plugin struct {
 	}
 
+	// FilterFactory is grpc filter instance
+	FilterFactory struct {
+		cfg *Config
+		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
+		pools map[string]*sync.Pool
+
+		extReg     dynamic.ExtensionRegistry
+		registered map[string]bool
+	}
+
 	// Filter is grpc filter instance
 	Filter struct {
 		cfg *Config
@@ -104,11 +114,17 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{cfg: &Config{}}, nil
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{
+		cfg:        factory.cfg,
+		pools:      factory.pools,
+		extReg:     factory.extReg,
+		registered: factory.registered,
+	}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
@@ -131,24 +147,22 @@ func getServiceAndMethod(path string) (string, string) {
 	return svc, mth
 }
 
-// Handle use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
-func (f *Filter) Handle(c *http.HttpContext) {
+// Decode use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
+func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	svc, mth := getServiceAndMethod(c.GetUrl())
 
 	dscp, err := fsrc.FindSymbol(svc)
 	if err != nil {
 		logger.Errorf("%s err {%s}", loggerHeader, "request path invalid")
-		c.Err = perrors.New("method not allow")
-		c.Next()
-		return
+		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte("method not allow"))
+		return filter.Stop
 	}
 
 	svcDesc, ok := dscp.(*desc.ServiceDescriptor)
 	if !ok {
 		logger.Errorf("%s err {service not expose, %s}", loggerHeader, svc)
-		c.Err = perrors.New(fmt.Sprintf("service not expose, %s", svc))
-		c.Next()
-		return
+		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("service not expose, %s", svc)))
+		return filter.Stop
 	}
 
 	mthDesc := svcDesc.FindMethodByName(mth)
@@ -156,9 +170,8 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	err = f.registerExtension(mthDesc)
 	if err != nil {
 		logger.Errorf("%s err {%s}", loggerHeader, "register extension failed")
-		c.Err = err
-		c.Next()
-		return
+		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(err.Error()))
+		return filter.Stop
 	}
 
 	msgFac := dynamic.NewMessageFactoryWithExtensionRegistry(&f.extReg)
@@ -167,9 +180,8 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	err = jsonToProtoMsg(c.Request.Body, grpcReq)
 	if err != nil && !errors.Is(err, io.EOF) {
 		logger.Errorf("%s err {failed to convert json to proto msg, %s}", loggerHeader, err.Error())
-		c.Err = err
-		c.Next()
-		return
+		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(err.Error()))
+		return filter.Stop
 	}
 
 	var clientConn *grpc.ClientConn
@@ -179,9 +191,8 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	e := server.GetClusterManager().PickEndpoint(re.Cluster)
 	if e == nil {
 		logger.Errorf("%s err {cluster not exists}", loggerHeader)
-		c.Err = perrors.New("cluster not exists")
-		c.Next()
-		return
+		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte("cluster not exists"))
+		return filter.Stop
 	}
 
 	ep := e.Address.GetAddress()
@@ -197,9 +208,8 @@ func (f *Filter) Handle(c *http.HttpContext) {
 		clientConn, err = grpc.DialContext(c.Ctx, ep, grpc.WithInsecure())
 		if err != nil || clientConn == nil {
 			logger.Errorf("%s err {failed to connect to grpc service provider}", loggerHeader)
-			c.Err = err
-			c.Next()
-			return
+			c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(err.Error()))
+			return filter.Stop
 		}
 	}
 
@@ -216,17 +226,15 @@ func (f *Filter) Handle(c *http.HttpContext) {
 	// judge err is server side error or not
 	if st, ok := status.FromError(err); !ok || isServerError(st) {
 		logger.Error("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
-		c.Err = err
-		c.Next()
-		return
+		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(err.Error()))
+		return filter.Stop
 	}
 
 	res, err := protoMsgToJson(resp)
 	if err != nil {
 		logger.Error("%s err {failed to convert proto msg to json, %s}", loggerHeader, err.Error())
-		c.Err = err
-		c.Next()
-		return
+		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(err.Error()))
+		return filter.Stop
 	}
 
 	h := mapMetadataToHeader(md)
@@ -241,7 +249,7 @@ func (f *Filter) Handle(c *http.HttpContext) {
 		Request:    c.Request,
 	}
 	p.Put(clientConn)
-	c.Next()
+	return filter.Continue
 }
 
 func (f *Filter) registerExtension(mthDesc *desc.MethodDescriptor) error {
@@ -323,12 +331,12 @@ func isServerError(st *status.Status) bool {
 		st.Code() == codes.Unavailable
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Apply() error {
-	gc := f.cfg
+func (factory *FilterFactory) Apply() error {
+	gc := factory.cfg
 
 	cur := gc.Path
 	if !filepath.IsAbs(cur) {
@@ -359,7 +367,7 @@ func (f *Filter) Apply() error {
 	if err != nil {
 		return err
 	}
-	err = f.initFromFileDescriptor([]string{gc.Path}, fileLists...)
+	err = factory.initFromFileDescriptor([]string{gc.Path}, fileLists...)
 	if err != nil {
 		return err
 	}

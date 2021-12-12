@@ -36,6 +36,5 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/seata"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/timeout"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/tracing"
 )

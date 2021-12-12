@@ -41,12 +41,15 @@ type (
 	Plugin struct {
 	}
 
-	// Filter is http filter instance
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *Config
+	}
 	Filter struct {
 		cfg *Config
 	}
 
-	// Config describe the config of Filter
+	// Config describe the config of FilterFactory
 	Config struct {
 		AllowOrigin []string `yaml:"allow_origin" json:"allow_origin" mapstructure:"allow_origin"`
 		// AllowMethods access-control-allow-methods
@@ -66,17 +69,18 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{cfg: &Config{}}, nil
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{cfg: factory.cfg}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(ctx *http.HttpContext) {
+func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	f.handleCors(ctx)
-	ctx.Next()
+	return filter.Continue
 }
 
 func (f *Filter) handleCors(ctx *http.HttpContext) {
@@ -112,10 +116,10 @@ func (f *Filter) handleCors(ctx *http.HttpContext) {
 	}
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }

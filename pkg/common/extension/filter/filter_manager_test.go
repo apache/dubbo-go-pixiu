@@ -147,7 +147,7 @@ func TestLoad(t *testing.T) {
 func runFilter(t *testing.T, fm *FilterManager, filtersConf []*model.HTTPFilter) {
 	fm.ReLoad(filtersConf)
 
-	filters := fm.GetFilters()
+	filters := fm.GetFactory()
 	assert.Equal(t, len(filtersConf), len(filters))
 
 	baseContext := &contexthttp.HttpContext{}
