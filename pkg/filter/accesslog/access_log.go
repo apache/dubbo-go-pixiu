@@ -45,10 +45,16 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// Filter is http filter instance
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		conf *AccessLogConfig
+		alw  *AccessLogWriter
+	}
 	Filter struct {
 		conf *AccessLogConfig
 		alw  *AccessLogWriter
+
+		start time.Time
 	}
 )
 
@@ -59,7 +65,7 @@ func (p *Plugin) Kind() string {
 
 // CreateFilter create filter
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{
+	return &FilterFactory{
 		conf: &AccessLogConfig{},
 		alw: &AccessLogWriter{
 			AccessLogDataChan: make(chan AccessLogData, constant.LogDataBuffer),
@@ -68,32 +74,38 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 // PrepareFilterChain prepare chain when http context init
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{alw: factory.alw}
+	chain.AppendDecodeFilters(f)
+	chain.AppendEncodeFilters(f)
 	return nil
 }
 
-// Handle process http context
-func (f *Filter) Handle(c *http.HttpContext) {
-	start := time.Now()
-	c.Next()
-	latency := time.Since(start)
+// Decode process http context
+func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
+	f.start = time.Now()
+	return filter.Continue
+}
+
+func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
+	latency := time.Since(f.start)
 	// build access_log message
 	accessLogMsg := buildAccessLogMsg(c, latency)
 	if len(accessLogMsg) > 0 {
 		f.alw.Writer(AccessLogData{AccessLogConfig: *f.conf, AccessLogMsg: accessLogMsg})
 	}
+	return filter.Continue
 }
 
 // Config return config of filter
-func (f *Filter) Config() interface{} {
-	return f.conf
+func (factory *FilterFactory) Config() interface{} {
+	return factory.conf
 }
 
 // Apply init after config set
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	// init
-	f.alw.Write()
+	factory.alw.Write()
 	return nil
 }
 
@@ -125,12 +137,11 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 		builder.WriteString("] ")
 	}
 	resp := c.TargetResp.Data
-	rbs, err := getBytes(resp)
 	if err != nil {
 		builder.WriteString(fmt.Sprintf(" response can not convert to string"))
 		builder.WriteString("] ")
 	} else {
-		builder.WriteString(fmt.Sprintf(" response [ %+v", string(rbs)))
+		builder.WriteString(fmt.Sprintf(" response [ %+v", string(resp)))
 		builder.WriteString("] ")
 	}
 	// builder.WriteString("\n")
