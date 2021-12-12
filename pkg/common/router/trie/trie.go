@@ -337,7 +337,7 @@ func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) boo
 	if isReal {
 		selfNode.bizInfo = bizInfo
 	}
-	selfNode.endOfPath = selfNode.endOfPath || old.endOfPath
+	selfNode.endOfPath = isReal || old.endOfPath
 	node.children[matchStr] = selfNode
 	return true
 }

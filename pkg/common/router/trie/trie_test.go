@@ -136,6 +136,10 @@ func TestTrie_MatchAndGet(t *testing.T) {
 	node, _, ok, _ = trie.Get("/path1/:p/path2/:p2")
 	assert.True(t, ok)
 	assert.True(t, node.GetBizInfo() == "test1")
+
+	node, _, ok = trie.Match("/path1/12/path2/12?a=b")
+	assert.True(t, ok)
+	assert.True(t, node.GetBizInfo() == "test1")
 }
 
 func TestTrie_Clear(t *testing.T) {
@@ -175,8 +179,27 @@ func TestTrie_Clear(t *testing.T) {
 	assert.True(t, ret)
 
 	ret, _ = trie.Put("/path1/:432/path2/:34", "")
+
 	assert.False(t, ret)
 	assert.False(t, trie.IsEmpty())
 	trie.Clear()
 	assert.True(t, trie.IsEmpty())
+}
+
+func TestTrie_ParamMatch(t *testing.T) {
+	v := "http://baidu.com/aa/bb"
+	v = stringutil.GetTrieKey("PUT", v)
+	trie := NewTrie()
+	ret, _ := trie.Put("PUT/path1/:pathvarible1/path2/:pathvarible2", "")
+	assert.True(t, ret)
+	str := "https://www.baidu.com/path1/param1/path2/param2?aaaaa=aaaaa"
+
+	node, _, ok := trie.Match(stringutil.GetTrieKey("PUT", str))
+	assert.True(t, ok)
+	assert.Equal(t, "", node.GetBizInfo())
+
+	ret, _ = trie.Put("PUT/path1/:pathvarible1/path2", "")
+	node, _, ok = trie.Match(stringutil.GetTrieKey("PUT", str))
+	assert.True(t, ok)
+	assert.Equal(t, "", node.GetBizInfo())
 }
