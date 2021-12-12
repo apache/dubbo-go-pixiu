@@ -131,7 +131,7 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 	}
 	builder.WriteString("cost time [ ")
 	builder.WriteString(strconv.Itoa(int(cost)) + " ]")
-	err := c.Err
+	err := c.GetLocalReplyBody()
 	if err != nil {
 		builder.WriteString(fmt.Sprintf("invoke err [ %v", err))
 		builder.WriteString("] ")

@@ -29,8 +29,6 @@ import (
 
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
-
-	"github.com/pkg/errors"
 )
 
 import (
@@ -57,8 +55,8 @@ type HttpContext struct {
 	localReply bool
 	// statusCode code will be return
 	statusCode int
-	//Deprecated: happen error
-	Err error
+	// localReplyBody: happen error
+	localReplyBody []byte
 	// the response context will return.
 	TargetResp *client.Response
 	// client call response.
@@ -97,12 +95,12 @@ func (hc *HttpContext) Reset() {
 	hc.Filters = []FilterFunc{}
 	hc.Route = nil
 	hc.Api = nil
-	hc.Err = nil
 
 	hc.TargetResp = nil
 	hc.SourceResp = nil
 	hc.statusCode = 0
 	hc.localReply = false
+	hc.localReplyBody = nil
 }
 
 // RouteEntry set route
@@ -178,7 +176,7 @@ func (hc *HttpContext) GetApplicationName() string {
 func (hc *HttpContext) SendLocalReply(status int, body []byte) {
 	hc.localReply = true
 	hc.statusCode = status
-	hc.Err = errors.New(string(body))
+	hc.localReplyBody = body
 	hc.TargetResp = &client.Response{Data: body}
 	hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 
@@ -188,6 +186,10 @@ func (hc *HttpContext) SendLocalReply(status int, body []byte) {
 	if err != nil {
 		logger.Errorf("write fail: %v", err)
 	}
+}
+
+func (hc *HttpContext) GetLocalReplyBody() []byte {
+	return hc.localReplyBody
 }
 
 func (hc *HttpContext) GetStatusCode() int {

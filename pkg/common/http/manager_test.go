@@ -48,9 +48,11 @@ type (
 	Plugin struct {
 	}
 	// HeaderFilter is http filter instance
-	DemoFilter struct {
+	DemoFilterFactory struct {
 		conf *Config
-		str  string
+	}
+	DemoFilter struct {
+		str string
 	}
 	// Config describe the config of ResponseFilter
 	Config struct {
@@ -64,26 +66,41 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &DemoFilter{conf: &Config{Foo: "default foo", Bar: "default bar"}}, nil
+	return &DemoFilterFactory{conf: &Config{Foo: "default foo", Bar: "default bar"}}, nil
 }
 
-func (f *DemoFilter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (f *DemoFilter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
+	logger.Info("decode phase: ", f.str)
+
+	runes := []rune(f.str)
+	for i := 0; i < len(runes)/2; i += 1 {
+		runes[i], runes[len(runes)-1-i] = runes[len(runes)-1-i], runes[i]
+	}
+	f.str = string(runes)
+
+	return filter.Continue
+}
+
+func (f *DemoFilter) Encode(ctx *contexthttp.HttpContext) filter.FilterStatus {
+	logger.Info("encode phase: ", f.str)
+	return filter.Continue
+}
+
+func (f *DemoFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	c := f.conf
+	str := fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
+	filter := &DemoFilter{str: str}
+
+	chain.AppendDecodeFilters(filter)
+	chain.AppendEncodeFilters(filter)
 	return nil
 }
 
-func (f *DemoFilter) Handle(c *contexthttp.HttpContext) {
-	logger.Info(f.str)
-}
-
-func (f *DemoFilter) Config() interface{} {
+func (f *DemoFilterFactory) Config() interface{} {
 	return f.conf
 }
 
-func (f *DemoFilter) Apply() error {
-	c := f.conf
-	f.str = fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
-	//return the filter func
+func (f *DemoFilterFactory) Apply() error {
 	return nil
 }
 
