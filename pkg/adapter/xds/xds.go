@@ -39,18 +39,20 @@ func init() {
 type (
 	DiscoverApi interface {
 		Fetch(localVersion string) ([]*apiclient.ProtoAny, error)
+		Delta() (chan *apiclient.DeltaResources, error)
 	}
 
 	AdapterConfig struct {
 	}
 
 	Adapter struct {
-		ID   string
-		Name string
-		cfg  *AdapterConfig
-		ads  DiscoverApi //aggregate discover service manager todo to implement
-		cds  *CdsManager //cluster discover service manager
-		lds  *LdsManager //listener discover service manager
+		ID     string
+		Name   string
+		cfg    *AdapterConfig
+		ads    DiscoverApi //aggregate discover service manager todo to implement
+		cds    *CdsManager //cluster discover service manager
+		lds    *LdsManager //listener discover service manager
+		exitCh chan struct{}
 	}
 
 	GrpcClusterManager struct {
@@ -97,6 +99,19 @@ func (g *GrpcClusterManager) GetGrpcCluster(name string) (apiclient.GrpcCluster,
 	return newCluster, nil
 }
 
+func (g *GrpcClusterManager) Close() (err error) {
+	//todo enhance the close process when concurrent
+	g.clusters.Range(func(_, value interface{}) bool {
+		if conn := value.(*grpc.ClientConn); conn != nil {
+			if err = conn.Close(); err != nil {
+				logger.Errorf("can not close grpc connection.", err)
+			}
+		}
+		return true
+	})
+	return nil
+}
+
 func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
 	g.once.Do(func() {
 		creds := insecure.NewCredentials()
@@ -114,7 +129,7 @@ func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
 		port := g.config.PickOneEndpoint().Address.Port
 		target := fmt.Sprintf("%s:%d", address, port)
 		logger.Infof("to connect xds server %s ...", target)
-		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
 		conn, err := grpc.DialContext(ctx, target,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),
@@ -154,7 +169,7 @@ func (a *Adapter) createApiManager(config *model.ApiConfigSource,
 
 	switch config.APIType {
 	case model.ApiTypeGRPC:
-		return apiclient.CreateGrpcApiClient(config, node, &grpcClusterManager, resourceTypes...)
+		return apiclient.CreateGrpcApiClient(config, node, &grpcClusterManager, a.exitCh, resourceTypes...)
 	default:
 		logger.Fatalf("un-support the api type %s", config.APITypeStr)
 		return nil
@@ -163,15 +178,17 @@ func (a *Adapter) createApiManager(config *model.ApiConfigSource,
 
 func (a *Adapter) Start() {
 	dm := server.GetDynamicResourceManager()
+	// lds fetch just run on init phase.
 	if dm.GetLds() != nil {
 		a.lds = &LdsManager{DiscoverApi: a.createApiManager(dm.GetLds(), dm.GetNode(), xds.ListenerType)}
 		if err := a.lds.Fetch(); err != nil {
 			logger.Errorf("can not fetch lds")
 		}
 	}
+	// catch the ongoing cds config change.
 	if dm.GetCds() != nil {
 		a.cds = &CdsManager{DiscoverApi: a.createApiManager(dm.GetCds(), dm.GetNode(), xds.ClusterType)}
-		if err := a.lds.Fetch(); err != nil {
+		if err := a.cds.Delta(); err != nil {
 			logger.Errorf("can not fetch lds")
 		}
 	}
@@ -180,12 +197,10 @@ func (a *Adapter) Start() {
 
 func (a *Adapter) Stop() {
 	//todo close the grpc connection
-	grpcClusterManager.clusters.Range(func(_, value interface{}) bool {
-		if err := value.(*GrpcCluster).Close(); err != nil {
-			logger.Errorf("close grpc cluster connection failed. %v", err)
-		}
-		return true
-	})
+	if err := grpcClusterManager.Close(); err != nil {
+		logger.Errorf("grpcClusterManager close failed. %v", err)
+	}
+	close(a.exitCh)
 }
 
 func (a *Adapter) Apply() error {

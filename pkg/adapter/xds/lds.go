@@ -18,15 +18,16 @@
 package xds
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	xdspb "github.com/apache/dubbo-go-pixiu/pkg/model/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"gopkg.in/yaml.v2"
 )
 
 type LdsManager struct {
 	DiscoverApi
-	listeners []*xdspb.Listener
 }
 
 // Fetch overwrite DiscoverApi.Fetch.
@@ -36,9 +37,7 @@ func (l *LdsManager) Fetch() error {
 		logger.Error("can not fetch lds", err)
 		return err
 	}
-	if len(l.listeners) == 0 {
-		l.listeners = make([]*xdspb.Listener, 0, len(r))
-	}
+	listeners := make([]*xdspb.Listener, 0, len(r))
 	for _, one := range r {
 		_listener := &xdspb.Listener{}
 		if err := one.To(_listener); err != nil {
@@ -46,10 +45,38 @@ func (l *LdsManager) Fetch() error {
 			continue
 		}
 		logger.Infof("listener xds server %v", _listener)
-		l.listeners = append(l.listeners, _listener)
+		listeners = append(listeners, _listener)
 	}
-	l.SetupListeners()
+	l.setupListeners(listeners)
 	return nil
+}
+
+func (l *LdsManager) Delta() error {
+	readCh, err := l.DiscoverApi.Delta()
+	if err != nil {
+		return err
+	}
+	go l.asyncHandler(readCh)
+	return nil
+}
+
+func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
+	for delta := range read {
+		l.removeListeners(delta.RemovedResource)
+		listeners := make([]*xdspb.Listener, 0, len(delta.NewResources))
+		for _, one := range delta.NewResources {
+			_listener := &xdspb.Listener{}
+			if err := one.To(_listener); err != nil {
+				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
+				continue
+			}
+			logger.Infof("listener xds server %v", _listener)
+			listeners = append(listeners, _listener)
+		}
+		if len(listeners) > 0 {
+			l.setupListeners(listeners)
+		}
+	}
 }
 
 func (l *LdsManager) makeSocketAddress(address *xdspb.SocketAddress) model.SocketAddress {
@@ -66,17 +93,24 @@ func (l *LdsManager) makeSocketAddress(address *xdspb.SocketAddress) model.Socke
 		//CertsDir: _l.Address.SocketAddress"", //todo add the domains
 	}
 }
+func (l *LdsManager) removeListeners(names []string) {
+	server.GetServer().GetListenerManager().RemoveListener(names)
+}
 
-// SetupListeners setup listeners accord to dynamic resource
-func (l *LdsManager) SetupListeners() {
-	for _, _l := range l.listeners {
-		modelListener := model.Listener{
-			Name:         _l.Name,
-			Address:      l.makeAddress(_l.Address),
-			FilterChains: l.makeFilterChain(_l.FilterChains),
-			Config:       nil, // todo set the additional config
-		}
+// setupListeners setup listeners accord to dynamic resource
+func (l *LdsManager) setupListeners(listeners []*xdspb.Listener) {
+	for _, _l := range listeners {
+		modelListener := l.makeListener(_l)
 		server.GetServer().GetListenerManager().AddOrUpdateListener(&modelListener)
+	}
+}
+
+func (l *LdsManager) makeListener(_l *xdspb.Listener) model.Listener {
+	return model.Listener{
+		Name:         _l.Name,
+		Address:      l.makeAddress(_l.Address),
+		FilterChains: l.makeFilterChain(_l.FilterChains),
+		Config:       nil, // todo set the additional config
 	}
 }
 
@@ -97,9 +131,22 @@ func (l *LdsManager) makeFilters(filters []*xdspb.Filter) []model.Filter {
 		_filters = append(_filters, model.Filter{
 			Name: _filter.Name,
 			//Config: _filter., todo define the config of filter
+			Config: l.makeConfig(_filter),
 		})
 	}
 	return _filters
+}
+
+func (l *LdsManager) makeConfig(filter *xdspb.Filter) (m map[string]interface{}) {
+	if filter.GetYaml() != nil {
+		//todo read yaml
+		if err := yaml.Unmarshal([]byte(filter.GetYaml().Content), &m); err != nil {
+			logger.Errorf("can not make yaml from filter.Config: %s", filter.GetYaml().Content, err)
+		}
+		return
+	}
+	logger.Errorf("can not get filter config of %s", filter.Name)
+	return
 }
 
 func (l *LdsManager) makeAddress(addr *xdspb.Address) model.Address {

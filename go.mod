@@ -49,6 +49,6 @@ require (
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 
-//replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.10.1
+//replace github.com/envoyproxy/go-control-plane => ../go-control-plane
 
 replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1

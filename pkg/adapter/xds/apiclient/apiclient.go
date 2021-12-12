@@ -31,6 +31,11 @@ type (
 	ProtoAny struct {
 		typeConfig *v3.TypedExtensionConfig
 	}
+
+	DeltaResources struct {
+		NewResources    []*ProtoAny
+		RemovedResource []string
+	}
 )
 
 func (p *ProtoAny) GetName() string {
