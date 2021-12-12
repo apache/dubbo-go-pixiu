@@ -50,7 +50,6 @@ func TestHeader(t *testing.T) {
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request)
 	c.API(api)
-	c.Next()
 
 	request.Header.Set("filter", "test")
 	api.Headers["filter"] = "test"

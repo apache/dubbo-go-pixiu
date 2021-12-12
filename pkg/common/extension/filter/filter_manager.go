@@ -55,14 +55,14 @@ func NewEmptyFilterManager() *FilterManager {
 func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
 	chain := NewDefaultFilterChain()
 
-	for _, f := range fm.GetFilters() {
+	for _, f := range fm.GetFactory() {
 		_ = (*f).PrepareFilterChain(ctx, chain)
 	}
 	return chain
 }
 
-// GetFilters get all filter from manager
-func (fm *FilterManager) GetFilters() []*HttpFilterFactory {
+// GetFactory get all filter from manager
+func (fm *FilterManager) GetFactory() []*HttpFilterFactory {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
 
@@ -94,7 +94,7 @@ func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	fm.filtersArray = filtersArray
 }
 
-// Apply return a new filter by name & conf
+// Apply return a new filter factory by name & conf
 func (fm *FilterManager) Apply(name string, conf map[string]interface{}) (HttpFilterFactory, error) {
 	plugin, err := GetHttpFilterPlugin(name)
 	if err != nil {

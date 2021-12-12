@@ -18,6 +18,11 @@
 package event
 
 import (
+	"fmt"
+	sdkhttp "net/http"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/mq"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
@@ -40,6 +45,10 @@ type (
 	Plugin struct {
 	}
 
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *mq.Config
+	}
 	// Filter is http filter instance
 	Filter struct {
 		cfg *mq.Config
@@ -51,34 +60,34 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{cfg: &mq.Config{}}, nil
+	return &FilterFactory{cfg: &mq.Config{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{cfg: factory.cfg}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(ctx *http.HttpContext) {
+func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	mqClient := mq.NewSingletonMQClient(*f.cfg)
 	req := client.NewReq(ctx.Request.Context(), ctx.Request, *ctx.GetAPI())
 	resp, err := mqClient.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] event client call err:%v!", err)
-		ctx.Err = err
-		ctx.Next()
-		return
+		ctx.SendLocalReply(sdkhttp.StatusInternalServerError, []byte(fmt.Sprintf("event client call err:%v", err)))
+		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] event client call resp:%v", resp)
 	ctx.SourceResp = resp
-	ctx.Next()
+	return filter.Continue
 }
 
-func (f *Filter) Apply() error {
-	mq.NewSingletonMQClient(*f.cfg)
+func (factory *FilterFactory) Apply() error {
+	mq.NewSingletonMQClient(*factory.cfg)
 	return nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }

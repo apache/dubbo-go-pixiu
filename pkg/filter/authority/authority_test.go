@@ -18,6 +18,7 @@
 package authority
 
 import (
+	"net/http"
 	"testing"
 )
 
@@ -26,13 +27,15 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
 func TestAuth(t *testing.T) {
 
 	rules := AuthorityConfiguration{
-		[]AuthorityRule{{Strategy: Blacklist, Items: append([]string{}, "")}},
+		[]AuthorityRule{{Strategy: Blacklist, Items: append([]string{}, "127.0.0.1")}},
 	}
 	//rules = []AuthorityRule{{Strategy: Whitelist, Items: append([]string{}, "127.0.0.1")}}
 	p := Plugin{}
@@ -45,7 +48,10 @@ func TestAuth(t *testing.T) {
 
 	err = authFilter.Apply()
 	assert.Nil(t, err)
+	f := &Filter{cfg: &rules}
 
-	//request, _ := http.NewRequest("GET", "/", nil)
-	//authFilter.Handle(mock.GetMockHTTPContext(request))
+	request, _ := http.NewRequest("GET", "/", nil)
+	ctx := mock.GetMockHTTPContext(request)
+	filterStatus := f.Decode(ctx)
+	assert.Equal(t, filterStatus, filter.Continue)
 }

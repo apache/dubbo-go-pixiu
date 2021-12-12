@@ -36,11 +36,15 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *Config
+	}
 	// Filter is http filter instance
 	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of Filter
+	// Config describe the config of FilterFactory
 	Config struct {
 		Host string `yaml:"host" json:"host"`
 	}
@@ -51,22 +55,23 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &Filter{}, nil
+	return &FilterFactory{}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{cfg: factory.cfg}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(c *contexthttp.HttpContext) {
+func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	c.Request.Host = f.cfg.Host
-	c.Next()
+	return filter.Continue
 }
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	return nil
 }

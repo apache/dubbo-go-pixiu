@@ -110,7 +110,7 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 	}
 
 	hcm := CreateHttpConnectionManager(&hcmc, nil)
-	assert.Equal(t, len(hcm.filterManager.GetFilters()), 1)
+	assert.Equal(t, len(hcm.filterManager.GetFactory()), 1)
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/api/v1?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	request.Header = map[string][]string{

@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
@@ -46,7 +47,10 @@ func TestFilter(t *testing.T) {
 	err = f.Apply()
 	assert.Nil(t, err)
 
+	decoder := &Filter{conf: config, matcher: newMatcher()}
+
 	request, _ := stdHttp.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	c := mock.GetMockHTTPContext(request)
-	c.Next()
+	status := decoder.Decode(c)
+	assert.Equal(t, status, filter.Continue)
 }

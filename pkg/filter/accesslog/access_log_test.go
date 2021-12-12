@@ -19,8 +19,6 @@ package accesslog
 
 import (
 	"bytes"
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"net/http"
 	"os"
 	"testing"
@@ -32,7 +30,9 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
