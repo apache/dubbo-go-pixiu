@@ -29,12 +29,13 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/Shopify/sarama"
+
+	perrors "github.com/pkg/errors"
 )
 
 import (
-	"github.com/Shopify/sarama"
-	perrors "github.com/pkg/errors"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type kafkaErrors struct {

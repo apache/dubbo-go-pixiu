@@ -17,12 +17,14 @@
 
 package trie
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
-	"github.com/stretchr/testify/assert"
-)
+
 import (
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+  "github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 )
 
 func TestTrie_Put(t *testing.T) {

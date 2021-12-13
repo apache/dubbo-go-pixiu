@@ -18,8 +18,11 @@
 package stringutil
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"strings"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // StrInSlice returns whether the string is in the slice.
