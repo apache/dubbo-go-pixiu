@@ -1,4 +1,6 @@
 syntax = "proto3";
+import "google/protobuf/struct.proto";
+
 package pixiu.api.v1;
 
 // Filter core struct, filter is extend by user
@@ -7,6 +9,7 @@ message Filter {
 	oneof config {
 		Config yaml = 2;
 		Config json = 3;
+		google.protobuf.Struct struct = 4;
 	}
 }
 

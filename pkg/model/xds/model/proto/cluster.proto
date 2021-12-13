@@ -2,7 +2,7 @@ syntax = "proto3";
 package pixiu.api.v1;
 
 import "address.proto";
-
+import "google/protobuf/struct.proto";
 
 // ApiConfigSource
 message ApiConfigSource {
@@ -29,11 +29,11 @@ message Cluster {
 	string name = 1;
 	string type_str = 2;
 	int32 type = 3 ;
-	pixiu.api.v1.EdsClusterConfig eds_cluster_config = 4;
+	EdsClusterConfig eds_cluster_config = 4;
 	string lb_str = 5;
 	int32 lb = 6 ;
-	pixiu.api.v1.HealthCheck health_checks = 7;
-	pixiu.api.v1.Endpoint endpoints = 8;
+	repeated HealthCheck health_checks = 7;
+	Endpoint endpoints = 8;
 }
 
 
@@ -45,6 +45,27 @@ message Endpoint {
 	map<string, string> metadata = 4;
 }
 
+message HttpHealthCheck {
+	string host = 1;
+	string path = 2;
+	bool useHttp2 = 3;
+	int64 expectedStatuses = 4;
+}
+
+message GrpcHealthCheck {
+	string serviceName = 1;
+		string authority = 2;
+}
+
+message CustomHealthCheck {
+	string name = 1;
+	google.protobuf.Struct config = 2;
+}
 // HealthCheck
 message HealthCheck {
+	oneof checker {
+			HttpHealthCheck httpChecker = 1;
+			GrpcHealthCheck grpcChecker = 2;
+			CustomHealthCheck customChecker = 3;
+	}
 }

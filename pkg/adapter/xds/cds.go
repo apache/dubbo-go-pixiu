@@ -150,9 +150,36 @@ func (c *CdsManager) makeProtocol(endpoint *xdspb.Endpoint) model.ProtocolType {
 	return model.ProtocolType(model.ProtocolTypeValue[strings.ToUpper(endpoint.Address.ProtocolStr)])
 }
 
-func (c *CdsManager) makeHealthChecks(*xdspb.HealthCheck) []model.HealthCheck {
-	//todo implement me
-	return []model.HealthCheck{}
+func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []model.HealthCheck) {
+	//todo implement me after fix model.HealthCheck type define
+	//result = make([]model.HealthCheck, 0, len(checks))
+	//for _, check := range checks {
+	//	switch one := check.GetChecker().(type) {
+	//	case *xdspb.HealthCheck_HttpChecker:
+	//		result = append(result, model.HttpHealthCheck{
+	//			Host:             one.HttpChecker.Host,
+	//			Path:             one.HttpChecker.Path,
+	//			UseHttp2:         one.HttpChecker.UseHttp2,
+	//			ExpectedStatuses: one.HttpChecker.ExpectedStatuses,
+	//		})
+	//	case *xdspb.HealthCheck_GrpcChecker:
+	//		result = append(result, model.GrpcHealthCheck{
+	//			ServiceName: one.GrpcChecker.ServiceName,
+	//			Authority:   one.GrpcChecker.Authority,
+	//		})
+	//	case *xdspb.HealthCheck_CustomChecker:
+	//		result = append(result, model.CustomHealthCheck{
+	//			Name: one.CustomChecker.Name,
+	//			Config: func() interface{} {
+	//				if one.CustomChecker.Config == nil {
+	//					return nil
+	//				}
+	//				return one.CustomChecker.Config.AsMap()
+	//			}(),
+	//		})
+	//	}
+	//}
+	return
 }
 
 func (c *CdsManager) makeEdsClusterConfig(edsConfig *xdspb.EdsClusterConfig) model.EdsClusterConfig {

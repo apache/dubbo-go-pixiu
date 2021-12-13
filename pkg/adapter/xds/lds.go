@@ -18,6 +18,7 @@
 package xds
 
 import (
+	"encoding/json"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -85,7 +86,7 @@ func (l *LdsManager) makeSocketAddress(address *xdspb.SocketAddress) model.Socke
 	}
 	return model.SocketAddress{
 		ProtocolStr:  address.ProtocolStr,
-		Protocol:     model.ProtocolType(address.Protocol), //todo
+		Protocol:     model.ProtocolType(address.Protocol), //todo validate
 		Address:      address.Address,
 		Port:         int(address.Port),
 		ResolverName: address.ResolverName,
@@ -138,14 +139,20 @@ func (l *LdsManager) makeFilters(filters []*xdspb.Filter) []model.Filter {
 }
 
 func (l *LdsManager) makeConfig(filter *xdspb.Filter) (m map[string]interface{}) {
-	if filter.GetYaml() != nil {
-		//todo read yaml
-		if err := yaml.Unmarshal([]byte(filter.GetYaml().Content), &m); err != nil {
-			logger.Errorf("can not make yaml from filter.Config: %s", filter.GetYaml().Content, err)
+	switch cfg := filter.Config.(type) {
+	case *xdspb.Filter_Yaml:
+		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {
+			logger.Errorf("can not make yaml from filter.Config: %s", cfg.Yaml.Content, err)
 		}
-		return
+	case *xdspb.Filter_Json:
+		if err := json.Unmarshal([]byte(cfg.Json.Content), &m); err != nil {
+			logger.Errorf("can not make json from filter.Config: %s", cfg.Json.Content, err)
+		}
+	case *xdspb.Filter_Struct:
+		m = cfg.Struct.AsMap()
+	default:
+		logger.Errorf("can not get filter config of %s", filter.Name)
 	}
-	logger.Errorf("can not get filter config of %s", filter.Name)
 	return
 }
 
