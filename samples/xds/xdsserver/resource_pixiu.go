@@ -42,6 +42,12 @@ func makeHttpFilter() []*pixiupb.FilterChain {
 					Config: &pixiupb.Filter_Yaml{Yaml: &pixiupb.Config{
 						Content: httpManagerConfigYaml,
 					}},
+					//Config: &pixiupb.Filter_Value{
+					//	Value: func() *structpb2.Value {
+					//		v, _ := structpb2.NewValue(nil)
+					//		return v
+					//	}(),
+					//},
 				},
 			},
 		},
