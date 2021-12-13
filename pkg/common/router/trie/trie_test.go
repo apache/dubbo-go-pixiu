@@ -188,8 +188,6 @@ func TestTrie_Clear(t *testing.T) {
 }
 
 func TestTrie_ParamMatch(t *testing.T) {
-	v := "http://baidu.com/aa/bb"
-	v = stringutil.GetTrieKey("PUT", v)
 	trie := NewTrie()
 	ret, _ := trie.Put("PUT/path1/:pathvarible1/path2/:pathvarible2", "")
 	assert.True(t, ret)
@@ -203,4 +201,6 @@ func TestTrie_ParamMatch(t *testing.T) {
 	node, _, ok = trie.Match(stringutil.GetTrieKey("PUT", str))
 	assert.True(t, ok)
 	assert.Equal(t, "", node.GetBizInfo())
+	assert.True(t, ret)
+
 }
