@@ -202,5 +202,4 @@ func TestTrie_ParamMatch(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "", node.GetBizInfo())
 	assert.True(t, ret)
-
 }
