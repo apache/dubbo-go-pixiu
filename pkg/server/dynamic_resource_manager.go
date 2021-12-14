@@ -94,6 +94,9 @@ func convertApiType(config *model.ApiConfigSource) error {
 			return errors.Errorf("unknown apiType %s", config.APITypeStr)
 		}
 		config.APIType = api.ApiType(apiType)
+		if config.APIType != model.ApiTypeGRPC {
+			return errors.Errorf("APIType support GRPC only but get %s", config.APITypeStr)
+		}
 	}
 	return nil
 }

@@ -178,6 +178,10 @@ func (a *Adapter) createApiManager(config *model.ApiConfigSource,
 
 func (a *Adapter) Start() {
 	dm := server.GetDynamicResourceManager()
+	if dm == nil { // if dm is nil, then config not initialized.
+		logger.Infof("can not get dynamic resource manager. maybe the config has not initialized")
+		return
+	}
 	// lds fetch just run on init phase.
 	if dm.GetLds() != nil {
 		a.lds = &LdsManager{DiscoverApi: a.createApiManager(dm.GetLds(), dm.GetNode(), xds.ListenerType)}
