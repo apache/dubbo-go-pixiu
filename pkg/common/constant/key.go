@@ -20,6 +20,7 @@ package constant
 const (
 	HTTPConnectManagerFilter = "dgp.filter.httpconnectionmanager"
 	GRPCConnectManagerFilter = "dgp.filter.grpcconnectionmanager"
+	DubboProxyFilter         = "dgp.filter.network.dubboproxy"
 
 	HTTPAuthorityFilter    = "dgp.filter.http.authority"
 	HTTPProxyFilter        = "dgp.filter.http.httpproxy"

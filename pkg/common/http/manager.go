@@ -62,7 +62,11 @@ func (ls *HttpConnectionManager) allocateContext() *pch.HttpContext {
 	}
 }
 
-func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
+func (hcm *HttpConnectionManager) OnData(data []byte) (interface{}, int, error) {
+	return nil, 0, nil
+}
+
+func (hcm *HttpConnectionManager) Handle(hc *pch.HttpContext) error {
 	hc.Ctx = context.Background()
 	err := hcm.findRoute(hc)
 	if err != nil {
@@ -81,7 +85,7 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc.Writer = w
 	hc.Reset()
 
-	err := hcm.OnData(hc)
+	err := hcm.Handle(hc)
 	if err != nil {
 		logger.Errorf("ServeHTTP %v", err)
 	}

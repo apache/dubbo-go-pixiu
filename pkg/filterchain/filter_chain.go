@@ -41,6 +41,14 @@ func (fc FilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (fc FilterChain) OnData(data []byte) (interface{}, int, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnData(data)
+	}
+	return nil, 0, nil
+}
+
 func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterChain {
 	filtersArray := make([]filter.NetworkFilter, len(config.Filters))
 	// todo: split code block like http filter manager
@@ -74,6 +82,21 @@ func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterCha
 				logger.Error("CreateFilterChain %s createFilter error %s", f.Name, err)
 			}
 			filtersArray[i] = filter
+		} else if f.Name == constant.DubboProxyFilter {
+			hcmc := &model.DubboProxyConnectionManagerConfig{}
+			if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
+				logger.Error("CreateFilterChain parse %s config error %s", f.Name, err)
+			}
+			p, err := filter.GetNetworkFilterPlugin(constant.DubboProxyFilter)
+			if err != nil {
+				logger.Error("CreateFilterChain %s getNetworkFilterPlugin error %s", f.Name, err)
+			}
+			filter, err := p.CreateFilter(hcmc, bs)
+			if err != nil {
+				logger.Error("CreateFilterChain %s createFilter error %s", f.Name, err)
+			}
+			filtersArray[i] = filter
+
 		}
 	}
 

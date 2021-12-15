@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"encoding/binary"
 	getty "github.com/apache/dubbo-getty"
 	"github.com/apache/dubbo-getty/demo/hello"
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
@@ -76,4 +77,28 @@ func (ls *TcpListenerService) newSession(session getty.Session) (err error) {
 	session.SetPkgHandler(NewPackageHandler(ls))
 	session.SetEventListener(NewServerPackageHandler(ls))
 	return nil
+}
+
+func (ls *TcpListenerService) OnData(data []byte) (interface{}, int, error) {
+
+	return ls.FilterChain.OnData(data)
+
+	dataLen := len(data)
+	if dataLen < 4 {
+		return nil, 0, nil
+	}
+
+	start := 0
+	pos := start + 4
+	pkgLen := int(binary.LittleEndian.Uint32(data[start:pos]))
+	if dataLen < pos+pkgLen {
+		return nil, pos + pkgLen, nil
+	}
+
+	start = pos
+
+	pos = start + pkgLen
+	s := string(data[start:pos])
+
+	return s, pos, nil
 }
