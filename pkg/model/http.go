@@ -39,6 +39,11 @@ type GRPCConnectionManagerConfig struct {
 	RouteConfig RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
 }
 
+// DubboProxyConnectionManagerConfig
+type DubboProxyConnectionManagerConfig struct {
+	RouteConfig RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
+}
+
 // HTTPFilter http filter
 type HTTPFilter struct {
 	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`

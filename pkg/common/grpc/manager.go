@@ -35,7 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -54,9 +53,8 @@ func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig, bs *mo
 	return hcm
 }
 
-// OnData receive data from listener
-func (gcm *GrpcConnectionManager) OnData(hc *pch.HttpContext) error {
-	panic("grpc connection manager OnData function shouldn't be called")
+func (gcm *GrpcConnectionManager) OnData(data []byte) (interface{}, int, error) {
+	return nil, 0, nil
 }
 
 func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
