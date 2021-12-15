@@ -1,0 +1,15 @@
+syntax = "proto3";
+package pixiu.api.v1;
+
+import "cluster.proto";
+import "listener.proto";
+
+// Message map to dubbo-go.pixiu//v1/discovery:cluster
+message PixiuExtensionClusters {
+	repeated Cluster clusters = 1;
+}
+
+// Message map to dubbo-go.pixiu//v1/discovery:listener
+message PixiuExtensionListeners {
+	repeated Listener listeners = 1;
+}

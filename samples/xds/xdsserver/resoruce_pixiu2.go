@@ -11,23 +11,24 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func makeListeners2() *pixiupb.Listener {
-	return &pixiupb.Listener{
-		Name: "net/http889",
-		Address: &pixiupb.Address{
-			SocketAddress: &pixiupb.SocketAddress{
-				ProtocolStr: "http",
-				Address:     "0.0.0.0",
-				Port:        8889,
+func makeListeners2() *pixiupb.PixiuExtensionListeners {
+	return &pixiupb.PixiuExtensionListeners{Listeners: []*pixiupb.Listener{
+		{
+			Name: "net/http889",
+			Address: &pixiupb.Address{
+				SocketAddress: &pixiupb.SocketAddress{
+					ProtocolStr: "http",
+					Address:     "0.0.0.0",
+					Port:        8889,
+				},
+				Name: "http_8889",
 			},
-			Name: "http_8889",
+			FilterChains: makeHttpFilter(),
 		},
-		FilterChains: makeHttpFilter(),
-	}
+	}}
 }
 
 func GenerateSnapshotPixiu2() cache.Snapshot {
-	ldsResource, _ := anypb.New(proto.MessageV2(makeListeners()))
 	ldsResource2, _ := anypb.New(proto.MessageV2(makeListeners2()))
 	cdsResource, _ := anypb.New(proto.MessageV2(makeClusters()))
 	snap, _ := cache.NewSnapshot("2",
@@ -36,10 +37,6 @@ func GenerateSnapshotPixiu2() cache.Snapshot {
 				&core.TypedExtensionConfig{
 					Name:        xds.ClusterType,
 					TypedConfig: cdsResource,
-				},
-				&core.TypedExtensionConfig{
-					Name:        xds.ListenerType,
-					TypedConfig: ldsResource,
 				},
 				&core.TypedExtensionConfig{
 					Name:        xds.ListenerType,

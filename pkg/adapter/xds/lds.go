@@ -40,13 +40,13 @@ func (l *LdsManager) Fetch() error {
 	}
 	listeners := make([]*xdspb.Listener, 0, len(r))
 	for _, one := range r {
-		_listener := &xdspb.Listener{}
+		_listener := &xdspb.PixiuExtensionListeners{}
 		if err := one.To(_listener); err != nil {
 			logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 			continue
 		}
 		logger.Infof("listener xds server %v", _listener)
-		listeners = append(listeners, _listener)
+		listeners = append(listeners, _listener.Listeners...)
 	}
 	l.setupListeners(listeners)
 	return nil
@@ -63,20 +63,18 @@ func (l *LdsManager) Delta() error {
 
 func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		l.removeListeners(delta.RemovedResource)
 		listeners := make([]*xdspb.Listener, 0, len(delta.NewResources))
 		for _, one := range delta.NewResources {
-			_listener := &xdspb.Listener{}
+			_listener := &xdspb.PixiuExtensionListeners{}
 			if err := one.To(_listener); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
 			}
 			logger.Infof("listener xds server %v", _listener)
-			listeners = append(listeners, _listener)
+			listeners = append(listeners, _listener.Listeners...)
 		}
-		if len(listeners) > 0 {
-			l.setupListeners(listeners)
-		}
+
+		l.setupListeners(listeners)
 	}
 }
 
@@ -94,15 +92,38 @@ func (l *LdsManager) makeSocketAddress(address *xdspb.SocketAddress) model.Socke
 		//CertsDir: _l.Address.SocketAddress"", //todo add the domains
 	}
 }
-func (l *LdsManager) removeListeners(names []string) {
-	server.GetServer().GetListenerManager().RemoveListener(names)
+
+func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
+	names := make([]string, 0, len(toRemoveHash))
+	for name, _ := range toRemoveHash {
+		names = append(names, name)
+		server.GetServer().GetListenerManager().RemoveListener(names)
+	}
 }
 
 // setupListeners setup listeners accord to dynamic resource
 func (l *LdsManager) setupListeners(listeners []*xdspb.Listener) {
+	laterApplies := make([]func() error, 0, len(listeners))
+	toRemoveHash := make(map[string]struct{}, len(listeners))
+
 	for _, _l := range listeners {
+		toRemoveHash[_l.Name] = struct{}{}
+	}
+
+	for _, _l := range listeners {
+		delete(toRemoveHash, _l.Name)
 		modelListener := l.makeListener(_l)
-		server.GetServer().GetListenerManager().AddOrUpdateListener(&modelListener)
+		// apply add or update later after removes
+		laterApplies = append(laterApplies, func() error {
+			server.GetServer().GetListenerManager().AddOrUpdateListener(&modelListener)
+			return nil
+		})
+	}
+	l.removeListeners(toRemoveHash)
+	for _, fn := range laterApplies { //do update and add new cluster.
+		if err := fn(); err != nil {
+			logger.Errorf("can not modify listener", err)
+		}
 	}
 }
 
