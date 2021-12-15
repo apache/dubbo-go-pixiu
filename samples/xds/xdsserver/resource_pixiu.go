@@ -53,31 +53,39 @@ func makeHttpFilter() []*pixiupb.FilterChain {
 		},
 	}
 }
-func makeListeners() *pixiupb.Listener {
-	return &pixiupb.Listener{
-		Name: "net/http",
-		Address: &pixiupb.Address{
-			SocketAddress: &pixiupb.SocketAddress{
-				ProtocolStr: "http",
-				Address:     "0.0.0.0",
-				Port:        8888,
+func makeListeners() *pixiupb.PixiuExtensionListeners {
+	return &pixiupb.PixiuExtensionListeners{
+		Listeners: []*pixiupb.Listener{
+			{
+				Name: "net/http",
+				Address: &pixiupb.Address{
+					SocketAddress: &pixiupb.SocketAddress{
+						ProtocolStr: "http",
+						Address:     "0.0.0.0",
+						Port:        8888,
+					},
+					Name: "http_8888",
+				},
+				FilterChains: makeHttpFilter(),
 			},
-			Name: "http_8888",
 		},
-		FilterChains: makeHttpFilter(),
 	}
 }
 
-func makeClusters() *pixiupb.Cluster {
-	return &pixiupb.Cluster{
-		Name:    "http-baidu",
-		TypeStr: "http",
-		Endpoints: &pixiupb.Endpoint{
-			Id: "backend",
-			Address: &pixiupb.SocketAddress{
-				ProtocolStr: "http",
-				Address:     "httpbin.org",
-				Port:        80,
+func makeClusters() *pixiupb.PixiuExtensionClusters {
+	return &pixiupb.PixiuExtensionClusters{
+		Clusters: []*pixiupb.Cluster{
+			{
+				Name:    "http-baidu",
+				TypeStr: "http",
+				Endpoints: &pixiupb.Endpoint{
+					Id: "backend",
+					Address: &pixiupb.SocketAddress{
+						ProtocolStr: "http",
+						Address:     "httpbin.org",
+						Port:        80,
+					},
+				},
 			},
 		},
 	}

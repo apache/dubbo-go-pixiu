@@ -39,13 +39,13 @@ func (c *CdsManager) Fetch() error {
 	}
 	clusters := make([]*xdspb.Cluster, 0, len(r))
 	for _, one := range r {
-		_cluster := &xdspb.Cluster{}
-		if err := one.To(_cluster); err != nil {
+		extClusters := &xdspb.PixiuExtensionClusters{}
+		if err := one.To(extClusters); err != nil {
 			logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 			continue
 		}
-		logger.Infof("clusters from xds server %v", _cluster)
-		clusters = append(clusters, _cluster)
+		logger.Infof("clusters from xds server %v", extClusters)
+		clusters = append(clusters, extClusters.Clusters...)
 	}
 
 	return c.setupCluster(clusters)
@@ -64,20 +64,17 @@ func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for one := range read {
 		clusters := make([]*xdspb.Cluster, 0, len(one.NewResources))
 		for _, one := range one.NewResources {
-			_cluster := &xdspb.Cluster{}
+			_cluster := &xdspb.PixiuExtensionClusters{}
 			if err := one.To(_cluster); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
 			}
 			logger.Infof("clusters from xds server %v", _cluster)
-			clusters = append(clusters, _cluster)
+			clusters = append(clusters, _cluster.Clusters...)
 
 		}
-		c.removeCluster(one.RemovedResource)
-		if len(clusters) > 0 {
-			if err := c.setupCluster(clusters); err != nil {
-				logger.Errorf("can not setup cluster.", err)
-			}
+		if err := c.setupCluster(clusters); err != nil {
+			logger.Errorf("can not setup cluster.", err)
 		}
 	}
 }
@@ -88,15 +85,42 @@ func (c *CdsManager) removeCluster(clusterNames []string) {
 
 func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
 	clusterMgt := server.GetClusterManager()
+	laterApplies := make([]func() error, 0, len(clusters))
+	toRemoveHash := make(map[string]struct{}, len(clusters))
+
+	for _, _cluster := range clusters {
+		toRemoveHash[_cluster.Name] = struct{}{}
+	}
 	for _, cluster := range clusters {
+		delete(toRemoveHash, cluster.Name)
 		switch {
 		case clusterMgt.HasCluster(cluster.Name):
-			clusterMgt.UpdateCluster(c.makeCluster(cluster))
+			laterApplies = append(laterApplies, func() error {
+				clusterMgt.UpdateCluster(c.makeCluster(cluster))
+				return nil
+			})
 		default:
-			clusterMgt.AddCluster(c.makeCluster(cluster))
+			laterApplies = append(laterApplies, func() error {
+				clusterMgt.AddCluster(c.makeCluster(cluster))
+				return nil
+			})
+		}
+	}
+
+	c.removeClusters(toRemoveHash)
+	for _, fn := range laterApplies { //do update and add new cluster.
+		if err := fn(); err != nil {
+			logger.Errorf("can not modify cluster", err)
 		}
 	}
 	return nil
+}
+
+func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
+	removeClusters := make([]string, 0, len(toRemoveList))
+	for clusterName, _ := range toRemoveList {
+		removeClusters = append(removeClusters, clusterName)
+	}
 }
 
 func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.Cluster {
