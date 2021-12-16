@@ -27,7 +27,7 @@ static_resources:
           port: 8888
       filter_chains:
           filters:
-            - name: dgp.filter.dubboconnectionmanager
+            - name: dgp.filter.network.dubboproxy
               config:
                 route_config:
                   routes:

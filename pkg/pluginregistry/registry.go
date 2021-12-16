@@ -34,6 +34,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/proxyrewrite"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/dubboproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/grpcconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/response"
@@ -42,4 +43,5 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/tracing"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/tcp"
 )

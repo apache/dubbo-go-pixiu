@@ -3,10 +3,12 @@ module github.com/apache/dubbo-go-pixiu
 go 1.15
 
 require (
-	dubbo.apache.org/dubbo-go/v3 v3.0.0
+	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2
+	github.com/apache/dubbo-getty v1.4.5
+	github.com/apache/dubbo-go v1.5.7
 	github.com/apache/dubbo-go-hessian2 v1.10.0
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
@@ -15,6 +17,7 @@ require (
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
+	github.com/go-errors/errors v1.0.1
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9

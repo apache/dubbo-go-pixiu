@@ -62,8 +62,17 @@ func (ls *HttpConnectionManager) allocateContext() *pch.HttpContext {
 	}
 }
 
-func (hcm *HttpConnectionManager) OnData(data []byte) (interface{}, int, error) {
-	return nil, 0, nil
+func (hcm *HttpConnectionManager) OnDecode(data []byte) (interface{}, int, error) {
+	panic("HttpConnectionManager OnDecode shouldn't be called")
+
+}
+
+func (hcm *HttpConnectionManager) OnEncode(p interface{}) ([]byte, error) {
+	panic("HttpConnectionManager OnEncode shouldn't be called")
+}
+
+func (hcm *HttpConnectionManager) OnData(data interface{}) (interface{}, error) {
+	return nil, nil
 }
 
 func (hcm *HttpConnectionManager) Handle(hc *pch.HttpContext) error {

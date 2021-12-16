@@ -53,8 +53,16 @@ func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig, bs *mo
 	return hcm
 }
 
-func (gcm *GrpcConnectionManager) OnData(data []byte) (interface{}, int, error) {
-	return nil, 0, nil
+func (gcm *GrpcConnectionManager) OnDecode(data []byte) (interface{}, int, error) {
+	panic("GrpcConnectionManager OnDecode shouldn't be called")
+}
+
+func (gcm *GrpcConnectionManager) OnEncode(p interface{}) ([]byte, error) {
+	panic("GrpcConnectionManager OnEncode shouldn't be called")
+}
+
+func (gcm *GrpcConnectionManager) OnData(data interface{}) (interface{}, error) {
+	return nil, nil
 }
 
 func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {

@@ -2,12 +2,21 @@
 package tcp
 
 import (
+	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
+	"dubbo.apache.org/dubbo-go/v3/remoting"
+	"fmt"
 	getty "github.com/apache/dubbo-getty"
+	hessian "github.com/apache/dubbo-go-hessian2"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	perrors "github.com/pkg/errors"
 	"sync"
 	"sync/atomic"
 	"time"
+)
+
+const (
+	// WritePkg_Timeout the timeout of write pkg
+	WritePkg_Timeout = 5 * time.Second
 )
 
 var (
@@ -86,7 +95,92 @@ func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
 	}
 	h.rwlock.Unlock()
 
-	// don't following the rule of getty data handle chain, do nothing.
+	decodeResult, drOK := pkg.(remoting.DecodeResult)
+	if !drOK {
+		logger.Errorf("illegal package{%#v}", pkg)
+		return
+	}
+	if !decodeResult.IsRequest {
+		res := decodeResult.Result.(*remoting.Response)
+		if res.Event {
+			logger.Debugf("get rpc heartbeat response{%#v}", res)
+			if res.Error != nil {
+				logger.Errorf("rpc heartbeat response{error: %#v}", res.Error)
+			}
+			res.Handle()
+			return
+		}
+		logger.Errorf("illegal package but not heartbeat. {%#v}", pkg)
+		return
+	}
+	req := decodeResult.Result.(*remoting.Request)
+
+	resp := remoting.NewResponse(req.ID, req.Version)
+	resp.Status = hessian.Response_OK
+	resp.Event = req.Event
+	resp.SerialID = req.SerialID
+	resp.Version = "2.0.2"
+
+	// heartbeat
+	if req.Event {
+		logger.Debugf("get rpc heartbeat request{%#v}", resp)
+		reply(session, resp)
+		return
+	}
+
+	defer func() {
+		if e := recover(); e != nil {
+			resp.Status = hessian.Response_SERVER_ERROR
+			if err, ok := e.(error); ok {
+				logger.Errorf("OnMessage panic: %+v", perrors.WithStack(err))
+				resp.Error = perrors.WithStack(err)
+			} else if err, ok := e.(string); ok {
+				logger.Errorf("OnMessage panic: %+v", perrors.New(err))
+				resp.Error = perrors.New(err)
+			} else {
+				logger.Errorf("OnMessage panic: %+v, this is impossible.", e)
+				resp.Error = fmt.Errorf("OnMessage panic unknow exception. %+v", e)
+			}
+
+			if !req.TwoWay {
+				return
+			}
+			reply(session, resp)
+		}
+	}()
+
+	invoc, ok := req.Data.(*invocation.RPCInvocation)
+	if !ok {
+		panic("create invocation occur some exception for the type is not suitable one.")
+	}
+	attachments := invoc.Attachments()
+	attachments["local-addr"] = session.LocalAddr()
+	attachments["remote-addr"] = session.RemoteAddr()
+
+	result, err := h.ls.FilterChain.OnData(invoc)
+	if err != nil {
+		resp.Error = fmt.Errorf("OnData panic unknow exception. %+v", err)
+		if !req.TwoWay {
+			return
+		}
+		reply(session, resp)
+	}
+
+	if !req.TwoWay {
+		return
+	}
+	resp.Result = result
+	reply(session, resp)
+}
+
+func reply(session getty.Session, resp *remoting.Response) {
+	if totalLen, sendLen, err := session.WritePkg(resp, WritePkg_Timeout); err != nil {
+		if sendLen != 0 && totalLen != sendLen {
+			logger.Warnf("start to close the session at replying because %d of %d bytes data is sent success. err:%+v", sendLen, totalLen, err)
+			go session.Close()
+		}
+		logger.Errorf("WritePkg error: %#v, %#v", perrors.WithStack(err), resp)
+	}
 }
 
 func (h *ServerHandler) OnCron(session getty.Session) {
