@@ -67,7 +67,9 @@ type (
 	NetworkFilter interface {
 		// ServeHTTP handle request and response
 		ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request)
-		OnData(data []byte) (interface{}, int, error)
+		OnDecode(data []byte) (interface{}, int, error)
+		OnEncode(p interface{}) ([]byte, error)
+		OnData(data interface{}) (interface{}, error)
 	}
 )
 

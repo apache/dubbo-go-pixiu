@@ -18,10 +18,6 @@
 package tcp
 
 import (
-	"errors"
-)
-
-import (
 	"github.com/apache/dubbo-getty"
 )
 
@@ -34,14 +30,9 @@ func NewPackageHandler(ls *TcpListenerService) *PackageHandler {
 }
 
 func (h *PackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
-	return h.ls.OnData(data)
+	return h.ls.FilterChain.OnDecode(data)
 }
 
 func (h *PackageHandler) Write(ss getty.Session, p interface{}) ([]byte, error) {
-	res, ok := p.(*DataFrame)
-	if !ok {
-		return nil, errors.New("invalid package")
-	}
-
-	return res.data, nil
+	return h.ls.FilterChain.OnEncode(p)
 }

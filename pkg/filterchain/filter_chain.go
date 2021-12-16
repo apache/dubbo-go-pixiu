@@ -18,6 +18,7 @@
 package filterchain
 
 import (
+	"github.com/go-errors/errors"
 	"net/http"
 )
 
@@ -41,12 +42,28 @@ func (fc FilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (fc FilterChain) OnData(data []byte) (interface{}, int, error) {
+func (fc FilterChain) OnDecode(data []byte) (interface{}, int, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnDecode(data)
+	}
+	return nil, 0, errors.Errorf("filterChain don't have network filter")
+}
+
+func (fc FilterChain) OnEncode(p interface{}) ([]byte, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnEncode(p)
+	}
+	return nil, errors.Errorf("filterChain don't have network filter")
+}
+
+func (fc FilterChain) OnData(data interface{}) (interface{}, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnData(data)
 	}
-	return nil, 0, nil
+	return nil, nil
 }
 
 func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterChain {
