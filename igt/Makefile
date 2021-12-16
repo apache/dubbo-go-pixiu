@@ -121,7 +121,7 @@ clean: stop
 .PHONY: start
 start: export CONF_PROVIDER_FILE_PATH ?= $(OUT_DIR)/server/server.yml
 start: build
-	$(info   >  Starting application $(PROJECT_NAME), output is redirected to $(LOG_FILE))
+	$(info > Starting application $(PROJECT_NAME), output is redirected to $(LOG_FILE))
 	@-$(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) > $(LOG_FILE) 2>&1 & echo $$! > $(PID)
 	@cat $(PID) | sed "/^/s/^/  \>  PID: /"
 
