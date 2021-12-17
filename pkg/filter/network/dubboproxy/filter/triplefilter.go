@@ -3,12 +3,11 @@ package filter
 import (
 	"dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/protocol"
-	tpconst "github.com/dubbogo/triple/pkg/common/constant"
 )
 
-func Invoke( invocation protocol.Invocation) (protocol.Result, error) {
-	tripleRefConf := newRefConf("org.apache.dubbo.samples.UserProviderTriple", tpconst.TRIPLE)
-
+func Invoke(invocation protocol.Invocation) (protocol.Result, error) {
+	//tripleRefConf := newRefConf("org.apache.dubbo.samples.UserProviderTriple", tpconst.TRIPLE)
+	return nil, nil
 }
 
 func newRefConf(iface, protocol string) config.ReferenceConfig {
@@ -18,7 +17,7 @@ func newRefConf(iface, protocol string) config.ReferenceConfig {
 		Cluster:       "failover",
 		RegistryIDs:   []string{"zk"},
 		Protocol:      protocol,
-		URL: "127.0.0.1:20001",
+		URL:           "127.0.0.1:20001",
 		Generic:       "true",
 	}
 
