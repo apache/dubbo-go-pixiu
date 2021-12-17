@@ -3,7 +3,7 @@ module github.com/apache/dubbo-go-pixiu
 go 1.15
 
 require (
-	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
+	dubbo.apache.org/dubbo-go/v3 v3.0.0
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2

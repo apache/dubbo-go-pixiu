@@ -1,6 +1,7 @@
 package dubboproxy
 
 import (
+	"dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
@@ -9,6 +10,7 @@ import (
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/go-errors/errors"
 	perrors "github.com/pkg/errors"
 	stdHttp "net/http"
 	"reflect"
@@ -72,10 +74,22 @@ func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error
 }
 
 func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, error) {
-	_, ok := data.(*invocation.RPCInvocation)
+	invoc, ok := data.(*invocation.RPCInvocation)
 	if !ok {
 		panic("create invocation occur some exception for the type is not suitable one.")
 	}
+
+	// todo: should use service key or path or interface
+	// argument check
+	path := invoc.Attachment(constant.PathKey).(string)
+	method := invoc.Arguments()[0].(string)
+
+	_, err := dcm.routerCoordinator.RouteByPathAndName(path, method)
+
+	if err != nil {
+		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
+	}
+
 
 	result := protocol.RPCResult{}
 	result.Rest = "success"
