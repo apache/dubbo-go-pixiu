@@ -1,9 +1,11 @@
 package dubboproxy
 
 import (
+	"context"
+	"dubbo.apache.org/dubbo-go/v3/common"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
-	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
+	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo3"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
 	hessian "github.com/apache/dubbo-go-hessian2"
@@ -11,12 +13,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
-	triConfig "github.com/dubbogo/triple/pkg/config"
-	"github.com/dubbogo/triple/pkg/triple"
+	tpconst "github.com/dubbogo/triple/pkg/common/constant"
 	"github.com/go-errors/errors"
 	perrors "github.com/pkg/errors"
 	stdHttp "net/http"
+
 	"reflect"
 )
 
@@ -88,7 +89,7 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 	path := invoc.Attachment(constant.PathKey).(string)
 	method := invoc.Arguments()[0].(string)
 
-	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, method)
+	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, "GET")
 
 	if err != nil {
 		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
@@ -101,23 +102,20 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
 	}
 
-	opts := []triConfig.OptionFunction{
-		triConfig.WithClientTimeout(1000),
-		triConfig.WithCodecType(tripleConstant.HessianCodecName),
-		triConfig.WithLocation(endpoint.Address.GetAddress()),
-		triConfig.WithHeaderAppVersion("3.0.0"),
-		triConfig.WithHeaderGroup(""),
-		triConfig.WithLogger(logger.GetLogger()),
-	}
-
-	triOption := triConfig.NewTripleOption(opts...)
-	client, err := triple.NewTripleClient(consumerService, triOption)
+	url, err := common.NewURL(endpoint.Address.GetAddress(),
+		common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization))
 
 	if err != nil {
-		return nil, err
+
 	}
 
-	result := protocol.RPCResult{}
-	result.Rest = "success"
+	invoker, err := dubbo3.NewDubboInvoker(url)
+
+	if err != nil {
+
+	}
+
+	invCtx := context.Background()
+	result := invoker.Invoke(invCtx, invoc)
 	return result, nil
 }
