@@ -10,6 +10,10 @@ import (
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
+	triConfig "github.com/dubbogo/triple/pkg/config"
+	"github.com/dubbogo/triple/pkg/triple"
 	"github.com/go-errors/errors"
 	perrors "github.com/pkg/errors"
 	stdHttp "net/http"
@@ -84,12 +88,34 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 	path := invoc.Attachment(constant.PathKey).(string)
 	method := invoc.Arguments()[0].(string)
 
-	_, err := dcm.routerCoordinator.RouteByPathAndName(path, method)
+	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, method)
 
 	if err != nil {
 		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
 	}
 
+	clusterName := ra.Cluster
+	clusterManager := server.GetClusterManager()
+	endpoint := clusterManager.PickEndpoint(clusterName)
+	if endpoint == nil {
+		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
+	}
+
+	opts := []triConfig.OptionFunction{
+		triConfig.WithClientTimeout(1000),
+		triConfig.WithCodecType(tripleConstant.HessianCodecName),
+		triConfig.WithLocation(endpoint.Address.GetAddress()),
+		triConfig.WithHeaderAppVersion("3.0.0"),
+		triConfig.WithHeaderGroup(""),
+		triConfig.WithLogger(logger.GetLogger()),
+	}
+
+	triOption := triConfig.NewTripleOption(opts...)
+	client, err := triple.NewTripleClient(consumerService, triOption)
+
+	if err != nil {
+		return nil, err
+	}
 
 	result := protocol.RPCResult{}
 	result.Rest = "success"
