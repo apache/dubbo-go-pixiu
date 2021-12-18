@@ -2,6 +2,7 @@
 package tcp
 
 import (
+	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
 	"fmt"
@@ -169,7 +170,9 @@ func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
 	if !req.TwoWay {
 		return
 	}
-	resp.Result = result
+
+	ptr, _ := result.(*protocol.RPCResult)
+	resp.Result = *ptr
 	reply(session, resp)
 }
 

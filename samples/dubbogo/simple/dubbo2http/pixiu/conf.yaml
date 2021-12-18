@@ -32,9 +32,11 @@ static_resources:
                 route_config:
                   routes:
                     - match:
-                        prefix: "/user"
+                        prefix: "/org.apache.dubbo.samples.UserProviderTriple"
+                        methods:
+                          - "GET"
                       route:
-                        cluster: "user"
+                        cluster: "samples"
                         cluster_not_found_response_code: 505
                 http_filters:
                   - name: dgp.filter.http.httpproxy
@@ -55,13 +57,13 @@ static_resources:
         read_timeout: 5s
         write_timeout: 5s
   clusters:
-    - name: "user"
+    - name: "samples"
       lb_policy: "lb"
       endpoints:
         - id: 1
           socket_address:
             address: 127.0.0.1
-            port: 1314
+            port: 20001
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"
