@@ -41,7 +41,6 @@ import (
 )
 
 type Descriptor struct {
-
 	fileSource *fileSource
 }
 
@@ -67,7 +66,7 @@ func (dr *Descriptor) getDescriptorSource(ctx context.Context, cfg *Config) (Des
 	switch strings.ToLower(cfg.DescriptorSourceStrategy.String()) {
 	case LOCAL:
 		// file only
-		ds, err = dr.getFileDescriptorCompose(ctx,cfg)
+		ds, err = dr.getFileDescriptorCompose(ctx, cfg)
 	case REMOTE:
 		// server reflection only
 		ds, err = dr.getServerDescriptorSourceCtx(ctx, cfg)

@@ -71,10 +71,10 @@ func init() {
 }
 
 const (
-	NONE 		= "none"
-	AUTO		= "auto"
-	LOCAL		= "local"
-	REMOTE		= "remote"
+	NONE   = "none"
+	AUTO   = "auto"
+	LOCAL  = "local"
+	REMOTE = "remote"
 )
 
 type (
@@ -112,6 +112,7 @@ type (
 		Method string `yaml:"method" json:"method"` //nolint
 	}
 )
+
 func (c DescriptorSourceStrategy) String() string {
 	return string(c)
 }
@@ -135,7 +136,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{ DescriptorSourceStrategy: AUTO}, descriptor: &Descriptor{}}, nil
+	return &Filter{cfg: &Config{DescriptorSourceStrategy: AUTO}, descriptor: &Descriptor{}}, nil
 }
 
 func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
