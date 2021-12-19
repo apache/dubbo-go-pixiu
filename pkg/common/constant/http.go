@@ -31,6 +31,7 @@ const (
 	HeaderValueAll       = "*"
 
 	PathSlash           = "/"
+	ProtocolSlash       = "://"
 	PathParamIdentifier = ":"
 )
 
