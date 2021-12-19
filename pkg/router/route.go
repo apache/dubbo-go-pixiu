@@ -26,131 +26,103 @@ import (
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
-
-	"github.com/emirpasic/gods/trees/avltree"
-
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 )
 
 // Node defines the single method of the router configured API
 type Node struct {
 	fullPath string
-	wildcard bool
 	filters  []string
-	methods  map[config.HTTPVerb]*config.Method
+	method   *config.Method
 	headers  map[string]string
 }
 
 // Route defines the tree of router APIs
 type Route struct {
-	lock         sync.RWMutex
-	tree         *avltree.Tree
-	wildcardTree *avltree.Tree
+	lock sync.RWMutex
+	tree trie.Trie
 }
 
 // ClearAPI clear the api
 func (rt *Route) ClearAPI() error {
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
-	rt.wildcardTree.Clear()
 	rt.tree.Clear()
 	return nil
 }
 
 func (r *Route) RemoveAPI(api router.API) {
-	fullPath := api.URLPattern
-	node, ok := r.findNode(fullPath)
-	if !ok {
-		return
-	}
-	if tempMethod, ok := node.methods[api.HTTPVerb]; ok {
-		splitedURLs := strings.Split(tempMethod.IntegrationRequest.HTTPBackendConfig.URL, ",")
-		afterRemoveedURL := make([]string, 0, len(splitedURLs))
-		for _, v := range splitedURLs {
-			if v != api.IntegrationRequest.HTTPBackendConfig.URL {
-				afterRemoveedURL = append(afterRemoveedURL, v)
-			}
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	lowerCasePath := strings.ToLower(api.URLPattern)
+	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
+	_, _ = r.tree.Remove(key)
+}
+
+func getTrieKey(method config.HTTPVerb, path string, isPrefix bool) string {
+	if isPrefix {
+		if !strings.HasSuffix(path, constant.PathSlash) {
+			path = path + constant.PathSlash
 		}
-		if len(afterRemoveedURL) == 0 {
-			delete(node.methods, api.HTTPVerb)
-		}
-		node.methods[api.HTTPVerb].IntegrationRequest.HTTPBackendConfig.URL = strings.Join(afterRemoveedURL, ",")
-		return
+		path = path + "**"
 	}
+	return stringutil.GetTrieKey(string(method), path)
 }
 
 // PutAPI puts an api into the resource
 func (rt *Route) PutAPI(api router.API) error {
-	fullPath := api.URLPattern
-	node, ok := rt.findNode(fullPath)
-	rt.lock.Lock()
-	defer rt.lock.Unlock()
+	lowerCasePath := strings.ToLower(api.URLPattern)
+	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
+	node, ok := rt.getNode(key)
 	if !ok {
-		wildcard := strings.Contains(fullPath, constant.PathParamIdentifier)
 		rn := &Node{
-			fullPath: fullPath,
-			methods:  map[config.HTTPVerb]*config.Method{api.Method.HTTPVerb: &api.Method},
-			wildcard: wildcard,
+			fullPath: lowerCasePath,
+			method:   &api.Method,
 			headers:  api.Headers,
 		}
-		if wildcard {
-			rt.wildcardTree.Put(fullPath, rn)
-		}
-		rt.tree.Put(fullPath, rn)
+		rt.lock.Lock()
+		defer rt.lock.Unlock()
+		_, _ = rt.tree.Put(key, rn)
 		return nil
 	}
-	return node.putMethod(api.Method, api.Headers)
+	return errors.Errorf("Method %s with address %s already exists in path %s",
+		api.Method.HTTPVerb, lowerCasePath, node.fullPath)
 }
 
-func (node *Node) putMethod(method config.Method, headers map[string]string) error {
-	// todo lock
-	if tempMethod, ok := node.methods[method.HTTPVerb]; ok {
-		splitedURLs := strings.Split(tempMethod.IntegrationRequest.HTTPBackendConfig.URL, ",")
-		for _, v := range splitedURLs {
-			if v == method.IntegrationRequest.HTTPBackendConfig.URL {
-				return errors.Errorf("Method %s with address %s already exists in path %s",
-					method.HTTPVerb, v, node.fullPath)
-			}
-		}
-		splitedURLs = append(splitedURLs, method.IntegrationRequest.HTTPBackendConfig.URL)
-		node.methods[method.HTTPVerb].IntegrationRequest.HTTPBackendConfig.URL = strings.Join(splitedURLs, ",")
-		node.headers = headers
-		return nil
-	}
-	node.methods[method.HTTPVerb] = &method
-	node.headers = headers
-	return nil
-}
-
-// UpdateAPI update the api method in the existing router node
-func (rt *Route) UpdateAPI(api router.API) error {
-	node, found := rt.findNode(api.URLPattern)
-	if found {
-		if _, ok := node.methods[api.Method.HTTPVerb]; ok {
-			rt.lock.Lock()
-			defer rt.lock.Unlock()
-			node.methods[api.Method.HTTPVerb] = &api.Method
-		}
-	}
-	return nil
-}
-
-// FindAPI returns the api that meets the
+// FindAPI return if api has path in trie,or nil
 func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API, bool) {
-	if n, found := rt.findNode(fullPath); found {
+	lowerCasePath := strings.ToLower(fullPath)
+	key := getTrieKey(httpverb, lowerCasePath, false)
+	if n, found := rt.getNode(key); found {
 		rt.lock.RLock()
 		defer rt.lock.RUnlock()
-		if method, ok := n.methods[httpverb]; ok {
-			return &router.API{
-				URLPattern: n.fullPath,
-				Method:     *method,
-				Headers:    n.headers,
-			}, ok
-		}
+		return &router.API{
+			URLPattern: n.fullPath,
+			Method:     *n.method,
+			Headers:    n.headers,
+		}, found
+	}
+	return nil, false
+}
+
+// MatchAPI FindAPI returns the api that meets the rule
+func (rt *Route) MatchAPI(fullPath string, httpverb config.HTTPVerb) (*router.API, bool) {
+	lowerCasePath := strings.ToLower(fullPath)
+	key := getTrieKey(httpverb, lowerCasePath, false)
+	if n, found := rt.matchNode(key); found {
+		rt.lock.RLock()
+		defer rt.lock.RUnlock()
+		return &router.API{
+			URLPattern: n.fullPath,
+			Method:     *n.method,
+			Headers:    n.headers,
+		}, found
 	}
 	return nil, false
 }
@@ -159,51 +131,63 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API
 func (rt *Route) DeleteNode(fullPath string) bool {
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
-	rt.tree.Remove(fullPath)
+	methodList := [8]config.HTTPVerb{"ANY", "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+	for _, v := range methodList {
+		key := getTrieKey(v, fullPath, false)
+		_, _ = rt.tree.Remove(key)
+	}
 	return true
 }
 
 // DeleteAPI delete api by fullPath and http verb
 func (rt *Route) DeleteAPI(fullPath string, httpverb config.HTTPVerb) bool {
-	if n, found := rt.findNode(fullPath); found {
+	lowerCasePath := strings.ToLower(fullPath)
+	key := getTrieKey(httpverb, lowerCasePath, false)
+	if _, found := rt.getNode(key); found {
 		rt.lock.RLock()
 		defer rt.lock.RUnlock()
-		delete(n.methods, httpverb)
+		_, _ = rt.tree.Remove(key)
 		return true
 	}
 	return false
 }
 
-func (rt *Route) findNode(fullPath string) (*Node, bool) {
+func (rt *Route) getNode(fullPath string) (*Node, bool) {
 	var n interface{}
 	var found bool
-	if n, found = rt.searchWildcard(fullPath); !found {
-		rt.lock.RLock()
-		defer rt.lock.RUnlock()
-		if n, found = rt.tree.Get(fullPath); !found {
-			return nil, false
-		}
+	rt.lock.RLock()
+	defer rt.lock.RUnlock()
+	trieNode, _, _, _ := rt.tree.Get(fullPath)
+	found = trieNode != nil
+	if !found {
+		return nil, false
+	}
+	n = trieNode.GetBizInfo()
+	if n == nil {
+		return nil, false
 	}
 	return n.(*Node), found
 }
 
-func (rt *Route) searchWildcard(fullPath string) (*Node, bool) {
+func (rt *Route) matchNode(fullPath string) (*Node, bool) {
+	var n interface{}
+	var found bool
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
-	wildcardPaths := rt.wildcardTree.Keys()
-	for _, p := range wildcardPaths {
-		if wildcardMatch(p.(string), fullPath) != nil {
-			n, ok := rt.wildcardTree.Get(p)
-			return n.(*Node), ok
-		}
+	trieNode, _, _ := rt.tree.Match(fullPath)
+	found = trieNode != nil
+	if !found {
+		return nil, false
 	}
-	return nil, false
+	n = trieNode.GetBizInfo()
+	if n == nil {
+		return nil, false
+	}
+	return n.(*Node), found
 }
 
-// wildcardMatch validate if the checkPath meets the wildcardPath,
-// for example /vought/12345 should match wildcard path /vought/:id;
-// /vought/1234abcd/status should not match /vought/:id;
 func wildcardMatch(wildcardPath string, checkPath string) url.Values {
+
 	cPaths := strings.Split(strings.TrimLeft(checkPath, constant.PathSlash), constant.PathSlash)
 	wPaths := strings.Split(strings.TrimLeft(wildcardPath, constant.PathSlash), constant.PathSlash)
 	result := url.Values{}
@@ -224,7 +208,6 @@ func wildcardMatch(wildcardPath string, checkPath string) url.Values {
 // NewRoute returns an empty router tree
 func NewRoute() *Route {
 	return &Route{
-		tree:         avltree.NewWithStringComparator(),
-		wildcardTree: avltree.NewWithStringComparator(),
+		tree: trie.NewTrie(),
 	}
 }

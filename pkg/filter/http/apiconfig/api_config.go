@@ -82,11 +82,11 @@ func (f *Filter) Apply() error {
 		return nil
 	}
 
-	config, err := initApiConfig(f.cfg)
+	cfg, err := initApiConfig(f.cfg)
 	if err != nil {
 		logger.Errorf("Get ApiConfig fail: %v", err)
 	}
-	if err := f.apiService.InitAPIsFromConfig(*config); err != nil {
+	if err := f.apiService.InitAPIsFromConfig(*cfg); err != nil {
 		logger.Errorf("InitAPIsFromConfig fail: %v", err)
 	}
 
@@ -115,7 +115,7 @@ func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
 
 func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	req := ctx.Request
-	api, err := f.apiService.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
+	v, err := f.apiService.MatchAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
 		if _, err := ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
 			logger.Errorf("WriteWithStatus fail: %v", err)
@@ -127,7 +127,7 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 		return
 	}
 
-	if !api.Method.Enable {
+	if !v.Method.Enable {
 		if _, err := ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
 			logger.Errorf("WriteWithStatus fail: %v", err)
 		}
@@ -138,7 +138,7 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 		ctx.Abort()
 		return
 	}
-	ctx.API(api)
+	ctx.API(v)
 	ctx.Next()
 }
 
