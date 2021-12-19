@@ -79,10 +79,25 @@ func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error
 }
 
 func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, error) {
-	invoc, ok := data.(*invocation.RPCInvocation)
+	old_invoc, ok := data.(*invocation.RPCInvocation)
 	if !ok {
 		panic("create invocation occur some exception for the type is not suitable one.")
 	}
+	// need reconstruct RPCInvocation ParameterValues witch is same with arguments. refer to dubbogo/common/proxy/proxy.makeDubboCallProxy
+	arguments := old_invoc.Arguments()
+	len := len(arguments)
+	inVArr := make([]reflect.Value, len)
+	for i := 0; i < len; i++ {
+		inVArr[i] = reflect.ValueOf(arguments[i])
+	}
+	// old invocation can't set parameterValues
+	invoc := invocation.NewRPCInvocationWithOptions(invocation.WithMethodName(old_invoc.MethodName()),
+		invocation.WithArguments(old_invoc.Arguments()),
+		invocation.WithCallBack(old_invoc.CallBack()), invocation.WithParameterValues(inVArr),
+		invocation.WithAttachments(old_invoc.Attachments()))
+	// todo: 即使是nil也要设置，涉及指针问题，因为 pbwrapper的MarshalResponse会有 == nil 判断，否则判断不通过，导致返回值都是nil
+	var resp interface{}
+	invoc.SetReply(&resp)
 
 	// todo: should use service key or path or interface
 	// argument check
@@ -102,8 +117,15 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
 	}
 
+	// create URL from RpcInvocation
 	url, err := common.NewURL(endpoint.Address.GetAddress(),
-		common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization))
+		common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization),
+		common.WithParamsValue(constant.GenericFilterKey, "true"),
+		common.WithParamsValue(constant.AppVersionKey, "3.0.0"),
+		common.WithParamsValue(constant.InterfaceKey, path),
+		common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
+		common.WithPath(path),
+	)
 
 	if err != nil {
 
@@ -117,5 +139,6 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 
 	invCtx := context.Background()
 	result := invoker.Invoke(invCtx, invoc)
+	result.SetAttachments(invoc.Attachments())
 	return result, nil
 }
