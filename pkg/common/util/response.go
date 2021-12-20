@@ -20,28 +20,18 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 func NewDubboResponse(data interface{}, hump bool) *client.Response {
 	r, _ := dealResp(data, hump)
 	bytes, _ := json.Marshal(r)
 	return &client.Response{Data: bytes}
-}
-
-func defaultNewParams() string {
-	strategy := os.Getenv(constant.EnvResponseStrategy)
-	if len(strategy) != 0 {
-		strategy = constant.ResponseStrategyNormal
-	}
-	return strategy
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
