@@ -9,8 +9,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	monkey "github.com/cch123/supermonkey"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
-	"github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -126,21 +124,6 @@ func TestGrpcCluster_GetConnect(t *testing.T) {
 	assert.False(g.IsAlive())
 }
 
-type xdsClient struct {
-}
-
-func (x *xdsClient) StreamExtensionConfigs(ctx context.Context, opts ...grpc.CallOption) (extensionpb.ExtensionConfigDiscoveryService_StreamExtensionConfigsClient, error) {
-	panic("implement me")
-}
-
-func (x *xdsClient) DeltaExtensionConfigs(ctx context.Context, opts ...grpc.CallOption) (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
-	panic("implement me")
-}
-
-func (x *xdsClient) FetchExtensionConfigs(ctx context.Context, in *envoy_service_discovery_v3.DiscoveryRequest, opts ...grpc.CallOption) (*envoy_service_discovery_v3.DiscoveryResponse, error) {
-	panic("implement me")
-}
-
 func TestAdapter_createApiManager(t *testing.T) {
 	cluster := &model.Cluster{
 		Name:    "cluster-1",
@@ -167,18 +150,6 @@ func TestAdapter_createApiManager(t *testing.T) {
 		ClusterName: []string{"cluster-1"},
 	}
 
-	grpcClusterManager = GrpcClusterManager{
-		clusters: &sync.Map{},
-		store: &server.ClusterStore{
-			Config:  []*model.Cluster{cluster},
-			Version: 1,
-		},
-	}
-
-	defer func() {
-		grpcClusterManager = GrpcClusterManager{}
-	}()
-
 	var state = connectivity.Ready
 	gconn := &grpc.ClientConn{}
 	monkey.Patch(grpc.DialContext, func(ctx context.Context, target string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
@@ -191,50 +162,39 @@ func TestAdapter_createApiManager(t *testing.T) {
 	monkey.Patch((*grpc.ClientConn).GetState, func(_ *grpc.ClientConn) connectivity.State {
 		return state
 	})
-
-	var xdsClient extensionpb.ExtensionConfigDiscoveryServiceClient = &xdsClient{}
-	monkey.Patch((*apiclient.GrpcApiClient).MakeClient, func(_ *apiclient.GrpcApiClient, cluster apiclient.GrpcCluster) extensionpb.ExtensionConfigDiscoveryServiceClient {
-		fmt.Println("========================= get ExtensionConfigDiscoveryServiceClient")
-		return xdsClient
+	monkey.Patch(server.GetDynamicResourceManager, func() server.DynamicResourceManager {
+		return &server.DynamicResourceManagerImpl{}
+	})
+	monkey.Patch((*server.DynamicResourceManagerImpl).GetLds, func(_ *server.DynamicResourceManagerImpl) *model.ApiConfigSource {
+		return &apiConfig
+	})
+	monkey.Patch((*server.DynamicResourceManagerImpl).GetCds, func(_ *server.DynamicResourceManagerImpl) *model.ApiConfigSource {
+		return &apiConfig
+	})
+	monkey.Patch(server.GetClusterManager, func() *server.ClusterManager {
+		return nil
+	})
+	monkey.Patch((*server.ClusterManager).CloneStore, func(_ *server.ClusterManager) (*server.ClusterStore, error) {
+		return &server.ClusterStore{
+			Config:  []*model.Cluster{cluster},
+			Version: 1,
+		}, nil
 	})
 
-	//defer monkey.UnpatchAll()
+	monkey.Patch((*apiclient.GrpcApiClient).Fetch, func(_ *apiclient.GrpcApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
+		return nil, nil
+	})
+	monkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
+		ch := make(chan *apiclient.DeltaResources)
+		close(ch)
+		return ch, nil
+	})
+
+	defer monkey.UnpatchAll()
 
 	ada := Adapter{}
+	ada.Start()
 	api := ada.createApiManager(&apiConfig, &node, xds.ClusterType)
 	assert := require.New(t)
 	assert.NotNil(api)
-	r, err := api.Fetch("")
-	assert.NoError(err)
-	assert.NotNil(r)
-
 }
-
-//func TestGrpcCluster_GetConnect(t *testing.T) {
-//	type fields struct {
-//		name   string
-//		config *model.Cluster
-//		once   sync.Once
-//		conn   *grpc.ClientConn
-//	}
-//	tests := []struct {
-//		name   string
-//		fields fields
-//		want   *grpc.ClientConn
-//	}{
-//		// TODO: Add test cases.
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			g := &GrpcCluster{
-//				name:   tt.fields.name,
-//				config: tt.fields.config,
-//				once:   tt.fields.once,
-//				conn:   tt.fields.conn,
-//			}
-//			if got := g.GetConnect(); !reflect.DeepEqual(got, tt.want) {
-//				t.Errorf("GetConnect() = %v, want %v", got, tt.want)
-//			}
-//		})
-//	}
-//}

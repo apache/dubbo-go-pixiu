@@ -281,9 +281,5 @@ func (g *GrpcApiClient) init() {
 	if err != nil {
 		logger.Fatalf("get cluster for init error. error=%v", err)
 	}
-	g.xDSExtensionClient = g.MakeClient(cluster)
-}
-
-func (g *GrpcApiClient) MakeClient(cluster GrpcCluster) extensionpb.ExtensionConfigDiscoveryServiceClient {
-	return extensionpb.NewExtensionConfigDiscoveryServiceClient(cluster.GetConnect())
+	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(cluster.GetConnect())
 }
