@@ -8,6 +8,7 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo3"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
+	"fmt"
 	hessian "github.com/apache/dubbo-go-hessian2"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -140,5 +141,15 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 	invCtx := context.Background()
 	result := invoker.Invoke(invCtx, invoc)
 	result.SetAttachments(invoc.Attachments())
+
+	ret := make(map[interface{}]interface{})
+	typ := reflect.TypeOf(result.Result())
+	value := reflect.ValueOf(result.Result())
+
+	ret["1"] = 1
+	// todo: generic 是需要这样
+	result.SetResult(value.Elem().Interface())
+	fmt.Printf("%v, %v", typ, value)
+
 	return result, nil
 }
