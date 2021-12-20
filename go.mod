@@ -7,8 +7,9 @@ require (
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
 	github.com/apache/dubbo-go-hessian2 v1.9.5
+	github.com/cch123/supermonkey v1.0.0
 	github.com/creasty/defaults v1.5.2
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5-0.20211220151221-87949cfcdf4e
 	github.com/dubbogo/go-zookeeper v1.0.3
 	github.com/dubbogo/gost v1.11.19
 	github.com/emirpasic/gods v1.12.0
@@ -50,5 +51,5 @@ require (
 )
 
 //replace github.com/envoyproxy/go-control-plane => ../go-control-plane
-
+//replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
 replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1

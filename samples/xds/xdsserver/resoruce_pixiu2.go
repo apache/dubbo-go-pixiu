@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model/xds"
-	pixiupb "github.com/apache/dubbo-go-pixiu/pkg/model/xds/model"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
