@@ -73,14 +73,14 @@ func (ap *Plugin) Kind() string {
 }
 
 func (ap *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &TraceFilterFilter{cfg: &TraceConfig{}}, nil
+	return &TraceFilterFactory{cfg: &TraceConfig{}}, nil
 }
 
-func (m *TraceFilterFilter) Config() interface{} {
+func (m *TraceFilterFactory) Config() interface{} {
 	return m.cfg
 }
 
-func (m *TraceFilterFilter) Apply() error {
+func (m *TraceFilterFactory) Apply() error {
 	// init
 	tc := m.cfg
 	switch tc.Type {
@@ -96,7 +96,7 @@ func (m *TraceFilterFilter) Apply() error {
 	return nil
 }
 
-func (mf *TraceFilterFilter) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+func (mf *TraceFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	t := &TraceFilterFilter{cfg: mf.cfg}
 	chain.AppendDecodeFilters(t)
 	chain.AppendEncodeFilters(t)

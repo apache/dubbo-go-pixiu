@@ -96,32 +96,34 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 }
 
 func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
-	if !c.LocalReply() {
-		switch res := c.SourceResp.(type) {
-		case *http.Response:
-			body, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				panic(err)
-			}
-			//Merge header
-			remoteHeader := res.Header
-			for k := range remoteHeader {
-				c.AddHeader(k, remoteHeader.Get(k))
-			}
-			//status code
-			c.StatusCode(res.StatusCode)
-			c.TargetResp = &client.Response{Data: body}
-		case []byte:
-			c.StatusCode(http.StatusOK)
-			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-			c.TargetResp = &client.Response{Data: res}
-		default:
-			//dubbo go generic invoke
-			response := util.NewDubboResponse(res, false)
-			c.StatusCode(http.StatusOK)
-			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
-			c.TargetResp = response
+	if c.LocalReply() {
+		return
+	}
+
+	switch res := c.SourceResp.(type) {
+	case *http.Response:
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			panic(err)
 		}
+		//Merge header
+		remoteHeader := res.Header
+		for k := range remoteHeader {
+			c.AddHeader(k, remoteHeader.Get(k))
+		}
+		//status code
+		c.StatusCode(res.StatusCode)
+		c.TargetResp = &client.Response{Data: body}
+	case []byte:
+		c.StatusCode(http.StatusOK)
+		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+		c.TargetResp = &client.Response{Data: res}
+	default:
+		//dubbo go generic invoke
+		response := util.NewDubboResponse(res, false)
+		c.StatusCode(http.StatusOK)
+		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+		c.TargetResp = response
 	}
 }
 
