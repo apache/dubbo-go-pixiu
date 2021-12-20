@@ -34,6 +34,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/runtimeutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -142,13 +143,14 @@ func initApiConfig() (*model.Bootstrap, bool, error) {
 	return bootstrap, false, nil
 }
 
+// initLimitCpus set the limit of the cpu
 func initLimitCpus() error {
 	limitCpuNumber, err := strconv.ParseInt(limitCpus, 10, 64)
 	if err != nil {
 		return err
 	}
 	if limitCpuNumber <= 0 {
-		runtime.GOMAXPROCS(runtime.NumCPU())
+		runtime.GOMAXPROCS(runtimeutil.NumCPU())
 	} else {
 		runtime.GOMAXPROCS(int(limitCpuNumber))
 	}
