@@ -87,9 +87,9 @@ func Test_createDynamicResourceManger(t *testing.T) {
 			name: "validate-failed-ads",
 			args: args{bs: &model.Bootstrap{
 				DynamicResources: &model.DynamicResources{
-					LdsConfig: copy(*bs.DynamicResources.LdsConfig),
-					CdsConfig: copy(*bs.DynamicResources.CdsConfig),
-					AdsConfig: copy(*bs.DynamicResources.AdsConfig),
+					LdsConfig: copyConfig(*bs.DynamicResources.LdsConfig),
+					CdsConfig: copyConfig(*bs.DynamicResources.CdsConfig),
+					AdsConfig: copyConfig(*bs.DynamicResources.AdsConfig),
 				},
 				Node: bs.Node,
 			}},
@@ -101,8 +101,8 @@ func Test_createDynamicResourceManger(t *testing.T) {
 			args: args{bs: func() *model.Bootstrap {
 				bs := model.Bootstrap{
 					DynamicResources: &model.DynamicResources{
-						LdsConfig: copy(*bs.DynamicResources.LdsConfig),
-						CdsConfig: copy(*bs.DynamicResources.CdsConfig),
+						LdsConfig: copyConfig(*bs.DynamicResources.LdsConfig),
+						CdsConfig: copyConfig(*bs.DynamicResources.CdsConfig),
 					},
 					Node: bs.Node,
 				}
@@ -117,8 +117,8 @@ func Test_createDynamicResourceManger(t *testing.T) {
 			args: args{bs: func() *model.Bootstrap {
 				bs := model.Bootstrap{
 					DynamicResources: &model.DynamicResources{
-						LdsConfig: copy(*bs.DynamicResources.LdsConfig),
-						CdsConfig: copy(*bs.DynamicResources.CdsConfig),
+						LdsConfig: copyConfig(*bs.DynamicResources.LdsConfig),
+						CdsConfig: copyConfig(*bs.DynamicResources.CdsConfig),
 					},
 					Node: bs.Node,
 				}
@@ -133,8 +133,8 @@ func Test_createDynamicResourceManger(t *testing.T) {
 			args: args{bs: func() *model.Bootstrap {
 				bs := model.Bootstrap{
 					DynamicResources: &model.DynamicResources{
-						LdsConfig: copy(*bs.DynamicResources.LdsConfig),
-						CdsConfig: copy(*bs.DynamicResources.CdsConfig),
+						LdsConfig: copyConfig(*bs.DynamicResources.LdsConfig),
+						CdsConfig: copyConfig(*bs.DynamicResources.CdsConfig),
 					},
 					Node: bs.Node,
 				}
@@ -174,6 +174,6 @@ func Test_createDynamicResourceManger(t *testing.T) {
 	}
 }
 
-func copy(target model.ApiConfigSource) *model.ApiConfigSource {
+func copyConfig(target model.ApiConfigSource) *model.ApiConfigSource {
 	return &target
 }

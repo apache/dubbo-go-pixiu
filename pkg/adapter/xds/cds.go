@@ -21,8 +21,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	xdspb "github.com/apache/dubbo-go-pixiu/pkg/model/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	model2 "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
 	"strings"
 )
 
@@ -37,9 +37,9 @@ func (c *CdsManager) Fetch() error {
 		logger.Error("can not fetch lds", err)
 		return err
 	}
-	clusters := make([]*xdspb.Cluster, 0, len(r))
+	clusters := make([]*model2.Cluster, 0, len(r))
 	for _, one := range r {
-		extClusters := &xdspb.PixiuExtensionClusters{}
+		extClusters := &model2.PixiuExtensionClusters{}
 		if err := one.To(extClusters); err != nil {
 			logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 			continue
@@ -62,9 +62,9 @@ func (c *CdsManager) Delta() error {
 
 func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for one := range read {
-		clusters := make([]*xdspb.Cluster, 0, len(one.NewResources))
+		clusters := make([]*model2.Cluster, 0, len(one.NewResources))
 		for _, one := range one.NewResources {
-			_cluster := &xdspb.PixiuExtensionClusters{}
+			_cluster := &model2.PixiuExtensionClusters{}
 			if err := one.To(_cluster); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
@@ -83,7 +83,7 @@ func (c *CdsManager) removeCluster(clusterNames []string) {
 	server.GetClusterManager().RemoveCluster(clusterNames)
 }
 
-func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
+func (c *CdsManager) setupCluster(clusters []*model2.Cluster) error {
 	clusterMgt := server.GetClusterManager()
 	laterApplies := make([]func() error, 0, len(clusters))
 	toRemoveHash := make(map[string]struct{}, len(clusters))
@@ -123,7 +123,7 @@ func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
 	}
 }
 
-func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.Cluster {
+func (c *CdsManager) makeCluster(cluster *model2.Cluster) *model.Cluster {
 	return &model.Cluster{
 		Name:             cluster.Name,
 		TypeStr:          cluster.TypeStr,
@@ -136,15 +136,15 @@ func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.Cluster {
 	}
 }
 
-func (c *CdsManager) makeLoadBalancePolicy(cluster *xdspb.Cluster) model.LbPolicy {
+func (c *CdsManager) makeLoadBalancePolicy(cluster *model2.Cluster) model.LbPolicy {
 	return model.LbPolicy(model.LbPolicyValue[cluster.LbStr])
 }
 
-func (c *CdsManager) makeClusterType(cluster *xdspb.Cluster) model.DiscoveryType {
+func (c *CdsManager) makeClusterType(cluster *model2.Cluster) model.DiscoveryType {
 	return model.DiscoveryType(model.DiscoveryTypeValue[cluster.TypeStr])
 }
 
-func (c *CdsManager) makeEndpoints(endpoint *xdspb.Endpoint) []*model.Endpoint {
+func (c *CdsManager) makeEndpoints(endpoint *model2.Endpoint) []*model.Endpoint {
 	r := make([]*model.Endpoint, 0, 1)
 	r = append(r, &model.Endpoint{
 		ID:       endpoint.Id,
@@ -155,7 +155,7 @@ func (c *CdsManager) makeEndpoints(endpoint *xdspb.Endpoint) []*model.Endpoint {
 	return r
 }
 
-func (c *CdsManager) makeAddress(endpoint *xdspb.Endpoint) model.SocketAddress {
+func (c *CdsManager) makeAddress(endpoint *model2.Endpoint) model.SocketAddress {
 	if endpoint == nil {
 		return model.SocketAddress{} // todo make default socket address
 	}
@@ -170,11 +170,11 @@ func (c *CdsManager) makeAddress(endpoint *xdspb.Endpoint) model.SocketAddress {
 	}
 }
 
-func (c *CdsManager) makeProtocol(endpoint *xdspb.Endpoint) model.ProtocolType {
+func (c *CdsManager) makeProtocol(endpoint *model2.Endpoint) model.ProtocolType {
 	return model.ProtocolType(model.ProtocolTypeValue[strings.ToUpper(endpoint.Address.ProtocolStr)])
 }
 
-func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []model.HealthCheck) {
+func (c *CdsManager) makeHealthChecks(checks []*model2.HealthCheck) (result []model.HealthCheck) {
 	//todo implement me after fix model.HealthCheck type define
 	//result = make([]model.HealthCheck, 0, len(checks))
 	//for _, check := range checks {
@@ -206,7 +206,7 @@ func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []mod
 	return
 }
 
-func (c *CdsManager) makeEdsClusterConfig(edsConfig *xdspb.EdsClusterConfig) model.EdsClusterConfig {
+func (c *CdsManager) makeEdsClusterConfig(edsConfig *model2.EdsClusterConfig) model.EdsClusterConfig {
 	//todo implement me
 	if edsConfig == nil {
 		return model.EdsClusterConfig{} //todo make default EdsClusterConfig

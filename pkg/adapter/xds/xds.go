@@ -18,23 +18,32 @@ package xds
 
 import (
 	"context"
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
+	stderr "errors"
 	"fmt"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	"google.golang.org/grpc/connectivity"
+	"sync"
+	"time"
+
+	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/model/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"sync"
-	"time"
 )
 
 func init() {
 	adapter.RegisterAdapterPlugin(&DiscoveryPlugin{})
 }
+
+var grpcClusterManager GrpcClusterManager
+
+var (
+	ErrClusterNotFound = stderr.New("can not find cluster")
+)
 
 type (
 	DiscoverApi interface {
@@ -56,7 +65,8 @@ type (
 	}
 
 	GrpcClusterManager struct {
-		clusters *sync.Map // map[clusterName]*GrpcCluster
+		clusters *sync.Map            // map[clusterName]*GrpcCluster
+		store    *server.ClusterStore // cluster store copy
 	}
 
 	GrpcCluster struct {
@@ -69,12 +79,8 @@ type (
 
 // GetGrpcCluster get the cluster or create it first time.
 func (g *GrpcClusterManager) GetGrpcCluster(name string) (apiclient.GrpcCluster, error) {
-	store, err := server.GetClusterManager().CloneStore()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "clone cluster store failed")
-	}
-	if !store.HasCluster(name) {
-		return nil, errors.Errorf("can not find cluster of %s", name)
+	if !g.store.HasCluster(name) {
+		return nil, errors.Wrapf(ErrClusterNotFound, "name = %s", name)
 	}
 
 	if load, ok := g.clusters.Load(name); ok {
@@ -82,14 +88,14 @@ func (g *GrpcClusterManager) GetGrpcCluster(name string) (apiclient.GrpcCluster,
 		return grpcCluster, nil
 	}
 	var clusterCfg *model.Cluster
-	for _, cfg := range store.Config {
+	for _, cfg := range g.store.Config {
 		if cfg.Name == name {
 			clusterCfg = cfg
 			break
 		}
 	}
 	if clusterCfg == nil {
-		return nil, errors.Errorf("can not find cluster of %s", name)
+		return nil, errors.Wrapf(ErrClusterNotFound, "name of %s", name)
 	}
 	newCluster := &GrpcCluster{
 		name:   name,
@@ -127,16 +133,16 @@ func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
 		}
 		address := g.config.Endpoints[0].Address.Address
 		port := g.config.PickOneEndpoint().Address.Port
-		target := fmt.Sprintf("%s:%d", address, port)
-		logger.Infof("to connect xds server %s ...", target)
+		endpoint := fmt.Sprintf("%s:%d", address, port)
+		logger.Infof("to connect xds server %s ...", endpoint)
 		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
-		conn, err := grpc.DialContext(ctx, target,
+		conn, err := grpc.DialContext(ctx, endpoint,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),
 		)
-		logger.Infof("connected xds server (%s)", target)
+		logger.Infof("connected xds server (%s)", endpoint)
 		if err != nil {
-			panic(fmt.Sprintf("grpc.Dial(%s) failed: %v", target, err))
+			panic(fmt.Sprintf("grpc.Dial(%s) failed: %v", endpoint, err))
 		}
 		g.conn = conn
 	})
@@ -144,7 +150,7 @@ func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
 }
 
 func (g *GrpcCluster) IsAlive() bool {
-	return true
+	return g.conn.GetState() == connectivity.Ready
 }
 
 func (g *GrpcCluster) Close() error {
@@ -153,12 +159,6 @@ func (g *GrpcCluster) Close() error {
 	}
 	return nil
 }
-
-var (
-	grpcClusterManager = GrpcClusterManager{
-		clusters: &sync.Map{},
-	}
-)
 
 func (a *Adapter) createApiManager(config *model.ApiConfigSource,
 	node *model.Node,
@@ -182,6 +182,8 @@ func (a *Adapter) Start() {
 		logger.Infof("can not get dynamic resource manager. maybe the config has not initialized")
 		return
 	}
+	initDefaultGrpcManager()
+
 	// lds fetch just run on init phase.
 	if dm.GetLds() != nil {
 		a.lds = &LdsManager{DiscoverApi: a.createApiManager(dm.GetLds(), dm.GetNode(), xds.ListenerType)}
@@ -200,7 +202,6 @@ func (a *Adapter) Start() {
 }
 
 func (a *Adapter) Stop() {
-	//todo close the grpc connection
 	if err := grpcClusterManager.Close(); err != nil {
 		logger.Errorf("grpcClusterManager close failed. %v", err)
 	}
@@ -214,4 +215,16 @@ func (a *Adapter) Apply() error {
 
 func (a *Adapter) Config() interface{} {
 	return a.cfg
+}
+
+// init the grpc manager
+func initDefaultGrpcManager() {
+	store, err := server.GetClusterManager().CloneStore()
+	if err != nil {
+		panic(errors.WithMessagef(err, "clone cluster store failed"))
+	}
+	grpcClusterManager = GrpcClusterManager{
+		clusters: &sync.Map{},
+		store:    store,
+	}
 }

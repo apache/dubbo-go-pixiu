@@ -22,8 +22,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	xdspb "github.com/apache/dubbo-go-pixiu/pkg/model/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	model2 "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
 	"gopkg.in/yaml.v2"
 )
 
@@ -38,9 +38,9 @@ func (l *LdsManager) Fetch() error {
 		logger.Error("can not fetch lds", err)
 		return err
 	}
-	listeners := make([]*xdspb.Listener, 0, len(r))
+	listeners := make([]*model2.Listener, 0, len(r))
 	for _, one := range r {
-		_listener := &xdspb.PixiuExtensionListeners{}
+		_listener := &model2.PixiuExtensionListeners{}
 		if err := one.To(_listener); err != nil {
 			logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 			continue
@@ -63,9 +63,9 @@ func (l *LdsManager) Delta() error {
 
 func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		listeners := make([]*xdspb.Listener, 0, len(delta.NewResources))
+		listeners := make([]*model2.Listener, 0, len(delta.NewResources))
 		for _, one := range delta.NewResources {
-			_listener := &xdspb.PixiuExtensionListeners{}
+			_listener := &model2.PixiuExtensionListeners{}
 			if err := one.To(_listener); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
@@ -78,7 +78,7 @@ func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	}
 }
 
-func (l *LdsManager) makeSocketAddress(address *xdspb.SocketAddress) model.SocketAddress {
+func (l *LdsManager) makeSocketAddress(address *model2.SocketAddress) model.SocketAddress {
 	if address == nil {
 		return model.SocketAddress{}
 	}
@@ -102,7 +102,7 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 }
 
 // setupListeners setup listeners accord to dynamic resource
-func (l *LdsManager) setupListeners(listeners []*xdspb.Listener) {
+func (l *LdsManager) setupListeners(listeners []*model2.Listener) {
 	laterApplies := make([]func() error, 0, len(listeners))
 	toRemoveHash := make(map[string]struct{}, len(listeners))
 
@@ -127,7 +127,7 @@ func (l *LdsManager) setupListeners(listeners []*xdspb.Listener) {
 	}
 }
 
-func (l *LdsManager) makeListener(_l *xdspb.Listener) model.Listener {
+func (l *LdsManager) makeListener(_l *model2.Listener) model.Listener {
 	return model.Listener{
 		Name:         _l.Name,
 		Address:      l.makeAddress(_l.Address),
@@ -136,7 +136,7 @@ func (l *LdsManager) makeListener(_l *xdspb.Listener) model.Listener {
 	}
 }
 
-func (l *LdsManager) makeFilterChain(fChain []*xdspb.FilterChain) []model.FilterChain {
+func (l *LdsManager) makeFilterChain(fChain []*model2.FilterChain) []model.FilterChain {
 	r := make([]model.FilterChain, 0, len(fChain))
 	for _, one := range fChain {
 		r = append(r, model.FilterChain{
@@ -147,7 +147,7 @@ func (l *LdsManager) makeFilterChain(fChain []*xdspb.FilterChain) []model.Filter
 	return r
 }
 
-func (l *LdsManager) makeFilters(filters []*xdspb.Filter) []model.Filter {
+func (l *LdsManager) makeFilters(filters []*model2.Filter) []model.Filter {
 	_filters := make([]model.Filter, 0, len(filters))
 	for _, _filter := range filters {
 		_filters = append(_filters, model.Filter{
@@ -159,17 +159,17 @@ func (l *LdsManager) makeFilters(filters []*xdspb.Filter) []model.Filter {
 	return _filters
 }
 
-func (l *LdsManager) makeConfig(filter *xdspb.Filter) (m map[string]interface{}) {
+func (l *LdsManager) makeConfig(filter *model2.Filter) (m map[string]interface{}) {
 	switch cfg := filter.Config.(type) {
-	case *xdspb.Filter_Yaml:
+	case *model2.Filter_Yaml:
 		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {
 			logger.Errorf("can not make yaml from filter.Config: %s", cfg.Yaml.Content, err)
 		}
-	case *xdspb.Filter_Json:
+	case *model2.Filter_Json:
 		if err := json.Unmarshal([]byte(cfg.Json.Content), &m); err != nil {
 			logger.Errorf("can not make json from filter.Config: %s", cfg.Json.Content, err)
 		}
-	case *xdspb.Filter_Struct:
+	case *model2.Filter_Struct:
 		m = cfg.Struct.AsMap()
 	default:
 		logger.Errorf("can not get filter config of %s", filter.Name)
@@ -177,7 +177,7 @@ func (l *LdsManager) makeConfig(filter *xdspb.Filter) (m map[string]interface{})
 	return
 }
 
-func (l *LdsManager) makeAddress(addr *xdspb.Address) model.Address {
+func (l *LdsManager) makeAddress(addr *model2.Address) model.Address {
 	if addr == nil {
 		return model.Address{}
 	}
