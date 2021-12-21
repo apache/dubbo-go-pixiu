@@ -34,7 +34,6 @@ type CdsManager struct {
 func (c *CdsManager) Fetch() error {
 	r, err := c.DiscoverApi.Fetch("") //todo use local version
 	if err != nil {
-		logger.Error("can not fetch lds", err)
 		return err
 	}
 	clusters := make([]*model2.Cluster, 0, len(r))

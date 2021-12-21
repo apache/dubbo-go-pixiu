@@ -1,18 +1,115 @@
 package xds
 
 import (
+	"errors"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/cch123/supermonkey"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/anypb"
 	"testing"
 )
+
+var httpManagerConfigYaml = `
+route_config:
+  routes:
+    - match:
+        prefix: "/"
+      route:
+        cluster: "http-baidu"
+        cluster_not_found_response_code: 505
+http_filters:
+  - name: dgp.filter.http.httpproxy
+    config:
+  - name: dgp.filter.http.response
+    config:
+`
+
+func makeHttpFilter() []*pixiupb.FilterChain {
+	return []*pixiupb.FilterChain{
+		{
+			FilterChainMatch: &pixiupb.FilterChainMatch{
+				Domains: []string{
+					"api.dubbo.com",
+					"api.pixiu.com",
+				},
+			},
+			Filters: []*pixiupb.Filter{
+				{
+					Name: constant.HTTPConnectManagerFilter,
+					Config: &pixiupb.Filter_Yaml{Yaml: &pixiupb.Config{
+						Content: httpManagerConfigYaml,
+					}},
+					//Config: &pixiupb.Filter_Value{
+					//	Value: func() *structpb2.Value {
+					//		v, _ := structpb2.NewValue(nil)
+					//		return v
+					//	}(),
+					//},
+				},
+			},
+		},
+	}
+}
+func makeListeners() *pixiupb.PixiuExtensionListeners {
+	return &pixiupb.PixiuExtensionListeners{
+		Listeners: []*pixiupb.Listener{
+			{
+				Name: "net/http",
+				Address: &pixiupb.Address{
+					SocketAddress: &pixiupb.SocketAddress{
+						ProtocolStr: "http",
+						Address:     "0.0.0.0",
+						Port:        8888,
+					},
+					Name: "http_8888",
+				},
+				FilterChains: makeHttpFilter(),
+			},
+		},
+	}
+}
+
+func makeClusters() *pixiupb.PixiuExtensionClusters {
+	return &pixiupb.PixiuExtensionClusters{
+		Clusters: []*pixiupb.Cluster{
+			{
+				Name:    "http-baidu",
+				TypeStr: "http",
+				Endpoints: &pixiupb.Endpoint{
+					Id: "backend",
+					Address: &pixiupb.SocketAddress{
+						ProtocolStr: "http",
+						Address:     "httpbin.org",
+						Port:        80,
+					},
+				},
+			},
+		},
+	}
+}
+
+func getCdsConfig() *core.TypedExtensionConfig {
+	cdsResource, _ := anypb.New(proto.MessageV2(makeClusters()))
+	return &core.TypedExtensionConfig{
+		Name:        xds.ClusterType,
+		TypedConfig: cdsResource,
+	}
+}
 
 func TestCdsManager_Fetch(t *testing.T) {
 	var fetchResult []*apiclient.ProtoAny
 	var fetchError error
 	var cluster = map[string]struct{}{}
+	var updateCluster *model.Cluster
+	var addCluster *model.Cluster
+	xdsConfig := getCdsConfig()
 	//var deltaResult chan *apiclient.DeltaResources
 	//var deltaErr error
 	supermonkey.Patch((*apiclient.GrpcApiClient).Fetch, func(_ *apiclient.GrpcApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
@@ -26,9 +123,11 @@ func TestCdsManager_Fetch(t *testing.T) {
 		return ok
 	})
 	supermonkey.Patch((*server.ClusterManager).UpdateCluster, func(_ *server.ClusterManager, new *model.Cluster) {
+		updateCluster = new
 		return
 	})
 	supermonkey.Patch((*server.ClusterManager).AddCluster, func(_ *server.ClusterManager, c *model.Cluster) {
+		addCluster = c
 		return
 	})
 	//supermonkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
@@ -37,20 +136,62 @@ func TestCdsManager_Fetch(t *testing.T) {
 	defer supermonkey.UnpatchAll()
 
 	tests := []struct {
-		name    string
-		wantErr bool
+		name              string
+		mockResult        []*apiclient.ProtoAny
+		mockError         error
+		wantErr           bool
+		wantNewCluster    bool
+		wantUpdateCluster bool
 	}{
-		// TODO: Add test cases.
-		{},
+		{"error", nil, errors.New("error test"), true, false, false},
+		{"simple", nil, nil, false, false, false},
+		{"withValue", func() []*apiclient.ProtoAny {
+			return []*apiclient.ProtoAny{
+				apiclient.NewProtoAny(xdsConfig),
+			}
+		}(), nil, false, true, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &CdsManager{
 				DiscoverApi: &apiclient.GrpcApiClient{},
 			}
+			//reset context value.
+			fetchError = tt.mockError
+			fetchResult = tt.mockResult
+			updateCluster = nil
+			addCluster = nil
+
 			err := c.Fetch()
 			assert := require.New(t)
+			if tt.wantErr {
+				assert.Error(err)
+				return
+			}
 			assert.NoError(err)
+			if tt.wantUpdateCluster {
+				assert.NotNil(updateCluster)
+			} else {
+				assert.Nil(updateCluster)
+			}
+			if tt.wantNewCluster {
+				assert.NotNil(addCluster)
+			} else {
+				assert.Nil(addCluster)
+			}
 		})
 	}
+}
+
+func TestCdsManager_makeCluster(t *testing.T) {
+	c := &CdsManager{}
+	cluster := makeClusters().Clusters[0]
+	modelCluster := c.makeCluster(cluster)
+	assert := require.New(t)
+	assert.Equal(cluster.Name, modelCluster.Name)
+	assert.Equal(cluster.TypeStr, modelCluster.TypeStr)
+	assert.Equal(cluster.Endpoints.Name, modelCluster.Endpoints[0].Name)
+	assert.Equal(cluster.Endpoints.Address.Address, modelCluster.Endpoints[0].Address.Address)
+	assert.Equal(cluster.Endpoints.Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
+	assert.Equal(cluster.Endpoints.Address.ProtocolStr, modelCluster.Endpoints[0].Address.ProtocolStr)
 }
