@@ -67,6 +67,12 @@ func (gcm *GrpcConnectionManager) OnData(data interface{}) (interface{}, error) 
 
 func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
 
+	s, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+
+	}
+	logger.Infof(string(s))
+
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
 		w.WriteHeader(stdHttp.StatusNotFound)

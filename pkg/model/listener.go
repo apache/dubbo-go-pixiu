@@ -24,6 +24,7 @@ const (
 	ProtocolTypeHTTPS
 	ProtocolTypeGRPC
 	ProtocolTypeHTTP2
+	ProtocolTypeTriple
 )
 
 const (
