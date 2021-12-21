@@ -49,3 +49,7 @@ func (p *ProtoAny) To(configModel PixiuDynamicConfigModel) error {
 	}
 	return errors.Wrapf(err, "can not covert to %v", reflect.TypeOf(configModel))
 }
+
+func NewProtoAny(typeConfig *v3.TypedExtensionConfig) *ProtoAny {
+	return &ProtoAny{typeConfig: typeConfig}
+}
