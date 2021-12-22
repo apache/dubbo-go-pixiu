@@ -82,11 +82,12 @@ func (f *Filter) Apply() error {
 		return nil
 	}
 
-	config, err := initApiConfig(f.cfg)
+	cfg, err := initApiConfig(f.cfg)
 	if err != nil {
 		logger.Error("Get ApiConfig fail: ", err)
 	}
-	if err = f.apiService.InitAPIsFromConfig(*config); err != nil {
+
+	if err := f.apiService.InitAPIsFromConfig(*cfg); err != nil {
 		logger.Error("InitAPIsFromConfig fail: ", err)
 	}
 
@@ -115,7 +116,7 @@ func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
 
 func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 	req := ctx.Request
-	api, err := f.apiService.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
+	v, err := f.apiService.MatchAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
 		if _, err = ctx.WriteWithStatus(http.StatusNotFound, constant.Default404Body); err != nil {
 			logger.Error("WriteWithStatus fail: ", err)
@@ -127,8 +128,8 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 		return
 	}
 
-	if !api.Method.Enable {
-		if _, err = ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
+	if !v.Method.Enable {
+		if _, err := ctx.WriteWithStatus(http.StatusNotAcceptable, constant.Default406Body); err != nil {
 			logger.Error("WriteWithStatus fail: ", err)
 		}
 		ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
@@ -138,7 +139,7 @@ func (f *Filter) Handle(ctx *contexthttp.HttpContext) {
 		ctx.Abort()
 		return
 	}
-	ctx.API(api)
+	ctx.API(v)
 	ctx.Next()
 }
 
