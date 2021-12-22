@@ -1,4 +1,4 @@
-package filter
+package triple
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/config"

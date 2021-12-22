@@ -18,6 +18,7 @@
 package filter
 
 import (
+	"context"
 	"fmt"
 	stdHttp "net/http"
 )
@@ -70,6 +71,7 @@ type (
 		OnDecode(data []byte) (interface{}, int, error)
 		OnEncode(p interface{}) ([]byte, error)
 		OnData(data interface{}) (interface{}, error)
+		OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error)
 	}
 )
 

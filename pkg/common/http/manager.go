@@ -72,7 +72,12 @@ func (hcm *HttpConnectionManager) OnEncode(p interface{}) ([]byte, error) {
 }
 
 func (hcm *HttpConnectionManager) OnData(data interface{}) (interface{}, error) {
-	return nil, nil
+	panic("HttpConnectionManager OnData shouldn't be called")
+
+}
+
+func (hcm *HttpConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+	panic("HttpConnectionManager OnTripleData shouldn't be called")
 }
 
 func (hcm *HttpConnectionManager) Handle(hc *pch.HttpContext) error {

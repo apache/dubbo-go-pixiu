@@ -13,12 +13,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	tripleCommon "github.com/dubbogo/triple/pkg/common"
 	tpconst "github.com/dubbogo/triple/pkg/common/constant"
 	"github.com/go-errors/errors"
 	perrors "github.com/pkg/errors"
 	stdHttp "net/http"
-
 	"reflect"
+	"strings"
 )
 
 // HttpConnectionManager network filter for http
@@ -76,6 +77,70 @@ func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error
 
 	logger.Errorf("illegal pkg:%+v\n, it is %+v", pkg, reflect.TypeOf(pkg))
 	return nil, perrors.New("invalid rpc response")
+}
+
+func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+	dubboAttachment, _ := ctx.Value(tpconst.TripleAttachement).(tripleCommon.DubboAttachment)
+	old_invoc := invocation.NewRPCInvocation(methodName, arguments, dubboAttachment)
+	// /org.apache.dubbo.samples.UserProviderTriple/$invoke
+	interfaceMethodName := ctx.Value("XXX_TRIPLE_GO_INTERFACE_NAME").(string)
+	interfaceName := strings.Split(interfaceMethodName, "/")[1]
+
+	path := interfaceName
+	method := arguments[0] // 应该是第一个
+
+	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, "GET")
+
+	if err != nil {
+		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
+	}
+
+	clusterName := ra.Cluster
+	clusterManager := server.GetClusterManager()
+	endpoint := clusterManager.PickEndpoint(clusterName)
+	if endpoint == nil {
+		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
+	}
+
+	// 需要设置hessian协议
+
+	url, err := common.NewURL(endpoint.Address.GetAddress(),
+		common.WithProtocol(dubbo.DUBBO), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization),
+		common.WithParamsValue(constant.GenericFilterKey, "true"),
+		common.WithParamsValue(constant.AppVersionKey, "2.0.2"),
+		common.WithParamsValue(constant.InterfaceKey, path),
+		common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
+		common.WithPath(path),
+	)
+
+	dubboProtocol := dubbo.NewDubboProtocol()
+	invoker := dubboProtocol.Refer(url)
+
+	invCtx := context.Background()
+
+	len := len(arguments)
+	inVArr := make([]reflect.Value, len)
+	for i := 0; i < len; i++ {
+		inVArr[i] = reflect.ValueOf(arguments[i])
+	}
+	// old invocation can't set parameterValues
+	invoc := invocation.NewRPCInvocationWithOptions(invocation.WithMethodName(old_invoc.MethodName()),
+		invocation.WithArguments(arguments),
+		invocation.WithCallBack(old_invoc.CallBack()), invocation.WithParameterValues(inVArr),
+		invocation.WithAttachments(map[string]interface{}{
+			"async":   "false",
+			"generic": "true",
+		}))
+	var resp interface{}
+	invoc.SetReply(&resp)
+
+	result := invoker.Invoke(invCtx, invoc)
+	result.SetAttachments(invoc.Attachments())
+	value := reflect.ValueOf(result.Result())
+	// todo: generic 是需要这样
+	result.SetResult(value.Elem().Interface())
+	result.SetAttachments(nil)
+	return result, result.Error()
 }
 
 func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, error) {
