@@ -19,27 +19,25 @@
 ---
 static_resources:
   listeners:
-    - name: "net/http"
-      protocol_type: "HTTP2"
+    - name: "test"
+      protocol_type: "TRIPLE"
       address:
         socket_address:
           address: "0.0.0.0"
           port: 8888
       filter_chains:
         filters:
-          - name: dgp.filter.grpcconnectionmanager
+          - name: dgp.filter.network.dubboproxy
             config:
               route_config:
                 routes:
                   - match:
-                      prefix: "/provider.UserProvider/"
+                      prefix: "/org.apache.dubbo.samples.UserProviderTriple"
+                      methods:
+                          - "GET"
                     route:
-                      cluster: "test-grpc"
-                      cluster_not_found_response_code: 505
-      config:
-        idle_timeout: 5s
-        read_timeout: 5s
-        write_timeout: 5s
+                        cluster: "samples"
+                        cluster_not_found_response_code: 505
   clusters:
     - name: "samples"
       lb_policy: "lb"
@@ -47,7 +45,7 @@ static_resources:
         - id: 1
           socket_address:
             address: 127.0.0.1
-            port: 20001
+            port: 20000
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"

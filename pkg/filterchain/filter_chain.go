@@ -18,6 +18,7 @@
 package filterchain
 
 import (
+	"context"
 	"github.com/go-errors/errors"
 	"net/http"
 )
@@ -63,7 +64,15 @@ func (fc FilterChain) OnData(data interface{}) (interface{}, error) {
 	for _, filter := range fc.filtersArray {
 		return filter.OnData(data)
 	}
-	return nil, nil
+	return nil, errors.Errorf("filterChain don't have network filter")
+}
+
+func (fc *FilterChain) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnTripleData(ctx, methodName, arguments)
+	}
+	return nil, errors.Errorf("filterChain don't have network filter")
 }
 
 func CreateFilterChain(config model.FilterChain, bs *model.Bootstrap) *FilterChain {

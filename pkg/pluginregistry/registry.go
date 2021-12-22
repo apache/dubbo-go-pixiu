@@ -44,4 +44,5 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/tcp"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/triple"
 )

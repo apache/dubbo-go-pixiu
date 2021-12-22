@@ -2,7 +2,6 @@ package triple
 
 import (
 	"context"
-	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo3"
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -22,48 +21,54 @@ type (
 	// ListenerService the facade of a listener
 	TripleListenerService struct {
 		listener.BaseListenerService
-		server     triple.TripleServer
+		server     *triple.TripleServer
 		serviceMap *sync.Map
 	}
 
-	UnaryService struct {
+	ProxyService struct {
 		reqTypeMap sync.Map
+		ls         *TripleListenerService
 	}
 )
 
 func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 
-	opts := []triConfig.OptionFunction{
-		triConfig.WithCodecType(tripleConstant.HessianCodecName),
-		triConfig.WithLocation(lc.Address.SocketAddress.GetAddress()),
-		triConfig.WithLogger(logger.GetLogger()),
-	}
-
-	triOption := triConfig.NewTripleOption(opts...)
-	tripleService := &dubbo3.UnaryService{}
-	serviceMap := &sync.Map{}
-	serviceMap.Store(url.GetParam(constant.InterfaceKey, ""), tripleService)
-
-	srv := triple.NewTripleServer(dp.serviceMap, triOption)
-
 	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
-	return &TripleListenerService{
+	ls := &TripleListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
 			FilterChain: fc,
 		},
-	}, nil
+	}
+
+	opts := []triConfig.OptionFunction{
+		triConfig.WithCodecType(tripleConstant.HessianCodecName),
+		triConfig.WithLocation(lc.Address.SocketAddress.GetAddress()),
+		triConfig.WithLogger(logger.GetLogger()),
+		triConfig.WithProxyModeEnable(true),
+	}
+
+	triOption := triConfig.NewTripleOption(opts...)
+
+	tripleService := ProxyService{ls: ls}
+	serviceMap := &sync.Map{}
+	serviceMap.Store(tripleConstant.ProxyServiceKey, tripleService)
+	server := triple.NewTripleServer(serviceMap, triOption)
+	ls.serviceMap = serviceMap
+	ls.server = server
+	return ls, nil
 }
 
 func (ls *TripleListenerService) Start() error {
-
+	ls.server.Start()
+	return nil
 }
 
-func (d *UnaryService) setReqParamsTypes(methodName string, typ []reflect.Type) {
+func (d ProxyService) setReqParamsTypes(methodName string, typ []reflect.Type) {
 	d.reqTypeMap.Store(methodName, typ)
 }
 
-func (d *UnaryService) GetReqParamsInterfaces(methodName string) ([]interface{}, bool) {
+func (d ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{}, bool) {
 	val, ok := d.reqTypeMap.Load(methodName)
 	if !ok {
 		return nil, false
@@ -76,6 +81,6 @@ func (d *UnaryService) GetReqParamsInterfaces(methodName string) ([]interface{},
 	return reqParamsInterfaces, true
 }
 
-func (d *UnaryService) InvokeWithArgs(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
-
+func (d ProxyService) InvokeWithArgs(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+	return d.ls.FilterChain.OnTripleData(ctx, methodName, arguments)
 }
