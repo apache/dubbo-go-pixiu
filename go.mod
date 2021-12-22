@@ -11,9 +11,8 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.9.5
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
-	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.19
-	github.com/emirpasic/gods v1.12.0
+	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
+	github.com/dubbogo/gost v1.11.22
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-resty/resty/v2 v2.7.0
