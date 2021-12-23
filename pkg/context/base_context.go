@@ -22,6 +22,7 @@ import (
 )
 
 type (
+	ContextKey string
 
 	// Context run context
 	Context interface {
@@ -51,3 +52,7 @@ type (
 		Response()
 	}
 )
+
+func (c ContextKey) String() string {
+	return string(c)
+}
