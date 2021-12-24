@@ -18,15 +18,31 @@
 package dubbo
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
-// DubboProxyConfig the config for dubbo proxy
-type DubboProxyConfig struct {
-	// Registries such as zk,nacos or etcd
-	Registries map[string]model.Registry `yaml:"registries" json:"registries"`
-	// Timeout
-	Timeout *model.TimeoutConfig `yaml:"timeout_config" json:"timeout_config"`
-	// IsDefaultMap whether to use DefaultMap role
-	IsDefaultMap bool
+// defaultMappingParams default http to dubbo config
+var defaultMappingParams = []config.MappingParam{
+	{
+		Name:  "requestBody.values",
+		MapTo: "opt.values",
+	}, {
+		Name:  "requestBody.types",
+		MapTo: "opt.types",
+	}, {
+		Name:  "uri.application",
+		MapTo: "opt.application",
+	}, {
+		Name:  "uri.interface",
+		MapTo: "opt.interface",
+	}, {
+		Name:  "queryStrings.method",
+		MapTo: "opt.method",
+	}, {
+		Name:  "queryStrings.group",
+		MapTo: "opt.group",
+	}, {
+		Name:  "queryStrings.version",
+		MapTo: "opt.version",
+	},
 }
