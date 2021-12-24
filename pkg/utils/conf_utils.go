@@ -1,11 +1,3 @@
-/**
- * @Author: your name
- * @Date: 2021-12-14 21:28:03
- * @LastEditTime: 2021-12-15 18:23:44
- * @LastEditors: Please set LastEditors
- * @Description:
- * @FilePath: /dubbo-go-pixiu/samples/plugins/replace_conf_test.go
- */
 package utils
 
 import (
@@ -67,11 +59,6 @@ func adapterConf(address string) error {
 	return errors.New("parse address error")
 }
 
-/**
- * @description: get file list from path
- * @param {string} path
- * @return file list
- */
 func getFiles(path string) []string {
 	files := make([]string, 0)
 	err := filepath.Walk(path, func(path string, f os.FileInfo, err error) error {
@@ -90,11 +77,6 @@ func getFiles(path string) []string {
 	return files
 }
 
-/**
- * @description:  read content form file path
- * @param {string} filePath
- * @return {*}
- */
 func readFile(filePath, origin, target string) ([]byte, bool, error) {
 	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -128,12 +110,6 @@ func readFile(filePath, origin, target string) ([]byte, bool, error) {
 	return output, needHandle, nil
 }
 
-/**
- * @description: write content to file
- * @param {string} filePath
- * @param {[]byte} outPut
- * @return {*}
- */
 func writeToFile(filePath string, outPut []byte) error {
 	_, b := IsFile(filePath)
 	var f *os.File
@@ -154,12 +130,6 @@ func writeToFile(filePath string, outPut []byte) error {
 	return nil
 }
 
-/**
- * @description: 写入文件,文件不存在则创建,如在则追加内容
- * @param {string} path
- * @param {string} data str
- * @return {*}
- */
 func WriteFile(path string, str string) {
 	_, b := IsFile(path)
 	var f *os.File
@@ -189,31 +159,16 @@ func WriteFile(path string, str string) {
 	}
 }
 
-/**
- * @description: 判断路径是否存在
- * @param {string} path
- * @return {*}
- */
 func IsExists(path string) (os.FileInfo, bool) {
 	f, err := os.Stat(path)
 	return f, err == nil || os.IsExist(err)
 }
 
-/**
- * @description: 判断所给路径是否为文件夹
- * @param {string} path
- * @return {*}
- */
 func IsDir(path string) (os.FileInfo, bool) {
 	f, flag := IsExists(path)
 	return f, flag && f.IsDir()
 }
 
-/**
- * @description: 判断所给路径是否为文件
- * @param {string} path
- * @return {*}
- */
 func IsFile(path string) (os.FileInfo, bool) {
 	f, flag := IsExists(path)
 	return f, flag && !f.IsDir()

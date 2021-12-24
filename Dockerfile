@@ -9,7 +9,7 @@ ENV GOPROXY="https://goproxy.cn,direct" \
     GOARCH=amd64
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-WORKDIR /apps
+WORKDIR /apps/
 COPY . .
 RUN go mod download 
 RUN go build -ldflags "-s -w"  -o pixiu ./cmd/pixiu/*.go
@@ -17,8 +17,9 @@ RUN go build -ldflags "-s -w"  -o pixiu ./cmd/pixiu/*.go
 
 ### alpine
 FROM amd64/ubuntu:latest
-COPY --from=builder /apps/pixiu .
-COPY --from=builder /apps/docker-entrypoint.sh .
+COPY --from=builder /apps/pixiu /app/
+COPY --from=builder /apps/docker-entrypoint.sh /app/
 COPY --from=builder /apps/conf/* /etc/pixiu/
+WORKDIR /app/
 RUN ["chmod", "+x","./docker-entrypoint.sh"]
 ENTRYPOINT ["./docker-entrypoint.sh"]

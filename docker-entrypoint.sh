@@ -51,6 +51,6 @@ while read line; do
     echo $line
 done < ${CONF}
 
-cd / && ls -al .
+cd /app/ && ls -al .
 echo "current path: $(pwd)"
 ./pixiu gateway start -a /etc/pixiu/${API_CONF} -c /etc/pixiu/${CONF} -g /etc/pixiu/${LOG}
