@@ -41,6 +41,7 @@ type APIDiscoveryService interface {
 	AddAPI(fr.API) error
 	ClearAPI() error
 	GetAPI(string, config.HTTPVerb) (fr.API, error)
+	MatchAPI(string, config.HTTPVerb) (fr.API, error)
 	RemoveAPIByPath(deleted config.Resource) error
 	RemoveAPIByIntance(api fr.API) error
 	RemoveAPI(fullPath string, method config.Method) error
@@ -69,6 +70,13 @@ func (l *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTP
 		return *api, nil
 	}
 
+	return fr.API{}, errors.New("not found")
+}
+
+func (l *LocalMemoryAPIDiscoveryService) MatchAPI(url string, httpVerb config.HTTPVerb) (fr.API, error) {
+	if api, ok := l.router.MatchAPI(url, httpVerb); ok {
+		return *api, nil
+	}
 	return fr.API{}, errors.New("not found")
 }
 

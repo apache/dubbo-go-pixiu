@@ -74,7 +74,7 @@ CONF_PATH := conf/conf.yaml
 #action
 ###############################################################
 
-.PHONY: all build clean run image check cover lint docker help
+.PHONY: all build clean run image check cover lint docker
 
 all: check build
 
@@ -117,16 +117,10 @@ clean:
 	@if [ -f $(EXE) ] ; then rm -f $(EXE) ; fi
 	@echo "Clean $(PROJECT_DIR)/$(EXE) end."
 
-help:
-	@echo
-	@echo "可执行命令如下:"$(PROJECT_NAME)":"
-	@echo "make         格式化go代码,并编译生成二进制文件"
-	@echo "make build   编译go代码生成二进制文件"
-	@echo "make clean   清理中间目标文件"
-	@echo "make test    执行测试case"
-	@echo "make check   格式化go代码"
-	@echo "make cover   检查测试覆盖率"
-	@echo "make run     直接运行程序"
-	@echo "make lint    执行代码检查"
-	@echo "make docker  构建docker镜像"
-	@echo
+
+license-check-util:
+	go install github.com/lsm-dev/license-header-checker/cmd/license-header-checker@latest
+
+
+license-check:
+	license-header-checker -v -a -r -i vendor -i .github/actions /tmp/tools/license/license.txt . go
