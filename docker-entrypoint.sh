@@ -1,8 +1,8 @@
 #!/bin/bash
 
 [ ${DUBBO_REGISTRY_ADDRESS} ] || {
-    echo "usage: docker run -itd --name your-name -e DUBBO_REGISTRY_ADDRESS=zookeeper://127.0.0.1:2181 apache/dubbo-go-pixiu:latest"
-    echo "    or docker run -itd --name your-name -e DUBBO_REGISTRY_ADDRESS=nacos://127.0.0.1:8848 apache/dubbo-go-pixiu:latest"
+    echo "usage: docker run -itd --name your-name -p 8881:8881 -e DUBBO_REGISTRY_ADDRESS=zookeeper://127.0.0.1:2181 apache/dubbo-go-pixiu:latest"
+    echo "    or docker run -itd --name your-name -p 8881:8881 -e DUBBO_REGISTRY_ADDRESS=nacos://127.0.0.1:8848 apache/dubbo-go-pixiu:latest"
     exit
 }
 

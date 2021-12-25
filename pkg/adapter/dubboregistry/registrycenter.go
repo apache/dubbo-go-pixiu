@@ -63,10 +63,12 @@ func (p Plugin) Kind() string {
 
 // CreateAdapter returns the dubbo registry center adapter
 func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
-	adapter := &Adapter{id: a.ID,
+	adp := &Adapter{
+		id:         a.ID,
 		registries: make(map[string]registry.Registry),
-		cfg:        AdaptorConfig{Registries: make(map[string]model.Registry)}}
-	return adapter, nil
+		cfg:        AdaptorConfig{Registries: make(map[string]model.Registry)},
+	}
+	return adp, nil
 }
 
 // Adapter to monitor dubbo services on registry center

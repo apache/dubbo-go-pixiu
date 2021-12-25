@@ -70,6 +70,7 @@ func (f *Plugin) GetInstance() *Filter {
 	return f.filterInstance
 }
 
+// Config following for Filter
 func (f *Filter) Config() interface{} {
 	return f.cfg
 }

@@ -93,7 +93,12 @@ func (s *Server) Start() {
 		if addr.Port == 0 {
 			addr.Port = constant.PprofDefaultPort
 		}
-		go http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
+		go func() {
+			err := http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
+			if err != nil {
+				logger.Infof("pixiu start ListenAndServe error! address = %s", addr.Address+":"+strconv.Itoa(addr.Port))
+			}
+		}()
 		logger.Infof("[dubbopixiu go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
 	}
 }

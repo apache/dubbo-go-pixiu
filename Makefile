@@ -62,19 +62,12 @@ CONF_PATH := conf/conf.yaml
 #$(info APP_LOG_CONF_FILE = $(APP_LOG_CONF_FILE))
 #$(info API_CONF_PATH = $(API_CONF_PATH))
 #$(info CONF_PATH = $(CONF_PATH))
-#$(info GOOS = $(GOOS))
-#$(info EXE = $(EXE))
-#$(info VERSION = $(VERSION))
-#$(info BUILD = $(BUILD))
-#$(info LDFLAGS = $(LDFLAGS))
-#$(info GCFLAGS = $(GCFLAGS))
-#$(info )
 
 ###############################################################
 #action
 ###############################################################
 
-.PHONY: all build clean run image check cover lint docker
+.PHONY: all build clean run image check cover lint
 
 all: check build
 
