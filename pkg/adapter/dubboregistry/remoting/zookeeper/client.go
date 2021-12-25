@@ -18,6 +18,8 @@
 package zookeeper
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"strings"
 	"sync"
 	"time"
@@ -72,6 +74,19 @@ type ZooKeeperClient struct {
 	eventRegistryLock sync.RWMutex
 }
 
+func NewZookeeperClient(regConfig *model.Registry) (*ZooKeeperClient, error) {
+	timeout, err := time.ParseDuration(regConfig.Timeout)
+	if err != nil {
+		return nil, errors.Errorf("Incorrect timeout configuration: %s", regConfig.Timeout)
+	}
+	client, events, err := NewZooKeeperClient(constant.Zookeeper, strings.Split(regConfig.Address, ","), timeout)
+	if err != nil {
+		return nil, err
+	}
+	client.RegisterHandler(events)
+	return client, err
+
+}
 func NewZooKeeperClient(name string, zkAddrs []string, timeout time.Duration) (*ZooKeeperClient, <-chan zk.Event, error) {
 	var (
 		err   error

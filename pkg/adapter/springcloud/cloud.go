@@ -18,6 +18,7 @@
 package springcloud
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,6 +30,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/nacos"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -120,21 +122,18 @@ func (a *CloudAdapter) Stop() {
 
 // Apply init
 func (a *CloudAdapter) Apply() error {
+	// todo discoveryFactory
 	//registryUsed := ad.Config["registry"].(map[string]interface{})
-	switch a.cfg.Registry.Protocol {
+	var err error
+	switch strings.ToLower(a.cfg.Registry.Protocol) {
 	case "nacos":
-		sd, err := nacos.NewNacosServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
-		if err != nil {
-			logger.Errorf("Apply NewNacosServiceDiscovery", err.Error())
-			return err
-		}
-		a.sd = sd
-	case "consul":
+		a.sd, err = nacos.NewNacosServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
 	case "zookeeper":
+		a.sd, err = zookeeper.GetServiceDiscovery(a.cfg, a)
 	default:
 		return errors.New("adapter init error registry not recognise")
 	}
-	return nil
+	return err
 }
 
 func (a *CloudAdapter) OnAddServiceInstance(instance *servicediscovery.ServiceInstance) {
