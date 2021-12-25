@@ -25,6 +25,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+var logpre = "[Discovery]"
+
 type (
 	// ServiceInstance the service instance info fetched from registry such as nacos consul
 	ServiceInstance struct {

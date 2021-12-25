@@ -41,6 +41,8 @@ import (
 const (
 	// Kind is the kind of Adapter Plugin.
 	Kind = constant.SpringCloudAdapter
+
+	LogPre = "Cloud"
 )
 
 func init() {
