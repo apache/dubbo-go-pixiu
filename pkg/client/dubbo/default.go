@@ -15,44 +15,34 @@
  * limitations under the License.
  */
 
-package context
+package dubbo
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
-type (
-	ContextKey string
-
-	// Context run context
-	Context interface {
-		Next()
-		Abort()
-		AbortWithError(string, error)
-
-		Status(code int)
-		StatusCode() int
-		WriteWithStatus(int, []byte) (int, error)
-		Write([]byte) (int, error)
-		AddHeader(k, v string)
-		GetHeader(k string) string
-		GetUrl() string
-		GetMethod() string
-
-		BuildFilters()
-
-		GetRouteEntry() *model.RouteAction
-		SetRouteEntry(ra *model.RouteAction)
-		GetClientIP() string
-		GetApplicationName() string
-
-		WriteErr(p interface{})
-
-		Request()
-		Response()
-	}
-)
-
-func (c ContextKey) String() string {
-	return string(c)
+// defaultMappingParams default http to dubbo config
+var defaultMappingParams = []config.MappingParam{
+	{
+		Name:  "requestBody.values",
+		MapTo: "opt.values",
+	}, {
+		Name:  "requestBody.types",
+		MapTo: "opt.types",
+	}, {
+		Name:  "uri.application",
+		MapTo: "opt.application",
+	}, {
+		Name:  "uri.interface",
+		MapTo: "opt.interface",
+	}, {
+		Name:  "queryStrings.method",
+		MapTo: "opt.method",
+	}, {
+		Name:  "queryStrings.group",
+		MapTo: "opt.group",
+	}, {
+		Name:  "queryStrings.version",
+		MapTo: "opt.version",
+	},
 }
