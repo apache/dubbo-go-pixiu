@@ -114,7 +114,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 
 func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	req := ctx.Request
-	api, err := f.apiService.GetAPI(req.URL.Path, fc.HTTPVerb(req.Method))
+	v, err := f.apiService.MatchAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {
 		ctx.SendLocalReply(http.StatusNotFound, constant.Default404Body)
 		e := errors.Errorf("Requested URL %s not found", req.URL.Path)
@@ -128,7 +128,7 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 		logger.Debug(e.Error())
 		return filter.Stop
 	}
-	ctx.API(api)
+	ctx.API(v)
 	return filter.Continue
 }
 

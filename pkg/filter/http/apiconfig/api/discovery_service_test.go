@@ -18,6 +18,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -128,7 +129,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 	assert.Equal(t, rsp.URLPattern, "/")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	rsp, _ = apiDiscSrv.GetAPI("/mock2/12345", fc.MethodPut)
+	rsp, _ = apiDiscSrv.MatchAPI("/mock2/12345", fc.MethodPut)
 	assert.Equal(t, rsp.URLPattern, "/mock2/:id")
 
 	tempResources = []fc.Resource{
@@ -181,5 +182,5 @@ func TestLoadAPIFromMethods(t *testing.T) {
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	assert.EqualError(t, err, "path: /mock, Method: PUT, error: Method PUT with address localhost:8080 already exists in path /mock")
+	assert.True(t, strings.Contains(err.Error(), "path: /mock, Method: PUT, error: Method PUT with address /mock already exists in path /mock"))
 }
