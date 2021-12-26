@@ -35,7 +35,6 @@ type LdsManager struct {
 func (l *LdsManager) Fetch() error {
 	r, err := l.DiscoverApi.Fetch("") //todo use local version
 	if err != nil {
-		logger.Error("can not fetch lds", err)
 		return err
 	}
 	listeners := make([]*model2.Listener, 0, len(r))
