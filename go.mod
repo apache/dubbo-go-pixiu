@@ -51,5 +51,5 @@ require (
 )
 
 //replace github.com/envoyproxy/go-control-plane => ../go-control-plane
-//replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
+replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
 replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1

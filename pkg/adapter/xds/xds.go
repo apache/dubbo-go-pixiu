@@ -188,7 +188,7 @@ func (a *Adapter) Start() {
 	if dm.GetLds() != nil {
 		a.lds = &LdsManager{DiscoverApi: a.createApiManager(dm.GetLds(), dm.GetNode(), xds.ListenerType)}
 		if err := a.lds.Fetch(); err != nil {
-			logger.Errorf("can not fetch lds")
+			logger.Errorf("can not fetch lds err is %+v", err)
 		}
 	}
 	// catch the ongoing cds config change.
