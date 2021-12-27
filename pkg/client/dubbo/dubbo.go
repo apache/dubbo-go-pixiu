@@ -19,15 +19,16 @@ package dubbo
 
 import (
 	"context"
+	dg "dubbo.apache.org/dubbo-go/v3/config"
+	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	"strings"
 	"sync"
 )
 
 import (
+	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	hessian "github.com/apache/dubbo-go-hessian2"
-	"github.com/apache/dubbo-go/common/constant"
-	dg "github.com/apache/dubbo-go/config"
-	"github.com/apache/dubbo-go/protocol/dubbo"
 
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 
@@ -64,7 +65,6 @@ const (
 var (
 	dubboClient        *Client
 	onceClient         = sync.Once{}
-	dgCfg              dg.ConsumerConfig
 	defaultApplication = &dg.ApplicationConfig{
 		Organization: "dubbo-go-pixiu",
 		Name:         "Dubbogo Pixiu",
@@ -78,8 +78,9 @@ var (
 // Client client to generic invoke dubbo
 type Client struct {
 	lock               sync.RWMutex
-	GenericServicePool map[string]*dg.GenericService
+	GenericServicePool map[string]*generic.GenericService
 	dubboProxyConfig   *DubboProxyConfig
+	rootConfig         *dg.RootConfig
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -106,7 +107,7 @@ func InitDefaultDubboClient(dpc *DubboProxyConfig) {
 func NewDubboClient() *Client {
 	return &Client{
 		lock:               sync.RWMutex{},
-		GenericServicePool: make(map[string]*dg.GenericService, 4),
+		GenericServicePool: make(map[string]*generic.GenericService, 4),
 	}
 }
 
@@ -118,38 +119,28 @@ func (dc *Client) SetConfig(dpc *DubboProxyConfig) {
 // Apply init dubbo, config mapping can do here
 func (dc *Client) Apply() error {
 
-	// dubbogo consumer config
-	dgCfg = dg.ConsumerConfig{
-		Check:      new(bool),
-		Registries: make(map[string]*dg.RegistryConfig, 4),
-	}
-	if dc.dubboProxyConfig == nil {
-		return nil
-	}
-	// timeout config
-	dgCfg.Connect_Timeout = dc.dubboProxyConfig.Timeout.ConnectTimeoutStr
-	dgCfg.Request_Timeout = dc.dubboProxyConfig.Timeout.RequestTimeoutStr
-	dgCfg.ApplicationConfig = defaultApplication
+	rootConfigBuilder := dg.NewRootConfigBuilder()
 	for k, v := range dc.dubboProxyConfig.Registries {
 		if len(v.Protocol) == 0 {
 			logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
 			v.Protocol = defaultDubboProtocol
 		}
-		dgCfg.Registries[k] = &dg.RegistryConfig{
-			Protocol:   v.Protocol,
-			Address:    v.Address,
-			TimeoutStr: v.Timeout,
-			Username:   v.Username,
-			Password:   v.Password,
-		}
+		rootConfigBuilder.AddRegistry(k, &dg.RegistryConfig{
+			Protocol: v.Protocol,
+			Address:  v.Address,
+			Timeout:  v.Timeout,
+			Username: v.Username,
+			Password: v.Password,
+		})
 	}
-	initDubbogo()
-	return nil
-}
+	rootConfigBuilder.SetApplication(defaultApplication)
+	rootConfig := rootConfigBuilder.Build()
 
-func initDubbogo() {
-	dg.SetConsumerConfig(dgCfg)
-	dg.Load()
+	if err := dg.Load(dg.WithRootConfig(rootConfig)); err != nil {
+		panic(err)
+	}
+	dc.rootConfig = rootConfig
+	return nil
 }
 
 // Close clear GenericServicePool.
@@ -198,9 +189,9 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	span.SetAttributes(attribute.Key(spanTagType).Array(types))
 	span.SetAttributes(attribute.Key(spanTagValues).Array(vals))
 	defer span.End()
-	ctx := context.WithValue(req.Context, constant.TRACING_REMOTE_SPAN_CTX, trace.SpanFromContext(req.Context).SpanContext())
+	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
 
-	rst, err := gs.Invoke(ctx, []interface{}{method, types, vals})
+	rst, err := gs.Invoke(ctx, method, types, vals)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +240,7 @@ func buildOption(conf fc.MappingParam) client.RequestOption {
 	return opt
 }
 
-func (dc *Client) get(key string) *dg.GenericService {
+func (dc *Client) get(key string) *generic.GenericService {
 	dc.lock.RLock()
 	defer dc.lock.RUnlock()
 	return dc.GenericServicePool[key]
@@ -265,7 +256,7 @@ func (dc *Client) check(key string) bool {
 }
 
 // Get find a dubbo GenericService
-func (dc *Client) Get(ir fc.IntegrationRequest) *dg.GenericService {
+func (dc *Client) Get(ir fc.IntegrationRequest) *generic.GenericService {
 	key := apiKey(&ir)
 	if dc.check(key) {
 		return dc.get(key)
@@ -279,35 +270,40 @@ func apiKey(ir *fc.IntegrationRequest) string {
 	return strings.Join([]string{dbc.ClusterName, dbc.ApplicationName, dbc.Interface, dbc.Version, dbc.Group}, "_")
 }
 
-func (dc *Client) create(key string, irequest fc.IntegrationRequest) *dg.GenericService {
-	referenceConfig := dg.NewReferenceConfig(irequest.Interface, context.TODO())
-	referenceConfig.InterfaceName = irequest.Interface
-	referenceConfig.Cluster = constant.DEFAULT_CLUSTER
-	var registers []string
-	for k := range dgCfg.Registries {
-		registers = append(registers, k)
-	}
-	referenceConfig.Registry = strings.Join(registers, ",")
+func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.GenericService {
 
-	if len(irequest.DubboBackendConfig.Protocol) == 0 {
-		referenceConfig.Protocol = dubbo.DUBBO
-	} else {
-		referenceConfig.Protocol = irequest.DubboBackendConfig.Protocol
+	registerIds := make([]string, len(dc.rootConfig.Registries))
+	for k := range dc.rootConfig.Registries {
+		registerIds = append(registerIds, k)
 	}
 
-	referenceConfig.Version = irequest.DubboBackendConfig.Version
-	referenceConfig.Group = irequest.Group
-	referenceConfig.Generic = true
+	refConf := dg.ReferenceConfig{
+		InterfaceName: irequest.Interface,
+		Cluster:       constant.ClusterKeyFailover,
+		RegistryIDs:   registerIds,
+		Protocol:      dubbo.DUBBO,
+		Generic:       "true",
+		Version:       irequest.DubboBackendConfig.Version,
+		Group:         irequest.Group,
+	}
+
 	if len(irequest.DubboBackendConfig.Retries) == 0 {
-		referenceConfig.Retries = "3"
+		refConf.Retries = "3"
 	} else {
-		referenceConfig.Retries = irequest.DubboBackendConfig.Retries
+		refConf.Retries = irequest.DubboBackendConfig.Retries
 	}
+
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
-	referenceConfig.GenericLoad(key)
 
-	clientService := referenceConfig.GetRPCService().(*dg.GenericService)
+	if service, ok := dc.GenericServicePool[key]; ok {
+		return service
+	}
+
+	_ = refConf.Init(dc.rootConfig)
+	refConf.GenericLoad(key)
+
+	clientService := refConf.GetRPCService().(*generic.GenericService)
 	dc.GenericServicePool[key] = clientService
 	return clientService
 }
