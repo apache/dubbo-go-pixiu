@@ -37,8 +37,14 @@ dubbo:
     registry-ids: zk,demoZk2
     services:
       TeacherProvider:
+        group: test
+        version: 1.0.0
+        cluster: test_dubbo
         serialization: hessian2
         interface: com.dubbogo.pixiu.TeacherService
       StudentProvider:
+        group: test
+        version: 1.0.0
+        cluster: test_dubbo
         serialization: hessian2
         interface: com.dubbogo.pixiu.StudentService

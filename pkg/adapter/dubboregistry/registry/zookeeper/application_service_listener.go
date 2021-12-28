@@ -18,7 +18,6 @@
 package zookeeper
 
 import (
-	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -27,6 +26,7 @@ import (
 )
 
 import (
+	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	ex "dubbo.apache.org/dubbo-go/v3/common/extension"
 	"dubbo.apache.org/dubbo-go/v3/metadata/definition"
 	dr "dubbo.apache.org/dubbo-go/v3/registry"
