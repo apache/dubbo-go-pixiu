@@ -19,22 +19,28 @@ package dubbo
 
 import (
 	"context"
-	dg "dubbo.apache.org/dubbo-go/v3/config"
-	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	"strings"
 	"sync"
 )
 
 import (
 	_ "dubbo.apache.org/dubbo-go/v3/cluster/cluster/failover"
+	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/random"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	_ "dubbo.apache.org/dubbo-go/v3/common/proxy/proxy_factory"
+	dg "dubbo.apache.org/dubbo-go/v3/config"
+	"dubbo.apache.org/dubbo-go/v3/config/generic"
+	_ "dubbo.apache.org/dubbo-go/v3/filter/generic"
+	_ "dubbo.apache.org/dubbo-go/v3/filter/gshutdown"
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/service/local"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/protocol"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/zookeeper"
+
 	hessian "github.com/apache/dubbo-go-hessian2"
 
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+
 	"github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
