@@ -26,12 +26,15 @@ import (
 )
 
 import (
+	_ "dubbo.apache.org/dubbo-go/v3/cluster/cluster/failover"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	_ "dubbo.apache.org/dubbo-go/v3/metadata/service/local"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
+	_ "dubbo.apache.org/dubbo-go/v3/registry/protocol"
+	_ "dubbo.apache.org/dubbo-go/v3/registry/zookeeper"
 	hessian "github.com/apache/dubbo-go-hessian2"
 
 	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-
 	"github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
@@ -272,7 +275,7 @@ func apiKey(ir *fc.IntegrationRequest) string {
 
 func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.GenericService {
 
-	registerIds := make([]string, len(dc.rootConfig.Registries))
+	registerIds := make([]string, 0)
 	for k := range dc.rootConfig.Registries {
 		registerIds = append(registerIds, k)
 	}
@@ -298,6 +301,10 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 
 	if service, ok := dc.GenericServicePool[key]; ok {
 		return service
+	}
+
+	if err := dg.Load(dg.WithRootConfig(dc.rootConfig)); err != nil {
+		panic(err)
 	}
 
 	_ = refConf.Init(dc.rootConfig)
