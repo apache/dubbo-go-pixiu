@@ -119,7 +119,7 @@ clean: stop
 
 ## start: Start the application (for server)
 .PHONY: start
-start: export CONF_PROVIDER_FILE_PATH ?= $(OUT_DIR)/server/server.yml
+start: export DUBBO_GO_CONFIG_PATH ?= $(OUT_DIR)/server/server.yml
 start: build
 	$(info   >  Starting application $(PROJECT_NAME), output is redirected to $(LOG_FILE))
 	@-$(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME) > $(LOG_FILE) 2>&1 & echo $$! > $(PID)
@@ -128,7 +128,7 @@ start: build
 
 ## start: Start the application (for server) foreground
 .PHONY: startServer
-startServer: export CONF_PROVIDER_FILE_PATH ?= $(OUT_DIR)/server/server.yml
+startServer: export DUBBO_GO_CONFIG_PATH ?= $(OUT_DIR)/server/server.yml
 startServer: build
 	$(info   >  Starting application $(PROJECT_NAME), output is redirected to $(LOG_FILE))
 	@-$(OUT_DIR)/server/$(PROJECT_NAME)$(EXT_NAME)  2>&1
