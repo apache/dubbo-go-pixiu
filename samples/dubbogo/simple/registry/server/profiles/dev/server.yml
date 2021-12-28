@@ -19,6 +19,8 @@
 # dubbo server yaml configure file
 # application config
 dubbo:
+  application:
+    name: BDTService
   registries:
     zk:
       protocol: zookeeper

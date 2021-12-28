@@ -26,8 +26,8 @@ dubbo:
       timeout: 3s
       address: 127.0.0.1:2181
   protocols:
-    dubbo:
-      name: dubbo
+    rest:
+      name: rest
       port: 8889
   provider:
     registry-ids: zk
@@ -38,3 +38,17 @@ dubbo:
         cluster: test_dubbo
         serialization: hessian2
         interface: com.dubbogo.pixiu.UserService
+        rest_path: "/UserProvider"
+        methods:
+          - name: "CreateUser"
+            rest_path: "/CreateUser"
+            rest_method: "POST"
+            rest_body: 0
+            rest_produces: "application/json"
+            rest_consumes: "application/json;charset=utf-8,*/*"
+          - name: "GetUserByName"
+            rest_path: "/GetUserByName"
+            rest_method: "GET"
+            rest_query_params: "0:name"
+            rest_produces: "application/json"
+            rest_consumes: "application/json;charset=utf-8,*/*"
