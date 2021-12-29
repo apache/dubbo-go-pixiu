@@ -92,7 +92,7 @@ type (
 		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
 		pools map[string]*sync.Pool
 
-		extReg     dynamic.ExtensionRegistry
+		extReg     *dynamic.ExtensionRegistry
 		registered map[string]bool
 	}
 	Filter struct {
@@ -102,7 +102,7 @@ type (
 		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
 		pools map[string]*sync.Pool
 
-		extReg     dynamic.ExtensionRegistry
+		extReg     *dynamic.ExtensionRegistry
 		registered map[string]bool
 	}
 
@@ -150,7 +150,7 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg, descriptor: factory.descriptor}
+	f := &Filter{cfg: factory.cfg, descriptor: factory.descriptor, pools: factory.pools, extReg: factory.extReg, registered: factory.registered}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -174,7 +174,7 @@ func getServiceAndMethod(path string) (string, string) {
 	return svc, mth
 }
 
-// Handle use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
+// Decode use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
 func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	svc, mth := getServiceAndMethod(c.GetUrl())
 
@@ -242,7 +242,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	msgFac := dynamic.NewMessageFactoryWithExtensionRegistry(&f.extReg)
+	msgFac := dynamic.NewMessageFactoryWithExtensionRegistry(f.extReg)
 	grpcReq := msgFac.NewMessage(mthDesc.GetInputType())
 
 	err = jsonToProtoMsg(c.Request.Body, grpcReq)
@@ -292,12 +292,12 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 }
 
 func (f *Filter) registerExtension(source DescriptorSource, mthDesc *desc.MethodDescriptor) error {
-	err := RegisterExtension(source, &f.extReg, mthDesc.GetInputType(), f.registered)
+	err := RegisterExtension(source, f.extReg, mthDesc.GetInputType(), f.registered)
 	if err != nil {
 		return perrors.New("register extension failed")
 	}
 
-	err = RegisterExtension(source, &f.extReg, mthDesc.GetOutputType(), f.registered)
+	err = RegisterExtension(source, f.extReg, mthDesc.GetOutputType(), f.registered)
 	if err != nil {
 		return perrors.New("register extension failed")
 	}
