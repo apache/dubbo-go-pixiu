@@ -18,12 +18,13 @@
 package trie
 
 import (
-	"github.com/pkg/errors"
+	"strings"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/pkg/errors"
 )
 
 // Trie
@@ -52,6 +53,10 @@ type Node struct {
 	MatchAllNode     *Node            // /a/b/**  /** is a match all Node.
 	endOfPath        bool             // if true means a real path exists ,  /a/b/c/d only node of d is true, a,b,c is false.
 	bizInfo          interface{}      // route info and any other info store here.
+}
+
+func (trie *Trie) Clear() bool {
+	return trie.root.Clear()
 }
 
 //IsEmpty put key and values into trie as map.
@@ -103,6 +108,7 @@ func (trie Trie) Get(withOutHost string) (*Node, []string, bool, error) {
 //bool is ok
 //error
 func (trie Trie) Match(withOutHost string) (*Node, []string, bool) {
+	withOutHost = strings.Split(withOutHost, "?")[0]
 	parts := stringutil.Split(withOutHost)
 	node, param, ok := trie.root.Match(parts)
 	length := len(param)
@@ -164,6 +170,11 @@ func (node *Node) internalPut(keys []string, bizInfo interface{}) (bool, error) 
 		return node.children[key].internalPut(childKeys, bizInfo)
 	}
 
+}
+
+func (node *Node) Clear() bool {
+	*node = Node{}
+	return true
 }
 
 //IsEmpty return true if empty
@@ -320,7 +331,7 @@ func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) boo
 	if isReal {
 		selfNode.bizInfo = bizInfo
 	}
-	selfNode.endOfPath = selfNode.endOfPath || old.endOfPath
+	selfNode.endOfPath = isReal || old.endOfPath
 	node.children[matchStr] = selfNode
 	return true
 }
