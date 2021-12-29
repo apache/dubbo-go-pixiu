@@ -4,6 +4,8 @@ go 1.15
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
+	github.com/MicahParks/keyfunc v1.0.0
+	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
 	github.com/apache/dubbo-go-hessian2 v1.9.5
@@ -19,6 +21,7 @@ require (
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
+	github.com/golang-jwt/jwt/v4 v4.1.0
 	github.com/golang/protobuf v1.5.2
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mercari/grpc-http-proxy v0.1.2

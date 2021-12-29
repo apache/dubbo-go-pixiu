@@ -15,24 +15,34 @@
  * limitations under the License.
  */
 
-package constant
+package dubbo
 
-// env key
-const (
-	EnvResponseStrategy = "dgp-response-strategy"
-	EnvMock             = "dgp-mock"
+import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 )
 
-const (
-	EnvDubbogoPixiuConfig    = "DUBBOGO_PIXIU_CONFIG"
-	EnvDubbogoPixiuApiConfig = "DUBBOGO_PIXIU_API_CONFIG"
-	EnvDubbogoPixiuLogConfig = "DUBBOGO_PIXIU_LOG_CONFIG"
-	EnvDubbogoPixiuLogLevel  = "DUBBOGO_PIXIU_LOG_LEVEL"
-	EnvDubbogoPixiuLogFormat = "DUBBOGO_PIXIU_LOG_FORMAT"
-	EnvDubbogoPixiuLimitCpus = "DUBBOGO_PIXIU_LIMIT_CPUS"
-)
-
-// registry configuration
-const (
-	EnvDubbogoPixiuNacosRegistryAddress = "NACOS_ADDRESS"
-)
+// defaultMappingParams default http to dubbo config
+var defaultMappingParams = []config.MappingParam{
+	{
+		Name:  "requestBody.values",
+		MapTo: "opt.values",
+	}, {
+		Name:  "requestBody.types",
+		MapTo: "opt.types",
+	}, {
+		Name:  "uri.application",
+		MapTo: "opt.application",
+	}, {
+		Name:  "uri.interface",
+		MapTo: "opt.interface",
+	}, {
+		Name:  "queryStrings.method",
+		MapTo: "opt.method",
+	}, {
+		Name:  "queryStrings.group",
+		MapTo: "opt.group",
+	}, {
+		Name:  "queryStrings.version",
+		MapTo: "opt.version",
+	},
+}

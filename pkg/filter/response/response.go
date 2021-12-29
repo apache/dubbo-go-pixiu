@@ -163,6 +163,10 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 			return inm, nil
 		}
 	case reflect.Slice:
+		if data, ok := in.([]byte); ok {
+			// raw bytes data should return directly
+			return data, nil
+		}
 		value := reflect.ValueOf(in)
 		newTemps := make([]interface{}, 0, value.Len())
 		for i := 0; i < value.Len(); i++ {
