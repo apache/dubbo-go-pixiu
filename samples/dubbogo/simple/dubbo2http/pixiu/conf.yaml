@@ -39,18 +39,7 @@ static_resources:
                         cluster: "samples"
                         cluster_not_found_response_code: 505
                 http_filters:
-                  - name: dgp.filter.http.httpproxy
-                    config:
-                  - name: dgp.filter.http.cors
-                    config:
-                      allow_origin:
-                        - api.dubbo.com
-                      allow_methods: ""
-                      allow_headers: ""
-                      expose_headers: ""
-                      max_age: ""
-                      allow_credentials: false
-                  - name: dgp.filter.http.response
+                  - name: dgp.filter.dubbo.httpproxy
                     config:
       config:
         idle_timeout: 5s
