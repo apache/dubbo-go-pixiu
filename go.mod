@@ -14,7 +14,7 @@ require (
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
 	github.com/dubbogo/go-zookeeper v1.0.3
 	github.com/dubbogo/gost v1.11.20-0.20211116110728-26777ca61b4a
-	github.com/dubbogo/triple v1.1.6
+	github.com/dubbogo/triple v1.1.7
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
@@ -59,7 +59,3 @@ require (
 replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0
 
 replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1
-
-replace github.com/dubbogo/triple v1.1.6 => ../triple
-
-replace github.com/dubbogo/grpc-go v1.42.6-triple => ../grpc-go
