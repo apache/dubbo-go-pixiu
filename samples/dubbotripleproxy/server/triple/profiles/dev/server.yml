@@ -26,15 +26,15 @@ dubbo:
       timeout: 3s
       address: 127.0.0.1:2181
   protocols:
-    dubbo:
-      name: triple
+    triple:
+      name: tri
       port: 20001
   provider:
     registry-ids: zk
     services:
-      UserProvider:
+      TripleUserProvider:
         group: test
         serialization: hessian2
-        interface: com.dubbogo.pixiu.UserService
+        interface: com.dubbogo.pixiu.TripleUserService
         version: 1.0.0
         cluster: test_dubbo

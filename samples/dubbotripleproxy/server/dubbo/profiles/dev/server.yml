@@ -32,9 +32,9 @@ dubbo:
   provider:
     registry-ids: zk
     services:
-      UserProvider:
+      DubboUserProvider:
         group: test
         serialization: hessian2
-        interface: com.dubbogo.pixiu.UserService
+        interface: com.dubbogo.pixiu.DubboUserService
         version: 1.0.0
         cluster: test_dubbo

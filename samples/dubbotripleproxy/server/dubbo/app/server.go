@@ -31,17 +31,10 @@ import (
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
 )
 
-// Version dubbo version
-const Version = "2.7.5"
-
 var survivalTimeout = int(3e9)
 
-// they are necessary:
-// 		export CONF_PROVIDER_FILE_PATH="xxx"
-// 		export APP_LOG_CONF_FILE="xxx"
 func main() {
 	config.Load()
-	logger.Info("dubbo version is: %s", Version)
 	initSignal()
 }
 

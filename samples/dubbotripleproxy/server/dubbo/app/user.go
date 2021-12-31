@@ -265,12 +265,12 @@ func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *
 
 // nolint
 func (u *UserProvider) Reference() string {
-	return "UserProvider"
+	return "DubboUserProvider"
 }
 
 // nolint
 func (u User) JavaClassName() string {
-	return "com.dubbogo.pixiu.User"
+	return "com.dubbogo.pixiu.DubboUserService"
 }
 
 // nolint
