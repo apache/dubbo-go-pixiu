@@ -32,41 +32,35 @@ static_resources:
                 route_config:
                   routes:
                     - match:
-                        prefix: "/org.apache.dubbo.samples.UserProviderTriple"
+                        prefix: "/com.dubbogo.pixiu.TripleUserService"
                         methods:
                           - "GET"
                       route:
-                        cluster: "samples"
+                        cluster: "triple-server"
                         cluster_not_found_response_code: 505
                 http_filters:
                   - name: dgp.filter.dubbo.tripleproxy
-                    config:
     - name: "triple-listener"
-        protocol_type: "TRIPLE"
-        address:
-          socket_address:
-            address: "0.0.0.0"
-            port: 8889
-        filter_chains:
-          filters:
-            - name: dgp.filter.network.dubboproxy
-              config:
-                route_config:
-                  routes:
-                    - match:
-                        prefix: "/org.apache.dubbo.samples.UserProviderTriple"
-                        methods:
-                          - "GET"
-                      route:
-                        cluster: "dubbo-server"
-                        cluster_not_found_response_code: 505
-                http_filters:
-                  - name: dgp.filter.dubbo.dubbofilter
-                    config:
-        config:
-          idle_timeout: 5s
-          read_timeout: 5s
-          write_timeout: 5s
+      protocol_type: "TRIPLE"
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 9999
+      filter_chains:
+        filters:
+          - name: dgp.filter.network.dubboproxy
+            config:
+              route_config:
+                routes:
+                  - match:
+                      prefix: "com.dubbogo.pixiu.DubboUserService"
+                      methods:
+                        - "GET"
+                    route:
+                      cluster: "dubbo-server"
+                      cluster_not_found_response_code: 505
+              http_filters:
+                - name: dgp.filter.dubbo.dubbofilter
   clusters:
     - name: "triple-server"
       lb_policy: "lb"
@@ -77,12 +71,8 @@ static_resources:
             port: 20001
     - name: "dubbo-server"
       lb_policy: "lb"
-        endpoints:
-          - id: 1
-            socket_address:
-              address: 127.0.0.1
-              port: 20000
-  shutdown_config:
-    timeout: "60s"
-    step_timeout: "10s"
-    reject_policy: "immediacy"
+      endpoints:
+        - id: 1
+          socket_address:
+            address: 127.0.0.1
+            port: 20000
