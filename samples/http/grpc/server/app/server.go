@@ -24,6 +24,7 @@ import (
 
 import (
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 import (
@@ -71,7 +72,12 @@ func main() {
 	initUsers(s)
 
 	gs := grpc.NewServer()
+
 	proto.RegisterUserProviderServer(gs, s)
+
+	// registers the server reflection service on the given gRPC server.
+	reflection.Register(gs)
+
 	logger.Info("grpc test server is now running...")
 	err = gs.Serve(l)
 	if err != nil {
