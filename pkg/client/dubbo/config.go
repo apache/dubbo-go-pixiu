@@ -27,4 +27,6 @@ type DubboProxyConfig struct {
 	Registries map[string]model.Registry `yaml:"registries" json:"registries"`
 	// Timeout
 	Timeout *model.TimeoutConfig `yaml:"timeout_config" json:"timeout_config"`
+	// IsDefaultMap whether to use DefaultMap role
+	IsDefaultMap bool
 }
