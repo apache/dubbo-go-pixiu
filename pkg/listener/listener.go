@@ -35,7 +35,7 @@ type (
 
 	BaseListenerService struct {
 		Config      *model.Listener
-		FilterChain *filterchain.FilterChain
+		FilterChain *filterchain.NetworkFilterChain
 	}
 )
 

@@ -49,7 +49,7 @@ type (
 )
 
 type handleWrapper struct {
-	fc *filterchain.FilterChain
+	fc *filterchain.NetworkFilterChain
 }
 
 type h2cWrapper struct {
@@ -68,7 +68,7 @@ func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
 	return &Http2ListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
