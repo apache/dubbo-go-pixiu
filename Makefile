@@ -58,7 +58,7 @@ license-check:
 
 test:
 	sh before_ut.sh
-	go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
+	go test ./pkg/...  -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
 
 integrate-test:
 	sh start_integrate_test.sh
