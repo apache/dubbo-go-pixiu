@@ -136,7 +136,8 @@ func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
 		port := g.config.PickOneEndpoint().Address.Port
 		endpoint := fmt.Sprintf("%s:%d", address, port)
 		logger.Infof("to connect xds server %s ...", endpoint)
-		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
+		defer cancel()
 		conn, err := grpc.DialContext(ctx, endpoint,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),

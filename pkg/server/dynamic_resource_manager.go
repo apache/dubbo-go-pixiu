@@ -58,7 +58,7 @@ func createDynamicResourceManger(bs *model.Bootstrap) DynamicResourceManager {
 	}
 	m := &DynamicResourceManagerImpl{
 		config: bs.DynamicResources, // todo deep copy as immutable value
-		node:   &(*bs.Node),
+		node:   bs.Node,
 	}
 
 	if bs.DynamicResources.AdsConfig != nil {

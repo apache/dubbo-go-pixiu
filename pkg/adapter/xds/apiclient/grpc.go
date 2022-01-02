@@ -158,7 +158,7 @@ func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 			//notify the resource change handler
 			output <- resources
 
-			err = g.subscribeOnGoingChang(err, delta)
+			err = g.subscribeOnGoingChang(delta)
 			if err != nil {
 				logger.Error("can not recv delta discovery request; backoff 1 second later", err)
 				time.Sleep(1 * time.Second)
@@ -170,8 +170,8 @@ func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 	return nil
 }
 
-func (g *GrpcApiClient) subscribeOnGoingChang(err error, delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient) error {
-	err = delta.Send(&discoverypb.DeltaDiscoveryRequest{
+func (g *GrpcApiClient) subscribeOnGoingChang(delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient) error {
+	err := delta.Send(&discoverypb.DeltaDiscoveryRequest{
 		Node:                    g.makeNode(),
 		TypeUrl:                 resource.ExtensionConfigType,
 		InitialResourceVersions: g.xdsState.deltaVersion,
