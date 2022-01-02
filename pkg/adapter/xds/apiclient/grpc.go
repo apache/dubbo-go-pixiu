@@ -25,9 +25,9 @@ import (
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/anypb"
 	"time"
 )
 
@@ -95,7 +95,7 @@ func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 	return extensions, nil
 }
 
-func (g *GrpcApiClient) decodeSource(_resource *any.Any) (*ProtoAny, error) {
+func (g *GrpcApiClient) decodeSource(_resource *anypb.Any) (*ProtoAny, error) {
 	extension := envoy_config_core_v3.TypedExtensionConfig{}
 	err := _resource.UnmarshalTo(&extension)
 	if err != nil {

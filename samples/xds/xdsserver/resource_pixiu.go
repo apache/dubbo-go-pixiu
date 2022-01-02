@@ -25,9 +25,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"github.com/golang/protobuf/proto"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	structpb2 "google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -138,8 +137,8 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 }
 
 func GenerateSnapshotPixiu() cache.Snapshot {
-	ldsResource, _ := anypb.New(proto.MessageV2(makeListeners()))
-	cdsResource, _ := anypb.New(proto.MessageV2(makeClusters()))
+	ldsResource, _ := anypb.New(makeListeners())
+	cdsResource, _ := anypb.New(makeClusters())
 	snap, _ := cache.NewSnapshot("2",
 		map[resource.Type][]types.Resource{
 			resource.ExtensionConfigType: {
