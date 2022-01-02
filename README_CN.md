@@ -1,4 +1,10 @@
-[![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
+# Apache Dubbo-go-pixiu
+
+[![Build Status](https://travis-ci.org/apache/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/apache/dubbo-go-pixiu)
+[![codecov](https://codecov.io/gh/apache/dubbo-go-pixiu/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/dubbo-go-pixiu)
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/apache/dubbo-go-pixiu?tab=doc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/apache/dubbo-go-pixiu)](https://goreportcard.com/report/github.com/apache/dubbo-go-pixiu)
+![license](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 
 ### 吉祥物
 
@@ -9,7 +15,7 @@
     <tr>
       <td align="center"  valign="middle">
         <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="513px" height="513px" src="docs/images/pixiu-logo.png">
+          <img width="320px" height="320px" src="docs/images/pixiu-logo-new.png">
         </a>
       </td>
     </tr>

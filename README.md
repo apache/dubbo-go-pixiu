@@ -1,4 +1,10 @@
-[![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
+# Apache Dubbo-go-pixiu
+
+[![Build Status](https://travis-ci.org/apache/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/apache/dubbo-go-pixiu)
+[![codecov](https://codecov.io/gh/apache/dubbo-go-pixiu/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/dubbo-go-pixiu)
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/apache/dubbo-go-pixiu?tab=doc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/apache/dubbo-go-pixiu)](https://goreportcard.com/report/github.com/apache/dubbo-go-pixiu)
+![license](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 
 [中文](./README_CN.md)
 
@@ -11,7 +17,7 @@
     <tr>
       <td align="center"  valign="middle">
         <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="513px" height="513px" src="docs/images/pixiu-logo.png">
+          <img width="320px" height="320px" src="docs/images/pixiu-logo-new.png">
         </a>
       </td>
     </tr>
@@ -22,9 +28,12 @@
     
 ### Introduction
 
-dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful services.
+dubbo-go-pixiu is a gateway that mainly focuses on providing gateway solution to your Dubbo, SpringCloud, GRPC and RESTful services.
 
-It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near future.
+It supports HTTP-to-Dubbo, HTTP-GRPC, HTTP-SpringCloud and HTTP-to-HTTP proxy.
+
+### Invocation
+
 
 ## Quick Start
 
