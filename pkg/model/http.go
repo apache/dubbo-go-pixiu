@@ -34,7 +34,7 @@ type HttpConnectionManagerConfig struct {
 	GenerateRequestID bool               `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
 }
 
-// HttpConnectionManagerConfig
+// GRPCConnectionManagerConfig
 type GRPCConnectionManagerConfig struct {
 	RouteConfig RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
 }

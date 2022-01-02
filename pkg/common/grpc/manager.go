@@ -41,13 +41,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
-// HttpConnectionManager network filter for http
+// GrpcConnectionManager network filter for grpc
 type GrpcConnectionManager struct {
 	config            *model.GRPCConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 }
 
-// CreateHttpConnectionManager create http connection manager
+// CreateGrpcConnectionManager create grpc connection manager
 func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig, bs *model.Bootstrap) *GrpcConnectionManager {
 	hcm := &GrpcConnectionManager{config: hcmc}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
@@ -59,6 +59,7 @@ func (gcm *GrpcConnectionManager) OnData(hc *pch.HttpContext) error {
 	panic("grpc connection manager OnData function shouldn't be called")
 }
 
+// ServeHTTP handle request and response
 func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
 
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
