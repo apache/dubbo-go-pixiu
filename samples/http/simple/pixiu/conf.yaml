@@ -52,8 +52,7 @@ static_resources:
                       expose_headers: ""
                       max_age: ""
                       allow_credentials: false
-                  - name: dgp.filter.http.response
-                    config:
+
       config:
         idle_timeout: 5s
         read_timeout: 5s

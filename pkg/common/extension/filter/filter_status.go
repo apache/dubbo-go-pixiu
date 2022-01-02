@@ -15,48 +15,11 @@
  * limitations under the License.
  */
 
-package recovery
+package filter
 
-import (
-	"testing"
-	"time"
+type FilterStatus int
+
+const (
+	Continue FilterStatus = iota
+	Stop
 )
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-)
-
-// nolint
-func TestRecovery(t *testing.T) {
-	filter := GetMock()
-	sleepFilter := &SleepFilter{}
-	c := mock.GetMockHTTPContext(nil, filter, sleepFilter)
-	c.Next()
-	// print
-	// 500
-	// "assignment to entry in nil map"
-}
-
-type SleepFilter struct {
-}
-
-func (rf *SleepFilter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(rf.Handle)
-	return nil
-}
-
-func (rf *SleepFilter) Handle(c *http.HttpContext) {
-	time.Sleep(time.Millisecond * 100)
-	// panic
-	m := map[string]string{}
-	m["name"] = "1"
-}
-
-func (f *SleepFilter) Config() interface{} {
-	return nil
-}
-
-func (f *SleepFilter) Apply() error {
-	return nil
-}

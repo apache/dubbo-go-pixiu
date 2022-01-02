@@ -49,12 +49,15 @@ type (
 	Plugin struct {
 	}
 
-	// Filter is http filter instance
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *Config
+	}
 	Filter struct {
 		cfg *Config
 	}
 
-	// Config describe the config of Filter
+	// Config describe the config of FilterFactory
 	Config struct {
 		Key           string   `yaml:"key" json:"key" mapstructure:"key"`                                  // get request key
 		Secret        string   `yaml:"secret" json:"secret" mapstructure:"secret"`                         // private key
@@ -67,47 +70,40 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{cfg: factory.cfg}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(ctx *http.HttpContext) {
-	f.handleCsrf(ctx)
-}
-
-func (f *Filter) handleCsrf(ctx *http.HttpContext) {
+func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	ctx.Request.Header.Set(csrfSecret, f.cfg.Secret)
 
 	if inMethod(f.cfg.IgnoreMethods, ctx.Request.Method) {
-		ctx.Next()
-		return
+		return filter.Continue
 	}
 
 	salt := ctx.Request.Header.Get(csrfSalt)
 
 	if salt == "" {
 		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.WriteJSONWithStatus(stdHttp.StatusForbidden, bt)
-		ctx.Abort()
-		return
+		ctx.SendLocalReply(stdHttp.StatusForbidden, bt)
+		return filter.Stop
 	}
 
 	token := tokenize(f.cfg.Secret, salt)
 
 	if token != tokenGetter(ctx, f.cfg.Key) {
 		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.WriteJSONWithStatus(stdHttp.StatusForbidden, bt)
-		ctx.Abort()
-		return
+		ctx.SendLocalReply(stdHttp.StatusForbidden, bt)
+		return filter.Stop
 	}
 
-	ctx.Next()
-
+	return filter.Continue
 }
 
 func tokenGetter(ctx *http.HttpContext, key string) string {
@@ -135,10 +131,10 @@ func tokenize(secret, salt string) string {
 	return base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s-%s", salt, secret)))
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }

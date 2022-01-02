@@ -43,7 +43,7 @@ static_resources:
                 http_filters:
                   - name: dgp.filter.http.apiconfig
                     config:
-                      path: $PROJECT_DIR/pixiu/api_config.yaml
+                      path: samples/dubbogo/simple/mix/pixiu/api_config.yaml
                   - name: dgp.filter.http.dubboproxy
                     config:
                       dubboProxyConfig:
@@ -57,8 +57,7 @@ static_resources:
                         timeout_config:
                           connect_timeout: 5s
                           request_timeout: 5s
-                  - name: dgp.filter.http.response
-                    config:
+
                 server_name: "test_http_dubbo"
                 generate_request_id: false
       config:

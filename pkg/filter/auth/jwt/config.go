@@ -17,7 +17,9 @@
 
 package jwt
 
-import "github.com/MicahParks/keyfunc"
+import (
+	"github.com/MicahParks/keyfunc"
+)
 
 type (
 	// FromHeaders Get the token from a field in the header，default Authorization: Bearer <token>

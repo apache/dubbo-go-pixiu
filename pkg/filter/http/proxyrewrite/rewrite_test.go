@@ -15,43 +15,51 @@
  * limitations under the License.
  */
 
-package timeout
+package proxyrewrite
 
 import (
+	"net/http"
 	"testing"
-	"time"
+)
+
+import (
+	"github.com/go-playground/assert/v2"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
-func timeoutFilterFunc(wait time.Duration) filter.HttpFilter {
-	config := &Config{Timeout: wait}
-	t := &Filter{cfg: config}
-	_ = t.Apply()
-	return t
+func TestDecode(t *testing.T) {
+	url := "/user-service/query"
+
+	request, _ := http.NewRequest("Get", url, nil)
+	ctx := mock.GetMockHTTPContext(request)
+
+	factory := &FilterFactory{cfg: &Config{UriRegex: []string{"^/([^/]*)/(.*)$", "/$2"}}}
+	chain := filter.NewDefaultFilterChain()
+	_ = factory.PrepareFilterChain(ctx, chain)
+	chain.OnDecode(ctx)
+
+	assert.Equal(t, ctx.GetUrl(), "/query")
 }
 
-func TestPanic(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), recovery.GetMock(), timeoutFilterFunc(time.Millisecond*100))
-	c.Next()
-	// print
-	// 500
-	// "timeout filter test panic"
-}
+func TestConfigUpdate(t *testing.T) {
+	url := "/user-service/query"
 
-func TestTimeout(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(0), timeoutFilterFunc(time.Second*3))
-	c.Next()
-	// print
-	// 503
-	// {"code":"S005","message":"http: Handler timeout"}
-}
+	request, _ := http.NewRequest("Get", url, nil)
+	ctx := mock.GetMockHTTPContext(request)
 
-func TestNormal(t *testing.T) {
-	c := mock.GetMockHTTPContext(nil, timeoutFilterFunc(time.Millisecond*200))
-	c.Next()
+	cfg := &Config{UriRegex: []string{"^/([^/]*)/(.*)$", "/$2"}}
+
+	factory := &FilterFactory{cfg: cfg}
+	chain := filter.NewDefaultFilterChain()
+	_ = factory.PrepareFilterChain(ctx, chain)
+
+	cfg.UriRegex = []string{}
+
+	chain.OnDecode(ctx)
+
+	assert.Equal(t, ctx.GetUrl(), "/query")
 }

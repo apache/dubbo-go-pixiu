@@ -19,7 +19,6 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"net"
 	"net/http"
@@ -35,6 +34,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -42,18 +42,25 @@ const abortIndex int8 = math.MaxInt8 / 2
 
 // HttpContext http context
 type HttpContext struct {
-	Index   int8
+	//Deprecated: waiting to delete
+	Index int8
+	//Deprecated: waiting to delete
 	Filters FilterChain
 	Timeout time.Duration
 	Ctx     context.Context
 	Params  map[string]interface{}
 
+	// localReply Means that the request was interrupted,
+	// which may occur in the Decode or Encode stage
+	localReply bool
+	// statusCode code will be return
+	statusCode int
+	// localReplyBody: happen error
+	localReplyBody []byte
 	// the response context will return.
 	TargetResp *client.Response
 	// client call response.
 	SourceResp interface{}
-	// happen error
-	Err error
 
 	HttpConnectionManager model.HttpConnectionManagerConfig
 	Listener              *model.Listener
@@ -77,13 +84,8 @@ type (
 	FilterChain []FilterFunc
 )
 
-// Next logic for lookup filter
+// Deprecated: Next logic for lookup filter
 func (hc *HttpContext) Next() {
-	hc.Index++
-	for hc.Index < int8(len(hc.Filters)) {
-		hc.Filters[hc.Index](hc)
-		hc.Index++
-	}
 }
 
 // Reset reset http context
@@ -93,15 +95,12 @@ func (hc *HttpContext) Reset() {
 	hc.Filters = []FilterFunc{}
 	hc.Route = nil
 	hc.Api = nil
-	hc.Err = nil
 
 	hc.TargetResp = nil
 	hc.SourceResp = nil
-}
-
-// Status set header status code
-func (hc *HttpContext) Status(code int) {
-	hc.Writer.WriteHeader(code)
+	hc.statusCode = 0
+	hc.localReply = false
+	hc.localReplyBody = nil
 }
 
 // RouteEntry set route
@@ -112,17 +111,6 @@ func (hc *HttpContext) RouteEntry(r *model.RouteAction) {
 // GetRouteEntry get route
 func (hc *HttpContext) GetRouteEntry() *model.RouteAction {
 	return hc.Route
-}
-
-// Write write body data
-func (hc *HttpContext) Write(b []byte) (int, error) {
-	return hc.Writer.Write(b)
-}
-
-// WriteWithStatus status must set first
-func (hc *HttpContext) WriteWithStatus(code int, b []byte) (int, error) {
-	hc.Writer.WriteHeader(code)
-	return hc.Writer.Write(b)
 }
 
 // AddHeader add header
@@ -183,54 +171,37 @@ func (hc *HttpContext) GetApplicationName() string {
 	return ""
 }
 
-// WriteJSONWithStatus write fail, auto add context-type json.
-func (hc *HttpContext) WriteJSONWithStatus(code int, res interface{}) {
-	hc.doWriteJSON(nil, code, res)
-}
+// SendLocalReply Means that the request was interrupted and Response will be sent directly
+// Even if it’s currently in to Decode stage
+func (hc *HttpContext) SendLocalReply(status int, body []byte) {
+	hc.localReply = true
+	hc.statusCode = status
+	hc.localReplyBody = body
+	hc.TargetResp = &client.Response{Data: body}
+	hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 
-// WriteErr
-func (hc *HttpContext) WriteErr(p interface{}) {
-	hc.doWriteJSON(nil, http.StatusInternalServerError, p)
-}
-
-// WriteSuccess
-func (hc *HttpContext) WriteSuccess() {
-	hc.doWriteJSON(nil, http.StatusOK, nil)
-}
-
-// WriteResponse
-func (hc *HttpContext) WriteResponse(resp client.Response) {
-	hc.doWriteJSON(nil, http.StatusOK, resp.Data)
-}
-
-func (hc *HttpContext) doWriteJSON(h map[string]string, code int, d interface{}) {
-	if h == nil {
-		h = make(map[string]string, 1)
+	writer := hc.Writer
+	writer.WriteHeader(status)
+	_, err := writer.Write(body)
+	if err != nil {
+		logger.Errorf("write fail: %v", err)
 	}
-	h[constant.HeaderKeyContextType] = constant.HeaderValueJsonUtf8
-	hc.doWrite(h, code, d)
 }
 
-func (hc *HttpContext) doWrite(h map[string]string, code int, d interface{}) {
-	for k, v := range h {
-		hc.Writer.Header().Set(k, v)
-	}
+func (hc *HttpContext) GetLocalReplyBody() []byte {
+	return hc.localReplyBody
+}
 
-	hc.Writer.WriteHeader(code)
+func (hc *HttpContext) GetStatusCode() int {
+	return hc.statusCode
+}
 
-	if d != nil {
-		byt, ok := d.([]byte)
-		if ok {
-			hc.Writer.Write(byt)
-			return
-		}
+func (hc *HttpContext) StatusCode(code int) {
+	hc.statusCode = code
+}
 
-		if b, err := json.Marshal(d); err != nil {
-			hc.Writer.Write([]byte(err.Error()))
-		} else {
-			hc.Writer.Write(b)
-		}
-	}
+func (hc *HttpContext) LocalReply() bool {
+	return hc.localReply
 }
 
 // API sets the API to http context
@@ -244,17 +215,12 @@ func (hc *HttpContext) GetAPI() *router.API {
 	return hc.Api
 }
 
-// Abort  filter chain break , filter after the current filter will not executed.
+// Deprecated: Abort  filter chain break , filter after the current filter will not executed.
 func (hc *HttpContext) Abort() {
 	hc.Index = abortIndex
 }
 
-// AbortWithError  filter chain break , filter after the current filter will not executed. And log will print.
-func (hc *HttpContext) AbortWithError(message string, err error) {
-	hc.Abort()
-}
-
-// AppendFilterFunc  append filter func.
+// Deprecated: AppendFilterFunc append filter func.
 func (hc *HttpContext) AppendFilterFunc(ff ...FilterFunc) {
 	for _, v := range ff {
 		hc.Filters = append(hc.Filters, v)

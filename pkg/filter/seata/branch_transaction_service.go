@@ -45,7 +45,7 @@ const (
 	RollbackRequestPath = "tcc_rollback_request_path"
 )
 
-func (f *Filter) branchCommunicate() {
+func (f *FilterFactory) branchCommunicate() {
 	for {
 		ctx := metadata.AppendToOutgoingContext(context.Background(), "addressing", f.conf.Addressing)
 		stream, err := f.resourceClient.BranchCommunicate(ctx)
