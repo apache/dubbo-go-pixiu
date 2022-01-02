@@ -14,5 +14,7 @@ require (
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
 )
+
 replace github.com/dubbogo/dubbo-go-pixiu-filter => ../../../../dubbo-go-pixiu-filter
+
 replace github.com/apache/dubbo-go-pixiu => ../../..
