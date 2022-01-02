@@ -11,7 +11,7 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.9.5
 	github.com/cch123/supermonkey v1.0.0
 	github.com/creasty/defaults v1.5.2
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5-0.20211220151221-87949cfcdf4e
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20211231013020-b56b3f9d88b1
 	github.com/dubbogo/go-zookeeper v1.0.3
 	github.com/dubbogo/gost v1.11.19
 	github.com/envoyproxy/go-control-plane v0.10.1
@@ -51,8 +51,5 @@ require (
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
-
-//replace github.com/envoyproxy/go-control-plane => ../go-control-plane
-replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
 
 replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1
