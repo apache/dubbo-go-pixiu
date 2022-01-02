@@ -40,7 +40,6 @@ type (
 		grpcMg             GrpcClusterManager
 		node               *model.Node
 		xDSExtensionClient extensionpb.ExtensionConfigDiscoveryServiceClient
-		lastExtension      *envoy_config_core_v3.TypedExtensionConfig
 		resourceNames      []ResourceTypeName
 		exitCh             chan struct{}
 		xdsState           xdsState
