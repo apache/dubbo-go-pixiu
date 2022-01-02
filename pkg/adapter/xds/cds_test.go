@@ -26,7 +26,6 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
 	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
 	"testing"
@@ -70,7 +69,7 @@ func getCdsConfig() *core.TypedExtensionConfig {
 			},
 		}
 	}
-	cdsResource, _ := anypb.New(proto.MessageV2(makeClusters()))
+	cdsResource, _ := anypb.New(makeClusters())
 	return &core.TypedExtensionConfig{
 		Name:        xds.ClusterType,
 		TypedConfig: cdsResource,
@@ -101,6 +100,9 @@ func TestCdsManager_Fetch(t *testing.T) {
 	})
 	supermonkey.Patch((*server.ClusterManager).AddCluster, func(_ *server.ClusterManager, c *model.Cluster) {
 		addCluster = c
+	})
+	supermonkey.Patch((*server.ClusterManager).RemoveCluster, func(_ *server.ClusterManager, names []string) {
+		//do nothing.
 	})
 	//supermonkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
 	//	return deltaResult, deltaErr

@@ -121,6 +121,10 @@ func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
 	for clusterName, _ := range toRemoveList {
 		removeClusters = append(removeClusters, clusterName)
 	}
+	if len(toRemoveList) == 0 {
+		return
+	}
+	c.removeCluster(removeClusters)
 }
 
 func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.Cluster {

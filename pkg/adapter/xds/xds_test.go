@@ -90,6 +90,7 @@ func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
 			assert.NotNil(got)
 			//run two times.
 			got, err = g.GetGrpcCluster(tt.args.name)
+			assert.NoError(err)
 			assert.NotNil(got)
 
 		})
