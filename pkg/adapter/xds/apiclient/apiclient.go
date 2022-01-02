@@ -19,14 +19,14 @@ package apiclient
 
 import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 	"reflect"
 )
 
 type (
 	ResourceTypeName        = string
-	PixiuDynamicConfigModel interface{}
+	PixiuDynamicConfigModel proto.Message
 
 	ProtoAny struct {
 		typeConfig *v3.TypedExtensionConfig
@@ -43,7 +43,7 @@ func (p *ProtoAny) GetName() string {
 }
 
 func (p *ProtoAny) To(configModel PixiuDynamicConfigModel) error {
-	err := p.typeConfig.TypedConfig.UnmarshalTo(proto.MessageV2(configModel))
+	err := p.typeConfig.TypedConfig.UnmarshalTo(configModel)
 	if err != nil {
 		panic(err)
 	}
