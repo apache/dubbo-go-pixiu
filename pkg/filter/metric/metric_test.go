@@ -29,17 +29,15 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestMetric(t *testing.T) {
 	filter := &Filter{}
-	err := filter.Apply()
-	assert.Nil(t, err)
 
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request, filter, recovery.GetMock())
-	c.Next()
+	c := mock.GetMockHTTPContext(request)
+	filter.Decode(c)
+	filter.Encode(c)
 	t.Log("log filter test is finished")
 }

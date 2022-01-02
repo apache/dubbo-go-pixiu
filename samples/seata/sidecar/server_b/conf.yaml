@@ -57,8 +57,7 @@ static_resources:
                           rollbackRequestPath: "/service-b/cancel"
                   - name: dgp.filter.http.httpproxy
                     config:
-                  - name: dgp.filter.http.response
-                    config:
+
       config:
         idle_timeout: 5s
         read_timeout: 5s
