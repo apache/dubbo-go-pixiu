@@ -3,7 +3,6 @@ package xds
 import (
 	"errors"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/cch123/supermonkey"
@@ -15,66 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"testing"
 )
-
-var httpManagerConfigYaml = `
-route_config:
-  routes:
-    - match:
-        prefix: "/"
-      route:
-        cluster: "http-baidu"
-        cluster_not_found_response_code: 505
-http_filters:
-  - name: dgp.filter.http.httpproxy
-    config:
-  - name: dgp.filter.http.response
-    config:
-`
-
-func makeHttpFilter() []*pixiupb.FilterChain {
-	return []*pixiupb.FilterChain{
-		{
-			FilterChainMatch: &pixiupb.FilterChainMatch{
-				Domains: []string{
-					"api.dubbo.com",
-					"api.pixiu.com",
-				},
-			},
-			Filters: []*pixiupb.Filter{
-				{
-					Name: constant.HTTPConnectManagerFilter,
-					Config: &pixiupb.Filter_Yaml{Yaml: &pixiupb.Config{
-						Content: httpManagerConfigYaml,
-					}},
-					//Config: &pixiupb.Filter_Value{
-					//	Value: func() *structpb2.Value {
-					//		v, _ := structpb2.NewValue(nil)
-					//		return v
-					//	}(),
-					//},
-				},
-			},
-		},
-	}
-}
-func makeListeners() *pixiupb.PixiuExtensionListeners {
-	return &pixiupb.PixiuExtensionListeners{
-		Listeners: []*pixiupb.Listener{
-			{
-				Name: "net/http",
-				Address: &pixiupb.Address{
-					SocketAddress: &pixiupb.SocketAddress{
-						ProtocolStr: "http",
-						Address:     "0.0.0.0",
-						Port:        8888,
-					},
-					Name: "http_8888",
-				},
-				FilterChains: makeHttpFilter(),
-			},
-		},
-	}
-}
 
 func makeClusters() *pixiupb.PixiuExtensionClusters {
 	return &pixiupb.PixiuExtensionClusters{
@@ -96,6 +35,24 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 }
 
 func getCdsConfig() *core.TypedExtensionConfig {
+	makeClusters := func() *pixiupb.PixiuExtensionClusters {
+		return &pixiupb.PixiuExtensionClusters{
+			Clusters: []*pixiupb.Cluster{
+				{
+					Name:    "http-baidu",
+					TypeStr: "http",
+					Endpoints: &pixiupb.Endpoint{
+						Id: "backend",
+						Address: &pixiupb.SocketAddress{
+							ProtocolStr: "http",
+							Address:     "httpbin.org",
+							Port:        80,
+						},
+					},
+				},
+			},
+		}
+	}
 	cdsResource, _ := anypb.New(proto.MessageV2(makeClusters()))
 	return &core.TypedExtensionConfig{
 		Name:        xds.ClusterType,
@@ -124,11 +81,9 @@ func TestCdsManager_Fetch(t *testing.T) {
 	})
 	supermonkey.Patch((*server.ClusterManager).UpdateCluster, func(_ *server.ClusterManager, new *model.Cluster) {
 		updateCluster = new
-		return
 	})
 	supermonkey.Patch((*server.ClusterManager).AddCluster, func(_ *server.ClusterManager, c *model.Cluster) {
 		addCluster = c
-		return
 	})
 	//supermonkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
 	//	return deltaResult, deltaErr

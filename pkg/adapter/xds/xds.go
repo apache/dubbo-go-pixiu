@@ -55,10 +55,10 @@ type (
 	}
 
 	Adapter struct {
-		ID     string
-		Name   string
-		cfg    *AdapterConfig
-		ads    DiscoverApi //aggregate discover service manager todo to implement
+		ID   string
+		Name string
+		cfg  *AdapterConfig
+		//ads    DiscoverApi //aggregate discover service manager todo to implement
 		cds    *CdsManager //cluster discover service manager
 		lds    *LdsManager //listener discover service manager
 		exitCh chan struct{}
