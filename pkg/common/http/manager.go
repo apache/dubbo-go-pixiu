@@ -21,7 +21,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	stdHttp "net/http"
+	"sync"
 )
 
 import (
@@ -44,18 +45,27 @@ type HttpConnectionManager struct {
 	config            *model.HttpConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *filter.FilterManager
+	pool              sync.Pool
 }
 
 // CreateHttpConnectionManager create http connection manager
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *model.Bootstrap) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
-	hcm.routerCoordinator = router2.CreateRouterCoordinator(hcmc)
+	hcm.pool.New = func() interface{} {
+		return hcm.allocateContext()
+	}
+	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
 	hcm.filterManager.Load()
 	return hcm
 }
 
-// OnData receive data from listener
+func (ls *HttpConnectionManager) allocateContext() *pch.HttpContext {
+	return &pch.HttpContext{
+		Params: make(map[string]interface{}),
+	}
+}
+
 func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	hc.Ctx = context.Background()
 	err := hcm.findRoute(hc)
@@ -66,6 +76,20 @@ func (hcm *HttpConnectionManager) OnData(hc *pch.HttpContext) error {
 	return nil
 }
 
+func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
+	hc := hcm.pool.Get().(*pch.HttpContext)
+	defer hcm.pool.Put(hc)
+
+	hc.Request = r
+	hc.Writer = w
+	hc.Reset()
+
+	err := hcm.OnData(hc)
+	if err != nil {
+		logger.Errorf("ServeHTTP %v", err)
+	}
+}
+
 // handleHTTPRequest handle http request
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	filterChain := hcm.filterManager.CreateFilterChain(c)
@@ -74,7 +98,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Warnf("[dubbopixiu go] Occur An Unexpected Err: %+v", err)
-			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("Occur An Unexpected Err: %v", err)))
+			c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("Occur An Unexpected Err: %v", err)))
 		}
 	}()
 
@@ -101,7 +125,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 	}
 
 	switch res := c.SourceResp.(type) {
-	case *http.Response:
+	case *stdHttp.Response:
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			panic(err)
@@ -115,13 +139,13 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		c.StatusCode(res.StatusCode)
 		c.TargetResp = &client.Response{Data: body}
 	case []byte:
-		c.StatusCode(http.StatusOK)
+		c.StatusCode(stdHttp.StatusOK)
 		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		c.TargetResp = &client.Response{Data: res}
 	default:
 		//dubbo go generic invoke
 		response := util.NewDubboResponse(res, false)
-		c.StatusCode(http.StatusOK)
+		c.StatusCode(stdHttp.StatusOK)
 		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
 		c.TargetResp = response
 	}
@@ -131,7 +155,7 @@ func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
 		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-		hc.SendLocalReply(http.StatusNotFound, constant.Default404Body)
+		hc.SendLocalReply(stdHttp.StatusNotFound, constant.Default404Body)
 
 		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
 		logger.Debug(e.Error())

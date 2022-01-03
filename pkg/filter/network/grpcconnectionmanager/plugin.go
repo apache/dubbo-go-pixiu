@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-package server
+package grpcconnectionmanager
 
 import (
-	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/grpc"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-func getTestContext() *ctxHttp.HttpContext {
-	l := ListenerService{
-		cfg: &model.Listener{
-			Name: "test",
-			Address: model.Address{
-				SocketAddress: model.SocketAddress{
-					Protocol: model.ProtocolTypeHTTP,
-					Address:  "0.0.0.0",
-					Port:     8888,
-				},
-			},
-			FilterChains: []model.FilterChain{},
-		},
-	}
+const (
+	Kind = constant.GRPCConnectManagerFilter
+)
 
-	hc := &ctxHttp.HttpContext{
-		Listener: l.cfg,
-		Filters:  []ctxHttp.FilterFunc{},
-	}
-	hc.Reset()
-	return hc
+func init() {
+	filter.RegisterNetworkFilter(&Plugin{})
+}
+
+type (
+	Plugin struct{}
+)
+
+func (p *Plugin) Kind() string {
+	return Kind
+}
+
+func (hp *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+	hcmc := config.(*model.GRPCConnectionManagerConfig)
+	return grpc.CreateGrpcConnectionManager(hcmc, bs), nil
 }
