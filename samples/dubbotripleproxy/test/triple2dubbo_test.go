@@ -13,12 +13,12 @@ import (
 )
 
 func TestTriple2Dubbo(t *testing.T) {
-	tripleRefConf := newTripleRefConf("com.dubbogo.pixiu.UserService", tpconst.TRIPLE)
+	tripleRefConf := newTripleRefConf("com.dubbogo.pixiu.DubboUserService", tpconst.TRIPLE)
 	resp, err := tripleRefConf.GetRPCService().(*generic.GenericService).Invoke(
 		context.TODO(),
-		"GetUser1",
+		"GetUserByName",
 		[]string{"java.lang.String"},
-		[]hessian.Object{"A003"},
+		[]hessian.Object{"tc"},
 	)
 
 	if err != nil {
@@ -35,6 +35,8 @@ func newTripleRefConf(iface, protocol string) config.ReferenceConfig {
 		RegistryIDs:   []string{"zk"},
 		Protocol:      protocol,
 		Generic:       "true",
+		Group:         "test",
+		Version:       "1.0.0",
 		URL:           "tri://127.0.0.1:9999/" + iface + "?" + constant.SerializationKey + "=hessian2",
 	}
 

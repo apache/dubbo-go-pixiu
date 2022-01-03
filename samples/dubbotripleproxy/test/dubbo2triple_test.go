@@ -36,7 +36,7 @@ func TestDubbo2Triple(t *testing.T) {
 		context.TODO(),
 		"GetUserByName",
 		[]string{"java.lang.String"},
-		[]hessian.Object{"0002"},
+		[]hessian.Object{"tc"},
 	)
 
 	if err != nil {
