@@ -21,7 +21,7 @@ static_resources:
   listeners:
     - name: "net/http"
       filter_chains:
-        - filters:
+        filters:
           - name: dgp.filter.httpconnectionmanager
             config:
               route_config:

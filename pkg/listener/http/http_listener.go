@@ -15,83 +15,82 @@
  * limitations under the License.
  */
 
-package server
+package http
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 )
 
 import (
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/acme/autocert"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
+	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+func init() {
+	listener.SetListenerServiceFactory(model.ProtocolTypeHTTP, newHttpListenerService)
+}
+
 type (
 	// ListenerService the facade of a listener
-	ListenerService struct {
-		cfg *model.Listener
-		// TODO: just temporary because only one network filter
-		nf  filter.NetworkFilter
+	HttpListenerService struct {
+		listener.BaseListenerService
 		srv *http.Server
 	}
 
 	// DefaultHttpListener
 	DefaultHttpWorker struct {
-		pool sync.Pool
-		ls   *ListenerService
+		ls *HttpListenerService
 	}
 )
 
-// NewListenerService create listener service
-func CreateListenerService(lc *model.Listener, bs *model.Bootstrap) *ListenerService {
-	hcm := createHttpManager(lc, bs)
-	return &ListenerService{cfg: lc, nf: *hcm}
-}
-
-func (ls *ListenerService) GetNetworkFilter() filter.NetworkFilter {
-	return ls.nf
+func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	return &HttpListenerService{
+		BaseListenerService: listener.BaseListenerService{
+			Config:      lc,
+			FilterChain: fc,
+		},
+		srv: nil,
+	}, nil
 }
 
 // Start start the listener
-func (ls *ListenerService) Start() {
-	sa := ls.cfg.Address.SocketAddress
-	switch sa.Protocol {
+func (ls *HttpListenerService) Start() error {
+	switch ls.Config.Protocol {
 	case model.ProtocolTypeHTTP:
 		ls.httpListener()
 	case model.ProtocolTypeHTTPS:
 		ls.httpsListener()
 	default:
-		panic("unsupported protocol start: " + sa.ProtocolStr)
+		return errors.New(fmt.Sprintf("unsupported protocol start: %d", ls.Config.Protocol))
 	}
+	return nil
 }
 
-func (ls *ListenerService) httpsListener() {
-	hl := CreateDefaultHttpWorker(ls)
-	hl.pool.New = func() interface{} {
-		return ls.allocateContext()
-	}
+func (ls *HttpListenerService) httpsListener() {
+	hl := createDefaultHttpWorker(ls)
+
 	// user customize http config
 	var hc *model.HttpConfig
-	hc = model.MapInStruct(ls.cfg)
+	hc = model.MapInStruct(ls.Config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
 	m := &autocert.Manager{
-		Cache:      autocert.DirCache(ls.cfg.Address.SocketAddress.CertsDir),
+		Cache:      autocert.DirCache(ls.Config.Address.SocketAddress.CertsDir),
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(ls.cfg.Address.SocketAddress.Domains...),
+		HostPolicy: autocert.HostWhitelist(ls.Config.Address.SocketAddress.Domains...),
 	}
 	ls.srv = &http.Server{
 		Addr:           ":https",
@@ -102,26 +101,23 @@ func (ls *ListenerService) httpsListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 		TLSConfig:      m.TLSConfig(),
 	}
-	autoLs := autocert.NewListener(ls.cfg.Address.SocketAddress.Domains...)
+	autoLs := autocert.NewListener(ls.Config.Address.SocketAddress.Domains...)
 	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
 	err := ls.srv.Serve(autoLs)
 	logger.Info("[dubbo-go-server] httpsListener result:", err)
 }
 
-func (ls *ListenerService) httpListener() {
-	hl := CreateDefaultHttpWorker(ls)
-	hl.pool.New = func() interface{} {
-		return ls.allocateContext()
-	}
+func (ls *HttpListenerService) httpListener() {
+	hl := createDefaultHttpWorker(ls)
 
 	// user customize http config
 	var hc *model.HttpConfig
-	hc = model.MapInStruct(ls.cfg)
+	hc = model.MapInStruct(ls.Config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
 
-	sa := ls.cfg.Address.SocketAddress
+	sa := ls.Config.Address.SocketAddress
 	ls.srv = &http.Server{
 		Addr:           resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port)),
 		Handler:        mux,
@@ -136,37 +132,16 @@ func (ls *ListenerService) httpListener() {
 	log.Println(ls.srv.ListenAndServe())
 }
 
-func (ls *ListenerService) allocateContext() *h.HttpContext {
-	return &h.HttpContext{
-		Listener: ls.cfg,
-		Params:   make(map[string]interface{}),
-	}
-}
-
-// NewDefaultHttpListener create http listener
-func CreateDefaultHttpWorker(ls *ListenerService) *DefaultHttpWorker {
+// createDefaultHttpWorker create http listener
+func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 	return &DefaultHttpWorker{
-		pool: sync.Pool{},
-		ls:   ls,
+		ls: ls,
 	}
 }
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hc := s.pool.Get().(*h.HttpContext)
-	defer s.pool.Put(hc)
-
-	hc.Request = r
-	hc.Writer = w
-	hc.Reset()
-
-	// now only one filter http_connection_manager, so just get it and call
-	err := s.ls.nf.OnData(hc)
-
-	if err != nil {
-		s.pool.Put(hc)
-		logger.Errorf("ServeHTTP %s", err)
-	}
+	s.ls.FilterChain.ServeHTTP(w, r)
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {
@@ -196,35 +171,4 @@ func resolveAddress(addr string) string {
 	}
 
 	return addr
-}
-
-func findHttpManager(l *model.Listener) *model.HttpConnectionManagerConfig {
-	for _, fc := range l.FilterChains {
-		for _, f := range fc.Filters {
-			if f.Name == constant.HTTPConnectManagerFilter {
-				hcmc := &model.HttpConnectionManagerConfig{}
-				if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
-					return nil
-				}
-
-				return hcmc
-			}
-		}
-	}
-
-	return DefaultHttpConnectionManager()
-}
-
-func createHttpManager(lc *model.Listener, bs *model.Bootstrap) *filter.NetworkFilter {
-	p, err := filter.GetNetworkFilterPlugin(constant.HTTPConnectManagerFilter)
-	if err != nil {
-		panic(err)
-	}
-
-	hcmc := findHttpManager(lc)
-	hcm, err := p.CreateFilter(hcmc, bs)
-	if err != nil {
-		panic(err)
-	}
-	return &hcm
 }
