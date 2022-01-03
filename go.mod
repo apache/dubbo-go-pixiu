@@ -14,11 +14,13 @@ require (
 	github.com/dubbogo/gost v1.11.20-0.20211116110728-26777ca61b4a
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
+	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang-jwt/jwt/v4 v4.1.0
 	github.com/golang/protobuf v1.5.2
+	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mercari/grpc-http-proxy v0.1.2
 	github.com/mitchellh/mapstructure v1.4.3
@@ -42,6 +44,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.0.0-RC2
 	go.uber.org/zap v1.19.1
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/net v0.0.0-20211105192438-b53810dc28af
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0

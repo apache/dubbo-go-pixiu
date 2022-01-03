@@ -53,8 +53,12 @@ func init() {
 type (
 	Plugin struct {
 	}
-	TraceFilter struct {
+	TraceFilterFactory struct {
 		cfg *TraceConfig
+	}
+	TraceFilterFilter struct {
+		cfg  *TraceConfig
+		span trace.Span
 	}
 
 	// Tracing
@@ -68,15 +72,15 @@ func (ap *Plugin) Kind() string {
 	return constant.TracingFilter
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &TraceFilter{cfg: &TraceConfig{}}, nil
+func (ap *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &TraceFilterFactory{cfg: &TraceConfig{}}, nil
 }
 
-func (m *TraceFilter) Config() interface{} {
+func (m *TraceFilterFactory) Config() interface{} {
 	return m.cfg
 }
 
-func (m *TraceFilter) Apply() error {
+func (m *TraceFilterFactory) Apply() error {
 	// init
 	tc := m.cfg
 	switch tc.Type {
@@ -92,8 +96,10 @@ func (m *TraceFilter) Apply() error {
 	return nil
 }
 
-func (mf *TraceFilter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
-	ctx.AppendFilterFunc(mf.Handle)
+func (mf *TraceFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	t := &TraceFilterFilter{cfg: mf.cfg}
+	chain.AppendDecodeFilters(t)
+	chain.AppendEncodeFilters(t)
 	return nil
 }
 
@@ -117,15 +123,20 @@ func newTracerProvider(url string) (*tracesdk.TracerProvider, error) {
 }
 
 // Do execute tracerFilter filter logic.
-func (f TraceFilter) Handle(hc *contexthttp.HttpContext) {
+func (f *TraceFilterFilter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	spanName := "HTTP " + hc.Request.Method
 	tr := otel.Tracer(traceName)
 	ctx := extractTraceCtxRequest(hc.Request)
 	ctxWithTid, span := tr.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindServer))
 
 	hc.Request = hc.Request.WithContext(ctxWithTid)
-	hc.Next()
-	span.End()
+	f.span = span
+	return filter.Continue
+}
+
+func (f *TraceFilterFilter) Encode(hc *contexthttp.HttpContext) filter.FilterStatus {
+	f.span.End()
+	return filter.Continue
 }
 
 func extractTraceCtxRequest(req *http.Request) context.Context {

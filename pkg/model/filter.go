@@ -19,12 +19,11 @@ package model
 
 // FilterChain filter chain
 type FilterChain struct {
-	FilterChainMatch FilterChainMatch `yaml:"filter_chain_match" json:"filter_chain_match" mapstructure:"filter_chain_match"`
-	Filters          []Filter         `yaml:"filters" json:"filters" mapstructure:"filters"`
+	Filters []NetworkFilter `yaml:"filters" json:"filters" mapstructure:"filters"`
 }
 
-// Filter core struct, filter is extend by user
-type Filter struct {
+// NetworkFilter core struct, filter is extend by user
+type NetworkFilter struct {
 	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`       // Name filter name unique
 	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"` // Config filter config
 }
