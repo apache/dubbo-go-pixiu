@@ -18,6 +18,7 @@
 package grpc
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"io/ioutil"
@@ -81,21 +82,13 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 		return
 	}
 
-	url := r.URL
-	url.Host = endpoint.Address.GetAddress()
-	outreq, err := stdHttp.NewRequest(r.Method, url.String(), r.Body)
-
-	if err != nil {
-		logger.Info("GrpcConnectionManager create new request error %v", err)
-		bt, _ := json.Marshal(http.ErrResponse{Message: "pixiu forward error"})
-		w.WriteHeader(stdHttp.StatusServiceUnavailable)
-		w.Write(bt)
-		return
-	}
+	newReq := r.Clone(context.Background())
+	newReq.URL.Scheme = "http"
+	newReq.URL.Host = endpoint.Address.GetAddress()
 
 	// todo: need cache?
 	forwarder := gcm.newHttpForwarder()
-	res, err := forwarder.Forward(outreq)
+	res, err := forwarder.Forward(newReq)
 
 	if err != nil {
 		logger.Info("GrpcConnectionManager forward request error %v", err)
@@ -116,11 +109,11 @@ func (gcm *GrpcConnectionManager) response(w stdHttp.ResponseWriter, res *stdHtt
 	copyHeader(w.Header(), res.Header)
 	w.WriteHeader(res.StatusCode)
 
-	byts, err := ioutil.ReadAll(res.Body)
+	bytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
-	w.Write(byts)
+	w.Write(bytes)
 
 	for k, vv := range res.Trailer {
 		k = stdHttp.TrailerPrefix + k
