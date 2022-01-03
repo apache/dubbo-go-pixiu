@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/MicahParks/keyfunc"
+
 	jwt4 "github.com/golang-jwt/jwt/v4"
 )
 
@@ -50,14 +51,19 @@ type (
 	Plugin struct {
 	}
 
-	// Filter is http filter instance
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg          *Config
+		errMsg       []byte
+		providerJwks map[string]Provider
+	}
 	Filter struct {
 		cfg          *Config
 		errMsg       []byte
 		providerJwks map[string]Provider
 	}
 
-	// Config describe the config of Filter
+	// Config describe the config of FilterFactory
 	Config struct {
 		ErrMsg    string      `yaml:"err_msg" json:"err_msg" mapstructure:"err_msg"`
 		Rules     []Rules     `yaml:"rules" json:"rules" mapstructure:"rules"`
@@ -69,16 +75,17 @@ func (p Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}, providerJwks: map[string]Provider{}}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{cfg: &Config{}, providerJwks: map[string]Provider{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{cfg: factory.cfg, errMsg: factory.errMsg, providerJwks: factory.providerJwks}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(ctx *http.HttpContext) {
+func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 
 	path := ctx.Request.RequestURI
 
@@ -95,13 +102,10 @@ func (f *Filter) Handle(ctx *http.HttpContext) {
 	}
 
 	if router {
-		ctx.WriteJSONWithStatus(stdHttp.StatusUnauthorized, f.errMsg)
-		ctx.Abort()
-		return
+		ctx.SendLocalReply(stdHttp.StatusUnauthorized, f.errMsg)
+		return filter.Stop
 	}
-
-	ctx.Next()
-
+	return filter.Continue
 }
 
 func valuePrefix(value, prefix string) string {
@@ -154,20 +158,20 @@ func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 	return false
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 
-	if f.cfg.ErrMsg == "" {
-		f.cfg.ErrMsg = "token invalid"
+	if factory.cfg.ErrMsg == "" {
+		factory.cfg.ErrMsg = "token invalid"
 	}
 
-	errMsg, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrMsg})
-	f.errMsg = errMsg
+	errMsg, _ := json.Marshal(http.ErrResponse{Message: factory.cfg.ErrMsg})
+	factory.errMsg = errMsg
 
-	if len(f.cfg.Providers) == 0 {
+	if len(factory.cfg.Providers) == 0 {
 		return fmt.Errorf("providers is null")
 	}
 
-	for _, provider := range f.cfg.Providers {
+	for _, provider := range factory.cfg.Providers {
 
 		if provider.Local != nil {
 			jwksJSON := json.RawMessage(provider.Local.InlineString)
@@ -176,7 +180,7 @@ func (f *Filter) Apply() error {
 				logger.Warnf("failed to create JWKs from JSON. provider：%s Error: %s", provider.Name, err.Error())
 			} else {
 				provider.FromHeaders.setDefault()
-				f.providerJwks[provider.Name] = Provider{jwk: jwks, headers: provider.FromHeaders,
+				factory.providerJwks[provider.Name] = Provider{jwk: jwks, headers: provider.FromHeaders,
 					issuer: provider.Issuer, forwardPayloadHeader: provider.ForwardPayloadHeader}
 				continue
 			}
@@ -196,13 +200,13 @@ func (f *Filter) Apply() error {
 				logger.Warnf("failed to create JWKs from resource at the given URL. provider：%s Error: %s", provider.Name, err.Error())
 			} else {
 				provider.FromHeaders.setDefault()
-				f.providerJwks[provider.Name] = Provider{jwk: jwks, headers: provider.FromHeaders,
+				factory.providerJwks[provider.Name] = Provider{jwk: jwks, headers: provider.FromHeaders,
 					issuer: provider.Issuer, forwardPayloadHeader: provider.ForwardPayloadHeader}
 			}
 		}
 	}
 
-	if len(f.providerJwks) == 0 {
+	if len(factory.providerJwks) == 0 {
 		return fmt.Errorf("providers is null")
 	}
 
@@ -219,6 +223,6 @@ func (h *FromHeaders) setDefault() {
 	}
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }

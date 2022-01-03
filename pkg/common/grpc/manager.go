@@ -18,7 +18,6 @@
 package grpc
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"io/ioutil"
@@ -27,7 +26,6 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 )
 
@@ -64,14 +62,11 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
+		logger.Info("GrpcConnectionManager can't find route %v", err)
 		w.WriteHeader(stdHttp.StatusNotFound)
 		if _, err := w.Write(constant.Default404Body); err != nil {
 			logger.Warnf("WriteWithStatus error %v", err)
 		}
-		w.Header().Add(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-		e := errors.Errorf("Requested URL %s not found", r.RequestURI)
-		logger.Debug(e.Error())
-		// return 404
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", ra.Cluster)
@@ -86,12 +81,17 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 		return
 	}
 
-	outreq := new(stdHttp.Request)
-	*outreq = *r
-	outreq.URL.Scheme = "http"
-	outreq.URL.Host = endpoint.Address.GetAddress()
-	r2 := outreq.WithContext(context.Background())
-	*outreq = *r2
+	url := r.URL
+	url.Host = endpoint.Address.GetAddress()
+	outreq, err := stdHttp.NewRequest(r.Method, url.String(), r.Body)
+
+	if err != nil {
+		logger.Info("GrpcConnectionManager create new request error %v", err)
+		bt, _ := json.Marshal(http.ErrResponse{Message: "pixiu forward error"})
+		w.WriteHeader(stdHttp.StatusServiceUnavailable)
+		w.Write(bt)
+		return
+	}
 
 	// todo: need cache?
 	forwarder := gcm.newHttpForwarder()

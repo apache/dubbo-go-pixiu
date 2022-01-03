@@ -15,132 +15,23 @@
  * limitations under the License.
  */
 
-package response
+package util
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
 	"reflect"
 	"strings"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
-const (
-	// Kind is the kind of plugin.
-	Kind = constant.HTTPResponseFilter
-)
-
-func init() {
-	filter.RegisterHttpFilter(&Plugin{})
-}
-
-type (
-	// Plugin is http filter plugin.
-	Plugin struct {
-	}
-	// HeaderFilter is http filter instance
-	Filter struct {
-		cfg *Config
-	}
-	// Config describe the config of Filter
-	Config struct {
-		Strategy string `json:"strategy,omitempty" yaml:"strategy,omitempty"`
-	}
-)
-
-func (p *Plugin) Kind() string {
-	return Kind
-}
-
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}}, nil
-}
-
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
-	return nil
-}
-
-func (f *Filter) Handle(c *contexthttp.HttpContext) {
-	f.doResponse(c)
-}
-
-func (f *Filter) Config() interface{} {
-	return f.cfg
-}
-
-func (f *Filter) Apply() error {
-	if f.cfg.Strategy == "" {
-		strategy := defaultNewParams()
-		f.cfg.Strategy = strategy
-	}
-	return nil
-}
-
-func (f *Filter) doResponse(ctx *contexthttp.HttpContext) {
-	// error do first
-	if ctx.Err != nil {
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: ctx.Err.Error()})
-		ctx.SourceResp = bt
-		ctx.TargetResp = &client.Response{Data: bt}
-		ctx.WriteJSONWithStatus(http.StatusServiceUnavailable, bt)
-		ctx.Abort()
-		return
-	}
-
-	// http type
-	r, ok := ctx.SourceResp.(*http.Response)
-	if ok {
-		ctx.TargetResp = &client.Response{Data: r}
-		byts, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-			ctx.WriteWithStatus(r.StatusCode, []byte(r.Status))
-			ctx.Abort()
-			return
-		}
-		for k, v := range r.Header {
-			ctx.AddHeader(k, v[0])
-		}
-		ctx.WriteWithStatus(r.StatusCode, byts)
-		ctx.Abort()
-		return
-	}
-
-	ctx.TargetResp = f.newResponse(ctx.SourceResp)
-	ctx.WriteResponse(*ctx.TargetResp)
-	ctx.Abort()
-}
-
-func (f *Filter) newResponse(data interface{}) *client.Response {
-	hump := false
-	if f.cfg.Strategy == constant.ResponseStrategyHump {
-		hump = true
-	}
-	r, err := dealResp(data, hump)
-	if err != nil {
-		return &client.Response{Data: data}
-	}
-
-	return &client.Response{Data: r}
-}
-
-func defaultNewParams() string {
-	strategy := os.Getenv(constant.EnvResponseStrategy)
-	if len(strategy) != 0 {
-		strategy = constant.ResponseStrategyNormal
-	}
-	return strategy
+func NewDubboResponse(data interface{}, hump bool) *client.Response {
+	r, _ := dealResp(data, hump)
+	bytes, _ := json.Marshal(r)
+	return &client.Response{Data: bytes}
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
@@ -177,7 +68,7 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 				}
 				newTemps = append(newTemps, newTemp)
 			} else {
-				return nil, errors.New(fmt.Sprintf("unexpect err,value:%+v", value))
+				return nil, fmt.Errorf("unexpect err,value:%v", value)
 			}
 		}
 		return newTemps, nil
