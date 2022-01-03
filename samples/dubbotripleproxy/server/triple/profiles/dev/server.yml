@@ -20,6 +20,8 @@
 # application config
 
 dubbo:
+  application:
+    name: triple-server
   registries:
     zk:
       protocol: zookeeper

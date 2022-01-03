@@ -110,10 +110,14 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 		common.WithParamsValue(constant.AppVersionKey, "2.0.2"),
 		common.WithParamsValue(constant.InterfaceKey, path),
 		common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
+		common.WithParamsValue(constant.GroupKey, "test"),
+		common.WithParamsValue(constant.VersionKey, "1.0.0"),
 		common.WithPath(path),
 	)
 
 	dubboProtocol := dubbo.NewDubboProtocol()
+
+	// TODO: will lead to Error when failed to connect server
 	invoker := dubboProtocol.Refer(url)
 
 	invCtx := context.Background()
@@ -136,10 +140,13 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 
 	result := invoker.Invoke(invCtx, invoc)
 	result.SetAttachments(invoc.Attachments())
+	if result.Result() == nil {
+		return result, result.Error()
+	}
+
 	value := reflect.ValueOf(result.Result())
-	// todo: generic 是需要这样
+	// todo: check
 	result.SetResult(value.Elem().Interface())
-	result.SetAttachments(nil)
 	return result, result.Error()
 }
 
