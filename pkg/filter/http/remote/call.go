@@ -174,19 +174,6 @@ func matchClient(typ apiConf.RequestType) (client.Client, error) {
 	}
 }
 
-func NewDefaultAPI() router.API {
-	api := router.API{}
-	return api
-}
-
-func NewDefaultMethod() apiConf.Method {
-	method := apiConf.Method{}
-	method.Enable = true
-	method.Mock = false
-	method.HTTPVerb = http.MethodPost
-	return method
-}
-
 func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	// method must be post
 	req := ctx.Request
@@ -208,15 +195,15 @@ func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	}
 
 	integrationRequest := apiConf.IntegrationRequest{}
-	resolve_protocol := req.Header.Get(x_dubbo_service_protocol)
-	if resolve_protocol == string(apiConf.HTTPRequest) {
+	resolveProtocol := req.Header.Get(x_dubbo_service_protocol)
+	if resolveProtocol == string(apiConf.HTTPRequest) {
 		integrationRequest.RequestType = apiConf.HTTPRequest
-	} else if resolve_protocol == string(apiConf.DubboRequest) {
+	} else if resolveProtocol == string(apiConf.DubboRequest) {
 		integrationRequest.RequestType = apiConf.DubboRequest
-	} else if resolve_protocol == "triple" {
+	} else if resolveProtocol == "triple" {
 		integrationRequest.RequestType = "triple"
 	} else {
-		return errors.New("http request has unknown protocol in x-dubbo-protocol when trying to auto resolve")
+		return errors.New("http request has unknown protocol in x-dubbo-service-protocol when trying to auto resolve")
 	}
 
 	dubboBackendConfig := apiConf.DubboBackendConfig{}
@@ -244,16 +231,24 @@ func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	}
 	integrationRequest.MappingParams = defaultMappingParams
 
-	method := NewDefaultMethod()
+	method := newDefaultMethod()
 	method.IntegrationRequest = integrationRequest
 
 	inboundRequest := apiConf.InboundRequest{}
 	inboundRequest.RequestType = apiConf.HTTPRequest
 	method.InboundRequest = inboundRequest
 
-	api := NewDefaultAPI()
+	api := router.API{}
 	api.URLPattern = "/:application/:interface/:method"
 	api.Method = method
 	ctx.API(api)
 	return nil
+}
+
+func newDefaultMethod() apiConf.Method {
+	method := apiConf.Method{}
+	method.Enable = true
+	method.Mock = false
+	method.HTTPVerb = http.MethodPost
+	return method
 }
