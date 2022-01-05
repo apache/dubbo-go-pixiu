@@ -47,7 +47,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			err := initLog()
 			if err != nil {
-				logger.Warnf("[startGatewayCmd] failed to init logger, %s", err.Error())
+				logger.Infof("[startGatewayCmd] failed to init logger, %s", err.Error())
 			}
 
 			bootstrap, meta, err := initApiConfig()
