@@ -231,7 +231,11 @@ func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	}
 	integrationRequest.MappingParams = defaultMappingParams
 
-	method := newDefaultMethod()
+	method := apiConf.Method{
+		Enable:   true,
+		Mock:     false,
+		HTTPVerb: http.MethodPost,
+	}
 	method.IntegrationRequest = integrationRequest
 
 	inboundRequest := apiConf.InboundRequest{}
@@ -243,12 +247,4 @@ func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	api.Method = method
 	ctx.API(api)
 	return nil
-}
-
-func newDefaultMethod() apiConf.Method {
-	method := apiConf.Method{}
-	method.Enable = true
-	method.Mock = false
-	method.HTTPVerb = http.MethodPost
-	return method
 }
