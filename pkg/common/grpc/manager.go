@@ -27,7 +27,6 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 )
 
@@ -35,52 +34,41 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
-// HttpConnectionManager network filter for http
+// GrpcConnectionManager network filter for grpc
 type GrpcConnectionManager struct {
 	config            *model.GRPCConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 }
 
-// CreateHttpConnectionManager create http connection manager
+// CreateGrpcConnectionManager create grpc connection manager
 func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig, bs *model.Bootstrap) *GrpcConnectionManager {
 	hcm := &GrpcConnectionManager{config: hcmc}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	return hcm
 }
 
-func (gcm *GrpcConnectionManager) OnDecode(data []byte) (interface{}, int, error) {
-	panic("GrpcConnectionManager OnDecode shouldn't be called")
+
+// OnData receive data from listener
+func (gcm *GrpcConnectionManager) OnData(hc *pch.HttpContext) error {
+	panic("grpc connection manager OnData function shouldn't be called")
 }
 
-func (gcm *GrpcConnectionManager) OnEncode(p interface{}) ([]byte, error) {
-	panic("GrpcConnectionManager OnEncode shouldn't be called")
-}
-
-func (gcm *GrpcConnectionManager) OnData(data interface{}) (interface{}, error) {
-	panic("GrpcConnectionManager OnData shouldn't be called")
-
-}
-
-func (gcm *GrpcConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
-	panic("GrpcConnectionManager OnTripleData shouldn't be called")
-}
-
+// ServeHTTP handle request and response
 func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
+
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
+		logger.Info("GrpcConnectionManager can't find route %v", err)
 		w.WriteHeader(stdHttp.StatusNotFound)
 		if _, err := w.Write(constant.Default404Body); err != nil {
 			logger.Warnf("WriteWithStatus error %v", err)
 		}
-		w.Header().Add(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-		e := errors.Errorf("Requested URL %s not found", r.RequestURI)
-		logger.Debug(e.Error())
-		// return 404
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", ra.Cluster)
@@ -95,16 +83,14 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 		return
 	}
 
-	outreq := new(stdHttp.Request)
-	*outreq = *r
-	outreq.URL.Scheme = "http"
-	outreq.URL.Host = endpoint.Address.GetAddress()
-	r2 := outreq.WithContext(context.Background())
-	*outreq = *r2
+
+	newReq := r.Clone(context.Background())
+	newReq.URL.Scheme = "http"
+	newReq.URL.Host = endpoint.Address.GetAddress()
 
 	// todo: need cache?
 	forwarder := gcm.newHttpForwarder()
-	res, err := forwarder.Forward(outreq)
+	res, err := forwarder.Forward(newReq)
 
 	if err != nil {
 		logger.Info("GrpcConnectionManager forward request error %v", err)
@@ -125,11 +111,11 @@ func (gcm *GrpcConnectionManager) response(w stdHttp.ResponseWriter, res *stdHtt
 	copyHeader(w.Header(), res.Header)
 	w.WriteHeader(res.StatusCode)
 
-	byts, err := ioutil.ReadAll(res.Body)
+	bytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
-	w.Write(byts)
+	w.Write(bytes)
 
 	for k, vv := range res.Trailer {
 		k = stdHttp.TrailerPrefix + k

@@ -27,7 +27,7 @@ func newTcpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.Li
 	// todo taskPoolMode
 	server := getty.NewTCPServer(serverOpts...)
 
-	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
 	return &TcpListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,

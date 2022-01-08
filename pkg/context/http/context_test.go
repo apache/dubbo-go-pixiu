@@ -16,30 +16,3 @@
  */
 
 package http
-
-import (
-	"testing"
-)
-
-import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-
-	"github.com/stretchr/testify/assert"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
-)
-
-func TestBuildContext(t *testing.T) {
-	ctx := HttpContext{}
-	ctx.API(mock.GetMockAPI(config.MethodPost, "/mock/test", "a", "b", "c"))
-	ctx.AppendFilterFunc(func(c *HttpContext) {
-		c.Next()
-	})
-	ctx.AppendFilterFunc(func(c *HttpContext) {
-		c.Next()
-	})
-
-	assert.Equal(t, len(ctx.Filters), 2)
-}

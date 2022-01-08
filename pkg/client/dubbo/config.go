@@ -29,4 +29,6 @@ type DubboProxyConfig struct {
 	Timeout *model.TimeoutConfig `yaml:"timeout_config" json:"timeout_config"`
 	// IsDefaultMap whether to use DefaultMap role
 	IsDefaultMap bool
+	// AutoResolve whether to resolve api config from request
+	AutoResolve bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
 }
