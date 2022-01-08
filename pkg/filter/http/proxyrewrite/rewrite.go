@@ -22,6 +22,10 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -41,11 +45,18 @@ type (
 	Plugin struct {
 	}
 
-	// Filter is http filter instance
-	Filter struct {
-		cfg      *Config
-		uriRegex *regexp.Regexp
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *Config
 	}
+	//Filter
+	Filter struct {
+		Headers map[string]string
+
+		uriRegex *regexp.Regexp
+		replace  string
+	}
+	//Config
 	Config struct {
 		UriRegex []string          `yaml:"uri_regex" json:"uri_regex"`
 		Headers  map[string]string `yaml:"headers" json:"headers"`
@@ -56,38 +67,46 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Apply() error {
-	if len(f.cfg.UriRegex) == 2 {
-		f.uriRegex = regexp.MustCompile(f.cfg.UriRegex[0])
+func (factory *FilterFactory) Apply() error {
+	if len(factory.cfg.UriRegex) != 2 {
+		return errors.Errorf("UriRegex len must == 2, %v", factory.cfg.UriRegex)
 	}
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	cfg := factory.cfg
+
+	headers := make(map[string]string, len(cfg.Headers))
+	for k, v := range cfg.Headers {
+		headers[k] = v
+	}
+	f := &Filter{uriRegex: regexp.MustCompile(cfg.UriRegex[0]), replace: cfg.UriRegex[1], Headers: headers}
+
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(c *contexthttp.HttpContext) {
+func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	url := c.GetUrl()
-	if f.uriRegex != nil {
-		newUrl := f.uriRegex.ReplaceAllString(url, f.cfg.UriRegex[1])
-		logger.Infof("proxy rewrite filter change url from %s to %s", url, newUrl)
-		c.SetUrl(newUrl)
-	}
-	if len(f.cfg.Headers) > 0 {
-		for k, v := range f.cfg.Headers {
+
+	newUrl := f.uriRegex.ReplaceAllString(url, f.replace)
+	logger.Infof("proxy rewrite filter change url from %s to %s", url, newUrl)
+	c.SetUrl(newUrl)
+
+	if len(f.Headers) > 0 {
+		for k, v := range f.Headers {
 			logger.Infof("proxy rewrite filter add header  key %s and value %s", k, v)
 			c.AddHeader(k, v)
 		}
 	}
-	c.Next()
+	return filter.Continue
 }

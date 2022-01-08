@@ -93,8 +93,7 @@ static_resources:
                             http_uri:
                               uri: http://127.0.0.1:1314/remote
                               timeout: 5s
-                  - name: dgp.filter.http.response
-                    config:
+
       config:
         idle_timeout: 5s
         read_timeout: 5s

@@ -23,11 +23,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+// ListenerManager the listener manager
 type ListenerManager struct {
 	activeListener        []*model.Listener
 	activeListenerService []listener.ListenerService
 }
 
+// CreateDefaultListenerManager create listener manager from config
 func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	sl := bs.GetStaticListeners()
 	var ls []listener.ListenerService
@@ -49,6 +51,7 @@ func (lm *ListenerManager) addOrUpdateListener(l *model.Listener) {
 	lm.activeListener = append(lm.activeListener, l)
 }
 
+// StartListen make active listener to start listening
 func (lm *ListenerManager) StartListen() {
 	for _, s := range lm.activeListenerService {
 		s := s

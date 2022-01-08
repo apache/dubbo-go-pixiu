@@ -33,7 +33,7 @@ type (
 
 func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 
-	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
 	ls := &TripleListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,

@@ -55,7 +55,7 @@ type (
 )
 
 func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
 	return &HttpListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,

@@ -40,7 +40,7 @@ func init() {
 }
 
 type (
-	// ListenerService the facade of a listener
+	// Http2ListenerService the facade of a listener
 	Http2ListenerService struct {
 		listener.BaseListenerService
 		listener net.Listener
@@ -49,7 +49,7 @@ type (
 )
 
 type handleWrapper struct {
-	fc *filterchain.FilterChain
+	fc *filterchain.NetworkFilterChain
 }
 
 type h2cWrapper struct {
@@ -57,17 +57,18 @@ type h2cWrapper struct {
 	h http.Handler
 }
 
+// ServeHTTP call Handler to handle http request and response.
 func (h *h2cWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.h.ServeHTTP(w, r)
 }
 
-// 转发 grpc 的请求
+// ServeHTTP call FilterChain to handle http request and response.
 func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.fc.ServeHTTP(w, r)
 }
 
 func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
 	return &Http2ListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -78,6 +79,7 @@ func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.
 	}, nil
 }
 
+// Start start listen
 func (ls Http2ListenerService) Start() error {
 
 	sa := ls.Config.Address.SocketAddress
