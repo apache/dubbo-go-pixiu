@@ -13,7 +13,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	tripleCommon "github.com/dubbogo/triple/pkg/common"
+	"github.com/dubbogo/grpc-go/metadata"
 	tpconst "github.com/dubbogo/triple/pkg/common/constant"
 	"github.com/go-errors/errors"
 	perrors "github.com/pkg/errors"
@@ -80,7 +80,13 @@ func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error
 }
 
 func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
-	dubboAttachment, _ := ctx.Value(tpconst.TripleAttachement).(tripleCommon.DubboAttachment)
+	dubboAttachment := make(map[string]interface{})
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		for k := range md {
+			dubboAttachment[k] = md.Get(k)[0]
+		}
+	}
 	old_invoc := invocation.NewRPCInvocation(methodName, arguments, dubboAttachment)
 	// /org.apache.dubbo.samples.UserProviderTriple/$invoke
 	interfaceMethodName := ctx.Value("XXX_TRIPLE_GO_INTERFACE_NAME").(string)
@@ -107,11 +113,11 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 	url, err := common.NewURL(endpoint.Address.GetAddress(),
 		common.WithProtocol(dubbo.DUBBO), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization),
 		common.WithParamsValue(constant.GenericFilterKey, "true"),
-		common.WithParamsValue(constant.AppVersionKey, "2.0.2"),
 		common.WithParamsValue(constant.InterfaceKey, path),
 		common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
-		common.WithParamsValue(constant.GroupKey, "test"),
-		common.WithParamsValue(constant.VersionKey, "1.0.0"),
+		// dubboAttachment must contains group and version info
+		common.WithParamsValue(constant.GroupKey, dubboAttachment[constant.GroupKey].(string)),
+		common.WithParamsValue(constant.VersionKey, dubboAttachment[constant.VersionKey].(string)),
 		common.WithPath(path),
 	)
 

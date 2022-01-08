@@ -116,10 +116,6 @@ func StateToString(state zk.State) string {
 		return "zookeeper has session"
 	case zk.StateUnknown:
 		return "zookeeper unknown state"
-	case zk.State(zk.EventNodeDeleted):
-		return "zookeeper node deleted"
-	case zk.State(zk.EventNodeDataChanged):
-		return "zookeeper node data changed"
 	default:
 		return state.String()
 	}
@@ -170,7 +166,7 @@ func (z *ZooKeeperClient) HandleZkEvent(s <-chan zk.Event) {
 				logger.Warnf("zk{addr:%s} state is StateDisconnected, so close the zk client{name:%s}.", z.ZkAddrs, z.name)
 				z.Destroy()
 				return
-			case (int)(zk.EventNodeDataChanged), (int)(zk.EventNodeChildrenChanged):
+			case (int)(zk.EventNodeChildrenChanged):
 				logger.Infof("zkClient{%s} get zk node changed event{path:%s}", z.name, e.Path)
 				z.eventRegistryLock.RLock()
 				for p, a := range z.eventRegistry {
