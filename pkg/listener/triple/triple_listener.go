@@ -2,15 +2,21 @@ package triple
 
 import (
 	"context"
+	"reflect"
+	"sync"
+)
+
+import (
+	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
+	triConfig "github.com/dubbogo/triple/pkg/config"
+	"github.com/dubbogo/triple/pkg/triple"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
-	triConfig "github.com/dubbogo/triple/pkg/config"
-	"github.com/dubbogo/triple/pkg/triple"
-	"reflect"
-	"sync"
 )
 
 func init() {

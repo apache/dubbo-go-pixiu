@@ -19,8 +19,11 @@ package filterchain
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"net/http"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (

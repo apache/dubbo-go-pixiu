@@ -1,11 +1,14 @@
 package dubboproxy
 
 import (
+	"sync"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"sync"
 )
 
 // DubboFilterManager manage filters
