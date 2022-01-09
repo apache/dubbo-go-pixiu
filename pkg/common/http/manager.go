@@ -42,6 +42,7 @@ import (
 
 // HttpConnectionManager network filter for http
 type HttpConnectionManager struct {
+	filter.EmptyNetworkFilter
 	config            *model.HttpConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *filter.FilterManager
@@ -60,28 +61,10 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *mo
 	return hcm
 }
 
-func (ls *HttpConnectionManager) allocateContext() *pch.HttpContext {
+func (hcm *HttpConnectionManager) allocateContext() *pch.HttpContext {
 	return &pch.HttpContext{
 		Params: make(map[string]interface{}),
 	}
-}
-
-func (hcm *HttpConnectionManager) OnDecode(data []byte) (interface{}, int, error) {
-	panic("HttpConnectionManager OnDecode shouldn't be called")
-
-}
-
-func (hcm *HttpConnectionManager) OnEncode(p interface{}) ([]byte, error) {
-	panic("HttpConnectionManager OnEncode shouldn't be called")
-}
-
-func (hcm *HttpConnectionManager) OnData(data interface{}) (interface{}, error) {
-	panic("HttpConnectionManager OnData shouldn't be called")
-
-}
-
-func (hcm *HttpConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
-	panic("HttpConnectionManager OnTripleData shouldn't be called")
 }
 
 func (hcm *HttpConnectionManager) Handle(hc *pch.HttpContext) error {

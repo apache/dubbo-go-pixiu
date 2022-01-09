@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	Kind = constant.DubboProxyFilter
+	Kind = constant.DubboConnectManagerFilter
 )
 
 func init() {
-	filter.RegisterNetworkFilter(&Plugin{})
+	filter.RegisterNetworkFilterPlugin(&Plugin{})
 }
 
 type (
@@ -22,10 +22,14 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (hp *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+func (p *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
 	hcmc, ok := config.(*model.DubboProxyConnectionManagerConfig)
 	if !ok {
 		panic("CreateFilter occur some exception for the type is not suitable one.")
 	}
 	return CreateDubboProxyConnectionManager(hcmc, bs), nil
+}
+
+func (p *Plugin) Config() interface{} {
+	return &model.DubboProxyConnectionManagerConfig{}
 }
