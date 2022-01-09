@@ -2,18 +2,26 @@ package proxy
 
 import (
 	"context"
+	"reflect"
+)
+
+import (
 	"dubbo.apache.org/dubbo-go/v3/common"
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo3"
+
+	tpconst "github.com/dubbogo/triple/pkg/common/constant"
+	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
+
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	dubbo2 "github.com/apache/dubbo-go-pixiu/pkg/context/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	tpconst "github.com/dubbogo/triple/pkg/common/constant"
-	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
-	"github.com/pkg/errors"
-	"reflect"
 )
 
 const (

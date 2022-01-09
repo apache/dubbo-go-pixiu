@@ -2,14 +2,19 @@ package test
 
 import (
 	"context"
+	"testing"
+)
+
+import (
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+
 	hessian "github.com/apache/dubbo-go-hessian2"
+
 	tpconst "github.com/dubbogo/triple/pkg/common/constant"
-	"testing"
 )
 
 func TestTriple2Dubbo(t *testing.T) {

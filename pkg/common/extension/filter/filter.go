@@ -20,7 +20,6 @@ package filter
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/dubbo"
 	stdHttp "net/http"
 )
 
@@ -29,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/context/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )

@@ -2,13 +2,19 @@ package tcp
 
 import (
 	"fmt"
+	"net"
+	"time"
+)
+
+import (
 	getty "github.com/apache/dubbo-getty"
 	"github.com/apache/dubbo-getty/demo/hello"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"net"
-	"time"
 )
 
 func init() {
