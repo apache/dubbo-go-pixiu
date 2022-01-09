@@ -27,19 +27,21 @@ static_resources:
           port: 8888
       filter_chains:
           filters:
-            - name: dgp.filter.network.dubboproxy
+            - name: dgp.filter.network.dubboconnectionmanager
               config:
                 route_config:
                   routes:
                     - match:
                         prefix: "/com.dubbogo.pixiu.TripleUserService"
                         methods:
-                          - "GET"
+                          - "*"
                       route:
                         cluster: "triple-server"
                         cluster_not_found_response_code: 505
-                http_filters:
-                  - name: dgp.filter.dubbo.tripleproxy
+                dubbo_filters:
+                  - name: dgp.filter.dubbo.proxy
+                    config:
+                      protocol: tri
     - name: "triple-listener"
       protocol_type: "TRIPLE"
       address:
@@ -48,19 +50,21 @@ static_resources:
           port: 9999
       filter_chains:
         filters:
-          - name: dgp.filter.network.dubboproxy
+          - name: dgp.filter.network.dubboconnectionmanager
             config:
               route_config:
                 routes:
                   - match:
                       prefix: "com.dubbogo.pixiu.DubboUserService"
                       methods:
-                        - "GET"
+                        - "*"
                     route:
                       cluster: "dubbo-server"
                       cluster_not_found_response_code: 505
-              http_filters:
-                - name: dgp.filter.dubbo.dubbofilter
+              dubbo_filters:
+                - name: dgp.filter.dubbo.proxy
+                  config:
+                    protocol: dubbo
   clusters:
     - name: "triple-server"
       lb_policy: "lb"

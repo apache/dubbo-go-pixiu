@@ -2,42 +2,38 @@ package dubboproxy
 
 import (
 	"context"
-	"dubbo.apache.org/dubbo-go/v3/common"
-	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
-	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo3"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
 	hessian "github.com/apache/dubbo-go-hessian2"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
+	dubbo2 "github.com/apache/dubbo-go-pixiu/pkg/context/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/dubbogo/grpc-go/metadata"
-	tpconst "github.com/dubbogo/triple/pkg/common/constant"
 	"github.com/go-errors/errors"
 	perrors "github.com/pkg/errors"
-	stdHttp "net/http"
 	"reflect"
-	"strings"
 )
 
 // HttpConnectionManager network filter for http
 type DubboProxyConnectionManager struct {
+	filter.EmptyNetworkFilter
 	config            *model.DubboProxyConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	codec             *dubbo.DubboCodec
+	filterManager     *DubboFilterManager
 }
 
 // CreateDubboProxyConnectionManager create dubbo proxy connection manager
 func CreateDubboProxyConnectionManager(config *model.DubboProxyConnectionManagerConfig, bs *model.Bootstrap) *DubboProxyConnectionManager {
-	hcm := &DubboProxyConnectionManager{config: config, codec: &dubbo.DubboCodec{}}
+	filterManager := NewDubboFilterManager(config.DubboFilters)
+	hcm := &DubboProxyConnectionManager{config: config, codec: &dubbo.DubboCodec{}, filterManager: filterManager}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&config.RouteConfig)
 	return hcm
-}
-
-func (dcm *DubboProxyConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
-	panic("DubboProxyConnectionManager ServeHTTP shouldn't be called")
 }
 
 func (dcm *DubboProxyConnectionManager) OnDecode(data []byte) (interface{}, int, error) {
@@ -87,46 +83,13 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 			dubboAttachment[k] = md.Get(k)[0]
 		}
 	}
-	old_invoc := invocation.NewRPCInvocation(methodName, arguments, dubboAttachment)
-	// /org.apache.dubbo.samples.UserProviderTriple/$invoke
-	interfaceMethodName := ctx.Value("XXX_TRIPLE_GO_INTERFACE_NAME").(string)
-	interfaceName := strings.Split(interfaceMethodName, "/")[1]
+	interfaceName := dubboAttachment[constant.InterfaceKey].(string)
 
-	path := interfaceName
-	method := arguments[0] // 应该是第一个
-
-	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, "GET")
+	ra, err := dcm.routerCoordinator.RouteByPathAndName(interfaceName, methodName)
 
 	if err != nil {
-		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
+		return nil, errors.Errorf("Requested dubbo rpc invocation route not found")
 	}
-
-	clusterName := ra.Cluster
-	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName)
-	if endpoint == nil {
-		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
-	}
-
-	// 需要设置hessian协议
-
-	url, err := common.NewURL(endpoint.Address.GetAddress(),
-		common.WithProtocol(dubbo.DUBBO), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization),
-		common.WithParamsValue(constant.GenericFilterKey, "true"),
-		common.WithParamsValue(constant.InterfaceKey, path),
-		common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
-		// dubboAttachment must contains group and version info
-		common.WithParamsValue(constant.GroupKey, dubboAttachment[constant.GroupKey].(string)),
-		common.WithParamsValue(constant.VersionKey, dubboAttachment[constant.VersionKey].(string)),
-		common.WithPath(path),
-	)
-
-	dubboProtocol := dubbo.NewDubboProtocol()
-
-	// TODO: will lead to Error when failed to connect server
-	invoker := dubboProtocol.Refer(url)
-
-	invCtx := context.Background()
 
 	len := len(arguments)
 	inVArr := make([]reflect.Value, len)
@@ -134,26 +97,17 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 		inVArr[i] = reflect.ValueOf(arguments[i])
 	}
 	// old invocation can't set parameterValues
-	invoc := invocation.NewRPCInvocationWithOptions(invocation.WithMethodName(old_invoc.MethodName()),
+	invoc := invocation.NewRPCInvocationWithOptions(invocation.WithMethodName(methodName),
 		invocation.WithArguments(arguments),
-		invocation.WithCallBack(old_invoc.CallBack()), invocation.WithParameterValues(inVArr),
-		invocation.WithAttachments(map[string]interface{}{
-			"async":   "false",
-			"generic": "true",
-		}))
-	var resp interface{}
-	invoc.SetReply(&resp)
+		invocation.WithParameterValues(inVArr),
+		invocation.WithAttachments(dubboAttachment))
 
-	result := invoker.Invoke(invCtx, invoc)
-	result.SetAttachments(invoc.Attachments())
-	if result.Result() == nil {
-		return result, result.Error()
-	}
-
-	value := reflect.ValueOf(result.Result())
-	// todo: check
-	result.SetResult(value.Elem().Interface())
-	return result, result.Error()
+	rpcContext := &dubbo2.RpcContext{}
+	rpcContext.SetInvocation(invoc)
+	rpcContext.SetRoute(ra)
+	dcm.handleRpcInvocation(rpcContext)
+	result := rpcContext.RpcResult
+	return result, nil
 }
 
 func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, error) {
@@ -168,59 +122,96 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 	for i := 0; i < len; i++ {
 		inVArr[i] = reflect.ValueOf(arguments[i])
 	}
-	// old invocation can't set parameterValues
+	//old invocation can't set parameterValues
 	invoc := invocation.NewRPCInvocationWithOptions(invocation.WithMethodName(old_invoc.MethodName()),
 		invocation.WithArguments(old_invoc.Arguments()),
 		invocation.WithCallBack(old_invoc.CallBack()), invocation.WithParameterValues(inVArr),
 		invocation.WithAttachments(old_invoc.Attachments()))
-	// todo: 即使是nil也要设置，涉及指针问题，因为 pbwrapper的MarshalResponse会有 == nil 判断，否则判断不通过，导致返回值都是nil
-	var resp interface{}
-	invoc.SetReply(&resp)
 
-	// todo: should use service key or path or interface
-	// argument check
-	path := invoc.Attachment(constant.PathKey).(string)
-	method := invoc.Arguments()[0].(string)
-
-	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, "GET")
+	path := old_invoc.Attachment(dubboConstant.PathKey).(string)
+	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, old_invoc.MethodName())
 
 	if err != nil {
-		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
+		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found")
 	}
 
-	clusterName := ra.Cluster
-	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName)
-	if endpoint == nil {
-		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
-	}
-
-	// create URL from RpcInvocation
-	url, err := common.NewURL(endpoint.Address.GetAddress(),
-		common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization),
-		common.WithParamsValue(constant.GenericFilterKey, "true"),
-		common.WithParamsValue(constant.AppVersionKey, "3.0.0"),
-		common.WithParamsValue(constant.InterfaceKey, path),
-		common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
-		common.WithPath(path),
-	)
-
-	if err != nil {
-
-	}
-
-	invoker, err := dubbo3.NewDubboInvoker(url)
-
-	if err != nil {
-
-	}
-
-	invCtx := context.Background()
-	result := invoker.Invoke(invCtx, invoc)
-	result.SetAttachments(invoc.Attachments())
-	value := reflect.ValueOf(result.Result())
-	// todo: generic 是需要这样
-	result.SetResult(value.Elem().Interface())
-
+	ctx := &dubbo2.RpcContext{}
+	ctx.SetRoute(ra)
+	ctx.SetInvocation(invoc)
+	dcm.handleRpcInvocation(ctx)
+	result := ctx.RpcResult
 	return result, nil
+
+	//var resp interface{}
+	//invoc.SetReply(&resp)
+	//
+	//// todo: should use service key or path or interface
+	//// argument check
+	//path := invoc.Attachment(constant.PathKey).(string)
+	//method := invoc.Arguments()[0].(string)
+	//
+	//ra, err := dcm.routerCoordinator.RouteByPathAndName(path, "GET")
+	//
+	//if err != nil {
+	//	return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
+	//}
+	//
+	//clusterName := ra.Cluster
+	//clusterManager := server.GetClusterManager()
+	//endpoint := clusterManager.PickEndpoint(clusterName)
+	//if endpoint == nil {
+	//	return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
+	//}
+	//
+	//// create URL from RpcInvocation
+	//url, err := common.NewURL(endpoint.Address.GetAddress(),
+	//	common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization),
+	//	common.WithParamsValue(constant.GenericFilterKey, "true"),
+	//	common.WithParamsValue(constant.AppVersionKey, "3.0.0"),
+	//	common.WithParamsValue(constant.InterfaceKey, path),
+	//	common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
+	//	common.WithPath(path),
+	//)
+	//
+	//if err != nil {
+	//
+	//}
+	//
+	//invoker, err := dubbo3.NewDubboInvoker(url)
+	//
+	//if err != nil {
+	//
+	//}
+	//
+	//invCtx := context.Background()
+	//result := invoker.Invoke(invCtx, invoc)
+	//result.SetAttachments(invoc.Attachments())
+	//value := reflect.ValueOf(result.Result())
+	//// todo: generic 是需要这样
+	//result.SetResult(value.Elem().Interface())
+	//
+	//return result, nil
+}
+
+// handleRpcInvocation handle rpc request
+func (dcm *DubboProxyConnectionManager) handleRpcInvocation(c *dubbo2.RpcContext) {
+	filterChain := dcm.filterManager.filters
+
+	// recover any err when filterChain run
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Warnf("[dubbopixiu go] Occur An Unexpected Err: %+v", err)
+			c.SetError(errors.Errorf("Occur An Unexpected Err: %v", err))
+		}
+	}()
+
+	for _, f := range filterChain {
+		status := f.Handle(c)
+		switch status {
+		case filter.Continue:
+			continue
+		case filter.Stop:
+			return
+		}
+	}
 }

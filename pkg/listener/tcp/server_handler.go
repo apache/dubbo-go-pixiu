@@ -170,9 +170,12 @@ func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
 	if !req.TwoWay {
 		return
 	}
-
-	ptr, _ := result.(*protocol.RPCResult)
-	resp.Result = *ptr
+	if result != nil {
+		ptr, _ := result.(*protocol.RPCResult)
+		resp.Result = *ptr
+	} else {
+		resp.Result = nil
+	}
 	reply(session, resp)
 }
 

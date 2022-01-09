@@ -53,6 +53,8 @@ func newDubboRefConf(iface, protocol string) config.ReferenceConfig {
 		RegistryIDs:   []string{"zk"},
 		Protocol:      protocol,
 		Generic:       "true",
+		Group:         "test",
+		Version:       "1.0.0",
 		URL:           "dubbo://127.0.0.1:8888/" + iface,
 	}
 

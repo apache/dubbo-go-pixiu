@@ -35,6 +35,8 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/dubboproxy"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/dubboproxy/filter/http"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/dubboproxy/filter/proxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/grpcconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/seata"
