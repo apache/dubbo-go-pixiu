@@ -50,7 +50,7 @@ func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener
 
 	triOption := triConfig.NewTripleOption(opts...)
 
-	tripleService := ProxyService{ls: ls}
+	tripleService := &ProxyService{ls: ls}
 	serviceMap := &sync.Map{}
 	serviceMap.Store(tripleConstant.ProxyServiceKey, tripleService)
 	server := triple.NewTripleServer(serviceMap, triOption)
@@ -64,11 +64,11 @@ func (ls *TripleListenerService) Start() error {
 	return nil
 }
 
-func (d ProxyService) setReqParamsTypes(methodName string, typ []reflect.Type) {
+func (d *ProxyService) setReqParamsTypes(methodName string, typ []reflect.Type) {
 	d.reqTypeMap.Store(methodName, typ)
 }
 
-func (d ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{}, bool) {
+func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{}, bool) {
 	val, ok := d.reqTypeMap.Load(methodName)
 	if !ok {
 		return nil, false
@@ -81,6 +81,6 @@ func (d ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{}, 
 	return reqParamsInterfaces, true
 }
 
-func (d ProxyService) InvokeWithArgs(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+func (d *ProxyService) InvokeWithArgs(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
 	return d.ls.FilterChain.OnTripleData(ctx, methodName, arguments)
 }

@@ -132,7 +132,7 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, old_invoc.MethodName())
 
 	if err != nil {
-		return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found")
+		return nil, errors.Errorf("Requested dubbo rpc invocation route not found")
 	}
 
 	ctx := &dubbo2.RpcContext{}

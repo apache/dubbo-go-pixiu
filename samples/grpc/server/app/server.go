@@ -61,14 +61,11 @@ func (s *server) GetUser(ctx context.Context, request *proto.GetUserRequest) (*p
 	return &proto.GetUserResponse{Message: MsgUserQuerySuccessfully, Users: us}, nil
 }
 
-<<<<<<< HEAD
-=======
 func initUsers(s *server) {
 	s.users[1] = &proto.User{UserId: 1, Name: "Kenway"}
 	s.users[2] = &proto.User{UserId: 2, Name: "Ken"}
 }
 
->>>>>>> develop
 func main() {
 	l, err := net.Listen("tcp", ":50001") //nolint:gosec
 	if err != nil {
@@ -86,11 +83,3 @@ func main() {
 		panic(err)
 	}
 }
-<<<<<<< HEAD
-
-func initUsers(s *server) {
-	s.users[1] = &proto.User{UserId: 1, Name: "Kenway"}
-	s.users[2] = &proto.User{UserId: 2, Name: "Ken"}
-}
-=======
->>>>>>> develop

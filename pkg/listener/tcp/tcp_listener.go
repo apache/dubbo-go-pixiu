@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"fmt"
 	getty "github.com/apache/dubbo-getty"
 	"github.com/apache/dubbo-getty/demo/hello"
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
@@ -47,7 +48,7 @@ func (ls *TcpListenerService) newSession(session getty.Session) (err error) {
 
 	tcpConn, ok := session.Conn().(*net.TCPConn)
 	if !ok {
-		//panic(l("newSession: %s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn()))
+		panic(fmt.Sprintf("newSession: %s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn()))
 	}
 
 	if err = tcpConn.SetNoDelay(true); err != nil {
