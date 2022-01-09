@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // inspired by dubbogo/remoting/getty
 package tcp
 
@@ -47,6 +64,7 @@ func (s *rpcSession) GetReqNum() int32 {
 	return atomic.LoadInt32(&s.reqNum)
 }
 
+// ServerHandler package handler
 type ServerHandler struct {
 	ls             *TcpListenerService
 	sessionMap     map[getty.Session]*rpcSession
@@ -56,6 +74,7 @@ type ServerHandler struct {
 	timeoutTimes   int
 }
 
+// NewServerPackageHandler create serverHandler
 func NewServerPackageHandler(ls *TcpListenerService) *ServerHandler {
 	return &ServerHandler{
 		// todo listener param
@@ -66,6 +85,7 @@ func NewServerPackageHandler(ls *TcpListenerService) *ServerHandler {
 	}
 }
 
+// OnOpen called when session opens
 func (h *ServerHandler) OnOpen(session getty.Session) error {
 	var err error
 	h.rwlock.RLock()
@@ -84,6 +104,7 @@ func (h *ServerHandler) OnOpen(session getty.Session) error {
 	return nil
 }
 
+// OnError called when err
 func (h *ServerHandler) OnError(session getty.Session, err error) {
 	logger.Infof("session{%s} got error{%v}, will be closed.", session.Stat(), err)
 	h.rwlock.Lock()
@@ -91,6 +112,7 @@ func (h *ServerHandler) OnError(session getty.Session, err error) {
 	h.rwlock.Unlock()
 }
 
+// OnError called when session close
 func (h *ServerHandler) OnClose(session getty.Session) {
 	logger.Infof("session{%s} is closing......", session.Stat())
 	h.rwlock.Lock()
@@ -98,6 +120,7 @@ func (h *ServerHandler) OnClose(session getty.Session) {
 	h.rwlock.Unlock()
 }
 
+// OnMessage called when session receive new pkg
 func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
 	h.rwlock.Lock()
 	if _, ok := h.sessionMap[session]; ok {
@@ -198,6 +221,7 @@ func reply(session getty.Session, resp *remoting.Response) {
 	}
 }
 
+// OnCron cron
 func (h *ServerHandler) OnCron(session getty.Session) {
 
 	var (
@@ -222,24 +246,4 @@ func (h *ServerHandler) OnCron(session getty.Session) {
 		h.rwlock.Unlock()
 		session.Close()
 	}
-
-	//heartbeatCallBack := func(err error) {
-	//	if err != nil {
-	//		logger.Warnf("failed to send heartbeat, error{%v}", err)
-	//		if h.timeoutTimes >= 3 {
-	//			h.rwlock.Lock()
-	//			delete(h.sessionMap, session)
-	//			h.rwlock.Unlock()
-	//			session.Close()
-	//			return
-	//		}
-	//		h.timeoutTimes++
-	//		return
-	//	}
-	//	h.timeoutTimes = 0
-	//}
-
-	//if err := heartbeat(session, h.server.conf.heartbeatTimeout, heartbeatCallBack); err != nil {
-	//	logger.Warnf("failed to send heartbeat, error{%v}", err)
-	//}
 }
