@@ -36,15 +36,18 @@ type (
 	Plugin struct{}
 )
 
+// Kind
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
+// CreateFilter create http network filter
 func (p *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.HttpConnectionManagerConfig)
 	return http.CreateHttpConnectionManager(hcmc, bs), nil
 }
 
+// Config return HttpConnectionManagerConfig
 func (p *Plugin) Config() interface{} {
 	return &model.HttpConnectionManagerConfig{}
 }

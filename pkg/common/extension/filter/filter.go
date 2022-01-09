@@ -88,19 +88,24 @@ type (
 
 	// NetworkFilter describe network filter
 	NetworkFilter interface {
-		// ServeHTTP handle request and response
+		// ServeHTTP handle http request and response
 		ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request)
+		// OnDecode decode bytes received from getty server
 		OnDecode(data []byte) (interface{}, int, error)
+		// OnEncode encode interface sent to getty server
 		OnEncode(p interface{}) ([]byte, error)
+		// OnData dubbo rpc invocation from getty server
 		OnData(data interface{}) (interface{}, error)
+		// OnTripleData triple rpc invocation from triple-server
 		OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error)
 	}
 
+	// EmptyNetworkFilter default empty network filter adapter which offers empty function implements
 	EmptyNetworkFilter struct{}
 
 	// DubboFilter describe dubbo filter
 	DubboFilter interface {
-		// Handle filter hook function
+		// Handle rpc invocation
 		Handle(ctx *dubbo.RpcContext) FilterStatus
 	}
 
@@ -108,7 +113,7 @@ type (
 	DubboFilterPlugin interface {
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
-		// CreateFilterFactory return the filter callback
+		// CreateFilter return the filter callback
 		CreateFilter(config interface{}) (DubboFilter, error)
 		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
 		Config() interface{}
@@ -121,10 +126,12 @@ var (
 	dubboFilterPluginRegistry   = map[string]DubboFilterPlugin{}
 )
 
+// OnDecode empty implement
 func (enf *EmptyNetworkFilter) OnDecode(data []byte) (interface{}, int, error) {
 	panic("OnDecode is not implemented")
 }
 
+// OnEncode empty implement
 func (enf *EmptyNetworkFilter) OnEncode(p interface{}) ([]byte, error) {
 	panic("OnEncode is not implemented")
 }
@@ -134,10 +141,12 @@ func (enf *EmptyNetworkFilter) OnData(data interface{}) (interface{}, error) {
 	panic("OnData is not implemented")
 }
 
+// OnTripleData empty implement
 func (enf *EmptyNetworkFilter) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
 	panic("OnTripleData is not implemented")
 }
 
+// ServeHTTP empty implement
 func (enf *EmptyNetworkFilter) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
 	panic("ServeHTTP is not implemented")
 }

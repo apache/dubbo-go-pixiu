@@ -48,6 +48,7 @@ static_resources:
                     expose_headers: ""
                     max_age: ""
                     allow_credentials: false
+
       config:
         idle_timeout: 5s
         read_timeout: 5s

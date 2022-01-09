@@ -38,6 +38,7 @@ type NetworkFilterChain struct {
 	config       model.FilterChain
 }
 
+// ServeHTTP handle http request
 func (fc NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
@@ -45,6 +46,7 @@ func (fc NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// OnDecode decode bytes received from getty listener
 func (fc NetworkFilterChain) OnDecode(data []byte) (interface{}, int, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
@@ -53,6 +55,7 @@ func (fc NetworkFilterChain) OnDecode(data []byte) (interface{}, int, error) {
 	return nil, 0, errors.Errorf("filterChain don't have network filter")
 }
 
+// OnEncode encode struct to bytes sent to getty listener
 func (fc NetworkFilterChain) OnEncode(p interface{}) ([]byte, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
@@ -61,6 +64,7 @@ func (fc NetworkFilterChain) OnEncode(p interface{}) ([]byte, error) {
 	return nil, errors.Errorf("filterChain don't have network filter")
 }
 
+// OnData handle dubbo rpc invocation
 func (fc NetworkFilterChain) OnData(data interface{}) (interface{}, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
@@ -69,6 +73,7 @@ func (fc NetworkFilterChain) OnData(data interface{}) (interface{}, error) {
 	return nil, errors.Errorf("filterChain don't have network filter")
 }
 
+// OnTripleData handle triple rpc invocation
 func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
@@ -77,6 +82,7 @@ func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName strin
 	return nil, errors.Errorf("filterChain don't have network filter")
 }
 
+// CreateNetworkFilterChain create network filter chain
 func CreateNetworkFilterChain(config model.FilterChain, bs *model.Bootstrap) *NetworkFilterChain {
 	var filters []filter.NetworkFilter
 

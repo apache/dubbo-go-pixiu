@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package dubboproxy
 
 import (
@@ -46,6 +63,7 @@ func CreateDubboProxyConnectionManager(config *model.DubboProxyConnectionManager
 	return hcm
 }
 
+// OnDecode decode bytes to DecodeResult
 func (dcm *DubboProxyConnectionManager) OnDecode(data []byte) (interface{}, int, error) {
 
 	resp, length, err := dcm.codec.Decode(data)
@@ -60,6 +78,7 @@ func (dcm *DubboProxyConnectionManager) OnDecode(data []byte) (interface{}, int,
 	return resp, length, nil
 }
 
+// OnEncode encode Response to bytes
 func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error) {
 	res, ok := pkg.(*remoting.Response)
 	if ok {
@@ -85,6 +104,7 @@ func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error
 	return nil, perrors.New("invalid rpc response")
 }
 
+// OnTripleData handle triple rpc invocation
 func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
 	dubboAttachment := make(map[string]interface{})
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -120,6 +140,7 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 	return result, nil
 }
 
+// OnData handle dubbo rpc invocation
 func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, error) {
 	old_invoc, ok := data.(*invocation.RPCInvocation)
 	if !ok {
@@ -151,56 +172,6 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 	dcm.handleRpcInvocation(ctx)
 	result := ctx.RpcResult
 	return result, nil
-
-	//var resp interface{}
-	//invoc.SetReply(&resp)
-	//
-	//// todo: should use service key or path or interface
-	//// argument check
-	//path := invoc.Attachment(constant.PathKey).(string)
-	//method := invoc.Arguments()[0].(string)
-	//
-	//ra, err := dcm.routerCoordinator.RouteByPathAndName(path, "GET")
-	//
-	//if err != nil {
-	//	return nil, errors.Errorf("Requested dubbo rpc invocation %s %s route not found", path, method)
-	//}
-	//
-	//clusterName := ra.Cluster
-	//clusterManager := server.GetClusterManager()
-	//endpoint := clusterManager.PickEndpoint(clusterName)
-	//if endpoint == nil {
-	//	return nil, errors.Errorf("Requested dubbo rpc invocation %s %s endpoint not found", path, method)
-	//}
-	//
-	//// create URL from RpcInvocation
-	//url, err := common.NewURL(endpoint.Address.GetAddress(),
-	//	common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(constant.SerializationKey, constant.Hessian2Serialization),
-	//	common.WithParamsValue(constant.GenericFilterKey, "true"),
-	//	common.WithParamsValue(constant.AppVersionKey, "3.0.0"),
-	//	common.WithParamsValue(constant.InterfaceKey, path),
-	//	common.WithParamsValue(constant.ReferenceFilterKey, "generic,filter"),
-	//	common.WithPath(path),
-	//)
-	//
-	//if err != nil {
-	//
-	//}
-	//
-	//invoker, err := dubbo3.NewDubboInvoker(url)
-	//
-	//if err != nil {
-	//
-	//}
-	//
-	//invCtx := context.Background()
-	//result := invoker.Invoke(invCtx, invoc)
-	//result.SetAttachments(invoc.Attachments())
-	//value := reflect.ValueOf(result.Result())
-	//// todo: generic 是需要这样
-	//result.SetResult(value.Elem().Interface())
-	//
-	//return result, nil
 }
 
 // handleRpcInvocation handle rpc request
