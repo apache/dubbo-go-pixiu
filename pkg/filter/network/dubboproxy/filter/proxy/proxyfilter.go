@@ -115,7 +115,6 @@ func (f Filter) sendDubboRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		common.WithParamsValue(dubboConstant.VersionKey, invoc.AttachmentsByKey(dubboConstant.VersionKey, "")),
 		common.WithPath(invoc.AttachmentsByKey(dubboConstant.InterfaceKey, "")),
 	)
-
 	if err != nil {
 		ctx.SetError(err)
 		return filter.Stop
@@ -144,11 +143,7 @@ func (f Filter) sendDubboRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 }
 
 func (f Filter) sendTripleRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
-
-	invoc := ctx.RpcInvocation
-
 	ra := ctx.Route
-
 	clusterName := ra.Cluster
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
@@ -157,6 +152,7 @@ func (f Filter) sendTripleRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
+	invoc := ctx.RpcInvocation
 	path := invoc.Attachment(dubboConstant.PathKey).(string)
 	// create URL from RpcInvocation
 	url, err := common.NewURL(endpoint.Address.GetAddress(),
@@ -167,23 +163,20 @@ func (f Filter) sendTripleRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		common.WithParamsValue(dubboConstant.ReferenceFilterKey, "generic,filter"),
 		common.WithPath(path),
 	)
-
 	if err != nil {
 		ctx.SetError(err)
 		return filter.Stop
 	}
 
 	invoker, err := dubbo3.NewDubboInvoker(url)
-
 	if err != nil {
 		ctx.SetError(err)
 		return filter.Stop
 	}
 
-	invCtx := context.Background()
-
 	var resp interface{}
 	invoc.SetReply(&resp)
+	invCtx := context.Background()
 	result := invoker.Invoke(invCtx, invoc)
 
 	if result.Error() != nil {

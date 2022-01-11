@@ -47,8 +47,7 @@ const (
 )
 
 var (
-	errTooManySessions      = perrors.New("too many sessions")
-	errHeartbeatReadTimeout = perrors.New("heartbeat read timeout")
+	errTooManySessions = perrors.New("too many sessions")
 )
 
 type rpcSession struct {
@@ -56,10 +55,12 @@ type rpcSession struct {
 	reqNum  int32
 }
 
+// AddReqNum add request total num
 func (s *rpcSession) AddReqNum(num int32) {
 	atomic.AddInt32(&s.reqNum, num)
 }
 
+// GetReqNum get request total num
 func (s *rpcSession) GetReqNum() int32 {
 	return atomic.LoadInt32(&s.reqNum)
 }
@@ -71,7 +72,6 @@ type ServerHandler struct {
 	rwlock         sync.RWMutex
 	maxSessionNum  int
 	sessionTimeout time.Duration
-	timeoutTimes   int
 }
 
 // NewServerPackageHandler create serverHandler
