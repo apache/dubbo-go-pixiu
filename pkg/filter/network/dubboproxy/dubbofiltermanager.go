@@ -18,10 +18,6 @@
 package dubboproxy
 
 import (
-	"sync"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -32,7 +28,6 @@ import (
 type DubboFilterManager struct {
 	filterConfigs []*model.DubboFilter
 	filters       []filter.DubboFilter
-	mu            sync.RWMutex
 }
 
 // NewDubboFilterManager create filter manager

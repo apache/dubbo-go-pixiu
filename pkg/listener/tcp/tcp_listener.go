@@ -26,7 +26,6 @@ import (
 
 import (
 	getty "github.com/apache/dubbo-getty"
-	"github.com/apache/dubbo-getty/demo/hello"
 )
 
 import (
@@ -74,7 +73,8 @@ func (ls *TcpListenerService) newSession(session getty.Session) (err error) {
 	if !ok {
 		panic(fmt.Sprintf("newSession: %s, session.conn{%#v} is not tcp connection", session.Stat(), session.Conn()))
 	}
-
+	// default value from dubbo getty config
+	// todo: make parameter for tcp listener config
 	if err = tcpConn.SetNoDelay(true); err != nil {
 		return err
 	}
@@ -90,11 +90,10 @@ func (ls *TcpListenerService) newSession(session getty.Session) (err error) {
 	if err = tcpConn.SetWriteBuffer(524288); err != nil {
 		return err
 	}
-	// todo: make parameter for tcp listener config
+
 	session.SetMaxMsgLen(128 * 1024) // max message package length is 128k
 	session.SetReadTimeout(time.Second)
-	session.SetWriteTimeout(5 * time.Second)
-	session.SetCronPeriod(int(hello.CronPeriod / 1e6))
+	session.SetWriteTimeout(time.Second)
 	session.SetWaitTime(time.Second)
 
 	session.SetPkgHandler(NewPackageHandler(ls))

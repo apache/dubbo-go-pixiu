@@ -30,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+// RpcContext the rpc invocation context
 type RpcContext struct {
 	RpcInvocation *invocation.RPCInvocation
 	RpcResult     protocol.Result
