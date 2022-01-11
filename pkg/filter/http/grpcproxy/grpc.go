@@ -40,6 +40,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -201,7 +202,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	clientConn, ok = p.Get().(*grpc.ClientConn)
 	if !ok || clientConn == nil {
 		// TODO(Kenway): Support Credential and TLS
-		clientConn, err = grpc.DialContext(c.Ctx, ep, grpc.WithInsecure())
+		clientConn, err = grpc.DialContext(c.Ctx, ep, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil || clientConn == nil {
 			logger.Errorf("%s err {failed to connect to grpc service provider}", loggerHeader)
 			c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte((fmt.Sprintf("%s", err))))
