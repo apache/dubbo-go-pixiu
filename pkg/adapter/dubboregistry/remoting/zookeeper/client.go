@@ -68,7 +68,7 @@ type ZooKeeperClient struct {
 	exit         chan struct{}
 	Wait         sync.WaitGroup
 
-	eventRegistry     map[string][]*chan struct{}
+	eventRegistry     map[string][]chan zk.Event
 	eventRegistryLock sync.RWMutex
 }
 
@@ -84,7 +84,7 @@ func NewZooKeeperClient(name string, zkAddrs []string, timeout time.Duration) (*
 		ZkAddrs:       zkAddrs,
 		Timeout:       timeout,
 		exit:          make(chan struct{}),
-		eventRegistry: make(map[string][]*chan struct{}),
+		eventRegistry: make(map[string][]chan zk.Event),
 	}
 	// connect to zookeeper
 	z.conn, event, err = zk.Connect(zkAddrs, timeout)
@@ -95,7 +95,7 @@ func NewZooKeeperClient(name string, zkAddrs []string, timeout time.Duration) (*
 	return z, event, nil
 }
 
-// StateToString translate the state to string
+// StateToString will transfer zk state to string
 func StateToString(state zk.State) string {
 	switch state {
 	case zk.StateDisconnected:
@@ -113,13 +113,9 @@ func StateToString(state zk.State) string {
 	case zk.StateConnected:
 		return "zookeeper connected"
 	case zk.StateHasSession:
-		return "zookeeper has session"
+		return "zookeeper has Session"
 	case zk.StateUnknown:
 		return "zookeeper unknown state"
-	case zk.State(zk.EventNodeDeleted):
-		return "zookeeper node deleted"
-	case zk.State(zk.EventNodeDataChanged):
-		return "zookeeper node data changed"
 	default:
 		return state.String()
 	}
@@ -150,7 +146,7 @@ func (z *ZooKeeperClient) ExistW(zkPath string) (<-chan zk.Event, error) {
 func (z *ZooKeeperClient) HandleZkEvent(s <-chan zk.Event) {
 	var (
 		state int
-		e     zk.Event
+		event zk.Event
 	)
 
 	defer func() {
@@ -162,40 +158,40 @@ func (z *ZooKeeperClient) HandleZkEvent(s <-chan zk.Event) {
 		select {
 		case <-z.exit:
 			return
-		case e = <-s:
+		case event = <-s:
 			logger.Infof("client{%s} get a zookeeper event{type:%s, server:%s, path:%s, state:%d-%s, err:%v}",
-				z.name, e.Type, e.Server, e.Path, e.State, StateToString(e.State), e.Err)
-			switch (int)(e.State) {
-			case (int)(zk.StateDisconnected):
+				z.name, event.Type, event.Server, event.Path, event.State, StateToString(event.State), event.Err)
+			switch event.State {
+			case zk.StateDisconnected:
 				logger.Warnf("zk{addr:%s} state is StateDisconnected, so close the zk client{name:%s}.", z.ZkAddrs, z.name)
 				z.Destroy()
 				return
-			case (int)(zk.EventNodeDataChanged), (int)(zk.EventNodeChildrenChanged):
-				logger.Infof("zkClient{%s} get zk node changed event{path:%s}", z.name, e.Path)
+			case zk.StateConnected:
+				logger.Infof("zkClient{%s} get zk node changed event{path:%s}", z.name, event.Path)
 				z.eventRegistryLock.RLock()
-				for p, a := range z.eventRegistry {
-					if strings.HasPrefix(p, e.Path) {
+				for path, a := range z.eventRegistry {
+					if strings.HasPrefix(event.Path, path) {
 						logger.Infof("send event{state:zk.EventNodeDataChange, Path:%s} notify event to path{%s} related listener",
-							e.Path, p)
+							event.Path, path)
 						for _, e := range a {
-							*e <- struct{}{}
+							e <- event
 						}
 					}
 				}
 				z.eventRegistryLock.RUnlock()
-			case (int)(zk.StateConnecting), (int)(zk.StateConnected), (int)(zk.StateHasSession):
+			case zk.StateConnecting, zk.StateHasSession:
 				if state == (int)(zk.StateHasSession) {
 					continue
 				}
 				z.eventRegistryLock.RLock()
-				if a, ok := z.eventRegistry[e.Path]; ok && 0 < len(a) {
+				if a, ok := z.eventRegistry[event.Path]; ok && 0 < len(a) {
 					for _, e := range a {
-						*e <- struct{}{}
+						e <- event
 					}
 				}
 				z.eventRegistryLock.RUnlock()
 			}
-			state = (int)(e.State)
+			state = (int)(event.State)
 		}
 	}
 }
