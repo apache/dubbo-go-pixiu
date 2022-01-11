@@ -88,10 +88,6 @@ func (ls *TripleListenerService) Start() error {
 	return nil
 }
 
-func (d *ProxyService) setReqParamsTypes(methodName string, typ []reflect.Type) {
-	d.reqTypeMap.Store(methodName, typ)
-}
-
 // GetReqParamsInterfaces get params
 func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{}, bool) {
 	val, ok := d.reqTypeMap.Load(methodName)
