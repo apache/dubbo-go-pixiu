@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go/common"
+	"dubbo.apache.org/dubbo-go/v3/common"
 
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 

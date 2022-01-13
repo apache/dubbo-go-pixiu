@@ -40,9 +40,8 @@ func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
 		Endpoints: []*model.Endpoint{
 			{
 				Address: model.SocketAddress{
-					ProtocolStr: "http",
-					Address:     "localhost",
-					Port:        18000,
+					Address: "localhost",
+					Port:    18000,
 				},
 			},
 		},
@@ -104,9 +103,8 @@ func TestGrpcCluster_GetConnect(t *testing.T) {
 		Endpoints: []*model.Endpoint{
 			{
 				Address: model.SocketAddress{
-					ProtocolStr: "http",
-					Address:     "localhost",
-					Port:        18000,
+					Address: "localhost",
+					Port:    18000,
 				},
 			},
 		},
@@ -149,9 +147,8 @@ func TestAdapter_createApiManager(t *testing.T) {
 		Endpoints: []*model.Endpoint{
 			{
 				Address: model.SocketAddress{
-					ProtocolStr: "http",
-					Address:     "localhost",
-					Port:        18000,
+					Address: "localhost",
+					Port:    18000,
 				},
 			},
 		},

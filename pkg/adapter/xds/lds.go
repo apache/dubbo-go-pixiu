@@ -82,8 +82,6 @@ func (l *LdsManager) makeSocketAddress(address *model2.SocketAddress) model.Sock
 		return model.SocketAddress{}
 	}
 	return model.SocketAddress{
-		ProtocolStr:  address.ProtocolStr,
-		Protocol:     model.ProtocolType(address.Protocol), //todo validate
 		Address:      address.Address,
 		Port:         int(address.Port),
 		ResolverName: address.ResolverName,
@@ -94,7 +92,7 @@ func (l *LdsManager) makeSocketAddress(address *model2.SocketAddress) model.Sock
 
 func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 	names := make([]string, 0, len(toRemoveHash))
-	for name, _ := range toRemoveHash {
+	for name := range toRemoveHash {
 		names = append(names, name)
 		server.GetServer().GetListenerManager().RemoveListener(names)
 	}
@@ -114,7 +112,10 @@ func (l *LdsManager) setupListeners(listeners []*model2.Listener) {
 		modelListener := l.makeListener(_l)
 		// apply add or update later after removes
 		laterApplies = append(laterApplies, func() error {
-			server.GetServer().GetListenerManager().AddOrUpdateListener(&modelListener)
+			err := server.GetServer().GetListenerManager().AddOrUpdateListener(&modelListener)
+			if err != nil {
+				logger.Errorf("can not add/update listener config=> %v", modelListener)
+			}
 			return nil
 		})
 	}
@@ -128,28 +129,23 @@ func (l *LdsManager) setupListeners(listeners []*model2.Listener) {
 
 func (l *LdsManager) makeListener(_l *model2.Listener) model.Listener {
 	return model.Listener{
-		Name:         _l.Name,
-		Address:      l.makeAddress(_l.Address),
-		FilterChains: l.makeFilterChain(_l.FilterChains),
-		Config:       nil, // todo set the additional config
+		Name:        _l.Name,
+		Address:     l.makeAddress(_l.Address),
+		FilterChain: l.makeFilterChain(_l.FilterChain),
+		Config:      nil, // todo set the additional config
 	}
 }
 
-func (l *LdsManager) makeFilterChain(fChain []*model2.FilterChain) []model.FilterChain {
-	r := make([]model.FilterChain, 0, len(fChain))
-	for _, one := range fChain {
-		r = append(r, model.FilterChain{
-			FilterChainMatch: model.FilterChainMatch{},
-			Filters:          l.makeFilters(one.Filters),
-		})
+func (l *LdsManager) makeFilterChain(fChain *model2.FilterChain) model.FilterChain {
+	return model.FilterChain{
+		Filters: l.makeFilters(fChain.Filters),
 	}
-	return r
 }
 
-func (l *LdsManager) makeFilters(filters []*model2.Filter) []model.Filter {
-	_filters := make([]model.Filter, 0, len(filters))
+func (l *LdsManager) makeFilters(filters []*model2.NetworkFilter) []model.NetworkFilter {
+	_filters := make([]model.NetworkFilter, 0, len(filters))
 	for _, _filter := range filters {
-		_filters = append(_filters, model.Filter{
+		_filters = append(_filters, model.NetworkFilter{
 			Name: _filter.Name,
 			//Config: _filter., todo define the config of filter
 			Config: l.makeConfig(_filter),
@@ -158,17 +154,17 @@ func (l *LdsManager) makeFilters(filters []*model2.Filter) []model.Filter {
 	return _filters
 }
 
-func (l *LdsManager) makeConfig(filter *model2.Filter) (m map[string]interface{}) {
+func (l *LdsManager) makeConfig(filter *model2.NetworkFilter) (m map[string]interface{}) {
 	switch cfg := filter.Config.(type) {
-	case *model2.Filter_Yaml:
+	case *model2.NetworkFilter_Yaml:
 		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {
 			logger.Errorf("can not make yaml from filter.Config: %s", cfg.Yaml.Content, err)
 		}
-	case *model2.Filter_Json:
+	case *model2.NetworkFilter_Json:
 		if err := json.Unmarshal([]byte(cfg.Json.Content), &m); err != nil {
 			logger.Errorf("can not make json from filter.Config: %s", cfg.Json.Content, err)
 		}
-	case *model2.Filter_Struct:
+	case *model2.NetworkFilter_Struct:
 		m = cfg.Struct.AsMap()
 	default:
 		logger.Errorf("can not get filter config of %s", filter.Name)

@@ -20,19 +20,15 @@
 static_resources:
   listeners:
     - name: "net/http"
+      protocol_type: "HTTPS"
       address:
         socket_address:
-          protocol_type: "HTTPS"
           domains:
             - "sample.domain.com"
             - "sample.domain-1.com"
             - "sample.domain-2.com"
           certs_dir: $PROJECT_DIR/cert
       filter_chains:
-        - filter_chain_match:
-          domains:
-            - api.dubbo.com
-            - api.pixiu.com
           filters:
             - name: dgp.filter.httpconnectionmanager
               config:
@@ -60,8 +56,7 @@ static_resources:
                         timeout_config:
                           connect_timeout: 5s
                           request_timeout: 5s
-                  - name: dgp.filter.http.response
-                    config:
+
                 server_name: "test_http_dubbo"
                 generate_request_id: false
       config:

@@ -93,7 +93,7 @@ http_filters:
 	}
 
 	type args struct {
-		filter *pixiupb.Filter
+		filter *pixiupb.NetworkFilter
 	}
 	tests := []struct {
 		name  string
@@ -103,9 +103,9 @@ http_filters:
 		{
 			name: "yaml",
 			args: args{
-				filter: &pixiupb.Filter{
+				filter: &pixiupb.NetworkFilter{
 					Name: "",
-					Config: &pixiupb.Filter_Yaml{
+					Config: &pixiupb.NetworkFilter_Yaml{
 						Yaml: &pixiupb.Config{
 							Content: httpManagerConfigYaml,
 						}},
@@ -116,9 +116,9 @@ http_filters:
 		{
 			name: "struct",
 			args: args{
-				filter: &pixiupb.Filter{
+				filter: &pixiupb.NetworkFilter{
 					Name:   "",
-					Config: &pixiupb.Filter_Struct{Struct: httpManagerConfigStruct},
+					Config: &pixiupb.NetworkFilter_Struct{Struct: httpManagerConfigStruct},
 				},
 			},
 			wantM: configMap,

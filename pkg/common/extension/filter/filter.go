@@ -19,6 +19,7 @@ package filter
 
 import (
 	"fmt"
+	stdHttp "net/http"
 )
 
 import (
@@ -36,22 +37,41 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 
-		// CreateFilter return the filter callback
-		CreateFilter() (HttpFilter, error)
+		// CreateFilterFactory return the filter factory
+		CreateFilterFactory() (HttpFilterFactory, error)
 	}
 
-	// HttpFilter describe http filter
-	HttpFilter interface {
-		// PrepareFilterChain add filter into chain
-		PrepareFilterChain(ctx *http.HttpContext) error
+	// HttpFilterFactory describe http filter
+	HttpFilterFactory interface {
+		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
+		Config() interface{}
 
-		// Handle filter hook function
-		Handle(ctx *http.HttpContext)
-
+		// Apply After the config is injected, check it or make it to default
 		Apply() error
 
-		// Config get config for filter
-		Config() interface{}
+		// PrepareFilterChain create filter and append it to FilterChain
+		//
+		// Be Careful !!! Do not pass the Factory's config pointer to the Filter instance,
+		// Factory's config may be updated by FilterManager
+		PrepareFilterChain(ctx *http.HttpContext, chain FilterChain) error
+	}
+
+	// HttpDecodeFilter before invoke upstream, like add/remove Header, route mutation etc..
+	//
+	// if config like this:
+	// - A
+	// - B
+	// - C
+	// decode filters will be invoked in the config order: A、B、C, and decode filters will be
+	// invoked in the reverse order: C、B、A
+	HttpDecodeFilter interface {
+		Decode(ctx *http.HttpContext) FilterStatus
+	}
+
+	// HttpEncodeFilter after invoke upstream,
+	// decode filters will be invoked in the reverse order
+	HttpEncodeFilter interface {
+		Encode(ctx *http.HttpContext) FilterStatus
 	}
 
 	// NetworkFilter describe network filter plugin
@@ -64,8 +84,8 @@ type (
 
 	// NetworkFilter describe network filter
 	NetworkFilter interface {
-		// OnData handle the http context from worker
-		OnData(hc *http.HttpContext) error
+		// ServeHTTP handle request and response
+		ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request)
 	}
 )
 

@@ -18,6 +18,8 @@
 package accesslog
 
 import (
+	"bytes"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -28,7 +30,9 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -39,6 +43,32 @@ func TestAccessLog_Write_to_file(t *testing.T) {
 	accessLogWriter := &AccessLogWriter{AccessLogDataChan: make(chan AccessLogData, constant.LogDataBuffer)}
 	accessLogWriter.Write()
 	accessLogWriter.Writer(AccessLogData{AccessLogMsg: msg, AccessLogConfig: AccessLogConfig{OutPutPath: filePath}})
+	time.Sleep(3e9)
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			logger.Warnf("can not create dir: %s, %v", filePath, err)
+		}
+	}
+	assert.FileExists(t, filePath, nil)
+}
+
+func TestApply(t *testing.T) {
+	filePath := "dubbo-go-pixiu/logs/dubbo-go-access"
+	msg := "this is test msg"
+
+	conf := &AccessLogConfig{OutPutPath: filePath}
+	accessLogWriter := &AccessLogWriter{AccessLogDataChan: make(chan AccessLogData, constant.LogDataBuffer)}
+	accessLogWriter.Write()
+
+	f := &Filter{alw: accessLogWriter, conf: conf}
+
+	request, _ := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	ctx := mock.GetMockHTTPContext(request)
+	ctx.TargetResp = client.NewResponse([]byte(msg))
+
+	f.Decode(ctx)
+	f.Encode(ctx)
+
 	time.Sleep(3e9)
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {

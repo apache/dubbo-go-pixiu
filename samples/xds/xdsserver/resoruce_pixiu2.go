@@ -33,13 +33,12 @@ func makeListeners2() *pixiupb.PixiuExtensionListeners {
 			Name: "net/http889",
 			Address: &pixiupb.Address{
 				SocketAddress: &pixiupb.SocketAddress{
-					ProtocolStr: "http",
-					Address:     "0.0.0.0",
-					Port:        8889,
+					Address: "0.0.0.0",
+					Port:    8889,
 				},
 				Name: "http_8889",
 			},
-			FilterChains: makeHttpFilter(),
+			FilterChain: makeHttpFilter(),
 		},
 	}}
 }

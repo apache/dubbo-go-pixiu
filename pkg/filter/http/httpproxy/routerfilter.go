@@ -25,7 +25,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -46,12 +45,15 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
-	// Filter is http filter instance
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *Config
+	}
+	//Filter
 	Filter struct {
-		cfg       *Config
 		transport http3.RoundTripper
 	}
-	// Config describe the config of Filter
+	// Config describe the config of FilterFactory
 	Config struct{}
 )
 
@@ -59,24 +61,25 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &Config{}, transport: &http3.Transport{}}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{transport: &http3.Transport{}}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(hc *http.HttpContext) {
+func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
@@ -88,27 +91,12 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
 		bt, _ := json.Marshal(http.ErrResponse{Message: "cluster not found endpoint"})
-		hc.SourceResp = bt
-		hc.TargetResp = &client.Response{Data: bt}
-		hc.WriteJSONWithStatus(http3.StatusServiceUnavailable, bt)
-		hc.Abort()
-		return
+		hc.SendLocalReply(http3.StatusServiceUnavailable, bt)
+		return filter.Stop
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint :%v", endpoint.Address.GetAddress())
 	r := hc.Request
-
-	var errPrefix string
-	defer func() {
-		if err := recover(); err != nil {
-			bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("remoteFilterErr: %s: %v", errPrefix, err)})
-			hc.SourceResp = bt
-			hc.TargetResp = &client.Response{Data: bt}
-			hc.WriteJSONWithStatus(http3.StatusServiceUnavailable, bt)
-			hc.Abort()
-			return
-		}
-	}()
 
 	var (
 		req *http3.Request
@@ -125,15 +113,11 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 	req, err = http3.NewRequest(r.Method, parsedURL.String(), r.Body)
 	if err != nil {
 		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
-		hc.SourceResp = bt
-		hc.TargetResp = &client.Response{Data: bt}
-		hc.WriteJSONWithStatus(http3.StatusInternalServerError, bt)
-		hc.Abort()
-		return
+		hc.SendLocalReply(http3.StatusInternalServerError, bt)
+		return filter.Stop
 	}
 	req.Header = r.Header
 
-	errPrefix = "do request"
 	resp, err := (&http3.Client{Transport: f.transport}).Do(req)
 	if err != nil {
 		panic(err)
@@ -141,6 +125,6 @@ func (f *Filter) Handle(hc *http.HttpContext) {
 	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
 
 	hc.SourceResp = resp
-	// response write in response filter.
-	hc.Next()
+	// response write in hcm
+	return filter.Continue
 }

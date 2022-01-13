@@ -50,6 +50,15 @@ type (
 	// MetricFilter is http Filter plugin.
 	Plugin struct {
 	}
+	// FilterFactory is http Filter instance
+	FilterFactory struct {
+		conf              *Seata
+		transactionInfos  map[string]*TransactionInfo
+		tccResources      map[string]*TCCResource
+		transactionClient apis.TransactionManagerServiceClient
+		resourceClient    apis.ResourceManagerServiceClient
+		branchMessages    chan *apis.BranchMessage
+	}
 	// Filter is http Filter instance
 	Filter struct {
 		conf              *Seata
@@ -58,6 +67,9 @@ type (
 		transactionClient apis.TransactionManagerServiceClient
 		resourceClient    apis.ResourceManagerServiceClient
 		branchMessages    chan *apis.BranchMessage
+
+		globalResult         bool
+		branchRegisterResult bool
 	}
 )
 
@@ -65,8 +77,8 @@ func (ap *Plugin) Kind() string {
 	return Kind
 }
 
-func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{
+func (ap *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{
 		conf:             &Seata{},
 		transactionInfos: make(map[string]*TransactionInfo),
 		tccResources:     make(map[string]*TCCResource),
@@ -74,68 +86,75 @@ func (ap *Plugin) CreateFilter() (filter.HttpFilter, error) {
 	}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.conf
+func (factory *FilterFactory) Config() interface{} {
+	return factory.conf
 }
 
-func (f *Filter) Apply() error {
-	conn, err := grpc.Dial(f.conf.ServerAddressing,
+func (factory *FilterFactory) Apply() error {
+	conn, err := grpc.Dial(factory.conf.ServerAddressing,
 		grpc.WithInsecure(),
-		grpc.WithKeepaliveParams(f.conf.GetClientParameters()))
+		grpc.WithKeepaliveParams(factory.conf.GetClientParameters()))
 	if err != nil {
 		return err
 	}
 
-	f.transactionClient = apis.NewTransactionManagerServiceClient(conn)
-	f.resourceClient = apis.NewResourceManagerServiceClient(conn)
+	factory.transactionClient = apis.NewTransactionManagerServiceClient(conn)
+	factory.resourceClient = apis.NewResourceManagerServiceClient(conn)
 
 	runtime.GoWithRecover(func() {
-		f.branchCommunicate()
+		factory.branchCommunicate()
 	}, nil)
 
-	for _, ti := range f.conf.TransactionInfos {
-		f.transactionInfos[ti.RequestPath] = ti
+	for _, ti := range factory.conf.TransactionInfos {
+		factory.transactionInfos[ti.RequestPath] = ti
 	}
 
-	for _, r := range f.conf.TCCResources {
-		f.tccResources[r.PrepareRequestPath] = r
+	for _, r := range factory.conf.TCCResources {
+		factory.tccResources[r.PrepareRequestPath] = r
 	}
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{
+		conf:              factory.conf,
+		transactionInfos:  factory.transactionInfos,
+		tccResources:      factory.tccResources,
+		transactionClient: factory.transactionClient,
+		resourceClient:    factory.resourceClient,
+		branchMessages:    factory.branchMessages,
+	}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(ctx *http.HttpContext) {
+func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	path := ctx.Request.URL.Path
 	method := ctx.Request.Method
 
 	if method != netHttp.MethodPost {
-		ctx.Next()
-		return
+		return filter.Continue
 	}
 
 	transactionInfo, found := f.transactionInfos[strings.ToLower(path)]
 	if found {
-		result := f.handleHttp1GlobalBegin(ctx, transactionInfo)
-		ctx.Next()
-		if result {
-			f.handleHttp1GlobalEnd(ctx)
-		}
-	} else {
-		ctx.Next()
+		f.globalResult = f.handleHttp1GlobalBegin(ctx, transactionInfo)
 	}
 
 	tccResource, exists := f.tccResources[strings.ToLower(path)]
 	if exists {
-		result := f.handleHttp1BranchRegister(ctx, tccResource)
-		ctx.Next()
-		if result {
-			f.handleHttp1BranchEnd(ctx)
-		}
-	} else {
-		ctx.Next()
+		f.branchRegisterResult = f.handleHttp1BranchRegister(ctx, tccResource)
 	}
+	return filter.Continue
+}
+
+func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus {
+	if f.globalResult {
+		f.handleHttp1GlobalEnd(ctx)
+	}
+
+	if f.branchRegisterResult {
+		f.handleHttp1BranchEnd(ctx)
+	}
+	return filter.Continue
 }
