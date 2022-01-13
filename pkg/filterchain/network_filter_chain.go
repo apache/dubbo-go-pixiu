@@ -90,16 +90,19 @@ func CreateNetworkFilterChain(config model.FilterChain, bs *model.Bootstrap) *Ne
 		p, err := filter.GetNetworkFilterPlugin(f.Name)
 		if err != nil {
 			logger.Error("CreateNetworkFilterChain %s getNetworkFilterPlugin error %s", f.Name, err)
+			continue
 		}
 
 		config := p.Config()
 		if err := yaml.ParseConfig(config, f.Config); err != nil {
 			logger.Error("CreateNetworkFilterChain %s parse config error %s", f.Name, err)
+			continue
 		}
 
 		filter, err := p.CreateFilter(config, bs)
 		if err != nil {
 			logger.Error("CreateNetworkFilterChain %s createFilter error %s", f.Name, err)
+			continue
 		}
 		filters = append(filters, filter)
 	}

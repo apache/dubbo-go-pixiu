@@ -46,7 +46,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// HttpConnectionManager network filter for http
+// DubboProxyConnectionManager network filter for dubbo
 type DubboProxyConnectionManager struct {
 	filter.EmptyNetworkFilter
 	config            *model.DubboProxyConnectionManagerConfig
