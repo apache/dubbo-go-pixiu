@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	gxruntime "github.com/dubbogo/gost/runtime"
 	"github.com/spf13/cobra"
 )
 
@@ -147,7 +148,7 @@ func initLimitCpus() error {
 		return err
 	}
 	if limitCpuNumber <= 0 {
-		runtime.GOMAXPROCS(runtime.NumCPU())
+		runtime.GOMAXPROCS(gxruntime.GetCPUNum())
 	} else {
 		runtime.GOMAXPROCS(int(limitCpuNumber))
 	}

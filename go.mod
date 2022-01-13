@@ -12,9 +12,9 @@ require (
 	github.com/cch123/supermonkey v1.0.0
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5-0.20220113152534-7cf0b20ea167
-	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.20-0.20211116110728-26777ca61b4a
-	github.com/envoyproxy/go-control-plane v0.10.0
+	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
+	github.com/dubbogo/gost v1.11.22
+	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-playground/assert/v2 v2.0.1
@@ -55,7 +55,4 @@ require (
 )
 
 //replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
-
 replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1
-
-replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.10.1
