@@ -40,9 +40,8 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 				Endpoints: &pixiupb.Endpoint{
 					Id: "backend",
 					Address: &pixiupb.SocketAddress{
-						ProtocolStr: "http",
-						Address:     "httpbin.org",
-						Port:        80,
+						Address: "httpbin.org",
+						Port:    80,
 					},
 				},
 			},
@@ -60,9 +59,8 @@ func getCdsConfig() *core.TypedExtensionConfig {
 					Endpoints: &pixiupb.Endpoint{
 						Id: "backend",
 						Address: &pixiupb.SocketAddress{
-							ProtocolStr: "http",
-							Address:     "httpbin.org",
-							Port:        80,
+							Address: "httpbin.org",
+							Port:    80,
 						},
 					},
 				},
@@ -167,5 +165,4 @@ func TestCdsManager_makeCluster(t *testing.T) {
 	assert.Equal(cluster.Endpoints.Name, modelCluster.Endpoints[0].Name)
 	assert.Equal(cluster.Endpoints.Address.Address, modelCluster.Endpoints[0].Address.Address)
 	assert.Equal(cluster.Endpoints.Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
-	assert.Equal(cluster.Endpoints.Address.ProtocolStr, modelCluster.Endpoints[0].Address.ProtocolStr)
 }

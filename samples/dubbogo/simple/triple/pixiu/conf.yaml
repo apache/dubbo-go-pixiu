@@ -20,13 +20,12 @@
 static_resources:
   listeners:
     - name: "net/http"
+      protocol_type: "HTTP"
       address:
         socket_address:
-          protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 8881
       filter_chains:
-        - filter_chain_match:
           filters:
             - name: dgp.filter.httpconnectionmanager
               config:
@@ -41,8 +40,7 @@ static_resources:
                       dynamic_adapter: test
                   - name: dgp.filter.http.loadbalance
                   - name: dgp.filter.http.dubboproxy
-                  - name: dgp.filter.http.response
-                    config:
+
                       generate_request_id: false
       config:
         idle_timeout: 5s

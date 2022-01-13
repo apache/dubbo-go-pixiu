@@ -18,42 +18,58 @@
 package server
 
 import (
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/listener"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"runtime/debug"
 )
 
-type ListenerManager struct {
-	activeListener        []*model.Listener
-	activeListenerService []*ListenerService
-	bootstrap             *model.Bootstrap
+// wrapListenerService wrap listener service and its configuration.
+type wrapListenerService struct {
+	listener.ListenerService
+	cfg *model.Listener
 }
 
+// ListenerManager the listener manager
+type ListenerManager struct {
+	activeListener        []*model.Listener
+	bootstrap             *model.Bootstrap
+	activeListenerService []*wrapListenerService
+}
+
+// CreateDefaultListenerManager create listener manager from config
 func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	sl := bs.GetStaticListeners()
-	var ls []*ListenerService
-	for _, l := range bs.StaticResources.Listeners {
-		listener := CreateListenerService(l, bs)
-		ls = append(ls, listener)
+	var listeners []*wrapListenerService
+	for _, lsCof := range bs.StaticResources.Listeners {
+		ls, err := listener.CreateListenerService(lsCof, bs)
+		if err != nil {
+			logger.Error("CreateDefaultListenerManager %s error: %v", lsCof.Name, err)
+		}
+		listeners = append(listeners, &wrapListenerService{ls, lsCof})
 	}
 
 	return &ListenerManager{
 		activeListener:        sl,
-		activeListenerService: ls,
+		activeListenerService: listeners,
 		bootstrap:             bs,
 	}
 }
 
-func (lm *ListenerManager) AddOrUpdateListener(l *model.Listener) {
+func (lm *ListenerManager) AddOrUpdateListener(lsConf *model.Listener) error {
 	//todo add sync lock for concurrent using
-	if theListener := lm.getListener(l.Name); theListener != nil {
-		lm.updateListener(theListener, l)
-		return
+	if theListener := lm.getListener(lsConf.Name); theListener != nil {
+		lm.updateListener(theListener, lsConf)
+		return nil
 	}
-	listener := CreateListenerService(l, lm.bootstrap)
-	lm.startListenerServiceAsync(listener)
-	lm.addListenerService(listener)
-	lm.activeListener = append(lm.activeListener, l)
+	ls, err := listener.CreateListenerService(lsConf, lm.bootstrap)
+	if err != nil {
+		return err
+	}
+	lm.startListenerServiceAsync(ls)
+	lm.addListenerService(ls, lsConf)
+	lm.activeListener = append(lm.activeListener, lsConf)
+	return nil
 }
 
 func (lm *ListenerManager) updateListener(listener *model.Listener, to *model.Listener) {
@@ -76,7 +92,7 @@ func (lm *ListenerManager) StartListen() {
 	}
 }
 
-func (lm *ListenerManager) startListenerServiceAsync(s *ListenerService) chan<- struct{} {
+func (lm *ListenerManager) startListenerServiceAsync(s listener.ListenerService) chan<- struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer func() {
@@ -87,16 +103,19 @@ func (lm *ListenerManager) startListenerServiceAsync(s *ListenerService) chan<- 
 			}
 			close(done)
 		}()
-		s.Start()
+		err := s.Start()
+		if err != nil {
+
+		}
 	}()
 	return done
 }
 
-func (lm *ListenerManager) addListenerService(ls *ListenerService) {
-	lm.activeListenerService = append(lm.activeListenerService, ls)
+func (lm *ListenerManager) addListenerService(ls listener.ListenerService, lsConf *model.Listener) {
+	lm.activeListenerService = append(lm.activeListenerService, &wrapListenerService{ls, lsConf})
 }
 
-func (lm *ListenerManager) GetListenerService(name string) *ListenerService {
+func (lm *ListenerManager) GetListenerService(name string) listener.ListenerService {
 	for i := range lm.activeListenerService {
 		if lm.activeListenerService[i].cfg.Name == name {
 			return lm.activeListenerService[i]

@@ -49,13 +49,16 @@ func init() {
 }
 
 type (
-	// Filter is http filter plugin.
+	// FilterFactory is http filter plugin.
 	Plugin struct {
 	}
-	// Filter is http filter instance
-	Filter struct {
+	// FilterFactory is http filter instance
+	FilterFactory struct {
 	}
-	// Config describe the config of Filter
+	Filter struct {
+		start time.Time
+	}
+	// Config describe the config of FilterFactory
 	Config struct{}
 )
 
@@ -63,37 +66,40 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	registerOtelMetric()
-	return &Filter{}, nil
+	return &FilterFactory{}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return nil
+func (factory *FilterFactory) Config() interface{} {
+	return struct{}{}
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	// init
 	registerOtelMetric()
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{}
+	chain.AppendDecodeFilters(f)
+	chain.AppendEncodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(c *http.HttpContext) {
-	start := time.Now()
+func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
+	f.start = time.Now()
+	return filter.Continue
+}
 
-	c.Next()
-
-	latency := time.Since(start)
+func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
+	latency := time.Since(f.start)
 	atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
 	atomic.AddInt64(&totalCount, 1)
 
-	//todo status code
-	logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", nil, latency, c.GetMethod(), c.GetUrl())
+	logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.GetStatusCode(), latency, c.GetMethod(), c.GetUrl())
+	return filter.Continue
 }
 
 func registerOtelMetric() {

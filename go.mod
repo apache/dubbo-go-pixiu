@@ -3,20 +3,21 @@ module github.com/apache/dubbo-go-pixiu
 go 1.15
 
 require (
-	dubbo.apache.org/dubbo-go/v3 v3.0.0-rc4-1
+	dubbo.apache.org/dubbo-go/v3 v3.0.0
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2
 	github.com/apache/dubbo-go v1.5.7
-	github.com/apache/dubbo-go-hessian2 v1.9.5
+	github.com/apache/dubbo-go-hessian2 v1.10.0
 	github.com/cch123/supermonkey v1.0.0
 	github.com/creasty/defaults v1.5.2
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20211231013020-b56b3f9d88b1
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
 	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.19
-	github.com/envoyproxy/go-control-plane v0.10.1
+	github.com/dubbogo/gost v1.11.20-0.20211116110728-26777ca61b4a
+	github.com/envoyproxy/go-control-plane v0.10.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
+	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
@@ -24,7 +25,7 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mercari/grpc-http-proxy v0.1.2
-	github.com/mitchellh/mapstructure v1.4.2
+	github.com/mitchellh/mapstructure v1.4.3
 	github.com/nacos-group/nacos-sdk-go v1.0.9
 	github.com/opentrx/seata-golang/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
@@ -45,6 +46,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.0.0-RC2
 	go.uber.org/zap v1.19.1
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/net v0.0.0-20211105192438-b53810dc28af
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -52,4 +54,9 @@ require (
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 
+//replace github.com/dubbogo/dubbo-go-pixiu-filter => github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5-0.20211231013020-b56b3f9d88b1
+replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
+
 replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1
+
+replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.10.1

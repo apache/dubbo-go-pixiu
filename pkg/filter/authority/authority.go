@@ -39,7 +39,10 @@ type (
 	// AuthorityPlugin is http filter plugin.
 	Plugin struct {
 	}
-	// Filter is http filter instance
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *AuthorityConfiguration
+	}
 	Filter struct {
 		cfg *AuthorityConfiguration
 	}
@@ -49,24 +52,25 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{cfg: &AuthorityConfiguration{}}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{cfg: &AuthorityConfiguration{}}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{cfg: factory.cfg}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(c *http.HttpContext) {
+func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	for _, r := range f.cfg.Rules {
 		item := c.GetClientIP()
 		if r.Limit == App {
@@ -75,13 +79,11 @@ func (f *Filter) Handle(c *http.HttpContext) {
 
 		result := passCheck(item, r)
 		if !result {
-			c.WriteWithStatus(nh.StatusForbidden, constant.Default403Body)
-			c.Abort()
-			return
+			c.SendLocalReply(nh.StatusForbidden, constant.Default403Body)
+			return filter.Stop
 		}
 	}
-
-	c.Next()
+	return filter.Continue
 }
 
 func passCheck(item string, rule AuthorityRule) bool {

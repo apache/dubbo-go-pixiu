@@ -24,7 +24,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
 	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
-	"strings"
 )
 
 type CdsManager struct {
@@ -164,18 +163,12 @@ func (c *CdsManager) makeAddress(endpoint *xdspb.Endpoint) model.SocketAddress {
 		return model.SocketAddress{}
 	}
 	return model.SocketAddress{
-		ProtocolStr:  endpoint.Address.ProtocolStr,
-		Protocol:     c.makeProtocol(endpoint),
 		Address:      endpoint.Address.Address,
 		Port:         int(endpoint.Address.Port),
 		ResolverName: endpoint.Address.ResolverName,
 		Domains:      endpoint.Address.Domains,
 		CertsDir:     endpoint.Address.CertsDir,
 	}
-}
-
-func (c *CdsManager) makeProtocol(endpoint *xdspb.Endpoint) model.ProtocolType {
-	return model.ProtocolType(model.ProtocolTypeValue[strings.ToUpper(endpoint.Address.ProtocolStr)])
 }
 
 func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []model.HealthCheck) {
