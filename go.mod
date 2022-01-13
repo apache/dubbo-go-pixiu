@@ -10,8 +10,8 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.10.0
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
-	github.com/dubbogo/go-zookeeper v1.0.3
-	github.com/dubbogo/gost v1.11.20-0.20211116110728-26777ca61b4a
+	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
+	github.com/dubbogo/gost v1.11.22
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-playground/assert/v2 v2.0.1
