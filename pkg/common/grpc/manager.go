@@ -59,7 +59,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
-		logger.Info("GrpcConnectionManager can't find route %v", err)
+		logger.Infof("GrpcConnectionManager can't find route %v", err)
 		w.WriteHeader(stdHttp.StatusNotFound)
 		if _, err := w.Write(constant.Default404Body); err != nil {
 			logger.Warnf("WriteWithStatus error %v", err)
@@ -87,7 +87,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	res, err := forwarder.Forward(newReq)
 
 	if err != nil {
-		logger.Info("GrpcConnectionManager forward request error %v", err)
+		logger.Infof("GrpcConnectionManager forward request error %v", err)
 		bt, _ := json.Marshal(http.ErrResponse{Message: "pixiu forward error"})
 		w.WriteHeader(stdHttp.StatusServiceUnavailable)
 		w.Write(bt)
@@ -95,7 +95,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	}
 
 	if err := gcm.response(w, res); err != nil {
-		logger.Info("GrpcConnectionManager response  error %v", err)
+		logger.Infof("GrpcConnectionManager response  error %v", err)
 	}
 }
 
