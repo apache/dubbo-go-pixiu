@@ -34,8 +34,9 @@ func (d *DiscoveryPlugin) Kind() string {
 
 func (d *DiscoveryPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
 	return &Adapter{
-		ID:   ad.ID,
-		Name: ad.Name,
-		cfg:  &AdapterConfig{},
+		ID:     ad.ID,
+		Name:   ad.Name,
+		cfg:    &AdapterConfig{},
+		exitCh: make(chan struct{}),
 	}, nil
 }

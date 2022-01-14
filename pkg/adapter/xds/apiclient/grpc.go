@@ -120,54 +120,77 @@ func (g *GrpcApiClient) Delta() (chan *DeltaResources, error) {
 }
 
 func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
-	delta, err := g.sendInitDeltaRequest()
-	if err != nil {
-		return err
+	var delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient
+	backoff := func() {
+		for {
+			//back off
+			var err error
+			delta, err = g.sendInitDeltaRequest()
+			if err != nil {
+				logger.Error("can not receive delta discovery request, will back off 1 sec later", err)
+				select {
+				case <-time.After(1 * time.Second):
+				case <-g.exitCh:
+					logger.Infof("get close single.")
+					return
+				}
+
+				continue //backoff
+			}
+			return //success
+		}
 	}
+	backoff()
 	//get message
 	go func() {
-		for {
-			resp, err := delta.Recv()
-			if err != nil { //todo backoff retry
-				logger.Error("can not recv delta discovery request", err)
-				break
-			}
-			// save the xds state
-			g.xdsState.deltaVersion = make(map[string]string, 1)
-			g.xdsState.nonce = resp.Nonce
-
-			resources := &DeltaResources{
-				NewResources:    make([]*ProtoAny, 0, 1),
-				RemovedResource: make([]string, 0, 1),
-			}
-			logger.Infof("get xDS message nonce, %s", resp.Nonce)
-			for _, res := range resp.RemovedResources {
-				logger.Infof("remove resource found ", res)
-				resources.RemovedResource = append(resources.RemovedResource, res)
-			}
-
-			for _, res := range resp.Resources {
-				logger.Infof("new resource found %s version=%s", res.Name, res.Version)
-				g.xdsState.deltaVersion[res.Name] = res.Version
-				elems, err := g.decodeSource(res.Resource)
-				if err != nil {
-					logger.Infof("can not decode source %s version=%s", res.Name, res.Version, err)
+		for { // delta response backoff.
+			for { //loop consume recv data form xds server(sendInitDeltaRequest)
+				resp, err := delta.Recv()
+				if err != nil { //todo backoff retry
+					logger.Error("can not receive delta discovery request", err)
+					break
 				}
-				resources.NewResources = append(resources.NewResources, elems)
-			}
-			//notify the resource change handler
-			output <- resources
+				g.handleDeltaResponse(resp, output)
 
-			err = g.subscribeOnGoingChang(delta)
-			if err != nil {
-				logger.Error("can not recv delta discovery request; backoff 1 second later", err)
-				time.Sleep(1 * time.Second)
-				continue
+				err = g.subscribeOnGoingChang(delta)
+				if err != nil {
+					logger.Error("can not recv delta discovery request", err)
+					break
+				}
 			}
+			backoff()
 		}
 	}()
 
 	return nil
+}
+
+func (g *GrpcApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResponse, output chan<- *DeltaResources) {
+	// save the xds state
+	g.xdsState.deltaVersion = make(map[string]string, 1)
+	g.xdsState.nonce = resp.Nonce
+
+	resources := &DeltaResources{
+		NewResources:    make([]*ProtoAny, 0, 1),
+		RemovedResource: make([]string, 0, 1),
+	}
+	logger.Infof("get xDS message nonce, %s", resp.Nonce)
+	for _, res := range resp.RemovedResources {
+		logger.Infof("remove resource found ", res)
+		resources.RemovedResource = append(resources.RemovedResource, res)
+	}
+
+	for _, res := range resp.Resources {
+		logger.Infof("new resource found %s version=%s", res.Name, res.Version)
+		g.xdsState.deltaVersion[res.Name] = res.Version
+		elems, err := g.decodeSource(res.Resource)
+		if err != nil {
+			logger.Infof("can not decode source %s version=%s", res.Name, res.Version, err)
+		}
+		resources.NewResources = append(resources.NewResources, elems)
+	}
+	//notify the resource change handler
+	output <- resources
 }
 
 func (g *GrpcApiClient) subscribeOnGoingChang(delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient) error {
