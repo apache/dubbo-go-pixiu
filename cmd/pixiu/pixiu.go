@@ -36,8 +36,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/pluginregistry"
-	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
-	_ "github.com/apache/dubbo-go/metadata/service/inmemory"
 )
 
 var (
