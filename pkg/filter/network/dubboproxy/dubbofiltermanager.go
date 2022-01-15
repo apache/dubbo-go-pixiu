@@ -44,16 +44,19 @@ func createDubboFilter(fs []*model.DubboFilter) []filter.DubboFilter {
 		p, err := filter.GetDubboFilterPlugin(f.Name)
 		if err != nil {
 			logger.Error("createDubboFilter %s getNetworkFilterPlugin error %s", f.Name, err)
+			continue
 		}
 
 		config := p.Config()
 		if err := yaml.ParseConfig(config, f.Config); err != nil {
 			logger.Error("createDubboFilter %s parse config error %s", f.Name, err)
+			continue
 		}
 
 		filter, err := p.CreateFilter(config)
 		if err != nil {
 			logger.Error("createDubboFilter %s createFilter error %s", f.Name, err)
+			continue
 		}
 		filters = append(filters, filter)
 	}
