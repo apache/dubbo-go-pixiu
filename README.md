@@ -238,4 +238,4 @@ We welcome the friends who can give us constructing suggestions instead of known
 
 ## License
 
-Apache License, Version 2.0
+![Apache License, Version 2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)
