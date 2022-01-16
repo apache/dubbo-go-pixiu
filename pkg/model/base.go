@@ -42,20 +42,6 @@ const (
 )
 
 const (
-	ProtocolTypeHTTP ProtocolType = 0 + iota // support for 1.0
-	ProtocolTypeTCP
-	ProtocolTypeUDP
-	ProtocolTypeHTTPS
-	ProtocolTypeGRPC
-)
-
-const (
-	REST_VALUE  = "REST"
-	GRPC_VALUE  = "GRPC"
-	DUBBO_VALUE = "DUBBO"
-)
-
-const (
 	ApiTypeREST api.ApiType = 0 + iota // support for 1.0
 	ApiTypeGRPC
 	ApiTypeDUBBO
@@ -74,24 +60,6 @@ var (
 		"Unknown": 2,
 	}
 
-	// ProtocolTypeName enum seq to protocol type name
-	ProtocolTypeName = map[int32]string{
-		0: "HTTP",
-		1: "TCP",
-		2: "UDP",
-		3: "HTTPS",
-		4: "GRPC",
-	}
-
-	// ProtocolTypeValue protocol type name to enum seq
-	ProtocolTypeValue = map[string]int32{
-		"HTTP":  0,
-		"TCP":   1,
-		"UDP":   2,
-		"HTTPS": 3,
-		"GRPC":  4,
-	}
-
 	ApiTypeName = map[int32]string{
 		0: REST_VALUE,
 		1: GRPC_VALUE,
@@ -106,8 +74,6 @@ var (
 )
 
 type (
-	// ProtocolType protocol type enum
-	ProtocolType int32
 
 	// Address the address
 	Address struct {
@@ -119,13 +85,11 @@ type (
 	// used to tell server where to bind/listen, connect to upstream and find
 	// management servers
 	SocketAddress struct {
-		ProtocolStr  string       `yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`
-		Protocol     ProtocolType `default:"http" yaml:"omitempty" json:"omitempty"`
-		Address      string       `default:"0.0.0.0" yaml:"address" json:"address" mapstructure:"address"`
-		Port         int          `default:"8881" yaml:"port" json:"port" mapstructure:"port"`
-		ResolverName string       `yaml:"resolver_name" json:"resolver_name" mapstructure:"resolver_name"`
-		Domains      []string     `yaml:"domains" json:"domains" mapstructure:"domains"`
-		CertsDir     string       `yaml:"certs_dir" json:"certs_dir" mapstructure:"certs_dir"`
+		Address      string   `default:"0.0.0.0" yaml:"address" json:"address" mapstructure:"address"`
+		Port         int      `default:"8881" yaml:"port" json:"port" mapstructure:"port"`
+		ResolverName string   `yaml:"resolver_name" json:"resolver_name" mapstructure:"resolver_name"`
+		Domains      []string `yaml:"domains" json:"domains" mapstructure:"domains"`
+		CertsDir     string   `yaml:"certs_dir" json:"certs_dir" mapstructure:"certs_dir"`
 	}
 
 	// ConfigSource

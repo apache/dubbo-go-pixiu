@@ -71,18 +71,22 @@ type (
 	}
 )
 
-func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) {
+func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string) (*RouteAction, error) {
 	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
 
-	node, _, _ := rc.RouteTrie.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
+	node, _, _ := rc.RouteTrie.Match(stringutil.GetTrieKey(method, path))
 	if node == nil {
-		return nil, errors.Errorf("route failed for %s,no rules matched.", stringutil.GetTrieKey(req.Method, req.URL.Path))
+		return nil, errors.Errorf("route failed for %s,no rules matched.", stringutil.GetTrieKey(method, path))
 	}
 	if node.GetBizInfo() == nil {
 		return nil, errors.Errorf("info is nil.please check your configuration.")
 	}
 	ret := (node.GetBizInfo()).(RouteAction)
 	return &ret, nil
+}
+
+func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) {
+	return rc.RouteByPathAndMethod(req.URL.Path, req.Method)
 }

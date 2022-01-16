@@ -45,10 +45,7 @@ func (f *Filter) handleHttp1GlobalBegin(ctx *http.HttpContext, transactionInfo *
 	if err != nil {
 		logger.Errorf("failed to begin global transaction, transaction info: %v, err: %v",
 			transactionInfo, err)
-		ctx.Abort()
-		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to begin global transaction, %v", err),
-		})
+		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("failed to begin global transaction, %v", err)))
 		return false
 	}
 	ctx.Params[XID] = xid
@@ -85,20 +82,14 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	xid := ctx.Request.Header.Get(XID)
 	if xid == "" {
 		logger.Error("failed to get xid from request header")
-		ctx.Abort()
-		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
-			"error": "failed to get xid from request header",
-		})
+		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte("failed to get xid from request header"))
 		return false
 	}
 
 	bodyBytes, err := ioutil.ReadAll(ctx.Request.Body)
 	if err != nil {
 		logger.Error(err)
-		ctx.Abort()
-		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
-			"error": "failed to retrieve request body",
-		})
+		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte("failed to retrieve request body"))
 		return false
 	}
 
@@ -121,10 +112,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
-		ctx.Abort()
-		ctx.WriteJSONWithStatus(netHttp.StatusServiceUnavailable, map[string]string{
-			"error": "cluster not found endpoint",
-		})
+		ctx.SendLocalReply(netHttp.StatusServiceUnavailable, []byte("cluster not found endpoint"))
 		return false
 	}
 
@@ -139,20 +127,14 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	data, err := requestContext.Encode()
 	if err != nil {
 		logger.Errorf("encode request context failed, request context: %v, err: %v", requestContext, err)
-		ctx.Abort()
-		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("encode request context failed, %v", err),
-		})
+		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("encode request context failed, %v", err)))
 		return false
 	}
 
 	branchID, err := f.branchRegister(ctx.Ctx, xid, tccResource.PrepareRequestPath, apis.TCC, data, "")
 	if err != nil {
 		logger.Errorf("branch transaction register failed, xid: %s, err: %v", xid, err)
-		ctx.Abort()
-		ctx.WriteJSONWithStatus(netHttp.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("branch transaction register failed, %v", err),
-		})
+		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("branch transaction register failed, %v", err)))
 		return false
 	}
 	ctx.Params[XID] = xid

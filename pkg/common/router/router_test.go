@@ -53,7 +53,7 @@ func TestCreateRouterCoordinator(t *testing.T) {
 		IdleTimeoutStr:    "100",
 	}
 
-	r := CreateRouterCoordinator(&hcmc)
+	r := CreateRouterCoordinator(&hcmc.RouteConfig)
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/api/v1?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request)

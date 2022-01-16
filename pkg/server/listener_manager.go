@@ -18,19 +18,26 @@
 package server
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/listener"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+// ListenerManager the listener manager
 type ListenerManager struct {
 	activeListener        []*model.Listener
-	activeListenerService []*ListenerService
+	activeListenerService []listener.ListenerService
 }
 
+// CreateDefaultListenerManager create listener manager from config
 func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	sl := bs.GetStaticListeners()
-	var ls []*ListenerService
+	var ls []listener.ListenerService
 	for _, l := range bs.StaticResources.Listeners {
-		listener := CreateListenerService(l, bs)
+		listener, err := listener.CreateListenerService(l, bs)
+		if err != nil {
+			logger.Error("CreateDefaultListenerManager %s error: %v", l.Name, err)
+		}
 		ls = append(ls, listener)
 	}
 
@@ -44,21 +51,15 @@ func (lm *ListenerManager) addOrUpdateListener(l *model.Listener) {
 	lm.activeListener = append(lm.activeListener, l)
 }
 
+// StartListen make active listener to start listening
 func (lm *ListenerManager) StartListen() {
 	for _, s := range lm.activeListenerService {
-		go s.Start()
+		s := s
+		go func() {
+			err := s.Start()
+			if err != nil {
+				panic(err)
+			}
+		}()
 	}
-}
-
-func (lm *ListenerManager) addListenerService(ls *ListenerService) {
-	lm.activeListenerService = append(lm.activeListenerService, ls)
-}
-
-func (lm *ListenerManager) GetListenerService(name string) *ListenerService {
-	for i := range lm.activeListenerService {
-		if lm.activeListenerService[i].cfg.Name == name {
-			return lm.activeListenerService[i]
-		}
-	}
-	return nil
 }

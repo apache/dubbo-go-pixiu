@@ -31,7 +31,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -51,6 +50,11 @@ type (
 	Plugin struct {
 	}
 
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		conf    *Config
+		matcher *Matcher
+	}
 	// Filter is http filter instance
 	Filter struct {
 		conf    *Config
@@ -62,22 +66,23 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{conf: &Config{}}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{conf: &Config{}}, nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *contexthttp.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{conf: factory.conf, matcher: factory.matcher}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(hc *contexthttp.HttpContext) {
+func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	path := hc.GetUrl()
 	resourceName, ok := f.matcher.match(path)
 	//if not exists, just skip it.
 	if !ok {
-		return
+		return filter.Continue
 	}
 
 	entry, blockErr := sentinel.Entry(resourceName, sentinel.WithResourceType(base.ResTypeAPIGateway), sentinel.WithTrafficType(base.Inbound))
@@ -85,24 +90,22 @@ func (f *Filter) Handle(hc *contexthttp.HttpContext) {
 	//if blockErr not nil, indicates the request was blocked by Sentinel
 	if blockErr != nil {
 		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "blocked by rate limit"})
-		hc.SourceResp = bt
-		hc.TargetResp = &client.Response{Data: bt}
-		hc.WriteJSONWithStatus(http.StatusTooManyRequests, bt)
-		hc.Abort()
-		return
+		hc.SendLocalReply(http.StatusTooManyRequests, bt)
+		return filter.Stop
 	}
 	defer entry.Exit()
+	return filter.Continue
 }
 
-func (f *Filter) Config() interface{} {
-	return f.conf
+func (factory *FilterFactory) Config() interface{} {
+	return factory.conf
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	// init matcher
-	f.matcher = newMatcher()
-	conf := f.conf
-	f.matcher.load(conf.Resources)
+	factory.matcher = newMatcher()
+	conf := factory.conf
+	factory.matcher.load(conf.Resources)
 
 	// init sentinel
 	sentinelConf := sc.NewDefaultConfig()

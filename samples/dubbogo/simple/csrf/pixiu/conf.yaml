@@ -22,14 +22,9 @@ static_resources:
     - name: "net/http"
       address:
         socket_address:
-          protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 8888
       filter_chains:
-        - filter_chain_match:
-          domains:
-            - api.dubbo.com
-            - api.pixiu.com
           filters:
             - name: dgp.filter.httpconnectionmanager
               config:
@@ -58,8 +53,7 @@ static_resources:
                       secret: pixiu888
                       ignore_methods:
                       error_msg: "CSRF token mismatch"
-                  - name: dgp.filter.http.response
-                    config:
+
       config:
         idle_timeout: 5s
         read_timeout: 5s

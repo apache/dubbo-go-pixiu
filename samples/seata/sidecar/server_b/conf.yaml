@@ -20,16 +20,12 @@
 static_resources:
   listeners:
     - name: "net/http"
+      protocol_type: "HTTP"
       address:
         socket_address:
-          protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 2047
       filter_chains:
-        - filter_chain_match:
-          domains:
-            - api.dubbo.com
-            - api.pixiu.com
           filters:
             - name: dgp.filter.httpconnectionmanager
               config:
@@ -57,8 +53,7 @@ static_resources:
                           rollbackRequestPath: "/service-b/cancel"
                   - name: dgp.filter.http.httpproxy
                     config:
-                  - name: dgp.filter.http.response
-                    config:
+
       config:
         idle_timeout: 5s
         read_timeout: 5s

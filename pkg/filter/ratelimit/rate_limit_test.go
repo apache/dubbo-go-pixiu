@@ -28,14 +28,14 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/recovery"
 )
 
 func TestFilter(t *testing.T) {
 	factory := Plugin{}
-	f, _ := factory.CreateFilter()
+	f, _ := factory.CreateFilterFactory()
 	config, ok := f.Config().(*Config)
 	assert.True(t, ok)
 
@@ -47,7 +47,10 @@ func TestFilter(t *testing.T) {
 	err = f.Apply()
 	assert.Nil(t, err)
 
+	decoder := &Filter{conf: config, matcher: newMatcher()}
+
 	request, _ := stdHttp.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
-	c := mock.GetMockHTTPContext(request, f, recovery.GetMock())
-	c.Next()
+	c := mock.GetMockHTTPContext(request)
+	status := decoder.Decode(c)
+	assert.Equal(t, status, filter.Continue)
 }
