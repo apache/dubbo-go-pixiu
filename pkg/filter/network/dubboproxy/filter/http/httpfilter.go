@@ -42,13 +42,6 @@ import (
 )
 
 const (
-	x_dubbo_http_dubbo_version = "x-dubbo-http1.1-dubbo-version"
-	x_dubbo_service_protocol   = "x-dubbo-service-protocol"
-	x_dubbo_service_version    = "x-dubbo-service-version"
-	x_dubbo_group              = "x-dubbo-service-group"
-)
-
-const (
 	Kind = constant.DubboHttpFilter
 )
 
@@ -127,10 +120,10 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	req.Header.Set(x_dubbo_http_dubbo_version, "1.0.0")
-	req.Header.Set(x_dubbo_service_protocol, dubbo.DUBBO)
-	req.Header.Set(x_dubbo_service_version, invoc.AttachmentsByKey(constant.VersionKey, ""))
-	req.Header.Set(x_dubbo_group, invoc.AttachmentsByKey(constant.GroupKey, ""))
+	req.Header.Set(constant.DubboHttpDubboVersion, "1.0.0")
+	req.Header.Set(constant.DubboServiceProtocol, dubbo.DUBBO)
+	req.Header.Set(constant.DubboServiceVersion, invoc.AttachmentsByKey(constant.VersionKey, ""))
+	req.Header.Set(constant.DubboGroup, invoc.AttachmentsByKey(constant.GroupKey, ""))
 
 	resp, err := (&http3.Client{}).Do(req)
 	if err != nil {
