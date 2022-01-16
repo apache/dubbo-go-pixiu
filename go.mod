@@ -54,4 +54,4 @@ require (
 )
 
 //replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
-replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v0.1.1
+replace github.com/go-co-op/gocron => github.com/go-co-op/gocron v1.9.0
