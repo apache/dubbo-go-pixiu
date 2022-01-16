@@ -155,7 +155,6 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
-		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		hc.SendLocalReply(stdHttp.StatusNotFound, constant.Default404Body)
 
 		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
