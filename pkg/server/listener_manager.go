@@ -105,7 +105,7 @@ func (lm *ListenerManager) startListenerServiceAsync(s listener.ListenerService)
 		}()
 		err := s.Start()
 		if err != nil {
-
+			logger.Error("start listener service error.  %v", err)
 		}
 	}()
 	return done
