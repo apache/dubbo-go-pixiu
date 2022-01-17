@@ -15,17 +15,24 @@
  * limitations under the License.
  */
 
-package listener
+package tcp
 
 import (
-	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-getty"
 )
 
-func getTestContext() *ctxHttp.HttpContext {
+type PackageHandler struct {
+	ls *TcpListenerService
+}
 
-	hc := &ctxHttp.HttpContext{
-		Filters: []ctxHttp.FilterFunc{},
-	}
-	hc.Reset()
-	return hc
+func NewPackageHandler(ls *TcpListenerService) *PackageHandler {
+	return &PackageHandler{ls}
+}
+
+func (h *PackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
+	return h.ls.FilterChain.OnDecode(data)
+}
+
+func (h *PackageHandler) Write(ss getty.Session, p interface{}) ([]byte, error) {
+	return h.ls.FilterChain.OnEncode(p)
 }
