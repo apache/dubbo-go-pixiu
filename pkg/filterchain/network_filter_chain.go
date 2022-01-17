@@ -18,11 +18,15 @@
 package filterchain
 
 import (
+	"context"
 	"net/http"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -34,6 +38,7 @@ type NetworkFilterChain struct {
 	config       model.FilterChain
 }
 
+// ServeHTTP handle http request
 func (fc NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
@@ -41,44 +46,69 @@ func (fc NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func CreateNetworkFilterChain(config model.FilterChain, bs *model.Bootstrap) *NetworkFilterChain {
-	filtersArray := make([]filter.NetworkFilter, len(config.Filters))
-	// todo: split code block like http filter manager
+// OnDecode decode bytes received from getty listener
+func (fc NetworkFilterChain) OnDecode(data []byte) (interface{}, int, error) {
 	// todo: only one filter will exist for now, needs change when more than one
-	for i, f := range config.Filters {
-		if f.Name == constant.GRPCConnectManagerFilter {
-			gcmc := &model.GRPCConnectionManagerConfig{}
-			if err := yaml.ParseConfig(gcmc, f.Config); err != nil {
-				logger.Error("CreateNetworkFilterChain %s parse config error %s", f.Name, err)
-			}
-			p, err := filter.GetNetworkFilterPlugin(constant.GRPCConnectManagerFilter)
-			if err != nil {
-				logger.Error("CreateNetworkFilterChain %s getNetworkFilterPlugin error %s", f.Name, err)
-			}
-			filter, err := p.CreateFilter(gcmc, bs)
-			if err != nil {
-				logger.Error("CreateNetworkFilterChain %s createFilter error %s", f.Name, err)
-			}
-			filtersArray[i] = filter
-		} else if f.Name == constant.HTTPConnectManagerFilter {
-			hcmc := &model.HttpConnectionManagerConfig{}
-			if err := yaml.ParseConfig(hcmc, f.Config); err != nil {
-				logger.Error("CreateNetworkFilterChain parse %s config error %s", f.Name, err)
-			}
-			p, err := filter.GetNetworkFilterPlugin(constant.HTTPConnectManagerFilter)
-			if err != nil {
-				logger.Error("CreateNetworkFilterChain %s getNetworkFilterPlugin error %s", f.Name, err)
-			}
-			filter, err := p.CreateFilter(hcmc, bs)
-			if err != nil {
-				logger.Error("CreateNetworkFilterChain %s createFilter error %s", f.Name, err)
-			}
-			filtersArray[i] = filter
+	for _, filter := range fc.filtersArray {
+		return filter.OnDecode(data)
+	}
+	return nil, 0, errors.Errorf("filterChain don't have network filter")
+}
+
+// OnEncode encode struct to bytes sent to getty listener
+func (fc NetworkFilterChain) OnEncode(p interface{}) ([]byte, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnEncode(p)
+	}
+	return nil, errors.Errorf("filterChain don't have network filter")
+}
+
+// OnData handle dubbo rpc invocation
+func (fc NetworkFilterChain) OnData(data interface{}) (interface{}, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnData(data)
+	}
+	return nil, errors.Errorf("filterChain don't have network filter")
+}
+
+// OnTripleData handle triple rpc invocation
+func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnTripleData(ctx, methodName, arguments)
+	}
+	return nil, errors.Errorf("filterChain don't have network filter")
+}
+
+// CreateNetworkFilterChain create network filter chain
+func CreateNetworkFilterChain(config model.FilterChain, bs *model.Bootstrap) *NetworkFilterChain {
+	var filters []filter.NetworkFilter
+
+	for _, f := range config.Filters {
+		p, err := filter.GetNetworkFilterPlugin(f.Name)
+		if err != nil {
+			logger.Error("CreateNetworkFilterChain %s getNetworkFilterPlugin error %s", f.Name, err)
+			continue
 		}
+
+		config := p.Config()
+		if err := yaml.ParseConfig(config, f.Config); err != nil {
+			logger.Error("CreateNetworkFilterChain %s parse config error %s", f.Name, err)
+			continue
+		}
+
+		filter, err := p.CreateFilter(config, bs)
+		if err != nil {
+			logger.Error("CreateNetworkFilterChain %s createFilter error %s", f.Name, err)
+			continue
+		}
+		filters = append(filters, filter)
 	}
 
 	return &NetworkFilterChain{
-		filtersArray: filtersArray,
+		filtersArray: filters,
 		config:       config,
 	}
 }

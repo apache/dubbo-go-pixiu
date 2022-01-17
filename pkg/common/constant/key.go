@@ -18,8 +18,9 @@
 package constant
 
 const (
-	HTTPConnectManagerFilter = "dgp.filter.httpconnectionmanager"
-	GRPCConnectManagerFilter = "dgp.filter.grpcconnectionmanager"
+	HTTPConnectManagerFilter  = "dgp.filter.httpconnectionmanager"
+	GRPCConnectManagerFilter  = "dgp.filter.grpcconnectionmanager"
+	DubboConnectManagerFilter = "dgp.filter.network.dubboconnectionmanager"
 
 	HTTPAuthorityFilter    = "dgp.filter.http.authority"
 	HTTPProxyFilter        = "dgp.filter.http.httpproxy"
@@ -41,6 +42,9 @@ const (
 	HTTPProxyRewriteFilter = "dgp.filter.http.proxyrewrite"
 	HTTPLoadBalanceFilter  = "dgp.filter.http.loadbalance"
 	HTTPEventFilter        = "dgp.filter.http.event"
+
+	DubboHttpFilter  = "dgp.filter.dubbo.http"
+	DubboProxyFilter = "dgp.filter.dubbo.proxy"
 )
 
 const (
