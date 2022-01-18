@@ -19,7 +19,7 @@ package apiclient
 
 import (
 	"context"
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -301,7 +301,8 @@ func (g *GrpcApiClient) init() {
 	cluster, err := g.grpcMg.GetGrpcCluster(g.config.ClusterName[0])
 
 	if err != nil {
-		logger.Fatalf("get cluster for init error. error=%v", err)
+		logger.Errorf("get cluster for init error. error=%v", err)
+		panic(err)
 	}
 	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(cluster.GetConnect())
 }

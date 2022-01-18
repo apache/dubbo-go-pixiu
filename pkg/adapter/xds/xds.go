@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 	"github.com/pkg/errors"
@@ -173,7 +173,7 @@ func (a *Adapter) createApiManager(config *model.ApiConfigSource,
 	case model.ApiTypeGRPC:
 		return apiclient.CreateGrpcApiClient(config, node, &grpcClusterManager, a.exitCh, resourceTypes...)
 	default:
-		logger.Fatalf("un-support the api type %s", config.APITypeStr)
+		logger.Errorf("un-support the api type %s", config.APITypeStr)
 		return nil
 	}
 }

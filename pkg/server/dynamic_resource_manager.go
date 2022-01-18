@@ -18,7 +18,7 @@
 package server
 
 import (
-	"dubbo.apache.org/dubbo-go/v3/common/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
 	"github.com/pkg/errors"
