@@ -16,7 +16,7 @@ require (
 	github.com/dubbogo/gost v1.11.22
 	github.com/dubbogo/grpc-go v1.42.7
 	github.com/dubbogo/triple v1.1.7
-	github.com/envoyproxy/go-control-plane v0.10.0
+	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-errors/errors v1.0.1
@@ -56,5 +56,3 @@ require (
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
-
-//replace github.com/dubbogo/dubbo-go-pixiu-filter => ../dubbo-go-pixiu-filter
