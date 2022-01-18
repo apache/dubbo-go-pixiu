@@ -3,19 +3,23 @@ module github.com/apache/dubbo-go-pixiu
 go 1.15
 
 require (
-	dubbo.apache.org/dubbo-go/v3 v3.0.0
+	dubbo.apache.org/dubbo-go/v3 v3.0.1-0.20220107110037-4496cef73dba
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.2
-	github.com/apache/dubbo-go-hessian2 v1.10.0
+	github.com/apache/dubbo-getty v1.4.7-rc2
+	github.com/apache/dubbo-go-hessian2 v1.10.2
 	github.com/cch123/supermonkey v1.0.0
 	github.com/creasty/defaults v1.5.2
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5-0.20220113152534-7cf0b20ea167
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20220118135643-365966dd9079
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
 	github.com/dubbogo/gost v1.11.22
-	github.com/envoyproxy/go-control-plane v0.10.1
+	github.com/dubbogo/grpc-go v1.42.7
+	github.com/dubbogo/triple v1.1.7
+	github.com/envoyproxy/go-control-plane v0.10.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
+	github.com/go-errors/errors v1.0.1
 	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/gogo/protobuf v1.3.2
@@ -46,7 +50,7 @@ require (
 	go.uber.org/zap v1.19.1
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20211105192438-b53810dc28af
-	google.golang.org/grpc v1.42.0
+	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10

@@ -39,8 +39,20 @@ type GRPCConnectionManagerConfig struct {
 	RouteConfig RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
 }
 
+// DubboProxyConnectionManagerConfig
+type DubboProxyConnectionManagerConfig struct {
+	RouteConfig  RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
+	DubboFilters []*DubboFilter     `yaml:"dubbo_filters" json:"dubbo_filters" mapstructure:"dubbo_filters"`
+}
+
 // HTTPFilter http filter
 type HTTPFilter struct {
+	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
+	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
+}
+
+// HTTPFilter http filter
+type DubboFilter struct {
 	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
 	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
 }
