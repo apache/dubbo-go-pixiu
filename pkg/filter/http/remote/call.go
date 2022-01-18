@@ -52,13 +52,6 @@ const (
 	Kind = constant.HTTPDubboProxyFilter
 )
 
-const (
-	x_dubbo_http_dubbo_version = "x-dubbo-http1.1-dubbo-version"
-	x_dubbo_service_protocol   = "x-dubbo-service-protocol"
-	x_dubbo_service_version    = "x-dubbo-service-version"
-	x_dubbo_group              = "x-dubbo-service-group"
-)
-
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
@@ -181,7 +174,7 @@ func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 		return errors.New("http request method must be post when trying to auto resolve")
 	}
 	// header must has x-dubbo-http1.1-dubbo-version to declare using auto resolve rule
-	version := req.Header.Get(x_dubbo_http_dubbo_version)
+	version := req.Header.Get(constant.DubboHttpDubboVersion)
 	if version == "" {
 		return errors.New("http request must has x-dubbo-http1.1-dubbo-version header when trying to auto resolve")
 	}
@@ -195,7 +188,7 @@ func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	}
 
 	integrationRequest := apiConf.IntegrationRequest{}
-	resolveProtocol := req.Header.Get(x_dubbo_service_protocol)
+	resolveProtocol := req.Header.Get(constant.DubboServiceProtocol)
 	if resolveProtocol == string(apiConf.HTTPRequest) {
 		integrationRequest.RequestType = apiConf.HTTPRequest
 	} else if resolveProtocol == string(apiConf.DubboRequest) {
@@ -207,8 +200,8 @@ func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	}
 
 	dubboBackendConfig := apiConf.DubboBackendConfig{}
-	dubboBackendConfig.Version = req.Header.Get(x_dubbo_service_version)
-	dubboBackendConfig.Group = req.Header.Get(x_dubbo_group)
+	dubboBackendConfig.Version = req.Header.Get(constant.DubboServiceVersion)
+	dubboBackendConfig.Group = req.Header.Get(constant.DubboGroup)
 	integrationRequest.DubboBackendConfig = dubboBackendConfig
 
 	defaultMappingParams := []apiConf.MappingParam{

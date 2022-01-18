@@ -21,6 +21,7 @@ cur_mkfile := $(abspath $(lastword $(MAKEFILE_LIST)))
 currentPath := $(patsubst %/, %, $(dir $(cur_mkfile)))
 pixiuPath := /cmd/pixiu/
 mainPath := $(currentPath)$(pixiuPath)
+VERSION = $(shell git describe --abbrev=0  --tags $(git rev-list --tags --max-count=1) || echo "0.0.4")
 
 targetName := dubbo-go-pixiu
 
@@ -55,6 +56,13 @@ license-check-util:
 
 license-check:
 	license-header-checker -v -a -r -i vendor -i .github/actions /tmp/tools/license/license.txt . go
+
+image:
+	@docker build \
+		-t apache/$(targetName):latest \
+		-t apache/$(targetName):$(VERSION) \
+		--build-arg build=$(BUILD) --build-arg version=$(VERSION) \
+		-f Dockerfile --no-cache .
 
 test:
 	sh before_ut.sh
