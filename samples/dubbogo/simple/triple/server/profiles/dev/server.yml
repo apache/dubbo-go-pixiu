@@ -33,6 +33,7 @@ dubbo:
   provider:
     registry-ids: nacos
     services:
-      UserProvider:
-        serialization: hessian2
-        interface: com.dubbogo.pixiu.UserService
+      # you may refer to `Reference()` method defined in `protobuf/triple/helloworld.pb.go`
+      GreeterProvider:
+        # interface read from pb file
+        interface: "org.apache.dubbogo.samples.api.Greeter"

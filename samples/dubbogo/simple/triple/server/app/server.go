@@ -29,16 +29,20 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/common/logger"
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+
+	_ "github.com/dubbogo/triple/pkg/triple"
 )
 
-var survivalTimeout = int(3e9)
+var (
+	survivalTimeout = int(3 * time.Second)
+)
 
-// they are necessary:
-// 		export CONF_PROVIDER_FILE_PATH="xxx"
-// 		export APP_LOG_CONF_FILE="xxx"
+// export DUBBO_GO_CONFIG_PATH=$PATH_TO_SAMPLES/rpc/triple/pb/dubbogo-grpc/server/dubbogo-server/conf/dubbogo.yml
 func main() {
-	config.Load()
-
+	config.SetProviderService(&GreeterProvider{})
+	if err := config.Load(); err != nil {
+		panic(err)
+	}
 	initSignal()
 }
 
@@ -53,6 +57,7 @@ func initSignal() {
 		case syscall.SIGHUP:
 			// reload()
 		default:
+			time.Sleep(time.Second * 5)
 			time.AfterFunc(time.Duration(survivalTimeout), func() {
 				logger.Warnf("app exit now by force...")
 				os.Exit(1)
