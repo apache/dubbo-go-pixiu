@@ -39,6 +39,7 @@ type APIDiscoveryService interface {
 	pc.APIConfigResourceListener
 	InitAPIsFromConfig(apiConfig config.APIConfig) error
 	AddAPI(fr.API) error
+	AddOrUpdateAPI(fr.API) error
 	ClearAPI() error
 	GetAPI(string, config.HTTPVerb) (fr.API, error)
 	MatchAPI(string, config.HTTPVerb) (fr.API, error)
@@ -62,6 +63,11 @@ func NewLocalMemoryAPIDiscoveryService() *LocalMemoryAPIDiscoveryService {
 // AddAPI adds a method to the router tree
 func (l *LocalMemoryAPIDiscoveryService) AddAPI(api fr.API) error {
 	return l.router.PutAPI(api)
+}
+
+// AddOrUpdateAPI adds or updates a method to the router tree
+func (l *LocalMemoryAPIDiscoveryService) AddOrUpdateAPI(api fr.API) error {
+	return l.router.PutOrUpdateAPI(api)
 }
 
 // GetAPI returns the method to the caller
