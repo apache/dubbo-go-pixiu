@@ -103,6 +103,12 @@ docker-up:
 	$(info   >  Starting dependency services with $(PROJECT_DIR)/docker/docker-compose.yml)
 	@-test -f $(PROJECT_DIR)/docker/docker-compose.yml && docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml up -d
 
+## docker-health-check: check services health on docker
+.PHONY: docker-health-check
+docker-health-check:
+	$(info   >  run docker health check with $(PROJECT_DIR)/docker/docker-health-check.sh)
+	@-test -f $(PROJECT_DIR)/docker/docker-health-check.sh && bash -f $(PROJECT_DIR)/docker/docker-health-check.sh
+
 ## docker-down: Shutdown dependency services on docker
 .PHONY: docker-down
 docker-down:
@@ -113,7 +119,7 @@ docker-down:
 .PHONY: clean
 clean: stop
 	$(info   >  Cleanning up $(OUT_DIR))
-	@-rm -rf $(OUT_DIR)
+# 	@-rm -rf $(OUT_DIR)
 	@-cat $(PID) | awk '{print $1}' | xargs kill -9
 	@-cat $(PIXIU_PID) | awk '{print $1}' | xargs kill -9
 
