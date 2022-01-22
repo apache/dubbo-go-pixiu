@@ -29,11 +29,13 @@ dubbo:
   protocols:
     triple:
       name: tri
-      port: 20000
+      port: 20001
   provider:
     registry-ids: nacos
     services:
       # you may refer to `Reference()` method defined in `protobuf/triple/helloworld.pb.go`
       GreeterProvider:
+        protocol-ids: triple # 使用上面定义的协议id
+        serialization: protobuf
         # interface read from pb file
         interface: "org.apache.dubbogo.samples.api.Greeter"

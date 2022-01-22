@@ -30,8 +30,8 @@ import (
 )
 
 func TestPost1(t *testing.T) {
-	url := "http://localhost:8881/BDTService/com.dubbogo.pixiu.UserService/GetUserByName"
-	data := "{\"types\":\"string\",\"values\":\"tc\"}"
+	url := "http://localhost:8881/BDTService/org.apache.dubbogo.samples.api.Greeter/SayHello"
+	data := "{\"name\":\"test\"}"
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("POST", url, strings.NewReader(data))
 	assert.NoError(t, err)
@@ -41,5 +41,5 @@ func TestPost1(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
 	s, _ := ioutil.ReadAll(resp.Body)
-	assert.True(t, strings.Contains(string(s), "0001"))
+	assert.True(t, strings.Contains(string(s), "Hello test"))
 }
