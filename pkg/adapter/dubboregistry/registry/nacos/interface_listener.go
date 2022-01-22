@@ -96,8 +96,7 @@ func (z *nacosIntfListener) watch() {
 	defer delayTimer.Stop()
 	for {
 		serviceList, err := z.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
-			GroupName: "DEFAULT_GROUP",
-			PageSize:  100,
+			PageSize: 100,
 		})
 		// error handling
 		if err != nil {
