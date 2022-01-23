@@ -42,9 +42,9 @@ const (
 	// Kind is the kind of Adapter Plugin.
 	Kind = constant.SpringCloudAdapter
 
-	Nacos = "nacos"
+	Nacos     = "nacos"
 	Zookeeper = "zookeeper"
-	Consul = "consul"
+	Consul    = "consul"
 )
 
 func init() {
@@ -128,7 +128,7 @@ func (a *CloudAdapter) Stop() {
 func (a *CloudAdapter) Apply() error {
 	//registryUsed := ad.Config["registry"].(map[string]interface{})
 	var (
-		sd servicediscovery.ServiceDiscovery
+		sd  servicediscovery.ServiceDiscovery
 		err error
 	)
 	switch strings.ToLower(a.cfg.Registry.Protocol) {

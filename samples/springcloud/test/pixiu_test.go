@@ -43,7 +43,6 @@ func TestAuth(t *testing.T) {
 	assert.True(t, strings.Contains(string(s), "test"))
 }
 
-
 func TestSpringCloudZookeeper(t *testing.T) {
 	url := "http://localhost:8888/pixiu-springcloud-server/hi"
 	client := &http.Client{Timeout: 5 * time.Second}
