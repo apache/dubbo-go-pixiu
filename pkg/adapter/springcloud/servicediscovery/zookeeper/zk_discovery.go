@@ -108,7 +108,8 @@ func (sd *zookeeperDiscovery) QueryServicesByName(serviceNames []string) ([]serv
 		ids, err := sd.getClient().GetChildren(sd.pathForName(s))
 		logger.Debugf("%s get services %s, services instanceIds %s", common.ZKLogDiscovery, s, ids)
 		if err != nil {
-			return nil, err
+			logger.Errorf("%s get %s services node from zookeeper fail ", common.ZKLogDiscovery, err)
+			continue
 		}
 
 		for _, id := range ids {
@@ -143,7 +144,7 @@ func (sd *zookeeperDiscovery) UnRegister() error {
 
 func (sd *zookeeperDiscovery) getClient() *gxzookeeper.ZookeeperClient {
 	if err := zookeeper.ValidateZookeeperClient(sd.clientFacade, "zka3"); err != nil {
-		logger.Errorf("ValidateZookeeperClient error %s", err)
+		logger.Errorf("%s ValidateZookeeperClient error %s", common.ZKLogDiscovery, err)
 	}
 	return sd.clientFacade.ZkClient()
 }
