@@ -37,23 +37,23 @@ import (
 )
 
 const (
-	ZKRootPath = "/services"
-	ZKName = "SpringCloud-Zookeeper"
-	StatUP = "UP"
-	MaxFailTimes = 2
+	ZKRootPath     = "/services"
+	ZKName         = "SpringCloud-Zookeeper"
+	StatUP         = "UP"
+	MaxFailTimes   = 2
 	DefaultTimeout = "3s"
-	ConnDelay    = 3 * time.Second
-	defaultTTL = 30 * time.Second
+	ConnDelay      = 3 * time.Second
+	defaultTTL     = 30 * time.Second
 )
 
 type zookeeperDiscovery struct {
-	basePath string
-	targetService []string
-	listener      servicediscovery.ServiceEventListener
-	instanceMapLock      sync.Mutex
-	instanceMap map[string]*servicediscovery.ServiceInstance
-	zkListener map[string]zookeeper.Listener
-	clientFacade *BaseZkClientFacade
+	basePath        string
+	targetService   []string
+	listener        servicediscovery.ServiceEventListener
+	instanceMapLock sync.Mutex
+	instanceMap     map[string]*servicediscovery.ServiceInstance
+	zkListener      map[string]zookeeper.Listener
+	clientFacade    *BaseZkClientFacade
 }
 
 func NewZKServiceDiscovery(targetService []string, config *model.RemoteConfig, listener servicediscovery.ServiceEventListener) (servicediscovery.ServiceDiscovery, error) {
@@ -71,14 +71,14 @@ func NewZKServiceDiscovery(targetService []string, config *model.RemoteConfig, l
 	}
 
 	z := &zookeeperDiscovery{
-		basePath:         ZKRootPath,
-		listener:         listener,
-		targetService:    targetService,
-		instanceMap:      make(map[string]*servicediscovery.ServiceInstance),
-		zkListener: map[string]zookeeper.Listener{},
+		basePath:      ZKRootPath,
+		listener:      listener,
+		targetService: targetService,
+		instanceMap:   make(map[string]*servicediscovery.ServiceInstance),
+		zkListener:    map[string]zookeeper.Listener{},
 		clientFacade: &BaseZkClientFacade{
-			name: ZKName,
-			client:  client,
+			name:       ZKName,
+			client:     client,
 			conf:       config,
 			clientLock: sync.Mutex{},
 			wg:         sync.WaitGroup{},
@@ -304,7 +304,7 @@ type SpringCloudZKInstance struct {
 }
 
 type BaseZkClientFacade struct {
-	name string
+	name       string
 	client     *gxzookeeper.ZookeeperClient
 	clientLock sync.Mutex
 	wg         sync.WaitGroup

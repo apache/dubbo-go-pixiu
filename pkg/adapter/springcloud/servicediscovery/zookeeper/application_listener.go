@@ -37,18 +37,18 @@ import (
 type zkAppListener struct {
 	servicesPath string
 	exit         chan struct{}
-	svcListeners    *SvcListeners
-	wg              sync.WaitGroup
+	svcListeners *SvcListeners
+	wg           sync.WaitGroup
 
 	ds *zookeeperDiscovery
 }
 
 func newZkAppListener(ds *zookeeperDiscovery) zookeeper.Listener {
 	return &zkAppListener{
-		servicesPath:    ds.basePath,
-		exit:            make(chan struct{}),
-		svcListeners:    &SvcListeners{listeners: make(map[string]zookeeper.Listener), listenerLock: sync.Mutex{}},
-		ds:              ds,
+		servicesPath: ds.basePath,
+		exit:         make(chan struct{}),
+		svcListeners: &SvcListeners{listeners: make(map[string]zookeeper.Listener), listenerLock: sync.Mutex{}},
+		ds:           ds,
 	}
 }
 
@@ -142,7 +142,8 @@ func (z *zkAppListener) handleEvent(children []string) {
 				}
 			}
 		}
-	};del()
+	}
+	del()
 
 	for _, serviceName := range fetchChildren {
 		serviceNodePath := strings.Join([]string{z.servicesPath, serviceName}, constant.PathSlash)

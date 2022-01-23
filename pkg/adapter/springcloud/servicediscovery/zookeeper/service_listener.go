@@ -33,19 +33,19 @@ import (
 )
 
 type applicationServiceListener struct {
-	servicePath     string
-	serviceName     string
-	exit chan struct{}
-	wg   sync.WaitGroup
+	servicePath string
+	serviceName string
+	exit        chan struct{}
+	wg          sync.WaitGroup
 
 	ds *zookeeperDiscovery
 }
 
 func newApplicationServiceListener(path string, serviceName string, ds *zookeeperDiscovery) *applicationServiceListener {
 	return &applicationServiceListener{
-		servicePath:     path,
-		exit:            make(chan struct{}),
-		ds:              ds,
+		servicePath: path,
+		exit:        make(chan struct{}),
+		ds:          ds,
 		serviceName: serviceName,
 	}
 }
@@ -125,7 +125,8 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 				discovery.addServiceInstance(instanceMap[id])
 			}
 		}
-	};addf()
+	}
+	addf()
 
 	delf := func() {
 		if delInstanceIds := Diff(children, fetchChildren); delInstanceIds != nil {
@@ -133,7 +134,8 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 				discovery.delServiceInstance(instanceMap[id])
 			}
 		}
-	};delf()
+	}
+	delf()
 }
 
 // Close closes this listener
