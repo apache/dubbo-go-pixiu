@@ -108,7 +108,7 @@ func (sd *zookeeperDiscovery) QueryServicesByName(serviceNames []string) ([]serv
 		ids, err := sd.getClient().GetChildren(sd.pathForName(s))
 		logger.Debugf("%s get services %s, services instanceIds %s", common.ZKLogDiscovery, s, ids)
 		if err != nil {
-			logger.Errorf("%s get %s services node from zookeeper fail ", common.ZKLogDiscovery, err)
+			logger.Errorf("%s get services [%s] nodes from zookeeper fail: %s", common.ZKLogDiscovery, s, err.Error())
 			continue
 		}
 
