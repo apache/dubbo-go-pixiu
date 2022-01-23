@@ -103,8 +103,6 @@ func (sd *zookeeperDiscovery) QueryServicesByName(serviceNames []string) ([]serv
 	var instancesAll []servicediscovery.ServiceInstance
 	for _, s := range serviceNames {
 
-		var instances []servicediscovery.ServiceInstance
-
 		ids, err := sd.getClient().GetChildren(sd.pathForName(s))
 		logger.Debugf("%s get services %s, services instanceIds %s", common.ZKLogDiscovery, s, ids)
 		if err != nil {
@@ -118,7 +116,6 @@ func (sd *zookeeperDiscovery) QueryServicesByName(serviceNames []string) ([]serv
 			if err != nil {
 				return nil, err
 			}
-			instances = append(instances, *instance)
 			instancesAll = append(instancesAll, *instance)
 		}
 	}
