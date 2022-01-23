@@ -1,7 +1,18 @@
 
-# 
+# Pixiu - SpringCloud
 
-## Development 
+## Pixiu SpringCloud Discovery With Nacos
+
+there are two spring cloud java project in serve dir which offer same restful api:
+- user-service
+- auth-service
+
+you can use those to mock below situation
+- two service with each one instance
+- one service with two instances, just change spring.application.name in  auth-service/src/resource/application.properties from auth-service to user-service notice ! change the port if registry center is nacos
+- start a new instance or kill the old to mock instance up or down
+
+## Pixiu SpringCloud practice : Service Discovery With Zookeeper
 
 ### Start SpringCloud 
 
@@ -106,7 +117,7 @@ start Pixiu
 gateway start -c samples/springcloud/pixiu/conf.yaml
 ```
 
-test Pixiu connect with SpringCloud base on Zookeeper
+practice  proxy SpringCloud service base on Pixiu
 ```shell
 curl http://127.0.0.1:8888/pixiu-springcloud-server/hi
 ```

@@ -318,6 +318,9 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 }
 
 func (a *CloudAdapter) backgroundSyncPeriod() error {
+	if a.cfg.FreshInterval <= 0 {
+		return nil
+	}
 	timer := time.NewTicker(a.cfg.FreshInterval)
 	go func() {
 		defer timer.Stop()

@@ -18,6 +18,7 @@
 package zookeeper
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/common"
 	"sync"
 	"time"
 )
@@ -113,29 +114,11 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 
 	fetchChildren, err := asl.ds.getClient().GetChildren(asl.servicePath)
 	if err != nil {
-		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", asl.servicePath, err.Error())
+		logger.Warnf("%s Error when retrieving service node [%s] in path: %s, Error:%s", common.ZKLogDiscovery, asl.serviceName, asl.servicePath, err.Error())
 		return
 	}
 	discovery := asl.ds
 	instanceMap := discovery.instanceMap
-	//for _, id := range fetchChildren {
-	//	serviceInstance, err := discovery.queryForInstance(asl.serviceName, id)
-	//	if err != nil {
-	//		if err == zk.ErrNoNode {
-	//			discovery.delServiceInstance(serviceInstance)
-	//		}
-	//		logger.Errorf("fail %v", err)
-	//		continue
-	//	}
-	//
-	//	instance := instanceMap[id]
-	//	if instance != nil {
-	//		//discovery.updateServiceInstance(serviceInstance)
-	//	} else {
-	//		discovery.addServiceInstance(serviceInstance)
-	//	}
-	//}
-
 	addf := func() {
 		if addInstanceIds := Diff(fetchChildren, children); addInstanceIds != nil {
 			for _, id := range addInstanceIds {
