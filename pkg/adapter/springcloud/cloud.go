@@ -18,6 +18,8 @@
 package springcloud
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/zookeeper"
+	"strings"
 	"sync"
 	"time"
 )
@@ -39,6 +41,10 @@ import (
 const (
 	// Kind is the kind of Adapter Plugin.
 	Kind = constant.SpringCloudAdapter
+
+	Nacos = "nacos"
+	Zookeeper = "zookeeper"
+	Consul = "consul"
 )
 
 func init() {
@@ -91,21 +97,21 @@ func (a *CloudAdapter) Start() {
 	err := a.firstFetch()
 	if err != nil {
 		logger.Errorf("init fetch service fail", err.Error())
-		return
+		//return
 	}
 
 	// background sync service instance from remote
 	err = a.backgroundSyncPeriod()
 	if err != nil {
 		logger.Errorf("init periodicity fetch service task fail", err.Error())
-		return
+		//return
 	}
 
 	// watch then fetch is more safety for consistent but there is background fresh mechanism
 	err = a.watch()
 	if err != nil {
 		logger.Errorf("init watch the register fail", err.Error())
-		return
+		//return
 	}
 }
 
@@ -121,19 +127,24 @@ func (a *CloudAdapter) Stop() {
 // Apply init
 func (a *CloudAdapter) Apply() error {
 	//registryUsed := ad.Config["registry"].(map[string]interface{})
-	switch a.cfg.Registry.Protocol {
-	case "nacos":
-		sd, err := nacos.NewNacosServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
-		if err != nil {
-			logger.Errorf("Apply NewNacosServiceDiscovery", err.Error())
-			return err
-		}
-		a.sd = sd
-	case "consul":
-	case "zookeeper":
+	var (
+		sd servicediscovery.ServiceDiscovery
+		err error
+	)
+	switch strings.ToLower(a.cfg.Registry.Protocol) {
+	case Nacos:
+		sd, err = nacos.NewNacosServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
+	case Consul:
+	case Zookeeper:
+		sd, err = zookeeper.NewZKServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
 	default:
 		return errors.New("adapter init error registry not recognise")
 	}
+	if err != nil {
+		logger.Errorf("Apply NewServiceDiscovery %s ", a.cfg.Registry.Protocol, err.Error())
+		return err
+	}
+	a.sd = sd
 	return nil
 }
 
