@@ -18,7 +18,6 @@
 package springcloud
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/zookeeper"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +30,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/nacos"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
