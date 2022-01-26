@@ -93,13 +93,13 @@ func (z *zkAppListener) watch() {
 			continue
 		}
 		failTimes = 0
-		if continueLoop := z.waitEventAndHandlePeriod(children, e); !continueLoop {
+		if continueLoop := z.watchEventHandle(children, e); !continueLoop {
 			return
 		}
 	}
 }
 
-func (z *zkAppListener) waitEventAndHandlePeriod(children []string, e <-chan zk.Event) bool {
+func (z *zkAppListener) watchEventHandle(children []string, e <-chan zk.Event) bool {
 	tickerTTL := defaultTTL
 	ticker := time.NewTicker(tickerTTL)
 	defer ticker.Stop()

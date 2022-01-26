@@ -18,7 +18,6 @@
 package zookeeper
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/common"
 	"sync"
 	"time"
 )
@@ -29,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -79,14 +79,14 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 			continue
 		}
 		failTimes = 0
-		if continueLoop := asl.waitEventAndHandlePeriod(children, e); !continueLoop {
+		if continueLoop := asl.watchEventHandle(children, e); !continueLoop {
 			return
 		}
 
 	}
 }
 
-func (asl *applicationServiceListener) waitEventAndHandlePeriod(children []string, e <-chan zk.Event) bool {
+func (asl *applicationServiceListener) watchEventHandle(children []string, e <-chan zk.Event) bool {
 	tickerTTL := defaultTTL
 	ticker := time.NewTicker(tickerTTL)
 	defer ticker.Stop()
