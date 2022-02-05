@@ -17,41 +17,26 @@
 
 package ratelimit
 
-type (
-	//PathMatcher according the url path find APIResource name
-	PathMatcher interface {
-		load(apis []*Resource)
-
-		match(path string) (string, bool)
-	}
-
-	Matcher struct {
-		matchers []PathMatcher
-	}
+import (
+	pkgs "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel"
 )
 
-func newMatcher() *Matcher {
-	return &Matcher{
-		matchers: []PathMatcher{
-			&Exact{},
-			&Regex{},
-		},
-	}
-}
+import (
+	"github.com/alibaba/sentinel-golang/core/flow"
+)
 
-// Load load api resource for matchers
-func (m *Matcher) load(apis []*Resource) {
-	for _, v := range m.matchers {
-		v.load(apis)
+type (
+	// Config rate limit config
+	Config struct {
+		Resources []*pkgs.Resource `json:"resources,omitempty" yaml:"resources,omitempty"`
+		Rules     []*Rule          `json:"rules,omitempty" yaml:"rules,omitempty"`
+		LogPath   string           `json:"logPath,omitempty" yaml:"logPath,omitempty"`
 	}
-}
 
-// Match match resource via url path
-func (m *Matcher) match(path string) (string, bool) {
-	for _, matchers := range m.matchers {
-		if res, ok := matchers.match(path); ok {
-			return res, ok
-		}
+	// Rule api group 's rate-limit rule
+	Rule struct {
+		ID       int64     `json:"id,omitempty" yaml:"id,omitempty"`
+		FlowRule flow.Rule `json:"flowRule,omitempty" yaml:"flowRule,omitempty"`
+		Enable   bool      `json:"enable,omitempty" yaml:"enable,omitempty"`
 	}
-	return "", false
-}
+)

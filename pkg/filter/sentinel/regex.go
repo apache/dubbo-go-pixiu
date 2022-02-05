@@ -15,42 +15,45 @@
  * limitations under the License.
  */
 
-package ratelimit
+package sentinel
 
 import (
-	"github.com/alibaba/sentinel-golang/core/flow"
+	"regexp"
+	"sync"
 )
 
-func GetMockedRateLimitConfig() *Config {
-	c := Config{
-		Resources: []*Resource{
-			{
-				Name: "test-dubbo",
-				Items: []*Item{
-					{MatchStrategy: EXACT, Pattern: "/api/v1/test-dubbo/user"},
-					{MatchStrategy: REGEX, Pattern: "/api/v1/test-dubbo/user/*"},
-				},
-			},
-			{
-				Name: "test-http",
-				Items: []*Item{
-					{MatchStrategy: EXACT, Pattern: "/api/v1/http/foo"},
-					{MatchStrategy: EXACT, Pattern: "/api/v1/http/bar"},
+type Regex struct {
+	apiNames map[string]string
 
-					{MatchStrategy: REGEX, Pattern: "/api/v1/http/foo/*"},
-					{MatchStrategy: REGEX, Pattern: "/api/v1/http/bar/*"},
-				},
-			},
-		},
-		Rules: []*Rule{
-			{
-				Enable: true,
-				FlowRule: flow.Rule{
-					Threshold:        100,
-					StatIntervalInMs: 1000,
-				},
-			},
-		},
+	mu sync.RWMutex
+}
+
+func (p *Regex) load(apis []*Resource) {
+	m := make(map[string]string, len(apis))
+
+	for _, api := range apis {
+		apiName := api.Name
+		for _, item := range api.Items {
+			if item.MatchStrategy == REGEX {
+				m[item.Pattern] = apiName
+			}
+		}
 	}
-	return &c
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.apiNames = m
+}
+
+func (p *Regex) match(path string) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for k, v := range p.apiNames {
+		matched, _ := regexp.MatchString(k, path)
+		if matched {
+			return v, true
+		}
+	}
+	return "", false
 }
