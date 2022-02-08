@@ -28,7 +28,7 @@ type Exact struct {
 }
 
 func (p *Exact) load(apis []*Resource) {
-	m := map[string]string{}
+	m := make(map[string]string, len(apis))
 
 	for _, api := range apis {
 		apiName := api.Name

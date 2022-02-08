@@ -25,11 +25,8 @@ import (
 	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	dubboRegistry "dubbo.apache.org/dubbo-go/v3/registry"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/nacos"
-
-	"github.com/apache/dubbo-go/remoting"
-
+	"dubbo.apache.org/dubbo-go/v3/remoting"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 )
 
@@ -87,10 +84,12 @@ func (z *serviceListener) Notify(e *dubboRegistry.ServiceEvent) {
 		if e.Action == remoting.EventTypeDel {
 			if err := z.adapterListener.OnRemoveAPI(api); err != nil {
 				logger.Errorf("Error={%s} happens when try to remove api %s", err.Error(), api.Path)
+				continue
 			}
 		} else {
 			if err := z.adapterListener.OnAddAPI(api); err != nil {
 				logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
+				continue
 			}
 		}
 

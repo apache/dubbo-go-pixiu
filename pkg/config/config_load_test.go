@@ -84,12 +84,12 @@ func TestMain(m *testing.M) {
 		StaticResources: model.StaticResources{
 			Listeners: []*model.Listener{
 				{
-					Name: "net/http",
+					Name:        "net/http",
+					ProtocolStr: "HTTPS",
 					Address: model.Address{
 						SocketAddress: model.SocketAddress{
-							ProtocolStr: "HTTPS",
-							Address:     "0.0.0.0",
-							Port:        443,
+							Address: "0.0.0.0",
+							Port:    443,
 						},
 					},
 					Config: model.HttpConfig{
@@ -97,19 +97,11 @@ func TestMain(m *testing.M) {
 						WriteTimeoutStr: "5s",
 						ReadTimeoutStr:  "5s",
 					},
-					FilterChains: []model.FilterChain{
-						{
-							FilterChainMatch: model.FilterChainMatch{
-								Domains: []string{
-									"api.dubbo.com",
-									"api.pixiu.com",
-								},
-							},
-							Filters: []model.Filter{
-								{
-									Name:   "dgp.filter.httpconnectionmanager",
-									Config: inInterface,
-								},
+					FilterChain: model.FilterChain{
+						Filters: []model.NetworkFilter{
+							{
+								Name:   "dgp.filter.httpconnectionmanager",
+								Config: inInterface,
 							},
 						},
 					},

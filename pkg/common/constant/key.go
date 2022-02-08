@@ -18,7 +18,9 @@
 package constant
 
 const (
-	HTTPConnectManagerFilter = "dgp.filter.httpconnectionmanager"
+	HTTPConnectManagerFilter  = "dgp.filter.httpconnectionmanager"
+	GRPCConnectManagerFilter  = "dgp.filter.grpcconnectionmanager"
+	DubboConnectManagerFilter = "dgp.filter.network.dubboconnectionmanager"
 
 	HTTPAuthorityFilter    = "dgp.filter.http.authority"
 	HTTPProxyFilter        = "dgp.filter.http.httpproxy"
@@ -34,10 +36,15 @@ const (
 	HTTPApiConfigFilter    = "dgp.filter.http.apiconfig"
 	HTTPTimeoutFilter      = "dgp.filter.http.timeout"
 	TracingFilter          = "dgp.filters.tracing"
+	HTTPAuthJwtFilter      = "dgp.filter.http.auth.jwt"
 	HTTPCorsFilter         = "dgp.filter.http.cors"
 	HTTPCsrfFilter         = "dgp.filter.http.csrf"
 	HTTPProxyRewriteFilter = "dgp.filter.http.proxyrewrite"
 	HTTPLoadBalanceFilter  = "dgp.filter.http.loadbalance"
+	HTTPEventFilter        = "dgp.filter.http.event"
+
+	DubboHttpFilter  = "dgp.filter.dubbo.http"
+	DubboProxyFilter = "dgp.filter.dubbo.proxy"
 )
 
 const (
@@ -52,6 +59,11 @@ const (
 	LogLevelKey      = "log-level"
 	LimitCpusKey     = "limit-cpus"
 	LogFormatKey     = "log-format"
+)
+
+const (
+	MQTypeKafka    = "kafka"
+	MQTypeRocketMQ = "rocketmq"
 )
 
 const (

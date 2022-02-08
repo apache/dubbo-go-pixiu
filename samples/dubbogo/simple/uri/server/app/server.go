@@ -26,15 +26,9 @@ import (
 )
 
 import (
-	_ "github.com/apache/dubbo-go/cluster/cluster_impl"
-	_ "github.com/apache/dubbo-go/cluster/loadbalance"
-	"github.com/apache/dubbo-go/common/logger"
-	_ "github.com/apache/dubbo-go/common/proxy/proxy_factory"
-	"github.com/apache/dubbo-go/config"
-	_ "github.com/apache/dubbo-go/filter/filter_impl"
-	_ "github.com/apache/dubbo-go/protocol/dubbo"
-	_ "github.com/apache/dubbo-go/registry/protocol"
-	_ "github.com/apache/dubbo-go/registry/zookeeper"
+	"dubbo.apache.org/dubbo-go/v3/common/logger"
+	"dubbo.apache.org/dubbo-go/v3/config"
+	_ "dubbo.apache.org/dubbo-go/v3/imports"
 )
 
 var survivalTimeout = int(3e9)
@@ -44,7 +38,7 @@ var survivalTimeout = int(3e9)
 // 		export APP_LOG_CONF_FILE="xxx"
 func main() {
 	config.Load()
-	logger.Info("dubbo version is: %s", Version)
+	logger.Infof("dubbo version is: %s", Version)
 	initSignal()
 }
 

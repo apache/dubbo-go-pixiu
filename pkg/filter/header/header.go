@@ -39,11 +39,15 @@ type (
 	// Plugin is http filter plugin.
 	Plugin struct {
 	}
+	// FilterFactory is http filter instance
+	FilterFactory struct {
+		cfg *Config
+	}
 	// Filter is http filter instance
 	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of Filter
+	// Config describe the config of FilterFactory
 	Config struct{}
 )
 
@@ -51,50 +55,48 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (p *Plugin) CreateFilter() (filter.HttpFilter, error) {
-	return &Filter{}, nil
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{}, nil
 }
 
-func (f *Filter) Config() interface{} {
-	return f.cfg
+func (factory *FilterFactory) Config() interface{} {
+	return factory.cfg
 }
 
-func (f *Filter) Apply() error {
+func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (f *Filter) PrepareFilterChain(ctx *http.HttpContext) error {
-	ctx.AppendFilterFunc(f.Handle)
+func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	f := &Filter{cfg: factory.cfg}
+	chain.AppendDecodeFilters(f)
 	return nil
 }
 
-func (f *Filter) Handle(hc *http.HttpContext) {
+func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	api := hc.GetAPI()
 	headers := api.Headers
 	if len(headers) == 0 {
-		hc.Next()
-		return
+		return filter.Continue
 	}
 
 	urlHeaders := hc.AllHeaders()
 	if len(urlHeaders) == 0 {
-		hc.Abort()
-		return
+		return filter.Continue
 	}
 
 	for headerName, headerValue := range headers {
 		urlHeaderValues := urlHeaders.Values(strings.ToLower(headerName))
 		if urlHeaderValues == nil {
-			hc.Abort()
-			return
+			return filter.Continue
 		}
 		for _, urlHeaderValue := range urlHeaderValues {
 			if urlHeaderValue == headerValue {
 				goto FOUND
 			}
 		}
-		hc.Abort()
 	FOUND:
 		continue
 	}
+	return filter.Continue
 }

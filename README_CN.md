@@ -1,32 +1,19 @@
+[![Pixiu Logo](docs/images/pixiu-logo-v4.png)](http://alexstocks.github.io/html/dubbogo.html)
+
+[![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
 [![Build Status](https://travis-ci.org/dubbogo/dubbo-go-pixiu.svg?branch=master)](https://travis-ci.org/dubbogo/dubbo-go-pixiu)
 
-### 吉祥物
+[English](./README.md) | 中文
 
-<div>
-<table>
-  <tbody>
-  <tr></tr>
-    <tr>
-      <td align="center"  valign="middle">
-        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="513px" height="513px" src="docs/images/pixiu-logo.png">
-        </a>
-      </td>
-    </tr>
-    <tr></tr>
-  </tbody>
-</table>
-</div>
+# 简介
 
-### 简介
+Dubbo-Go-Pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 
-dubbo-go-pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
-
-现在dubbo-go-pixiu 已经支持以dubbo协议和http协议调用远程的 dubbo 集群，未来还会支持更多的协议。
+现在 Dubbo-Go-Pixiu 已经支持以dubbo协议和http协议调用远程的 dubbo 集群，未来还会支持更多的协议。
 
 ## 快速开始
 
-#### 1 CD 到目标路径
+#### 进入示例代码目录
 
 ```
 cd samples/dubbo/simple
@@ -41,7 +28,7 @@ cd samples/dubbo/simple
 
 下列步骤中，我们将启动 body 案例项目
 
-#### 2 准备配置文件和外部依赖 docker
+#### 准备配置文件和外部依赖 docker
 
 使用 start.sh 的 prepare 命令来准备配置文件和外部docker依赖
 
@@ -52,13 +39,13 @@ cd samples/dubbo/simple
 如果想要手动准备文件，需要注意：
 - 将 conf.yaml 中的 $PROJECT_DIR 修改为本地绝对路径
 
-#### 3 启动 dubbo 服务或者 http 服务
+#### 启动 dubbo 服务或者 http 服务
 
 ```
 ./start.sh startServer body
 ```
 
-#### 4 启动 pixiu
+#### 启动 pixiu
 
 ```
 ./start.sh startPixiu body
@@ -71,7 +58,7 @@ cd samples/dubbo/simple
 ```
 
 
-#### 5. 尝试请求
+#### 尝试请求
 
 可以使用 curl 或者执行单元测试来验证一下
 
@@ -80,7 +67,7 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 ./start.sh startTest body
 ```
 
-#### 6. 清除
+#### 清除
 
 ```
 ./start.sh clean body
@@ -110,137 +97,55 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 
 ## 架构图
 
-<div>
-<table>
-  <tbody>
-  <tr></tr>
-    <tr>
-      <td align="center"  valign="middle">
-        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="800px" height="800px" src="./docs/images/dubbgopixiu-infrastructure.png">
-        </a>
-      </td>
-    </tr>
-    <tr></tr>
-  </tbody>
-</table>
-</div>
+[![architecture](./docs/images/dubbogopixiu-new-infrastructure.png)](http://alexstocks.github.io/html/dubbogo.html)
 
 ## 流程图
 
-
-<div>
-<table>
-  <tbody>
-  <tr></tr>
-    <tr>
-      <td align="center"  valign="middle">
-        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="850px" height="100px" src="./docs/images/dubbogopixiu-procedure.png">
-        </a>
-      </td>
-    </tr>
-    <tr></tr>
-  </tbody>
-</table>
-</div>
+[![flowchart](./docs/images/dubbogopixiu-procedure.png)](http://alexstocks.github.io/html/dubbogo.html)
 
 ## 术语解释
 
 ### 组件
 
-#### Pixiu
-
-数据面板
-
-#### Admin
-
-控制面板
+- Pixiu : 数据面板
+- Admin : 控制面板
 
 ### 概念
 
-#### 下游（Downstream）
+- 下游（Downstream）:下游主机连接到 Pixiu ，发送请求并接收响应。（API 网关场景理解：浏览器）
 
-下游主机连接到 Pixiu ，发送请求并接收响应。（API 网关场景理解：浏览器）
+- 上游（Upstream）:上游主机接收来自 Pixiu 的连接和请求并返回响应。（API 网关场景理解：dubbo 服务的机器）
 
-#### 上游（Upstream）
+- 监听器（Listener）: 监听器是可以被下游客户端连接的网络位置（例如，端口，unix域套接字等）。Pixiu 公开一个或多个下游主机连接的监听器。
 
-上游主机接收来自 Pixiu 的连接和请求并返回响应。（API 网关场景理解：dubbo 服务的机器）
+- 集群（Cluster）: 群集是指 Pixiu 连接到的一组逻辑上相似的上游主机（比如 dubbo 集群）。Pixiu 通过服务发现发现一个集群的成员，它可以通过主动健康检查来确定集群成员的健康度，从而 Pixiu 通过负载均衡策略将请求路由到相应的集群成员。
 
-#### 监听器（Listener）
+- 接口（Api）: 接口是 API 网关的核心概念，特别针对浏览器等外部系统的访问时必须开启，所有请求必须匹配到对应的 Up 状态的接口才能继续进行后续逻辑。
 
-监听器是可以被下游客户端连接的网络位置（例如，端口，unix域套接字等）。Pixiu 公开一个或多个下游主机连接的监听器。
+- 客户端（Client）: 请求上游主机的真实调用对象。
 
-#### 集群（Cluster）
+- 路由（Router）: 路由策略，目前理解成 HTTP 路由，通过 match 逻辑路由到对应的集群。
 
-群集是指 Pixiu 连接到的一组逻辑上相似的上游主机（比如 dubbo 集群）。Pixiu 通过服务发现发现一个集群的成员，它可以通过主动健康检查来确定集群成员的健康度，从而 Pixiu 通过负载均衡策略将请求路由到相应的集群成员。
+- 上下文（Context）: 一个真实请求的上下文，包含这次请求几乎所有的信息。在各个环节都会使用，特别是 filter 链路。
 
-#### 接口（Api）
+- 过滤器（Filter）: 过滤器，提供拦截能力。支持自定义扩展。
 
-接口是 API 网关的核心概念，特别针对浏览器等外部系统的访问时必须开启，所有请求必须匹配到对应的 Up 状态的接口才能继续进行后续逻辑。
-
-#### 客户端（Client）
-
-请求上游主机的真实调用对象。
-
-#### 路由（Router）
-
-路由策略，目前理解成 HTTP 路由，通过 match 逻辑路由到对应的集群。
-
-#### 上下文（Context）
-
-一个真实请求的上下文，包含这次请求几乎所有的信息。在各个环节都会使用，特别是 filter 链路。
-
-#### 过滤器（Filter）
-
-过滤器，提供拦截能力。支持自定义扩展。
-
-#### 规则（Rule）
-
-规则提供匹配能力，给过滤器，路由等其它概念使用。
+- 规则（Rule）: 规则提供匹配能力，给过滤器，路由等其它概念使用。
 
 ## 联系我们
 
-项目在快速迭代中，欢迎使用， 欢迎给出建议或者提交pr。钉钉群: 31363295
+项目在快速迭代中，欢迎使用， 欢迎给出建议或者提交pr。
 
 
-## 社区
+### 社区
 
-如果想访问官方钉钉群，请在钉钉中搜索社区群号 31363295 或者 扫描如下[二维码](https://mmbiz.qpic.cn/mmbiz_jpg/yvBJb5IiafvnHVBdtia30dxA2hKotr9DEckWsZ7aOJcDWDaSVMGwLmYv8GRgIQtqb4C2svicp8nVkMmGy7yKC5tyA/640?wx_fmt=jpeg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)。
+**官方钉钉群(31363295)**:
 
-<div>
-<table>
-  <tbody>
-  <tr></tr>
-    <tr>
-      <td align="center"  valign="middle">
-        <a href="http://alexstocks.github.io/html/dubbogo.html" target="_blank">
-          <img width="80px" height="85px" src="./docs/images/dubbogo-dingding.png">
-        </a>
-      </td>
-    </tr>
-    <tr></tr>
-  </tbody>
-</table>
-</div>
+[![flowchart](./docs/images/dubbogo-dingding.png)](docs/images/dubbogo-dingding.png)
 
-dubbogo 社区已经开通微信公众号 "dubbogo大区"，可在微信搜索 "dubbogo大区" 或者扫描如下二维码关注，可通过公众号私信留言加入 dubbogo 微信社区。
+**官方微信公众号 "dubbogo示土区"，通过公众号私信留言加入 Dubbogo 微信社区**:
 
-<div>
-<table>
-  <tbody>
-  <tr></tr>
-    <tr>
-      <td align="center"  valign="middle">
-          <img width="80px" height="115px" src="./docs/images/dubbogo-wechat.png">
-        </a>
-      </td>
-    </tr>
-    <tr></tr>
-  </tbody>
-</table>
-</div>
-
+[![flowchart](./docs/images/dubbogo-wechat.png)](docs/images/dubbogo-wechat.png)
 
 ## License
 

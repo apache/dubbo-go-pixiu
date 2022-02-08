@@ -31,6 +31,7 @@ const (
 	HeaderValueAll       = "*"
 
 	PathSlash           = "/"
+	ProtocolSlash       = "://"
 	PathParamIdentifier = ":"
 )
 
@@ -49,4 +50,11 @@ const (
 	Put    = "PUT"
 	Post   = "POST"
 	Delete = "DELETE"
+)
+
+const (
+	DubboHttpDubboVersion = "x-dubbo-http1.1-dubbo-version"
+	DubboServiceProtocol  = "x-dubbo-service-protocol"
+	DubboServiceVersion   = "x-dubbo-service-version"
+	DubboGroup            = "x-dubbo-service-group"
 )

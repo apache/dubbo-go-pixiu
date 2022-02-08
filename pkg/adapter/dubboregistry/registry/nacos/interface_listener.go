@@ -29,9 +29,6 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
 	dubboConfig "dubbo.apache.org/dubbo-go/v3/config"
 	dubboRegistry "dubbo.apache.org/dubbo-go/v3/registry"
-
-	"github.com/apache/dubbo-go/common"
-
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
@@ -81,7 +78,7 @@ func (z *nacosIntfListener) WatchAndHandle() {
 	z.dubbogoNacosRegistry, err = dubboConfig.NewRegistryConfigBuilder().
 		SetProtocol("nacos").
 		SetAddress(z.addr).
-		Build().GetInstance(common.CONSUMER)
+		Build().GetInstance(dubboCommon.CONSUMER)
 	if err != nil {
 		logger.Errorf("create nacos registry with address = %s error = %s", z.addr, err)
 		return
