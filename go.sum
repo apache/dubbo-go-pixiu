@@ -197,8 +197,8 @@ github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZm
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
-github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20220118135643-365966dd9079 h1:GbmtycRghqSdH87R5lz5cEeA8u9dp3KsOPubZvu9BJo=
-github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20220118135643-365966dd9079/go.mod h1:sZSi0hyl9rquVwHZQxNa8ARs85/gQAwzjYgbxFLP4yY=
+github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20220208132607-df0f27670548 h1:i+Vo5wF/j7PHv7J7O+/avqPpxEJX94M+DsrgIC/lhQM=
+github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20220208132607-df0f27670548/go.mod h1:sZSi0hyl9rquVwHZQxNa8ARs85/gQAwzjYgbxFLP4yY=
 github.com/dubbogo/go-zookeeper v1.0.3/go.mod h1:fn6n2CAEer3novYgk9ULLwAjuV8/g4DdC2ENwRb6E+c=
 github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5 h1:XoR8SSVziXe698dt4uZYDfsmHpKLemqAgFyndQsq5Kw=
 github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5/go.mod h1:fn6n2CAEer3novYgk9ULLwAjuV8/g4DdC2ENwRb6E+c=
