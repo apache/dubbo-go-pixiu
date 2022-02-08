@@ -11,7 +11,7 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.10.2
 	github.com/cch123/supermonkey v1.0.0
 	github.com/creasty/defaults v1.5.2
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20220118135643-365966dd9079
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.0.0-20220208132607-df0f27670548
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
 	github.com/dubbogo/gost v1.11.22
 	github.com/dubbogo/grpc-go v1.42.7

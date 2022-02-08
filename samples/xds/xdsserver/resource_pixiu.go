@@ -115,6 +115,7 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 						Port:    80,
 					},
 				},
+				HealthChecks: []*pixiupb.HealthCheck{},
 			},
 		},
 	}
