@@ -27,4 +27,8 @@ type DubboProxyConfig struct {
 	Registries map[string]model.Registry `yaml:"registries" json:"registries"`
 	// Timeout
 	Timeout *model.TimeoutConfig `yaml:"timeout_config" json:"timeout_config"`
+	// IsDefaultMap whether to use DefaultMap role
+	IsDefaultMap bool
+	// AutoResolve whether to resolve api config from request
+	AutoResolve bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
 }

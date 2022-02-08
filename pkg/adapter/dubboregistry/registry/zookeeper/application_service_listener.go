@@ -26,11 +26,11 @@ import (
 )
 
 import (
-	ex "github.com/apache/dubbo-go/common/extension"
-	"github.com/apache/dubbo-go/metadata/definition"
-	dr "github.com/apache/dubbo-go/registry"
-	"github.com/apache/dubbo-go/remoting/zookeeper/curator_discovery"
-
+	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
+	ex "dubbo.apache.org/dubbo-go/v3/common/extension"
+	"dubbo.apache.org/dubbo-go/v3/metadata/definition"
+	dr "dubbo.apache.org/dubbo-go/v3/registry"
+	"dubbo.apache.org/dubbo-go/v3/remoting/zookeeper/curator_discovery"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 
 	"github.com/dubbogo/go-zookeeper/zk"
@@ -48,7 +48,7 @@ var _ registry.Listener = new(applicationServiceListener)
 
 // applicationServiceListener normally monitors the /services/[:application]
 type applicationServiceListener struct {
-	urls            []interface{}
+	urls            []*dubboCommon.URL
 	servicePath     string
 	client          *zookeeper.ZooKeeperClient
 	adapterListener common.RegistryEventListener
@@ -133,7 +133,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", asl.servicePath, err.Error())
 		// disable the API
 		for _, url := range asl.urls {
-			bkConf, _, _, _ := registry.ParseDubboString(url.(string))
+			bkConf, _, _, _ := registry.ParseDubboString(url.String())
 			apiPattern := registry.GetAPIPattern(bkConf)
 
 			if err := asl.adapterListener.OnDeleteRouter(config.Resource{Path: apiPattern}); err != nil {
@@ -145,9 +145,9 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 
 	asl.urls = asl.getUrls(fetchChildren[0])
 	for _, url := range asl.urls {
-		bkConfig, _, location, err := registry.ParseDubboString(url.(string))
+		bkConfig, _, location, err := registry.ParseDubboString(url.String())
 		if err != nil {
-			logger.Warnf("Parse dubbo interface provider %s failed; due to %s", url.(string), err.Error())
+			logger.Warnf("Parse dubbo interface provider %s failed; due to %s", url.String(), err.Error())
 			continue
 		}
 		if len(bkConfig.ApplicationName) == 0 || len(bkConfig.Interface) == 0 {
@@ -180,7 +180,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 }
 
 // getUrls return exported urls from instance
-func (asl *applicationServiceListener) getUrls(path string) []interface{} {
+func (asl *applicationServiceListener) getUrls(path string) []*dubboCommon.URL {
 	insPath := strings.Join([]string{asl.servicePath, path}, constant.PathSlash)
 	data, err := asl.client.GetContent(insPath)
 	if err != nil {
@@ -225,12 +225,12 @@ func (asl *applicationServiceListener) getUrls(path string) []interface{} {
 func toZookeeperInstance(cris *curator_discovery.ServiceInstance) dr.ServiceInstance {
 	pl, ok := cris.Payload.(map[string]interface{})
 	if !ok {
-		logger.Errorf("toZookeeperInstance{%s} payload is not map[string]interface{}", cris.Id)
+		logger.Errorf("toZookeeperInstance{%s} payload is not map[string]interface{}", cris.ID)
 		return nil
 	}
 	mdi, ok := pl["metadata"].(map[string]interface{})
 	if !ok {
-		logger.Errorf("toZookeeperInstance{%s} metadata is not map[string]interface{}", cris.Id)
+		logger.Errorf("toZookeeperInstance{%s} metadata is not map[string]interface{}", cris.ID)
 		return nil
 	}
 	md := make(map[string]string, len(mdi))
@@ -238,7 +238,7 @@ func toZookeeperInstance(cris *curator_discovery.ServiceInstance) dr.ServiceInst
 		md[k] = fmt.Sprint(v)
 	}
 	return &dr.DefaultServiceInstance{
-		Id:          cris.Id,
+		ID:          cris.ID,
 		ServiceName: cris.Name,
 		Host:        cris.Address,
 		Port:        cris.Port,

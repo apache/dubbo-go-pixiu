@@ -20,16 +20,12 @@
 static_resources:
   listeners:
     - name: "net/http"
+      protocol_type: "HTTP"
       address:
         socket_address:
-          protocol_type: "HTTP"
           address: "0.0.0.0"
           port: 8881
       filter_chains:
-        - filter_chain_match:
-          domains:
-            - api.dubbo.com
-            - api.pixiu.com
           filters:
             - name: dgp.filter.httpconnectionmanager
               config:
@@ -58,8 +54,7 @@ static_resources:
                         timeout_config:
                           connect_timeout: 5s
                           request_timeout: 5s
-                  - name: dgp.filter.http.response
-                    config:
+
                 server_name: "test_http_dubbo"
                 generate_request_id: false
       config:

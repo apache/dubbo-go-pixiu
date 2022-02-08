@@ -42,3 +42,17 @@ func TestAuth(t *testing.T) {
 	s, _ := ioutil.ReadAll(resp.Body)
 	assert.True(t, strings.Contains(string(s), "test"))
 }
+
+func TestSpringCloudZookeeper(t *testing.T) {
+	url := "http://localhost:8888/pixiu-springcloud-server/hi"
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	assert.True(t, strings.Contains(string(s), "Hello Pixiu World!"))
+}

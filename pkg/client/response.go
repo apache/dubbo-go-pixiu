@@ -19,10 +19,10 @@ package client
 
 // Response response from endpoint
 type Response struct {
-	Data interface{}
+	Data []byte
 }
 
 // NewResponse create response
-func NewResponse(data interface{}) *Response {
+func NewResponse(data []byte) *Response {
 	return &Response{Data: data}
 }

@@ -21,6 +21,7 @@ cur_mkfile := $(abspath $(lastword $(MAKEFILE_LIST)))
 currentPath := $(patsubst %/, %, $(dir $(cur_mkfile)))
 pixiuPath := /cmd/pixiu/
 mainPath := $(currentPath)$(pixiuPath)
+VERSION = $(shell git describe --abbrev=0  --tags $(git rev-list --tags --max-count=1) || echo "0.0.4")
 
 targetName := dubbo-go-pixiu
 
@@ -48,13 +49,20 @@ build:
 	cd $(mainPath) && go build  -o $(currentPath)/$(targetName) *.go
 
 run: build
-	./dubbo-go-pixiu gateway start -a $(api-config-path) -c $(config-path)
+	./dubbo-go-pixiu gateway start -c $(config-path)
 
 license-check-util:
 	go install github.com/lsm-dev/license-header-checker/cmd/license-header-checker@latest
 
 license-check:
 	license-header-checker -v -a -r -i vendor -i .github/actions /tmp/tools/license/license.txt . go
+
+image:
+	@docker build \
+		-t apache/$(targetName):latest \
+		-t apache/$(targetName):$(VERSION) \
+		--build-arg build=$(BUILD) --build-arg version=$(VERSION) \
+		-f Dockerfile --no-cache .
 
 test:
 	sh before_ut.sh

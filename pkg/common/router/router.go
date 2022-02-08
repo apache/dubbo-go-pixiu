@@ -40,9 +40,9 @@ type (
 )
 
 // CreateRouterCoordinator create coordinator for http connection manager
-func CreateRouterCoordinator(hcmc *model.HttpConnectionManagerConfig) *RouterCoordinator {
-	rc := &RouterCoordinator{activeConfig: &hcmc.RouteConfig}
-	if hcmc.RouteConfig.Dynamic {
+func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoordinator {
+	rc := &RouterCoordinator{activeConfig: routeConfig}
+	if routeConfig.Dynamic {
 		server.GetRouterManager().AddRouterListener(rc)
 	}
 	rc.initTrie()
@@ -55,6 +55,13 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 	defer rm.rw.RUnlock()
 
 	return rm.activeConfig.Route(hc.Request)
+}
+
+func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.RouteAction, error) {
+	rm.rw.RLock()
+	defer rm.rw.RUnlock()
+
+	return rm.activeConfig.RouteByPathAndMethod(path, method)
 }
 
 func getTrieKey(method string, path string, isPrefix bool) string {
