@@ -28,3 +28,4 @@ test
 !samples/springcloud/nacos/test
 
 target/
+samples/**/dist
