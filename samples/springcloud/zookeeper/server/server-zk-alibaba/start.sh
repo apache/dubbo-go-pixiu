@@ -17,17 +17,4 @@
 # under the License.
 #
 
-server:
-  port: 0
-spring:
-#  cloud:
-#    zookeeper:
-#      connect-string: localhost:2181
-  application:
-    name: pixiu-springcloud-server
-
-logging.level:
-  org.apache.zookeeper.ClientCnxn: ERROR
-
-#spring.cloud.zookeeper.dependencies:
-#  - testZookeeperApp: ~
+mvn spring-boot:run
