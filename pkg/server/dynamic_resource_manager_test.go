@@ -23,9 +23,11 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-
 	"github.com/stretchr/testify/require"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func Test_createDynamicResourceManger(t *testing.T) {

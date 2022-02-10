@@ -18,12 +18,14 @@
 package server
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
 
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // DynamicResourceManager help to management the dynamic resource

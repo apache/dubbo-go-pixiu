@@ -18,13 +18,15 @@
 package xds
 
 import (
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
+	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
-	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
 )
 
 type CdsManager struct {
