@@ -20,6 +20,7 @@ package xds
 import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
 	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	"github.com/pkg/errors"
 )
 
 import (
@@ -90,7 +91,12 @@ func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
 	laterApplies := make([]func() error, 0, len(clusters))
 	toRemoveHash := make(map[string]struct{}, len(clusters))
 
-	for _, _cluster := range clusters {
+	store, err := clusterMgt.CloneStore()
+	if err != nil {
+		return errors.WithMessagef(err, "can not clone cluster store when update cluster")
+	}
+
+	for _, _cluster := range store.Config {
 		toRemoveHash[_cluster.Name] = struct{}{}
 	}
 	for _, cluster := range clusters {
@@ -120,7 +126,7 @@ func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
 
 func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
 	removeClusters := make([]string, 0, len(toRemoveList))
-	for clusterName, _ := range toRemoveList {
+	for clusterName := range toRemoveList {
 		removeClusters = append(removeClusters, clusterName)
 	}
 	if len(toRemoveList) == 0 {
