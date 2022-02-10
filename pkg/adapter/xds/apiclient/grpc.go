@@ -126,7 +126,6 @@ func (g *GrpcApiClient) makeNode() *envoy_config_core_v3.Node {
 func (g *GrpcApiClient) Delta() (chan *DeltaResources, error) {
 	outputCh := make(chan *DeltaResources)
 	return outputCh, g.runDelta(outputCh)
-	//return outputCh, g.runStream(outputCh)
 }
 
 func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
@@ -231,73 +230,6 @@ func (g *GrpcApiClient) sendInitDeltaRequest() (extensionpb.ExtensionConfigDisco
 		return nil, errors.Wrapf(err, "can not send delta discovery request")
 	}
 	return delta, nil
-}
-
-func (g *GrpcApiClient) runStream(output chan<- *DeltaResources) error {
-	delta, err := g.xDSExtensionClient.StreamExtensionConfigs(context.Background())
-	if err != nil {
-		return errors.Wrapf(err, "can not start delta stream with xds server ")
-	}
-	err = delta.Send(&discoverypb.DiscoveryRequest{
-		VersionInfo:   "", //todo load local version
-		Node:          g.makeNode(),
-		ResourceNames: g.resourceNames,
-		TypeUrl:       resource.ExtensionConfigType, //"type.googleapis.com/pixiu.config.listener.v3.Listener", //resource.ListenerType,
-	})
-	if err != nil {
-		return errors.Wrapf(err, "can not send delta discovery request")
-	}
-
-	ch := make(chan *discoverypb.DiscoveryResponse)
-	//get message
-	go func() {
-		for {
-			resp, err := delta.Recv()
-			if err != nil { //todo backoff retry
-				logger.Error("can not recv delta discovery request", err)
-				break
-			}
-			ch <- resp
-		}
-	}()
-
-	go func() {
-		defer func() {
-			close(output)
-		}()
-	LOOP:
-		for {
-			select {
-			case <-g.exitCh:
-				logger.Infof("stop recv delta of xds (%s)", g.resourceNames)
-				if err := delta.CloseSend(); err != nil {
-					logger.Errorf("close Send error ", err)
-				}
-				break LOOP
-			case resp := <-ch:
-				resources := &DeltaResources{
-					NewResources:    make([]*ProtoAny, 0, 1),
-					RemovedResource: make([]string, 0, 1),
-				}
-				logger.Infof("get xDS message nonce, %s", resp.Nonce)
-
-				//for _, res := range resp.RemovedResources {
-				//	logger.Infof("remove resource found ", res)
-				//	resources.RemovedResource = append(resources.RemovedResource, res)
-				//}
-
-				for _, res := range resp.Resources {
-					elems, err := g.decodeSource(res)
-					if err != nil {
-						logger.Infof("can not decode source %s", res, err)
-					}
-					resources.NewResources = append(resources.NewResources, elems)
-				}
-				output <- resources
-			}
-		}
-	}()
-	return nil
 }
 
 func (g *GrpcApiClient) init() {
