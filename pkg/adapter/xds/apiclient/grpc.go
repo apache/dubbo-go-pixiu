@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
@@ -106,7 +106,7 @@ func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 }
 
 func (g *GrpcApiClient) decodeSource(_resource *anypb.Any) (*ProtoAny, error) {
-	extension := envoy_config_core_v3.TypedExtensionConfig{}
+	extension := envoyconfigcorev3.TypedExtensionConfig{}
 	err := _resource.UnmarshalTo(&extension)
 	if err != nil {
 		return nil, errors.Wrapf(err, "typed extension as expected.(%s)", g.resourceNames)
@@ -115,8 +115,8 @@ func (g *GrpcApiClient) decodeSource(_resource *anypb.Any) (*ProtoAny, error) {
 	return elems, nil
 }
 
-func (g *GrpcApiClient) makeNode() *envoy_config_core_v3.Node {
-	return &envoy_config_core_v3.Node{
+func (g *GrpcApiClient) makeNode() *envoyconfigcorev3.Node {
+	return &envoyconfigcorev3.Node{
 		Id:            g.node.Id,
 		Cluster:       g.node.Cluster,
 		UserAgentName: xdsAgentName,
@@ -130,11 +130,14 @@ func (g *GrpcApiClient) Delta() (chan *DeltaResources, error) {
 
 func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 	var delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient
+	var cancel context.CancelFunc
 	backoff := func() {
 		for {
 			//back off
 			var err error
-			delta, err = g.sendInitDeltaRequest()
+			var ctx context.Context // context to sync exitCh
+			ctx, cancel = context.WithCancel(context.TODO())
+			delta, err = g.sendInitDeltaRequest(ctx)
 			if err != nil {
 				logger.Error("can not receive delta discovery request, will back off 1 sec later", err)
 				select {
@@ -149,7 +152,17 @@ func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 			return //success
 		}
 	}
+
 	backoff()
+	if delta == nil { // delta instance not created because exitCh
+		return nil
+	}
+	go func() {
+		//waiting exitCh close
+		for range g.exitCh {
+		}
+		cancel()
+	}()
 	//get message
 	go func() {
 		for { // delta response backoff.
@@ -212,8 +225,8 @@ func (g *GrpcApiClient) subscribeOnGoingChang(delta extensionpb.ExtensionConfigD
 	return err
 }
 
-func (g *GrpcApiClient) sendInitDeltaRequest() (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
-	delta, err := g.xDSExtensionClient.DeltaExtensionConfigs(context.Background())
+func (g *GrpcApiClient) sendInitDeltaRequest(ctx context.Context) (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
+	delta, err := g.xDSExtensionClient.DeltaExtensionConfigs(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can not start delta stream with xds server ")
 	}
