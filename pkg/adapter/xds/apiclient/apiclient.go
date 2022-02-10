@@ -18,10 +18,15 @@
 package apiclient
 
 import (
-	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 	"reflect"
+)
+
+import (
+	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+
+	"github.com/pkg/errors"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type (
