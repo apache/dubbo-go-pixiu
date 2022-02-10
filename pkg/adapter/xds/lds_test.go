@@ -18,10 +18,15 @@
 package xds
 
 import (
-	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
-	"github.com/stretchr/testify/require"
-	structpb2 "google.golang.org/protobuf/types/known/structpb"
 	"testing"
+)
+
+import (
+	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+
+	"github.com/stretchr/testify/require"
+
+	structpb2 "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestLdsManager_makeConfig(t *testing.T) {

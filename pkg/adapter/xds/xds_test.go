@@ -20,17 +20,24 @@ package xds
 import (
 	"context"
 	"fmt"
+	"sync"
+	"testing"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+
 	monkey "github.com/cch123/supermonkey"
+
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+
 	"github.com/stretchr/testify/require"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-	"sync"
-	"testing"
 )
 
 func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {

@@ -21,18 +21,23 @@ import (
 	"context"
 	stderr "errors"
 	"fmt"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
-	"google.golang.org/grpc/connectivity"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+
+	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+
 	"github.com/pkg/errors"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 )
 

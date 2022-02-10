@@ -19,11 +19,16 @@ package xds
 
 import (
 	"encoding/json"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+
 	model2 "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+
 	"gopkg.in/yaml.v2"
 )
 
