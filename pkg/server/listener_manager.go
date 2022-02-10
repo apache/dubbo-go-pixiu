@@ -18,10 +18,13 @@
 package server
 
 import (
+	"runtime/debug"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"runtime/debug"
 )
 
 // wrapListenerService wrap listener service and its configuration.
