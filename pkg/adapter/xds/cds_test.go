@@ -23,10 +23,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
-
 	"github.com/cch123/supermonkey"
 
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
@@ -37,6 +33,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/protobuf/types/known/anypb"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 func makeClusters() *pixiupb.PixiuExtensionClusters {

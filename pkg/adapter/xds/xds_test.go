@@ -25,11 +25,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
-
 	monkey "github.com/cch123/supermonkey"
 
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
@@ -38,6 +33,13 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {

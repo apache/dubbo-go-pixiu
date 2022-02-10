@@ -22,10 +22,12 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type (
