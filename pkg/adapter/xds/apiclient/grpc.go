@@ -64,6 +64,7 @@ type (
 	}
 )
 
+// CreateGrpcApiClient create Grpc type ApiClient
 func CreateGrpcApiClient(config *model.ApiConfigSource, node *model.Node,
 	grpcMg GrpcClusterManager,
 	exitCh chan struct{},
