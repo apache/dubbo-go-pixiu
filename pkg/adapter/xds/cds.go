@@ -95,7 +95,7 @@ func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
 	if err != nil {
 		return errors.WithMessagef(err, "can not clone cluster store when update cluster")
 	}
-
+	//todo this will remove the cluster which defined locally.
 	for _, _cluster := range store.Config {
 		toRemoveHash[_cluster.Name] = struct{}{}
 	}
