@@ -23,6 +23,9 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+
 	"go.opentelemetry.io/otel/exporters/prometheus"
 
 	"go.opentelemetry.io/otel/metric/global"
@@ -35,11 +38,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func registerOtelMetricMeter(conf model.Metric) {

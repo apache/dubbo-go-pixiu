@@ -22,14 +22,12 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
 
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 type (
