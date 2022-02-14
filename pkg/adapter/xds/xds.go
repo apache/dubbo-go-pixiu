@@ -139,9 +139,7 @@ func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
 		if len(g.config.Endpoints) == 0 {
 			panic("expect endpoint.")
 		}
-		address := g.config.Endpoints[0].Address.GetAddress()
-		port := g.config.PickOneEndpoint().Address.Port
-		endpoint := fmt.Sprintf("%s:%d", address, port)
+		endpoint := g.config.Endpoints[0].Address.GetAddress()
 		logger.Infof("to connect xds server %s ...", endpoint)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
 		defer cancel()
