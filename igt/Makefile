@@ -119,7 +119,7 @@ docker-down:
 .PHONY: clean
 clean: stop
 	$(info   >  Cleanning up $(OUT_DIR))
-# 	@-rm -rf $(OUT_DIR)
+	@-rm -rf $(OUT_DIR)
 	@-cat $(PID) | awk '{print $1}' | xargs kill -9
 	@-cat $(PIXIU_PID) | awk '{print $1}' | xargs kill -9
 
