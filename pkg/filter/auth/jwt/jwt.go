@@ -57,6 +57,7 @@ type (
 		errMsg       []byte
 		providerJwks map[string]Provider
 	}
+
 	Filter struct {
 		cfg          *Config
 		errMsg       []byte
@@ -160,13 +161,6 @@ func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 
 func (factory *FilterFactory) Apply() error {
 
-	if factory.cfg.ErrMsg == "" {
-		factory.cfg.ErrMsg = "token invalid"
-	}
-
-	errMsg, _ := json.Marshal(http.ErrResponse{Message: factory.cfg.ErrMsg})
-	factory.errMsg = errMsg
-
 	if len(factory.cfg.Providers) == 0 {
 		return fmt.Errorf("providers is null")
 	}
@@ -209,6 +203,13 @@ func (factory *FilterFactory) Apply() error {
 	if len(factory.providerJwks) == 0 {
 		return fmt.Errorf("providers is null")
 	}
+
+	if factory.cfg.ErrMsg == "" {
+		factory.cfg.ErrMsg = "token invalid"
+	}
+
+	errMsg, _ := json.Marshal(http.ErrResponse{Message: factory.cfg.ErrMsg})
+	factory.errMsg = errMsg
 
 	return nil
 }
