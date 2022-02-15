@@ -11,4 +11,4 @@ require (
 )
 
 //replace github.com/dubbogo/dubbo-go-pixiu-filter => ../../../../dubbo-go-pixiu-filter
-replace github.com/apache/dubbo-go-pixiu => ../../..
+replace github.com/apache/dubbo-go-pixiu => ../../../../..
