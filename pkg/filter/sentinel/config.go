@@ -15,26 +15,15 @@
  * limitations under the License.
  */
 
-package ratelimit
-
-import (
-	"github.com/alibaba/sentinel-golang/core/flow"
-)
+package sentinel
 
 const (
-	EXACT    MatchStrategy = 0
-	REGEX    MatchStrategy = 1
-	ANT_PATH MatchStrategy = 2
+	EXACT MatchStrategy = iota
+	REGEX
+	AntPath
 )
 
 type (
-	// Config rate limit config
-	Config struct {
-		Resources []*Resource `json:"resources,omitempty" yaml:"resources,omitempty"`
-		Rules     []*Rule     `json:"rules,omitempty" yaml:"rules,omitempty"`
-		LogPath   string      `json:"logPath,omitempty" yaml:"logPath,omitempty"`
-	}
-
 	// Resource API group for rate limit, all API in group is considered to be the same resource
 	Resource struct {
 		ID    int64   `json:"id,omitempty" yaml:"id,omitempty"`
@@ -48,12 +37,6 @@ type (
 		Pattern       string        `json:"pattern,omitempty" yaml:"pattern"`
 	}
 
-	// Rule api group 's rate-limit rule
-	Rule struct {
-		ID       int64     `json:"id,omitempty" yaml:"id,omitempty"`
-		FlowRule flow.Rule `json:"flowRule,omitempty" yaml:"flowRule,omitempty"`
-		Enable   bool      `json:"enable,omitempty" yaml:"enable,omitempty"`
-	}
 	// MatchStrategy API match strategy
 	MatchStrategy int32
 )

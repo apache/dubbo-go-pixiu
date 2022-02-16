@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package ratelimit
+package sentinel
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -25,21 +25,21 @@ import (
 type loggerWrapper struct {
 }
 
-// getWrappedLogger
-func getWrappedLogger() loggerWrapper {
+// GetWrappedLogger
+func GetWrappedLogger() loggerWrapper {
 	return loggerWrapper{}
 }
 
 func (l loggerWrapper) Debug(msg string, keysAndValues ...interface{}) {
-	logger.Debugf(msg, keysAndValues)
+	logger.Debugf(msg, keysAndValues...)
 }
 
 func (l loggerWrapper) Info(msg string, keysAndValues ...interface{}) {
-	logger.Infof(msg, keysAndValues)
+	logger.Infof(msg, keysAndValues...)
 }
 
 func (l loggerWrapper) Warn(msg string, keysAndValues ...interface{}) {
-	logger.Warnf(msg, keysAndValues)
+	logger.Warnf(msg, keysAndValues...)
 }
 
 func (l loggerWrapper) Error(err error, msg string, keysAndValues ...interface{}) {
