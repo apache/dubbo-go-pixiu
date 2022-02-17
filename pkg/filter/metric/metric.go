@@ -98,7 +98,7 @@ func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
 	atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
 	atomic.AddInt64(&totalCount, 1)
 
-	logger.Infof("[dubbo go server] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.GetStatusCode(), latency, c.GetMethod(), c.GetUrl())
+	logger.Infof("[Metric] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.GetStatusCode(), latency, c.GetMethod(), c.GetUrl())
 	return filter.Continue
 }
 

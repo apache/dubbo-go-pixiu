@@ -137,7 +137,7 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 	rpcContext.SetRoute(ra)
 	dcm.handleRpcInvocation(rpcContext)
 	result := rpcContext.RpcResult
-	return result, nil
+	return result, result.Error()
 }
 
 // OnData handle dubbo rpc invocation

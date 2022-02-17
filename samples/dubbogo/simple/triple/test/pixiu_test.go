@@ -15,45 +15,31 @@
  * limitations under the License.
  */
 
-package ratelimit
+package test
 
 import (
-	"regexp"
-	"sync"
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
 )
 
-type Regex struct {
-	apiNames map[string]string
+import (
+	"github.com/stretchr/testify/assert"
+)
 
-	mu sync.RWMutex
-}
-
-func (p *Regex) load(apis []*Resource) {
-	m := make(map[string]string, len(apis))
-
-	for _, api := range apis {
-		apiName := api.Name
-		for _, item := range api.Items {
-			if item.MatchStrategy == REGEX {
-				m[item.Pattern] = apiName
-			}
-		}
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.apiNames = m
-}
-
-func (p *Regex) match(path string) (string, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	for k, v := range p.apiNames {
-		matched, _ := regexp.MatchString(k, path)
-		if matched {
-			return v, true
-		}
-	}
-	return "", false
+func TestPost1(t *testing.T) {
+	url := "http://localhost:8881/BDTService/org.apache.dubbogo.samples.api.Greeter/SayHello"
+	data := "{\"name\":\"test\"}"
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("POST", url, strings.NewReader(data))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	assert.True(t, strings.Contains(string(s), "Hello test"))
 }

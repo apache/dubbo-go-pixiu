@@ -96,6 +96,23 @@ func (rt *Route) PutAPI(api router.API) error {
 		api.Method.HTTPVerb, lowerCasePath, node.fullPath)
 }
 
+// PutOrUpdateAPI puts or updates an api into the resource
+func (rt *Route) PutOrUpdateAPI(api router.API) error {
+	lowerCasePath := strings.ToLower(api.URLPattern)
+	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
+	rn := &Node{
+		fullPath: lowerCasePath,
+		method:   &api.Method,
+		headers:  api.Headers,
+	}
+	rt.lock.Lock()
+	defer rt.lock.Unlock()
+	if ok, err := rt.tree.PutOrUpdate(key, rn); !ok {
+		return err
+	}
+	return nil
+}
+
 // FindAPI return if api has path in trie,or nil
 func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API, bool) {
 	lowerCasePath := strings.ToLower(fullPath)

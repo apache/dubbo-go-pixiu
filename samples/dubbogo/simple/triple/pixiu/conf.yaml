@@ -40,19 +40,13 @@ static_resources:
                       dynamic_adapter: test
                   - name: dgp.filter.http.loadbalance
                   - name: dgp.filter.http.dubboproxy
-
-                      generate_request_id: false
-      config:
-        idle_timeout: 5s
-        read_timeout: 5s
-        write_timeout: 5s
-  timeout_config:
-    connect_timeout: "5s"
-    request_timeout: "10s"
-  shutdown_config:
-    timeout: "60s"
-    step_timeout: "10s"
-    reject_policy: "immediacy"
+                    config:
+                      dubboProxyConfig:
+                        registries:
+                          nacos:
+                            protocol: nacos
+                            timeout: "3s"
+                            address: "127.0.0.1:8848"
   adapters:
     - id: test
       name: dgp.adapter.dubboregistrycenter
@@ -60,4 +54,4 @@ static_resources:
         registries:
           nacos:
             protocol: nacos
-            address:  dubbo-go-nacos:8848
+            address:  "127.0.0.1:8848"
