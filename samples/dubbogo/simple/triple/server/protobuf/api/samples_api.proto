@@ -15,45 +15,27 @@
  * limitations under the License.
  */
 
-package ratelimit
+syntax = "proto3";
+package org.apache.dubbogo.samples.api;
 
-import (
-	"regexp"
-	"sync"
-)
+option go_package = "./;api";
 
-type Regex struct {
-	apiNames map[string]string
-
-	mu sync.RWMutex
+// The greeting service definition.
+service Greeter {
+  // Sends a greeting
+  rpc SayHello (HelloRequest) returns (User) {}
+  // Sends a greeting via stream
+  rpc SayHelloStream (stream HelloRequest) returns (stream User) {}
 }
 
-func (p *Regex) load(apis []*Resource) {
-	m := make(map[string]string, len(apis))
-
-	for _, api := range apis {
-		apiName := api.Name
-		for _, item := range api.Items {
-			if item.MatchStrategy == REGEX {
-				m[item.Pattern] = apiName
-			}
-		}
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.apiNames = m
+// The request message containing the user's name.
+message HelloRequest {
+  string name = 1;
 }
 
-func (p *Regex) match(path string) (string, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	for k, v := range p.apiNames {
-		matched, _ := regexp.MatchString(k, path)
-		if matched {
-			return v, true
-		}
-	}
-	return "", false
+// The response message containing the greetings
+message User {
+  string name = 1;
+  string id = 2;
+  int32 age = 3;
 }

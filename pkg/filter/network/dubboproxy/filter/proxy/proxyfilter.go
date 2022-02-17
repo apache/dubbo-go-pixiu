@@ -122,9 +122,12 @@ func (f Filter) sendDubboRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 
 	dubboProtocol := dubbo.NewDubboProtocol()
 
-	// TODO: will lead to Error when failed to connect server
+	// TODO: will print many Error when failed to connect server
 	invoker := dubboProtocol.Refer(url)
-
+	if invoker == nil {
+		ctx.SetError(errors.Errorf("can't connect to upstream server %s with address %s", endpoint.Name, endpoint.Address.GetAddress()))
+		return filter.Stop
+	}
 	var resp interface{}
 	invoc.SetReply(&resp)
 
