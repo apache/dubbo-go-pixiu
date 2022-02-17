@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 
-package listener
+syntax = "proto3";
+package org.apache.dubbogo.samples.api;
 
-import (
-	ctxHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-)
+option go_package = "./;api";
 
-func getTestContext() *ctxHttp.HttpContext {
+// The greeting service definition.
+service Greeter {
+  // Sends a greeting
+  rpc SayHello (HelloRequest) returns (User) {}
+  // Sends a greeting via stream
+  rpc SayHelloStream (stream HelloRequest) returns (stream User) {}
+}
 
-	hc := &ctxHttp.HttpContext{
-		Filters: []ctxHttp.FilterFunc{},
-	}
-	hc.Reset()
-	return hc
+// The request message containing the user's name.
+message HelloRequest {
+  string name = 1;
+}
+
+// The response message containing the greetings
+message User {
+  string name = 1;
+  string id = 2;
+  int32 age = 3;
 }

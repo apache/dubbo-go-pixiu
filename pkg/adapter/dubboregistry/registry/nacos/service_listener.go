@@ -84,10 +84,12 @@ func (z *serviceListener) Notify(e *dubboRegistry.ServiceEvent) {
 		if e.Action == remoting.EventTypeDel {
 			if err := z.adapterListener.OnRemoveAPI(api); err != nil {
 				logger.Errorf("Error={%s} happens when try to remove api %s", err.Error(), api.Path)
+				continue
 			}
 		} else {
 			if err := z.adapterListener.OnAddAPI(api); err != nil {
 				logger.Errorf("Error={%s} happens when try to add api %s", err.Error(), api.Path)
+				continue
 			}
 		}
 

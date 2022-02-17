@@ -16,3 +16,7 @@
  */
 
 package common
+
+const (
+	ZKLogDiscovery = "[ZKDiscover]"
+)

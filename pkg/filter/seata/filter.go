@@ -25,8 +25,8 @@ import (
 import (
 	"github.com/opentrx/seata-golang/v2/pkg/apis"
 	"github.com/opentrx/seata-golang/v2/pkg/util/runtime"
-
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 import (
@@ -92,7 +92,7 @@ func (factory *FilterFactory) Config() interface{} {
 
 func (factory *FilterFactory) Apply() error {
 	conn, err := grpc.Dial(factory.conf.ServerAddressing,
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithKeepaliveParams(factory.conf.GetClientParameters()))
 	if err != nil {
 		return err

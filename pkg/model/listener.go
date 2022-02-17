@@ -24,6 +24,7 @@ const (
 	ProtocolTypeHTTPS
 	ProtocolTypeGRPC
 	ProtocolTypeHTTP2
+	ProtocolTypeTriple
 )
 
 const (
@@ -41,16 +42,18 @@ var (
 		3: "HTTPS",
 		4: "GRPC",
 		5: "HTTP2",
+		6: "TRIPLE",
 	}
 
 	// ProtocolTypeValue protocol type name to enum seq
 	ProtocolTypeValue = map[string]int32{
-		"HTTP":  0,
-		"TCP":   1,
-		"UDP":   2,
-		"HTTPS": 3,
-		"GRPC":  4,
-		"HTTP2": 5,
+		"HTTP":   0,
+		"TCP":    1,
+		"UDP":    2,
+		"HTTPS":  3,
+		"GRPC":   4,
+		"HTTP2":  5,
+		"TRIPLE": 6,
 	}
 )
 

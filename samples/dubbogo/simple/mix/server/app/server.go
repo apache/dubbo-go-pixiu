@@ -38,7 +38,7 @@ var survivalTimeout = int(3e9)
 // 		export APP_LOG_CONF_FILE="xxx"
 func main() {
 	config.Load()
-	logger.Info("dubbo version is: %s", Version)
+	logger.Infof("dubbo version is: %s", Version)
 	initSignal()
 }
 
