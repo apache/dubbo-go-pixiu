@@ -32,9 +32,9 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -42,6 +42,7 @@ import (
 
 // GrpcConnectionManager network filter for grpc
 type GrpcConnectionManager struct {
+	filter.EmptyNetworkFilter
 	config            *model.GRPCConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 }
@@ -53,17 +54,12 @@ func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig, bs *mo
 	return hcm
 }
 
-// OnData receive data from listener
-func (gcm *GrpcConnectionManager) OnData(hc *pch.HttpContext) error {
-	panic("grpc connection manager OnData function shouldn't be called")
-}
-
 // ServeHTTP handle request and response
 func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
 
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
-		logger.Info("GrpcConnectionManager can't find route %v", err)
+		logger.Infof("GrpcConnectionManager can't find route %v", err)
 		w.WriteHeader(stdHttp.StatusNotFound)
 		if _, err := w.Write(constant.Default404Body); err != nil {
 			logger.Warnf("WriteWithStatus error %v", err)
@@ -91,7 +87,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	res, err := forwarder.Forward(newReq)
 
 	if err != nil {
-		logger.Info("GrpcConnectionManager forward request error %v", err)
+		logger.Infof("GrpcConnectionManager forward request error %v", err)
 		bt, _ := json.Marshal(http.ErrResponse{Message: "pixiu forward error"})
 		w.WriteHeader(stdHttp.StatusServiceUnavailable)
 		w.Write(bt)
@@ -99,7 +95,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	}
 
 	if err := gcm.response(w, res); err != nil {
-		logger.Info("GrpcConnectionManager response  error %v", err)
+		logger.Infof("GrpcConnectionManager response  error %v", err)
 	}
 }
 

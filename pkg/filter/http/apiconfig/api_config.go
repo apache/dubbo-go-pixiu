@@ -92,7 +92,7 @@ func (factory *FilterFactory) Apply() error {
 }
 
 func (factory *FilterFactory) OnAddAPI(r router.API) error {
-	return factory.apiService.AddAPI(r)
+	return factory.apiService.AddOrUpdateAPI(r)
 }
 func (factory *FilterFactory) OnRemoveAPI(r router.API) error {
 	return factory.apiService.RemoveAPIByIntance(r)

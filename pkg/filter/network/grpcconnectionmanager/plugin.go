@@ -29,18 +29,25 @@ const (
 )
 
 func init() {
-	filter.RegisterNetworkFilter(&Plugin{})
+	filter.RegisterNetworkFilterPlugin(&Plugin{})
 }
 
 type (
 	Plugin struct{}
 )
 
+// Kind kind
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
-func (hp *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+// CreateFilter create grpc network filter
+func (p *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.GRPCConnectionManagerConfig)
 	return grpc.CreateGrpcConnectionManager(hcmc, bs), nil
+}
+
+// Config return GRPCConnectionManagerConfig
+func (p *Plugin) Config() interface{} {
+	return &model.GRPCConnectionManagerConfig{}
 }
