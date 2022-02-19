@@ -112,6 +112,9 @@ func TestCdsManager_Fetch(t *testing.T) {
 	supermonkey.Patch((*server.ClusterManager).RemoveCluster, func(_ *server.ClusterManager, names []string) {
 		//do nothing.
 	})
+	supermonkey.Patch((*server.ClusterManager).CloneStore, func(_ *server.ClusterManager) (*server.ClusterStore, error) {
+		return &server.ClusterStore{}, nil
+	})
 	//supermonkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
 	//	return deltaResult, deltaErr
 	//})
