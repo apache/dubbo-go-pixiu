@@ -25,4 +25,5 @@ type RemoteConfig struct {
 	Username string `yaml:"username" json:"username"`
 	Password string `yaml:"password" json:"password"`
 	Group    string `yaml:"group" json:"group"`
+	Root 	 string `yaml:"root" json:"root" default:"/services"`
 }

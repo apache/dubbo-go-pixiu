@@ -62,3 +62,4 @@ static_resources:
           protocol: zookeeper
           address: 127.0.0.1:2181
           timeout: 100000000s
+          root: "/services"

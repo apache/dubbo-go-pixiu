@@ -18,6 +18,7 @@
 package zookeeper
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -62,17 +63,10 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 		children, e, err := asl.ds.getClient().GetChildrenW(asl.servicePath)
 		if err != nil {
 			failTimes++
-			logger.Infof("watching (path{%s}) = error{%v}", asl.servicePath, err)
-			if err == gzk.ErrNilChildren {
-				return
-			}
-			if err == gzk.ErrNilNode {
-				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", asl.servicePath)
-				return
-			}
-			if failTimes > MaxFailTimes {
-				logger.Errorf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen", asl.servicePath, MaxFailTimes)
-				return
+			logger.Debugf("watching (path{%s}) = error{%v}", asl.servicePath, err)
+			if failTimes >= MaxFailTimes {
+				logger.Debugf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen", asl.servicePath, MaxFailTimes)
+				failTimes = MaxFailTimes
 			}
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
 			<-delayTimer.C
@@ -82,7 +76,6 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 		if continueLoop := asl.watchEventHandle(children, e); !continueLoop {
 			return
 		}
-
 	}
 }
 
@@ -96,11 +89,8 @@ func (asl *applicationServiceListener) watchEventHandle(children []string, e <-c
 		case <-ticker.C:
 			asl.handleEvent(children)
 		case zkEvent := <-e:
-			logger.Warnf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
+			logger.Debugf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
 				zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, gzk.StateToString(zkEvent.State), zkEvent.Err)
-			if zkEvent.Type != zk.EventNodeChildrenChanged {
-				return true
-			}
 			asl.handleEvent(children)
 			return true
 		case <-asl.exit:
@@ -114,28 +104,44 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 
 	fetchChildren, err := asl.ds.getClient().GetChildren(asl.servicePath)
 	if err != nil {
-		logger.Warnf("%s Error when retrieving service node [%s] in path: %s, Error:%s", common.ZKLogDiscovery, asl.serviceName, asl.servicePath, err.Error())
-		return
-	}
-	discovery := asl.ds
-	instanceMap := discovery.instanceMap
-	addf := func() {
-		if addInstanceIds := Diff(fetchChildren, children); addInstanceIds != nil {
-			for _, id := range addInstanceIds {
-				discovery.addServiceInstance(instanceMap[id])
-			}
+		// todo refactor gost zk, make it return the definite err
+		if strings.Contains(err.Error(), "none children")  {
+			logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
+		} else {
+			logger.Warnf("%s Error when retrieving service node [%s] in path: %s, Error:%s", common.ZKLogDiscovery, asl.serviceName, asl.servicePath, err.Error())
 		}
 	}
-	addf()
+	discovery := asl.ds
+	serviceMap := discovery.getServiceMap()
+	instanceMap := discovery.instanceMap
 
-	delf := func() {
-		if delInstanceIds := Diff(children, fetchChildren); delInstanceIds != nil {
+	func() {
+		for _, id := range fetchChildren {
+			serviceInstance, err := discovery.queryForInstance(asl.serviceName, id)
+			if err != nil {
+				logger.Errorf("add service: %s, instance: %s has error: ", asl.serviceName, id, err.Error())
+				continue
+			}
+			if instanceMap[id] == nil {
+				discovery.addServiceInstance(serviceInstance)
+			} else {
+				discovery.updateServiceInstance(serviceInstance)
+			}
+		}
+	}()
+
+	func() {
+		serviceInstances := serviceMap[asl.serviceName]
+		oldInsId := []string{}
+		for _, instance := range serviceInstances {
+			oldInsId = append(oldInsId, instance.ID)
+		}
+		if delInstanceIds := Diff(oldInsId, fetchChildren); delInstanceIds != nil {
 			for _, id := range delInstanceIds {
 				discovery.delServiceInstance(instanceMap[id])
 			}
 		}
-	}
-	delf()
+	}()
 }
 
 // Close closes this listener
