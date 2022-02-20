@@ -124,7 +124,7 @@ func (z *zkAppListener) handleEvent(children []string) {
 
 	if err != nil {
 		// todo refactor gost zk, make it return the definite err
-		if strings.Contains(err.Error(), "none children")  {
+		if strings.Contains(err.Error(), "none children") {
 			logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
 		} else {
 			logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", z.servicesPath, err.Error())

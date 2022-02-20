@@ -115,7 +115,7 @@ func (sd *zookeeperDiscovery) QueryServicesByName(serviceNames []string) ([]serv
 		logger.Debugf("%s get services %s, services instanceIds %s", common.ZKLogDiscovery, s, ids)
 		if err != nil {
 			// todo refactor gost zk, make it return the definite err
-			if strings.Contains(err.Error(), "none children")  {
+			if strings.Contains(err.Error(), "none children") {
 				logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
 			} else {
 				logger.Errorf("%s get services [%s] nodes from zookeeper fail: %s", common.ZKLogDiscovery, s, err.Error())
@@ -267,7 +267,7 @@ func (sd *zookeeperDiscovery) addServiceInstance(instance *servicediscovery.Serv
 func (sd *zookeeperDiscovery) queryForNames() ([]string, error) {
 	children, err := sd.getClient().GetChildren(sd.basePath)
 	// todo refactor gost zk, make it return the definite err
-	if err != nil && strings.Contains(err.Error(), "none children")  {
+	if err != nil && strings.Contains(err.Error(), "none children") {
 		logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
 		return nil, nil
 	}

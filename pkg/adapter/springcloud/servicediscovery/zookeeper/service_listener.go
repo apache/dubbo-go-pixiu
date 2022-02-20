@@ -105,7 +105,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 	fetchChildren, err := asl.ds.getClient().GetChildren(asl.servicePath)
 	if err != nil {
 		// todo refactor gost zk, make it return the definite err
-		if strings.Contains(err.Error(), "none children")  {
+		if strings.Contains(err.Error(), "none children") {
 			logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
 		} else {
 			logger.Warnf("%s Error when retrieving service node [%s] in path: %s, Error:%s", common.ZKLogDiscovery, asl.serviceName, asl.servicePath, err.Error())
