@@ -20,7 +20,7 @@ package sentinel
 const (
 	EXACT MatchStrategy = iota
 	REGEX
-	AntPath
+	ANT_PATH
 )
 
 type (
