@@ -47,8 +47,6 @@ static_resources:
                       cluster: user
                       cluster_not_found_response_code: 505
               http_filters:
-                - name: dgp.filter.http.httpproxy
-                  config:
                 - name: dgp.filter.http.auth.jwt
                   config:
                     rules:
@@ -89,6 +87,8 @@ static_resources:
                           http_uri:
                             uri: http://127.0.0.1:1314/remote
                             timeout: 5s
+                - name: dgp.filter.http.httpproxy
+                  config:
 
       config:
         idle_timeout: 5s
