@@ -44,7 +44,7 @@ const (
 	MaxFailTimes   = 3
 	DefaultTimeout = "3s"
 	ConnDelay      = 3 * time.Second
-	defaultTTL     = 30 * time.Second
+	defaultTTL     = 3 * time.Second
 )
 
 type zookeeperDiscovery struct {

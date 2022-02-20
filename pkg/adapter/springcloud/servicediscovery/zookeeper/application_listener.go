@@ -132,30 +132,30 @@ func (z *zkAppListener) handleEvent(children []string) {
 	}
 
 	discovery := z.ds
+	serviceMap := discovery.getServiceMap()
 
-	func() {
-		serviceMap := discovery.getServiceMap()
-		keys := Keys(serviceMap)
-		diff := Diff(keys, fetchChildren)
-		if diff != nil {
-			logger.Debugf("Del the service %s", diff)
+	// del services
+	for sn, _ := range serviceMap {
 
-			for _, sn := range diff {
+		if !contains(fetchChildren, sn) {
 
-				// service zk event listener
-				serviceNodePath := strings.Join([]string{z.servicesPath, sn}, constant.PathSlash)
-				z.svcListeners.RemoveListener(serviceNodePath)
+			// service zk event listener
+			serviceNodePath := strings.Join([]string{z.servicesPath, sn}, constant.PathSlash)
+			z.svcListeners.RemoveListener(serviceNodePath)
 
-				// service cluster
-				for _, instance := range serviceMap[sn] {
-					discovery.delServiceInstance(instance)
-				}
+			// service cluster
+			for _, instance := range serviceMap[sn] {
+				_, _ = discovery.delServiceInstance(instance)
 			}
 		}
-	}()
+	}
 
 	for _, serviceName := range fetchChildren {
 		serviceNodePath := strings.Join([]string{z.servicesPath, serviceName}, constant.PathSlash)
+		instances := serviceMap[serviceName]
+		if instances == nil || len(instances) == 0 {
+			z.svcListeners.RemoveListener(serviceNodePath)
+		}
 		if z.svcListeners.GetListener(serviceNodePath) != nil {
 			continue
 		}
@@ -197,4 +197,13 @@ func (s *SvcListeners) GetAllListener() map[string]zookeeper.Listener {
 	s.listenerLock.Lock()
 	defer s.listenerLock.Unlock()
 	return s.listeners
+}
+
+func contains(elems []string, v string) bool {
+	for _, s := range elems {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

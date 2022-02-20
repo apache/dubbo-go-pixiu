@@ -67,6 +67,7 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 			if failTimes >= MaxFailTimes {
 				logger.Debugf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen", asl.servicePath, MaxFailTimes)
 				failTimes = MaxFailTimes
+				return
 			}
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
 			<-delayTimer.C
@@ -123,9 +124,9 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 				continue
 			}
 			if instanceMap[id] == nil {
-				discovery.addServiceInstance(serviceInstance)
+				_, _ = discovery.addServiceInstance(serviceInstance)
 			} else {
-				discovery.updateServiceInstance(serviceInstance)
+				_, _ = discovery.updateServiceInstance(serviceInstance)
 			}
 		}
 	}()
@@ -138,7 +139,7 @@ func (asl *applicationServiceListener) handleEvent(children []string) {
 		}
 		if delInstanceIds := Diff(oldInsId, fetchChildren); delInstanceIds != nil {
 			for _, id := range delInstanceIds {
-				discovery.delServiceInstance(instanceMap[id])
+				_, _ = discovery.delServiceInstance(instanceMap[id])
 			}
 		}
 	}()
