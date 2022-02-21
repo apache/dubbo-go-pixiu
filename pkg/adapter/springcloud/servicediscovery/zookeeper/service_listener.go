@@ -65,8 +65,7 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 			failTimes++
 			logger.Debugf("watching (path{%s}) = error{%v}", asl.servicePath, err)
 			if failTimes >= MaxFailTimes {
-				logger.Debugf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen", asl.servicePath, MaxFailTimes)
-				failTimes = MaxFailTimes
+				logger.Warnf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen", asl.servicePath, MaxFailTimes)
 				return
 			}
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
