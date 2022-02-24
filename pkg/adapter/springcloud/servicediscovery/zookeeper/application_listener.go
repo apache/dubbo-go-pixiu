@@ -135,7 +135,7 @@ func (z *zkAppListener) handleEvent(children []string) {
 	serviceMap := discovery.getServiceMap()
 
 	// del services
-	for sn, _ := range serviceMap {
+	for sn := range serviceMap {
 
 		if !contains(fetchChildren, sn) {
 
@@ -153,7 +153,7 @@ func (z *zkAppListener) handleEvent(children []string) {
 	for _, serviceName := range fetchChildren {
 		serviceNodePath := strings.Join([]string{z.servicesPath, serviceName}, constant.PathSlash)
 		instances := serviceMap[serviceName]
-		if instances == nil || len(instances) == 0 {
+		if len(instances) == 0 {
 			z.svcListeners.RemoveListener(serviceNodePath)
 		}
 		if z.svcListeners.GetListener(serviceNodePath) != nil {
