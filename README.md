@@ -17,7 +17,7 @@ It supports **HTTP-to-Dubbo** and **HTTP-to-HTTP** proxy and more protocols will
 #### cd samples dir
 
 ```
-cd samples/dubbo/simple
+cd samples/dubbogo/simple
 ```
 
 we can use start.sh to run samples quickly. for more info, execute command as below for more help
@@ -55,7 +55,7 @@ if prepare config file manually, notice:
 if run pixiu manually, use command as below
 
 ```
- go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/body/pixiu/conf.yaml
 ```
 
 

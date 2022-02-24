@@ -16,7 +16,7 @@ Dubbo-Go-Pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 #### 进入示例代码目录
 
 ```
-cd samples/dubbo/simple
+cd samples/dubbogo/simple
 ```
 
 可以使用 start.sh 脚本快速启动案例项目，可以执行如下命令来获得更多信息
@@ -54,7 +54,7 @@ cd samples/dubbo/simple
 可以使用下列命令来手动启动 pixiu
 
 ```
- go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/body/pixiu/conf.yaml
 ```
 
 
