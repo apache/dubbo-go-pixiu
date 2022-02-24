@@ -70,3 +70,7 @@ test:
 
 integrate-test:
 	sh start_integrate_test.sh
+
+
+clean:
+	@rm -rf ./dubbo-go-pixiu

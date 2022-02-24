@@ -34,5 +34,6 @@ const (
 
 // registry configuration
 const (
-	EnvDubbogoPixiuNacosRegistryAddress = "NACOS_ADDRESS"
+	EnvDubbogoPixiuZookeeperRegistryAddress = "ZOOKEEPER_ADDRESS"
+	EnvDubbogoPixiuNacosRegistryAddress     = "NACOS_ADDRESS"
 )

@@ -18,6 +18,7 @@
 package zookeeper
 
 import (
+	"os"
 	"strings"
 	"time"
 )
@@ -41,7 +42,7 @@ var (
 
 const (
 	// RegistryZkClient zk client name
-	RegistryZkClient = "zk registry"
+	RegistryZkClient = "zk-registry"
 	MaxFailTimes     = 2
 	ConnDelay        = 3 * time.Second
 	defaultTTL       = 10 * time.Minute
@@ -66,7 +67,13 @@ func newZKRegistry(regConfig model.Registry, adapterListener common.RegistryEven
 	if err != nil {
 		return nil, errors.Errorf("Incorrect timeout configuration: %s", regConfig.Timeout)
 	}
-	client, eventChan, err := zk.NewZooKeeperClient(RegistryZkClient, strings.Split(regConfig.Address, ","), timeout)
+
+	// get dubbo registry address from env or else config file
+	zkAddress := os.Getenv(constant.EnvDubbogoPixiuZookeeperRegistryAddress)
+	if zkAddress == "" {
+		zkAddress = regConfig.Address
+	}
+	client, eventChan, err := zk.NewZooKeeperClient(RegistryZkClient, strings.Split(zkAddress, ","), timeout)
 	if err != nil {
 		return nil, errors.Errorf("Initialize zookeeper client failed: %s", err.Error())
 	}
