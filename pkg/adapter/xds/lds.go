@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	model2 "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	xdsModel "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
 
 	"gopkg.in/yaml.v2"
 )
@@ -44,15 +44,15 @@ func (l *LdsManager) Fetch() error {
 	if err != nil {
 		return err
 	}
-	listeners := make([]*model2.Listener, 0, len(r))
+	listeners := make([]*xdsModel.Listener, 0, len(r))
 	for _, one := range r {
-		_listener := &model2.PixiuExtensionListeners{}
-		if err := one.To(_listener); err != nil {
+		listener := &xdsModel.PixiuExtensionListeners{}
+		if err := one.To(listener); err != nil {
 			logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 			continue
 		}
-		logger.Infof("listener xds server %v", _listener)
-		listeners = append(listeners, _listener.Listeners...)
+		logger.Infof("listener xds server %v", listener)
+		listeners = append(listeners, listener.Listeners...)
 	}
 	l.setupListeners(listeners)
 	return nil
@@ -69,22 +69,22 @@ func (l *LdsManager) Delta() error {
 
 func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		listeners := make([]*model2.Listener, 0, len(delta.NewResources))
+		listeners := make([]*xdsModel.Listener, 0, len(delta.NewResources))
 		for _, one := range delta.NewResources {
-			_listener := &model2.PixiuExtensionListeners{}
-			if err := one.To(_listener); err != nil {
+			listener := &xdsModel.PixiuExtensionListeners{}
+			if err := one.To(listener); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
 			}
-			logger.Infof("listener xds server %v", _listener)
-			listeners = append(listeners, _listener.Listeners...)
+			logger.Infof("listener xds server %v", listener)
+			listeners = append(listeners, listener.Listeners...)
 		}
 
 		l.setupListeners(listeners)
 	}
 }
 
-func (l *LdsManager) makeSocketAddress(address *model2.SocketAddress) model.SocketAddress {
+func (l *LdsManager) makeSocketAddress(address *xdsModel.SocketAddress) model.SocketAddress {
 	if address == nil {
 		return model.SocketAddress{}
 	}
@@ -106,17 +106,17 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 }
 
 // setupListeners setup listeners accord to dynamic resource
-func (l *LdsManager) setupListeners(listeners []*model2.Listener) {
+func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
 	laterApplies := make([]func() error, 0, len(listeners))
 	toRemoveHash := make(map[string]struct{}, len(listeners))
 
-	for _, _l := range listeners {
-		toRemoveHash[_l.Name] = struct{}{}
+	for _, listener := range listeners {
+		toRemoveHash[listener.Name] = struct{}{}
 	}
 
-	for _, _l := range listeners {
-		delete(toRemoveHash, _l.Name)
-		modelListener := l.makeListener(_l)
+	for _, listener := range listeners {
+		delete(toRemoveHash, listener.Name)
+		modelListener := l.makeListener(listener)
 		// apply add or update later after removes
 		laterApplies = append(laterApplies, func() error {
 			err := server.GetServer().GetListenerManager().AddOrUpdateListener(&modelListener)
@@ -134,44 +134,44 @@ func (l *LdsManager) setupListeners(listeners []*model2.Listener) {
 	}
 }
 
-func (l *LdsManager) makeListener(_l *model2.Listener) model.Listener {
+func (l *LdsManager) makeListener(listener *xdsModel.Listener) model.Listener {
 	return model.Listener{
-		Name:        _l.Name,
-		Address:     l.makeAddress(_l.Address),
-		FilterChain: l.makeFilterChain(_l.FilterChain),
+		Name:        listener.Name,
+		Address:     l.makeAddress(listener.Address),
+		FilterChain: l.makeFilterChain(listener.FilterChain),
 		Config:      nil, // todo set the additional config
 	}
 }
 
-func (l *LdsManager) makeFilterChain(fChain *model2.FilterChain) model.FilterChain {
+func (l *LdsManager) makeFilterChain(fChain *xdsModel.FilterChain) model.FilterChain {
 	return model.FilterChain{
 		Filters: l.makeFilters(fChain.Filters),
 	}
 }
 
-func (l *LdsManager) makeFilters(filters []*model2.NetworkFilter) []model.NetworkFilter {
-	_filters := make([]model.NetworkFilter, 0, len(filters))
-	for _, _filter := range filters {
-		_filters = append(_filters, model.NetworkFilter{
-			Name: _filter.Name,
-			//Config: _filter., todo define the config of filter
-			Config: l.makeConfig(_filter),
+func (l *LdsManager) makeFilters(filters []*xdsModel.NetworkFilter) []model.NetworkFilter {
+	result := make([]model.NetworkFilter, 0, len(filters))
+	for _, filter := range filters {
+		result = append(result, model.NetworkFilter{
+			Name: filter.Name,
+			//Config: filter., todo define the config of filter
+			Config: l.makeConfig(filter),
 		})
 	}
-	return _filters
+	return result
 }
 
-func (l *LdsManager) makeConfig(filter *model2.NetworkFilter) (m map[string]interface{}) {
+func (l *LdsManager) makeConfig(filter *xdsModel.NetworkFilter) (m map[string]interface{}) {
 	switch cfg := filter.Config.(type) {
-	case *model2.NetworkFilter_Yaml:
+	case *xdsModel.NetworkFilter_Yaml:
 		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {
 			logger.Errorf("can not make yaml from filter.Config: %s", cfg.Yaml.Content, err)
 		}
-	case *model2.NetworkFilter_Json:
+	case *xdsModel.NetworkFilter_Json:
 		if err := json.Unmarshal([]byte(cfg.Json.Content), &m); err != nil {
 			logger.Errorf("can not make json from filter.Config: %s", cfg.Json.Content, err)
 		}
-	case *model2.NetworkFilter_Struct:
+	case *xdsModel.NetworkFilter_Struct:
 		m = cfg.Struct.AsMap()
 	default:
 		logger.Errorf("can not get filter config of %s", filter.Name)
@@ -179,7 +179,7 @@ func (l *LdsManager) makeConfig(filter *model2.NetworkFilter) (m map[string]inte
 	return
 }
 
-func (l *LdsManager) makeAddress(addr *model2.Address) model.Address {
+func (l *LdsManager) makeAddress(addr *xdsModel.Address) model.Address {
 	if addr == nil {
 		return model.Address{}
 	}

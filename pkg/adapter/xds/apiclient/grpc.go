@@ -95,8 +95,8 @@ func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 	}
 	logger.Infof("init the from xds server typeUrl=%s version=%s", clsRsp.TypeUrl, clsRsp.VersionInfo)
 	extensions := make([]*ProtoAny, 0, len(clsRsp.Resources))
-	for _, _resource := range clsRsp.Resources {
-		elems, err := g.decodeSource(_resource)
+	for _, resource := range clsRsp.Resources {
+		elems, err := g.decodeSource(resource)
 		if err != nil {
 			return nil, err
 		}
@@ -105,9 +105,9 @@ func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 	return extensions, nil
 }
 
-func (g *GrpcApiClient) decodeSource(_resource *anypb.Any) (*ProtoAny, error) {
+func (g *GrpcApiClient) decodeSource(resource *anypb.Any) (*ProtoAny, error) {
 	extension := envoyconfigcorev3.TypedExtensionConfig{}
-	err := _resource.UnmarshalTo(&extension)
+	err := resource.UnmarshalTo(&extension)
 	if err != nil {
 		return nil, errors.Wrapf(err, "typed extension as expected.(%s)", g.resourceNames)
 	}
