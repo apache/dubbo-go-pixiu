@@ -67,13 +67,13 @@ func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for one := range read {
 		clusters := make([]*xdspb.Cluster, 0, len(one.NewResources))
 		for _, one := range one.NewResources {
-			_cluster := &xdspb.PixiuExtensionClusters{}
-			if err := one.To(_cluster); err != nil {
+			cluster := &xdspb.PixiuExtensionClusters{}
+			if err := one.To(cluster); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
 			}
-			logger.Infof("clusters from xds server %v", _cluster)
-			clusters = append(clusters, _cluster.Clusters...)
+			logger.Infof("clusters from xds server %v", cluster)
+			clusters = append(clusters, cluster.Clusters...)
 
 		}
 		if err := c.setupCluster(clusters); err != nil {
@@ -96,8 +96,8 @@ func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
 		return errors.WithMessagef(err, "can not clone cluster store when update cluster")
 	}
 	//todo this will remove the cluster which defined locally.
-	for _, _cluster := range store.Config {
-		toRemoveHash[_cluster.Name] = struct{}{}
+	for _, cluster := range store.Config {
+		toRemoveHash[cluster.Name] = struct{}{}
 	}
 	for _, cluster := range clusters {
 		delete(toRemoveHash, cluster.Name)

@@ -71,7 +71,7 @@ http_filters:
 	}
 	httpManagerConfigStruct, _ := structpb2.NewStruct(configMap)
 
-	_configMap := map[string]interface{}{
+	oneConfigMap := map[string]interface{}{
 		"route_config": map[interface{}]interface{}{
 			"routes": []interface{}{
 				map[interface{}]interface{}{
@@ -116,7 +116,7 @@ http_filters:
 						}},
 				},
 			},
-			wantM: _configMap,
+			wantM: oneConfigMap,
 		},
 		{
 			name: "struct",
