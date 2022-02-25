@@ -6,19 +6,19 @@ xds implement demo how to use xds server.
 
 1. start xds server
 ```
-dubbo-go-pixiu/xds/xdsserver > go run .
+dubbo-go-pixiu/samples/xds/local-control-panel/server/app> go run .
 ```
 
 2. run pixiu 
 ```
-dubbo-go-pixiu > pixiu gateway start -c ./samples/xds/pixiu/conf.yaml -g test/configs/log.yml
+dubbo-go-pixiu > pixiu gateway start -c ./samples/xds/local-control-panel/pixiu/conf.yaml -g test/configs/log.yml
 ```
 
 3. check result
 ```shell
-curl -v  'localhost:8889/get'
+curl -v  'localhost:8888/get'
 
-## will get below 
+## will get result below 
 {
   "args": {},
   "headers": {
