@@ -73,6 +73,8 @@ type (
 		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
 		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
 		Services      []string            `yaml:"services" json:"services" default:"services"`
+		// todo configuration the discovery config, like `zookeeper.discovery.root = "/services"`
+		//Discovery	  *model.DiscoveryConfig `yaml:"discovery" json:"discovery" default:"discovery"`
 	}
 
 	Service struct {

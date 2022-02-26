@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/remote/zookeeper"
@@ -78,16 +79,13 @@ func (z *zkAppListener) watch() {
 		children, e, err := z.ds.getClient().GetChildrenW(z.servicesPath)
 		if err != nil {
 			failTimes++
-			logger.Infof("watching (path{%s}) = error{%v}", z.servicesPath, err)
-			if err == gzk.ErrNilNode {
-				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", z.servicesPath)
-				return
+			logger.Debugf("watching (path{%s}) = error{%v}", z.servicesPath, err)
+
+			if failTimes >= MaxFailTimes {
+				logger.Debugf("Error happens on (path{%s}) exceed max fail times: %s,so exit listen", z.servicesPath, MaxFailTimes)
+				failTimes = MaxFailTimes
 			}
-			if failTimes > MaxFailTimes {
-				logger.Errorf("Error happens on (path{%s}) exceed max fail times: %s,so exit listen",
-					z.servicesPath, MaxFailTimes)
-				return
-			}
+
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
 			<-delayTimer.C
 			continue
@@ -111,9 +109,6 @@ func (z *zkAppListener) watchEventHandle(children []string, e <-chan zk.Event) b
 		case zkEvent := <-e:
 			logger.Debugf("get a zookeeper e{type:%s, server:%s, path:%s, state:%d-%s, err:%s}",
 				zkEvent.Type.String(), zkEvent.Server, zkEvent.Path, zkEvent.State, gzk.StateToString(zkEvent.State), zkEvent.Err)
-			if zkEvent.Type != zk.EventNodeChildrenChanged {
-				return true
-			}
 			z.handleEvent(children)
 			return true
 		case <-z.exit:
@@ -124,29 +119,43 @@ func (z *zkAppListener) watchEventHandle(children []string, e <-chan zk.Event) b
 }
 
 func (z *zkAppListener) handleEvent(children []string) {
+
 	fetchChildren, err := z.ds.getClient().GetChildren(z.servicesPath)
+
 	if err != nil {
-		logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", z.servicesPath, err.Error())
+		// todo refactor gost zk, make it return the definite err
+		if strings.Contains(err.Error(), "none children") {
+			logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
+		} else {
+			logger.Warnf("Error when retrieving newChildren in path: %s, Error:%s", z.servicesPath, err.Error())
+		}
 	}
 
 	discovery := z.ds
+	serviceMap := discovery.getServiceMap()
 
-	del := func() {
-		keys := Keys(discovery.getServiceMap())
-		diff := Diff(keys, fetchChildren)
-		if diff != nil {
-			logger.Debugf("Del the service %s", diff)
-			for _, sn := range diff {
-				for _, instance := range discovery.getServiceMap()[sn] {
-					discovery.delServiceInstance(instance)
-				}
+	// del services
+	for sn := range serviceMap {
+
+		if !contains(fetchChildren, sn) {
+
+			// service zk event listener
+			serviceNodePath := strings.Join([]string{z.servicesPath, sn}, constant.PathSlash)
+			z.svcListeners.RemoveListener(serviceNodePath)
+
+			// service cluster
+			for _, instance := range serviceMap[sn] {
+				_, _ = discovery.delServiceInstance(instance)
 			}
 		}
 	}
-	del()
 
 	for _, serviceName := range fetchChildren {
 		serviceNodePath := strings.Join([]string{z.servicesPath, serviceName}, constant.PathSlash)
+		instances := serviceMap[serviceName]
+		if len(instances) == 0 {
+			z.svcListeners.RemoveListener(serviceNodePath)
+		}
 		if z.svcListeners.GetListener(serviceNodePath) != nil {
 			continue
 		}
@@ -188,4 +197,13 @@ func (s *SvcListeners) GetAllListener() map[string]zookeeper.Listener {
 	s.listenerLock.Lock()
 	defer s.listenerLock.Unlock()
 	return s.listeners
+}
+
+func contains(elems []string, v string) bool {
+	for _, s := range elems {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
