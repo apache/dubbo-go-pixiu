@@ -62,7 +62,7 @@ image:
 		-t apache/$(targetName):latest \
 		-t apache/$(targetName):$(VERSION) \
 		--build-arg build=$(BUILD) --build-arg version=$(VERSION) \
-		-f Dockerfile --no-cache .
+		-f Dockerfile --no-cache --platform linux/amd64 .
 
 test:
 	sh before_ut.sh
@@ -70,3 +70,6 @@ test:
 
 integrate-test:
 	sh start_integrate_test.sh
+
+clean:
+	@rm -rf ./dubbo-go-pixiu
