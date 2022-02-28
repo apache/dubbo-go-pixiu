@@ -41,6 +41,8 @@ const (
 	Kind = constant.HTTPCircuitBreakerFilter
 )
 
+const Segmentation = "@"
+
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
@@ -143,7 +145,7 @@ func (factory *FilterFactory) Apply() error {
 	rules := make([]*circuitbreaker.Rule, 0, len(factory.cfg.Rules))
 
 	for _, rule := range factory.cfg.Rules {
-		c, ok := resourcesMap[strings.Split(rule.Name, "@")[0]]
+		c, ok := resourcesMap[strings.Split(rule.Name, Segmentation)[0]]
 		if !ok {
 			logger.Warn("circuit breaker resource does not exist")
 			continue
@@ -166,7 +168,7 @@ func (factory *FilterFactory) resetRules() {
 
 	for _, rule := range factory.cfg.Rules {
 		for _, item := range rule.Items {
-			rules = append(rules, &pkgs.Resource{Name: rule.Name + "@" + item.Pattern, Items: []*pkgs.Item{item}})
+			rules = append(rules, &pkgs.Resource{Name: rule.Name + Segmentation + item.Pattern, Items: []*pkgs.Item{item}})
 		}
 	}
 
