@@ -30,8 +30,8 @@ import (
 import (
 	"github.com/dubbogo/grpc-go/codes"
 	"github.com/dubbogo/grpc-go/status"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/http2"
+	"google.golang.org/protobuf/proto"
 )
 
 import (
