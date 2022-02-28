@@ -24,7 +24,7 @@ const (
 )
 
 type (
-	// Resource API group for rate limit, all API in group is considered to be the same resource
+	// Resource API group for rate sentinel, all API in group is considered to be the same resource
 	Resource struct {
 		ID    int64   `json:"id,omitempty" yaml:"id,omitempty"`
 		Name  string  `json:"name,omitempty" yaml:"name,omitempty"`

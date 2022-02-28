@@ -62,7 +62,7 @@ func mockConfig() *Config {
 				},
 			},
 		},
-		Resources: []Resources{{Resource: "test-dubbo",
+		Resources: []circuitbreaker.Rule{{Resource: "test-dubbo",
 			Strategy:         circuitbreaker.ErrorCount,
 			RetryTimeoutMs:   3000,
 			MinRequestAmount: 10,

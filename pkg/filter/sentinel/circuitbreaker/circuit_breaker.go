@@ -66,8 +66,8 @@ type (
 
 	// Config describe the config of FilterFactory
 	Config struct {
-		Rules     []*pkgs.Resource `json:"rules,omitempty" yaml:"rules,omitempty"`
-		Resources []Resources      `json:"resources" yaml:"resources"`
+		Rules     []*pkgs.Resource      `json:"rules,omitempty" yaml:"rules,omitempty"`
+		Resources []circuitbreaker.Rule `json:"resources" yaml:"resources"` // circuit breaker base config info
 	}
 )
 
@@ -131,15 +131,7 @@ func (factory *FilterFactory) Apply() error {
 	resourcesMap := make(map[string]circuitbreaker.Rule, len(factory.cfg.Resources))
 
 	for _, rule := range factory.cfg.Resources {
-		resourcesMap[rule.Resource] = circuitbreaker.Rule{
-			Strategy:                     rule.Strategy,
-			RetryTimeoutMs:               rule.RetryTimeoutMs,
-			MinRequestAmount:             rule.MinRequestAmount,
-			StatIntervalMs:               rule.StatIntervalMs,
-			StatSlidingWindowBucketCount: rule.StatSlidingWindowBucketCount,
-			MaxAllowedRtMs:               rule.MaxAllowedRtMs,
-			Threshold:                    rule.Threshold,
-		}
+		resourcesMap[rule.Resource] = rule
 	}
 
 	rules := make([]*circuitbreaker.Rule, 0, len(factory.cfg.Rules))
