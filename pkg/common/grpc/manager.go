@@ -62,7 +62,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
 		logger.Infof("GrpcConnectionManager can't find route %v", err)
-		gcm.writeError(w, status.New(codes.NotFound, fmt.Sprintf("proxy can't find route error = %v", err)))
+		gcm.writeStatus(w, status.New(codes.NotFound, fmt.Sprintf("proxy can't find route error = %v", err)))
 		return
 	}
 
@@ -73,7 +73,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
 		logger.Infof("GrpcConnectionManager cluster not found endpoint")
-		gcm.writeError(w, status.New(codes.Unknown, "cluster not found endpoint"))
+		gcm.writeStatus(w, status.New(codes.Unknown, "cluster not found endpoint"))
 		return
 	}
 
@@ -87,7 +87,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 	if err != nil {
 		logger.Infof("GrpcConnectionManager forward request error %v", err)
-		gcm.writeError(w, status.New(codes.Unknown, fmt.Sprintf("forward error not = %v", err)))
+		gcm.writeStatus(w, status.New(codes.Unknown, fmt.Sprintf("forward error not = %v", err)))
 		return
 	}
 
@@ -96,7 +96,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	}
 }
 
-func (gcm *GrpcConnectionManager) writeError(w stdHttp.ResponseWriter, status *status.Status) error {
+func (gcm *GrpcConnectionManager) writeStatus(w stdHttp.ResponseWriter, status *status.Status) error {
 	w.Header().Set("Grpc-Status", fmt.Sprintf("%d", status.Code()))
 	w.Header().Set("Grpc-Message", status.Message())
 	w.Header().Set("Content-Type", "application/grpc")
