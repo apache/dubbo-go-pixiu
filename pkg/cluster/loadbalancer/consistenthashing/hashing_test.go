@@ -15,13 +15,47 @@
  * limitations under the License.
  */
 
-package model
+package consistenthashing
 
-// LbPolicyType the load balance policy enum
-type LbPolicyType string
-
-const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
+import (
+	"strconv"
+	"testing"
 )
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+func TestHashRing(t *testing.T) {
+
+	nodeCount := 5
+
+	nodes := make([]*model.Endpoint, 0, nodeCount)
+
+	for i := 1; i <= nodeCount; i++ {
+		name := strconv.Itoa(i)
+		nodes = append(nodes, &model.Endpoint{ID: name, Name: name,
+			Address: model.SocketAddress{Address: "192.168.1." + name, Port: 1000 + i}})
+	}
+
+	h := NewHashRing(nodes, 100)
+
+	nodeTotal := make(map[string]int)
+
+	for i := 1; i <= 20; i++ {
+
+		addr := h.getNode(strconv.Itoa(i)).Address.Address
+
+		data, ok := nodeTotal[addr]
+		if ok {
+			data++
+			nodeTotal[addr] = data
+			continue
+		}
+		nodeTotal[addr] = 1
+	}
+
+	for s, i := range nodeTotal {
+		t.Log(s, "-------", i)
+	}
+}

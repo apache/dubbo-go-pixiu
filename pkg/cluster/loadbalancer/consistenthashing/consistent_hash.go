@@ -15,13 +15,35 @@
  * limitations under the License.
  */
 
-package model
+package consistenthashing
 
-// LbPolicyType the load balance policy enum
-type LbPolicyType string
-
-const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
+import (
+	"math/rand"
+	"strconv"
 )
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+func init() {
+	loadbalancer.RegisterLoadBalancer(model.LoadBalanceConsistentHashing, ConsistentHashing{})
+}
+
+// todo wait cluster nodes judge logic
+// todo add read write lock or mutex or other lock?
+var clusterMap = map[string]*HashRing{}
+
+type ConsistentHashing struct{}
+
+func (ConsistentHashing) Handler(c *model.Cluster) *model.Endpoint {
+	data, ok := clusterMap[c.Name]
+	if ok {
+		return data.getNode(strconv.Itoa(rand.Intn(10)))
+	}
+	// todo replicaNum parameters or yaml config ?
+	h := NewHashRing(c.Endpoints, 10)
+	clusterMap[c.Name] = h
+	return h.getNode(strconv.Itoa(rand.Intn(10)))
+}

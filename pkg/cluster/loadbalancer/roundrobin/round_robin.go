@@ -15,13 +15,25 @@
  * limitations under the License.
  */
 
-package model
+package roundrobin
 
-// LbPolicyType the load balance policy enum
-type LbPolicyType string
-
-const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+func init() {
+	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRoundRobin, RoundRobin{})
+}
+
+type RoundRobin struct{}
+
+func (RoundRobin) Handler(c *model.Cluster) *model.Endpoint {
+	lens := len(c.Endpoints)
+	if c.PrePickEndpointIndex >= lens {
+		c.PrePickEndpointIndex = 0
+	}
+	e := c.Endpoints[c.PrePickEndpointIndex]
+	c.PrePickEndpointIndex = (c.PrePickEndpointIndex + 1) % lens
+	return e
+}

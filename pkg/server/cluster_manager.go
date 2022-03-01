@@ -23,6 +23,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -120,11 +121,26 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 
 	for _, cluster := range cm.store.Config {
 		if cluster.Name == clusterName {
-			// according to lb to choose one endpoint, now only random
-			return cluster.PickOneEndpoint()
+			return pickOneEndpoint(cluster)
 		}
 	}
 	return nil
+}
+
+func pickOneEndpoint(c *model.Cluster) *model.Endpoint {
+	if c.Endpoints == nil || len(c.Endpoints) == 0 {
+		return nil
+	}
+
+	if len(c.Endpoints) == 1 {
+		return c.Endpoints[0]
+	}
+
+	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
+	if ok {
+		return loadBalancer.Handler(c)
+	}
+	return loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand].Handler(c)
 }
 
 func (s *ClusterStore) AddCluster(c *model.Cluster) {
@@ -163,7 +179,7 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 	}
 
 	// cluster create
-	c := &model.Cluster{Name: clusterName, Lb: model.RoundRobin, Endpoints: []*model.Endpoint{endpoint}}
+	c := &model.Cluster{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{endpoint}}
 	// not call AddCluster, because lock is not reenter
 	s.Config = append(s.Config, c)
 }

@@ -17,12 +17,8 @@
 
 package model
 
-import (
-	"math/rand"
-)
-
 const (
-	Static DiscoveryType = 0 + iota
+	Static DiscoveryType = iota
 	StrictDNS
 	LogicalDns
 	EDS
@@ -31,21 +27,21 @@ const (
 
 var (
 	// DiscoveryTypeName
-	DiscoveryTypeName = map[int32]string{
-		0: "Static",
-		1: "StrictDNS",
-		2: "LogicalDns",
-		3: "EDS",
-		4: "OriginalDst",
+	DiscoveryTypeName = map[DiscoveryType]string{
+		Static:      "Static",
+		StrictDNS:   "StrictDNS",
+		LogicalDns:  "LogicalDns",
+		EDS:         "EDS",
+		OriginalDst: "OriginalDst",
 	}
 
 	// DiscoveryTypeValue
-	DiscoveryTypeValue = map[string]int32{
-		"Static":      0,
-		"StrictDNS":   1,
-		"LogicalDns":  2,
-		"EDS":         3,
-		"OriginalDst": 4,
+	DiscoveryTypeValue = map[string]DiscoveryType{
+		"Static":      Static,
+		"StrictDNS":   StrictDNS,
+		"LogicalDns":  LogicalDns,
+		"EDS":         EDS,
+		"OriginalDst": OriginalDst,
 	}
 )
 
@@ -56,11 +52,10 @@ type (
 		TypeStr              string           `yaml:"type" json:"type"` // Type the cluster discovery type string value
 		Type                 DiscoveryType    `yaml:"-" json:"-"`       // Type the cluster discovery type
 		EdsClusterConfig     EdsClusterConfig `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
-		LbStr                string           `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
-		Lb                   LbPolicy         `yaml:",omitempty" json:",omitempty"` // Lb the cluster select node used loadBalance policy
+		LbStr                LbPolicyType     `yaml:"lb_policy" json:"lb_policy"` // Lb the cluster select node used loadBalance policy
 		HealthChecks         []HealthCheck    `yaml:"health_checks" json:"health_checks"`
 		Endpoints            []*Endpoint      `yaml:"endpoints" json:"endpoints"`
-		prePickEndpointIndex int
+		PrePickEndpointIndex int
 	}
 
 	// EdsClusterConfig
@@ -83,36 +78,9 @@ type (
 
 	// Endpoint
 	Endpoint struct {
-		ID      string        `yaml:"ID" json:"ID"`     // ID indicate one endpoint
-		Name    string        `yaml:"name" json:"name"` // Name the cluster unique name
-		Address SocketAddress `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"`
-		// extra info such as label or other meta data
-		Metadata map[string]string `yaml:"meta" json:"meta"`
+		ID       string            `yaml:"ID" json:"ID"`                                                       // ID indicate one endpoint
+		Name     string            `yaml:"name" json:"name"`                                                   // Name the cluster unique name
+		Address  SocketAddress     `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"` // Address socket address
+		Metadata map[string]string `yaml:"meta" json:"meta"`                                                   // Metadata extra info such as label or other meta data
 	}
 )
-
-func (c *Cluster) PickOneEndpoint() *Endpoint {
-	// TODO: add lb strategy abstraction
-	if c.Endpoints == nil || len(c.Endpoints) == 0 {
-		return nil
-	}
-
-	if len(c.Endpoints) == 1 {
-		return c.Endpoints[0]
-	}
-
-	if c.Lb == Rand {
-		return c.Endpoints[rand.Intn(len(c.Endpoints))]
-	} else if c.Lb == RoundRobin {
-
-		lens := len(c.Endpoints)
-		if c.prePickEndpointIndex >= lens {
-			c.prePickEndpointIndex = 0
-		}
-		e := c.Endpoints[c.prePickEndpointIndex]
-		c.prePickEndpointIndex = (c.prePickEndpointIndex + 1) % lens
-		return e
-	} else {
-		return c.Endpoints[rand.Intn(len(c.Endpoints))]
-	}
-}
