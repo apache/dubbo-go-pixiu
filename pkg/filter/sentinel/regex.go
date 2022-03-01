@@ -15,42 +15,44 @@
  * limitations under the License.
  */
 
-package ratelimit
+package sentinel
 
-type (
-	//PathMatcher according the url path find APIResource name
-	PathMatcher interface {
-		load(apis []*Resource)
-
-		match(path string) (string, bool)
-	}
-
-	Matcher struct {
-		matchers []PathMatcher
-	}
+import (
+	"regexp"
+	"sync"
 )
 
-func newMatcher() *Matcher {
-	return &Matcher{
-		matchers: []PathMatcher{
-			&Exact{},
-			&Regex{},
-		},
-	}
+type Regex struct {
+	apiNames map[string]string
+
+	mu sync.RWMutex
 }
 
-// Load load api resource for matchers
-func (m *Matcher) load(apis []*Resource) {
-	for _, v := range m.matchers {
-		v.load(apis)
+func (p *Regex) load(apis []*Resource) {
+	m := make(map[string]string, len(apis))
+
+	for _, api := range apis {
+		apiName := api.Name
+		for _, item := range api.Items {
+			if item.MatchStrategy == REGEX {
+				m[item.Pattern] = apiName
+			}
+		}
 	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.apiNames = m
 }
 
-// Match match resource via url path
-func (m *Matcher) match(path string) (string, bool) {
-	for _, matchers := range m.matchers {
-		if res, ok := matchers.match(path); ok {
-			return res, ok
+func (p *Regex) match(path string) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for k, v := range p.apiNames {
+		matched, _ := regexp.MatchString(k, path)
+		if matched {
+			return v, true
 		}
 	}
 	return "", false

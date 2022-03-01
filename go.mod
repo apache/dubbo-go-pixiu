@@ -6,7 +6,7 @@ require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.1-0.20220107110037-4496cef73dba
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/Shopify/sarama v1.19.0
-	github.com/alibaba/sentinel-golang v1.0.2
+	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/apache/dubbo-getty v1.4.7-rc2
 	github.com/apache/dubbo-go-hessian2 v1.11.0
 	github.com/creasty/defaults v1.5.2
@@ -35,7 +35,6 @@ require (
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
-	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.opentelemetry.io/otel v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC2

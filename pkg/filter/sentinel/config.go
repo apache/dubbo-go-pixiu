@@ -15,42 +15,28 @@
  * limitations under the License.
  */
 
-package ratelimit
+package sentinel
 
-import (
-	"github.com/alibaba/sentinel-golang/core/flow"
+const (
+	EXACT MatchStrategy = iota
+	REGEX
+	AntPath
 )
 
-func GetMockedRateLimitConfig() *Config {
-	c := Config{
-		Resources: []*Resource{
-			{
-				Name: "test-dubbo",
-				Items: []*Item{
-					{MatchStrategy: EXACT, Pattern: "/api/v1/test-dubbo/user"},
-					{MatchStrategy: REGEX, Pattern: "/api/v1/test-dubbo/user/*"},
-				},
-			},
-			{
-				Name: "test-http",
-				Items: []*Item{
-					{MatchStrategy: EXACT, Pattern: "/api/v1/http/foo"},
-					{MatchStrategy: EXACT, Pattern: "/api/v1/http/bar"},
-
-					{MatchStrategy: REGEX, Pattern: "/api/v1/http/foo/*"},
-					{MatchStrategy: REGEX, Pattern: "/api/v1/http/bar/*"},
-				},
-			},
-		},
-		Rules: []*Rule{
-			{
-				Enable: true,
-				FlowRule: flow.Rule{
-					Threshold:        100,
-					StatIntervalInMs: 1000,
-				},
-			},
-		},
+type (
+	// Resource API group for rate sentinel, all API in group is considered to be the same resource
+	Resource struct {
+		ID    int64   `json:"id,omitempty" yaml:"id,omitempty"`
+		Name  string  `json:"name,omitempty" yaml:"name,omitempty"`
+		Items []*Item `json:"items" yaml:"items"`
 	}
-	return &c
-}
+
+	// Item API item for group
+	Item struct {
+		MatchStrategy MatchStrategy `json:"matchStrategy,omitempty" yaml:"matchStrategy,omitempty"`
+		Pattern       string        `json:"pattern,omitempty" yaml:"pattern"`
+	}
+
+	// MatchStrategy API match strategy
+	MatchStrategy int32
+)
