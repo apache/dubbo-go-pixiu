@@ -34,20 +34,16 @@ import (
 )
 
 func TestFilter(t *testing.T) {
-	factory := Plugin{}
-	f, _ := factory.CreateFilterFactory()
-	config, ok := f.Config().(*Config)
-	assert.True(t, ok)
+	f := &FilterFactory{conf: &Config{}}
 
 	mockYaml, err := yaml.MarshalYML(mockConfig())
 	assert.Nil(t, err)
-	err = yaml.UnmarshalYML(mockYaml, config)
-	assert.Nil(t, err)
 
-	err = f.Apply()
-	assert.Nil(t, err)
+	assert.Nil(t, yaml.UnmarshalYML(mockYaml, f.Config()))
 
-	decoder := &Filter{conf: config, matcher: newMatcher()}
+	assert.Nil(t, f.Apply())
+
+	decoder := &Filter{conf: f.conf, matcher: f.matcher}
 
 	request, _ := stdHttp.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	c := mock.GetMockHTTPContext(request)
