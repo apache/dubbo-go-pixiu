@@ -144,7 +144,7 @@ func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {
 	descriptor, err := loadFileSource(cfg)
 
 	if err != nil {
-		logger.Errorf("%s init gRPC descriptor by local file error, ", loggerHeader, err)
+		logger.Errorf("%s init gRPC descriptor by local file error: %v", loggerHeader, err)
 		return dr
 	}
 
