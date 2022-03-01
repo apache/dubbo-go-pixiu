@@ -38,10 +38,9 @@ import (
 )
 
 const (
-	Kind = constant.HTTPCircuitBreakerFilter
+	Kind         = constant.HTTPCircuitBreakerFilter
+	Segmentation = "@"
 )
-
-const Segmentation = "@"
 
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
@@ -66,8 +65,8 @@ type (
 
 	// Config describe the config of FilterFactory
 	Config struct {
-		Rules     []*pkgs.Resource      `json:"rules,omitempty" yaml:"rules,omitempty"`
-		Resources []circuitbreaker.Rule `json:"resources" yaml:"resources"` // circuit breaker base config info
+		Resources []*pkgs.Resource       `json:"resources,omitempty" yaml:"resources,omitempty"`
+		Rules     []*circuitbreaker.Rule `json:"rules" yaml:"rules"` // circuit breaker base config info
 	}
 )
 
@@ -114,29 +113,19 @@ func (factory *FilterFactory) Apply() error {
 		return fmt.Errorf("circuit breaker router or resources is null")
 	}
 
-	factory.resetRules()
+	factory.resetResources()
 
 	// init matcher
 	factory.matcher = pkgs.NewMatcher()
-	factory.matcher.Load(factory.cfg.Rules)
+	factory.matcher.Load(factory.cfg.Resources)
 
-	conf := sc.NewDefaultConfig()
-	conf.Sentinel.Log.Logger = pkgs.GetWrappedLogger()
-	err := sentinel.InitWithConfig(conf)
-	if err != nil {
-		logger.Error("circuit breaker init fail ", err)
-		return err
-	}
-
-	resourcesMap := make(map[string]circuitbreaker.Rule, len(factory.cfg.Resources))
-
-	for _, rule := range factory.cfg.Resources {
-		resourcesMap[rule.Resource] = rule
+	resourcesMap := make(map[string]circuitbreaker.Rule, len(factory.cfg.Rules))
+	for _, rule := range factory.cfg.Rules {
+		resourcesMap[rule.Resource] = *rule
 	}
 
 	rules := make([]*circuitbreaker.Rule, 0, len(factory.cfg.Rules))
-
-	for _, rule := range factory.cfg.Rules {
+	for _, rule := range factory.cfg.Resources {
 		c, ok := resourcesMap[strings.Split(rule.Name, Segmentation)[0]]
 		if !ok {
 			logger.Warn("circuit breaker resource does not exist")
@@ -147,23 +136,32 @@ func (factory *FilterFactory) Apply() error {
 		rules = append(rules, &c)
 	}
 
+	return loadRules(rules)
+}
+
+func (factory *FilterFactory) resetResources() {
+	resources := make([]*pkgs.Resource, 0, len(factory.cfg.Resources))
+
+	for _, rule := range factory.cfg.Resources {
+		for _, item := range rule.Items {
+			resources = append(resources, &pkgs.Resource{Name: rule.Name + Segmentation + item.Pattern, Items: []*pkgs.Item{item}})
+		}
+	}
+	factory.cfg.Resources = resources
+}
+
+func loadRules(rules []*circuitbreaker.Rule) error {
+	conf := sc.NewDefaultConfig()
+	conf.Sentinel.Log.Logger = pkgs.GetWrappedLogger()
+	err := sentinel.InitWithConfig(conf)
+	if err != nil {
+		logger.Error("circuit breaker init fail ", err)
+		return err
+	}
+
 	if _, err = circuitbreaker.LoadRules(rules); err != nil {
 		logger.Error("circuit breaker load rules fail ", err)
 		return err
 	}
 	return nil
-}
-
-func (factory *FilterFactory) resetRules() {
-
-	rules := make([]*pkgs.Resource, 0, len(factory.cfg.Rules))
-
-	for _, rule := range factory.cfg.Rules {
-		for _, item := range rule.Items {
-			rules = append(rules, &pkgs.Resource{Name: rule.Name + Segmentation + item.Pattern, Items: []*pkgs.Item{item}})
-		}
-	}
-
-	factory.cfg.Rules = rules
-
 }

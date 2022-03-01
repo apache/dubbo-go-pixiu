@@ -53,7 +53,7 @@ func TestFilter(t *testing.T) {
 
 func mockConfig() *Config {
 	c := Config{
-		Rules: []*pkgs.Resource{
+		Resources: []*pkgs.Resource{
 			{
 				Name: "test-dubbo",
 				Items: []*pkgs.Item{
@@ -62,7 +62,8 @@ func mockConfig() *Config {
 				},
 			},
 		},
-		Resources: []circuitbreaker.Rule{{Resource: "test-dubbo",
+		Rules: []*circuitbreaker.Rule{{
+			Resource:         "test-dubbo",
 			Strategy:         circuitbreaker.ErrorCount,
 			RetryTimeoutMs:   3000,
 			MinRequestAmount: 10,
