@@ -34,6 +34,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	pkgs "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -53,12 +54,13 @@ type (
 	// FilterFactory is http filter instance
 	FilterFactory struct {
 		conf    *Config
-		matcher *Matcher
+		matcher *pkgs.Matcher
 	}
+
 	// Filter is http filter instance
 	Filter struct {
 		conf    *Config
-		matcher *Matcher
+		matcher *pkgs.Matcher
 	}
 )
 
@@ -79,7 +81,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	path := hc.GetUrl()
-	resourceName, ok := f.matcher.match(path)
+	resourceName, ok := f.matcher.Match(path)
 	//if not exists, just skip it.
 	if !ok {
 		return filter.Continue
@@ -103,16 +105,16 @@ func (factory *FilterFactory) Config() interface{} {
 
 func (factory *FilterFactory) Apply() error {
 	// init matcher
-	factory.matcher = newMatcher()
+	factory.matcher = pkgs.NewMatcher()
 	conf := factory.conf
-	factory.matcher.load(conf.Resources)
+	factory.matcher.Load(conf.Resources)
 
 	// init sentinel
 	sentinelConf := sc.NewDefaultConfig()
 	if len(conf.LogPath) > 0 {
 		sentinelConf.Sentinel.Log.Dir = conf.LogPath
 	}
-	_ = logging.ResetGlobalLogger(getWrappedLogger())
+	_ = logging.ResetGlobalLogger(pkgs.GetWrappedLogger())
 
 	if err := sentinel.InitWithConfig(sentinelConf); err != nil {
 		return err
