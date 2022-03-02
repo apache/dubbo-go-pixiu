@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package ratelimit
+package sentinel
 
 import (
 	"sync"

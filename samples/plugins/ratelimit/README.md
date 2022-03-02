@@ -14,7 +14,7 @@ The current limiting filter can provide out-of-the-box current limiting function
 - just test it: `curl http://localhost:8888/api/v1/test-dubbo/user?name=tc -X GET `
 
 ### Protect the API:
-#### rate limit config [click here](../../../pkg/filter/ratelimit/mock/config.yml)
+#### rate limit config [click here](../../../pkg/filter/sentinel/ratelimit/mock/config.yml)
 - The first step,Define the resources to be protected. A resource can contain one or more matching paths.
 
   Here, what we want to protect is an exact path, as defined below. Of course, we also support regex, just set matchStrategy to 1.

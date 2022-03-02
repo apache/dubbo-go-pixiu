@@ -17,7 +17,7 @@ It supports **HTTP-to-Dubbo** and **HTTP-to-HTTP** proxy and more protocols will
 #### cd samples dir
 
 ```
-cd samples/dubbo/simple
+cd samples/dubbogo/simple
 ```
 
 we can use start.sh to run samples quickly. for more info, execute command as below for more help
@@ -55,7 +55,7 @@ if prepare config file manually, notice:
 if run pixiu manually, use command as below
 
 ```
- go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/body/pixiu/conf.yaml
 ```
 
 
@@ -72,6 +72,35 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 
 ```
 ./start.sh clean body
+```
+
+## Start Docker
+
+#### 
+```shell
+docker pull phial3/dubbo-go-pixiu:latest
+```
+```
+docker run --name pixiuname -p 8883:8883 \
+    -v /yourpath/conf.yaml:/etc/pixiu/conf.yaml \
+    -v /yourpath/log.yml:/etc/pixiu/log.yml \
+    apache/dubbo-go-pixiu:latest
+```
+#### http to dubbo samples
+start provider, zookeeper be used register center.
+```shell
+cd samples/dubbogo/simple/resolve/server
+
+export DUBBO_GO_CONFIG_PATH="../profiles/dev/server.yml"
+export APP_LOG_CONF_FILE="../profiles/dev/log.yml"
+
+go run server.go user.go
+```
+start http request
+```shell
+cd samples/dubbogo/simple/resolve/test
+
+go test  pixiu_test.go
 ```
 
 ## Features
