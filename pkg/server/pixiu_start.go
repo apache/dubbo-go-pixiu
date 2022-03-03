@@ -40,8 +40,9 @@ type Server struct {
 	clusterManager  *ClusterManager
 	adapterManager  *AdapterManager
 	// routerManager and apiConfigManager are duplicate, because route and dubbo-protocol api_config  are a bit repetitive
-	routerManager    *RouterManager
-	apiConfigManager *ApiConfigManager
+	routerManager         *RouterManager
+	apiConfigManager      *ApiConfigManager
+	dynamicResourceManger DynamicResourceManager
 }
 
 func (s *Server) initialize(bs *model.Bootstrap) {
@@ -50,6 +51,7 @@ func (s *Server) initialize(bs *model.Bootstrap) {
 	s.apiConfigManager = CreateDefaultApiConfigManager(s, bs)
 	s.adapterManager = CreateDefaultAdapterManager(s, bs)
 	s.listenerManager = CreateDefaultListenerManager(bs)
+	s.dynamicResourceManger = createDynamicResourceManger(bs)
 }
 
 func (s *Server) GetClusterManager() *ClusterManager {
@@ -66,6 +68,10 @@ func (s *Server) GetRouterManager() *RouterManager {
 
 func (s *Server) GetApiConfigManager() *ApiConfigManager {
 	return s.apiConfigManager
+}
+
+func (s *Server) GetDynamicResourceManager() DynamicResourceManager {
+	return s.dynamicResourceManger
 }
 
 // Start server start
@@ -128,4 +134,8 @@ func GetRouterManager() *RouterManager {
 
 func GetApiConfigManager() *ApiConfigManager {
 	return server.GetApiConfigManager()
+}
+
+func GetDynamicResourceManager() DynamicResourceManager {
+	return server.GetDynamicResourceManager()
 }
