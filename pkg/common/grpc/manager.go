@@ -72,8 +72,8 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
-		logger.Infof("GrpcConnectionManager cluster not found endpoint")
-		gcm.writeStatus(w, status.New(codes.Unknown, "cluster not found endpoint"))
+		logger.Infof("GrpcConnectionManager can't find endpoint in cluster")
+		gcm.writeStatus(w, status.New(codes.Unknown, "can't find endpoint in cluster"))
 		return
 	}
 
