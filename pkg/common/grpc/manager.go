@@ -96,7 +96,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	}
 }
 
-func (gcm *GrpcConnectionManager) writeStatus(w stdHttp.ResponseWriter, status *status.Status) error {
+func (gcm *GrpcConnectionManager) writeStatus(w stdHttp.ResponseWriter, status *status.Status) {
 	w.Header().Set("Grpc-Status", fmt.Sprintf("%d", status.Code()))
 	w.Header().Set("Grpc-Message", status.Message())
 	w.Header().Set("Content-Type", "application/grpc")
@@ -104,13 +104,13 @@ func (gcm *GrpcConnectionManager) writeStatus(w stdHttp.ResponseWriter, status *
 	if p := status.Proto(); p != nil && len(p.Details) > 0 {
 		stBytes, err := proto.Marshal(p)
 		if err != nil {
-			panic(err)
+			logger.Warnf("GrpcConnectionManager writeStatus status proto marshal error: %s", err.Error())
+		} else {
+			w.Header().Set("Grpc-Status-Details-Bin", base64.RawStdEncoding.EncodeToString(stBytes))
 		}
-		w.Header().Set("Grpc-Status-Details-Bin", base64.RawStdEncoding.EncodeToString(stBytes))
 	}
 
 	w.WriteHeader(stdHttp.StatusOK)
-	return nil
 }
 
 func (gcm *GrpcConnectionManager) response(w stdHttp.ResponseWriter, res *stdHttp.Response) error {
