@@ -58,7 +58,7 @@ type (
 		PrePickEndpointIndex int
 	}
 
-	// EdsClusterConfig
+	// EdsClusterConfig todo remove un-used EdsClusterConfig
 	EdsClusterConfig struct {
 		EdsConfig   ConfigSource `yaml:"eds_config" json:"eds_config" mapstructure:"eds_config"`
 		ServiceName string       `yaml:"service_name" json:"service_name" mapstructure:"service_name"`

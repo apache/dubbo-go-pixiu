@@ -127,6 +127,7 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 	return nil
 }
 
+
 func pickOneEndpoint(c *model.Cluster) *model.Endpoint {
 	if c.Endpoints == nil || len(c.Endpoints) == 0 {
 		return nil
@@ -141,6 +142,37 @@ func pickOneEndpoint(c *model.Cluster) *model.Endpoint {
 		return loadBalancer.Handler(c)
 	}
 	return loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand].Handler(c)
+}
+
+func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
+	cm.rw.Lock()
+	defer cm.rw.Unlock()
+
+	for i, cluster := range cm.store.Config {
+		if cluster == nil {
+			continue
+		}
+		for _, name := range namesToDel { // suppose resource to remove and clusters is few
+			if name == cluster.Name {
+				cm.store.Config[i] = nil
+			}
+		}
+	}
+	//re-construct cm.store.Config remove nil element
+	for i := 0; i < len(cm.store.Config); {
+		if cm.store.Config[i] != nil {
+			i++
+			continue
+		}
+		cm.store.Config = append(cm.store.Config[:i], cm.store.Config[i+1:]...)
+	}
+	cm.store.IncreaseVersion()
+}
+
+func (cm *ClusterManager) HasCluster(clusterName string) bool {
+	cm.rw.Lock()
+	defer cm.rw.Unlock()
+	return cm.store.HasCluster(clusterName)
 }
 
 func (s *ClusterStore) AddCluster(c *model.Cluster) {
