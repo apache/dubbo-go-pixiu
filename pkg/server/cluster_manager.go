@@ -127,7 +127,6 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 	return nil
 }
 
-
 func pickOneEndpoint(c *model.Cluster) *model.Endpoint {
 	if c.Endpoints == nil || len(c.Endpoints) == 0 {
 		return nil
