@@ -38,24 +38,12 @@ func TestHashRing(t *testing.T) {
 			Address: model.SocketAddress{Address: "192.168.1." + name, Port: 1000 + i}})
 	}
 
-	h := NewHashRing(nodes, 100)
+	cluster := &model.Cluster{Name: "cluster1", Endpoints: nodes}
 
-	nodeTotal := make(map[string]int)
+	hashing := ConsistentHashing{}
 
-	for i := 1; i <= 20; i++ {
-
-		addr := h.getNode(strconv.Itoa(i)).Address.Address
-
-		data, ok := nodeTotal[addr]
-		if ok {
-			data++
-			nodeTotal[addr] = data
-			continue
-		}
-		nodeTotal[addr] = 1
+	for i := 0; i < 10; i++ {
+		t.Log(hashing.Handler(cluster))
 	}
 
-	for s, i := range nodeTotal {
-		t.Log(s, "-------", i)
-	}
 }

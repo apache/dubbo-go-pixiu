@@ -25,3 +25,9 @@ const (
 	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
 	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
 )
+
+var LbPolicyTypeValue = map[string]LbPolicyType{
+	"Rand":              LoadBalancerRand,
+	"RoundRobin":        LoadBalancerRoundRobin,
+	"ConsistentHashing": LoadBalanceConsistentHashing,
+}

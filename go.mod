@@ -13,7 +13,7 @@ require (
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
-	github.com/dubbogo/gost v1.11.22
+	github.com/dubbogo/gost v1.11.25
 	github.com/dubbogo/grpc-go v1.42.7
 	github.com/dubbogo/triple v1.1.7
 	github.com/envoyproxy/go-control-plane v0.10.1

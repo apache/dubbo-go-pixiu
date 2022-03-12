@@ -208,8 +208,9 @@ github.com/dubbogo/gost v1.9.0/go.mod h1:pPTjVyoJan3aPxBPNUX0ADkXjPibLo+/Ib0/fAD
 github.com/dubbogo/gost v1.11.11/go.mod h1:vIcP9rqz2KsXHPjsAwIUtfJIJjppQLQDcYaZTy/61jI=
 github.com/dubbogo/gost v1.11.18/go.mod h1:vIcP9rqz2KsXHPjsAwIUtfJIJjppQLQDcYaZTy/61jI=
 github.com/dubbogo/gost v1.11.20/go.mod h1:vIcP9rqz2KsXHPjsAwIUtfJIJjppQLQDcYaZTy/61jI=
-github.com/dubbogo/gost v1.11.22 h1:7g1CCzq5PlnB2JothjWjVCoZ7ZVtPbwR+ijaEGPtdRk=
 github.com/dubbogo/gost v1.11.22/go.mod h1:PhJ8+qZJx+Txjx1KthNPuVkCvUca0jRLgKWj/noGgeI=
+github.com/dubbogo/gost v1.11.25 h1:jFxE+YPh+ajrkHz7AxaaqYNMdKMDf/yfI1D+ZFoxfW0=
+github.com/dubbogo/gost v1.11.25/go.mod h1:iovrPhv0hyakhQGVr4jwiECBL9HXNuBY4VV3HWK5pM0=
 github.com/dubbogo/grpc-go v1.42.7 h1:13yBbEvvKIYtu3ulbQ/LPAv6usUcrnD7sfTlogniqsY=
 github.com/dubbogo/grpc-go v1.42.7/go.mod h1:F1T9hnUvYGW4JLK1QNriavpOkhusU677ovPzLkk6zHM=
 github.com/dubbogo/jsonparser v1.0.1/go.mod h1:tYAtpctvSP/tWw4MeelsowSPgXQRVHHWbqL6ynps8jU=

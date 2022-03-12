@@ -19,7 +19,10 @@ package consistenthashing
 
 import (
 	"math/rand"
-	"strconv"
+)
+
+import (
+	"github.com/dubbogo/gost/hash/consistent"
 )
 
 import (
@@ -31,19 +34,34 @@ func init() {
 	loadbalancer.RegisterLoadBalancer(model.LoadBalanceConsistentHashing, ConsistentHashing{})
 }
 
-// todo wait cluster nodes judge logic
-// todo add read write lock or mutex or other lock?
-var clusterMap = map[string]*HashRing{}
+var clusterMap = map[string]*consistent.Consistent{}
 
 type ConsistentHashing struct{}
 
 func (ConsistentHashing) Handler(c *model.Cluster) *model.Endpoint {
 	data, ok := clusterMap[c.Name]
 	if ok {
-		return data.getNode(strconv.Itoa(rand.Intn(10)))
+
+		// todo random ?
+		hash, err := data.GetHash(uint32(rand.Int31n(1023)))
+		if err != nil {
+			return nil
+		}
+
+		for _, endpoint := range c.Endpoints {
+			if endpoint.Address.Address == hash {
+				return endpoint
+			}
+		}
+
+		return nil
 	}
+
 	// todo replicaNum parameters or yaml config ?
-	h := NewHashRing(c.Endpoints, 10)
+	h := consistent.NewConsistentHash(consistent.WithReplicaNum(10), consistent.WithMaxVnodeNum(1023))
+	for _, endpoint := range c.Endpoints {
+		h.Add(endpoint.Address.Address)
+	}
 	clusterMap[c.Name] = h
-	return h.getNode(strconv.Itoa(rand.Intn(10)))
+	return c.Endpoints[rand.Intn(len(c.Endpoints))]
 }
