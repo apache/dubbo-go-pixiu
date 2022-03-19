@@ -1,5 +1,39 @@
 # Release Notes
+
 ---
+## 0.5.0
+
+### New Features
+- [Dubbo2Http Dubbo2Triple Triple2Dubbo proxy](https://github.com/apache/dubbo-go-pixiu/pull/347)
+- [Http2Triple proxy](https://github.com/apache/dubbo-go-pixiu/pull/302)
+- [Http2Dubbo default mapping rules](https://github.com/apache/dubbo-go-pixiu/pull/298)
+- [Grpc proxy](https://github.com/apache/dubbo-go-pixiu/pull/315)
+- [Dynamic cluster and route configuration from spring cloud zk registry](https://github.com/apache/dubbo-go-pixiu/pull/367)
+- [Jwt auth Filter](https://github.com/apache/dubbo-go-pixiu/pull/303)
+- [Https support multiple certificates](https://github.com/apache/dubbo-go-pixiu/pull/292)
+- [Support build docker image](https://github.com/apache/dubbo-go-pixiu/pull/370)
+
+
+### Enhancement
+
+- [Add http2 listener for grpc proxy](https://github.com/apache/dubbo-go-pixiu/pull/315)
+- [Route using trie](https://github.com/apache/dubbo-go-pixiu/pull/310)
+- [Http2Grpc use grpc reflection server](https://github.com/apache/dubbo-go-pixiu/pull/317)
+- [Get cpu core number in container](https://github.com/apache/dubbo-go-pixiu/pull/340)
+- [Filter Chain refactor](https://github.com/apache/dubbo-go-pixiu/pull/307)
+- [Upgrade hessian2 to v1.11.0](https://github.com/apache/dubbo-go-pixiu/pull/352)
+- [Upgrade upgrade dubbogo version to 3.0](https://github.com/apache/dubbo-go-pixiu/pull/334)
+- [Upgrade keyfunc to new stable release v1.0.0](https://github.com/apache/dubbo-go-pixiu/pull/318)
+
+
+### Bugfixes
+
+- [Fix write error when handle gRPC request using http2 manager](https://github.com/apache/dubbo-go-pixiu/pull/372)
+- [Fix spring cloud error and refactor event callback](https://github.com/apache/dubbo-go-pixiu/pull/367)
+
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/6](https://github.com/apache/dubbo-go-pixiu/milestone/6)
+
+
 ## 0.4.0
 
 ### New Features
@@ -28,7 +62,7 @@
 - [Fix filterManager get filters with random order](https://github.com/apache/dubbo-go-pixiu/pull/264)
 - [Fix nil issue for timeout filter](https://github.com/apache/dubbo-go-pixiu/pull/278)
 
-Milestone: [0.0.4](https://github.com/apache/dubbo-go-pixiu/milestone/5) 
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/5](https://github.com/apache/dubbo-go-pixiu/milestone/5) 
 
 
 ## 0.3.0
