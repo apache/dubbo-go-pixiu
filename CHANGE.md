@@ -30,6 +30,7 @@
 
 - [Fix write error when handle gRPC request using http2 manager](https://github.com/apache/dubbo-go-pixiu/pull/372)
 - [Fix spring cloud error and refactor event callback](https://github.com/apache/dubbo-go-pixiu/pull/367)
+- [Fix first call failure problem when using nacos registery](https://github.com/apache/dubbo-go-pixiu/pull/380)
 
 Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/6](https://github.com/apache/dubbo-go-pixiu/milestone/6)
 
