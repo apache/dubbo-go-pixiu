@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package ratelimit
+package sentinel
 
 type (
 	//PathMatcher according the url path find APIResource name
@@ -30,7 +30,7 @@ type (
 	}
 )
 
-func newMatcher() *Matcher {
+func NewMatcher() *Matcher {
 	return &Matcher{
 		matchers: []PathMatcher{
 			&Exact{},
@@ -40,14 +40,14 @@ func newMatcher() *Matcher {
 }
 
 // Load load api resource for matchers
-func (m *Matcher) load(apis []*Resource) {
+func (m *Matcher) Load(apis []*Resource) {
 	for _, v := range m.matchers {
 		v.load(apis)
 	}
 }
 
 // Match match resource via url path
-func (m *Matcher) match(path string) (string, bool) {
+func (m *Matcher) Match(path string) (string, bool) {
 	for _, matchers := range m.matchers {
 		if res, ok := matchers.match(path); ok {
 			return res, ok

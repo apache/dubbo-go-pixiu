@@ -95,7 +95,7 @@ jobs:
       - name: Go Test
         run: |
           chmod u+x before_ut.sh && ./before_ut.sh
-          go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
+          go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
       # integration test
       - name: Integration Test
         run: |
