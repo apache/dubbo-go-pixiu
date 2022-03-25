@@ -14,27 +14,32 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-array=("samples/dubbogo/simple/body")
-array+=("samples/dubbogo/simple/mix")
-array+=("samples/dubbogo/simple/proxy")
-array+=("samples/dubbogo/simple/query")
-array+=("samples/dubbogo/simple/uri")
-array+=("samples/dubbogo/simple/resolve")
-array+=("samples/dubbogo/simple/registry")
-array+=("samples/dubbogo/simple/triple")
+#!/bin/bash
 
-#
-##http
-array+=("samples/http/grpc")
-array+=("samples/http/simple")
-## grpc proxy
-array+=("samples/grpc")
+set -e
+set -x
 
-for((i=0;i<${#array[*]};i++))
-do
-	sh ./integrate_test.sh ${array[i]}
-	result=$?
-	if [ $result -gt 0 ]; then
-    exit $result
-	fi
-done
+echo 'start integrate-test'
+
+# set root workspace
+ROOT_DIR=$(pwd)
+echo "integrate-test root work-space -> ${ROOT_DIR}"
+
+# show all github-env
+echo "github current commit id  -> $2"
+echo "github pull request branch -> ${GITHUB_REF}"
+echo "github pull request slug -> ${GITHUB_REPOSITORY}"
+echo "github pull request repo slug -> ${GITHUB_REPOSITORY}"
+echo "github pull request actor -> ${GITHUB_ACTOR}"
+echo "github pull request repo param -> $1"
+echo "github pull request base branch -> $3"
+echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
+
+echo "use dubbo-go-samples $3 branch for integration testing"
+git clone -b main https://github.com/dubbo-go-pixiu/samples.git integrate_samples && cd integrate_samples
+
+# update dubbo-go to current commit id
+go mod edit -replace=github.com/apache/dubbo-go-pixiu=github.com/"$1"/v3@"$2"
+
+# start integrate test
+./start_integrate_test.sh
