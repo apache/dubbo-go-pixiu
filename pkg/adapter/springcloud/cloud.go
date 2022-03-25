@@ -293,8 +293,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	// first remove the router for removed cluster
 	for _, c := range oldStore.Config {
 		if !newStore.HasCluster(c.Name) {
-			delete := &model.Router{ID: c.Name}
-			rm.DeleteRouter(delete)
+			rm.DeleteRouter(&model.Router{ID: c.Name})
 		}
 	}
 	// second set cluster

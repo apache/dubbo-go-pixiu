@@ -79,7 +79,7 @@ func (z *zkAppListener) watch() {
 		if err != nil {
 			failTimes++
 			logger.Infof("watching (path{%s}) = error{%v}", z.servicesPath, err)
-			if err == gzk.ErrNilNode {
+			if err == zk.ErrNoNode {
 				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", z.servicesPath)
 				return
 			}
