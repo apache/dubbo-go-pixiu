@@ -79,11 +79,15 @@ func (z *zkAppListener) watch() {
 		children, e, err := z.ds.getClient().GetChildrenW(z.servicesPath)
 		if err != nil {
 			failTimes++
-			logger.Debugf("watching (path{%s}) = error{%v}", z.servicesPath, err)
-
-			if failTimes >= MaxFailTimes {
-				logger.Debugf("Error happens on (path{%s}) exceed max fail times: %s,so exit listen", z.servicesPath, MaxFailTimes)
-				failTimes = MaxFailTimes
+			logger.Infof("watching (path{%s}) = error{%v}", z.servicesPath, err)
+			if err == zk.ErrNoNode {
+				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", z.servicesPath)
+				return
+			}
+			if failTimes > MaxFailTimes {
+				logger.Errorf("Error happens on (path{%s}) exceed max fail times: %s,so exit listen",
+					z.servicesPath, MaxFailTimes)
+				return
 			}
 
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))

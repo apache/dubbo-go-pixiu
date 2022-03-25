@@ -63,9 +63,16 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 		children, e, err := asl.ds.getClient().GetChildrenW(asl.servicePath)
 		if err != nil {
 			failTimes++
-			logger.Debugf("watching (path{%s}) = error{%v}", asl.servicePath, err)
-			if failTimes >= MaxFailTimes {
-				logger.Warnf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen", asl.servicePath, MaxFailTimes)
+			logger.Infof("watching (path{%s}) = error{%v}", asl.servicePath, err)
+			if err == zk.ErrNoChildrenForEphemerals {
+				return
+			}
+			if err == zk.ErrNoNode {
+				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", asl.servicePath)
+				return
+			}
+			if failTimes > MaxFailTimes {
+				logger.Errorf("Error happens on (path{%s}) exceed max fail times: %v,so exit listen", asl.servicePath, MaxFailTimes)
 				return
 			}
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
