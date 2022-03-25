@@ -150,21 +150,6 @@ func GetLoadBalance(cfg *model.Bootstrap) (err error) {
 		logger.Error("Bootstrap configuration is null")
 		return err
 	}
-	var lbPolicy int32
-	for _, c := range cfg.StaticResources.Clusters {
-		flag := true
-		if c.TypeStr != "" {
-			if t, ok := model.LbPolicyValue[c.LbStr]; ok {
-				lbPolicy = t
-				flag = false
-			}
-		}
-		if flag {
-			c.LbStr = constant.DefaultLoadBalanceType
-			lbPolicy = model.LbPolicyValue[c.LbStr]
-		}
-		c.Lb = model.LbPolicy(lbPolicy)
-	}
 	return nil
 }
 
@@ -173,7 +158,7 @@ func GetDiscoveryType(cfg *model.Bootstrap) (err error) {
 		logger.Error("Bootstrap configuration is null")
 		return err
 	}
-	var discoveryType int32
+	var discoveryType model.DiscoveryType
 	for _, c := range cfg.StaticResources.Clusters {
 		flag := true
 		if c.TypeStr != "" {
@@ -186,7 +171,7 @@ func GetDiscoveryType(cfg *model.Bootstrap) (err error) {
 			c.TypeStr = constant.DefaultDiscoveryType
 			discoveryType = model.DiscoveryTypeValue[c.TypeStr]
 		}
-		c.Type = model.DiscoveryType(discoveryType)
+		c.Type = discoveryType
 	}
 	return nil
 }

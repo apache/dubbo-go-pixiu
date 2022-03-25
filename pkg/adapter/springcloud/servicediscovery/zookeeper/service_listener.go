@@ -63,10 +63,10 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 		if err != nil {
 			failTimes++
 			logger.Infof("watching (path{%s}) = error{%v}", asl.servicePath, err)
-			if err == gzk.ErrNilChildren {
+			if err == zk.ErrNoChildrenForEphemerals {
 				return
 			}
-			if err == gzk.ErrNilNode {
+			if err == zk.ErrNoNode {
 				logger.Errorf("watching (path{%s}) got errNilNode,so exit listen", asl.servicePath)
 				return
 			}
