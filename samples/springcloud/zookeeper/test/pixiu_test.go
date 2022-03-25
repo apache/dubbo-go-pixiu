@@ -15,15 +15,32 @@
  * limitations under the License.
  */
 
-package model
+package test
 
-// RemoteConfig remote server info which offer server discovery or k/v or distribution function
-type RemoteConfig struct {
-	Protocol string `yaml:"protocol" json:"protocol" default:"zookeeper"`
-	Timeout  string `yaml:"timeout" json:"timeout"`
-	Address  string `yaml:"address" json:"address"`
-	Username string `yaml:"username" json:"username"`
-	Password string `yaml:"password" json:"password"`
-	Group    string `yaml:"group" json:"group"`
-	Root     string `yaml:"root" json:"root" default:"/services"`
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSpringCloudZookeeper(t *testing.T) {
+	url := "http://localhost:8888/pixiu-springcloud-server/hi"
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+	s, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(s))
+	assert.True(t, strings.Contains(string(s), "Hello Pixiu World!"))
 }
