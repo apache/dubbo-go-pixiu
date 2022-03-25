@@ -6,15 +6,17 @@ require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.1-0.20220107110037-4496cef73dba
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/Shopify/sarama v1.19.0
-	github.com/alibaba/sentinel-golang v1.0.2
+	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/apache/dubbo-getty v1.4.7-rc2
 	github.com/apache/dubbo-go-hessian2 v1.11.0
+	github.com/cch123/supermonkey v1.0.0
 	github.com/creasty/defaults v1.5.2
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.4
+	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
 	github.com/dubbogo/gost v1.11.22
 	github.com/dubbogo/grpc-go v1.42.7
 	github.com/dubbogo/triple v1.1.7
+	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-errors/errors v1.0.1
@@ -35,7 +37,6 @@ require (
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
-	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.opentelemetry.io/otel v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC2
@@ -53,7 +54,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
-
 )
-
-replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0

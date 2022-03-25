@@ -15,39 +15,46 @@
  * limitations under the License.
  */
 
-package ratelimit
+package apiclient
 
 import (
-	"sync"
+	"reflect"
 )
 
-type Exact struct {
-	apiNames map[string]string
+import (
+	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
-	mu sync.RWMutex
-}
+	"github.com/pkg/errors"
 
-func (p *Exact) load(apis []*Resource) {
-	m := make(map[string]string, len(apis))
+	"google.golang.org/protobuf/proto"
+)
 
-	for _, api := range apis {
-		apiName := api.Name
-		for _, item := range api.Items {
-			if item.MatchStrategy == EXACT {
-				m[item.Pattern] = apiName
-			}
-		}
+type (
+	ResourceTypeName        = string
+	PixiuDynamicConfigModel proto.Message
+
+	ProtoAny struct {
+		typeConfig *v3.TypedExtensionConfig
 	}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.apiNames = m
+	DeltaResources struct {
+		NewResources    []*ProtoAny
+		RemovedResource []string
+	}
+)
+
+func (p *ProtoAny) GetName() string {
+	return p.typeConfig.Name
 }
 
-func (p *Exact) match(path string) (string, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+func (p *ProtoAny) To(configModel PixiuDynamicConfigModel) error {
+	err := p.typeConfig.TypedConfig.UnmarshalTo(configModel)
+	if err != nil {
+		panic(err)
+	}
+	return errors.Wrapf(err, "can not covert to %v", reflect.TypeOf(configModel))
+}
 
-	resourceName, ok := p.apiNames[path]
-	return resourceName, ok
+func NewProtoAny(typeConfig *v3.TypedExtensionConfig) *ProtoAny {
+	return &ProtoAny{typeConfig: typeConfig}
 }

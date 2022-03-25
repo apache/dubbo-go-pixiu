@@ -16,27 +16,15 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-language: go
+ADDRESS="localhost:8882"
 
-go:
-  - "1.15"
-env:
-  - GO111MODULE=on
+API1=$(curl -s -X GET ${ADDRESS}"/api/v1/test-dubbo/user/tc?age=99")
+API2=$(curl -s -X PUT ${ADDRESS}"/api/v1/test-dubbo/user/tc" -d '{"id":"0001","code":1,"name":"tc","age":66}' --header "Content-Type: application/json")
+API3=$(curl -s -X PUT ${ADDRESS}"/api/v1/test-dubbo/user?name=tc" -d '{"id":"0001","code":1,"name":"tc","age":55}' --header "Content-Type: application/json")
 
-install: true
+ARRAY_API=(${API1} ${API2} ${API3})
 
-script:
-  - go fmt ./... && [[ -z `git status -s` ]]
-  - sh before_validate_license.sh
-  - chmod u+x /tmp/tools/license/license-header-checker
-  - /tmp/tools/license/license-header-checker -v -a -r -i vendor,.github/actions /tmp/tools/license/license.txt . go  && [[ -z `git status -s` ]]
-  # unit-test
-  - echo 'start unit-test'
-  - chmod u+x before_ut.sh && ./before_ut.sh
-  - go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
-
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
-
-notifications:
-  webhooks: https://oapi.dingtalk.com/robot/send?access_token=e6b085c90561a7543cc5fde89e9c8108100460c15e955c0604fea180a500a0ad
+for element in ${ARRAY_API[@]}
+do
+echo ${element}
+done

@@ -18,34 +18,19 @@
 package ratelimit
 
 import (
-	"github.com/alibaba/sentinel-golang/core/flow"
+	pkgs "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel"
 )
 
-const (
-	EXACT    MatchStrategy = 0
-	REGEX    MatchStrategy = 1
-	ANT_PATH MatchStrategy = 2
+import (
+	"github.com/alibaba/sentinel-golang/core/flow"
 )
 
 type (
 	// Config rate limit config
 	Config struct {
-		Resources []*Resource `json:"resources,omitempty" yaml:"resources,omitempty"`
-		Rules     []*Rule     `json:"rules,omitempty" yaml:"rules,omitempty"`
-		LogPath   string      `json:"logPath,omitempty" yaml:"logPath,omitempty"`
-	}
-
-	// Resource API group for rate limit, all API in group is considered to be the same resource
-	Resource struct {
-		ID    int64   `json:"id,omitempty" yaml:"id,omitempty"`
-		Name  string  `json:"name,omitempty" yaml:"name,omitempty"`
-		Items []*Item `json:"items" yaml:"items"`
-	}
-
-	// Item API item for group
-	Item struct {
-		MatchStrategy MatchStrategy `json:"matchStrategy,omitempty" yaml:"matchStrategy,omitempty"`
-		Pattern       string        `json:"pattern,omitempty" yaml:"pattern"`
+		Resources []*pkgs.Resource `json:"resources,omitempty" yaml:"resources,omitempty"`
+		Rules     []*Rule          `json:"rules,omitempty" yaml:"rules,omitempty"`
+		LogPath   string           `json:"logPath,omitempty" yaml:"logPath,omitempty"`
 	}
 
 	// Rule api group 's rate-limit rule
@@ -54,6 +39,4 @@ type (
 		FlowRule flow.Rule `json:"flowRule,omitempty" yaml:"flowRule,omitempty"`
 		Enable   bool      `json:"enable,omitempty" yaml:"enable,omitempty"`
 	}
-	// MatchStrategy API match strategy
-	MatchStrategy int32
 )
