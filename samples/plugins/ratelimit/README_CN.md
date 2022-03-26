@@ -11,9 +11,9 @@
 - 然后测试一下: `curl http://localhost:8888/api/v1/test-dubbo/user?name=tc -X GET `
 
 ### 保护你的API:
-#### rate limit config [查看全文](../../../pkg/filter/ratelimit/mock/config.yml)
+#### rate limit config [查看全文](../../../pkg/filter/sentinel/ratelimit/mock/config.yml)
 - 第一步,定义要保护的资源，一个资源可以包含一或更多个匹配的路径。
-  
+
   在这里，我们要保护的是一个确切的路径，如下的定义即可。当然，我们也支持正则匹配，只要把matchStrategy设为1。
 ```
 resources:

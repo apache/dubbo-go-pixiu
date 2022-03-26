@@ -16,7 +16,7 @@ Dubbo-Go-Pixiu 网关支持调用Java的dubbo集群和golang的dubbo-go集群。
 #### 进入示例代码目录
 
 ```
-cd samples/dubbo/simple
+cd samples/dubbogo/simple
 ```
 
 可以使用 start.sh 脚本快速启动案例项目，可以执行如下命令来获得更多信息
@@ -54,7 +54,7 @@ cd samples/dubbo/simple
 可以使用下列命令来手动启动 pixiu
 
 ```
- go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/body/pixiu/conf.yaml
 ```
 
 
@@ -71,6 +71,36 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 
 ```
 ./start.sh clean body
+```
+
+
+## docker启动示例
+
+#### 
+```shell
+docker pull phial3/dubbo-go-pixiu:latest
+```
+```
+docker run --name pixiuname -p 8883:8883 \
+    -v /yourpath/conf.yaml:/etc/pixiu/conf.yaml \
+    -v /yourpath/log.yml:/etc/pixiu/log.yml \
+    apache/dubbo-go-pixiu:latest
+```
+#### http请求调用dubbo服务转换
+首先启动provider，这里使用zookeeper作为注册中心
+```shell
+cd samples/dubbogo/simple/resolve/server
+
+export DUBBO_GO_CONFIG_PATH="../profiles/dev/server.yml"
+export APP_LOG_CONF_FILE="../profiles/dev/log.yml"
+
+go run server.go user.go
+```
+进入到test目录下，启动test示例
+```shell
+cd samples/dubbogo/simple/resolve/test
+
+go test  pixiu_test.go
 ```
 
 ## 特性
