@@ -21,6 +21,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 )
 
 import (
@@ -280,10 +281,13 @@ func apiKey(ir *fc.IntegrationRequest) string {
 }
 
 func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.GenericService {
-
+	useNacosRegister := false
 	registerIds := make([]string, 0)
 	for k := range dc.rootConfig.Registries {
 		registerIds = append(registerIds, k)
+		if k == "nacos" {
+			useNacosRegister = true
+		}
 	}
 
 	refConf := dg.ReferenceConfig{
@@ -316,7 +320,14 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 	_ = refConf.Init(dc.rootConfig)
 	refConf.GenericLoad(key)
 
+	// sleep when first call to fetch enough service meta data from nacos
+	// todo: GenericLoad should guarantee it
+	if useNacosRegister {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	clientService := refConf.GetRPCService().(*generic.GenericService)
 	dc.GenericServicePool[key] = clientService
+
 	return clientService
 }

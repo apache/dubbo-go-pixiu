@@ -17,22 +17,17 @@
 
 package model
 
-// LbPolicy the load balance policy enum
-type LbPolicy int32
+// LbPolicyType the load balance policy enum
+type LbPolicyType string
 
 const (
-	RoundRobin LbPolicy = 0
-	Rand       LbPolicy = 3
+	LoadBalancerRand             LbPolicyType = "Rand"
+	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
+	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
 )
 
-// LbPolicyName key int32 for LbPolicy, value string
-var LbPolicyName = map[int32]string{
-	0: "RoundRobin",
-	3: "Rand",
-}
-
-// LbPolicyValue key string, value int32 for LbPolicy
-var LbPolicyValue = map[string]int32{
-	"RoundRobin": 0,
-	"Rand":       3,
+var LbPolicyTypeValue = map[string]LbPolicyType{
+	"Rand":              LoadBalancerRand,
+	"RoundRobin":        LoadBalancerRoundRobin,
+	"ConsistentHashing": LoadBalanceConsistentHashing,
 }

@@ -57,6 +57,7 @@ type (
 		errMsg       []byte
 		providerJwks map[string]Provider
 	}
+
 	Filter struct {
 		cfg          *Config
 		errMsg       []byte
@@ -108,13 +109,6 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func valuePrefix(value, prefix string) string {
-	if prefix == "" {
-		return value
-	}
-	return strings.TrimPrefix(value, prefix)
-}
-
 // validAny route single provider verification
 func (f *Filter) validAny(rule Rules, ctx *http.HttpContext) bool {
 
@@ -123,12 +117,7 @@ func (f *Filter) validAny(rule Rules, ctx *http.HttpContext) bool {
 	if provider, ok := f.providerJwks[providerName]; ok {
 		ctx.Request.Header.Set(provider.forwardPayloadHeader, provider.issuer)
 		if key := ctx.Request.Header.Get(provider.headers.Name); key != "" {
-			token, err := jwt4.Parse(valuePrefix(key, provider.headers.ValuePrefix), provider.jwk.Keyfunc)
-			if err != nil {
-				logger.Warnf("failed to parse JWKs from JSON. provider：%s Error: %s", providerName, err.Error())
-				return false
-			}
-			return token.Valid
+			return checkToken(key, provider.headers.ValuePrefix, providerName, provider)
 		}
 	}
 
@@ -142,13 +131,7 @@ func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 		if provider, ok := f.providerJwks[requirement.ProviderName]; ok {
 			ctx.Request.Header.Set(provider.forwardPayloadHeader, provider.issuer)
 			if key := ctx.Request.Header.Get(provider.headers.Name); key != "" {
-				token, err := jwt4.Parse(valuePrefix(key, provider.headers.ValuePrefix), provider.jwk.Keyfunc)
-				if err != nil {
-					logger.Warnf("failed to parse JWKs from JSON. provider：%s Error: %s", requirement.ProviderName, err.Error())
-					continue
-				}
-
-				if token.Valid {
+				if checkToken(key, provider.headers.ValuePrefix, requirement.ProviderName, provider) {
 					return true
 				}
 			}
@@ -159,13 +142,6 @@ func (f *Filter) validAll(rule Rules, ctx *http.HttpContext) bool {
 }
 
 func (factory *FilterFactory) Apply() error {
-
-	if factory.cfg.ErrMsg == "" {
-		factory.cfg.ErrMsg = "token invalid"
-	}
-
-	errMsg, _ := json.Marshal(http.ErrResponse{Message: factory.cfg.ErrMsg})
-	factory.errMsg = errMsg
 
 	if len(factory.cfg.Providers) == 0 {
 		return fmt.Errorf("providers is null")
@@ -210,6 +186,13 @@ func (factory *FilterFactory) Apply() error {
 		return fmt.Errorf("providers is null")
 	}
 
+	if factory.cfg.ErrMsg == "" {
+		factory.cfg.ErrMsg = "token invalid"
+	}
+
+	errMsg, _ := json.Marshal(http.ErrResponse{Message: factory.cfg.ErrMsg})
+	factory.errMsg = errMsg
+
 	return nil
 }
 
@@ -221,6 +204,21 @@ func (h *FromHeaders) setDefault() {
 	if h.ValuePrefix == "" {
 		h.ValuePrefix = "Bearer "
 	}
+}
+
+func checkToken(value, prefix, providerName string, provider Provider) bool {
+	if !strings.HasPrefix(value, prefix) {
+		logger.Warn("header value prefix mismatch provider：", providerName)
+		return false
+	}
+
+	token, err := jwt4.Parse(value[len(prefix):], provider.jwk.Keyfunc)
+	if err != nil {
+		logger.Warnf("failed to parse JWKs from JSON. provider：%s Error: %s", providerName, err.Error())
+		return false
+	}
+
+	return token.Valid
 }
 
 func (factory *FilterFactory) Config() interface{} {
