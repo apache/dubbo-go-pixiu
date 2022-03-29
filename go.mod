@@ -17,6 +17,7 @@ require (
 	github.com/dubbogo/grpc-go v1.42.7
 	github.com/dubbogo/triple v1.1.7
 	github.com/envoyproxy/go-control-plane v0.10.1
+	github.com/frankban/quicktest v1.11.3 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-errors/errors v1.0.1
@@ -25,6 +26,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang-jwt/jwt/v4 v4.1.0
+	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.5.2
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mercari/grpc-http-proxy v0.1.2
@@ -35,7 +37,7 @@ require (
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
 	github.com/spf13/cast v1.3.1
-	github.com/spf13/cobra v1.1.1
+	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.opentelemetry.io/otel v1.0.0-RC2
