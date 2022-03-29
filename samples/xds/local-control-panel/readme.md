@@ -9,9 +9,10 @@ xds implement demo how to use xds server.
 dubbo-go-pixiu/samples/xds/local-control-panel/server/app> go run .
 ```
 
-2. run pixiu 
+2. build and run pixiu 
 ```
-dubbo-go-pixiu > pixiu gateway start -c ./samples/xds/local-control-panel/pixiu/conf.yaml -g test/configs/log.yml
+dubbo-go-pixiu > cd cmd/pixiu && go build . && cd ../.. && mv cmd/pixiu/pixiu .
+dubbo-go-pixiu > ./pixiu gateway start -c ./samples/xds/local-control-panel/pixiu/conf.yaml -g test/configs/log.yml
 ```
 
 3. check result
