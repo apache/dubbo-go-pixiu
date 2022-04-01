@@ -39,15 +39,14 @@ func (driver *TraceDriver) Init(bs *model.Bootstrap) *TraceDriver {
 	exp, err := newExporter(ctx, config)
 	if err != nil {
 		//TODO 错误处理
-		return nil
+		return driver
 	}
 	provider := newTraceProvider(exp, config)
 
 	otel.SetTracerProvider(provider)
 
-	return &TraceDriver{
-		tp: provider,
-	}
+	driver.tp = provider
+	return driver
 }
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
 	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
