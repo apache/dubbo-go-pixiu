@@ -19,6 +19,7 @@ package http
 
 import (
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/trace"
 	"log"
 	"net/http"
 	"strconv"
@@ -142,7 +143,14 @@ func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.ls.FilterChain.ServeHTTP(w, r)
+	tracer := trace.NewTracer(trace.HTTP)
+	defer tracer.Close()
+	ctx, span := tracer.StartSpan("http", r)
+	defer span.End()
+	r.Header.Set("trace-id", tracer.GetId())
+
+	s.ls.FilterChain.ServeHTTP(w, r.WithContext(ctx))
+	//s.ls.FilterChain.ServeHTTP(w, r)
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {

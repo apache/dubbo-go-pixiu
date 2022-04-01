@@ -59,3 +59,10 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+trace:
+  name: "jaeger"
+  sampler:
+    type: "ratio"
+    param: 0.5
+  config:
+    url: "http://127.0.0.1:14268/api/traces"
