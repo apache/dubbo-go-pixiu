@@ -23,6 +23,7 @@ type Bootstrap struct {
 	DynamicResources *DynamicResources `yaml:"dynamic_resources" json:"dynamic_resources" mapstructure:"dynamic_resources"`
 	Metric           Metric            `yaml:"metric" json:"metric" mapstructure:"metric"`
 	Node             *Node             `yaml:"node" json:"node" mapstructure:"node"`
+	Trace            *TracerConfig     `yaml:"trace" json:"trace" mapstructure:"trace"`
 }
 
 // Node node info for dynamic identifier

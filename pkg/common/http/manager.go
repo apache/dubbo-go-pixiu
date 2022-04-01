@@ -20,6 +20,7 @@ package http
 import (
 	"context"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/trace"
 	"io/ioutil"
 	stdHttp "net/http"
 	"sync"
@@ -84,6 +85,12 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc.Request = r
 	hc.Writer = w
 	hc.Reset()
+
+	traceId := r.Header.Get("trace-id")
+	tracer, _ := trace.GetTracer(trace.HTTP, traceId)
+	ctx, span := tracer.StartSpanFromContext("HttpConnectionManager", hc.Ctx)
+	defer span.End()
+	hc.Ctx = ctx
 
 	err := hcm.Handle(hc)
 	if err != nil {
