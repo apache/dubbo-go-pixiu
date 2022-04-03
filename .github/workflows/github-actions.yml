@@ -61,6 +61,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+
       - name: Cache dependencies
         uses: actions/cache@v2
         with:
@@ -71,6 +72,17 @@ jobs:
           # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
           restore-keys: |
             ${{ runner.os }}-go-
+
+      - name: Merge base
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin develop
+          git checkout -b develop origin/develop
+          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
+          git fetch devrepo ${{github.event.pull_request.head.sha}}
+          git config --global user.email "dubbo-go@github-ci.com"
+          git config --global user.name "robot"
+          git merge ${{github.event.pull_request.head.sha}}
 
       - name: Get dependencies
         run: |
