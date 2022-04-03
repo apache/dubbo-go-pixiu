@@ -99,7 +99,7 @@ jobs:
       # integration test
       - name: Integration Test
         run: |
-          chmod +x start_integrate_test.sh && chmod +x integrate_test.sh && ./start_integrate_test.sh
+          chmod +x start_integrate_test.sh && chmod +x integrate_test.sh && ./start_integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
