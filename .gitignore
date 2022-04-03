@@ -24,6 +24,8 @@ coverage.txt
 
 *.exe
 test
-
+!samples/springcloud/zookeeper/test
+!samples/springcloud/nacos/test
 
 target/
+samples/**/dist

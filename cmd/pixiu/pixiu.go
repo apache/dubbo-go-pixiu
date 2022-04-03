@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	gxruntime "github.com/dubbogo/gost/runtime"
+	pxruntime "github.com/apache/dubbo-go-pixiu/pkg/common/runtime"
 	"github.com/spf13/cobra"
 )
 
@@ -141,14 +141,15 @@ func initApiConfig() (*model.Bootstrap, bool, error) {
 }
 
 func initLimitCpus() error {
-	limitCpuNumber, err := strconv.ParseInt(limitCpus, 10, 64)
+	limitCpuNumberFromEnv, err := strconv.ParseInt(limitCpus, 10, 64)
 	if err != nil {
 		return err
 	}
+	limitCpuNumber := int(limitCpuNumberFromEnv)
 	if limitCpuNumber <= 0 {
-		runtime.GOMAXPROCS(gxruntime.GetCPUNum())
-	} else {
-		runtime.GOMAXPROCS(int(limitCpuNumber))
+		limitCpuNumber = pxruntime.GetCPUNum()
 	}
+	runtime.GOMAXPROCS(limitCpuNumber)
+	logger.Infof("GOMAXPROCS set to %v", limitCpuNumber)
 	return nil
 }

@@ -20,6 +20,7 @@ package zookeeper
 import (
 	"encoding/json"
 	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -40,10 +41,10 @@ const (
 	ZKRootPath     = "/services"
 	ZKName         = "SpringCloud-Zookeeper"
 	StatUP         = "UP"
-	MaxFailTimes   = 2
+	MaxFailTimes   = 3
 	DefaultTimeout = "3s"
 	ConnDelay      = 3 * time.Second
-	defaultTTL     = 30 * time.Second
+	defaultTTL     = 3 * time.Second
 )
 
 type zookeeperDiscovery struct {
@@ -70,8 +71,13 @@ func NewZKServiceDiscovery(targetService []string, config *model.RemoteConfig, l
 		return nil, err
 	}
 
+	rootPath := ZKRootPath
+	if len(strings.TrimSpace(config.Root)) > 0 {
+		rootPath = strings.TrimSpace(config.Root)
+	}
+
 	z := &zookeeperDiscovery{
-		basePath:      ZKRootPath,
+		basePath:      rootPath,
 		listener:      listener,
 		targetService: targetService,
 		instanceMap:   make(map[string]*servicediscovery.ServiceInstance),
@@ -93,6 +99,7 @@ func (sd *zookeeperDiscovery) QueryAllServices() ([]servicediscovery.ServiceInst
 	serviceNames, err := sd.queryForNames()
 	logger.Debugf("%s get all services by root path %s, services %v", common.ZKLogDiscovery, sd.basePath, serviceNames)
 	if err != nil {
+		logger.Errorf("get all services error: %v", err.Error())
 		return nil, err
 	}
 	return sd.QueryServicesByName(serviceNames)
@@ -103,10 +110,16 @@ func (sd *zookeeperDiscovery) QueryServicesByName(serviceNames []string) ([]serv
 	var instancesAll []servicediscovery.ServiceInstance
 	for _, s := range serviceNames {
 
-		ids, err := sd.getClient().GetChildren(sd.pathForName(s))
+		pathForName := sd.pathForName(s)
+		ids, err := sd.getClient().GetChildren(pathForName)
 		logger.Debugf("%s get services %s, services instanceIds %s", common.ZKLogDiscovery, s, ids)
 		if err != nil {
-			logger.Errorf("%s get services [%s] nodes from zookeeper fail: %s", common.ZKLogDiscovery, s, err.Error())
+			// todo refactor gost zk, make it return the definite err
+			if strings.Contains(err.Error(), "none children") {
+				logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
+			} else {
+				logger.Errorf("%s get services [%s] nodes from zookeeper fail: %s", common.ZKLogDiscovery, s, err.Error())
+			}
 			continue
 		}
 
@@ -251,12 +264,14 @@ func (sd *zookeeperDiscovery) addServiceInstance(instance *servicediscovery.Serv
 	return true, nil
 }
 
-func (sd *zookeeperDiscovery) queryByServiceName() ([]string, error) {
-	return sd.getClient().GetChildren(sd.basePath)
-}
-
 func (sd *zookeeperDiscovery) queryForNames() ([]string, error) {
-	return sd.getClient().GetChildren(sd.basePath)
+	children, err := sd.getClient().GetChildren(sd.basePath)
+	// todo refactor gost zk, make it return the definite err
+	if err != nil && strings.Contains(err.Error(), "none children") {
+		logger.Debugf("%s get nodes from zookeeper fail: %s", common.ZKLogDiscovery, err.Error())
+		return nil, nil
+	}
+	return children, err
 }
 
 func (sd *zookeeperDiscovery) pathForInstance(name, id string) string {
@@ -265,15 +280,6 @@ func (sd *zookeeperDiscovery) pathForInstance(name, id string) string {
 
 func (sd *zookeeperDiscovery) pathForName(name string) string {
 	return path.Join(sd.basePath, name)
-}
-
-// ZkServiceInstance unused!
-type ZkServiceInstance struct {
-	servicediscovery.ServiceInstance
-}
-
-func (i *ZkServiceInstance) GetUniqKey() string {
-	return i.ID
 }
 
 type SpringCloudZKInstance struct {
