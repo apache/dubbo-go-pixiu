@@ -40,7 +40,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
 )
 
-func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
+func TestGRPCClusterManager_GetGrpcCluster(t *testing.T) {
 	cluster := &model.Cluster{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
@@ -88,7 +88,7 @@ func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := &GrpcClusterManager{
+			g := &GRPCClusterManager{
 				clusters:  tt.fields.clusters,
 				clusterMg: tt.fields.clusterMg,
 			}
@@ -108,7 +108,7 @@ func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
 	}
 }
 
-func TestGrpcCluster_GetConnect(t *testing.T) {
+func TestGRPCCluster_GetConnect(t *testing.T) {
 	cluster := &model.Cluster{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
@@ -121,7 +121,7 @@ func TestGrpcCluster_GetConnect(t *testing.T) {
 			},
 		},
 	}
-	g := GrpcCluster{
+	g := GRPCCluster{
 		name:   "name",
 		config: cluster,
 		once:   sync.Once{},
@@ -141,12 +141,13 @@ func TestGrpcCluster_GetConnect(t *testing.T) {
 	})
 
 	defer supermonkey.UnpatchAll()
-	conn := g.GetConnect()
 	assert := require.New(t)
+	conn, err := g.GetConnection()
+	assert.NoError(err)
 	assert.NotNil(conn)
 	assert.NotNil(g.conn)
 	assert.True(g.IsAlive())
-	err := g.Close()
+	err = g.Close()
 	assert.NoError(err)
 	state = connectivity.Shutdown
 	assert.False(g.IsAlive())

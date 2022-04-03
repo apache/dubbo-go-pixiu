@@ -20,7 +20,6 @@ package apiclient
 import (
 	"context"
 	errors2 "errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -50,14 +49,14 @@ import (
 const xdsAgentName = "dubbo-go-pixiu"
 
 var (
-	grpcMg             *GrpcClusterManager
+	grpcMg             *GRPCClusterManager
 	ErrClusterNotFound = errors2.New("can not find cluster")
 )
 
 type (
 	GrpcApiClient struct {
 		config             model.ApiConfigSource
-		grpcMg             *GrpcClusterManager
+		grpcMg             *GRPCClusterManager
 		node               *model.Node
 		xDSExtensionClient extensionpb.ExtensionConfigDiscoveryServiceClient
 		resourceNames      []ResourceTypeName
@@ -71,7 +70,7 @@ type (
 )
 
 func Init(clusterMg controls.ClusterManager) {
-	grpcMg = &GrpcClusterManager{
+	grpcMg = &GRPCClusterManager{
 		clusters:  &sync.Map{},
 		clusterMg: clusterMg,
 	}
@@ -275,15 +274,19 @@ func (g *GrpcApiClient) init() {
 		logger.Errorf("get cluster for init error. error=%v", err)
 		panic(err)
 	}
-	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(cluster.GetConnect())
+	conn, err := cluster.GetConnection()
+	if err != nil {
+		panic(err)
+	}
+	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(conn)
 }
 
-type GrpcClusterManager struct {
+type GRPCClusterManager struct {
 	clusters  *sync.Map // map[clusterName]*grpcCluster
 	clusterMg controls.ClusterManager
 }
 
-type GrpcCluster struct {
+type GRPCCluster struct {
 	name   string //cluster name
 	config *model.Cluster
 	once   sync.Once
@@ -291,13 +294,13 @@ type GrpcCluster struct {
 }
 
 // GetGrpcCluster get the cluster or create it first time.
-func (g *GrpcClusterManager) GetGrpcCluster(name string) (*GrpcCluster, error) {
+func (g *GRPCClusterManager) GetGrpcCluster(name string) (*GRPCCluster, error) {
 	if !g.clusterMg.HasCluster(name) {
 		return nil, errors.Wrapf(ErrClusterNotFound, "name = %s", name)
 	}
 
 	if load, ok := g.clusters.Load(name); ok {
-		grpcCluster := load.(*GrpcCluster) // grpcClusterManager only
+		grpcCluster := load.(*GRPCCluster) // grpcClusterManager only
 		return grpcCluster, nil
 	}
 
@@ -316,7 +319,7 @@ func (g *GrpcClusterManager) GetGrpcCluster(name string) (*GrpcCluster, error) {
 	if clusterCfg == nil {
 		return nil, errors.Wrapf(ErrClusterNotFound, "name of %s", name)
 	}
-	newCluster := &GrpcCluster{
+	newCluster := &GRPCCluster{
 		name:   name,
 		config: clusterCfg,
 	}
@@ -324,7 +327,7 @@ func (g *GrpcClusterManager) GetGrpcCluster(name string) (*GrpcCluster, error) {
 	return newCluster, nil
 }
 
-func (g *GrpcClusterManager) Close() (err error) {
+func (g *GRPCClusterManager) Close() (err error) {
 	//todo enhance the close process when concurrent
 	g.clusters.Range(func(_, value interface{}) bool {
 		if conn := value.(*grpc.ClientConn); conn != nil {
@@ -337,7 +340,7 @@ func (g *GrpcClusterManager) Close() (err error) {
 	return nil
 }
 
-func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
+func (g *GRPCCluster) GetConnection() (conn *grpc.ClientConn, err error) {
 	g.once.Do(func() {
 		creds := insecure.NewCredentials()
 		//if *xdsCreds { // todo
@@ -348,30 +351,32 @@ func (g *GrpcCluster) GetConnect() *grpc.ClientConn {
 		//	}
 		//}
 		if len(g.config.Endpoints) == 0 {
-			panic("expect endpoint.")
+			err = errors.Errorf("expect endpoint.")
+			return
 		}
 		endpoint := g.config.Endpoints[0].Address.GetAddress()
 		logger.Infof("to connect xds server %s ...", endpoint)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
 		defer cancel()
-		conn, err := grpc.DialContext(ctx, endpoint,
+		conn, err = grpc.DialContext(ctx, endpoint,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),
 		)
 		logger.Infof("connected xds server (%s)", endpoint)
 		if err != nil {
-			panic(fmt.Sprintf("grpc.Dial(%s) failed: %v", endpoint, err))
+			err = errors.Errorf("grpc.Dial(%s) failed: %v", endpoint, err)
+			return
 		}
 		g.conn = conn
 	})
-	return g.conn
+	return g.conn, nil
 }
 
-func (g *GrpcCluster) IsAlive() bool {
+func (g *GRPCCluster) IsAlive() bool {
 	return g.conn.GetState() == connectivity.Ready
 }
 
-func (g *GrpcCluster) Close() error {
+func (g *GRPCCluster) Close() error {
 	if err := g.conn.Close(); err != nil {
 		return errors.Wrapf(err, "can not close. %v", g.config)
 	}
