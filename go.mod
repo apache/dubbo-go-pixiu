@@ -39,9 +39,7 @@ require (
 	github.com/stretchr/testify v1.7.1
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.opentelemetry.io/otel v1.6.1
-	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC2
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.6.1
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.6.1
+	go.opentelemetry.io/otel/exporters/jaeger v1.6.1
 	go.opentelemetry.io/otel/exporters/prometheus v0.21.0
 	go.opentelemetry.io/otel/metric v0.21.0
 	go.opentelemetry.io/otel/sdk v1.6.1
@@ -51,6 +49,8 @@ require (
 	go.uber.org/zap v1.19.1
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20211105192438-b53810dc28af
+	golang.org/x/sys v0.0.0-20220403020550-483a9cbc67c0 // indirect
+	google.golang.org/genproto v0.0.0-20211118181313-81c1377c94b1 // indirect
 	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/yaml.v2 v2.4.0

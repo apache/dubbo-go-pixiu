@@ -18,9 +18,13 @@
 package server
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 import (
@@ -146,6 +150,48 @@ func GetApiConfigManager() *ApiConfigManager {
 func GetDynamicResourceManager() DynamicResourceManager {
 	return server.GetDynamicResourceManager()
 }
+
 func GetTraceDriverManager() *trace.TraceDriverManager {
 	return server.traceDriverManager
+}
+
+func NewTracer(name trace.ProtocolName) trace.Trace {
+	driver := GetTraceDriverManager().GetDriver()
+	holder, ok := driver.Holders[name]
+	if !ok {
+		holder = &trace.Holder{
+			Tracers: make(map[string]trace.Trace),
+		}
+		holder.Id = 0
+		driver.Holders[name] = holder
+	}
+	// tarceId的生成，并且在协议接口唯一
+	builder := strings.Builder{}
+	builder.WriteString(string(name))
+	builder.WriteString("-" + string(holder.Id))
+
+	traceId := builder.String()
+	tmp := driver.Tp.Tracer(traceId)
+	tracer := &trace.Tracer{
+		Id: traceId,
+		T:  tmp,
+		H:  holder,
+	}
+
+	holder.Tracers[traceId] = trace.TraceFactory[trace.HTTP](tracer)
+
+	atomic.AddUint64(&holder.Id, 1)
+	return holder.Tracers[traceId]
+}
+
+func GetTracer(name trace.ProtocolName, tracerId string) (trace.Trace, error) {
+	driver := GetTraceDriverManager().GetDriver()
+	holder, ok := driver.Holders[name]
+	if !ok {
+		return nil, errors.New("can not find any tracer, please call NewTracer first")
+	} else if _, ok = holder.Tracers[tracerId]; !ok {
+		return nil, errors.New(fmt.Sprintf("can not find tracer %s with protocol %s", tracerId, name))
+	} else {
+		return holder.Tracers[tracerId], nil
+	}
 }

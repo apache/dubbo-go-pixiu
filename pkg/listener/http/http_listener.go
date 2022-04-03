@@ -19,7 +19,6 @@ package http
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/trace"
 	"log"
 	"net/http"
 	"strconv"
@@ -28,7 +27,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
 	"golang.org/x/crypto/acme/autocert"
 )
 
@@ -37,6 +35,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/apache/dubbo-go-pixiu/pkg/trace"
 )
 
 func init() {
@@ -143,7 +143,7 @@ func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tracer := trace.NewTracer(trace.HTTP)
+	tracer := server.NewTracer(trace.HTTP)
 	defer tracer.Close()
 	ctx, span := tracer.StartSpan("http", r)
 	defer span.End()

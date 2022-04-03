@@ -5,31 +5,30 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/trace/jaeger"
 	"github.com/apache/dubbo-go-pixiu/pkg/trace/otlp"
-	"github.com/apache/dubbo-go-pixiu/pkg/trace/protocol"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 )
 
 // 不同listener监听的协议请求不同
-type protocolName string
+type ProtocolName string
 
-const HTTP protocolName = "HTTP"
+const HTTP ProtocolName = "HTTP"
 
 type Holder struct {
-	Tracers map[string]protocol.Trace
+	Tracers map[string]Trace
 	Id      uint64
 }
 type TraceDriver struct {
-	holders map[protocolName]*Holder
-	tp      *sdktrace.TracerProvider
+	Holders map[ProtocolName]*Holder
+	Tp      *sdktrace.TracerProvider
 	context context.Context
 }
 
 func NewTraceDriver() *TraceDriver {
 	return &TraceDriver{
-		holders: make(map[protocolName]*Holder),
+		Holders: make(map[ProtocolName]*Holder),
 	}
 }
 
@@ -45,7 +44,7 @@ func (driver *TraceDriver) Init(bs *model.Bootstrap) *TraceDriver {
 
 	otel.SetTracerProvider(provider)
 
-	driver.tp = provider
+	driver.Tp = provider
 	return driver
 }
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {

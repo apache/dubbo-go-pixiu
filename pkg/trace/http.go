@@ -1,8 +1,7 @@
-package protocol
+package trace
 
 import (
 	"context"
-	trace2 "github.com/apache/dubbo-go-pixiu/pkg/trace"
 	"go.opentelemetry.io/otel/trace"
 	"net/http"
 )
@@ -10,7 +9,7 @@ import (
 type Tracer struct {
 	Id string
 	T  trace.Tracer
-	H  *trace2.Holder
+	H  *Holder
 }
 
 type HTTPTracer struct {

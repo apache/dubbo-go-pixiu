@@ -20,7 +20,6 @@ package http
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/trace"
 	"io/ioutil"
 	stdHttp "net/http"
 	"sync"
@@ -39,6 +38,8 @@ import (
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/apache/dubbo-go-pixiu/pkg/trace"
 )
 
 // HttpConnectionManager network filter for http
@@ -87,7 +88,7 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc.Reset()
 
 	traceId := r.Header.Get("trace-id")
-	tracer, _ := trace.GetTracer(trace.HTTP, traceId)
+	tracer, _ := server.GetTracer(trace.HTTP, traceId)
 	ctx, span := tracer.StartSpanFromContext("HttpConnectionManager", hc.Ctx)
 	defer span.End()
 	hc.Ctx = ctx
