@@ -323,7 +323,7 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 	// sleep when first call to fetch enough service meta data from nacos
 	// todo: GenericLoad should guarantee it
 	if useNacosRegister {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 
 	clientService := refConf.GetRPCService().(*generic.GenericService)

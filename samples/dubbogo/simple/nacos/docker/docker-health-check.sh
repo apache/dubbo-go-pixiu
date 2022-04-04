@@ -13,29 +13,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-array=("samples/dubbogo/simple/body")
-array+=("samples/dubbogo/simple/mix")
-array+=("samples/dubbogo/simple/proxy")
-array+=("samples/dubbogo/simple/query")
-array+=("samples/dubbogo/simple/uri")
-array+=("samples/dubbogo/simple/resolve")
-array+=("samples/dubbogo/simple/registry")
-array+=("samples/dubbogo/simple/triple")
-array+=("samples/dubbogo/simple/nacos")
 #
-##http
-array+=("samples/http/grpc")
-array+=("samples/http/simple")
-## grpc proxy
-array+=("samples/grpc")
 
-
-for((i=0;i<${#array[*]};i++))
-do
-	sh ./integrate_test.sh ${array[i]}
-	result=$?
-	if [ $result -gt 0 ]; then
-    exit $result
-	fi
-done
+sleep 30
+curl http://127.0.0.1:8848/nacos/v1/console/health/liveness
