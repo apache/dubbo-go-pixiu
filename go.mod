@@ -57,3 +57,7 @@ require (
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
+
+replace (
+	github.com/dubbogo/dubbo-go-pixiu-filter => /Users/mengchaolv/GolandProjects/pixiu-api
+)

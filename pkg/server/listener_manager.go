@@ -18,6 +18,7 @@
 package server
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"runtime/debug"
 )
 
@@ -59,12 +60,8 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	}
 }
 
-func (lm *ListenerManager) AddOrUpdateListener(lsConf *model.Listener) error {
+func (lm *ListenerManager) AddListener(lsConf *model.Listener) error {
 	//todo add sync lock for concurrent using
-	if theListener := lm.getListener(lsConf.Name); theListener != nil {
-		lm.updateListener(theListener, lsConf)
-		return nil
-	}
 	ls, err := listener.CreateListenerService(lsConf, lm.bootstrap)
 	if err != nil {
 		return err
@@ -75,9 +72,33 @@ func (lm *ListenerManager) AddOrUpdateListener(lsConf *model.Listener) error {
 	return nil
 }
 
-func (lm *ListenerManager) updateListener(listener *model.Listener, to *model.Listener) {
-	//todo update listener and service
-	panic("not implement")
+func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
+	//TODO implement me
+	logger.Infof("UpdateListener %s", m.Name)
+	return nil
+}
+
+func (lm *ListenerManager) HasListener(name string) bool {
+	for _, v := range lm.activeListener {
+		if v.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (lm *ListenerManager) CloneXdsControlListener() ([]*model.Listener, error) {
+	//TODO Mutex
+	a, err := yaml.MarshalYML(lm.activeListener)
+	if err != nil {
+		return nil, err
+	}
+
+	var l []*model.Listener
+	if err := yaml.UnmarshalYML(a, &l); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
 func (lm *ListenerManager) getListener(name string) *model.Listener {
@@ -130,10 +151,16 @@ func (lm *ListenerManager) GetListenerService(name string) listener.ListenerServ
 func (lm *ListenerManager) RemoveListener(names []string) {
 	//close ListenerService
 	for _, v := range names {
+		logger.Infof("listener %s closing", v)
 		ls := lm.GetListenerService(v)
-		err := ls.Close()
-		if err != nil {
-			logger.Warnf("%s listener close fail", v, err)
+		if ls == nil {
+			logger.Warnf("listener %s not found", v)
+			continue
 		}
+		if err := ls.Close(); err != nil {
+			logger.Error("close listener service error.  %v", err)
+			continue
+		}
+		logger.Infof("listener %s closed", v)
 	}
 }
