@@ -61,10 +61,10 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 
 func (lm *ListenerManager) AddOrUpdateListener(lsConf *model.Listener) error {
 	//todo add sync lock for concurrent using
-	if theListener := lm.getListener(lsConf.Name); theListener != nil {
-		lm.updateListener(theListener, lsConf)
-		return nil
-	}
+	//if theListener := lm.getListener(lsConf.Name); theListener != nil {
+	//	lm.updateListener(theListener, lsConf)
+	//	return nil
+	//}
 	ls, err := listener.CreateListenerService(lsConf, lm.bootstrap)
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (lm *ListenerManager) AddOrUpdateListener(lsConf *model.Listener) error {
 
 func (lm *ListenerManager) updateListener(listener *model.Listener, to *model.Listener) {
 	//todo update listener and service
-	panic("not implement")
+	//panic("not implement")
 }
 
 func (lm *ListenerManager) getListener(name string) *model.Listener {
@@ -129,11 +129,8 @@ func (lm *ListenerManager) GetListenerService(name string) listener.ListenerServ
 
 func (lm *ListenerManager) RemoveListener(names []string) {
 	//close ListenerService
-	for _, v := range names {
-		ls := lm.GetListenerService(v)
-		err := ls.Close()
-		if err != nil {
-			logger.Warnf("%s listener close fail", v, err)
-		}
+	for _, v := range lm.activeListenerService {
+		logger.Info("close", v.cfg.Name)
+		v.Close()
 	}
 }

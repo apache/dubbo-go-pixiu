@@ -117,7 +117,8 @@ func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
 	}
 
 	for _, listener := range listeners {
-		delete(toRemoveHash, listener.Name)
+		//TODO test
+		//delete(toRemoveHash, listener.Name)
 		modelListener := l.makeListener(listener)
 		// add or update later after removes
 		laterApplies = append(laterApplies, func() error {
