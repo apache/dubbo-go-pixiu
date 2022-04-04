@@ -80,6 +80,15 @@ func (ls *HttpListenerService) Start() error {
 	return nil
 }
 
+func (ls *HttpListenerService) Close() error {
+	return ls.srv.Close()
+}
+
+func (ls *HttpListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (ls *HttpListenerService) httpsListener() {
 	hl := createDefaultHttpWorker(ls)
 

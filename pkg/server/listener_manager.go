@@ -128,5 +128,12 @@ func (lm *ListenerManager) GetListenerService(name string) listener.ListenerServ
 }
 
 func (lm *ListenerManager) RemoveListener(names []string) {
-	//todo implement remove Listener and ListenerService
+	//close ListenerService
+	for _, v := range names {
+		ls := lm.GetListenerService(v)
+		err := ls.Close()
+		if err != nil {
+			logger.Warnf("%s listener close fail", v, err)
+		}
+	}
 }

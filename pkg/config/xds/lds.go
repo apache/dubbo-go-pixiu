@@ -111,6 +111,7 @@ func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
 	laterApplies := make([]func() error, 0, len(listeners))
 	toRemoveHash := make(map[string]struct{}, len(listeners))
 
+	//get all listeners
 	for _, listener := range listeners {
 		toRemoveHash[listener.Name] = struct{}{}
 	}

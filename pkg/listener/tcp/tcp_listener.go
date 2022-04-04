@@ -67,6 +67,16 @@ func (ls *TcpListenerService) Start() error {
 	return nil
 }
 
+func (ls *TcpListenerService) Close() error {
+	ls.server.Close()
+	return nil
+}
+
+func (ls *TcpListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (ls *TcpListenerService) newSession(session getty.Session) (err error) {
 
 	tcpConn, ok := session.Conn().(*net.TCPConn)

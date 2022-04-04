@@ -88,6 +88,16 @@ func (ls *TripleListenerService) Start() error {
 	return nil
 }
 
+func (ls *TripleListenerService) Close() error {
+	ls.server.Stop()
+	return nil
+}
+
+func (ls *TripleListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 // GetReqParamsInterfaces get params
 func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{}, bool) {
 	val, ok := d.reqTypeMap.Load(methodName)

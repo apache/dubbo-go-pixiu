@@ -111,6 +111,15 @@ func (ls Http2ListenerService) Start() error {
 	return nil
 }
 
+func (ls Http2ListenerService) Close() error {
+	return ls.server.Close()
+}
+
+func (ls Http2ListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func resolveAddress(addr string) string {
 	if addr == "" {
 		logger.Debug("Addr is undefined. Using port :8080 by default")
