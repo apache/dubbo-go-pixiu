@@ -132,7 +132,7 @@ func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
 
 	for _, listener := range listeners {
 		//TODO test
-		//delete(toRemoveHash, listener.Name)
+		delete(toRemoveHash, listener.Name)
 		modelListener := l.makeListener(listener)
 		// add or update later after removes
 		switch {
@@ -162,6 +162,7 @@ func (l *LdsManager) makeListener(listener *xdsModel.Listener) model.Listener {
 	return model.Listener{
 		Name:        listener.Name,
 		ProtocolStr: listener.Protocol.String(),
+		Protocol:    model.ProtocolType(model.ProtocolTypeValue[listener.Protocol.String()]),
 		Address:     l.makeAddress(listener.Address),
 		FilterChain: l.makeFilterChain(listener.FilterChain),
 		Config:      nil, // todo set the additional config

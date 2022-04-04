@@ -56,7 +56,7 @@ type (
 
 func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	ls := &TripleListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -96,6 +96,13 @@ func (ls *TripleListenerService) Close() error {
 func (ls *TripleListenerService) ShutDown() error {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (ls *TripleListenerService) Refresh(c model.Listener) error {
+	//TODO lcok me
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
+	return nil
 }
 
 // GetReqParamsInterfaces get params

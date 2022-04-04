@@ -57,7 +57,7 @@ type (
 )
 
 func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	return &HttpListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -87,6 +87,13 @@ func (ls *HttpListenerService) Close() error {
 func (ls *HttpListenerService) ShutDown() error {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (ls *HttpListenerService) Refresh(c model.Listener) error {
+	//TODO lcok me
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
+	return nil
 }
 
 func (ls *HttpListenerService) httpsListener() {

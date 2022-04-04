@@ -50,7 +50,7 @@ type HttpConnectionManager struct {
 }
 
 // CreateHttpConnectionManager create http connection manager
-func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *model.Bootstrap) *HttpConnectionManager {
+func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
 	hcm.pool.New = func() interface{} {
 		return hcm.allocateContext()

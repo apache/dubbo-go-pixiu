@@ -50,7 +50,7 @@ type GrpcConnectionManager struct {
 }
 
 // CreateGrpcConnectionManager create grpc connection manager
-func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig, bs *model.Bootstrap) *GrpcConnectionManager {
+func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig) *GrpcConnectionManager {
 	hcm := &GrpcConnectionManager{config: hcmc}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	return hcm

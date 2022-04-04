@@ -68,7 +68,7 @@ func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	return &Http2ListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -111,13 +111,20 @@ func (ls Http2ListenerService) Start() error {
 	return nil
 }
 
-func (ls Http2ListenerService) Close() error {
+func (ls *Http2ListenerService) Close() error {
 	return ls.server.Close()
 }
 
-func (ls Http2ListenerService) ShutDown() error {
+func (ls *Http2ListenerService) ShutDown() error {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (ls *Http2ListenerService) Refresh(c model.Listener) error {
+	//TODO lcok me
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
+	return nil
 }
 
 func resolveAddress(addr string) string {

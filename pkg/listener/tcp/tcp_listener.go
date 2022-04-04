@@ -51,7 +51,7 @@ func newTcpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.Li
 	// todo taskPoolMode
 	server := getty.NewTCPServer(serverOpts...)
 
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	return &TcpListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -75,6 +75,13 @@ func (ls *TcpListenerService) Close() error {
 func (ls *TcpListenerService) ShutDown() error {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (ls *TcpListenerService) Refresh(c model.Listener) error {
+	//TODO lcok me
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
+	return nil
 }
 
 func (ls *TcpListenerService) newSession(session getty.Session) (err error) {
