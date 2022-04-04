@@ -42,7 +42,7 @@ static_resources:
                     config:
                       dubboProxyConfig:
                         registries:
-                          "zookeeper":
+                          "nacos":
                             protocol: "nacos"
                             timeout: "3s"
                             address: "127.0.0.1:8848"
@@ -53,7 +53,7 @@ static_resources:
       name: dgp.adapter.dubboregistrycenter
       config:
         registries:
-          "zookeeper":
+          "nacos":
             protocol: nacos
             address: "127.0.0.1:8848"
             timeout: "5s"
