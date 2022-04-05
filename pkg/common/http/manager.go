@@ -115,7 +115,7 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 		writer := c.Writer
 		writer.WriteHeader(c.GetStatusCode())
 		if _, err := writer.Write(c.TargetResp.Data); err != nil {
-			panic(err)
+			logger.Errorf("write response error: %s", err)
 		}
 	}
 }

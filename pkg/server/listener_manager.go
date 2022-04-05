@@ -47,7 +47,7 @@ type ListenerManager struct {
 
 // CreateDefaultListenerManager create listener manager from config
 func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
-	var listeners map[string]*wrapListenerService
+	listeners := map[string]*wrapListenerService{}
 	sl := bs.GetStaticListeners()
 
 	for _, lsCof := range sl {
@@ -64,6 +64,7 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	return &ListenerManager{
 		activeListenerService: listeners,
 		bootstrap:             bs,
+		rwLock:                &sync.RWMutex{},
 	}
 }
 

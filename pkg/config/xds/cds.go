@@ -157,14 +157,16 @@ func (c *CdsManager) makeClusterType(cluster *xdspb.Cluster) model.DiscoveryType
 	return model.DiscoveryTypeValue[cluster.TypeStr]
 }
 
-func (c *CdsManager) makeEndpoints(endpoint *xdspb.Endpoint) []*model.Endpoint {
-	r := make([]*model.Endpoint, 0, 1)
-	r = append(r, &model.Endpoint{
-		ID:       endpoint.Id,
-		Name:     endpoint.Name,
-		Address:  c.makeAddress(endpoint),
-		Metadata: endpoint.Metadata,
-	})
+func (c *CdsManager) makeEndpoints(endpoints []*xdspb.Endpoint) []*model.Endpoint {
+	r := make([]*model.Endpoint, len(endpoints))
+	for i, endpoint := range endpoints {
+		r[i] = &model.Endpoint{
+			ID:       endpoint.Id,
+			Name:     endpoint.Name,
+			Address:  c.makeAddress(endpoint),
+			Metadata: endpoint.Metadata,
+		}
+	}
 	return r
 }
 
