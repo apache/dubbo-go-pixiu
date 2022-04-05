@@ -61,6 +61,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+
       - name: Cache dependencies
         uses: actions/cache@v2
         with:
@@ -71,6 +72,17 @@ jobs:
           # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
           restore-keys: |
             ${{ runner.os }}-go-
+
+      - name: Merge base
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin develop
+          git checkout -b develop origin/develop
+          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
+          git fetch devrepo ${{github.event.pull_request.head.sha}}
+          git config --global user.email "dubbo-go@github-ci.com"
+          git config --global user.name "robot"
+          git merge ${{github.event.pull_request.head.sha}}
 
       - name: Get dependencies
         run: |
@@ -97,9 +109,16 @@ jobs:
           chmod u+x before_ut.sh && ./before_ut.sh
           go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
       # integration test
-      - name: Integration Test
+      # This step only runs when the event type is a pull_request
+      - name: Integrate Test
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
-          chmod +x start_integrate_test.sh && chmod +x integrate_test.sh && ./start_integrate_test.sh
+          chmod +x start_integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./start_integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
+      # This step only runs when the event type is a push
+      - name: Integrate Test
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          chmod +x start_integrate_test.sh && ./start_integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
