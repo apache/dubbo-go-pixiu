@@ -21,9 +21,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -99,7 +97,13 @@ func (s *Server) Start() {
 		if addr.Port == 0 {
 			addr.Port = constant.PprofDefaultPort
 		}
-		go http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
+		go func() {
+			err := http.ListenAndServe(addr.Address+":"+strconv.Itoa(addr.Port), nil)
+			if err != nil {
+				logger.Warnf("Pprof server start failed, err: %v", err)
+				return
+			}
+		}()
 		logger.Infof("[dubbopixiu go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
 	}
 }

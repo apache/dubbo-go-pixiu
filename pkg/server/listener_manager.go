@@ -21,9 +21,11 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
-)
 
-import (
+	"gopkg.in/yaml.v2"
+
+	"github.com/pkg/errors"
+
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -83,11 +85,19 @@ func (lm *ListenerManager) AddListener(lsConf *model.Listener) error {
 }
 
 func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
-	//TODO implement me
-	logger.Infof("UpdateListener %s", m.Name)
-	service := lm.GetListenerService(m.Name)
-	if service != nil {
-		return service.Refresh(*m)
+	// lock
+	lm.rwLock.Lock()
+	defer lm.rwLock.Unlock()
+	ls, ok := lm.activeListenerService[m.Name]
+	if !ok {
+		return errors.New("ListenerManager UpdateListener error: listener not found")
+	}
+	logger.Infof("Update Listener %s", m.Name)
+	ls.cfg = m
+	err := ls.Refresh(*m)
+	if err != nil {
+		logger.Warnf("Update Listener %s error: %s", m.Name, err)
+		return err
 	}
 	return nil
 }
@@ -102,19 +112,21 @@ func (lm *ListenerManager) HasListener(name string) bool {
 func (lm *ListenerManager) CloneXdsControlListener() ([]*model.Listener, error) {
 	lm.rwLock.RLock()
 	defer lm.rwLock.RUnlock()
+
 	var listeners []*model.Listener
 	for _, ls := range lm.activeListenerService {
 		listeners = append(listeners, ls.cfg)
 	}
-	return listeners, nil
-}
-
-func (lm *ListenerManager) getListener(name string) *model.Listener {
-	service := lm.activeListenerService[name]
-	if service != nil {
-		return service.cfg
+	//deep copy
+	bytes, err := yaml.Marshal(listeners)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	var cloneListeners []*model.Listener
+	if err = yaml.Unmarshal(bytes, &cloneListeners); err != nil {
+		return nil, err
+	}
+	return cloneListeners, nil
 }
 
 func (lm *ListenerManager) StartListen() {
@@ -154,7 +166,12 @@ func (lm *ListenerManager) addListenerService(ls listener.ListenerService, lsCon
 func (lm *ListenerManager) GetListenerService(name string) listener.ListenerService {
 	lm.rwLock.RLock()
 	defer lm.rwLock.RUnlock()
-	return lm.activeListenerService[name]
+
+	ls, ok := lm.activeListenerService[name]
+	if ok {
+		return ls
+	}
+	return nil
 }
 
 func (lm *ListenerManager) RemoveListener(names []string) {

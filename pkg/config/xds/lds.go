@@ -20,19 +20,13 @@ package xds
 import (
 	"encoding/json"
 	"strconv"
-)
 
-import (
-	xdsModel "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
-
-	"gopkg.in/yaml.v2"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
+	xdsModel "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	"gopkg.in/yaml.v2"
 )
 
 type LdsManager struct {
@@ -131,8 +125,8 @@ func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
 	}
 
 	for _, listener := range listeners {
-		//TODO test
 		delete(toRemoveHash, listener.Name)
+
 		modelListener := l.makeListener(listener)
 		// add or update later after removes
 		switch {
@@ -146,8 +140,10 @@ func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
 			})
 		}
 	}
+	// remove the listeners first to prevent tcp port conflict
 	l.removeListeners(toRemoveHash)
-	for _, fn := range laterApplies { //do update and add new cluster.
+	//do update and add new cluster.
+	for _, fn := range laterApplies {
 		if err := fn(); err != nil {
 			logger.Errorf("can not modify listener", err)
 		}
