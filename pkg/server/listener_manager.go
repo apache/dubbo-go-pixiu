@@ -33,8 +33,9 @@ import (
 
 // wrapListenerService wrap listener service and its configuration.
 type wrapListenerService struct {
-	cfg *model.Listener
 	listener.ListenerService
+
+	config *model.Listener
 }
 
 // ListenerManager the listener manager
@@ -58,7 +59,7 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 			logger.Error("CreateDefaultListenerManager %s error: %v", lsCof.Name, err)
 		}
 		listeners[resolveListenerName(lsCof)] = &wrapListenerService{
-			cfg:             lsCof,
+			config:          lsCof,
 			ListenerService: ls,
 		}
 	}
@@ -93,7 +94,7 @@ func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
 		return errors.New("ListenerManager UpdateListener error: listener not found")
 	}
 	logger.Infof("Update Listener %s", m.Name)
-	ls.cfg = m
+	ls.config = m
 	err := ls.Refresh(*m)
 	if err != nil {
 		logger.Warnf("Update Listener %s error: %s", m.Name, err)
@@ -115,7 +116,7 @@ func (lm *ListenerManager) CloneXdsControlListener() ([]*model.Listener, error) 
 
 	var listeners []*model.Listener
 	for _, ls := range lm.activeListenerService {
-		listeners = append(listeners, ls.cfg)
+		listeners = append(listeners, ls.config)
 	}
 	//deep copy
 	bytes, err := yaml.Marshal(listeners)
@@ -158,7 +159,7 @@ func (lm *ListenerManager) addListenerService(ls listener.ListenerService, lsCon
 	lm.rwLock.Lock()
 	defer lm.rwLock.Unlock()
 	lm.activeListenerService[resolveListenerName(lsConf)] = &wrapListenerService{
-		cfg:             lsConf,
+		config:          lsConf,
 		ListenerService: ls,
 	}
 }
