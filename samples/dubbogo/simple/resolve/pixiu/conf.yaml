@@ -59,7 +59,7 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
-trace:
+tracing:
   name: "jaeger"
   sampler:
     type: "ratio"

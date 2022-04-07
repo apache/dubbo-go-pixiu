@@ -18,13 +18,9 @@
 package server
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
-	"sync/atomic"
 )
 
 import (
@@ -32,7 +28,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/trace"
+	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
 var server *Server
@@ -48,7 +44,7 @@ type Server struct {
 	routerManager         *RouterManager
 	apiConfigManager      *ApiConfigManager
 	dynamicResourceManger DynamicResourceManager
-	traceDriverManager    *trace.TraceDriverManager
+	traceDriverManager    *tracing.TraceDriverManager
 }
 
 func (s *Server) initialize(bs *model.Bootstrap) {
@@ -58,7 +54,7 @@ func (s *Server) initialize(bs *model.Bootstrap) {
 	s.adapterManager = CreateDefaultAdapterManager(s, bs)
 	s.listenerManager = CreateDefaultListenerManager(bs)
 	s.dynamicResourceManger = createDynamicResourceManger(bs)
-	s.traceDriverManager = trace.CreateDefaultTraceDriverManager(bs)
+	s.traceDriverManager = tracing.CreateDefaultTraceDriverManager(bs)
 }
 
 func (s *Server) GetClusterManager() *ClusterManager {
@@ -81,7 +77,7 @@ func (s *Server) GetDynamicResourceManager() DynamicResourceManager {
 	return s.dynamicResourceManger
 }
 
-func (s *Server) GetTraceDriverManager() *trace.TraceDriverManager {
+func (s *Server) GetTraceDriverManager() *tracing.TraceDriverManager {
 	return s.traceDriverManager
 }
 
@@ -151,47 +147,6 @@ func GetDynamicResourceManager() DynamicResourceManager {
 	return server.GetDynamicResourceManager()
 }
 
-func GetTraceDriverManager() *trace.TraceDriverManager {
+func GetTraceDriverManager() *tracing.TraceDriverManager {
 	return server.traceDriverManager
-}
-
-func NewTracer(name trace.ProtocolName) trace.Trace {
-	driver := GetTraceDriverManager().GetDriver()
-	holder, ok := driver.Holders[name]
-	if !ok {
-		holder = &trace.Holder{
-			Tracers: make(map[string]trace.Trace),
-		}
-		holder.Id = 0
-		driver.Holders[name] = holder
-	}
-	// tarceId的生成，并且在协议接口唯一
-	builder := strings.Builder{}
-	builder.WriteString(string(name))
-	builder.WriteString("-" + string(holder.Id))
-
-	traceId := builder.String()
-	tmp := driver.Tp.Tracer(traceId)
-	tracer := &trace.Tracer{
-		Id: traceId,
-		T:  tmp,
-		H:  holder,
-	}
-
-	holder.Tracers[traceId] = trace.TraceFactory[trace.HTTP](tracer)
-
-	atomic.AddUint64(&holder.Id, 1)
-	return holder.Tracers[traceId]
-}
-
-func GetTracer(name trace.ProtocolName, tracerId string) (trace.Trace, error) {
-	driver := GetTraceDriverManager().GetDriver()
-	holder, ok := driver.Holders[name]
-	if !ok {
-		return nil, errors.New("can not find any tracer, please call NewTracer first")
-	} else if _, ok = holder.Tracers[tracerId]; !ok {
-		return nil, errors.New(fmt.Sprintf("can not find tracer %s with protocol %s", tracerId, name))
-	} else {
-		return holder.Tracers[tracerId], nil
-	}
 }

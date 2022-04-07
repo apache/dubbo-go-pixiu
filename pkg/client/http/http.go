@@ -60,7 +60,7 @@ var (
 
 const (
 	traceNameHTTPClient   = "http-client"
-	jaegerTraceIDInHeader = "uber-trace-id"
+	jaegerTraceIDInHeader = "uber-tracing-id"
 )
 
 // Client client to generic invoke dubbo

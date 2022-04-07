@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
 	"golang.org/x/crypto/acme/autocert"
 )
 
@@ -36,7 +37,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/apache/dubbo-go-pixiu/pkg/trace"
+	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
 func init() {
@@ -143,14 +144,13 @@ func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tracer := server.NewTracer(trace.HTTP)
+	tracer := server.NewTracer(tracing.HTTP)
 	defer tracer.Close()
-	ctx, span := tracer.StartSpan("http", r)
+	ctx, span := tracer.StartSpan("http_listener", r)
 	defer span.End()
-	r.Header.Set("trace-id", tracer.GetId())
+	r.Header.Set("tracing-id", tracer.GetId())
 
 	s.ls.FilterChain.ServeHTTP(w, r.WithContext(ctx))
-	//s.ls.FilterChain.ServeHTTP(w, r)
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {
