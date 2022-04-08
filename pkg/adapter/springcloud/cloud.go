@@ -73,6 +73,8 @@ type (
 		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
 		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
 		Services      []string            `yaml:"services" json:"services" default:"services"`
+		// todo configuration the discovery config, like `zookeeper.discovery.root = "/services"`
+		//Discovery	  *model.DiscoveryConfig `yaml:"discovery" json:"discovery" default:"discovery"`
 	}
 
 	Service struct {
@@ -293,8 +295,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	// first remove the router for removed cluster
 	for _, c := range oldStore.Config {
 		if !newStore.HasCluster(c.Name) {
-			delete := &model.Router{ID: c.Name}
-			rm.DeleteRouter(delete)
+			rm.DeleteRouter(&model.Router{ID: c.Name})
 		}
 	}
 	// second set cluster

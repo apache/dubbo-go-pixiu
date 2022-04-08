@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package model
+package loadbalancer
 
-// LbPolicyType the load balance policy enum
-type LbPolicyType string
-
-const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-var LbPolicyTypeValue = map[string]LbPolicyType{
-	"Rand":              LoadBalancerRand,
-	"RoundRobin":        LoadBalancerRoundRobin,
-	"ConsistentHashing": LoadBalanceConsistentHashing,
+type LoadBalancer interface {
+	Handler(c *model.Cluster) *model.Endpoint
+}
+
+// LoadBalancerStrategy load balancer strategy mode
+var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
+
+func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
+	if _, ok := LoadBalancerStrategy[name]; ok {
+		panic("load balancer register fail " + name)
+	}
+	LoadBalancerStrategy[name] = balancer
 }
