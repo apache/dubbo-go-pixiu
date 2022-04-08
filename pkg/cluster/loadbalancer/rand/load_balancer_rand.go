@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package model
+package rand
 
-// LbPolicyType the load balance policy enum
-type LbPolicyType string
-
-const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
+import (
+	"math/rand"
 )
 
-var LbPolicyTypeValue = map[string]LbPolicyType{
-	"Rand":              LoadBalancerRand,
-	"RoundRobin":        LoadBalancerRoundRobin,
-	"ConsistentHashing": LoadBalanceConsistentHashing,
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+func init() {
+	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRand, Rand{})
+}
+
+type Rand struct{}
+
+func (Rand) Handler(c *model.Cluster) *model.Endpoint {
+	return c.Endpoints[rand.Intn(len(c.Endpoints))]
 }

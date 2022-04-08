@@ -20,21 +20,23 @@ package grpc
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"net"
 	stdHttp "net/http"
 )
 
 import (
+	"github.com/dubbogo/grpc-go/codes"
+	"github.com/dubbogo/grpc-go/status"
 	"golang.org/x/net/http2"
+	"google.golang.org/protobuf/proto"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -60,10 +62,8 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	ra, err := gcm.routerCoordinator.RouteByPathAndName(r.RequestURI, r.Method)
 	if err != nil {
 		logger.Infof("GrpcConnectionManager can't find route %v", err)
-		w.WriteHeader(stdHttp.StatusNotFound)
-		if _, err := w.Write(constant.Default404Body); err != nil {
-			logger.Warnf("WriteWithStatus error %v", err)
-		}
+		gcm.writeStatus(w, status.New(codes.NotFound, fmt.Sprintf("proxy can't find route error = %v", err)))
+		return
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", ra.Cluster)
@@ -72,9 +72,8 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
-		bt, _ := json.Marshal(http.ErrResponse{Message: "cluster not found endpoint"})
-		w.WriteHeader(stdHttp.StatusServiceUnavailable)
-		w.Write(bt)
+		logger.Infof("GrpcConnectionManager can't find endpoint in cluster")
+		gcm.writeStatus(w, status.New(codes.Unknown, "can't find endpoint in cluster"))
 		return
 	}
 
@@ -88,15 +87,30 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 	if err != nil {
 		logger.Infof("GrpcConnectionManager forward request error %v", err)
-		bt, _ := json.Marshal(http.ErrResponse{Message: "pixiu forward error"})
-		w.WriteHeader(stdHttp.StatusServiceUnavailable)
-		w.Write(bt)
+		gcm.writeStatus(w, status.New(codes.Unknown, fmt.Sprintf("forward error not = %v", err)))
 		return
 	}
 
 	if err := gcm.response(w, res); err != nil {
 		logger.Infof("GrpcConnectionManager response  error %v", err)
 	}
+}
+
+func (gcm *GrpcConnectionManager) writeStatus(w stdHttp.ResponseWriter, status *status.Status) {
+	w.Header().Set("Grpc-Status", fmt.Sprintf("%d", status.Code()))
+	w.Header().Set("Grpc-Message", status.Message())
+	w.Header().Set("Content-Type", "application/grpc")
+
+	if p := status.Proto(); p != nil && len(p.Details) > 0 {
+		stBytes, err := proto.Marshal(p)
+		if err != nil {
+			logger.Warnf("GrpcConnectionManager writeStatus status proto marshal error: %s", err.Error())
+		} else {
+			w.Header().Set("Grpc-Status-Details-Bin", base64.RawStdEncoding.EncodeToString(stBytes))
+		}
+	}
+
+	w.WriteHeader(stdHttp.StatusOK)
 }
 
 func (gcm *GrpcConnectionManager) response(w stdHttp.ResponseWriter, res *stdHttp.Response) error {

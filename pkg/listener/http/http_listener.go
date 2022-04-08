@@ -42,6 +42,7 @@ import (
 
 func init() {
 	listener.SetListenerServiceFactory(model.ProtocolTypeHTTP, newHttpListenerService)
+	listener.SetListenerServiceFactory(model.ProtocolTypeHTTPS, newHttpListenerService)
 }
 
 type (

@@ -18,7 +18,7 @@
 #
 
 server:
-  port: 9127
+  port: 0
 spring:
 #  cloud:
 #    zookeeper:

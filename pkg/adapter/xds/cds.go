@@ -141,19 +141,18 @@ func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.Cluster {
 		TypeStr:          cluster.TypeStr,
 		Type:             c.makeClusterType(cluster),
 		EdsClusterConfig: c.makeEdsClusterConfig(cluster.EdsClusterConfig),
-		LbStr:            cluster.LbStr,
-		Lb:               c.makeLoadBalancePolicy(cluster),
+		LbStr:            c.makeLoadBalancePolicy(cluster.LbStr),
 		HealthChecks:     c.makeHealthChecks(cluster.HealthChecks),
 		Endpoints:        c.makeEndpoints(cluster.Endpoints),
 	}
 }
 
-func (c *CdsManager) makeLoadBalancePolicy(cluster *xdspb.Cluster) model.LbPolicy {
-	return model.LbPolicy(model.LbPolicyValue[cluster.LbStr])
+func (c *CdsManager) makeLoadBalancePolicy(lb string) model.LbPolicyType {
+	return model.LbPolicyTypeValue[lb]
 }
 
 func (c *CdsManager) makeClusterType(cluster *xdspb.Cluster) model.DiscoveryType {
-	return model.DiscoveryType(model.DiscoveryTypeValue[cluster.TypeStr])
+	return model.DiscoveryTypeValue[cluster.TypeStr]
 }
 
 func (c *CdsManager) makeEndpoints(endpoint *xdspb.Endpoint) []*model.Endpoint {
