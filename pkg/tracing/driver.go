@@ -37,12 +37,12 @@ import (
 // Different Listeners listen to different protocol requests, and create the corresponding tracer
 type ProtocolName string
 
-const HTTP ProtocolName = "HTTP"
+const HTTPProtocol ProtocolName = "HTTP"
 
 // Unique Name by making Id self-incrementing。
 type Holder struct {
 	Tracers map[string]Trace
-	Id      uint64
+	ID      uint64
 }
 
 // Tracers corresponding to the listening protocol are maintained by the holder

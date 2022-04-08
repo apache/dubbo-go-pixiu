@@ -86,8 +86,8 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc.Writer = w
 	hc.Reset()
 
-	traceId := r.Header.Get("tracing-id")
-	tracer, _ := server.GetTracer(tracing.HTTP, traceId)
+	ID := r.Header.Get("tracing-id")
+	tracer, _ := server.GetTracer(tracing.HTTPProtocol, ID)
 	ctx, span := tracer.StartSpanFromContext("HttpConnectionManager", r.Context())
 	defer span.End()
 	hc.Ctx = ctx

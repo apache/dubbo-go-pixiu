@@ -79,7 +79,7 @@ func registerOtelMetricMeter(conf model.Metric) {
 	}
 }
 
-// Call NewTracer method to create tracer and need to specify protocol.
+// NewTracer create tracer and need to be specified protocol.
 func NewTracer(name tracing.ProtocolName) tracing.Trace {
 	driver := GetTraceDriverManager().GetDriver()
 	holder, ok := driver.Holders[name]
@@ -87,29 +87,29 @@ func NewTracer(name tracing.ProtocolName) tracing.Trace {
 		holder = &tracing.Holder{
 			Tracers: make(map[string]tracing.Trace),
 		}
-		holder.Id = 0
+		holder.ID = 0
 		driver.Holders[name] = holder
 	}
-	// tarceId的生成，并且在协议接口唯一
+
 	builder := strings.Builder{}
 	builder.WriteString(string(name))
-	builder.WriteString("-" + string(holder.Id))
+	builder.WriteString("-" + fmt.Sprint(holder.ID))
 
 	traceId := builder.String()
 	tmp := driver.Tp.Tracer(traceId)
 	tracer := &tracing.Tracer{
-		Id: traceId,
-		T:  tmp,
-		H:  holder,
+		ID:     traceId,
+		Trace:  tmp,
+		Holder: holder,
 	}
 
 	holder.Tracers[traceId] = tracing.TraceFactory[name](tracer)
 
-	atomic.AddUint64(&holder.Id, 1)
+	atomic.AddUint64(&holder.ID, 1)
 	return holder.Tracers[traceId]
 }
 
-// One protocol corresponds to one type of tracers, so you need to specify both the protocol and id.
+// GetTracer need to specify both the protocol and id.
 func GetTracer(name tracing.ProtocolName, tracerId string) (tracing.Trace, error) {
 	driver := GetTraceDriverManager().GetDriver()
 	holder, ok := driver.Holders[name]
