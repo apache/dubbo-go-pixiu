@@ -194,7 +194,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 
 	gs := dc.Get(dm)
 
-	tracer, err := server.GetTracer(tracing.HTTP, req.IngressRequest.Header.Get("tracing-id"))
+	tracer, err := server.GetTracer(tracing.HTTPProtocol, req.IngressRequest.Header.Get("tracing-id"))
 	if err != nil {
 		return nil, err
 	}

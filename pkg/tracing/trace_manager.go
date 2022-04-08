@@ -28,7 +28,7 @@ var TraceFactory map[ProtocolName]traceGenerator
 
 func init() {
 	TraceFactory = make(map[ProtocolName]traceGenerator)
-	TraceFactory[HTTP] = NewHTTPTracer
+	TraceFactory[HTTPProtocol] = NewHTTPTracer
 }
 
 // Driver maintains all tracers and the provider.

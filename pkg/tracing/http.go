@@ -29,9 +29,9 @@ import (
 //Wrap the tracer provided by otel and be asked to implement the Trace interface
 //to customize the Span implementation.
 type Tracer struct {
-	Id string
-	T  trace.Tracer
-	H  *Holder
+	ID     string
+	Trace  trace.Tracer
+	Holder *Holder
 }
 
 // By inheritance we can override the default StartSpan and other methods.
@@ -39,20 +39,20 @@ type HTTPTracer struct {
 	*Tracer
 }
 
-func (t *Tracer) GetId() string {
-	return t.Id
+func (t *Tracer) GetID() string {
+	return t.ID
 }
 
 func (t *Tracer) Close() {
-	delete(t.H.Tracers, t.Id)
+	delete(t.Holder.Tracers, t.ID)
 }
 
 func (t *Tracer) StartSpan(name string, request interface{}) (context.Context, trace.Span) {
-	return t.T.Start(request.(*http.Request).Context(), name)
+	return t.Trace.Start(request.(*http.Request).Context(), name)
 }
 
 func (t *Tracer) StartSpanFromContext(name string, ctx context.Context) (context.Context, trace.Span) {
-	return t.T.Start(ctx, name)
+	return t.Trace.Start(ctx, name)
 }
 
 func NewHTTPTracer(tracer Trace) Trace {
@@ -62,5 +62,5 @@ func NewHTTPTracer(tracer Trace) Trace {
 }
 
 func (t *HTTPTracer) StartSpan(name string, request interface{}) (context.Context, trace.Span) {
-	return t.T.Start(request.(*http.Request).Context(), name)
+	return t.Trace.Start(request.(*http.Request).Context(), name)
 }
