@@ -27,7 +27,7 @@ import (
 
 // Trace interface need to be implemented to construct your Tracer.
 type Trace interface {
-	// GetId gets ID string
+	// GetID gets ID string
 	GetID() string
 	// StartSpan creates new root span.
 	StartSpan(name string, request interface{}) (context.Context, trace.Span)
