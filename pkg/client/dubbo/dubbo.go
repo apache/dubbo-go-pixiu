@@ -44,8 +44,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -53,8 +53,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
 // TODO java class name elem
@@ -194,19 +192,14 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	}
 
 	gs := dc.Get(dm)
-
-	tracer, err := server.GetTracer(tracing.HTTPProtocol, req.IngressRequest.Header.Get("tracing-id"))
-	if err != nil {
-		return nil, err
-	}
-
-	_, span := tracer.StartSpanFromContext(spanNameDubbogoClient, req.Context)
+	tr := otel.Tracer(traceNameDubbogoClient)
+	_, span := tr.Start(req.Context, spanNameDubbogoClient)
+	trace.SpanFromContext(req.Context).SpanContext()
 	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
-	span.SetAttributes(attribute.Key(spanTagType).StringSlice(types))
+	//span.SetAttributes(attribute.Key(spanTagType).Array(types))
 	//span.SetAttributes(attribute.Key(spanTagValues).Array(vals))
 	defer span.End()
 	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
-
 	rst, err := gs.Invoke(ctx, method, types, vals)
 	if err != nil {
 		return nil, err
