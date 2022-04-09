@@ -109,20 +109,20 @@ func (z *serviceListener) Callback(services []nacosModel.SubscribeService, err e
 
 	z.instanceMap = newInstanceMap
 	for i := range addInstances {
-		newUrl := generateUrl(addInstances[i])
+		newUrl := generateURL(addInstances[i])
 		if newUrl != nil {
 			z.handle(newUrl, remoting.EventTypeAdd)
 		}
 	}
 	for i := range delInstances {
-		newUrl := generateUrl(delInstances[i])
+		newUrl := generateURL(delInstances[i])
 		if newUrl != nil {
 			z.handle(newUrl, remoting.EventTypeDel)
 		}
 	}
 
 	for i := range updateInstances {
-		newUrl := generateUrl(updateInstances[i])
+		newUrl := generateURL(updateInstances[i])
 		if newUrl != nil {
 			z.handle(newUrl, remoting.EventTypeUpdate)
 		}
@@ -176,7 +176,7 @@ func (zkl *serviceListener) Close() {
 	zkl.wg.Wait()
 }
 
-func generateUrl(instance nacosModel.Instance) *dubboCommon.URL {
+func generateURL(instance nacosModel.Instance) *dubboCommon.URL {
 	if instance.Metadata == nil {
 		logger.Errorf("nacos instance metadata is empty,instance:%+v", instance)
 		return nil
