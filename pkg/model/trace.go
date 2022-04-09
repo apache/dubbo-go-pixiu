@@ -17,7 +17,7 @@
 
 package model
 
-// Config inclueds detail information about the exporter
+// TracerConfig inclueds detail information about the exporter
 type TracerConfig struct {
 	Name    string                 `yaml:"name" json:"name" mapstructure:"name"`
 	Sampler Sampler                `yaml:"sampler" json:"sampler" mapstructure:"sampler"`
