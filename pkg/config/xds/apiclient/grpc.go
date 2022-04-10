@@ -19,7 +19,7 @@ package apiclient
 
 import (
 	"context"
-	errors2 "errors"
+	stderr "errors"
 	"sync"
 	"time"
 )
@@ -50,7 +50,7 @@ const xdsAgentName = "dubbo-go-pixiu"
 
 var (
 	grpcMg             *GRPCClusterManager
-	ErrClusterNotFound = errors2.New("can not find cluster")
+	ErrClusterNotFound = stderr.New("can not find cluster")
 )
 
 type (
