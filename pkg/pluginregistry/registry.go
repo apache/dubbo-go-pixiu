@@ -21,6 +21,8 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/xds"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/jwt"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
