@@ -8,7 +8,7 @@ English | [中文](./README_CN.md)
 
 # Introduction
 
-**Dubbo-Go-Pixiu** is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful services.
+**Dubbo-Go-Pixiu**(official site: https://dubbo-go-pixiu.github.io/) is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful services.
 
 It supports **HTTP-to-Dubbo** and **HTTP-to-HTTP** proxy and more protocols will be supported in the near future.
 
