@@ -35,8 +35,8 @@ require (
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
 	github.com/spf13/cast v1.3.1
-	github.com/spf13/cobra v1.1.1
-	github.com/stretchr/testify v1.7.1
+	github.com/spf13/cobra v1.1.3
+	github.com/stretchr/testify v1.7.0
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.opentelemetry.io/otel v1.6.1
 	go.opentelemetry.io/otel/exporters/jaeger v1.6.1
