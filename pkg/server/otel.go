@@ -110,14 +110,14 @@ func NewTracer(name tracing.ProtocolName) tracing.Trace {
 }
 
 // GetTracer need to specify both the protocol and id.
-func GetTracer(name tracing.ProtocolName, tracerId string) (tracing.Trace, error) {
+func GetTracer(name tracing.ProtocolName, tracerID string) (tracing.Trace, error) {
 	driver := GetTraceDriverManager().GetDriver()
 	holder, ok := driver.Holders[name]
 	if !ok {
 		return nil, errors.New("can not find any tracer, please call NewTracer first\n")
-	} else if _, ok = holder.Tracers[tracerId]; !ok {
-		return nil, errors.New(fmt.Sprintf("can not find tracer %s with protocol %s\n", tracerId, name))
+	} else if _, ok = holder.Tracers[tracerID]; !ok {
+		return nil, errors.New(fmt.Sprintf("can not find tracer %s with protocol %s\n", tracerID, name))
 	} else {
-		return holder.Tracers[tracerId], nil
+		return holder.Tracers[tracerID], nil
 	}
 }
