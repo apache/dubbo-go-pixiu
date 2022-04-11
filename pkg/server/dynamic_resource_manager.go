@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -68,6 +69,7 @@ func createDynamicResourceManger(bs *model.Bootstrap) DynamicResourceManager {
 	if bs.DynamicResources.AdsConfig != nil {
 		logger.Warnf("un-support ada_config.")
 	}
+	_ = xds.StartXdsClient(GetServer().GetListenerManager(), GetServer().GetClusterManager(), m) //todo graceful shutdown
 	return m
 }
 
