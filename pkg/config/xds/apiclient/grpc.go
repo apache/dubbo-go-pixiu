@@ -19,6 +19,8 @@ package apiclient
 
 import (
 	"context"
+	stderr "errors"
+	"sync"
 	"time"
 )
 
@@ -31,6 +33,8 @@ import (
 	"github.com/pkg/errors"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -38,15 +42,21 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
 // agent name to talk with xDS server
 const xdsAgentName = "dubbo-go-pixiu"
 
+var (
+	grpcMg             *GRPCClusterManager
+	ErrClusterNotFound = stderr.New("can not find cluster")
+)
+
 type (
 	GrpcApiClient struct {
 		config             model.ApiConfigSource
-		grpcMg             GrpcClusterManager
+		grpcMg             *GRPCClusterManager
 		node               *model.Node
 		xDSExtensionClient extensionpb.ExtensionConfigDiscoveryServiceClient
 		resourceNames      []ResourceTypeName
@@ -57,18 +67,23 @@ type (
 		nonce        string
 		deltaVersion map[string]string
 	}
-
-	GrpcCluster interface {
-		GetConnect() *grpc.ClientConn
-	}
-	GrpcClusterManager interface {
-		GetGrpcCluster(name string) (GrpcCluster, error)
-	}
 )
+
+func Init(clusterMg controls.ClusterManager) {
+	grpcMg = &GRPCClusterManager{
+		clusters:  &sync.Map{},
+		clusterMg: clusterMg,
+	}
+}
+
+func Stop() {
+	if err := grpcMg.Close(); err != nil { //todo
+		logger.Errorf("grpcClusterManager close failed. %v", err)
+	}
+}
 
 // CreateGrpcApiClient create Grpc type ApiClient
 func CreateGrpcApiClient(config *model.ApiConfigSource, node *model.Node,
-	grpcMg GrpcClusterManager,
 	exitCh chan struct{},
 	typeNames ...ResourceTypeName) *GrpcApiClient {
 	v := &GrpcApiClient{
@@ -95,8 +110,8 @@ func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 	}
 	logger.Infof("init the from xds server typeUrl=%s version=%s", clsRsp.TypeUrl, clsRsp.VersionInfo)
 	extensions := make([]*ProtoAny, 0, len(clsRsp.Resources))
-	for _, resource := range clsRsp.Resources {
-		elems, err := g.decodeSource(resource)
+	for _, clsResource := range clsRsp.Resources {
+		elems, err := g.decodeSource(clsResource)
 		if err != nil {
 			return nil, err
 		}
@@ -259,5 +274,111 @@ func (g *GrpcApiClient) init() {
 		logger.Errorf("get cluster for init error. error=%v", err)
 		panic(err)
 	}
-	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(cluster.GetConnect())
+	conn, err := cluster.GetConnection()
+	if err != nil {
+		panic(err)
+	}
+	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(conn)
+}
+
+type GRPCClusterManager struct {
+	clusters  *sync.Map // map[clusterName]*grpcCluster
+	clusterMg controls.ClusterManager
+}
+
+type GRPCCluster struct {
+	name   string //cluster name
+	config *model.Cluster
+	once   sync.Once
+	conn   *grpc.ClientConn
+}
+
+// GetGrpcCluster get the cluster or create it first time.
+func (g *GRPCClusterManager) GetGrpcCluster(name string) (*GRPCCluster, error) {
+	if !g.clusterMg.HasCluster(name) {
+		return nil, errors.Wrapf(ErrClusterNotFound, "name = %s", name)
+	}
+
+	if load, ok := g.clusters.Load(name); ok {
+		grpcCluster := load.(*GRPCCluster) // grpcClusterManager only
+		return grpcCluster, nil
+	}
+
+	store, err := g.clusterMg.CloneXdsControlStore()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "clone cluster store failed")
+	}
+
+	var clusterCfg *model.Cluster
+	for _, cfg := range store.Config() {
+		if cfg.Name == name {
+			clusterCfg = cfg
+			break
+		}
+	}
+	if clusterCfg == nil {
+		return nil, errors.Wrapf(ErrClusterNotFound, "name of %s", name)
+	}
+	newCluster := &GRPCCluster{
+		name:   name,
+		config: clusterCfg,
+	}
+	g.clusters.Store(name, newCluster)
+	return newCluster, nil
+}
+
+func (g *GRPCClusterManager) Close() (err error) {
+	//todo enhance the close process when concurrent
+	g.clusters.Range(func(_, value interface{}) bool {
+		if conn := value.(*grpc.ClientConn); conn != nil {
+			if err = conn.Close(); err != nil {
+				logger.Errorf("can not close grpc connection.", err)
+			}
+		}
+		return true
+	})
+	return nil
+}
+
+func (g *GRPCCluster) GetConnection() (conn *grpc.ClientConn, err error) {
+	g.once.Do(func() {
+		creds := insecure.NewCredentials()
+		//if *xdsCreds { // todo
+		//	log.Println("Using xDS credentials...")
+		//	var err error
+		//	if creds, err = xdscreds.NewClientCredentials(xdscreds.ClientOptions{FallbackCreds: insecure.NewCredentials()}); err != nil {
+		//		log.Fatalf("failed to create client-side xDS credentials: %v", err)
+		//	}
+		//}
+		if len(g.config.Endpoints) == 0 {
+			err = errors.Errorf("expect endpoint.")
+			return
+		}
+		endpoint := g.config.Endpoints[0].Address.GetAddress()
+		logger.Infof("to connect xds server %s ...", endpoint)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
+		defer cancel()
+		conn, err = grpc.DialContext(ctx, endpoint,
+			grpc.WithTransportCredentials(creds),
+			grpc.WithBlock(),
+		)
+		logger.Infof("connected xds server (%s)", endpoint)
+		if err != nil {
+			err = errors.Errorf("grpc.Dial(%s) failed: %v", endpoint, err)
+			return
+		}
+		g.conn = conn
+	})
+	return g.conn, nil
+}
+
+func (g *GRPCCluster) IsAlive() bool {
+	return g.conn.GetState() == connectivity.Ready
+}
+
+func (g *GRPCCluster) Close() error {
+	if err := g.conn.Close(); err != nil {
+		return errors.Wrapf(err, "can not close. %v", g.config)
+	}
+	return nil
 }
