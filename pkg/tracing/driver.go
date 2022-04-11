@@ -76,9 +76,10 @@ func (driver *TraceDriver) Init(bs *model.Bootstrap) *TraceDriver {
 }
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
 	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
-	if cfg.Name == "otlp" {
+	switch cfg.Name {
+	case "otlp":
 		return otlp.NewOTLPExporter(ctx, cfg)
-	} else {
+	default:
 		return jaeger.NewJaegerExporter(cfg)
 	}
 }
@@ -97,13 +98,13 @@ func newTraceProvider(exp sdktrace.SpanExporter, cfg *model.TracerConfig) *sdktr
 	)
 }
 
-// Default sampler's Type: fraction
 func newSampler(sample model.Sampler) sdktrace.Sampler {
-	if sample.Type == "never" {
+	switch sample.Type {
+	case "never":
 		return sdktrace.NeverSample()
-	} else if sample.Type == "always" {
-		return sdktrace.AlwaysSample()
-	} else {
+	case "ratio":
 		return sdktrace.TraceIDRatioBased(sample.Param)
+	default:
+		return sdktrace.AlwaysSample()
 	}
 }
