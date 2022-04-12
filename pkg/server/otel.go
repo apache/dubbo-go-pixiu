@@ -80,8 +80,11 @@ func registerOtelMetricMeter(conf model.Metric) {
 }
 
 // NewTracer create tracer and need to be specified protocol.
-func NewTracer(name tracing.ProtocolName) tracing.Trace {
+func NewTracer(name tracing.ProtocolName) (tracing.Trace, error) {
 	driver := GetTraceDriverManager().GetDriver()
+	if driver == nil {
+		return nil, errors.New("You must specify the exporter in conf.yaml first\n")
+	}
 	holder, ok := driver.Holders[name]
 	if !ok {
 		holder = &tracing.Holder{
@@ -106,12 +109,15 @@ func NewTracer(name tracing.ProtocolName) tracing.Trace {
 	holder.Tracers[traceId] = tracing.TraceFactory[name](tracer)
 
 	atomic.AddUint64(&holder.ID, 1)
-	return holder.Tracers[traceId]
+	return holder.Tracers[traceId], nil
 }
 
 // GetTracer need to specify both the protocol and id.
 func GetTracer(name tracing.ProtocolName, tracerID string) (tracing.Trace, error) {
 	driver := GetTraceDriverManager().GetDriver()
+	if driver == nil {
+		return nil, errors.New("You must specify the exporter in conf.yaml first\n")
+	}
 	holder, ok := driver.Holders[name]
 	if !ok {
 		return nil, errors.New("can not find any tracer, please call NewTracer first\n")
