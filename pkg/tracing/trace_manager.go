@@ -41,8 +41,7 @@ func CreateDefaultTraceDriverManager(bs *model.Bootstrap) *TraceDriverManager {
 	manager := &TraceDriverManager{
 		bootstrap: bs,
 	}
-	manager.driver = NewTraceDriver()
-	manager.driver.Init(bs)
+	manager.driver = InitDriver(bs)
 	return manager
 }
 

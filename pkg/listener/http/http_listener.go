@@ -145,13 +145,18 @@ func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tracer := server.NewTracer(tracing.HTTPProtocol)
-	defer tracer.Close()
-	ctx, span := tracer.StartSpan("http_listener", r)
-	defer span.End()
-	r.Header.Set("tracing-id", tracer.GetID())
+	tracer, err := server.NewTracer(tracing.HTTPProtocol)
+	if err != nil {
+		fmt.Println(err)
+		s.ls.FilterChain.ServeHTTP(w, r)
+	} else {
+		defer tracer.Close()
+		ctx, span := tracer.StartSpan("http_listener", r)
+		defer span.End()
+		r.Header.Set("tracing-id", tracer.GetID())
 
-	s.ls.FilterChain.ServeHTTP(w, r.WithContext(ctx))
+		s.ls.FilterChain.ServeHTTP(w, r.WithContext(ctx))
+	}
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {

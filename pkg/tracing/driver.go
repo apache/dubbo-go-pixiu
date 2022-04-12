@@ -19,6 +19,7 @@ package tracing
 
 import (
 	"context"
+	"errors"
 )
 
 import (
@@ -58,15 +59,16 @@ func NewTraceDriver() *TraceDriver {
 	}
 }
 
-// Loading BootStrap configuration about trace
-func (driver *TraceDriver) Init(bs *model.Bootstrap) *TraceDriver {
+// InitDriver loading BootStrap configuration about trace
+func InitDriver(bs *model.Bootstrap) *TraceDriver {
 	config := bs.Trace
 	ctx := context.Background()
 	exp, err := newExporter(ctx, config)
 	if err != nil {
 		//TODO 错误处理
-		return driver
+		return nil
 	}
+	driver := NewTraceDriver()
 	provider := newTraceProvider(exp, config)
 
 	otel.SetTracerProvider(provider)
@@ -75,12 +77,14 @@ func (driver *TraceDriver) Init(bs *model.Bootstrap) *TraceDriver {
 	return driver
 }
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
-	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
+	// You must specify exporter to collect traces, otherwise return nil.
 	switch cfg.Name {
 	case "otlp":
 		return otlp.NewOTLPExporter(ctx, cfg)
-	default:
+	case "jaeger":
 		return jaeger.NewJaegerExporter(cfg)
+	default:
+		return nil, errors.New("no exporter error\n")
 	}
 }
 
@@ -99,6 +103,7 @@ func newTraceProvider(exp sdktrace.SpanExporter, cfg *model.TracerConfig) *sdktr
 }
 
 func newSampler(sample model.Sampler) sdktrace.Sampler {
+	// default sampling: always.
 	switch sample.Type {
 	case "never":
 		return sdktrace.NeverSample()
