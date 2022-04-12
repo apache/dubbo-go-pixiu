@@ -18,7 +18,7 @@
 package xds
 
 import (
-	"errors"
+	stderr "errors"
 	"testing"
 )
 
@@ -150,7 +150,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 		wantNewCluster    bool
 		wantUpdateCluster bool
 	}{
-		{"error", nil, errors.New("error test"), true, false, false},
+		{"error", nil, stderr.New("error test"), true, false, false},
 		{"simple", nil, nil, false, false, false},
 		{"withValue", func() []*apiclient.ProtoAny {
 			return []*apiclient.ProtoAny{
