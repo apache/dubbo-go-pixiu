@@ -50,6 +50,3 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
-  adapters:
-    - id: "xds"
-      name: "dgp.adapter.xdsdiscover"
