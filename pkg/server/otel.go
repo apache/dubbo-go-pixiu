@@ -85,14 +85,7 @@ func NewTracer(name tracing.ProtocolName) (tracing.Trace, error) {
 	if driver == nil {
 		return nil, errors.New("You must specify the exporter in conf.yaml first\n")
 	}
-	holder, ok := driver.Holders[name]
-	if !ok {
-		holder = &tracing.Holder{
-			Tracers: make(map[string]tracing.Trace),
-		}
-		holder.ID = 0
-		driver.Holders[name] = holder
-	}
+	holder := driver.GetHolder(name)
 
 	builder := strings.Builder{}
 	builder.WriteString(string(name))
