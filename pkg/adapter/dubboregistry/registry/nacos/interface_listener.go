@@ -192,14 +192,12 @@ func (z *nacosIntfListener) updateServiceList(serviceList []string) error {
 	}
 
 	// handle deleted service
-	//for k, v := range z.serviceInfoMap {
-	//	// need delete
-	//	if _, ok := newServiceMap[k]; !ok {
-	//		delete(z.serviceInfoMap, k)
-	//
-	//		v.listener.
-	//	}
-	//}
+	for k, v := range z.serviceInfoMap {
+		if _, ok := newServiceMap[k]; !ok {
+			delete(z.serviceInfoMap, k)
+			v.listener.Close()
+		}
+	}
 
 	return nil
 
