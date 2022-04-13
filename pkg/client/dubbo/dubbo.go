@@ -283,9 +283,9 @@ func apiKey(ir *fc.IntegrationRequest) string {
 func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.GenericService {
 	useNacosRegister := false
 	registerIds := make([]string, 0)
-	for k := range dc.rootConfig.Registries {
+	for k, v := range dc.rootConfig.Registries {
 		registerIds = append(registerIds, k)
-		if k == "nacos" {
+		if v.Protocol == "nacos" {
 			useNacosRegister = true
 		}
 	}
