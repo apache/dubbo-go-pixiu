@@ -76,6 +76,19 @@ func InitDriver(bs *model.Bootstrap) *TraceDriver {
 	driver.Tp = provider
 	return driver
 }
+
+// GetHolder return the holder of the corresponding protocol. If None, create new holder.
+func (driver *TraceDriver) GetHolder(name ProtocolName) *Holder {
+	holder, ok := driver.Holders[name]
+	if !ok {
+		holder = &Holder{
+			Tracers: make(map[string]Trace),
+		}
+		driver.Holders[name] = holder
+	}
+	return holder
+}
+
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
 	// You must specify exporter to collect traces, otherwise return nil.
 	switch cfg.Name {
