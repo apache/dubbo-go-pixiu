@@ -15,28 +15,34 @@
  * limitations under the License.
  */
 
-package xds
+package controls
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 type (
-	DiscoveryPlugin struct {
+	ClusterManager interface {
+		RemoveCluster(names []string)
+		HasCluster(name string) bool
+		UpdateCluster(cluster *model.Cluster)
+		AddCluster(cluster *model.Cluster)
+		CloneXdsControlStore() (ClusterStore, error)
+	}
+
+	ListenerManager interface {
+		RemoveListener(names []string)
+		AddOrUpdateListener(m *model.Listener) error
+	}
+
+	DynamicResourceManager interface {
+		GetLds() *model.ApiConfigSource
+		GetCds() *model.ApiConfigSource
+		GetNode() *model.Node
+	}
+
+	ClusterStore interface {
+		Config() []*model.Cluster
+		HasCluster(name string) bool
 	}
 )
-
-func (d *DiscoveryPlugin) Kind() string {
-	return constant.XDSDiscoverAdapter
-}
-
-func (d *DiscoveryPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
-	return &Adapter{
-		ID:     ad.ID,
-		Name:   ad.Name,
-		cfg:    &AdapterConfig{},
-		exitCh: make(chan struct{}),
-	}, nil
-}
