@@ -59,12 +59,12 @@ type UserDB struct {
 
 // nolint
 func (db *UserDB) Add(u *User) bool {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
 	if u.Name == "" || u.Code <= 0 {
 		return false
 	}
+
+	db.lock.Lock()
+	defer db.lock.Unlock()
 
 	if !db.existName(u.Name) && !db.existCode(u.Code) {
 		return db.AddForName(u) && db.AddForCode(u)
