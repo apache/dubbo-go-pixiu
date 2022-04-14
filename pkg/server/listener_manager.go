@@ -176,6 +176,8 @@ func (lm *ListenerManager) GetListenerService(name string) listener.ListenerServ
 }
 
 func (lm *ListenerManager) RemoveListener(names []string) {
+	lm.rwLock.Lock()
+	defer lm.rwLock.Unlock()
 	//close ListenerService
 	for _, name := range names {
 		logger.Infof("listener %s closing", name)
@@ -190,8 +192,7 @@ func (lm *ListenerManager) RemoveListener(names []string) {
 		}
 		logger.Infof("listener %s closed", name)
 	}
-	lm.rwLock.Lock()
-	defer lm.rwLock.Unlock()
+
 	//remove from activeListenerService
 	for _, name := range names {
 		delete(lm.activeListenerService, name)

@@ -97,8 +97,8 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 	names := make([]string, 0, len(toRemoveHash))
 	for name := range toRemoveHash {
 		names = append(names, name)
-		l.listenerMg.RemoveListener(names)
 	}
+	l.listenerMg.RemoveListener(names)
 }
 
 // setupListeners setup listeners accord to dynamic resource

@@ -80,7 +80,7 @@ func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.
 }
 
 // Start start listen
-func (ls Http2ListenerService) Start() error {
+func (ls *Http2ListenerService) Start() error {
 
 	sa := ls.Config.Address.SocketAddress
 	addr := resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port))
