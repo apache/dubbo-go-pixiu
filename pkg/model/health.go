@@ -18,11 +18,13 @@
 package model
 
 // HealthCheck
-type HealthCheck struct{}
+type HealthCheckConfig struct {
+	Protocol string `json:"protocol,omitempty"`
+}
 
 // HttpHealthCheck
 type HttpHealthCheck struct {
-	HealthCheck
+	HealthCheckConfig
 	Host             string
 	Path             string
 	UseHttp2         bool
@@ -31,14 +33,14 @@ type HttpHealthCheck struct {
 
 // GrpcHealthCheck
 type GrpcHealthCheck struct {
-	HealthCheck
+	HealthCheckConfig
 	ServiceName string
 	Authority   string
 }
 
 // CustomHealthCheck
 type CustomHealthCheck struct {
-	HealthCheck
+	HealthCheckConfig
 	Name   string
 	Config interface{}
 }
