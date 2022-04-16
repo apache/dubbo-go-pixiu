@@ -76,12 +76,13 @@ func resolveListenerName(c *model.Listener) string {
 }
 
 func (lm *ListenerManager) AddListener(lsConf *model.Listener) error {
+	logger.Infof("Add Listener %s", lsConf.Name)
 	ls, err := listener.CreateListenerService(lsConf, lm.bootstrap)
 	if err != nil {
 		return err
 	}
-	lm.startListenerServiceAsync(ls)
 	lm.addListenerService(ls, lsConf)
+	lm.startListenerServiceAsync(ls)
 	return nil
 }
 
@@ -149,7 +150,7 @@ func (lm *ListenerManager) startListenerServiceAsync(s listener.ListenerService)
 		}()
 		err := s.Start()
 		if err != nil {
-			logger.Error("start listener service error.  %v", err)
+			logger.Errorf("start listener service error.  %v", err)
 		}
 	}()
 	return done
@@ -176,8 +177,6 @@ func (lm *ListenerManager) GetListenerService(name string) listener.ListenerServ
 }
 
 func (lm *ListenerManager) RemoveListener(names []string) {
-	lm.rwLock.Lock()
-	defer lm.rwLock.Unlock()
 	//close ListenerService
 	for _, name := range names {
 		logger.Infof("listener %s closing", name)
@@ -187,12 +186,14 @@ func (lm *ListenerManager) RemoveListener(names []string) {
 			continue
 		}
 		if err := ls.Close(); err != nil {
-			logger.Error("close listener service error.  %name", err)
+			logger.Errorf("close listener %s service error.  %s", name, err)
 			continue
 		}
 		logger.Infof("listener %s closed", name)
 	}
 
+	lm.rwLock.Lock()
+	defer lm.rwLock.Unlock()
 	//remove from activeListenerService
 	for _, name := range names {
 		delete(lm.activeListenerService, name)
