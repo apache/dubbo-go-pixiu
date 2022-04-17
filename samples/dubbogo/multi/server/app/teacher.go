@@ -159,7 +159,7 @@ type TeacherProvider struct{}
 
 // CreateTeacher new teacher, PX config POST.
 func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (*Teacher, error) {
-	fmt.Printf("Req CreateTeacher data:%#v", Teacher)
+	fmt.Printf("Req CreateTeacher data: %#v \n", Teacher)
 	if Teacher == nil {
 		return nil, errors.New("not found")
 	}
@@ -178,46 +178,46 @@ func (s *TeacherProvider) CreateTeacher(ctx context.Context, Teacher *Teacher) (
 
 // GetTeacherByName query by name, single param, PX config GET.
 func (s *TeacherProvider) GetTeacherByName(ctx context.Context, name string) (*Teacher, error) {
-	fmt.Printf("Req GetTeacherByName name:%#v", name)
+	fmt.Printf("Req GetTeacherByName name: %#v \n", name)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
 		return nil, nil
 	}
 
-	fmt.Printf("Req GetTeacherByName result:%#v", r)
+	fmt.Printf("Req GetTeacherByName result: %#v \n", r)
 	return r, nil
 }
 
 // GetTeacherByCode query by code, single param, PX config GET.
 func (s *TeacherProvider) GetTeacherByCode(ctx context.Context, code int64) (*Teacher, error) {
-	fmt.Printf("Req GetTeacherByCode name:%#v", code)
+	fmt.Printf("Req GetTeacherByCode name: %#v \n", code)
 	r, ok := teacherCache.GetByCode(code)
 	if !ok {
 		return nil, nil
 	}
-	fmt.Printf("Req GetTeacherByCode result:%#v", r)
+	fmt.Printf("Req GetTeacherByCode result: %#v \n", r)
 	return r, nil
 }
 
 // GetTeacherTimeout query by name, will timeout for pixiu.
 func (s *TeacherProvider) GetTeacherTimeout(ctx context.Context, name string) (*Teacher, error) {
-	fmt.Printf("Req GetTeacherByName name:%#v", name)
+	fmt.Printf("Req GetTeacherByName name: %#v \n", name)
 	// sleep 10s, pixiu config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
 		return nil, nil
 	}
-	fmt.Printf("Req GetTeacherByName result:%#v", r)
+	fmt.Printf("Req GetTeacherByName result: %#v \n", r)
 	return r, nil
 }
 
 // GetTeacherByNameAndAge query by name and age, two params, PX config GET.
 func (s *TeacherProvider) GetTeacherByNameAndAge(ctx context.Context, name string, age int32) (*Teacher, error) {
-	fmt.Printf("Req GetTeacherByNameAndAge name:%s, age:%d", name, age)
+	fmt.Printf("Req GetTeacherByNameAndAge name: %s, age: %d \n", name, age)
 	r, ok := teacherCache.GetByName(name)
 	if ok && r.Age == age {
-		fmt.Printf("Req GetTeacherByNameAndAge result:%#v", r)
+		fmt.Printf("Req GetTeacherByNameAndAge result: %#v \n", r)
 		return r, nil
 	}
 	return r, nil
@@ -225,7 +225,7 @@ func (s *TeacherProvider) GetTeacherByNameAndAge(ctx context.Context, name strin
 
 // UpdateTeacher update by teacher struct, my be another struct, PX config POST or PUT.
 func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (bool, error) {
-	fmt.Printf("Req UpdateTeacher data:%#v", teacher)
+	fmt.Printf("Req UpdateTeacher data: %#v \n", teacher)
 	r, ok := teacherCache.GetByName(teacher.Name)
 	if !ok {
 		return false, errors.New("not found")
@@ -241,7 +241,7 @@ func (s *TeacherProvider) UpdateTeacher(ctx context.Context, teacher *Teacher) (
 
 // UpdateTeacherByName update by teacher struct, my be another struct, PX config POST or PUT.
 func (s *TeacherProvider) UpdateTeacherByName(ctx context.Context, name string, teacher *Teacher) (bool, error) {
-	fmt.Printf("Req UpdateTeacherByName data:%#v", teacher)
+	fmt.Printf("Req UpdateTeacherByName data: %#v \n", teacher)
 	r, ok := teacherCache.GetByName(name)
 	if !ok {
 		return false, errors.New("not found")
