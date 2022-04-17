@@ -36,20 +36,20 @@ func init() {
 	// ------for hessian2------
 	hessian.RegisterPOJO(&User{})
 
-	cache = newUserDB()
+	cache = &UserDB{
+		nameIndex: make(map[string]*User, 16),
+		codeIndex: make(map[int64]*User, 16),
+		lock:      sync.Mutex{},
+	}
 
-	t1, _ := time.Parse(
-		time.RFC3339,
-		"2021-08-01T10:08:41+00:00")
-
-	cache.Add(&User{ID: "0001", Code: 1, Name: "tc", Age: 18, Time: t1})
-	cache.Add(&User{ID: "0002", Code: 2, Name: "ic", Age: 88, Time: t1})
+	cache.Add(&User{ID: "0001", Code: 1, Name: "tc", Age: 18, Time: time.Now()})
+	cache.Add(&User{ID: "0002", Code: 2, Name: "ic", Age: 88, Time: time.Now()})
 }
 
-var cache *userDB
+var cache *UserDB
 
-// userDB cache user.
-type userDB struct {
+// UserDB cache user.
+type UserDB struct {
 	// key is name, value is user obj
 	nameIndex map[string]*User
 	// key is code, value is user obj
@@ -57,23 +57,14 @@ type userDB struct {
 	lock      sync.Mutex
 }
 
-// userDB create func
-func newUserDB() *userDB {
-	return &userDB{
-		nameIndex: make(map[string]*User, 16),
-		codeIndex: make(map[int64]*User, 16),
-		lock:      sync.Mutex{},
-	}
-}
-
 // nolint
-func (db *userDB) Add(u *User) bool {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
+func (db *UserDB) Add(u *User) bool {
 	if u.Name == "" || u.Code <= 0 {
 		return false
 	}
+
+	db.lock.Lock()
+	defer db.lock.Unlock()
 
 	if !db.existName(u.Name) && !db.existCode(u.Code) {
 		return db.AddForName(u) && db.AddForCode(u)
@@ -83,7 +74,7 @@ func (db *userDB) Add(u *User) bool {
 }
 
 // nolint
-func (db *userDB) AddForName(u *User) bool {
+func (db *UserDB) AddForName(u *User) bool {
 	if len(u.Name) == 0 {
 		return false
 	}
@@ -97,7 +88,7 @@ func (db *userDB) AddForName(u *User) bool {
 }
 
 // nolint
-func (db *userDB) AddForCode(u *User) bool {
+func (db *UserDB) AddForCode(u *User) bool {
 	if u.Code <= 0 {
 		return false
 	}
@@ -111,7 +102,7 @@ func (db *userDB) AddForCode(u *User) bool {
 }
 
 // nolint
-func (db *userDB) GetByName(n string) (*User, bool) {
+func (db *UserDB) GetByName(n string) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -120,7 +111,7 @@ func (db *userDB) GetByName(n string) (*User, bool) {
 }
 
 // nolint
-func (db *userDB) GetByCode(n int64) (*User, bool) {
+func (db *UserDB) GetByCode(n int64) (*User, bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -128,7 +119,7 @@ func (db *userDB) GetByCode(n int64) (*User, bool) {
 	return r, ok
 }
 
-func (db *userDB) existName(name string) bool {
+func (db *UserDB) existName(name string) bool {
 	if len(name) <= 0 {
 		return false
 	}
@@ -141,7 +132,7 @@ func (db *userDB) existName(name string) bool {
 	return false
 }
 
-func (db *userDB) existCode(code int64) bool {
+func (db *UserDB) existCode(code int64) bool {
 	if code <= 0 {
 		return false
 	}
@@ -266,10 +257,10 @@ func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *
 
 // nolint
 func (u *UserProvider) Reference() string {
-	return "TripleUserProvider"
+	return "UserProvider"
 }
 
 // nolint
 func (u User) JavaClassName() string {
-	return "com.dubbogo.pixiu.TripleUserService"
+	return "com.dubbogo.pixiu.User"
 }
