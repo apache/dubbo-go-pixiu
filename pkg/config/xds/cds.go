@@ -21,14 +21,11 @@ import (
 	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
 	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
 
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
+	"github.com/pkg/errors"
 )
 
 type CdsManager struct {
@@ -103,15 +100,17 @@ func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
 	}
 	for _, cluster := range clusters {
 		delete(toRemoveHash, cluster.Name)
+
+		makeCluster := c.makeCluster(cluster)
 		switch {
 		case c.clusterMg.HasCluster(cluster.Name):
 			laterApplies = append(laterApplies, func() error {
-				c.clusterMg.UpdateCluster(c.makeCluster(cluster))
+				c.clusterMg.UpdateCluster(makeCluster)
 				return nil
 			})
 		default:
 			laterApplies = append(laterApplies, func() error {
-				c.clusterMg.AddCluster(c.makeCluster(cluster))
+				c.clusterMg.AddCluster(makeCluster)
 				return nil
 			})
 		}

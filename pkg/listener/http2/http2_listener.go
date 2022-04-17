@@ -100,7 +100,11 @@ func (ls *Http2ListenerService) Start() error {
 
 	go func() {
 		if err := ls.server.Serve(ls.listener); err != nil {
-			logger.Error("Http2ListenerService Start error %s", err)
+			if err == http.ErrServerClosed {
+				logger.Infof("Listener %s closed", ls.Config.Name)
+				return
+			}
+			logger.Errorf("Http2ListenerService.Serve: %v", err)
 		}
 	}()
 	return nil
