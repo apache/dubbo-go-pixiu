@@ -58,4 +58,4 @@ require (
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 
-replace github.com/dubbogo/dubbo-go-pixiu-filter => C:\Users\mengchao.lv1\GolandProjects\pixiu-api
+replace github.com/dubbogo/dubbo-go-pixiu-filter => /Users/mengchaolv/GolandProjects/pixiu-api

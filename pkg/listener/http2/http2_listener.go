@@ -120,7 +120,7 @@ func (ls *Http2ListenerService) ShutDown() error {
 }
 
 func (ls *Http2ListenerService) Refresh(c model.Listener) error {
-	//TODO lcok me
+	// There is no need to lock here for now, as there is at most one NetworkFilter
 	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
 	ls.FilterChain = fc
 	return nil

@@ -18,6 +18,9 @@
 package xds
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/protojson"
 	"testing"
 )
 
@@ -137,4 +140,139 @@ http_filters:
 			assert.Equal(tt.wantM, r)
 		})
 	}
+}
+
+func TestMakeListener(t *testing.T) {
+	lm := &LdsManager{}
+	json := `
+{
+      "name": "net/http",
+      "address": {
+        "socketAddress": {
+          "address": "0.0.0.0",
+          "port": "8080"
+        }
+      },
+      "filterChain": {
+        "filters": [
+          {
+            "name": "dgp.filter.httpconnectionmanager",
+            "struct": {
+              "http_filters": [
+                {
+                  "config": null,
+                  "name": "dgp.filter.http.httpproxy"
+                }
+              ],
+              "route_config": {
+                "routes": [
+                  {
+                    "match": {
+                      "prefix": "/"
+                    },
+                    "route": {
+                      "cluster": "http_bin",
+                      "cluster_not_found_response_code": 503
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+`
+	l := &pixiupb.Listener{}
+	if err := protojson.Unmarshal([]byte(json), l); err != nil {
+		t.Fatal(err)
+	}
+	listener := lm.makeListener(l)
+	assert.NotNil(t, listener)
+	assert.Equal(t, "net/http", listener.Name)
+	assert.Equal(t, "0.0.0.0", listener.Address.SocketAddress.Address)
+	assert.Equal(t, 8080, listener.Address.SocketAddress.Port)
+	assert.Equal(t, 1, len(listener.FilterChain.Filters))
+}
+
+type mockListenerManager struct {
+	m map[string]*model.Listener
+}
+
+func (m *mockListenerManager) AddListener(l *model.Listener) error {
+	m.m[l.Name] = l
+	return nil
+}
+
+func (m *mockListenerManager) UpdateListener(l *model.Listener) error {
+	m.m[l.Name] = l
+	return nil
+}
+
+func (m *mockListenerManager) RemoveListener(names []string) {
+	for _, name := range names {
+		delete(m.m, name)
+	}
+}
+
+func (m *mockListenerManager) HasListener(name string) bool {
+	_, ok := m.m[name]
+	return ok
+}
+
+func (m *mockListenerManager) CloneXdsControlListener() ([]*model.Listener, error) {
+	var res []*model.Listener
+	for _, v := range m.m {
+		res = append(res, v)
+	}
+	return res, nil
+}
+
+func TestSetupListeners(t *testing.T) {
+	mock := &mockListenerManager{m: map[string]*model.Listener{}}
+	lm := &LdsManager{listenerMg: mock}
+
+	listeners := []*pixiupb.Listener{
+		{
+			Protocol: pixiupb.Listener_HTTP,
+			Address: &pixiupb.Address{
+				SocketAddress: &pixiupb.SocketAddress{
+					Address: "0.0.0.0",
+					Port:    8080,
+				},
+			},
+			FilterChain: &pixiupb.FilterChain{},
+		},
+		{
+			Protocol: pixiupb.Listener_TRIPLE,
+			Address: &pixiupb.Address{
+				SocketAddress: &pixiupb.SocketAddress{
+					Address: "0.0.0.0",
+					Port:    8081,
+				},
+			},
+			FilterChain: &pixiupb.FilterChain{},
+		},
+	}
+	lm.setupListeners(listeners)
+	for _, v := range listeners {
+		assert.Equal(t, v.Protocol.String(), model.ProtocolTypeName[int32(mock.m[v.Name].Protocol)])
+		assert.Equal(t, v.Address.SocketAddress.Address, mock.m[v.Name].Address.SocketAddress.Address)
+		assert.Equal(t, int(v.Address.SocketAddress.Port), mock.m[v.Name].Address.SocketAddress.Port)
+	}
+
+	newListeners := []*pixiupb.Listener{
+		{
+			Protocol: pixiupb.Listener_HTTP,
+			Address: &pixiupb.Address{
+				SocketAddress: &pixiupb.SocketAddress{
+					Address: "0.0.0.0",
+					Port:    8080,
+				},
+			},
+			FilterChain: &pixiupb.FilterChain{},
+		},
+	}
+	lm.setupListeners(newListeners)
+	assert.Equal(t, 1, len(mock.m))
 }
