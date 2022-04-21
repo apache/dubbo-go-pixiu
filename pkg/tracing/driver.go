@@ -62,10 +62,12 @@ func NewTraceDriver() *TraceDriver {
 // InitDriver loading BootStrap configuration about trace
 func InitDriver(bs *model.Bootstrap) *TraceDriver {
 	config := bs.Trace
+	if config == nil {
+		return nil
+	}
 	ctx := context.Background()
 	exp, err := newExporter(ctx, config)
 	if err != nil {
-		//TODO 错误处理
 		return nil
 	}
 	driver := NewTraceDriver()

@@ -38,8 +38,6 @@ import (
 	pch "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
 // HttpConnectionManager network filter for http
@@ -84,14 +82,8 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	defer hcm.pool.Put(hc)
 
 	hc.Writer = w
+	hc.Request = r
 	hc.Reset()
-
-	ID := r.Header.Get("tracing-id")
-	tracer, _ := server.GetTracer(tracing.HTTPProtocol, ID)
-	ctx, span := tracer.StartSpanFromContext("HttpConnectionManager", r.Context())
-	defer span.End()
-	hc.Ctx = ctx
-	hc.Request = r.WithContext(ctx)
 
 	err := hcm.Handle(hc)
 	if err != nil {
