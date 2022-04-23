@@ -20,6 +20,7 @@ package tracing
 import (
 	"context"
 	"errors"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 import (
@@ -39,6 +40,21 @@ import (
 type ProtocolName string
 
 const HTTPProtocol ProtocolName = "HTTP"
+
+const ServiceName = "dubbo-go-pixiu"
+
+// Sampling Strategy
+const (
+	ALWAYS = "always"
+	NEVER  = "never"
+	RATIO  = "ratio"
+)
+
+// Exporter end
+const (
+	JAEGER = "jaeger"
+	OTLP   = "otlp"
+)
 
 // Unique Name by making Id self-incrementing。
 type Holder struct {
@@ -63,11 +79,13 @@ func NewTraceDriver() *TraceDriver {
 func InitDriver(bs *model.Bootstrap) *TraceDriver {
 	config := bs.Trace
 	if config == nil {
+		logger.Warnf("[dubbo-go-pixiu] no trace configuration in conf.yaml")
 		return nil
 	}
 	ctx := context.Background()
 	exp, err := newExporter(ctx, config)
 	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] create trace exporter failed: %v", err)
 		return nil
 	}
 	driver := NewTraceDriver()
@@ -94,9 +112,9 @@ func (driver *TraceDriver) GetHolder(name ProtocolName) *Holder {
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
 	// You must specify exporter to collect traces, otherwise return nil.
 	switch cfg.Name {
-	case "otlp":
+	case OTLP:
 		return otlp.NewOTLPExporter(ctx, cfg)
-	case "jaeger":
+	case JAEGER:
 		return jaeger.NewJaegerExporter(cfg)
 	default:
 		return nil, errors.New("no exporter error\n")
@@ -105,9 +123,12 @@ func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExp
 
 func newTraceProvider(exp sdktrace.SpanExporter, cfg *model.TracerConfig) *sdktrace.TracerProvider {
 	// The service.name attribute is required.
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = ServiceName
+	}
 	resource := resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceNameKey.String("dubbo-go-pixiu"),
+		semconv.ServiceNameKey.String(cfg.ServiceName),
 	)
 
 	return sdktrace.NewTracerProvider(
@@ -120,9 +141,11 @@ func newTraceProvider(exp sdktrace.SpanExporter, cfg *model.TracerConfig) *sdktr
 func newSampler(sample model.Sampler) sdktrace.Sampler {
 	// default sampling: always.
 	switch sample.Type {
-	case "never":
+	case ALWAYS:
+		return sdktrace.AlwaysSample()
+	case NEVER:
 		return sdktrace.NeverSample()
-	case "ratio":
+	case RATIO:
 		return sdktrace.TraceIDRatioBased(sample.Param)
 	default:
 		return sdktrace.AlwaysSample()
