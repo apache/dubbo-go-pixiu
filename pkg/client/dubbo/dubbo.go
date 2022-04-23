@@ -196,8 +196,6 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	_, span := tr.Start(req.Context, spanNameDubbogoClient)
 	trace.SpanFromContext(req.Context).SpanContext()
 	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
-	//span.SetAttributes(attribute.Key(spanTagType).Array(types))
-	//span.SetAttributes(attribute.Key(spanTagValues).Array(vals))
 	defer span.End()
 	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
 	rst, err := gs.Invoke(ctx, method, types, vals)
