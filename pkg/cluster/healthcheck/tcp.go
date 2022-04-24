@@ -14,23 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package loadbalancer
+package healthcheck
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"net"
+	"time"
 )
 
-type LoadBalancer interface {
-	Handler(c *model.ClusterConfig) *model.Endpoint
+type TCPChecker struct {
+	addr string
 }
 
-// LoadBalancerStrategy load balancer strategy mode
-var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
-
-func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
-	if _, ok := LoadBalancerStrategy[name]; ok {
-		panic("load balancer register fail " + name)
+func (s *TCPChecker) CheckHealth() bool {
+	conn, err := net.DialTimeout("tcp", s.addr, 30*time.Second)
+	if err != nil {
+		logger.Error("[health check] tcp checker for host %s error: %v", s.addr, err)
+		return false
 	}
-	LoadBalancerStrategy[name] = balancer
+	conn.Close()
+	return true
 }
+
+func (s *TCPChecker) OnTimeout() {}

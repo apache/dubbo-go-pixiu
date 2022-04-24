@@ -88,8 +88,8 @@ func TestCdsManager_Fetch(t *testing.T) {
 	var fetchResult []*apiclient.ProtoAny
 	var fetchError error
 	var cluster = map[string]struct{}{}
-	var updateCluster *model.Cluster
-	var addCluster *model.Cluster
+	var updateCluster *model.ClusterConfig
+	var addCluster *model.ClusterConfig
 	xdsConfig := getCdsConfig()
 	//var deltaResult chan *apiclient.DeltaResources
 	//var deltaErr error
@@ -103,10 +103,10 @@ func TestCdsManager_Fetch(t *testing.T) {
 		_, ok := cluster[clusterName]
 		return ok
 	})
-	supermonkey.Patch((*server.ClusterManager).UpdateCluster, func(_ *server.ClusterManager, new *model.Cluster) {
+	supermonkey.Patch((*server.ClusterManager).UpdateCluster, func(_ *server.ClusterManager, new *model.ClusterConfig) {
 		updateCluster = new
 	})
-	supermonkey.Patch((*server.ClusterManager).AddCluster, func(_ *server.ClusterManager, c *model.Cluster) {
+	supermonkey.Patch((*server.ClusterManager).AddCluster, func(_ *server.ClusterManager, c *model.ClusterConfig) {
 		addCluster = c
 	})
 	supermonkey.Patch((*server.ClusterManager).RemoveCluster, func(_ *server.ClusterManager, names []string) {

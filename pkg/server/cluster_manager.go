@@ -18,6 +18,7 @@
 package server
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"sync"
 	"sync/atomic"
 )
@@ -34,21 +35,30 @@ type (
 		rw sync.RWMutex
 
 		store *ClusterStore
-		//cConfig []*model.Cluster
+		//cConfig []*model.ClusterConfig
 	}
 
 	// ClusterStore store for cluster array
 	ClusterStore struct {
-		Config  []*model.Cluster `yaml:"config" json:"config"`
-		Version int32            `yaml:"version" json:"version"`
+		Config      []*model.ClusterConfig `yaml:"config" json:"config"`
+		Version     int32                  `yaml:"version" json:"version"`
+		clustersMap map[string]*cluster.Cluster
 	}
 )
 
 func CreateDefaultClusterManager(bs *model.Bootstrap) *ClusterManager {
-	return &ClusterManager{store: &ClusterStore{Config: bs.StaticResources.Clusters}}
+	return &ClusterManager{store: newClusterStore(bs)}
 }
 
-func (cm *ClusterManager) AddCluster(c *model.Cluster) {
+func newClusterStore(bs *model.Bootstrap) *ClusterStore {
+	store := &ClusterStore{}
+	for _, cluster := range bs.StaticResources.Clusters {
+		store.AddCluster(cluster)
+	}
+	return store
+}
+
+func (cm *ClusterManager) AddCluster(c *model.ClusterConfig) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
@@ -56,7 +66,7 @@ func (cm *ClusterManager) AddCluster(c *model.Cluster) {
 	cm.store.AddCluster(c)
 }
 
-func (cm *ClusterManager) UpdateCluster(new *model.Cluster) {
+func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
@@ -127,7 +137,7 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 	return nil
 }
 
-func pickOneEndpoint(c *model.Cluster) *model.Endpoint {
+func pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
 	if c.Endpoints == nil || len(c.Endpoints) == 0 {
 		return nil
 	}
@@ -174,12 +184,12 @@ func (cm *ClusterManager) HasCluster(clusterName string) bool {
 	return cm.store.HasCluster(clusterName)
 }
 
-func (s *ClusterStore) AddCluster(c *model.Cluster) {
-
+func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	s.Config = append(s.Config, c)
+	s.clustersMap[c.Name] = cluster.NewCluster(c)
 }
 
-func (s *ClusterStore) UpdateCluster(new *model.Cluster) {
+func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 
 	for i, c := range s.Config {
 		if c.Name == new.Name {
@@ -210,7 +220,7 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 	}
 
 	// cluster create
-	c := &model.Cluster{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{endpoint}}
+	c := &model.ClusterConfig{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{endpoint}}
 	// not call AddCluster, because lock is not reenter
 	s.Config = append(s.Config, c)
 }
