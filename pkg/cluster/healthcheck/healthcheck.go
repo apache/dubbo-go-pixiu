@@ -1,20 +1,42 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package healthcheck
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	gxtime "github.com/dubbogo/gost/time"
-	"net"
 	"runtime/debug"
 	"sync/atomic"
 	"time"
 )
 
-// healthChecker is a basic implementation of a health checker.
-// we use different implementations of types.Session to implement different health checker
-type healthChecker struct {
-	//
-	checkers      map[string]*sessionChecker
+const (
+	DefaultTimeout        = time.Second
+	DefaultInterval       = 15 * time.Second
+	DefaultIntervalJitter = 5 * time.Millisecond
+
+	DefaultHealthyThreshold   uint32 = 1
+	DefaultUnhealthyThreshold uint32 = 1
+	DefaultFirstInterval             = time.Second
+)
+
+type HealthChecker struct {
+	checkers      map[string]*EndpointChecker
 	sessionConfig map[string]interface{}
 	// check config
 	timeout             time.Duration
@@ -22,7 +44,7 @@ type healthChecker struct {
 	intervalJitter      time.Duration
 	healthyThreshold    uint32
 	initialDelay        time.Duration
-	cluster             *model.Cluster
+	cluster             *model.ClusterConfig
 	unhealthyThreshold  uint32
 	localProcessHealthy int64
 }
@@ -30,7 +52,7 @@ type healthChecker struct {
 // EndpointChecker is a wrapper of types.HealthCheckSession for health check
 type EndpointChecker struct {
 	endpoint      *model.Endpoint
-	HealthChecker *healthChecker
+	HealthChecker *HealthChecker
 	//
 	tcpChecker    *TCPChecker
 	resp          chan checkResponse
@@ -41,6 +63,7 @@ type EndpointChecker struct {
 	checkTimeout  *gxtime.Timer
 	unHealthCount uint32
 	healthCount   uint32
+	threshold     uint32
 }
 
 type checkResponse struct {
@@ -48,14 +71,56 @@ type checkResponse struct {
 	Healthy bool
 }
 
-func (hc *healthChecker) start() {
+func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig) *HealthChecker {
+	timeout := cfg.TimeoutConfig
+	if cfg.TimeoutConfig == 0 {
+		timeout = DefaultTimeout
+	}
+	interval := cfg.IntervalConfig
+	if cfg.IntervalConfig == 0 {
+		interval = DefaultInterval
+	}
+	unhealthyThreshold := cfg.UnhealthyThreshold
+	if unhealthyThreshold == 0 {
+		unhealthyThreshold = DefaultUnhealthyThreshold
+	}
+	healthyThreshold := cfg.HealthyThreshold
+	if healthyThreshold == 0 {
+		healthyThreshold = DefaultHealthyThreshold
+	}
+	intervalJitter := cfg.IntervalJitterConfig
+	if intervalJitter == 0 {
+		intervalJitter = DefaultIntervalJitter
+	}
+	initialDelay := DefaultFirstInterval
+	if cfg.InitialDelaySeconds.Microseconds() > 0 {
+		initialDelay = cfg.InitialDelaySeconds
+	}
+
+	hc := &HealthChecker{
+		// cfg
+		sessionConfig:      cfg.SessionConfig,
+		cluster:            cluster,
+		timeout:            timeout,
+		intervalBase:       interval,
+		intervalJitter:     intervalJitter,
+		healthyThreshold:   healthyThreshold,
+		unhealthyThreshold: unhealthyThreshold,
+		initialDelay:       initialDelay,
+		checkers:           make(map[string]*EndpointChecker),
+	}
+
+	return hc
+}
+
+func (hc *HealthChecker) Start() {
 	// each endpoint
 	for _, h := range hc.cluster.Endpoints {
 		hc.startCheck(h)
 	}
 }
 
-func (hc *healthChecker) startCheck(endpoint *model.Endpoint) {
+func (hc *HealthChecker) startCheck(endpoint *model.Endpoint) {
 	addr := endpoint.Address.GetAddress()
 	if _, ok := hc.checkers[addr]; !ok {
 		c := newChecker(endpoint, hc)
@@ -66,7 +131,7 @@ func (hc *healthChecker) startCheck(endpoint *model.Endpoint) {
 	}
 }
 
-func newChecker(endpoint *model.Endpoint, hc *healthChecker) *EndpointChecker {
+func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
 	c := &EndpointChecker{
 		tcpChecker:    newTcpChecker(endpoint),
 		endpoint:      endpoint,
@@ -82,6 +147,11 @@ func newTcpChecker(endpoint *model.Endpoint) *TCPChecker {
 	return &TCPChecker{
 		addr: endpoint.Address.GetAddress(),
 	}
+}
+
+func (hc *HealthChecker) getCheckInterval() time.Duration {
+	interval := hc.intervalBase
+	return interval
 }
 
 func (c *EndpointChecker) Start() {
@@ -105,20 +175,19 @@ func (c *EndpointChecker) Start() {
 			case <-c.stop:
 				return
 			case resp := <-c.resp:
-				// if the ID is not equal, means we receive a timeout for this ID, ignore the response
 				if resp.ID == currentID {
 					c.checkTimeout.Stop()
 					if resp.Healthy {
 						c.HandleSuccess()
 					} else {
-						c.HandleFailure(types.FailureActive)
+						c.HandleFailure(false)
 					}
 					// next health checker
 					c.checkTimer = gxtime.AfterFunc(c.HealthChecker.getCheckInterval(), c.OnCheck)
 				}
 			case <-c.timeout:
 				c.checkTimer.Stop()
-				c.HandleFailure(types.FailureNetwork)
+				c.HandleFailure(true)
 				// next health checker
 				c.checkTimer = gxtime.AfterFunc(c.HealthChecker.getCheckInterval(), c.OnCheck)
 				logger.Infof("[health check] receive a timeout response at id: %d", currentID)
@@ -134,62 +203,54 @@ func (c *EndpointChecker) Stop() {
 
 func (c *EndpointChecker) HandleSuccess() {
 	c.unHealthCount = 0
-	changed := false
-	if c.endpoint.ContainHealthFlag(api.FAILED_ACTIVE_HC) {
-		c.healthCount++
-		// check the threshold
-		if c.healthCount == c.HealthChecker.healthyThreshold {
-			changed = true
-			c.Host.ClearHealthFlag(api.FAILED_ACTIVE_HC)
-		}
+	c.healthCount++
+	if c.healthCount > c.threshold {
+		c.handleHealth()
 	}
-	c.HealthChecker.incHealthy(c.Host, changed)
 }
 
-func (c *EndpointChecker) HandleFailure(reason types.FailureType) {
-	c.healthCount = 0
-	changed := false
-	if !c.Host.ContainHealthFlag(api.FAILED_ACTIVE_HC) {
-		c.unHealthCount++
-		// check the threshold
-		if c.unHealthCount == c.HealthChecker.unhealthyThreshold {
-			changed = true
-			c.Host.SetHealthFlag(api.FAILED_ACTIVE_HC)
-		}
+func (c *EndpointChecker) HandleFailure(isTimeout bool) {
+	if isTimeout {
+		c.HandleTimeout()
+	} else {
+		c.handleUnHealth()
 	}
-	c.HealthChecker.decHealthy(c.Host, reason, changed)
+}
+
+func (c *EndpointChecker) HandleTimeout() {
+	c.healthCount = 0
+	c.unHealthCount++
+	if c.unHealthCount > c.threshold {
+		c.handleUnHealth()
+	}
+}
+
+func (c *EndpointChecker) handleHealth() {
+	c.healthCount = 0
+	c.unHealthCount = 0
+	c.endpoint.Healthy = true
+}
+
+func (c *EndpointChecker) handleUnHealth() {
+	c.healthCount = 0
+	c.unHealthCount = 0
+	c.endpoint.Healthy = false
 }
 
 func (c *EndpointChecker) OnCheck() {
 	// record current id
 	id := atomic.LoadUint64(&c.checkID)
-	c.HealthChecker.stats.attempt.Inc(1)
 	// start a timeout before check health
-	c.checkTimeout.Stop()
-	c.checkTimeout = utils.NewTimer(c.HealthChecker.timeout, c.OnTimeout)
+	if c.checkTimeout != nil {
+		c.checkTimeout.Stop()
+	}
+	c.checkTimeout = gxtime.AfterFunc(c.HealthChecker.timeout, c.OnTimeout)
 	c.resp <- checkResponse{
 		ID:      id,
-		Healthy: c.Session.CheckHealth(),
+		Healthy: c.tcpChecker.CheckHealth(),
 	}
 }
 
 func (c *EndpointChecker) OnTimeout() {
 	c.timeout <- true
 }
-
-type TCPChecker struct {
-	addr string
-}
-
-func (s *TCPChecker) CheckHealth() bool {
-	// default dial timeout, maybe already timeout by checker
-	conn, err := net.DialTimeout("tcp", s.addr, 30*time.Second)
-	if err != nil {
-		logger.Error("[health check] tcp checker for host %s error: %v", s.addr, err)
-		return false
-	}
-	conn.Close()
-	return true
-}
-
-func (s *TCPChecker) OnTimeout() {}

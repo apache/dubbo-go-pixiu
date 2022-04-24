@@ -135,8 +135,8 @@ func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
 	c.removeCluster(removeClusters)
 }
 
-func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.Cluster {
-	return &model.Cluster{
+func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.ClusterConfig {
+	return &model.ClusterConfig{
 		Name:             cluster.Name,
 		TypeStr:          cluster.TypeStr,
 		Type:             c.makeClusterType(cluster),
@@ -179,7 +179,7 @@ func (c *CdsManager) makeAddress(endpoint *xdspb.Endpoint) model.SocketAddress {
 	}
 }
 
-func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []model.HealthCheck) {
+func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []model.HealthCheckConfig) {
 	//todo implement me after fix model.HealthCheck type define
 	//result = make([]model.HealthCheck, 0, len(checks))
 	//for _, check := range checks {

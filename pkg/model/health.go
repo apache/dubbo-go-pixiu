@@ -17,9 +17,20 @@
 
 package model
 
+import "time"
+
 // HealthCheck
 type HealthCheckConfig struct {
-	Protocol string `json:"protocol,omitempty"`
+	Protocol             string                 `json:"protocol,omitempty"`
+	TimeoutConfig        time.Duration          `json:"timeout,omitempty"`
+	IntervalConfig       time.Duration          `json:"interval,omitempty"`
+	IntervalJitterConfig time.Duration          `json:"interval_jitter,omitempty"`
+	InitialDelaySeconds  time.Duration          `json:"initial_delay_seconds,omitempty"`
+	HealthyThreshold     uint32                 `json:"healthy_threshold,omitempty"`
+	UnhealthyThreshold   uint32                 `json:"unhealthy_threshold,omitempty"`
+	ServiceName          string                 `json:"service_name,omitempty"`
+	SessionConfig        map[string]interface{} `json:"check_config,omitempty"`
+	CommonCallbacks      []string               `json:"common_callbacks,omitempty"`
 }
 
 // HttpHealthCheck

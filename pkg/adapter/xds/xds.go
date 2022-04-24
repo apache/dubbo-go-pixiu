@@ -79,7 +79,7 @@ type (
 
 	GrpcCluster struct {
 		name   string //cluster name
-		config *model.Cluster
+		config *model.ClusterConfig
 		once   sync.Once
 		conn   *grpc.ClientConn
 	}
@@ -95,7 +95,7 @@ func (g *GrpcClusterManager) GetGrpcCluster(name string) (apiclient.GrpcCluster,
 		grpcCluster := load.(*GrpcCluster) // grpcClusterManager only
 		return grpcCluster, nil
 	}
-	var clusterCfg *model.Cluster
+	var clusterCfg *model.ClusterConfig
 	for _, cfg := range g.store.Config {
 		if cfg.Name == name {
 			clusterCfg = cfg

@@ -28,7 +28,7 @@ func init() {
 
 type RoundRobin struct{}
 
-func (RoundRobin) Handler(c *model.Cluster) *model.Endpoint {
+func (RoundRobin) Handler(c *model.ClusterConfig) *model.Endpoint {
 	lens := len(c.Endpoints)
 	if c.PrePickEndpointIndex >= lens {
 		c.PrePickEndpointIndex = 0

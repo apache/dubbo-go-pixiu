@@ -43,7 +43,7 @@ import (
 )
 
 func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
-	cluster := &model.Cluster{
+	cluster := &model.ClusterConfig{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
 		Endpoints: []*model.Endpoint{
@@ -71,14 +71,14 @@ func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
 		{"test-simple", fields{
 			clusters: &sync.Map{},
 			store: &server.ClusterStore{
-				Config:  []*model.Cluster{cluster},
+				Config:  []*model.ClusterConfig{cluster},
 				Version: 1,
 			},
 		}, args{name: "cluster-1"}, nil},
 		{"test-not-exist", fields{
 			clusters: &sync.Map{},
 			store: &server.ClusterStore{
-				Config:  []*model.Cluster{cluster},
+				Config:  []*model.ClusterConfig{cluster},
 				Version: 1,
 			},
 		}, args{name: "cluster-2"}, ErrClusterNotFound},
@@ -106,7 +106,7 @@ func TestGrpcClusterManager_GetGrpcCluster(t *testing.T) {
 }
 
 func TestGrpcCluster_GetConnect(t *testing.T) {
-	cluster := &model.Cluster{
+	cluster := &model.ClusterConfig{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
 		Endpoints: []*model.Endpoint{
@@ -150,7 +150,7 @@ func TestGrpcCluster_GetConnect(t *testing.T) {
 }
 
 func TestAdapter_createApiManager(t *testing.T) {
-	cluster := &model.Cluster{
+	cluster := &model.ClusterConfig{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
 		Endpoints: []*model.Endpoint{
@@ -200,7 +200,7 @@ func TestAdapter_createApiManager(t *testing.T) {
 	})
 	monkey.Patch((*server.ClusterManager).CloneStore, func(_ *server.ClusterManager) (*server.ClusterStore, error) {
 		return &server.ClusterStore{
-			Config:  []*model.Cluster{cluster},
+			Config:  []*model.ClusterConfig{cluster},
 			Version: 1,
 		}, nil
 	})
