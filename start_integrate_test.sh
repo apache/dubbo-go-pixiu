@@ -41,5 +41,8 @@ git clone -b main https://github.com/dubbo-go-pixiu/samples.git integrate_sample
 # update dubbo-go to current commit id
 go mod edit -replace=github.com/apache/dubbo-go-pixiu=github.com/"$1"@"$2"
 
+# prepare dependency
+go mod tidy
+
 # start integrate test
 ./start_integrate_test.sh
