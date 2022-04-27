@@ -29,6 +29,7 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
 	dubboConfig "dubbo.apache.org/dubbo-go/v3/config"
 	dubboRegistry "dubbo.apache.org/dubbo-go/v3/registry"
+
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )

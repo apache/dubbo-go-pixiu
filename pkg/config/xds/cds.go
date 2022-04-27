@@ -21,11 +21,14 @@ import (
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api"
 	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
-	"github.com/pkg/errors"
 )
 
 type CdsManager struct {

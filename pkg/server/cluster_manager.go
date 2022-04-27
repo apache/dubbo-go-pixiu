@@ -20,7 +20,9 @@ package server
 import (
 	"sync"
 	"sync/atomic"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"

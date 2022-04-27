@@ -21,11 +21,15 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
+)
 
-	"gopkg.in/yaml.v2"
-
+import (
 	"github.com/pkg/errors"
 
+	"gopkg.in/yaml.v2"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
