@@ -115,7 +115,7 @@ func GetTracer(name tracing.ProtocolName, tracerID string) (tracing.Trace, error
 	if !ok {
 		return nil, errors.New("can not find any tracer, please call NewTracer first\n")
 	} else if _, ok = holder.Tracers[tracerID]; !ok {
-		return nil, errors.New(fmt.Sprintf("can not find tracer %s with protocol %s\n", tracerID, name))
+		return nil, fmt.Errorf("can not find tracer %s with protocol %s\n", tracerID, name)
 	} else {
 		return holder.Tracers[tracerID], nil
 	}
