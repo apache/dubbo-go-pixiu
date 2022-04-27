@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
 )
 
 import (

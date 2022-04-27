@@ -25,7 +25,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
-	xdsModel "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	xdsModel "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 	"gopkg.in/yaml.v2"
 )
 

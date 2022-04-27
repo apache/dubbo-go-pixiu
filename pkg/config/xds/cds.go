@@ -18,8 +18,8 @@
 package xds
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
-	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api"
+	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
