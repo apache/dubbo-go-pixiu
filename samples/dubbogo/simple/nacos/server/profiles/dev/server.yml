@@ -16,27 +16,26 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-language: go
-
-go:
-  - "1.17"
-env:
-  - GO111MODULE=on
-
-install: true
-
-script:
-  - go fmt ./... && [[ -z `git status -s` ]]
-  - sh before_validate_license.sh
-  - chmod u+x /tmp/tools/license/license-header-checker
-  - /tmp/tools/license/license-header-checker -v -a -r -i vendor,.github/actions /tmp/tools/license/license.txt . go  && [[ -z `git status -s` ]]
-  # unit-test
-  - echo 'start unit-test'
-  - chmod u+x before_ut.sh && ./before_ut.sh
-  - go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
-
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
-
-notifications:
-  webhooks: https://oapi.dingtalk.com/robot/send?access_token=e6b085c90561a7543cc5fde89e9c8108100460c15e955c0604fea180a500a0ad
+# dubbo server yaml configure file
+# application config
+dubbo:
+  application:
+    name: BDTService
+  registries:
+    nacos:
+      protocol: nacos
+      timeout: 3s
+      address: 127.0.0.1:8848
+  protocols:
+    dubbo:
+      name: dubbo
+      port: 20010
+  provider:
+    registry-ids: nacos
+    services:
+      UserProvider:
+        group: test
+        version: 1.0.0
+        cluster: test_dubbo
+        serialization: hessian2
+        interface: com.dubbogo.pixiu.UserService

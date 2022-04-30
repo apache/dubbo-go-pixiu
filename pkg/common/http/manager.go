@@ -81,8 +81,8 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc := hcm.pool.Get().(*pch.HttpContext)
 	defer hcm.pool.Put(hc)
 
-	hc.Request = r
 	hc.Writer = w
+	hc.Request = r
 	hc.Reset()
 
 	err := hcm.Handle(hc)

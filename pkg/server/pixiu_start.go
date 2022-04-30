@@ -28,6 +28,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
 var server *Server
@@ -43,6 +44,7 @@ type Server struct {
 	routerManager         *RouterManager
 	apiConfigManager      *ApiConfigManager
 	dynamicResourceManger DynamicResourceManager
+	traceDriverManager    *tracing.TraceDriverManager
 }
 
 func (s *Server) initialize(bs *model.Bootstrap) {
@@ -52,6 +54,7 @@ func (s *Server) initialize(bs *model.Bootstrap) {
 	s.adapterManager = CreateDefaultAdapterManager(s, bs)
 	s.listenerManager = CreateDefaultListenerManager(bs)
 	s.dynamicResourceManger = createDynamicResourceManger(bs)
+	s.traceDriverManager = tracing.CreateDefaultTraceDriverManager(bs)
 }
 
 func (s *Server) GetClusterManager() *ClusterManager {
@@ -72,6 +75,10 @@ func (s *Server) GetApiConfigManager() *ApiConfigManager {
 
 func (s *Server) GetDynamicResourceManager() DynamicResourceManager {
 	return s.dynamicResourceManger
+}
+
+func (s *Server) GetTraceDriverManager() *tracing.TraceDriverManager {
+	return s.traceDriverManager
 }
 
 // Start server start
@@ -144,4 +151,8 @@ func GetApiConfigManager() *ApiConfigManager {
 
 func GetDynamicResourceManager() DynamicResourceManager {
 	return server.GetDynamicResourceManager()
+}
+
+func GetTraceDriverManager() *tracing.TraceDriverManager {
+	return server.traceDriverManager
 }
