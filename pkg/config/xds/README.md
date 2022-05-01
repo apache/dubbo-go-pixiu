@@ -1,5 +1,5 @@
 ## Xds adaptor
-As plugin of pixiu,  this module helps pixiu connect the go-control-panel, 
+This module helps pixiu connect the go-control-panel, 
 which implements by pixiu-admin(https://github.com/dubbogo/pixiu-admin), and read cluster and initial listener 
 configurations. Pixiu talk to pixiu admin over XDS API. By this module,  pixiu can be config by pixiu admin 
 dynamically.
@@ -15,12 +15,6 @@ The node must add into the config to identify unique pixiu node.
 node:
   id: "test-id"
   cluster: "pixiu"
-```
-Add "dgp.adapter.xdsdiscover" adaptor.
-```yaml
-  adapters:
-    - id: "xds"
-      name: "dgp.adapter.xdsdiscover"
 ```
 
 Starting multi-node should give different node.id
@@ -92,9 +86,6 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
-  adapters:
-    - id: "xds"
-      name: "dgp.adapter.xdsdiscover"
 ```
 
 ## How does it work

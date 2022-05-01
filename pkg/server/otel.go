@@ -18,8 +18,12 @@
 package server
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"sync/atomic"
 )
 
 import (
@@ -40,6 +44,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
 func registerOtelMetricMeter(conf model.Metric) {
@@ -71,5 +76,47 @@ func registerOtelMetricMeter(conf model.Metric) {
 		}()
 
 		logger.Info("Prometheus server running on " + addr)
+	}
+}
+
+// NewTracer create tracer and need to be specified protocol.
+func NewTracer(name tracing.ProtocolName) (tracing.Trace, error) {
+	driver := GetTraceDriverManager().GetDriver()
+	if driver == nil {
+		return nil, errors.New("You must specify the exporter in conf.yaml first\n")
+	}
+	holder := driver.GetHolder(name)
+
+	builder := strings.Builder{}
+	builder.WriteString(string(name))
+	builder.WriteString("-" + fmt.Sprint(holder.ID))
+
+	traceId := builder.String()
+	tmp := driver.Tp.Tracer(traceId)
+	tracer := &tracing.Tracer{
+		ID:     traceId,
+		Trace:  tmp,
+		Holder: holder,
+	}
+
+	holder.Tracers[traceId] = tracing.TraceFactory[name](tracer)
+
+	atomic.AddUint64(&holder.ID, 1)
+	return holder.Tracers[traceId], nil
+}
+
+// GetTracer need to specify both the protocol and id.
+func GetTracer(name tracing.ProtocolName, tracerID string) (tracing.Trace, error) {
+	driver := GetTraceDriverManager().GetDriver()
+	if driver == nil {
+		return nil, errors.New("You must specify the exporter in conf.yaml first\n")
+	}
+	holder, ok := driver.Holders[name]
+	if !ok {
+		return nil, errors.New("can not find any tracer, please call NewTracer first\n")
+	} else if _, ok = holder.Tracers[tracerID]; !ok {
+		return nil, errors.New(fmt.Sprintf("can not find tracer %s with protocol %s\n", tracerID, name))
+	} else {
+		return holder.Tracers[tracerID], nil
 	}
 }
