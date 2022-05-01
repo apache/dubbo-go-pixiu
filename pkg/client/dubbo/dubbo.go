@@ -19,6 +19,7 @@ package dubbo
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"time"
@@ -179,6 +180,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	method := dm.Method
 	types := []string{}
 	vals := []hessian.Object{}
+	finalValues := []byte{}
 
 	if target != nil {
 		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, target.Types, target.Values)
@@ -186,6 +188,11 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 		vals = make([]hessian.Object, len(target.Values))
 		for i, v := range target.Values {
 			vals[i] = v
+		}
+		var err error
+		finalValues, err = json.Marshal(vals)
+		if err != nil {
+			logger.Warnf("[dubbo-go-pixiu] reqData convert to string failed: %v", err)
 		}
 	} else {
 		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
@@ -196,11 +203,10 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	_, span := tr.Start(req.Context, spanNameDubbogoClient)
 	trace.SpanFromContext(req.Context).SpanContext()
 	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
-	span.SetAttributes(attribute.Key(spanTagType).Array(types))
-	span.SetAttributes(attribute.Key(spanTagValues).Array(vals))
+	span.SetAttributes(attribute.Key(spanTagType).StringSlice(types))
+	span.SetAttributes(attribute.Key(spanTagValues).String(string(finalValues)))
 	defer span.End()
 	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
-
 	rst, err := gs.Invoke(ctx, method, types, vals)
 	if err != nil {
 		return nil, err
@@ -283,9 +289,9 @@ func apiKey(ir *fc.IntegrationRequest) string {
 func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.GenericService {
 	useNacosRegister := false
 	registerIds := make([]string, 0)
-	for k := range dc.rootConfig.Registries {
+	for k, v := range dc.rootConfig.Registries {
 		registerIds = append(registerIds, k)
-		if k == "nacos" {
+		if v.Protocol == "nacos" {
 			useNacosRegister = true
 		}
 	}
@@ -323,7 +329,7 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 	// sleep when first call to fetch enough service meta data from nacos
 	// todo: GenericLoad should guarantee it
 	if useNacosRegister {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 
 	clientService := refConf.GetRPCService().(*generic.GenericService)

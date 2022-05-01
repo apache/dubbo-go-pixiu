@@ -28,14 +28,15 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
 type LdsManager struct {
 	DiscoverApi
+	listenerMg controls.ListenerManager
 }
 
 // Fetch overwrite DiscoverApi.Fetch.
@@ -101,7 +102,7 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 	names := make([]string, 0, len(toRemoveHash))
 	for name := range toRemoveHash {
 		names = append(names, name)
-		server.GetServer().GetListenerManager().RemoveListener(names)
+		l.listenerMg.RemoveListener(names)
 	}
 }
 
@@ -117,9 +118,9 @@ func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
 	for _, listener := range listeners {
 		delete(toRemoveHash, listener.Name)
 		modelListener := l.makeListener(listener)
-		// apply add or update later after removes
+		// add or update later after removes
 		laterApplies = append(laterApplies, func() error {
-			err := server.GetServer().GetListenerManager().AddOrUpdateListener(&modelListener)
+			err := l.listenerMg.AddOrUpdateListener(&modelListener)
 			if err != nil {
 				logger.Errorf("can not add/update listener config=> %v", modelListener)
 			}

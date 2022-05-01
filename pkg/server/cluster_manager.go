@@ -29,6 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
 // generate cluster name for unnamed cluster
@@ -48,7 +49,22 @@ type (
 		Version     int32                  `yaml:"version" json:"version"`
 		clustersMap map[string]*cluster.Cluster
 	}
+
+	// xdsControlStore help convert ClusterStore to controls.ClusterStore interface
+	xdsControlStore struct {
+		*ClusterStore
+	}
 )
+
+func (x *xdsControlStore) Config() []*model.Cluster {
+	return x.ClusterStore.Config
+}
+
+// CloneXdsControlStore clone cluster store for xds
+func (cm *ClusterManager) CloneXdsControlStore() (controls.ClusterStore, error) {
+	store, err := cm.CloneStore()
+	return &xdsControlStore{store}, err
+}
 
 func CreateDefaultClusterManager(bs *model.Bootstrap) *ClusterManager {
 	return &ClusterManager{store: newClusterStore(bs)}
