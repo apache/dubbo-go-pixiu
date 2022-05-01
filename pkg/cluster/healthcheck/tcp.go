@@ -23,13 +23,14 @@ import (
 )
 
 type TCPChecker struct {
-	addr string
+	addr    string
+	timeout time.Duration
 }
 
 func (s *TCPChecker) CheckHealth() bool {
-	conn, err := net.DialTimeout("tcp", s.addr, 30*time.Second)
+	conn, err := net.DialTimeout("tcp", s.addr, s.timeout)
 	if err != nil {
-		logger.Error("[health check] tcp checker for host %s error: %v", s.addr, err)
+		logger.Infof("[health check] tcp checker for host %s error: %v", s.addr, err)
 		return false
 	}
 	conn.Close()

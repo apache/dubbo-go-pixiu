@@ -39,3 +39,21 @@ func NewCluster(clusterConfig *model.ClusterConfig) *Cluster {
 	}
 	return c
 }
+
+func (c *Cluster) Stop() {
+	if c.HealthCheck != nil {
+		c.HealthCheck.Stop()
+	}
+}
+
+func (c *Cluster) RemoveEndpoint(endpoint *model.Endpoint) {
+	if c.HealthCheck != nil {
+		c.HealthCheck.StopOne(endpoint)
+	}
+}
+
+func (c *Cluster) AddEndpoint(endpoint *model.Endpoint) {
+	if c.HealthCheck != nil {
+		c.HealthCheck.StartOne(endpoint)
+	}
+}

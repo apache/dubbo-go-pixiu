@@ -78,10 +78,21 @@ type (
 
 	// Endpoint
 	Endpoint struct {
-		ID       string            `yaml:"ID" json:"ID"`                                                       // ID indicate one endpoint
-		Name     string            `yaml:"name" json:"name"`                                                   // Name the cluster unique name
-		Address  SocketAddress     `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"` // Address socket address
-		Metadata map[string]string `yaml:"meta" json:"meta"`                                                   // Metadata extra info such as label or other meta data
-		Healthy  bool
+		ID        string            `yaml:"ID" json:"ID"`                                                       // ID indicate one endpoint
+		Name      string            `yaml:"name" json:"name"`                                                   // Name the cluster unique name
+		Address   SocketAddress     `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"` // Address socket address
+		Metadata  map[string]string `yaml:"meta" json:"meta"`                                                   // Metadata extra info such as label or other meta data
+		UnHealthy bool
 	}
 )
+
+func (c *ClusterConfig) GetEndpoint(mustHealth bool) []*Endpoint {
+	var endpoints []*Endpoint
+	for _, e := range c.Endpoints {
+		// select all endpoint or endpoint is health
+		if !mustHealth || !e.UnHealthy {
+			endpoints = append(endpoints, e)
+		}
+	}
+	return endpoints
+}
