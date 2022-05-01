@@ -17,9 +17,12 @@
 package healthcheck
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"net"
 	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type TCPChecker struct {
