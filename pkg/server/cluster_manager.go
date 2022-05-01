@@ -19,12 +19,12 @@ package server
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"sync"
 	"sync/atomic"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
