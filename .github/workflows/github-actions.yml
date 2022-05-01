@@ -107,18 +107,18 @@ jobs:
       - name: Go Test
         run: |
           chmod u+x before_ut.sh && ./before_ut.sh
-          go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
+#          go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
       # integration test
       # This step only runs when the event type is a pull_request
       - name: Integrate Test
         if: ${{ github.event_name == 'pull_request' }}
         run: |
-          chmod +x start_integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./start_integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
+#          chmod +x start_integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./start_integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
       # This step only runs when the event type is a push
       - name: Integrate Test
         if: ${{ github.event_name == 'push' }}
         run: |
-          chmod +x start_integrate_test.sh && ./start_integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
+#          chmod +x start_integrate_test.sh && ./start_integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
