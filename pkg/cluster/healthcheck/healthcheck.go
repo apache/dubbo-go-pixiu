@@ -17,36 +17,39 @@
 package healthcheck
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	gxtime "github.com/dubbogo/gost/time"
 	"runtime/debug"
 	"sync/atomic"
 	"time"
 )
 
-const (
-	DefaultTimeout        = time.Second
-	DefaultInterval       = 15 * time.Second
-	DefaultIntervalJitter = 5 * time.Millisecond
+import (
+	gxtime "github.com/dubbogo/gost/time"
+)
 
-	DefaultHealthyThreshold   uint32 = 1
-	DefaultUnhealthyThreshold uint32 = 1
-	DefaultFirstInterval             = time.Second
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+const (
+	DefaultTimeout  = time.Second
+	DefaultInterval = 3 * time.Second
+
+	DefaultHealthyThreshold   uint32 = 5
+	DefaultUnhealthyThreshold uint32 = 5
+	DefaultFirstInterval             = 5 * time.Second
 )
 
 type HealthChecker struct {
 	checkers      map[string]*EndpointChecker
 	sessionConfig map[string]interface{}
 	// check config
-	timeout             time.Duration
-	intervalBase        time.Duration
-	intervalJitter      time.Duration
-	healthyThreshold    uint32
-	initialDelay        time.Duration
-	cluster             *model.ClusterConfig
-	unhealthyThreshold  uint32
-	localProcessHealthy int64
+	timeout            time.Duration
+	intervalBase       time.Duration
+	healthyThreshold   uint32
+	initialDelay       time.Duration
+	cluster            *model.ClusterConfig
+	unhealthyThreshold uint32
 }
 
 // EndpointChecker is a wrapper of types.HealthCheckSession for health check
@@ -72,14 +75,25 @@ type checkResponse struct {
 }
 
 func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig) *HealthChecker {
-	timeout := cfg.TimeoutConfig
-	if cfg.TimeoutConfig == 0 {
+
+	timeout, err := time.ParseDuration(cfg.TimeoutConfig)
+	if err != nil {
+		logger.Infof("[health check] timeout parse duration error %s", cfg.TimeoutConfig)
 		timeout = DefaultTimeout
 	}
-	interval := cfg.IntervalConfig
-	if cfg.IntervalConfig == 0 {
+
+	interval, err := time.ParseDuration(cfg.IntervalConfig)
+	if err != nil {
+		logger.Infof("[health check] interval parse duration error %s", cfg.TimeoutConfig)
 		interval = DefaultInterval
 	}
+
+	initialDelay, err := time.ParseDuration(cfg.IntervalConfig)
+	if err != nil {
+		logger.Infof("[health check] initialDelay parse duration error %s", cfg.TimeoutConfig)
+		initialDelay = DefaultFirstInterval
+	}
+
 	unhealthyThreshold := cfg.UnhealthyThreshold
 	if unhealthyThreshold == 0 {
 		unhealthyThreshold = DefaultUnhealthyThreshold
@@ -88,22 +102,12 @@ func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig
 	if healthyThreshold == 0 {
 		healthyThreshold = DefaultHealthyThreshold
 	}
-	intervalJitter := cfg.IntervalJitterConfig
-	if intervalJitter == 0 {
-		intervalJitter = DefaultIntervalJitter
-	}
-	initialDelay := DefaultFirstInterval
-	if cfg.InitialDelaySeconds.Microseconds() > 0 {
-		initialDelay = cfg.InitialDelaySeconds
-	}
 
 	hc := &HealthChecker{
-		// cfg
 		sessionConfig:      cfg.SessionConfig,
 		cluster:            cluster,
 		timeout:            timeout,
 		intervalBase:       interval,
-		intervalJitter:     intervalJitter,
 		healthyThreshold:   healthyThreshold,
 		unhealthyThreshold: unhealthyThreshold,
 		initialDelay:       initialDelay,
@@ -120,20 +124,42 @@ func (hc *HealthChecker) Start() {
 	}
 }
 
+func (hc *HealthChecker) Stop() {
+	for _, h := range hc.cluster.Endpoints {
+		hc.stopCheck(h)
+	}
+}
+
+func (hc *HealthChecker) StopOne(endpoint *model.Endpoint) {
+	hc.stopCheck(endpoint)
+}
+
+func (hc *HealthChecker) StartOne(endpoint *model.Endpoint) {
+	hc.startCheck(endpoint)
+}
+
 func (hc *HealthChecker) startCheck(endpoint *model.Endpoint) {
 	addr := endpoint.Address.GetAddress()
 	if _, ok := hc.checkers[addr]; !ok {
 		c := newChecker(endpoint, hc)
 		hc.checkers[addr] = c
 		c.Start()
-		atomic.AddInt64(&hc.localProcessHealthy, 1) // default host is healthy
+		logger.Infof("[health check] create a health check session for %s", addr)
+	}
+}
+
+func (hc *HealthChecker) stopCheck(endpoint *model.Endpoint) {
+	addr := endpoint.Address.GetAddress()
+	if c, ok := hc.checkers[addr]; ok {
+		c.Stop()
+		delete(hc.checkers, addr)
 		logger.Infof("[health check] create a health check session for %s", addr)
 	}
 }
 
 func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
 	c := &EndpointChecker{
-		tcpChecker:    newTcpChecker(endpoint),
+		tcpChecker:    newTcpChecker(endpoint, hc.timeout),
 		endpoint:      endpoint,
 		HealthChecker: hc,
 		resp:          make(chan checkResponse),
@@ -143,15 +169,15 @@ func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
 	return c
 }
 
-func newTcpChecker(endpoint *model.Endpoint) *TCPChecker {
+func newTcpChecker(endpoint *model.Endpoint, timeout time.Duration) *TCPChecker {
 	return &TCPChecker{
-		addr: endpoint.Address.GetAddress(),
+		addr:    endpoint.Address.GetAddress(),
+		timeout: timeout,
 	}
 }
 
 func (hc *HealthChecker) getCheckInterval() time.Duration {
-	interval := hc.intervalBase
-	return interval
+	return hc.intervalBase
 }
 
 func (c *EndpointChecker) Start() {
@@ -159,7 +185,6 @@ func (c *EndpointChecker) Start() {
 		if r := recover(); r != nil {
 			logger.Warnf("[health check] node checker panic %v\n%s", r, string(debug.Stack()))
 		}
-		// stop all the timer when start is finished
 		c.checkTimer.Stop()
 		c.checkTimeout.Stop()
 	}()
@@ -176,19 +201,22 @@ func (c *EndpointChecker) Start() {
 				return
 			case resp := <-c.resp:
 				if resp.ID == currentID {
-					c.checkTimeout.Stop()
+					if c.checkTimeout != nil {
+						c.checkTimeout.Stop()
+						c.checkTimeout = nil
+					}
 					if resp.Healthy {
 						c.HandleSuccess()
 					} else {
 						c.HandleFailure(false)
 					}
-					// next health checker
 					c.checkTimer = gxtime.AfterFunc(c.HealthChecker.getCheckInterval(), c.OnCheck)
 				}
 			case <-c.timeout:
-				c.checkTimer.Stop()
+				if c.checkTimer != nil {
+					c.checkTimer.Stop()
+				}
 				c.HandleFailure(true)
-				// next health checker
 				c.checkTimer = gxtime.AfterFunc(c.HealthChecker.getCheckInterval(), c.OnCheck)
 				logger.Infof("[health check] receive a timeout response at id: %d", currentID)
 
@@ -228,19 +256,17 @@ func (c *EndpointChecker) HandleTimeout() {
 func (c *EndpointChecker) handleHealth() {
 	c.healthCount = 0
 	c.unHealthCount = 0
-	c.endpoint.Healthy = true
+	c.endpoint.UnHealthy = false
 }
 
 func (c *EndpointChecker) handleUnHealth() {
 	c.healthCount = 0
 	c.unHealthCount = 0
-	c.endpoint.Healthy = false
+	c.endpoint.UnHealthy = true
 }
 
 func (c *EndpointChecker) OnCheck() {
-	// record current id
 	id := atomic.LoadUint64(&c.checkID)
-	// start a timeout before check health
 	if c.checkTimeout != nil {
 		c.checkTimeout.Stop()
 	}

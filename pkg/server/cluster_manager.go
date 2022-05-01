@@ -18,6 +18,7 @@
 package server
 
 import (
+	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+// generate cluster name for unnamed cluster
+var clusterIndex int32 = 1
 
 type (
 	ClusterManager struct {
@@ -163,7 +167,10 @@ func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 		}
 		for _, name := range namesToDel { // suppose resource to remove and clusters is few
 			if name == cluster.Name {
+				removed := cm.store.Config[i]
+				cm.store.clustersMap[removed.Name].Stop()
 				cm.store.Config[i] = nil
+				delete(cm.store.clustersMap, removed.Name)
 			}
 		}
 	}
@@ -185,6 +192,10 @@ func (cm *ClusterManager) HasCluster(clusterName string) bool {
 }
 
 func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
+	if c.Name == "" {
+		index := atomic.AddInt32(&clusterIndex, 1)
+		c.Name = fmt.Sprintf("cluster%d", index)
+	}
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
 }
@@ -201,20 +212,24 @@ func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 }
 
 func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
+	cluster := s.clustersMap[clusterName]
 
 	for _, c := range s.Config {
 		if c.Name == clusterName {
 			for _, e := range c.Endpoints {
 				// endpoint update
 				if e.ID == endpoint.ID {
+					cluster.RemoveEndpoint(e)
 					e.Name = endpoint.Name
 					e.Metadata = endpoint.Metadata
 					e.Address = endpoint.Address
+					cluster.AddEndpoint(e)
 					return
 				}
 			}
 			// endpoint create
 			c.Endpoints = append(c.Endpoints, endpoint)
+			cluster.AddEndpoint(endpoint)
 			return
 		}
 	}
@@ -226,11 +241,13 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 }
 
 func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
+	cluster := s.clustersMap[clusterName]
 
 	for _, c := range s.Config {
 		if c.Name == clusterName {
 			for i, e := range c.Endpoints {
 				if e.ID == endpointID {
+					cluster.RemoveEndpoint(e)
 					c.Endpoints = append(c.Endpoints[:i], c.Endpoints[i+1:]...)
 					return
 				}
