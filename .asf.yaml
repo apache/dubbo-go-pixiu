@@ -16,6 +16,9 @@
 # limitations under the License.
 #
 
+github:
+  protected_branches: ~
+
 notifications:
   commits:      commits@dubbo.apache.org
   issues:       notifications@dubbo.apache.org
