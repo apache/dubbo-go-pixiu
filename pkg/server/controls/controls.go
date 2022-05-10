@@ -31,8 +31,11 @@ type (
 	}
 
 	ListenerManager interface {
+		AddListener(m *model.Listener) error
+		UpdateListener(m *model.Listener) error
 		RemoveListener(names []string)
-		AddOrUpdateListener(m *model.Listener) error
+		HasListener(name string) bool
+		CloneXdsControlListener() ([]*model.Listener, error)
 	}
 
 	DynamicResourceManager interface {

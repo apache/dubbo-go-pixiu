@@ -31,7 +31,8 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/metadata/definition"
 	dr "dubbo.apache.org/dubbo-go/v3/registry"
 	"dubbo.apache.org/dubbo-go/v3/remoting/zookeeper/curator_discovery"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 
 	"github.com/dubbogo/go-zookeeper/zk"
 )

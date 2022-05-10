@@ -142,9 +142,9 @@ func (m *MockListenerManager) EXPECT() *MockListenerManagerMockRecorder {
 }
 
 // AddOrUpdateListener mocks base method.
-func (m_2 *MockListenerManager) AddOrUpdateListener(m *model.Listener) error {
+func (m_2 *MockListenerManager) AddListener(m *model.Listener) error {
 	m_2.ctrl.T.Helper()
-	ret := m_2.ctrl.Call(m_2, "AddOrUpdateListener", m)
+	ret := m_2.ctrl.Call(m_2, "AddListener", m)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -152,7 +152,7 @@ func (m_2 *MockListenerManager) AddOrUpdateListener(m *model.Listener) error {
 // AddOrUpdateListener indicates an expected call of AddOrUpdateListener.
 func (mr *MockListenerManagerMockRecorder) AddOrUpdateListener(m interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOrUpdateListener", reflect.TypeOf((*MockListenerManager)(nil).AddOrUpdateListener), m)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddListener", reflect.TypeOf((*MockListenerManager)(nil).AddListener), m)
 }
 
 // RemoveListener mocks base method.
