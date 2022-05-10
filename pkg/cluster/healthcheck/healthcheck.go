@@ -56,7 +56,7 @@ type HealthChecker struct {
 type EndpointChecker struct {
 	endpoint      *model.Endpoint
 	HealthChecker *HealthChecker
-	//
+	// TCP checker, can extend to http, grpc, dubbo or other protocol checker
 	tcpChecker    *TCPChecker
 	resp          chan checkResponse
 	timeout       chan bool
@@ -237,8 +237,8 @@ func (c *EndpointChecker) HandleSuccess() {
 	}
 }
 
-func (c *EndpointChecker) HandleFailure(isTimeout bool) {
-	if isTimeout {
+func (c *EndpointChecker) HandleFailure(timeout bool) {
+	if timeout {
 		c.HandleTimeout()
 	} else {
 		c.handleUnHealth()
