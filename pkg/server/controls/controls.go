@@ -25,8 +25,8 @@ type (
 	ClusterManager interface {
 		RemoveCluster(names []string)
 		HasCluster(name string) bool
-		UpdateCluster(cluster *model.Cluster)
-		AddCluster(cluster *model.Cluster)
+		UpdateCluster(cluster *model.ClusterConfig)
+		AddCluster(cluster *model.ClusterConfig)
 		CloneXdsControlStore() (ClusterStore, error)
 	}
 
@@ -42,7 +42,7 @@ type (
 	}
 
 	ClusterStore interface {
-		Config() []*model.Cluster
+		Config() []*model.ClusterConfig
 		HasCluster(name string) bool
 	}
 )

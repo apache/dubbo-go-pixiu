@@ -56,7 +56,7 @@ type (
 	}
 )
 
-func (x *xdsControlStore) Config() []*model.Cluster {
+func (x *xdsControlStore) Config() []*model.ClusterConfig {
 	return x.ClusterStore.Config
 }
 
