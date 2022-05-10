@@ -71,7 +71,9 @@ func CreateDefaultClusterManager(bs *model.Bootstrap) *ClusterManager {
 }
 
 func newClusterStore(bs *model.Bootstrap) *ClusterStore {
-	store := &ClusterStore{}
+	store := &ClusterStore{
+		clustersMap: map[string]*cluster.Cluster{},
+	}
 	for _, cluster := range bs.StaticResources.Clusters {
 		store.AddCluster(cluster)
 	}
@@ -119,7 +121,9 @@ func (cm *ClusterManager) CloneStore() (*ClusterStore, error) {
 		return nil, err
 	}
 
-	c := &ClusterStore{}
+	c := &ClusterStore{
+		clustersMap: map[string]*cluster.Cluster{},
+	}
 	if err := yaml.UnmarshalYML(b, c); err != nil {
 		return nil, err
 	}
