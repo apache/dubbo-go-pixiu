@@ -110,10 +110,10 @@ func TestCdsManager_Fetch(t *testing.T) {
 		return ok
 	})
 
-	clusterMg.EXPECT().UpdateCluster(gomock.Any()).AnyTimes().Do(func(new *model.Cluster) {
+	clusterMg.EXPECT().UpdateCluster(gomock.Any()).AnyTimes().Do(func(new *model.ClusterConfig) {
 		updateCluster = new
 	})
-	clusterMg.EXPECT().AddCluster(gomock.Any()).AnyTimes().Do(func(c *model.Cluster) {
+	clusterMg.EXPECT().AddCluster(gomock.Any()).AnyTimes().Do(func(c *model.ClusterConfig) {
 		addCluster = c
 	})
 	clusterMg.EXPECT().RemoveCluster(gomock.Any()).AnyTimes()
