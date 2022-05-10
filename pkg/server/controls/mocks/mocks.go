@@ -54,7 +54,7 @@ func (m *MockClusterManager) EXPECT() *MockClusterManagerMockRecorder {
 }
 
 // AddCluster mocks base method.
-func (m *MockClusterManager) AddCluster(cluster *model.Cluster) {
+func (m *MockClusterManager) AddCluster(cluster *model.ClusterConfig) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddCluster", cluster)
 }
@@ -107,7 +107,7 @@ func (mr *MockClusterManagerMockRecorder) RemoveCluster(names interface{}) *gomo
 }
 
 // UpdateCluster mocks base method.
-func (m *MockClusterManager) UpdateCluster(cluster *model.Cluster) {
+func (m *MockClusterManager) UpdateCluster(cluster *model.ClusterConfig) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UpdateCluster", cluster)
 }
@@ -256,10 +256,10 @@ func (m *MockClusterStore) EXPECT() *MockClusterStoreMockRecorder {
 }
 
 // Config mocks base method.
-func (m *MockClusterStore) Config() []*model.Cluster {
+func (m *MockClusterStore) Config() []*model.ClusterConfig {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].([]*model.Cluster)
+	ret0, _ := ret[0].([]*model.ClusterConfig)
 	return ret0
 }
 

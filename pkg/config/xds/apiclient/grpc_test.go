@@ -41,7 +41,7 @@ import (
 )
 
 func TestGRPCClusterManager_GetGrpcCluster(t *testing.T) {
-	cluster := &model.Cluster{
+	cluster := &model.ClusterConfig{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
 		Endpoints: []*model.Endpoint{
@@ -67,7 +67,7 @@ func TestGRPCClusterManager_GetGrpcCluster(t *testing.T) {
 		Return(true)
 	clusterMg.EXPECT().CloneXdsControlStore().DoAndReturn(func() (controls.ClusterStore, error) {
 		store := mocks.NewMockClusterStore(ctrl)
-		store.EXPECT().Config().Return([]*model.Cluster{cluster})
+		store.EXPECT().Config().Return([]*model.ClusterConfig{cluster})
 		return store, nil
 	})
 	clusterMg.EXPECT().HasCluster("cluster-2").Return(false)
@@ -109,7 +109,7 @@ func TestGRPCClusterManager_GetGrpcCluster(t *testing.T) {
 }
 
 func TestGRPCCluster_GetConnect(t *testing.T) {
-	cluster := &model.Cluster{
+	cluster := &model.ClusterConfig{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
 		Endpoints: []*model.Endpoint{
