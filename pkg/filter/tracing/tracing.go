@@ -29,7 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
-const jaegerTraceIDInHeader = "uber-trace-id"
+const TraceIDInHeader = "uber-trace-id"
 
 // nolint
 func init() {
@@ -47,6 +47,8 @@ type (
 	TraceFilter struct {
 		span trace.Span
 	}
+
+	Config struct{}
 )
 
 func (ap *Plugin) Kind() string {
@@ -58,7 +60,7 @@ func (ap *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (m *TraceFilterFactory) Config() interface{} {
-	return nil
+	return &Config{}
 }
 
 func (m *TraceFilterFactory) Apply() error {
