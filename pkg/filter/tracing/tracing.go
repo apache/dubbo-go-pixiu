@@ -29,7 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/tracing"
 )
 
-const TraceIDInHeader = "dubbo-go-trace-id"
+const TraceIDInHeader = "dubbo-go-pixiu-trace-id"
 
 // nolint
 func init() {
