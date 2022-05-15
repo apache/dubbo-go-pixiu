@@ -61,7 +61,7 @@ func (am *AdapterManager) initAdapters() {
 			logger.Error("initAdapters get plugin error %s", err)
 		}
 
-		if !strings.EqualFold(f.Enabled, "true") {
+		if len(f.Enabled) > 0 && !strings.EqualFold(f.Enabled, "true") {
 			logger.Warnf("the Adapter %s will stop starting, by config of Enabled : %s", f.Name, f.Enabled)
 			return
 		}
