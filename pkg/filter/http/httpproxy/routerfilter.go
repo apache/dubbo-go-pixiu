@@ -90,6 +90,7 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
+		logger.Debugf("[dubbo-go-pixiu] cluster not found endpoint")
 		bt, _ := json.Marshal(http.ErrResponse{Message: "cluster not found endpoint"})
 		hc.SendLocalReply(http3.StatusServiceUnavailable, bt)
 		return filter.Stop
