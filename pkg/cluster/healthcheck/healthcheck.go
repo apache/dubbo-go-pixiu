@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package healthcheck
 
 import (
 	"runtime/debug"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -67,6 +69,8 @@ type EndpointChecker struct {
 	unHealthCount uint32
 	healthCount   uint32
 	threshold     uint32
+
+	once sync.Once
 }
 
 type checkResponse struct {
@@ -78,19 +82,19 @@ func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig
 
 	timeout, err := time.ParseDuration(cfg.TimeoutConfig)
 	if err != nil {
-		logger.Infof("[health check] timeout parse duration error %s", cfg.TimeoutConfig)
+		logger.Infof("[health check] timeout parse duration error %s", err)
 		timeout = DefaultTimeout
 	}
 
 	interval, err := time.ParseDuration(cfg.IntervalConfig)
 	if err != nil {
-		logger.Infof("[health check] interval parse duration error %s", cfg.TimeoutConfig)
+		logger.Infof("[health check] interval parse duration error %s", err)
 		interval = DefaultInterval
 	}
 
 	initialDelay, err := time.ParseDuration(cfg.IntervalConfig)
 	if err != nil {
-		logger.Infof("[health check] initialDelay parse duration error %s", cfg.TimeoutConfig)
+		logger.Infof("[health check] initialDelay parse duration error %s", err)
 		initialDelay = DefaultFirstInterval
 	}
 
@@ -226,7 +230,9 @@ func (c *EndpointChecker) Start() {
 }
 
 func (c *EndpointChecker) Stop() {
-	close(c.stop)
+	c.once.Do(func() {
+		close(c.stop)
+	})
 }
 
 func (c *EndpointChecker) HandleSuccess() {
