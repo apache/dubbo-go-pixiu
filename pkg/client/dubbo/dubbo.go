@@ -33,7 +33,7 @@ import (
 	dg "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	_ "dubbo.apache.org/dubbo-go/v3/filter/generic"
-	_ "dubbo.apache.org/dubbo-go/v3/filter/gshutdown"
+	_ "dubbo.apache.org/dubbo-go/v3/filter/graceful_shutdown"
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/service/local"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/protocol"
