@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 
 	"github.com/stretchr/testify/assert"
 )

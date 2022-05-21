@@ -25,8 +25,8 @@ import (
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
 
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/router"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 
 	"github.com/pkg/errors"
 )
@@ -66,7 +66,7 @@ func SetRegistry(name string, newRegFunc func(model.Registry, common2.RegistryEv
 // GetRegistry will return the registry
 // if not found, it will panic
 func GetRegistry(name string, regConfig model.Registry, listener common2.RegistryEventListener) (Registry, error) {
-	if registry, ok := registryMap[name]; ok {
+	if registry, ok := registryMap[regConfig.Protocol]; ok {
 		reg, err := registry(regConfig, listener)
 		if err != nil {
 			panic("Initialize Registry" + name + "failed due to: " + err.Error())

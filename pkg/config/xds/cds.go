@@ -18,20 +18,22 @@
 package xds
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
-	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api"
+	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
+
 	"github.com/pkg/errors"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
 type CdsManager struct {
 	DiscoverApi
+	clusterMg controls.ClusterManager
 }
 
 // Fetch overwrite DiscoverApi.Fetch.
@@ -83,33 +85,35 @@ func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 }
 
 func (c *CdsManager) removeCluster(clusterNames []string) {
-	server.GetClusterManager().RemoveCluster(clusterNames)
+	c.clusterMg.RemoveCluster(clusterNames)
 }
 
 func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
-	clusterMgt := server.GetClusterManager()
+
 	laterApplies := make([]func() error, 0, len(clusters))
 	toRemoveHash := make(map[string]struct{}, len(clusters))
 
-	store, err := clusterMgt.CloneStore()
+	store, err := c.clusterMg.CloneXdsControlStore()
 	if err != nil {
 		return errors.WithMessagef(err, "can not clone cluster store when update cluster")
 	}
 	//todo this will remove the cluster which defined locally.
-	for _, cluster := range store.Config {
+	for _, cluster := range store.Config() {
 		toRemoveHash[cluster.Name] = struct{}{}
 	}
 	for _, cluster := range clusters {
 		delete(toRemoveHash, cluster.Name)
+
+		makeCluster := c.makeCluster(cluster)
 		switch {
-		case clusterMgt.HasCluster(cluster.Name):
+		case c.clusterMg.HasCluster(cluster.Name):
 			laterApplies = append(laterApplies, func() error {
-				clusterMgt.UpdateCluster(c.makeCluster(cluster))
+				c.clusterMg.UpdateCluster(makeCluster)
 				return nil
 			})
 		default:
 			laterApplies = append(laterApplies, func() error {
-				clusterMgt.AddCluster(c.makeCluster(cluster))
+				c.clusterMg.AddCluster(makeCluster)
 				return nil
 			})
 		}
@@ -155,14 +159,16 @@ func (c *CdsManager) makeClusterType(cluster *xdspb.Cluster) model.DiscoveryType
 	return model.DiscoveryTypeValue[cluster.TypeStr]
 }
 
-func (c *CdsManager) makeEndpoints(endpoint *xdspb.Endpoint) []*model.Endpoint {
-	r := make([]*model.Endpoint, 0, 1)
-	r = append(r, &model.Endpoint{
-		ID:       endpoint.Id,
-		Name:     endpoint.Name,
-		Address:  c.makeAddress(endpoint),
-		Metadata: endpoint.Metadata,
-	})
+func (c *CdsManager) makeEndpoints(endpoints []*xdspb.Endpoint) []*model.Endpoint {
+	r := make([]*model.Endpoint, len(endpoints))
+	for i, endpoint := range endpoints {
+		r[i] = &model.Endpoint{
+			ID:       endpoint.Id,
+			Name:     endpoint.Name,
+			Address:  c.makeAddress(endpoint),
+			Metadata: endpoint.Metadata,
+		}
+	}
 	return r
 }
 

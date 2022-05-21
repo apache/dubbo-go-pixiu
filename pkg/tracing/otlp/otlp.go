@@ -15,7 +15,24 @@
  * limitations under the License.
  */
 
-package main
+package otlp
 
-// Version dubbo version
-const Version = "2.7.5"
+import (
+	"context"
+)
+
+import (
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+func NewOTLPExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
+	client := otlptracehttp.NewClient()
+	return otlptrace.New(ctx, client)
+}

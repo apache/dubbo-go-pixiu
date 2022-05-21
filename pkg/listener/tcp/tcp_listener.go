@@ -51,7 +51,7 @@ func newTcpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.Li
 	// todo taskPoolMode
 	server := getty.NewTCPServer(serverOpts...)
 
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	return &TcpListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -64,6 +64,23 @@ func newTcpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.Li
 // Start start tcp server
 func (ls *TcpListenerService) Start() error {
 	go ls.server.RunEventLoop(ls.newSession)
+	return nil
+}
+
+func (ls *TcpListenerService) Close() error {
+	ls.server.Close()
+	return nil
+}
+
+func (ls *TcpListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (ls *TcpListenerService) Refresh(c model.Listener) error {
+	// There is no need to lock here for now, as there is at most one NetworkFilter
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
 	return nil
 }
 
