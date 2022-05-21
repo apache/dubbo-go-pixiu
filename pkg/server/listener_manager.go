@@ -19,6 +19,14 @@ package server
 
 import (
 	"runtime/debug"
+	"strconv"
+	"sync"
+)
+
+import (
+	"github.com/pkg/errors"
+
+	"gopkg.in/yaml.v2"
 )
 
 import (
@@ -30,63 +38,101 @@ import (
 // wrapListenerService wrap listener service and its configuration.
 type wrapListenerService struct {
 	listener.ListenerService
-	cfg *model.Listener
+
+	config *model.Listener
 }
 
 // ListenerManager the listener manager
 type ListenerManager struct {
-	activeListener        []*model.Listener
-	bootstrap             *model.Bootstrap
-	activeListenerService []*wrapListenerService
+	bootstrap *model.Bootstrap
+
+	// name(host-port-protocol) -> wrapListenerService
+	activeListenerService map[string]*wrapListenerService
+	//readWriteLock
+	rwLock *sync.RWMutex
 }
 
 // CreateDefaultListenerManager create listener manager from config
 func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
+	listeners := map[string]*wrapListenerService{}
 	sl := bs.GetStaticListeners()
-	var listeners []*wrapListenerService
-	for _, lsCof := range bs.StaticResources.Listeners {
+
+	for _, lsCof := range sl {
 		ls, err := listener.CreateListenerService(lsCof, bs)
 		if err != nil {
 			logger.Error("CreateDefaultListenerManager %s error: %v", lsCof.Name, err)
 		}
-		listeners = append(listeners, &wrapListenerService{ls, lsCof})
+		listeners[resolveListenerName(lsCof)] = &wrapListenerService{
+			config:          lsCof,
+			ListenerService: ls,
+		}
 	}
 
 	return &ListenerManager{
-		activeListener:        sl,
 		activeListenerService: listeners,
 		bootstrap:             bs,
+		rwLock:                &sync.RWMutex{},
 	}
 }
 
-func (lm *ListenerManager) AddOrUpdateListener(lsConf *model.Listener) error {
-	//todo add sync lock for concurrent using
-	if theListener := lm.getListener(lsConf.Name); theListener != nil {
-		lm.updateListener(theListener, lsConf)
-		return nil
-	}
+func resolveListenerName(c *model.Listener) string {
+	return c.Address.SocketAddress.Address + "-" + strconv.Itoa(c.Address.SocketAddress.Port) + "-" + c.ProtocolStr
+}
+
+func (lm *ListenerManager) AddListener(lsConf *model.Listener) error {
+	logger.Infof("Add Listener %s", lsConf.Name)
 	ls, err := listener.CreateListenerService(lsConf, lm.bootstrap)
 	if err != nil {
 		return err
 	}
-	lm.startListenerServiceAsync(ls)
 	lm.addListenerService(ls, lsConf)
-	lm.activeListener = append(lm.activeListener, lsConf)
+	lm.startListenerServiceAsync(ls)
 	return nil
 }
 
-func (lm *ListenerManager) updateListener(listener *model.Listener, to *model.Listener) {
-	//todo update listener and service
-	panic("not implement")
-}
-
-func (lm *ListenerManager) getListener(name string) *model.Listener {
-	for _, l := range lm.activeListener {
-		if l.Name == name {
-			return l
-		}
+func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
+	// lock
+	lm.rwLock.Lock()
+	defer lm.rwLock.Unlock()
+	ls, ok := lm.activeListenerService[m.Name]
+	if !ok {
+		return errors.New("ListenerManager UpdateListener error: listener not found")
+	}
+	logger.Infof("Update Listener %s", m.Name)
+	ls.config = m
+	err := ls.Refresh(*m)
+	if err != nil {
+		logger.Warnf("Update Listener %s error: %s", m.Name, err)
+		return err
 	}
 	return nil
+}
+
+func (lm *ListenerManager) HasListener(name string) bool {
+	lm.rwLock.RLock()
+	defer lm.rwLock.RUnlock()
+	_, ok := lm.activeListenerService[name]
+	return ok
+}
+
+func (lm *ListenerManager) CloneXdsControlListener() ([]*model.Listener, error) {
+	lm.rwLock.RLock()
+	defer lm.rwLock.RUnlock()
+
+	var listeners []*model.Listener
+	for _, ls := range lm.activeListenerService {
+		listeners = append(listeners, ls.config)
+	}
+	//deep copy
+	bytes, err := yaml.Marshal(listeners)
+	if err != nil {
+		return nil, err
+	}
+	var cloneListeners []*model.Listener
+	if err = yaml.Unmarshal(bytes, &cloneListeners); err != nil {
+		return nil, err
+	}
+	return cloneListeners, nil
 }
 
 func (lm *ListenerManager) StartListen() {
@@ -108,25 +154,52 @@ func (lm *ListenerManager) startListenerServiceAsync(s listener.ListenerService)
 		}()
 		err := s.Start()
 		if err != nil {
-			logger.Error("start listener service error.  %v", err)
+			logger.Errorf("start listener service error.  %v", err)
 		}
 	}()
 	return done
 }
 
 func (lm *ListenerManager) addListenerService(ls listener.ListenerService, lsConf *model.Listener) {
-	lm.activeListenerService = append(lm.activeListenerService, &wrapListenerService{ls, lsConf})
+	lm.rwLock.Lock()
+	defer lm.rwLock.Unlock()
+	lm.activeListenerService[resolveListenerName(lsConf)] = &wrapListenerService{
+		config:          lsConf,
+		ListenerService: ls,
+	}
 }
 
 func (lm *ListenerManager) GetListenerService(name string) listener.ListenerService {
-	for i := range lm.activeListenerService {
-		if lm.activeListenerService[i].cfg.Name == name {
-			return lm.activeListenerService[i]
-		}
+	lm.rwLock.RLock()
+	defer lm.rwLock.RUnlock()
+
+	ls, ok := lm.activeListenerService[name]
+	if ok {
+		return ls
 	}
 	return nil
 }
 
 func (lm *ListenerManager) RemoveListener(names []string) {
-	//todo implement remove Listener and ListenerService
+	//close ListenerService
+	for _, name := range names {
+		logger.Infof("listener %s closing", name)
+		ls := lm.GetListenerService(name)
+		if ls == nil {
+			logger.Warnf("listener %s not found", name)
+			continue
+		}
+		if err := ls.Close(); err != nil {
+			logger.Errorf("close listener %s service error.  %s", name, err)
+			continue
+		}
+		logger.Infof("listener %s closed", name)
+	}
+
+	lm.rwLock.Lock()
+	defer lm.rwLock.Unlock()
+	//remove from activeListenerService
+	for _, name := range names {
+		delete(lm.activeListenerService, name)
+	}
 }

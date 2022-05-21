@@ -15,7 +15,31 @@
  * limitations under the License.
  */
 
-package main
+package jaeger
 
-// Version dubbo version
-const Version = "2.7.5"
+import (
+	"github.com/mitchellh/mapstructure"
+
+	"github.com/pkg/errors"
+
+	"go.opentelemetry.io/otel/exporters/jaeger"
+
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+type jaegerConfig struct {
+	Url string `yaml:"url" json:"url" mapstructure:"url"`
+}
+
+func NewJaegerExporter(cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
+	var config jaegerConfig
+	if err := mapstructure.Decode(cfg.Config, &config); err != nil {
+		return nil, errors.Wrap(err, "config error")
+	}
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(config.Url)))
+	return exp, err
+}

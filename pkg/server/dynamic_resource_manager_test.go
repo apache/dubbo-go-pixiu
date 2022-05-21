@@ -19,15 +19,21 @@ package server
 
 import (
 	"errors"
+	"fmt"
+	"runtime/debug"
 	"testing"
 )
 
 import (
+	"github.com/cch123/supermonkey"
+
 	"github.com/stretchr/testify/require"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
 func Test_createDynamicResourceManger(t *testing.T) {
@@ -168,6 +174,17 @@ func Test_createDynamicResourceManger(t *testing.T) {
 			wantErr:   errors.New(""),
 		},
 	}
+
+	supermonkey.Patch(xds.StartXdsClient, func(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) xds.Client {
+		return nil
+	})
+	supermonkey.Patch((*Server).GetListenerManager, func(_ *Server) *ListenerManager {
+		return nil
+	})
+	supermonkey.Patch((*Server).GetClusterManager, func(_ *Server) *ClusterManager {
+		return nil
+	})
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
@@ -175,6 +192,10 @@ func Test_createDynamicResourceManger(t *testing.T) {
 				defer func() {
 					panicInfo := recover()
 					err, _ = panicInfo.(error)
+					if err != nil {
+						fmt.Println(err)
+						debug.PrintStack()
+					}
 				}()
 				result = createDynamicResourceManger(tt.args.bs)
 				return

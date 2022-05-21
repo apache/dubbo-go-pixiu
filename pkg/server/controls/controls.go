@@ -15,7 +15,37 @@
  * limitations under the License.
  */
 
-package main
+package controls
 
-// Version dubbo version
-const Version = "2.7.5"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+type (
+	ClusterManager interface {
+		RemoveCluster(names []string)
+		HasCluster(name string) bool
+		UpdateCluster(cluster *model.Cluster)
+		AddCluster(cluster *model.Cluster)
+		CloneXdsControlStore() (ClusterStore, error)
+	}
+
+	ListenerManager interface {
+		AddListener(m *model.Listener) error
+		UpdateListener(m *model.Listener) error
+		RemoveListener(names []string)
+		HasListener(name string) bool
+		CloneXdsControlListener() ([]*model.Listener, error)
+	}
+
+	DynamicResourceManager interface {
+		GetLds() *model.ApiConfigSource
+		GetCds() *model.ApiConfigSource
+		GetNode() *model.Node
+	}
+
+	ClusterStore interface {
+		Config() []*model.Cluster
+		HasCluster(name string) bool
+	}
+)

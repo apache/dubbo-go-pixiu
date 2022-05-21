@@ -68,7 +68,7 @@ func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	return &Http2ListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -80,7 +80,7 @@ func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.
 }
 
 // Start start listen
-func (ls Http2ListenerService) Start() error {
+func (ls *Http2ListenerService) Start() error {
 
 	sa := ls.Config.Address.SocketAddress
 	addr := resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port))
@@ -105,9 +105,29 @@ func (ls Http2ListenerService) Start() error {
 
 	go func() {
 		if err := ls.server.Serve(ls.listener); err != nil {
-			logger.Error("Http2ListenerService Start error %s", err)
+			if err == http.ErrServerClosed {
+				logger.Infof("Listener %s closed", ls.Config.Name)
+				return
+			}
+			logger.Errorf("Http2ListenerService.Serve: %v", err)
 		}
 	}()
+	return nil
+}
+
+func (ls *Http2ListenerService) Close() error {
+	return ls.server.Close()
+}
+
+func (ls *Http2ListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (ls *Http2ListenerService) Refresh(c model.Listener) error {
+	// There is no need to lock here for now, as there is at most one NetworkFilter
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
 	return nil
 }
 

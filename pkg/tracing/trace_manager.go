@@ -15,28 +15,41 @@
  * limitations under the License.
  */
 
-package xds
+package tracing
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-type (
-	DiscoveryPlugin struct {
-	}
-)
+type traceGenerator func(Trace) Trace
 
-func (d *DiscoveryPlugin) Kind() string {
-	return constant.XDSDiscoverAdapter
+// One protocol for one Trace.
+var TraceFactory map[ProtocolName]traceGenerator
+
+func init() {
+	TraceFactory = make(map[ProtocolName]traceGenerator)
+	TraceFactory[HTTPProtocol] = NewHTTPTracer
 }
 
-func (d *DiscoveryPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
-	return &Adapter{
-		ID:     ad.ID,
-		Name:   ad.Name,
-		cfg:    &AdapterConfig{},
-		exitCh: make(chan struct{}),
-	}, nil
+// Driver maintains all tracers and the provider.
+type TraceDriverManager struct {
+	driver    *TraceDriver
+	bootstrap *model.Bootstrap
+}
+
+func CreateDefaultTraceDriverManager(bs *model.Bootstrap) *TraceDriverManager {
+	manager := &TraceDriverManager{
+		bootstrap: bs,
+	}
+	manager.driver = InitDriver(bs)
+	return manager
+}
+
+func (manager *TraceDriverManager) GetDriver() *TraceDriver {
+	return manager.driver
+}
+
+func (manager *TraceDriverManager) Close() {
+	driver := manager.driver
+	_ = driver.Tp.Shutdown(driver.context)
 }

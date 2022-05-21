@@ -27,6 +27,7 @@ import (
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/config"
+
 	hessian "github.com/apache/dubbo-go-hessian2"
 )
 
@@ -159,7 +160,7 @@ type StudentProvider struct{}
 
 // CreateStudent new Student, PX config POST.
 func (s *StudentProvider) CreateStudent(ctx context.Context, student *Student) (*Student, error) {
-	outLn("Req CreateStudent data:%#v", student)
+	fmt.Printf("Req CreateStudent data: %#v \n", student)
 	if student == nil {
 		return nil, errors.New("not found")
 	}
@@ -178,45 +179,45 @@ func (s *StudentProvider) CreateStudent(ctx context.Context, student *Student) (
 
 // GetStudentByName query by name, single param, PX config GET.
 func (s *StudentProvider) GetStudentByName(ctx context.Context, name string) (*Student, error) {
-	outLn("Req GetStudentByName name:%#v", name)
+	fmt.Printf("Req GetStudentByName name: %#v \n", name)
 	r, ok := studentCache.GetByName(name)
 	if !ok {
 		return nil, nil
 	}
-	outLn("Req GetStudentByName result:%#v", r)
+	fmt.Printf("Req GetStudentByName result: %#v \n", r)
 	return r, nil
 }
 
 // GetStudentByCode query by code, single param, PX config GET.
 func (s *StudentProvider) GetStudentByCode(ctx context.Context, code int64) (*Student, error) {
-	outLn("Req GetStudentByCode name:%#v", code)
+	fmt.Printf("Req GetStudentByCode name: %#v \n", code)
 	r, ok := studentCache.GetByCode(code)
 	if !ok {
 		return nil, nil
 	}
-	outLn("Req GetStudentByCode result:%#v", r)
+	fmt.Printf("Req GetStudentByCode result: %#v \n", r)
 	return r, nil
 }
 
 // GetStudentTimeout query by name, will timeout for pixiu.
 func (s *StudentProvider) GetStudentTimeout(ctx context.Context, name string) (*Student, error) {
-	outLn("Req GetStudentByName name:%#v", name)
+	fmt.Printf("Req GetStudentByName name: %#v \n", name)
 	// sleep 10s, pixiu config less than 10s.
 	time.Sleep(10 * time.Second)
 	r, ok := studentCache.GetByName(name)
 	if !ok {
 		return nil, nil
 	}
-	outLn("Req GetStudentByName result:%#v", r)
+	fmt.Printf("Req GetStudentByName result: %#v \n", r)
 	return r, nil
 }
 
 // GetStudentByNameAndAge query by name and age, two params, PX config GET.
 func (s *StudentProvider) GetStudentByNameAndAge(ctx context.Context, name string, age int32) (*Student, error) {
-	outLn("Req GetStudentByNameAndAge name:%s, age:%d", name, age)
+	fmt.Printf("Req GetStudentByNameAndAge name: %s, age: %d \n", name, age)
 	r, ok := studentCache.GetByName(name)
 	if ok && r.Age == age {
-		outLn("Req GetStudentByNameAndAge result:%#v", r)
+		fmt.Printf("Req GetStudentByNameAndAge result: %#v \n", r)
 		return r, nil
 	}
 	return r, nil
@@ -224,7 +225,7 @@ func (s *StudentProvider) GetStudentByNameAndAge(ctx context.Context, name strin
 
 // UpdateStudent update by Student struct, my be another struct, PX config POST or PUT.
 func (s *StudentProvider) UpdateStudent(ctx context.Context, student *Student) (bool, error) {
-	outLn("Req UpdateStudent data:%#v", student)
+	fmt.Printf("Req UpdateStudent data: %#v \n", student)
 	r, ok := studentCache.GetByName(student.Name)
 	if !ok {
 		return false, errors.New("not found")
@@ -240,7 +241,7 @@ func (s *StudentProvider) UpdateStudent(ctx context.Context, student *Student) (
 
 // UpdateStudentByName update by Student struct, my be another struct, PX config POST or PUT.
 func (s *StudentProvider) UpdateStudentByName(ctx context.Context, name string, student *Student) (bool, error) {
-	outLn("Req UpdateStudentByName data:%#v", student)
+	fmt.Printf("Req UpdateStudentByName data: %#v \n", student)
 	r, ok := studentCache.GetByName(name)
 	if !ok {
 		return false, errors.New("not found")
@@ -262,9 +263,4 @@ func (s *StudentProvider) Reference() string {
 // nolint
 func (s Student) JavaClassName() string {
 	return "com.dubbogo.pixiu.StudentService"
-}
-
-// nolint
-func outLn(format string, args ...interface{}) {
-	fmt.Printf("\033[32;40m"+format+"\033[0m\n", args...)
 }

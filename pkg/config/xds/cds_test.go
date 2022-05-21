@@ -18,17 +18,19 @@
 package xds
 
 import (
-	"errors"
+	stderr "errors"
 	"testing"
 )
 
 import (
 	"github.com/cch123/supermonkey"
 
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
-	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+
+	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/require"
 
@@ -36,9 +38,10 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
 )
 
 func makeClusters() *pixiupb.PixiuExtensionClusters {
@@ -47,13 +50,13 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 			{
 				Name:    "http-baidu",
 				TypeStr: "http",
-				Endpoints: &pixiupb.Endpoint{
+				Endpoints: []*pixiupb.Endpoint{{
 					Id: "backend",
 					Address: &pixiupb.SocketAddress{
 						Address: "httpbin.org",
 						Port:    80,
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -66,13 +69,13 @@ func getCdsConfig() *core.TypedExtensionConfig {
 				{
 					Name:    "http-baidu",
 					TypeStr: "http",
-					Endpoints: &pixiupb.Endpoint{
+					Endpoints: []*pixiupb.Endpoint{{
 						Id: "backend",
 						Address: &pixiupb.SocketAddress{
 							Address: "httpbin.org",
 							Port:    80,
 						},
-					},
+					}},
 				},
 			},
 		}
@@ -91,30 +94,49 @@ func TestCdsManager_Fetch(t *testing.T) {
 	var updateCluster *model.Cluster
 	var addCluster *model.Cluster
 	xdsConfig := getCdsConfig()
+
+	ctrl := gomock.NewController(t)
+	clusterMg := mocks.NewMockClusterManager(ctrl)
 	//var deltaResult chan *apiclient.DeltaResources
 	//var deltaErr error
 	supermonkey.Patch((*apiclient.GrpcApiClient).Fetch, func(_ *apiclient.GrpcApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
 		return fetchResult, fetchError
 	})
-	supermonkey.Patch(server.GetClusterManager, func() *server.ClusterManager {
-		return nil
-	})
-	supermonkey.Patch((*server.ClusterManager).HasCluster, func(_ *server.ClusterManager, clusterName string) bool {
+	//supermonkey.Patch(server.GetClusterManager, func() *server.ClusterManager {
+	//	return nil
+	//})
+	clusterMg.EXPECT().HasCluster(gomock.Any()).DoAndReturn(func(clusterName string) bool {
 		_, ok := cluster[clusterName]
 		return ok
 	})
-	supermonkey.Patch((*server.ClusterManager).UpdateCluster, func(_ *server.ClusterManager, new *model.Cluster) {
+	clusterMg.EXPECT().UpdateCluster(gomock.Any()).AnyTimes().Do(func(new *model.Cluster) {
 		updateCluster = new
 	})
-	supermonkey.Patch((*server.ClusterManager).AddCluster, func(_ *server.ClusterManager, c *model.Cluster) {
+	clusterMg.EXPECT().AddCluster(gomock.Any()).AnyTimes().Do(func(c *model.Cluster) {
 		addCluster = c
 	})
-	supermonkey.Patch((*server.ClusterManager).RemoveCluster, func(_ *server.ClusterManager, names []string) {
-		//do nothing.
+	clusterMg.EXPECT().RemoveCluster(gomock.Any()).AnyTimes()
+	clusterMg.EXPECT().CloneXdsControlStore().AnyTimes().DoAndReturn(func() (controls.ClusterStore, error) {
+		store := mocks.NewMockClusterStore(ctrl)
+		store.EXPECT().Config().AnyTimes()
+		return store, nil
 	})
-	supermonkey.Patch((*server.ClusterManager).CloneStore, func(_ *server.ClusterManager) (*server.ClusterStore, error) {
-		return &server.ClusterStore{}, nil
-	})
+	//supermonkey.Patch((*server.ClusterManager).HasCluster, func(_ *server.ClusterManager, clusterName string) bool {
+	//	_, ok := cluster[clusterName]
+	//	return ok
+	//})
+	//supermonkey.Patch((*server.ClusterManager).UpdateCluster, func(_ *server.ClusterManager, new *model.Cluster) {
+	//	updateCluster = new
+	//})
+	//supermonkey.Patch((*server.ClusterManager).AddCluster, func(_ *server.ClusterManager, c *model.Cluster) {
+	//	addCluster = c
+	//})
+	//supermonkey.Patch((*server.ClusterManager).RemoveCluster, func(_ *server.ClusterManager, names []string) {
+	//	//do nothing.
+	//})
+	//supermonkey.Patch((*server.ClusterManager).CloneStore, func(_ *server.ClusterManager) (*server.ClusterStore, error) {
+	//	return &server.ClusterStore{}, nil
+	//})
 	//supermonkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
 	//	return deltaResult, deltaErr
 	//})
@@ -128,7 +150,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 		wantNewCluster    bool
 		wantUpdateCluster bool
 	}{
-		{"error", nil, errors.New("error test"), true, false, false},
+		{"error", nil, stderr.New("error test"), true, false, false},
 		{"simple", nil, nil, false, false, false},
 		{"withValue", func() []*apiclient.ProtoAny {
 			return []*apiclient.ProtoAny{
@@ -140,6 +162,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &CdsManager{
 				DiscoverApi: &apiclient.GrpcApiClient{},
+				clusterMg:   clusterMg,
 			}
 			//reset context value.
 			fetchError = tt.mockError
@@ -175,7 +198,7 @@ func TestCdsManager_makeCluster(t *testing.T) {
 	assert := require.New(t)
 	assert.Equal(cluster.Name, modelCluster.Name)
 	assert.Equal(cluster.TypeStr, modelCluster.TypeStr)
-	assert.Equal(cluster.Endpoints.Name, modelCluster.Endpoints[0].Name)
-	assert.Equal(cluster.Endpoints.Address.Address, modelCluster.Endpoints[0].Address.Address)
-	assert.Equal(cluster.Endpoints.Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
+	assert.Equal(cluster.Endpoints[0].Name, modelCluster.Endpoints[0].Name)
+	assert.Equal(cluster.Endpoints[0].Address.Address, modelCluster.Endpoints[0].Address.Address)
+	assert.Equal(cluster.Endpoints[0].Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
 }

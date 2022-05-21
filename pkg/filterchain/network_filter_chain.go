@@ -83,7 +83,7 @@ func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName strin
 }
 
 // CreateNetworkFilterChain create network filter chain
-func CreateNetworkFilterChain(config model.FilterChain, bs *model.Bootstrap) *NetworkFilterChain {
+func CreateNetworkFilterChain(config model.FilterChain) *NetworkFilterChain {
 	var filters []filter.NetworkFilter
 
 	for _, f := range config.Filters {
@@ -99,7 +99,7 @@ func CreateNetworkFilterChain(config model.FilterChain, bs *model.Bootstrap) *Ne
 			continue
 		}
 
-		filter, err := p.CreateFilter(config, bs)
+		filter, err := p.CreateFilter(config)
 		if err != nil {
 			logger.Error("CreateNetworkFilterChain %s createFilter error %s", f.Name, err)
 			continue
