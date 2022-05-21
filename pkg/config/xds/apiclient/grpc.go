@@ -26,10 +26,8 @@ import (
 
 import (
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	clusterpb "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
-	listenerpb "github.com/envoyproxy/go-control-plane/envoy/service/listener/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 	"github.com/pkg/errors"
@@ -57,20 +55,18 @@ var (
 
 type (
 	GrpcApiClient struct {
-		config                   model.ApiConfigSource
-		grpcMg                   *GRPCClusterManager
-		node                     *model.Node
-		xDSExtensionClient       extensionpb.ExtensionConfigDiscoveryServiceClient
-		xDSClusterDiscoverClient clusterpb.ClusterDiscoveryServiceClient
-		xDSListenerClient        listenerpb.ListenerDiscoveryServiceClient
-		xDSAggClient             discoverypb.AggregatedDiscoveryServiceClient
-		resourceNames            []ResourceTypeName
-		exitCh                   chan struct{}
-		xdsState                 xdsState
+		config             model.ApiConfigSource
+		grpcMg             *GRPCClusterManager
+		node               *model.Node
+		xDSExtensionClient extensionpb.ExtensionConfigDiscoveryServiceClient
+		resourceNames      []ResourceTypeName
+		exitCh             chan struct{}
+		xdsState           xdsState
 	}
 	xdsState struct {
 		nonce        string
 		deltaVersion map[string]string
+		versionInfo  string
 	}
 )
 
@@ -104,36 +100,12 @@ func CreateGrpcApiClient(config *model.ApiConfigSource, node *model.Node,
 
 // Fetch get config data from discovery service and return Any type.
 func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
-	stream, err2 := g.xDSAggClient.StreamAggregatedResources(context.Background())
-	if err2 != nil {
-		return nil, errors.Wrapf(err2, "fetch dynamic resource from remote error. %s", g.resourceNames)
-	}
-
-	err := stream.Send(&discoverypb.DiscoveryRequest{
-		VersionInfo:   "localVersion",
-		Node:          nil, //g.makeNode(),
-		ResourceNames: nil,
-		TypeUrl:       resource.ListenerType, //"type.googleapis.com/envoy.config.listener.v3.Listener",
-		ResponseNonce: "",
-		ErrorDetail:   nil,
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
-	}
-
-	rsp, err := stream.Recv()
-	if err != nil {
-		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
-	}
-	logger.Infof("the agg stream received", rsp)
-
 	clsRsp, err := g.xDSExtensionClient.FetchExtensionConfigs(context.Background(), &discoverypb.DiscoveryRequest{
 		VersionInfo:   localVersion,
 		Node:          g.makeNode(),
 		ResourceNames: g.resourceNames,
 		TypeUrl:       resource.ExtensionConfigType, //"type.googleapis.com/pixiu.config.listener.v3.Listener", //resource.ListenerType,
 	})
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
 	}
@@ -155,7 +127,7 @@ func (g *GrpcApiClient) decodeSource(resource *anypb.Any) (*ProtoAny, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "typed extension as expected.(%s)", g.resourceNames)
 	}
-	elems := &ProtoAny{&extension}
+	elems := &ProtoAny{typeConfig: &extension}
 	return elems, nil
 }
 
@@ -308,9 +280,6 @@ func (g *GrpcApiClient) init() {
 		panic(err)
 	}
 	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(conn)
-	g.xDSClusterDiscoverClient = clusterpb.NewClusterDiscoveryServiceClient(conn)
-	g.xDSListenerClient = listenerpb.NewListenerDiscoveryServiceClient(conn)
-	g.xDSAggClient = discoverypb.NewAggregatedDiscoveryServiceClient(conn)
 }
 
 type GRPCClusterManager struct {

@@ -45,6 +45,7 @@ const (
 	ApiTypeREST api.ApiType = 0 + iota // support for 1.0
 	ApiTypeGRPC
 	ApiTypeDUBBO
+	ApiTypeIstioGRPC
 )
 
 var (
@@ -67,9 +68,10 @@ var (
 	}
 
 	ApiTypeValue = map[string]int32{
-		REST_VALUE:  0,
-		GRPC_VALUE:  1,
-		DUBBO_VALUE: 2,
+		REST_VALUE:      0,
+		GRPC_VALUE:      1,
+		DUBBO_VALUE:     2,
+		IstioGRPC_VALUE: 3,
 	}
 )
 

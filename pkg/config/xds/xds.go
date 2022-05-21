@@ -62,6 +62,8 @@ func (a *Xds) createApiManager(config *model.ApiConfigSource,
 	switch config.APIType {
 	case model.ApiTypeGRPC:
 		return apiclient.CreateGrpcApiClient(config, node, a.exitCh, resourceTypes...)
+	case model.ApiTypeIstioGRPC:
+		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceTypes...)
 	default:
 		logger.Errorf("un-support the api type %s", config.APITypeStr)
 		return nil

@@ -18,6 +18,7 @@
 package apiclient
 
 import (
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"reflect"
 )
 
@@ -35,6 +36,7 @@ type (
 
 	ProtoAny struct {
 		typeConfig *v3.TypedExtensionConfig
+		any        *anypb.Any
 	}
 
 	DeltaResources struct {
@@ -48,6 +50,10 @@ func (p *ProtoAny) GetName() string {
 }
 
 func (p *ProtoAny) To(configModel PixiuDynamicConfigModel) error {
+	if p.any != nil {
+		return p.any.UnmarshalTo(configModel)
+	}
+
 	err := p.typeConfig.TypedConfig.UnmarshalTo(configModel)
 	if err != nil {
 		panic(err)
