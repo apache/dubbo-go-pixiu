@@ -18,6 +18,10 @@
 package server
 
 import (
+	"strings"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -55,6 +59,11 @@ func (am *AdapterManager) initAdapters() {
 		hp, err := adapter.GetAdapterPlugin(f.Name)
 		if err != nil {
 			logger.Error("initAdapters get plugin error %s", err)
+		}
+
+		if len(f.Enabled) > 0 && !strings.EqualFold(f.Enabled, "true") {
+			logger.Warnf("the Adapter %s will stop starting, by config of Enabled : %s", f.Name, f.Enabled)
+			return
 		}
 
 		hf, err := hp.CreateAdapter(f)
