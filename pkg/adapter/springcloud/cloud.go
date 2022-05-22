@@ -372,7 +372,3 @@ func (a *CloudAdapter) stop() error {
 func (a *CloudAdapter) subscribeServiceDefinitely() bool {
 	return strings.EqualFold(a.cfg.SubscribePolicy, Definitely.String())
 }
-
-func (a *CloudAdapter) subscribeServiceAdapting() bool {
-	return strings.EqualFold(a.cfg.SubscribePolicy, Adapting.String())
-}
