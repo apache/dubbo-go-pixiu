@@ -14,24 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package rand
+package healthcheck
 
 import (
-	"math/rand"
+	"net"
+	"time"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRand, Rand{})
+type TCPChecker struct {
+	addr    string
+	timeout time.Duration
 }
 
-type Rand struct{}
-
-func (Rand) Handler(c *model.ClusterConfig) *model.Endpoint {
-	return c.GetEndpoint(true)[rand.Intn(len(c.Endpoints))]
+func (s *TCPChecker) CheckHealth() bool {
+	conn, err := net.DialTimeout("tcp", s.addr, s.timeout)
+	if err != nil {
+		logger.Infof("[health check] tcp checker for host %s error: %v", s.addr, err)
+		return false
+	}
+	conn.Close()
+	return true
 }
+
+func (s *TCPChecker) OnTimeout() {}
