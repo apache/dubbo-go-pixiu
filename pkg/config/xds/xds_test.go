@@ -121,7 +121,8 @@ func TestAdapter_createApiManager(t *testing.T) {
 			store.EXPECT().Config().Return([]*model.ClusterConfig{cluster})
 			return store, nil
 		})
-		clusterMg.EXPECT().HasCluster("cluster-2").Return(false)
+		// delete this stub by #https://github.com/golang/mock/issues/530
+		//clusterMg.EXPECT().HasCluster("cluster-2").Return(false)
 		apiclient.Init(clusterMg)
 	}
 
