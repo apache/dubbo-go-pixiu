@@ -156,8 +156,30 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	inIArr := make([]interface{}, 3)
 	inVArr := make([]reflect.Value, 3)
 	inIArr[0] = method
-	inIArr[1] = []string{mapBody["types"].(string)}
-	inIArr[2] = []hessian.Object{mapBody["values"]}
+
+	var (
+		typesList  []string
+		valuesList []hessian.Object
+	)
+
+	types := mapBody["types"]
+	if typesString, ok := types.(string); ok {
+		typesList = strings.Split(typesString, ",")
+	} else if _, ok = types.([]string); ok {
+		typesList = types.([]string)
+	}
+
+	values := mapBody["values"]
+	if _, ok := values.([]interface{}); ok {
+		for _, v := range values.([]interface{}) {
+			valuesList = append(valuesList, v)
+		}
+	} else {
+		valuesList = append(valuesList, values)
+	}
+
+	inIArr[1] = typesList
+	inIArr[2] = valuesList
 
 	inVArr[0] = reflect.ValueOf(inIArr[0])
 	inVArr[1] = reflect.ValueOf(inIArr[1])
