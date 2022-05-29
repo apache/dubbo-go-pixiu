@@ -20,6 +20,7 @@ package tracing
 import (
 	"context"
 	"errors"
+	"sync"
 )
 
 import (
@@ -64,15 +65,13 @@ type Holder struct {
 
 // Tracers corresponding to the listening protocol are maintained by the holder
 type TraceDriver struct {
-	Holders map[ProtocolName]*Holder
+	Holders sync.Map
 	Tp      *sdktrace.TracerProvider
 	context context.Context
 }
 
 func NewTraceDriver() *TraceDriver {
-	return &TraceDriver{
-		Holders: make(map[ProtocolName]*Holder),
-	}
+	return &TraceDriver{}
 }
 
 // InitDriver loading BootStrap configuration about trace
@@ -99,14 +98,10 @@ func InitDriver(bs *model.Bootstrap) *TraceDriver {
 
 // GetHolder return the holder of the corresponding protocol. If None, create new holder.
 func (driver *TraceDriver) GetHolder(name ProtocolName) *Holder {
-	holder, ok := driver.Holders[name]
-	if !ok {
-		holder = &Holder{
-			Tracers: make(map[string]Trace),
-		}
-		driver.Holders[name] = holder
-	}
-	return holder
+	holder, _ := driver.Holders.LoadOrStore(name, &Holder{
+		Tracers: make(map[string]Trace),
+	})
+	return holder.(*Holder)
 }
 
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
