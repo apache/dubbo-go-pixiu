@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
 )
 
 import (
@@ -87,13 +86,10 @@ func NewTracer(name tracing.ProtocolName) (tracing.Trace, error) {
 	}
 	holder := driver.GetHolder(name)
 
-	old := holder.ID
-	for !atomic.CompareAndSwapUint64(&holder.ID, old, old+1) {
-		old = holder.ID
-	}
+	newID := holder.ID.Inc()
 	builder := strings.Builder{}
 	builder.WriteString(string(name))
-	builder.WriteString("-" + fmt.Sprint(old))
+	builder.WriteString("-" + fmt.Sprint(newID))
 
 	traceId := builder.String()
 	tmp := driver.Tp.Tracer(traceId)
