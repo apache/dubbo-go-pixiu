@@ -87,9 +87,13 @@ func NewTracer(name tracing.ProtocolName) (tracing.Trace, error) {
 	}
 	holder := driver.GetHolder(name)
 
+	old := holder.ID
+	for !atomic.CompareAndSwapUint64(&holder.ID, old, old+1) {
+		old = holder.ID
+	}
 	builder := strings.Builder{}
 	builder.WriteString(string(name))
-	builder.WriteString("-" + fmt.Sprint(holder.ID))
+	builder.WriteString("-" + fmt.Sprint(old))
 
 	traceId := builder.String()
 	tmp := driver.Tp.Tracer(traceId)
@@ -100,8 +104,6 @@ func NewTracer(name tracing.ProtocolName) (tracing.Trace, error) {
 	}
 
 	holder.Tracers[traceId] = tracing.TraceFactory[name](tracer)
-
-	atomic.AddUint64(&holder.ID, 1)
 	return holder.Tracers[traceId], nil
 }
 
@@ -111,12 +113,13 @@ func GetTracer(name tracing.ProtocolName, tracerID string) (tracing.Trace, error
 	if driver == nil {
 		return nil, errors.New("You must specify the exporter in conf.yaml first\n")
 	}
-	holder, ok := driver.Holders[name]
+	holder, ok := driver.Holders.Load(name)
+	newHolder := holder.(*tracing.Holder)
 	if !ok {
 		return nil, errors.New("can not find any tracer, please call NewTracer first\n")
-	} else if _, ok = holder.Tracers[tracerID]; !ok {
+	} else if _, ok = newHolder.Tracers[tracerID]; !ok {
 		return nil, fmt.Errorf("can not find tracer %s with protocol %s\n", tracerID, name)
 	} else {
-		return holder.Tracers[tracerID], nil
+		return newHolder.Tracers[tracerID], nil
 	}
 }
