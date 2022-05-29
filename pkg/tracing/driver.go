@@ -79,7 +79,7 @@ func NewTraceDriver() *TraceDriver {
 func InitDriver(bs *model.Bootstrap) *TraceDriver {
 	config := bs.Trace
 	if config == nil {
-		logger.Warnf("[dubbo-go-pixiu] no trace configuration in conf.yaml")
+		logger.Infof("[dubbo-go-pixiu] no trace configuration in conf.yaml")
 		return nil
 	}
 	ctx := context.Background()
