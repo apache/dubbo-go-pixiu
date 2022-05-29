@@ -42,9 +42,9 @@ func (p *Plugin) Kind() string {
 }
 
 // CreateFilter create grpc network filter
-func (p *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.GRPCConnectionManagerConfig)
-	return grpc.CreateGrpcConnectionManager(hcmc, bs), nil
+	return grpc.CreateGrpcConnectionManager(hcmc), nil
 }
 
 // Config return GRPCConnectionManagerConfig

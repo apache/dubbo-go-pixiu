@@ -26,7 +26,7 @@ import (
 import (
 	monkey "github.com/cch123/supermonkey"
 
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
 
 	"github.com/golang/mock/gomock"
 
@@ -45,7 +45,7 @@ import (
 )
 
 func TestAdapter_createApiManager(t *testing.T) {
-	cluster := &model.Cluster{
+	cluster := &model.ClusterConfig{
 		Name:    "cluster-1",
 		TypeStr: "GRPC",
 		Endpoints: []*model.Endpoint{
@@ -118,10 +118,11 @@ func TestAdapter_createApiManager(t *testing.T) {
 			Return(true)
 		clusterMg.EXPECT().CloneXdsControlStore().DoAndReturn(func() (controls.ClusterStore, error) {
 			store := mocks.NewMockClusterStore(ctrl)
-			store.EXPECT().Config().Return([]*model.Cluster{cluster})
+			store.EXPECT().Config().Return([]*model.ClusterConfig{cluster})
 			return store, nil
 		})
-		clusterMg.EXPECT().HasCluster("cluster-2").Return(false)
+		// delete this stub by #https://github.com/golang/mock/issues/530
+		//clusterMg.EXPECT().HasCluster("cluster-2").Return(false)
 		apiclient.Init(clusterMg)
 	}
 

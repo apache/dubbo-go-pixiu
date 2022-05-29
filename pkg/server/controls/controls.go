@@ -25,14 +25,17 @@ type (
 	ClusterManager interface {
 		RemoveCluster(names []string)
 		HasCluster(name string) bool
-		UpdateCluster(cluster *model.Cluster)
-		AddCluster(cluster *model.Cluster)
+		UpdateCluster(cluster *model.ClusterConfig)
+		AddCluster(cluster *model.ClusterConfig)
 		CloneXdsControlStore() (ClusterStore, error)
 	}
 
 	ListenerManager interface {
+		AddListener(m *model.Listener) error
+		UpdateListener(m *model.Listener) error
 		RemoveListener(names []string)
-		AddOrUpdateListener(m *model.Listener) error
+		HasListener(name string) bool
+		CloneXdsControlListener() ([]*model.Listener, error)
 	}
 
 	DynamicResourceManager interface {
@@ -42,7 +45,7 @@ type (
 	}
 
 	ClusterStore interface {
-		Config() []*model.Cluster
+		Config() []*model.ClusterConfig
 		HasCluster(name string) bool
 	}
 )

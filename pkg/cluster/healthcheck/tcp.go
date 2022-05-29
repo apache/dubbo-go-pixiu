@@ -14,32 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package router
+package healthcheck
 
 import (
-	"net/url"
-	"strings"
+	"net"
+	"time"
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-)
-
-// GetURIParams returns the values retrieved from the rawURL
-func GetURIParams(api *router.API, rawURL url.URL) url.Values {
-	return wildcardMatch(api.URLPattern, rawURL.Path)
+type TCPChecker struct {
+	addr    string
+	timeout time.Duration
 }
 
-// IsWildCardBackendPath checks whether the configured path of
-// the upstream restful service contains parameters
-func IsWildCardBackendPath(api *router.API) bool {
-	if len(api.IntegrationRequest.Path) == 0 {
+func (s *TCPChecker) CheckHealth() bool {
+	conn, err := net.DialTimeout("tcp", s.addr, s.timeout)
+	if err != nil {
+		logger.Infof("[health check] tcp checker for host %s error: %v", s.addr, err)
 		return false
 	}
-	return strings.Contains(api.IntegrationRequest.Path, constant.PathParamIdentifier)
+	conn.Close()
+	return true
 }
+
+func (s *TCPChecker) OnTimeout() {}

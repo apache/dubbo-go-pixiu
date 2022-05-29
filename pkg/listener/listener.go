@@ -30,7 +30,14 @@ var factoryMap = make(map[model.ProtocolType]func(lc *model.Listener, bs *model.
 
 type (
 	ListenerService interface {
+		// Start the listener service
 		Start() error
+		// Close the listener service forcefully
+		Close() error
+		// ShutDown gracefully shuts down the listener.
+		ShutDown() error
+		// Refresh config
+		Refresh(model.Listener) error
 	}
 
 	BaseListenerService struct {

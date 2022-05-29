@@ -18,11 +18,11 @@
 package ratelimit
 
 import (
-	pkgs "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel"
+	"github.com/alibaba/sentinel-golang/core/flow"
 )
 
 import (
-	"github.com/alibaba/sentinel-golang/core/flow"
+	pkgs "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel"
 )
 
 type (
