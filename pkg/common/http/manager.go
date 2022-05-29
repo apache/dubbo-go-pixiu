@@ -50,7 +50,7 @@ type HttpConnectionManager struct {
 }
 
 // CreateHttpConnectionManager create http connection manager
-func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, bs *model.Bootstrap) *HttpConnectionManager {
+func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
 	hcm.pool.New = func() interface{} {
 		return hcm.allocateContext()
@@ -115,7 +115,7 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 		writer := c.Writer
 		writer.WriteHeader(c.GetStatusCode())
 		if _, err := writer.Write(c.TargetResp.Data); err != nil {
-			panic(err)
+			logger.Errorf("write response error: %s", err)
 		}
 	}
 }

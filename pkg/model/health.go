@@ -18,11 +18,21 @@
 package model
 
 // HealthCheck
-type HealthCheck struct{}
+type HealthCheckConfig struct {
+	Protocol            string                 `json:"protocol,omitempty"`
+	TimeoutConfig       string                 `json:"timeout,omitempty"`
+	IntervalConfig      string                 `json:"interval,omitempty"`
+	InitialDelaySeconds string                 `json:"initial_delay_seconds,omitempty"`
+	HealthyThreshold    uint32                 `json:"healthy_threshold,omitempty"`
+	UnhealthyThreshold  uint32                 `json:"unhealthy_threshold,omitempty"`
+	ServiceName         string                 `json:"service_name,omitempty"`
+	SessionConfig       map[string]interface{} `json:"check_config,omitempty"`
+	CommonCallbacks     []string               `json:"common_callbacks,omitempty"`
+}
 
 // HttpHealthCheck
 type HttpHealthCheck struct {
-	HealthCheck
+	HealthCheckConfig
 	Host             string
 	Path             string
 	UseHttp2         bool
@@ -31,14 +41,14 @@ type HttpHealthCheck struct {
 
 // GrpcHealthCheck
 type GrpcHealthCheck struct {
-	HealthCheck
+	HealthCheckConfig
 	ServiceName string
 	Authority   string
 }
 
 // CustomHealthCheck
 type CustomHealthCheck struct {
-	HealthCheck
+	HealthCheckConfig
 	Name   string
 	Config interface{}
 }

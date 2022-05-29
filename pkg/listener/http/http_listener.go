@@ -57,7 +57,7 @@ type (
 )
 
 func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	return &HttpListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -77,6 +77,22 @@ func (ls *HttpListenerService) Start() error {
 	default:
 		return errors.New(fmt.Sprintf("unsupported protocol start: %d", ls.Config.Protocol))
 	}
+	return nil
+}
+
+func (ls *HttpListenerService) Close() error {
+	return ls.srv.Close()
+}
+
+func (ls *HttpListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (ls *HttpListenerService) Refresh(c model.Listener) error {
+	// There is no need to lock here for now, as there is at most one NetworkFilter
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
 	return nil
 }
 

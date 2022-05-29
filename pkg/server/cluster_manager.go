@@ -18,11 +18,13 @@
 package server
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -30,18 +32,22 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
+// generate cluster name for unnamed cluster
+var clusterIndex int32 = 1
+
 type (
 	ClusterManager struct {
 		rw sync.RWMutex
 
 		store *ClusterStore
-		//cConfig []*model.Cluster
+		//cConfig []*model.ClusterConfig
 	}
 
 	// ClusterStore store for cluster array
 	ClusterStore struct {
-		Config  []*model.Cluster `yaml:"config" json:"config"`
-		Version int32            `yaml:"version" json:"version"`
+		Config      []*model.ClusterConfig `yaml:"config" json:"config"`
+		Version     int32                  `yaml:"version" json:"version"`
+		clustersMap map[string]*cluster.Cluster
 	}
 
 	// xdsControlStore help convert ClusterStore to controls.ClusterStore interface
@@ -50,7 +56,7 @@ type (
 	}
 )
 
-func (x *xdsControlStore) Config() []*model.Cluster {
+func (x *xdsControlStore) Config() []*model.ClusterConfig {
 	return x.ClusterStore.Config
 }
 
@@ -61,10 +67,20 @@ func (cm *ClusterManager) CloneXdsControlStore() (controls.ClusterStore, error) 
 }
 
 func CreateDefaultClusterManager(bs *model.Bootstrap) *ClusterManager {
-	return &ClusterManager{store: &ClusterStore{Config: bs.StaticResources.Clusters}}
+	return &ClusterManager{store: newClusterStore(bs)}
 }
 
-func (cm *ClusterManager) AddCluster(c *model.Cluster) {
+func newClusterStore(bs *model.Bootstrap) *ClusterStore {
+	store := &ClusterStore{
+		clustersMap: map[string]*cluster.Cluster{},
+	}
+	for _, cluster := range bs.StaticResources.Clusters {
+		store.AddCluster(cluster)
+	}
+	return store
+}
+
+func (cm *ClusterManager) AddCluster(c *model.ClusterConfig) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
@@ -72,7 +88,7 @@ func (cm *ClusterManager) AddCluster(c *model.Cluster) {
 	cm.store.AddCluster(c)
 }
 
-func (cm *ClusterManager) UpdateCluster(new *model.Cluster) {
+func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
@@ -105,7 +121,9 @@ func (cm *ClusterManager) CloneStore() (*ClusterStore, error) {
 		return nil, err
 	}
 
-	c := &ClusterStore{}
+	c := &ClusterStore{
+		clustersMap: map[string]*cluster.Cluster{},
+	}
 	if err := yaml.UnmarshalYML(b, c); err != nil {
 		return nil, err
 	}
@@ -143,7 +161,7 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 	return nil
 }
 
-func pickOneEndpoint(c *model.Cluster) *model.Endpoint {
+func pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
 	if c.Endpoints == nil || len(c.Endpoints) == 0 {
 		return nil
 	}
@@ -169,7 +187,10 @@ func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 		}
 		for _, name := range namesToDel { // suppose resource to remove and clusters is few
 			if name == cluster.Name {
+				removed := cm.store.Config[i]
+				cm.store.clustersMap[removed.Name].Stop()
 				cm.store.Config[i] = nil
+				delete(cm.store.clustersMap, removed.Name)
 			}
 		}
 	}
@@ -190,12 +211,16 @@ func (cm *ClusterManager) HasCluster(clusterName string) bool {
 	return cm.store.HasCluster(clusterName)
 }
 
-func (s *ClusterStore) AddCluster(c *model.Cluster) {
-
+func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
+	if c.Name == "" {
+		index := atomic.AddInt32(&clusterIndex, 1)
+		c.Name = fmt.Sprintf("cluster%d", index)
+	}
 	s.Config = append(s.Config, c)
+	s.clustersMap[c.Name] = cluster.NewCluster(c)
 }
 
-func (s *ClusterStore) UpdateCluster(new *model.Cluster) {
+func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 
 	for i, c := range s.Config {
 		if c.Name == new.Name {
@@ -207,36 +232,42 @@ func (s *ClusterStore) UpdateCluster(new *model.Cluster) {
 }
 
 func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
+	cluster := s.clustersMap[clusterName]
 
 	for _, c := range s.Config {
 		if c.Name == clusterName {
 			for _, e := range c.Endpoints {
 				// endpoint update
 				if e.ID == endpoint.ID {
+					cluster.RemoveEndpoint(e)
 					e.Name = endpoint.Name
 					e.Metadata = endpoint.Metadata
 					e.Address = endpoint.Address
+					cluster.AddEndpoint(e)
 					return
 				}
 			}
 			// endpoint create
 			c.Endpoints = append(c.Endpoints, endpoint)
+			cluster.AddEndpoint(endpoint)
 			return
 		}
 	}
 
 	// cluster create
-	c := &model.Cluster{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{endpoint}}
+	c := &model.ClusterConfig{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{endpoint}}
 	// not call AddCluster, because lock is not reenter
 	s.Config = append(s.Config, c)
 }
 
 func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
+	cluster := s.clustersMap[clusterName]
 
 	for _, c := range s.Config {
 		if c.Name == clusterName {
 			for i, e := range c.Endpoints {
 				if e.ID == endpointID {
+					cluster.RemoveEndpoint(e)
 					c.Endpoints = append(c.Endpoints[:i], c.Endpoints[i+1:]...)
 					return
 				}

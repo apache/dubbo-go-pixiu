@@ -61,6 +61,12 @@ static_resources:
           socket_address:
             address: 127.0.0.1
             port: 1314
+      health_checks:
+        - protocol: "tcp"
+          timeout: 1s
+          interval: 2s
+          healthy_threshold: 4
+          unhealthy_threshold: 4
   shutdown_config:
     timeout: "60s"
     step_timeout: "10s"

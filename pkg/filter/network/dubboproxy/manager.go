@@ -56,7 +56,7 @@ type DubboProxyConnectionManager struct {
 }
 
 // CreateDubboProxyConnectionManager create dubbo proxy connection manager
-func CreateDubboProxyConnectionManager(config *model.DubboProxyConnectionManagerConfig, bs *model.Bootstrap) *DubboProxyConnectionManager {
+func CreateDubboProxyConnectionManager(config *model.DubboProxyConnectionManagerConfig) *DubboProxyConnectionManager {
 	filterManager := NewDubboFilterManager(config.DubboFilters)
 	hcm := &DubboProxyConnectionManager{config: config, codec: &dubbo.DubboCodec{}, filterManager: filterManager}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&config.RouteConfig)
@@ -159,7 +159,7 @@ func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, e
 		invocation.WithCallBack(old_invoc.CallBack()), invocation.WithParameterValues(inVArr),
 		invocation.WithAttachments(old_invoc.Attachments()))
 
-	path := old_invoc.Attachment(dubboConstant.PathKey).(string)
+	path, _ := old_invoc.GetAttachmentInterface(dubboConstant.PathKey).(string)
 	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, old_invoc.MethodName())
 
 	if err != nil {

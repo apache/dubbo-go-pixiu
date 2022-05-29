@@ -33,7 +33,7 @@ import (
 	dg "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	_ "dubbo.apache.org/dubbo-go/v3/filter/generic"
-	_ "dubbo.apache.org/dubbo-go/v3/filter/gshutdown"
+	_ "dubbo.apache.org/dubbo-go/v3/filter/graceful_shutdown"
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/service/local"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/protocol"
@@ -41,7 +41,7 @@ import (
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
-	fc "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 
 	"github.com/pkg/errors"
 
