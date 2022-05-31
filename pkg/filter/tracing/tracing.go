@@ -76,7 +76,7 @@ func (mf *TraceFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 
 // Docode execute tracerFilter filter logic.
 func (f *TraceFilter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
-	spanName := "HTTP " + hc.Request.Method
+	spanName := "HTTP-" + hc.Request.Method
 	tr, _ := server.NewTracer(tracing.HTTPProtocol)
 	ctxWithId, span := tr.StartSpanFromContext(spanName, hc.Ctx)
 
