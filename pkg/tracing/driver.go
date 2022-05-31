@@ -28,7 +28,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
-	"go.uber.org/atomic"
 )
 
 import (
@@ -61,7 +60,6 @@ const (
 // Unique Name by making Id self-incrementing。
 type Holder struct {
 	Tracers map[string]Trace
-	ID      atomic.Uint64
 }
 
 // Tracers corresponding to the listening protocol are maintained by the holder

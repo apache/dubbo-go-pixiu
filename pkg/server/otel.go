@@ -26,6 +26,8 @@ import (
 )
 
 import (
+	"github.com/google/uuid"
+
 	"go.opentelemetry.io/otel/exporters/prometheus"
 
 	"go.opentelemetry.io/otel/metric/global"
@@ -86,10 +88,10 @@ func NewTracer(name tracing.ProtocolName) (tracing.Trace, error) {
 	}
 	holder := driver.GetHolder(name)
 
-	newID := holder.ID.Inc()
+	newID := uuid.New().String()
 	builder := strings.Builder{}
 	builder.WriteString(string(name))
-	builder.WriteString("-" + fmt.Sprint(newID))
+	builder.WriteString("-" + newID)
 
 	traceId := builder.String()
 	tmp := driver.Tp.Tracer(traceId)
