@@ -147,7 +147,9 @@ func (hc *HealthChecker) startCheck(endpoint *model.Endpoint) {
 	if _, ok := hc.checkers[addr]; !ok {
 		c := newChecker(endpoint, hc)
 		hc.checkers[addr] = c
-		c.Start()
+		go func() {
+			c.Start()
+		}()
 		logger.Infof("[health check] create a health check session for %s", addr)
 	}
 }
