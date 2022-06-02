@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	stdHttp "net/http"
+	"net/http"
 	"reflect"
 	"strings"
 )
@@ -38,7 +38,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	pixiuHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
@@ -90,19 +90,19 @@ func (factory *FilterFactory) Apply() error {
 }
 
 // PrepareFilterChain prepare filter chain
-func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+func (factory *FilterFactory) PrepareFilterChain(ctx *pixiuHttp.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
 
 // Decode handle http request to dubbo direct generic call and return http response
-func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
+func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		logger.Info("[dubbo-go-pixiu] http not match route")
-		bt, _ := json.Marshal(http.ErrResponse{Message: "not match route"})
-		hc.SendLocalReply(stdHttp.StatusNotFound, bt)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "not match route"})
+		hc.SendLocalReply(http.StatusNotFound, bt)
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", rEntry.Cluster)
@@ -112,8 +112,8 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
 		logger.Info("[dubbo-go-pixiu] cluster not found endpoint")
-		bt, _ := json.Marshal(http.ErrResponse{Message: "cluster not found endpoint"})
-		hc.SendLocalReply(stdHttp.StatusServiceUnavailable, bt)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "cluster not found endpoint"})
+		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}
 
@@ -124,8 +124,8 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 
 	if len(splits) != 3 {
 		logger.Info("[dubbo-go-pixiu] http path pattern error. path pattern should be http://127.0.0.1/{application}/{service}/{method}")
-		bt, _ := json.Marshal(http.ErrResponse{Message: "http path pattern error"})
-		hc.SendLocalReply(stdHttp.StatusBadRequest, bt)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "http path pattern error"})
+		hc.SendLocalReply(http.StatusBadRequest, bt)
 		return filter.Stop
 	}
 
@@ -145,8 +145,8 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	rawBody, err := ioutil.ReadAll(hc.Request.Body)
 	if err != nil {
 		logger.Infof("[dubbo-go-pixiu] read request body error %v", err)
-		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("read request body error %v", err)})
-		hc.SendLocalReply(stdHttp.StatusBadRequest, bt)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("read request body error %v", err)})
+		hc.SendLocalReply(http.StatusBadRequest, bt)
 		return filter.Stop
 	}
 
@@ -201,8 +201,8 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	)
 	if err != nil {
 		logger.Infof("[dubbo-go-pixiu] newURL error %v", err)
-		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("newURL error %v", err)})
-		hc.SendLocalReply(stdHttp.StatusServiceUnavailable, bt)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("newURL error %v", err)})
+		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}
 
@@ -212,8 +212,8 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	invoker := dubboProtocol.Refer(url)
 	if invoker == nil {
 		logger.Info("[dubbo-go-pixiu] dubbo protocol refer error")
-		bt, _ := json.Marshal(http.ErrResponse{Message: "dubbo protocol refer error"})
-		hc.SendLocalReply(stdHttp.StatusServiceUnavailable, bt)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "dubbo protocol refer error"})
+		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}
 	var resp interface{}
@@ -225,8 +225,8 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 
 	if result.Error() != nil {
 		logger.Debugf("[dubbo-go-pixiu] invoke result error %v", result.Error())
-		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("invoke result error %v", result.Error())})
-		hc.SendLocalReply(stdHttp.StatusServiceUnavailable, bt)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("invoke result error %v", result.Error())})
+		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}
 
