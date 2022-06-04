@@ -137,11 +137,13 @@ func (dc *Client) Apply() error {
 			v.Protocol = defaultDubboProtocol
 		}
 		rootConfigBuilder.AddRegistry(k, &dg.RegistryConfig{
-			Protocol: v.Protocol,
-			Address:  v.Address,
-			Timeout:  v.Timeout,
-			Username: v.Username,
-			Password: v.Password,
+			Protocol:  v.Protocol,
+			Address:   v.Address,
+			Timeout:   v.Timeout,
+			Username:  v.Username,
+			Password:  v.Password,
+			Namespace: v.Namespace,
+			Group:     v.Group,
 		})
 	}
 	rootConfigBuilder.SetApplication(defaultApplication)

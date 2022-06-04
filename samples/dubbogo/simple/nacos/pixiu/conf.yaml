@@ -48,6 +48,8 @@ static_resources:
                             address: "127.0.0.1:8848"
                             username: ""
                             password: ""
+                            group: test-group
+                            namespace: 3f327741-31ec-43f8-bb4c-e63c44e17b81
   adapters:
     - id: test
       name: dgp.adapter.dubboregistrycenter
@@ -57,3 +59,7 @@ static_resources:
             protocol: nacos
             address: "127.0.0.1:8848"
             timeout: "5s"
+            username: ""
+            password: ""
+            group: test-group
+            namespace: 3f327741-31ec-43f8-bb4c-e63c44e17b81
