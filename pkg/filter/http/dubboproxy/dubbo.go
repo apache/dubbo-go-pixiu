@@ -151,7 +151,12 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	}
 
 	mapBody := map[string]interface{}{}
-	json.Unmarshal(rawBody, &mapBody)
+	if err := json.Unmarshal(rawBody, &mapBody); err != nil {
+		logger.Infof("[dubbo-go-pixiu] unmarshal request body error %v", err)
+		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("unmarshal request body error %v", err)})
+		hc.SendLocalReply(http.StatusBadRequest, bt)
+		return filter.Stop
+	}
 
 	inIArr := make([]interface{}, 3)
 	inVArr := make([]reflect.Value, 3)
@@ -233,6 +238,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	value := reflect.ValueOf(result.Result())
 	result.SetResult(value.Elem().Interface())
 	hc.SourceResp = resp
+	invoker.Destroy()
 	// response write in hcm
 	return filter.Continue
 }
