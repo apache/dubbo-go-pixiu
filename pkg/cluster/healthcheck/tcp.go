@@ -14,13 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package healthcheck
 
-package model
+import (
+	"net"
+	"time"
+)
 
-// Adapter the adapter plugin for manage cluster or router
-type Adapter struct {
-	ID      string                 `yaml:"id" json:"id"`
-	Name    string                 `yaml:"name" json:"name"` // Name the adapter unique name
-	Enabled string                 `yaml:"enabled" json:"enabled" default:"true"`
-	Config  map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"` // Config adapter config
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
+
+type TCPChecker struct {
+	addr    string
+	timeout time.Duration
 }
+
+func (s *TCPChecker) CheckHealth() bool {
+	conn, err := net.DialTimeout("tcp", s.addr, s.timeout)
+	if err != nil {
+		logger.Infof("[health check] tcp checker for host %s error: %v", s.addr, err)
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func (s *TCPChecker) OnTimeout() {}

@@ -16,30 +16,30 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# dubbo server yaml configure file
-# application config
-dubbo:
-  application:
-    name: BDTService
-  registries:
-    nacos:
-      protocol: nacos
-      timeout: 3s
-      address: 127.0.0.1:8848
-      username: nacos
-      password: nacos
-      group: test-group
-      namespace: 3f327741-31ec-43f8-bb4c-e63c44e17b81
-  protocols:
-    dubbo:
-      name: dubbo
-      port: 20010
-  provider:
-    registry-ids: nacos
-    services:
-      UserProvider:
-        group: test
-        version: 1.0.0
-        cluster: test_dubbo
-        serialization: hessian2
-        interface: com.dubbogo.pixiu.UserService
+level: "debug"
+development: true
+disableCaller: false
+disableStacktrace: false
+sampling:
+encoding: "console"
+
+# encoder
+encoderConfig:
+  messageKey: "message"
+  levelKey: "level"
+  timeKey: "time"
+  nameKey: "logger"
+  callerKey: "caller"
+  stacktraceKey: "stacktrace"
+  lineEnding: ""
+  levelEncoder: "capitalColor"
+  timeEncoder: "iso8601"
+  durationEncoder: "seconds"
+  callerEncoder: "short"
+  nameEncoder: ""
+
+outputPaths:
+  - "stderr"
+errorOutputPaths:
+  - "stderr"
+initialFields:
