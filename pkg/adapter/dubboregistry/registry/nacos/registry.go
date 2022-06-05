@@ -44,6 +44,9 @@ func init() {
 }
 
 type NacosRegistry struct {
+	Group     string
+	Namespace string
+
 	*baseRegistry.BaseRegistry
 	nacosListeners map[registry.RegisteredType]registry.Listener
 	client         naming_client.INamingClient
@@ -76,13 +79,18 @@ func newNacosRegistry(regConfig model.Registry, adapterListener common.RegistryE
 	scs := []nacosConstant.ServerConfig{
 		*nacosConstant.NewServerConfig(addrAndIP[0], uint64(port)),
 	}
+	ccs := nacosConstant.NewClientConfig(nacosConstant.WithNamespaceId(regConfig.Namespace))
 	client, err := clients.NewNamingClient(vo.NacosClientParam{
 		ServerConfigs: scs,
+		ClientConfig:  ccs,
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	nacosRegistry := &NacosRegistry{
+		Group:          regConfig.Group,
+		Namespace:      regConfig.Namespace,
 		client:         client,
 		nacosListeners: make(map[registry.RegisteredType]registry.Listener),
 	}
