@@ -18,7 +18,7 @@
 package server
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api"
 
 	"github.com/pkg/errors"
 )

@@ -25,8 +25,8 @@ import (
 import (
 	"github.com/cch123/supermonkey"
 
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
-	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
@@ -99,7 +99,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 	clusterMg := mocks.NewMockClusterManager(ctrl)
 	//var deltaResult chan *apiclient.DeltaResources
 	//var deltaErr error
-	supermonkey.Patch((*apiclient.GrpcApiClient).Fetch, func(_ *apiclient.GrpcApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
+	supermonkey.Patch((*apiclient.GrpcExtensionApiClient).Fetch, func(_ *apiclient.GrpcExtensionApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
 		return fetchResult, fetchError
 	})
 	//supermonkey.Patch(server.GetClusterManager, func() *server.ClusterManager {
@@ -137,7 +137,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 	//supermonkey.Patch((*server.ClusterManager).CloneStore, func(_ *server.ClusterManager) (*server.ClusterStore, error) {
 	//	return &server.ClusterStore{}, nil
 	//})
-	//supermonkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
+	//supermonkey.Patch((*apiclient.GrpcExtensionApiClient).Delta, func(_ *apiclient.GrpcExtensionApiClient) (chan *apiclient.DeltaResources, error) {
 	//	return deltaResult, deltaErr
 	//})
 	defer supermonkey.UnpatchAll()
@@ -161,7 +161,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &CdsManager{
-				DiscoverApi: &apiclient.GrpcApiClient{},
+				DiscoverApi: &apiclient.GrpcExtensionApiClient{},
 				clusterMg:   clusterMg,
 			}
 			//reset context value.

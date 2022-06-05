@@ -18,8 +18,8 @@
 package xds
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api"
-	xdspb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api"
+	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
 	"github.com/pkg/errors"
 )
@@ -157,14 +157,16 @@ func (c *CdsManager) makeClusterType(cluster *xdspb.Cluster) model.DiscoveryType
 	return model.DiscoveryTypeValue[cluster.TypeStr]
 }
 
-func (c *CdsManager) makeEndpoints(endpoint *xdspb.Endpoint) []*model.Endpoint {
+func (c *CdsManager) makeEndpoints(endpoint []*xdspb.Endpoint) []*model.Endpoint {
 	r := make([]*model.Endpoint, 0, 1)
-	r = append(r, &model.Endpoint{
-		ID:       endpoint.Id,
-		Name:     endpoint.Name,
-		Address:  c.makeAddress(endpoint),
-		Metadata: endpoint.Metadata,
-	})
+	for _, ep := range endpoint {
+		r = append(r, &model.Endpoint{
+			ID:       ep.Id,
+			Name:     ep.Name,
+			Address:  c.makeAddress(ep),
+			Metadata: ep.Metadata,
+		})
+	}
 	return r
 }
 

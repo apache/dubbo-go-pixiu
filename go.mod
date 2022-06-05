@@ -11,7 +11,7 @@ require (
 	github.com/apache/dubbo-go-hessian2 v1.11.0
 	github.com/cch123/supermonkey v1.0.1
 	github.com/creasty/defaults v1.5.2
-	github.com/dubbogo/dubbo-go-pixiu-filter v0.1.5
+	github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220427143710-d2e48e546d2c
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
 	github.com/dubbogo/gost v1.11.22
 	github.com/dubbogo/grpc-go v1.42.7
@@ -57,3 +57,5 @@ require (
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
+
+replace github.com/dubbo-go-pixiu/pixiu-api => ../pixiu-api

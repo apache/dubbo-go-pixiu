@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	pixiupb "github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds/model"
+	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
 	"github.com/stretchr/testify/require"
 

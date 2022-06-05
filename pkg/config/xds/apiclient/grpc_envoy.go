@@ -20,49 +20,60 @@ package apiclient
 import (
 	"context"
 	"dubbo.apache.org/dubbo-go/v3/common/logger"
-	"fmt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listenerpb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/golang/protobuf/proto"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
+	"regexp"
 	"time"
 )
 
 // CreateEnvoyGrpcApiClient create Grpc type ApiClient
-func CreateEnvoyGrpcApiClient(config *model.ApiConfigSource, node *model.Node,
+func CreateEnvoyGrpcApiClient(
+	config *model.ApiConfigSource,
+	node *model.Node,
 	exitCh chan struct{},
-	typeNames ...ResourceTypeName) *AggGrpcApiClient {
+	typeName ResourceTypeName,
+) *AggGrpcApiClient {
 	v := &AggGrpcApiClient{}
 	v.config = *config
 	v.node = node
 	v.grpcMg = grpcMg
 	v.exitCh = exitCh
-	switch typeNames[0] {
+	switch typeName {
 	case xds.ListenerType:
-		v.resourceNames = []string{resource.ListenerType}
+		v.typeUrl = resource.ListenerType
 	case xds.ClusterType:
-		v.resourceNames = []string{resource.ClusterType}
+		v.typeUrl = resource.ClusterType
+	case xds.EndpointType:
+		v.typeUrl = resource.EndpointType
 	default:
-		logger.Warnf("typeNames should be dubbo-go.pixiu/v1/discovery:cluster or dubbo-go.pixiu/v1/discovery:listener")
-		v.resourceNames = []string{resource.ClusterType}
+		logger.Warnf("typeName should be dubbo-go.pixiu/v1/discovery:cluster or dubbo-go.pixiu/v1/discovery:listener")
+		v.typeUrl = resource.ClusterType
 	}
+	v.serviceFilter = regexp.MustCompile(`.+20000.+`) //todo use config value
 	v.init()
 	return v
 }
 
 type (
 	AggGrpcApiClient struct {
-		GrpcApiClient
-		xDSAggClient discoverypb.AggregatedDiscoveryServiceClient
-		interfaceMap *InterfaceMapHandlerImpl
+		GrpcExtensionApiClient
+		xDSAggClient  discoverypb.AggregatedDiscoveryServiceClient
+		serviceFilter *regexp.Regexp //
+
 	}
+
+	discoveryResponseHandler func(any2 []*anypb.Any)
 )
 
 func (g *AggGrpcApiClient) init() {
@@ -86,29 +97,160 @@ func (g *AggGrpcApiClient) init() {
 	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(conn)
 	g.xDSAggClient = discoverypb.NewAggregatedDiscoveryServiceClient(conn)
 
-	g.interfaceMap = NewInterfaceMapHandlerImpl("localhost:18080", "") //todo use config url
 }
 
-func (g *AggGrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
+func (g *AggGrpcApiClient) Fetch(_ string) ([]*ProtoAny, error) {
 	//un-support fetch
 	return nil, nil
 }
 
 func (g *AggGrpcApiClient) Delta() (chan *DeltaResources, error) {
 	outputCh := make(chan *DeltaResources)
-	return outputCh, g.runDelta(outputCh)
+	return outputCh, g.pipeline(outputCh)
 }
 
-func (g *AggGrpcApiClient) runDelta(output chan<- *DeltaResources) error {
+type refEndpoint struct {
+	IsPending bool
+	RawProto  proto.Message
+}
+
+func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
+
+	// all endpoint refer cluster or listener. map[type]map[resource name]endpoint info
+	edsResources := make(map[resource.Type]map[string]refEndpoint)
+	req := g.makeDiscoveryRequest(g.resourceNames, g.typeUrl)
+	var handler discoveryResponseHandler
+	switch g.typeUrl {
+	case resource.ListenerType:
+		return errors.Errorf("not implment for ListenerType")
+	case resource.ClusterType:
+		handler = func(any2 []*anypb.Any) {
+			// only one goroutine handle response, no need to lock for local var.
+			for _, res := range any2 {
+				logger.Infof("new resource found %s", res.TypeUrl)
+				c := clusterpb.Cluster{}
+				if err := res.UnmarshalTo(&c); err != nil {
+					logger.Warnf("can not decode source %s , %v", res.TypeUrl, res)
+					//return nil, errors.Wrap(err, "unmarshal error")
+					continue
+				}
+				//needn't lock edsResources
+				g.getClusterResourceReference(&c, edsResources)
+			}
+
+			pendingResourceNames := make([]string, 0)
+			clusterRefEndpoints := edsResources[resource.ClusterType]
+			// list all pending pendingResourceNames
+			for name, b := range clusterRefEndpoints {
+				if b.IsPending {
+					pendingResourceNames = append(pendingResourceNames, name)
+				}
+			}
+
+			// do not block, watch new resource at another goroutine
+			err := g.runEndpointReferences(pendingResourceNames, func(any2 []*anypb.Any) {
+				// run on another goroutine
+
+				extCluster := xdspb.PixiuExtensionClusters{
+					Clusters: []*xdspb.Cluster{
+						{
+							Name:             "",
+							TypeStr:          xds.ClusterType,
+							Type:             0,
+							EdsClusterConfig: nil,
+							LbStr:            "",
+							Lb:               0,
+							HealthChecks:     nil,
+							Endpoints:        make([]*xdspb.Endpoint, 0, len(any2)),
+						},
+					},
+				}
+
+				for _, one := range any2 {
+					l := endpointpb.ClusterLoadAssignment{}
+					if err := one.UnmarshalTo(&l); err != nil {
+						logger.Warnf("unmarshal error", err)
+						continue
+					}
+					c := clusterRefEndpoints[l.ClusterName].RawProto.(*clusterpb.Cluster)
+					logger.Infof("endpoint ==> %s, %v", l.ClusterName, l.Endpoints)
+					extCluster.Clusters[0].Name = c.Name
+					for _, ep := range l.Endpoints {
+						address := ep.LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress()
+						extCluster.Clusters[0].Endpoints = append(extCluster.Clusters[0].Endpoints, &xdspb.Endpoint{
+							Id:   "",
+							Name: "",
+							Address: &xdspb.SocketAddress{
+								Address: address.Address,
+								Port:    int64(address.GetPortValue()),
+							},
+							Metadata: nil,
+						})
+					}
+				}
+
+				//make output
+				output <- &DeltaResources{
+					NewResources: []*ProtoAny{
+						{
+							typeConfig: &envoyconfigcorev3.TypedExtensionConfig{
+								Name: "cluster", //todo cluster name
+								TypedConfig: func() *anypb.Any { //make any.Any from extCluster
+									a, err := anypb.New(&extCluster)
+									if err != nil {
+										logger.Warnf("can not make anypb.Any %v", err)
+										return nil
+									}
+									return a
+								}(),
+							},
+						},
+					},
+					RemovedResource: nil,
+				}
+			})
+			if err != nil { //todo retry
+				logger.Errorf("can not run reference request %v", err)
+			}
+		}
+
+	default:
+		return errors.Errorf("nedd listenerType of clusterType but get %s", g.typeUrl)
+	}
+
+	if err := g.runDelta(req, handler); err != nil {
+		return errors.WithMessagef(err, "start run %s failed", req.TypeUrl)
+	}
+
+	return nil
+}
+
+// request EDS for the allResourceNames
+func (g *AggGrpcApiClient) runEndpointReferences(allResourceNames []string,
+	output discoveryResponseHandler) (err error) {
+
+	//todo reload all request
+	req := g.makeDiscoveryRequest(allResourceNames, resource.EndpointType)
+	if err := g.runDelta(req, output); err != nil {
+		return errors.WithMessagef(err, "start run %s failed", req.TypeUrl)
+	}
+	return nil
+}
+
+// runDelta start 2 goroutine to and watch change
+func (g *AggGrpcApiClient) runDelta(req *discoverypb.DiscoveryRequest, output discoveryResponseHandler) error {
 	var delta discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	var cancel context.CancelFunc
+	var xState xdsState
+	//read resource list
 	backoff := func() {
+		xState = xdsState{}
 		for {
 			//back off
 			var err error
 			var ctx context.Context // context to sync exitCh
 			ctx, cancel = context.WithCancel(context.TODO())
-			delta, err = g.sendInitAggRequest(ctx)
+			delta, err = g.sendInitAggRequest(ctx, req, &xState)
 			if err != nil {
 				logger.Error("can not receive delta discovery request, will back off 1 sec later", err)
 				select {
@@ -117,7 +259,6 @@ func (g *AggGrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 					logger.Infof("get close single.")
 					return
 				}
-
 				continue //backoff
 			}
 			return //success
@@ -137,20 +278,15 @@ func (g *AggGrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 	//get message
 	go func() {
 		for { // delta response backoff.
-			for { //loop consume recv data form xds server(sendInitDeltaRequest)
+			for { //loop consume receive data form xds server(sendInitDeltaRequest)
 				resp, err := delta.Recv()
 				if err != nil { //todo backoff retry
 					logger.Error("can not receive delta discovery request", err)
 					break
 				}
-				g.handleDeltaResponse(resp, output)
-
-				//err = g.subscribeOnGoingChang(delta)
-				//if err != nil {
-				//	logger.Error("can not recv delta discovery request", err)
-				//	break
-				//}
+				g.handleDeltaResponse(resp, &xState, output)
 			}
+			//todo no backoff check
 			backoff()
 		}
 	}()
@@ -158,73 +294,42 @@ func (g *AggGrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 	return nil
 }
 
-func (g *AggGrpcApiClient) handleDeltaResponse(resp *discoverypb.DiscoveryResponse, output chan<- *DeltaResources) {
+func (g *AggGrpcApiClient) handleDeltaResponse(resp *discoverypb.DiscoveryResponse, xdsState *xdsState, handler discoveryResponseHandler) {
 	// save the xds state
-	g.xdsState.deltaVersion = make(map[string]string, 1)
-	g.xdsState.nonce = resp.Nonce
-	g.xdsState.versionInfo = resp.VersionInfo
-
-	resources := &DeltaResources{
-		NewResources:    make([]*ProtoAny, 0, 1),
-		RemovedResource: make([]string, 0, 1),
-	}
-	logger.Infof("get xDS message nonce, %s", resp.Nonce)
-	//for _, res := range resp.Resources { todo
-	//	logger.Infof("remove resource found %x", res)
-	//	resources.RemovedResource = append(resources.RemovedResource, res.TypeUrl) //todo
-	//}
-
-	dubboService, err := g.interfaceMap.GetServiceUniqueKeyHostAddrMapFromPilot()
-	if err != nil {
-		logger.Warnf("cannot get dubbo sevice", err)
-		return
-	}
-
-	logger.Infof("all dubbo service is: %v", dubboService)
-
-	for _, res := range resp.Resources {
-		logger.Infof("new resource found %s version=%s", res.TypeUrl)
-		//g.xdsState.deltaVersion[res.Name] = res.Version // needn't to do this
-		elems, err := g.decodeSource(res)
-		if err != nil {
-			logger.Warnf("can not decode source %s , %v", res.TypeUrl, res)
-		}
-		resources.NewResources = append(resources.NewResources, elems)
-	}
+	xdsState.deltaVersion = make(map[string]string, 1)
+	xdsState.nonce = resp.Nonce
+	xdsState.versionInfo = resp.VersionInfo
+	handler(resp.Resources)
 	//notify the resource change handler
 	//output <- resources
 }
 
-func (g *AggGrpcApiClient) sendInitAggRequest(ctx context.Context) (stream discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient, err error) {
+func (g *AggGrpcApiClient) sendInitAggRequest(ctx context.Context, req *discoverypb.DiscoveryRequest, xState *xdsState) (stream discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient, err error) {
+	req.VersionInfo = xState.versionInfo
+	req.ResponseNonce = xState.nonce
 	stream, err = g.xDSAggClient.StreamAggregatedResources(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
 	}
 
-	err = stream.Send(&discoverypb.DiscoveryRequest{
-		VersionInfo:   "localVersion",
-		Node:          g.makeNode(),
-		ResourceNames: nil,
-		TypeUrl:       resource.FetchRoutes, //g.resourceNames[0], //"type.googleapis.com/envoy.config.listener.v3.Listener",
-		ResponseNonce: g.xdsState.nonce,
-		ErrorDetail:   nil, //todo use error detail
-	})
+	err = stream.Send(req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
 	}
 	return
 }
 
-func (g *AggGrpcApiClient) subscribeOnGoingChang(delta discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := delta.Send(&discoverypb.DiscoveryRequest{
-		VersionInfo:   g.xdsState.versionInfo,
+func (g *AggGrpcApiClient) makeDiscoveryRequest(resources []string,
+	typeUrl string,
+) *discoverypb.DiscoveryRequest {
+	return &discoverypb.DiscoveryRequest{
+		//VersionInfo:   xdsState.versionInfo,
 		Node:          g.makeNode(),
-		ResourceNames: nil,
-		TypeUrl:       g.resourceNames[0], //"type.googleapis.com/envoy.config.listener.v3.Listener",
-		ResponseNonce: g.xdsState.nonce,
-		ErrorDetail:   nil, //todo use error detail
-	})
-	return err
+		ResourceNames: resources, //[]string{"outbound|20000||dubbo-go-app.default.svc.cluster.local"},
+		TypeUrl:       typeUrl,   //"type.googleapis.com/envoy.config.listener.v3.Listener",
+		//ResponseNonce: xdsState.nonce,
+		ErrorDetail: nil, //todo use error detail
+	}
 }
 
 func (g *AggGrpcApiClient) makeNode() *envoyconfigcorev3.Node {
@@ -249,22 +354,28 @@ func (g *AggGrpcApiClient) makeNode() *envoyconfigcorev3.Node {
 	}
 }
 
-func (g *AggGrpcApiClient) decodeSource(oneResource *anypb.Any) (*ProtoAny, error) {
-	switch oneResource.GetTypeUrl() {
-	case resource.ListenerType:
-		l := listenerpb.Listener{}
-		if err := oneResource.UnmarshalTo(&l); err != nil {
-			return nil, errors.Wrap(err, "unmarshal error")
-		}
-	case resource.ClusterType:
-		l := clusterpb.Cluster{}
-		if err := oneResource.UnmarshalTo(&l); err != nil {
-			return nil, errors.Wrap(err, "unmarshal error")
-		}
-		fmt.Println("xxxx->>>", l.Metadata)
-	default:
-		return nil, errors.Errorf("unkown typeurl of %s", oneResource.TypeUrl)
+// getClusterResourceReference get resources of cluster
+func (g *AggGrpcApiClient) getClusterResourceReference(l *clusterpb.Cluster, edsResources map[resource.Type]map[string]refEndpoint) {
+	if !g.serviceFilter.MatchString(l.Name) { // filter
+		return
 	}
-	elems := &ProtoAny{any: oneResource}
-	return elems, nil
+
+	switch typ := l.ClusterDiscoveryType.(type) {
+	case *clusterpb.Cluster_Type:
+		if typ.Type == clusterpb.Cluster_EDS {
+			name := l.Name
+			if l.EdsClusterConfig != nil && l.EdsClusterConfig.ServiceName != "" {
+				name = l.EdsClusterConfig.ServiceName
+			}
+
+			if _, ok := edsResources[resource.ClusterType]; !ok {
+				edsResources[resource.ClusterType] = make(map[string]refEndpoint)
+			}
+
+			edsResources[resource.ClusterType][name] = refEndpoint{
+				IsPending: true,
+				RawProto:  l,
+			}
+		}
+	}
 }

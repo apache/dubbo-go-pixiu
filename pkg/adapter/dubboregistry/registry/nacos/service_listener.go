@@ -26,7 +26,7 @@ import (
 	dubboRegistry "dubbo.apache.org/dubbo-go/v3/registry"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/nacos"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 )
 

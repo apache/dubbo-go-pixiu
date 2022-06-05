@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
 )
 
 import (
@@ -54,16 +54,16 @@ type (
 
 func (a *Xds) createApiManager(config *model.ApiConfigSource,
 	node *model.Node,
-	resourceTypes ...apiclient.ResourceTypeName) DiscoverApi {
+	resourceType apiclient.ResourceTypeName) DiscoverApi {
 	if config == nil {
 		return nil
 	}
 
 	switch config.APIType {
 	case model.ApiTypeGRPC:
-		return apiclient.CreateGrpcApiClient(config, node, a.exitCh, resourceTypes...)
+		return apiclient.CreateGrpExtensionApiClient(config, node, a.exitCh, resourceType)
 	case model.ApiTypeIstioGRPC:
-		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceTypes...)
+		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType)
 	default:
 		logger.Errorf("un-support the api type %s", config.APITypeStr)
 		return nil

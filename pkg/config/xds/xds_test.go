@@ -26,7 +26,7 @@ import (
 import (
 	monkey "github.com/cch123/supermonkey"
 
-	"github.com/dubbogo/dubbo-go-pixiu-filter/pkg/xds"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
 
 	"github.com/golang/mock/gomock"
 
@@ -100,10 +100,10 @@ func TestAdapter_createApiManager(t *testing.T) {
 	//	}, nil
 	//})
 
-	monkey.Patch((*apiclient.GrpcApiClient).Fetch, func(_ *apiclient.GrpcApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
+	monkey.Patch((*apiclient.GrpcExtensionApiClient).Fetch, func(_ *apiclient.GrpcExtensionApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
 		return nil, nil
 	})
-	monkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
+	monkey.Patch((*apiclient.GrpcExtensionApiClient).Delta, func(_ *apiclient.GrpcExtensionApiClient) (chan *apiclient.DeltaResources, error) {
 		ch := make(chan *apiclient.DeltaResources)
 		close(ch)
 		return ch, nil
