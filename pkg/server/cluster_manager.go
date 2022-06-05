@@ -167,7 +167,10 @@ func pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
 	}
 
 	if len(c.Endpoints) == 1 {
-		return c.Endpoints[0]
+		if !c.Endpoints[0].UnHealthy {
+			return c.Endpoints[0]
+		}
+		return nil
 	}
 
 	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
