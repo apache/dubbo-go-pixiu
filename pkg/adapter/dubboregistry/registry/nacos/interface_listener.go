@@ -32,7 +32,6 @@ import (
 	dubboRegistry "dubbo.apache.org/dubbo-go/v3/registry"
 
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
 
@@ -83,6 +82,8 @@ func (z *nacosIntfListener) WatchAndHandle() {
 	z.dubbogoNacosRegistry, err = dubboConfig.NewRegistryConfigBuilder().
 		SetProtocol("nacos").
 		SetAddress(z.addr).
+		SetGroup(z.reg.Group).
+		SetNamespace(z.reg.Namespace).
 		Build().GetInstance(dubboCommon.CONSUMER)
 	if err != nil {
 		logger.Errorf("create nacos registry with address = %s error = %s", z.addr, err)
@@ -101,7 +102,9 @@ func (z *nacosIntfListener) watch() {
 	defer delayTimer.Stop()
 	for {
 		serviceList, err := z.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
-			PageSize: 100,
+			GroupName: z.reg.Group,
+			NameSpace: z.reg.Namespace,
+			PageSize:  100,
 		})
 		// error handling
 		if err != nil {
@@ -182,7 +185,7 @@ func (z *nacosIntfListener) updateServiceList(serviceList []string) error {
 				sub := &vo.SubscribeParam{
 					ServiceName:       getSubscribeName(url),
 					SubscribeCallback: l.Callback,
-					GroupName:         nacosConstant.DEFAULT_GROUP,
+					GroupName:         z.reg.Group,
 				}
 
 				if err := z.client.Subscribe(sub); err != nil {

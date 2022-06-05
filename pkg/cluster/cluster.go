@@ -15,56 +15,45 @@
  * limitations under the License.
  */
 
-package server
+package cluster
 
 import (
-	"testing"
-)
-
-import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/healthcheck"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-func TestClusterManager(t *testing.T) {
-	bs := &model.Bootstrap{
-		StaticResources: model.StaticResources{
-			Clusters: []*model.ClusterConfig{
-				{
-					Name: "test",
-					Endpoints: []*model.Endpoint{
-						{
-							Address: model.SocketAddress{},
-							ID:      "1",
-						},
-					},
-				},
-			},
-		},
+type Cluster struct {
+	HealthCheck *healthcheck.HealthChecker
+	Config      *model.ClusterConfig
+}
+
+func NewCluster(clusterConfig *model.ClusterConfig) *Cluster {
+	c := &Cluster{
+		Config: clusterConfig,
 	}
 
-	cm := CreateDefaultClusterManager(bs)
-	assert.Equal(t, len(cm.store.Config), 1)
+	// only handle one health checker
+	if len(c.Config.HealthChecks) != 0 {
+		c.HealthCheck = healthcheck.CreateHealthCheck(clusterConfig, c.Config.HealthChecks[0])
+		c.HealthCheck.Start()
+	}
+	return c
+}
 
-	cm.AddCluster(&model.ClusterConfig{
-		Name: "test2",
-		Endpoints: []*model.Endpoint{
-			{
-				Address: model.SocketAddress{},
-				ID:      "1",
-			},
-		},
-	})
+func (c *Cluster) Stop() {
+	if c.HealthCheck != nil {
+		c.HealthCheck.Stop()
+	}
+}
 
-	assert.Equal(t, len(cm.store.Config), 2)
+func (c *Cluster) RemoveEndpoint(endpoint *model.Endpoint) {
+	if c.HealthCheck != nil {
+		c.HealthCheck.StopOne(endpoint)
+	}
+}
 
-	cm.SetEndpoint("test2", &model.Endpoint{
-		Address: model.SocketAddress{},
-		ID:      "2",
-	})
-	assert.Equal(t, cm.PickEndpoint("test").ID, "1")
-	cm.DeleteEndpoint("test2", "1")
+func (c *Cluster) AddEndpoint(endpoint *model.Endpoint) {
+	if c.HealthCheck != nil {
+		c.HealthCheck.StartOne(endpoint)
+	}
 }

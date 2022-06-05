@@ -16,30 +16,33 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# dubbo server yaml configure file
-# application config
-dubbo:
-  application:
-    name: BDTService
-  registries:
-    nacos:
-      protocol: nacos
-      timeout: 3s
-      address: 127.0.0.1:8848
-      username: nacos
-      password: nacos
-      group: test-group
-      namespace: 3f327741-31ec-43f8-bb4c-e63c44e17b81
-  protocols:
-    dubbo:
-      name: dubbo
-      port: 20010
-  provider:
-    registry-ids: nacos
-    services:
-      UserProvider:
-        group: test
-        version: 1.0.0
-        cluster: test_dubbo
-        serialization: hessian2
-        interface: com.dubbogo.pixiu.UserService
+---
+static_resources:
+  listeners:
+    - name: "net/http"
+      protocol_type: "HTTP"
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 8883
+      filter_chains:
+          filters:
+            - name: dgp.filter.httpconnectionmanager
+              config:
+                route_config:
+                  routes:
+                    - match:
+                        prefix: "/UserService"
+                      route:
+                        cluster: "user"
+                http_filters:
+                  - name: dgp.filter.http.directdubboproxy
+                    config:
+  clusters:
+    - name: "user"
+      lb_policy: "lb"
+      endpoints:
+        - id: 1
+          socket_address:
+            address: 127.0.0.1
+            port: 20000

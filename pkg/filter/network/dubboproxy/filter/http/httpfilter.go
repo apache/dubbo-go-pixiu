@@ -18,6 +18,7 @@
 package http
 
 import (
+	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -99,7 +100,7 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 
 	invoc := ctx.RpcInvocation
 	// path's format /{service}/{method}
-	interfaceKey := invoc.AttachmentsByKey(constant.InterfaceKey, "")
+	interfaceKey, _ := invoc.GetAttachment(constant.InterfaceKey)
 	// work when invocation is generic
 	// when invocation is generic, there are three value in arguments. first is methodName, second is types, third is values
 	methodName := invoc.Arguments()[0].(string)
@@ -120,10 +121,13 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
+	versionKey, _ := invoc.GetAttachment(dubboConstant.VersionKey)
+	groupKey, _ := invoc.GetAttachment(dubboConstant.GroupKey)
+
 	req.Header.Set(constant.DubboHttpDubboVersion, "1.0.0")
 	req.Header.Set(constant.DubboServiceProtocol, dubbo.DUBBO)
-	req.Header.Set(constant.DubboServiceVersion, invoc.AttachmentsByKey(constant.VersionKey, ""))
-	req.Header.Set(constant.DubboGroup, invoc.AttachmentsByKey(constant.GroupKey, ""))
+	req.Header.Set(constant.DubboServiceVersion, versionKey)
+	req.Header.Set(constant.DubboGroup, groupKey)
 
 	resp, err := (&http3.Client{}).Do(req)
 	if err != nil {

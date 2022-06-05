@@ -33,7 +33,7 @@ import (
 	dg "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	_ "dubbo.apache.org/dubbo-go/v3/filter/generic"
-	_ "dubbo.apache.org/dubbo-go/v3/filter/gshutdown"
+	_ "dubbo.apache.org/dubbo-go/v3/filter/graceful_shutdown"
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/service/local"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/protocol"
@@ -137,11 +137,13 @@ func (dc *Client) Apply() error {
 			v.Protocol = defaultDubboProtocol
 		}
 		rootConfigBuilder.AddRegistry(k, &dg.RegistryConfig{
-			Protocol: v.Protocol,
-			Address:  v.Address,
-			Timeout:  v.Timeout,
-			Username: v.Username,
-			Password: v.Password,
+			Protocol:  v.Protocol,
+			Address:   v.Address,
+			Timeout:   v.Timeout,
+			Username:  v.Username,
+			Password:  v.Password,
+			Namespace: v.Namespace,
+			Group:     v.Group,
 		})
 	}
 	rootConfigBuilder.SetApplication(defaultApplication)

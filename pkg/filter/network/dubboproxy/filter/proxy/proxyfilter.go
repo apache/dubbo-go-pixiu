@@ -105,15 +105,19 @@ func (f Filter) sendDubboRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 	}
 
 	invoc := ctx.RpcInvocation
+	interfaceKey, _ := invoc.GetAttachment(dubboConstant.InterfaceKey)
+	groupKey, _ := invoc.GetAttachment(dubboConstant.GroupKey)
+	versionKey, _ := invoc.GetAttachment(dubboConstant.VersionKey)
+
 	url, err := common.NewURL(endpoint.Address.GetAddress(),
 		common.WithProtocol(dubbo.DUBBO), common.WithParamsValue(dubboConstant.SerializationKey, dubboConstant.Hessian2Serialization),
 		common.WithParamsValue(dubboConstant.GenericFilterKey, "true"),
-		common.WithParamsValue(dubboConstant.InterfaceKey, invoc.AttachmentsByKey(dubboConstant.InterfaceKey, "")),
+		common.WithParamsValue(dubboConstant.InterfaceKey, interfaceKey),
 		common.WithParamsValue(dubboConstant.ReferenceFilterKey, "generic,filter"),
 		// dubboAttachment must contains group and version info
-		common.WithParamsValue(dubboConstant.GroupKey, invoc.AttachmentsByKey(dubboConstant.GroupKey, "")),
-		common.WithParamsValue(dubboConstant.VersionKey, invoc.AttachmentsByKey(dubboConstant.VersionKey, "")),
-		common.WithPath(invoc.AttachmentsByKey(dubboConstant.InterfaceKey, "")),
+		common.WithParamsValue(dubboConstant.GroupKey, groupKey),
+		common.WithParamsValue(dubboConstant.VersionKey, versionKey),
+		common.WithPath(interfaceKey),
 	)
 	if err != nil {
 		ctx.SetError(err)
@@ -156,7 +160,7 @@ func (f Filter) sendTripleRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 	}
 
 	invoc := ctx.RpcInvocation
-	path := invoc.Attachment(dubboConstant.PathKey).(string)
+	path := invoc.GetAttachmentInterface(dubboConstant.PathKey).(string)
 	// create URL from RpcInvocation
 	url, err := common.NewURL(endpoint.Address.GetAddress(),
 		common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(dubboConstant.SerializationKey, dubboConstant.Hessian2Serialization),

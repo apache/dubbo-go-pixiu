@@ -22,7 +22,7 @@ import (
 )
 
 type LoadBalancer interface {
-	Handler(c *model.Cluster) *model.Endpoint
+	Handler(c *model.ClusterConfig) *model.Endpoint
 }
 
 // LoadBalancerStrategy load balancer strategy mode
