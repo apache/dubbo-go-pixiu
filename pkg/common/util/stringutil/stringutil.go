@@ -18,6 +18,8 @@
 package stringutil
 
 import (
+	perrors "github.com/pkg/errors"
+	"net"
 	"strings"
 )
 
@@ -87,4 +89,20 @@ func GetTrieKey(method string, path string) string {
 	}
 	ret = strings.Split(ret, "?")[0]
 	return ret
+}
+
+func GetIPAndPort(address string) ([]*net.TCPAddr, error) {
+	if len(address) <= 0 {
+		return nil, perrors.Errorf("invalid address, %s", address)
+	}
+	tcpAddr := make([]*net.TCPAddr, 0)
+	for _, addrs := range strings.Split(address, ",") {
+		addr, err := net.ResolveTCPAddr("", addrs)
+		if err != nil {
+			return nil, err
+		}
+		tcpAddr = append(tcpAddr, addr)
+	}
+
+	return tcpAddr, nil
 }

@@ -18,11 +18,6 @@
 package nacos
 
 import (
-	"strconv"
-	"strings"
-)
-
-import (
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
@@ -36,6 +31,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	baseRegistry "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/base"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -44,9 +40,6 @@ func init() {
 }
 
 type NacosRegistry struct {
-	Group     string
-	Namespace string
-
 	*baseRegistry.BaseRegistry
 	nacosListeners map[registry.RegisteredType]registry.Listener
 	client         naming_client.INamingClient
@@ -68,18 +61,24 @@ func (n *NacosRegistry) DoUnsubscribe() error {
 var _ registry.Registry = new(NacosRegistry)
 
 func newNacosRegistry(regConfig model.Registry, adapterListener common.RegistryEventListener) (registry.Registry, error) {
-	addrAndIP := strings.Split(regConfig.Address, ":")
-	if len(addrAndIP) != 2 {
-		return nil, errors.Errorf("nacos registry ip:port = %s is invalid, please check.", regConfig.Address)
-	}
-	port, err := strconv.Atoi(addrAndIP[1])
+	addrs, err := stringutil.GetIPAndPort(regConfig.Address)
 	if err != nil {
-		return nil, errors.Errorf("nacos registry port = %s is not number, please check.", addrAndIP[1])
+		return nil, err
 	}
-	scs := []nacosConstant.ServerConfig{
-		*nacosConstant.NewServerConfig(addrAndIP[0], uint64(port)),
+
+	scs := make([]nacosConstant.ServerConfig, 0)
+	for _, addr := range addrs {
+		scs = append(scs, nacosConstant.ServerConfig{
+			IpAddr: addr.IP.String(),
+			Port:   uint64(addr.Port),
+		})
 	}
-	ccs := nacosConstant.NewClientConfig(nacosConstant.WithNamespaceId(regConfig.Namespace))
+
+	ccs := nacosConstant.NewClientConfig(
+		nacosConstant.WithNamespaceId(regConfig.Namespace),
+		nacosConstant.WithUsername(regConfig.Username),
+		nacosConstant.WithPassword(regConfig.Password),
+	)
 	client, err := clients.NewNamingClient(vo.NacosClientParam{
 		ServerConfigs: scs,
 		ClientConfig:  ccs,
@@ -89,12 +88,10 @@ func newNacosRegistry(regConfig model.Registry, adapterListener common.RegistryE
 	}
 
 	nacosRegistry := &NacosRegistry{
-		Group:          regConfig.Group,
-		Namespace:      regConfig.Namespace,
 		client:         client,
 		nacosListeners: make(map[registry.RegisteredType]registry.Listener),
 	}
-	nacosRegistry.nacosListeners[registry.RegisteredTypeInterface] = newNacosIntfListener(client, regConfig.Address, nacosRegistry, adapterListener)
+	nacosRegistry.nacosListeners[registry.RegisteredTypeInterface] = newNacosIntfListener(client, nacosRegistry, &regConfig, adapterListener)
 
 	baseReg := baseRegistry.NewBaseRegistry(nacosRegistry, adapterListener)
 	nacosRegistry.BaseRegistry = baseReg

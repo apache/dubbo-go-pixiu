@@ -28,9 +28,6 @@ import (
 import (
 	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
-	dubboConfig "dubbo.apache.org/dubbo-go/v3/config"
-	dubboRegistry "dubbo.apache.org/dubbo-go/v3/registry"
-
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
@@ -40,6 +37,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
@@ -50,23 +48,24 @@ const (
 var _ registry.Listener = new(nacosIntfListener)
 
 type nacosIntfListener struct {
-	exit                 chan struct{}
-	client               naming_client.INamingClient
-	reg                  *NacosRegistry
-	wg                   sync.WaitGroup
-	dubbogoNacosRegistry dubboRegistry.Registry
-	addr                 string
-	adapterListener      common2.RegistryEventListener
-	serviceInfoMap       map[string]*serviceInfo
+	exit            chan struct{}
+	client          naming_client.INamingClient
+	regConf         *model.Registry
+	reg             *NacosRegistry
+	wg              sync.WaitGroup
+	addr            string
+	adapterListener common2.RegistryEventListener
+	serviceInfoMap  map[string]*serviceInfo
 }
 
 // newNacosIntfListener returns a new nacosIntfListener with pre-defined path according to the registered type.
-func newNacosIntfListener(client naming_client.INamingClient, addr string, reg *NacosRegistry, adapterListener common2.RegistryEventListener) registry.Listener {
+func newNacosIntfListener(client naming_client.INamingClient, reg *NacosRegistry, regConf *model.Registry, adapterListener common2.RegistryEventListener) registry.Listener {
 	return &nacosIntfListener{
 		exit:            make(chan struct{}),
 		client:          client,
+		regConf:         regConf,
 		reg:             reg,
-		addr:            addr,
+		addr:            regConf.Address,
 		adapterListener: adapterListener,
 		serviceInfoMap:  map[string]*serviceInfo{},
 	}
@@ -78,17 +77,6 @@ func (z *nacosIntfListener) Close() {
 }
 
 func (z *nacosIntfListener) WatchAndHandle() {
-	var err error
-	z.dubbogoNacosRegistry, err = dubboConfig.NewRegistryConfigBuilder().
-		SetProtocol("nacos").
-		SetAddress(z.addr).
-		SetGroup(z.reg.Group).
-		SetNamespace(z.reg.Namespace).
-		Build().GetInstance(dubboCommon.CONSUMER)
-	if err != nil {
-		logger.Errorf("create nacos registry with address = %s error = %s", z.addr, err)
-		return
-	}
 	z.wg.Add(1)
 	go z.watch()
 }
@@ -102,8 +90,8 @@ func (z *nacosIntfListener) watch() {
 	defer delayTimer.Stop()
 	for {
 		serviceList, err := z.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
-			GroupName: z.reg.Group,
-			NameSpace: z.reg.Namespace,
+			GroupName: z.regConf.Group,
+			NameSpace: z.regConf.Namespace,
 			PageSize:  100,
 		})
 		// error handling
@@ -185,7 +173,7 @@ func (z *nacosIntfListener) updateServiceList(serviceList []string) error {
 				sub := &vo.SubscribeParam{
 					ServiceName:       getSubscribeName(url),
 					SubscribeCallback: l.Callback,
-					GroupName:         z.reg.Group,
+					GroupName:         z.regConf.Group,
 				}
 
 				if err := z.client.Subscribe(sub); err != nil {
@@ -209,7 +197,6 @@ func (z *nacosIntfListener) updateServiceList(serviceList []string) error {
 
 func getSubscribeName(url *dubboCommon.URL) string {
 	var buffer bytes.Buffer
-
 	buffer.Write([]byte(dubboCommon.DubboNodes[dubboCommon.PROVIDER]))
 	appendParam(&buffer, url, constant.InterfaceKey)
 	appendParam(&buffer, url, constant.VersionKey)
