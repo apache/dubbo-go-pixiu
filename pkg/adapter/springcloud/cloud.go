@@ -287,6 +287,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 		logger.Warnf("fetchCompareAndSet all service error ", err.Error())
 		return
 	}
+	_ = a.watch()
 	// manage cluster and route
 	cm := server.GetClusterManager()
 	rm := server.GetRouterManager()

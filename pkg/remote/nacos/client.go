@@ -21,6 +21,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 import (
@@ -74,7 +75,24 @@ func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {
 	}
 	configMap["serverConfigs"] = serverConfigs
 
-	client, err := clients.CreateNamingClient(configMap)
+	//client, err := clients.CreateNamingClient(configMap)
+
+	duration, err := time.ParseDuration(config.Timeout)
+	client, err := clients.NewNamingClient(
+		vo.NacosClientParam{
+			ClientConfig: constant.NewClientConfig(
+				//constant.WithNamespaceId(""),
+				constant.WithTimeoutMs(uint64(duration.Milliseconds())),
+				constant.WithNotLoadCacheAtStart(true),
+				constant.WithUpdateCacheWhenEmpty(true),
+				//constant.WithLogDir("./log"),
+				//constant.WithCacheDir("./cache"),
+				//constant.WithLogLevel("info"),
+			),
+			ServerConfigs: serverConfigs,
+		},
+	)
+
 	if err != nil {
 		return nil, perrors.WithMessagef(err, "nacos client create error")
 	}
