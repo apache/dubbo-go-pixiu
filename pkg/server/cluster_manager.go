@@ -24,10 +24,6 @@ import (
 )
 
 import (
-	"github.com/dubbogo/gost/hash/consistent"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
@@ -80,7 +76,6 @@ func newClusterStore(bs *model.Bootstrap) *ClusterStore {
 	}
 	for _, c := range bs.StaticResources.Clusters {
 		store.AddCluster(c)
-		store.AddConsistent(c)
 	}
 	return store
 }
@@ -226,6 +221,7 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	}
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
+	c.CreateConsistent()
 }
 
 func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
@@ -300,15 +296,4 @@ func (s *ClusterStore) HasCluster(clusterName string) bool {
 
 func (s *ClusterStore) IncreaseVersion() {
 	atomic.AddInt32(&s.Version, 1)
-}
-
-func (s *ClusterStore) AddConsistent(c *model.ClusterConfig) {
-	if c.LbStr == model.LoadBalanceConsistentHashing {
-		h := consistent.NewConsistentHash(consistent.WithReplicaNum(c.Hash.ReplicaNum),
-			consistent.WithMaxVnodeNum(int(c.Hash.MaxVnodeNum)))
-		for _, endpoint := range c.Endpoints {
-			h.Add(endpoint.Address.Address)
-		}
-		c.Hash.Consistent = h
-	}
 }

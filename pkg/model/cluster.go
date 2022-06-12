@@ -110,3 +110,14 @@ func (c *ClusterConfig) GetEndpoint(mustHealth bool) []*Endpoint {
 	}
 	return endpoints
 }
+
+func (c *ClusterConfig) CreateConsistent() {
+	if c.LbStr == LoadBalanceConsistentHashing {
+		h := consistent.NewConsistentHash(consistent.WithReplicaNum(c.Hash.ReplicaNum),
+			consistent.WithMaxVnodeNum(int(c.Hash.MaxVnodeNum)))
+		for _, endpoint := range c.Endpoints {
+			h.Add(endpoint.Address.Address)
+		}
+		c.Hash.Consistent = h
+	}
+}
