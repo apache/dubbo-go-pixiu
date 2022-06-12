@@ -24,6 +24,10 @@ import (
 )
 
 import (
+	"github.com/dubbogo/gost/hash/consistent"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
@@ -74,8 +78,9 @@ func newClusterStore(bs *model.Bootstrap) *ClusterStore {
 	store := &ClusterStore{
 		clustersMap: map[string]*cluster.Cluster{},
 	}
-	for _, cluster := range bs.StaticResources.Clusters {
-		store.AddCluster(cluster)
+	for _, c := range bs.StaticResources.Clusters {
+		store.AddCluster(c)
+		store.AddConsistent(c)
 	}
 	return store
 }
@@ -153,15 +158,15 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
-	for _, cluster := range cm.store.Config {
-		if cluster.Name == clusterName {
-			return pickOneEndpoint(cluster)
+	for _, c := range cm.store.Config {
+		if c.Name == clusterName {
+			return cm.pickOneEndpoint(c)
 		}
 	}
 	return nil
 }
 
-func pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
+func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
 	if c.Endpoints == nil || len(c.Endpoints) == 0 {
 		return nil
 	}
@@ -184,12 +189,12 @@ func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
-	for i, cluster := range cm.store.Config {
-		if cluster == nil {
+	for i, c := range cm.store.Config {
+		if c == nil {
 			continue
 		}
 		for _, name := range namesToDel { // suppose resource to remove and clusters is few
-			if name == cluster.Name {
+			if name == c.Name {
 				removed := cm.store.Config[i]
 				cm.store.clustersMap[removed.Name].Stop()
 				cm.store.Config[i] = nil
@@ -295,4 +300,15 @@ func (s *ClusterStore) HasCluster(clusterName string) bool {
 
 func (s *ClusterStore) IncreaseVersion() {
 	atomic.AddInt32(&s.Version, 1)
+}
+
+func (s *ClusterStore) AddConsistent(c *model.ClusterConfig) {
+	if c.LbStr == model.LoadBalanceConsistentHashing {
+		h := consistent.NewConsistentHash(consistent.WithReplicaNum(c.Hash.ReplicaNum),
+			consistent.WithMaxVnodeNum(int(c.Hash.MaxVnodeNum)))
+		for _, endpoint := range c.Endpoints {
+			h.Add(endpoint.Address.Address)
+		}
+		c.Hash.Consistent = h
+	}
 }
