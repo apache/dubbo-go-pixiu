@@ -30,10 +30,10 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @SpringBootApplication
 @EnableDiscoveryClient
-public class NacosProviderApplication {
+public class AuthProviderApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(NacosProviderApplication.class, args);
+		SpringApplication.run(AuthProviderApplication.class, args);
 	}
 
 	@RestController

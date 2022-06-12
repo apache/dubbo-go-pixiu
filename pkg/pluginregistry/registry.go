@@ -20,6 +20,8 @@ package pluginregistry
 import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/jwt"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
@@ -28,6 +30,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/header"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/host"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/dubboproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/grpcproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/httpproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/loadbalancer"

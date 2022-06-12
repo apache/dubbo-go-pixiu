@@ -103,15 +103,17 @@ func (c *CdsManager) setupCluster(clusters []*xdspb.Cluster) error {
 	}
 	for _, cluster := range clusters {
 		delete(toRemoveHash, cluster.Name)
+
+		makeCluster := c.makeCluster(cluster)
 		switch {
 		case c.clusterMg.HasCluster(cluster.Name):
 			laterApplies = append(laterApplies, func() error {
-				c.clusterMg.UpdateCluster(c.makeCluster(cluster))
+				c.clusterMg.UpdateCluster(makeCluster)
 				return nil
 			})
 		default:
 			laterApplies = append(laterApplies, func() error {
-				c.clusterMg.AddCluster(c.makeCluster(cluster))
+				c.clusterMg.AddCluster(makeCluster)
 				return nil
 			})
 		}
@@ -137,8 +139,8 @@ func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
 	c.removeCluster(removeClusters)
 }
 
-func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.Cluster {
-	return &model.Cluster{
+func (c *CdsManager) makeCluster(cluster *xdspb.Cluster) *model.ClusterConfig {
+	return &model.ClusterConfig{
 		Name:             cluster.Name,
 		TypeStr:          cluster.TypeStr,
 		Type:             c.makeClusterType(cluster),
@@ -157,15 +159,15 @@ func (c *CdsManager) makeClusterType(cluster *xdspb.Cluster) model.DiscoveryType
 	return model.DiscoveryTypeValue[cluster.TypeStr]
 }
 
-func (c *CdsManager) makeEndpoints(endpoint []*xdspb.Endpoint) []*model.Endpoint {
-	r := make([]*model.Endpoint, 0, 1)
-	for _, ep := range endpoint {
-		r = append(r, &model.Endpoint{
-			ID:       ep.Id,
-			Name:     ep.Name,
-			Address:  c.makeAddress(ep),
-			Metadata: ep.Metadata,
-		})
+func (c *CdsManager) makeEndpoints(endpoints []*xdspb.Endpoint) []*model.Endpoint {
+	r := make([]*model.Endpoint, len(endpoints))
+	for i, endpoint := range endpoints {
+		r[i] = &model.Endpoint{
+			ID:       endpoint.Id,
+			Name:     endpoint.Name,
+			Address:  c.makeAddress(endpoint),
+			Metadata: endpoint.Metadata,
+		}
 	}
 	return r
 }
@@ -183,7 +185,7 @@ func (c *CdsManager) makeAddress(endpoint *xdspb.Endpoint) model.SocketAddress {
 	}
 }
 
-func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []model.HealthCheck) {
+func (c *CdsManager) makeHealthChecks(checks []*xdspb.HealthCheck) (result []model.HealthCheckConfig) {
 	//todo implement me after fix model.HealthCheck type define
 	//result = make([]model.HealthCheck, 0, len(checks))
 	//for _, check := range checks {

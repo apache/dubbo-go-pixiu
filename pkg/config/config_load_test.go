@@ -107,7 +107,7 @@ func TestMain(m *testing.M) {
 					},
 				},
 			},
-			Clusters: []*model.Cluster{
+			Clusters: []*model.ClusterConfig{
 				{
 					Name:    "test_dubbo",
 					TypeStr: "EDS",

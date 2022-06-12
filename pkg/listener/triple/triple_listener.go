@@ -56,7 +56,7 @@ type (
 
 func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain, bs)
+	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
 	ls := &TripleListenerService{
 		BaseListenerService: listener.BaseListenerService{
 			Config:      lc,
@@ -85,6 +85,23 @@ func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener
 // Start start triple server
 func (ls *TripleListenerService) Start() error {
 	ls.server.Start()
+	return nil
+}
+
+func (ls *TripleListenerService) Close() error {
+	ls.server.Stop()
+	return nil
+}
+
+func (ls *TripleListenerService) ShutDown() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (ls *TripleListenerService) Refresh(c model.Listener) error {
+	// There is no need to lock here for now, as there is at most one NetworkFilter
+	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.FilterChain = fc
 	return nil
 }
 

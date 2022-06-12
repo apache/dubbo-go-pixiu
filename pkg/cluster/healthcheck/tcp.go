@@ -14,8 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package healthcheck
 
-package main
+import (
+	"net"
+	"time"
+)
 
-// Version dubbo version
-const Version = "2.7.5"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
+
+type TCPChecker struct {
+	addr    string
+	timeout time.Duration
+}
+
+func (s *TCPChecker) CheckHealth() bool {
+	conn, err := net.DialTimeout("tcp", s.addr, s.timeout)
+	if err != nil {
+		logger.Infof("[health check] tcp checker for host %s error: %v", s.addr, err)
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func (s *TCPChecker) OnTimeout() {}

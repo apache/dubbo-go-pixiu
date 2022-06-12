@@ -29,7 +29,7 @@ import (
 )
 
 import (
-	proto "github.com/golang/protobuf/proto"
+	proto "github.com/golang/protobuf/proto" //nolint
 
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 

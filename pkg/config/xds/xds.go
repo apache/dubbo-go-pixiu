@@ -83,7 +83,7 @@ func (a *Xds) Start() {
 			DiscoverApi: a.createApiManager(a.dynamicResourceMg.GetLds(), a.dynamicResourceMg.GetNode(), xds.ListenerType),
 			listenerMg:  a.listenerMg,
 		}
-		if err := a.lds.Fetch(); err != nil {
+		if err := a.lds.Delta(); err != nil {
 			logger.Errorf("can not fetch lds err is %+v", err)
 		}
 	}

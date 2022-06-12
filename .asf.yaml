@@ -17,14 +17,11 @@
 #
 
 github:
-  protected_branches:
-    develop:
-      required_status_checks:
-        strict: true
-        contexts:
-          - "ubuntu-latest - Go 1.15"
+  protected_branches: ~
 
 notifications:
-     commits:      commits@dubbo.apache.org
-     issues:       notifications@dubbo.apache.org
-     pullrequests: notifications@dubbo.apache.org
+  commits:      commits@dubbo.apache.org
+  issues:       notifications@dubbo.apache.org
+  pullrequests: notifications@dubbo.apache.org
+  jira_options: link label link label
+

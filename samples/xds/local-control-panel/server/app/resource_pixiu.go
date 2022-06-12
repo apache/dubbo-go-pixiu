@@ -25,6 +25,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	structpb2 "google.golang.org/protobuf/types/known/structpb"
@@ -92,9 +93,9 @@ func makeListeners() *pixiupb.PixiuExtensionListeners {
 				Address: &pixiupb.Address{
 					SocketAddress: &pixiupb.SocketAddress{
 						Address: "0.0.0.0",
-						Port:    8888,
+						Port:    8081,
 					},
-					Name: "http_8888",
+					Name: "http_8081",
 				},
 				FilterChain: makeHttpFilter(),
 			},

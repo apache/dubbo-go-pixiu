@@ -15,7 +15,24 @@
  * limitations under the License.
  */
 
-package main
+package tracing
 
-// Version dubbo version
-const Version = "2.7.5"
+import (
+	"context"
+)
+
+import (
+	"go.opentelemetry.io/otel/trace"
+)
+
+// Trace interface need to be implemented to construct your Tracer.
+type Trace interface {
+	// GetID gets ID string
+	GetID() string
+	// StartSpan creates new root span.
+	StartSpan(name string, request interface{}) (context.Context, trace.Span)
+	// StartSpanFromContext creates subSpan.
+	StartSpanFromContext(name string, tx context.Context) (context.Context, trace.Span)
+	// Close deletes trace from holder.
+	Close()
+}

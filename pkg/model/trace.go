@@ -15,7 +15,18 @@
  * limitations under the License.
  */
 
-package main
+package model
 
-// Version dubbo version
-const Version = "2.7.5"
+// TracerConfig inclueds detail information about the exporter
+type TracerConfig struct {
+	Name        string                 `yaml:"name" json:"name" mapstructure:"name"`
+	ServiceName string                 `yaml:"serviceName" json:"serviceName" mapstructure:"serviceName"`
+	Sampler     Sampler                `yaml:"sampler" json:"sampler" mapstructure:"sampler"`
+	Config      map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
+}
+
+// Sampler policy
+type Sampler struct {
+	Type  string  `yaml:"type" json:"type" mapstructure:"type"`
+	Param float64 `yaml:"param" json:"param" mapstructure:"param"`
+}

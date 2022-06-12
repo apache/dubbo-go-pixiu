@@ -19,6 +19,7 @@ package xds
 
 import (
 	"encoding/json"
+	"strconv"
 )
 
 import (
@@ -102,42 +103,68 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 	names := make([]string, 0, len(toRemoveHash))
 	for name := range toRemoveHash {
 		names = append(names, name)
-		l.listenerMg.RemoveListener(names)
 	}
+	l.listenerMg.RemoveListener(names)
 }
 
 // setupListeners setup listeners accord to dynamic resource
 func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
+	//Make sure each one has a unique name like "host-port-protocol"
+	for _, v := range listeners {
+		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), v.Protocol.String())
+	}
+
 	laterApplies := make([]func() error, 0, len(listeners))
 	toRemoveHash := make(map[string]struct{}, len(listeners))
 
-	for _, listener := range listeners {
-		toRemoveHash[listener.Name] = struct{}{}
+	lm := l.listenerMg
+	activeListeners, err := lm.CloneXdsControlListener()
+	if err != nil {
+		logger.Errorf("Clone Xds Control Listener fail: %s", err)
+		return
+	}
+	//put all current listeners to $toRemoveHash
+	for _, v := range activeListeners {
+		//Make sure each one has a unique name like "host-port-protocol"
+		v.Name = resolveListenerName(v.Address.SocketAddress.Address, v.Address.SocketAddress.Port, v.ProtocolStr)
+		toRemoveHash[v.Name] = struct{}{}
 	}
 
 	for _, listener := range listeners {
 		delete(toRemoveHash, listener.Name)
+
 		modelListener := l.makeListener(listener)
 		// add or update later after removes
-		laterApplies = append(laterApplies, func() error {
-			err := l.listenerMg.AddOrUpdateListener(&modelListener)
-			if err != nil {
-				logger.Errorf("can not add/update listener config=> %v", modelListener)
-			}
-			return nil
-		})
+		switch {
+		case lm.HasListener(modelListener.Name):
+			laterApplies = append(laterApplies, func() error {
+				return lm.UpdateListener(&modelListener)
+			})
+		default:
+			laterApplies = append(laterApplies, func() error {
+				return lm.AddListener(&modelListener)
+			})
+		}
 	}
+	// remove the listeners first to prevent tcp port conflict
 	l.removeListeners(toRemoveHash)
-	for _, fn := range laterApplies { //do update and add new cluster.
+	//do update and add new cluster.
+	for _, fn := range laterApplies {
 		if err := fn(); err != nil {
 			logger.Errorf("can not modify listener", err)
 		}
 	}
 }
 
+func resolveListenerName(host string, port int, protocol string) string {
+	return host + "-" + strconv.Itoa(port) + "-" + protocol
+}
+
 func (l *LdsManager) makeListener(listener *xdsModel.Listener) model.Listener {
 	return model.Listener{
 		Name:        listener.Name,
+		ProtocolStr: listener.Protocol.String(),
+		Protocol:    model.ProtocolType(model.ProtocolTypeValue[listener.Protocol.String()]),
 		Address:     l.makeAddress(listener.Address),
 		FilterChain: l.makeFilterChain(listener.FilterChain),
 		Config:      nil, // todo set the additional config

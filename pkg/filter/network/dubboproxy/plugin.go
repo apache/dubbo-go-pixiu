@@ -42,12 +42,12 @@ func (p *Plugin) Kind() string {
 }
 
 // CreateFilter create dubbo networkfilter
-func (p *Plugin) CreateFilter(config interface{}, bs *model.Bootstrap) (filter.NetworkFilter, error) {
+func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
 	hcmc, ok := config.(*model.DubboProxyConnectionManagerConfig)
 	if !ok {
 		panic("CreateFilter occur some exception for the type is not suitable one.")
 	}
-	return CreateDubboProxyConnectionManager(hcmc, bs), nil
+	return CreateDubboProxyConnectionManager(hcmc), nil
 }
 
 // Config return DubboProxyConnectionManagerConfig

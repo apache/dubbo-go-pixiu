@@ -290,7 +290,7 @@ type GRPCClusterManager struct {
 
 type GRPCCluster struct {
 	name   string //cluster name
-	config *model.Cluster
+	config *model.ClusterConfig
 	once   sync.Once
 	conn   *grpc.ClientConn
 }
@@ -311,7 +311,7 @@ func (g *GRPCClusterManager) GetGrpcCluster(name string) (*GRPCCluster, error) {
 		return nil, errors.WithMessagef(err, "clone cluster store failed")
 	}
 
-	var clusterCfg *model.Cluster
+	var clusterCfg *model.ClusterConfig
 	for _, cfg := range store.Config() {
 		if cfg.Name == name {
 			clusterCfg = cfg

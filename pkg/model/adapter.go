@@ -19,7 +19,8 @@ package model
 
 // Adapter the adapter plugin for manage cluster or router
 type Adapter struct {
-	ID     string                 `yaml:"id" json:"id"`
-	Name   string                 `yaml:"name" json:"name"`                           // Name the adapter unique name
-	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"` // Config adapter config
+	ID      string                 `yaml:"id" json:"id"`
+	Name    string                 `yaml:"name" json:"name"` // Name the adapter unique name
+	Enabled string                 `yaml:"enabled" json:"enabled" default:"true"`
+	Config  map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"` // Config adapter config
 }

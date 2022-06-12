@@ -30,7 +30,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 type (
@@ -81,7 +80,7 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 		// CreateFilterFactory return the filter callback
-		CreateFilter(config interface{}, bs *model.Bootstrap) (NetworkFilter, error)
+		CreateFilter(config interface{}) (NetworkFilter, error)
 		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
 		Config() interface{}
 	}

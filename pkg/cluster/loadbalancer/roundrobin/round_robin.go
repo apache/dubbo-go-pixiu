@@ -28,12 +28,13 @@ func init() {
 
 type RoundRobin struct{}
 
-func (RoundRobin) Handler(c *model.Cluster) *model.Endpoint {
-	lens := len(c.Endpoints)
+func (RoundRobin) Handler(c *model.ClusterConfig) *model.Endpoint {
+	endpoints := c.GetEndpoint(true)
+	lens := len(endpoints)
 	if c.PrePickEndpointIndex >= lens {
 		c.PrePickEndpointIndex = 0
 	}
-	e := c.Endpoints[c.PrePickEndpointIndex]
+	e := endpoints[c.PrePickEndpointIndex]
 	c.PrePickEndpointIndex = (c.PrePickEndpointIndex + 1) % lens
 	return e
 }

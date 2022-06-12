@@ -50,13 +50,13 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 			{
 				Name:    "http-baidu",
 				TypeStr: "http",
-				Endpoints: &pixiupb.Endpoint{
+				Endpoints: []*pixiupb.Endpoint{{
 					Id: "backend",
 					Address: &pixiupb.SocketAddress{
 						Address: "httpbin.org",
 						Port:    80,
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -69,13 +69,13 @@ func getCdsConfig() *core.TypedExtensionConfig {
 				{
 					Name:    "http-baidu",
 					TypeStr: "http",
-					Endpoints: &pixiupb.Endpoint{
+					Endpoints: []*pixiupb.Endpoint{{
 						Id: "backend",
 						Address: &pixiupb.SocketAddress{
 							Address: "httpbin.org",
 							Port:    80,
 						},
-					},
+					}},
 				},
 			},
 		}
@@ -91,8 +91,8 @@ func TestCdsManager_Fetch(t *testing.T) {
 	var fetchResult []*apiclient.ProtoAny
 	var fetchError error
 	var cluster = map[string]struct{}{}
-	var updateCluster *model.Cluster
-	var addCluster *model.Cluster
+	var updateCluster *model.ClusterConfig
+	var addCluster *model.ClusterConfig
 	xdsConfig := getCdsConfig()
 
 	ctrl := gomock.NewController(t)
@@ -109,10 +109,11 @@ func TestCdsManager_Fetch(t *testing.T) {
 		_, ok := cluster[clusterName]
 		return ok
 	})
-	clusterMg.EXPECT().UpdateCluster(gomock.Any()).AnyTimes().Do(func(new *model.Cluster) {
+
+	clusterMg.EXPECT().UpdateCluster(gomock.Any()).AnyTimes().Do(func(new *model.ClusterConfig) {
 		updateCluster = new
 	})
-	clusterMg.EXPECT().AddCluster(gomock.Any()).AnyTimes().Do(func(c *model.Cluster) {
+	clusterMg.EXPECT().AddCluster(gomock.Any()).AnyTimes().Do(func(c *model.ClusterConfig) {
 		addCluster = c
 	})
 	clusterMg.EXPECT().RemoveCluster(gomock.Any()).AnyTimes()
@@ -198,7 +199,7 @@ func TestCdsManager_makeCluster(t *testing.T) {
 	assert := require.New(t)
 	assert.Equal(cluster.Name, modelCluster.Name)
 	assert.Equal(cluster.TypeStr, modelCluster.TypeStr)
-	assert.Equal(cluster.Endpoints.Name, modelCluster.Endpoints[0].Name)
-	assert.Equal(cluster.Endpoints.Address.Address, modelCluster.Endpoints[0].Address.Address)
-	assert.Equal(cluster.Endpoints.Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
+	assert.Equal(cluster.Endpoints[0].Name, modelCluster.Endpoints[0].Name)
+	assert.Equal(cluster.Endpoints[0].Address.Address, modelCluster.Endpoints[0].Address.Address)
+	assert.Equal(cluster.Endpoints[0].Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
 }

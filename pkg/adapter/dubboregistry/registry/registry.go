@@ -66,7 +66,7 @@ func SetRegistry(name string, newRegFunc func(model.Registry, common2.RegistryEv
 // GetRegistry will return the registry
 // if not found, it will panic
 func GetRegistry(name string, regConfig model.Registry, listener common2.RegistryEventListener) (Registry, error) {
-	if registry, ok := registryMap[name]; ok {
+	if registry, ok := registryMap[regConfig.Protocol]; ok {
 		reg, err := registry(regConfig, listener)
 		if err != nil {
 			panic("Initialize Registry" + name + "failed due to: " + err.Error())

@@ -32,7 +32,7 @@ import (
 func TestClusterManager(t *testing.T) {
 	bs := &model.Bootstrap{
 		StaticResources: model.StaticResources{
-			Clusters: []*model.Cluster{
+			Clusters: []*model.ClusterConfig{
 				{
 					Name: "test",
 					Endpoints: []*model.Endpoint{
@@ -49,7 +49,7 @@ func TestClusterManager(t *testing.T) {
 	cm := CreateDefaultClusterManager(bs)
 	assert.Equal(t, len(cm.store.Config), 1)
 
-	cm.AddCluster(&model.Cluster{
+	cm.AddCluster(&model.ClusterConfig{
 		Name: "test2",
 		Endpoints: []*model.Endpoint{
 			{
