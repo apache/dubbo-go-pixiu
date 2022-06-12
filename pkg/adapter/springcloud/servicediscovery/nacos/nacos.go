@@ -25,9 +25,10 @@ import (
 )
 
 import (
+	"github.com/nacos-group/nacos-sdk-go/clients/cache"
 	model2 "github.com/nacos-group/nacos-sdk-go/model"
+	"github.com/nacos-group/nacos-sdk-go/util"
 	"github.com/nacos-group/nacos-sdk-go/vo"
-
 	perrors "github.com/pkg/errors"
 )
 
@@ -46,7 +47,8 @@ type nacosServiceDiscovery struct {
 	listener    servicediscovery.ServiceEventListener
 	instanceMap map[string]servicediscovery.ServiceInstance
 
-	cacheLock sync.Mutex
+	cacheLock       sync.Mutex
+	callbackFlagMap cache.ConcurrentMap
 	//done      chan struct{}
 }
 
@@ -58,9 +60,23 @@ func (n *nacosServiceDiscovery) Subscribe() error {
 	serviceNames := n.listener.GetServiceNames()
 
 	for _, serviceName := range serviceNames {
-		subscribeParam := &vo.SubscribeParam{ServiceName: serviceName, SubscribeCallback: n.Callback}
+		subscribeParam := &vo.SubscribeParam{
+			ServiceName:       serviceName,
+			GroupName:         n.config.Group,
+			Clusters:          []string{"DEFAULT"},
+			SubscribeCallback: n.Callback,
+		}
+		key := util.GetServiceCacheKey(util.GetGroupName(subscribeParam.ServiceName, subscribeParam.GroupName), strings.Join(subscribeParam.Clusters, ","))
+		if n.callbackFlagMap.Has(key) {
+			continue
+		}
 		go func() {
-			_ = n.client.Subscribe(subscribeParam)
+			err := n.client.Subscribe(subscribeParam)
+			if err != nil {
+				logger.Warnf("[Pixiu-Nacos] Subscribe %s error %s", subscribeParam.ServiceName, err)
+				return
+			}
+			n.callbackFlagMap.Set(key, true)
 		}()
 	}
 	return nil
@@ -76,6 +92,7 @@ func (n *nacosServiceDiscovery) Unsubscribe() error {
 	for _, serviceName := range serviceNames {
 		subscribeParam := &vo.SubscribeParam{
 			ServiceName:       serviceName,
+			GroupName:         n.config.Group,
 			Clusters:          []string{"DEFAULT"},
 			SubscribeCallback: n.Callback,
 		}
@@ -144,6 +161,7 @@ func (n *nacosServiceDiscovery) QueryServicesByName(serviceNames []string) ([]se
 
 		instances, err := n.client.SelectInstances(vo.SelectInstancesParam{
 			ServiceName: serviceName,
+			GroupName:   n.config.Group,
 			Clusters:    []string{"DEFAULT"},
 			HealthyOnly: true,
 		})
@@ -154,9 +172,6 @@ func (n *nacosServiceDiscovery) QueryServicesByName(serviceNames []string) ([]se
 		}
 
 		for _, instance := range instances {
-			//if !(instance.Valid && instance.Healthy && instance.Enable) {
-			//	continue
-			//}
 			si := fromInstanceToServiceInstance(serviceName, instance)
 			res = append(res, si)
 		}
@@ -206,7 +221,14 @@ func NewNacosServiceDiscovery(targetService []string, config *model.RemoteConfig
 	if err != nil {
 		return nil, err
 	}
-	return &nacosServiceDiscovery{targetService: targetService, client: client, config: config, listener: l, instanceMap: make(map[string]servicediscovery.ServiceInstance)}, nil
+	return &nacosServiceDiscovery{
+		targetService:   targetService,
+		client:          client,
+		config:          config,
+		listener:        l,
+		instanceMap:     make(map[string]servicediscovery.ServiceInstance),
+		callbackFlagMap: cache.NewConcurrentMap(),
+	}, nil
 }
 
 func fromInstanceToServiceInstance(serviceName string, instance model2.Instance) servicediscovery.ServiceInstance {

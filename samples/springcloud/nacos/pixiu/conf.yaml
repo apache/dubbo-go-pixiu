@@ -57,8 +57,8 @@ static_resources:
       name: "dgp.adapter.springcloud"
 #      enabled: false
       config:
-        freshInterval: 60s # 刷新配置时间
-        subscribe-policy: definitely # adapting-订阅根据系统自适应策略，definitely-服务订阅根据用户配置的services
+        freshInterval: 15s # 刷新配置时间
+        subscribe-policy: adapting # adapting-订阅根据系统自适应策略，definitely-服务订阅根据用户配置的services
         services:
           - user-service
           - auth-service
