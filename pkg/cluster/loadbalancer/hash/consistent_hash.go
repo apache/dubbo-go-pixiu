@@ -33,7 +33,7 @@ func init() {
 type ConsistentHashing struct{}
 
 func (ConsistentHashing) Handler(c *model.ClusterConfig) *model.Endpoint {
-	hash, err := c.Hash.Consistent.GetHash(uint32(rand.Int31n(c.Hash.MaxVnodeNum)))
+	hash, err := c.Hash.ConsistentHash.GetHash(uint32(rand.Int31n(c.Hash.MaxVnodeNum)))
 	if err != nil {
 		return nil
 	}

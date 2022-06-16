@@ -40,7 +40,7 @@ func TestHashRing(t *testing.T) {
 
 	cluster := &model.ClusterConfig{Name: "cluster1", Endpoints: nodes,
 		LbStr: model.LoadBalanceConsistentHashing, Hash: model.Hash{ReplicaNum: 10, MaxVnodeNum: 1023}}
-	cluster.CreateConsistent()
+	cluster.CreateConsistentHash()
 
 	hashing := ConsistentHashing{}
 
