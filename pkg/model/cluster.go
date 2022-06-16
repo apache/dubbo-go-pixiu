@@ -94,9 +94,9 @@ type (
 	}
 
 	Hash struct {
-		ReplicaNum  int   `yaml:"replica_num" json:"replica_num"`
-		MaxVnodeNum int32 `yaml:"max_vnode_num" json:"max_vnode_num"`
-		Consistent  *consistent.Consistent
+		ReplicaNum     int   `yaml:"replica_num" json:"replica_num"`
+		MaxVnodeNum    int32 `yaml:"max_vnode_num" json:"max_vnode_num"`
+		ConsistentHash *consistent.Consistent
 	}
 )
 
@@ -111,13 +111,13 @@ func (c *ClusterConfig) GetEndpoint(mustHealth bool) []*Endpoint {
 	return endpoints
 }
 
-func (c *ClusterConfig) CreateConsistent() {
+func (c *ClusterConfig) CreateConsistentHash() {
 	if c.LbStr == LoadBalanceConsistentHashing {
 		h := consistent.NewConsistentHash(consistent.WithReplicaNum(c.Hash.ReplicaNum),
 			consistent.WithMaxVnodeNum(int(c.Hash.MaxVnodeNum)))
 		for _, endpoint := range c.Endpoints {
 			h.Add(endpoint.Address.Address)
 		}
-		c.Hash.Consistent = h
+		c.Hash.ConsistentHash = h
 	}
 }

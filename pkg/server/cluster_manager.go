@@ -221,7 +221,7 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	}
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
-	c.CreateConsistent()
+	c.CreateConsistentHash()
 }
 
 func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
