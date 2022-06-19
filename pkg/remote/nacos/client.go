@@ -75,19 +75,13 @@ func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {
 	}
 	configMap["serverConfigs"] = serverConfigs
 
-	//client, err := clients.CreateNamingClient(configMap)
-
 	duration, _ := time.ParseDuration(config.Timeout)
 	client, err := clients.NewNamingClient(
 		vo.NacosClientParam{
 			ClientConfig: constant.NewClientConfig(
-				//constant.WithNamespaceId(""),
 				constant.WithTimeoutMs(uint64(duration.Milliseconds())),
 				constant.WithNotLoadCacheAtStart(true),
 				constant.WithUpdateCacheWhenEmpty(true),
-				//constant.WithLogDir("./log"),
-				//constant.WithCacheDir("./cache"),
-				//constant.WithLogLevel("info"),
 			),
 			ServerConfigs: serverConfigs,
 		},
