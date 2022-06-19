@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 
@@ -58,12 +59,54 @@ func (rt *Route) ClearAPI() error {
 	return nil
 }
 
-func (r *Route) RemoveAPI(api router.API) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
+func (rt *Route) RemoveAPI(api router.API) {
 	lowerCasePath := strings.ToLower(api.URLPattern)
 	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
-	_, _ = r.tree.Remove(key)
+
+	rt.lock.Lock()
+	defer rt.lock.Unlock()
+	// if api is exists
+	if exists, err := rt.tree.Contains(key); err != nil {
+		logger.Errorf("rt.tree.Get(key) err: %s", err.Error())
+		return
+	} else if exists {
+		// append new cluster to the node
+		if node, _, exists, err := rt.tree.Get(key); err != nil {
+			logger.Errorf("rt.tree.Get(key) err: %s", err.Error())
+			return
+		} else if exists {
+			bizInfoInterface := node.GetBizInfo()
+			bizInfo, ok := bizInfoInterface.(*Node)
+			if bizInfo == nil || !ok {
+				logger.Error("bizInfoInterface.(*Node) failed")
+				return
+			}
+			// avoid thread safe problem
+			clusters := strings.Split(bizInfo.method.HTTPBackendConfig.URL, ",")
+			if len(clusters) > 1 {
+				var i int
+				for i = 0; i < len(clusters); i++ {
+					if clusters[i] == api.URL {
+						break
+					}
+				}
+
+				if i == len(clusters) {
+					return
+				}
+
+				// operate pointer has no necessary to call update api
+				bizInfo.method.HTTPBackendConfig.URL = strings.Join(append(clusters[:i], clusters[i+1:]...), ",")
+			} else {
+				// double check, avoid removing api that does not exists
+				if !strings.Contains(bizInfo.method.HTTPBackendConfig.URL, api.URL) {
+					return
+				}
+				// if backend has only one node, then just directly remove
+				_, _ = rt.tree.Remove(key)
+			}
+		}
+	}
 }
 
 func getTrieKey(method config.HTTPVerb, path string, isPrefix bool) string {
@@ -107,9 +150,31 @@ func (rt *Route) PutOrUpdateAPI(api router.API) error {
 	}
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
-	if ok, err := rt.tree.PutOrUpdate(key, rn); !ok {
+
+	// if api is exists
+	if exists, err := rt.tree.Contains(key); err != nil {
 		return err
+	} else if exists {
+		// append new cluster to the node
+		if node, _, exists, err := rt.tree.Get(key); err != nil {
+			return err
+		} else if exists {
+			bizInfoInterface := node.GetBizInfo()
+			bizInfo, ok := bizInfoInterface.(*Node)
+			if bizInfo == nil || !ok {
+				return errors.New("bizInfoInterface.(*Node) failed")
+			}
+			if !strings.Contains(bizInfo.method.HTTPBackendConfig.URL, api.URL) {
+				// operate pointer has no necessary to call update api
+				bizInfo.method.HTTPBackendConfig.URL = bizInfo.method.HTTPBackendConfig.URL + "," + api.URL
+			}
+		}
+	} else {
+		if ok, err := rt.tree.PutOrUpdate(key, rn); !ok {
+			return err
+		}
 	}
+
 	return nil
 }
 
