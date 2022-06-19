@@ -33,9 +33,18 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
-	"regexp"
 	"time"
 )
+
+type GrpcApiClientOption func(*AggGrpcApiClient)
+
+func WithIstioService(serviceNames ...string) GrpcApiClientOption {
+	return func(g *AggGrpcApiClient) {
+		for _, name := range serviceNames {
+			g.dubboServiceFilter[name] = struct{}{}
+		}
+	}
+}
 
 // CreateEnvoyGrpcApiClient create Grpc type ApiClient
 func CreateEnvoyGrpcApiClient(
@@ -43,6 +52,7 @@ func CreateEnvoyGrpcApiClient(
 	node *model.Node,
 	exitCh chan struct{},
 	typeName ResourceTypeName,
+	opts ...GrpcApiClientOption,
 ) *AggGrpcApiClient {
 	v := &AggGrpcApiClient{}
 	v.config = *config
@@ -60,7 +70,11 @@ func CreateEnvoyGrpcApiClient(
 		logger.Warnf("typeName should be dubbo-go.pixiu/v1/discovery:cluster or dubbo-go.pixiu/v1/discovery:listener")
 		v.typeUrl = resource.ClusterType
 	}
-	v.serviceFilter = regexp.MustCompile(`.+20000.+`) //todo use config value
+
+	v.dubboServiceFilter = make(map[string]struct{}, 10)
+	for _, fn := range opts {
+		fn(v)
+	}
 	v.init()
 	return v
 }
@@ -68,11 +82,9 @@ func CreateEnvoyGrpcApiClient(
 type (
 	AggGrpcApiClient struct {
 		GrpcExtensionApiClient
-		xDSAggClient  discoverypb.AggregatedDiscoveryServiceClient
-		serviceFilter *regexp.Regexp //
-
+		xDSAggClient       discoverypb.AggregatedDiscoveryServiceClient
+		dubboServiceFilter map[string]struct{} // the service name to filter
 	}
-
 	discoveryResponseHandler func(any2 []*anypb.Any)
 )
 
@@ -131,7 +143,6 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 				c := clusterpb.Cluster{}
 				if err := res.UnmarshalTo(&c); err != nil {
 					logger.Warnf("can not decode source %s , %v", res.TypeUrl, res)
-					//return nil, errors.Wrap(err, "unmarshal error")
 					continue
 				}
 				//needn't lock edsResources
@@ -150,7 +161,6 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 			// do not block, watch new resource at another goroutine
 			err := g.runEndpointReferences(pendingResourceNames, func(any2 []*anypb.Any) {
 				// run on another goroutine
-
 				extCluster := xdspb.PixiuExtensionClusters{
 					Clusters: []*xdspb.Cluster{
 						{
@@ -174,7 +184,8 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 					}
 					c := clusterRefEndpoints[l.ClusterName].RawProto.(*clusterpb.Cluster)
 					logger.Infof("endpoint ==> %s, %v", l.ClusterName, l.Endpoints)
-					extCluster.Clusters[0].Name = c.Name
+					extCluster.Clusters[0].Name = g.readServiceNameOfCluster(c)
+
 					for _, ep := range l.Endpoints {
 						address := ep.LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress()
 						extCluster.Clusters[0].Endpoints = append(extCluster.Clusters[0].Endpoints, &xdspb.Endpoint{
@@ -223,6 +234,22 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 	}
 
 	return nil
+}
+
+// readServiceNameOfCluster get service name of k8s
+func (g *AggGrpcApiClient) readServiceNameOfCluster(c *clusterpb.Cluster) string {
+	if c.Metadata == nil {
+		return ""
+	}
+	return c.
+		Metadata.
+		FilterMetadata["istio"].
+		Fields["services"].
+		GetListValue().
+		GetValues()[0].
+		GetStructValue().
+		Fields["name"].
+		GetStringValue()
 }
 
 // request EDS for the allResourceNames
@@ -355,17 +382,17 @@ func (g *AggGrpcApiClient) makeNode() *envoyconfigcorev3.Node {
 }
 
 // getClusterResourceReference get resources of cluster
-func (g *AggGrpcApiClient) getClusterResourceReference(l *clusterpb.Cluster, edsResources map[resource.Type]map[string]refEndpoint) {
-	if !g.serviceFilter.MatchString(l.Name) { // filter
+func (g *AggGrpcApiClient) getClusterResourceReference(c *clusterpb.Cluster, edsResources map[resource.Type]map[string]refEndpoint) {
+	if _, exist := g.dubboServiceFilter[g.readServiceNameOfCluster(c)]; !exist {
 		return
 	}
 
-	switch typ := l.ClusterDiscoveryType.(type) {
+	switch typ := c.ClusterDiscoveryType.(type) {
 	case *clusterpb.Cluster_Type:
 		if typ.Type == clusterpb.Cluster_EDS {
-			name := l.Name
-			if l.EdsClusterConfig != nil && l.EdsClusterConfig.ServiceName != "" {
-				name = l.EdsClusterConfig.ServiceName
+			name := c.Name
+			if c.EdsClusterConfig != nil && c.EdsClusterConfig.ServiceName != "" {
+				name = c.EdsClusterConfig.ServiceName
 			}
 
 			if _, ok := edsResources[resource.ClusterType]; !ok {
@@ -374,7 +401,7 @@ func (g *AggGrpcApiClient) getClusterResourceReference(l *clusterpb.Cluster, eds
 
 			edsResources[resource.ClusterType][name] = refEndpoint{
 				IsPending: true,
-				RawProto:  l,
+				RawProto:  c,
 			}
 		}
 	}

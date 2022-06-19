@@ -18,6 +18,8 @@
 package xds
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/mitchellh/mapstructure"
 	"sync"
 )
 
@@ -63,11 +65,47 @@ func (a *Xds) createApiManager(config *model.ApiConfigSource,
 	case model.ApiTypeGRPC:
 		return apiclient.CreateGrpExtensionApiClient(config, node, a.exitCh, resourceType)
 	case model.ApiTypeIstioGRPC:
-		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType)
+		dubboServices, api, done := a.readDubboServiceFromListener()
+		if done {
+			return api
+		}
+		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType, apiclient.WithIstioService(dubboServices...))
 	default:
 		logger.Errorf("un-support the api type %s", config.APITypeStr)
 		return nil
 	}
+}
+
+func (a *Xds) readDubboServiceFromListener() ([]string, DiscoverApi, bool) {
+	dubboServices := make([]string, 0)
+	listeners, err := a.listenerMg.CloneXdsControlListener()
+	if err != nil {
+		logger.Errorf("can not read listener. %v", err)
+		return nil, nil, true
+	}
+
+	for _, l := range listeners {
+		for _, filter := range l.FilterChain.Filters {
+			if filter.Name != constant.HTTPConnectManagerFilter {
+				continue
+			}
+			var cfg *model.HttpConnectionManagerConfig
+			if filter.Config != nil {
+				if err := mapstructure.Decode(filter.Config, &cfg); err != nil {
+					logger.Error("read listener config error when init xds", err)
+					continue
+				}
+			}
+			for _, httpFilter := range cfg.HTTPFilters {
+				if httpFilter.Name == constant.HTTPDirectDubboProxyFilter {
+					for _, route := range cfg.RouteConfig.Routes {
+						dubboServices = append(dubboServices, route.Route.Cluster)
+					}
+				}
+			}
+		}
+	}
+	return dubboServices, nil, false
 }
 
 func (a *Xds) Start() {

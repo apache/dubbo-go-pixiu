@@ -364,11 +364,11 @@ func (g *GRPCCluster) GetConnection() (conn *grpc.ClientConn, err error) {
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),
 		)
-		logger.Infof("connected xds server (%s)", endpoint)
 		if err != nil {
 			err = errors.Errorf("grpc.Dial(%s) failed: %v", endpoint, err)
 			return
 		}
+		logger.Infof("connected xds server (%s)", endpoint)
 		g.conn = conn
 	})
 	return g.conn, nil
