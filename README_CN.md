@@ -78,13 +78,13 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 
 #### 
 ```shell
-docker pull phial3/dubbo-go-pixiu:latest
+docker pull dubbogopixiu/dubbo-go-pixiu:latest
 ```
 ```
-docker run --name pixiuname -p 8883:8883 \
+docker run --name pixiuname -p 8888:8888 \
     -v /yourpath/conf.yaml:/etc/pixiu/conf.yaml \
     -v /yourpath/log.yml:/etc/pixiu/log.yml \
-    apache/dubbo-go-pixiu:latest
+    dubbogopixiu/dubbo-go-pixiu:latest
 ```
 #### http请求调用dubbo服务转换
 首先启动provider，这里使用zookeeper作为注册中心
