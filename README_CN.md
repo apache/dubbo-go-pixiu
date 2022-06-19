@@ -81,7 +81,7 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 docker pull dubbogopixiu/dubbo-go-pixiu:latest
 ```
 ```
-docker run --name pixiuname -p 8883:8883 \
+docker run --name pixiuname -p 8888:8888 \
     -v /yourpath/conf.yaml:/etc/pixiu/conf.yaml \
     -v /yourpath/log.yml:/etc/pixiu/log.yml \
     dubbogopixiu/dubbo-go-pixiu:latest
