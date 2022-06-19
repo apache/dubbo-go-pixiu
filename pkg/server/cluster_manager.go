@@ -134,7 +134,7 @@ func (cm *ClusterManager) NewStore(version int32) *ClusterStore {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
-	return &ClusterStore{Version: version}
+	return &ClusterStore{Version: version, clustersMap: map[string]*cluster.Cluster{}}
 }
 
 func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
@@ -236,6 +236,11 @@ func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 
 func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
 	cluster := s.clustersMap[clusterName]
+	if cluster == nil {
+		c := &model.ClusterConfig{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{}}
+		s.AddCluster(c)
+		cluster = s.clustersMap[clusterName]
+	}
 
 	for _, c := range s.Config {
 		if c.Name == clusterName {
@@ -256,16 +261,13 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 			return
 		}
 	}
-
-	// cluster create
-	c := &model.ClusterConfig{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{endpoint}}
-	// not call AddCluster, because lock is not reenter
-	s.Config = append(s.Config, c)
 }
 
 func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 	cluster := s.clustersMap[clusterName]
-
+	if cluster == nil {
+		return
+	}
 	for _, c := range s.Config {
 		if c.Name == clusterName {
 			for i, e := range c.Endpoints {
