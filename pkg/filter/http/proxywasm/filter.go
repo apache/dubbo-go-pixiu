@@ -60,8 +60,7 @@ type (
 	}
 
 	Config struct {
-		engine string `yaml:"engine" json:"engine" mapstructure:"engine"`
-		path   string `yaml:"path" yaml:"path" mapstructure:"path"`
+		Path string `yaml:"path" json:"path,omitempty"`
 	}
 )
 
@@ -85,7 +84,7 @@ func (factory *WasmFilterFactory) Apply() error {
 	factory.plugin.instanceMap = sync.Pool{
 		New: func() interface{} {
 			pwd, _ := os.Getwd()
-			instance := wasmer.NewWasmerInstanceFromFile(filepath.Join(pwd, factory.cfg.path))
+			instance := wasmer.NewWasmerInstanceFromFile(filepath.Join(pwd, factory.cfg.Path))
 			proxywasm.RegisterImports(instance)
 			// Call Start() here is OK?
 			_ = instance.Start()
@@ -125,5 +124,6 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &WasmFilterFactory{
 		cfg:                &Config{},
 		contextIDGenerator: 0,
+		plugin:             p,
 	}, nil
 }
