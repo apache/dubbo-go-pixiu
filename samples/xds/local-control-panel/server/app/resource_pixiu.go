@@ -108,18 +108,17 @@ func makeListeners() *pixiupb.PixiuExtensionListeners {
 }
 
 func makeClusters() *pixiupb.PixiuExtensionClusters {
+	endpoints := []*pixiupb.Endpoint{{Id: "backend",
+		Address: &pixiupb.SocketAddress{
+			Address: "httpbin.org",
+			Port:    80}}}
+
 	return &pixiupb.PixiuExtensionClusters{
 		Clusters: []*pixiupb.Cluster{
 			{
-				Name:    "http_bin",
-				TypeStr: "http",
-				Endpoints: &pixiupb.Endpoint{
-					Id: "backend",
-					Address: &pixiupb.SocketAddress{
-						Address: "httpbin.org",
-						Port:    80,
-					},
-				},
+				Name:         "http_bin",
+				TypeStr:      "http",
+				Endpoints:    endpoints,
 				HealthChecks: []*pixiupb.HealthCheck{},
 			},
 		},
