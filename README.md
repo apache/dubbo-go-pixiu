@@ -13,8 +13,7 @@ English | [中文](./README_CN.md)
 
 ![](https://dubbo-go-pixiu.github.io/img/pixiu-dubbo-ecosystem.png)
 
-It is an open source Dubbo ecosystem API gateway and language solution for accessing dubbo clusters. As an API gateway, Pixiu can receive external network requests, convert them into dubbo and other protocol requests, and forward them to the back cluster; as a sidecar, Pixiu expects to register to the Dubbo cluster instead of the proxy service, allowing multilingual services to access the Dubbo cluster to provide faster solution.
-
+It is an open source Dubbo ecosystem API gateway, and also a sidecar to let other compute language program access the dubbo clusters by HTTP/gRPC protocol.
 
 ## Quick Start
 
