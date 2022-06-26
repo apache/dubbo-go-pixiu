@@ -85,11 +85,11 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 
 #### 
 ```shell
-docker run --name pixiug-gateway -p 8888:8888 dubbogopixiu/dubbo-go-pixiu:latest
+docker run --name pixiu-gateway -p 8888:8888 dubbogopixiu/dubbo-go-pixiu:latest
 
 ```
 ```
-docker run --name pixiug-gateway -p 8888:8888 \
+docker run --name pixiu-gateway -p 8888:8888 \
     -v /yourpath/conf.yaml:/etc/pixiu/conf.yaml \
     -v /yourpath/log.yml:/etc/pixiu/log.yml \
     dubbogopixiu/dubbo-go-pixiu:latest
