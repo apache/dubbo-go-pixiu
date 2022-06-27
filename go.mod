@@ -40,7 +40,6 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.1
 	github.com/tetratelabs/proxy-wasm-go-sdk v0.0.13
-	github.com/wasmerio/wasmer-go v1.0.3 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.opentelemetry.io/otel v1.7.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.6.1
