@@ -40,9 +40,6 @@ func init() {
 }
 
 type NacosRegistry struct {
-	Group     string
-	Namespace string
-
 	*baseRegistry.BaseRegistry
 	nacosListeners map[registry.RegisteredType]registry.Listener
 	client         naming_client.INamingClient
