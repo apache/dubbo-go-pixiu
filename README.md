@@ -8,16 +8,23 @@ English | [中文](./README_CN.md)
 
 # Introduction
 
-**Dubbo-Go-Pixiu**(official site: https://dubbo-go-pixiu.github.io/) is a gateway that mainly focuses on providing gateway solution to your Dubbo and RESTful services.
+**Dubbo-Go-Pixiu**(official site: https://dubbo-go-pixiu.github.io/) is a high-performance API gateway and multi-language solution Sidecar in the Dubbo ecosystem
 
-It supports **HTTP-to-Dubbo** and **HTTP-to-HTTP** proxy and more protocols will be supported in the near future.
+
+![](https://dubbo-go-pixiu.github.io/img/pixiu-dubbo-ecosystem.png)
+
+It is an open source Dubbo ecosystem API gateway, and also a sidecar to let other compute language program access the dubbo clusters by HTTP/gRPC protocol. As an API gateway, Pixiu can receive external network requests, convert them into dubbo and other protocol requests, and forward them to the back cluster; as a sidecar, Pixiu expects to register to the Dubbo cluster instead of the proxy service, allowing multilingual services to access the Dubbo cluster to provide faster solution
+
 
 ## Quick Start
+
+you can find out all demo in https://github.com/dubbo-go-pixiu/samples.
+download it and operate as below.
 
 #### cd samples dir
 
 ```
-cd samples/dubbogo/simple
+cd dubbogo/simple
 ```
 
 we can use start.sh to run samples quickly. for more info, execute command as below for more help
@@ -52,7 +59,7 @@ if prepare config file manually, notice:
 ./start.sh startPixiu body
 ```
 
-if run pixiu manually, use command as below
+if run pixiu manually in pixiu project, use command as below.
 
 ```
  go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/body/pixiu/conf.yaml
@@ -78,78 +85,24 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 
 #### 
 ```shell
-docker pull phial3/dubbo-go-pixiu:latest
+docker run --name pixiu-gateway -p 8888:8888 dubbogopixiu/dubbo-go-pixiu:latest
+
 ```
 ```
-docker run --name pixiuname -p 8883:8883 \
+docker run --name pixiu-gateway -p 8888:8888 \
     -v /yourpath/conf.yaml:/etc/pixiu/conf.yaml \
     -v /yourpath/log.yml:/etc/pixiu/log.yml \
-    apache/dubbo-go-pixiu:latest
-```
-#### http to dubbo samples
-start provider, zookeeper be used register center.
-```shell
-cd samples/dubbogo/simple/resolve/server
-
-export DUBBO_GO_CONFIG_PATH="../profiles/dev/server.yml"
-export APP_LOG_CONF_FILE="../profiles/dev/log.yml"
-
-go run server.go user.go
-```
-start http request
-```shell
-cd samples/dubbogo/simple/resolve/test
-
-go test  pixiu_test.go
+    dubbogopixiu/dubbo-go-pixiu:latest
 ```
 
 ## Features
 
-- You can customize your own dubbo-go-pixiu with plugin.
-- Multiple default filters to manage your APIs.
-- Dubbo and HTTP proxies.
-- Customizable request parameters mapping.
-- Automatically recognizes RPC services from service registration center and exposes it in HTTP protocol.
-- Sidecar or centralized deployment（Planning）
-- Dubbo protocol's rate-limiting in Istio environment（Planning）
-
-## Architecture
-
-### Pixiu Architecture
-
-[![architecture](./docs/images/dubbogopixiu-new-infrastructure.png)](http://alexstocks.github.io/html/dubbogo.html)
-
-### Pixiu Flow Chart
-
-[![flow chart](./docs/images/dubbogopixiu-procedure.png)](http://alexstocks.github.io/html/dubbogo.html)
-
-## Term
-
-### Components
-
-- Pixiu : Data panel
-
-- Admin : Control Panel
-
-### Concepts
-
-- Downstream :  Downstream is the requester who sends request to and expecting the response from dubbo-go-pixiu. (Eg.Postman client, Browser)
-
-- Upstream : The service that receive requests and send responses to dubbo-go-pixiu. (Eg. Dubbo server)
-
-- Listener : The way that the dubbo-go-pixiu exposes services to upstream clients. It could be configured to multiple listeners for one dubbo-go-pixiu.
-
-- Cluster : Cluster is a set of upstream services that logically similar, such as dubbo cluster. pixiu can identifies the cluster members through service discovery and proactively probes their healthiness so that the pixiu can route the requests to proper cluster member base on load balancing strategies.
-
-- Api : API is the core concept of the dubbo-go-pixiu, all the upstream services will be configured and exposed through API.
-
-- Client : The actual caller of the upstream services.
-
-- Router : Router routes the HTTP request to proper upstream services according to the API configs.
-
-- Context : The context of a request in dubbo-go-pixiu includes almost all information to get response from upstream services. It will be used in almost all process in the dubbo-go-pixiu, especially the filter chain.
-
-- Filter : Filter manipulate the incoming requests. It is extensible for the users.
+- Multi-protocol support: Currently, Http, Dubbo2, Triple, gRPC protocol proxy and conversion are supported, and other protocols are being continuously integrated.
+- Safety certificate: Support HTTPS, JWT Token verification and other security authentication measures.
+- Registry integration: Support to obtain service metadata from Dubbo or Spring Cloud cluster, support ZK, Nacos registry.
+- Traffic management: Integrate with sentinel, support multiple protocols for rate limiting.
+- Observability: Integrate with opentelemetry and jaeger for distributed tracing.
+- Admin and visual interface: Have pixiu-admin for remote administration and visualization
 
 ## Contact Us
 
