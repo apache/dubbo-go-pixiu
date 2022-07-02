@@ -18,10 +18,23 @@
 package proxywasm
 
 import (
+	"fmt"
+	"mosn.io/proxy-wasm-go-host/proxywasm"
 	"net/http"
 
-	"mosn.io/proxy-wasm-go-host/proxywasm/common"
+	"mosn.io/proxy-wasm-go-host/common"
 )
+
+// override.
+func (im *importHandler) GetHttpRequestHeader() common.HeaderMap {
+	return im.reqHeader
+}
+
+// override.
+func (im *importHandler) Log(level proxywasm.LogLevel, msg string) proxywasm.WasmResult {
+	fmt.Println(msg)
+	return proxywasm.WasmResultOk
+}
 
 // wrapper for http.Header, convert Header to api.HeaderMap.
 type myHeaderMap struct {
