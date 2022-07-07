@@ -78,7 +78,8 @@ func newNacosRegistry(regConfig model.Registry, adapterListener common.RegistryE
 		nacosConstant.WithNamespaceId(regConfig.Namespace),
 		nacosConstant.WithUsername(regConfig.Username),
 		nacosConstant.WithPassword(regConfig.Password),
-	)
+		nacosConstant.WithNotLoadCacheAtStart(true),
+		nacosConstant.WithUpdateCacheWhenEmpty(true))
 	client, err := clients.NewNamingClient(vo.NacosClientParam{
 		ServerConfigs: scs,
 		ClientConfig:  ccs,
