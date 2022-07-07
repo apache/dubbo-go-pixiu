@@ -71,6 +71,10 @@ type (
 	}
 )
 
+func NewRouterMatchPrefix(name string) RouterMatch {
+	return RouterMatch{Prefix: "/" + name + "/"}
+}
+
 func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string) (*RouteAction, error) {
 	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
