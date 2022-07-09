@@ -108,14 +108,9 @@ docker run --name pixiuname -p 8888:8888 \
 
 ### 社区
 
-**官方钉钉群(31363295)**:
+**官方钉钉群(31203920)**:
 
-[![flowchart](./docs/images/dubbogo-dingding.png)](docs/images/dubbogo-dingding.png)
-
-**官方微信公众号 "dubbogo示土区"，通过公众号私信留言加入 Dubbogo 微信社区**:
-
-[![flowchart](./docs/images/dubbogo-wechat.png)](docs/images/dubbogo-wechat.png)
-
+[![flowchart](./docs/images/group-pixiu-dingding.jpg)](docs/images/group-pixiu-dingding.jpg)
 ## License
 
 Apache License, Version 2.0
