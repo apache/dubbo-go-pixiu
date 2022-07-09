@@ -110,14 +110,9 @@ The project is under intensively iteration, you are more than welcome to use, su
 
 ### Community
  
-**DingDing Group (31363295):**
+**DingDing Group (31203920):**
 
-[![flowchart](./docs/images/dubbogo-dingding.png)](docs/images/dubbogo-dingding.png)
-
-**WeChat Official Account:** 
-
-[![flowchart](./docs/images/dubbogo-wechat.png)](docs/images/dubbogo-wechat.png)
-
+[![flowchart](./docs/images/group-pixiu-dingding.jpg)](docs/images/group-pixiu-dingding.jpg)
 
 We welcome the friends who can give us constructing suggestions instead of known-nothing.
 
