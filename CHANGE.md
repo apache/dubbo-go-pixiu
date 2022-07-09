@@ -1,7 +1,7 @@
 # Release Notes
 
 ---
-## 0.5.0
+## 0.5.1
 
 ### New Features
 - [Trace Support](https://github.com/apache/dubbo-go-pixiu/pull/394)
