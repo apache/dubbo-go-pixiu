@@ -15,30 +15,35 @@
  * limitations under the License.
  */
 
-package proxywasm
+package wasm
 
 import (
 	"fmt"
-	"mosn.io/proxy-wasm-go-host/proxywasm"
 	"net/http"
-
-	"mosn.io/proxy-wasm-go-host/common"
 )
 
-// override.
+import (
+	"mosn.io/proxy-wasm-go-host/common"
+
+	"mosn.io/proxy-wasm-go-host/proxywasm"
+)
+
+type importHandler struct {
+	reqHeader common.HeaderMap
+	proxywasm.DefaultImportsHandler
+}
+
+type myHeaderMap struct {
+	realMap http.Header
+}
+
 func (im *importHandler) GetHttpRequestHeader() common.HeaderMap {
 	return im.reqHeader
 }
 
-// override.
 func (im *importHandler) Log(level proxywasm.LogLevel, msg string) proxywasm.WasmResult {
 	fmt.Println(msg)
 	return proxywasm.WasmResultOk
-}
-
-// wrapper for http.Header, convert Header to api.HeaderMap.
-type myHeaderMap struct {
-	realMap http.Header
 }
 
 func (m *myHeaderMap) Get(key string) (string, bool) {
