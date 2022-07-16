@@ -18,16 +18,16 @@
 package proxywasm
 
 import (
+	"mosn.io/proxy-wasm-go-host/common"
+
+	proxywasm "mosn.io/proxy-wasm-go-host/proxywasm"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"mosn.io/proxy-wasm-go-host/proxywasm/common"
-	proxywasm "mosn.io/proxy-wasm-go-host/proxywasm/v1"
-	"mosn.io/proxy-wasm-go-host/wasmer"
-	"os"
-	"path/filepath"
-	"sync"
-	"sync/atomic"
+	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
 )
 
 func init() {
@@ -42,35 +42,46 @@ type importHandler struct {
 type (
 	// Plugin manages wasm instances by pool.
 	Plugin struct {
-		instanceMap sync.Pool
 	}
 
 	WasmFilterFactory struct {
-		plugin             *Plugin
-		cfg                *Config
-		contextIDGenerator int32
-		rootContextID      int32
+		cfg *Config
 	}
 
 	WasmFilter struct {
-		instance      common.WasmInstance
-		ctx           *proxywasm.ABIContext
-		contextID     int32
-		rootContextID int32
+		abiContextWrappers map[string]*wasm.ABIContextWrapper
 	}
 
 	Config struct {
-		Path string `yaml:"path" json:"path,omitempty"`
+		wasmServices []*WasmService `yaml:"wasm_services" json:"wasm_services" mapstructure:"wasm_services"`
+	}
+
+	WasmService struct {
+		name string `yaml:"name" json:"name" mapstructure:"name"`
 	}
 )
 
+func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
+	const HEADER = "header"
+
+	// sample: display http header
+	wrapper := w.abiContextWrappers[HEADER]
+	wrapper.Context.Instance.Lock(ctx)
+	defer wrapper.Context.Instance.Lock(ctx)
+
+	wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(HEADER))
+
+	_, _ = wrapper.Context.GetExports().ProxyOnRequestHeaders(wrapper.ContextID, int32(len(ctx.Request.Header)), 1)
+
+	_ = wrapper.Context.GetExports().ProxyOnDelete(wrapper.ContextID)
+
+	return filter.Continue
+}
+
 func (w *WasmFilter) Encode(ctx *http.HttpContext) filter.FilterStatus {
-	_ = w.ctx.GetExports().ProxyOnContextCreate(w.contextID, w.rootContextID)
-
-	_, _ = w.ctx.GetExports().ProxyOnRequestHeaders(w.contextID, int32(len(ctx.Request.Header)), 1)
-
-	_ = w.ctx.GetExports().ProxyOnDelete(w.contextID)
-
+	for _, wrapper := range w.abiContextWrappers {
+		wasm.ContextDone(wrapper)
+	}
 	return filter.Continue
 }
 
@@ -79,41 +90,18 @@ func (factory *WasmFilterFactory) Config() interface{} {
 }
 
 func (factory *WasmFilterFactory) Apply() error {
-	factory.rootContextID = atomic.AddInt32(&factory.contextIDGenerator, 1)
-
-	factory.plugin.instanceMap = sync.Pool{
-		New: func() interface{} {
-			pwd, _ := os.Getwd()
-			instance := wasmer.NewWasmerInstanceFromFile(filepath.Join(pwd, factory.cfg.Path))
-			proxywasm.RegisterImports(instance)
-			// Call Start() here is OK?
-			_ = instance.Start()
-			return instance
-		},
-	}
 	return nil
 }
 
 func (factory *WasmFilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	filter := &WasmFilter{
-		rootContextID: factory.rootContextID,
+		abiContextWrappers: make(map[string]*wasm.ABIContextWrapper),
 	}
-	filter.contextID = atomic.AddInt32(&factory.contextIDGenerator, 1)
-	filter.instance = factory.getWasmInstance()
-	filter.ctx = &proxywasm.ABIContext{
-		Imports:  &importHandler{reqHeader: &myHeaderMap{ctx.Request.Header}},
-		Instance: filter.instance,
+	for _, service := range factory.cfg.wasmServices {
+		filter.abiContextWrappers[service.name] = wasm.CreateABIContextByName(service.name, ctx)
 	}
 	chain.AppendEncodeFilters(filter)
-	var once sync.Once
-	once.Do(func() {
-		_ = filter.ctx.GetExports().ProxyOnContextCreate(filter.rootContextID, 0)
-	})
 	return nil
-}
-
-func (factory *WasmFilterFactory) getWasmInstance() common.WasmInstance {
-	return factory.plugin.instanceMap.Get().(common.WasmInstance)
 }
 
 func (p *Plugin) Kind() string {
@@ -122,8 +110,6 @@ func (p *Plugin) Kind() string {
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &WasmFilterFactory{
-		cfg:                &Config{},
-		contextIDGenerator: 0,
-		plugin:             p,
+		cfg: &Config{},
 	}, nil
 }
