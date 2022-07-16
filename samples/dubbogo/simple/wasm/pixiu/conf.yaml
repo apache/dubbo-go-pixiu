@@ -36,7 +36,8 @@ static_resources:
                 http_filters:
                   - name: dgp.filter.http.webassembly
                     config:
-                      path: data/http.wasm
+                      wasm_services:
+                        - name: header
                   - name: dgp.filter.http.dubboproxy
                     config:
                       dubboProxyConfig:
@@ -62,3 +63,8 @@ static_resources:
     timeout: "60s"
     step_timeout: "10s"
     reject_policy: "immediacy"
+wasm:
+  services:
+    - name: header
+      config:
+        path: data/header.wasm
