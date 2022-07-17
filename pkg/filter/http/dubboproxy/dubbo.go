@@ -134,13 +134,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	interfaceKey := service
 
 	groupKey := hc.Request.Header.Get(constant.DubboGroup)
-	if groupKey == "" {
-		groupKey = "default"
-	}
 	versionKey := hc.Request.Header.Get(constant.DubboServiceVersion)
-	if versionKey == "" {
-		versionKey = "1.0.0"
-	}
 	types := hc.Request.Header.Get(constant.DubboServiceMethodTypes)
 
 	rawBody, err := ioutil.ReadAll(hc.Request.Body)
