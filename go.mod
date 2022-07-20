@@ -8,6 +8,7 @@ require (
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/apache/dubbo-getty v1.4.8
+	github.com/apache/dubbo-go v1.5.8
 	github.com/apache/dubbo-go-hessian2 v1.11.0
 	github.com/cch123/supermonkey v1.0.1
 	github.com/creasty/defaults v1.5.2
