@@ -18,113 +18,90 @@
 package sidecarprovider
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
-	"os"
+
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
-)
-
-import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"sync"
+	"time"
 )
 
 func init() {
 	adapter.RegisterAdapterPlugin(&Plugin{})
 }
 
-var (
-	_ adapter.AdapterPlugin = new(Plugin)
-	_ adapter.Adapter       = new(Adapter)
-)
-
 type (
 	// Plugin to monitor dubbo services on registry center
 	Plugin struct {
 	}
 
-	AdaptorConfig struct {
-
-		Provider map[string]model.Endpoint `yaml:"provider" json:"provider" mapstructure:"provider"`
+	// SidecarAdapter the adapter for spring cloud
+	SidecarAdapter struct {
+		cfg            *AdaptorConfig
+		sd             servicediscovery.ServiceDiscovery
+		currentService map[string]*Service
+		mutex    sync.Mutex
+		stopChan chan struct{}
 	}
+
+	// AdaptorConfig the config for SidecarAdapter
+	AdaptorConfig struct {
+		// Mode default 0 start backgroup fresh and watch, 1 only fresh 2 only watch
+		Mode          int                 `yaml:"mode" json:"mode" default:"mode"`
+		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
+		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
+		Services      []string            `yaml:"services" json:"services" default:"services"`
+		// SubscribePolicy subscribe config,
+		// - adapting : if there is no any Services (App) names, fetch All services from registry center
+		// - definitely : fetch services by the config Services (App) names
+		SubscribePolicy string `yaml:"subscribe-policy" json:"subscribe-policy" default:"adapting"`
+	}
+
+	Service struct {
+		Name string
+	}
+
+	SubscribePolicy int
 )
 
 // Kind returns the identifier of the plugin
 func (p Plugin) Kind() string {
-	return constant.DubboProviderAdapter
+	return constant.SidecarProviderAdapter
 }
 
 // CreateAdapter returns the dubbo registry center adapter
 func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
-	adapter := &Adapter{id: a.ID,
-		registries: make(map[string]registry.Registry),
-		cfg:        AdaptorConfig{Provider: make(map[string]model.Endpoint)}}
-	return adapter, nil
-}
-
-// Adapter to monitor dubbo services on registry center
-type Adapter struct {
-	id         string
-	cfg        AdaptorConfig
-	registries map[string]registry.Registry
+	adapter := &SidecarAdapter{
+		cfg:      &AdaptorConfig{},
+		stopChan: make(chan struct{}),
+		currentService: make(map[string]*Service),
+	}
+	return adapter,nil
 }
 
 // Start starts the adaptor
-func (a Adapter) Start() {
-	for _, reg := range a.registries {
-		if err := reg.Subscribe(); err != nil {
-			logger.Errorf("Subscribe fail, error is {%s}", err.Error())
-		}
-	}
+func (a SidecarAdapter) Start() {
+
+	registerServiceInstance()
 }
 
 // Stop stops the adaptor
-func (a *Adapter) Stop() {
-	for _, reg := range a.registries {
-		if err := reg.Unsubscribe(); err != nil {
-			logger.Errorf("Unsubscribe fail, error is {%s}", err.Error())
-		}
-	}
+func (a *SidecarAdapter) Stop() {
+
 }
 
-// Apply inits the registries according to the configuration
-func (a *Adapter) Apply() error {
-	// create registry per config
-	nacosAddrFromEnv := os.Getenv(constant.EnvDubbogoPixiuNacosRegistryAddress)
-	for k, registryConfig := range a.cfg.Provider {
-		var err error
-
-		a.registries[k], err = registry.GetRegistry(k, registryConfig, a)
-		if err != nil {
-			return err
-		}
-	}
+// Apply init
+func (a *SidecarAdapter) Apply() error {
+	// create config
 
 	return nil
 }
 
 // Config returns the config of the adaptor
-func (a Adapter) Config() interface{} {
+func (a SidecarAdapter) Config() interface{} {
 	return a.cfg
-}
-
-func (a *Adapter) OnAddAPI(r router.API) error {
-	acm := server.GetApiConfigManager()
-	return acm.AddAPI(a.id, r)
-}
-
-func (a *Adapter) OnRemoveAPI(r router.API) error {
-	acm := server.GetApiConfigManager()
-	return acm.RemoveAPI(a.id, r)
-}
-
-func (a *Adapter) OnDeleteRouter(r config.Resource) error {
-	acm := server.GetApiConfigManager()
-	return acm.DeleteRouter(a.id, r)
 }
