@@ -18,12 +18,6 @@
 package proxywasm
 
 import (
-	"mosn.io/proxy-wasm-go-host/common"
-
-	proxywasm "mosn.io/proxy-wasm-go-host/proxywasm"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -34,13 +28,7 @@ func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
 
-type importHandler struct {
-	reqHeader common.HeaderMap
-	proxywasm.DefaultImportsHandler
-}
-
 type (
-	// Plugin manages wasm instances by pool.
 	Plugin struct {
 	}
 
@@ -53,11 +41,11 @@ type (
 	}
 
 	Config struct {
-		wasmServices []*WasmService `yaml:"wasm_services" json:"wasm_services" mapstructure:"wasm_services"`
+		WasmServices []*Service `yaml:"wasm_services" json:"wasm_services" mapstructure:"wasm_services"`
 	}
 
-	WasmService struct {
-		name string `yaml:"name" json:"name" mapstructure:"name"`
+	Service struct {
+		Name string `yaml:"name" json:"name" mapstructure:"name"`
 	}
 )
 
@@ -66,8 +54,8 @@ func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 
 	// sample: display http header
 	wrapper := w.abiContextWrappers[HEADER]
-	wrapper.Context.Instance.Lock(ctx)
-	defer wrapper.Context.Instance.Lock(ctx)
+	wrapper.Context.Instance.Lock(wrapper.Context)
+	defer wrapper.Context.Instance.Unlock()
 
 	wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(HEADER))
 
@@ -97,8 +85,8 @@ func (factory *WasmFilterFactory) PrepareFilterChain(ctx *http.HttpContext, chai
 	filter := &WasmFilter{
 		abiContextWrappers: make(map[string]*wasm.ABIContextWrapper),
 	}
-	for _, service := range factory.cfg.wasmServices {
-		filter.abiContextWrappers[service.name] = wasm.CreateABIContextByName(service.name, ctx)
+	for _, service := range factory.cfg.WasmServices {
+		filter.abiContextWrappers[service.Name] = wasm.CreateABIContextByName(service.Name, ctx)
 	}
 	chain.AppendEncodeFilters(filter)
 	return nil
