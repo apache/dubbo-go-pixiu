@@ -87,5 +87,3 @@ func ContextDone(wrapper *ABIContextWrapper) error {
 	wasmService.putWasmInstance(wrapper.Context.Instance)
 	return nil
 }
-
-// id自增循环；utils实现
