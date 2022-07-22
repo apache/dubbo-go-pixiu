@@ -50,7 +50,9 @@ func (m *myHeaderMap) Get(key string) (string, bool) {
 	return m.realMap.Get(key), true
 }
 
-func (m *myHeaderMap) Set(key, value string) { panic("implemented") }
+func (m *myHeaderMap) Set(key, value string) {
+	m.realMap.Set(key, value)
+}
 
 func (m *myHeaderMap) Add(key, value string) { panic("implemented") }
 
