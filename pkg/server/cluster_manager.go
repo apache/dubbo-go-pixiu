@@ -259,6 +259,9 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 			// endpoint create
 			c.Endpoints = append(c.Endpoints, endpoint)
 			cluster.AddEndpoint(endpoint)
+			if c.Hash.ConsistentHash != nil {
+				c.Hash.ConsistentHash.Add(endpoint.Address.Address)
+			}
 			return
 		}
 	}
@@ -275,6 +278,9 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 				if e.ID == endpointID {
 					cluster.RemoveEndpoint(e)
 					c.Endpoints = append(c.Endpoints[:i], c.Endpoints[i+1:]...)
+					if c.Hash.ConsistentHash != nil {
+						c.Hash.ConsistentHash.Remove(e.Address.Address)
+					}
 					return
 				}
 			}
