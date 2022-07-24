@@ -26,6 +26,7 @@ import (
 	stdHttp "net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 import (
@@ -111,7 +112,8 @@ type (
 	Config struct {
 		DescriptorSourceStrategy DescriptorSourceStrategy `yaml:"descriptor_source_strategy" json:"descriptor_source_strategy" default:"auto"`
 		Path                     string                   `yaml:"path" json:"path"`
-		Rules                    []*Rule                  `yaml:"rules" json:"rules"` //nolint
+		Rules                    []*Rule                  `yaml:"rules" json:"rules"`     //nolint
+		Timeout                  time.Duration            `yaml:"timeout" json:"timeout"` //nolint
 	}
 
 	Rule struct {
@@ -191,7 +193,10 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte("cluster not exists"))
 		return filter.Stop
 	}
-
+	// timeout for Dial and Invoke
+	var cancel context.CancelFunc
+	c.Ctx, cancel = context.WithTimeout(c.Ctx, c.Timeout)
+	defer cancel()
 	ep := e.Address.GetAddress()
 
 	p, ok := f.pools[strings.Join([]string{re.Cluster, ep}, ".")]

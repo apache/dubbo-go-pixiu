@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net"
 	stdHttp "net/http"
+	"time"
 )
 
 import (
@@ -37,6 +38,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -49,12 +51,14 @@ type GrpcConnectionManager struct {
 	filter.EmptyNetworkFilter
 	config            *model.GRPCConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
+	timeout           time.Duration
 }
 
 // CreateGrpcConnectionManager create grpc connection manager
 func CreateGrpcConnectionManager(hcmc *model.GRPCConnectionManagerConfig) *GrpcConnectionManager {
 	hcm := &GrpcConnectionManager{config: hcmc}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
+	hcm.timeout = resolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return hcm
 }
 
@@ -79,7 +83,11 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 		return
 	}
 
-	newReq := r.Clone(context.Background())
+	ctx := context.Background()
+	// timeout
+	ctx, cancel := context.WithTimeout(ctx, gcm.timeout)
+	defer cancel()
+	newReq := r.Clone(ctx)
 	newReq.URL.Scheme = "http"
 	newReq.URL.Host = endpoint.Address.GetAddress()
 
@@ -150,6 +158,18 @@ func copyHeader(dst, src stdHttp.Header) {
 	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)
+		}
+	}
+}
+
+func resolveTimeStr2Time(currentV string, defaultV time.Duration) time.Duration {
+	if currentV == "" {
+		return defaultV
+	} else {
+		if duration, err := time.ParseDuration(currentV); err != nil {
+			return defaultV
+		} else {
+			return duration
 		}
 	}
 }

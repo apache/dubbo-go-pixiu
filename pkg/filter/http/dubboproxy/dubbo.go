@@ -25,11 +25,13 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 )
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
+	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 	hessian "github.com/apache/dubbo-go-hessian2"
@@ -225,7 +227,19 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	invoc.SetReply(&resp)
 
 	invCtx := context.Background()
-	result := invoker.Invoke(invCtx, invoc)
+
+	resultCh := make(chan protocol.Result)
+	go func() {
+		resultCh <- invoker.Invoke(invCtx, invoc)
+	}()
+	var result protocol.Result
+	timer := time.NewTimer(hc.Timeout)
+	select {
+	case result = <-resultCh:
+	case <-timer.C:
+		timer.Stop()
+		return filter.Stop
+	}
 	result.SetAttachments(invoc.Attachments())
 
 	if result.Error() != nil {
