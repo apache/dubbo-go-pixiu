@@ -128,7 +128,7 @@ func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
 	}
 	h.rwlock.Unlock()
 
-	decodeResult, drOK := pkg.(remoting.DecodeResult)
+	decodeResult, drOK := pkg.(*remoting.DecodeResult)
 	if !drOK {
 		logger.Errorf("illegal package{%#v}", pkg)
 		return
