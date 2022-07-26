@@ -44,6 +44,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/seata"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/tracing"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/traffic"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/tcp"
