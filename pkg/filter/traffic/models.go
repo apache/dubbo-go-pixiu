@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-type splitAction func(header string, expectedValue interface{}, r *http.Request) bool
+type splitAction func(header string, expectedValue string, r *http.Request) bool
 
 type ActionWrapper struct {
 	name   CanaryHeaders
@@ -41,7 +41,7 @@ func initActions() {
 	// canaryByHeader
 	headerAction := &ActionWrapper{
 		name: canaryByHeader,
-		action: func(header string, value interface{}, r *http.Request) bool {
+		action: func(header string, value string, r *http.Request) bool {
 			if v := r.Header.Get(header); v != "" {
 				return v == value
 			}
@@ -52,10 +52,10 @@ func initActions() {
 	// canaryWeight
 	weightAction := &ActionWrapper{
 		name: canaryWeight,
-		action: func(header string, value interface{}, r *http.Request) bool {
+		action: func(header string, value string, r *http.Request) bool {
 			rand.Seed(time.Now().UnixNano())
 			num := rand.Intn(100) + 1
-			intValue, _ := strconv.Atoi(value.(string))
+			intValue, _ := strconv.Atoi(value)
 			if num < intValue {
 				return true
 			}
