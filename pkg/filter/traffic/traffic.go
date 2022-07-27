@@ -106,8 +106,8 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 func (factory *FilterFactory) rulesMatch(path string) map[CanaryHeaders]*Cluster {
 	clusters := factory.cfg.Traffics
 
-	mp := make(map[CanaryHeaders]*Cluster)
 	if clusters != nil {
+		mp := make(map[CanaryHeaders]*Cluster)
 		for i := range clusters {
 			if strings.HasPrefix(clusters[i].Router, path) {
 				mp[clusters[i].Model] = clusters[i]
