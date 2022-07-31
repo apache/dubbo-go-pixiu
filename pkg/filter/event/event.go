@@ -20,6 +20,7 @@ package event
 import (
 	"fmt"
 	sdkhttp "net/http"
+	"time"
 )
 
 import (
@@ -72,7 +73,22 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	mqClient := mq.NewSingletonMQClient(*f.cfg)
 	req := client.NewReq(ctx.Request.Context(), ctx.Request, *ctx.GetAPI())
-	resp, err := mqClient.Call(req)
+
+	var resp interface{}
+	var err error
+	respCh := make(chan struct{})
+	go func() {
+		resp, err = mqClient.Call(req)
+		close(respCh)
+	}()
+	select {
+	case <-respCh:
+	case <-time.After(ctx.Timeout):
+		logger.Errorf("[dubbo-go-pixiu] event client call timeout err!")
+		return filter.Stop
+	}
+
+	//resp, err := mqClient.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] event client call err:%v!", err)
 		ctx.SendLocalReply(sdkhttp.StatusInternalServerError, []byte(fmt.Sprintf("event client call err:%v", err)))

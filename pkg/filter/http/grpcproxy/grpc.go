@@ -194,9 +194,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 	// timeout for Dial and Invoke
-	var cancel context.CancelFunc
-	c.Ctx, cancel = context.WithTimeout(c.Ctx, c.Timeout)
-	defer cancel()
+	c.Ctx, _ = context.WithTimeout(c.Ctx, c.Timeout)
 	ep := e.Address.GetAddress()
 
 	p, ok := f.pools[strings.Join([]string{re.Cluster, ep}, ".")]

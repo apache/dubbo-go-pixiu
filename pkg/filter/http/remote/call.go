@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 import (
@@ -43,9 +44,9 @@ import (
 )
 
 const (
-	open = iota
-	close
-	all
+	OPEN = iota
+	CLOSE
+	ALL
 )
 
 const (
@@ -99,7 +100,7 @@ func (factory *FilterFactory) Apply() error {
 	}
 	level := mockLevel(mock)
 	if level < 0 || level > 2 {
-		level = close
+		level = CLOSE
 	}
 	factory.conf.Level = level
 	// must init it at apply function
@@ -125,7 +126,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 
 	api := c.GetAPI()
 
-	if (f.conf.Level == open && api.Mock) || (f.conf.Level == all) {
+	if (f.conf.Level == OPEN && api.Mock) || (f.conf.Level == ALL) {
 		c.SourceResp = &contexthttp.ErrResponse{
 			Message: "mock success",
 		}
@@ -140,7 +141,21 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	req := client.NewReq(c.Request.Context(), c.Request, *api)
-	resp, err := cli.Call(req)
+
+	var resp interface{}
+	respCh := make(chan struct{})
+	go func() {
+		resp, err = cli.Call(req)
+		close(respCh)
+	}()
+
+	select {
+	case <-respCh:
+	case <-time.After(c.Timeout):
+		logger.Errorf("[dubbo-go-pixiu] client call timeout err!")
+		return filter.Stop
+	}
+	//resp, err := cli.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
 		c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("client call err: %s", err)))
