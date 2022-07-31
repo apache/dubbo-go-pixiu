@@ -18,7 +18,6 @@
 package wasm
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -28,13 +27,65 @@ import (
 	"mosn.io/proxy-wasm-go-host/proxywasm"
 )
 
-type importHandler struct {
-	reqHeader common.HeaderMap
-	proxywasm.DefaultImportsHandler
+import (
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
+
+type (
+	headerWrapper struct {
+		header http.Header
+	}
+
+	importHandler struct {
+		ctx       *contexthttp.HttpContext
+		reqHeader common.HeaderMap
+		proxywasm.DefaultImportsHandler
+	}
+)
+
+func (h *headerWrapper) Get(key string) (string, bool) {
+	value := h.header.Get(key)
+	if value == "" {
+		return "", false
+	}
+	return value, true
 }
 
-type myHeaderMap struct {
-	realMap http.Header
+func (h *headerWrapper) Set(key, value string) {
+	h.header.Set(key, value)
+}
+
+func (h *headerWrapper) Add(key, value string) {
+	h.header.Add(key, value)
+}
+
+func (h *headerWrapper) Del(key string) {
+	h.header.Del(key)
+}
+
+func (h *headerWrapper) Range(f func(key string, value string) bool) {
+	for k, _ := range h.header {
+		v := h.header.Get(k)
+		f(k, v)
+	}
+}
+
+func (h *headerWrapper) Clone() common.HeaderMap {
+	copy := &headerWrapper{
+		header: h.header.Clone(),
+	}
+	return copy
+}
+
+func (h *headerWrapper) ByteSize() uint64 {
+	var size uint64
+
+	for k, _ := range h.header {
+		v := h.header.Get(k)
+		size += uint64(len(k) + len(v))
+	}
+	return size
 }
 
 func (im *importHandler) GetHttpRequestHeader() common.HeaderMap {
@@ -42,29 +93,17 @@ func (im *importHandler) GetHttpRequestHeader() common.HeaderMap {
 }
 
 func (im *importHandler) Log(level proxywasm.LogLevel, msg string) proxywasm.WasmResult {
-	fmt.Println(msg)
+	switch level {
+	case proxywasm.LogLevelDebug:
+		logger.Debugf(msg)
+	case proxywasm.LogLevelInfo:
+		logger.Infof(msg)
+	case proxywasm.LogLevelWarn:
+		logger.Warnf(msg)
+	case proxywasm.LogLevelError:
+		logger.Errorf(msg)
+	default:
+		logger.Infof(msg)
+	}
 	return proxywasm.WasmResultOk
 }
-
-func (m *myHeaderMap) Get(key string) (string, bool) {
-	return m.realMap.Get(key), true
-}
-
-func (m *myHeaderMap) Set(key, value string) {
-	m.realMap.Set(key, value)
-}
-
-func (m *myHeaderMap) Add(key, value string) { panic("implemented") }
-
-func (m *myHeaderMap) Del(key string) { panic("implemented") }
-
-func (m *myHeaderMap) Range(f func(key string, value string) bool) {
-	for k, _ := range m.realMap {
-		v := m.realMap.Get(k)
-		f(k, v)
-	}
-}
-
-func (m *myHeaderMap) Clone() common.HeaderMap { panic("implemented") }
-
-func (m *myHeaderMap) ByteSize() uint64 { panic("implemented") }
