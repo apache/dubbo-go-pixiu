@@ -44,7 +44,7 @@ import (
 type WasmService struct {
 	rootContextID      int32
 	contextIDGenerator int32
-	name               string // TODO: delete
+	name               string
 	path               string
 	mutex              sync.Mutex
 	model              model.WasmService
@@ -97,13 +97,19 @@ func (ws *WasmService) putWasmInstance(instance common.WasmInstance) error {
 }
 
 func (ws *WasmService) createABIContextWrapper(ctx *http.HttpContext) *ABIContextWrapper {
+
 	contextWrapper := new(ABIContextWrapper)
 	contextWrapper.ContextID = atomic.AddInt32(&ws.contextIDGenerator, 1)
 	atomic.CompareAndSwapInt32(&ws.contextIDGenerator, math.MaxInt32, 1)
 
 	contextWrapper.name = ws.name
 	contextWrapper.Context = &proxywasm.ABIContext{
-		Imports:  &importHandler{reqHeader: &myHeaderMap{ctx.Request.Header}},
+		Imports: &importHandler{
+			ctx: ctx,
+			reqHeader: &headerWrapper{
+				header: ctx.Request.Header,
+			},
+		},
 		Instance: ws.getWasmInstance(),
 	}
 	_ = contextWrapper.Context.GetExports().ProxyOnContextCreate(ws.rootContextID, 0)
