@@ -59,8 +59,8 @@ license-check:
 
 image:
 	@docker build \
-		-t apache/$(targetName):latest \
-		-t apache/$(targetName):$(VERSION) \
+		-t dubbogopixiu/$(targetName):latest \
+		-t dubbogopixiu/$(targetName):$(VERSION) \
 		--build-arg build=$(BUILD) --build-arg version=$(VERSION) \
 		-f Dockerfile --no-cache --platform linux/amd64 .
 
