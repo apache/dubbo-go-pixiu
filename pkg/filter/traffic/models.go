@@ -56,7 +56,7 @@ func initActions() {
 			rand.Seed(time.Now().UnixNano())
 			num := rand.Intn(100) + 1
 			intValue, _ := strconv.Atoi(value)
-			if num < intValue {
+			if num <= intValue {
 				return true
 			}
 			return false
