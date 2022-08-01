@@ -287,6 +287,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 		logger.Warnf("fetchCompareAndSet all service error ", err.Error())
 		return
 	}
+	_ = a.watch()
 	// manage cluster and route
 	cm := server.GetClusterManager()
 	rm := server.GetRouterManager()
@@ -326,8 +327,7 @@ func (a *CloudAdapter) fetchCompareAndSet() {
 	// third add new router
 	for _, c := range newStore.Config {
 		if !oldStore.HasCluster(c.Name) {
-			prefix := "/" + c.Name + "/"
-			match := model.RouterMatch{Prefix: prefix}
+			match := model.NewRouterMatchPrefix(c.Name)
 			route := model.RouteAction{Cluster: c.Name}
 			added := &model.Router{ID: c.Name, Match: match, Route: route}
 			rm.AddRouter(added)
