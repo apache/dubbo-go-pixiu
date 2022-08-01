@@ -49,7 +49,7 @@ else
 	export EXT_NAME ?=
 endif
 
-CGO ?= 0
+CGO ?= 1
 ifeq ($(DEBUG), true)
 	BUILD_TYPE := debug
 	GCFLAGS := -gcflags="all=-N -l"
