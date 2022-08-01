@@ -19,7 +19,7 @@
 
 ### builder
 FROM golang:alpine as builder
-LABEL MAINTAINER="2677759629@qq.com"
+LABEL MAINTAINER="dubbogo.pixiu@outlook.com"
 
 ENV GOPROXY="https://goproxy.cn,direct" \
     GO111MODULE=on \

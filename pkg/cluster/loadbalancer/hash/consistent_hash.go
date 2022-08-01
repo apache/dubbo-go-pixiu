@@ -15,15 +15,34 @@
  * limitations under the License.
  */
 
-package model
+package consistent
 
-// RemoteConfig remote server info which offer server discovery or k/v or distribution function
-type RemoteConfig struct {
-	Protocol string `yaml:"protocol" json:"protocol" default:"zookeeper"`
-	Timeout  string `yaml:"timeout" json:"timeout" default:"10s"`
-	Address  string `yaml:"address" json:"address"`
-	Username string `yaml:"username" json:"username"`
-	Password string `yaml:"password" json:"password"`
-	Group    string `yaml:"group" json:"group"`
-	Root     string `yaml:"root" json:"root" default:"/services"`
+import (
+	"math/rand"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+func init() {
+	loadbalancer.RegisterLoadBalancer(model.LoadBalanceConsistentHashing, ConsistentHashing{})
+}
+
+type ConsistentHashing struct{}
+
+func (ConsistentHashing) Handler(c *model.ClusterConfig) *model.Endpoint {
+	hash, err := c.Hash.ConsistentHash.GetHash(uint32(rand.Int31n(c.Hash.MaxVnodeNum)))
+	if err != nil {
+		return nil
+	}
+
+	for _, endpoint := range c.Endpoints {
+		if endpoint.Address.Address == hash {
+			return endpoint
+		}
+	}
+
+	return nil
 }

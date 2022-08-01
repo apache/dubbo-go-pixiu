@@ -53,8 +53,9 @@ const (
 )
 
 const (
-	DubboHttpDubboVersion = "x-dubbo-http1.1-dubbo-version"
-	DubboServiceProtocol  = "x-dubbo-service-protocol"
-	DubboServiceVersion   = "x-dubbo-service-version"
-	DubboGroup            = "x-dubbo-service-group"
+	DubboHttpDubboVersion   = "x-dubbo-http1.1-dubbo-version"
+	DubboServiceProtocol    = "x-dubbo-service-protocol"
+	DubboServiceVersion     = "x-dubbo-service-version"
+	DubboGroup              = "x-dubbo-service-group"
+	DubboServiceMethodTypes = "x-dubbo-service-method-overloading"
 )
