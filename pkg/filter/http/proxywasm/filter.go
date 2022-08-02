@@ -88,6 +88,7 @@ func (factory *WasmFilterFactory) PrepareFilterChain(ctx *http.HttpContext, chai
 	for _, service := range factory.cfg.WasmServices {
 		filter.abiContextWrappers[service.Name] = wasm.CreateABIContextByName(service.Name, ctx)
 	}
+	chain.AppendDecodeFilters(filter)
 	chain.AppendEncodeFilters(filter)
 	return nil
 }

@@ -38,6 +38,14 @@ func newHttpContext(rootContextID, contextID uint32) proxywasm.HttpContext {
 
 // override
 func (ctx *myHttpContext) OnHttpRequestHeaders(numHeaders int, endOfStream bool) types.Action {
+
+	// add single header
+	proxywasm.LogInfo("proxywasm add singe header...")
+	err := proxywasm.AddHttpRequestHeader("go-wasm-header", "hello wasm")
+	if err != nil {
+		proxywasm.LogCriticalf("failed to add request headers: %v", err)
+	}
+
 	// get all header
 	proxywasm.LogInfo("proxywasm get request headers...")
 	hs, err := proxywasm.GetHttpRequestHeaders()
@@ -46,13 +54,6 @@ func (ctx *myHttpContext) OnHttpRequestHeaders(numHeaders int, endOfStream bool)
 	}
 	for _, h := range hs {
 		proxywasm.LogInfof("request header from go wasm --> %s: %s", h[0], h[1])
-	}
-
-	// add single header
-	proxywasm.LogInfo("proxywasm add singe header...")
-	err = proxywasm.AddHttpRequestHeader("go-wasm-header", "hello wasm")
-	if err != nil {
-		proxywasm.LogCriticalf("failed to add request headers: %v", err)
 	}
 
 	return types.ActionContinue
