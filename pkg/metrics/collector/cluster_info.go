@@ -7,10 +7,13 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
+)
+import (
 	"github.com/blang/semver/v4"
 	"github.com/prometheus/client_golang/prometheus"
+)
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
 func init() {

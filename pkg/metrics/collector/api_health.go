@@ -3,37 +3,41 @@ package collector
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
-	"github.com/prometheus/client_golang/prometheus"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"path"
 )
+import (
+	"github.com/prometheus/client_golang/prometheus"
+)
 
-//很多api的状态
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
+)
 
+// A collection of many Api states
 type ApiStatsResponse struct {
 	Share    ApiStatShare `json:"share"`
 	ApiStats []ApiStat    `json:"api_stats"`
 }
 
-//api共享的状态
+//The state shared by the Api
 type ApiStatShare struct {
 	Total      int64 `json:"total"`
 	Successful int64 `json:"successful"`
 	Failed     int64 `json:"failed"`
 }
 
-// 单个Api的状态
+// Status of a single Api
 type ApiStat struct {
 	ApiName            string `json:"api_name"`
 	ApiRequests        int64  `json:"api_requests"`
 	ApiRequestsLatency int64  `json:"api_requests_latency"`
 }
 
-//实现收集Api指标的结构体
+// Implement the structure for collecting Api indicators
 type apiMetric struct {
 	Type   prometheus.ValueType
 	Desc   *prometheus.Desc

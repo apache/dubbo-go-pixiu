@@ -1,11 +1,10 @@
 package global
 
-//主要完成一些公共使用类代码的封装以一些全局关键字的定义。
+//Mainly complete the encapsulation of some public class code and the definition of some global keywords.
 import ()
 
 const (
 	// Exporter Namespace.
-	// Namespace将会经常被scrape和collector甚至main调用
 	Namespace      = "pixiu"
 	DefaultEnabled = true
 )

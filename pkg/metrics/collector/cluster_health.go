@@ -1,19 +1,21 @@
 package collector
 
 import (
-	"log"
-
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
-
 	"path"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
+)
+import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
 const (

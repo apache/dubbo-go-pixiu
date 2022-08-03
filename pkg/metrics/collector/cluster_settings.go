@@ -3,19 +3,23 @@ package collector
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"path"
 	"strconv"
-
-	"github.com/imdario/mergo"
-	"github.com/prometheus/client_golang/prometheus"
-	"log"
 )
 
-// 要注册的函数
+import (
+	"github.com/imdario/mergo"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
+)
+
 // ClusterSettings information struct
 type ClusterSettings struct {
 	logger log.Logger

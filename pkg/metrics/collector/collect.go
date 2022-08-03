@@ -3,13 +3,19 @@ package collector
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
-	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"net/http"
 	"net/url"
 	"sync"
+)
+
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/alecthomas/kingpin.v2"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
 // Collector is the interface a collector has to implement.
@@ -44,7 +50,7 @@ var (
 	)
 )
 
-//供给 collector 调用
+//Provide collector call
 func RegisterCollector(name string, isDefaultEnabled bool, createFunc FactoryFunc) {
 	var helpDefaultState string
 	if isDefaultEnabled {
@@ -57,7 +63,7 @@ func RegisterCollector(name string, isDefaultEnabled bool, createFunc FactoryFun
 	flagName := fmt.Sprintf("collector.%s", name)
 	flagHelp := fmt.Sprintf("Enable the %s collector (default: %s).", name, helpDefaultState)
 	defaultValue := fmt.Sprintf("%v", isDefaultEnabled)
-	//在解析和验证标志后分派给给定的函数。
+	// Dispatched to the given function after parsing and validating the flags.
 	flag := kingpin.Flag(flagName, flagHelp).Default(defaultValue).Action(CollectorFlagAction(name)).Bool()
 	collectorState[name] = flag
 
@@ -65,7 +71,7 @@ func RegisterCollector(name string, isDefaultEnabled bool, createFunc FactoryFun
 	factories[name] = createFunc
 }
 
-// collectorFlagAction generates a new action function for the given collector
+// CollectorFlagAction generates a new action function for the given collector
 // to track whether it has been explicitly enabled or disabled from the command line.
 // A new action function is needed for each collector flag because the ParseContext
 // does not contain information about which flag called the action.
