@@ -134,13 +134,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	interfaceKey := service
 
 	groupKey := hc.Request.Header.Get(constant.DubboGroup)
-	if groupKey == "" {
-		groupKey = "default"
-	}
 	versionKey := hc.Request.Header.Get(constant.DubboServiceVersion)
-	if versionKey == "" {
-		versionKey = "1.0.0"
-	}
+	types := hc.Request.Header.Get(constant.DubboServiceMethodTypes)
 
 	rawBody, err := ioutil.ReadAll(hc.Request.Body)
 	if err != nil {
@@ -150,8 +145,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	mapBody := map[string]interface{}{}
-	if err := json.Unmarshal(rawBody, &mapBody); err != nil {
+	var body interface{}
+	if err := json.Unmarshal(rawBody, &body); err != nil {
 		logger.Infof("[dubbo-go-pixiu] unmarshal request body error %v", err)
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("unmarshal request body error %v", err)})
 		hc.SendLocalReply(http.StatusBadRequest, bt)
@@ -167,14 +162,11 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 		valuesList []hessian.Object
 	)
 
-	types := mapBody["types"]
-	if typesString, ok := types.(string); ok {
-		typesList = strings.Split(typesString, ",")
-	} else if _, ok = types.([]string); ok {
-		typesList = types.([]string)
+	if types != "" {
+		typesList = strings.Split(types, ",")
 	}
 
-	values := mapBody["values"]
+	values := body
 	if _, ok := values.([]interface{}); ok {
 		for _, v := range values.([]interface{}) {
 			valuesList = append(valuesList, v)
