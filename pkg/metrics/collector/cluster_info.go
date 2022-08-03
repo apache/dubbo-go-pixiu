@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 )
@@ -30,6 +29,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
@@ -38,12 +38,12 @@ func init() {
 }
 
 type ClusterInfoCollector struct {
-	logger log.Logger
+	logger logger.Logger
 	u      *url.URL
 	hc     *http.Client
 }
 
-func NewClusterInfo(logger log.Logger, u *url.URL, hc *http.Client) (Collector, error) {
+func NewClusterInfo(logger logger.Logger, u *url.URL, hc *http.Client) (Collector, error) {
 	return &ClusterInfoCollector{
 		logger: logger,
 		u:      u,

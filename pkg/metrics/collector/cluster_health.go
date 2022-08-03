@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -32,6 +31,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
@@ -77,7 +77,7 @@ type clusterHealthStatusMetric struct {
 }
 
 type ClusterHealth struct {
-	logger log.Logger
+	logger logger.Logger
 	client *http.Client
 	url    *url.URL
 
@@ -89,8 +89,7 @@ type ClusterHealth struct {
 	statusMetric *clusterHealthStatusMetric
 }
 
-func NewClusterHealth(logger log.Logger, client *http.Client, url *url.URL) *ClusterHealth {
-
+func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *ClusterHealth {
 	return &ClusterHealth{
 		logger: logger,
 		client: client,
@@ -275,10 +274,7 @@ func (c *ClusterHealth) Collect(ch chan<- prometheus.Metric) {
 	clusterHealthResp, err := c.fetchAndDecodeClusterHealth()
 	if err != nil {
 		c.up.Set(0)
-		_ = c.logger.Output(
-			2,
-			"msg:"+"failed to fetch and decode cluster health"+"err:"+err.Error(),
-		)
+		logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Cluster Health Status", err.Error())
 		return
 	}
 
@@ -317,10 +313,8 @@ func (c *ClusterHealth) fetchAndDecodeClusterHealth() (clusterHealthResponse, er
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
-			_ = c.logger.Output(
-				2,
-				"msg:"+"failed to close http.Client"+"err:"+err.Error(),
-			)
+			logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
+
 		}
 	}()
 
@@ -342,7 +336,7 @@ func (c *ClusterHealth) fetchAndDecodeClusterHealth() (clusterHealthResponse, er
 	return chr, nil
 }
 
-func NewHandler(logger log.Logger, client *http.Client, url *url.URL) http.HandlerFunc {
+func NewHandler(logger logger.Logger, client *http.Client, url *url.URL) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		registry := prometheus.NewRegistry()
 		registry.MustRegister(NewClusterHealth(logger, client, url))

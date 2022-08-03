@@ -20,7 +20,6 @@ package collector
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -32,6 +31,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
@@ -40,7 +40,7 @@ type Collector interface {
 	Update(context.Context, chan<- prometheus.Metric) error
 }
 
-type FactoryFunc func(logger log.Logger, u *url.URL, hc *http.Client) (Collector, error)
+type FactoryFunc func(logger logger.Logger, u *url.URL, hc *http.Client) (Collector, error)
 
 var (
 	factories              = make(map[string]FactoryFunc)

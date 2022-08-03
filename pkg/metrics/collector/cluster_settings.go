@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -34,12 +33,13 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
 // ClusterSettings information struct
 type ClusterSettings struct {
-	logger log.Logger
+	logger logger.Logger
 	client *http.Client
 	url    *url.URL
 
@@ -50,7 +50,7 @@ type ClusterSettings struct {
 }
 
 // NewClusterSettings defines Cluster Settings Prometheus metrics
-func NewClusterSettings(logger log.Logger, client *http.Client, url *url.URL) *ClusterSettings {
+func NewClusterSettings(logger logger.Logger, client *http.Client, url *url.URL) *ClusterSettings {
 	return &ClusterSettings{
 		logger: logger,
 		client: client,
@@ -93,10 +93,7 @@ func (cs *ClusterSettings) getAndParseURL(u *url.URL, data interface{}) error {
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
-			_ = cs.logger.Output(
-				2,
-				"msg:"+"failed to close http.Client"+"err:"+err.Error())
-
+			logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
 		}
 	}()
 
@@ -171,10 +168,7 @@ func (cs *ClusterSettings) Collect(ch chan<- prometheus.Metric) {
 	csr, err := cs.fetchAndDecodeClusterSettingsStats()
 	if err != nil {
 		cs.up.Set(0)
-		_ = cs.logger.Output(
-			2,
-			"msg"+"failed to fetch and decode cluster settings stats"+"err:"+err.Error(),
-		)
+		logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Cluster Settings Stats", err.Error())
 		return
 	}
 	cs.up.Set(1)

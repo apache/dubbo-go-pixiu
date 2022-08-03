@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -31,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
@@ -71,7 +71,7 @@ var (
 
 // ApiHealth Struct
 type ApiHealth struct {
-	logger log.Logger
+	logger logger.Logger
 	client *http.Client
 	url    *url.URL
 
@@ -83,7 +83,7 @@ type ApiHealth struct {
 }
 
 // NewApiHealth defines  Api Health Prometheus metrics
-func NewApiHealth(logger log.Logger, client *http.Client, url *url.URL) *ApiHealth {
+func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) *ApiHealth {
 	return &ApiHealth{
 		logger: logger,
 		client: client,
@@ -143,10 +143,7 @@ func (ds *ApiHealth) fetchAndDecodeApiStats() (ApiStatsResponse, error) {
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
-			_ = ds.logger.Output(
-				2,
-				"msg:"+"failed to close http.Client"+"err:"+err.Error(),
-			)
+			logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
 		}
 	}()
 
@@ -180,10 +177,7 @@ func (ds *ApiHealth) Collect(ch chan<- prometheus.Metric) {
 	dataStreamStatsResp, err := ds.fetchAndDecodeApiStats()
 	if err != nil {
 		ds.up.Set(0)
-		_ = ds.logger.Output(
-			2,
-			"msg"+"failed to fetch and decode data stream stats"+"err:"+err.Error(),
-		)
+		logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Api Stats", err.Error())
 		return
 	}
 

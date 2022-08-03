@@ -18,14 +18,14 @@
 package collector
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 )
+
+import "github.com/apache/dubbo-go-pixiu/pkg/logger"
 
 func TestApiHealth(t *testing.T) {
 
@@ -43,11 +43,8 @@ func TestApiHealth(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to parse URL: %s", err)
 		}
-
-		buf := &bytes.Buffer{}
-		logger := log.New(buf, "", log.Lshortfile|log.LstdFlags)
-
-		c := NewApiHealth(*logger, http.DefaultClient, u)
+		log := logger.GetLogger()
+		c := NewApiHealth(log, http.DefaultClient, u)
 		chr, err := c.fetchAndDecodeApiStats()
 		if err != nil {
 			t.Fatalf("Failed to fetch or decode api health: %s", err)
