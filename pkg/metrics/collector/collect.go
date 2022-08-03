@@ -20,7 +20,6 @@ import (
 
 // Collector is the interface a collector has to implement.
 type Collector interface {
-	// Get new metrics and expose them via prometheus registry.
 	Update(context.Context, chan<- prometheus.Metric) error
 }
 
@@ -31,8 +30,7 @@ var (
 	initiatedCollectorsMtx = sync.Mutex{}
 	initiatedCollectors    = make(map[string]Collector)
 	collectorState         = make(map[string]*bool)
-	//collectors which have been explicitly enabled or disabled 明确启用或禁用的收集器
-	forcedCollectors = map[string]bool{}
+	forcedCollectors       = map[string]bool{}
 )
 
 var (
@@ -71,10 +69,6 @@ func RegisterCollector(name string, isDefaultEnabled bool, createFunc FactoryFun
 	factories[name] = createFunc
 }
 
-// CollectorFlagAction generates a new action function for the given collector
-// to track whether it has been explicitly enabled or disabled from the command line.
-// A new action function is needed for each collector flag because the ParseContext
-// does not contain information about which flag called the action.
 func CollectorFlagAction(collector string) func(ctx *kingpin.ParseContext) error {
 	return func(ctx *kingpin.ParseContext) error {
 
