@@ -93,7 +93,7 @@ func (cs *ClusterSettings) getAndParseURL(u *url.URL, data interface{}) error {
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
-			logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
+			cs.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
 		}
 	}()
 
@@ -168,7 +168,7 @@ func (cs *ClusterSettings) Collect(ch chan<- prometheus.Metric) {
 	csr, err := cs.fetchAndDecodeClusterSettingsStats()
 	if err != nil {
 		cs.up.Set(0)
-		logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Cluster Settings Stats", err.Error())
+		cs.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Cluster Settings Stats", err.Error())
 		return
 	}
 	cs.up.Set(1)

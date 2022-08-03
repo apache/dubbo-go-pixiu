@@ -143,7 +143,7 @@ func (ds *ApiHealth) fetchAndDecodeApiStats() (ApiStatsResponse, error) {
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
-			logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
+			ds.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
 		}
 	}()
 
@@ -177,7 +177,7 @@ func (ds *ApiHealth) Collect(ch chan<- prometheus.Metric) {
 	dataStreamStatsResp, err := ds.fetchAndDecodeApiStats()
 	if err != nil {
 		ds.up.Set(0)
-		logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Api Stats", err.Error())
+		ds.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Api Stats", err.Error())
 		return
 	}
 

@@ -274,7 +274,7 @@ func (c *ClusterHealth) Collect(ch chan<- prometheus.Metric) {
 	clusterHealthResp, err := c.fetchAndDecodeClusterHealth()
 	if err != nil {
 		c.up.Set(0)
-		logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Cluster Health Status", err.Error())
+		c.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Cluster Health Status", err.Error())
 		return
 	}
 
@@ -313,7 +313,7 @@ func (c *ClusterHealth) fetchAndDecodeClusterHealth() (clusterHealthResponse, er
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
-			logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
+			c.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
 
 		}
 	}()
