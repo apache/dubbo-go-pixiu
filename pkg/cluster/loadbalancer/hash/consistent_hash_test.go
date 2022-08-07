@@ -15,15 +15,37 @@
  * limitations under the License.
  */
 
-package model
+package consistent
 
-// RemoteConfig remote server info which offer server discovery or k/v or distribution function
-type RemoteConfig struct {
-	Protocol string `yaml:"protocol" json:"protocol" default:"zookeeper"`
-	Timeout  string `yaml:"timeout" json:"timeout" default:"10s"`
-	Address  string `yaml:"address" json:"address"`
-	Username string `yaml:"username" json:"username"`
-	Password string `yaml:"password" json:"password"`
-	Group    string `yaml:"group" json:"group"`
-	Root     string `yaml:"root" json:"root" default:"/services"`
+import (
+	"strconv"
+	"testing"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+func TestHashRing(t *testing.T) {
+
+	nodeCount := 5
+
+	nodes := make([]*model.Endpoint, 0, nodeCount)
+
+	for i := 1; i <= nodeCount; i++ {
+		name := strconv.Itoa(i)
+		nodes = append(nodes, &model.Endpoint{ID: name, Name: name,
+			Address: model.SocketAddress{Address: "192.168.1." + name, Port: 1000 + i}})
+	}
+
+	cluster := &model.ClusterConfig{Name: "cluster1", Endpoints: nodes,
+		LbStr: model.LoadBalanceConsistentHashing, Hash: model.Hash{ReplicaNum: 10, MaxVnodeNum: 1023}}
+	cluster.CreateConsistentHash()
+
+	hashing := ConsistentHashing{}
+
+	for i := 0; i < 10; i++ {
+		t.Log(hashing.Handler(cluster))
+	}
+
 }

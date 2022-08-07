@@ -1,6 +1,30 @@
 # Release Notes
 
 ---
+## 0.5.1
+
+### New Features
+- [Trace Support](https://github.com/apache/dubbo-go-pixiu/pull/394)
+- [Health Check Support](https://github.com/apache/dubbo-go-pixiu/pull/421)
+- [xDS Config Support](https://github.com/apache/dubbo-go-pixiu/pull/385)
+- [LDS Support](https://github.com/apache/dubbo-go-pixiu/pull/417)
+- [Direct Dubbo Invoke](https://github.com/apache/dubbo-go-pixiu/pull/434)
+
+
+### Enhancement
+
+- [SpringCloud subscribe strategy](https://github.com/apache/dubbo-go-pixiu/pull/425)
+- [Style:optimization router match prefix definition](https://github.com/apache/dubbo-go-pixiu/pull/451)
+
+
+### Bugfixes
+
+- [Nacos registry bug](https://github.com/apache/dubbo-go-pixiu/pull/389)
+- [Fix spring cloud error and refactor event callback](https://github.com/apache/dubbo-go-pixiu/pull/367)
+- [Fix first call failure problem when using nacos registery](https://github.com/apache/dubbo-go-pixiu/pull/380)
+
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/6](https://github.com/apache/dubbo-go-pixiu/milestone/6)
+
 ## 0.5.0
 
 ### New Features
@@ -31,9 +55,6 @@
 - [Fix write error when handle gRPC request using http2 manager](https://github.com/apache/dubbo-go-pixiu/pull/372)
 - [Fix spring cloud error and refactor event callback](https://github.com/apache/dubbo-go-pixiu/pull/367)
 - [Fix first call failure problem when using nacos registery](https://github.com/apache/dubbo-go-pixiu/pull/380)
-
-Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/6](https://github.com/apache/dubbo-go-pixiu/milestone/6)
-
 
 ## 0.4.0
 

@@ -1,6 +1,6 @@
 module github.com/apache/dubbo-go-pixiu
 
-go 1.15
+go 1.16
 
 require (
 	dubbo.apache.org/dubbo-go/v3 v3.0.2-0.20220519062747-f6405fa79d5c
@@ -8,7 +8,7 @@ require (
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/apache/dubbo-getty v1.4.8
-	github.com/apache/dubbo-go-hessian2 v1.11.0
+	github.com/apache/dubbo-go-hessian2 v1.11.1
 	github.com/cch123/supermonkey v1.0.1
 	github.com/creasty/defaults v1.5.2
 	github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99
@@ -19,7 +19,6 @@ require (
 	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/frankban/quicktest v1.11.3 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/gin-gonic/gin v1.7.7
 	github.com/go-errors/errors v1.0.1
 	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-resty/resty/v2 v2.7.0
