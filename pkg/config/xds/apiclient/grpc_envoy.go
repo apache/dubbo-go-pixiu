@@ -424,7 +424,7 @@ func (g *AggGrpcApiClient) getClusterResourceReference(c *clusterpb.Cluster, eds
 				RawProto:  c,
 			}
 		} else {
-
+			logger.Infof("cluster type %s not supported", typ.Type.String())
 		}
 	}
 }
