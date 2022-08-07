@@ -26,6 +26,7 @@ import (
 	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listenerpb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
@@ -127,14 +128,21 @@ type refEndpoint struct {
 }
 
 func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
-
 	// all endpoint refer cluster or listener. map[type]map[resource name]endpoint info
 	edsResources := make(map[resource.Type]map[string]refEndpoint)
 	req := g.makeDiscoveryRequest(g.resourceNames, g.typeUrl)
 	var handler discoveryResponseHandler
 	switch g.typeUrl {
 	case resource.ListenerType:
-		return errors.Errorf("not implment for ListenerType")
+		handler = func(any2 []*anypb.Any) {
+			for _, res := range any2 {
+				l := listenerpb.Listener{}
+				if err := res.UnmarshalTo(&l); err != nil {
+					logger.Warnf("can not decode source %s , %v", res.TypeUrl, res)
+					continue
+				}
+			}
+		}
 	case resource.ClusterType:
 		handler = func(any2 []*anypb.Any) {
 			// only one goroutine handle response, no need to lock for local var.
@@ -183,7 +191,6 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 						continue
 					}
 					c := clusterRefEndpoints[l.ClusterName].RawProto.(*clusterpb.Cluster)
-					logger.Infof("endpoint ==> %s, %v", l.ClusterName, l.Endpoints)
 					extCluster.Clusters[0].Name = g.readServiceNameOfCluster(c)
 
 					for _, ep := range l.Endpoints {
@@ -383,7 +390,9 @@ func (g *AggGrpcApiClient) makeNode() *envoyconfigcorev3.Node {
 
 // getClusterResourceReference get resources of cluster
 func (g *AggGrpcApiClient) getClusterResourceReference(c *clusterpb.Cluster, edsResources map[resource.Type]map[string]refEndpoint) {
+	logger.Infof("cluster name ==>%s", c.Name)
 	if _, exist := g.dubboServiceFilter[g.readServiceNameOfCluster(c)]; !exist {
+		logger.Infof("cluster name ==>%v", c)
 		return
 	}
 
@@ -403,6 +412,8 @@ func (g *AggGrpcApiClient) getClusterResourceReference(c *clusterpb.Cluster, eds
 				IsPending: true,
 				RawProto:  c,
 			}
+		} else {
+
 		}
 	}
 }
