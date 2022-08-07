@@ -26,9 +26,11 @@ const (
 	HeaderKeyAccessControlMaxAge           = "Access-Control-Max-Age"
 	HeaderKeyAccessControlAllowCredentials = "Access-Control-Allow-Credentials"
 
-	HeaderValueJsonUtf8  = "application/json;charset=UTF-8"
-	HeaderValueTextPlain = "text/plain"
-	HeaderValueAll       = "*"
+	HeaderValueJsonUtf8        = "application/json;charset=UTF-8"
+	HeaderValueTextPlain       = "text/plain"
+	HeaderValueApplicationJson = "application/json"
+
+	HeaderValueAll = "*"
 
 	PathSlash           = "/"
 	ProtocolSlash       = "://"
