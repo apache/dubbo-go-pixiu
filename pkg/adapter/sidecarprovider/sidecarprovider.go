@@ -94,7 +94,7 @@ func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
 
 // Start starts the adaptor
 func (a SidecarAdapter) Start() {
-	//register sidecar
+	// register sidecar
 	for _, reg := range a.registries {
 		if err := reg.Subscribe(); err != nil {
 			logger.Errorf("Subscribe fail, error is {%s}", err.Error())
