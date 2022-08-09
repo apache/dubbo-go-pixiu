@@ -47,6 +47,7 @@ const (
 
 	DubboHttpFilter  = "dgp.filter.dubbo.http"
 	DubboProxyFilter = "dgp.filter.dubbo.proxy"
+	DubboApiConfigFilter = "dgp.filter.dubbo.apiconfig"
 )
 
 const (

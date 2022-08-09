@@ -18,10 +18,9 @@
 package sidecarprovider
 
 import (
+	"os"
 	"reflect"
 	"strconv"
-	"sync"
-	"time"
 )
 
 import (
@@ -29,87 +28,110 @@ import (
 	dgconstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/common/extension"
 	dg "dubbo.apache.org/dubbo-go/v3/config"
-	"dubbo.apache.org/dubbo-go/v3/registry"
+	dgregistry "dubbo.apache.org/dubbo-go/v3/registry"
 	perrors "github.com/pkg/errors"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
+const Kind = constant.SidecarProviderAdapter
 
 func init() {
 	adapter.RegisterAdapterPlugin(&Plugin{})
 }
 
 type (
-	// Plugin to monitor dubbo services on registry center
+	// Plugin the adapter plugin for sidecar provider
 	Plugin struct {
 	}
 
-	// SidecarAdapter the adapter for spring cloud
+	// SidecarAdapter the adapter for sidecar register
 	SidecarAdapter struct {
-		cfg            *AdaptorConfig
-		sd             servicediscovery.ServiceDiscovery
-		currentService map[string]*Service
-		mutex    sync.Mutex
-		stopChan chan struct{}
+		id		  string
+		cfg       *AdaptorConfig
+		registries map[string]registry.Registry
+		URL		  *common.URL
 	}
 
 	// AdaptorConfig the config for SidecarAdapter
 	AdaptorConfig struct {
-		// Mode default 0 start backgroup fresh and watch, 1 only fresh 2 only watch
-		Mode          int                 `yaml:"mode" json:"mode" default:"mode"`
-		Registry      *model.RemoteConfig `yaml:"registry" json:"registry" default:"registry"`
-		FreshInterval time.Duration       `yaml:"freshInterval" json:"freshInterval" default:"freshInterval"`
-		Services      []string            `yaml:"services" json:"services" default:"services"`
-		// SubscribePolicy subscribe config,
-		// - adapting : if there is no any Services (App) names, fetch All services from registry center
-		// - definitely : fetch services by the config Services (App) names
-		SubscribePolicy string `yaml:"subscribe-policy" json:"subscribe-policy" default:"adapting"`
+		Registries    map[string]model.Registry `yaml:"registry" json:"registry" default:"registry"`
+		Interface	  string              `yaml:"interface" json:"interface" default:"interface"`
+		Protocol	  *ProtocolConfig	  `yaml:"protocol" json:"protocol" default:"protocol"`
 	}
 
-	Service struct {
-		Name string
+	// ProtocolConfig is protocol configuration
+	ProtocolConfig struct {
+		Name   string      `default:"dubbo" validate:"required" yaml:"name" json:"name,omitempty" property:"name"`
+		Ip     string      `yaml:"ip"  json:"ip,omitempty" property:"ip"`
+		Port   string      `default:"20000" yaml:"port" json:"port,omitempty" property:"port"`
+		Params interface{} `yaml:"params" json:"params,omitempty" property:"params"`
 	}
 
-	SubscribePolicy int
 )
 
 // Kind returns the identifier of the plugin
 func (p Plugin) Kind() string {
-	return constant.SidecarProviderAdapter
+	return Kind
 }
 
 // CreateAdapter returns the dubbo registry center adapter
 func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
 	adapter := &SidecarAdapter{
 		cfg:      &AdaptorConfig{},
-		stopChan: make(chan struct{}),
-		currentService: make(map[string]*Service),
 	}
 	return adapter,nil
 }
 
 // Start starts the adaptor
 func (a SidecarAdapter) Start() {
-
-	registerServiceInstance()
+	//register sidecar
+	for _, reg := range a.registries {
+		if err := reg.Subscribe(); err != nil {
+			logger.Errorf("Subscribe fail, error is {%s}", err.Error())
+		}
+	}
+	registerServiceInstance(a.URL)
 }
 
 // Stop stops the adaptor
 func (a *SidecarAdapter) Stop() {
-
+	for _, reg := range a.registries {
+		if err := reg.Unsubscribe(); err != nil {
+			logger.Errorf("Unsubscribe fail, error is {%s}", err.Error())
+		}
+	}
 }
 
 // Apply init
 func (a *SidecarAdapter) Apply() error {
 	// create config
-
+	a.URL = common.NewURLWithOptions(
+		common.WithPath(a.cfg.Interface),
+		common.WithProtocol(a.cfg.Protocol.Name),
+		common.WithIp(a.cfg.Protocol.Ip),
+		common.WithPort(a.cfg.Protocol.Port),
+	)
+	nacosAddrFromEnv := os.Getenv(constant.EnvDubbogoPixiuNacosRegistryAddress)
+	for k, registryConfig := range a.cfg.Registries {
+		var err error
+		if nacosAddrFromEnv != "" && registryConfig.Protocol == constant.Nacos {
+			registryConfig.Address = nacosAddrFromEnv
+		}
+		a.registries[k], err = registry.GetRegistry(k, registryConfig, a)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -118,8 +140,22 @@ func (a SidecarAdapter) Config() interface{} {
 	return a.cfg
 }
 
-func registerServiceInstance() {
-	url := selectMetadataServiceExportedURL()
+func (a *SidecarAdapter) OnAddAPI(r router.API) error {
+	acm := server.GetApiConfigManager()
+	return acm.AddAPI(a.id, r)
+}
+
+func (a *SidecarAdapter) OnRemoveAPI(r router.API) error {
+	acm := server.GetApiConfigManager()
+	return acm.RemoveAPI(a.id, r)
+}
+
+func (a *SidecarAdapter) OnDeleteRouter(r config.Resource) error {
+	acm := server.GetApiConfigManager()
+	return acm.DeleteRouter(a.id, r)
+}
+
+func registerServiceInstance(url *common.URL) {
 	if url == nil {
 		return
 	}
@@ -128,15 +164,15 @@ func registerServiceInstance() {
 		panic(err)
 	}
 	p := extension.GetProtocol(dgconstant.RegistryKey)
-	var rp registry.RegistryFactory
+	var rp dgregistry.RegistryFactory
 	var ok bool
-	if rp, ok = p.(registry.RegistryFactory); !ok {
+	if rp, ok = p.(dgregistry.RegistryFactory); !ok {
 		panic("dubbo registry protocol{" + reflect.TypeOf(p).String() + "} is invalid")
 	}
 	rs := rp.GetRegistries()
 	for _, r := range rs {
-		var sdr registry.ServiceDiscoveryHolder
-		if sdr, ok = r.(registry.ServiceDiscoveryHolder); !ok {
+		var sdr dgregistry.ServiceDiscoveryHolder
+		if sdr, ok = r.(dgregistry.ServiceDiscoveryHolder); !ok {
 			continue
 		}
 		// publish app level data to registry
@@ -153,7 +189,7 @@ func registerServiceInstance() {
 	}
 }
 
-func createInstance(url *common.URL) (registry.ServiceInstance, error) {
+func createInstance(url *common.URL) (dgregistry.ServiceInstance, error) {
 	appConfig := dg.GetApplicationConfig()
 	port, err := strconv.ParseInt(url.Port, 10, 32)
 	if err != nil {
@@ -169,7 +205,7 @@ func createInstance(url *common.URL) (registry.ServiceInstance, error) {
 	metadata := make(map[string]string, 8)
 	metadata[dgconstant.MetadataStorageTypePropertyName] = appConfig.MetadataType
 
-	instance := &registry.DefaultServiceInstance{
+	instance := &dgregistry.DefaultServiceInstance{
 		ServiceName: appConfig.Name,
 		Host:        host,
 		Port:        int(port),
@@ -184,29 +220,4 @@ func createInstance(url *common.URL) (registry.ServiceInstance, error) {
 	}
 
 	return instance, nil
-}
-
-// selectMetadataServiceExportedURL get already be exported url
-func selectMetadataServiceExportedURL() *common.URL {
-	var selectedUrl *common.URL
-	metaDataService, err := extension.GetLocalMetadataService(dgconstant.DefaultKey)
-	if err != nil {
-		logger.Warnf("get metadata service exporter failed, pls check if you import _ \"dubbo.apache.org/dubbo-go/v3/metadata/service/local\"")
-		return nil
-	}
-	urlList, err := metaDataService.GetExportedURLs(dgconstant.AnyValue, dgconstant.AnyValue, dgconstant.AnyValue, dgconstant.AnyValue)
-	if err != nil {
-		panic(err)
-	}
-	if len(urlList) == 0 {
-		return nil
-	}
-	for _, url := range urlList {
-		selectedUrl = url
-		// rest first
-		if url.Protocol == "rest" {
-			break
-		}
-	}
-	return selectedUrl
 }
