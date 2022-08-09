@@ -29,6 +29,8 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/common/extension"
 	dg "dubbo.apache.org/dubbo-go/v3/config"
 	dgregistry "dubbo.apache.org/dubbo-go/v3/registry"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 	perrors "github.com/pkg/errors"
 )
 
@@ -39,8 +41,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 const Kind = constant.SidecarProviderAdapter
@@ -56,10 +56,10 @@ type (
 
 	// SidecarAdapter the adapter for sidecar register
 	SidecarAdapter struct {
-		id		  string
-		cfg       *AdaptorConfig
-		registries map[string]registry.Registry
-		URL		  *common.URL
+		id		  	string
+		cfg       	*AdaptorConfig
+		registries 	map[string]registry.Registry
+		URL		  	*common.URL
 	}
 
 	// AdaptorConfig the config for SidecarAdapter
@@ -164,8 +164,10 @@ func registerServiceInstance(url *common.URL) {
 		panic(err)
 	}
 	p := extension.GetProtocol(dgconstant.RegistryKey)
-	var rp dgregistry.RegistryFactory
-	var ok bool
+	var (
+		rp dgregistry.RegistryFactory
+		ok bool
+	)
 	if rp, ok = p.(dgregistry.RegistryFactory); !ok {
 		panic("dubbo registry protocol{" + reflect.TypeOf(p).String() + "} is invalid")
 	}
