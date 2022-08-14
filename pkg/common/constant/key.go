@@ -44,6 +44,7 @@ const (
 	HTTPProxyRewriteFilter     = "dgp.filter.http.proxyrewrite"
 	HTTPLoadBalanceFilter      = "dgp.filter.http.loadbalance"
 	HTTPEventFilter            = "dgp.filter.http.event"
+	HTTPTrafficFilter          = "dgp.filter.http.traffic"
 
 	DubboHttpFilter  = "dgp.filter.dubbo.http"
 	DubboProxyFilter = "dgp.filter.dubbo.proxy"
