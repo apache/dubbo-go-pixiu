@@ -80,6 +80,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
+	logger.Debugf("[dubbo-go-pixiu] client Before Api timout routerfilter :%v", hc.Timeout)
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
@@ -121,7 +122,7 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 
 	cli := &http3.Client{
 		Transport: f.transport,
-		Timeout:   hc.Timeout, //从HttpContext中获取超时时间
+		Timeout:   hc.Timeout,
 	}
 
 	resp, err := cli.Do(req)

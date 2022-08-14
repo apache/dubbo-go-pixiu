@@ -75,6 +75,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
+	//logger.Debugf("[dubbo-go-pixiu] client Before Api timout loadbalancer :%v", c.Timeout)
 	allInstances := strings.Split(c.GetAPI().IntegrationRequest.HTTPBackendConfig.URL, ",")
 	idx := rand.Int31n(int32(len(allInstances)))
 	c.Api.IntegrationRequest.HTTPBackendConfig.URL = allInstances[idx]

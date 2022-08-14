@@ -113,6 +113,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
+	logger.Debugf("[dubbo-go-pixiu] client Before Api timout apiconfig :%v", ctx.Timeout)
 	req := ctx.Request
 	v, err := f.apiService.MatchAPI(req.URL.Path, fc.HTTPVerb(req.Method))
 	if err != nil {

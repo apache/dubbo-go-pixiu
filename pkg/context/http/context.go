@@ -205,7 +205,9 @@ func (hc *HttpContext) LocalReply() bool {
 
 // API sets the API to http context
 func (hc *HttpContext) API(api router.API) {
-	hc.Timeout = api.Timeout
+	if hc.Timeout > api.Timeout {
+		hc.Timeout = api.Timeout
+	}
 	hc.Api = &api
 }
 

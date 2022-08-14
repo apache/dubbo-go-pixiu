@@ -22,7 +22,7 @@ type Client interface {
 	// Apply to init client
 	Apply() error
 
-	// Close close the clinet
+	// Close close the client
 	Close() error
 
 	// Call invoke the downstream service.

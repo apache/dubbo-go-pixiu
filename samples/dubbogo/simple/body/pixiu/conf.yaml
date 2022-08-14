@@ -24,6 +24,7 @@ static_resources:
         filters:
           - name: dgp.filter.httpconnectionmanager
             config:
+              timeout : "2ns"
               route_config:
                 routes:
                   - match:

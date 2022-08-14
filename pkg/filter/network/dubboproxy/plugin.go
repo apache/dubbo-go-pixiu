@@ -44,6 +44,7 @@ func (p *Plugin) Kind() string {
 // CreateFilter create dubbo networkfilter
 func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
 	hcmc, ok := config.(*model.DubboProxyConnectionManagerConfig)
+	hcmc.Timeout = constant.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	if !ok {
 		panic("CreateFilter occur some exception for the type is not suitable one.")
 	}

@@ -81,6 +81,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
+	//logger.Debugf("[dubbo-go-pixiu] client Before Api timout call :%v", ctx.Timeout)
 	ctx.Request.Header.Set(csrfSecret, f.cfg.Secret)
 
 	if inMethod(f.cfg.IgnoreMethods, ctx.Request.Method) {

@@ -17,7 +17,10 @@
 
 package constant
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 var (
 	Default403Body = []byte("403 for bidden")
@@ -43,5 +46,18 @@ const (
 	// console
 	Console = "console"
 
-	DefaultReqTimeout = 10 * time.Second
+	DefaultReqTimeout = 1 * time.Nanosecond
 )
+
+func ResolveTimeStr2Time(currentV string, defaultV time.Duration) time.Duration {
+	fmt.Printf("timeout parse %s : %d", currentV, defaultV)
+	if currentV == "" {
+		return defaultV
+	} else {
+		if duration, err := time.ParseDuration(currentV); err != nil {
+			return defaultV
+		} else {
+			return duration
+		}
+	}
+}

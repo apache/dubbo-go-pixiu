@@ -44,6 +44,7 @@ func (p *Plugin) Kind() string {
 // CreateFilter create grpc network filter
 func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.GRPCConnectionManagerConfig)
+	hcmc.Timeout = constant.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return grpc.CreateGrpcConnectionManager(hcmc), nil
 }
 

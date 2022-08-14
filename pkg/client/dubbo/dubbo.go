@@ -209,6 +209,8 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	span.SetAttributes(attribute.Key(spanTagValues).String(string(finalValues)))
 	defer span.End()
 	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
+	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
+	defer cancel()
 	rst, err := gs.Invoke(ctx, method, types, vals)
 	if err != nil {
 		return nil, err

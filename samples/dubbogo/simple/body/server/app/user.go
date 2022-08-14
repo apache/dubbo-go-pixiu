@@ -235,6 +235,7 @@ func (u *UserProvider) GetUserByNameAndAge(ctx context.Context, name string, age
 // UpdateUser update by user struct, my be another struct, PX config POST or PUT.
 func (u *UserProvider) UpdateUser(ctx context.Context, user *User) (bool, error) {
 	fmt.Printf("Req UpdateUser data: %#v \n", user)
+	time.Sleep(1 * time.Millisecond)
 	r, ok := cache.GetByName(user.Name)
 	if ok {
 		if user.ID != "" {
@@ -250,6 +251,7 @@ func (u *UserProvider) UpdateUser(ctx context.Context, user *User) (bool, error)
 
 // UpdateUserByName update by user struct, my be another struct, PX config POST or PUT.
 func (u *UserProvider) UpdateUserByName(ctx context.Context, name string, user *User) (bool, error) {
+	time.Sleep(1 * time.Millisecond)
 	fmt.Printf("Req UpdateUserByName data: %#v \n", user)
 	r, ok := cache.GetByName(name)
 	if ok {

@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	stdHttp "net/http"
 	"sync"
-	"time"
 )
 
 import (
@@ -48,7 +47,6 @@ type HttpConnectionManager struct {
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *filter.FilterManager
 	pool              sync.Pool
-	timeout           time.Duration
 }
 
 // CreateHttpConnectionManager create http connection manager
@@ -60,7 +58,6 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpC
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
 	hcm.filterManager.Load()
-	hcm.timeout = resolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return hcm
 }
 
@@ -87,7 +84,7 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc.Writer = w
 	hc.Request = r
 	hc.Reset()
-	hc.Timeout = hcm.timeout
+	hc.Timeout = hcm.config.Timeout
 	err := hcm.Handle(hc)
 	if err != nil {
 		logger.Errorf("ServeHTTP %v", err)
@@ -167,16 +164,4 @@ func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	}
 	hc.RouteEntry(ra)
 	return nil
-}
-
-func resolveTimeStr2Time(currentV string, defaultV time.Duration) time.Duration {
-	if currentV == "" {
-		return defaultV
-	} else {
-		if duration, err := time.ParseDuration(currentV); err != nil {
-			return defaultV
-		} else {
-			return duration
-		}
-	}
 }

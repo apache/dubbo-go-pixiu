@@ -25,13 +25,11 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"time"
 )
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
-	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 	hessian "github.com/apache/dubbo-go-hessian2"
@@ -100,6 +98,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *pixiuHttp.HttpContext, cha
 
 // Decode handle http request to dubbo direct generic call and return http response
 func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
+	logger.Debugf("[dubbo-go-pixiu] client Before dubboproxy timout dubbo :%v", hc.Timeout)
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		logger.Info("[dubbo-go-pixiu] http not match route")
@@ -227,19 +226,9 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	invoc.SetReply(&resp)
 
 	invCtx := context.Background()
-
-	resultCh := make(chan protocol.Result)
-	go func() {
-		resultCh <- invoker.Invoke(invCtx, invoc)
-	}()
-	var result protocol.Result
-	timer := time.NewTimer(hc.Timeout)
-	select {
-	case result = <-resultCh:
-	case <-timer.C:
-		timer.Stop()
-		return filter.Stop
-	}
+	invCtx, cancel := context.WithTimeout(invCtx, hc.Timeout)
+	defer cancel()
+	result := invoker.Invoke(invCtx, invoc)
 	result.SetAttachments(invoc.Attachments())
 
 	if result.Error() != nil {

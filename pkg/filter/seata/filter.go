@@ -20,7 +20,6 @@ package seata
 import (
 	netHttp "net/http"
 	"strings"
-	"time"
 )
 
 import (
@@ -34,7 +33,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
@@ -146,19 +144,7 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 
 	tccResource, exists := f.tccResources[strings.ToLower(path)]
 	if exists {
-		respCh := make(chan struct{})
-		go func() {
-			f.branchRegisterResult = f.handleHttp1BranchRegister(ctx, tccResource)
-			close(respCh)
-		}()
-
-		select {
-		case <-respCh:
-		case <-time.After(ctx.Timeout):
-			logger.Errorf("[dubbo-go-pixiu] seata handle http1 timeout err!")
-			return filter.Stop
-		}
-		//f.branchRegisterResult = f.handleHttp1BranchRegister(ctx, tccResource)
+		f.branchRegisterResult = f.handleHttp1BranchRegister(ctx, tccResource)
 	}
 	return filter.Continue
 }

@@ -74,6 +74,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
+	//logger.Debugf("[dubbo-go-pixiu] client Before Api timout call :%v", hc.Timeout)
 	api := hc.GetAPI()
 	headers := api.Headers
 	if len(headers) == 0 {

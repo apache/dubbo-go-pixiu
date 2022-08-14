@@ -24,7 +24,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 import (
@@ -116,7 +115,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-
+	logger.Debugf("[dubbo-go-pixiu] client Before Api timout call :%v", c.Timeout)
 	if f.conf.Dpc.AutoResolve {
 		if err := f.resolve(c); err != nil {
 			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("auto resolve err: %s", err)))
@@ -141,21 +140,8 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	req := client.NewReq(c.Request.Context(), c.Request, *api)
-
-	var resp interface{}
-	respCh := make(chan struct{})
-	go func() {
-		resp, err = cli.Call(req)
-		close(respCh)
-	}()
-
-	select {
-	case <-respCh:
-	case <-time.After(c.Timeout):
-		logger.Errorf("[dubbo-go-pixiu] client call timeout err!")
-		return filter.Stop
-	}
-	//resp, err := cli.Call(req)
+	req.Timeout = c.Timeout
+	resp, err := cli.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
 		c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("client call err: %s", err)))
