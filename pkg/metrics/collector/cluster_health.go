@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"path"
 )
+
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -36,7 +37,6 @@ import (
 )
 
 const (
-	// Subsystem.
 	clusterHealthSubsystem = "cluster_health_subsystem"
 )
 
@@ -248,7 +248,6 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 	}
 }
 
-// Describe set Prometheus metrics descriptions.
 func (c *ClusterHealth) Describe(ch chan<- *prometheus.Desc) {
 	for _, metric := range c.metrics {
 		ch <- metric.Desc
@@ -260,7 +259,6 @@ func (c *ClusterHealth) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.jsonParseFailures.Desc()
 }
 
-// Collect collects ClusterHealth metrics.
 func (c *ClusterHealth) Collect(ch chan<- prometheus.Metric) {
 	var err error
 	c.totalScrapes.Inc()

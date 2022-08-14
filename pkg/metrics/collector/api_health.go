@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"path"
 )
+
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -34,27 +35,23 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
-// A collection of many Api states
 type ApiStatsResponse struct {
 	Share    ApiStatShare `json:"share"`
 	ApiStats []ApiStat    `json:"api_stats"`
 }
 
-//The state shared by the Api
 type ApiStatShare struct {
 	Total      int64 `json:"total"`
 	Successful int64 `json:"successful"`
 	Failed     int64 `json:"failed"`
 }
 
-// Status of a single Api
 type ApiStat struct {
 	ApiName            string `json:"api_name"`
 	ApiRequests        int64  `json:"api_requests"`
 	ApiRequestsLatency int64  `json:"api_requests_latency"`
 }
 
-// Implement the structure for collecting Api indicators
 type apiMetric struct {
 	Type   prometheus.ValueType
 	Desc   *prometheus.Desc
@@ -69,7 +66,6 @@ var (
 	}
 )
 
-// ApiHealth Struct
 type ApiHealth struct {
 	logger logger.Logger
 	client *http.Client
@@ -82,7 +78,6 @@ type ApiHealth struct {
 	apiMetrics []*apiMetric
 }
 
-// NewApiHealth defines  Api Health Prometheus metrics
 func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) *ApiHealth {
 	return &ApiHealth{
 		logger: logger,
@@ -118,7 +113,6 @@ func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) *ApiH
 	}
 }
 
-// Describe adds api metrics descriptions
 func (ds *ApiHealth) Describe(ch chan<- *prometheus.Desc) {
 	for _, metric := range ds.apiMetrics {
 		ch <- metric.Desc
@@ -165,7 +159,6 @@ func (ds *ApiHealth) fetchAndDecodeApiStats() (ApiStatsResponse, error) {
 	return dsr, nil
 }
 
-// Collect gets Api metric values
 func (ds *ApiHealth) Collect(ch chan<- prometheus.Metric) {
 	ds.totalScrapes.Inc()
 	defer func() {

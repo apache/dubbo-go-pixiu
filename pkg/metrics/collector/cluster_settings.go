@@ -37,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
-// ClusterSettings information struct
 type ClusterSettings struct {
 	logger logger.Logger
 	client *http.Client
@@ -49,7 +48,6 @@ type ClusterSettings struct {
 	jsonParseFailures prometheus.Counter
 }
 
-// NewClusterSettings defines Cluster Settings Prometheus metrics
 func NewClusterSettings(logger logger.Logger, client *http.Client, url *url.URL) *ClusterSettings {
 	return &ClusterSettings{
 		logger: logger,
@@ -75,7 +73,6 @@ func NewClusterSettings(logger logger.Logger, client *http.Client, url *url.URL)
 	}
 }
 
-// Describe add  metrics descriptions
 func (cs *ClusterSettings) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cs.up.Desc()
 	ch <- cs.totalScrapes.Desc()
@@ -115,12 +112,10 @@ func (cs *ClusterSettings) getAndParseURL(u *url.URL, data interface{}) error {
 	return nil
 }
 
-// ClusterSettingsResponse is a representation of a Pixiu Cluster Settings
 type ClusterSettingsResponse struct {
 	MaxShardsPerNode interface{} `json:"max_shards_per_node"`
 }
 
-// ClusterSettingsFullResponse is a representation of a Pixiu Cluster Settings
 type ClusterSettingsFullResponse struct {
 	Defaults   ClusterSettingsResponse `json:"defaults"`
 	Persistent ClusterSettingsResponse `json:"persistent"`
@@ -154,7 +149,6 @@ func (cs *ClusterSettings) fetchAndDecodeClusterSettingsStats() (ClusterSettings
 	return csr, err
 }
 
-// Collect gets cluster settings  metric values
 func (cs *ClusterSettings) Collect(ch chan<- prometheus.Metric) {
 
 	cs.totalScrapes.Inc()

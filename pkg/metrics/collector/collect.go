@@ -35,7 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
-// Collector is the interface a collector has to implement.
 type Collector interface {
 	Update(context.Context, chan<- prometheus.Metric) error
 }
@@ -65,30 +64,25 @@ var (
 	)
 )
 
-//Provide collector call
 func RegisterCollector(name string, isDefaultEnabled bool, createFunc FactoryFunc) {
 	var helpDefaultState string
+
 	if isDefaultEnabled {
 		helpDefaultState = "enabled"
 	} else {
 		helpDefaultState = "disabled"
 	}
 
-	// Create flag for this collector
 	flagName := fmt.Sprintf("collector.%s", name)
 	flagHelp := fmt.Sprintf("Enable the %s collector (default: %s).", name, helpDefaultState)
 	defaultValue := fmt.Sprintf("%v", isDefaultEnabled)
-	// Dispatched to the given function after parsing and validating the flags.
 	flag := kingpin.Flag(flagName, flagHelp).Default(defaultValue).Action(CollectorFlagAction(name)).Bool()
 	collectorState[name] = flag
-
-	// Register the create function for this collector
 	factories[name] = createFunc
 }
 
 func CollectorFlagAction(collector string) func(ctx *kingpin.ParseContext) error {
 	return func(ctx *kingpin.ParseContext) error {
-
 		forcedCollectors[collector] = true
 		return nil
 	}

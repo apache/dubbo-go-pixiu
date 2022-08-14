@@ -24,10 +24,12 @@ import (
 	"net/http"
 	"net/url"
 )
+
 import (
 	"github.com/blang/semver/v4"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
@@ -67,7 +69,6 @@ var clusterInfoDesc = map[string]*prometheus.Desc{
 	),
 }
 
-// ClusterInfoResponse is the cluster info retrievable from the / endpoint
 type ClusterInfoResponse struct {
 	Name        string      `json:"name"`
 	ClusterName string      `json:"cluster_name"`
@@ -76,7 +77,6 @@ type ClusterInfoResponse struct {
 	Tagline     string      `json:"tagline"`
 }
 
-// VersionInfo is the version info retrievable from the / endpoint, embedded in ClusterInfoResponse
 type VersionInfo struct {
 	Number        semver.Version `json:"number"`
 	BuildHash     string         `json:"build_hash"`
