@@ -65,7 +65,7 @@ func (h *headerWrapper) Del(key string) {
 }
 
 func (h *headerWrapper) Range(f func(key string, value string) bool) {
-	for k, _ := range h.header {
+	for k := range h.header {
 		v := h.header.Get(k)
 		f(k, v)
 	}
@@ -81,7 +81,7 @@ func (h *headerWrapper) Clone() common.HeaderMap {
 func (h *headerWrapper) ByteSize() uint64 {
 	var size uint64
 
-	for k, _ := range h.header {
+	for k := range h.header {
 		v := h.header.Get(k)
 		size += uint64(len(k) + len(v))
 	}

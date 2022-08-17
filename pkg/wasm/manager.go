@@ -82,8 +82,8 @@ func CreateABIContextByName(name string, ctx *http.HttpContext) *ABIContextWrapp
 	return nil
 }
 
+// ContextDone put wasmInstance back to Pool.
 func ContextDone(wrapper *ABIContextWrapper) error {
 	wasmService := getWasmServiceByName(wrapper.name)
-	wasmService.putWasmInstance(wrapper.Context.Instance)
-	return nil
+	return wasmService.putWasmInstance(wrapper.Context.Instance)
 }
