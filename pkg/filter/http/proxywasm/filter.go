@@ -21,6 +21,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
 )
 
@@ -57,7 +58,7 @@ func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	wrapper.Context.Instance.Lock(wrapper.Context)
 	defer wrapper.Context.Instance.Unlock()
 
-	wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(HEADER))
+	_ = wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(HEADER))
 
 	_, _ = wrapper.Context.GetExports().ProxyOnRequestHeaders(wrapper.ContextID, int32(len(ctx.Request.Header)), 1)
 
@@ -68,7 +69,9 @@ func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 
 func (w *WasmFilter) Encode(ctx *http.HttpContext) filter.FilterStatus {
 	for _, wrapper := range w.abiContextWrappers {
-		wasm.ContextDone(wrapper)
+		if err := wasm.ContextDone(wrapper); err != nil {
+			logger.Warnf("[dubbo-go-pixiu] wasmFilter contextDone call failed: %v", err)
+		}
 	}
 	return filter.Continue
 }
