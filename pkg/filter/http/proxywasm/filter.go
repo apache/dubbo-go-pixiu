@@ -58,11 +58,21 @@ func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	wrapper.Context.Instance.Lock(wrapper.Context)
 	defer wrapper.Context.Instance.Unlock()
 
-	_ = wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(HEADER))
+	err := wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(HEADER))
+	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnContextCreate failed: %v", err)
+		return filter.Continue
+	}
 
-	_, _ = wrapper.Context.GetExports().ProxyOnRequestHeaders(wrapper.ContextID, int32(len(ctx.Request.Header)), 1)
+	_, err = wrapper.Context.GetExports().ProxyOnRequestHeaders(wrapper.ContextID, int32(len(ctx.Request.Header)), 1)
+	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnRequestHeaders failed: %v", err)
+	}
 
-	_ = wrapper.Context.GetExports().ProxyOnDelete(wrapper.ContextID)
+	err = wrapper.Context.GetExports().ProxyOnDelete(wrapper.ContextID)
+	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnDelete failed: %v", err)
+	}
 
 	return filter.Continue
 }
@@ -70,7 +80,7 @@ func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 func (w *WasmFilter) Encode(ctx *http.HttpContext) filter.FilterStatus {
 	for _, wrapper := range w.abiContextWrappers {
 		if err := wasm.ContextDone(wrapper); err != nil {
-			logger.Warnf("[dubbo-go-pixiu] wasmFilter contextDone call failed: %v", err)
+			logger.Warnf("[dubbo-go-pixiu] wasmFilter call contextDone failed: %v", err)
 		}
 	}
 	return filter.Continue
