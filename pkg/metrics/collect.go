@@ -18,7 +18,6 @@
 package collector
 
 import (
-	//"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -31,7 +30,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/exporter-toolkit/web"
-	//"gopkg.in/alecthomas/kingpin.v2"
 )
 
 import (
