@@ -31,7 +31,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )

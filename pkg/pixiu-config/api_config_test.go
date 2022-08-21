@@ -15,23 +15,30 @@
  * limitations under the License.
  */
 
-package rand
+package config_test
 
 import (
-	"math/rand"
+	"log"
+	"testing"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRand, Rand{})
-}
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-config"
+)
 
-type Rand struct{}
+func TestLoadAPIConfigFromFile(t *testing.T) {
+	apiC, err := config.LoadAPIConfigFromFile("")
+	assert.Empty(t, apiC)
+	assert.EqualError(t, err, "Config file not specified")
 
-func (Rand) Handler(c *model.ClusterConfig) *model.Endpoint {
-	return c.GetEndpoint(true)[rand.Intn(len(c.Endpoints))]
+	apiC, err = config.LoadAPIConfigFromFile("./mock/api_config.yml")
+	assert.Empty(t, err)
+	assert.Equal(t, apiC.Name, "api name")
+	bytes, _ := yaml.MarshalYML(apiC)
+	log.Printf("%s", bytes)
 }

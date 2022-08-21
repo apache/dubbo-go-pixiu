@@ -18,7 +18,7 @@
 package roundrobin
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 

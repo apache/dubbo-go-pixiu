@@ -15,34 +15,23 @@
  * limitations under the License.
  */
 
-package consistent
+package rand
 
 import (
 	"math/rand"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalanceConsistentHashing, ConsistentHashing{})
+	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRand, Rand{})
 }
 
-type ConsistentHashing struct{}
+type Rand struct{}
 
-func (ConsistentHashing) Handler(c *model.ClusterConfig) *model.Endpoint {
-	hash, err := c.Hash.ConsistentHash.GetHash(uint32(rand.Int31n(c.Hash.MaxVnodeNum)))
-	if err != nil {
-		return nil
-	}
-
-	for _, endpoint := range c.Endpoints {
-		if endpoint.Address.Address == hash {
-			return endpoint
-		}
-	}
-
-	return nil
+func (Rand) Handler(c *model.ClusterConfig) *model.Endpoint {
+	return c.GetEndpoint(true)[rand.Intn(len(c.Endpoints))]
 }

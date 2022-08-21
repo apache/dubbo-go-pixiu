@@ -52,7 +52,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

@@ -15,30 +15,34 @@
  * limitations under the License.
  */
 
-package config_test
+package consistent
 
 import (
-	"log"
-	"testing"
+	"math/rand"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-)
+func init() {
+	loadbalancer.RegisterLoadBalancer(model.LoadBalanceConsistentHashing, ConsistentHashing{})
+}
 
-func TestLoadAPIConfigFromFile(t *testing.T) {
-	apiC, err := config.LoadAPIConfigFromFile("")
-	assert.Empty(t, apiC)
-	assert.EqualError(t, err, "Config file not specified")
+type ConsistentHashing struct{}
 
-	apiC, err = config.LoadAPIConfigFromFile("./mock/api_config.yml")
-	assert.Empty(t, err)
-	assert.Equal(t, apiC.Name, "api name")
-	bytes, _ := yaml.MarshalYML(apiC)
-	log.Printf("%s", bytes)
+func (ConsistentHashing) Handler(c *model.ClusterConfig) *model.Endpoint {
+	hash, err := c.Hash.ConsistentHash.GetHash(uint32(rand.Int31n(c.Hash.MaxVnodeNum)))
+	if err != nil {
+		return nil
+	}
+
+	for _, endpoint := range c.Endpoints {
+		if endpoint.Address.Address == hash {
+			return endpoint
+		}
+	}
+
+	return nil
 }

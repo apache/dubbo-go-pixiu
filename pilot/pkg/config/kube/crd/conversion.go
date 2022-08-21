@@ -26,11 +26,11 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/api/meta/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/pkg/log"
 )
 
@@ -107,7 +107,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  schema.Resource().GroupVersionKind(),
+			GroupVersionKind:  config.GroupVersionKind(schema.Resource().GroupVersionKind()),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
 			Domain:            domain,

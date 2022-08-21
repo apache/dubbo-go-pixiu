@@ -24,8 +24,8 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"

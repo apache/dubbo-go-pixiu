@@ -36,7 +36,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/config"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -46,7 +45,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	dnsClient "github.com/apache/dubbo-go-pixiu/pkg/dns/client"
 	dnsProto "github.com/apache/dubbo-go-pixiu/pkg/dns/proto"
-	"istio.io/istio/pkg/envoy"
+	"github.com/apache/dubbo-go-pixiu/pkg/envoy"
 	"github.com/apache/dubbo-go-pixiu/pkg/istio-agent/grpcxds"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
@@ -57,6 +56,7 @@ import (
 	gca "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/google"
 	cas "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/google-cas"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/sds"
+	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
