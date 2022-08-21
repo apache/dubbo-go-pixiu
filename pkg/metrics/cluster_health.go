@@ -32,8 +32,8 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
 const (
@@ -100,15 +100,15 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 		url:    url,
 
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "up"),
+			Name: prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "up"),
 			Help: "Was the last scrape of the Pixiu cluster health  successful.",
 		}),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "total_scrapes"),
+			Name: prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "total_scrapes"),
 			Help: "Current total Pixiu cluster health scrapes.",
 		}),
 		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "json_parse_failures"),
+			Name: prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "json_parse_failures"),
 			Help: "Number of errors while parsing JSON.",
 		}),
 
@@ -116,7 +116,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "active_primary_shards"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "active_primary_shards"),
 					"The number of primary shards in your cluster. This is an aggregate total across all indices.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -132,7 +132,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "active_shards"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "active_shards"),
 					"Aggregate total of all shards across all indices, which includes replica shards.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -148,7 +148,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "delayed_unassigned_shards"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "delayed_unassigned_shards"),
 					"Shards delayed to reduce reallocation overhead",
 					defaultClusterHealthLabels, nil,
 				),
@@ -164,7 +164,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "initializing_shards"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "initializing_shards"),
 					"Count of shards that are being freshly created.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -180,7 +180,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "number_of_data_nodes"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "number_of_data_nodes"),
 					"Number of data nodes in the cluster.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -196,7 +196,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "number_of_in_flight_fetch"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "number_of_in_flight_fetch"),
 					"The number of ongoing shard info requests.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -212,7 +212,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "task_max_waiting_in_queue_millis"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "task_max_waiting_in_queue_millis"),
 					"Tasks max time waiting in queue.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -228,7 +228,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "number_of_nodes"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "number_of_nodes"),
 					"Number of nodes in the cluster.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -244,7 +244,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "number_of_pending_tasks"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "number_of_pending_tasks"),
 					"Cluster level changes which have not yet been executed",
 					defaultClusterHealthLabels, nil,
 				),
@@ -260,7 +260,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "relocating_shards"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "relocating_shards"),
 					"The number of shards that are currently moving from one node to another node.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -276,7 +276,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 			{
 				Type: prometheus.GaugeValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "unassigned_shards"),
+					prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "unassigned_shards"),
 					"The number of shards that exist in the cluster state, but cannot be found in the cluster itself.",
 					defaultClusterHealthLabels, nil,
 				),
@@ -293,7 +293,7 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) p
 		statusMetric: &clusterHealthStatusMetric{
 			Type: prometheus.GaugeValue,
 			Desc: prometheus.NewDesc(
-				prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "different_cluster_stats_total"),
+				prometheus.BuildFQName(config.Namespace, clusterHealthSubsystem, "different_cluster_stats_total"),
 				"Number of Different Cluster Stat",
 				[]string{"cluster", "color"}, nil,
 			),

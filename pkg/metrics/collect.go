@@ -35,21 +35,21 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/global"
 )
 
 var ErrNoData = errors.New("collector returned no data")
 
 var (
 	scrapeDurationDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(global.Namespace, "scrape", "duration_seconds"),
+		prometheus.BuildFQName(config.Namespace, "scrape", "duration_seconds"),
 		"pixiu_exporter: Duration of a collector scrape.",
 		[]string{"collector"},
 		nil,
 	)
 	scrapeSuccessDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(global.Namespace, "scrape", "success"),
+		prometheus.BuildFQName(config.Namespace, "scrape", "success"),
 		"pixiu_exporter: Whether a collector succeeded.",
 		[]string{"collector"},
 		nil,
@@ -165,8 +165,8 @@ func NewHttpHandler(p *PixiuMetricCollector) http.HandlerFunc {
 func ExporterMetrics() {
 	httpClient := http.DefaultClient
 	log := logger.GetLogger()
-	url, _ := url.Parse(global.URI)
-	if global.DefaultEnabled {
+	url, _ := url.Parse(config.URI)
+	if config.DefaultEnabled {
 		RegisterCollector("api-health", true, NewApiHealth)
 		RegisterCollector("cluster-health", true, NewClusterHealth)
 		RegisterCollector("common-health", true, NewCommonMetricExporter)
@@ -177,8 +177,8 @@ func ExporterMetrics() {
 			WithHTTPClient(httpClient),
 		)
 		handlerFunc := NewHttpHandler(exporter)
-		http.Handle(global.MetricsPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
-		srv := &http.Server{Addr: global.ListenAddress}
+		http.Handle(config.MetricsPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
+		srv := &http.Server{Addr: config.ListenAddress}
 		web.ListenAndServe(srv, "", promlog.New(&promlog.Config{}))
 
 	}
