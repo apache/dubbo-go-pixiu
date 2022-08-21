@@ -36,8 +36,7 @@ import (
 )
 
 type ApiStatsResponse struct {
-	Share    ApiStatShare `json:"share"`
-	ApiStats []ApiStat    `json:"api_stats"`
+	ApiStats []ApiStat `json:"api_stats"`
 }
 
 type ApiStatShare struct {
@@ -78,7 +77,7 @@ type ApiHealth struct {
 	apiMetrics []*apiMetric
 }
 
-func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) *ApiHealth {
+func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) prometheus.Collector {
 	return &ApiHealth{
 		logger: logger,
 		client: client,
@@ -100,12 +99,24 @@ func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) *ApiH
 			{
 				Type: prometheus.CounterValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(global.Namespace, "api_stats", "api_Requests_total"),
+					prometheus.BuildFQName(global.Namespace, "api_stats", "api_requests_total"),
 					"Number of Api Requests",
 					defaultApiMetricLabels, nil,
 				),
 				Value: func(apiStats ApiStat) float64 {
 					return float64(apiStats.ApiRequests)
+				},
+				Labels: defaultApiMetricLabelValues,
+			},
+			{
+				Type: prometheus.CounterValue,
+				Desc: prometheus.NewDesc(
+					prometheus.BuildFQName(global.Namespace, "api_stats", "api_requests_latency"),
+					"Api Requests Latency ",
+					defaultApiMetricLabels, nil,
+				),
+				Value: func(apiStats ApiStat) float64 {
+					return float64(apiStats.ApiRequestsLatency)
 				},
 				Labels: defaultApiMetricLabelValues,
 			},
@@ -123,11 +134,11 @@ func (ds *ApiHealth) Describe(ch chan<- *prometheus.Desc) {
 	ch <- ds.jsonParseFailures.Desc()
 }
 
-func (ds *ApiHealth) fetchAndDecodeApiStats() (ApiStatsResponse, error) {
+func (ds *ApiHealth) FetchAndDecodeStats() (ApiStatsResponse, error) {
 	var dsr ApiStatsResponse
 
 	u := *ds.url
-	u.Path = path.Join(u.Path, "/_api_health/*/_stats")
+	u.Path = path.Join(u.Path, "/_api/health")
 	res, err := ds.client.Get(u.String())
 	if err != nil {
 		return dsr, fmt.Errorf("failed to get api stats health from %s://%s:%s%s: %s",
@@ -167,24 +178,24 @@ func (ds *ApiHealth) Collect(ch chan<- prometheus.Metric) {
 		ch <- ds.jsonParseFailures
 	}()
 
-	dataStreamStatsResp, err := ds.fetchAndDecodeApiStats()
+	statsResp, err := ds.FetchAndDecodeStats()
 	if err != nil {
 		ds.up.Set(0)
-		ds.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Api Stats", err.Error())
+		ds.logger.Infof("watching (msg:{%s}) = error{%v}", "Failed to fetch and decode Api Stats", err.Error())
 		return
 	}
-
 	ds.up.Set(1)
 
 	for _, metric := range ds.apiMetrics {
-		for _, apistat := range dataStreamStatsResp.ApiStats {
-			fmt.Printf("Metric: %+v", apistat)
+		for _, v := range statsResp.ApiStats {
 			ch <- prometheus.MustNewConstMetric(
 				metric.Desc,
 				metric.Type,
-				metric.Value(apistat),
-				metric.Labels(apistat)...,
+				metric.Value(v),
+				metric.Labels(v)...,
 			)
+
 		}
+
 	}
 }

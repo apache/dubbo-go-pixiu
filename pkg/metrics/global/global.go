@@ -18,6 +18,9 @@
 package global
 
 const (
+	ListenAddress  = ":9114"
+	MetricsPath    = "/metrics"
+	URI            = "http://localhost:9200"
 	Namespace      = "pixiu"
 	DefaultEnabled = true
 )

@@ -45,7 +45,7 @@ var (
 	defaultClusterHealthLabels = []string{"cluster"}
 )
 
-type clusterHealthResponse struct {
+type ClusterHealthResponse struct {
 	ClusterName                 string  `json:"cluster_name"`
 	Status                      string  `json:"status"`
 	TimedOut                    bool    `json:"timed_out"`
@@ -62,17 +62,21 @@ type clusterHealthResponse struct {
 	TaskMaxWaitingInQueueMillis int     `json:"task_max_waiting_in_queue_millis"`
 	ActiveShardsPercentAsNumber float64 `json:"active_shards_percent_as_number"`
 }
+type ClusterResponses struct {
+	ClusterStat []ClusterHealthResponse `json:"cluster_stats"`
+}
 
 type clusterHealthMetric struct {
-	Type  prometheus.ValueType
-	Desc  *prometheus.Desc
-	Value func(clusterHealth clusterHealthResponse) float64
+	Type   prometheus.ValueType
+	Desc   *prometheus.Desc
+	Value  func(clusterHealth ClusterHealthResponse) float64
+	Labels func(clusterName ClusterHealthResponse) []string
 }
 
 type clusterHealthStatusMetric struct {
 	Type   prometheus.ValueType
 	Desc   *prometheus.Desc
-	Value  func(clusterHealth clusterHealthResponse, color string) float64
+	Value  func(clusterHealth ClusterHealthResponse) float64
 	Labels func(clusterName, color string) []string
 }
 
@@ -89,7 +93,7 @@ type ClusterHealth struct {
 	statusMetric *clusterHealthStatusMetric
 }
 
-func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *ClusterHealth {
+func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) prometheus.Collector {
 	return &ClusterHealth{
 		logger: logger,
 		client: client,
@@ -116,8 +120,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"The number of primary shards in your cluster. This is an aggregate total across all indices.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.ActivePrimaryShards)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -127,8 +136,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"Aggregate total of all shards across all indices, which includes replica shards.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.ActiveShards)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -138,8 +152,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"Shards delayed to reduce reallocation overhead",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.DelayedUnassignedShards)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -149,8 +168,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"Count of shards that are being freshly created.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.InitializingShards)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -160,8 +184,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"Number of data nodes in the cluster.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.NumberOfDataNodes)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -171,8 +200,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"The number of ongoing shard info requests.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.NumberOfInFlightFetch)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -182,8 +216,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"Tasks max time waiting in queue.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.TaskMaxWaitingInQueueMillis)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -193,8 +232,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"Number of nodes in the cluster.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.NumberOfNodes)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -204,8 +248,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"Cluster level changes which have not yet been executed",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.NumberOfPendingTasks)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -215,8 +264,13 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"The number of shards that are currently moving from one node to another node.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.RelocatingShards)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 			{
@@ -226,23 +280,31 @@ func NewClusterHealth(logger logger.Logger, client *http.Client, url *url.URL) *
 					"The number of shards that exist in the cluster state, but cannot be found in the cluster itself.",
 					defaultClusterHealthLabels, nil,
 				),
-				Value: func(clusterHealth clusterHealthResponse) float64 {
+				Value: func(clusterHealth ClusterHealthResponse) float64 {
 					return float64(clusterHealth.UnassignedShards)
+				},
+				Labels: func(clusterHealth ClusterHealthResponse) []string {
+					return []string{
+						clusterHealth.ClusterName,
+					}
 				},
 			},
 		},
 		statusMetric: &clusterHealthStatusMetric{
 			Type: prometheus.GaugeValue,
 			Desc: prometheus.NewDesc(
-				prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "status"),
-				"Whether all primary and replica shards are allocated.",
+				prometheus.BuildFQName(global.Namespace, clusterHealthSubsystem, "different_cluster_stats_total"),
+				"Number of Different Cluster Stat",
 				[]string{"cluster", "color"}, nil,
 			),
-			Value: func(clusterHealth clusterHealthResponse, color string) float64 {
-				if clusterHealth.Status == color {
-					return 1
+			Value: func(clusterHealth ClusterHealthResponse) float64 {
+				return 1
+			},
+			Labels: func(clusterName string, color string) []string {
+				return []string{
+					clusterName,
+					color,
 				}
-				return 0
 			},
 		},
 	}
@@ -253,7 +315,6 @@ func (c *ClusterHealth) Describe(ch chan<- *prometheus.Desc) {
 		ch <- metric.Desc
 	}
 	ch <- c.statusMetric.Desc
-
 	ch <- c.up.Desc()
 	ch <- c.totalScrapes.Desc()
 	ch <- c.jsonParseFailures.Desc()
@@ -262,43 +323,49 @@ func (c *ClusterHealth) Describe(ch chan<- *prometheus.Desc) {
 func (c *ClusterHealth) Collect(ch chan<- prometheus.Metric) {
 	var err error
 	c.totalScrapes.Inc()
-
 	defer func() {
 		ch <- c.up
 		ch <- c.totalScrapes
 		ch <- c.jsonParseFailures
 	}()
 
-	clusterHealthResp, err := c.fetchAndDecodeClusterHealth()
+	statResps, err := c.FetchAndDecodeStats()
 	if err != nil {
 		c.up.Set(0)
-		c.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Cluster Health Status", err.Error())
+		c.logger.Infof("watching (msg:{%s}) = error{%v}", "Failed to fetch and decode Cluster  Status", err.Error())
 		return
 	}
 
 	c.up.Set(1)
 
 	for _, metric := range c.metrics {
-		ch <- prometheus.MustNewConstMetric(
-			metric.Desc,
-			metric.Type,
-			metric.Value(clusterHealthResp),
-			clusterHealthResp.ClusterName,
-		)
+		for _, v := range statResps.ClusterStat {
+
+			ch <- prometheus.MustNewConstMetric(
+				metric.Desc,
+				metric.Type,
+				metric.Value(v),
+				metric.Labels(v)...,
+			)
+		}
 	}
 
 	for _, color := range colors {
-		ch <- prometheus.MustNewConstMetric(
-			c.statusMetric.Desc,
-			c.statusMetric.Type,
-			c.statusMetric.Value(clusterHealthResp, color),
-			clusterHealthResp.ClusterName, color,
-		)
+		for _, v := range statResps.ClusterStat {
+			if v.Status == color {
+				ch <- prometheus.MustNewConstMetric(
+					c.statusMetric.Desc,
+					c.statusMetric.Type,
+					c.statusMetric.Value(v),
+					c.statusMetric.Labels(v.ClusterName, color)...,
+				)
+			}
+		}
 	}
 }
 
-func (c *ClusterHealth) fetchAndDecodeClusterHealth() (clusterHealthResponse, error) {
-	var chr clusterHealthResponse
+func (c *ClusterHealth) FetchAndDecodeStats() (ClusterResponses, error) {
+	var chr ClusterResponses
 
 	u := *c.url
 	u.Path = path.Join(u.Path, "/_cluster/health")

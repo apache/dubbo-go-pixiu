@@ -29,10 +29,8 @@ import "github.com/apache/dubbo-go-pixiu/pkg/logger"
 
 func TestNewCommonMetricExporter(t *testing.T) {
 	tcs := []string{
-
-		`{"backend_stats":[{"name":"http://service1.xxx.cn/"}],"fronted_stats":[{"name":"http://client1.xxx.cn/"},{"name":"http://client2.xxx.cn/"},{"name":"http://client3.xxx.cn/"},{"name":"http://client4.xxx.cn/"},{"name":"http://client5.xxx.cn/"},{"name":"http://client6.xxx.cn/"},{"name":"http://client7.xxx.cn/"},{"name":"http://client8.xxx.cn/"},{"name":"http://client9.xxx.cn/"},{"name":"http://client10.xxx.cn/"}],"server_stats":[{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"}]}`,
-		`{"backend_stats":[{"name":"http://service1.xxx.cn/"}],"fronted_stats":[{"name":"http://client11.xxx.cn/"},{"name":"http://client12.xxx.cn/"},{"name":"http://client13.xxx.cn/"},{"name":"http://client14.xxx.cn/"},{"name":"http://client15.xxx.cn/"},{"name":"http://client16.xxx.cn/"},{"name":"http://client17.xxx.cn/"},{"name":"http://client18.xxx.cn/"},{"name":"http://client19.xxx.cn/"},{"name":"http://client20.xxx.cn/"}],"server_stats":[{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"},{"server":"http://0.0.0.0.0"}]}`}
-
+		`{"backend_stats":{"name":"backend1"},"fronted_stats":{"name":"front2"},"server_stats":{"backend":"backend44444444","server":"server66666666"}}`,
+	}
 	for _, out := range tcs {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, out)
@@ -45,9 +43,12 @@ func TestNewCommonMetricExporter(t *testing.T) {
 		}
 		log := logger.GetLogger()
 		c := NewCommonMetricExporter(log, http.DefaultClient, u)
-		_, err = c.fetchAndDecodeStats()
+		v, ok := (c).(*CommonMetricExporter)
+		if ok {
+			_, err = v.FetchAndDecodeStats()
+		}
 		if err != nil {
-			t.Fatalf("Failed to fetch or decode backendMetrics、 frontendMetrics、 and serverMetrics Stat : %s", err)
+			t.Fatalf("Failed to fetch or decode backendMetrics、 frontendMetrics、 and CommonMetrics Stat : %s", err)
 		}
 
 	}

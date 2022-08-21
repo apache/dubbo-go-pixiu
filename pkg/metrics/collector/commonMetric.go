@@ -146,6 +146,7 @@ var labelValueFunc = func(stat interface{}) []string {
 	switch x := stat.(type) {
 	case FrontendStat:
 		return []string{
+
 			x.Name,
 		}
 	case BackendStat:
@@ -228,7 +229,7 @@ type CommonMetricExporter struct {
 	backendMetrics  []*metric
 }
 
-func NewCommonMetricExporter(logger logger.Logger, client *http.Client, url *url.URL) *CommonMetricExporter {
+func NewCommonMetricExporter(logger logger.Logger, client *http.Client, url *url.URL) prometheus.Collector {
 
 	return &CommonMetricExporter{
 		logger: logger,
@@ -278,62 +279,56 @@ func (ce *CommonMetricExporter) Collect(ch chan<- prometheus.Metric) {
 		ch <- ce.parseFailures
 	}()
 
-	dataStreamStatsResp, err := ce.fetchAndDecodeStats()
+	statsResp, err := ce.FetchAndDecodeStats()
 	if err != nil {
 		ce.up.Set(0)
-		ce.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to fetch And Decode Api Stats", err.Error())
+		ce.logger.Infof("watching (msg:{%s}) = error{%v}", "Failed to fetch and decode CommonMetric Stat", err.Error())
 		return
+	} else {
+		ce.parseFailures.Inc()
 	}
-
 	ce.up.Set(1)
 
 	for _, metric := range ce.frontendMetrics {
-		for _, apistat := range dataStreamStatsResp.FrontedStats {
-			fmt.Printf("Metric: %+v", apistat)
-			ch <- prometheus.MustNewConstMetric(
-				metric.Desc,
-				metric.Type,
-				metric.Value(apistat),
-				metric.Labels(apistat)...,
-			)
-		}
+		ch <- prometheus.MustNewConstMetric(
+			metric.Desc,
+			metric.Type,
+			metric.Value(statsResp.FrontedStats),
+			metric.Labels(statsResp.FrontedStats)...,
+		)
+
 	}
 	for _, metric := range ce.backendMetrics {
-		for _, apistat := range dataStreamStatsResp.BackendStats {
-			fmt.Printf("Metric: %+v", apistat)
-			ch <- prometheus.MustNewConstMetric(
-				metric.Desc,
-				metric.Type,
-				metric.Value(apistat),
-				metric.Labels(apistat)...,
-			)
-		}
+		ch <- prometheus.MustNewConstMetric(
+			metric.Desc,
+			metric.Type,
+			metric.Value(statsResp.BackendStats),
+			metric.Labels(statsResp.BackendStats)...,
+		)
+
 	}
 	for _, metric := range ce.serverMetrics {
-		for _, apistat := range dataStreamStatsResp.ServerStats {
-			fmt.Printf("Metric: %+v", apistat)
-			ch <- prometheus.MustNewConstMetric(
-				metric.Desc,
-				metric.Type,
-				metric.Value(apistat),
-				metric.Labels(apistat)...,
-			)
-		}
+		ch <- prometheus.MustNewConstMetric(
+			metric.Desc,
+			metric.Type,
+			metric.Value(statsResp.ServerStats),
+			metric.Labels(statsResp.ServerStats)...,
+		)
 	}
 }
 
 type StatsResponse struct {
-	BackendStats []BackendStat  `json:"backend_stats"`
-	FrontedStats []FrontendStat `json:"fronted_stats"`
-	ServerStats  []ServerStat   `json:"server_stats"`
+	BackendStats BackendStat  `json:"backend_stats"`
+	FrontedStats FrontendStat `json:"fronted_stats"`
+	ServerStats  ServerStat   `json:"server_stats"`
 }
 
 type FrontendStat struct {
-	Name string `json:"name"`
+	Name string `json:"frontname"`
 }
 
 type BackendStat struct {
-	Name string `json:"name"`
+	Name string `json:"backendname"`
 }
 
 type ServerStat struct {
@@ -341,16 +336,15 @@ type ServerStat struct {
 	Server  string `json:"server"`
 }
 
-func (ce *CommonMetricExporter) fetchUnixAndDecodeStats() (StatsResponse, error) {
-	var cer StatsResponse
+func (ce *CommonMetricExporter) FetchAndDecodeStats() (StatsResponse, error) {
+	var sr StatsResponse
 	u := *ce.url
-	u.Path = path.Join(u.Path, "/_common_health/*/_stats")
+	u.Path = path.Join(u.Path, "/_common/health")
 	res, err := ce.client.Get(u.String())
 	if err != nil {
-		return cer, fmt.Errorf("failed to get api stats health from %s://%s:%s%s: %s",
+		return sr, fmt.Errorf("failed to get stats  from %s://%s:%s%s: %s",
 			u.Scheme, u.Hostname(), u.Port(), u.Path, err)
 	}
-
 	defer func() {
 		err = res.Body.Close()
 		if err != nil {
@@ -359,54 +353,18 @@ func (ce *CommonMetricExporter) fetchUnixAndDecodeStats() (StatsResponse, error)
 	}()
 
 	if res.StatusCode != http.StatusOK {
-		return cer, fmt.Errorf("HTTP Request failed with code %d", res.StatusCode)
+		return sr, fmt.Errorf("HTTP Request failed with code %d", res.StatusCode)
 	}
 
 	bts, err := ioutil.ReadAll(res.Body)
+
 	if err != nil {
 		ce.parseFailures.Inc()
-		return cer, err
+		return sr, err
 	}
-	if err := json.Unmarshal(bts, &cer); err != nil {
+	if err := json.Unmarshal(bts, &sr); err != nil {
 		ce.parseFailures.Inc()
-		return cer, err
+		return sr, err
 	}
-
-	return StatsResponse{}, nil
-
-}
-
-func (ce *CommonMetricExporter) fetchAndDecodeStats() (StatsResponse, error) {
-	var cer StatsResponse
-	u := *ce.url
-	u.Path = path.Join(u.Path, "/_common_health/*/_stats")
-	res, err := ce.client.Get(u.String())
-	if err != nil {
-		return cer, fmt.Errorf("failed to get stats  from %s://%s:%s%s: %s",
-			u.Scheme, u.Hostname(), u.Port(), u.Path, err)
-	}
-
-	defer func() {
-		err = res.Body.Close()
-		if err != nil {
-			ce.logger.Infof("watching (msg:{%s}) = error{%v}", "failed to close http.Client", err.Error())
-		}
-	}()
-
-	if res.StatusCode != http.StatusOK {
-		return cer, fmt.Errorf("HTTP Request failed with code %d", res.StatusCode)
-	}
-
-	bts, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		ce.parseFailures.Inc()
-		return cer, err
-	}
-	if err := json.Unmarshal(bts, &cer); err != nil {
-		ce.parseFailures.Inc()
-		return cer, err
-	}
-
-	return StatsResponse{}, nil
-
+	return sr, nil
 }
