@@ -27,11 +27,8 @@ import (
 
 import (
 	"github.com/mitchellh/mapstructure"
-
 	"mosn.io/proxy-wasm-go-host/common"
-
 	"mosn.io/proxy-wasm-go-host/proxywasm"
-
 	"mosn.io/proxy-wasm-go-host/wasmer"
 )
 
@@ -51,10 +48,12 @@ type WasmService struct {
 	instancePool       sync.Pool
 }
 
+// WasmConfig contains config about every wasmFile.
 type WasmConfig struct {
 	Path string `yaml:"path" json:"path,omitempty"`
 }
 
+// ABIContextWrapper is a request wrapper which indicates request was handled in the wasmInstance.
 type ABIContextWrapper struct {
 	ContextID int32
 	name      string
