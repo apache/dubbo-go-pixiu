@@ -19,6 +19,7 @@ package apiclient
 
 import (
 	"context"
+	"os"
 	"time"
 )
 
@@ -325,13 +326,12 @@ func (g *AggGrpcApiClient) runDelta(req *discoverypb.DiscoveryRequest, output di
 		for { // delta response backoff.
 			for { //loop consume receive data form xds server(sendInitDeltaRequest)
 				resp, err := delta.Recv()
-				if err != nil { //todo backoff retry
+				if err != nil {
 					logger.Error("can not receive delta discovery request", err)
 					break
 				}
 				g.handleDeltaResponse(resp, &xState, output)
 			}
-			//todo no backoff check
 			backoff()
 		}
 	}()
@@ -373,13 +373,29 @@ func (g *AggGrpcApiClient) makeDiscoveryRequest(resources []string,
 		ResourceNames: resources, //[]string{"outbound|20000||dubbo-go-app.default.svc.cluster.local"},
 		TypeUrl:       typeUrl,   //"type.googleapis.com/envoy.config.listener.v3.Listener",
 		//ResponseNonce: xdsState.nonce,
-		ErrorDetail: nil, //todo use error detail
+		ErrorDetail: nil,
 	}
 }
 
 func (g *AggGrpcApiClient) makeNode() *envoyconfigcorev3.Node {
+	podId := os.Getenv("POD_IP")
+	if len(podId) == 0 {
+		logger.Warnf("expect POD_ID env")
+		podId = "0.0.0.0"
+	}
+	podName := os.Getenv("POD_NAME")
+	if len(podName) == 0 {
+		logger.Warnf("expect POD_NAME env")
+		podName = "pixiu-gateway"
+	}
+	nsName := os.Getenv("POD_NAMESPACE")
+	if len(nsName) == 0 {
+		logger.Warnf("expect POD_NAMESPACE env")
+		nsName = "default"
+	}
+
 	return &envoyconfigcorev3.Node{
-		Id:                   "sidecar~172.1.1.1~sleep-55b5877479-rwcct.default~default.svc.cluster.local", //todo read from sdk
+		Id:                   "sidecar~" + podId + "~" + podName + "." + nsName + ".svc.cluster.local",
 		UserAgentName:        "pixiu",
 		Cluster:              "testCluster",
 		UserAgentVersionType: &envoyconfigcorev3.Node_UserAgentVersion{UserAgentVersion: "1.45.0"},
