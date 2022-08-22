@@ -51,29 +51,28 @@ type (
 )
 
 func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
-	const HEADER = "header"
 
 	// sample: display http header
-	wrapper := w.abiContextWrappers[HEADER]
-	wrapper.Context.Instance.Lock(wrapper.Context)
-	defer wrapper.Context.Instance.Unlock()
+	if wrapper := w.abiContextWrappers[wasm.HeaderLevel]; wrapper != nil {
+		wrapper.Context.Instance.Lock(wrapper.Context)
+		defer wrapper.Context.Instance.Unlock()
 
-	err := wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(HEADER))
-	if err != nil {
-		logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnContextCreate failed: %v", err)
-		return filter.Continue
+		err := wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(wasm.HeaderLevel))
+		if err != nil {
+			logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnContextCreate failed: %v", err)
+			return filter.Continue
+		}
+
+		_, err = wrapper.Context.GetExports().ProxyOnRequestHeaders(wrapper.ContextID, int32(len(ctx.Request.Header)), 1)
+		if err != nil {
+			logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnRequestHeaders failed: %v", err)
+		}
+
+		err = wrapper.Context.GetExports().ProxyOnDelete(wrapper.ContextID)
+		if err != nil {
+			logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnDelete failed: %v", err)
+		}
 	}
-
-	_, err = wrapper.Context.GetExports().ProxyOnRequestHeaders(wrapper.ContextID, int32(len(ctx.Request.Header)), 1)
-	if err != nil {
-		logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnRequestHeaders failed: %v", err)
-	}
-
-	err = wrapper.Context.GetExports().ProxyOnDelete(wrapper.ContextID)
-	if err != nil {
-		logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnDelete failed: %v", err)
-	}
-
 	return filter.Continue
 }
 
@@ -81,6 +80,12 @@ func (w *WasmFilter) Encode(ctx *http.HttpContext) filter.FilterStatus {
 	for _, wrapper := range w.abiContextWrappers {
 		if err := wasm.ContextDone(wrapper); err != nil {
 			logger.Warnf("[dubbo-go-pixiu] wasmFilter call contextDone failed: %v", err)
+		}
+	}
+
+	if val := ctx.GetHeader("go-wasm-header"); val != "" {
+		if _, err := ctx.Writer.Write([]byte(val)); err != nil {
+			logger.Errorf("write response error: %s", err)
 		}
 	}
 	return filter.Continue
@@ -99,7 +104,9 @@ func (factory *WasmFilterFactory) PrepareFilterChain(ctx *http.HttpContext, chai
 		abiContextWrappers: make(map[string]*wasm.ABIContextWrapper),
 	}
 	for _, service := range factory.cfg.WasmServices {
-		filter.abiContextWrappers[service.Name] = wasm.CreateABIContextByName(service.Name, ctx)
+		if abiContext := wasm.CreateABIContextByName(service.Name, ctx); abiContext != nil {
+			filter.abiContextWrappers[service.Name] = abiContext
+		}
 	}
 	chain.AppendDecodeFilters(filter)
 	chain.AppendEncodeFilters(filter)
