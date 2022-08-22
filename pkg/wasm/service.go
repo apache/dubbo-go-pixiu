@@ -65,6 +65,7 @@ func createWasmService(service model.WasmService) (*WasmService, error) {
 	if err := mapstructure.Decode(service.Config, &cfg); err != nil {
 		return nil, err
 	}
+
 	wasmService := &WasmService{
 		contextIDGenerator: 0,
 		name:               service.Name,

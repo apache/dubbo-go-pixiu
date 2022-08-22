@@ -44,6 +44,10 @@ func InitWasmManager(model *model.WasmConfig) {
 	}
 
 	for _, service := range model.Services {
+		if !contains(service.Name) {
+			logger.Warnf("[dubbo-go-pixiu] wasm config error: service name isn't in pixiu keys.")
+			continue
+		}
 		wasmService, err := createWasmService(service)
 		if err != nil {
 			logger.Warnf("[dubbo-go-pixiu] wasm config error: %v", err)
