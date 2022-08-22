@@ -94,10 +94,11 @@ func NewHttpHandler(p *PixiuMetricCollector) http.HandlerFunc {
 	}
 }
 
-func (d *MeticDriver) PrometheusMeticServerOnHttp() {
-	handlerFunc := NewHttpHandler(d.PMC)
-	http.Handle(d.cfg.PrometheusMetricsPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
-	listenAddres := ":" + strconv.Itoa(d.cfg.PrometheusPort)
+func (m *MeticManager) PrometheusMeticServerOnHttp() {
+	handlerFunc := NewHttpHandler(m.driver.PMC)
+	metricPath := m.driver.cfg.PrometheusMetricsPath
+	http.Handle(metricPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
+	listenAddres := ":" + strconv.Itoa(m.driver.cfg.PrometheusPort)
 	srv := &http.Server{Addr: listenAddres}
 	web.ListenAndServe(srv, "", promlog.New(&promlog.Config{}))
 }
