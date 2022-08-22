@@ -31,7 +31,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -178,7 +177,7 @@ func newFrontendMetric(metricName string, helpString string, t prometheus.ValueT
 	return &metric{
 		Type: t,
 		Desc: prometheus.NewDesc(
-			prometheus.BuildFQName(config.Namespace, "frontend", metricName),
+			prometheus.BuildFQName(Namespace, "frontend", metricName),
 			helpString,
 			frontendLabelNames,
 			constLabels,
@@ -192,7 +191,7 @@ func newBackendMetric(metricName string, helpString string, t prometheus.ValueTy
 	return &metric{
 		Type: t,
 		Desc: prometheus.NewDesc(
-			prometheus.BuildFQName(config.Namespace, "backend", metricName),
+			prometheus.BuildFQName(Namespace, "backend", metricName),
 			helpString,
 			backendLabelNames,
 			constLabels,
@@ -206,7 +205,7 @@ func newServerMetric(metricName string, helpString string, t prometheus.ValueTyp
 	return &metric{
 		Type: t,
 		Desc: prometheus.NewDesc(
-			prometheus.BuildFQName(config.Namespace, "server", metricName),
+			prometheus.BuildFQName(Namespace, "server", metricName),
 			helpString,
 			serverLabelNames,
 			constLabels,
@@ -237,15 +236,15 @@ func NewCommonMetricExporter(logger logger.Logger, client *http.Client, url *url
 		url:    url,
 
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(config.Namespace, "common_exporter", "up"),
+			Name: prometheus.BuildFQName(Namespace, "common_exporter", "up"),
 			Help: "Was the last scrape of Pixiu gatway successful.",
 		}),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(config.Namespace, "common_exporter", "total_scrapes"),
+			Name: prometheus.BuildFQName(Namespace, "common_exporter", "total_scrapes"),
 			Help: "Current total Pixiu  scrapes.",
 		}),
 		parseFailures: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(config.Namespace, "common_exporter", "parse_failures"),
+			Name: prometheus.BuildFQName(Namespace, "common_exporter", "parse_failures"),
 			Help: "Number of errors while parsing.",
 		}),
 		serverMetrics:   serverMetrics,

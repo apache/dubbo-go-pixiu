@@ -31,7 +31,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -84,22 +83,22 @@ func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) prome
 		url:    url,
 
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(config.Namespace, "api_stats", "up"),
+			Name: prometheus.BuildFQName(Namespace, "api_stats", "up"),
 			Help: "Was the last scrape of the Pixiu Api Stat Data successful.",
 		}),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(config.Namespace, "api_stats", "total_scrapes"),
+			Name: prometheus.BuildFQName(Namespace, "api_stats", "total_scrapes"),
 			Help: "Current total Pixiu Api scrapes.",
 		}),
 		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(config.Namespace, "api_stats", "json_parse_failures"),
+			Name: prometheus.BuildFQName(Namespace, "api_stats", "json_parse_failures"),
 			Help: "Number of errors while parsing JSON.",
 		}),
 		apiMetrics: []*apiMetric{
 			{
 				Type: prometheus.CounterValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(config.Namespace, "api_stats", "api_requests_total"),
+					prometheus.BuildFQName(Namespace, "api_stats", "api_requests_total"),
 					"Number of Api Requests",
 					defaultApiMetricLabels, nil,
 				),
@@ -111,7 +110,7 @@ func NewApiHealth(logger logger.Logger, client *http.Client, url *url.URL) prome
 			{
 				Type: prometheus.CounterValue,
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(config.Namespace, "api_stats", "api_requests_latency"),
+					prometheus.BuildFQName(Namespace, "api_stats", "api_requests_latency"),
 					"Api Requests Latency ",
 					defaultApiMetricLabels, nil,
 				),

@@ -27,27 +27,24 @@ import (
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/promlog"
-	"github.com/prometheus/exporter-toolkit/web"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 var ErrNoData = errors.New("collector returned no data")
 
 var (
 	scrapeDurationDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(config.Namespace, "scrape", "duration_seconds"),
+		prometheus.BuildFQName(Namespace, "scrape", "duration_seconds"),
 		"pixiu_exporter: Duration of a collector scrape.",
 		[]string{"collector"},
 		nil,
 	)
 	scrapeSuccessDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(config.Namespace, "scrape", "success"),
+		prometheus.BuildFQName(Namespace, "scrape", "success"),
 		"pixiu_exporter: Whether a collector succeeded.",
 		[]string{"collector"},
 		nil,
@@ -148,36 +145,25 @@ func (e *PixiuMetricCollector) MustRegisterAllCollector() {
 	}
 }
 
-func NewHttpHandler(p *PixiuMetricCollector) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		registry := prometheus.NewRegistry()
-		registry.MustRegister(p)
-		gatherers := prometheus.Gatherers{
-			registry,
-		}
-		h := promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{})
-		h.ServeHTTP(w, r)
+func NewMetricsExporter(hc *http.Client, log logger.Logger, cfg *model.Metric) (*PixiuMetricCollector, error) {
+	var exporter *PixiuMetricCollector
+	url, err := url.Parse(cfg.PrometheusFetchMetricURI)
+	if err != nil {
+		return exporter, err
 	}
-}
-
-func ExporterMetrics() {
-	httpClient := http.DefaultClient
-	log := logger.GetLogger()
-	url, _ := url.Parse(config.URI)
-	if config.DefaultEnabled {
+	if cfg.Enable {
 		RegisterCollector("api-health", true, NewApiHealth)
 		RegisterCollector("cluster-health", true, NewClusterHealth)
 		RegisterCollector("common-health", true, NewCommonMetricExporter)
-		exporter := NewPixiuMetricCollector(
+		exporter = NewPixiuMetricCollector(
 			log,
 			[]string{},
 			WithPixiuURL(url),
-			WithHTTPClient(httpClient),
+			WithHTTPClient(hc),
 		)
-		handlerFunc := NewHttpHandler(exporter)
-		http.Handle(config.MetricsPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
-		srv := &http.Server{Addr: config.ListenAddress}
-		web.ListenAndServe(srv, "", promlog.New(&promlog.Config{}))
+		return exporter, nil
 
+	} else {
+		return exporter, ErrNoData
 	}
 }
