@@ -23,7 +23,6 @@ coverage.txt
 *.iml
 
 *.exe
-test
 !samples/springcloud/zookeeper/test
 !samples/springcloud/nacos/test
 
