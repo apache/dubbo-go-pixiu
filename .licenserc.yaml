@@ -34,7 +34,7 @@ header:
     - '**/*.mk'
     - '**/*.gradle'
     - '**/*.log'
-    - '**/*.Dockerfile**'
+    - '**/*Dockerfile**'
     - '**/*.tmpl'
     - '**/*.tar.gz'
     - '**/*.proxycfg'
