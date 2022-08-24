@@ -44,8 +44,6 @@ import (
 	"k8s.io/kubectl/pkg/util/podutils"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/tag"
 	iopv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
@@ -55,6 +53,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )

@@ -28,9 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
+	v1alpha12 "istio.io/api/operator/v1alpha1"
 )
 
 func TestHelmReconciler_ApplyObject(t *testing.T) {

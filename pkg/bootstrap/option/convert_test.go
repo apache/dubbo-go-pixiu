@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	networkingAPI "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	networkingAPI "istio.io/api/networking/v1alpha3"
 )
 
 // nolint: lll

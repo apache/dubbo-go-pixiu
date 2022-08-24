@@ -21,10 +21,10 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {

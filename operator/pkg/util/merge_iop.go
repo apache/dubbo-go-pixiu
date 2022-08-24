@@ -24,10 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	yaml2 "sigs.k8s.io/yaml"
 
+	v1alpha12 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	v1alpha13 "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/operator/v1alpha1"
-	v1alpha12 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 )
 
 // Partially mirrored from istio/api and operator/pkg/api (for values).

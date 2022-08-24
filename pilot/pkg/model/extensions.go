@@ -26,11 +26,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/credentials"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	extensions "istio.io/api/extensions/v1alpha1"
 )
 
 const (

@@ -21,7 +21,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
-//FilterChain
+// FilterChain
 type FilterChain interface {
 	AppendDecodeFilters(f ...HttpDecodeFilter)
 	AppendEncodeFilters(f ...HttpEncodeFilter)

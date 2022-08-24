@@ -23,7 +23,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
-	"istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
@@ -31,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/structpath"
+	"istio.io/api/mesh/v1alpha1"
 )
 
 type SidecarTestConfig struct {

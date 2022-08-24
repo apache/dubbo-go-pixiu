@@ -24,7 +24,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	networkingapi "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -36,6 +35,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
+	networkingapi "istio.io/api/networking/v1alpha3"
 )
 
 var (

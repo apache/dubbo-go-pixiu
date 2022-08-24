@@ -22,11 +22,11 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/wasm" // include for registering wasm logging scope
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/pkg/log"
 )
 

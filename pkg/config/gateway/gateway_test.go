@@ -17,10 +17,10 @@ package gateway
 import (
 	"testing"
 
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
+	"istio.io/api/networking/v1alpha3"
 )
 
 func TestIsNonHTTPTLSServer(t *testing.T) {

@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube"
@@ -38,6 +37,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	"istio.io/api/label"
 )
 
 const (

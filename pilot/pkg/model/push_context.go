@@ -25,9 +25,6 @@ import (
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
-	extensions "istio.io/api/extensions/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -40,6 +37,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	extensions "istio.io/api/extensions/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/monitoring"
 )
 

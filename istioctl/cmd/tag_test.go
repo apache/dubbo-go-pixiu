@@ -26,10 +26,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/tag"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helmreconciler"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"istio.io/api/label"
 )
 
 const istioInjectionWebhookSuffix = "sidecar-injector.istio.io"

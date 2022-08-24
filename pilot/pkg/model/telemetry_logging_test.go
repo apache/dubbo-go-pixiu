@@ -29,9 +29,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tpb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/api/type/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
@@ -39,6 +36,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/api/type/v1beta1"
 )
 
 func TestAccessLogging(t *testing.T) {

@@ -21,8 +21,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/api/meta/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"istio.io/api/meta/v1alpha1"
 )
 
 // Task to be performed.

@@ -29,8 +29,6 @@ import (
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin/authz"
@@ -40,6 +38,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestVirtualListenerBuilder(t *testing.T) {

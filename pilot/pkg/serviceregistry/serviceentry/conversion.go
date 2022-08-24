@@ -19,8 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
@@ -35,6 +33,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
+	"istio.io/api/label"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func convertPort(port *networking.Port) *model.Port {

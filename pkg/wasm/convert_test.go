@@ -32,10 +32,10 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
+	extensions "istio.io/api/extensions/v1alpha1"
 )
 
 type mockCache struct {

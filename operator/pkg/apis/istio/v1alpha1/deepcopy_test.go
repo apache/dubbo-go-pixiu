@@ -22,9 +22,9 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"sigs.k8s.io/yaml"
 
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	install "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
+	v1alpha12 "istio.io/api/operator/v1alpha1"
 )
 
 // This is to verify that certain proto types handle marshal and unmarshal properly

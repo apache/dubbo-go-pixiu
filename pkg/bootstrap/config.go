@@ -27,8 +27,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/api/annotation"
-	meshAPI "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
@@ -39,6 +37,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	"istio.io/api/annotation"
+	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

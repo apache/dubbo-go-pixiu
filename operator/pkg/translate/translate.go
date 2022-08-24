@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	iopv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
@@ -39,6 +38,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/version"
 	oversion "github.com/apache/dubbo-go-pixiu/operator/version"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/pkg/log"
 )
 

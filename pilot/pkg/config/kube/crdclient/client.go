@@ -47,7 +47,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -56,6 +55,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/pkg/log"
 )
 

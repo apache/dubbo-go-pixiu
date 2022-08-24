@@ -24,10 +24,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/api/meta/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/pkg/log"
 )
 

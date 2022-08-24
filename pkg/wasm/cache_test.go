@@ -39,8 +39,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	extensions "istio.io/api/extensions/v1alpha1"
 )
 
 // Wasm header = magic number (4 bytes) + Wasm spec version (4 bytes).

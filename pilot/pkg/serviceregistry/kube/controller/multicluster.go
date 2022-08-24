@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
@@ -40,6 +39,7 @@ import (
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks"
+	"istio.io/api/annotation"
 )
 
 const (

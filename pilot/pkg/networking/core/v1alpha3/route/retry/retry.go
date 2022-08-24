@@ -23,9 +23,9 @@ import (
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPrioritiesConfig())

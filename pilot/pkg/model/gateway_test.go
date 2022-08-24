@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // nolint lll

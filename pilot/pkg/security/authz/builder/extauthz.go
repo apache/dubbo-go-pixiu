@@ -32,11 +32,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/extensionproviders"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	authzmodel "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (

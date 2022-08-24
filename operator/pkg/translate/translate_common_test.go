@@ -17,9 +17,9 @@ package translate
 import (
 	"testing"
 
-	"istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
+	"istio.io/api/operator/v1alpha1"
 )
 
 func TestGetEnabledComponents(t *testing.T) {

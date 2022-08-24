@@ -21,11 +21,11 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"google.golang.org/protobuf/proto"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto/merge"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

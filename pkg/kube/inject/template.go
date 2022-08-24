@@ -29,9 +29,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

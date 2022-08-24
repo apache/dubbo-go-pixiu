@@ -29,10 +29,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	authn_alpha "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/security/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/extensionproviders"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -42,6 +38,10 @@ import (
 	authn_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	authn_alpha "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 )
 

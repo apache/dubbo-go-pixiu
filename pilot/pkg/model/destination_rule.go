@@ -20,10 +20,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // This function merges one or more destination rules for a given host string

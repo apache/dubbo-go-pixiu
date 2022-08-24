@@ -19,9 +19,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 
 type (

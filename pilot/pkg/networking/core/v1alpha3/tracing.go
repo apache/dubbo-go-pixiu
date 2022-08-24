@@ -30,8 +30,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	telemetrypb "istio.io/api/telemetry/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/extensionproviders"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -41,6 +39,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/requestidextension"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	telemetrypb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/pkg/log"
 )
 

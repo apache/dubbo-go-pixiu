@@ -36,8 +36,6 @@ import (
 	"google.golang.org/grpc/status"
 	xdsgrpc "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 
-	networking "istio.io/api/networking/v1alpha3"
-	security "istio.io/api/security/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
@@ -51,6 +49,8 @@ import (
 	echoproto "github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/server/endpoint"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
+	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 )
 

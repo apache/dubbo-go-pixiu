@@ -33,15 +33,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/api/label"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/testcerts"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks/util"
+	"istio.io/api/label"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 )
 
 var (

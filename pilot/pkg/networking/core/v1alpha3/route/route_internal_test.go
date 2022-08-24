@@ -27,11 +27,11 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authzmatcher "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/matcher"
 	authz "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestIsCatchAllMatch(t *testing.T) {

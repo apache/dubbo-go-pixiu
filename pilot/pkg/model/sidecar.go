@@ -19,7 +19,6 @@ import (
 	"sort"
 	"strings"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
@@ -28,6 +27,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 const (

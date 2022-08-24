@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
@@ -27,6 +26,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	"istio.io/api/networking/v1alpha3"
 )
 
 // ConflictingMeshGatewayHostsAnalyzer checks if multiple virtual services

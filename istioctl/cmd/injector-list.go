@@ -30,14 +30,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	api_pkg_labels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/annotation"
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/injection"
 	analyzer_util "github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
 )
 
 type revisionCount struct {

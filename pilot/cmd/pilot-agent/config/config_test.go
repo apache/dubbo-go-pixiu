@@ -22,8 +22,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestGetMeshConfig(t *testing.T) {

@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/api/operator/v1alpha1"
 	iop "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helm"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
+	"istio.io/api/operator/v1alpha1"
 )
 
 // Istio default namespace

@@ -30,10 +30,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
-	"istio.io/api/envoy/extensions/stats"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tpb "istio.io/api/telemetry/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
@@ -41,6 +37,10 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
+	"istio.io/api/envoy/extensions/stats"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	tpb "istio.io/api/telemetry/v1alpha1"
 	istiolog "istio.io/pkg/log"
 )
 

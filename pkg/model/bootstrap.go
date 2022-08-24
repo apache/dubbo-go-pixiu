@@ -69,10 +69,11 @@ type StaticResources struct {
 }
 
 // DynamicResources config the dynamic resource source
-//	"lds_config": "{...}", # config lister load source
-//	"cds_config": "{...}", # config cluster load source
-//	"ads_config": "{...}"
-//  "ada_config": "{...}" # config adaptor load source
+//
+//		"lds_config": "{...}", # config lister load source
+//		"cds_config": "{...}", # config cluster load source
+//		"ads_config": "{...}"
+//	 "ada_config": "{...}" # config adaptor load source
 type DynamicResources struct {
 	LdsConfig *ApiConfigSource `yaml:"lds_config" json:"lds_config" mapstructure:"lds_config"`
 	CdsConfig *ApiConfigSource `yaml:"cds_config" json:"cds_config" mapstructure:"cds_config"`

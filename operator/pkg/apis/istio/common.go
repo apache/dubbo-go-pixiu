@@ -19,10 +19,10 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/validate"
+	"istio.io/api/operator/v1alpha1"
 )
 
 // UnmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct

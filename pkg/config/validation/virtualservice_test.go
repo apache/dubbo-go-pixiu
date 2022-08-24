@@ -20,8 +20,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestValidateChainingVirtualService(t *testing.T) {

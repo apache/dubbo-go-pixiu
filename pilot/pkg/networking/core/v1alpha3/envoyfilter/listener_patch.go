@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
@@ -31,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto/merge"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

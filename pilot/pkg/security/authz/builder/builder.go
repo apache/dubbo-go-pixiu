@@ -26,11 +26,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	authzmodel "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/trustdomain"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"istio.io/api/annotation"
 )
 
 var rbacPolicyMatchNever = &rbacpb.Policy{

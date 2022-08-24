@@ -28,10 +28,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	apiannotation "istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
+	apiannotation "istio.io/api/annotation"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration

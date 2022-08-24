@@ -38,13 +38,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks/util"
+	"istio.io/api/label"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

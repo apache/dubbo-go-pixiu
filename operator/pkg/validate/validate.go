@@ -20,7 +20,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
@@ -28,6 +27,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	"istio.io/api/operator/v1alpha1"
 )
 
 var (

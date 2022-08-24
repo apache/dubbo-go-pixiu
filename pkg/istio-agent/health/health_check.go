@@ -19,10 +19,10 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/apimirror"
+	"istio.io/api/networking/v1alpha3"
 )
 
 type WorkloadHealthChecker struct {

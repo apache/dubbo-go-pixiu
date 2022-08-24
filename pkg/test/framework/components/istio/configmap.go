@@ -27,13 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource/config/cleanup"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type configMap struct {

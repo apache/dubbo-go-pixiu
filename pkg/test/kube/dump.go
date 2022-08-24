@@ -35,13 +35,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istioctl"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	"istio.io/api/annotation"
 )
 
 type wellKnownContainer string

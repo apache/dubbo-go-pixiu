@@ -22,13 +22,13 @@ import (
 
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

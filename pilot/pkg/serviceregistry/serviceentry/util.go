@@ -17,9 +17,9 @@ package serviceentry
 import (
 	"k8s.io/apimachinery/pkg/types"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntry) map[types.NamespacedName]*config.Config {

@@ -19,11 +19,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"istio.io/api/annotation"
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	"istio.io/api/annotation"
+	"istio.io/api/networking/v1alpha3"
 )
 
 func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.ServiceEntry {

@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"testing"
 
-	pb "istio.io/api/security/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/fuzz"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	mockca "github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca/mock"
 	caerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
+	pb "istio.io/api/security/v1alpha1"
 )
 
 func FuzzCreateCertificate(f *testing.F) {

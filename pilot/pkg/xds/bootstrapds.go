@@ -23,13 +23,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Bootstrap generator produces an Envoy bootstrap from node descriptors.

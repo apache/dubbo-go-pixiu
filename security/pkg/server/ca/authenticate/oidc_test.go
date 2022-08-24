@@ -29,8 +29,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	jose "gopkg.in/square/go-jose.v2"
 
-	"istio.io/api/security/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
+	"istio.io/api/security/v1beta1"
 )
 
 const (

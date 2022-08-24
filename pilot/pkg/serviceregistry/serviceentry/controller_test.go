@@ -24,8 +24,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
@@ -38,6 +36,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	"istio.io/api/label"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func createConfigs(configs []*config.Config, store model.ConfigStore, t testing.TB) {

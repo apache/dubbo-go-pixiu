@@ -37,17 +37,17 @@ func StrInSlice(str string, slice []string) bool {
 	return false
 }
 
-//Split url split to []string by "/"
+// Split url split to []string by "/"
 func Split(path string) []string {
 	return strings.Split(strings.TrimLeft(path, constant.PathSlash), constant.PathSlash)
 }
 
-//VariableName extract VariableName      (:id, name = id)
+// VariableName extract VariableName      (:id, name = id)
 func VariableName(key string) string {
 	return strings.TrimPrefix(key, constant.PathParamIdentifier)
 }
 
-//IsPathVariableOrWildcard return if is a PathVariable     (:id, true)
+// IsPathVariableOrWildcard return if is a PathVariable     (:id, true)
 func IsPathVariableOrWildcard(key string) bool {
 	if key == "" {
 		return false
@@ -63,7 +63,7 @@ func IsPathVariableOrWildcard(key string) bool {
 	return false
 }
 
-//IsWildcard return if is *
+// IsWildcard return if is *
 func IsWildcard(key string) bool {
 	return key == "*"
 }

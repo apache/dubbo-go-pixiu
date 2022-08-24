@@ -38,7 +38,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	"k8s.io/client-go/rest"
 
-	"istio.io/api/security/v1beta1"
 	kubecredentials "github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials/kube"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	istiogrpc "github.com/apache/dubbo-go-pixiu/pilot/pkg/grpc"
@@ -72,6 +71,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ra"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate/kubeauth"
+	"istio.io/api/security/v1beta1"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"

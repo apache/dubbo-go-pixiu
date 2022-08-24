@@ -18,10 +18,10 @@ import (
 	apps_v1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	"istio.io/api/annotation"
 )
 
 // DeploymentinMesh returns true if deployment is in the service mesh (has sidecar)

@@ -28,8 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/api/annotation"
-	"istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/file"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
@@ -47,6 +45,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	"istio.io/api/annotation"
+	"istio.io/api/mesh/v1alpha1"
 )
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based

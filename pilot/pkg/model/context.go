@@ -32,7 +32,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/trustbundle"
 	networkutil "github.com/apache/dubbo-go-pixiu/pilot/pkg/util/network"
@@ -44,6 +43,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/identifier"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )

@@ -24,11 +24,11 @@ import (
 	cert "k8s.io/api/certificates/v1"
 	clientset "k8s.io/client-go/kubernetes"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/k8s/chiron"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca"
 	raerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

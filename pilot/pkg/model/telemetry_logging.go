@@ -28,10 +28,10 @@ import (
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (

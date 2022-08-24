@@ -23,9 +23,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/api/type/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
@@ -34,6 +31,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
+	"istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/type/v1beta1"
 )
 
 var (

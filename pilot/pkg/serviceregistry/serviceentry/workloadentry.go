@@ -15,8 +15,8 @@
 package serviceentry
 
 import (
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // return the mesh network for the workload entry. Empty string if not found.

@@ -26,8 +26,6 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -40,6 +38,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 )
 
 func init() {

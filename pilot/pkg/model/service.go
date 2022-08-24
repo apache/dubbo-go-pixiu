@@ -31,7 +31,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
@@ -40,6 +39,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
+	"istio.io/api/label"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)

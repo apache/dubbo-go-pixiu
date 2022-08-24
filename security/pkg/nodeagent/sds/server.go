@@ -21,11 +21,11 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/uds"
+	mesh "istio.io/api/mesh/v1alpha1"
 )
 
 const (

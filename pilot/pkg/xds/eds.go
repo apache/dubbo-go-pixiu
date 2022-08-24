@@ -21,7 +21,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	networkingapi "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	networking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3"
@@ -32,6 +31,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	networkingapi "istio.io/api/networking/v1alpha3"
 )
 
 // PushType is an enumeration that decides what type push we should do when we get EDS update.

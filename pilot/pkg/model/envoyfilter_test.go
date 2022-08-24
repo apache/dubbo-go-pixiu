@@ -17,8 +17,8 @@ package model
 import (
 	"testing"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // TestEnvoyFilterMatch tests the matching logic for EnvoyFilter, in particular the regex -> prefix optimization

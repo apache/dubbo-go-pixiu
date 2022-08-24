@@ -41,9 +41,6 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	v1beta12 "istio.io/api/networking/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/manifest"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
@@ -55,6 +52,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	sutil "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/util"
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	v1beta12 "istio.io/api/networking/v1beta1"
 )
 
 const yamlSeparator = "\n---"

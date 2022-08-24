@@ -30,7 +30,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn/factory"
@@ -39,6 +38,7 @@ import (
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
 	"github.com/apache/dubbo-go-pixiu/pkg/istio-agent/grpcxds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	"istio.io/api/label"
 )
 
 var supportedFilters = []*hcm.HttpFilter{

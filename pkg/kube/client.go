@@ -74,6 +74,11 @@ import (
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
+	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
+	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
+	"github.com/apache/dubbo-go-pixiu/pkg/queue"
+	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -83,11 +88,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
-	"github.com/apache/dubbo-go-pixiu/pkg/queue"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )

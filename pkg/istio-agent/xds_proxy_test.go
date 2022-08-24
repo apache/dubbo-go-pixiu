@@ -36,8 +36,6 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
-	extensions "istio.io/api/extensions/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
@@ -47,11 +45,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/envoy"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	extensions "istio.io/api/extensions/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/envoy"
 )
 
 // TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097

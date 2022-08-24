@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common/scheme"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

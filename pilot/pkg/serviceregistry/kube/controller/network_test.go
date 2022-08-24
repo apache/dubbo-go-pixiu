@@ -26,11 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestNetworkUpdateTriggers(t *testing.T) {

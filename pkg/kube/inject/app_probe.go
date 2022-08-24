@@ -23,9 +23,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
+	"istio.io/api/annotation"
 	"istio.io/pkg/log"
 )
 

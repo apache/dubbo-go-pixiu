@@ -28,7 +28,6 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
@@ -37,6 +36,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 var testCla = &endpoint.ClusterLoadAssignment{

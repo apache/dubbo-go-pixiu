@@ -22,7 +22,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
@@ -37,6 +36,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (

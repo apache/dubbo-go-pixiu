@@ -26,10 +26,10 @@ import (
 
 	"go.uber.org/atomic"
 
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/reserveport"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	"istio.io/api/networking/v1alpha3"
 )
 
 func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {

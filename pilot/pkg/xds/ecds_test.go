@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
@@ -34,6 +33,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	extensions "istio.io/api/extensions/v1alpha1"
 )
 
 func TestECDS(t *testing.T) {

@@ -17,13 +17,13 @@ package model
 import (
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1beta1"
 	istiolog "istio.io/pkg/log"
 )
 

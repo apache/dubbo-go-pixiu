@@ -31,8 +31,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/pkg/log"
 )
 

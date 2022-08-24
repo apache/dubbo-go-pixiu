@@ -20,10 +20,10 @@ import (
 
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestPopulateFailoverPriorityLabels(t *testing.T) {

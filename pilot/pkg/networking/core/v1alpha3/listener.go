@@ -30,7 +30,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
@@ -47,6 +46,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/proto"
 	secconst "github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )

@@ -32,8 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/tag"
 	"github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"
 	operator_istio "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
@@ -43,6 +41,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"istio.io/api/label"
+	"istio.io/api/operator/v1alpha1"
 )
 
 type revisionArgs struct {

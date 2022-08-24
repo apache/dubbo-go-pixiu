@@ -15,8 +15,8 @@
 package xds
 
 import (
-	networkingapi "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
+	networkingapi "istio.io/api/networking/v1alpha3"
 )
 
 // getSubSetLabels returns the labels associated with a subset of a given service.

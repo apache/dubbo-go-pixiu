@@ -21,8 +21,8 @@ import (
 
 	oidc "github.com/coreos/go-oidc/v3/oidc"
 
-	"istio.io/api/security/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
+	"istio.io/api/security/v1beta1"
 )
 
 const (

@@ -32,11 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/multicluster"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
@@ -51,6 +46,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/url"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/shellescape"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

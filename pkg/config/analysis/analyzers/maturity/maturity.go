@@ -17,13 +17,13 @@ package maturity
 import (
 	"strings"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	"istio.io/api/annotation"
 )
 
 // AlphaAnalyzer checks for alpha Istio annotations in K8s resources

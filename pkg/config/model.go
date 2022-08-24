@@ -34,9 +34,9 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/gogoprotomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	"istio.io/api/label"
 )
 
 // Meta is metadata attached to each configuration unit.

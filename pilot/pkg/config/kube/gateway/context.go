@@ -20,11 +20,11 @@ import (
 	"strconv"
 	"strings"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers

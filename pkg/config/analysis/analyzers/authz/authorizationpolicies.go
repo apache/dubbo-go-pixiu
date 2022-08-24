@@ -20,14 +20,14 @@ import (
 
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/mesh/v1alpha1"
-	"istio.io/api/security/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	"istio.io/api/mesh/v1alpha1"
+	"istio.io/api/security/v1beta1"
 )
 
 // AuthorizationPoliciesAnalyzer checks the validity of authorization policies

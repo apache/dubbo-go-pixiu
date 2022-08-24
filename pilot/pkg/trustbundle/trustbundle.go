@@ -23,9 +23,9 @@ import (
 	"sync"
 	"time"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

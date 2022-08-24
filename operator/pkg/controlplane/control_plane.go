@@ -20,13 +20,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/version"
 
-	"istio.io/api/operator/v1alpha1"
 	iop "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/component"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/translate"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	"istio.io/api/operator/v1alpha1"
 )
 
 // IstioControlPlane is an installation of an Istio control plane.

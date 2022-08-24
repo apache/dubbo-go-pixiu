@@ -35,12 +35,12 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"istio.io/api/label"
-	mcp "istio.io/api/mcp/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	"istio.io/api/label"
+	mcp "istio.io/api/mcp/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 type testAdscRunServer struct{}

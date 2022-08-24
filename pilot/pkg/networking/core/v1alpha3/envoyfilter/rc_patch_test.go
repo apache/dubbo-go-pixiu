@@ -21,9 +21,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func Test_virtualHostMatch(t *testing.T) {

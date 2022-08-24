@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/url"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/autoregistration"
 	configaggregate "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
@@ -35,6 +34,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/incluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

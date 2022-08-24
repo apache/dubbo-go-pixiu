@@ -33,7 +33,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	pb "istio.io/api/security/v1alpha1"
 	testutil "github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/file"
@@ -44,6 +43,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/credentialfetcher/plugin"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/monitoring"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/util"
+	pb "istio.io/api/security/v1alpha1"
 )
 
 const (

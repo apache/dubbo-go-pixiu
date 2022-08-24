@@ -33,9 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
-	"istio.io/api/label"
-	opAPI "istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/istioctl/cmd"
 	iopv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/manifest"
@@ -52,6 +49,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	opAPI "istio.io/api/operator/v1alpha1"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests

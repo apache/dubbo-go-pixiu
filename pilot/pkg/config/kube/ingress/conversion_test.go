@@ -35,13 +35,13 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/yaml"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crd"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestGoldenConversion(t *testing.T) {

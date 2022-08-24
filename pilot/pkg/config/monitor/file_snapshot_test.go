@@ -21,9 +21,9 @@ import (
 
 	"github.com/onsi/gomega"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 var gatewayYAML = `

@@ -19,7 +19,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
@@ -28,6 +27,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
+	"istio.io/api/mesh/v1alpha1"
 )
 
 // MeshNetworksAnalyzer validates MeshNetworks configuration in multi-cluster.

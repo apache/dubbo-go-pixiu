@@ -20,8 +20,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
+	"istio.io/api/annotation"
 )
 
 func TestFindSidecar(t *testing.T) {

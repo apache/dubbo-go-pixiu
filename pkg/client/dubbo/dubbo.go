@@ -52,8 +52,8 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-config"
 )
 
 // TODO java class name elem

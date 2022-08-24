@@ -41,7 +41,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	istiogrpc "github.com/apache/dubbo-go-pixiu/pilot/pkg/grpc"
@@ -58,6 +57,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

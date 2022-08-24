@@ -27,11 +27,11 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/xds"
 	pilotxds "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"istio.io/api/label"
 	istioversion "istio.io/pkg/version"
 )
 

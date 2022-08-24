@@ -29,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
 	v1alpha12 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/cache"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
@@ -40,6 +38,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/proxy"
+	"istio.io/api/label"
+	"istio.io/api/operator/v1alpha1"
 )
 
 const (

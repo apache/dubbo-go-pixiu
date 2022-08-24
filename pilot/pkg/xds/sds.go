@@ -28,7 +28,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	credscontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -37,6 +36,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	mesh "istio.io/api/mesh/v1alpha1"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented

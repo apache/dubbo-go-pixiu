@@ -17,13 +17,13 @@ package utils
 import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authn_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	protovalue "github.com/apache/dubbo-go-pixiu/pkg/proto"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // SupportedCiphers for server side TLS configuration.

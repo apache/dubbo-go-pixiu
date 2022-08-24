@@ -28,9 +28,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tpb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/api/type/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
@@ -45,6 +42,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/api/type/v1beta1"
 )
 
 func TestListenerAccessLog(t *testing.T) {

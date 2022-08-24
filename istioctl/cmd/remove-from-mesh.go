@@ -30,12 +30,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
+	"istio.io/api/annotation"
 	"istio.io/pkg/log"
 )
 

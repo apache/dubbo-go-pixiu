@@ -19,12 +19,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	istioagent "github.com/apache/dubbo-go-pixiu/pkg/istio-agent"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.

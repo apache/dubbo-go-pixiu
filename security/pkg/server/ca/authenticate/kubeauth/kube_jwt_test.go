@@ -27,11 +27,11 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/jwt"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type mockMeshConfigHolder struct {

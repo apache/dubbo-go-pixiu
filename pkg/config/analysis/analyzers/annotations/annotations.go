@@ -17,7 +17,6 @@ package annotations
 import (
 	"strings"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
@@ -25,6 +24,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
+	"istio.io/api/annotation"
 )
 
 // K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources

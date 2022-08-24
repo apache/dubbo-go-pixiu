@@ -17,11 +17,11 @@ package xds
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	tb "github.com/apache/dubbo-go-pixiu/pilot/pkg/trustbundle"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	mesh "istio.io/api/mesh/v1alpha1"
 )
 
 // PcdsGenerator generates proxy configuration for proxies to consume

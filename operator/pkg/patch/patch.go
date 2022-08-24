@@ -101,12 +101,12 @@ import (
 
 	yaml2 "gopkg.in/yaml.v2"
 
-	"istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helm"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/pkg/log"
 )
 

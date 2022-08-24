@@ -44,8 +44,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 
-	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/api/mesh/v1alpha1"
 	mem "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
@@ -56,6 +54,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

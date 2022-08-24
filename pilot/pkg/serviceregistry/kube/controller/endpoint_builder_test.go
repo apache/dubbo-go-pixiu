@@ -21,11 +21,11 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	cluster2 "github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
+	"istio.io/api/label"
 )
 
 func TestNewEndpointBuilderTopologyLabels(t *testing.T) {

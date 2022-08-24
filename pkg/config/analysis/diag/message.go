@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/api/analysis/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/url"
+	"istio.io/api/analysis/v1alpha1"
 )
 
 // MessageType is a type of diagnostic message

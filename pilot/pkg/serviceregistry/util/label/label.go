@@ -15,11 +15,11 @@
 package label
 
 import (
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
+	"istio.io/api/label"
 )
 
 // copied from https://github.com/kubernetes/api/blob/master/core/v1/well_known_labels.go

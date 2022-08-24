@@ -23,10 +23,10 @@ import (
 	envoyExtensionsWasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/credentials"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
+	extensions "istio.io/api/extensions/v1alpha1"
 )
 
 func TestBuildDataSource(t *testing.T) {

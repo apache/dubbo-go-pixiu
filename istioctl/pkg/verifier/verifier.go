@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	operator_istio "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
@@ -43,6 +42,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"istio.io/api/label"
 )
 
 var istioOperatorGVR = apimachinery_schema.GroupVersionResource{

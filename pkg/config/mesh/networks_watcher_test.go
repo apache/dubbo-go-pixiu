@@ -20,8 +20,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
 )
 

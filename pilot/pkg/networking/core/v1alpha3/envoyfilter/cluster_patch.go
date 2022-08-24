@@ -21,12 +21,12 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/proto"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto/merge"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

@@ -21,9 +21,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
 
 func Test_extractRevisionFromPod(t *testing.T) {

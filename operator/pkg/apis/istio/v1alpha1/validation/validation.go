@@ -24,10 +24,10 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
+	"istio.io/api/operator/v1alpha1"
 )
 
 const (

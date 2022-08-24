@@ -19,8 +19,8 @@ import (
 	"reflect"
 	"sync"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )

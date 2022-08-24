@@ -36,10 +36,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
-	"istio.io/api/envoy/config/filter/network/metadata_exchange"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
+	"istio.io/api/envoy/config/filter/network/metadata_exchange"
 )
 
 const (

@@ -26,8 +26,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-//Wrap the tracer provided by otel and be asked to implement the Trace interface
-//to customize the Span implementation.
+// Wrap the tracer provided by otel and be asked to implement the Trace interface
+// to customize the Span implementation.
 type Tracer struct {
 	ID     string
 	Trace  trace.Tracer

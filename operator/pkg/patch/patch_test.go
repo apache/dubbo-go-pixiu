@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
+	"istio.io/api/operator/v1alpha1"
 )
 
 func TestPatchYAMLManifestSuccess(t *testing.T) {

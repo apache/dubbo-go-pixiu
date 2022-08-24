@@ -32,7 +32,6 @@ import (
 	networkinglister "k8s.io/client-go/listers/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	kubecontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -43,6 +42,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

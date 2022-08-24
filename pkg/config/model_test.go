@@ -26,8 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/config"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestDeepCopy(t *testing.T) {

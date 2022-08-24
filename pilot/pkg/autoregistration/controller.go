@@ -30,8 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/status"
@@ -40,6 +38,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )

@@ -25,12 +25,12 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"sigs.k8s.io/yaml"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 )
 
 // DefaultProxyConfig for individual proxies

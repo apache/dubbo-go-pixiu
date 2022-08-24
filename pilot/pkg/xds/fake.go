@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	k8stesting "k8s.io/client-go/testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/autoregistration"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/gateway"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingress"
@@ -58,6 +57,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type FakeOptions struct {

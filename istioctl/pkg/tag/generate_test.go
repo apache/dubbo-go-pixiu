@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
+	"istio.io/api/label"
 )
 
 var (

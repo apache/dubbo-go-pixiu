@@ -18,8 +18,8 @@
 package cluster
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster/healthcheck"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster/healthcheck"
 )
 
 type Cluster struct {

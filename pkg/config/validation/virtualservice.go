@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 type HTTPRouteType int

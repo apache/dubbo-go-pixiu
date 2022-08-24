@@ -31,8 +31,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	pilot_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
@@ -48,6 +46,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {

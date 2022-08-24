@@ -30,11 +30,11 @@ import (
 	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks/util"
+	"istio.io/api/label"
 	"istio.io/pkg/log"
 )
 

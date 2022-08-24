@@ -34,8 +34,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -46,6 +44,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
 	"github.com/apache/dubbo-go-pixiu/pkg/url"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

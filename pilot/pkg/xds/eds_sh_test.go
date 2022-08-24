@@ -24,7 +24,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
@@ -37,6 +36,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Testing the Split Horizon EDS.

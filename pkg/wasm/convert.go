@@ -25,9 +25,9 @@ import (
 	"go.uber.org/atomic"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
+	extensions "istio.io/api/extensions/v1alpha1"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.

@@ -25,7 +25,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/telemetry"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
@@ -33,6 +32,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestBuildRedisFilter(t *testing.T) {

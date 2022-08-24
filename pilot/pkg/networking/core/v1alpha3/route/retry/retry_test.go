@@ -25,9 +25,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestRetry(t *testing.T) {

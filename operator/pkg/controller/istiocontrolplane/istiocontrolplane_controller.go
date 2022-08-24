@@ -41,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/operator/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	iopv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/cache"
@@ -58,6 +57,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/errdict"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/url"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )

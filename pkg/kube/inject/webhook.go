@@ -40,9 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	opconfig "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -50,6 +47,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 )
 

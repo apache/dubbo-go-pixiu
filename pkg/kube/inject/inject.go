@@ -40,12 +40,12 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
+	opconfig "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
-	opconfig "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"istio.io/pkg/log"
 )
 

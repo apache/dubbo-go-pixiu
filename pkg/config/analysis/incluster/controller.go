@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	v1alpha12 "istio.io/api/analysis/v1alpha1"
-	"istio.io/api/meta/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -34,6 +32,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	v1alpha12 "istio.io/api/analysis/v1alpha1"
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/pkg/log"
 )
 

@@ -15,9 +15,9 @@
 package gateway
 
 import (
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
+	"istio.io/api/networking/v1alpha3"
 )
 
 // IsNonHTTPTLSServer returns true if this server is non HTTP, but with some TLS settings for termination/passthrough

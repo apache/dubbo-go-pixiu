@@ -38,12 +38,12 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type stats struct {

@@ -30,8 +30,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/hashicorp/go-multierror"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
@@ -47,6 +45,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/istiomultierror"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

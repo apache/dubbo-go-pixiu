@@ -32,9 +32,9 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	pb "istio.io/api/security/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient"
+	pb "istio.io/api/security/v1alpha1"
 	"istio.io/pkg/log"
 )
 

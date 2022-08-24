@@ -20,11 +20,11 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/api/security/v1beta1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
+	"istio.io/api/security/v1beta1"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.

@@ -30,13 +30,13 @@ import (
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
-	networkingAPI "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authn_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
+	meshAPI "istio.io/api/mesh/v1alpha1"
+	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 )
 

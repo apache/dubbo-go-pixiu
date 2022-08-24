@@ -34,17 +34,19 @@ import (
 // apiVersion: install.istio.io/v1alpha1
 // kind: IstioOperator
 // spec:
-//   profile: default
-//   hub: gcr.io/istio-testing
-//   tag: latest
-//   revision: 1-8-0
-//   meshConfig:
-//     accessLogFile: /dev/stdout
-//     enableTracing: true
-//   components:
-//     egressGateways:
-//     - name: istio-egressgateway
-//       enabled: true
+//
+//	profile: default
+//	hub: gcr.io/istio-testing
+//	tag: latest
+//	revision: 1-8-0
+//	meshConfig:
+//	  accessLogFile: /dev/stdout
+//	  enableTracing: true
+//	components:
+//	  egressGateways:
+//	  - name: istio-egressgateway
+//	    enabled: true
+//
 // ```
 // +kubetype-gen
 // +kubetype-gen:groupVersion=install.istio.io/v1alpha1

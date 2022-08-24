@@ -20,9 +20,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestServiceInstancesStore(t *testing.T) {

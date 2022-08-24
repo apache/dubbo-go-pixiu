@@ -31,11 +31,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
 
-	"istio.io/api/meta/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/status"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/pkg/log"
 )
 

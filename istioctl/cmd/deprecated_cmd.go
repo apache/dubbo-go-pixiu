@@ -17,8 +17,8 @@
 package cmd
 
 import (
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	kubecfg "github.com/apache/dubbo-go-pixiu/pkg/kube"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 )
 
 // Create a model.ConfigStore (or sortedConfigStore)

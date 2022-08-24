@@ -27,13 +27,13 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tpb "istio.io/api/telemetry/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/extensionproviders"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/requestidextension"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	tpb "istio.io/api/telemetry/v1alpha1"
 )
 
 func TestConfigureTracing(t *testing.T) {
