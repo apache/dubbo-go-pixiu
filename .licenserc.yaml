@@ -17,6 +17,7 @@ header:
     - '**/*.woff2'
     - '**/*.eot'
     - '**/*.svg'
+    - '**/*.pem'
 
   comment: on-failure
 
