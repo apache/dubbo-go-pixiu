@@ -21,7 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	stdHttp "net/http"
 	"sync"
 )
@@ -128,7 +128,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 
 	switch res := c.SourceResp.(type) {
 	case *stdHttp.Response:
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			panic(err)
 		}

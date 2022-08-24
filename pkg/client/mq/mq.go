@@ -20,7 +20,7 @@ package mq
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"strings"
 	"sync"
 )
@@ -90,7 +90,7 @@ func (c Client) Close() error {
 }
 
 func (c Client) Call(req *client.Request) (res interface{}, err error) {
-	body, err := ioutil.ReadAll(req.IngressRequest.Body)
+	body, err := io.ReadAll(req.IngressRequest.Body)
 	if err != nil {
 		return nil, err
 	}

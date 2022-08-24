@@ -19,7 +19,6 @@ package runtime
 
 import (
 	"bufio"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"strconv"
@@ -75,7 +74,7 @@ func isContainer() bool {
 
 // copied from https://github.com/containerd/cgroups/blob/318312a373405e5e91134d8063d04d59768a1bff/utils.go#L243
 func readUint(path string) (uint64, error) {
-	v, err := ioutil.ReadFile(path)
+	v, err := os.ReadFile(path)
 	if err != nil {
 		return 0, err
 	}

@@ -20,7 +20,7 @@ package dubbo
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -144,9 +144,9 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 		return errors.Errorf("Parameter mapping %v incorrect, parameters for Dubbo backend must be mapped to an int to represent position", mp)
 	}
 
-	rawBody, err := ioutil.ReadAll(c.IngressRequest.Body)
+	rawBody, err := io.ReadAll(c.IngressRequest.Body)
 	defer func() {
-		c.IngressRequest.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
+		c.IngressRequest.Body = io.NopCloser(bytes.NewReader(rawBody))
 	}()
 	if err != nil {
 		return err
@@ -159,7 +159,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 		return errors.Wrap(err, "set target fail")
 	}
 
-	c.IngressRequest.Body = ioutil.NopCloser(bytes.NewBuffer(rawBody))
+	c.IngressRequest.Body = io.NopCloser(bytes.NewBuffer(rawBody))
 	return nil
 }
 

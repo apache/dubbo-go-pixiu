@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -58,7 +57,7 @@ func newRequestParams() *requestParams {
 	return &requestParams{
 		Header:    http.Header{},
 		Query:     url.Values{},
-		Body:      ioutil.NopCloser(bytes.NewReader([]byte(""))),
+		Body:      io.NopCloser(bytes.NewReader([]byte(""))),
 		URIParams: url.Values{},
 	}
 }
@@ -110,9 +109,9 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget in
 		return err
 	}
 
-	rawBody, err := ioutil.ReadAll(c.IngressRequest.Body)
+	rawBody, err := io.ReadAll(c.IngressRequest.Body)
 	defer func() {
-		c.IngressRequest.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
+		c.IngressRequest.Body = io.NopCloser(bytes.NewReader(rawBody))
 	}()
 	if err != nil {
 		return err
@@ -166,9 +165,9 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 	case constant.QueryStrings:
 		target.Query.Set(key, val.(string))
 	case constant.RequestBody:
-		rawBody, err := ioutil.ReadAll(target.Body)
+		rawBody, err := io.ReadAll(target.Body)
 		defer func() {
-			target.Body = ioutil.NopCloser(bytes.NewReader(rawBody))
+			target.Body = io.NopCloser(bytes.NewReader(rawBody))
 		}()
 		if err != nil {
 			return errors.New("Raw body read failed")

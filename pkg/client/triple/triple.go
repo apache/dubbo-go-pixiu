@@ -19,7 +19,7 @@ package triple
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"strings"
 	"sync"
@@ -88,7 +88,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 		return "", errors.Errorf("connect triple server error = %s", err)
 	}
 	meta := make(map[string][]string)
-	reqData, _ := ioutil.ReadAll(req.IngressRequest.Body)
+	reqData, _ := io.ReadAll(req.IngressRequest.Body)
 	call, err := p.Call(context.Background(), req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
 	if err != nil {
 		return "", errors.Errorf("call triple server error = %s", err)

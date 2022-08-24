@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	stdHttp "net/http"
 	"strings"
 	"sync"
@@ -284,7 +283,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	c.SourceResp = &stdHttp.Response{
 		StatusCode: stdHttp.StatusOK,
 		Header:     h,
-		Body:       ioutil.NopCloser(strings.NewReader(res)),
+		Body:       io.NopCloser(strings.NewReader(res)),
 		Trailer:    th,
 		Request:    c.Request,
 	}
@@ -354,7 +353,7 @@ func mapMetadataToHeader(md metadata.MD) stdHttp.Header {
 }
 
 func jsonToProtoMsg(reader io.Reader, msg proto.Message) error {
-	body, err := ioutil.ReadAll(reader)
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		return err
 	}

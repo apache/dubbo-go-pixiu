@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	netHttp "net/http"
 	"strconv"
 )
@@ -86,7 +86,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 		return false
 	}
 
-	bodyBytes, err := ioutil.ReadAll(ctx.Request.Body)
+	bodyBytes, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		logger.Error(err)
 		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte("failed to retrieve request body"))
@@ -100,7 +100,7 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 		Trailers:      ctx.Request.Trailer.Clone(),
 	}
 	// Once read body, the body sawEOF will be true, then send request will have no body
-	ctx.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	rEntry := ctx.GetRouteEntry()
 	if rEntry == nil {

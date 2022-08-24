@@ -21,7 +21,7 @@ import (
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	http3 "net/http"
 	stdHttp "net/http"
 	"net/url"
@@ -140,7 +140,7 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	s, _ := ioutil.ReadAll(resp.Body)
+	s, _ := io.ReadAll(resp.Body)
 	result := &protocol.RPCResult{}
 	result.Rest = string(s)
 	ctx.SetResult(result)

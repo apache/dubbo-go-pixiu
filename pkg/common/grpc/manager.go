@@ -22,7 +22,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	stdHttp "net/http"
 )
@@ -121,7 +121,7 @@ func (gcm *GrpcConnectionManager) response(w stdHttp.ResponseWriter, res *stdHtt
 	copyHeader(w.Header(), res.Header)
 	w.WriteHeader(res.StatusCode)
 
-	bytes, err := ioutil.ReadAll(res.Body)
+	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}

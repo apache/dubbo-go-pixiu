@@ -20,7 +20,6 @@ package grpcproxy
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -169,7 +168,7 @@ func loadFileSource(gc *Config) (*fileSource, error) {
 	logger.Infof("%s load proto files from %s", loggerHeader, cur)
 
 	fileLists := make([]string, 0)
-	items, err := ioutil.ReadDir(cur)
+	items, err := os.ReadDir(cur)
 	if err != nil {
 		return nil, err
 	}

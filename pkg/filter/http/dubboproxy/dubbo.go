@@ -21,7 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -137,7 +137,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	versionKey := hc.Request.Header.Get(constant.DubboServiceVersion)
 	types := hc.Request.Header.Get(constant.DubboServiceMethodTypes)
 
-	rawBody, err := ioutil.ReadAll(hc.Request.Body)
+	rawBody, err := io.ReadAll(hc.Request.Body)
 	if err != nil {
 		logger.Infof("[dubbo-go-pixiu] read request body error %v", err)
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("read request body error %v", err)})

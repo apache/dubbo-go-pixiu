@@ -18,8 +18,8 @@
 package config
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 )
 
@@ -80,7 +80,7 @@ func CheckYamlFormat(path string) bool {
 // LoadYAMLConfig YAMLConfigLoad config load yaml
 func LoadYAMLConfig(path string) *model.Bootstrap {
 	log.Println("load config in YAML format from : ", path)
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalln("[config] [yaml load] load config failed, ", err)
 	}

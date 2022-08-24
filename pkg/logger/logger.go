@@ -19,7 +19,7 @@ package logger
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"sync"
 )
@@ -78,10 +78,10 @@ func InitLog(logConfFile string) error {
 		return perrors.New(fmt.Sprintf("log configure file name %s suffix must be .yml", logConfFile))
 	}
 
-	confFileStream, err := ioutil.ReadFile(logConfFile)
+	confFileStream, err := os.ReadFile(logConfFile)
 	if err != nil {
 		InitLogger(nil)
-		return perrors.New(fmt.Sprintf("ioutil.ReadFile file:%s, error:%v", logConfFile, err))
+		return perrors.New(fmt.Sprintf("os.ReadFile file:%s, error:%v", logConfFile, err))
 	}
 
 	conf := &zap.Config{}

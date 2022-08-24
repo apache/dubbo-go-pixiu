@@ -20,7 +20,7 @@ package http
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -74,7 +74,7 @@ func TestQueryMapper(t *testing.T) {
 	assert.Nil(t, err)
 	err = qs.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
-	rawBody, _ := ioutil.ReadAll(target.Body)
+	rawBody, _ := io.ReadAll(target.Body)
 	assert.Equal(t, string(rawBody), "{\"age\":\"19\",\"nickName\":\"trump\"}")
 
 	err = qs.Map(config.MappingParam{Name: "queryStrings.doesNotExistField", MapTo: "queryStrings.whatever"}, req, target, nil)
@@ -123,7 +123,7 @@ func TestHeaderMapper(t *testing.T) {
 
 	err = hm.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
-	rawBody, err := ioutil.ReadAll(target.Body)
+	rawBody, err := io.ReadAll(target.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"pokeMonName\":\"Pika\"}")
 
@@ -169,7 +169,7 @@ func TestBodyMapper(t *testing.T) {
 
 	err = bm.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
-	rawBody, err := ioutil.ReadAll(target.Body)
+	rawBody, err := io.ReadAll(target.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"age\":\"19\",\"nickName\":\"trump\",\"testStruct\":{\"name\":\"mock\",\"nickName\":\"trump\",\"test\":\"happy\"}}")
 }
@@ -216,19 +216,19 @@ func TestSetTarget(t *testing.T) {
 
 	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct", map[string]interface{}{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
-	rawBody, err := ioutil.ReadAll(emptyRequestParams.Body)
+	rawBody, err := io.ReadAll(emptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\"}}")
 
 	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct.secondLayer", map[string]interface{}{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
-	rawBody, err = ioutil.ReadAll(emptyRequestParams.Body)
+	rawBody, err = io.ReadAll(emptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"testStruct\":{\"secondLayer\":{\"name\":\"mock\",\"test\":\"happy\"}}}")
 
 	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct.secondLayer.thirdLayer", map[string]interface{}{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
-	rawBody, err = ioutil.ReadAll(emptyRequestParams.Body)
+	rawBody, err = io.ReadAll(emptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"testStruct\":{\"secondLayer\":{\"thirdLayer\":{\"name\":\"mock\",\"test\":\"happy\"}}}}")
 
@@ -237,18 +237,18 @@ func TestSetTarget(t *testing.T) {
 	assert.Equal(t, emptyRequestParams.URIParams.Get("id"), "12345")
 
 	nonEmptyRequestParams := newRequestParams()
-	nonEmptyRequestParams.Body = ioutil.NopCloser(bytes.NewReader([]byte("{\"testStruct\":\"abcde\"}")))
+	nonEmptyRequestParams.Body = io.NopCloser(bytes.NewReader([]byte("{\"testStruct\":\"abcde\"}")))
 	err = setTarget(nonEmptyRequestParams, constant.RequestBody, "testStruct", map[string]interface{}{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
-	rawBody, err = ioutil.ReadAll(nonEmptyRequestParams.Body)
+	rawBody, err = io.ReadAll(nonEmptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\"}}")
 
 	nonEmptyRequestParams = newRequestParams()
-	nonEmptyRequestParams.Body = ioutil.NopCloser(bytes.NewReader([]byte("{\"otherStructure\":\"abcde\"}")))
+	nonEmptyRequestParams.Body = io.NopCloser(bytes.NewReader([]byte("{\"otherStructure\":\"abcde\"}")))
 	err = setTarget(nonEmptyRequestParams, constant.RequestBody, "testStruct", map[string]interface{}{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
-	rawBody, err = ioutil.ReadAll(nonEmptyRequestParams.Body)
+	rawBody, err = io.ReadAll(nonEmptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"otherStructure\":\"abcde\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\"}}")
 }

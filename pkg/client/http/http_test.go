@@ -20,7 +20,7 @@ package http
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -49,7 +49,7 @@ func TestMapParams(t *testing.T) {
 	p, _ := val.(*requestParams)
 	assert.Equal(t, p.Query.Encode(), "team=theBoys")
 	assert.Equal(t, p.Header.Get("Auth"), "12345")
-	rawBody, err := ioutil.ReadAll(p.Body)
+	rawBody, err := io.ReadAll(p.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody),
 		"{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")
@@ -92,7 +92,7 @@ func TestMapParams(t *testing.T) {
 	assert.Equal(t, p.Header.Get("Id"), "12345")
 	assert.Equal(t, p.Query.Get("auth"), "12345")
 	assert.Equal(t, p.Query.Get("team"), "theBoys")
-	rawBody, err = ioutil.ReadAll(p.Body)
+	rawBody, err = io.ReadAll(p.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody),
 		"{\"age\":\"19\",\"nickName\":\"trump\",\"testStruct\":{\"name\":\"mock\",\"nickName\":\"trump\",\"test\":\"happy\"}}")
