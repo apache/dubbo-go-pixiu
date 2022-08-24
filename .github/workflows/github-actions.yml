@@ -87,10 +87,10 @@ jobs:
               go get -v -t -d ./...
           fi
 
-      - name: Go Fmt
-        run: |
-          go fmt ./... && git status && [[ -z `git status -s` ]]
-          # diff -u <(echo -n) <(gofmt -d -s .)
+#      - name: Go Fmt
+#        run: |
+#          go fmt ./... && git status && [[ -z `git status -s` ]]
+#          # diff -u <(echo -n) <(gofmt -d -s .)
 
       - name: Install go ci lint
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.41.1
