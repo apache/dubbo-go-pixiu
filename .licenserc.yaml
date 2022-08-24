@@ -9,6 +9,7 @@ header:
     - '**/*.md'
     - 'LICENSE'
     - 'NOTICE'
+    - '**/.gitignore'
     - '**/*.yaml'
     - '**/*.golden'
     - '**/*.yaml.injected'
@@ -18,6 +19,9 @@ header:
     - '**/*.eot'
     - '**/*.svg'
     - '**/*.pem'
+    - '**/*.tpl'
+    - '**/*.tar.gz'
+    - 'pilot/docker'
 
   comment: on-failure
 
