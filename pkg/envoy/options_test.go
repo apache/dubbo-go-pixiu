@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/pkg/envoy"
+	"github.com/apache/dubbo-go-pixiu/pkg/envoy"
 )
 
 var testConfigPath = absPath("testdata/bootstrap.json")

@@ -26,10 +26,10 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	. "github.com/onsi/gomega"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/envoy"
 	testEnvoy "github.com/apache/dubbo-go-pixiu/pkg/test/envoy"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/reserveport"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/envoy"
 )
 
 var envoyLogFormat = envoy.LogFormat("[ENVOY][%Y-%m-%d %T.%e][%t][%l][%n] %v")

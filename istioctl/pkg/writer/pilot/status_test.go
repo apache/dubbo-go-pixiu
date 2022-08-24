@@ -30,7 +30,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
-	"github.com/apache/dubbo-go-pixiu/pkg/pixiu-cluster"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"istio.io/istio/tests/util"
 	istioversion "istio.io/pkg/version"
