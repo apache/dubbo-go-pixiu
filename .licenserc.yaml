@@ -1,0 +1,25 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+    copyright-owner: Apache Software Foundation
+
+  paths-ignore:
+    - 'dist'
+    - 'licenses'
+    - '**/*.md'
+    - 'LICENSE'
+    - 'NOTICE'
+    - '**/*.yaml'
+    - '**/*.golden'
+    - '**/*.yaml.injected'
+    - '**/*.ttf'
+    - '**/*.woff'
+    - '**/*.woff2'
+    - '**/*.eot'
+    - '**/*.svg'
+
+  comment: on-failure
+
+  dependency:
+    files:
+      - go.mod
