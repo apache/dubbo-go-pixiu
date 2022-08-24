@@ -51,7 +51,7 @@ func TestInitLog(t *testing.T) {
 	} else {
 		errMsg = fmt.Sprintf("open %s: no such file or directory", path)
 	}
-	assert.EqualError(t, err, fmt.Sprintf("ioutil.ReadFile file:%s, error:%s", path, errMsg))
+	assert.EqualError(t, err, fmt.Sprintf("os.ReadFile file:%s, error:%s", path, errMsg))
 
 	err = InitLog("./log.yml")
 	assert.NoError(t, err)
