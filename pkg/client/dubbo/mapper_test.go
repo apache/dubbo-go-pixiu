@@ -247,7 +247,7 @@ func TestMapType(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, val, 123)
 	_, err = mapTypes("int", "123a")
-	assert.EqualError(t, err, "unable to cast \"123a\" of type string to int")
+	assert.EqualError(t, err, "unable to cast \"123a\" of type string to int64")
 
 	val, err = mapTypes("object", map[string]string{"abc": "123"})
 	assert.Nil(t, err)

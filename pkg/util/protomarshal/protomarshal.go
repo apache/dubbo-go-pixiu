@@ -25,7 +25,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"            // nolint: staticcheck
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"

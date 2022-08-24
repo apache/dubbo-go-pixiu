@@ -17,7 +17,7 @@ package translate
 import (
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
 	"sigs.k8s.io/yaml"
 
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
