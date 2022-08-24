@@ -121,7 +121,6 @@ require (
 	helm.sh/helm/v3 v3.9.3
 	istio.io/api v0.0.0-20220817131511-59047e057639
 	istio.io/client-go v1.14.3-0.20220728185607-9117649b5a7f
-	istio.io/istio v0.0.0-20220824090643-b8b8a3bbf748
 	istio.io/pkg v0.0.0-20220823064943-805b8017e64a
 	k8s.io/api v0.24.4
 	k8s.io/apiextensions-apiserver v0.24.2

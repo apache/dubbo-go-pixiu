@@ -30,7 +30,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/tests/util"
+	"github.com/apache/dubbo-go-pixiu/tests/util"
 )
 
 // TestLDS using isolated namespaces

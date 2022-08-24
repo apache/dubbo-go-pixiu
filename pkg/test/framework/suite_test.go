@@ -492,7 +492,7 @@ func TestDeriveSuiteName(t *testing.T) {
 			expected: "some_path",
 		},
 		{
-			caller:   "/home/me/go/src/istio.io/istio/tests/integration/some/path/mytest.go",
+			caller:   "/home/me/go/src/github.com/apache/dubbo-go-pixiu/tests/integration/some/path/mytest.go",
 			expected: "some_path",
 		},
 		{

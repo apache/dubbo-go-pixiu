@@ -63,7 +63,7 @@ var (
 		".*/github.com/apache/dubbo-go-pixiu.io/",
 
 		// These allow us to trim test IDs on github.com/apache/dubbo-go-pixiu repo.
-		".*/istio.io/istio/tests/integration/",
+		".*/github.com/apache/dubbo-go-pixiu/tests/integration/",
 		".*/github.com/apache/dubbo-go-pixiu/",
 
 		// These are also used for github.com/apache/dubbo-go-pixiu, but make help to satisfy

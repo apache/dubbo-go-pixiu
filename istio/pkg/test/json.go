@@ -12,15 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package distribution
+package test
 
 import (
-	"testing"
-
-	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
+	"bytes"
+	"encoding/json"
 )
 
-func TestMain(m *testing.M) {
-	// CheckMain asserts that no goroutines are leaked after a test package exits.
-	leak.CheckMain(m)
+// JSONEquals compares two json strings. We cannot compare JSON strings from protobuf because of
+// design decisions https://github.com/golang/protobuf/issues/1373 Instead, use this function to
+// normalize the formatting
+func JSONEquals(t Failer, a, b string) {
+	t.Helper()
+	ba := bytes.Buffer{}
+	if err := json.Compact(&ba, []byte(a)); err != nil {
+		t.Fatal(err)
+	}
+	bb := bytes.Buffer{}
+	if err := json.Compact(&bb, []byte(b)); err != nil {
+		t.Fatal(err)
+	}
+	if ba.String() != bb.String() {
+		t.Fatalf("got %v, want %v", ba.String(), bb.String())
+	}
 }

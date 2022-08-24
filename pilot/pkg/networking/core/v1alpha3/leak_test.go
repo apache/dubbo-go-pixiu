@@ -17,7 +17,7 @@ package v1alpha3
 import (
 	"testing"
 
-	"istio.io/istio/tests/util/leak"
+	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
 )
 
 func TestMain(m *testing.M) {

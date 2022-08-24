@@ -12,15 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package distribution
-
-import (
-	"testing"
-
-	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
-)
-
-func TestMain(m *testing.M) {
-	// CheckMain asserts that no goroutines are leaked after a test package exits.
-	leak.CheckMain(m)
-}
+package util

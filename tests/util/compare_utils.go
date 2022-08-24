@@ -12,15 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package distribution
+package util
 
 import (
-	"testing"
+	"errors"
+	"strings"
 
-	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
+	"github.com/pmezard/go-difflib/difflib"
 )
 
-func TestMain(m *testing.M) {
-	// CheckMain asserts that no goroutines are leaked after a test package exits.
-	leak.CheckMain(m)
+// Compare compares two byte slices. It returns an error with a
+// contextual diff if they are not equal.
+func Compare(out, model []byte) error {
+	data := strings.TrimSpace(string(out))
+	expected := strings.TrimSpace(string(model))
+
+	if data != expected {
+		diff := difflib.UnifiedDiff{
+			A:       difflib.SplitLines(expected),
+			B:       difflib.SplitLines(data),
+			Context: 2,
+		}
+		text, err := difflib.GetUnifiedDiffString(diff)
+		if err != nil {
+			return err
+		}
+		return errors.New(text)
+	}
+
+	return nil
 }

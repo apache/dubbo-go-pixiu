@@ -23,7 +23,7 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/istio/tests/util"
+	"github.com/apache/dubbo-go-pixiu/tests/util"
 )
 
 type pilotStubHandler struct {

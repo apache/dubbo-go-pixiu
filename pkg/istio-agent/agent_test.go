@@ -62,7 +62,7 @@ import (
 	stsmock "github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/mock"
 	stsserver "github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/server"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/tests/util/leak"
+	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
 	pkgenv "istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

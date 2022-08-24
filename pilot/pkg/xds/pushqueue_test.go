@@ -25,7 +25,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
-	"istio.io/istio/tests/util/leak"
+	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
