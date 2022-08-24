@@ -50,6 +50,14 @@ var (
 	// nolint: revive, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
 
+	// ECHO_IMAGE is the image to use when deploying echo services.
+	// nolint: golint, revive, stylecheck
+	ECHO_IMAGE Variable = "ECHO_IMAGE"
+
+	// GRPC_ECHO_IMAGE is the image to use for a separate gRPC-only container in echo Pods.
+	// nolint: golint, revive, stylecheck
+	GRPC_ECHO_IMAGE Variable = "GRPC_ECHO_IMAGE"
+
 	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
 	// the command-line, that takes precedence.
 	// nolint: revive, stylecheck
@@ -74,8 +82,8 @@ var (
 	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("gcemetadata/gce_metadata_server.yaml"))
 
-	// ContainerRegistryServerInstallFilePath is the fake container registry installation file.
-	ContainerRegistryServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("containerregistry/container_registry_server.yaml"))
+	// RegistryRedirectorServerInstallFilePath is the registry redirector installation file.
+	RegistryRedirectorServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("registryredirector/registry_redirector_server.yaml"))
 )
 
 var (

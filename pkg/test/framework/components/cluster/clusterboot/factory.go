@@ -20,10 +20,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
-
 	// imported to trigger registration
 	_ "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster/kube"
-
 	// imported to trigger registration
 	_ "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster/staticvm"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/config"

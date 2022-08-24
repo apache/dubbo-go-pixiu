@@ -55,6 +55,11 @@ func (c Clusters) GetByName(name string) Cluster {
 	return nil
 }
 
+// Contains returns true if a cluster with the given name is found in the list.
+func (c Clusters) Contains(cc Cluster) bool {
+	return c.GetByName(cc.Name()) != nil
+}
+
 // Names returns the deduped list of names of the clusters.
 func (c Clusters) Names() []string {
 	dedup := map[string]struct{}{}
@@ -93,6 +98,20 @@ func (c Clusters) Networks() []string {
 	return c.ByNetwork().Networks()
 }
 
+// ForNetworks returns the list of clusters in the given networks.
+func (c Clusters) ForNetworks(networks ...string) Clusters {
+	out := make(Clusters, 0, len(c))
+	for _, cc := range c {
+		for _, network := range networks {
+			if cc.NetworkName() == network {
+				out = append(out, cc)
+				break
+			}
+		}
+	}
+	return out
+}
+
 // Primaries returns the subset that are primary clusters.
 func (c Clusters) Primaries(excluded ...Cluster) Clusters {
 	return c.filterClusters(func(cc Cluster) bool {
@@ -128,6 +147,18 @@ func (c Clusters) MeshClusters(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
+// IsExternalControlPlane indicates whether the clusters are set up in an enternal
+// control plane configuration. An external control plane is a primary cluster that
+// gets its Istio configuration from a different cluster.
+func (c Clusters) IsExternalControlPlane() bool {
+	for _, cc := range c {
+		if cc.IsExternalControlPlane() {
+			return true
+		}
+	}
+	return false
+}
+
 // Kube returns OfKind(cluster.Kubernetes)
 func (c Clusters) Kube() Clusters {
 	return c.OfKind(Kubernetes)
@@ -156,7 +187,8 @@ func exclude(exclude ...Cluster) func(Cluster) bool {
 }
 
 func (c Clusters) filterClusters(included func(Cluster) bool,
-	excluded func(Cluster) bool) Clusters {
+	excluded func(Cluster) bool,
+) Clusters {
 	var out Clusters
 	for _, cc := range c {
 		if !excluded(cc) && included(cc) {
