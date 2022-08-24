@@ -27,28 +27,25 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istioctl"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource/config/apply"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource/config/cleanup"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/tmpl"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
 )
 
-var _ config.Factory = &configFactory{}
+var _ resource.ConfigManager = &configManager{}
 
-type configFactory struct {
+type configManager struct {
 	ctx      resource.Context
 	clusters []cluster.Cluster
 	prefix   string
 }
 
-func newConfigFactory(ctx resource.Context, clusters cluster.Clusters) config.Factory {
+func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.ConfigManager {
 	if len(clusters) == 0 {
 		clusters = ctx.Clusters()
 	}
-	return &configFactory{
+	return &configManager{
 		ctx:      ctx,
 		clusters: clusters.Kube(),
 	}
@@ -58,32 +55,32 @@ func newConfigFactory(ctx resource.Context, clusters cluster.Clusters) config.Fa
 // Note: go tests are distinct binaries per test suite, so this is the suite level number of calls
 var GlobalYAMLWrites = atomic.NewUint64(0)
 
-func (c *configFactory) New() config.Plan {
-	return &configPlan{
-		configFactory: c,
+func (c *configManager) New() resource.Config {
+	return &configImpl{
+		configManager: c,
 		yamlText:      make(map[string][]string),
 	}
 }
 
-func (c *configFactory) YAML(ns string, yamlText ...string) config.Plan {
+func (c *configManager) YAML(ns string, yamlText ...string) resource.Config {
 	return c.New().YAML(ns, yamlText...)
 }
 
-func (c *configFactory) Eval(ns string, args any, yamlTemplates ...string) config.Plan {
+func (c *configManager) Eval(ns string, args interface{}, yamlTemplates ...string) resource.Config {
 	return c.New().Eval(ns, args, yamlTemplates...)
 }
 
-func (c *configFactory) File(ns string, filePaths ...string) config.Plan {
+func (c *configManager) File(ns string, filePaths ...string) resource.Config {
 	return c.New().File(ns, filePaths...)
 }
 
-func (c *configFactory) EvalFile(ns string, args any, filePaths ...string) config.Plan {
+func (c *configManager) EvalFile(ns string, args interface{}, filePaths ...string) resource.Config {
 	return c.New().EvalFile(ns, args, filePaths...)
 }
 
-func (c *configFactory) applyYAML(cleanupStrategy cleanup.Strategy, ns string, yamlText ...string) error {
+func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
-		return c.withFilePrefix("apply").(*configFactory).applyYAML(cleanupStrategy, ns, yamlText...)
+		return c.WithFilePrefix("apply").(*configManager).applyYAML(cleanup, ns, yamlText...)
 	}
 	GlobalYAMLWrites.Add(uint64(len(yamlText)))
 
@@ -101,21 +98,23 @@ func (c *configFactory) applyYAML(cleanupStrategy cleanup.Strategy, ns string, y
 			if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
 				return fmt.Errorf("failed applying YAML files %v to ns %s in cluster %s: %v", yamlFiles, ns, cl.Name(), err)
 			}
-			c.ctx.CleanupStrategy(cleanupStrategy, func() {
-				scopes.Framework.Debugf("Deleting from %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
-				if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
-					scopes.Framework.Errorf("failed deleting YAML files %v from ns %s in cluster %s: %v", yamlFiles, ns, cl.Name(), err)
-				}
-			})
+			if cleanup {
+				c.ctx.Cleanup(func() {
+					scopes.Framework.Debugf("Deleting from %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
+					if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
+						scopes.Framework.Errorf("failed deleting YAML files %v from ns %s in cluster %s: %v", yamlFiles, ns, cl.Name(), err)
+					}
+				})
+			}
 			return nil
 		})
 	}
 	return g.Wait()
 }
 
-func (c *configFactory) deleteYAML(ns string, yamlText ...string) error {
+func (c *configManager) deleteYAML(ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
-		return c.withFilePrefix("delete").(*configFactory).deleteYAML(ns, yamlText...)
+		return c.WithFilePrefix("delete").(*configManager).deleteYAML(ns, yamlText...)
 	}
 
 	// Convert the content to files.
@@ -137,7 +136,7 @@ func (c *configFactory) deleteYAML(ns string, yamlText ...string) error {
 	return g.Wait()
 }
 
-func (c *configFactory) WaitForConfig(ctx resource.Context, ns string, yamlText ...string) error {
+func (c *configManager) WaitForConfig(ctx resource.Context, ns string, yamlText ...string) error {
 	var outErr error
 	for _, c := range c.ctx.Clusters() {
 		ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
@@ -145,14 +144,14 @@ func (c *configFactory) WaitForConfig(ctx resource.Context, ns string, yamlText 
 			return err
 		}
 
-		for _, cfg := range yamlText {
-			cfg := cfg
+		for _, config := range yamlText {
+			config := config
 
 			// TODO(https://github.com/istio/istio/issues/37324): It's currently unsafe
 			// to call istioctl concurrently since it relies on the istioctl library
 			// (rather than calling the binary from the command line) which uses a number
 			// of global variables, which will be overwritten for each call.
-			if err := ik.WaitForConfig(ns, cfg); err != nil {
+			if err := ik.WaitForConfig(ns, config); err != nil {
 				// Get proxy status for additional debugging
 				s, _, _ := ik.Invoke([]string{"ps"})
 				outErr = multierror.Append(err, fmt.Errorf("failed waiting for config for cluster %s: err=%v. Proxy status: %v",
@@ -163,7 +162,7 @@ func (c *configFactory) WaitForConfig(ctx resource.Context, ns string, yamlText 
 	return outErr
 }
 
-func (c *configFactory) WaitForConfigOrFail(ctx resource.Context, t test.Failer, ns string, yamlText ...string) {
+func (c *configManager) WaitForConfigOrFail(ctx resource.Context, t test.Failer, ns string, yamlText ...string) {
 	err := c.WaitForConfig(ctx, ns, yamlText...)
 	if err != nil {
 		// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
@@ -171,33 +170,33 @@ func (c *configFactory) WaitForConfigOrFail(ctx resource.Context, t test.Failer,
 	}
 }
 
-func (c *configFactory) withFilePrefix(prefix string) config.Factory {
-	return &configFactory{
+func (c *configManager) WithFilePrefix(prefix string) resource.ConfigManager {
+	return &configManager{
 		ctx:      c.ctx,
 		prefix:   prefix,
 		clusters: c.clusters,
 	}
 }
 
-var _ config.Plan = &configPlan{}
+var _ resource.Config = &configImpl{}
 
-type configPlan struct {
-	*configFactory
+type configImpl struct {
+	*configManager
 	yamlText map[string][]string
 }
 
-func (c *configPlan) Copy() config.Plan {
+func (c *configImpl) Copy() resource.Config {
 	yamlText := make(map[string][]string, len(c.yamlText))
 	for k, v := range c.yamlText {
 		yamlText[k] = append([]string{}, v...)
 	}
-	return &configPlan{
-		configFactory: c.configFactory,
+	return &configImpl{
+		configManager: c.configManager,
 		yamlText:      yamlText,
 	}
 }
 
-func (c *configPlan) YAML(ns string, yamlText ...string) config.Plan {
+func (c *configImpl) YAML(ns string, yamlText ...string) resource.Config {
 	c.yamlText[ns] = append(c.yamlText[ns], splitYAML(yamlText...)...)
 	return c
 }
@@ -210,7 +209,7 @@ func splitYAML(yamlText ...string) []string {
 	return out
 }
 
-func (c *configPlan) File(ns string, paths ...string) config.Plan {
+func (c *configImpl) File(ns string, paths ...string) resource.Config {
 	yamlText, err := file.AsStringArray(paths...)
 	if err != nil {
 		panic(err)
@@ -219,11 +218,11 @@ func (c *configPlan) File(ns string, paths ...string) config.Plan {
 	return c.YAML(ns, yamlText...)
 }
 
-func (c *configPlan) Eval(ns string, args any, templates ...string) config.Plan {
+func (c *configImpl) Eval(ns string, args interface{}, templates ...string) resource.Config {
 	return c.YAML(ns, tmpl.MustEvaluateAll(args, templates...)...)
 }
 
-func (c *configPlan) EvalFile(ns string, args any, paths ...string) config.Plan {
+func (c *configImpl) EvalFile(ns string, args interface{}, paths ...string) resource.Config {
 	templates, err := file.AsStringArray(paths...)
 	if err != nil {
 		panic(err)
@@ -232,11 +231,11 @@ func (c *configPlan) EvalFile(ns string, args any, paths ...string) config.Plan 
 	return c.Eval(ns, args, templates...)
 }
 
-func (c *configPlan) Apply(opts ...apply.Option) error {
+func (c *configImpl) Apply(opts ...resource.ConfigOption) error {
 	// Apply the options.
-	options := apply.Options{}
+	options := resource.ConfigOptions{}
 	for _, o := range opts {
-		o.Set(&options)
+		o(&options)
 	}
 
 	// Apply for each namespace concurrently.
@@ -244,7 +243,7 @@ func (c *configPlan) Apply(opts ...apply.Option) error {
 	for ns, y := range c.yamlText {
 		ns, y := ns, y
 		g.Go(func() error {
-			return c.applyYAML(options.Cleanup, ns, y...)
+			return c.applyYAML(!options.NoCleanup, ns, y...)
 		})
 	}
 
@@ -266,14 +265,14 @@ func (c *configPlan) Apply(opts ...apply.Option) error {
 	return nil
 }
 
-func (c *configPlan) ApplyOrFail(t test.Failer, opts ...apply.Option) {
+func (c *configImpl) ApplyOrFail(t test.Failer, opts ...resource.ConfigOption) {
 	t.Helper()
 	if err := c.Apply(opts...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (c *configPlan) Delete() error {
+func (c *configImpl) Delete() error {
 	// Delete for each namespace concurrently.
 	g, _ := errgroup.WithContext(context.TODO())
 	for ns, y := range c.yamlText {
@@ -287,7 +286,7 @@ func (c *configPlan) Delete() error {
 	return g.Wait()
 }
 
-func (c *configPlan) DeleteOrFail(t test.Failer) {
+func (c *configImpl) DeleteOrFail(t test.Failer) {
 	t.Helper()
 	if err := c.Delete(); err != nil {
 		t.Fatal(err)

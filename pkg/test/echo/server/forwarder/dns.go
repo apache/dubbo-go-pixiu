@@ -21,25 +21,11 @@ import (
 	"net"
 	"net/url"
 	"strings"
-	"time"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 )
 
 var _ protocol = &dnsProtocol{}
 
-type dnsProtocol struct {
-	e *executor
-}
-
-func newDNSProtocol(e *executor) protocol {
-	return &dnsProtocol{e: e}
-}
-
-func (c *dnsProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
-	return doForward(ctx, cfg, c.e, c.makeRequest)
-}
+type dnsProtocol struct{}
 
 type dnsRequest struct {
 	hostname  string
@@ -85,12 +71,12 @@ func parseRequest(inputURL string) (dnsRequest, error) {
 	return req, nil
 }
 
-func (c *dnsProtocol) makeRequest(ctx context.Context, cfg *Config, requestID int) (string, error) {
-	req, err := parseRequest(cfg.Request.Url)
+func (c *dnsProtocol) makeRequest(ctx context.Context, rreq *request) (string, error) {
+	req, err := parseRequest(rreq.URL)
 	if err != nil {
 		return "", err
 	}
-	r := newResolver(cfg.timeout, req.protocol, req.dnsServer)
+	r := newResolver(rreq.Timeout, req.protocol, req.dnsServer)
 	nt := func() string {
 		switch req.query {
 		case "A":
@@ -101,25 +87,20 @@ func (c *dnsProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 			return "ip"
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
+	ctx, cancel := context.WithTimeout(ctx, rreq.Timeout)
 	defer cancel()
-
-	start := time.Now()
 	ips, err := r.LookupIP(ctx, nt, req.hostname)
 	if err != nil {
 		return "", err
 	}
 
 	var outBuffer bytes.Buffer
-	echo.LatencyField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%v", time.Since(start)))
-	echo.ActiveRequestsField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%d", c.e.ActiveRequests()))
-	echo.HostnameField.WriteForRequest(&outBuffer, requestID, req.hostname)
-	echo.DNSProtocolField.WriteForRequest(&outBuffer, requestID, req.protocol)
-	echo.DNSQueryField.WriteForRequest(&outBuffer, requestID, req.query)
-	echo.DNSServerField.WriteForRequest(&outBuffer, requestID, req.dnsServer)
-
+	outBuffer.WriteString(fmt.Sprintf("[%d] Hostname=%s\n", rreq.RequestID, req.hostname))
+	outBuffer.WriteString(fmt.Sprintf("[%d] Protocol=%s\n", rreq.RequestID, req.protocol))
+	outBuffer.WriteString(fmt.Sprintf("[%d] Query=%s\n", rreq.RequestID, req.query))
+	outBuffer.WriteString(fmt.Sprintf("[%d] DnsServer=%s\n", rreq.RequestID, req.dnsServer))
 	for n, i := range ips {
-		echo.WriteBodyLine(&outBuffer, requestID, fmt.Sprintf("Response%d=%s", n, i.String()))
+		outBuffer.WriteString(fmt.Sprintf("[%d body] Response%d=%s\n", rreq.RequestID, n, i.String()))
 	}
 	return outBuffer.String(), nil
 }

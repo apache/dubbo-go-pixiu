@@ -24,7 +24,6 @@ import (
 	istioKube "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/reserveport"
 )
 
 const (
@@ -64,11 +63,6 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 			return nil, err
 		}
 	}
-	m, err := reserveport.NewPortManager()
-	if err != nil {
-		return nil, err
-	}
-	client.SetPortManager(m.ReservePortNumber)
 
 	// support fake VMs by default
 	vmSupport := true

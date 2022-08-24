@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"istio.io/pkg/log"
@@ -44,7 +43,7 @@ type podController struct {
 
 func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 	s := newPodSelector(cfg)
-	podListWatch := cache.NewFilteredListWatchFromClient(cfg.Cluster.Kube().CoreV1().RESTClient(),
+	podListWatch := cache.NewFilteredListWatchFromClient(cfg.Cluster.CoreV1().RESTClient(),
 		"pods",
 		cfg.Namespace.Name(),
 		func(options *metav1.ListOptions) {
@@ -55,12 +54,12 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 		})
 	q := queue.NewQueue(1 * time.Second)
 	_, informer := cache.NewInformer(podListWatch, &kubeCore.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj any) {
+		AddFunc: func(newObj interface{}) {
 			q.Push(func() error {
 				return handlers.added(newObj.(*kubeCore.Pod))
 			})
 		},
-		UpdateFunc: func(old, cur any) {
+		UpdateFunc: func(old, cur interface{}) {
 			q.Push(func() error {
 				oldObj := old.(metav1.Object)
 				newObj := cur.(metav1.Object)
@@ -71,7 +70,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 				return nil
 			})
 		},
-		DeleteFunc: func(curr any) {
+		DeleteFunc: func(curr interface{}) {
 			q.Push(func() error {
 				pod, ok := curr.(*kubeCore.Pod)
 				if !ok {
@@ -99,7 +98,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 
 func (c *podController) Run(stop <-chan struct{}) {
 	go c.informer.Run(stop)
-	kube.WaitForCacheSync(stop, c.HasSynced)
+	cache.WaitForCacheSync(stop, c.HasSynced)
 	go c.q.Run(stop)
 }
 

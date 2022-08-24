@@ -12,29 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: build build_and_push clean all
+.PHONY: build_and_push clean all
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MD_PATH := $(dir $(MKFILE_PATH))
-HUB ?= gcr.io/istio-testing
-IMG := $(HUB)/fake-registry
-BIN_NAME := main
+IMG := gcr.io/istio-testing/fake-registry
 
 # NOTE: TAG should be updated whenever changes are made in this directory
 # This should also be updated in dependent components
-TAG := 1.2
+TAG := 1.0
 
 all: build_and_push clean
 
-$(MD_PATH)/$(BIN_NAME): $(MD_PATH)/main.go
-	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_NAME) -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
-
-build: $(MD_PATH)/$(BIN_NAME)
-
-build_and_push:  $(MD_PATH)/$(BIN_NAME)
+build_and_push:
+	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
 	docker buildx build $(MD_PATH) -t $(IMG):$(TAG) --push
-	docker tag $(IMG):$(TAG) $(IMG):latest
-	docker push $(IMG):latest
 
 clean:
-	rm $(MD_PATH)/$(BIN_NAME)
+	rm $(MD_PATH)/main

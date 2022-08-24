@@ -15,26 +15,23 @@
 package istio
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/tmpl"
-)
-
-const (
-	eastWestIngressIstioNameLabel = "eastwestgateway"
-	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
-	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
 )
 
 var (
@@ -46,7 +43,7 @@ var (
 )
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
-func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision string, customSettings string) error {
+func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revision string) error {
 	// generate istio operator yaml
 	args := []string{
 		"--cluster", cluster.Name(),
@@ -54,7 +51,7 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 		"--revision", revision,
 		"--mesh", meshID,
 	}
-	if !i.env.IsMultiCluster() {
+	if !i.environment.IsMulticluster() {
 		args = []string{"--single-cluster"}
 	}
 	cmd := exec.Command(genGatewayScript, args...)
@@ -67,31 +64,50 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 		return err
 	}
 
-	// Install the gateway
+	// Save the manifest generate output so we can later cleanup
 	s := i.ctx.Settings()
-	var inFileNames []string
-	inFileNames = append(inFileNames, iopFile)
-	if customSettings != "" {
-		inFileNames = append(inFileNames, customSettings)
-	}
-	if err := i.installer.Install(cluster, installArgs{
-		ComponentName: "eastwestgateway",
-		Revision:      revision,
-		Files:         inFileNames,
+	manifestGenArgs := &mesh.ManifestGenerateArgs{
+		InFilenames: []string{iopFile},
 		Set: []string{
 			"hub=" + s.Image.Hub,
 			"tag=" + s.Image.Tag,
 			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
 			"values.gateways.istio-ingressgateway.autoscaleEnabled=false",
 		},
-	}); err != nil {
+		ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+		Revision:      revision,
+	}
+
+	var stdOut, stdErr bytes.Buffer
+	if err := mesh.ManifestGenerate(&mesh.RootArgs{}, manifestGenArgs, cmdLogOptions(), cmdLogger(&stdOut, &stdErr)); err != nil {
 		return err
+	}
+	i.saveManifestForCleanup(cluster.Name(), stdOut.String())
+
+	kubeConfigFile, err := kubeConfigFileForCluster(cluster)
+	if err != nil {
+		return err
+	}
+
+	installArgs := &mesh.InstallArgs{
+		InFilenames:    []string{iopFile},
+		KubeConfigPath: kubeConfigFile,
+		Set:            manifestGenArgs.Set,
+		ManifestsPath:  manifestGenArgs.ManifestsPath,
+		Revision:       manifestGenArgs.Revision,
+	}
+
+	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installArgs)
+	err = install(i, installArgs, cluster.Name())
+	if err != nil {
+		scopes.Framework.Error(err)
+		return fmt.Errorf("failed installing eastwestgateway via IstioOperator: %v", err)
 	}
 
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
-		pods, err := cluster.Kube().CoreV1().Pods(i.cfg.SystemNamespace).List(context.TODO(), v1.ListOptions{
-			LabelSelector: eastWestIngressIstioLabel,
+		pods, err := cluster.CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{
+			LabelSelector: "istio=" + eastWestIngressIstioLabel,
 		})
 		if err != nil {
 			return err
@@ -101,7 +117,7 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 				return nil
 			}
 		}
-		return fmt.Errorf("no ready pods for " + eastWestIngressIstioLabel)
+		return fmt.Errorf("no ready pods for istio=" + eastWestIngressIstioLabel)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
 		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
 	}
@@ -109,15 +125,15 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 	return nil
 }
 
-func (i *istioImpl) exposeUserServices(cluster cluster.Cluster) error {
+func (i *operatorComponent) exposeUserServices(cluster cluster.Cluster) error {
 	scopes.Framework.Infof("Exposing services via eastwestgateway in %v", cluster.Name())
-	return cluster.ApplyYAMLFiles(i.cfg.SystemNamespace, exposeServicesGateway)
+	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeServicesGateway)
 }
 
-func (i *istioImpl) applyIstiodGateway(cluster cluster.Cluster, revision string) error {
+func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster, revision string) error {
 	scopes.Framework.Infof("Exposing istiod via eastwestgateway in %v", cluster.Name())
 	if revision == "" {
-		return cluster.ApplyYAMLFiles(i.cfg.SystemNamespace, exposeIstiodGateway)
+		return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeIstiodGateway)
 	}
 	gwTmpl, err := os.ReadFile(exposeIstiodGatewayRev)
 	if err != nil {
@@ -127,5 +143,5 @@ func (i *istioImpl) applyIstiodGateway(cluster cluster.Cluster, revision string)
 	if err != nil {
 		return fmt.Errorf("failed running template %s: %v", exposeIstiodGatewayRev, err)
 	}
-	return i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, out).Apply()
+	return i.ctx.ConfigKube(cluster).YAML(i.settings.SystemNamespace, out).Apply()
 }

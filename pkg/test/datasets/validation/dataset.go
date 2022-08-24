@@ -17,6 +17,5 @@ package validation
 import "embed"
 
 // FS embeds the manifests
-//
 //go:embed dataset/*
 var FS embed.FS

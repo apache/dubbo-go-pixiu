@@ -32,7 +32,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/errors"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )
 
@@ -86,8 +85,8 @@ func (w *workload) Client() (c *echoClient.Client, err error) {
 	w.mutex.Lock()
 	c = w.client
 	if c == nil {
-		err = fmt.Errorf("attempt to use disconnected client for echo pod %s/%s (in cluster %s)",
-			w.pod.Namespace, w.pod.Name, w.cluster.Name())
+		err = fmt.Errorf("attempt to use disconnected client for echo %s/%s",
+			w.pod.Namespace, w.pod.Name)
 	}
 	w.mutex.Unlock()
 	return
@@ -103,8 +102,6 @@ func (w *workload) Update(pod kubeCore.Pod) error {
 			return err
 		}
 	} else if !isPodReady(pod) && w.isConnected() {
-		scopes.Framework.Infof("echo pod %s/%s (in cluster %s) transitioned to NOT READY. Pod Status=%v",
-			pod.Namespace, pod.Name, w.cluster.Name(), pod.Status.Phase)
 		w.pod = pod
 		return w.disconnect()
 	}

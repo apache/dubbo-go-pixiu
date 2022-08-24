@@ -7,7 +7,7 @@
 ### Installation
 
 ```bash
-go install github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/echogen
+go install istio.io/pkg/test/framework/components/echo/echogen
 ```
 
 ### Usage

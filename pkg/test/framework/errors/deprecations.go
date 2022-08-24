@@ -26,7 +26,7 @@ type DeprecatedError struct {
 	msg string
 }
 
-func NewDeprecatedError(format string, args ...any) error {
+func NewDeprecatedError(format string, args ...interface{}) error {
 	return &DeprecatedError{fmt.Sprintf(format, args...)}
 }
 

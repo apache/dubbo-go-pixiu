@@ -41,7 +41,7 @@ func init() {
 type Value interface {
 	flag.Value
 	// SetConfig will receive either a Map or a []Map
-	SetConfig(any) error
+	SetConfig(interface{}) error
 }
 
 func Parsed() bool {

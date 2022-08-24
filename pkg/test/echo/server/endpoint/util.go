@@ -15,21 +15,17 @@
 package endpoint
 
 import (
+	"bytes"
 	"crypto/tls"
 	"net"
 	"os"
 	"strconv"
-	"time"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"istio.io/pkg/log"
 )
 
 var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
-
-const (
-	requestTimeout = 15 * time.Second
-	idleTimeout    = 5 * time.Second
-)
 
 func listenOnAddress(ip string, port int) (net.Listener, int, error) {
 	parsedIP := net.ParseIP(ip)
@@ -78,11 +74,12 @@ func listenOnUDS(uds string) (net.Listener, error) {
 	return ln, nil
 }
 
-// forceClose the given socket.
-func forceClose(conn net.Conn) error {
-	// Close may be called more than once.
-	defer func() { _ = conn.Close() }()
+// nolint: interfacer
+func writeField(out *bytes.Buffer, field echo.Field, value string) {
+	_, _ = out.WriteString(string(field) + "=" + value + "\n")
+}
 
-	// Force the connection closed (should result in sending RST)
-	return conn.(*net.TCPConn).SetLinger(0)
+// nolint: interfacer
+func writeRequestHeader(out *bytes.Buffer, key, value string) {
+	writeField(out, echo.RequestHeaderField, key+":"+value)
 }

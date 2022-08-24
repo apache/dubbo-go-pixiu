@@ -15,22 +15,18 @@
 package deployment
 
 import (
-	"path"
 	"strconv"
 
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/ports"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/deployment"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/match"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 )
 
 const (
 	ExternalSvc      = "external"
-	ExternalHostname = "fake.external.com"
+	externalHostname = "fake.external.com"
 )
 
 type External struct {
@@ -45,21 +41,10 @@ func (e External) build(b deployment.Builder) deployment.Builder {
 	return b.WithConfig(echo.Config{
 		Service:           ExternalSvc,
 		Namespace:         e.Namespace,
-		DefaultHostHeader: ExternalHostname,
+		DefaultHostHeader: externalHostname,
 		Ports:             ports.All(),
-		// Set up TLS certs on the server. This will make the server listen with these credentials.
-		TLSSettings: &common.TLSSettings{
-			// Echo has these test certs baked into the docker image
-			RootCert:   file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
-			ClientCert: file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
-			Key:        file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
-			// Override hostname to match the SAN in the cert we are using
-			// TODO(nmittler): We should probably make this the same as ExternalHostname
-			Hostname: "server.default.svc",
-		},
 		Subsets: []echo.SubsetConfig{
 			{
-				Version: "v1",
 				Annotations: map[echo.Annotation]*echo.AnnotationValue{
 					echo.SidecarInject: {
 						Value: strconv.FormatBool(false),

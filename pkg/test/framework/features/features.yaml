@@ -55,7 +55,6 @@ features:
     cni:
       race-condition-repair:
       upgrade:
-    tunneling:
     gateway:
   usability:
     observability:
@@ -146,7 +145,6 @@ features:
   extensibility:
     wasm:
       remote-load:
-      image-pull-policy:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:

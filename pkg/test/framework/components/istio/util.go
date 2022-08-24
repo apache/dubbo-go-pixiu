@@ -19,16 +19,24 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/hashicorp/go-multierror"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/environment/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
+	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+)
+
+const (
+	istiodLabel = "pilot"
 )
 
 var dummyValidationVirtualServiceTemplate = `
@@ -72,11 +80,33 @@ func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg
 	}, retry.Timeout(time.Minute))
 }
 
+func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error) {
+	var addr net.TCPAddr
+	primary := cluster.Primary()
+	if !primary.IsConfig() {
+		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
+		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
+		address, err := retry.UntilComplete(func() (interface{}, bool, error) {
+			return getRemoteServiceAddress(i.environment.Settings(), primary, i.settings.SystemNamespace, istiodLabel,
+				istiodSvcName, discoveryPort)
+		}, getAddressTimeout, getAddressDelay)
+		if err != nil {
+			return net.TCPAddr{}, err
+		}
+		addr = address.(net.TCPAddr)
+	} else {
+		addr = i.CustomIngressFor(primary, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
+	}
+	if addr.IP.String() == "<nil>" {
+		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
+	}
+	return addr, nil
+}
+
 func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
-	port int,
-) (any, bool, error) {
+	port int) (interface{}, bool, error) {
 	if !s.LoadBalancerSupported {
-		pods, err := cluster.PodsForSelector(context.TODO(), ns, label)
+		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
 		if err != nil {
 			return nil, false, err
 		}
@@ -96,7 +126,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")
 		}
 
-		svc, err := cluster.Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
+		svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
 		if err != nil {
 			return nil, false, err
 		}
@@ -120,7 +150,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	}
 
 	// Otherwise, get the load balancer IP.
-	svc, err := cluster.Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
+	svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -138,10 +168,84 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	return net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)), true, nil
 }
 
-func removeCRDsSlice(raw []string) string {
-	res := make([]string, 0)
-	for _, r := range raw {
-		res = append(res, removeCRDs(r))
+func (i *operatorComponent) isExternalControlPlane() bool {
+	for _, cluster := range i.ctx.AllClusters() {
+		if cluster.IsPrimary() && !cluster.IsConfig() {
+			return true
+		}
 	}
-	return yml.JoinString(res...)
+	return false
+}
+
+func PatchMeshConfig(t resource.Context, ns string, clusters cluster.Clusters, patch string) error {
+	errG := multierror.Group{}
+	origCfg := map[string]string{}
+	mu := sync.RWMutex{}
+
+	cmName := "istio"
+	if rev := t.Settings().Revisions.Default(); rev != "default" && rev != "" {
+		cmName += "-" + rev
+	}
+	for _, c := range clusters.Kube() {
+		c := c
+		errG.Go(func() error {
+			cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			mcYaml, ok := cm.Data["mesh"]
+			if !ok {
+				return fmt.Errorf("mesh config was missing in istio config map for %s", c.Name())
+			}
+			mu.Lock()
+			origCfg[c.Name()] = cm.Data["mesh"]
+			mu.Unlock()
+			mc := &meshconfig.MeshConfig{}
+			if err := protomarshal.ApplyYAML(mcYaml, mc); err != nil {
+				return err
+			}
+			if err := protomarshal.ApplyYAML(patch, mc); err != nil {
+				return err
+			}
+			cm.Data["mesh"], err = protomarshal.ToYAML(mc)
+			if err != nil {
+				return err
+			}
+			_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+			scopes.Framework.Infof("patched %s meshconfig:\n%s", c.Name(), cm.Data["mesh"])
+			return nil
+		})
+	}
+	t.Cleanup(func() {
+		errG := multierror.Group{}
+		mu.RLock()
+		defer mu.RUnlock()
+		for cn, mcYaml := range origCfg {
+			cn, mcYaml := cn, mcYaml
+			c := clusters.GetByName(cn)
+			errG.Go(func() error {
+				cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				cm.Data["mesh"] = mcYaml
+				_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+				return err
+			})
+		}
+		if err := errG.Wait().ErrorOrNil(); err != nil {
+			scopes.Framework.Errorf("failed cleaning up cluster-local config: %v", err)
+		}
+	})
+	return errG.Wait().ErrorOrNil()
+}
+
+func PatchMeshConfigOrFail(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {
+	t.Helper()
+	if err := PatchMeshConfig(t, ns, clusters, patch); err != nil {
+		t.Fatal(err)
+	}
 }

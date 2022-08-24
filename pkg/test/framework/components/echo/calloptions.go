@@ -121,23 +121,11 @@ type CallOptions struct {
 	Address string
 
 	// Count indicates the number of exchanges that should be made with the service endpoint.
-	// If Count <= 0, a default will be selected. If To is specified, the value will be set to
-	// the numWorkloads * DefaultCallsPerWorkload. Otherwise, defaults to 1.
+	// If Count <= 0, defaults to 1.
 	Count int
 
 	// Timeout used for each individual request. Must be > 0, otherwise 5 seconds is used.
 	Timeout time.Duration
-
-	// NewConnectionPerRequest if true, the forwarder will establish a new connection to the server for
-	// each individual request. If false, it will attempt to reuse the same connection for the duration
-	// of the forward call. This is ignored for DNS, TCP, and TLS protocols, as well as
-	// Headless/StatefulSet deployments.
-	NewConnectionPerRequest bool
-
-	// ForceDNSLookup if true, the forwarder will force a DNS lookup for each individual request. This is
-	// useful for any situation where DNS is used for load balancing (e.g. headless). This is ignored if
-	// NewConnectionPerRequest is false or if the deployment is Headless or StatefulSet.
-	ForceDNSLookup bool
 
 	// Retry options for the call.
 	Retry Retry
@@ -218,14 +206,12 @@ func (o *CallOptions) FillDefaults() error {
 		o.Timeout = common.DefaultRequestTimeout
 	}
 
-	// Fill the number of calls to make.
-	o.fillCallCount()
+	if o.Count <= 0 {
+		o.Count = common.DefaultCount
+	}
 
-	// Fill connection parameters based on scheme and workload type.
-	o.fillConnectionParams()
-
-	// Fill in default retry options, if not specified.
-	o.fillRetryOptions()
+	// Add any user-specified options after the default options (last option wins for each type of option).
+	o.Retry.Options = append(append([]retry.Option{}, DefaultCallRetryOptions()...), o.Retry.Options...)
 
 	// If no Check was specified, assume no error.
 	if o.Check == nil {
@@ -240,57 +226,6 @@ func (o *CallOptions) FillDefaultsOrFail(t test.Failer) {
 	if err := o.FillDefaults(); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func (o *CallOptions) fillCallCount() {
-	if o.Count > 0 {
-		// Nothing to do.
-		return
-	}
-
-	o.Count = common.DefaultCount
-
-	// Try setting an appropriate count for the number of workloads.
-	newCount := DefaultCallsPerWorkload() * o.numWorkloads()
-	if newCount > o.Count {
-		o.Count = newCount
-	}
-}
-
-func (o *CallOptions) numWorkloads() int {
-	if o.To == nil {
-		return 0
-	}
-	workloads, err := o.To.Workloads()
-	if err != nil {
-		return 0
-	}
-	return len(workloads)
-}
-
-func (o *CallOptions) fillConnectionParams() {
-	// Overrides connection parameters for scheme.
-	switch o.Scheme {
-	case scheme.DNS:
-		o.NewConnectionPerRequest = true
-		o.ForceDNSLookup = true
-	case scheme.TCP, scheme.TLS, scheme.WebSocket:
-		o.NewConnectionPerRequest = true
-	}
-
-	// Override connection parameters for workload type.
-	if o.To != nil {
-		toCfg := o.To.Config()
-		if toCfg.IsHeadless() || toCfg.IsStatefulSet() {
-			// Headless uses DNS for load balancing. Force DNS lookup each time so
-			// that we get proper load balancing behavior.
-			o.NewConnectionPerRequest = true
-			o.ForceDNSLookup = true
-		}
-	}
-
-	// ForceDNSLookup only applies when using new connections per request.
-	o.ForceDNSLookup = o.NewConnectionPerRequest && o.ForceDNSLookup
 }
 
 func (o *CallOptions) fillAddress() error {
@@ -410,29 +345,4 @@ func (o *CallOptions) fillHeaders() {
 	if h := o.GetHost(); len(h) > 0 {
 		o.HTTP.Headers.Set(headers.Host, h)
 	}
-}
-
-func (o *CallOptions) fillRetryOptions() {
-	if o.Retry.NoRetry {
-		// User specified no-retry, nothing to do.
-		return
-	}
-
-	// NOTE: last option wins, so order in the list is important!
-
-	// Start by getting the defaults.
-	retryOpts := DefaultCallRetryOptions()
-
-	// Don't use converge unless we need it. When sending large batches of requests (for example,
-	// when we attempt to reach all clusters), converging will result in sending at least
-	// `converge * count` requests. When running multiple requests in parallel, this can contribute
-	// to resource (e.g. port) exhaustion in the echo servers. To avoid that problem, we disable
-	// converging by default, so long as the count is greater than the default converge value.
-	// This, of course, can be overridden if the user supplies their own converge value.
-	if o.Count > callConverge {
-		retryOpts = append(retryOpts, retry.Converge(1))
-	}
-
-	// Now append user-provided options to override the defaults.
-	o.Retry.Options = append(retryOpts, o.Retry.Options...)
 }

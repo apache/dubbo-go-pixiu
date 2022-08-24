@@ -34,7 +34,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource/config/apply"
 	testKube "github.com/apache/dubbo-go-pixiu/pkg/test/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 )
@@ -74,10 +73,10 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(apply.NoCleanup); err != nil {
+	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(resource.NoCleanup); err != nil {
 		return err
 	}
-	ctx.CleanupConditionally(func() {
+	ctx.ConditionalCleanup(func() {
 		_ = ctx.ConfigKube().YAML(ns, yaml).Delete()
 	})
 	return nil
@@ -110,7 +109,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		}
 		pod := pods[0]
 
-		svc, err := cls.Kube().CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
+		svc, err := cls.CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
