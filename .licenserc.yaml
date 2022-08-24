@@ -1,7 +1,7 @@
 header:
   license:
     spdx-id: Apache-2.0
-    copyright-owner: Apache Software Foundation
+#    copyright-owner: Apache Software Foundation
 
   paths-ignore:
     - 'dist'
@@ -9,19 +9,29 @@ header:
     - '**/*.md'
     - 'LICENSE'
     - 'NOTICE'
+    - 'go.mod'
+    - 'go.sum'
+    - '**/.gitmodules'
+    - '**/.gitattributes'
     - '**/.gitignore'
     - '**/*.yaml'
     - '**/*.golden'
-    - '**/*.yaml.injected'
+    - '**/*.injected'
     - '**/*.ttf'
+    - '**/*.json'
     - '**/*.woff'
     - '**/*.woff2'
     - '**/*.eot'
     - '**/*.svg'
     - '**/*.pem'
+    - '**/*.crt'
+    - '**/*.key'
     - '**/*.tpl'
+    - '**/*.tmpl'
     - '**/*.tar.gz'
+    - '**/*.proxycfg'
     - 'pilot/docker'
+    - 'pkg/test/echo/docker'
 
   comment: on-failure
 
