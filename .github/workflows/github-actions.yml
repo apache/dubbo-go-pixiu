@@ -20,11 +20,8 @@ name: CI
 
 on:
   push:
-    branches: [ master, develop ]
   pull_request:
-    branches: "*"
   pull_request_target:
-    branches: "*"
 
 jobs:
 
