@@ -51,7 +51,7 @@ type HTTPFilter struct {
 	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
 }
 
-// HTTPFilter http filter
+// DubboFilter dubbo filter
 type DubboFilter struct {
 	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
 	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`

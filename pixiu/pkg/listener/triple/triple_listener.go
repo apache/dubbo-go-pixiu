@@ -21,15 +21,19 @@ import (
 	"context"
 	"reflect"
 	"sync"
+	"time"
 )
 
 import (
 	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
 	triConfig "github.com/dubbogo/triple/pkg/config"
 	"github.com/dubbogo/triple/pkg/triple"
+
+	"github.com/pkg/errors"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
@@ -44,8 +48,9 @@ type (
 	// ListenerService the facade of a listener
 	TripleListenerService struct {
 		listener.BaseListenerService
-		server     *triple.TripleServer
-		serviceMap *sync.Map
+		server          *triple.TripleServer
+		serviceMap      *sync.Map
+		gShutdownConfig *listener.ListenerGracefulShutdownConfig
 	}
 	// ProxyService grpc proxy service definition
 	ProxyService struct {
@@ -62,6 +67,7 @@ func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener
 			Config:      lc,
 			FilterChain: fc,
 		},
+		gShutdownConfig: &listener.ListenerGracefulShutdownConfig{},
 	}
 
 	opts := []triConfig.OptionFunction{
@@ -93,9 +99,22 @@ func (ls *TripleListenerService) Close() error {
 	return nil
 }
 
-func (ls *TripleListenerService) ShutDown() error {
-	//TODO implement me
-	panic("implement me")
+func (ls *TripleListenerService) ShutDown(wg interface{}) error {
+	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
+	if timeout <= 0 {
+		return nil
+	}
+	// stop accept request
+	ls.gShutdownConfig.RejectRequest = true
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) && ls.gShutdownConfig.ActiveCount > 0 {
+		// sleep 100 ms and check it again
+		time.Sleep(100 * time.Millisecond)
+		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.ActiveCount)
+	}
+	wg.(*sync.WaitGroup).Done()
+	ls.server.Stop()
+	return nil
 }
 
 func (ls *TripleListenerService) Refresh(c model.Listener) error {
@@ -121,5 +140,10 @@ func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{},
 
 // InvokeWithArgs called when rpc invocation comes
 func (d *ProxyService) InvokeWithArgs(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+	d.ls.gShutdownConfig.AddActiveCount(1)
+	defer d.ls.gShutdownConfig.AddActiveCount(-1)
+	if d.ls.gShutdownConfig.RejectRequest {
+		return nil, errors.Errorf("Pixiu is preparing to close, reject all new requests")
+	}
 	return d.ls.FilterChain.OnTripleData(ctx, methodName, arguments)
 }

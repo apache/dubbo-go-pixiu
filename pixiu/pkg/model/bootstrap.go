@@ -17,6 +17,14 @@
 
 package model
 
+import (
+	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+)
+
 // Bootstrap the door
 type Bootstrap struct {
 	StaticResources  StaticResources   `yaml:"static_resources" json:"static_resources" mapstructure:"static_resources"`
@@ -40,6 +48,18 @@ func (bs *Bootstrap) GetListeners() []*Listener {
 
 func (bs *Bootstrap) GetStaticListeners() []*Listener {
 	return bs.StaticResources.Listeners
+}
+
+// GetShutdownConfig
+func (bs *Bootstrap) GetShutdownConfig() *ShutdownConfig {
+	if bs.StaticResources.ShutdownConfig == nil {
+		bs.StaticResources.ShutdownConfig = &ShutdownConfig{
+			Timeout:      "0s",
+			StepTimeout:  "0s",
+			RejectPolicy: "immediacy",
+		}
+	}
+	return bs.StaticResources.ShutdownConfig
 }
 
 // GetPprof
@@ -83,9 +103,21 @@ type DynamicResources struct {
 
 // ShutdownConfig how to shutdown server.
 type ShutdownConfig struct {
-	Timeout      string `default:"60s" yaml:"timeout" json:"timeout,omitempty"`
-	StepTimeout  string `default:"10s" yaml:"step_timeout" json:"step_timeout,omitempty"`
+	Timeout      string `default:"0s" yaml:"timeout" json:"timeout,omitempty"`
+	StepTimeout  string `default:"0s" yaml:"step_timeout" json:"step_timeout,omitempty"`
 	RejectPolicy string `default:"immediacy" yaml:"reject_policy" json:"reject_policy,omitempty"`
+}
+
+// GetTimeoutOfShutdown
+func (sdc *ShutdownConfig) GetTimeout() time.Duration {
+	result, err := time.ParseDuration(sdc.Timeout)
+	if err != nil {
+		defaultTimeout := 60 * time.Second
+		logger.Errorf("The Timeout configuration is invalid: %s, and we will use the default value: %s, err: %v",
+			sdc.Timeout, defaultTimeout.String(), err)
+		return defaultTimeout
+	}
+	return result
 }
 
 // APIMetaConfig how to find api config, file or etcd etc.
