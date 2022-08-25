@@ -101,6 +101,8 @@ const (
 // clients using a shared config. It is expected that all of Istiod can share the same set of clients and
 // informers. Sharing informers is especially important for load on the API server/Istiod itself.
 type Client interface {
+	// TODO: stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
+	kubernetes.Interface
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
 
@@ -315,6 +317,7 @@ type fakeClient interface {
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {
+	kubernetes.Interface
 	clientFactory util.Factory
 	config        *rest.Config
 
