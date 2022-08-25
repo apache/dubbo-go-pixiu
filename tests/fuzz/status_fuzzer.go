@@ -17,8 +17,8 @@ package fuzz
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-	"istio.io/api/meta/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/status/distribution"
+	"istio.io/api/meta/v1alpha1"
 )
 
 // FuzzReconcileStatuses implements a fuzzer that targets

@@ -22,11 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	kubeIngress "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingress"
 	ingressv1 "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingressv1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func FuzzConvertIngressVirtualService(data []byte) int {

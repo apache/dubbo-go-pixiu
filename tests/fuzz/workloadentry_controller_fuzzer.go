@@ -20,7 +20,6 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-	"istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/controller/workloadentry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -28,6 +27,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/keepalive"
+	"istio.io/api/networking/v1alpha3"
 )
 
 var (

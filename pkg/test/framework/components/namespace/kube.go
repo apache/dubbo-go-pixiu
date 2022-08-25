@@ -29,11 +29,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	kube2 "github.com/apache/dubbo-go-pixiu/pkg/test/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
+	"istio.io/api/label"
 	"istio.io/pkg/log"
 )
 

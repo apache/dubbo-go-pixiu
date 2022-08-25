@@ -24,13 +24,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/apimachinery/pkg/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio/ingress"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource/config/cleanup"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // OperatorValues is the map of the values from the installed operator yaml.

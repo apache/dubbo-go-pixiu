@@ -21,11 +21,11 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func InternalFuzzApplyClusterMerge(data []byte) int {

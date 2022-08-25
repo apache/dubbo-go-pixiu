@@ -29,8 +29,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/tests/util"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // TestLDS using isolated namespaces
