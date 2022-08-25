@@ -327,3 +327,6 @@ require (
 replace go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v0.21.0
 
 replace go.opentelemetry.io/otel/internal/metric => go.opentelemetry.io/otel/internal/metric v0.21.0
+
+// Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
+replace github.com/imdario/mergo v0.3.12 => github.com/imdario/mergo v0.3.5
