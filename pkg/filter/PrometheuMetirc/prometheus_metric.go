@@ -47,11 +47,11 @@ type (
 
 	// Config describe the config of FilterFactory
 	Config struct {
-		ErrMsg                string               `yaml:"err_msg" json:"err_msg" mapstructure:"err_msg"`
-		Rules                 []Rules              `yaml:"rules" json:"rules" mapstructure:"rules"`
-		ApiStatsProviders     ApiStatsResponse     `yaml:"api_stats_providers" json:"api_stats_providers" mapstructure:"api_stats_providers"`
-		ClusterStatsProviders ClusterStatsResponse `yaml:"cluster_stats_providers" json:"cluster_stats_providers" mapstructure:"cluster_stats_providers"`
-		CommonStatsProviders  CommonStatsResponse  `yaml:"common_stats_providers" json:"common_stats_providers" mapstructure:"common_stats_providers"`
+		ErrMsg                string                 `yaml:"err_msg" json:"err_msg" mapstructure:"err_msg"`
+		Rules                 []Rules                `yaml:"rules" json:"rules" mapstructure:"rules"`
+		ApiStatsProviders     []ApiStatsResponse     `yaml:"api_stats_providers" json:"api_stats_providers" mapstructure:"api_stats_providers"`
+		ClusterStatsProviders []ClusterStatsResponse `yaml:"cluster_stats_providers" json:"cluster_stats_providers" mapstructure:"cluster_stats_providers"`
+		CommonStatsProviders  []CommonStatsResponse  `yaml:"common_stats_providers" json:"common_stats_providers" mapstructure:"common_stats_providers"`
 	}
 )
 
