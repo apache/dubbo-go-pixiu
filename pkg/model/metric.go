@@ -19,6 +19,8 @@ package model
 
 // Metirc config for otel metric.
 type Metric struct {
-	Enable         bool `yaml:"enable" json:"enable"`
-	PrometheusPort int  `yaml:"prometheus_port" json:"prometheus_port"`
+	Enable                   bool   `yaml:"enable" json:"enable"`
+	PrometheusPort           int    `yaml:"prometheus_port" json:"prometheus_port"`
+	PrometheusMetricsPath    string `yaml:"prometheus_metrics_path" json:"prometheus_metrics_path"`
+	PrometheusFetchMetricURI string `yaml:"prometheus_fetch_metric_url" json:"prometheus_fetch_metric_url"`
 }

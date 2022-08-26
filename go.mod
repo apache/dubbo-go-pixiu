@@ -34,6 +34,9 @@ require (
 	github.com/nacos-group/nacos-sdk-go v1.1.1
 	github.com/opentrx/seata-golang/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.12.1
+	github.com/prometheus/common v0.32.1
+	github.com/prometheus/exporter-toolkit v0.7.1
 	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/cobra v1.1.3
@@ -55,6 +58,7 @@ require (
 	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.0 // indirect
 	vimagination.zapto.org/byteio v0.0.0-20200222190125-d27cba0f0b10
 	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )

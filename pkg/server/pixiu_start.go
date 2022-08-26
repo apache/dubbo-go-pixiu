@@ -55,6 +55,7 @@ func (s *Server) initialize(bs *model.Bootstrap) {
 	s.listenerManager = CreateDefaultListenerManager(bs)
 	s.dynamicResourceManger = createDynamicResourceManger(bs)
 	s.traceDriverManager = tracing.CreateDefaultTraceDriverManager(bs)
+
 }
 
 func (s *Server) GetClusterManager() *ClusterManager {
@@ -81,7 +82,7 @@ func (s *Server) GetTraceDriverManager() *tracing.TraceDriverManager {
 	return s.traceDriverManager
 }
 
-// Start server start
+// Start 并start
 func (s *Server) Start() {
 	conf := config.GetBootstrap()
 
