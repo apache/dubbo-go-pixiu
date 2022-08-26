@@ -198,7 +198,7 @@ jobs:
       - name: Go Test
         run: |
           chmod u+x before_ut.sh && ./before_ut.sh
-          go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
+          go mod vendor && go test ./... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
 
