@@ -86,7 +86,7 @@ func (c *httpProtocol) newClient() (*http.Client, error) {
 	case c.Request.Http3:
 		client.Transport = &http3.RoundTripper{
 			TLSClientConfig: c.tlsConfig,
-			QuicConfig:      &quic.Config{},
+			QuicConfig:      &quic.Config{}, // nolint
 		}
 	case c.Request.Http2:
 		if c.scheme == scheme.HTTPS {

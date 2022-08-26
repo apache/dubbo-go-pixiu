@@ -241,7 +241,7 @@ func TestCheckConnectionIdentity(t *testing.T) {
 		{
 			name: "no match service account",
 			identity: []string{
-				spiffe.Identity{"cluster.local", "namespace", "bad"}.String(),
+				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "namespace", ServiceAccount: "bad"}.String(),
 			},
 			sa:        "serviceaccount",
 			namespace: "namespace",
