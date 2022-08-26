@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -358,7 +358,7 @@ func verifyInstallation(t framework.TestContext, ctx resource.Context,
 
 func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.Cluster, k8sObjects object.K8sObjects,
 	expectRemoved bool) {
-	// nolint:staticcheck
+	// nolint: staticcheck
 	if k8sObjects == nil {
 		t.Fatalf("expected K8sObjects is nil")
 	}
@@ -369,7 +369,7 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 		Resource: "envoyfilters",
 	}
 
-	// nolint:staticcheck
+	// nolint: staticcheck
 	for _, genK8SObject := range k8sObjects {
 		kind := genK8SObject.Kind
 		ns := genK8SObject.Namespace

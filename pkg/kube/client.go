@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -991,7 +990,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	}
 	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
 	if !dryRun {
-		f, _ := ioutil.ReadFile(file)
+		f, _ := os.ReadFile(file)
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
 			c.discoveryClient.Invalidate()
 		}

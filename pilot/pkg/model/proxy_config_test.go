@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto" // nolint: staticcheck
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
