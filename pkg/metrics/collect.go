@@ -91,13 +91,10 @@ func NewPixiuMetricCollector(logger logger.Logger, filters []string, options ...
 
 	for key, enabled := range collectorState {
 		if !enabled {
-
 			continue
 		} else {
 			initiatedCollectors[key] = factoryFuncs[key](logger, e.httpClient, e.pURL)
-
 		}
-
 	}
 	e.Collectors = initiatedCollectors
 	return e

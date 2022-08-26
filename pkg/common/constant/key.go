@@ -27,6 +27,7 @@ const (
 	HTTPHeaderFilter           = "dgp.filter.http.header"
 	HTTPHostFilter             = "dgp.filter.http.host"
 	HTTPMetricFilter           = "dgp.filter.http.metric"
+	HTTPPrometheusMetricFilter = "dgp.filter.http.prometheusmetric"
 	HTTPRecoveryFilter         = "dgp.filter.http.recovery"
 	HTTPResponseFilter         = "dgp.filter.http.response"
 	HTTPAccessLogFilter        = "dgp.filter.http.accesslog"

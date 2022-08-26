@@ -18,20 +18,14 @@
 package collector
 
 import (
-	"net/http"
-	"strconv"
-)
-
-import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/exporter-toolkit/web"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"net/http"
+	"strconv"
 )
 
 const (
@@ -100,5 +94,9 @@ func (m *MeticManager) PrometheusMeticServerOnHttp() {
 	http.Handle(metricPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
 	listenAddres := ":" + strconv.Itoa(m.driver.cfg.PrometheusPort)
 	srv := &http.Server{Addr: listenAddres}
-	web.ListenAndServe(srv, "", promlog.New(&promlog.Config{}))
+	err := web.ListenAndServe(srv, "", promlog.New(&promlog.Config{}))
+	if err != nil {
+		logger.Info("[dubbo-go-pixiu-promethues metric collector] fail to listen and server")
+		return
+	}
 }
