@@ -23,3 +23,8 @@ if [ ! -f "${zkJar}" ]; then
     mkdir -p ${zkJarPath}
     wget -P "${zkJarPath}" ${remoteJarUrl}
 fi
+
+envoyPath="out/linux_amd64/"
+docker run -it --rm -v /tmp/envoy:/target envoyproxy/envoy:v1.22.5 cp /usr/local/bin/envoy /target
+mkdir -p ${envoyPath}
+cp -r /tmp/envoy/ ${envoyPath}
