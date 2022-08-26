@@ -44,6 +44,7 @@ go mod edit -replace=github.com/apache/dubbo-go-pixiu=github.com/"$1"@"$2"
 SOURCE_CONFIG_PACKAGE=github.com/apache/dubbo-go-pixiu/pkg/config
 TARGET_CONFIG_PACKAGE=github.com/apache/dubbo-go-pixiu/pkg/pixiu-config
 sed -i 's/$SOURCE_CONFIG_PACKAGE/$TARGET_CONFIG_PACKAGE/g' pixiu/pixiu.go
+sed -i 's/config.Load/pixiu-config.Load/g' pixiu/pixiu.go
 
 # prepare dependency
 go mod tidy
