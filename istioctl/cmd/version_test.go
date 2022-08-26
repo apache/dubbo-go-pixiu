@@ -24,9 +24,9 @@ import (
 )
 
 var meshInfo = version.MeshInfo{
-	{"Pilot", version.BuildInfo{"1.0.0", "gitSHA123", "go1.10", "Clean", "Tag"}},
-	{"Injector", version.BuildInfo{"1.0.1", "gitSHAabc", "go1.10.1", "Modified", "OtherTag"}},
-	{"Citadel", version.BuildInfo{"1.2", "gitSHA321", "go1.11.0", "Clean", "Tag"}},
+	{Component: "Pilot", Info: version.BuildInfo{"1.0.0", "gitSHA123", "go1.10", "Clean", "Tag"}},
+	{Component: "Injector", Info: version.BuildInfo{"1.0.1", "gitSHAabc", "go1.10.1", "Modified", "OtherTag"}},
+	{Component: "Citadel", Info: version.BuildInfo{"1.2", "gitSHA321", "go1.11.0", "Clean", "Tag"}},
 }
 
 func TestVersion(t *testing.T) {

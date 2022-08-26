@@ -214,7 +214,7 @@ func TestCheckConnectionIdentity(t *testing.T) {
 	}{
 		{
 			name:      "single match",
-			identity:  []string{spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String()},
+			identity:  []string{spiffe.Identity{TrustDomain: "cluster.local", Namespace: "namespace", ServiceAccount: "serviceaccount"}.String()},
 			sa:        "serviceaccount",
 			namespace: "namespace",
 			success:   true,
@@ -222,8 +222,8 @@ func TestCheckConnectionIdentity(t *testing.T) {
 		{
 			name: "second match",
 			identity: []string{
-				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
-				spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String(),
+				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "bad", ServiceAccount: "serviceaccount"}.String(),
+				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "namespace", ServiceAccount: "serviceaccount"}.String(),
 			},
 			sa:        "serviceaccount",
 			namespace: "namespace",
@@ -232,7 +232,7 @@ func TestCheckConnectionIdentity(t *testing.T) {
 		{
 			name: "no match namespace",
 			identity: []string{
-				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
+				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "bad", ServiceAccount: "serviceaccount"}.String(),
 			},
 			sa:        "serviceaccount",
 			namespace: "namespace",

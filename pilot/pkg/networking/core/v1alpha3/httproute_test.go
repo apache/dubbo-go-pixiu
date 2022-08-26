@@ -418,15 +418,12 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			})
 
 			vHostCache := make(map[int][]*route.VirtualHost)
-			routeName := "80"
+			//routeName := "80"
 			resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
 				cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, "80", vHostCache, nil, nil)
-			routeCfg := &route.RouteConfiguration{}
-			resource.Resource.UnmarshalTo(routeCfg)
-			xdstest.ValidateRouteConfiguration(t, routeCfg)
-			if routeCfg == nil {
-				t.Fatalf("got nil route for %s", routeName)
-			}
+			routeCfg := route.RouteConfiguration{}
+			resource.Resource.UnmarshalTo(&routeCfg)
+			xdstest.ValidateRouteConfiguration(t, &routeCfg)
 
 			got := map[string][]string{}
 			clusters := map[string]string{}
@@ -1510,12 +1507,9 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	vHostCache := make(map[int][]*route.VirtualHost)
 	resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
 		cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, routeName, vHostCache, nil, nil)
-	routeCfg := &route.RouteConfiguration{}
-	resource.Resource.UnmarshalTo(routeCfg)
-	xdstest.ValidateRouteConfiguration(t, routeCfg)
-	if routeCfg == nil {
-		t.Fatalf("got nil route for %s", routeName)
-	}
+	routeCfg := route.RouteConfiguration{}
+	resource.Resource.UnmarshalTo(&routeCfg)
+	xdstest.ValidateRouteConfiguration(t, &routeCfg)
 
 	if expectedRoutes == 0 {
 		expectedRoutes = len(expectedHosts)

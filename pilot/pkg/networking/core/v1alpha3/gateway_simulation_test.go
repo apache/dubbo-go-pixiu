@@ -281,13 +281,13 @@ spec:
 			calls: []simulation.Expect{
 				{
 					// Expect listener, but no routing
-					"defined port",
-					simulation.Call{
+					Name: "defined port",
+					Call: simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error:              simulation.ErrNoRoute,
 						ListenerMatched:    "0.0.0.0_80",
 						RouteConfigMatched: "http.80",
@@ -296,13 +296,13 @@ spec:
 				},
 				{
 					// There will be no listener
-					"undefined port",
-					simulation.Call{
+					Name: "undefined port",
+					Call: simulation.Call{
 						Port:       81,
 						HostHeader: "foo.bar",
 						Protocol:   simulation.HTTP,
 					},
-					simulation.Result{
+					Result: simulation.Result{
 						Error: simulation.ErrNoListener,
 					},
 				},

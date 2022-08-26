@@ -1288,9 +1288,9 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule",
 			expectedSourceRule: []types.NamespacedName{
-				{"istio-system", "meshRule"},
-				{"test", "nsRule"},
-				{"test", "svcRule"},
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test", Name: "nsRule"},
+				{Namespace: "test", Name: "svcRule"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
