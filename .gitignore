@@ -26,3 +26,5 @@ coverage.txt
 
 target/
 samples/**/dist
+
+out/
