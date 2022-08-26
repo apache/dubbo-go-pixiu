@@ -41,6 +41,10 @@ git clone -b main https://github.com/dubbo-go-pixiu/samples.git integrate_sample
 # update dubbo-go to current commit id
 go mod edit -replace=github.com/apache/dubbo-go-pixiu=github.com/"$1"@"$2"
 
+SOURCE_CONFIG_PACKAGE=github.com/apache/dubbo-go-pixiu/pkg/config
+TARGET_CONFIG_PACKAGE=github.com/apache/dubbo-go-pixiu/pkg/pixiu-config
+sed -i 's/$SOURCE_CONFIG_PACKAGE/$TARGET_CONFIG_PACKAGE/g' pixiu/pixiu.go
+
 # prepare dependency
 go mod tidy
 
