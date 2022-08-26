@@ -11,7 +11,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/Shopify/sarama v1.19.0
-	github.com/alecholmes/xfccparser v0.1.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/apache/dubbo-getty v1.4.8
 	github.com/apache/dubbo-go-hessian2 v1.11.1
@@ -20,7 +19,6 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/cncf/xds/go v0.0.0-20220520190051-1e77728a1eaa
-	github.com/containernetworking/plugins v1.1.1
 	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/creasty/defaults v1.5.2
 	github.com/davecgh/go-spew v1.1.1
@@ -30,7 +28,7 @@ require (
 	github.com/dubbogo/gost v1.11.25
 	github.com/dubbogo/grpc-go v1.42.9
 	github.com/dubbogo/triple v1.1.8
-	github.com/envoyproxy/go-control-plane v0.10.3-0.20220719090109-b024c36d9935
+	github.com/envoyproxy/go-control-plane v0.10.2-0.20220428052930-ec95b9f870a8
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.2
@@ -79,7 +77,7 @@ require (
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.37.0
-	github.com/prometheus/prometheus v0.36.2
+	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.5.0
@@ -104,7 +102,6 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.22.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/net v0.0.0-20220812174116-3211cb980234
 	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
@@ -125,7 +122,6 @@ require (
 	k8s.io/api v0.24.4
 	k8s.io/apiextensions-apiserver v0.24.2
 	k8s.io/apimachinery v0.24.4
-	k8s.io/apiserver v0.24.4
 	k8s.io/cli-runtime v0.24.4
 	k8s.io/client-go v0.24.4
 	k8s.io/klog/v2 v2.70.1
@@ -161,13 +157,13 @@ require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/Workiva/go-datastructures v1.0.52 // indirect
-	github.com/alecthomas/participle v0.4.1 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
@@ -212,7 +208,6 @@ require (
 	github.com/google/pprof v0.0.0-20220729232143-a41b82acbcb1 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
-	github.com/grafana/regexp v0.0.0-20220304095617-2e8d9baf4ac2 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -305,6 +300,7 @@ require (
 	go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/arch v0.0.0-20200826200359-b19915210f00 // indirect
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
