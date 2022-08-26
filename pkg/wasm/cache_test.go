@@ -664,6 +664,8 @@ func TestWasmCache(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to write initial wasm module file %v", err)
 				}
+				// wait flush
+				time.Sleep(10 * time.Millisecond)
 				mkey := moduleKey{name: k.name, checksum: k.checksum}
 
 				cache.modules[mkey] = &cacheEntry{modulePath: filePath, last: initTime}
