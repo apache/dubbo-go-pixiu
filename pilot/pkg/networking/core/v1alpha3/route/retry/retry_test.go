@@ -26,7 +26,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/route/retry"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -118,7 +118,7 @@ func TestRetry(t *testing.T) {
 				Retries: &networking.HTTPRetry{
 					// Explicitly not retrying.
 					Attempts: 2,
-					RetryOn: " some,	,fake ,	conditions, ,",
+					RetryOn:  " some,	,fake ,	conditions, ,",
 				},
 			},
 			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
@@ -206,7 +206,7 @@ func TestRetry(t *testing.T) {
 				expected := &envoyroute.RetryPolicy_RetryPriority{
 					Name: "envoy.retry_priorities.previous_priorities",
 					ConfigType: &envoyroute.RetryPolicy_RetryPriority_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(previousPrioritiesConfig),
+						TypedConfig: util.MessageToAny(previousPrioritiesConfig),
 					},
 				}
 				if !reflect.DeepEqual(policy.RetryPriority, expected) {

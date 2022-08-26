@@ -37,7 +37,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
 	"istio.io/api/envoy/config/filter/network/metadata_exchange"
 )
@@ -58,43 +58,43 @@ var (
 	RetryPreviousHosts = &route.RetryPolicy_RetryHostPredicate{
 		Name: "envoy.retry_host_predicates.previous_hosts",
 		ConfigType: &route.RetryPolicy_RetryHostPredicate_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&previoushost.PreviousHostsPredicate{}),
+			TypedConfig: util.MessageToAny(&previoushost.PreviousHostsPredicate{}),
 		},
 	}
 	RawBufferTransportSocket = &core.TransportSocket{
-		Name: wellknown.TransportSocketRawBuffer,
+		Name: util.EnvoyRawBufferSocketName,
 		ConfigType: &core.TransportSocket_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{}),
+			TypedConfig: util.MessageToAny(&rawbuffer.RawBuffer{}),
 		},
 	}
 	Cors = &hcm.HttpFilter{
 		Name: wellknown.CORS,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&cors.Cors{}),
+			TypedConfig: util.MessageToAny(&cors.Cors{}),
 		},
 	}
 	Fault = &hcm.HttpFilter{
 		Name: wellknown.Fault,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&fault.HTTPFault{}),
+			TypedConfig: util.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
 	Router = &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&router.Router{}),
+			TypedConfig: util.MessageToAny(&router.Router{}),
 		},
 	}
 	GrpcWeb = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&grpcweb.GrpcWeb{}),
+			TypedConfig: util.MessageToAny(&grpcweb.GrpcWeb{}),
 		},
 	}
 	GrpcStats = &hcm.HttpFilter{
 		Name: wellknown.HTTPGRPCStats,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&grpcstats.FilterConfig{
+			TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
 				EmitFilterState: true,
 				PerMethodStatSpecifier: &grpcstats.FilterConfig_StatsForAllMethods{
 					StatsForAllMethods: &wrapperspb.BoolValue{Value: false},
@@ -105,25 +105,25 @@ var (
 	TLSInspector = &listener.ListenerFilter{
 		Name: wellknown.TlsInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{}),
+			TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{}),
 		},
 	}
 	HTTPInspector = &listener.ListenerFilter{
 		Name: wellknown.HttpInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&httpinspector.HttpInspector{}),
+			TypedConfig: util.MessageToAny(&httpinspector.HttpInspector{}),
 		},
 	}
 	OriginalDestination = &listener.ListenerFilter{
 		Name: wellknown.OriginalDestination,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
+			TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
 		},
 	}
 	OriginalSrc = &listener.ListenerFilter{
 		Name: wellknown.OriginalSource,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
+			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
 				Mark: 1337,
 			}),
 		},
@@ -131,7 +131,7 @@ var (
 	Alpn = &hcm.HttpFilter{
 		Name: AlpnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&alpn.FilterConfig{
+			TypedConfig: util.MessageToAny(&alpn.FilterConfig{
 				AlpnOverride: []*alpn.FilterConfig_AlpnOverride{
 					{
 						UpstreamProtocol: alpn.FilterConfig_HTTP10,
@@ -150,7 +150,7 @@ var (
 		},
 	}
 
-	tcpMx = protoconv.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange"})
+	tcpMx = util.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange"})
 
 	TCPListenerMx = &listener.Filter{
 		Name:       MxFilterName,
@@ -173,7 +173,7 @@ func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&router.Router{
+			TypedConfig: util.MessageToAny(&router.Router{
 				StartChildSpan: ctx.StartChildSpan,
 			}),
 		},
@@ -196,11 +196,11 @@ func buildHTTPMxFilter() *hcm.HttpFilter {
 	httpMxConfigProto := &httpwasm.Wasm{
 		Config: &wasm.PluginConfig{
 			Vm:            model.ConstructVMConfig("/etc/istio/extensions/metadata-exchange-filter.compiled.wasm", "envoy.wasm.metadata_exchange"),
-			Configuration: protoconv.MessageToAny(&metadata_exchange.MetadataExchange{}),
+			Configuration: util.MessageToAny(&metadata_exchange.MetadataExchange{}),
 		},
 	}
 	return &hcm.HttpFilter{
 		Name:       MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpMxConfigProto)},
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(httpMxConfigProto)},
 	}
 }

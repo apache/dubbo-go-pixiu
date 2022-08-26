@@ -18,8 +18,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 
 type LdsGenerator struct {
@@ -29,20 +30,20 @@ type LdsGenerator struct {
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
+var skippedLdsConfigs = map[model.NodeType]map[config.GroupVersionKind]struct{}{
 	model.Router: {
 		// for autopassthrough gateways, we build filterchains per-dr subset
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
+		gvk.WorkloadGroup: {},
+		gvk.WorkloadEntry: {},
+		gvk.Secret:        {},
+		gvk.ProxyConfig:   {},
 	},
 	model.SidecarProxy: {
-		kind.Gateway:       {},
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
+		gvk.Gateway:       {},
+		gvk.WorkloadGroup: {},
+		gvk.WorkloadEntry: {},
+		gvk.Secret:        {},
+		gvk.ProxyConfig:   {},
 	},
 }
 
@@ -66,7 +67,7 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	return false
 }
 
-func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (l LdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !ldsNeedsPush(proxy, req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -75,7 +76,7 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	for _, c := range listeners {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
-			Resource: protoconv.MessageToAny(c),
+			Resource: util.MessageToAny(c),
 		})
 	}
 	return resources, model.DefaultXdsLogDetails, nil

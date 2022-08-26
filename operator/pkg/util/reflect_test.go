@@ -46,7 +46,7 @@ func TestIsValueNil(t *testing.T) {
 	if !IsValueNil([]int(nil)) {
 		t.Error("got IsValueNil(slice) false, want true")
 	}
-	if !IsValueNil(any(nil)) {
+	if !IsValueNil(interface{}(nil)) {
 		t.Error("got IsValueNil(interface) false, want true")
 	}
 
@@ -59,7 +59,7 @@ func TestIsValueNil(t *testing.T) {
 	if IsValueNil([]int{1, 2, 3}) {
 		t.Error("got IsValueNil(slice) true, want false")
 	}
-	if IsValueNil(any(42)) {
+	if IsValueNil(interface{}(42)) {
 		t.Error("got IsValueNil(interface) true, want false")
 	}
 }
@@ -77,7 +77,7 @@ func TestIsValueNilOrDefault(t *testing.T) {
 	if !IsValueNilOrDefault([]int(nil)) {
 		t.Error("got IsValueNilOrDefault(slice) false, want true")
 	}
-	if !IsValueNilOrDefault(any(nil)) {
+	if !IsValueNilOrDefault(interface{}(nil)) {
 		t.Error("got IsValueNilOrDefault(interface) false, want true")
 	}
 	if !IsValueNilOrDefault(int(0)) {
@@ -104,47 +104,47 @@ func TestIsValueFuncs(t *testing.T) {
 	var testNilSlice []bool
 	var testNilMap map[bool]bool
 
-	allValues := []any{nil, testInt, &testInt, testStruct, &testStruct, testNilSlice, testSlice, &testSlice, testNilMap, testMap, &testMap}
+	allValues := []interface{}{nil, testInt, &testInt, testStruct, &testStruct, testNilSlice, testSlice, &testSlice, testNilMap, testMap, &testMap}
 
 	tests := []struct {
 		desc     string
 		function func(v reflect.Value) bool
-		okValues []any
+		okValues []interface{}
 	}{
 		{
 			desc:     "IsValuePtr",
 			function: IsValuePtr,
-			okValues: []any{&testInt, &testStruct, &testSlice, &testMap},
+			okValues: []interface{}{&testInt, &testStruct, &testSlice, &testMap},
 		},
 		{
 			desc:     "IsValueStruct",
 			function: IsValueStruct,
-			okValues: []any{testStruct},
+			okValues: []interface{}{testStruct},
 		},
 		{
 			desc:     "IsValueInterface",
 			function: IsValueInterface,
-			okValues: []any{},
+			okValues: []interface{}{},
 		},
 		{
 			desc:     "IsValueStructPtr",
 			function: IsValueStructPtr,
-			okValues: []any{&testStruct},
+			okValues: []interface{}{&testStruct},
 		},
 		{
 			desc:     "IsValueMap",
 			function: IsValueMap,
-			okValues: []any{testNilMap, testMap},
+			okValues: []interface{}{testNilMap, testMap},
 		},
 		{
 			desc:     "IsValueSlice",
 			function: IsValueSlice,
-			okValues: []any{testNilSlice, testSlice},
+			okValues: []interface{}{testNilSlice, testSlice},
 		},
 		{
 			desc:     "IsValueScalar",
 			function: IsValueScalar,
-			okValues: []any{testInt, &testInt},
+			okValues: []interface{}{testInt, &testInt},
 		},
 	}
 
@@ -162,8 +162,8 @@ func TestValuesAreSameType(t *testing.T) {
 
 	tests := []struct {
 		inDesc string
-		inV1   any
-		inV2   any
+		inV1   interface{}
+		inV2   interface{}
 		want   bool
 	}{
 		{
@@ -206,12 +206,12 @@ func TestIsTypeFuncs(t *testing.T) {
 	testInt := int(42)
 	testStruct := struct{}{}
 	testSlice := []bool{}
-	testSliceOfInterface := []any{}
+	testSliceOfInterface := []interface{}{}
 	testMap := map[bool]bool{}
 	var testNilSlice []bool
 	var testNilMap map[bool]bool
 
-	allTypes := []any{
+	allTypes := []interface{}{
 		nil, testInt, &testInt, testStruct, &testStruct, testNilSlice,
 		testSlice, &testSlice, testSliceOfInterface, testNilMap, testMap, &testMap,
 	}
@@ -219,32 +219,32 @@ func TestIsTypeFuncs(t *testing.T) {
 	tests := []struct {
 		desc     string
 		function func(v reflect.Type) bool
-		okTypes  []any
+		okTypes  []interface{}
 	}{
 		{
 			desc:     "IsTypeStructPtr",
 			function: IsTypeStructPtr,
-			okTypes:  []any{&testStruct},
+			okTypes:  []interface{}{&testStruct},
 		},
 		{
 			desc:     "IsTypeSlicePtr",
 			function: IsTypeSlicePtr,
-			okTypes:  []any{&testSlice},
+			okTypes:  []interface{}{&testSlice},
 		},
 		{
 			desc:     "IsTypeMap",
 			function: IsTypeMap,
-			okTypes:  []any{testNilMap, testMap},
+			okTypes:  []interface{}{testNilMap, testMap},
 		},
 		{
 			desc:     "IsTypeInterface",
 			function: IsTypeInterface,
-			okTypes:  []any{},
+			okTypes:  []interface{}{},
 		},
 		{
 			desc:     "IsTypeSliceOfInterface",
 			function: IsTypeSliceOfInterface,
-			okTypes:  []any{testSliceOfInterface},
+			okTypes:  []interface{}{testSliceOfInterface},
 		},
 	}
 
@@ -296,7 +296,7 @@ func TestIsTypeInterface(t *testing.T) {
 	}
 }
 
-func isInListOfInterface(lv []any, v any) bool {
+func isInListOfInterface(lv []interface{}, v interface{}) bool {
 	for _, vv := range lv {
 		if reflect.DeepEqual(vv, v) {
 			return true
@@ -307,7 +307,7 @@ func isInListOfInterface(lv []any, v any) bool {
 
 func TestDeleteFromSlicePtr(t *testing.T) {
 	parentSlice := []int{42, 43, 44, 45}
-	var parentSliceI any = parentSlice
+	var parentSliceI interface{} = parentSlice
 	if err := DeleteFromSlicePtr(&parentSliceI, 1); err != nil {
 		t.Fatalf("got error: %s, want error: nil", err)
 	}
@@ -325,7 +325,7 @@ func TestDeleteFromSlicePtr(t *testing.T) {
 
 func TestUpdateSlicePtr(t *testing.T) {
 	parentSlice := []int{42, 43, 44, 45}
-	var parentSliceI any = parentSlice
+	var parentSliceI interface{} = parentSlice
 	if err := UpdateSlicePtr(&parentSliceI, 1, 42); err != nil {
 		t.Fatalf("got error: %s, want error: nil", err)
 	}
@@ -361,10 +361,10 @@ func TestInsertIntoMap(t *testing.T) {
 }
 
 var (
-	allIntTypes     = []any{int(-42), int8(-43), int16(-44), int32(-45), int64(-46)}
-	allUintTypes    = []any{uint(42), uint8(43), uint16(44), uint32(45), uint64(46)}
+	allIntTypes     = []interface{}{int(-42), int8(-43), int16(-44), int32(-45), int64(-46)}
+	allUintTypes    = []interface{}{uint(42), uint8(43), uint16(44), uint32(45), uint64(46)}
 	allIntegerTypes = append(allIntTypes, allUintTypes...)
-	nonIntTypes     = []any{nil, "", []int{}, map[string]bool{}}
+	nonIntTypes     = []interface{}{nil, "", []int{}, map[string]bool{}}
 	allTypes        = append(allIntegerTypes, nonIntTypes...)
 )
 
@@ -372,7 +372,7 @@ func TestIsInteger(t *testing.T) {
 	tests := []struct {
 		desc     string
 		function func(v reflect.Kind) bool
-		want     []any
+		want     []interface{}
 	}{
 		{
 			desc:     "ints",
@@ -387,7 +387,7 @@ func TestIsInteger(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		var got []any
+		var got []interface{}
 		for _, v := range allTypes {
 			if tt.function(reflect.ValueOf(v).Kind()) {
 				got = append(got, v)

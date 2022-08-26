@@ -45,10 +45,6 @@ func NewRootCommand() *cobra.Command {
 		Short:        "Istio Pilot.",
 		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 		SilenceUsage: true,
-		FParseErrWhitelist: cobra.FParseErrWhitelist{
-			// Allow unknown flags for backward-compatibility.
-			UnknownFlags: true,
-		},
 		PreRunE: func(c *cobra.Command, args []string) error {
 			cmd.AddFlags(c)
 			return nil
@@ -74,10 +70,6 @@ func newDiscoveryCommand() *cobra.Command {
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service.",
 		Args:  cobra.ExactArgs(0),
-		FParseErrWhitelist: cobra.FParseErrWhitelist{
-			// Allow unknown flags for backward-compatibility.
-			UnknownFlags: true,
-		},
 		PreRunE: func(c *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -116,6 +108,8 @@ func newDiscoveryCommand() *cobra.Command {
 	}
 }
 
+var ignored []string
+
 func addFlags(c *cobra.Command) {
 	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
 		// Set Defaults
@@ -141,13 +135,16 @@ func addFlags(c *cobra.Command) {
 		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")
 	c.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespace,
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
+	c.PersistentFlags().StringSliceVar(&ignored, "plugins", nil,
+		"comma separated list of networking plugins to enable")
+	_ = c.PersistentFlags().MarkDeprecated("plugins", "no effect")
 	c.PersistentFlags().DurationVar(&serverArgs.ShutdownDuration, "shutdownDuration", 10*time.Second,
 		"Duration the discovery server needs to terminate gracefully")
 
 	// RegistryOptions Controller options
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
-	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.DomainSuffix, "domain", constants.DefaultClusterLocalDomain,
+	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.DomainSuffix, "domain", constants.DefaultKubernetesDomain,
 		"DNS domain suffix")
 	c.PersistentFlags().StringVar((*string)(&serverArgs.RegistryOptions.KubeOptions.ClusterID), "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")

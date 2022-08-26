@@ -99,7 +99,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, 
 		},
 	}
 	if cc.Service != nil {
-		svc, err := e.client.Kube().CoreV1().Services(cc.Service.Namespace).Get(context.Background(), cc.Service.Name, metav1.GetOptions{})
+		svc, err := e.client.CoreV1().Services(cc.Service.Namespace).Get(context.Background(), cc.Service.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +110,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, 
 			}
 			address = fmt.Sprintf("https://%s:%d%s", e.injectorAddress, *cc.Service.Port, *cc.Service.Path)
 		} else {
-			pod, err := GetFirstPod(e.client.Kube().CoreV1(), namespace, selector.String())
+			pod, err := GetFirstPod(e.client.CoreV1(), namespace, selector.String())
 			if err != nil {
 				return nil, err
 			}
@@ -352,7 +352,7 @@ func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*Exter
 	if revision == "" {
 		revision = "default"
 	}
-	whcList, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(),
+	whcList, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(),
 		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)})
 	if err != nil {
 		return e, fmt.Errorf("could not find valid mutatingWebhookConfiguration %q from cluster %v",
@@ -381,8 +381,7 @@ func validateFlags() error {
 }
 
 func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
-	revision, injectorAddress string,
-) (*ExternalInjector, *meshconfig.MeshConfig, error) {
+	revision, injectorAddress string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {

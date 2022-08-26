@@ -48,30 +48,6 @@ import (
 // Once we have these staged folders, we just construct a docker bakefile and pass it to `buildx
 // bake` and let it do its work.
 func RunDocker(args Args) error {
-	requiresSplitBuild := len(args.Architectures) > 1 && (args.Save || !args.Push)
-	if !requiresSplitBuild {
-		log.Infof("building for architectures: %v", args.Architectures)
-		return runDocker(args)
-	}
-	// https://github.com/docker/buildx/issues/59 - load and save are not supported for multi-arch
-	// To workaround, we do a build per-arch, and suffix with the architecture
-	for _, arch := range args.Architectures {
-		args.Architectures = []string{arch}
-		args.suffix = ""
-		if arch != "linux/amd64" {
-			// For backwards compatibility, we do not suffix linux/amd64
-			_, arch, _ := strings.Cut(arch, "/")
-			args.suffix = "-" + arch
-		}
-		log.Infof("building for arch %v", arch)
-		if err := runDocker(args); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func runDocker(args Args) error {
 	tarFiles, err := ConstructBakeFile(args)
 	if err != nil {
 		return err
@@ -103,9 +79,6 @@ func CopyInputs(a Args) error {
 	for _, target := range a.Targets {
 		for _, arch := range a.Architectures {
 			bp := a.PlanFor(arch).Find(target)
-			if bp == nil {
-				continue
-			}
 			args := bp.Dependencies()
 			args = append(args, filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target)))
 			if err := RunCommand(a, "tools/docker-copy.sh", args...); err != nil {
@@ -180,7 +153,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 					return nil // current builder will work for --save
 				}
 				return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
-					"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3" +
+					"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2" +
 					" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 			}
 		}
@@ -188,7 +161,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 	return exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled
 if ! docker buildx ls | grep -q container-builder; then
-  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3 --name container-builder --buildkitd-flags="--debug"
+  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2 --name container-builder --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
   docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
 fi
@@ -220,9 +193,6 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 		for _, target := range a.Targets {
 			// Just for Dockerfile, so do not worry about architecture
 			bp := a.PlanFor(a.Architectures[0]).Find(target)
-			if bp == nil {
-				continue
-			}
 			if variant == DefaultVariant && hasDoubleDefault {
 				// This will be process by the PrimaryVariant, skip it here
 				continue
@@ -252,11 +222,11 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 					n += "-" + variant
 				}
 
-				tarFiles[n+a.suffix] = ""
+				tarFiles[n] = ""
 				if variant == PrimaryVariant && hasDoubleDefault {
-					tarFiles[n+a.suffix] = target + a.suffix
+					tarFiles[n] = target
 				}
-				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+a.suffix+".tar")}
+				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+".tar")}
 			} else {
 				t.Outputs = []string{"type=docker"}
 			}

@@ -94,7 +94,7 @@ func TestMessage_UnstructuredAnalysisMessageBase(t *testing.T) {
 	g.Expect(mb["documentationUrl"]).To(Equal(fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, "ist0042", "?ref=test-ref")))
 	g.Expect(mb["level"]).To(Equal("ERROR"))
 	g.Expect(mb["type"]).To(Equal(
-		map[string]any{
+		map[string]interface{}{
 			"code": "IST0042",
 		},
 	))

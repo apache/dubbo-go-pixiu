@@ -16,7 +16,6 @@ package sds
 import (
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"testing"
 
@@ -139,8 +138,6 @@ func setupSDS(t *testing.T) *TestServer {
 
 	opts := &ca2.Options{}
 
-	// SDS uses a hardcoded UDS path relative to current dir, so switch to a new one for the test.
-	os.Chdir(t.TempDir())
 	if usefakePrivateKeyProviderConf {
 		server = NewServer(opts, st, fakePrivateKeyProviderConf)
 	} else {
@@ -177,7 +174,7 @@ func TestSDS(t *testing.T) {
 		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			ResourceNames: []string{testResourceName, rootResourceName},
 			ResponseNonce: resp.Nonce,
-		}), expectRoot)
+		}), expectCert, expectRoot)
 		c.ExpectNoResponse(t)
 	})
 	t.Run("multiplexed root first", func(t *testing.T) {

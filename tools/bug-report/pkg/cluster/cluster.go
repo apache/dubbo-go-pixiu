@@ -220,7 +220,7 @@ type Resources struct {
 	// Root is the first level in the cluster resource hierarchy.
 	// Each level in the hierarchy is a map[string]interface{} to the next level.
 	// The levels are: namespaces/deployments/pods/containers.
-	Root map[string]any
+	Root map[string]interface{}
 	// Labels maps a pod name to a map of labels key-values.
 	Labels map[string]map[string]string
 	// Annotations maps a pod name to a map of annotation key-values.
@@ -231,20 +231,20 @@ type Resources struct {
 
 func (r *Resources) insertContainer(namespace, deployment, pod, container string) {
 	if r.Root == nil {
-		r.Root = make(map[string]any)
+		r.Root = make(map[string]interface{})
 	}
 	if r.Root[namespace] == nil {
-		r.Root[namespace] = make(map[string]any)
+		r.Root[namespace] = make(map[string]interface{})
 	}
-	d := r.Root[namespace].(map[string]any)
+	d := r.Root[namespace].(map[string]interface{})
 	if d[deployment] == nil {
-		d[deployment] = make(map[string]any)
+		d[deployment] = make(map[string]interface{})
 	}
-	p := d[deployment].(map[string]any)
+	p := d[deployment].(map[string]interface{})
 	if p[pod] == nil {
-		p[pod] = make(map[string]any)
+		p[pod] = make(map[string]interface{})
 	}
-	c := p[pod].(map[string]any)
+	c := p[pod].(map[string]interface{})
 	c[container] = nil
 }
 
@@ -284,12 +284,12 @@ func (r *Resources) String() string {
 	return resourcesStringImpl(r.Root, "")
 }
 
-func resourcesStringImpl(node any, prefix string) string {
+func resourcesStringImpl(node interface{}, prefix string) string {
 	out := ""
 	if node == nil {
 		return ""
 	}
-	nv := node.(map[string]any)
+	nv := node.(map[string]interface{})
 	for k, n := range nv {
 		out += prefix + k + "\n"
 		out += resourcesStringImpl(n, prefix+"  ")

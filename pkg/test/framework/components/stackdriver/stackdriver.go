@@ -19,6 +19,7 @@ import (
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
+	md "github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
@@ -30,9 +31,9 @@ type Instance interface {
 	Address() string
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
-	ListTimeSeries(namespace, project string) ([]*monitoringpb.TimeSeries, error)
-	ListLogEntries(lt LogType, namespace, project string) ([]*loggingpb.LogEntry, error)
-	ListTraces(namespace, project string) ([]*cloudtracepb.Trace, error)
+	ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error)
+	ListLogEntries(lt LogType, namespace string) ([]*loggingpb.LogEntry, error)
+	ListTraces(namespace string) ([]*cloudtracepb.Trace, error)
 }
 
 type Config struct {
@@ -60,7 +61,7 @@ func NewOrFail(t test.Failer, ctx resource.Context, c Config, realSD bool) Insta
 }
 
 func UseRealStackdriver() bool {
-	// If the framework requests a real backend, honor that request. It is possible
-	// to configure the CA to generate GCP credentials off-GCP.
-	return framework.UseRealStackdriver
+	// Use real stackdriver only if the test intends to AND the test is running on GCP.
+	// Currently real stackdriver only works if the test runs on GCP.
+	return framework.UseRealStackdriver && md.IsGCP()
 }

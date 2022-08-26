@@ -68,7 +68,7 @@ type IstioComponent interface {
 	Namespace() string
 	// Enabled reports whether the component is enabled.
 	Enabled() bool
-	// Run starts the component. Must be called before the component is used.
+	// Run starts the component. Must me called before the component is used.
 	Run() error
 	// RenderManifest returns a string with the rendered manifest for the component.
 	RenderManifest() (string, error)
@@ -83,7 +83,7 @@ type CommonComponentFields struct {
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
 	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
-	componentSpec any
+	componentSpec interface{}
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer

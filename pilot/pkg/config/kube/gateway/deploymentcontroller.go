@@ -114,16 +114,14 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	deployInformer := client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+	client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = "gateway.istio.io/managed=istio.io-gateway-controller"
 			},
 		)
-	})
-	_ = deployInformer.SetTransform(kube.StripUnusedFields)
-	deployInformer.AddEventHandler(handler)
+	}).AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
 	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
@@ -180,7 +178,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	if !IsManaged(&gw.Spec) {
+	if !isManaged(&gw.Spec) {
 		log.Debug("skip unmanaged gateway")
 		return nil
 	}
@@ -229,7 +227,7 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
 		return err
 	}
-	data := map[string]any{}
+	data := map[string]interface{}{}
 	err := yaml.Unmarshal(buf.Bytes(), &data)
 	if err != nil {
 		return err

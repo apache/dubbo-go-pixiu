@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/atomic"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -294,6 +295,59 @@ func TestInstances(t *testing.T) {
 		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
+	}
+}
+
+func TestGetIstioServiceAccounts(t *testing.T) {
+	aggregateCtl := buildMockController()
+	testCases := []struct {
+		name               string
+		svc                *model.Service
+		trustDomainAliases []string
+		want               []string
+	}{
+		{
+			name: "HelloEmpty",
+			svc:  mock.HelloService,
+			want: []string{},
+		},
+		{
+			name: "World",
+			svc:  mock.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+			},
+		},
+		{
+			name: "ReplicatedFoo",
+			svc:  mock.ReplicatedFooServiceV1,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/foo-share",
+				"spiffe://cluster.local/ns/default/sa/foo1",
+				"spiffe://cluster.local/ns/default/sa/foo2",
+			},
+		},
+		{
+			name:               "ExpansionByTrustDomainAliases",
+			trustDomainAliases: []string{"cluster.local", "example.com"},
+			svc:                mock.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+				"spiffe://example.com/ns/default/sa/world1",
+				"spiffe://example.com/ns/default/sa/world2",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			aggregateCtl.meshHolder = &mockMeshConfigHolder{trustDomainAliases: tc.trustDomainAliases}
+			accounts := aggregateCtl.GetIstioServiceAccounts(tc.svc, []int{})
+			if diff := cmp.Diff(accounts, tc.want); diff != "" {
+				t.Errorf("unexpected service account, diff %v, %v", diff, accounts)
+			}
+		})
 	}
 }
 

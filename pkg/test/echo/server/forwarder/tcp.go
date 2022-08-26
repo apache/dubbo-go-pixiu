@@ -18,48 +18,56 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 
-	"github.com/apache/dubbo-go-pixiu/pkg/hbone"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 )
 
 var _ protocol = &tcpProtocol{}
 
 type tcpProtocol struct {
-	e *executor
+	// conn returns a new connection. This is not just a shared connection as we will
+	// not re-use the connection for multiple requests with TCP
+	conn func() (net.Conn, error)
 }
 
-func newTCPProtocol(e *executor) protocol {
-	return &tcpProtocol{e: e}
+func newTCPProtocol(r *Config) (protocol, error) {
+	return &tcpProtocol{
+		conn: func() (net.Conn, error) {
+			address := r.Request.Url[len(r.scheme+"://"):]
+
+			if r.getClientCertificate == nil {
+				ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+				defer cancel()
+				return newDialer().DialContext(ctx, "tcp", address)
+			}
+			return tls.DialWithDialer(newDialer(), "tcp", address, r.tlsConfig)
+		},
+	}, nil
 }
 
-func (c *tcpProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
-	return doForward(ctx, cfg, c.e, c.makeRequest)
-}
-
-func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID int) (string, error) {
-	conn, err := newTCPConnection(cfg)
+func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
+	conn, err := c.conn()
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = conn.Close() }()
 
 	msgBuilder := strings.Builder{}
-	echo.ForwarderURLField.WriteForRequest(&msgBuilder, requestID, cfg.Request.Url)
+	msgBuilder.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
 
-	if cfg.Request.Message != "" {
-		echo.ForwarderMessageField.WriteForRequest(&msgBuilder, requestID, cfg.Request.Message)
+	if req.Message != "" {
+		msgBuilder.WriteString(fmt.Sprintf("[%d] Echo=%s\n", req.RequestID, req.Message))
 	}
 
 	// Apply per-request timeout to calculate deadline for reads/writes.
-	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
+	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
 
 	// Apply the deadline to the connection.
@@ -72,7 +80,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 	}
 
 	// For server first protocol, we expect the server to send us the magic string first
-	if cfg.Request.ServerFirst {
+	if req.ServerFirst {
 		readBytes, err := bufio.NewReader(conn).ReadBytes('\n')
 		if err != nil {
 			fwLog.Warnf("server first TCP read failed: %v", err)
@@ -85,8 +93,8 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 
 	// Make sure the client writes something to the buffer
 	message := "HelloWorld"
-	if cfg.Request.Message != "" {
-		message = cfg.Request.Message
+	if req.Message != "" {
+		message = req.Message
 	}
 
 	if _, err := conn.Write([]byte(message + "\n")); err != nil {
@@ -111,14 +119,14 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 	// format the output for forwarder response
 	for _, line := range strings.Split(resBuffer.String(), "\n") {
 		if line != "" {
-			echo.WriteBodyLine(&msgBuilder, requestID, line)
+			msgBuilder.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
 		}
 	}
 
 	msg := msgBuilder.String()
 	expected := fmt.Sprintf("%s=%d", string(echo.StatusCodeField), http.StatusOK)
-	if cfg.Request.ExpectedResponse != nil {
-		expected = cfg.Request.ExpectedResponse.GetValue()
+	if req.ExpectedResponse != nil {
+		expected = req.ExpectedResponse.GetValue()
 	}
 	if !strings.Contains(msg, expected) {
 		return msg, fmt.Errorf("expect to recv message with %s, got %s. Return EOF", expected, msg)
@@ -128,16 +136,4 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 
 func (c *tcpProtocol) Close() error {
 	return nil
-}
-
-func newTCPConnection(cfg *Config) (net.Conn, error) {
-	address := cfg.Request.Url[len(cfg.scheme+"://"):]
-
-	if cfg.secure {
-		return hbone.TLSDialWithDialer(newDialer(cfg), "tcp", address, cfg.tlsConfig)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
-	defer cancel()
-	return newDialer(cfg).DialContext(ctx, "tcp", address)
 }

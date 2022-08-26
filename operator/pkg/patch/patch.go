@@ -20,18 +20,21 @@ Paths are specified in the form a.b.c.[key:value].d.[list_entry_value], where:
 
 Some examples are given below. Given a resource:
 
-	kind: Deployment
-	metadata:
-	  name: istio-citadel
-	  namespace: istio-system
-	a:
-	  b:
-	  - name: n1
-	    value: v1
-	  - name: n2
-	    list:
-	    - "vv1"
-	    - vv2=foo
+kind: Deployment
+metadata:
+
+	name: istio-citadel
+	namespace: istio-system
+
+a:
+
+	b:
+	- name: n1
+	  value: v1
+	- name: n2
+	  list:
+	  - "vv1"
+	  - vv2=foo
 
 values and list entries can be added, modifed or deleted.
 
@@ -173,7 +176,7 @@ func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1a
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
 func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML string, errs util.Errors) {
-	bo := make(map[any]any)
+	bo := make(map[interface{}]interface{})
 	by, err := base.YAML()
 	if err != nil {
 		return "", util.NewErrs(err)

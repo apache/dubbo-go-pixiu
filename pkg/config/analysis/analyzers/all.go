@@ -60,7 +60,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.JWTClaimRouteAnalyzer{},
 		&virtualservice.RegexAnalyzer{},
 		&destinationrule.CaCertificateAnalyzer{},
-		&serviceentry.ProtocolAddressesAnalyzer{},
+		&serviceentry.ProtocolAdressesAnalyzer{},
 		&webhook.Analyzer{},
 		&envoyfilter.EnvoyPatchAnalyzer{},
 	}

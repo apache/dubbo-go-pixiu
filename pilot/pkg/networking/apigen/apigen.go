@@ -20,9 +20,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/serviceentry"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
@@ -85,7 +85,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 	}
 	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
 		resp = append(resp, &discovery.Resource{
-			Resource: protoconv.MessageToAny(req.Push.Mesh),
+			Resource: util.MessageToAny(req.Push.Mesh),
 		})
 		return resp, model.DefaultXdsLogDetails, nil
 	}
@@ -111,7 +111,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 		}
 		resp = append(resp, &discovery.Resource{
 			Name:     c.Namespace + "/" + c.Name,
-			Resource: protoconv.MessageToAny(b),
+			Resource: util.MessageToAny(b),
 		})
 	}
 
@@ -134,7 +134,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 			}
 			resp = append(resp, &discovery.Resource{
 				Name:     c.Namespace + "/" + c.Name,
-				Resource: protoconv.MessageToAny(b),
+				Resource: util.MessageToAny(b),
 			})
 		}
 	}

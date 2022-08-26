@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/telemetry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -95,8 +94,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, bind string, listenPort *model.Port,
-	gateways map[string]bool, configs []config.Config,
-) []*filterChainOpts {
+	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
 	if !listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -201,12 +199,11 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			sniHosts = []string{string(service.Hostname)}
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
-			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
+			model.TrafficDirectionOutbound, node, service.Hostname))
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
 		})
 	}
 
@@ -215,8 +212,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, listenPort *model.Port,
-	gateways map[string]bool, configs []config.Config,
-) []*filterChainOpts {
+	gateways map[string]bool, configs []config.Config) []*filterChainOpts {
 	if listenPort.Protocol.IsTLS() {
 		return nil
 	}
@@ -306,15 +302,14 @@ TcpLoop:
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		statPrefix := clusterName
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
-			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
+			model.TrafficDirectionOutbound, node, service.Hostname))
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
 		}
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
 		})
 	}
 
@@ -327,8 +322,7 @@ TcpLoop:
 // missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext,
 	configs []config.Config, destinationCIDR string, service *model.Service, bind string, listenPort *model.Port,
-	gateways map[string]bool,
-) []*filterChainOpts {
+	gateways map[string]bool) []*filterChainOpts {
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if service != nil {

@@ -19,8 +19,8 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	tb "github.com/apache/dubbo-go-pixiu/pilot/pkg/trustbundle"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	mesh "istio.io/api/mesh/v1alpha1"
 )
 
@@ -65,5 +65,5 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	pc := &mesh.ProxyConfig{
 		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}
-	return model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
+	return model.Resources{&discovery.Resource{Resource: util.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
 }

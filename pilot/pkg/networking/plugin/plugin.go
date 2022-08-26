@@ -15,8 +15,9 @@
 package plugin
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 
 const (

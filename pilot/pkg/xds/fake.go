@@ -29,15 +29,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
-	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
-	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/autoregistration"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/gateway"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingress"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/controller/workloadentry"
 	kubesecrets "github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials/kube"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -51,7 +50,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/keepalive"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
@@ -80,7 +79,7 @@ type FakeOptions struct {
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
 	// If provided, the ConfigString will be treated as a go template, with this as input params
-	ConfigTemplateInput any
+	ConfigTemplateInput interface{}
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
@@ -117,7 +116,10 @@ type FakeDiscoveryServer struct {
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
-	stop := test.NewStop(t)
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 
 	m := opts.MeshConfig
 	if m == nil {
@@ -125,8 +127,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", map[string]string{})
-	s.InitGenerators(s.Env, "istio-system", nil)
+	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, "pilot-123", map[string]string{})
+	s.InitGenerators(s.Env, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -136,7 +138,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.ServiceEntry,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
@@ -176,7 +178,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
-		k8s, _ := kube.NewFakeControllerWithOptions(t, kube.FakeControllerOptions{
+		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
 			ServiceHandler:  serviceHandler,
 			Client:          client,
 			ClusterID:       k8sCluster,
@@ -185,7 +187,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
 			Stop:            stop,
-			SkipRun:         true,
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
@@ -201,7 +202,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	if opts.DisableSecretAuthorization {
-		disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
+		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
 	}
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
@@ -240,7 +241,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
-	s.MemRegistry.XdsUpdater = s
+	s.MemRegistry.EDSUpdater = s
 	s.updateMutex.Unlock()
 
 	// Setup config handlers
@@ -249,7 +250,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.FromGvk(curr.GroupVersionKind),
+				Kind:      curr.GroupVersionKind,
 				Name:      curr.Name,
 				Namespace: curr.Namespace,
 			}: {}},
@@ -283,7 +284,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler)
 		k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler)
 	}
-	s.WorkloadEntryController = autoregistration.NewController(cg.Store(), "test", keepalive.Infinity)
+	s.WorkloadEntryController = workloadentry.NewController(cg.Store(), "test", keepalive.Infinity)
 
 	if opts.DiscoveryServerModifier != nil {
 		opts.DiscoveryServerModifier(s)
@@ -317,7 +318,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.XdsUpdater = s
 	// Now that handlers are added, get everything started
 	cg.Run()
-	kubelib.WaitForCacheSync(stop,
+	cache.WaitForCacheSync(stop,
 		cg.Registry.HasSynced,
 		cg.Store().HasSynced)
 	cg.ServiceEntryRegistry.ResyncEDS()
@@ -534,7 +535,6 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 }
 
 func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
-	fx.Events <- FakeXdsEvent{Kind: "proxy update"}
 	if fx.Delegate != nil {
 		fx.Delegate.ProxyUpdate(c, p)
 	}
@@ -588,15 +588,4 @@ func (fx *FakeXdsUpdater) WaitDuration(duration time.Duration, types ...string) 
 
 func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
 	return fx.WaitDuration(1*time.Second, types...)
-}
-
-// disableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.
-func disableAuthorizationForSecret(fake *fake.Clientset) {
-	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		return true, &authorizationv1.SubjectAccessReview{
-			Status: authorizationv1.SubjectAccessReviewStatus{
-				Allowed: true,
-			},
-		}, nil
-	})
 }

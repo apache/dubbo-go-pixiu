@@ -33,7 +33,7 @@ var DefaultValuesValidations = map[string]ValidatorFunc{
 }
 
 // CheckValues validates the values in the given tree, which follows the Istio values.yaml schema.
-func CheckValues(root any) util.Errors {
+func CheckValues(root interface{}) util.Errors {
 	v := reflect.ValueOf(root)
 	if root == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
 		return nil
@@ -50,7 +50,7 @@ func CheckValues(root any) util.Errors {
 }
 
 // ValuesValidate validates the values of the tree using the supplied Func
-func ValuesValidate(validations map[string]ValidatorFunc, node any, path util.Path) (errs util.Errors) {
+func ValuesValidate(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
 	pstr := path.String()
 	scope.Debugf("ValuesValidate %s", pstr)
 	vf := validations[pstr]
@@ -58,7 +58,7 @@ func ValuesValidate(validations map[string]ValidatorFunc, node any, path util.Pa
 		errs = util.AppendErrs(errs, vf(path, node))
 	}
 
-	nn, ok := node.(map[string]any)
+	nn, ok := node.(map[string]interface{})
 	if !ok {
 		// Leaf, nothing more to recurse.
 		return errs

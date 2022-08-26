@@ -20,15 +20,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/hbone"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 	"istio.io/pkg/log"
 )
 
@@ -38,30 +32,24 @@ const (
 
 var fwLog = log.RegisterScope("forwarder", "echo clientside", 0)
 
-func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header) {
+func writeHeaders(requestID int, header http.Header, outBuffer bytes.Buffer, addFn func(string, string)) {
 	for key, values := range header {
 		for _, v := range values {
-			echo.ForwarderHeaderField.WriteKeyValueForRequest(out, requestID, key, v)
+			addFn(key, v)
+			if key == hostHeader {
+				outBuffer.WriteString(fmt.Sprintf("[%d] Host=%s\n", requestID, v))
+			} else {
+				outBuffer.WriteString(fmt.Sprintf("[%d] Header=%s:%s\n", requestID, key, v))
+			}
 		}
 	}
 }
 
-func newDialer(cfg *Config) hbone.Dialer {
-	if cfg.Request.Hbone.GetAddress() != "" {
-		out := hbone.NewDialer(hbone.Config{
-			ProxyAddress: cfg.Request.Hbone.GetAddress(),
-			Headers:      cfg.hboneHeaders,
-			TLS:          cfg.hboneTLSConfig,
-		})
-		return out
+func newDialer() *net.Dialer {
+	return &net.Dialer{
+		Timeout:  common.ConnectionTimeout,
+		Resolver: newResolver(common.ConnectionTimeout, "", ""),
 	}
-	out := &net.Dialer{
-		Timeout: common.ConnectionTimeout,
-	}
-	if cfg.forceDNSLookup {
-		out.Resolver = newResolver(common.ConnectionTimeout, "", "")
-	}
-	return out
 }
 
 func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolver {
@@ -81,87 +69,5 @@ func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolve
 			}
 			return d.DialContext(ctx, nt, addr)
 		},
-	}
-}
-
-// doForward sends the requests and collect the responses.
-func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context.Context, *Config, int) (string, error)) (*proto.ForwardEchoResponse, error) {
-	// make the timeout apply to the entire set of requests
-	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
-	defer cancel()
-
-	responses := make([]string, cfg.count)
-	responseTimes := make([]time.Duration, cfg.count)
-	var responsesMu sync.Mutex
-
-	var throttle *time.Ticker
-	qps := int(cfg.Request.Qps)
-	if qps > 0 {
-		sleepTime := time.Second / time.Duration(qps)
-		fwLog.Debugf("Sleeping %v between requests", sleepTime)
-		throttle = time.NewTicker(sleepTime)
-	}
-
-	g := e.NewGroup()
-	for index := 0; index < cfg.count; index++ {
-		index := index
-		if throttle != nil {
-			select {
-			case <-ctx.Done():
-				break
-			case <-throttle.C:
-			}
-		}
-
-		g.Go(ctx, func() error {
-			st := time.Now()
-			resp, err := doReq(ctx, cfg, index)
-			if err != nil {
-				fwLog.Debugf("request failed: %v", err)
-				return err
-			}
-			fwLog.Debugf("got resp: %v", resp)
-
-			responsesMu.Lock()
-			responses[index] = resp
-			responseTimes[index] = time.Since(st)
-			responsesMu.Unlock()
-			return nil
-		})
-	}
-
-	// Convert the result of the wait into a channel.
-	requestsDone := make(chan *multierror.Error)
-	go func() {
-		requestsDone <- g.Wait()
-	}()
-
-	select {
-	case merr := <-requestsDone:
-		if err := merr.ErrorOrNil(); err != nil {
-			return nil, fmt.Errorf("%d/%d requests had errors; first error: %v", merr.Len(), cfg.count, merr.Errors[0])
-		}
-
-		return &proto.ForwardEchoResponse{
-			Output: responses,
-		}, nil
-	case <-ctx.Done():
-		responsesMu.Lock()
-		defer responsesMu.Unlock()
-
-		var c int
-		var tt time.Duration
-		for id, res := range responses {
-			if res != "" && responseTimes[id] != 0 {
-				c++
-				tt += responseTimes[id]
-			}
-		}
-		var avgTime time.Duration
-		if c > 0 {
-			avgTime = tt / time.Duration(c)
-		}
-		return nil, fmt.Errorf("request set timed out after %v and only %d/%d requests completed (%v avg)",
-			cfg.timeout, c, cfg.count, avgTime)
 	}
 }

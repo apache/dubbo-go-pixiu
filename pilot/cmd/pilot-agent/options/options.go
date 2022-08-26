@@ -22,7 +22,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/jwt"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
-	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
 	"istio.io/pkg/env"
 )
 
@@ -76,8 +75,6 @@ var (
 
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
-	workloadRSAKeySizeEnv = env.RegisterIntVar("WORKLOAD_RSA_KEY_SIZE", 2048,
-		"Specify the RSA key size to use for workload certificates.").Get()
 	pkcs8KeysEnv = env.RegisterBoolVar("PKCS8_KEY", false,
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
@@ -98,27 +95,12 @@ var (
 	DNSCaptureAddr = env.RegisterStringVar("DNS_PROXY_ADDR", "localhost:15053",
 		"Custom address for the DNS proxy. If it ends with :53 and running as root allows running without iptable DNS capture")
 
-	DNSForwardParallel = env.RegisterBoolVar("DNS_FORWARD_PARALLEL", false,
-		"If set to true, agent will send parallel DNS queries to all upstream nameservers")
-
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.RegisterBoolVar("PROXY_CONFIG_XDS_AGENT", false,
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()
 
 	wasmInsecureRegistries = env.RegisterStringVar("WASM_INSECURE_REGISTRIES", "",
-		"allow agent pull wasm plugin from insecure registries or https server, for example: 'localhost:5000,docker-registry:5000'").Get()
-
-	wasmModuleExpiry = env.RegisterDurationVar("WASM_MODULE_EXPIRY", wasm.DefaultModuleExpiry,
-		"cache expiration duration for a wasm module.").Get()
-
-	wasmPurgeInterval = env.RegisterDurationVar("WASM_PURGE_INTERVAL", wasm.DefaultPurgeInterval,
-		"interval between checking the expiration of wasm modules").Get()
-
-	wasmHTTPRequestTimeout = env.RegisterDurationVar("WASM_HTTP_REQUEST_TIMEOUT", wasm.DefaultHTTPRequestTimeout,
-		"timeout per a HTTP request for pulling a Wasm module via http/https").Get()
-
-	wasmHTTPRequestMaxRetries = env.RegisterIntVar("WASM_HTTP_REQUEST_MAX_RETRIES", wasm.DefaultHTTPRequestMaxRetries,
-		"maximum number of HTTP/HTTPS request retries for pulling a Wasm module via http/https").Get()
+		"allow agent pull wasm plugin from insecure registries, for example: 'localhost:5000,docker-registry:5000'").Get()
 
 	// Ability of istio-agent to retrieve bootstrap via XDS
 	enableBootstrapXdsEnv = env.RegisterBoolVar("BOOTSTRAP_XDS_AGENT", false,

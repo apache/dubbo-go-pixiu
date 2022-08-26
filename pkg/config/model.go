@@ -24,7 +24,7 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
 	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
+	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -121,7 +121,7 @@ func ObjectInRevision(o *Config, rev string) bool {
 // * golang/protobuf Message
 // * gogo/protobuf Message
 // * Able to marshal/unmarshal using json
-type Spec any
+type Spec interface{}
 
 func ToProto(s Spec) (*anypb.Any, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
@@ -154,14 +154,14 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	return anypb.New(pbs)
 }
 
-func ToMap(s Spec) (map[string]any, error) {
+func ToMap(s Spec) (map[string]interface{}, error) {
 	js, err := ToJSON(s)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal from json bytes to go map
-	var data map[string]any
+	var data map[string]interface{}
 	err = json.Unmarshal(js, &data)
 	if err != nil {
 		return nil, err
@@ -171,14 +171,6 @@ func ToMap(s Spec) (map[string]any, error) {
 }
 
 func ToJSON(s Spec) ([]byte, error) {
-	return toJSON(s, false)
-}
-
-func ToPrettyJSON(s Spec) ([]byte, error) {
-	return toJSON(s, true)
-}
-
-func toJSON(s Spec, pretty bool) ([]byte, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
@@ -195,14 +187,12 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
 		return b.Bytes(), err
 	}
-	if pretty {
-		return json.MarshalIndent(s, "", "\t")
-	}
+
 	return json.Marshal(s)
 }
 
 type deepCopier interface {
-	DeepCopyInterface() any
+	DeepCopyInterface() interface{}
 }
 
 func ApplyYAML(s Spec, yml string) error {
@@ -255,7 +245,7 @@ func ApplyJSON(s Spec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopy(s any) any {
+func DeepCopy(s interface{}) interface{} {
 	if s == nil {
 		return nil
 	}
@@ -293,7 +283,7 @@ func DeepCopy(s any) any {
 	return data
 }
 
-type Status any
+type Status interface{}
 
 // Key function for the configuration objects
 func Key(grp, ver, typ, name, namespace string) string {

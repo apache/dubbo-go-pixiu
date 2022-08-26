@@ -249,7 +249,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 	return routes, nil
 }
 
-func isPassthrough(action any) bool {
+func isPassthrough(action interface{}) bool {
 	a, ok := action.(*route.Route_Route)
 	if !ok {
 		return false

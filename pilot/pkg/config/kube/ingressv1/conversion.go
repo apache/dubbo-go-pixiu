@@ -125,8 +125,7 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
 func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix string,
-	ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister,
-) {
+	ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -254,8 +253,7 @@ func getMatchURILength(match *networking.HTTPMatchRequest) (length int, exact bo
 }
 
 func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace string, domainSuffix string,
-	serviceLister listerv1.ServiceLister,
-) *networking.HTTPRoute {
+	serviceLister listerv1.ServiceLister) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
 	}

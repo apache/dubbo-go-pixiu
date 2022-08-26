@@ -20,7 +20,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )
@@ -32,7 +32,7 @@ type AuthzLogger struct {
 	errMsg   *multierror.Error
 }
 
-func (al *AuthzLogger) AppendDebugf(format string, args ...any) {
+func (al *AuthzLogger) AppendDebugf(format string, args ...interface{}) {
 	al.debugMsg = append(al.debugMsg, fmt.Sprintf(format, args...))
 }
 
@@ -40,15 +40,15 @@ func (al *AuthzLogger) AppendError(err error) {
 	al.errMsg = multierror.Append(al.errMsg, err)
 }
 
-func (al *AuthzLogger) Report(node *model.Proxy) {
+func (al *AuthzLogger) Report(in *plugin.InputParams) {
 	if al.errMsg != nil {
 		al.errMsg.ErrorFormat = istiomultierror.MultiErrorFormat()
-		authzLog.Errorf("Processed authorization policy for %s, %s", node.ID, al.errMsg)
+		authzLog.Errorf("Processed authorization policy for %s, %s", in.Node.ID, al.errMsg)
 	}
 	if authzLog.DebugEnabled() && len(al.debugMsg) != 0 {
 		out := strings.Join(al.debugMsg, "\n\t* ")
-		authzLog.Debugf("Processed authorization policy for %s with details:\n\t* %v", node.ID, out)
+		authzLog.Debugf("Processed authorization policy for %s with details:\n\t* %v", in.Node.ID, out)
 	} else {
-		authzLog.Debugf("Processed authorization policy for %s", node.ID)
+		authzLog.Debugf("Processed authorization policy for %s", in.Node.ID)
 	}
 }

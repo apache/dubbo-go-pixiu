@@ -66,7 +66,7 @@ func NewXdsComparator(w io.Writer, istiodResponses map[string]*xdsapi.DiscoveryR
 	for _, resp := range istiodResponses {
 		if len(resp.Resources) > 0 {
 			c.istiod = &configdump.Wrapper{
-				ConfigDump: &adminapi.ConfigDump{
+				&adminapi.ConfigDump{
 					Configs: resp.Resources,
 				},
 			}

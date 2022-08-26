@@ -31,10 +31,10 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn/factory"
 	authzmodel "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
 	"github.com/apache/dubbo-go-pixiu/pkg/istio-agent/grpcxds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
@@ -112,7 +112,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
-			Resource: protoconv.MessageToAny(ll),
+			Resource: util.MessageToAny(ll),
 		})
 	}
 	return out
@@ -177,7 +177,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 			fc = append(fc,
 				&hcm.HttpFilter{
 					Name:       RBACHTTPFilterNameDeny,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 				})
 		}
 		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
@@ -188,7 +188,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 			fc = append(fc,
 				&hcm.HttpFilter{
 					Name:       RBACHTTPFilterName,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 				})
 		}
 	}
@@ -202,7 +202,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 		Filters: []*listener.Filter{{
 			Name: "inbound-hcm" + nameSuffix,
 			ConfigType: &listener.Filter_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
 					RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 						// https://github.com/grpc/grpc-go/issues/4924
 						RouteConfig: &route.RouteConfiguration{
@@ -226,7 +226,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	if tlsContext != nil {
 		out.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 		}
 	}
 	return out
@@ -244,8 +244,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 //
 // nolint: unparam
 func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
-	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
-) *rbacpb.RBAC {
+	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
 	rules := &rbacpb.RBAC{
 		Action:   a,
 		Policies: map[string]*rbacpb.Policy{},
@@ -294,7 +293,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 						},
 					},
 					ApiListener: &listener.ApiListener{
-						ApiListener: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
 							HttpFilters: supportedFilters,
 							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
@@ -312,7 +311,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
-					Resource: protoconv.MessageToAny(ll),
+					Resource: util.MessageToAny(ll),
 				})
 			}
 		}

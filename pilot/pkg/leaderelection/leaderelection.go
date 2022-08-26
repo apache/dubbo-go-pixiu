@@ -197,7 +197,7 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 	return &LeaderElection{
 		namespace:      namespace,
 		name:           name,
-		client:         client.Kube(),
+		client:         client,
 		electionID:     electionID,
 		revision:       revision,
 		remote:         remote,

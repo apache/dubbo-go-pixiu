@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"

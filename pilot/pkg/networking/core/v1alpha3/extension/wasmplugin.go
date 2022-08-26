@@ -25,8 +25,10 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/wasm" // include for registering wasm logging scope
 	extensions "istio.io/api/extensions/v1alpha1"
+
+	// include for registering wasm logging scope
+	_ "github.com/apache/dubbo-go-pixiu/pkg/wasm"
 	"istio.io/pkg/log"
 )
 
@@ -44,8 +46,7 @@ var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
 // plugins of a provided phase from the WASM plugin set and append them to the list of filters
 func PopAppend(list []*hcm_filter.HttpFilter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
-	phase extensions.PluginPhase,
-) []*hcm_filter.HttpFilter {
+	phase extensions.PluginPhase) []*hcm_filter.HttpFilter {
 	for _, ext := range filterMap[phase] {
 		list = append(list, toEnvoyHTTPFilter(ext))
 	}
@@ -68,8 +69,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 // InsertedExtensionConfigurations returns pre-generated extension configurations added via WasmPlugin.
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
-	names []string, pullSecrets map[string][]byte,
-) []*envoy_config_core_v3.TypedExtensionConfig {
+	names []string, pullSecrets map[string][]byte) []*envoy_config_core_v3.TypedExtensionConfig {
 	result := make([]*envoy_config_core_v3.TypedExtensionConfig, 0)
 	if len(wasmPlugins) == 0 {
 		return result

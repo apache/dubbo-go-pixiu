@@ -73,7 +73,7 @@ func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSynce
 
 	return &StatusSyncer{
 		meshHolder:         meshHolder,
-		client:             client.Kube(),
+		client:             client,
 		ingressLister:      client.KubeInformer().Networking().V1beta1().Ingresses().Lister(),
 		podLister:          client.KubeInformer().Core().V1().Pods().Lister(),
 		serviceLister:      client.KubeInformer().Core().V1().Services().Lister(),

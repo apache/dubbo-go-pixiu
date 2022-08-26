@@ -111,13 +111,14 @@ func (e *envoy) UpdateConfig(config []byte) error {
 	return os.WriteFile(e.ConfigPath, config, 0o666)
 }
 
-func (e *envoy) args(fname string, bootstrapConfig string) []string {
+func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
 	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
 	startupArgs := []string{
 		"-c", fname,
+		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(e.DrainDuration.AsDuration().Seconds())),
 		"--drain-strategy", "immediate", // Clients are notified as soon as the drain process starts.
 		"--parent-shutdown-time-s", fmt.Sprint(int(e.ParentShutdownDuration.AsDuration().Seconds())),
@@ -162,9 +163,9 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 
 var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
-func (e *envoy) Run(abort <-chan error) error {
+func (e *envoy) Run(epoch int, abort <-chan error) error {
 	// spin up a new Envoy process
-	args := e.args(e.ConfigPath, istioBootstrapOverrideVar.Get())
+	args := e.args(e.ConfigPath, epoch, istioBootstrapOverrideVar.Get())
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
@@ -189,9 +190,9 @@ func (e *envoy) Run(abort <-chan error) error {
 
 	select {
 	case err := <-abort:
-		log.Warnf("Aborting proxy")
+		log.Warnf("Aborting epoch %d", epoch)
 		if errKill := cmd.Process.Kill(); errKill != nil {
-			log.Warnf("killing proxy caused an error %v", errKill)
+			log.Warnf("killing epoch %d caused an error %v", epoch, errKill)
 		}
 		return err
 	case err := <-done:
@@ -199,10 +200,10 @@ func (e *envoy) Run(abort <-chan error) error {
 	}
 }
 
-func (e *envoy) Cleanup() {
+func (e *envoy) Cleanup(epoch int) {
 	if e.ConfigCleanup {
 		if err := os.Remove(e.ConfigPath); err != nil {
-			log.Warnf("Failed to delete config file %s: %v", e.ConfigPath, err)
+			log.Warnf("Failed to delete config file %s for %d, %v", e.ConfigPath, epoch, err)
 		}
 	}
 }

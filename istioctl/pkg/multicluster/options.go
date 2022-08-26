@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// TODO(ayj) - add to istio.io/api/annotations
 const clusterNameAnnotationKey = "networking.istio.io/cluster"
 
 // KubeOptions contains kubernetes options common to all commands.

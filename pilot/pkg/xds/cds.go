@@ -15,9 +15,9 @@
 package xds
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 
 type CdsGenerator struct {
@@ -27,22 +27,22 @@ type CdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
-var skippedCdsConfigs = map[kind.Kind]struct{}{
-	kind.Gateway:               {},
-	kind.WorkloadEntry:         {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.Secret:                {},
-	kind.Telemetry:             {},
-	kind.WasmPlugin:            {},
-	kind.ProxyConfig:           {},
+var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
+	gvk.Gateway:               {},
+	gvk.WorkloadEntry:         {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
+	gvk.Secret:                {},
+	gvk.Telemetry:             {},
+	gvk.WasmPlugin:            {},
+	gvk.ProxyConfig:           {},
 }
 
-// Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
-var pushCdsGatewayConfig = map[kind.Kind]struct{}{
-	kind.VirtualService: {},
-	kind.Gateway:        {},
+// Map all configs that impacts CDS for gateways.
+var pushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
+	gvk.VirtualService: {},
+	gvk.Gateway:        {},
 }
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
@@ -58,11 +58,9 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if features.FilterGatewayClusterConfig {
-			if proxy.Type == model.Router {
-				if _, f := pushCdsGatewayConfig[config.Kind]; f {
-					return true
-				}
+		if proxy.Type == model.Router {
+			if _, f := pushCdsGatewayConfig[config.Kind]; f {
+				return true
 			}
 		}
 
@@ -83,8 +81,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 
 // GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
-	w *model.WatchedResource,
-) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !cdsNeedsPush(req, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}

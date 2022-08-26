@@ -35,7 +35,6 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/testcerts"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks/util"
@@ -208,7 +207,7 @@ func copyWithName(vwh *kubeApiAdmission.ValidatingWebhookConfiguration, newName 
 }
 
 func (fc *fakeController) ValidatingWebhookConfigurations() kubeTypedAdmission.ValidatingWebhookConfigurationInterface {
-	return fc.client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	return fc.client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
 }
 
 func reconcileHelper(t *testing.T, c *fakeController, whName string) {
@@ -273,7 +272,10 @@ func TestBackoff(t *testing.T) {
 	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
 	_ = c.configStore.Add(unpatchedWebhookConfig)
 
-	stop := test.NewStop(t)
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	go c.Run(stop)
 	// This is fairly difficult to properly test. Basically what we do is setup the queue to retry 5x quickly, then extremely slowly.
 	// This ensures that we are actually retrying using the provided rate limiter.

@@ -32,7 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	_ "k8s.io/client-go/plugin/pkg/client/auth" //  to avoid 'No Auth Provider found for name "gcp"'
+
+	//  to avoid 'No Auth Provider found for name "gcp"'
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
@@ -691,7 +693,7 @@ type Warning error
 func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env Environment) (*v1.Secret, Warning, error) {
 	// generate the clusterName if not specified
 	if opt.ClusterName == "" {
-		uid, err := clusterUID(client.Kube())
+		uid, err := clusterUID(client)
 		if err != nil {
 			return nil, nil, err
 		}

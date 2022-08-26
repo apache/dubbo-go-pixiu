@@ -325,6 +325,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(err) {
 				scope.Infof("Could not add finalizer to %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
+				return reconcile.Result{}, nil
 			}
 			scope.Errorf(errdict.OperatorFailedToAddFinalizer, "Failed to add finalizer to IstioOperator CR %s: %s", iopName, err)
 			return reconcile.Result{}, err
@@ -334,12 +335,12 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	scope.Info("Updating IstioOperator")
 	val := iopMerged.Spec.Values.AsMap()
 	if _, ok := val["global"]; !ok {
-		val["global"] = make(map[string]any)
+		val["global"] = make(map[string]interface{})
 	}
-	globalValues := val["global"].(map[string]any)
+	globalValues := val["global"].(map[string]interface{})
 	scope.Info("Detecting third-party JWT support")
 	var jwtPolicy util.JWTPolicy
-	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.kubeClient.Kube()); err != nil {
+	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.kubeClient); err != nil {
 		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
 		scope.Warnf("Failed to detect third-party JWT support: %v", err)
 	} else {

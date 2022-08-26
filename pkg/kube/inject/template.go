@@ -44,7 +44,6 @@ func createInjectionFuncmap() template.FuncMap {
 		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
 		"kubevirtInterfaces":  kubevirtInterfaces,
-		"excludeInterfaces":   excludeInterfaces,
 		"applicationPorts":    applicationPorts,
 		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
@@ -92,7 +91,7 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
-func excludeInboundPort(port any, excludedInboundPorts string) string {
+func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
 	portStr := strings.TrimSpace(fmt.Sprint(port))
 	if len(portStr) == 0 || portStr == "0" {
 		// Nothing to do.
@@ -118,7 +117,7 @@ func excludeInboundPort(port any, excludedInboundPorts string) string {
 	return strings.Join(outPorts, ",")
 }
 
-func valueOrDefault(value any, defaultValue any) any {
+func valueOrDefault(value interface{}, defaultValue interface{}) interface{} {
 	if value == "" || value == nil {
 		return defaultValue
 	}
@@ -139,8 +138,8 @@ func toJSON(m map[string]string) string {
 	return string(ba)
 }
 
-func fromJSON(j string) any {
-	var m any
+func fromJSON(j string) interface{} {
+	var m interface{}
 	err := json.Unmarshal([]byte(j), &m)
 	if err != nil {
 		log.Warnf("Unable to unmarshal %s", j)
@@ -160,7 +159,7 @@ func indent(spaces int, source string) string {
 	return strings.Join(res, "\n")
 }
 
-func toYaml(value any) string {
+func toYaml(value interface{}) string {
 	y, err := yaml.Marshal(value)
 	if err != nil {
 		log.Warnf("Unable to marshal %v", value)
@@ -170,7 +169,7 @@ func toYaml(value any) string {
 	return string(y)
 }
 
-func getAnnotation(meta metav1.ObjectMeta, name string, defaultValue any) string {
+func getAnnotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {
 	value, ok := meta.Annotations[name]
 	if !ok {
 		value = fmt.Sprint(defaultValue)
@@ -185,7 +184,7 @@ func appendMultusNetwork(existingValue, istioCniNetwork string) string {
 	i := strings.LastIndex(existingValue, "]")
 	isJSON := i != -1
 	if isJSON {
-		networks := []map[string]any{}
+		networks := []map[string]interface{}{}
 		err := json.Unmarshal([]byte(existingValue), &networks)
 		if err != nil {
 			// existingValue is not valid JSON; nothing we can do but skip injection
@@ -245,11 +244,7 @@ func kubevirtInterfaces(s string) string {
 	return s
 }
 
-func excludeInterfaces(s string) string {
-	return s
-}
-
-func structToJSON(v any) string {
+func structToJSON(v interface{}) string {
 	if v == nil {
 		return "{}"
 	}

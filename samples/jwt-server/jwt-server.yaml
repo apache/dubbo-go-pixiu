@@ -90,6 +90,8 @@ stringData:
     8mpQUbVH8l8h6gRs6izoPFhtOKJZgkPrx7OCs08CCmYIr9qUvWFhcnsxnW7B5hic
     LEAqdR15WVMSx/Fw8dACEw==
     -----END PRIVATE KEY-----
+
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -106,7 +108,7 @@ spec:
         app: jwt-server
     spec:
       containers:
-      - image: gcr.io/istio-testing/jwt-server:0.7
+      - image: docker.io/istio/jwt-server:0.6
         imagePullPolicy: IfNotPresent
         name: jwt-server
         volumeMounts:

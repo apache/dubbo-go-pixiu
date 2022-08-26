@@ -25,7 +25,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/envoyfilter"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
@@ -60,7 +60,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, w *model.WatchedResour
 	bs = e.applyPatches(bs, proxy, req.Push)
 	return model.Resources{
 		&discovery.Resource{
-			Resource: protoconv.MessageToAny(bs),
+			Resource: util.MessageToAny(bs),
 		},
 	}, model.DefaultXdsLogDetails, nil
 }
@@ -70,7 +70,7 @@ func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *mode
 	if patches == nil {
 		return bs
 	}
-	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		envoyfilter.IncrementEnvoyFilterErrorMetric(envoyfilter.Bootstrap)
 		log.Errorf("bootstrap patch caused panic, so the patches did not take effect")
 	})

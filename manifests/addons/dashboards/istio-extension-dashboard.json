@@ -804,31 +804,11 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": [
-      {
-        "current": {
-          "selected": true,
-          "text": "default",
-          "value": "default"
-        },
-        "hide": 0,
-        "includeAll": false,
-        "label": null,
-        "multi": false,
-        "name": "datasource",
-        "options": [],
-        "query": "prometheus",
-        "queryValue": "",
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "type": "datasource"
-      }
-    ]
+    "list": []
   },
   "time": {
-    "from": "now-5m",
-    "to": "now"
+    "from": "2020-10-22T23:11:45.783Z",
+    "to": "2020-10-23T00:04:19.481Z"
   },
   "timepicker": {
     "refresh_intervals": [

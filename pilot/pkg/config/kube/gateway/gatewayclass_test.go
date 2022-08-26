@@ -26,14 +26,16 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )
 
 func TestClassController(t *testing.T) {
 	client := kube.NewFakeClient()
 	cc := NewClassController(client)
-	stop := test.NewStop(t)
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	client.RunAndWait(stop)
 	go cc.Run(stop)
 	createClass := func(name, controller string) {

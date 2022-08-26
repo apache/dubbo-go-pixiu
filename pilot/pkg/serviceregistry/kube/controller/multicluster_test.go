@@ -21,6 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
@@ -56,14 +57,14 @@ func createMultiClusterSecret(k8s kube.Client, sname, cname string) error {
 
 	data[cname] = []byte("Test")
 	secret.Data = data
-	_, err := k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	return err
 }
 
 func deleteMultiClusterSecret(k8s kube.Client, sname string) error {
 	var immediate int64
 
-	return k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Delete(
+	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
 		context.TODO(),
 		sname, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
@@ -81,7 +82,7 @@ func initController(client kube.ExtendedClient, ns string, stop <-chan struct{},
 	sc := multicluster.NewController(client, ns, "cluster-1")
 	sc.AddHandler(mc)
 	_ = sc.Run(stop)
-	kube.WaitForCacheSync(stop, sc.HasSynced)
+	cache.WaitForCacheSync(stop, sc.HasSynced)
 }
 
 func Test_KubeSecretController(t *testing.T) {
@@ -89,11 +90,14 @@ func Test_KubeSecretController(t *testing.T) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
-	stop := test.NewStop(t)
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	s := server.New()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset.Kube(),
+		clientset,
 		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",
@@ -138,12 +142,15 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	stop := test.NewStop(t)
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset.Kube(),
+		clientset,
 		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",

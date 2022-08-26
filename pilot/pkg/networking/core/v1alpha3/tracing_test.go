@@ -398,8 +398,7 @@ func fakeTracingSpecNoProviderWithNilCustomTag(sampling float64, disableReportin
 }
 
 func fakeTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
-	useRequestIDForTraceSampling bool,
-) *model.TracingConfig {
+	useRequestIDForTraceSampling bool) *model.TracingConfig {
 	t := &model.TracingConfig{
 		ClientSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling),
 		ServerSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling),
@@ -408,8 +407,7 @@ func fakeTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling
 }
 
 func fakeClientOnlyTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
-	useRequestIDForTraceSampling bool,
-) *model.TracingConfig {
+	useRequestIDForTraceSampling bool) *model.TracingConfig {
 	t := &model.TracingConfig{
 		ClientSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling),
 		ServerSpec: model.TracingSpec{
@@ -420,8 +418,7 @@ func fakeClientOnlyTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider
 }
 
 func fakeServerOnlyTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
-	useRequestIDForTraceSampling bool,
-) *model.TracingConfig {
+	useRequestIDForTraceSampling bool) *model.TracingConfig {
 	t := &model.TracingConfig{
 		ClientSpec: model.TracingSpec{
 			Disabled: true,
@@ -432,8 +429,7 @@ func fakeServerOnlyTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider
 }
 
 func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
-	useRequestIDForTraceSampling bool,
-) model.TracingSpec {
+	useRequestIDForTraceSampling bool) model.TracingSpec {
 	return model.TracingSpec{
 		Provider:                 provider,
 		Disabled:                 disableReporting,
@@ -452,8 +448,7 @@ func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling flo
 }
 
 func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
-	useRequestIDForTraceSampling bool,
-) *model.TracingConfig {
+	useRequestIDForTraceSampling bool) *model.TracingConfig {
 	t := &model.TracingConfig{
 		ClientSpec: model.TracingSpec{
 			Provider:                 provider,

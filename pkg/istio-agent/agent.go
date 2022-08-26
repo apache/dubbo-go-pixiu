@@ -31,13 +31,12 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/config"
-	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap"
@@ -49,7 +48,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/istio-agent/grpcxds"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/cache"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient"
 	citadel "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/citadel"
@@ -91,15 +89,10 @@ const (
 )
 
 const (
-	// MetadataClientCertKey is ISTIO_META env var used for client key.
-	MetadataClientCertKey = "ISTIO_META_TLS_CLIENT_KEY"
-	// MetadataClientCertChain is ISTIO_META env var used for client cert chain.
+	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
 	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
-	// MetadataClientRootCert is ISTIO_META env var used for client root cert.
-	MetadataClientRootCert = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
+	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
 )
-
-var _ ready.Prober = &Agent{}
 
 // Agent contains the configuration of the agent, based on the injected
 // environment:
@@ -146,8 +139,6 @@ type AgentOptions struct {
 	DNSCapture bool
 	// DNSAddr is the DNS capture address
 	DNSAddr string
-	// DNSForwardParallel indicates whether the agent should send parallel DNS queries to all upstream nameservers.
-	DNSForwardParallel bool
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -208,7 +199,7 @@ type AgentOptions struct {
 
 	IstiodSAN string
 
-	WASMOptions wasm.Options
+	WASMInsecureRegistries []string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -269,11 +260,8 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	})
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context, credentialSocketExists bool) error {
+func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	node, err := a.generateNodeMetadata()
-	if credentialSocketExists {
-		node.RawMetadata[security.CredentialMetaDataName] = "true"
-	}
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
@@ -290,7 +278,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context, credentialSocketExists
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node: node,
-		}).CreateFile()
+		}).CreateFileForEpoch(0)
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)
 		}
@@ -427,21 +415,15 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if socketExists {
-		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
+		log.Info("SDS socket found. Istio SDS Server won't be started")
 	} else {
-		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
+		log.Info("SDS socket not found. Starting Istio SDS Server")
 		err = a.initSdsServer()
 		if err != nil {
 			return nil, fmt.Errorf("failed to start SDS server: %v", err)
 		}
 	}
-	credentialSocketExists, err := checkSocket(ctx, security.CredentialNameSocketPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check credential SDS socket: %v", err)
-	}
-	if credentialSocketExists {
-		log.Info("Credential SDS socket found")
-	}
+
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start xds proxy: %v", err)
@@ -454,10 +436,11 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if a.cfg.GRPCBootstrapPath != "" {
-		if err := a.generateGRPCBootstrap(credentialSocketExists); err != nil {
+		if err := a.generateGRPCBootstrap(); err != nil {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}
 	}
+
 	rootCAForXDS, err := a.FindRootCAForXDS()
 	if err != nil {
 		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
@@ -465,7 +448,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	go a.caFileWatcherHandler(ctx, rootCAForXDS)
 
 	if !a.EnvoyDisabled() {
-		err = a.initializeEnvoyAgent(ctx, credentialSocketExists)
+		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
 		}
@@ -511,14 +494,21 @@ func (a *Agent) initSdsServer() error {
 		a.secOpts.RootCertFilePath = security.WorkloadIdentityRootCertPath
 		a.secOpts.CertChainFilePath = security.WorkloadIdentityCertChainPath
 		a.secOpts.KeyFilePath = security.WorkloadIdentityKeyPath
-		a.secOpts.FileMountedCerts = true
+
+		a.secretCache, err = cache.NewSecretManagerClient(nil, a.secOpts)
+		if err != nil {
+			return fmt.Errorf("failed to start workload secret manager %v", err)
+		}
+	} else {
+		a.secretCache, err = a.newSecretManager()
+		if err != nil {
+			return fmt.Errorf("failed to start workload secret manager %v", err)
+		}
 	}
 
-	a.secretCache, err = a.newSecretManager()
 	if err != nil {
 		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
-
 	if a.cfg.DisableEnvoy {
 		// For proxyless we don't need an SDS server, but still need the keys and
 		// we need them refreshed periodically.
@@ -581,7 +571,7 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 		select {
 		case gotEvent := <-a.caFileWatcher.Events(caFile):
 			log.Debugf("Receive file %s event %v", caFile, gotEvent)
-			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
+			if err := a.xdsProxy.InitIstiodDialOptions(a); err != nil {
 				log.Warnf("Failed to init xds proxy dial options")
 			}
 		case <-ctx.Done():
@@ -593,8 +583,7 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we don't need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
-		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
-			a.cfg.DNSForwardParallel); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()
@@ -602,20 +591,12 @@ func (a *Agent) initLocalDNSServer() (err error) {
 	return nil
 }
 
-func (a *Agent) generateGRPCBootstrap(credentialSocketExists bool) error {
+func (a *Agent) generateGRPCBootstrap() error {
 	// generate metadata
 	node, err := a.generateNodeMetadata()
-	if credentialSocketExists {
-		node.RawMetadata[security.CredentialMetaDataName] = "true"
-	}
-
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
 	}
-
-	// GRPC bootstrap requires this. Original implementation injected this via env variable, but
-	// this interfere with envoy, we should be able to use both envoy for TCP/HTTP and proxyless.
-	node.Metadata.Generator = "grpc"
 
 	if err := os.MkdirAll(filepath.Dir(a.cfg.GRPCBootstrapPath), 0o700); err != nil {
 		return err
@@ -633,7 +614,6 @@ func (a *Agent) generateGRPCBootstrap(credentialSocketExists bool) error {
 	return nil
 }
 
-// Check is used in to readiness check of agent to ensure DNSServer is ready.
 func (a *Agent) Check() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
@@ -644,23 +624,22 @@ func (a *Agent) Check() (err error) {
 	return nil
 }
 
-// GetDNSTable builds DNS table used in debugging interface.
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
-	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
+	if a.localDNSServer != nil {
 		nt := a.localDNSServer.NameTable()
 		nt = proto.Clone(nt).(*dnsProto.NameTable)
 		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, _ []string) {
 			for host := range althosts {
 				if _, exists := nt.Table[host]; !exists {
-					addresses := make([]string, len(ipv4)+len(ipv6))
+					adresses := make([]string, len(ipv4)+len(ipv6))
 					for _, ip := range ipv4 {
-						addresses = append(addresses, ip.String())
+						adresses = append(adresses, ip.String())
 					}
 					for _, ip := range ipv6 {
-						addresses = append(addresses, ip.String())
+						adresses = append(adresses, ip.String())
 					}
 					nt.Table[host] = &dnsProto.NameTable_NameInfo{
-						Ips:      addresses,
+						Ips:      adresses,
 						Registry: "Kubernetes",
 					}
 				}
@@ -671,7 +650,7 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	return nil
 }
 
-func (a *Agent) close() {
+func (a *Agent) Close() {
 	if a.xdsProxy != nil {
 		a.xdsProxy.close()
 	}
@@ -862,6 +841,7 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
 		return cache.NewSecretManagerClient(nil, a.secOpts)
 	}
+
 	log.Infof("CA Endpoint %s, provider %s", a.secOpts.CAEndpoint, a.secOpts.CAProviderName)
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.

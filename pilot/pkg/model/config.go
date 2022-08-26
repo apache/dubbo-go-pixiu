@@ -28,14 +28,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
 // Statically link protobuf descriptors from UDPA
 var _ = udpa.TypedStruct{}
-
-type ConfigHash uint64
 
 // NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
 // places where the type is implied.
@@ -53,26 +50,33 @@ func (key NamespacedName) String() string {
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
-	Kind      kind.Kind
+	Kind      config.GroupVersionKind
 	Name      string
 	Namespace string
 }
 
-func (key ConfigKey) HashCode() ConfigHash {
+func (key ConfigKey) HashCode() uint64 {
 	hash := md5.New()
-	hash.Write([]byte{byte(key.Kind)})
-	hash.Write([]byte(key.Name))
-	hash.Write([]byte(key.Namespace))
-	sum := hash.Sum(nil)
-	return ConfigHash(binary.BigEndian.Uint64(sum))
+	for _, v := range []string{
+		key.Name,
+		key.Namespace,
+		key.Kind.Kind,
+		key.Kind.Group,
+		key.Kind.Version,
+	} {
+		hash.Write([]byte(v))
+	}
+	var tmp [md5.Size]byte
+	sum := hash.Sum(tmp[:0])
+	return binary.BigEndian.Uint64(sum)
 }
 
 func (key ConfigKey) String() string {
-	return key.Kind.String() + "/" + key.Namespace + "/" + key.Name
+	return key.Kind.Kind + "/" + key.Namespace + "/" + key.Name
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
-func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey]struct{} {
+func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[ConfigKey]struct{} {
 	ret := make(map[ConfigKey]struct{})
 
 	for conf := range configs {
@@ -85,7 +89,7 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey
 }
 
 // ConfigsHaveKind checks if configurations have the specified kind.
-func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
+func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) bool {
 	for conf := range configs {
 		if conf.Kind == kind {
 			return true
@@ -95,7 +99,7 @@ func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
-func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
+func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
 	ret := sets.New()
 
 	for conf := range configs {
@@ -208,10 +212,6 @@ const (
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
 func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
-	if len(hostname) == 0 {
-		// only happens when the gateway-api BackendRef is invalid
-		return ""
-	}
 	out := hostname
 	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
@@ -275,7 +275,7 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 // MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
 // matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*ConsolidatedDestRule) (host.Name, bool) {
+func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*consolidatedDestRule) (host.Name, bool) {
 	matches := []host.Name{}
 
 	// exact match first

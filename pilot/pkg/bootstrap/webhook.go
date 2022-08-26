@@ -16,34 +16,16 @@ package bootstrap
 
 import (
 	"crypto/tls"
-	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
-	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
 	HTTPSHandlerReadyPath = "/httpsReady"
 )
-
-type httpServerErrorLogWriter struct{}
-
-// Webhook http.Server.ErrorLog handler specifically to filter
-// http: TLS handshake error from 127.0.0.1:<PORT>: EOF
-// messages that occur when clients send RST while TLS handshake is still in progress.
-// httpsReadyClient can trigger this periodically when multiple concurrent probes are hitting this endpoint.
-func (*httpServerErrorLogWriter) Write(p []byte) (int, error) {
-	m := strings.TrimSuffix(string(p), "\n")
-	if strings.HasPrefix(m, "http: TLS handshake error") && strings.HasSuffix(m, ": EOF") {
-		istiolog.Debug(m)
-	} else {
-		istiolog.Info(m)
-	}
-	return len(p), nil
-}
 
 // initSSecureWebhookServer handles initialization for the HTTPS webhook server.
 // If https address is off the injection handlers will be registered on the main http endpoint, with
@@ -52,17 +34,16 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	if args.ServerOptions.HTTPSAddr == "" {
 		s.httpsMux = s.httpMux
-		istiolog.Info("HTTPS port is disabled, multiplexing webhooks on the httpAddr ", args.ServerOptions.HTTPAddr)
+		log.Info("HTTPS port is disabled, multiplexing webhooks on the httpAddr ", args.ServerOptions.HTTPAddr)
 		return
 	}
 
-	istiolog.Info("initializing secure webhook server for istiod webhooks")
+	log.Info("initializing secure webhook server for istiod webhooks")
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
 	s.httpsServer = &http.Server{
-		Addr:     args.ServerOptions.HTTPSAddr,
-		ErrorLog: log.New(&httpServerErrorLogWriter{}, "", 0),
-		Handler:  s.httpsMux,
+		Addr:    args.ServerOptions.HTTPSAddr,
+		Handler: s.httpsMux,
 		TLSConfig: &tls.Config{
 			GetCertificate: s.getIstiodCertificate,
 			MinVersion:     tls.VersionTLS12,

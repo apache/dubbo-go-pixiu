@@ -24,7 +24,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 
 func TestDeltaAds(t *testing.T) {
@@ -109,7 +109,7 @@ func TestDeltaEDS(t *testing.T) {
 	// update svc, only send the eds for this service
 	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, "10.10.1.3", 8080)
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{{
-		Kind:      kind.ServiceEntry,
+		Kind:      gvk.ServiceEntry,
 		Name:      edsIncSvc,
 		Namespace: "",
 	}: {}}})
@@ -125,7 +125,7 @@ func TestDeltaEDS(t *testing.T) {
 	// delete svc, only send eds fot this service
 	s.Discovery.MemRegistry.RemoveService(edsIncSvc)
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{{
-		Kind:      kind.ServiceEntry,
+		Kind:      gvk.ServiceEntry,
 		Name:      edsIncSvc,
 		Namespace: "",
 	}: {}}})

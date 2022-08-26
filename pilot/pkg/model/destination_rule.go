@@ -100,17 +100,17 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			}
 		}
 		if addRuleToProcessedDestRules {
-			p.destRules[resolvedHost] = append(p.destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
+			p.destRules[resolvedHost] = append(p.destRules[resolvedHost], convertConsolidatedDestRule(&destRuleConfig))
 		}
 		return
 	}
 	// DestinationRule does not exist for the resolved host so add it
-	p.destRules[resolvedHost] = append(p.destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
+	p.destRules[resolvedHost] = append(p.destRules[resolvedHost], convertConsolidatedDestRule(&destRuleConfig))
 	p.exportTo[resolvedHost] = exportToMap
 }
 
 // inheritDestinationRule child config inherits settings from parent mesh/namespace
-func (ps *PushContext) inheritDestinationRule(parent, child *ConsolidatedDestRule) *ConsolidatedDestRule {
+func (ps *PushContext) inheritDestinationRule(parent, child *consolidatedDestRule) *consolidatedDestRule {
 	if parent == nil {
 		return child
 	}
@@ -140,15 +140,15 @@ func (ps *PushContext) inheritDestinationRule(parent, child *ConsolidatedDestRul
 		mergedDR := merged.Spec.(*networking.DestinationRule)
 		mergedDR.TrafficPolicy.Tls = childDR.TrafficPolicy.Tls.DeepCopy()
 	}
-	out := &ConsolidatedDestRule{}
+	out := &consolidatedDestRule{}
 	out.rule = &merged
 	out.from = append(out.from, parent.from...)
 	out.from = append(out.from, child.from...)
 	return out
 }
 
-func ConvertConsolidatedDestRule(cfg *config.Config) *ConsolidatedDestRule {
-	return &ConsolidatedDestRule{
+func convertConsolidatedDestRule(cfg *config.Config) *consolidatedDestRule {
+	return &consolidatedDestRule{
 		rule: cfg,
 		from: []types.NamespacedName{
 			{
@@ -160,7 +160,7 @@ func ConvertConsolidatedDestRule(cfg *config.Config) *ConsolidatedDestRule {
 }
 
 // Equals compare l equals r consolidatedDestRule or not.
-func (l *ConsolidatedDestRule) Equals(r *ConsolidatedDestRule) bool {
+func (l *consolidatedDestRule) Equals(r *consolidatedDestRule) bool {
 	if l == r {
 		return true
 	}
@@ -178,18 +178,4 @@ func (l *ConsolidatedDestRule) Equals(r *ConsolidatedDestRule) bool {
 		}
 	}
 	return true
-}
-
-func (l *ConsolidatedDestRule) GetRule() *config.Config {
-	if l == nil {
-		return nil
-	}
-	return l.rule
-}
-
-func (l *ConsolidatedDestRule) GetFrom() []types.NamespacedName {
-	if l == nil {
-		return nil
-	}
-	return l.from
 }

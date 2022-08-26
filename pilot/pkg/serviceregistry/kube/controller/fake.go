@@ -168,14 +168,13 @@ type FakeControllerOptions struct {
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	Stop                      chan struct{}
-	SkipRun                   bool
 }
 
 type FakeController struct {
 	*Controller
 }
 
-func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
+func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = NewFakeXDS()
@@ -213,18 +212,12 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 	}
 	c.stop = opts.Stop
 	if c.stop == nil {
-		// If we created the stop, clean it up. Otherwise, caller is responsible
-		c.stop = test.NewStop(t)
+		c.stop = make(chan struct{})
 	}
 	opts.Client.RunAndWait(c.stop)
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x
-	}
-
-	if !opts.SkipRun {
-		go c.Run(c.stop)
-		kubelib.WaitForCacheSync(c.stop, c.HasSynced)
 	}
 
 	return &FakeController{c}, fx

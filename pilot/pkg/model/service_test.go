@@ -15,6 +15,7 @@
 package model
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -303,9 +304,9 @@ func TestFuzzServiceDeepCopy(t *testing.T) {
 	originalSvc := &Service{}
 	fuzzer.Fuzz(originalSvc)
 	copied := originalSvc.DeepCopy()
-	opts := []cmp.Option{cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex")}
-	if !cmp.Equal(originalSvc, copied, opts...) {
-		diff := cmp.Diff(originalSvc, copied, opts...)
+	if !reflect.DeepEqual(originalSvc, copied) {
+		cmp.AllowUnexported()
+		diff := cmp.Diff(originalSvc, copied, cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
 		t.Errorf("unexpected diff %v", diff)
 	}
 }

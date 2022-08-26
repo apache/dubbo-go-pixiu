@@ -207,8 +207,7 @@ func convertServices(cfg config.Config) []*model.Service {
 
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string,
-) []*model.Service {
+	ctime time.Time, labels map[string]string) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	lbls := labels
 	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
@@ -251,8 +250,7 @@ func ensureCanonicalServiceLabels(name string, srcLabels map[string]string) map[
 }
 
 func (s *Controller) convertEndpoint(service *model.Service, servicePort *networking.Port,
-	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID,
-) *model.ServiceInstance {
+	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID) *model.ServiceInstance {
 	var instancePort uint32
 	addr := wle.GetAddress()
 	// priority level: unixAddress > we.ports > se.port.targetPort > se.port.number
@@ -302,8 +300,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
 func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
-	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID,
-) []*model.ServiceInstance {
+	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
@@ -371,27 +368,20 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, serviceEntryServices []*model.Service,
-	serviceEntry *networking.ServiceEntry,
-) []*model.ServiceInstance {
+func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
+	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			// note: this is same as workloadentry handler
-			// endpoint port will first use the port defined in wle with same port name,
-			// if not port name not match, use the targetPort specified in ServiceEntry
-			// if both not matched, fallback to ServiceEntry port number.
-			var targetPort uint32
-			if port, ok := workloadInstance.PortMap[serviceEntryPort.Name]; ok && port > 0 {
-				targetPort = port
-			} else if serviceEntryPort.TargetPort > 0 {
-				targetPort = serviceEntryPort.TargetPort
-			} else {
-				targetPort = serviceEntryPort.Number
-			}
-			ep := *workloadInstance.Endpoint
+			ep := *workloadInstance
 			ep.ServicePortName = serviceEntryPort.Name
-			ep.EndpointPort = targetPort
+			// if target port is set, use the target port else fallback to the service port
+			// TODO: we need a way to get the container port map from k8s
+			if serviceEntryPort.TargetPort > 0 {
+				ep.EndpointPort = serviceEntryPort.TargetPort
+			} else {
+				ep.EndpointPort = serviceEntryPort.Number
+			}
 			ep.EnvoyEndpoint = nil
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    &ep,

@@ -23,14 +23,14 @@ import (
 func TestToYAML(t *testing.T) {
 	tests := []struct {
 		desc        string
-		inVals      any
+		inVals      interface{}
 		expectedOut string
 	}{
 		{
 			desc: "valid-yaml",
-			inVals: map[string]any{
+			inVals: map[string]interface{}{
 				"foo": "bar",
-				"yo": map[string]any{
+				"yo": map[string]interface{}{
 					"istio": "bar",
 				},
 			},
@@ -41,7 +41,7 @@ yo:
 		},
 		{
 			desc: "alphabetical",
-			inVals: map[string]any{
+			inVals: map[string]interface{}{
 				"foo": "yaml",
 				"abc": "f",
 			},
@@ -67,21 +67,21 @@ foo: yaml
 func TestOverlayTrees(t *testing.T) {
 	tests := []struct {
 		desc            string
-		inBase          map[string]any
-		inOverlays      map[string]any
-		expectedOverlay map[string]any
+		inBase          map[string]interface{}
+		inOverlays      map[string]interface{}
+		expectedOverlay map[string]interface{}
 		expectedErr     error
 	}{
 		{
 			desc: "overlay-valid",
-			inBase: map[string]any{
+			inBase: map[string]interface{}{
 				"foo": "bar",
 				"baz": "naz",
 			},
-			inOverlays: map[string]any{
+			inOverlays: map[string]interface{}{
 				"foo": "laz",
 			},
-			expectedOverlay: map[string]any{
+			expectedOverlay: map[string]interface{}{
 				"baz": "naz",
 				"foo": "laz",
 			},
@@ -89,14 +89,14 @@ func TestOverlayTrees(t *testing.T) {
 		},
 		{
 			desc: "overlay-key-does-not-exist",
-			inBase: map[string]any{
+			inBase: map[string]interface{}{
 				"foo": "bar",
 				"baz": "naz",
 			},
-			inOverlays: map[string]any{
+			inOverlays: map[string]interface{}{
 				"i-dont-exist": "i-really-dont-exist",
 			},
-			expectedOverlay: map[string]any{
+			expectedOverlay: map[string]interface{}{
 				"baz":          "naz",
 				"foo":          "bar",
 				"i-dont-exist": "i-really-dont-exist",
@@ -105,13 +105,13 @@ func TestOverlayTrees(t *testing.T) {
 		},
 		{
 			desc: "remove-key-val",
-			inBase: map[string]any{
+			inBase: map[string]interface{}{
 				"foo": "bar",
 			},
-			inOverlays: map[string]any{
+			inOverlays: map[string]interface{}{
 				"foo": nil,
 			},
-			expectedOverlay: map[string]any{},
+			expectedOverlay: map[string]interface{}{},
 			expectedErr:     nil,
 		},
 	}

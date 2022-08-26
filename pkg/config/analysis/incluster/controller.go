@@ -45,14 +45,13 @@ type Controller struct {
 }
 
 func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreController,
-	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string,
-) (*Controller, error) {
+	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string) (*Controller, error) {
 	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(),
 		"", resource.Namespace(namespace), func(name collection.Name) {}, true)
 	ia.AddSource(rwConfigStore)
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
 	store, err := crdclient.NewForSchemas(kubeClient, "default",
-		domainSuffix, "analysis-controller", collections.All.Remove(rwConfigStore.Schemas().All()...))
+		domainSuffix, collections.All.Remove(rwConfigStore.Schemas().All()...))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load common types for analysis, releasing lease: %v", err)
 	}
@@ -62,7 +61,7 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize analysis controller, releasing lease: %s", err)
 	}
-	ctl := statusManager.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus {
+	ctl := statusManager.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 		msgs := context.(diag.Messages)
 		// zero out analysis messages, as this is the sole controller for those
 		status.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}

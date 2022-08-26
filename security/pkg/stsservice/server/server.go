@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"strconv"
 	"time"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
@@ -82,14 +81,13 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	mux := http.NewServeMux()
 	mux.HandleFunc(TokenPath, s.ServeStsRequests)
 	mux.HandleFunc(StsStatusPath, s.DumpStsStatus)
-	hostPort := net.JoinHostPort(config.LocalHostAddr, strconv.Itoa(config.LocalPort))
 	s.stsServer = &http.Server{
-		Addr:        hostPort,
+		Addr:        fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort),
 		Handler:     mux,
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,
 	}
-	ln, err := net.Listen("tcp", hostPort)
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort))
 	if err != nil {
 		log.Errorf("Server failed to listen %v", err)
 		return nil, err

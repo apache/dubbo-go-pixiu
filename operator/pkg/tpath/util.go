@@ -27,7 +27,7 @@ import (
 
 // AddSpecRoot adds a root node called "spec" to the given tree and returns the resulting tree.
 func AddSpecRoot(tree string) (string, error) {
-	t, nt := make(map[string]any), make(map[string]any)
+	t, nt := make(map[string]interface{}), make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(tree), &t); err != nil {
 		return "", err
 	}
@@ -46,7 +46,7 @@ func GetSpecSubtree(yml string) (string, error) {
 
 // GetConfigSubtree returns the subtree at the given path.
 func GetConfigSubtree(manifest, path string) (string, error) {
-	root := make(map[string]any)
+	root := make(map[string]interface{})
 	if err := yaml2.Unmarshal([]byte(manifest), &root); err != nil {
 		return "", err
 	}

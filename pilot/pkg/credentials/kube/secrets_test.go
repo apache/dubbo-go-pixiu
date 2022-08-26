@@ -28,7 +28,6 @@ import (
 	cluster2 "github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
@@ -109,7 +108,11 @@ func TestSecretsController(t *testing.T) {
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client, "")
-	client.RunAndWait(test.NewStop(t))
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	client.RunAndWait(stop)
 	cases := []struct {
 		name            string
 		namespace       string
@@ -230,7 +233,11 @@ func TestDockerCredentials(t *testing.T) {
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client, "")
-	client.RunAndWait(test.NewStop(t))
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	client.RunAndWait(stop)
 	cases := []struct {
 		name                string
 		namespace           string

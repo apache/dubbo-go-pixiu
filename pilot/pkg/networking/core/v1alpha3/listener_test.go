@@ -41,7 +41,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -298,30 +297,6 @@ func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
 		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
-}
-
-func TestOutboundListenerConflict(t *testing.T) {
-	run := func(t *testing.T, s []*model.Service) {
-		proxy := getProxy()
-		proxy.DiscoverIPMode()
-		listeners := buildOutboundListeners(t, getProxy(), nil, nil, s...)
-		if len(listeners) != 1 {
-			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-		}
-	}
-	// Iterate over all protocol pairs and generate listeners
-	// ValidateListeners will be called on all of them ensuring they are valid
-	protos := []protocol.Instance{protocol.TCP, protocol.TLS, protocol.HTTP, protocol.Unsupported}
-	for _, older := range protos {
-		for _, newer := range protos {
-			t.Run(fmt.Sprintf("%v then %v", older, newer), func(t *testing.T) {
-				run(t, []*model.Service{
-					buildService("test1.com", wildcardIP, older, tnow.Add(-1*time.Second)),
-					buildService("test2.com", wildcardIP, newer, tnow),
-				})
-			})
-		}
-	}
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
@@ -2436,8 +2411,7 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 }
 
 func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *config.Config,
-	virtualService *config.Config, services ...*model.Service,
-) []*listener.Listener {
+	virtualService *config.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
 	cg := NewConfigGenTest(t, TestOptions{
 		Services:       services,
@@ -2661,7 +2635,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	tcpProxyFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 
 	tcpProxy = &tcp.TcpProxy{
@@ -2671,7 +2645,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	tcpProxyFilter2 := &listener.Filter{
 		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 
 	svcPort := &model.Port{

@@ -23,7 +23,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
@@ -32,7 +32,7 @@ import (
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
-func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
+func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
 	var wg sync.WaitGroup
 	numResources := len(resources)
 	wg.Add(numResources)
@@ -59,7 +59,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 	return sendNack.Load()
 }
 
-func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {
+func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
 	newExtensionConfig = resource
 	sendNack = false
@@ -160,9 +160,7 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 	if remote.Sha256 == "nil" {
 		remote.Sha256 = ""
 	}
-	// Default timeout. Without this if user does not specify a timeout in the config, it fails with deadline exceeded
-	// while building transport in go container.
-	timeout := time.Second * 5
+	timeout := time.Duration(0)
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
@@ -184,7 +182,7 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		},
 	}
 
-	wasmTypedConfig, err := anypb.New(wasmHTTPFilterConfig)
+	wasmTypedConfig, err := any.New(wasmHTTPFilterConfig)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new wasm HTTP filter %+v to protobuf Any: %v", wasmHTTPFilterConfig, err)
@@ -193,7 +191,7 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 	ec.TypedConfig = wasmTypedConfig
 	wasmLog.Debugf("new extension config resource %+v", ec)
 
-	nec, err := anypb.New(ec)
+	nec, err := any.New(ec)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new extension config resource: %v", err)

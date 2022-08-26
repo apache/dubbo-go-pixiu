@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/autoregistration"
 	configaggregate "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/gateway"
@@ -26,6 +25,7 @@ import (
 	ingressv1 "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingressv1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	configmonitor "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/monitor"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/controller/workloadentry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/leaderelection"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -74,9 +74,9 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
 	} else {
-		err := s.initK8SConfigStore(args)
-		if err != nil {
-			return err
+		err2 := s.initK8SConfigStore(args)
+		if err2 != nil {
+			return err2
 		}
 	}
 
@@ -213,7 +213,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.XDSServer.WorkloadEntryController = autoregistration.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
+	s.XDSServer.WorkloadEntryController = workloadentry.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
 	return nil
 }
 
@@ -321,7 +321,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	})
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 		if writeStatus {
-			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
+			s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, stop)
 		}
 		return nil
 	})
@@ -343,7 +343,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
-	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix, "crd-controller")
+	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix)
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

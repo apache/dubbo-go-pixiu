@@ -44,7 +44,7 @@ func TestNodeMetadata(t *testing.T) {
 			"empty",
 			model.BootstrapNodeMetadata{},
 			"{}",
-			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{Raw: map[string]any{}}},
+			model.BootstrapNodeMetadata{NodeMetadata: model.NodeMetadata{Raw: map[string]interface{}{}}},
 		},
 		{
 			"csvlists",
@@ -53,7 +53,7 @@ func TestNodeMetadata(t *testing.T) {
 			model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
 					InstanceIPs: []string{"abc", "1.2.3.4"},
-					Raw: map[string]any{
+					Raw: map[string]interface{}{
 						"INSTANCE_IPS": "abc,1.2.3.4",
 					},
 				},
@@ -66,8 +66,8 @@ func TestNodeMetadata(t *testing.T) {
 			model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
 					Labels: map[string]string{"foo": "bar"},
-					Raw: map[string]any{
-						"LABELS": map[string]any{
+					Raw: map[string]interface{}{
+						"LABELS": map[string]interface{}{
 							"foo": "bar",
 						},
 					},
@@ -106,15 +106,15 @@ func TestNodeMetadata(t *testing.T) {
 							},
 						},
 					}),
-					Raw: map[string]any{
-						"PROXY_CONFIG": map[string]any{
+					Raw: map[string]interface{}{
+						"PROXY_CONFIG": map[string]interface{}{
 							"drainDuration":          "5s",
 							"configPath":             "foo",
 							"controlPlaneAuthPolicy": "MUTUAL_TLS",
-							"envoyAccessLogService": map[string]any{
+							"envoyAccessLogService": map[string]interface{}{
 								"address": "address",
-								"tlsSettings": map[string]any{
-									"subjectAltNames": []any{"san"},
+								"tlsSettings": map[string]interface{}{
+									"subjectAltNames": []interface{}{"san"},
 								},
 							},
 						},
@@ -313,23 +313,23 @@ func TestServiceNode(t *testing.T) {
 func TestParseMetadata(t *testing.T) {
 	cases := []struct {
 		name     string
-		metadata map[string]any
+		metadata map[string]interface{}
 		out      *model.Proxy
 	}{
 		{
 			name: "Basic Case",
 			out: &model.Proxy{
 				Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
-				Metadata: &model.NodeMetadata{Raw: map[string]any{}},
+				Metadata: &model.NodeMetadata{Raw: map[string]interface{}{}},
 			},
 		},
 		{
 			name:     "Capture Arbitrary Metadata",
-			metadata: map[string]any{"foo": "bar"},
+			metadata: map[string]interface{}{"foo": "bar"},
 			out: &model.Proxy{
 				Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
 				Metadata: &model.NodeMetadata{
-					Raw: map[string]any{
+					Raw: map[string]interface{}{
 						"foo": "bar",
 					},
 				},
@@ -337,7 +337,7 @@ func TestParseMetadata(t *testing.T) {
 		},
 		{
 			name: "Capture Labels",
-			metadata: map[string]any{
+			metadata: map[string]interface{}{
 				"LABELS": map[string]string{
 					"foo": "bar",
 				},
@@ -345,8 +345,8 @@ func TestParseMetadata(t *testing.T) {
 			out: &model.Proxy{
 				Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
 				Metadata: &model.NodeMetadata{
-					Raw: map[string]any{
-						"LABELS": map[string]any{"foo": "bar"},
+					Raw: map[string]interface{}{
+						"LABELS": map[string]interface{}{"foo": "bar"},
 					},
 					Labels: map[string]string{"foo": "bar"},
 				},
@@ -354,13 +354,13 @@ func TestParseMetadata(t *testing.T) {
 		},
 		{
 			name: "Capture Pod Ports",
-			metadata: map[string]any{
+			metadata: map[string]interface{}{
 				"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
 			},
 			out: &model.Proxy{
 				Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
 				Metadata: &model.NodeMetadata{
-					Raw: map[string]any{
+					Raw: map[string]interface{}{
 						"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
 					},
 					PodPorts: []model.PodPort{
@@ -395,7 +395,7 @@ func TestParseMetadata(t *testing.T) {
 	}
 }
 
-func mapToStruct(msg map[string]any) (*structpb.Struct, error) {
+func mapToStruct(msg map[string]interface{}) (*structpb.Struct, error) {
 	if msg == nil {
 		return &structpb.Struct{}, nil
 	}

@@ -15,7 +15,6 @@
 package util
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"sort"
@@ -29,6 +28,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -77,6 +77,18 @@ const (
 	// which determines the endpoint level transport socket configuration.
 	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
 
+	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
+	// endpoint level plantext transport socket configuration
+	EnvoyRawBufferSocketName = wellknown.TransportSocketRawBuffer
+
+	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
+	// level tls transport socket configuration
+	EnvoyTLSSocketName = wellknown.TransportSocketTls
+
+	// EnvoyQUICSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
+	// level QUIC transport socket configuration
+	EnvoyQUICSocketName = wellknown.TransportSocketQuic
+
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
 )
@@ -111,6 +123,9 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
+
+// ALPNDownstream advertises that Proxy is going to talk http2 or http 1.1.
+var ALPNDownstream = []string{"h2", "http/1.1"}
 
 // RegexEngine is the default google RE2 regex engine.
 var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
@@ -189,6 +204,29 @@ func BuildNetworkAddress(bind string, port uint32, transport istionetworking.Tra
 	}
 }
 
+// MessageToAnyWithError converts from proto message to proto Any
+func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &anypb.Any{
+		// nolint: staticcheck
+		TypeUrl: "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName()),
+		Value:   b,
+	}, nil
+}
+
+// MessageToAny converts from proto message to proto Any
+func MessageToAny(msg proto.Message) *anypb.Any {
+	out, err := MessageToAnyWithError(msg)
+	if err != nil {
+		log.Error(fmt.Sprintf("error marshaling Any %s: %v", prototext.Format(msg), err))
+		return nil
+	}
+	return out
+}
+
 // SortVirtualHosts sorts a slice of virtual hosts by name.
 //
 // Envoy computes a hash of RDS to see if things have changed - hash is affected by order of elements in the filter. Therefore
@@ -206,12 +244,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 func IsIstioVersionGE114(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 14, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE115 checks whether the given Istio version is greater than or equals 1.15.
-func IsIstioVersionGE115(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 15, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -255,18 +287,6 @@ func LocalityToString(l *core.Locality) string {
 	}
 	resp += "/" + l.SubZone
 	return resp
-}
-
-// GetFailoverPriorityLabels returns a byte array which contains failover priorities of the proxy.
-func GetFailoverPriorityLabels(proxyLabels map[string]string, priorities []string) []byte {
-	var b bytes.Buffer
-	for _, key := range priorities {
-		b.WriteString(key)
-		b.WriteRune(':')
-		b.WriteString(proxyLabels[key])
-		b.WriteRune(' ')
-	}
-	return b.Bytes()
 }
 
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
@@ -426,8 +446,7 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, labels labels.Instance,
-) *core.Metadata {
+	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
 		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
 		return nil

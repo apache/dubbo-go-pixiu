@@ -260,7 +260,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	clusterID := cluster.ID(fmt.Sprintf("cluster%d", networkNum))
 	networkID := network.ID(fmt.Sprintf("network%d", networkNum))
 	memRegistry := memory.NewServiceDiscovery()
-	memRegistry.XdsUpdater = server.Discovery
+	memRegistry.EDSUpdater = server.Discovery
 
 	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(serviceregistry.Simple{
 		ClusterID:        clusterID,

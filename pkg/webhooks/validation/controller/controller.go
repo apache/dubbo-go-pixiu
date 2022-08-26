@@ -100,8 +100,7 @@ type Controller struct {
 
 // NewValidatingWebhookController creates a new Controller.
 func NewValidatingWebhookController(client kube.Client,
-	revision, ns string, caBundleWatcher *keycertbundle.Watcher,
-) *Controller {
+	revision, ns string, caBundleWatcher *keycertbundle.Watcher) *Controller {
 	o := Options{
 		WatchedNamespace: ns,
 		CABundleWatcher:  caBundleWatcher,
@@ -138,7 +137,7 @@ func filterWatchedObject(obj metav1.Object) (skip bool, key string) {
 
 func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.ResourceEventHandlerFuncs {
 	return &cache.ResourceEventHandlerFuncs{
-		AddFunc: func(curr any) {
+		AddFunc: func(curr interface{}) {
 			obj, err := meta.Accessor(curr)
 			if err != nil {
 				return
@@ -155,7 +154,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			}
 			queue.Add(req)
 		},
-		UpdateFunc: func(prev, curr any) {
+		UpdateFunc: func(prev, curr interface{}) {
 			currObj, err := meta.Accessor(curr)
 			if err != nil {
 				return
@@ -201,11 +200,11 @@ func newController(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
+				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
+				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
 		&kubeApiAdmission.ValidatingWebhookConfiguration{}, 0, cache.Indexers{},
@@ -219,7 +218,7 @@ func newController(
 func (c *Controller) Run(stop <-chan struct{}) {
 	defer c.queue.ShutDown()
 	go c.webhookInformer.Run(stop)
-	if !kube.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
+	if !cache.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
 		return
 	}
 	go c.startCaBundleWatcher(stop)
@@ -317,8 +316,7 @@ func (c *Controller) updateAll() {
 func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	configuration, err := c.client.Kube().
-		AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
+	configuration, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
 			scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
@@ -407,8 +405,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmission.ValidatingWebhookConfiguration,
-	caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType,
-) error {
+	caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
 	dirty := false
 	for i := range current.Webhooks {
 		if !bytes.Equal(current.Webhooks[i].ClientConfig.CABundle, caBundle) ||
@@ -428,7 +425,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 		updated.Webhooks[i].FailurePolicy = &failurePolicy
 	}
 
-	latest, err := c.client.Kube().AdmissionregistrationV1().
+	latest, err := c.client.AdmissionregistrationV1().
 		ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
 	if err != nil {
 		scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",

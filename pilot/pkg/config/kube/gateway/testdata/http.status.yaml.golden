@@ -36,26 +36,26 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - attachedRoutes: 5
+  - attachedRoutes: 4
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: default
@@ -75,14 +75,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -100,14 +95,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: no hostnames matched parent hostname "*.domain.example"
-      reason: NoMatchingListenerHostname
+      reason: InvalidParentReference
       status: "False"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -125,14 +115,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -150,14 +135,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -175,39 +155,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: rewrite
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway

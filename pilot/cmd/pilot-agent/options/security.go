@@ -44,7 +44,6 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		ServiceAccount:                 serviceAccountVar.Get(),
 		XdsAuthProvider:                xdsAuthProvider.Get(),
 		TrustDomain:                    trustDomainEnv,
-		WorkloadRSAKeySize:             workloadRSAKeySizeEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,
 		SecretTTL:                      secretTTLEnv,
@@ -76,8 +75,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 }
 
 func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.Options, jwtPolicy,
-	credFetcherTypeEnv, credIdentityProvider string,
-) (*security.Options, error) {
+	credFetcherTypeEnv, credIdentityProvider string) (*security.Options, error) {
 	var jwtPath string
 	switch jwtPolicy {
 	case jwt.PolicyThirdParty:

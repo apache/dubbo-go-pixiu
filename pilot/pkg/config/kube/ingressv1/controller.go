@@ -102,18 +102,16 @@ var errUnsupportedOp = errors.New("unsupported operation: the ingress config sto
 
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
-	options kubecontroller.Options,
-) model.ConfigStoreController {
+	options kubecontroller.Options) model.ConfigStoreController {
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
 	ingressInformer := client.KubeInformer().Networking().V1().Ingresses()
-	_ = ingressInformer.Informer().SetTransform(kube.StripUnusedFields)
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	classes := client.KubeInformer().Networking().V1().IngressClasses()
-	_ = classes.Informer().SetTransform(kube.StripUnusedFields)
+	classes.Informer()
 
 	c := &controller{
 		meshWatcher:     meshWatcher,
@@ -274,7 +272,7 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortIngressByCreationTime(configs []any) []*knetworking.Ingress {
+func sortIngressByCreationTime(configs []interface{}) []*knetworking.Ingress {
 	ingr := make([]*knetworking.Ingress, 0, len(configs))
 	for _, i := range configs {
 		ingr = append(ingr, i.(*knetworking.Ingress))

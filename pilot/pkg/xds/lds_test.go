@@ -29,6 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
+	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/tests/util"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -39,7 +40,6 @@ func TestLDSIsolated(t *testing.T) {
 
 	// Sidecar in 'none' mode
 	t.Run("sidecar_none", func(t *testing.T) {
-		wd := t.TempDir()
 		adscon := s.Connect(&model.Proxy{
 			Metadata: &model.NodeMetadata{
 				InterceptionMode: model.InterceptionNone,
@@ -49,7 +49,7 @@ func TestLDSIsolated(t *testing.T) {
 			ConfigNamespace: "none",
 		}, nil, watchAll)
 
-		err := adscon.Save(wd + "/none")
+		err := adscon.Save(env.IstioOut + "/none")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,7 +69,7 @@ func TestLDSIsolated(t *testing.T) {
 		}
 
 		for _, s := range []string{"lds_tcp", "lds_http", "rds", "cds", "ecds"} {
-			want, err := os.ReadFile(wd + "/none_" + s + ".json")
+			want, err := os.ReadFile(env.IstioOut + "/none_" + s + ".json")
 			if err != nil {
 				t.Fatal(err)
 			}

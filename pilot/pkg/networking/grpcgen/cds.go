@@ -24,7 +24,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	corexds "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	networking "istio.io/api/networking/v1alpha3"
@@ -48,7 +48,7 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	for _, c := range clusters {
 		resp = append(resp, &discovery.Resource{
 			Name:     c.Name,
-			Resource: protoconv.MessageToAny(c),
+			Resource: util.MessageToAny(c),
 		})
 	}
 	if len(resp) == 0 && len(names) == 0 {
@@ -177,7 +177,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 
 	// resolve policy from context
 	destinationRule := corexds.CastDestinationRule(b.node.SidecarScope.DestinationRule(
-		model.TrafficDirectionOutbound, b.node, b.svc.Hostname).GetRule())
+		model.TrafficDirectionOutbound, b.node, b.svc.Hostname))
 	trafficPolicy := corexds.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
@@ -239,7 +239,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts[b.hostname][b.portNum])
 		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsCtx)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsCtx)},
 		}
 	}
 }

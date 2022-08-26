@@ -351,7 +351,8 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
-							NonceSent: "nonce",
+							VersionSent: "v1",
+							NonceSent:   "nonce",
 						},
 					},
 				},
@@ -364,33 +365,13 @@ func TestShouldRespond(t *testing.T) {
 			response: false,
 		},
 		{
-			name: "ack forced",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							AlwaysRespond: true,
-							ResourceNames: []string{"my-resource"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{"my-resource"},
-			},
-			response: true,
-		},
-		{
 			name: "nack",
 			connection: &Connection{
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
-							NonceSent: "nonce",
+							VersionSent: "v1",
+							NonceSent:   "nonce",
 						},
 					},
 				},
@@ -422,6 +403,7 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
+							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster1"},
 						},
@@ -442,6 +424,7 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
+							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster2", "cluster1"},
 						},
@@ -462,6 +445,7 @@ func TestShouldRespond(t *testing.T) {
 				proxy: &model.Proxy{
 					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
+							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster2", "cluster1"},
 						},

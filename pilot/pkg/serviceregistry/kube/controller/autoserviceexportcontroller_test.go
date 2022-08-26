@@ -32,7 +32,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -63,17 +62,20 @@ func TestServiceExportController(t *testing.T) {
 		ClusterLocal: env.ClusterLocal(),
 	})
 
-	stop := test.NewStop(t)
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	client.RunAndWait(stop)
 	sc.Run(stop)
 
 	t.Run("exportable", func(t *testing.T) {
-		createSimpleService(t, client.Kube(), "exportable-ns", "foo")
+		createSimpleService(t, client, "exportable-ns", "foo")
 		assertServiceExport(t, client, "exportable-ns", "foo", true)
 	})
 
 	t.Run("unexportable", func(t *testing.T) {
-		createSimpleService(t, client.Kube(), "unexportable-ns", "foo")
+		createSimpleService(t, client, "unexportable-ns", "foo")
 		assertServiceExport(t, client, "unexportable-ns", "foo", false)
 	})
 
@@ -105,7 +107,7 @@ func TestServiceExportController(t *testing.T) {
 
 		// create the associated service
 		// no need for assertions, just trying to ensure no errors
-		createSimpleService(t, client.Kube(), "exportable-ns", "manual-export")
+		createSimpleService(t, client, "exportable-ns", "manual-export")
 
 		// assert that we didn't wipe out the pre-existing serviceexport status
 		assertServiceExportHasCondition(t, client, "exportable-ns", "manual-export",

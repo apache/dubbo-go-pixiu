@@ -18,8 +18,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 
 // NdsGenerator Nds stands for Name Discovery Service. Istio agents send NDS requests to istiod
@@ -34,17 +35,17 @@ type NdsGenerator struct {
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
 // Map of all configs that do not impact NDS
-var skippedNdsConfigs = map[kind.Kind]struct{}{
-	kind.Gateway:               {},
-	kind.VirtualService:        {},
-	kind.DestinationRule:       {},
-	kind.EnvoyFilter:           {},
-	kind.WorkloadEntry:         {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.PeerAuthentication:    {},
-	kind.WasmPlugin:            {},
+var skippedNdsConfigs = map[config.GroupVersionKind]struct{}{
+	gvk.Gateway:               {},
+	gvk.VirtualService:        {},
+	gvk.DestinationRule:       {},
+	gvk.EnvoyFilter:           {},
+	gvk.WorkloadEntry:         {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
+	gvk.PeerAuthentication:    {},
+	gvk.WasmPlugin:            {},
 }
 
 func ndsNeedsPush(req *model.PushRequest) bool {
@@ -75,6 +76,6 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	if nt == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	resources := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
+	resources := model.Resources{&discovery.Resource{Resource: util.MessageToAny(nt)}}
 	return resources, model.DefaultXdsLogDetails, nil
 }

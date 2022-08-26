@@ -26,7 +26,6 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/reserveport"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"istio.io/api/networking/v1alpha3"
@@ -145,7 +144,10 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 		}, nil, []string{"127.0.0.1"}, false)
 		// Speed up tests
 		httpHealthChecker.config.CheckFrequency = time.Millisecond
-		quitChan := test.NewStop(t)
+		quitChan := make(chan struct{})
+		t.Cleanup(func() {
+			close(quitChan)
+		})
 		expectedHTTPEvents := [4]*ProbeEvent{
 			{Healthy: true},
 			{Healthy: false},

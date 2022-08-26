@@ -29,7 +29,6 @@ import (
 	kubesr "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
 )
 
@@ -55,7 +54,6 @@ type serviceExportCache interface {
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
 		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
-		_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
 		ec := &serviceExportCacheImpl{
 			Controller: c,
 			informer:   dInformer.Informer(),
@@ -112,7 +110,7 @@ type serviceExportCacheImpl struct {
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
-func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Event) error {
+func (ec *serviceExportCacheImpl) onServiceExportEvent(obj interface{}, event model.Event) error {
 	se, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)

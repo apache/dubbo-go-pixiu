@@ -21,7 +21,6 @@ const (
 	// For remote fetch metric.
 	fetchSuccess     = "success"
 	downloadFailure  = "download_failure"
-	manifestFailure  = "manifest_failure"
 	checksumMismatch = "checksum_mismatched"
 
 	// For Wasm conversion metric.

@@ -30,7 +30,6 @@ import (
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -179,7 +178,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
+					{Kind: gvk.AuthorizationPolicy}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
@@ -192,8 +191,8 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-					{Kind: kind.WasmPlugin}:          {},
+					{Kind: gvk.AuthorizationPolicy}: {},
+					{Kind: gvk.WasmPlugin}:          {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -206,8 +205,8 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-					{Kind: kind.Secret}:              {},
+					{Kind: gvk.AuthorizationPolicy}: {},
+					{Kind: gvk.Secret}:              {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -220,7 +219,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -233,7 +232,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -248,7 +247,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},

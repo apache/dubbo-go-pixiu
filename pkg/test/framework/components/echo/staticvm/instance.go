@@ -97,7 +97,7 @@ func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error
 }
 
 func getClusterIP(config echo.Config) (string, error) {
-	svc, err := config.Cluster.Primary().Kube().CoreV1().
+	svc, err := config.Cluster.Primary().CoreV1().
 		Services(config.Namespace.Name()).Get(context.TODO(), config.Service, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -115,26 +115,6 @@ func (i *instance) NamespacedName() echo.NamespacedName {
 
 func (i *instance) PortForName(name string) echo.Port {
 	return i.Config().Ports.MustForName(name)
-}
-
-func (i *instance) ServiceName() string {
-	return i.Config().Service
-}
-
-func (i *instance) NamespaceName() string {
-	return i.Config().NamespaceName()
-}
-
-func (i *instance) ServiceAccountName() string {
-	return i.Config().ServiceAccountName()
-}
-
-func (i *instance) ClusterLocalFQDN() string {
-	return i.Config().ClusterLocalFQDN()
-}
-
-func (i *instance) ClusterSetLocalFQDN() string {
-	return i.Config().ClusterSetLocalFQDN()
 }
 
 func (i *instance) Config() echo.Config {
@@ -219,10 +199,6 @@ func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echo.CallRes
 		t.Fatal(err)
 	}
 	return res
-}
-
-func (i *instance) UpdateWorkloadLabel(add map[string]string, remove []string) error {
-	panic("cannot trigger UpdateWorkloadLabel of a static VM")
 }
 
 func (i *instance) Restart() error {

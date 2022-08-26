@@ -46,7 +46,7 @@ spec:
     pilot:
       plugins:
         - aa
-        - bb`,
+        - bb `,
 			expectedProfile: "",
 			expectedErr:     nil,
 		},

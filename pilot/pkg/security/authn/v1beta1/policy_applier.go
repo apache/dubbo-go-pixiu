@@ -16,7 +16,6 @@ package v1beta1
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -33,10 +32,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn"
 	authn_utils "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn/utils"
 	authn_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	authn_alpha "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
@@ -73,7 +73,7 @@ func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	}
 	return &http_conn.HttpFilter{
 		Name:       authn_model.EnvoyJwtFilterName,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
 }
 
@@ -143,11 +143,11 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilte
 
 	return &http_conn.HttpFilter{
 		Name:       authn_model.AuthnFilterName,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) authn.MTLSSettings {
+func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
 	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	var mc *meshconfig.MeshConfig
@@ -156,7 +156,7 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 	}
 	// Configure TLS version based on meshconfig TLS API.
 	minTLSVersion := authn_utils.GetMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
-	return authn.MTLSSettings{
+	return plugin.MTLSSettings{
 		Port: endpointPort,
 		Mode: effectiveMTLSMode,
 		TCP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP,
@@ -240,12 +240,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			// TODO: Implement the logic to auto-generate the cluster so that when the flag is enabled,
 			// it will always let envoy to fetch the jwks for consistent behavior.
 			u, _ := url.Parse(jwtRule.JwksUri)
-			host, hostPort, _ := net.SplitHostPort(u.Host)
+			hostAndPort := strings.Split(u.Host, ":")
+			host := hostAndPort[0]
 			// TODO: Default port based on scheme ?
 			port := 80
-			if hostPort != "" {
+			if len(hostAndPort) == 2 {
 				var err error
-				if port, err = strconv.Atoi(hostPort); err != nil {
+				if port, err = strconv.Atoi(hostAndPort[1]); err != nil {
 					port = 80 // If port is not specified or there is an error in parsing default to 80.
 				}
 			}

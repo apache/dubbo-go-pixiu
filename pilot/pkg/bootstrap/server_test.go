@@ -136,9 +136,7 @@ func TestNewServerCertInit(t *testing.T) {
 				p.ShutdownDuration = 1 * time.Millisecond
 			})
 			g := NewWithT(t)
-			s, err := NewServer(args, func(s *Server) {
-				s.kubeClient = kube.NewFakeClient()
-			})
+			s, err := NewServer(args)
 			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())
@@ -249,12 +247,12 @@ func TestNewServer(t *testing.T) {
 		{
 			name:           "default domain",
 			domain:         "",
-			expectedDomain: constants.DefaultClusterLocalDomain,
+			expectedDomain: constants.DefaultKubernetesDomain,
 		},
 		{
 			name:           "default domain with JwtRule",
 			domain:         "",
-			expectedDomain: constants.DefaultClusterLocalDomain,
+			expectedDomain: constants.DefaultKubernetesDomain,
 			jwtRule:        `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`,
 		},
 		{
@@ -265,7 +263,7 @@ func TestNewServer(t *testing.T) {
 		{
 			name:             "override default secured grpc port",
 			domain:           "",
-			expectedDomain:   constants.DefaultClusterLocalDomain,
+			expectedDomain:   constants.DefaultKubernetesDomain,
 			enableSecureGRPC: true,
 		},
 	}
@@ -306,9 +304,7 @@ func TestNewServer(t *testing.T) {
 			})
 
 			g := NewWithT(t)
-			s, err := NewServer(args, func(s *Server) {
-				s.kubeClient = kube.NewFakeClient()
-			})
+			s, err := NewServer(args)
 			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())

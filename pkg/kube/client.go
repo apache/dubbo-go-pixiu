@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -69,7 +69,6 @@ import (
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
@@ -88,7 +87,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -145,9 +143,6 @@ type Client interface {
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
-
-	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
-	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
 
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
@@ -208,12 +203,7 @@ type ExtendedClient interface {
 
 	// UtilFactory returns a kubectl factory
 	UtilFactory() util.Factory
-
-	// SetPortManager overrides the default port manager to provision local ports
-	SetPortManager(PortManager)
 }
-
-type PortManager func() (uint16, error)
 
 var (
 	_ Client         = &client{}
@@ -227,8 +217,9 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 	}
-	c.kube = fake.NewSimpleClientset(objects...)
-	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
+	c.Interface = fake.NewSimpleClientset(objects...)
+	c.kube = c.Interface
+	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 	s := FakeIstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
@@ -279,7 +270,8 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 		c.istio.(*istiofake.Clientset),
 		c.gatewayapi.(*gatewayapifake.Clientset),
 		c.dynamic.(*dynamicfake.FakeDynamicClient),
-		c.metadata.(*metadatafake.FakeMetadataClient),
+		// TODO: send PR to client-go to add Tracker()
+		// c.metadata.(*metadatafake.FakeMetadataClient),
 	} {
 		fc.PrependReactor("list", "*", listReactor)
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
@@ -318,6 +310,7 @@ type fakeClient interface {
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {
 	kubernetes.Interface
+
 	clientFactory util.Factory
 	config        *rest.Config
 
@@ -354,8 +347,6 @@ type client struct {
 
 	versionOnce sync.Once
 	version     *kubeVersion.Info
-
-	portManager PortManager
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -386,14 +377,12 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 
-	config := rest.CopyConfig(c.config)
-	config.ContentType = runtime.ContentTypeProtobuf
-
-	c.kube, err = kubernetes.NewForConfig(c.config)
+	c.Interface, err = kubernetes.NewForConfig(c.config)
+	c.kube = c.Interface
 	if err != nil {
 		return nil, err
 	}
-	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
+	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 
 	c.metadata, err = metadata.NewForConfig(c.config)
 	if err != nil {
@@ -424,8 +413,6 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
-
-	c.portManager = defaultAvailablePort
 
 	return &c, nil
 }
@@ -549,7 +536,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	c.versionOnce.Do(func() {
-		v, err := c.kube.Discovery().ServerVersion()
+		v, err := c.Discovery().ServerVersion()
 		if err == nil {
 			c.version = v
 		}
@@ -558,7 +545,7 @@ func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 		return c.version, nil
 	}
 	// Initial attempt failed, retry on each call to this function
-	v, err := c.kube.Discovery().ServerVersion()
+	v, err := c.Discovery().ServerVersion()
 	if err != nil {
 		c.version = v
 	}
@@ -593,61 +580,6 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerS
 	})
 }
 
-// WaitForCacheSync waits until all caches are synced. This will return true only if things synced
-// successfully before the stop channel is closed. This function also lives in the Kubernetes cache
-// library. However, that library will poll with 100ms fixed interval. Often the cache syncs in a few
-// ms, but we are delayed a full 100ms. This is especially apparent in tests, which previously spent
-// most of their time just in the 100ms wait interval.
-//
-// To optimize this, this function performs exponential backoff. This is generally safe because
-// cache.InformerSynced functions are ~always quick to run. However, if the sync functions do perform
-// expensive checks this function may not be suitable.
-func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
-	max := time.Millisecond * 100
-	delay := time.Millisecond
-	f := func() bool {
-		for _, syncFunc := range cacheSyncs {
-			if !syncFunc() {
-				return false
-			}
-		}
-		return true
-	}
-	for {
-		select {
-		case <-stop:
-			return false
-		default:
-		}
-		res := f()
-		if res {
-			return true
-		}
-		delay *= 2
-		if delay > max {
-			delay = max
-		}
-		select {
-		case <-stop:
-			return false
-		case <-time.After(delay):
-		}
-	}
-}
-
-// WaitForCacheSync is a specialized version of the general WaitForCacheSync function which also
-// handles fake client syncing.
-// This is only required in cases where fake clients are used without RunAndWait.
-func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
-	if c.informerWatchesPending == nil {
-		return WaitForCacheSync(stop, cacheSyncs...)
-	}
-	syncFns := append(cacheSyncs, func() bool {
-		return c.informerWatchesPending.Load() == 0
-	})
-	return WaitForCacheSync(stop, syncFns...)
-}
-
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
@@ -664,6 +596,21 @@ func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicIn
 		}
 		return true, nil
 	})
+}
+
+// WaitForCacheSyncInterval waits for caches to populate, with explicitly configured interval
+func WaitForCacheSyncInterval(stopCh <-chan struct{}, interval time.Duration, cacheSyncs ...cache.InformerSynced) bool {
+	err := wait.PollImmediateUntil(interval,
+		func() (bool, error) {
+			for _, syncFunc := range cacheSyncs {
+				if !syncFunc() {
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+		stopCh)
+	return err == nil
 }
 
 func (c *client) Revision() string {
@@ -730,7 +677,7 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 		Container: container,
 		Previous:  previousLog,
 	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
+	res, err := c.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -839,6 +786,18 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	return list.Items, nil
 }
 
+// ExtractExecResult wraps PodExec and return the execution result and error if has any.
+func (c *client) extractExecResult(podName, podNamespace, container, cmd string) (string, error) {
+	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
+	if err != nil {
+		if stderr != "" {
+			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podNamespace, podName, container, err, stderr)
+		}
+		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podNamespace, podName, container, err)
+	}
+	return stdout, nil
+}
+
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
 		"labelSelector": "app=istiod",
@@ -859,7 +818,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 
 		// :15014/version returns something like
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
-		result, err := c.kube.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
+		result, err := c.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
 		if err != nil {
 			bi, execErr := c.getIstioVersionUsingExec(&pod)
 			if execErr != nil {
@@ -930,11 +889,11 @@ func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, erro
 }
 
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
-	return newPortForwarder(c, podName, ns, localAddress, localPort, podPort)
+	return newPortForwarder(c.config, podName, ns, localAddress, localPort, podPort)
 }
 
 func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {
-	return c.kube.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+	return c.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: strings.Join(labelSelectors, ","),
 	})
 }
@@ -962,8 +921,7 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 }
 
 func (c *client) CreatePerRPCCredentials(_ context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
-	expirationSeconds int64,
-) (credentials.PerRPCCredentials, error) {
+	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
 	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds, 60)
 }
 
@@ -985,8 +943,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		return err
 	}
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun)
-	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamFieldValidation)
+	opts.DryRunVerifier = resource.NewDryRunVerifier(c.dynamic, c.discoveryClient)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -1018,7 +975,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
-	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict, opts.FieldValidationVerifier)
+	opts.Validator, err = c.clientFactory.Validator(true)
 	if err != nil {
 		return err
 	}
@@ -1034,10 +991,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	}
 	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
 	if !dryRun {
-		f, err := os.ReadFile(file)
-		if err != nil {
-			log.Warnf("Failed to read %s: %v", file, err)
-		}
+		f, _ := ioutil.ReadFile(file)
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
 			c.discoveryClient.Invalidate()
 		}
@@ -1105,9 +1059,8 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 		WaitForDeletion:   true,
 		WarnClusterScope:  enforceNamespace,
 		DynamicClient:     c.dynamic,
-		DryRunVerifier:    resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun),
-
-		IOStreams: streams,
+		DryRunVerifier:    resource.NewDryRunVerifier(c.dynamic, c.discoveryClient),
+		IOStreams:         streams,
 	}
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -1138,10 +1091,6 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 		return fmt.Errorf("%v: %s", err, s)
 	}
 	return nil
-}
-
-func (c *client) SetPortManager(manager PortManager) {
-	c.portManager = manager
 }
 
 func closeQuietly(c io.Closer) {
@@ -1190,7 +1139,6 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
-	utilruntime.Must(gatewayapibeta.AddToScheme(scheme))
 	utilruntime.Must(apis.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
@@ -1211,18 +1159,4 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	} else {
 		serverInfo.Version = istioInfo
 	}
-}
-
-func defaultAvailablePort() (uint16, error) {
-	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("127.0.0.1", "0"))
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	return uint16(port), l.Close()
 }

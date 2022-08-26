@@ -23,7 +23,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -45,11 +45,11 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 		},
 	}
 	// delegate virtual service
-	delegate := model.ConfigKey{Kind: kind.VirtualService, Name: "delegate", Namespace: "default"}
+	delegate := model.ConfigKey{Kind: gvk.VirtualService, Name: "delegate", Namespace: "default"}
 	// rds cache entry
 	entry := Cache{
 		VirtualServices:         []config.Config{root},
-		DelegateVirtualServices: []model.ConfigHash{delegate.HashCode()},
+		DelegateVirtualServices: []model.ConfigKey{delegate},
 		ListenerPort:            8080,
 	}
 	resource := &discovery.Resource{Name: "bar"}
@@ -71,7 +71,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 
 	// add resource to cache
 	xdsCache.Add(&entry, &model.PushRequest{Start: time.Now()}, resource)
-	irrelevantDelegate := model.ConfigKey{Kind: kind.VirtualService, Name: "foo", Namespace: "default"}
+	irrelevantDelegate := model.ConfigKey{Kind: gvk.VirtualService, Name: "foo", Namespace: "default"}
 
 	// don't clear cache when irrelevant delegate virtual service is updated
 	xdsCache.Clear(map[model.ConfigKey]struct{}{

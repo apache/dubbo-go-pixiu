@@ -20,14 +20,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +35,7 @@ import (
 )
 
 type flagState interface {
-	run(out io.Writer) error
+	run() (string, error)
 }
 
 var (
@@ -51,14 +49,14 @@ type resetState struct {
 	client *ControlzClient
 }
 
-func (rs *resetState) run(_ io.Writer) error {
+func (rs *resetState) run() (string, error) {
 	const (
 		defaultOutputLevel     = "info"
 		defaultStackTraceLevel = "none"
 	)
 	allScopes, err := rs.client.GetScopes()
 	if err != nil {
-		return fmt.Errorf("could not get all scopes: %v", err)
+		return "", fmt.Errorf("could not get all scopes: %v", err)
 	}
 	var defaultScopes []*ScopeInfo
 	for _, scope := range allScopes {
@@ -70,10 +68,10 @@ func (rs *resetState) run(_ io.Writer) error {
 	}
 	err = rs.client.PutScopes(defaultScopes)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return "", nil
 }
 
 type logLevelState struct {
@@ -81,16 +79,16 @@ type logLevelState struct {
 	outputLogLevel string
 }
 
-func (ll *logLevelState) run(_ io.Writer) error {
+func (ll *logLevelState) run() (string, error) {
 	scopeInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = ll.client.PutScopes(scopeInfos)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return "", nil
 }
 
 type stackTraceLevelState struct {
@@ -98,16 +96,16 @@ type stackTraceLevelState struct {
 	stackTraceLevel string
 }
 
-func (stl *stackTraceLevelState) run(_ io.Writer) error {
+func (stl *stackTraceLevelState) run() (string, error) {
 	scopeInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(stl.stackTraceLevel)
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = stl.client.PutScopes(scopeInfos)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return "", nil
 }
 
 type getAllLogLevelsState struct {
@@ -115,56 +113,49 @@ type getAllLogLevelsState struct {
 	outputFormat string
 }
 
-func (ga *getAllLogLevelsState) run(out io.Writer) error {
+func (ga *getAllLogLevelsState) run() (string, error) {
 	type scopeLogLevel struct {
-		ScopeName   string `json:"scope_name"`
-		LogLevel    string `json:"log_level"`
-		Description string `json:"description"`
+		ScopeName string `json:"scope_name"`
+		LogLevel  string `json:"log_level"`
 	}
 	allScopes, err := ga.client.GetScopes()
 	sort.Slice(allScopes, func(i, j int) bool {
 		return allScopes[i].Name < allScopes[j].Name
 	})
 	if err != nil {
-		return fmt.Errorf("could not get scopes information: %v", err)
+		return "", fmt.Errorf("could not get scopes information: %v", err)
 	}
 	var resultScopeLogLevel []*scopeLogLevel
 	for _, scope := range allScopes {
-		resultScopeLogLevel = append(resultScopeLogLevel,
-			&scopeLogLevel{
-				ScopeName:   scope.Name,
-				LogLevel:    scope.OutputLevel,
-				Description: scope.Description,
-			},
-		)
+		resultScopeLogLevel = append(resultScopeLogLevel, &scopeLogLevel{ScopeName: scope.Name, LogLevel: scope.OutputLevel})
 	}
+	var output strings.Builder
 	switch ga.outputFormat {
 	case "short":
-		w := new(tabwriter.Writer).Init(out, 0, 8, 3, ' ', 0)
-		_, _ = fmt.Fprintln(w, "ACTIVE SCOPE\tDESCRIPTION\tLOG LEVEL")
+		output.Write([]byte("Active scopes:\n"))
 		for _, sll := range resultScopeLogLevel {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", sll.ScopeName, sll.Description, sll.LogLevel)
+			_, _ = fmt.Fprintf(&output, "  %s:%s\n", sll.ScopeName, sll.LogLevel)
 		}
-		return w.Flush()
 	case "json":
 		outputBytes, err := json.MarshalIndent(&resultScopeLogLevel, "", "  ")
 		outputBytes = append(outputBytes, []byte("\n")...)
 		if err != nil {
-			return err
+			return "", err
 		}
-		_, err = out.Write(outputBytes)
-		return err
+		output.Write(outputBytes)
 	default:
-		return fmt.Errorf("output format %q not supported", ga.outputFormat)
+		return "", fmt.Errorf("output format %q not supported", ga.outputFormat)
 	}
+	return output.String(), nil
 }
 
 type istiodConfigLog struct {
 	state flagState
 }
 
-func (id *istiodConfigLog) execute(out io.Writer) error {
-	return id.state.run(out)
+func (id *istiodConfigLog) execute() (string, error) {
+	output, err := id.state.run()
+	return output, err
 }
 
 func chooseClientFlag(ctrzClient *ControlzClient, reset bool, outputLogLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
@@ -450,7 +441,13 @@ func istiodLogCmd() *cobra.Command {
 				httpClient: &http.Client{},
 			}
 			istiodConfigCmd := chooseClientFlag(ctrlzClient, istiodReset, outputLogLevel, stackTraceLevel, outputFormat)
-			err = istiodConfigCmd.execute(logCmd.OutOrStdout())
+			output, err := istiodConfigCmd.execute()
+			if output != "" {
+				_, err := logCmd.OutOrStdout().Write([]byte(output))
+				if err != nil {
+					return err
+				}
+			}
 			if err != nil {
 				return err
 			}

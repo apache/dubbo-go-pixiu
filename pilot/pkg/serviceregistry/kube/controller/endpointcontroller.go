@@ -25,7 +25,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -35,14 +35,14 @@ type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
 	getInformer() filter.FilteredSharedIndexInformer
-	onEvent(curr any, event model.Event) error
+	onEvent(curr interface{}, event model.Event) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
-	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint
+	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
-	forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint
-	getServiceNamespacedName(ep any) types.NamespacedName
+	forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint
+	getServiceNamespacedName(ep interface{}) types.NamespacedName
 }
 
 // kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
@@ -60,7 +60,7 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 }
 
 // processEndpointEvent triggers the config update.
-func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep any) error {
+func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep interface{}) error {
 	// Update internal endpoint cache no matter what kind of service, even headless service.
 	// As for gateways, the cluster discovery type is `EDS` for headless service.
 	updateEDS(c, epc, ep, event)
@@ -73,7 +73,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 						Full: true,
 						// TODO: extend and set service instance type, so no need to re-init push context
 						ConfigsUpdated: map[model.ConfigKey]struct{}{{
-							Kind:      kind.ServiceEntry,
+							Kind:      gvk.ServiceEntry,
 							Name:      modelSvc.Hostname.String(),
 							Namespace: svc.Namespace,
 						}: {}},
@@ -88,9 +88,9 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 	return nil
 }
 
-func updateEDS(c *Controller, epc kubeEndpointsController, ep any, event model.Event) {
+func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
 	namespacedName := epc.getServiceNamespacedName(ep)
-	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
+	log.Debugf("Handle EDS endpoint %s %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
 	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
 	if event == model.EventDelete {
 		forgottenEndpointsByHost = epc.forgetEndpoint(ep)

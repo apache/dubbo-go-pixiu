@@ -103,11 +103,11 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var decoded any
+	var decoded interface{}
 	if uglyJSON[0] == '[' {
-		decoded = make([]any, 0)
+		decoded = make([]interface{}, 0)
 	} else {
-		decoded = map[string]any{}
+		decoded = map[string]interface{}{}
 	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return "", err
@@ -207,16 +207,16 @@ func yamlToFlags(yml string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	var decoded any
+	var decoded interface{}
 	if uglyJSON[0] == '[' {
-		decoded = make([]any, 0)
+		decoded = make([]interface{}, 0)
 	} else {
-		decoded = map[string]any{}
+		decoded = map[string]interface{}{}
 	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return []string{}, err
 	}
-	if d, ok := decoded.(map[string]any); ok {
+	if d, ok := decoded.(map[string]interface{}); ok {
 		if v, ok := d["spec"]; ok {
 			// Fall back to showing the entire spec.
 			// (When --config-path is used there will be no spec to remove)
@@ -231,9 +231,9 @@ func yamlToFlags(yml string) ([]string, error) {
 	return setflags, nil
 }
 
-func walk(path, separator string, obj any) ([]string, error) {
+func walk(path, separator string, obj interface{}) ([]string, error) {
 	switch v := obj.(type) {
-	case map[string]any:
+	case map[string]interface{}:
 		accum := make([]string, 0)
 		for key, vv := range v {
 			childwalk, err := walk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv)
@@ -243,7 +243,7 @@ func walk(path, separator string, obj any) ([]string, error) {
 			accum = append(accum, childwalk...)
 		}
 		return accum, nil
-	case []any:
+	case []interface{}:
 		accum := make([]string, 0)
 		for idx, vv := range v {
 			indexwalk, err := walk(fmt.Sprintf("%s[%d]", path, idx), ".", vv)

@@ -31,7 +31,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/telemetry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
@@ -76,7 +75,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 				}
 				rc = &discovery.Resource{
 					Name:     routeName,
-					Resource: protoconv.MessageToAny(emptyRoute),
+					Resource: util.MessageToAny(emptyRoute),
 				}
 			}
 			routeConfigurations = append(routeConfigurations, rc)
@@ -88,7 +87,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
 				resource := &discovery.Resource{
 					Name:     routeName,
-					Resource: protoconv.MessageToAny(rc),
+					Resource: util.MessageToAny(rc),
 				}
 				routeConfigurations = append(routeConfigurations, resource)
 			}
@@ -207,7 +206,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	resource = &discovery.Resource{
 		Name:     out.Name,
-		Resource: protoconv.MessageToAny(out),
+		Resource: util.MessageToAny(out),
 	}
 
 	if features.EnableRDSCaching && routeCache != nil {
@@ -221,18 +220,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 // selectVirtualServices selects the virtual services by matching given services' host names.
 func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
 	out := make([]config.Config, 0)
-	// As a performance optimization, find out wildcard service hosts first, so that
-	// if non wildcard vs hosts can't be looked up directly in the service map, only need to
-	// loop through wildcard service hosts instead of all.
-	wcSvcHosts := []host.Name{}
-	for svcHost := range servicesByName {
-		if svcHost.IsWildCarded() {
-			wcSvcHosts = append(wcSvcHosts, svcHost)
-		}
-	}
-
-	for i := range virtualServices {
-		rule := virtualServices[i].Spec.(*networking.VirtualService)
+	for _, c := range virtualServices {
+		rule := c.Spec.(*networking.VirtualService)
 		var match bool
 
 		// Selection algorithm:
@@ -248,23 +237,10 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				break
 			}
 
-			if host.Name(h).IsWildCarded() {
-				// Process wildcard vs host as it need to follow the slow path of
-				// looping through all services in the map.
-				for svcHost := range servicesByName {
-					if host.Name(h).Matches(svcHost) {
-						match = true
-						break
-					}
-				}
-			} else {
-				// If non wildcard vs host isn't be found in service map, only loop through
-				// wildcard service hosts to avoid repeated matching.
-				for _, svcHost := range wcSvcHosts {
-					if host.Name(h).Matches(svcHost) {
-						match = true
-						break
-					}
+			for svcHost := range servicesByName {
+				if host.Name(h).Matches(svcHost) {
+					match = true
+					break
 				}
 			}
 
@@ -274,7 +250,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 		}
 
 		if match {
-			out = append(out, virtualServices[i])
+			out = append(out, c)
 		}
 	}
 
@@ -358,7 +334,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			ListenerPort:            listenerPort,
 			Services:                services,
 			VirtualServices:         virtualServices,
-			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
+			DelegateVirtualServices: push.DelegateVirtualServicesConfigKey(virtualServices),
 			EnvoyFilterKeys:         efKeys,
 		}
 	}
@@ -558,18 +534,8 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
-	// If the dns/proxy domain contains `.svc`, only services following the <ns>.svc.<suffix>
-	// naming convention and that share a suffix with the domain should be expanded.
 	if strings.Contains(proxyDomain, ".svc.") {
-
-		if strings.HasSuffix(hostname, removeSvcNamespace(proxyDomain)) {
-			return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
-		}
-
-		// Hostname is not a kube service.  It is not safe to expand the
-		// hostname as non-fully-qualified names could conflict with expansion of other kube service
-		// hostnames
-		return nil
+		return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
 	}
 
 	var vhosts []string
@@ -763,13 +729,4 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 		},
 		IncludeRequestAttemptCount: true,
 	}
-}
-
-// Simply removes everything before .svc, if present
-func removeSvcNamespace(domain string) string {
-	if idx := strings.Index(domain, ".svc."); idx > 0 {
-		return domain[idx:]
-	}
-
-	return domain
 }

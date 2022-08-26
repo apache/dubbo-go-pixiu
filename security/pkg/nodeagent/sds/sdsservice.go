@@ -32,10 +32,10 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -79,7 +79,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 
 		names := sets.New(resources...)
 		found := false
-		for name := range model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret) {
+		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
 			if names.Contains(name.Name) {
 				found = true
 				break
@@ -156,7 +156,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := protoconv.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
+		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -178,7 +178,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 	names := []string{}
 	watched := sets.New(w.ResourceNames...)
 	for i := range updates.ConfigsUpdated {
-		if i.Kind == kind.Secret && watched.Contains(i.Name) {
+		if i.Kind == gvk.Secret && watched.Contains(i.Name) {
 			names = append(names, i.Name)
 		}
 	}
@@ -214,7 +214,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
-	var cfg security.SdsCertificateConfig
+	cfg := security.SdsCertificateConfig{}
 	ok := false
 	if s.ResourceName == security.FileRootSystemCACert {
 		cfg, ok = security.SdsCertificateConfigFromResourceNameForOSCACert(caRootPath)
@@ -235,7 +235,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 		switch pkpConf.GetProvider().(type) {
 		case *mesh.PrivateKeyProvider_Cryptomb:
 			crypto := pkpConf.GetCryptomb()
-			msg := protoconv.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+			msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
 				PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{

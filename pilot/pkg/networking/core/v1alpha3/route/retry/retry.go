@@ -23,12 +23,12 @@ import (
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPrioritiesConfig())
+var defaultRetryPriorityTypedConfig = util.MessageToAny(buildPreviousPrioritiesConfig())
 
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {

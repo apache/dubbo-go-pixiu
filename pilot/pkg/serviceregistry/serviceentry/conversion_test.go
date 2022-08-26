@@ -476,8 +476,7 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 }
 
 func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
-	external bool, resolution model.Resolution, serviceAccounts ...string,
-) *model.Service {
+	external bool, resolution model.Resolution, serviceAccounts ...string) *model.Service {
 	svc := &model.Service{
 		CreationTime:    GlobalTime,
 		Hostname:        hostname,
@@ -527,8 +526,7 @@ const (
 
 // nolint: unparam
 func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string,
-) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string) *model.ServiceInstance {
 	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
 	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(i.Service.Attributes.Namespace, serviceAccount)
 	return i
@@ -536,8 +534,7 @@ func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int
 
 // nolint: unparam
 func makeInstance(cfg *config.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode,
-) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode) *model.ServiceInstance {
 	services := convertServices(*cfg)
 	svc := services[0] // default
 	for _, s := range services {
@@ -1230,11 +1227,11 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	}
 }
 
-func compare(t testing.TB, actual, expected any) error {
+func compare(t testing.TB, actual, expected interface{}) error {
 	return util.Compare(jsonBytes(t, actual), jsonBytes(t, expected))
 }
 
-func jsonBytes(t testing.TB, v any) []byte {
+func jsonBytes(t testing.TB, v interface{}) []byte {
 	data, err := json.MarshalIndent(v, "", " ")
 	if err != nil {
 		t.Fatal(t)

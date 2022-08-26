@@ -21,10 +21,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 )
 
@@ -75,7 +75,7 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req 
 		for _, v := range sg.Server.Clients() {
 			res = append(res, &discovery.Resource{
 				Name:     v.node.Id,
-				Resource: protoconv.MessageToAny(v.node),
+				Resource: util.MessageToAny(v.node),
 			})
 		}
 	case TypeDebugSyncronization:
@@ -141,7 +141,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 			}
 			res = append(res, &discovery.Resource{
 				Name:     clientConfig.Node.Id,
-				Resource: protoconv.MessageToAny(clientConfig),
+				Resource: util.MessageToAny(clientConfig),
 			})
 		}
 		con.proxy.RUnlock()
@@ -168,7 +168,7 @@ func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 
-	dump, err := sg.Server.configDump(conn, false)
+	dump, err := sg.Server.configDump(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -203,9 +203,9 @@ func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
 		return
 	}
 
-	resources := make([]*anypb.Any, 0, len(data))
+	resources := make([]*any.Any, 0, len(data))
 	for _, v := range data {
-		resources = append(resources, protoconv.MessageToAny(v))
+		resources = append(resources, util.MessageToAny(v))
 	}
 	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,

@@ -95,7 +95,7 @@ type ComponentMaps struct {
 }
 
 // TranslationFunc maps a yamlStr API path into a YAML values tree.
-type TranslationFunc func(t *Translation, root map[string]any, valuesPath string, value any) error
+type TranslationFunc func(t *Translation, root map[string]interface{}, valuesPath string, value interface{}) error
 
 // Translation is a mapping to an output path using a translation function.
 type Translation struct {
@@ -351,7 +351,7 @@ func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
 // translateDeprecatedAutoscalingFields checks for existence of deprecated HPA fields, if found, set values.global.autoscalingv2API to false
 // It only needs to run the logic for the first component because we are setting the values.global field instead of per component ones.
 // we do not set per component values because we may want to avoid mixture of v2 and v2beta1 autoscaling templates usage
-func (t *Translator) translateDeprecatedAutoscalingFields(values map[string]any, iop *v1alpha1.IstioOperatorSpec) error {
+func (t *Translator) translateDeprecatedAutoscalingFields(values map[string]interface{}, iop *v1alpha1.IstioOperatorSpec) error {
 	if t.checkedDeprecatedAutoscalingFields || checkDeprecatedHPAFields(iop) {
 		path := util.PathFromString("global.autoscalingv2API")
 		if err := tpath.WriteNode(values, path, false); err != nil {
@@ -379,8 +379,7 @@ func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, compo
 }
 
 func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
-	msvc *v1alpha1.ServiceSpec, mergedObj *object.K8sObject,
-) (*object.K8sObject, error) {
+	msvc *v1alpha1.ServiceSpec, mergedObj *object.K8sObject) (*object.K8sObject, error) {
 	var basePorts []*v1.ServicePort
 	bps, _, err := unstructured.NestedSlice(oo.Unstructured(), "spec", "ports")
 	if err != nil {
@@ -418,7 +417,7 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 	if err != nil {
 		return nil, err
 	}
-	var mergedPortSlice []any
+	var mergedPortSlice []interface{}
 	if err = json.Unmarshal(mpby, &mergedPortSlice); err != nil {
 		return nil, err
 	}
@@ -545,8 +544,8 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
-func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec any, componentName name.ComponentName) (string, error) {
-	apiVals := make(map[string]any)
+func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec interface{}, componentName name.ComponentName) (string, error) {
+	apiVals := make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
 	apiValsStr, err := t.ProtoToValues(iop)
@@ -593,11 +592,11 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 
 // applyGatewayTranslations writes gateway name gwName at the appropriate values path in iop and maps k8s.service.ports
 // to values. It returns the resulting YAML tree.
-func applyGatewayTranslations(iop []byte, componentName name.ComponentName, componentSpec any) ([]byte, error) {
+func applyGatewayTranslations(iop []byte, componentName name.ComponentName, componentSpec interface{}) ([]byte, error) {
 	if !componentName.IsGateway() {
 		return iop, nil
 	}
-	iopt := make(map[string]any)
+	iopt := make(map[string]interface{})
 	if err := yaml.Unmarshal(iop, &iopt); err != nil {
 		return nil, err
 	}
@@ -626,13 +625,13 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, comp
 
 // setYAMLNodeByMapPath sets the value at the given path to val in treeNode. The path cannot traverse lists and
 // treeNode must be a YAML tree unmarshaled into a plain map data structure.
-func setYAMLNodeByMapPath(treeNode any, path util.Path, val any) {
+func setYAMLNodeByMapPath(treeNode interface{}, path util.Path, val interface{}) {
 	if len(path) == 0 || treeNode == nil {
 		return
 	}
 	pe := path[0]
 	switch nt := treeNode.(type) {
-	case map[any]any:
+	case map[interface{}]interface{}:
 		if len(path) == 1 {
 			nt[pe] = val
 			return
@@ -641,7 +640,7 @@ func setYAMLNodeByMapPath(treeNode any, path util.Path, val any) {
 			return
 		}
 		setYAMLNodeByMapPath(nt[pe], path[1:], val)
-	case map[string]any:
+	case map[string]interface{}:
 		if len(path) == 1 {
 			nt[pe] = val
 			return
@@ -661,17 +660,17 @@ func (t *Translator) ComponentMap(cns string) *ComponentMaps {
 	return t.ComponentMaps[cn]
 }
 
-func (t *Translator) ProtoToHelmValues2(ii *v1alpha1.IstioOperatorSpec) (map[string]any, error) {
+func (t *Translator) ProtoToHelmValues2(ii *v1alpha1.IstioOperatorSpec) (map[string]interface{}, error) {
 	by, err := json.Marshal(ii)
 	if err != nil {
 		return nil, err
 	}
-	res := map[string]any{}
+	res := map[string]interface{}{}
 	err = json.Unmarshal(by, &res)
 	if err != nil {
 		return nil, err
 	}
-	r2 := map[string]any{}
+	r2 := map[string]interface{}{}
 	errs := t.ProtoToHelmValues(res, r2, nil)
 	return r2, errs.ToError()
 }
@@ -682,7 +681,7 @@ func (t *Translator) ProtoToHelmValues2(ii *v1alpha1.IstioOperatorSpec) (map[str
 // For each leaf, if looks for a mapping from the struct data path to the corresponding YAML path and if one is
 // found, it calls the associated mapping function if one is defined to populate the values YAML path.
 // If no mapping function is defined, it uses the default mapping function.
-func (t *Translator) ProtoToHelmValues(node any, root map[string]any, path util.Path) (errs util.Errors) {
+func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interface{}, path util.Path) (errs util.Errors) {
 	scope.Debugf("ProtoToHelmValues with path %s, %v (%T)", path, node, node)
 	if util.IsValueNil(node) {
 		return nil
@@ -733,7 +732,7 @@ func (t *Translator) ProtoToHelmValues(node any, root map[string]any, path util.
 
 // setComponentProperties translates properties (e.g., enablement and namespace) of each component
 // in the baseYAML values tree, based on feature/component inheritance relationship.
-func (t *Translator) setComponentProperties(root map[string]any, iop *v1alpha1.IstioOperatorSpec) error {
+func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1alpha1.IstioOperatorSpec) error {
 	var keys []string
 	for k := range t.ComponentMaps {
 		if k != name.IngressComponentName && k != name.EgressComponentName {
@@ -809,10 +808,10 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 }
 
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.
-func (t *Translator) insertLeaf(root map[string]any, path util.Path, value reflect.Value) (errs util.Errors) {
+func (t *Translator) insertLeaf(root map[string]interface{}, path util.Path, value reflect.Value) (errs util.Errors) {
 	// Must be a scalar leaf. See if we have a mapping.
 	valuesPath, m := getValuesPathMapping(t.APIMapping, path)
-	var v any
+	var v interface{}
 	if value.Kind() == reflect.Ptr {
 		v = value.Elem().Interface()
 	} else {
@@ -871,8 +870,7 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
 func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName,
-	resourceName, revision string,
-) (string, error) {
+	resourceName, revision string) (string, error) {
 	cn := string(componentName)
 	cmp := t.ComponentMap(cn)
 	if cmp == nil {
@@ -898,7 +896,7 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 }
 
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.
-func defaultTranslationFunc(m *Translation, root map[string]any, valuesPath string, value any) error {
+func defaultTranslationFunc(m *Translation, root map[string]interface{}, valuesPath string, value interface{}) error {
 	var path []string
 
 	if util.IsEmptyString(value) {
@@ -924,7 +922,7 @@ func firstCharToLower(s string) string {
 // MergeK8sObject function below is used by third party for integrations and has to be public
 
 // MergeK8sObject does strategic merge for overlayNode on the base object.
-func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*object.K8sObject, error) {
+func MergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
 	overlay, err := createPatchObjectFromPath(overlayNode, path)
 	if err != nil {
 		return nil, err
@@ -979,7 +977,7 @@ func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*o
 //	          env:
 //	          - name: NEW_VAR
 //	            value: new_value
-func createPatchObjectFromPath(node any, path util.Path) (map[string]any, error) {
+func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]interface{}, error) {
 	if len(path) == 0 {
 		return nil, fmt.Errorf("empty path %s", path)
 	}
@@ -991,14 +989,14 @@ func createPatchObjectFromPath(node any, path util.Path) (map[string]any, error)
 		return nil, fmt.Errorf("path %s has an unexpected last element %s", path, path[length-1])
 	}
 
-	patchObj := make(map[string]any)
-	var currentNode, nextNode any
+	patchObj := make(map[string]interface{})
+	var currentNode, nextNode interface{}
 	nextNode = patchObj
 	for i, pe := range path {
 		currentNode = nextNode
 		// last path element
 		if i == length-1 {
-			currentNode, ok := currentNode.(map[string]any)
+			currentNode, ok := currentNode.(map[string]interface{})
 			if !ok {
 				return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
 			}
@@ -1007,7 +1005,7 @@ func createPatchObjectFromPath(node any, path util.Path) (map[string]any, error)
 		}
 
 		if util.IsKVPathElement(pe) {
-			currentNode, ok := currentNode.([]any)
+			currentNode, ok := currentNode.([]interface{})
 			if !ok {
 				return nil, fmt.Errorf("path %s has an unexpected KV element %s", path, pe)
 			}
@@ -1018,20 +1016,20 @@ func createPatchObjectFromPath(node any, path util.Path) (map[string]any, error)
 			if k == "" || v == "" {
 				return nil, fmt.Errorf("path %s has an invalid KV element %s", path, pe)
 			}
-			currentNode[0] = map[string]any{k: v}
+			currentNode[0] = map[string]interface{}{k: v}
 			nextNode = currentNode[0]
 			continue
 		}
 
-		currentNode, ok := currentNode.(map[string]any)
+		currentNode, ok := currentNode.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
 		}
 		// next path element determines the next node type
 		if util.IsKVPathElement(path[i+1]) {
-			currentNode[pe] = make([]any, 1)
+			currentNode[pe] = make([]interface{}, 1)
 		} else {
-			currentNode[pe] = make(map[string]any)
+			currentNode[pe] = make(map[string]interface{})
 		}
 		nextNode = currentNode[pe]
 	}

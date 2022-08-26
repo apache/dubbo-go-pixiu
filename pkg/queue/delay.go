@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,11 +50,11 @@ func (q *pq) Swap(i, j int) {
 	(*q)[i], (*q)[j] = (*q)[j], (*q)[i]
 }
 
-func (q *pq) Push(x any) {
+func (q *pq) Push(x interface{}) {
 	*q = append(*q, x.(*delayTask))
 }
 
-func (q *pq) Pop() any {
+func (q *pq) Pop() interface{} {
 	old := *q
 	n := len(old)
 	c := cap(old)
@@ -74,7 +74,7 @@ func (q *pq) Pop() any {
 }
 
 // Peek is not managed by the container/heap package, so we return the 0th element in the list.
-func (q *pq) Peek() any {
+func (q *pq) Peek() interface{} {
 	if q.Len() < 1 {
 		return nil
 	}

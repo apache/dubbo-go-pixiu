@@ -29,7 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
 )
 
@@ -366,23 +366,23 @@ func TestConfigsOnlyHaveKind(t *testing.T) {
 		{
 			name: "mix",
 			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Deployment}: {},
-				{Kind: kind.Secret}:     {},
+				{Kind: gvk.Deployment}: {},
+				{Kind: gvk.Secret}:     {},
 			},
 			want: true,
 		},
 		{
 			name: "no secret",
 			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Deployment}: {},
+				{Kind: gvk.Deployment}: {},
 			},
 			want: false,
 		},
 		{
 			name: "only secret",
 			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Secret}: {},
-				{Kind: kind.Secret}: {},
+				{Kind: gvk.Secret}: {},
+				{Kind: gvk.Secret}: {},
 			},
 			want: true,
 		},
@@ -395,7 +395,7 @@ func TestConfigsOnlyHaveKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := model.ConfigsHaveKind(tt.configs, kind.Secret)
+			got := model.ConfigsHaveKind(tt.configs, gvk.Secret)
 			if tt.want != got {
 				t.Errorf("got %v want %v", got, tt.want)
 			}

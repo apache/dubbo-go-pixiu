@@ -590,10 +590,11 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
-	env := model.NewEnvironment()
-	env.ServiceDiscovery = serviceDiscovery
-	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ConfigStore:      configStore,
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
+	}
 
 	env.PushContext = model.NewPushContext()
 	env.Init()
@@ -646,10 +647,11 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
-	env := model.NewEnvironment()
-	env.ServiceDiscovery = serviceDiscovery
-	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ConfigStore:      configStore,
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
+	}
 
 	env.PushContext = model.NewPushContext()
 	env.Init()
@@ -697,10 +699,11 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
-	env := model.NewEnvironment()
-	env.ServiceDiscovery = serviceDiscovery
-	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ConfigStore:      configStore,
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
+	}
 
 	env.PushContext = model.NewPushContext()
 	env.Init()

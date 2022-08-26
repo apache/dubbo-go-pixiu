@@ -532,12 +532,12 @@ spec:
 
 func TestK8sObject_Equal(t *testing.T) {
 	obj1 := K8sObject{
-		object: &unstructured.Unstructured{Object: map[string]any{
+		object: &unstructured.Unstructured{Object: map[string]interface{}{
 			"key": "value1",
 		}},
 	}
 	obj2 := K8sObject{
-		object: &unstructured.Unstructured{Object: map[string]any{
+		object: &unstructured.Unstructured{Object: map[string]interface{}{
 			"key": "value2",
 		}},
 	}

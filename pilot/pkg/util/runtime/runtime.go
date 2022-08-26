@@ -21,7 +21,7 @@ import (
 )
 
 // LogPanic logs the caller tree when a panic occurs.
-func LogPanic(r any) {
+func LogPanic(r interface{}) {
 	// Same as stdlib http server code. Manually allocate stack trace buffer size
 	// to prevent excessively large logs
 	const size = 64 << 10
@@ -31,7 +31,7 @@ func LogPanic(r any) {
 }
 
 // HandleCrash catches the crash and calls additional handlers.
-func HandleCrash(handlers ...func(any)) {
+func HandleCrash(handlers ...func(interface{})) {
 	if r := recover(); r != nil {
 		for _, handler := range handlers {
 			handler(r)

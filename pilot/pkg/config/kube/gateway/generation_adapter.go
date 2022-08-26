@@ -17,7 +17,7 @@
 package gateway
 
 type gatewayGeneration struct {
-	inner any
+	inner interface{}
 }
 
 func (g *gatewayGeneration) SetObservedGeneration(i int64) {
@@ -27,6 +27,6 @@ func (g *gatewayGeneration) SetObservedGeneration(i int64) {
 	// of the condition functions to update.
 }
 
-func (g *gatewayGeneration) Unwrap() any {
+func (g *gatewayGeneration) Unwrap() interface{} {
 	return g.inner
 }

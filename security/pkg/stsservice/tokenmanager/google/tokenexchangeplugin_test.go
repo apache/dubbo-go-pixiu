@@ -75,8 +75,7 @@ func TestTokenExchangePlugin(t *testing.T) {
 }
 
 func verifyDumpStatus(t *testing.T, tCase string, dumpJSON []byte, lastStatus map[string]stsservice.TokenInfo,
-	expected []string,
-) map[string]stsservice.TokenInfo {
+	expected []string) map[string]stsservice.TokenInfo {
 	newStatus := &stsservice.TokensDump{}
 	if err := json.Unmarshal(dumpJSON, newStatus); err != nil {
 		t.Errorf("(Test case %s), failed to unmarshal status dump: %v", tCase, err)

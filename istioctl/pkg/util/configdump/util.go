@@ -17,7 +17,7 @@ package configdump
 import (
 	"fmt"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 )
 
 type configTypeURL string
@@ -26,15 +26,14 @@ type configTypeURL string
 const (
 	bootstrap configTypeURL = "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump"
 	listeners configTypeURL = "type.googleapis.com/envoy.admin.v3.ListenersConfigDump"
-	endpoints configTypeURL = "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump"
 	clusters  configTypeURL = "type.googleapis.com/envoy.admin.v3.ClustersConfigDump"
 	routes    configTypeURL = "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
 	secrets   configTypeURL = "type.googleapis.com/envoy.admin.v3.SecretsConfigDump"
 )
 
 // getSection takes a TypeURL and returns the types.Any from the config dump corresponding to that URL
-func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (*anypb.Any, error) {
-	var dumpAny *anypb.Any
+func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (*any.Any, error) {
+	var dumpAny *any.Any
 	for _, conf := range w.Configs {
 		if conf.TypeUrl == string(sectionTypeURL) {
 			dumpAny = conf

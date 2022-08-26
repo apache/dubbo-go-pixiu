@@ -97,11 +97,11 @@ spec:
 )
 
 // TestSecureNaming verifies:
-// - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
-// - The plugin CA certs are correctly used in workload mTLS.
-// - The CA certificate in the configmap of each namespace is as expected, which
-//   is used for data plane to control plane TLS authentication.
-// - Secure naming information is respected in the mTLS handshake.
+//   - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
+//   - The plugin CA certs are correctly used in workload mTLS.
+//   - The CA certificate in the configmap of each namespace is as expected, which
+//     is used for data plane to control plane TLS authentication.
+//   - Secure naming information is respected in the mTLS handshake.
 func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").

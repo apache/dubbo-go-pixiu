@@ -34,7 +34,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
@@ -159,7 +159,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert"},
 			request: &model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}: {},
+				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
@@ -180,7 +180,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic", Namespace: "istio-system", Kind: kind.Secret}: {},
+				{Name: "generic", Namespace: "istio-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
@@ -194,7 +194,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}: {},
+				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls": {
@@ -211,7 +211,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+				{Name: "generic-mtls-split", Namespace: "istio-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
@@ -228,7 +228,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split-cacert", Namespace: "istio-system", Kind: kind.Secret}: {},
+				{Name: "generic-mtls-split-cacert", Namespace: "istio-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
@@ -281,7 +281,7 @@ func TestGenerate(t *testing.T) {
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
-				disableAuthorizationForSecret(cc)
+				credentials.DisableAuthorizationForTest(cc)
 			}
 			cc.Fake.Unlock()
 
@@ -313,7 +313,7 @@ func TestCaching(t *testing.T) {
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			disableAuthorizationForSecret(cc)
+			credentials.DisableAuthorizationForTest(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]

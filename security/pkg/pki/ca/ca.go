@@ -114,8 +114,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
 	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
-	rootCertFile string, enableJitter bool, caRSAKeySize int,
-) (caOpts *IstioCAOptions, err error) {
+	rootCertFile string, enableJitter bool, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
@@ -205,8 +204,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 // NewSelfSignedDebugIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate produced by in-memory CA,
 // which runs without K8s, and no local ca key file presented.
 func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCertTTL, maxCertTTL time.Duration,
-	org string, caRSAKeySize int,
-) (caOpts *IstioCAOptions, err error) {
+	org string, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         selfSignedCA,
 		DefaultCertTTL: defaultCertTTL,
@@ -241,8 +239,7 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
-	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int,
-) (caOpts *IstioCAOptions, err error) {
+	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         pluggedCertCA,
 		DefaultCertTTL: defaultCertTTL,
@@ -323,15 +320,13 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 
 // Sign takes a PEM-encoded CSR and cert opts, and returns a signed certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, certOpts CertOpts) (
-	[]byte, error,
-) {
+	[]byte, error) {
 	return ca.sign(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts CertOpts) (
-	[]string, error,
-) {
+	[]string, error) {
 	cert, err := ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
 	if err != nil {
 		return nil, err
@@ -430,8 +425,7 @@ func (ca *IstioCA) sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 }
 
 func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, lifetimeCheck,
-	forCA bool,
-) ([]byte, error) {
+	forCA bool) ([]byte, error) {
 	cert, err := ca.sign(csrPEM, subjectIDs, requestedLifetime, lifetimeCheck, forCA)
 	if err != nil {
 		return nil, err

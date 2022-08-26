@@ -95,7 +95,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		Name:      "istio",
 		Namespace: namespace,
 	}
-	valuesMap := map[string]any{}
+	valuesMap := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
 		return "", fmt.Errorf("failed to unmarshal values: %v", err)
 	}
@@ -129,7 +129,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		return "", err
 	}
 	if chrt.Metadata.Name == "base" {
-		base, _ := valuesMap["base"].(map[string]any)
+		base, _ := valuesMap["base"].(map[string]interface{})
 		if enableIstioConfigCRDs, ok := base["enableIstioConfigCRDs"].(bool); ok && !enableIstioConfigCRDs {
 			crdFiles = []chart.CRD{}
 		}

@@ -47,6 +47,9 @@ var (
 )
 
 const (
+	// The size of a private key for a leaf certificate.
+	keySize = 2048
+
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
@@ -343,11 +346,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
-	file, err := filepath.Abs(file)
-	if err != nil {
-		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches [%s] %v", resourceName, file, err)
-		return err
-	}
+	file = filepath.Clean(file)
 	key := FileCert{
 		ResourceName: resourceName,
 		Filename:     file,
@@ -572,7 +571,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())
 	options := pkiutil.CertOptions{
 		Host:       csrHostName.String(),
-		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
+		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
 	}

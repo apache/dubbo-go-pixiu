@@ -15,6 +15,7 @@
 package ra
 
 import (
+	"context"
 	"os"
 	"path"
 	"testing"
@@ -162,8 +163,9 @@ func createFakeCsr(t *testing.T) []byte {
 
 func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
 	client := kube.NewFakeClient()
-	ctx := test.NewContext(t)
-	w, _ := client.Kube().CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	w, _ := client.CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
 	go func() {
 		for {
 			select {
@@ -175,7 +177,7 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
 					continue
 				}
 				csr.Status.Certificate = certificate
-				client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
+				client.CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
 			}
 		}
 	}()
@@ -193,7 +195,7 @@ func createFakeK8sRA(client kube.Client, caCertFile string) (*KubernetesRA, erro
 		CaSigner:       caSigner,
 		CaCertFile:     caCertFile,
 		VerifyAppendCA: true,
-		K8sClient:      client.Kube(),
+		K8sClient:      client,
 	}
 	return NewKubernetesRA(raOpts)
 }

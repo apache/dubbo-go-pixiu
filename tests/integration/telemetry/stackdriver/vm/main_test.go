@@ -29,7 +29,6 @@ import (
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	"istio.io/api/annotation"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
@@ -43,6 +42,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/tmpl"
 	"github.com/apache/dubbo-go-pixiu/tests/integration/telemetry"
 	sdtest "github.com/apache/dubbo-go-pixiu/tests/integration/telemetry/stackdriver"
+	"istio.io/api/annotation"
 )
 
 const (

@@ -19,23 +19,22 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
+	model "github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
 	const (
-		invalidKind    = "INVALID_KIND"
-		svcName        = "svc1.com"
-		privateSvcName = "private.com"
-		drName         = "dr1"
-		vsName         = "vs1"
-		scName         = "sc1"
-		nsName         = "ns1"
-		nsRoot         = "rootns"
-		generalName    = "name1"
+		invalidKind = "INVALID_KIND"
+		svcName     = "svc1.com"
+		drName      = "dr1"
+		vsName      = "vs1"
+		scName      = "sc1"
+		nsName      = "ns1"
+		nsRoot      = "rootns"
+		generalName = "name1"
 
 		invalidNameSuffix = "invalid"
 	)
@@ -51,13 +50,13 @@ func TestProxyNeedsPush(t *testing.T) {
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
 		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot},
 	}
-	gateway := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{Namespace: nsName}}
+	gateway := &model.Proxy{Type: model.Router}
 
-	sidecarScopeKindNames := map[kind.Kind]string{
-		kind.ServiceEntry: svcName, kind.VirtualService: vsName, kind.DestinationRule: drName, kind.Sidecar: scName,
+	sidecarScopeKindNames := map[config.GroupVersionKind]string{
+		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName, gvk.Sidecar: scName,
 	}
 	for kind, name := range sidecarScopeKindNames {
-		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName}.HashCode())
+		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
 	}
 	for kind, types := range configKindAffectedProxyTypes {
 		for _, nodeType := range types {
@@ -66,48 +65,28 @@ func TestProxyNeedsPush(t *testing.T) {
 					Kind:      kind,
 					Name:      generalName,
 					Namespace: nsName,
-				}.HashCode())
+				})
 			}
 		}
-	}
-
-	push := model.NewPushContext()
-	push.ServiceIndex.HostnameAndNamespace[svcName] = map[string]*model.Service{
-		nsName: {
-			Hostname: svcName,
-			Attributes: model.ServiceAttributes{
-				ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
-				Namespace: nsName,
-			},
-		},
-	}
-	push.ServiceIndex.HostnameAndNamespace[privateSvcName] = map[string]*model.Service{
-		nsName: {
-			Hostname: privateSvcName,
-			Attributes: model.ServiceAttributes{
-				ExportTo:  map[visibility.Instance]bool{visibility.None: true},
-				Namespace: nsName,
-			},
-		},
 	}
 
 	cases := []Case{
 		{"no namespace or configs", sidecar, nil, true},
 		{"gateway config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
-				Kind: kind.Gateway,
+				Kind: gvk.Gateway,
 				Name: generalName, Namespace: nsName,
 			}: {},
 		}, false},
 		{"gateway config for gateway", gateway, map[model.ConfigKey]struct{}{
 			{
-				Kind: kind.Gateway,
+				Kind: gvk.Gateway,
 				Name: generalName, Namespace: nsName,
 			}: {},
 		}, true},
 		{"sidecar config for gateway", gateway, map[model.ConfigKey]struct{}{
 			{
-				Kind: kind.Sidecar,
+				Kind: gvk.Sidecar,
 				Name: scName, Namespace: nsName,
 			}: {},
 		}, false},
@@ -115,58 +94,58 @@ func TestProxyNeedsPush(t *testing.T) {
 			"invalid config for sidecar", sidecar,
 			map[model.ConfigKey]struct{}{
 				{
-					Kind: kind.Kind(255), Name: generalName, Namespace: nsName,
+					Kind: config.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName,
 				}: {},
 			},
 			true,
 		},
 		{"mixture matched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
-			{Kind: kind.DestinationRule, Name: drName, Namespace: nsName}:                   {},
-			{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName}: {},
+			{Kind: gvk.DestinationRule, Name: drName, Namespace: nsName}:                   {},
+			{Kind: gvk.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName}: {},
 		}, true},
 		{"mixture unmatched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
-			{Kind: kind.DestinationRule, Name: drName + invalidNameSuffix, Namespace: nsName}: {},
-			{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName}:   {},
+			{Kind: gvk.DestinationRule, Name: drName + invalidNameSuffix, Namespace: nsName}: {},
+			{Kind: gvk.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName}:   {},
 		}, false},
 		{"empty configsUpdated for sidecar", sidecar, nil, true},
 	}
 
-	for k, name := range sidecarScopeKindNames {
+	for kind, name := range sidecarScopeKindNames {
 		cases = append(cases, Case{ // valid name
-			name:    fmt.Sprintf("%s config for sidecar", k.String()),
+			name:    fmt.Sprintf("%s config for sidecar", kind.Kind),
 			proxy:   sidecar,
-			configs: map[model.ConfigKey]struct{}{{Kind: k, Name: name, Namespace: nsName}: {}},
+			configs: map[model.ConfigKey]struct{}{{Kind: kind, Name: name, Namespace: nsName}: {}},
 			want:    true,
 		}, Case{ // invalid name
-			name:    fmt.Sprintf("%s unmatched config for sidecar", k.String()),
+			name:    fmt.Sprintf("%s unmatched config for sidecar", kind.Kind),
 			proxy:   sidecar,
-			configs: map[model.ConfigKey]struct{}{{Kind: k, Name: name + invalidNameSuffix, Namespace: nsName}: {}},
+			configs: map[model.ConfigKey]struct{}{{Kind: kind, Name: name + invalidNameSuffix, Namespace: nsName}: {}},
 			want:    false,
 		})
 	}
 
-	sidecarNamespaceScopeTypes := []kind.Kind{
-		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication,
+	sidecarNamespaceScopeTypes := []config.GroupVersionKind{
+		gvk.EnvoyFilter, gvk.AuthorizationPolicy, gvk.RequestAuthentication,
 	}
-	for _, k := range sidecarNamespaceScopeTypes {
+	for _, kind := range sidecarNamespaceScopeTypes {
 		cases = append(cases,
 			Case{
-				name:    fmt.Sprintf("%s config for sidecar in same namespace", k.String()),
+				name:    fmt.Sprintf("%s config for sidecar in same namespace", kind.Kind),
 				proxy:   sidecar,
-				configs: map[model.ConfigKey]struct{}{{Kind: k, Name: generalName, Namespace: nsName}: {}},
+				configs: map[model.ConfigKey]struct{}{{Kind: kind, Name: generalName, Namespace: nsName}: {}},
 				want:    true,
 			},
 			Case{
-				name:    fmt.Sprintf("%s config for sidecar in different namespace", k.String()),
+				name:    fmt.Sprintf("%s config for sidecar in different namespace", kind.Kind),
 				proxy:   sidecar,
-				configs: map[model.ConfigKey]struct{}{{Kind: k, Name: generalName, Namespace: "invalid-namespace"}: {}},
+				configs: map[model.ConfigKey]struct{}{{Kind: kind, Name: generalName, Namespace: "invalid-namespace"}: {}},
 				want:    false,
 			},
 		)
 	}
 
 	// tests for kind-affect-proxy.
-	for k, types := range configKindAffectedProxyTypes {
+	for kind, types := range configKindAffectedProxyTypes {
 		for _, nodeType := range model.NodeTypes {
 			affected := false
 			for _, affectedType := range types {
@@ -182,10 +161,10 @@ func TestProxyNeedsPush(t *testing.T) {
 					proxy = sidecar
 				}
 				cases = append(cases, Case{
-					name:  fmt.Sprintf("kind %s not affect %s", k.String(), nodeType),
+					name:  fmt.Sprintf("kind %s not affect %s", kind, nodeType),
 					proxy: proxy,
 					configs: map[model.ConfigKey]struct{}{
-						{Kind: k, Name: generalName + invalidNameSuffix, Namespace: nsName}: {},
+						{Kind: kind, Name: generalName + invalidNameSuffix, Namespace: nsName}: {},
 					},
 					want: false,
 				})
@@ -193,25 +172,9 @@ func TestProxyNeedsPush(t *testing.T) {
 		}
 	}
 
-	// test for gateway proxy dependencies.
-	cases = append(cases,
-		Case{
-			name:    "service with public visibility for gateway",
-			proxy:   gateway,
-			configs: map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}: {}},
-			want:    true,
-		},
-		Case{
-			name:    "service with none visibility for gateway",
-			proxy:   gateway,
-			configs: map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: privateSvcName, Namespace: nsName}: {}},
-			want:    false,
-		},
-	)
-
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: push})
+			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}
@@ -251,7 +214,7 @@ func TestCheckConnectionIdentity(t *testing.T) {
 	}{
 		{
 			name:      "single match",
-			identity:  []string{spiffe.Identity{TrustDomain: "cluster.local", Namespace: "namespace", ServiceAccount: "serviceaccount"}.String()},
+			identity:  []string{spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String()},
 			sa:        "serviceaccount",
 			namespace: "namespace",
 			success:   true,
@@ -259,8 +222,8 @@ func TestCheckConnectionIdentity(t *testing.T) {
 		{
 			name: "second match",
 			identity: []string{
-				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "bad", ServiceAccount: "serviceaccount"}.String(),
-				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "namespace", ServiceAccount: "serviceaccount"}.String(),
+				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
+				spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String(),
 			},
 			sa:        "serviceaccount",
 			namespace: "namespace",
@@ -269,7 +232,7 @@ func TestCheckConnectionIdentity(t *testing.T) {
 		{
 			name: "no match namespace",
 			identity: []string{
-				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "bad", ServiceAccount: "serviceaccount"}.String(),
+				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
 			},
 			sa:        "serviceaccount",
 			namespace: "namespace",
@@ -278,7 +241,7 @@ func TestCheckConnectionIdentity(t *testing.T) {
 		{
 			name: "no match service account",
 			identity: []string{
-				spiffe.Identity{TrustDomain: "cluster.local", Namespace: "namespace", ServiceAccount: "bad"}.String(),
+				spiffe.Identity{"cluster.local", "namespace", "bad"}.String(),
 			},
 			sa:        "serviceaccount",
 			namespace: "namespace",

@@ -7,7 +7,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-15.9.0
+    chart: prometheus-15.0.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -22,7 +22,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-15.9.0
+    chart: prometheus-15.0.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -97,8 +97,7 @@ data:
       tls_config:
         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         insecure_skip_verify: true
-    - honor_labels: true
-      job_name: kubernetes-service-endpoints
+    - job_name: kubernetes-service-endpoints
       kubernetes_sd_configs:
       - role: endpoints
       relabel_configs:
@@ -106,10 +105,6 @@ data:
         regex: true
         source_labels:
         - __meta_kubernetes_service_annotation_prometheus_io_scrape
-      - action: drop
-        regex: true
-        source_labels:
-        - __meta_kubernetes_service_annotation_prometheus_io_scrape_slow
       - action: replace
         regex: (https?)
         source_labels:
@@ -144,8 +139,7 @@ data:
         source_labels:
         - __meta_kubernetes_pod_node_name
         target_label: node
-    - honor_labels: true
-      job_name: kubernetes-service-endpoints-slow
+    - job_name: kubernetes-service-endpoints-slow
       kubernetes_sd_configs:
       - role: endpoints
       relabel_configs:
@@ -198,8 +192,7 @@ data:
         regex: pushgateway
         source_labels:
         - __meta_kubernetes_service_annotation_prometheus_io_probe
-    - honor_labels: true
-      job_name: kubernetes-services
+    - job_name: kubernetes-services
       kubernetes_sd_configs:
       - role: service
       metrics_path: /probe
@@ -227,8 +220,7 @@ data:
       - source_labels:
         - __meta_kubernetes_service_name
         target_label: service
-    - honor_labels: true
-      job_name: kubernetes-pods
+    - job_name: kubernetes-pods
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
@@ -236,10 +228,6 @@ data:
         regex: true
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_scrape
-      - action: drop
-        regex: true
-        source_labels:
-        - __meta_kubernetes_pod_annotation_prometheus_io_scrape_slow
       - action: replace
         regex: (https?)
         source_labels:
@@ -274,8 +262,7 @@ data:
         regex: Pending|Succeeded|Failed|Completed
         source_labels:
         - __meta_kubernetes_pod_phase
-    - honor_labels: true
-      job_name: kubernetes-pods-slow
+    - job_name: kubernetes-pods-slow
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
@@ -332,7 +319,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-15.9.0
+    chart: prometheus-15.0.1
     heritage: Helm
   name: prometheus
 rules:
@@ -374,7 +361,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-15.9.0
+    chart: prometheus-15.0.1
     heritage: Helm
   name: prometheus
 subjects:
@@ -394,7 +381,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-15.9.0
+    chart: prometheus-15.0.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -419,7 +406,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-15.9.0
+    chart: prometheus-15.0.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -436,7 +423,7 @@ spec:
         component: "server"
         app: prometheus
         release: prometheus
-        chart: prometheus-15.9.0
+        chart: prometheus-15.0.1
         heritage: Helm
         
         sidecar.istio.io/inject: "false"
@@ -458,7 +445,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.34.0"
+          image: "prom/prometheus:v2.31.1"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d

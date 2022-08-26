@@ -50,20 +50,12 @@ var (
 	// nolint: revive, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
 
-	// ECHO_IMAGE is the image to use when deploying echo services.
-	// nolint: golint, revive, stylecheck
-	ECHO_IMAGE Variable = "ECHO_IMAGE"
-
-	// GRPC_ECHO_IMAGE is the image to use for a separate gRPC-only container in echo Pods.
-	// nolint: golint, revive, stylecheck
-	GRPC_ECHO_IMAGE Variable = "GRPC_ECHO_IMAGE"
-
 	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
 	// the command-line, that takes precedence.
 	// nolint: revive, stylecheck
 	KUBECONFIG Variable = "KUBECONFIG"
 
-	// IstioSrc is the location of istio source ($TOP/src/github.com/apache/dubbo-go-pixiu
+	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio
 	IstioSrc = REPO_ROOT.ValueOrDefaultFunc(getDefaultIstioSrc)
 
 	// IstioOut is the location of the output directory ($TOP/out)

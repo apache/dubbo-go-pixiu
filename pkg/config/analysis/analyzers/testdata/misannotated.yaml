@@ -75,7 +75,7 @@ metadata:
     istio: grafana
   annotations:
     # valid here
-    proxy.istio.io/config: "{}"
+    sidecar.istio.io/inject: "false"
     # analyzer ignores, not ours
     helm.sh/hook: test-success
     # invalid here
@@ -114,6 +114,6 @@ kind: Namespace
 metadata:
   name: staging
   annotations:
-    # Annotation does not belong to Namespace
-    kubernetes.io/ingress.class: "foo"
+    # Sidecar injector annotation does not belong to Namespace
+    sidecar.istio.io/inject: "true"
 spec: {}

@@ -31,7 +31,7 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
@@ -46,7 +46,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	memregistry "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
@@ -97,8 +96,7 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 }
 
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
-	configStore model.ConfigStore,
-) *model.Environment {
+	configStore model.ConfigStore) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ConfigStore:      configStore,
@@ -914,7 +912,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
 										EcdhCurves:                []string{"X25519"},
@@ -967,7 +965,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.RedisProxy,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&redis.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									Settings: &redis.RedisProxy_ConnPoolSettings{
 										OpTimeout: durationpb.New(time.Second * 5),
 									},
@@ -1038,7 +1036,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter-to-be-replaced"},
 										{Name: "another-http-filter"},
@@ -1063,7 +1061,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter-should-not-be-replaced"},
 										{Name: "another-http-filter"},
@@ -1091,7 +1089,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{},
 								},
@@ -1139,7 +1137,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
 										EcdhCurves:                []string{"X25519"},
@@ -1177,7 +1175,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&redis.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
 									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
 										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
@@ -1205,7 +1203,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.RedisProxy,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&redis.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									Settings: &redis.RedisProxy_ConnPoolSettings{
 										OpTimeout: durationpb.New(time.Millisecond * 200),
 									},
@@ -1275,7 +1273,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter-replaced"},
 										{Name: "another-http-filter"},
@@ -1300,7 +1298,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter-should-not-be-replaced"},
 										{Name: "another-http-filter"},
@@ -1328,7 +1326,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "transport_sockets.alts",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&udpa.TypedStruct{
+							TypedConfig: util.MessageToAny(&udpa.TypedStruct{
 								TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
 								Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
 							}),
@@ -1354,7 +1352,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "transport_sockets.alts",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&udpa.TypedStruct{
+							TypedConfig: util.MessageToAny(&udpa.TypedStruct{
 								TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
 								Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
 							}),
@@ -1387,7 +1385,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{}),
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{}),
 						},
 					},
 					Filters: []*listener.Filter{{Name: "envoy.transport_sockets.tls"}},
@@ -1423,7 +1421,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
 										TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
@@ -1479,7 +1477,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
@@ -1535,7 +1533,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
@@ -1596,7 +1594,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.TCPProxy,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&tcp_proxy.TcpProxy{
+								TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
 									StatPrefix:       util.BlackHoleCluster,
 									ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 								}),
@@ -1614,7 +1612,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{
 											Name:       wellknown.Fault,
@@ -1667,7 +1665,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "base"},
 									},
@@ -1706,7 +1704,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.TCPProxy,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&tcp_proxy.TcpProxy{
+								TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
 									StatPrefix:       util.BlackHoleCluster,
 									ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 								}),
@@ -1723,7 +1721,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									AlpnProtocols: []string{"h2-80", "http/1.1-80"},
 								},
@@ -1734,7 +1732,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									XffNumTrustedHops:            4,
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
@@ -1771,7 +1769,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									AlpnProtocols: []string{"h2-6380", "http/1.1-6380"},
 								},
@@ -1782,7 +1780,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: "envoy.redis_proxy",
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&redis.RedisProxy{
+								TypedConfig: util.MessageToAny(&redis.RedisProxy{
 									StatPrefix: "redis_stats",
 									PrefixRoutes: &redis.RedisProxy_PrefixRoutes{
 										CatchAllRoute: &redis.RedisProxy_PrefixRoutes_Route{
@@ -1814,7 +1812,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
 										{Name: "base"},
 									},
@@ -1832,7 +1830,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		ConfigNamespace: "not-default",
 		Metadata: &model.NodeMetadata{
 			IstioVersion: "1.2.2",
-			Raw: map[string]any{
+			Raw: map[string]interface{}{
 				"foo": "sidecar",
 				"bar": "proxy",
 			},
@@ -1844,7 +1842,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		ConfigNamespace: "not-default",
 		Metadata: &model.NodeMetadata{
 			IstioVersion: "1.2.2",
-			Raw: map[string]any{
+			Raw: map[string]interface{}{
 				"foo": "sidecar",
 				"bar": "proxy",
 			},
@@ -1944,7 +1942,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 					{
 						Name: wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+							TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 								XffNumTrustedHops:            4,
 								MergeSlashes:                 true,
 								AlwaysSetRequestIdInResponse: true,
@@ -1986,7 +1984,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 		ConfigNamespace: "not-default",
 		Metadata: &model.NodeMetadata{
 			IstioVersion: "1.2.2",
-			Raw: map[string]any{
+			Raw: map[string]interface{}{
 				"foo": "sidecar",
 				"bar": "proxy",
 			},
@@ -1997,7 +1995,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
 
-	var got any
+	var got interface{}
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		copied := proto.Clone(l)

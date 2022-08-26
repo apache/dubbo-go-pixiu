@@ -296,47 +296,47 @@ func TestToJSON(t *testing.T) {
 func TestToMap(t *testing.T) {
 	cases := []struct {
 		input Spec
-		mp    map[string]any
+		mp    map[string]interface{}
 	}{
 		// Istio type
 		{
 			input: &networking.VirtualService{Gateways: []string{"foobar"}},
-			mp: map[string]any{
-				"gateways": []any{"foobar"},
+			mp: map[string]interface{}{
+				"gateways": []interface{}{"foobar"},
 			},
 		},
 		// Kubernetes type
 		{
 			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
-			mp: map[string]any{
+			mp: map[string]interface{}{
 				"serviceAccountName": "foobar",
 			},
 		},
 		// gateway-api type
 		{
 			input: &v1alpha2.GatewayClassSpec{ControllerName: "foobar"},
-			mp: map[string]any{
+			mp: map[string]interface{}{
 				"controllerName": "foobar",
 			},
 		},
 		// mock type
 		{
 			input: &config.MockConfig{Key: "foobar"},
-			mp: map[string]any{
+			mp: map[string]interface{}{
 				"key": "foobar",
 			},
 		},
 		// XDS type, to test golang/proto
 		{
 			input: &cluster.Cluster{Name: "foobar"},
-			mp: map[string]any{
+			mp: map[string]interface{}{
 				"name": "foobar",
 			},
 		},
 		// Random struct
 		{
 			input: &TestStruct{Name: "foobar"},
-			mp: map[string]any{
+			mp: map[string]interface{}{
 				"name": "foobar",
 			},
 		},

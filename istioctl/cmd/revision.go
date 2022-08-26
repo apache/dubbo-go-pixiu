@@ -690,8 +690,7 @@ func annotateWithIOPCustomization(revDesc *RevisionDescription, manifestsPath st
 }
 
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
-	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration,
-) *RevisionDescription {
+	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration) *RevisionDescription {
 	revDescription := &RevisionDescription{
 		IstioOperatorCRs: []*IstioOperatorCRInfo{},
 		Webhooks:         []*MutatingWebhookConfigInfo{},
@@ -716,7 +715,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 	return revDescription
 }
 
-func printJSON(w io.Writer, res any) error {
+func printJSON(w io.Writer, res interface{}) error {
 	out, err := json.MarshalIndent(res, "", "\t")
 	if err != nil {
 		return fmt.Errorf("error while marshaling to JSON: %v", err)
@@ -994,7 +993,7 @@ func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v
 	if err != nil {
 		return []v1.Pod{}, err
 	}
-	podList, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(),
+	podList, err := client.CoreV1().Pods(ns).List(context.TODO(),
 		meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		return []v1.Pod{}, err
@@ -1028,11 +1027,11 @@ func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile strin
 }
 
 // TODO(su225): Improve this and write tests for it.
-func diffWalk(path, separator string, installed any, base any) ([]iopDiff, error) {
+func diffWalk(path, separator string, installed interface{}, base interface{}) ([]iopDiff, error) {
 	switch v := installed.(type) {
-	case map[string]any:
+	case map[string]interface{}:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := base.(map[string]any)
+		typedOrig, ok := base.(map[string]interface{})
 		if ok {
 			for key, vv := range v {
 				childwalk, err := diffWalk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv, typedOrig[key])
@@ -1043,12 +1042,12 @@ func diffWalk(path, separator string, installed any, base any) ([]iopDiff, error
 			}
 		}
 		return accum, nil
-	case []any:
+	case []interface{}:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := base.([]any)
+		typedOrig, ok := base.([]interface{})
 		if ok {
 			for idx, vv := range v {
-				var baseMap any
+				var baseMap interface{}
 				if idx < len(typedOrig) {
 					baseMap = typedOrig[idx]
 				}

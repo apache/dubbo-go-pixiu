@@ -22,17 +22,11 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
+	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util/podutils"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/gateway"
-	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 
 // InferPodInfo Uses name to infer namespace if the passed name contains namespace information.
@@ -44,16 +38,6 @@ func InferPodInfo(name, defaultNS string) (string, string) {
 // inferNsInfo Uses name to infer namespace if the passed name contains namespace information.
 // Otherwise uses the namespace value passed into the function
 func inferNsInfo(name, namespace string) (string, string) {
-	if idx := strings.LastIndex(name, "/"); idx > 0 {
-		// If there is a / in it, we need to handle differently. This is resourcetype/name.namespace.
-		// However, resourcetype can have . in it as well, so we should only look for namespace after the /.
-		separator := strings.LastIndex(name[idx:], ".")
-		if separator < 0 {
-			return name, namespace
-		}
-
-		return name[0 : idx+separator], name[idx+separator+1:]
-	}
 	separator := strings.LastIndex(name, ".")
 	if separator < 0 {
 		return name, namespace
@@ -78,10 +62,10 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	}
 
 	// Pod is referred to using something like "deployment/httpbin".  Use the kubectl
-	// libraries to look up the resource name, find the pods it selects, and return
+	// libraries to look up the the resource name, find the pods it selects, and return
 	// one of those pods.
 	builder := factory.NewBuilder().
-		WithScheme(kubelib.IstioScheme, kubelib.IstioScheme.PrioritizedVersionsAllGroups()...).
+		WithScheme(scheme.Scheme, scheme.Scheme.PrioritizedVersionsAllGroups()...).
 		NamespaceParam(ns).DefaultNamespace().
 		SingleResourceType()
 	builder.ResourceNames("pods", resname)
@@ -97,9 +81,9 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 		// If we got a pod, just use its name
 		return infos[0].Name, infos[0].Namespace, nil
 	}
-	namespace, selector, err := SelectorsForObject(infos[0].Object)
+	namespace, selector, err := polymorphichelpers.SelectorsForObject(infos[0].Object)
 	if err != nil {
-		return "", "", fmt.Errorf("%q does not refer to a pod: %v", resname, err)
+		return "", "", fmt.Errorf("%q does not refer to a pod", resname)
 	}
 	clientConfig, err := factory.ToRESTConfig()
 	if err != nil {
@@ -116,26 +100,5 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	if err != nil {
 		return "", "", fmt.Errorf("no pods match %q", resname)
 	}
-	return pod.Name, namespace, nil
-}
-
-// SelectorsForObject is a fork of upstream function to add additional Istio type support
-func SelectorsForObject(object runtime.Object) (namespace string, selector labels.Selector, err error) {
-	switch t := object.(type) {
-	case *gatewayapi.Gateway:
-		if !gateway.IsManaged(&t.Spec) {
-			return "", nil, fmt.Errorf("gateway is not a managed gateway")
-		}
-		namespace = t.Namespace
-		selector, err = labels.Parse(gateway.GatewayNameLabel + "=" + t.Name)
-	case *gatewayapibeta.Gateway:
-		if !gateway.IsManagedBeta(&t.Spec) {
-			return "", nil, fmt.Errorf("gateway is not a managed gateway")
-		}
-		namespace = t.Namespace
-		selector, err = labels.Parse(gateway.GatewayNameLabel + "=" + t.Name)
-	default:
-		return polymorphichelpers.SelectorsForObject(object)
-	}
-	return
+	return pod.Name, ns, nil
 }

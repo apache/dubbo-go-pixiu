@@ -19,6 +19,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn/factory"
 	"istio.io/pkg/log"
@@ -42,9 +43,9 @@ func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
 	}
 }
 
-func (b *Builder) ForPort(port uint32) authn.MTLSSettings {
+func (b *Builder) ForPort(port uint32) plugin.MTLSSettings {
 	if b == nil {
-		return authn.MTLSSettings{
+		return plugin.MTLSSettings{
 			Port: port,
 			Mode: model.MTLSDisable,
 		}
@@ -52,9 +53,9 @@ func (b *Builder) ForPort(port uint32) authn.MTLSSettings {
 	return b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains)
 }
 
-func (b *Builder) ForPassthrough() []authn.MTLSSettings {
+func (b *Builder) ForPassthrough() []plugin.MTLSSettings {
 	if b == nil {
-		return []authn.MTLSSettings{{
+		return []plugin.MTLSSettings{{
 			Port: 0,
 			Mode: model.MTLSDisable,
 		}}
@@ -62,7 +63,7 @@ func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 	//	We need to create configuration for the passthrough,
 	// but also any ports that are not explicitly declared in the Service but are in the mTLS port level settings.
 
-	resp := []authn.MTLSSettings{
+	resp := []plugin.MTLSSettings{
 		// Full passthrough - no port match
 		b.applier.InboundMTLSSettings(0, b.proxy, b.trustDomains),
 	}

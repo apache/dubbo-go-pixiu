@@ -31,6 +31,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
@@ -39,6 +40,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
+	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"istio.io/api/label"
 )
 
@@ -461,6 +463,11 @@ type IstioEndpoint struct {
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	SubDomain string
 
+	// The ingress tunnel supportability of this endpoint.
+	// If this endpoint sidecar proxy does not support h2 tunnel, this endpoint will not show up in the EDS clusters
+	// which are generated for h2 tunnel.
+	TunnelAbility networking.TunnelAbility
+
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
 
@@ -623,6 +630,11 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) []*ServiceInstance
 	GetProxyWorkloadLabels(*Proxy) labels.Instance
+
+	// GetIstioServiceAccounts returns a list of service accounts looked up from
+	// the specified service hostname and ports.
+	// Deprecated - service account tracking moved to XdsServer, incremental.
+	GetIstioServiceAccounts(svc *Service, ports []int) []string
 
 	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
@@ -798,6 +810,28 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	return DisabledTLSModeLabel
 }
 
+// GetServiceAccounts returns aggregated list of service accounts of Service plus its instances.
+func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) []string {
+	sa := sets.Set{}
+
+	instances := make([]*ServiceInstance, 0)
+	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
+	// the service is deployed on, and the service accounts of the pods.
+	for _, port := range ports {
+		svcInstances := discovery.InstancesByPort(svc, port, nil)
+		instances = append(instances, svcInstances...)
+	}
+
+	for _, si := range instances {
+		if si.Endpoint.ServiceAccount != "" {
+			sa.Insert(si.Endpoint.ServiceAccount)
+		}
+	}
+	sa.InsertAll(svc.ServiceAccounts...)
+
+	return sa.UnsortedList()
+}
+
 // DeepCopy creates a clone of Service.
 func (s *Service) DeepCopy() *Service {
 	// nolint: govet
@@ -820,7 +854,9 @@ func (s *Service) DeepCopy() *Service {
 
 	if s.ServiceAccounts != nil {
 		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
-		copy(out.ServiceAccounts, s.ServiceAccounts)
+		for i, sa := range s.ServiceAccounts {
+			out.ServiceAccounts[i] = sa
+		}
 	}
 	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
 	return &out
@@ -831,7 +867,7 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
 }
 
-func copyInternal(v any) any {
+func copyInternal(v interface{}) interface{} {
 	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:

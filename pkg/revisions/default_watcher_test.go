@@ -109,15 +109,15 @@ func TestDefaultRevisionChanges(t *testing.T) {
 	go w.Run(stop)
 	expectRevision(t, w, "")
 	// change default to "red"
-	createDefaultWebhook(t, client.Kube(), "red")
+	createDefaultWebhook(t, client, "red")
 	expectRevision(t, w, "red")
 
 	// change default to "green"
-	createDefaultWebhook(t, client.Kube(), "green")
+	createDefaultWebhook(t, client, "green")
 	expectRevision(t, w, "green")
 
 	// remove default
-	deleteDefaultWebhook(t, client.Kube())
+	deleteDefaultWebhook(t, client)
 	expectRevision(t, w, "")
 	close(stop)
 }
@@ -136,7 +136,7 @@ func TestHandlers(t *testing.T) {
 		newDefaultChan <- revision
 	}
 	w.AddHandler(handler)
-	createDefaultWebhook(t, client.Kube(), "green")
+	createDefaultWebhook(t, client, "green")
 	expectRevisionChan(t, newDefaultChan, "green")
 	close(stop)
 }

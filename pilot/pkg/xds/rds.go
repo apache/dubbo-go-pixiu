@@ -16,7 +16,8 @@ package xds
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 
 type RdsGenerator struct {
@@ -26,16 +27,16 @@ type RdsGenerator struct {
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
-var skippedRdsConfigs = map[kind.Kind]struct{}{
-	kind.WorkloadEntry:         {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.PeerAuthentication:    {},
-	kind.Secret:                {},
-	kind.WasmPlugin:            {},
-	kind.Telemetry:             {},
-	kind.ProxyConfig:           {},
+var skippedRdsConfigs = map[config.GroupVersionKind]struct{}{
+	gvk.WorkloadEntry:         {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
+	gvk.PeerAuthentication:    {},
+	gvk.Secret:                {},
+	gvk.WasmPlugin:            {},
+	gvk.Telemetry:             {},
+	gvk.ProxyConfig:           {},
 }
 
 func rdsNeedsPush(req *model.PushRequest) bool {

@@ -330,3 +330,7 @@ replace go.opentelemetry.io/otel/internal/metric => go.opentelemetry.io/otel/int
 
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo v0.3.12 => github.com/imdario/mergo v0.3.5
+
+replace istio.io/api => istio.io/api v0.0.0-20220728184806-7837c4e62d82
+
+replace istio.io/pkg => istio.io/pkg v0.0.0-20220728185106-cbb9bd2a0124

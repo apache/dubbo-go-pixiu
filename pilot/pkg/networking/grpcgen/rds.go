@@ -20,7 +20,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 )
 
 // BuildHTTPRoutes supports per-VIP routes, as used by GRPC.
@@ -32,7 +32,7 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 		if rc := buildHTTPRoute(node, push, routeName); rc != nil {
 			resp = append(resp, &discovery.Resource{
 				Name:     routeName,
-				Resource: protoconv.MessageToAny(rc),
+				Resource: util.MessageToAny(rc),
 			})
 		}
 	}

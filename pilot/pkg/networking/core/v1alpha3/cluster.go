@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
-	"net"
 	"strconv"
 	"strings"
 
@@ -37,11 +36,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/telemetry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
-	"github.com/apache/dubbo-go-pixiu/pkg/security"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -49,7 +46,7 @@ import (
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
+var deltaConfigTypes = sets.New(gvk.ServiceEntry.Kind)
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -181,12 +178,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
-	// if credential socket exists, create a cluster for it
-	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
-		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
-	}
+
 	for _, c := range clusters {
-		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
+		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: util.MessageToAny(c)})
 	}
 	resources = cb.normalizeClusters(resources)
 
@@ -203,11 +197,48 @@ func shouldUseDelta(updates *model.PushRequest) bool {
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
 func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
 	for k := range cfgs {
-		if !deltaConfigTypes.Contains(k.Kind.String()) {
+		if !deltaConfigTypes.Contains(k.Kind.Kind) {
 			return false
 		}
 	}
 	return true
+}
+
+type cacheStats struct {
+	hits, miss int
+}
+
+func (c cacheStats) empty() bool {
+	return c.hits == 0 && c.miss == 0
+}
+
+func (c cacheStats) merge(other cacheStats) cacheStats {
+	return cacheStats{
+		hits: c.hits + other.hits,
+		miss: c.miss + other.miss,
+	}
+}
+
+func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+	clusterKey := &clusterCache{
+		clusterName:     clusterName,
+		proxyVersion:    cb.proxyVersion,
+		locality:        cb.locality,
+		proxyClusterID:  cb.clusterID,
+		proxySidecar:    cb.sidecarProxy(),
+		proxyView:       cb.proxyView,
+		http2:           port.Protocol.IsHTTP2(),
+		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		supportsIPv4:    cb.supportsIPv4,
+		service:         service,
+		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),
+		envoyFilterKeys: efKeys,
+		metadataCerts:   cb.metadataCerts,
+		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
+		serviceAccounts: cb.req.Push.ServiceAccounts[service.Hostname][port.Port],
+	}
+	return clusterKey
 }
 
 // buildOutboundClusters generates all outbound (including subsets) clusters for a given proxy.
@@ -247,16 +278,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
-				clusterKey.proxyView, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts)
+				clusterKey.proxyView, clusterKey.destinationRule, clusterKey.serviceAccounts)
 
-			if patched := cp.patch(nil, defaultCluster.build()); patched != nil {
+			if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
 				if features.EnableCDSCaching {
 					cb.cache.Add(clusterKey, cb.req, patched)
 				}
 			}
 			for _, ss := range subsetClusters {
-				if patched := cp.patch(nil, ss); patched != nil {
+				if patched := cp.applyResource(nil, ss); patched != nil {
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
 						nk := *clusterKey
@@ -276,15 +307,15 @@ type clusterPatcher struct {
 	pctx networking.EnvoyFilter_PatchContext
 }
 
-func (p clusterPatcher) patch(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
-	cluster := p.doPatch(hosts, c)
+func (p clusterPatcher) applyResource(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
+	cluster := p.apply(hosts, c)
 	if cluster == nil {
 		return nil
 	}
-	return &discovery.Resource{Name: cluster.Name, Resource: protoconv.MessageToAny(cluster)}
+	return &discovery.Resource{Name: cluster.Name, Resource: util.MessageToAny(cluster)}
 }
 
-func (p clusterPatcher) doPatch(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
+func (p clusterPatcher) apply(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
 	if !envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 		return nil
 	}
@@ -296,7 +327,7 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 		return append(l, clusters...)
 	}
 	for _, c := range clusters {
-		if patched := p.doPatch(hosts, c); patched != nil {
+		if patched := p.apply(hosts, c); patched != nil {
 			l = append(l, patched)
 		}
 	}
@@ -327,7 +358,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			continue
 		}
 
-		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname).GetRule()
+		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -444,41 +475,17 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 			endpointAddress = ingressListener.DefaultEndpoint
 		} else if len(ingressListener.DefaultEndpoint) > 0 {
 			// parse the ip, port. Validation guarantees presence of :
-			hostIP, hostPort, hostErr := net.SplitHostPort(ingressListener.DefaultEndpoint)
-			if hostPort == "" || hostErr != nil {
+			parts := strings.Split(ingressListener.DefaultEndpoint, ":")
+			if len(parts) < 2 {
 				continue
 			}
 			var err error
-			if port, err = strconv.Atoi(hostPort); err != nil {
+			if port, err = strconv.Atoi(parts[1]); err != nil {
 				continue
 			}
-			if hostIP == model.PodIPAddressPrefix {
-				for _, proxyIPaddr := range cb.proxyIPAddresses {
-					edAddr := net.ParseIP(proxyIPaddr)
-					if edAddr.To4() != nil {
-						endpointAddress = proxyIPaddr
-						break
-					}
-				}
-				// if there is no any IPv4 address in proxyIPAddresses
-				if endpointAddress == "" {
-					endpointAddress = model.LocalhostAddressPrefix
-				}
-			} else if hostIP == model.PodIPv6AddressPrefix {
-				for _, proxyIPaddr := range cb.proxyIPAddresses {
-					edAddr := net.ParseIP(proxyIPaddr)
-					if edAddr.To4() == nil {
-						if edAddr.To16() != nil {
-							endpointAddress = proxyIPaddr
-							break
-						}
-					}
-				}
-				// if there is no any IPv6 address in proxyIPAddresses
-				if endpointAddress == "" {
-					endpointAddress = model.LocalhostIPv6AddressPrefix
-				}
-			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
+			if parts[0] == model.PodIPAddressPrefix {
+				endpointAddress = cb.proxyIPAddresses[0]
+			} else if parts[0] == model.LocalhostAddressPrefix {
 				endpointAddress = actualLocalHost
 			}
 		}
@@ -535,13 +542,14 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 		return cluster.Cluster_LOGICAL_DNS
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
-		if proxyType == model.Router {
-			return cluster.Cluster_EDS
+		if proxyType == model.SidecarProxy {
+			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
+				return cluster.Cluster_EDS
+			}
+
+			return cluster.Cluster_ORIGINAL_DST
 		}
-		if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
-			return cluster.Cluster_EDS
-		}
-		return cluster.Cluster_ORIGINAL_DST
+		return cluster.Cluster_EDS
 	default:
 		return cluster.Cluster_EDS
 	}
@@ -596,6 +604,11 @@ type buildClusterOpts struct {
 	serviceRegistry provider.ID
 	// Indicates if the destionationRule has a workloadSelector
 	isDrWithSelector bool
+}
+
+type upgradeTuple struct {
+	meshdefault meshconfig.MeshConfig_H2UpgradePolicy
+	override    networking.ConnectionPoolSettings_HTTPSettings_H2UpgradePolicy
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
@@ -687,14 +700,17 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 
 	// Disable panic threshold by default as its not typically applicable in k8s environments
 	// with few pods per service.
-	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50 in Envoy).
+	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50).
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
 	minHealthPercent := outlier.MinHealthPercent
 	if minHealthPercent >= 0 {
+		if c.CommonLbConfig == nil {
+			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+		}
 		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
-		if features.SendUnhealthyEndpoints.Load() {
+		if features.SendUnhealthyEndpoints {
 			minHealthPercent = 0
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
@@ -713,11 +729,17 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 ) {
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
-	if features.SendUnhealthyEndpoints.Load() {
+	if features.SendUnhealthyEndpoints {
+		if c.CommonLbConfig == nil {
+			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil {
+		if c.CommonLbConfig == nil {
+			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
+		}
 		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
@@ -748,8 +770,6 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
-		// Wipe out any LoadAssignment, if set. This can occur when we have a STATIC Service but PASSTHROUGH traffic policy
-		c.LoadAssignment = nil
 	default:
 		applySimpleDefaultLoadBalancer(c, lb)
 	}
@@ -812,8 +832,8 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 	// unable to distinguish between set and unset case currently GregHanson
 	// 1024 is the default value for envoy
 	minRingSize := &wrappers.UInt64Value{Value: 1024}
-	if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
-		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} // nolint: staticcheck
+	if consistentHash.MinimumRingSize != 0 {
+		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
 	}
 	c.LbPolicy = cluster.Cluster_RING_HASH
 	c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
@@ -870,7 +890,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 		have := make(map[host.Name]bool)
 		for _, svc := range instances {
 			if svc.ServicePort.Port != opts.port.Port {
-				// If the service port is different from the port of the cluster that is being built,
+				// If the service port is different from the the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.
 				continue
 			}

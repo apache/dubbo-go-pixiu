@@ -41,7 +41,7 @@ func TestCustomHandleCrash(t *testing.T) {
 		}
 	}()
 
-	defer HandleCrash(func(any) {
+	defer HandleCrash(func(interface{}) {
 		ch <- struct{}{}
 	})
 

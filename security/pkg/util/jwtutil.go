@@ -121,7 +121,7 @@ func ExtractJwtAud(jwt string) ([]string, bool) {
 	return structuredPayload.Aud, true
 }
 
-func parseJwtClaims(token string) (map[string]any, error) {
+func parseJwtClaims(token string) (map[string]interface{}, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("token contains an invalid number of segments: %d, expected: 3", len(parts))
@@ -134,7 +134,7 @@ func parseJwtClaims(token string) (map[string]any, error) {
 	}
 	dec := json.NewDecoder(bytes.NewBuffer(claimBytes))
 
-	claims := make(map[string]any)
+	claims := make(map[string]interface{})
 	if err := dec.Decode(&claims); err != nil {
 		return nil, fmt.Errorf("failed to decode the JWT claims")
 	}

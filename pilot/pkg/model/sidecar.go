@@ -25,8 +25,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -37,19 +36,19 @@ const (
 )
 
 var (
-	sidecarScopeKnownConfigTypes = map[kind.Kind]struct{}{
-		kind.ServiceEntry:    {},
-		kind.VirtualService:  {},
-		kind.DestinationRule: {},
-		kind.Sidecar:         {},
+	sidecarScopeKnownConfigTypes = map[config.GroupVersionKind]struct{}{
+		gvk.ServiceEntry:    {},
+		gvk.VirtualService:  {},
+		gvk.DestinationRule: {},
+		gvk.Sidecar:         {},
 	}
 
 	// clusterScopedConfigTypes includes configs when they are in root namespace,
 	// they will be applied to all namespaces within the cluster.
-	clusterScopedConfigTypes = map[kind.Kind]struct{}{
-		kind.EnvoyFilter:           {},
-		kind.AuthorizationPolicy:   {},
-		kind.RequestAuthentication: {},
+	clusterScopedConfigTypes = map[config.GroupVersionKind]struct{}{
+		gvk.EnvoyFilter:           {},
+		gvk.AuthorizationPolicy:   {},
+		gvk.RequestAuthentication: {},
 	}
 )
 
@@ -99,7 +98,7 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[host.Name][]*ConsolidatedDestRule
+	destinationRules map[host.Name][]*consolidatedDestRule
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -109,7 +108,7 @@ type SidecarScope struct {
 	// Set of known configs this sidecar depends on.
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
-	configDependencies map[ConfigHash]struct{}
+	configDependencies map[uint64]struct{}
 
 	// The namespace to treat as the administrative root namespace for
 	// Istio configuration.
@@ -121,7 +120,7 @@ type SidecarScope struct {
 // MarshalJSON implements json.Marshaller
 func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
-	return json.MarshalIndent(map[string]any{
+	return json.MarshalIndent(map[string]interface{}{
 		"version":               sc.Version,
 		"rootNamespace":         sc.RootNamespace,
 		"name":                  sc.Name,
@@ -186,9 +185,9 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Namespace:          configNamespace,
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name][]*ConsolidatedDestRule),
+		destinationRules:   make(map[host.Name][]*consolidatedDestRule),
 		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies: make(map[ConfigHash]struct{}),
+		configDependencies: make(map[uint64]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
@@ -212,36 +211,36 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.destinationRules[s.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
+			Kind:      gvk.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
-		}.HashCode())
+		})
 	}
 
 	for _, drList := range out.destinationRules {
 		for _, dr := range drList {
 			for _, namespacedName := range dr.from {
 				out.AddConfigDependencies(ConfigKey{
-					Kind:      kind.DestinationRule,
+					Kind:      gvk.DestinationRule,
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
-				}.HashCode())
+				})
 			}
 		}
 	}
 
 	for _, el := range out.EgressListeners {
 		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(el.virtualServices)
+		delegates := ps.DelegateVirtualServicesConfigKey(el.virtualServices)
 		for _, delegate := range delegates {
 			out.AddConfigDependencies(delegate)
 		}
 		for _, vs := range el.virtualServices {
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      kind.VirtualService,
+				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
-			}.HashCode())
+			})
 		}
 	}
 
@@ -265,16 +264,16 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Name:               sidecarConfig.Name,
 		Namespace:          configNamespace,
 		Sidecar:            sidecar,
-		configDependencies: make(map[ConfigHash]struct{}),
+		configDependencies: make(map[uint64]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
 
 	out.AddConfigDependencies(ConfigKey{
-		Kind:      kind.Sidecar,
+		Kind:      gvk.Sidecar,
 		Name:      sidecarConfig.Name,
 		Namespace: sidecarConfig.Namespace,
-	}.HashCode())
+	})
 
 	egressConfigs := sidecar.Egress
 	// If egress not set, setup a default listener
@@ -301,13 +300,13 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		}
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      kind.ServiceEntry,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
-			}.HashCode())
+			})
 			out.services = append(out.services, s)
 			servicesAdded[s.Hostname] = serviceIndex{s, len(out.services) - 1}
-		} else if foundSvc.svc.Attributes.Namespace == s.Attributes.Namespace && len(s.Ports) > 0 {
+		} else if foundSvc.svc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
 			// merge the ports to service when each listener generates partial service
 			// we only merge if the found service is in the same namespace as the one we're trying to add
 			copied := foundSvc.svc.DeepCopy()
@@ -337,7 +336,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			addService(s)
 		}
 		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(listener.virtualServices)
+		delegates := ps.DelegateVirtualServicesConfigKey(listener.virtualServices)
 		for _, delegate := range delegates {
 			out.AddConfigDependencies(delegate)
 		}
@@ -350,12 +349,12 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      kind.VirtualService,
+				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
-			}.HashCode())
+			})
 
-			for h, ports := range virtualServiceDestinations(v) {
+			for _, h := range virtualServiceDestinationHosts(v) {
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
@@ -363,7 +362,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 					if matchPort {
 						vss = serviceMatchingListenerPort(s, listener)
 					} else {
-						vss = serviceMatchingVirtualServicePorts(s, ports)
+						vss = s
 					}
 					if vss != nil {
 						addService(vss)
@@ -394,7 +393,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						if matchPort {
 							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
 						} else {
-							vss = serviceMatchingVirtualServicePorts(byNamespace[ns[0]], ports)
+							vss = byNamespace[ns[0]]
 						}
 						if vss != nil {
 							addService(vss)
@@ -409,7 +408,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
-	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
+	out.destinationRules = make(map[host.Name][]*consolidatedDestRule)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
 		drList := ps.destinationRule(configNamespace, s)
@@ -418,10 +417,10 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			for _, dr := range drList {
 				for _, key := range dr.from {
 					out.AddConfigDependencies(ConfigKey{
-						Kind:      kind.DestinationRule,
+						Kind:      gvk.DestinationRule,
 						Name:      key.Name,
 						Namespace: key.Namespace,
-					}.HashCode())
+					})
 				}
 			}
 		}
@@ -441,8 +440,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 }
 
 func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
-	istioListener *networking.IstioEgressListener,
-) *IstioEgressListenerWrapper {
+	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
 	}
@@ -552,27 +550,27 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
-func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
+func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	if sc == nil {
 		return
 	}
 	if sc.configDependencies == nil {
-		sc.configDependencies = make(map[ConfigHash]struct{})
+		sc.configDependencies = make(map[uint64]struct{})
 	}
 
 	for _, config := range dependencies {
-		sc.configDependencies[config] = struct{}{}
+		sc.configDependencies[config.HashCode()] = struct{}{}
 	}
 }
 
 // DestinationRule returns a destinationrule for a svc.
-func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *ConsolidatedDestRule {
+func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *config.Config {
 	destinationRules := sc.destinationRules[svc]
-	var catchAllDr *ConsolidatedDestRule
+	var catchAllDr *config.Config
 	for _, destRule := range destinationRules {
 		destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
 		if destinationRule.GetWorkloadSelector() == nil {
-			catchAllDr = destRule
+			catchAllDr = destRule.rule
 		}
 		// filter DestinationRule based on workloadSelector for outbound configs.
 		// WorkloadSelector configuration is honored only for outbound configuration, because
@@ -582,7 +580,7 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
 			if workloadSelector.SubsetOf(proxy.Metadata.Labels) {
-				return destRule
+				return destRule.rule
 			}
 		}
 	}
@@ -610,10 +608,8 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
 			if svc := matchingService(importedHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
-				continue
 			}
-		}
-		if wnsFound { // Check if there is an import of form */host or */*
+		} else if wnsFound { // Check if there is an import of form */host or */*
 			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
@@ -665,40 +661,6 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 			return sc
 		}
 	}
-	return nil
-}
-
-func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.IntSet) *Service {
-	// A value of 0 in vsDestPorts is used as a sentinel to indicate a dependency
-	// on every port of the service.
-	if len(vsDestPorts) == 0 || vsDestPorts.Contains(0) {
-		return service
-	}
-
-	foundPorts := make([]*Port, 0)
-	for _, port := range service.Ports {
-		if vsDestPorts.Contains(port.Port) {
-			foundPorts = append(foundPorts, port)
-		}
-	}
-
-	if len(foundPorts) == len(service.Ports) {
-		return service
-	}
-
-	if len(foundPorts) > 0 {
-		sc := service.DeepCopy()
-		sc.Ports = foundPorts
-		return sc
-	}
-
-	// If the service has more than one port, and the Virtual Service only
-	// specifies destination ports not found in the service, we'll simply
-	// not add the service to the sidecar as an optimization, because
-	// traffic will not route properly anyway. This matches the above
-	// behavior in serviceMatchingListenerPort for ports specified on the
-	// sidecar egress listener.
-	log.Warnf("Failed to find any VirtualService destination ports %v exposed by Service %s", vsDestPorts, service.Hostname)
 	return nil
 }
 

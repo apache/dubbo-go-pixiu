@@ -16,14 +16,14 @@ package xds
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 
 // configKindAffectedProxyTypes contains known config types which may affect certain node types.
-var configKindAffectedProxyTypes = map[kind.Kind][]model.NodeType{
-	kind.Gateway: {model.Router},
-	kind.Sidecar: {model.SidecarProxy},
+var configKindAffectedProxyTypes = map[config.GroupVersionKind][]model.NodeType{
+	gvk.Gateway: {model.Router},
+	gvk.Sidecar: {model.SidecarProxy},
 }
 
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
@@ -48,7 +48,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 			}
 		}
 
-		if affected && checkProxyDependencies(proxy, config, req.Push) {
+		if affected && checkProxyDependencies(proxy, config) {
 			return true
 		}
 	}
@@ -56,7 +56,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
+func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey) bool {
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -65,17 +65,6 @@ func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey, push *mo
 		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config) {
 			return true
 		}
-	case model.Router:
-		if config.Kind == kind.ServiceEntry {
-			// If config is ServiceEntry, name of the config is service's FQDN
-			svc, exist := push.ServiceIndex.HostnameAndNamespace[host.Name(config.Name)][config.Namespace]
-			if exist {
-				if !push.IsServiceVisible(svc, proxy.Metadata.Namespace) {
-					return false
-				}
-			}
-		}
-		return true
 	default:
 		// TODO We'll add the check for other proxy types later.
 		return true
@@ -93,7 +82,7 @@ func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if len(proxy.ServiceInstances) > 0 && req.ConfigsUpdated != nil {
 		svc := proxy.ServiceInstances[0].Service
 		if _, ok := req.ConfigsUpdated[model.ConfigKey{
-			Kind:      kind.ServiceEntry,
+			Kind:      gvk.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
 		}]; ok {

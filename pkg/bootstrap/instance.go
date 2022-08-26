@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	// EnvoyFileTemplate is a template for the root config JSON
-	EnvoyFileTemplate = "envoy-rev.%s"
+	// EpochFileTemplate is a template for the root config JSON
+	EpochFileTemplate = "envoy-rev%d.%s"
 	DefaultCfgDir     = "./var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
 )
 
@@ -44,8 +44,8 @@ type Instance interface {
 	// WriteTo writes the content of the Envoy bootstrap to the given writer.
 	WriteTo(templateFile string, w io.Writer) error
 
-	// CreateFile generates an Envoy bootstrap file.
-	CreateFile() (string, error)
+	// CreateFileForEpoch generates an Envoy bootstrap file for a particular epoch.
+	CreateFileForEpoch(epoch int) (string, error)
 }
 
 // New creates a new Instance of an Envoy bootstrap writer.
@@ -76,7 +76,7 @@ func (i *instance) WriteTo(templateFile string, w io.Writer) error {
 	return t.Execute(w, templateParams)
 }
 
-func toJSON(i any) string {
+func toJSON(i interface{}) string {
 	if i == nil {
 		return "{}"
 	}
@@ -108,7 +108,7 @@ func GetEffectiveTemplatePath(pc *model.NodeMetaProxyConfig) string {
 	return templateFilePath
 }
 
-func (i *instance) CreateFile() (string, error) {
+func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
 	// Create the output file.
 	if err := os.MkdirAll(i.Metadata.ProxyConfig.ConfigPath, 0o700); err != nil {
 		return "", err
@@ -116,7 +116,7 @@ func (i *instance) CreateFile() (string, error) {
 
 	templateFile := GetEffectiveTemplatePath(i.Metadata.ProxyConfig)
 
-	outputFilePath := configFile(i.Metadata.ProxyConfig.ConfigPath, templateFile)
+	outputFilePath := configFile(i.Metadata.ProxyConfig.ConfigPath, templateFile, epoch)
 	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
 		return "", err
@@ -131,13 +131,13 @@ func (i *instance) CreateFile() (string, error) {
 	return outputFilePath, err
 }
 
-func configFile(config string, templateFile string) string {
+func configFile(config string, templateFile string, epoch int) string {
 	suffix := "json"
 	// Envoy will interpret the file extension to determine the type. We should detect yaml inputs
 	if strings.HasSuffix(templateFile, ".yaml.tmpl") || strings.HasSuffix(templateFile, ".yaml") {
 		suffix = "yaml"
 	}
-	return path.Join(config, fmt.Sprintf(EnvoyFileTemplate, suffix))
+	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch, suffix))
 }
 
 func newTemplate(templateFilePath string) (*template.Template, error) {

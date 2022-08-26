@@ -34,7 +34,9 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 	"google.golang.org/grpc/status"
-	xdsgrpc "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
+
+	// To install the xds resolvers and balancers.
+	xdsgrpc "google.golang.org/grpc/xds"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
@@ -166,8 +168,8 @@ func TestGRPC(t *testing.T) {
 	// This does not attempt to resolve CDS or EDS.
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := xdsresolver
-		stateCh := &Channel{ch: make(chan any, 1)}
-		errorCh := &Channel{ch: make(chan any, 1)}
+		stateCh := &Channel{ch: make(chan interface{}, 1)}
+		errorCh := &Channel{ch: make(chan interface{}, 1)}
 		_, err := rb.Build(resolver.Target{URL: url.URL{
 			Scheme: "xds",
 			Path:   "/" + net.JoinHostPort(istiodSvcHost, xdsPorts),
@@ -395,7 +397,7 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 	go func() {
 		err := grpcServer.Serve(lis)
 		if err != nil {
-			log.Errorf(err)
+			log.Errora(err)
 		}
 	}()
 	time.Sleep(3 * time.Second)
@@ -428,11 +430,11 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 }
 
 type Channel struct {
-	ch chan any
+	ch chan interface{}
 }
 
 // Send sends value on the underlying channel.
-func (c *Channel) Send(value any) {
+func (c *Channel) Send(value interface{}) {
 	c.ch <- value
 }
 

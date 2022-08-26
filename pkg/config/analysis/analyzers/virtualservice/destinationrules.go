@@ -55,8 +55,7 @@ func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
-	destHostsAndSubsets map[hostAndSubset]bool,
-) {
+	destHostsAndSubsets map[hostAndSubset]bool) {
 	vs := r.Message.(*v1alpha3.VirtualService)
 	ns := r.Metadata.FullName.Namespace
 
@@ -92,8 +91,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 }
 
 func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Namespace, destination *v1alpha3.Destination,
-	destHostsAndSubsets map[hostAndSubset]bool,
-) bool {
+	destHostsAndSubsets map[hostAndSubset]bool) bool {
 	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
 	subset := destination.GetSubset()
 

@@ -16,6 +16,7 @@ package ingress
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -23,7 +24,6 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 
 var (
@@ -109,21 +109,32 @@ func fakeMeshHolder(ingressService string) mesh.Holder {
 }
 
 func makeStatusSyncer(t *testing.T) *StatusSyncer {
-	setEnvs(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
+	oldEnvs := setAndRestoreEnv(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
+	// Restore env settings
+	defer setAndRestoreEnv(t, oldEnvs)
 
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
 	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client)
-	stop := test.NewStop(t)
+	stop := make(chan struct{})
 	client.RunAndWait(stop)
+	t.Cleanup(func() {
+		close(stop)
+	})
 	return sync
 }
 
-// setEnvs set the envs with given value.
-func setEnvs(t *testing.T, inputs map[string]string) {
+// setAndRestoreEnv set the envs with given value, and return the old setting.
+func setAndRestoreEnv(t *testing.T, inputs map[string]string) map[string]string {
+	oldEnvs := map[string]string{}
 	for k, v := range inputs {
-		t.Setenv(k, v)
+		oldEnvs[k] = os.Getenv(k)
+		if err := os.Setenv(k, v); err != nil {
+			t.Error(err)
+		}
 	}
+
+	return oldEnvs
 }
 
 func TestRunningAddresses(t *testing.T) {

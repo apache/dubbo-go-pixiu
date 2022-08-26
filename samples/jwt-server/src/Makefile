@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HUB ?= gcr.io/istio-testing/jwt-server
-TAG ?= 0.7
+HUB ?= docker.io/istio/jwt-server
+TAG ?= 0.6
 
-push: main.go Dockerfile
-	docker buildx build --push --platform=linux/amd64,linux/arm64 . -t $(HUB):$(TAG)
+build: main.go Dockerfile
+	docker build . -t $(HUB):$(TAG)
+
+push: build
+	docker push $(HUB):$(TAG)

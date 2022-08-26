@@ -179,9 +179,6 @@
     "tolerations": {
       "type": "array"
     },
-    "topologySpreadConstraints": {
-      "type": "array"
-    },
     "networkGateway": {
       "type": "string"
     },

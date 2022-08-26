@@ -38,7 +38,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/status"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
@@ -178,7 +178,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	}
 
 	// healthcheck before lds will be not sent
-	proxy.sendHealthCheckRequest(healthy)
+	proxy.PersistRequest(healthy)
 	expectCondition("")
 
 	// simulate envoy send xds requests
@@ -188,11 +188,11 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Flip status back and forth, ensure we update
-	proxy.sendHealthCheckRequest(healthy)
+	proxy.PersistRequest(healthy)
 	expectCondition(status.StatusTrue)
-	proxy.sendHealthCheckRequest(unhealthy)
+	proxy.PersistRequest(unhealthy)
 	expectCondition(status.StatusFalse)
-	proxy.sendHealthCheckRequest(healthy)
+	proxy.PersistRequest(healthy)
 	expectCondition(status.StatusTrue)
 
 	// Completely disconnect
@@ -206,14 +206,14 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	// Old status should remain
 	expectCondition(status.StatusTrue)
 	// And still update when we send new requests
-	proxy.sendHealthCheckRequest(unhealthy)
+	proxy.PersistRequest(unhealthy)
 	expectCondition(status.StatusFalse)
 
 	// Send a new update while we are disconnected
 	conn.Close()
 	downstream.CloseSend()
 	waitDisconnect()
-	proxy.sendHealthCheckRequest(healthy)
+	proxy.PersistRequest(healthy)
 	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
@@ -222,9 +222,9 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Confirm more updates are honored
-	proxy.sendHealthCheckRequest(healthy)
+	proxy.PersistRequest(healthy)
 	expectCondition(status.StatusTrue)
-	proxy.sendHealthCheckRequest(unhealthy)
+	proxy.PersistRequest(unhealthy)
 	expectCondition(status.StatusFalse)
 
 	// Disconnect and remove workload entry. This could happen if there is an outage and istiod cleans up
@@ -233,7 +233,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	downstream.CloseSend()
 	waitDisconnect()
 	f.Store().Delete(gvk.WorkloadEntry, "group-1.1.1.1", "default", nil)
-	proxy.sendHealthCheckRequest(healthy)
+	proxy.PersistRequest(healthy)
 	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
@@ -242,9 +242,9 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Confirm more updates are honored
-	proxy.sendHealthCheckRequest(unhealthy)
+	proxy.PersistRequest(unhealthy)
 	expectCondition(status.StatusFalse)
-	proxy.sendHealthCheckRequest(healthy)
+	proxy.PersistRequest(healthy)
 	expectCondition(status.StatusTrue)
 }
 
@@ -272,7 +272,7 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 		DownstreamGrpcOptions: opts,
 	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
-		ia.close()
+		ia.Close()
 	})
 	proxy, err := initXdsProxy(ia)
 	if err != nil {
@@ -523,7 +523,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	}
 	wantEcdsConfig := &core.TypedExtensionConfig{
 		Name:        "extension-config",
-		TypedConfig: protoconv.MessageToAny(wasm),
+		TypedConfig: util.MessageToAny(wasm),
 	}
 
 	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {

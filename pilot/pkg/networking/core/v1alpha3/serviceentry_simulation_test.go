@@ -77,14 +77,14 @@ func TestServiceEntry(t *testing.T) {
 			kubeConfig: "",
 			calls: []simulation.Expect{{
 				// Expect listener, but no routing
-				Name: "defined port",
-				Call: simulation.Call{
+				"defined port",
+				simulation.Call{
 					Port:       9999,
 					HostHeader: "blah.somedomain",
 					Address:    "1234:1f1:1:1:1:1:1:1",
 					Protocol:   simulation.HTTP,
 				},
-				Result: simulation.Result{
+				simulation.Result{
 					ListenerMatched: "0.0.0.0_9999",
 					ClusterMatched:  "outbound|9999||blah.somedomain",
 				},
@@ -97,14 +97,14 @@ func TestServiceEntry(t *testing.T) {
 			kubeConfig: "",
 			calls: []simulation.Expect{{
 				// Expect listener, but no routing
-				Name: "defined port",
-				Call: simulation.Call{
+				"defined port",
+				simulation.Call{
 					Port:       9999,
 					HostHeader: "blah.somedomain",
 					Address:    "1234:1f1:1:1:1:1:1:1",
 					Protocol:   simulation.HTTP,
 				},
-				Result: simulation.Result{
+				simulation.Result{
 					Error:           simulation.ErrMultipleFilterChain,
 					ListenerMatched: "0.0.0.0_9999",
 				},

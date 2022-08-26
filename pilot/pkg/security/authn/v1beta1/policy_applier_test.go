@@ -34,8 +34,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/test"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
+	pilotutil "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	protovalue "github.com/apache/dubbo-go-pixiu/pkg/proto"
@@ -91,7 +91,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -159,7 +159,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -232,7 +232,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -312,7 +312,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -435,7 +435,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -502,7 +502,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -570,7 +570,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -639,7 +639,7 @@ func TestJwtFilter(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(
+					TypedConfig: pilotutil.MessageToAny(
 						&envoy_jwt.JwtAuthentication{
 							Rules: []*envoy_jwt.RequirementRule{
 								{
@@ -1070,7 +1070,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
@@ -1105,7 +1105,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						DisableClearRouteCache:  true,
 						Policy: &authn_alpha.Policy{
@@ -1153,7 +1153,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
@@ -1205,7 +1205,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
@@ -1349,13 +1349,13 @@ func TestInboundMTLSSettings(t *testing.T) {
 	tlsContextHTTP := proto.Clone(tlsContext).(*tls.DownstreamTlsContext)
 	tlsContextHTTP.CommonTlsContext.AlpnProtocols = []string{"h2", "http/1.1"}
 
-	expectedStrict := authn.MTLSSettings{
+	expectedStrict := plugin.MTLSSettings{
 		Port: 8080,
 		Mode: model.MTLSStrict,
 		TCP:  tlsContext,
 		HTTP: tlsContextHTTP,
 	}
-	expectedPermissive := authn.MTLSSettings{
+	expectedPermissive := plugin.MTLSSettings{
 		Port: 8080,
 		Mode: model.MTLSPermissive,
 		TCP:  tlsContext,
@@ -1365,7 +1365,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 	cases := []struct {
 		name         string
 		peerPolicies []*config.Config
-		expected     authn.MTLSSettings
+		expected     plugin.MTLSSettings
 	}{
 		{
 			name:     "No policy - behave as permissive",
@@ -1382,7 +1382,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 					},
 				},
 			},
-			expected: authn.MTLSSettings{Port: 8080, Mode: model.MTLSDisable},
+			expected: plugin.MTLSSettings{Port: 8080, Mode: model.MTLSDisable},
 		},
 		{
 			name: "Single policy - permissive mode",

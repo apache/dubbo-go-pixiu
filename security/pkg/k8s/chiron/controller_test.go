@@ -375,7 +375,7 @@ func TestScrtUpdated(t *testing.T) {
 			scrt.Data[ca.RootCertFile] = []byte(exampleCACert2)
 		}
 
-		var newScrt any
+		var newScrt interface{}
 		if tc.invalidNewSecret {
 			// point to an invalid secret object
 			newScrt = &v1.ConfigMap{}

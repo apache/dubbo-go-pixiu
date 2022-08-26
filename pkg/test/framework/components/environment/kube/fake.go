@@ -35,11 +35,7 @@ func (f FakeEnvironment) ID() resource.ID {
 	return resource.FakeID(f.IDValue)
 }
 
-func (f FakeEnvironment) IsMultiCluster() bool {
-	return false
-}
-
-func (f FakeEnvironment) IsMultiNetwork() bool {
+func (f FakeEnvironment) IsMultinetwork() bool {
 	return false
 }
 

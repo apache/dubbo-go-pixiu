@@ -30,7 +30,6 @@ import (
 	"gopkg.in/square/go-jose.v2"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -41,7 +40,7 @@ const (
 	URIPrefixLen = len(URIPrefix)
 
 	// The default SPIFFE URL value for trust domain
-	defaultTrustDomain = constants.DefaultClusterLocalDomain
+	defaultTrustDomain = constants.DefaultKubernetesDomain
 
 	ServiceAccountSegment = "sa"
 	NamespaceSegment      = "ns"
@@ -66,14 +65,14 @@ type Identity struct {
 
 func ParseIdentity(s string) (Identity, error) {
 	if !strings.HasPrefix(s, URIPrefix) {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format")
+		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
 	}
 	split := strings.Split(s[URIPrefixLen:], "/")
 	if len(split) != 5 {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format")
+		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
 	}
 	if split[1] != NamespaceSegment || split[3] != ServiceAccountSegment {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format")
+		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
 	}
 	return Identity{
 		TrustDomain:    split[0],
@@ -125,7 +124,7 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 	return uri
 }
 
-// ExpandWithTrustDomains expands a given spiffe identities, plus a list of trust domain aliases.
+// ExpandWithTrustDomains expands a given spiffe identities, plus a list of truts domain aliases.
 // We ensure the returned list does not contain duplicates; the original input is always retained.
 // For example,
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/def"}, {"td1", "td2"}) returns
@@ -135,10 +134,10 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/a", "spiffe://td1/ns/def/sa/b"}, {"td2"}) returns
 //
 //	{"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
-func ExpandWithTrustDomains(spiffeIdentities sets.Set, trustDomainAliases []string) sets.Set {
-	out := sets.New()
-	for id := range spiffeIdentities {
-		out.Insert(id)
+func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, id := range spiffeIdentities {
+		out[id] = struct{}{}
 		// Expand with aliases set.
 		m, err := ParseIdentity(id)
 		if err != nil {
@@ -167,8 +166,7 @@ func GetTrustDomainFromURISAN(uriSan string) (string, error) {
 // The input endpointTuples should be in the format of:
 // "foo|URL1||bar|URL2||baz|URL3..."
 func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrustedCerts []*x509.Certificate) (
-	map[string][]*x509.Certificate, error,
-) {
+	map[string][]*x509.Certificate, error) {
 	spiffeLog.Infof("Processing SPIFFE bundle configuration: %v", inputString)
 	config := make(map[string]string)
 	tuples := strings.Split(inputString, "||")
@@ -195,14 +193,13 @@ func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrust
 // RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
 func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.CertPool, retryTimeout time.Duration) (
-	map[string][]*x509.Certificate, error,
-) {
+	map[string][]*x509.Certificate, error) {
 	httpClient := &http.Client{
 		Timeout: time.Second * 10,
 	}
 
 	ret := map[string][]*x509.Certificate{}
-	for trustDomain, endpoint := range config {
+	for trustdomain, endpoint := range config {
 		if !strings.HasPrefix(endpoint, "https://") {
 			endpoint = "https://" + endpoint
 		}
@@ -248,7 +245,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 
 			if startTime.Add(retryTimeout).Before(time.Now()) {
 				return nil, fmt.Errorf("exhausted retries to fetch the SPIFFE bundle %s from url %s. Latest error: %v",
-					trustDomain, endpoint, errMsg)
+					trustdomain, endpoint, errMsg)
 			}
 
 			spiffeLog.Warnf("%s, retry in %v", errMsg, retryBackoffTime)
@@ -259,7 +256,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 
 		doc := new(bundleDoc)
 		if err := json.NewDecoder(resp.Body).Decode(doc); err != nil {
-			return nil, fmt.Errorf("trust domain [%s] at URL [%s] failed to decode bundle: %v", trustDomain, endpoint, err)
+			return nil, fmt.Errorf("trust domain [%s] at URL [%s] failed to decode bundle: %v", trustdomain, endpoint, err)
 		}
 
 		var cert *x509.Certificate
@@ -267,18 +264,18 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 			if key.Use == "x509-svid" {
 				if len(key.Certificates) != 1 {
 					return nil, fmt.Errorf("trust domain [%s] at URL [%s] expected 1 certificate in x509-svid entry %d; got %d",
-						trustDomain, endpoint, i, len(key.Certificates))
+						trustdomain, endpoint, i, len(key.Certificates))
 				}
 				cert = key.Certificates[0]
 			}
 		}
 		if cert == nil {
-			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", trustDomain, endpoint)
+			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", trustdomain, endpoint)
 		}
-		if certs, ok := ret[trustDomain]; ok {
-			ret[trustDomain] = append(certs, cert)
+		if certs, ok := ret[trustdomain]; ok {
+			ret[trustdomain] = append(certs, cert)
 		} else {
-			ret[trustDomain] = []*x509.Certificate{cert}
+			ret[trustdomain] = []*x509.Certificate{cert}
 		}
 	}
 	for trustDomain, certs := range ret {

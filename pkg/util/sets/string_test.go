@@ -16,7 +16,6 @@ package sets
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
@@ -178,34 +177,5 @@ func TestMerge(t *testing.T) {
 	for _, tc := range cases {
 		got := tc.s1.Merge(tc.s2)
 		assert.Equal(t, tc.expected, got.SortedList())
-	}
-}
-
-func TestInsertAll(t *testing.T) {
-	tests := []struct {
-		name  string
-		s     Set
-		items []string
-		want  Set
-	}{
-		{
-			name:  "insert new item",
-			s:     New("a1", "a2"),
-			items: []string{"a3"},
-			want:  New("a1", "a2", "a3"),
-		},
-		{
-			name:  "inserted item already exists",
-			s:     New("a1", "a2"),
-			items: []string{"a1"},
-			want:  New("a1", "a2"),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.InsertAll(tt.items...); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("InsertAll() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }

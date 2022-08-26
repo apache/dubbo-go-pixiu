@@ -23,7 +23,6 @@ import (
 	"net/http/pprof"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -32,7 +31,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crd"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
@@ -42,13 +41,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
-	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
@@ -82,9 +79,6 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </style>
 <body>
 <br/>
-<p style = "font-family:Arial,Helvetica,sans-serif;">
-Note: Use <b>pretty</b> in query string (like <b>debug/configz?pretty</b>) to format the output.
-</p>
 <table id="endpoints">
 <tr><th>Endpoint</th><th>Description</th></tr>
 {{range .}}
@@ -140,15 +134,11 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(
-	mux *http.ServeMux,
-	sctl *aggregate.Controller,
-	enableProfiling bool,
-	fetchWebhook func() map[string]string,
-) *http.ServeMux {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+	fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
-	s.MemRegistry.XdsUpdater = s
+	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(serviceregistry.Simple{
@@ -159,7 +149,10 @@ func (s *DiscoveryServer) InitDebug(
 	})
 	internalMux := http.NewServeMux()
 	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
-	return internalMux
+	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
+	if ok {
+		debugGen.DebugMux = internalMux
+	}
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
@@ -220,8 +213,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.ServeMux,
-	path string, help string, handler func(http.ResponseWriter, *http.Request),
-) {
+	path string, help string, handler func(http.ResponseWriter, *http.Request)) {
 	s.debugHandlers[path] = help
 	// Add handler without auth. This mux is never exposed on an HTTP server and only used internally
 	if internalMux != nil {
@@ -241,9 +233,8 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 		// Authenticate request with the same method as XDS
 		authFailMsgs := make([]string, 0)
 		var ids []string
-		authRequest := security.AuthContext{Request: req}
 		for _, authn := range s.Authenticators {
-			u, err := authn.Authenticate(authRequest)
+			u, err := authn.AuthenticateRequest(req)
 			// If one authenticator passes, return
 			if u != nil && u.Identities != nil && err == nil {
 				ids = u.Identities
@@ -274,7 +265,7 @@ func isRequestFromLocalhost(r *http.Request) bool {
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
-func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	for _, con := range s.Clients() {
 		node := con.proxy
@@ -296,21 +287,23 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 			})
 		}
 	}
-	writeJSON(w, syncz, req)
+	writeJSON(w, syncz)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	all := s.Env.ServiceDiscovery.Services()
-	writeJSON(w, all, req)
+	writeJSON(w, all)
 }
 
 // Dumps info about the endpoint shards, tracked using the new direct interface.
 // Legacy registry provides are synced to the new data structure as well, during
 // the full push.
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.Env.EndpointIndex.Shardz(), req)
+	w.Header().Add("Content-Type", "application/json")
+	out, _ := json.MarshalIndent(s.EndpointIndex.Shardz(), " ", " ")
+	_, _ = w.Write(out)
 }
 
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
@@ -338,7 +331,7 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 			totalSize += sz
 		}
 		res["total"] = util.ByteCount(totalSize)
-		writeJSON(w, res, req)
+		writeJSON(w, res)
 		return
 	}
 	snapshot := s.Cache.Snapshot()
@@ -350,7 +343,7 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		resourceType := resource.Resource.TypeUrl
 		resources[resourceType] = append(resources[resourceType], resource.Name+"/"+key)
 	}
-	writeJSON(w, resources, req)
+	writeJSON(w, resources)
 }
 
 type endpointzResponse struct {
@@ -386,7 +379,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 			})
 		}
 	}
-	writeJSON(w, resp, req)
+	writeJSON(w, resp)
 }
 
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
@@ -419,7 +412,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.proxy.RUnlock()
 		}
 
-		writeJSON(w, results, req)
+		writeJSON(w, results)
 	} else {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required\n")
@@ -468,9 +461,6 @@ func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	configs := make([]kubernetesConfig, 0)
-	if s.Env == nil || s.Env.ConfigStore == nil {
-		return
-	}
 	s.Env.ConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.ConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
@@ -478,7 +468,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 		}
 		return false
 	})
-	writeJSON(w, configs, req)
+	writeJSON(w, configs)
 }
 
 // SidecarScope debugging
@@ -488,21 +478,18 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 		s.errorHandler(w, proxyID, con)
 		return
 	}
-	writeJSON(w, con.proxy.SidecarScope, req)
+	writeJSON(w, con.proxy.SidecarScope)
 }
 
 // Resource debugging.
-func (s *DiscoveryServer) resourcez(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
 	schemas := make([]config.GroupVersionKind, 0)
+	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
+		schemas = append(schemas, schema.Resource().GroupVersionKind())
+		return false
+	})
 
-	if s.Env != nil && s.Env.ConfigStore != nil {
-		s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
-			schemas = append(schemas, schema.Resource().GroupVersionKind())
-			return false
-		})
-	}
-
-	writeJSON(w, schemas, req)
+	writeJSON(w, schemas)
 }
 
 // AuthorizationDebug holds debug information for authorization policy.
@@ -515,7 +502,7 @@ func (s *DiscoveryServer) authorizationz(w http.ResponseWriter, req *http.Reques
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
-	writeJSON(w, info, req)
+	writeJSON(w, info)
 }
 
 // AuthorizationDebug holds debug information for authorization policy.
@@ -527,7 +514,7 @@ func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
 	info := TelemetryDebug{
 		Telemetries: s.globalPushContext().Telemetry,
 	}
-	writeJSON(w, info, req)
+	writeJSON(w, info)
 }
 
 // connectionsHandler implements interface for displaying current connections.
@@ -545,7 +532,7 @@ func (s *DiscoveryServer) connectionsHandler(w http.ResponseWriter, req *http.Re
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	writeJSON(w, adsClients, req)
+	writeJSON(w, adsClients)
 }
 
 // adsz implements a status and debug interface for ADS.
@@ -593,7 +580,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	sort.Slice(adsClients.Connected, func(i, j int) bool {
 		return adsClients.Connected[i].ConnectionID < adsClients.Connected[j].ConnectionID
 	})
-	writeJSON(w, adsClients, req)
+	writeJSON(w, adsClients)
 }
 
 // ecdsz implements a status and debug interface for ECDS.
@@ -626,7 +613,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		wasmCfgs := make([]any, 0, len(resource))
+		wasmCfgs := make([]interface{}, 0, len(resource))
 		for _, rr := range resource {
 			if w, err := unmarshalToWasm(rr); err != nil {
 				istiolog.Warnf("failed to unmarshal wasm: %v", err)
@@ -635,11 +622,11 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		writeJSON(w, wasmCfgs, req)
+		writeJSON(w, wasmCfgs)
 	}
 }
 
-func unmarshalToWasm(r *discovery.Resource) (any, error) {
+func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
 		return nil, err
@@ -673,168 +660,101 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		s.errorHandler(w, proxyID, con)
 		return
 	}
-	includeEds := req.URL.Query().Get("include_eds") == "true"
-	dump, err := s.configDump(con, includeEds)
+	dump, err := s.configDump(con)
 	if err != nil {
 		handleHTTPError(w, err)
 		return
 	}
-	writeJSON(w, dump, req)
+	writeJSON(w, dump)
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
-func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*adminapi.ConfigDump, error) {
-	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
-	version := req.Push.PushVersion
-
-	generate := func(typeUrl string) (model.Resources, error) {
-		w := conn.Watched(typeUrl)
-		if w == nil {
-			// Not watched, skip
-			return nil, nil
-		}
-		gen := s.findGenerator(typeUrl, conn)
-		if gen == nil {
-			// No generator found, skip
-			return nil, nil
-		}
-
-		cfg, _, err := gen.Generate(conn.proxy, w, req)
-		if err != nil {
-			log.Warnf("failed to generate %v: %v", typeUrl, err)
-		}
-		return cfg, err
-	}
-
-	clusters, err := generate(v3.ClusterType)
-	if err != nil {
-		return nil, err
-	}
+func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
+	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now()}
+	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, req)
+
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs.Resource})
 	}
-	clustersAny, err := protoconv.MessageToAnyWithError(&adminapi.ClustersConfigDump{
-		VersionInfo:           version,
+	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
 		DynamicActiveClusters: dynamicActiveClusters,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	listeners, err := generate(v3.ListenerType)
-	if err != nil {
-		return nil, err
-	}
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
+	listeners := s.ConfigGenerator.BuildListeners(conn.proxy, req.Push)
 	for _, cs := range listeners {
+		listener, err := any.New(cs)
+		if err != nil {
+			return nil, err
+		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
-			Name: cs.Name,
-			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{
-				Listener:    cs.Resource,
-				VersionInfo: version,
-			},
+			Name:        cs.Name,
+			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener},
 		})
 	}
-	listenersAny, err := protoconv.MessageToAnyWithError(&adminapi.ListenersConfigDump{
-		VersionInfo:      version,
+	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
+		VersionInfo:      versionInfo(),
 		DynamicListeners: dynamicActiveListeners,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	routes, err := generate(v3.RouteType)
-	if err != nil {
-		return nil, err
-	}
-	dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
-	for _, cs := range routes {
-		dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{
-			VersionInfo: version,
-			RouteConfig: cs.Resource,
-		})
-	}
-	routesAny, err := protoconv.MessageToAnyWithError(&adminapi.RoutesConfigDump{
-		DynamicRouteConfigs: dynamicRouteConfig,
-	})
-	if err != nil {
-		return nil, err
+	routes, _ := s.ConfigGenerator.BuildHTTPRoutes(conn.proxy, req, conn.Routes())
+	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
+	if len(routes) > 0 {
+		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
+		for _, rs := range routes {
+			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs.Resource})
+		}
+		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	secrets, err := generate(v3.SecretType)
-	if err != nil {
-		return nil, err
-	}
-	dynamicSecretsConfig := make([]*adminapi.SecretsConfigDump_DynamicSecret, 0)
-	for _, cs := range secrets {
-		// Secrets must be redacted
-		secret := &tls.Secret{}
-		if err := cs.Resource.UnmarshalTo(secret); err != nil {
-			istiolog.Warnf("failed to unmarshal secret: %v", err)
-			continue
-		}
-		if secret.GetTlsCertificate() != nil {
-			secret.GetTlsCertificate().PrivateKey = &core.DataSource{
-				Specifier: &core.DataSource_InlineBytes{
-					InlineBytes: []byte("[redacted]"),
-				},
+	secretsDump := &adminapi.SecretsConfigDump{}
+	if s.Generators[v3.SecretType] != nil {
+		secrets, _, _ := s.Generators[v3.SecretType].Generate(conn.proxy, conn.Watched(v3.SecretType), nil)
+		if len(secrets) > 0 {
+			for _, secretAny := range secrets {
+				secret := &tls.Secret{}
+				if err := secretAny.GetResource().UnmarshalTo(secret); err != nil {
+					istiolog.Warnf("failed to unmarshal secret: %v", err)
+				}
+				if secret.GetTlsCertificate() != nil {
+					secret.GetTlsCertificate().PrivateKey = &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: []byte("[redacted]"),
+						},
+					}
+				}
+				secretsDump.DynamicActiveSecrets = append(secretsDump.DynamicActiveSecrets, &adminapi.SecretsConfigDump_DynamicSecret{
+					Name:   secret.Name,
+					Secret: util.MessageToAny(secret),
+				})
 			}
 		}
-		dynamicSecretsConfig = append(dynamicSecretsConfig, &adminapi.SecretsConfigDump_DynamicSecret{
-			VersionInfo: version,
-			Secret:      protoconv.MessageToAny(secret),
-		})
-	}
-	secretsAny, err := protoconv.MessageToAnyWithError(&adminapi.SecretsConfigDump{
-		DynamicActiveSecrets: dynamicSecretsConfig,
-	})
-	if err != nil {
-		return nil, err
 	}
 
-	var endpointsAny *anypb.Any
-	// EDS is disabled by default for compatibility with Envoy config_dump interface
-	if includeEds {
-		endpoints, err := generate(v3.EndpointType)
-		if err != nil {
-			return nil, err
-		}
-		endpointConfig := make([]*adminapi.EndpointsConfigDump_DynamicEndpointConfig, 0)
-		for _, cs := range endpoints {
-			endpointConfig = append(endpointConfig, &adminapi.EndpointsConfigDump_DynamicEndpointConfig{
-				VersionInfo:    version,
-				EndpointConfig: cs.Resource,
-			})
-		}
-		endpointsAny, err = protoconv.MessageToAnyWithError(&adminapi.EndpointsConfigDump{
-			DynamicEndpointConfigs: endpointConfig,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	bootstrapAny := protoconv.MessageToAny(&adminapi.BootstrapConfigDump{})
-	scopedRoutesAny := protoconv.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
+	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
+	scopedRoutesAny := util.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configs := []*anypb.Any{
-		bootstrapAny,
-		clustersAny,
-	}
-	if includeEds {
-		configs = append(configs, endpointsAny)
-	}
-	configs = append(configs,
-		listenersAny,
-		scopedRoutesAny,
-		routesAny,
-		secretsAny,
-	)
 	configDump := &adminapi.ConfigDump{
-		Configs: configs,
+		Configs: []*any.Any{
+			bootstrapAny,
+			clustersAny, listenersAny,
+			scopedRoutesAny,
+			routeConfigAny,
+			util.MessageToAny(secretsDump),
+		},
 	}
 	return configDump, nil
 }
@@ -851,13 +771,13 @@ func (s *DiscoveryServer) injectTemplateHandler(webhook func() map[string]string
 			return
 		}
 
-		writeJSON(w, webhook(), req)
+		writeJSON(w, webhook())
 	}
 }
 
 // meshHandler dumps the mesh config
-func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.Env.Mesh(), req)
+func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.Env.Mesh())
 }
 
 // pushStatusHandler dumps the last PushContext
@@ -884,17 +804,13 @@ type PushContextDebug struct {
 }
 
 // pushContextHandler dumps the current PushContext
-func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
-	push := PushContextDebug{}
-	if s.globalPushContext() == nil {
-		return
-	}
-	push.AuthorizationPolicies = s.globalPushContext().AuthzPolicies
-	if s.globalPushContext().NetworkManager() != nil {
-		push.NetworkGateways = s.globalPushContext().NetworkManager().GatewaysByNetwork()
+func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, _ *http.Request) {
+	push := PushContextDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
 	}
 
-	writeJSON(w, push, req)
+	writeJSON(w, push)
 }
 
 // Debug lists all the supported debug endpoints.
@@ -905,6 +821,7 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		Help string
 	}
 	var deps []debugEndpoint
+
 	for k, v := range s.debugHandlers {
 		deps = append(deps, debugEndpoint{
 			Name: k,
@@ -939,7 +856,7 @@ func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 		cmdNames = append(cmdNames, key)
 	}
 	sort.Strings(cmdNames)
-	writeJSON(w, cmdNames, req)
+	writeJSON(w, cmdNames)
 }
 
 // ndsz implements a status and debug interface for NDS.
@@ -966,7 +883,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 		if len(nds) == 0 {
 			return
 		}
-		writeJSON(w, nds[0], req)
+		writeJSON(w, nds[0])
 	}
 }
 
@@ -988,7 +905,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	for _, clusterName := range clusters {
 		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext))})
 	}
-	writeJSON(w, eps, req)
+	writeJSON(w, eps)
 }
 
 func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Request) {
@@ -1001,33 +918,10 @@ func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Reque
 	_, _ = w.Write([]byte("OK"))
 }
 
-func cloneProxy(proxy *model.Proxy) *model.Proxy {
-	if proxy == nil {
-		return nil
-	}
-
-	proxy.Lock()
-	defer proxy.Unlock()
-	// nolint: govet
-	copied := *proxy
-	out := &copied
-	out.RWMutex = sync.RWMutex{}
-	// clone WatchedResources which can be mutated when processing request
-	out.WatchedResources = make(map[string]*model.WatchedResource, len(proxy.WatchedResources))
-	for k, v := range proxy.WatchedResources {
-		// nolint: govet
-		v := *v
-		out.WatchedResources[k] = &v
-	}
-	return out
-}
-
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
 		if strings.Contains(con.conID, proxyID) {
-			out := *con
-			out.proxy = cloneProxy(con.proxy)
-			return &out
+			return con
 		}
 	}
 
@@ -1043,19 +937,16 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		}
 		con.proxy.RUnlock()
 	}
-	writeJSON(w, instances, req)
+	writeJSON(w, instances)
 }
 
-func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
-	if s.Env == nil || s.Env.NetworkManager == nil {
-		return
-	}
-	writeJSON(w, s.Env.NetworkManager.AllGateways(), req)
+func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, s.Env.NetworkManager.AllGateways())
 }
 
-func (s *DiscoveryServer) mcsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) mcsz(w http.ResponseWriter, _ *http.Request) {
 	svcs := sortMCSServices(s.Env.MCSServices())
-	writeJSON(w, svcs, req)
+	writeJSON(w, svcs)
 }
 
 func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
@@ -1071,12 +962,12 @@ func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
 	return svcs
 }
 
-func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ *http.Request) {
 	if s.ListRemoteClusters == nil {
 		w.WriteHeader(400)
 		return
 	}
-	writeJSON(w, s.ListRemoteClusters(), req)
+	writeJSON(w, s.ListRemoteClusters())
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.
@@ -1128,15 +1019,9 @@ func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
 }
 
 // writeJSON writes a json payload, handling content type, marshaling, and errors
-func writeJSON(w http.ResponseWriter, obj any, req *http.Request) {
+func writeJSON(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	var b []byte
-	var err error
-	if req.URL.Query().Has("pretty") {
-		b, err = config.ToPrettyJSON(obj)
-	} else {
-		b, err = config.ToJSON(obj)
-	}
+	b, err := config.ToJSON(obj)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))

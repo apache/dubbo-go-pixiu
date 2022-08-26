@@ -15,8 +15,9 @@
 package workloadentry
 
 import (
-	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
 	"testing"
+
+	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
 )
 
 func TestMain(m *testing.M) {

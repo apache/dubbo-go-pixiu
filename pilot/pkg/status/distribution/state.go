@@ -73,7 +73,7 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 		StaleInterval:   time.Minute,
 		clock:           clock.RealClock{},
 		configStore:     cs,
-		workers: m.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus {
+		workers: m.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 			if status == nil {
 				return nil
 			}
@@ -240,15 +240,15 @@ type DistroReportHandler struct {
 	dc *Controller
 }
 
-func (drh *DistroReportHandler) OnAdd(obj any) {
+func (drh *DistroReportHandler) OnAdd(obj interface{}) {
 	drh.HandleNew(obj)
 }
 
-func (drh *DistroReportHandler) OnUpdate(oldObj, newObj any) {
+func (drh *DistroReportHandler) OnUpdate(oldObj, newObj interface{}) {
 	drh.HandleNew(newObj)
 }
 
-func (drh *DistroReportHandler) HandleNew(obj any) {
+func (drh *DistroReportHandler) HandleNew(obj interface{}) {
 	cm, ok := obj.(*v1.ConfigMap)
 	if !ok {
 		scope.Warnf("expected configmap, but received %v, discarding", obj)
@@ -264,6 +264,6 @@ func (drh *DistroReportHandler) HandleNew(obj any) {
 	drh.dc.handleReport(dr)
 }
 
-func (drh *DistroReportHandler) OnDelete(obj any) {
+func (drh *DistroReportHandler) OnDelete(obj interface{}) {
 	// TODO: what do we do here?  will these ever be deleted?
 }

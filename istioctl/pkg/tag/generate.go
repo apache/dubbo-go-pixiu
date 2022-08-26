@@ -65,7 +65,7 @@ type GenerateOptions struct {
 	// TODO(Monkeyanator) once we stop using Helm templating remove this.
 	ManifestsPath string
 	// Generate determines whether we should just generate the webhooks without applying. This
-	// applying is not done here, but we are looser with checks when doing generate.
+	// applying is not done here but we are looser with checks when doing generate.
 	Generate bool
 	// Overwrite removes analysis checks around existing webhooks.
 	Overwrite bool
@@ -76,7 +76,7 @@ type GenerateOptions struct {
 // Generate generates the manifests for a revision tag pointed the given revision.
 func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOptions, istioNS string) (string, error) {
 	// abort if there exists a revision with the target tag name
-	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
+	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +86,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	}
 
 	// find canonical revision webhook to base our tag webhook off of
-	revWebhooks, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Revision)
+	revWebhooks, err := GetWebhooksWithRevision(ctx, client, opts.Revision)
 	if err != nil {
 		return "", err
 	}
@@ -97,7 +97,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		return "", fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
 	}
 
-	whs, err := GetWebhooksWithTag(ctx, client.Kube(), opts.Tag)
+	whs, err := GetWebhooksWithTag(ctx, client, opts.Tag)
 	if err != nil {
 		return "", err
 	}
@@ -117,12 +117,12 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	if opts.Tag == DefaultRevisionName {
 		if !opts.Generate {
 			// deactivate other istio-injection=enabled injectors if using default revisions.
-			err := DeactivateIstioInjectionWebhook(ctx, client.Kube())
+			err := DeactivateIstioInjectionWebhook(ctx, client)
 			if err != nil {
 				return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 			}
 			// delete deprecated validating webhook configuration if it exists.
-			err = DeleteDeprecatedValidator(ctx, client.Kube())
+			err = DeleteDeprecatedValidator(ctx, client)
 			if err != nil {
 				return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
 			}
@@ -173,12 +173,10 @@ func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (stri
 	}
 
 	values := fmt.Sprintf(`
-global:
-  istioNamespace: %s
 revision: %q
 base:
   validationURL: %s
-`, config.IstioNamespace, config.Revision, config.URL)
+`, config.Revision, config.URL)
 
 	validatingWebhookYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, vwhTemplateName)

@@ -47,7 +47,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -148,26 +147,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				{
 					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-				},
-			},
-		},
-		{
-			name: "destination rule static with pass",
-			cluster: &cluster.Cluster{
-				Name:                 "foo",
-				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
-			},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			proxyView:   model.ProxyViewAll,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					LoadBalancer: &networking.LoadBalancerSettings{
-						LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
-					},
 				},
 			},
 		},
@@ -516,10 +495,8 @@ func TestApplyDestinationRule(t *testing.T) {
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
-			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-
 			ec := NewMutableCluster(tt.cluster)
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
@@ -530,7 +507,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
 			}
 			// Validate that use client protocol configures cluster correctly.
-			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().GetUseClientProtocol() {
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
 				if ec.httpProtocolOptions == nil {
 					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
 				}
@@ -541,7 +518,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 
 			// Validate that use client protocol configures cluster correctly.
-			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().GetMaxRequestsPerConnection() > 0 {
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxRequestsPerConnection > 0 {
 				if ec.httpProtocolOptions == nil {
 					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
 				}
@@ -560,9 +537,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				if subset.GetType() == cluster.Cluster_ORIGINAL_DST && subset.GetLoadAssignment() != nil {
 					t.Errorf("Passthrough subsets should not have load assignments")
 				}
-			}
-			if ec.cluster.GetType() == cluster.Cluster_ORIGINAL_DST && ec.cluster.GetLoadAssignment() != nil {
-				t.Errorf("Passthrough should not have load assignments")
 			}
 		})
 	}
@@ -918,7 +892,6 @@ func TestBuildDefaultCluster(t *testing.T) {
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
@@ -1010,7 +983,6 @@ func TestBuildDefaultCluster(t *testing.T) {
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LbPolicy:             defaultLBAlgorithm(),
@@ -2928,7 +2900,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 	tests := []struct {
 		name           string
 		cluster        *MutableCluster
-		isHttp2Cluster bool // revive:disable-line
+		isHttp2Cluster bool
 	}{
 		{
 			name:           "with no h2 options",
@@ -2951,7 +2923,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			isHttp2Cluster := cb.isHttp2Cluster(test.cluster) // revive:disable-line
+			isHttp2Cluster := cb.IsHttp2Cluster(test.cluster)
 			if isHttp2Cluster != test.isHttp2Cluster {
 				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}
@@ -3334,10 +3306,8 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
-			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-
 			ec := NewMutableCluster(tt.cluster)
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
 
 			// ACT
 			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
@@ -3424,6 +3394,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 }
 
 func TestApplyConnectionPool(t *testing.T) {
+	// only test connectionPool.Http.IdleTimeout and connectionPool.Http.IdleTimeout.MaxRequestsPerConnection
 	cases := []struct {
 		name                string
 		cluster             *cluster.Cluster
@@ -3484,7 +3455,7 @@ func TestApplyConnectionPool(t *testing.T) {
 			},
 		},
 		{
-			name:    "update multiple fields",
+			name:    "update MaxRequestsPerConnection and IdleTimeout",
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			httpProtocolOptions: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -3501,11 +3472,6 @@ func TestApplyConnectionPool(t *testing.T) {
 					},
 					MaxRequestsPerConnection: 22,
 				},
-				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-					MaxConnectionDuration: &durationpb.Duration{
-						Seconds: 500,
-					},
-				},
 			},
 			expectedHTTPPOpt: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -3513,9 +3479,6 @@ func TestApplyConnectionPool(t *testing.T) {
 						Seconds: 22,
 					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
-					MaxConnectionDuration: &durationpb.Duration{
-						Seconds: 500,
-					},
 				},
 			},
 		},
@@ -3541,44 +3504,6 @@ func TestApplyConnectionPool(t *testing.T) {
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.IdleTimeout)
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxRequestsPerConnection)
-			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxConnectionDuration,
-				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxConnectionDuration)
-		})
-	}
-}
-
-func TestBuildExternalSDSClusters(t *testing.T) {
-	proxy := &model.Proxy{
-		Metadata: &model.NodeMetadata{
-			Raw: map[string]any{
-				security.CredentialMetaDataName: "true",
-			},
-		},
-	}
-
-	cases := []struct {
-		name         string
-		expectedName string
-		expectedPath string
-	}{
-		{
-			name:         "uds",
-			expectedName: security.SDSExternalClusterName,
-			expectedPath: security.CredentialNameSocketPath,
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{})
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-			cluster := cb.buildExternalSDSCluster(security.CredentialNameSocketPath)
-			path := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetPipe().Path
-			if cluster.Name != tt.expectedName {
-				t.Errorf("Unexpected cluster name, got: %v, want: %v", cluster.Name, tt.expectedName)
-			}
-			if path != tt.expectedPath {
-				t.Errorf("Unexpected path, got: %v, want: %v", path, tt.expectedPath)
-			}
 		})
 	}
 }

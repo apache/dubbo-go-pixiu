@@ -41,22 +41,22 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: http
@@ -67,22 +67,22 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: tcp
@@ -102,14 +102,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -127,14 +122,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway

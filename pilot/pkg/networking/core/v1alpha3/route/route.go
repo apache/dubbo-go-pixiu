@@ -28,8 +28,7 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/duration"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -40,13 +39,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authz "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/constant"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto"
-	"github.com/apache/dubbo-go-pixiu/pkg/util/grpc"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -65,8 +62,6 @@ const DefaultRouteName = "default"
 // prefixMatchRegex optionally matches "/..." at the end of a path.
 // regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
 const prefixMatchRegex = `((\/).*)?`
-
-var notimeout = durationpb.New(0)
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
@@ -101,7 +96,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	out := make([]VirtualHostWrapper, 0)
 
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
-	dependentDestinationRules := []*model.ConsolidatedDestRule{}
+	dependentDestinationRules := []*config.Config{}
 	// consistent hash policies for the http route destinations
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, virtualService := range virtualServices {
@@ -300,10 +295,6 @@ func buildSidecarVirtualHostsForService(
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
-	if len(destination.GetHost()) == 0 {
-		// only happens when the gateway-api BackendRef is invalid
-		return "UnknownService"
-	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -446,18 +437,16 @@ func translateRoute(
 
 	if in.Redirect != nil {
 		applyRedirect(out, in.Redirect, listenPort)
-	} else if in.DirectResponse != nil {
-		applyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
 		Operation: getRouteOperation(out, virtualService.Name, listenPort),
 	}
 	if in.Fault != nil {
-		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
-		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(translateFault(in.Fault))
+		out.TypedPerFilterConfig = make(map[string]*any.Any)
+		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
@@ -474,7 +463,6 @@ func translateRoute(
 func applyHTTPRouteDestination(
 	out *route.Route,
 	node *model.Proxy,
-	vs config.Config,
 	in *networking.HTTPRoute,
 	mesh *meshconfig.MeshConfig,
 	authority string,
@@ -492,12 +480,18 @@ func applyHTTPRouteDestination(
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
-	setTimeout(action, in.Timeout, node)
-
-	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
-		// return 500 for invalid backends
-		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
-		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
+	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+	action.Timeout = features.DefaultRequestTimeout
+	if in.Timeout != nil {
+		action.Timeout = in.Timeout
+	}
+	if node.IsProxylessGrpc() {
+		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: action.Timeout}
+	} else {
+		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
+		action.MaxGrpcTimeout = action.Timeout
 	}
 
 	out.Action = &route.Route_Route{Route: action}
@@ -524,7 +518,6 @@ func applyHTTPRouteDestination(
 		}
 	}
 
-	var totalWeight uint32
 	// TODO: eliminate this logic and use the total_weight option in envoy route
 	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 	for _, dst := range in.Route {
@@ -544,7 +537,6 @@ func applyHTTPRouteDestination(
 			Name:   n,
 			Weight: weight,
 		}
-		totalWeight += weight.GetValue()
 		if dst.Headers != nil {
 			operations := translateHeadersOperations(dst.Headers)
 			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
@@ -586,8 +578,7 @@ func applyHTTPRouteDestination(
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
-				Clusters:    weighted,
-				TotalWeight: wrappers.UInt32(totalWeight),
+				Clusters: weighted,
 			},
 		}
 	}
@@ -636,33 +627,6 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	default:
 		log.Warnf("Redirect Code %d is not yet supported", redirect.RedirectCode)
 		action = nil
-	}
-
-	out.Action = action
-}
-
-func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
-	action := &route.Route_DirectResponse{
-		DirectResponse: &route.DirectResponseAction{
-			Status: directResponse.Status,
-		},
-	}
-
-	if directResponse.Body != nil {
-		switch op := directResponse.Body.Specifier.(type) {
-		case *networking.HTTPBody_String_:
-			action.DirectResponse.Body = &core.DataSource{
-				Specifier: &core.DataSource_InlineString{
-					InlineString: op.String_,
-				},
-			}
-		case *networking.HTTPBody_Bytes:
-			action.DirectResponse.Body = &core.DataSource{
-				Specifier: &core.DataSource_InlineBytes{
-					InlineBytes: op.Bytes,
-				},
-			}
-		}
 	}
 
 	out.Action = action
@@ -1057,21 +1021,16 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
-	out := buildDefaultHTTPRoute(clusterName, operation)
-	// For inbound, configure with notimeout.
-	out.GetRoute().Timeout = notimeout
-	out.GetRoute().MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+	notimeout := durationpb.New(0)
+	routeAction := &route.RouteAction{
+		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+		Timeout:          notimeout,
+	}
+	routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
 		MaxStreamDuration: notimeout,
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: notimeout,
-	}
-	return out
-}
-
-func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
-	routeAction := &route.RouteAction{
-		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
 		Match: translateRouteMatch(nil, config.Config{}, nil),
@@ -1087,38 +1046,13 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	return val
 }
 
-// setTimeout sets timeout for a route.
-func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
-	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
-	if vsTimeout != nil {
-		action.Timeout = vsTimeout
-	}
-	action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{}
-	if node != nil && node.IsProxylessGrpc() {
-		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-		action.MaxStreamDuration.MaxStreamDuration = action.Timeout
-	} else {
-		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
-		if action.Timeout.AsDuration().Nanoseconds() == 0 {
-			action.MaxStreamDuration.MaxStreamDuration = action.Timeout
-			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
-		} else {
-			// If not configured at all, the grpc-timeout header is not used and
-			// gRPC requests time out like any other requests using timeout or its default.
-			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-			// nolint: staticcheck
-			action.MaxGrpcTimeout = action.Timeout
-		}
-	}
-}
-
 // BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
 func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *meshconfig.MeshConfig) *route.Route {
-	out := buildDefaultHTTPRoute(clusterName, operation)
+	// Start with the same configuration as for inbound.
+	out := BuildDefaultHTTPInboundRoute(clusterName, operation)
+
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
-	setTimeout(out.GetRoute(), nil, nil)
 	return out
 }
 
@@ -1175,15 +1109,8 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 			out.Abort.ErrorType = &xdshttpfault.FaultAbort_HttpStatus{
 				HttpStatus: uint32(a.HttpStatus),
 			}
-		case *networking.HTTPFaultInjection_Abort_GrpcStatus:
-			// We wouldn't have an unknown gRPC code here. This is because
-			// the validation webhook would have already caught the invalid
-			// code and we wouldn't reach here.
-			out.Abort.ErrorType = &xdshttpfault.FaultAbort_GrpcStatus{
-				GrpcStatus: uint32(grpc.SupportedGRPCStatus[a.GrpcStatus]),
-			}
 		default:
-			log.Warnf("Only HTTP and gRPC type abort faults are supported")
+			log.Warnf("Non-HTTP type abort faults are not yet supported")
 			out.Abort = nil
 		}
 	}
@@ -1258,12 +1185,11 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 
 func getHashForService(node *model.Proxy, push *model.PushContext,
 	svc *model.Service, port *model.Port,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
 	if push == nil {
 		return nil, nil
 	}
-	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
-	destinationRule := mergedDR.GetRule()
+	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1280,7 +1206,7 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 		}
 	}
 
-	return consistentHash, mergedDR
+	return consistentHash, destinationRule
 }
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
@@ -1310,14 +1236,13 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 // GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
 	configNamespace string,
-) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
 	if push == nil {
 		return nil, nil
 	}
 
 	destination := dst.GetDestination()
-	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
-	destinationRule := mergedDR.GetRule()
+	destinationRule := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1346,7 +1271,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	case plsHash != nil:
 		consistentHash = plsHash
 	}
-	return consistentHash, mergedDR
+	return consistentHash, destinationRule
 }
 
 // isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
@@ -1377,16 +1302,25 @@ func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 		m.SourceNamespace == ""
 }
 
-// SortVHostRoutes moves the catch all routes alone to the end, while retaining
-// the relative order of other routes in the slice.
-func SortVHostRoutes(routes []*route.Route) []*route.Route {
-	allroutes := make([]*route.Route, 0, len(routes))
+// CombineVHostRoutes semi concatenates Vhost's routes into a single route set.
+// Moves the catch all routes alone to the end, while retaining
+// the relative order of other routes in the concatenated route.
+// Assumes that the virtual Services that generated first and second are ordered by
+// time.
+func CombineVHostRoutes(routeSets ...[]*route.Route) []*route.Route {
+	l := 0
+	for _, rs := range routeSets {
+		l += len(rs)
+	}
+	allroutes := make([]*route.Route, 0, l)
 	catchAllRoutes := make([]*route.Route, 0)
-	for _, r := range routes {
-		if isCatchAllRoute(r) {
-			catchAllRoutes = append(catchAllRoutes, r)
-		} else {
-			allroutes = append(allroutes, r)
+	for _, routes := range routeSets {
+		for _, r := range routes {
+			if isCatchAllRoute(r) {
+				catchAllRoutes = append(catchAllRoutes, r)
+			} else {
+				allroutes = append(allroutes, r)
+			}
 		}
 	}
 	return append(allroutes, catchAllRoutes...)

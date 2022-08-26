@@ -198,7 +198,7 @@ func TestNewProtoInstance(t *testing.T) {
 
 	p, err := s.NewInstance()
 	g.Expect(err).To(BeNil())
-	g.Expect(p).To(Equal((&emptypb.Empty{}).ProtoReflect().Interface())) // see: https://github.com/protocolbuffers/protobuf-go/commit/de9682ad1656cd1ee6808865f7a42f5a5d79eb73
+	g.Expect(p).To(Equal(&emptypb.Empty{}))
 }
 
 func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {

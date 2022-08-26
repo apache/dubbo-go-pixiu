@@ -32,11 +32,10 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/telemetry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
@@ -101,8 +100,8 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 }
 
 var (
-	IPv4PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("0.0.0.0/0")}
-	IPv6PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("::/0")}
+	IPv4PasstrhoughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("0.0.0.0/0")}
+	IPv6PasstrhoughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("::/0")}
 )
 
 // ToFilterChainMatch builds the FilterChainMatch for the config
@@ -114,9 +113,9 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 		// Pasthrough listeners do an IP match - but matching all IPs. This is really an IP *version* match,
 		// but Envoy doesn't explicitly have version check.
 		if cc.clusterName == util.InboundPassthroughClusterIpv4 {
-			match.PrefixRanges = IPv4PassthroughCIDR
+			match.PrefixRanges = IPv4PasstrhoughCIDR
 		} else {
-			match.PrefixRanges = IPv6PassthroughCIDR
+			match.PrefixRanges = IPv6PasstrhoughCIDR
 		}
 	}
 	if cc.port.TargetPort > 0 {
@@ -157,14 +156,14 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 		// to handle mTLS vs plaintext and HTTP vs TCP (depending on protocol and PeerAuthentication).
 		var opts []FilterChainMatchOptions
 		mtls := lb.authnBuilder.ForPort(cc.port.TargetPort)
-		// Chain has explicit user TLS config. This can only apply when the TLS mode is DISABLE to avoid conflicts.
+		// Chain has explicit user TLS config. This can only apply when the mTLS settings are DISABLE to avoid conflicts
 		if cc.tlsSettings != nil && mtls.Mode == model.MTLSDisable {
 			// Since we are terminating TLS, we need to treat the protocol as if its terminated.
 			// Example: user specifies protocol=HTTPS and user TLS, we will use HTTP
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 			opts = getTLSFilterChainMatchOptions(lp)
-			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP, false)
+			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP)
 			mtls.HTTP = mtls.TCP
 		} else {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
@@ -233,7 +232,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, address *core.Addre
 }
 
 // inboundChainForOpts builds a set of filter chains
-func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
+func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls plugin.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
 		switch opt.Protocol {
@@ -615,7 +614,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
 		Name: wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
 			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 		})},
@@ -673,7 +672,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	hcm := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
 	})
 	return filters
 }

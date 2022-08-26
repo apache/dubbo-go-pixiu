@@ -17,9 +17,6 @@ package test
 import (
 	"os"
 	"time"
-
-	"go.uber.org/atomic"
-	"golang.org/x/net/context"
 )
 
 // SetEnvForTest sets an environment variable for the duration of a test, then resets it once the test is complete.
@@ -53,24 +50,6 @@ func SetBoolForTest(t Failer, vv *bool, v bool) {
 	})
 }
 
-// SetAtomicBoolForTest sets a variable for the duration of a test, then resets it once the test is complete atomically.
-func SetAtomicBoolForTest(t Failer, vv *atomic.Bool, v bool) {
-	old := vv.Load()
-	vv.Store(v)
-	t.Cleanup(func() {
-		vv.Store(old)
-	})
-}
-
-// SetIntForTest sets a variable for the duration of a test, then resets it once the test is complete.
-func SetIntForTest(t Failer, vv *int, v int) {
-	old := *vv
-	*vv = v
-	t.Cleanup(func() {
-		*vv = old
-	})
-}
-
 // SetFloatForTest sets a variable for the duration of a test, then resets it once the test is complete.
 func SetFloatForTest(t Failer, vv *float64, v float64) {
 	old := *vv
@@ -87,20 +66,4 @@ func SetDurationForTest(t Failer, vv *time.Duration, v time.Duration) {
 	t.Cleanup(func() {
 		*vv = old
 	})
-}
-
-// NewStop returns a stop channel that will automatically be closed when the test is complete
-func NewStop(t Failer) chan struct{} {
-	s := make(chan struct{})
-	t.Cleanup(func() {
-		close(s)
-	})
-	return s
-}
-
-// NewContext returns a context that will automatically be closed when the test is complete
-func NewContext(t Failer) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	return ctx
 }

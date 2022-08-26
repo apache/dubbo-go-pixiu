@@ -31,6 +31,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	caerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
+	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca"
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/pkg/log"
 )
@@ -149,8 +150,7 @@ func (s *CAServer) sendEmpty() bool {
 
 // CreateCertificate handles CSR.
 func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
-	*pb.IstioCertificateResponse, error,
-) {
+	*pb.IstioCertificateResponse, error) {
 	caServerLog.Infof("received CSR request")
 	if s.shouldReject() {
 		caServerLog.Info("force rejecting CSR request")
@@ -165,10 +165,8 @@ func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCerti
 	}
 	id := []string{"client-identity"}
 	if len(s.Authenticators) > 0 {
-		am := security.AuthenticationManager{Authenticators: s.Authenticators}
-		caller := am.Authenticate(ctx)
+		caller := ca.Authenticate(ctx, s.Authenticators)
 		if caller == nil {
-			caServerLog.Errorf("Failed to authenticate client from %s: %s", security.GetConnectionAddress(ctx), am.FailedMessages())
 			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}
 		id = caller.Identities

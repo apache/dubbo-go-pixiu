@@ -113,10 +113,10 @@ var (
 	}
 	cannedDynamicConfig = []runtime.Object{
 		&unstructured.Unstructured{
-			Object: map[string]any{
+			Object: map[string]interface{}{
 				"apiVersion": "networking.istio.io/" + collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 				"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-				"metadata": map[string]any{
+				"metadata": map[string]interface{}{
 					"namespace": "default",
 					"name":      "mesh-expansion-vmtest",
 				},

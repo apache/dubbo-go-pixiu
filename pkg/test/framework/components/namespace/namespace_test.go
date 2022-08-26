@@ -62,7 +62,7 @@ func TestConfigRevisionOverwrite(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.cfg.overwriteRevisionIfEmpty(tc.revision)
+			overwriteRevisionIfEmpty(&tc.cfg, tc.revision)
 			g := NewWithT(t)
 			g.Expect(tc.cfg.Revision).Should(Equal(tc.wantRevision))
 		})

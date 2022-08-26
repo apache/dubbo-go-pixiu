@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	informersv1 "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
@@ -73,7 +74,7 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 
 func (c *Controller) Run(stop <-chan struct{}) {
 	go c.informer.Informer().Run(stop)
-	if !kube.WaitForCacheSync(stop, c.informer.Informer().HasSynced) {
+	if !cache.WaitForCacheSync(stop, c.informer.Informer().HasSynced) {
 		log.Error("failed to wait for cache sync")
 		return
 	}

@@ -30,11 +30,12 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/kube"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/staticvm" // force registraton of factory func
+
+	// force registraton of factory func
+	_ "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/staticvm"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource/config/apply"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
@@ -136,11 +137,6 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 		return b
 	}
 
-	shouldSkip := b.ctx.Settings().Skip(cfg.WorkloadClass())
-	if shouldSkip {
-		return b
-	}
-
 	// cache the namespace, so manually added echo.Configs can be a part of it
 	b.namespaces[cfg.Namespace.Prefix()] = cfg.Namespace
 
@@ -149,6 +145,8 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 		targetClusters = cluster.Clusters{cfg.Cluster}
 	}
 
+	// If we didn't deploy VMs, but we don't care about VMs, we can ignore this.
+	shouldSkip := b.ctx.Settings().Skip(echo.VM) && cfg.IsVM()
 	deployedTo := 0
 	for idx, c := range targetClusters {
 		ec, ok := c.(echo.Cluster)
@@ -216,7 +214,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 	for _, c := range b.ctx.Clusters().Kube() {
 		out[c.Name()] = sets.New()
 		// TODO find a place to read revision(s) and avoid listing
-		cms, err := c.Kube().CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
+		cms, err := c.CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -328,7 +326,7 @@ func (b builder) deployServices() (err error) {
 		cfg.YAML(ns, svcYaml)
 	}
 
-	return cfg.Apply(apply.NoCleanup)
+	return cfg.Apply(resource.NoCleanup)
 }
 
 func (b builder) deployInstances() (instances echo.Instances, err error) {

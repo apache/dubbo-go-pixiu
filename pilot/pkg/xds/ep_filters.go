@@ -22,6 +22,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	labelutil "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/util/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
@@ -34,7 +35,7 @@ import (
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
 	if !b.push.NetworkManager().IsMultiNetworkEnabled() {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
@@ -42,7 +43,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
-	filtered := make([]*LocalityEndpoints, 0)
+	filtered := make([]*LocLbEndpointsAndOptions, 0)
 
 	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
@@ -53,7 +54,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
 	for _, ep := range endpoints {
-		lbEndpoints := &LocalityEndpoints{
+		lbEndpoints := &LocLbEndpointsAndOptions{
 			llbEndpoints: endpoint.LocalityLbEndpoints{
 				Locality: ep.llbEndpoints.Locality,
 				Priority: ep.llbEndpoints.Priority,
@@ -93,7 +94,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// directly from the local network.
 			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
-				lbEndpoints.append(ep.istioEndpoints[i], lbEp)
+				lbEndpoints.append(ep.istioEndpoints[i], lbEp, ep.istioEndpoints[i].TunnelAbility)
 				continue
 			}
 
@@ -147,7 +148,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			gwEp.Metadata = util.BuildLbEndpointMetadata(gw.Network, model.IstioMutualTLSModeLabel,
 				"", "", b.clusterID, labels.Instance{})
 			// Currently gateway endpoint does not support tunnel.
-			lbEndpoints.append(gwIstioEp, gwEp)
+			lbEndpoints.append(gwIstioEp, gwEp, networking.MakeTunnelAbility())
 		}
 
 		// Endpoint members could be stripped or aggregated by network. Adjust weight value here.
@@ -201,14 +202,14 @@ func splitWeightAmongGateways(weight uint32, gateways []model.NetworkGateway, ga
 // EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at
 // auto-mTLS, DestinationRule, and PeerAuthentication to determine if we would send mTLS to these endpoints.
 // Note there is no guarantee these destinations *actually* handle mTLS; just that we are configured to send mTLS to them.
-func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
+func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
-	filtered := make([]*LocalityEndpoints, 0)
+	filtered := make([]*LocLbEndpointsAndOptions, 0)
 
 	// Go through all cluster endpoints and add those with mTLS enabled
 	for _, ep := range endpoints {
-		lbEndpoints := &LocalityEndpoints{
+		lbEndpoints := &LocLbEndpointsAndOptions{
 			llbEndpoints: endpoint.LocalityLbEndpoints{
 				Locality: ep.llbEndpoints.Locality,
 				Priority: ep.llbEndpoints.Priority,
@@ -221,10 +222,9 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocalityEndpoints
 				// no mTLS, skip it
 				continue
 			}
-			lbEndpoints.append(ep.istioEndpoints[i], lbEp)
+			lbEndpoints.append(ep.istioEndpoints[i], lbEp, ep.istioEndpoints[i].TunnelAbility)
 		}
 
-		lbEndpoints.refreshWeight()
 		filtered = append(filtered, lbEndpoints)
 	}
 

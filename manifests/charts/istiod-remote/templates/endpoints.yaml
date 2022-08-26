@@ -1,13 +1,9 @@
-{{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
-# if the remotePilotAddress is an IP addr
+{{- if .Values.global.remotePilotAddress }}
+  {{- if .Values.pilot.enabled }}
 apiVersion: v1
 kind: Endpoints
 metadata:
-  {{- if .Values.pilot.enabled }}
   name: istiod-remote
-  {{- else }}
-  name: istiod
-  {{- end }}
   namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
@@ -16,8 +12,19 @@ subsets:
   - port: 15012
     name: tcp-istiod
     protocol: TCP
-  - port: 15017
-    name: tcp-webhook
+  {{- else if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15012
+    name: tcp-istiod
     protocol: TCP
+  {{- end }}
 ---
 {{- end }}

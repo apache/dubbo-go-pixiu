@@ -1,28 +1,37 @@
 {{- if .Values.global.remotePilotAddress }}
+  {{- if .Values.pilot.enabled }}
+# when local istiod is enabled, we can't use istiod service name to reach the remote control plane
 apiVersion: v1
 kind: Service
 metadata:
-  {{- if .Values.pilot.enabled }}
-  # when local istiod is enabled, we can't use istiod service name to reach the remote control plane
   name: istiod-remote
-  {{- else }}
-  # when local istiod isn't enabled, we can use istiod service name to reach the remote control plane
-  name: istiod
-  {{- end }}
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - port: 15012
     name: tcp-istiod
     protocol: TCP
-  - port: 443
-    targetPort: 15017
-    name: tcp-webhook
+  clusterIP: None
+  {{- else }}
+# when local istiod isn't enabled, we can use istiod service name to reach the remote control plane
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: tcp-istiod
     protocol: TCP
-  {{- if not (regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress) }}
-  # if the remotePilotAddress is not an IP addr, we use ExternalName
+  # if the remotePilotAddress is IP addr, we use clusterIP: None.
+  # else, we use externalName
+  {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+  clusterIP: None
+  {{- else }}
   type: ExternalName
   externalName: {{ .Values.global.remotePilotAddress }}
+  {{- end }}
   {{- end }}
 ---
 {{- end }}

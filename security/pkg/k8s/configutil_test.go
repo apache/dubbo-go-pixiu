@@ -17,7 +17,6 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -31,9 +30,9 @@ import (
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 
 const (
@@ -198,18 +197,17 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			} else {
 				client = tc.client
 			}
-			cmInformer, cancel := createFakeConfigmapInformer(client)
-			defer cancel()
+			lister := createFakeLister(client)
 			if tc.existingConfigMap != nil {
 				if _, err := client.CoreV1().ConfigMaps(tc.meta.Namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
 					t.Errorf("failed to create configmap %v", err)
 				}
-				if err := cmInformer.Informer().GetIndexer().Add(tc.existingConfigMap); err != nil {
+				if err := lister.Informer().GetIndexer().Add(tc.existingConfigMap); err != nil {
 					t.Errorf("failed to add configmap to informer %v", err)
 				}
 			}
 			client.ClearActions()
-			err := InsertDataToConfigMap(client.CoreV1(), cmInformer.Lister(), tc.meta, tc.caBundle)
+			err := InsertDataToConfigMap(client.CoreV1(), lister.Lister(), tc.meta, tc.caBundle)
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}
@@ -299,89 +297,12 @@ func checkActions(actual, expected []ktesting.Action) error {
 	return nil
 }
 
-func createFakeConfigmapInformer(kubeClient *fake.Clientset) (informersv1.ConfigMapInformer, context.CancelFunc) {
+func createFakeLister(kubeClient *fake.Clientset) informersv1.ConfigMapInformer {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Second)
 	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
 	go configmapInformer.Run(ctx.Done())
-	kube.WaitForCacheSync(ctx.Done(), configmapInformer.HasSynced)
-	return informerFactory.Core().V1().ConfigMaps(), cancel
-}
-
-func Test_insertData(t *testing.T) {
-	type args struct {
-		cm   *v1.ConfigMap
-		data map[string]string
-	}
-	tests := []struct {
-		name       string
-		args       args
-		want       bool
-		expectedCM *v1.ConfigMap
-	}{
-		{
-			name: "unchanged",
-			args: args{
-				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
-				data: nil,
-			},
-			want:       false,
-			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
-		},
-		{
-			name: "unchanged",
-			args: args{
-				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
-				data: map[string]string{"foo": "bar"},
-			},
-			want:       false,
-			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
-		},
-		{
-			name: "changed",
-			args: args{
-				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
-				data: map[string]string{"bar": "foo"},
-			},
-			want:       true,
-			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar", "bar": "foo"}),
-		},
-		{
-			name: "changed",
-			args: args{
-				cm:   createConfigMap(namespaceName, configMapName, map[string]string{"foo": "bar"}),
-				data: map[string]string{"foo": "foo"},
-			},
-			want:       true,
-			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"foo": "foo"}),
-		},
-		{
-			name: "changed",
-			args: args{
-				cm:   createConfigMap(namespaceName, configMapName, nil),
-				data: map[string]string{"bar": "foo"},
-			},
-			want:       true,
-			expectedCM: createConfigMap(namespaceName, configMapName, map[string]string{"bar": "foo"}),
-		},
-		{
-			name: "changed",
-			args: args{
-				cm:   createConfigMap(namespaceName, configMapName, nil),
-				data: nil,
-			},
-			want:       true,
-			expectedCM: createConfigMap(namespaceName, configMapName, nil),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := insertData(tt.args.cm, tt.args.data); got != tt.want {
-				t.Errorf("insertData() = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(tt.args.cm.Data, tt.expectedCM.Data) {
-				t.Errorf("configmap data: %v, want %v", tt.args.cm.Data, tt.expectedCM)
-			}
-		})
-	}
+	cache.WaitForCacheSync(ctx.Done(), configmapInformer.HasSynced)
+	return informerFactory.Core().V1().ConfigMaps()
 }

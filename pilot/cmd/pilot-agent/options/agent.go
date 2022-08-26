@@ -22,8 +22,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	istioagent "github.com/apache/dubbo-go-pixiu/pkg/istio-agent"
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -32,21 +30,15 @@ const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
 	o := &istioagent.AgentOptions{
-		XDSRootCerts:             xdsRootCA,
-		CARootCerts:              caRootCA,
-		XDSHeaders:               map[string]string{},
-		XdsUdsPath:               filepath.Join(cfg.ConfigPath, "XDS"),
-		IsIPv6:                   proxy.IsIPv6(),
-		ProxyType:                proxy.Type,
-		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
-		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
-		WASMOptions: wasm.Options{
-			InsecureRegistries:    sets.New(strings.Split(wasmInsecureRegistries, ",")...),
-			ModuleExpiry:          wasmModuleExpiry,
-			PurgeInterval:         wasmPurgeInterval,
-			HTTPRequestTimeout:    wasmHTTPRequestTimeout,
-			HTTPRequestMaxRetries: wasmHTTPRequestMaxRetries,
-		},
+		XDSRootCerts:                xdsRootCA,
+		CARootCerts:                 caRootCA,
+		XDSHeaders:                  map[string]string{},
+		XdsUdsPath:                  filepath.Join(cfg.ConfigPath, "XDS"),
+		IsIPv6:                      proxy.IsIPv6(),
+		ProxyType:                   proxy.Type,
+		EnableDynamicProxyConfig:    enableProxyConfigXdsEnv,
+		EnableDynamicBootstrap:      enableBootstrapXdsEnv,
+		WASMInsecureRegistries:      strings.Split(wasmInsecureRegistries, ","),
 		ProxyIPAddresses:            proxy.IPAddresses,
 		ServiceNode:                 proxy.ServiceNode(),
 		EnvoyStatusPort:             envoyStatusPortEnv,
@@ -59,7 +51,6 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		ProxyXDSDebugViaAgent:       proxyXDSDebugViaAgent,
 		ProxyXDSDebugViaAgentPort:   proxyXDSDebugViaAgentPort,
 		DNSCapture:                  DNSCaptureByAgent.Get(),
-		DNSForwardParallel:          DNSForwardParallel.Get(),
 		DNSAddr:                     DNSCaptureAddr.Get(),
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,

@@ -42,8 +42,7 @@ var tokenAudiences = []string{"istio-ca"}
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
 func GetXdsResponse(dr *xdsapi.DiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
-	grpcOpts []grpc.DialOption,
-) (*xdsapi.DiscoveryResponse, error) {
+	grpcOpts []grpc.DialOption) (*xdsapi.DiscoveryResponse, error) {
 	adscConn, err := adsc.NewWithBackoffPolicy(opts.Xds, &adsc.Config{
 		Meta: model.NodeMetadata{
 			Generator:      "event",
@@ -74,8 +73,7 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, ns string, serviceAccount strin
 
 // DialOptions constructs gRPC dial options from command line configuration
 func DialOptions(opts clioptions.CentralControlPlaneOptions,
-	ns, serviceAccount string, kubeClient kube.ExtendedClient,
-) ([]grpc.DialOption, error) {
+	ns string, serviceAccount string, kubeClient kube.ExtendedClient) ([]grpc.DialOption, error) {
 	ctx := context.TODO()
 	// If we are using the insecure 15010 don't bother getting a token
 	if opts.Plaintext || opts.CertDir != "" {

@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"

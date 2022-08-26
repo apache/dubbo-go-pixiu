@@ -16,8 +16,6 @@ package filter
 
 import (
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 
 type FilteredSharedIndexInformer interface {
@@ -28,7 +26,7 @@ type FilteredSharedIndexInformer interface {
 }
 
 type filteredSharedIndexInformer struct {
-	filterFunc func(obj any) bool
+	filterFunc func(obj interface{}) bool
 	cache.SharedIndexInformer
 	filteredIndexer *filteredIndexer
 }
@@ -36,10 +34,9 @@ type filteredSharedIndexInformer struct {
 // NewFilteredSharedIndexInformer wraps a SharedIndexInformer's handlers and indexer with a filter predicate,
 // which scopes the processed objects to only those that satisfy the predicate
 func NewFilteredSharedIndexInformer(
-	filterFunc func(obj any) bool,
+	filterFunc func(obj interface{}) bool,
 	sharedIndexInformer cache.SharedIndexInformer,
 ) FilteredSharedIndexInformer {
-	_ = sharedIndexInformer.SetTransform(kube.StripUnusedFields)
 	return &filteredSharedIndexInformer{
 		filterFunc:          filterFunc,
 		SharedIndexInformer: sharedIndexInformer,
@@ -50,19 +47,19 @@ func NewFilteredSharedIndexInformer(
 // AddEventHandler filters incoming objects before forwarding to event handler
 func (w *filteredSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) {
 	w.SharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
+		AddFunc: func(obj interface{}) {
 			if !w.filterFunc(obj) {
 				return
 			}
 			handler.OnAdd(obj)
 		},
-		UpdateFunc: func(old, new any) {
+		UpdateFunc: func(old, new interface{}) {
 			if !w.filterFunc(new) {
 				return
 			}
 			handler.OnUpdate(old, new)
 		},
-		DeleteFunc: func(obj any) {
+		DeleteFunc: func(obj interface{}) {
 			if !w.filterFunc(obj) {
 				return
 			}
@@ -85,12 +82,12 @@ func (w *filteredSharedIndexInformer) GetIndexer() cache.Indexer {
 }
 
 type filteredIndexer struct {
-	filterFunc func(obj any) bool
+	filterFunc func(obj interface{}) bool
 	cache.Indexer
 }
 
 func newFilteredIndexer(
-	filterFunc func(obj any) bool,
+	filterFunc func(obj interface{}) bool,
 	indexer cache.Indexer,
 ) *filteredIndexer {
 	return &filteredIndexer{
@@ -99,9 +96,9 @@ func newFilteredIndexer(
 	}
 }
 
-func (w filteredIndexer) List() []any {
+func (w filteredIndexer) List() []interface{} {
 	unfiltered := w.Indexer.List()
-	var filtered []any
+	var filtered []interface{}
 	for _, obj := range unfiltered {
 		if w.filterFunc(obj) {
 			filtered = append(filtered, obj)
@@ -110,7 +107,7 @@ func (w filteredIndexer) List() []any {
 	return filtered
 }
 
-func (w filteredIndexer) GetByKey(key string) (item any, exists bool, err error) {
+func (w filteredIndexer) GetByKey(key string) (item interface{}, exists bool, err error) {
 	item, exists, err = w.Indexer.GetByKey(key)
 	if !exists || err != nil {
 		return nil, exists, err

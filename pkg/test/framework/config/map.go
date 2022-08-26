@@ -20,7 +20,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 )
 
-type Map map[string]any
+type Map map[string]interface{}
 
 func (m Map) Map(key string) Map {
 	nested, ok := m[key]
@@ -47,7 +47,7 @@ func (m Map) String(key string) string {
 }
 
 func (m Map) Slice(key string) []Map {
-	v, ok := m[key].([]any)
+	v, ok := m[key].([]interface{})
 	if !ok {
 		return nil
 	}
@@ -63,18 +63,18 @@ func (m Map) Slice(key string) []Map {
 	return out
 }
 
-func toMap(orig any) (Map, bool) {
+func toMap(orig interface{}) (Map, bool) {
 	// keys are strings, easily cast
 	if cfgMeta, ok := orig.(Map); ok {
 		return cfgMeta, true
 	}
 	// keys are interface{}, manually change to string keys
-	mapInterface, ok := orig.(map[any]any)
+	mapInterface, ok := orig.(map[interface{}]interface{})
 	if !ok {
 		// not a map at all
 		return nil, false
 	}
-	mapString := make(map[string]any)
+	mapString := make(map[string]interface{})
 	for key, value := range mapInterface {
 		mapString[fmt.Sprintf("%v", key)] = value
 	}

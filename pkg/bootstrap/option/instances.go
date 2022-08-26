@@ -80,7 +80,7 @@ func SubZone(value string) Instance {
 	return newOptionOrSkipIfZero("sub_zone", value)
 }
 
-func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]any) Instance {
+func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) Instance {
 	return newOptionOrSkipIfZero("meta_json_str", meta).withConvert(nodeMetadataConverter(meta, rawMeta))
 }
 

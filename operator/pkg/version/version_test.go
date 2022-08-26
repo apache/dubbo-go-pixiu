@@ -306,7 +306,7 @@ func TestVersionString(t *testing.T) {
 func TestUnmarshalYAML(t *testing.T) {
 	v := &Version{}
 	expectedErr := fmt.Errorf("test error")
-	errReturn := func(any) error { return expectedErr }
+	errReturn := func(interface{}) error { return expectedErr }
 	gotErr := v.UnmarshalYAML(errReturn)
 	if gotErr == nil {
 		t.Errorf("expected error but got nil")

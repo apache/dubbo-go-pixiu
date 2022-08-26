@@ -25,7 +25,6 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"istio.io/api/label"
 )
@@ -220,7 +219,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := kube.NewFakeClient()
 			for _, wh := range tc.configs.Items {
-				if _, err := client.Kube().AdmissionregistrationV1().
+				if _, err := client.AdmissionregistrationV1().
 					MutatingWebhookConfigurations().Create(context.Background(), wh.DeepCopy(), metav1.CreateOptions{}); err != nil {
 					t.Fatal(err)
 				}
@@ -233,13 +232,16 @@ func TestMutatingWebhookPatch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			stop := test.NewStop(t)
+			stop := make(chan struct{})
+			t.Cleanup(func() {
+				close(stop)
+			})
 			go whPatcher.informer.Run(stop)
 			client.RunAndWait(stop)
 			retry.UntilOrFail(t, whPatcher.informer.HasSynced)
 
 			err = whPatcher.patchMutatingWebhookConfig(
-				client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations(),
+				client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 				tc.configName)
 			if (err != nil) != (tc.err != "") {
 				t.Fatalf("Wrong error: got %v want %v", err, tc.err)
@@ -249,7 +251,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatalf("Got %q, want %q", err, tc.err)
 				}
 			} else {
-				obj, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
+				obj, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}

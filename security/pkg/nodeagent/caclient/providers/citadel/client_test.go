@@ -43,6 +43,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/credentialfetcher/plugin"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/monitoring"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/util"
+	ca2 "github.com/apache/dubbo-go-pixiu/security/pkg/server/ca"
 	pb "istio.io/api/security/v1alpha1"
 )
 
@@ -66,8 +67,7 @@ type mockCAServer struct {
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
 	if ca.Authenticator != nil {
-		am := security.AuthenticationManager{Authenticators: []security.Authenticator{ca.Authenticator}}
-		caller := am.Authenticate(ctx)
+		caller := ca2.Authenticate(ctx, []security.Authenticator{ca.Authenticator})
 		if caller == nil {
 			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}

@@ -32,7 +32,7 @@ func TestGenerator(t *testing.T) {
 		key    string
 		value  string
 		forTCP bool
-		want   any
+		want   interface{}
 	}{
 		{
 			name:  "destIPGenerator",
@@ -276,7 +276,7 @@ func TestGenerator(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var got any
+			var got interface{}
 			var err error
 			// nolint: gocritic
 			if _, ok := tc.want.(*rbacpb.Permission); ok {

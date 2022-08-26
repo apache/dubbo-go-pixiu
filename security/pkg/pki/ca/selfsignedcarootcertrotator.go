@@ -57,8 +57,7 @@ type SelfSignedCARootCertRotator struct {
 // NewSelfSignedCARootCertRotator returns a new root cert rotator instance that
 // rotates self-signed root cert periodically.
 func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
-	ca *IstioCA,
-) *SelfSignedCARootCertRotator {
+	ca *IstioCA) *SelfSignedCARootCertRotator {
 	rotator := &SelfSignedCARootCertRotator{
 		caSecretController: controller.NewCaSecretController(config.client),
 		config:             config,
@@ -126,8 +125,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCert() {
 // root cert if the current one is about to expire. The rotation uses existing
 // root private key to generate a new root cert, and updates root cert secret.
 func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCertCitadel(
-	caSecret *v1.Secret,
-) {
+	caSecret *v1.Secret) {
 	if caSecret == nil {
 		rootCertRotatorLog.Errorf("root cert secret %s is nil, skip cert rotation job",
 			CASecret)

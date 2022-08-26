@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
@@ -108,8 +109,11 @@ func TestPodCache(t *testing.T) {
 }
 
 func TestHostNetworkPod(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
-	initTestEnv(t, c.client.Kube(), fx)
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
+	defer c.Stop()
+	initTestEnv(t, c.client, fx)
 	createPod := func(ip, name string) {
 		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
 	}
@@ -132,8 +136,11 @@ func TestHostNetworkPod(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
-	initTestEnv(t, c.client.Kube(), fx)
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
+	defer c.Stop()
+	initTestEnv(t, c.client, fx)
 
 	createPod := func(ip, name string) {
 		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
@@ -165,7 +172,7 @@ func TestIPReuse(t *testing.T) {
 		t.Fatalf("unexpected pod: %v", p)
 	}
 
-	err := c.client.Kube().CoreV1().Pods("ns").Delete(context.TODO(), "another-pod", metav1.DeleteOptions{})
+	err := c.client.CoreV1().Pods("ns").Delete(context.TODO(), "another-pod", metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Cannot delete pod: %v", err)
 	}
@@ -198,12 +205,15 @@ func waitForNode(c *FakeController, name string) error {
 }
 
 func testPodCache(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{
 		Mode:              EndpointsOnly,
 		WatchedNamespaces: "nsa,nsb",
 	})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
+	defer c.Stop()
 
-	initTestEnv(t, c.client.Kube(), fx)
+	initTestEnv(t, c.client, fx)
 
 	// Namespace must be lowercase (nsA doesn't work)
 	pods := []*v1.Pod{
@@ -248,7 +258,10 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
+	defer c.Stop()
 
 	ns := "default"
 	podCache := c.pods

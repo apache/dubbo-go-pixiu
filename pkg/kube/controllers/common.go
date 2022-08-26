@@ -97,9 +97,8 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 			if refGV == kind.Kubernetes().GroupVersion() {
 				// We found a parent we care about, add it to the queue
 				q.Add(types.NamespacedName{
-					// Reference doesn't have namespace, but its always same-namespace, so use objects
 					Namespace: obj.GetNamespace(),
-					Name:      ref.Name,
+					Name:      obj.GetName(),
 				})
 			}
 		}
@@ -110,7 +109,7 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 // ObjectHandler returns a handler that will act on the latest version of an object
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
 func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
-	h := func(obj any) {
+	h := func(obj interface{}) {
 		o := extractObject(obj)
 		if o == nil {
 			return
@@ -119,7 +118,7 @@ func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
 	}
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: h,
-		UpdateFunc: func(oldObj, newObj any) {
+		UpdateFunc: func(oldObj, newObj interface{}) {
 			h(newObj)
 		},
 		DeleteFunc: h,
@@ -144,7 +143,7 @@ func FilteredObjectSpecHandler(handler func(o Object), filter func(o Object) boo
 }
 
 func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, filter func(o Object) bool) cache.ResourceEventHandler {
-	single := func(obj any) {
+	single := func(obj interface{}) {
 		o := extractObject(obj)
 		if o == nil {
 			return
@@ -156,12 +155,12 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: single,
-		UpdateFunc: func(oldInterface, newInterface any) {
+		UpdateFunc: func(oldInterface, newInterace interface{}) {
 			oldObj := extractObject(oldInterface)
 			if oldObj == nil {
 				return
 			}
-			newObj := extractObject(newInterface)
+			newObj := extractObject(newInterace)
 			if newObj == nil {
 				return
 			}
@@ -179,7 +178,7 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 }
 
-func extractObject(obj any) Object {
+func extractObject(obj interface{}) Object {
 	o, ok := obj.(Object)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)

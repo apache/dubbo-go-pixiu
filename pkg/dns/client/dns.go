@@ -15,7 +15,6 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -54,8 +53,7 @@ type LocalDNSServer struct {
 	proxyDomain      string
 	proxyDomainParts []string
 
-	respondBeforeSync         bool
-	forwardToUpstreamParallel bool
+	respondBeforeSync bool
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -84,10 +82,9 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
-		proxyNamespace:            proxyNamespace,
-		forwardToUpstreamParallel: forwardToUpstreamParallel,
+		proxyNamespace: proxyNamespace,
 	}
 
 	registerStats()
@@ -200,8 +197,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
 // calls the passed in function with the built alternate hosts.
 func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
-	apply func(map[string]struct{}, []net.IP, []net.IP, []string),
-) {
+	apply func(map[string]struct{}, []net.IP, []net.IP, []string)) {
 	for hostname, ni := range nt.Table {
 		// Given a host
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
@@ -225,7 +221,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 	}
 }
 
-// upstream sends the request to the upstream server, with associated logs and metrics
+// upstrem sends the requeset to the upstream server, with associated logs and metrics
 func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string) *dns.Msg {
 	upstreamRequests.Increment()
 	start := time.Now()
@@ -388,13 +384,9 @@ func (h *LocalDNSServer) Close() {
 	}
 }
 
+// TODO: Figure out how to send parallel queries to all nameservers
 func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
-	if h.forwardToUpstreamParallel {
-		return h.queryUpstreamParallel(upstreamClient, req, scope)
-	}
-
 	var response *dns.Msg
-
 	for _, upstream := range h.resolvConfServers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil {
@@ -403,74 +395,12 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 		}
 		scope.Infof("upstream failure: %v", err)
 	}
-
 	if response == nil {
-		response = serverFailure(req)
+		failures.Increment()
+		response = new(dns.Msg)
+		response.SetReply(req)
+		response.Rcode = dns.RcodeServerFailure
 	}
-	return response
-}
-
-// queryUpstreamParallel will send parallel queries to all nameservers and return first successful response immediately.
-// The overall approach of parallel resolution is likely not widespread, but there are already some widely used
-// clients support it:
-//
-//   - dnsmasq: setting flag '--all-servers' forces dnsmasq to send all queries to all available servers. The reply from
-//     the server which answers first will be returned to the original requester.
-//   - tailscale: will either proxy all DNS requests—in which case we query all nameservers in parallel and use the quickest
-//     response—or defer to the operating system, which we have no control over.
-//   - systemd-resolved: which is used as a default resolver in many Linux distributions nowadays also performs parallel
-//     lookups for multiple DNS servers and returns the first successful response.
-func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
-	// Guarantee that the ctx we use below is done when this function returns.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	responseCh := make(chan *dns.Msg)
-	errCh := make(chan error)
-
-	queryOne := func(upstream string) {
-		// Note: After DialContext in ExchangeContext is called, this function cannot be cancelled by context.
-		cResponse, _, err := upstreamClient.ExchangeContext(ctx, req, upstream)
-		if err == nil {
-			// Only reserve first response and ignore others.
-			select {
-			case responseCh <- cResponse:
-			case <-ctx.Done():
-			}
-			return
-		}
-		scope.Infof("parallel querying upstream failure: %v", err)
-		select {
-		case errCh <- err:
-		case <-ctx.Done():
-		}
-	}
-
-	for _, upstream := range h.resolvConfServers {
-		go queryOne(upstream)
-	}
-
-	errorsCount := 0
-	for {
-		select {
-		case response := <-responseCh:
-			// We got the first response.
-			return response
-		case <-errCh:
-			errorsCount++
-			// All servers returned error - return failure.
-			if errorsCount == len(h.resolvConfServers) {
-				scope.Infof("all upstream failed")
-				return serverFailure(req)
-			}
-		}
-	}
-}
-
-func serverFailure(req *dns.Msg) *dns.Msg {
-	response := new(dns.Msg)
-	response.SetReply(req)
-	response.Rcode = dns.RcodeServerFailure
 	return response
 }
 

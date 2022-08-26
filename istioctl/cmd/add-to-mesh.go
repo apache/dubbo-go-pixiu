@@ -241,8 +241,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 }
 
 func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
-	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
-) error {
+	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	for _, dep := range deps {
 		err := injectSideCarIntoDeployment(client, &dep, sidecarTemplate, valuesConfig,
@@ -338,8 +337,7 @@ func setupParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
-	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
-) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
@@ -473,8 +471,7 @@ func str2NamedPort(str string) (namedPort, error) {
 
 // addServiceOnVMToMesh adds a service running on VM into Istio service mesh
 func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
-	args, l, a []string, svcAcctAnn string, writer io.Writer,
-) error {
+	args, l, a []string, svcAcctAnn string, writer io.Writer) error {
 	svcName := args[0]
 	ips := strings.Split(args[1], ",")
 	portsListStr := args[2:]
@@ -495,10 +492,10 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	}
 
 	u := &unstructured.Unstructured{
-		Object: map[string]any{
+		Object: map[string]interface{}{
 			"apiVersion": collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
 			"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-			"metadata": map[string]any{
+			"metadata": map[string]interface{}{
 				"namespace": opts.Namespace,
 				"name":      resourceName(opts.Name),
 			},
@@ -558,7 +555,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Labels:  o.Labels,
 		})
 	}
-	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultClusterLocalDomain)
+	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultKubernetesDomain)
 	spec := &v1alpha3.ServiceEntry{
 		Hosts:      []string{host},
 		Ports:      ports,
@@ -579,12 +576,12 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 // Because we are placing into an Unstructured, place as a map instead
 // of structured Istio types.  (The go-client can handle the structured data, but the
 // fake go-client used for mocking cannot.)
-func unstructureIstioType(spec any) (map[string]any, error) {
+func unstructureIstioType(spec interface{}) (map[string]interface{}, error) {
 	b, err := yaml.Marshal(spec)
 	if err != nil {
 		return nil, err
 	}
-	iSpec := map[string]any{}
+	iSpec := map[string]interface{}{}
 	err = yaml.Unmarshal(b, &iSpec)
 	if err != nil {
 		return nil, err
@@ -667,8 +664,7 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 
 // createServiceEntry creates an Istio ServiceEntry object in order to register vm service.
 func createServiceEntry(dynamicClient dynamic.Interface, ns string,
-	u *unstructured.Unstructured, name string, writer io.Writer,
-) error {
+	u *unstructured.Unstructured, name string, writer io.Writer) error {
 	if u == nil {
 		return fmt.Errorf("failed to create vm service")
 	}

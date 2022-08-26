@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
@@ -57,7 +58,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 	go c.Run(stop)
 
 	// Ensure the ConfigMap is initially loaded if present.
-	if !client.WaitForCacheSync(stop, c.HasSynced) {
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
 		log.Error("failed to wait for cache sync")
 	}
 	return w
@@ -70,7 +71,7 @@ func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key,
 	})
 
 	go c.Run(stop)
-	if !client.WaitForCacheSync(stop, c.HasSynced) {
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
 		log.Error("failed to wait for cache sync")
 	}
 }

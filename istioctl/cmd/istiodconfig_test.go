@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -27,9 +26,7 @@ import (
 
 func TestCtlPlaneConfig(t *testing.T) {
 	istiodConfigMap := map[string][]byte{
-		"istiod-7b69ff6f8c-fvjvw": []byte(`ACTIVE SCOPE                  DESCRIPTION                                  LOG LEVEL
-ads                    ads debugging                                info
-`),
+		"istiod-7b69ff6f8c-fvjvw": []byte("Active scopes:\n  ads:info"),
 	}
 
 	cases := []execTestCase{
@@ -255,6 +252,7 @@ func Test_flagState_run(t *testing.T) {
 		{
 			name:    "resetState.run() should throw an error if the /scopej endpoint is missing",
 			state:   &resetState{client: ctrzClientNoScopejHandler},
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -263,6 +261,7 @@ func Test_flagState_run(t *testing.T) {
 				client:         ctrzClientNoScopejHandler,
 				outputLogLevel: "test:debug",
 			},
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -271,15 +270,19 @@ func Test_flagState_run(t *testing.T) {
 				client:          ctrzClientNoScopejHandler,
 				stackTraceLevel: "test:debug",
 			},
+			want:    "",
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.state.run(os.Stdout)
+			got, err := tt.state.run()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			if got != tt.want {
+				t.Errorf("run() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -64,10 +64,9 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
-) (*WebhookCertPatcher, error) {
+	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
-		client:          client.Kube(),
+		client:          client,
 		revision:        revision,
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
@@ -75,7 +74,7 @@ func NewWebhookCertPatcher(
 	p.queue = controllers.NewQueue("webhook patcher",
 		controllers.WithReconciler(p.webhookPatchTask),
 		controllers.WithMaxAttempts(5))
-	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
+	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client, 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 	})
 	p.informer = informer
@@ -119,8 +118,7 @@ func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
 // patchMutatingWebhookConfig takes a webhookConfigName and patches the CA bundle for that webhook configuration
 func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	client admissionregistrationv1client.MutatingWebhookConfigurationInterface,
-	webhookConfigName string,
-) error {
+	webhookConfigName string) error {
 	raw, _, err := w.informer.GetIndexer().GetByKey(webhookConfigName)
 	if raw == nil || err != nil {
 		reportWebhookPatchFailure(webhookConfigName, reasonWebhookConfigNotFound)

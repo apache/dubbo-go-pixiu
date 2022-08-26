@@ -16,6 +16,7 @@ package chiron
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -137,7 +138,8 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 			continue
 		}
 
-		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
+		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], tc.secretNames[0],
+			tc.secretNamespace, wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -470,7 +472,7 @@ func TestReadSignedCertificate(t *testing.T) {
 			client := initFakeKubeClient(t, tc.certificateData)
 
 			wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-				client.Kube(), tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
+				client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
 			if err != nil {
 				t.Fatalf("failed at creating webhook controller: %v", err)
 			}
@@ -540,8 +542,9 @@ func getServerPort(server *httptest.Server) (int, error) {
 
 func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
 	client := kube.NewFakeClient()
-	ctx := test.NewContext(t)
-	w, _ := client.Kube().CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	w, _ := client.CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
 	go func() {
 		for {
 			select {
@@ -553,7 +556,7 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
 					continue
 				}
 				csr.Status.Certificate = certificate
-				client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
+				client.CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
 			}
 		}
 	}()

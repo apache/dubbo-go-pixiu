@@ -105,30 +105,10 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	<-con.initialized
 
 	for {
-		// Go select{} statements are not ordered; the same channel can be chosen many times.
-		// For requests, these are higher priority (client may be blocked on startup until these are done)
-		// and often very cheap to handle (simple ACK), so we check it first.
 		select {
 		case req, ok := <-con.deltaReqChan:
 			if ok {
-				if err := s.processDeltaRequest(req, con); err != nil {
-					return err
-				}
-			} else {
-				// Remote side closed connection or error processing the request.
-				return <-con.errorChan
-			}
-		case <-con.stop:
-			return nil
-		default:
-		}
-		// If there wasn't already a request, poll for requests and pushes. Note: if we have a huge
-		// amount of incoming requests, we may still send some pushes, as we do not `continue` above;
-		// however, requests will be handled ~2x as much as pushes. This ensures a wave of requests
-		// cannot completely starve pushes. However, this scenario is unlikely.
-		select {
-		case req, ok := <-con.deltaReqChan:
-			if ok {
+				deltaLog.Debugf("ADS: got Delta Request for: %s", req.TypeUrl)
 				if err := s.processDeltaRequest(req, con); err != nil {
 					return err
 				}
@@ -155,7 +135,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.computeProxyState(con.proxy, pushRequest)
+		s.updateProxy(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
@@ -250,6 +230,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
+			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			if features.EnableUnsafeDeltaTest {
 				conn.proxy.WatchedResources[res.TypeUrl].LastResources = applyDelta(conn.proxy.WatchedResources[res.TypeUrl].LastResources, res)
 			}
@@ -321,6 +303,11 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
 		}
+		con.proxy.Lock()
+		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
+			w.NonceNacked = request.ResponseNonce
+		}
+		con.proxy.Unlock()
 		return false
 	}
 
@@ -342,21 +329,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: deltaWatchedResources(nil, request),
 		}
-		// For all EDS requests that we have already responded with in the same stream let us
-		// force the response. It is important to respond to those requests for Envoy to finish
-		// warming of those resources(Clusters).
-		// This can happen with the following sequence
-		// 1. Envoy disconnects and reconnects to Istiod.
-		// 2. Envoy sends EDS request and we respond with it.
-		// 3. Envoy sends CDS request and we respond with clusters.
-		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
-		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
-		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
-		for _, dependent := range warmingDependencies(request.TypeUrl) {
-			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
-				dwr.AlwaysRespond = true
-			}
-		}
 		con.proxy.Unlock()
 		return true
 	}
@@ -368,6 +340,9 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
+		con.proxy.Lock()
+		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
+		con.proxy.Unlock()
 		return false
 	}
 
@@ -377,9 +352,8 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	deltaResources := deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
+	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
-	alwaysRespond := previousInfo.AlwaysRespond
-	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
 	oldAck := listEqualUnordered(previousResources, deltaResources)
@@ -397,13 +371,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if oldAck {
-		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
-		// even though Nonce match and it looks like an ACK.
-		if alwaysRespond {
-			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
-			return true
-		}
-
 		deltaLog.Debugf("ADS:%s: ACK  %s %s", stype, con.conID, request.ResponseNonce)
 		return false
 	}
@@ -416,8 +383,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 // Push an Delta XDS resource for the given connection. Configuration will be generated
 // based on the passed in generator.
 func (s *DiscoveryServer) pushDeltaXds(con *Connection,
-	w *model.WatchedResource, req *model.PushRequest,
-) error {
+	w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
 		return nil
 	}
@@ -451,8 +417,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	case model.XdsDeltaResourceGenerator:
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
 		if features.EnableUnsafeDeltaTest {
-			fullRes, l, _ := g.Generate(con.proxy, originalW, req)
-			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta, l.Incremental)
+			fullRes, _, _ := g.Generate(con.proxy, originalW, req)
+			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta)
 		}
 	case model.XdsResourceGenerator:
 		res, logdata, err = g.Generate(con.proxy, w, req)
@@ -483,7 +449,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		resp.RemovedResources = subscribed.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
-		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
+		deltaLog.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
 	}
 	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
 	if req.Delta.Subscribed == nil && isWildcardTypeURL(w.TypeUrl) {
@@ -517,7 +483,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	switch {
-	case !req.Full:
+	case logdata.Incremental:
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)

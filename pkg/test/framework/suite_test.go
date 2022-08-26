@@ -330,7 +330,7 @@ func TestSuite_Cleanup(t *testing.T) {
 			ctx.Cleanup(func() {
 				cleanupCalled = true
 			})
-			ctx.CleanupConditionally(func() {
+			ctx.ConditionalCleanup(func() {
 				conditionalCleanupCalled = true
 			})
 			return nil
@@ -361,7 +361,7 @@ func TestSuite_Cleanup(t *testing.T) {
 			ctx.Cleanup(func() {
 				cleanupCalled = true
 			})
-			ctx.CleanupConditionally(func() {
+			ctx.ConditionalCleanup(func() {
 				conditionalCleanupCalled = true
 			})
 			return nil
@@ -426,7 +426,7 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 func TestSuite_GetResource(t *testing.T) {
 	defer cleanupRT()
 
-	act := func(refPtr any, trackedResource resource.Resource) error {
+	act := func(refPtr interface{}, trackedResource resource.Resource) error {
 		var err error
 		runFn := func(ctx *suiteContext) int {
 			err = ctx.GetResource(refPtr)
@@ -484,15 +484,15 @@ func TestDeriveSuiteName(t *testing.T) {
 		expected string
 	}{
 		{
-			caller:   "/home/me/go/src/github.com/apache/dubbo-go-pixiu/some/path/mytest.go",
+			caller:   "/home/me/go/src/istio.io/istio/some/path/mytest.go",
 			expected: "some_path",
 		},
 		{
-			caller:   "/home/me/go/src/github.com/apache/dubbo-go-pixiu.io/some/path/mytest.go",
+			caller:   "/home/me/go/src/istio.io/istio.io/some/path/mytest.go",
 			expected: "some_path",
 		},
 		{
-			caller:   "/home/me/go/src/github.com/apache/dubbo-go-pixiu/tests/integration/some/path/mytest.go",
+			caller:   "/home/me/go/src/istio.io/istio/tests/integration/some/path/mytest.go",
 			expected: "some_path",
 		},
 		{

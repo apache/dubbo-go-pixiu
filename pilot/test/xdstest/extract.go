@@ -29,11 +29,10 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
@@ -46,8 +45,11 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
 				if filter.Name == wellknown.HTTPConnectionManager {
-					h := SilentlyUnmarshalAny[hcm.HttpConnectionManager](filter.GetTypedConfig())
-					switch r := h.GetRouteSpecifier().(type) {
+					hcon := &hcm.HttpConnectionManager{}
+					if err := filter.GetTypedConfig().UnmarshalTo(hcon); err != nil {
+						continue
+					}
+					switch r := hcon.GetRouteSpecifier().(type) {
 					case *hcm.HttpConnectionManager_Rds:
 						routes = append(routes, r.Rds.RouteConfigName)
 					}
@@ -59,12 +61,15 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 }
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
-func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
+func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
 	resourceNames := sets.New()
 	for _, r := range rs {
 		switch r.TypeUrl {
 		case v3.ClusterType:
-			c := UnmarshalAny[cluster.Cluster](t, r)
+			c := &cluster.Cluster{}
+			if err := r.UnmarshalTo(c); err != nil {
+				t.Fatal(err)
+			}
 			sockets := []*core.TransportSocket{}
 			if c.TransportSocket != nil {
 				sockets = append(sockets, c.TransportSocket)
@@ -73,14 +78,20 @@ func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 				sockets = append(sockets, ts.TransportSocket)
 			}
 			for _, s := range sockets {
-				tl := UnmarshalAny[tls.UpstreamTlsContext](t, s.GetTypedConfig())
+				tl := &tls.UpstreamTlsContext{}
+				if err := s.GetTypedConfig().UnmarshalTo(tl); err != nil {
+					t.Fatal(err)
+				}
 				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
 				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
 					resourceNames.Insert(s.GetName())
 				}
 			}
 		case v3.ListenerType:
-			l := UnmarshalAny[listener.Listener](t, r)
+			l := &listener.Listener{}
+			if err := r.UnmarshalTo(l); err != nil {
+				t.Fatal(err)
+			}
 			sockets := []*core.TransportSocket{}
 			for _, fc := range l.GetFilterChains() {
 				if fc.GetTransportSocket() != nil {
@@ -91,7 +102,10 @@ func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
 				sockets = append(sockets, ts)
 			}
 			for _, s := range sockets {
-				tl := UnmarshalAny[tls.DownstreamTlsContext](t, s.GetTypedConfig())
+				tl := &tls.DownstreamTlsContext{}
+				if err := s.GetTypedConfig().UnmarshalTo(tl); err != nil {
+					t.Fatal(err)
+				}
 				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
 				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
 					resourceNames.Insert(s.GetName())
@@ -111,23 +125,6 @@ func ExtractListenerNames(ll []*listener.Listener) []string {
 		res = append(res, l.Name)
 	}
 	return res
-}
-
-func SilentlyUnmarshalAny[T any](a *anypb.Any) *T {
-	dst := any(new(T)).(proto.Message)
-	if err := a.UnmarshalTo(dst); err != nil {
-		var z *T
-		return z
-	}
-	return any(dst).(*T)
-}
-
-func UnmarshalAny[T any](t test.Failer, a *anypb.Any) *T {
-	dst := any(new(T)).(proto.Message)
-	if err := a.UnmarshalTo(dst); err != nil {
-		t.Fatalf("failed to unmarshal to %T: %v", dst, err)
-	}
-	return any(dst).(*T)
 }
 
 func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
@@ -320,7 +317,7 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
-func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secret {
+func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
 	res := map[string]*tls.Secret{}
 	for _, a := range secrets {
 		scrt := &tls.Secret{}
@@ -332,7 +329,7 @@ func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secr
 	return res
 }
 
-func UnmarshalRouteConfiguration(t test.Failer, resp []*anypb.Any) []*route.RouteConfiguration {
+func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteConfiguration {
 	un := make([]*route.RouteConfiguration, 0, len(resp))
 	for _, r := range resp {
 		u := &route.RouteConfiguration{}
@@ -344,7 +341,7 @@ func UnmarshalRouteConfiguration(t test.Failer, resp []*anypb.Any) []*route.Rout
 	return un
 }
 
-func UnmarshalClusterLoadAssignment(t test.Failer, resp []*anypb.Any) []*endpoint.ClusterLoadAssignment {
+func UnmarshalClusterLoadAssignment(t test.Failer, resp []*any.Any) []*endpoint.ClusterLoadAssignment {
 	un := make([]*endpoint.ClusterLoadAssignment, 0, len(resp))
 	for _, r := range resp {
 		u := &endpoint.ClusterLoadAssignment{}
@@ -366,10 +363,14 @@ func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*c
 	return res
 }
 
-func ToDiscoveryResponse[T proto.Message](p []T) *discovery.DiscoveryResponse {
-	resources := make([]*anypb.Any, 0, len(p))
-	for _, v := range p {
-		resources = append(resources, protoconv.MessageToAny(v))
+func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
+	slice := InterfaceSlice(p)
+	if len(slice) == 0 {
+		return &discovery.DiscoveryResponse{}
+	}
+	resources := make([]*any.Any, 0, len(slice))
+	for _, v := range slice {
+		resources = append(resources, util.MessageToAny(v.(proto.Message)))
 	}
 	return &discovery.DiscoveryResponse{
 		Resources: resources,
@@ -377,11 +378,26 @@ func ToDiscoveryResponse[T proto.Message](p []T) *discovery.DiscoveryResponse {
 	}
 }
 
-// DumpList will dump a list of protos.
-func DumpList[T any](t test.Failer, protoList []T) []string {
+func InterfaceSlice(slice interface{}) []interface{} {
+	s := reflect.ValueOf(slice)
+	if s.Kind() != reflect.Slice {
+		panic("InterfaceSlice() given a non-slice type")
+	}
+
+	ret := make([]interface{}, s.Len())
+
+	for i := 0; i < s.Len(); i++ {
+		ret[i] = s.Index(i).Interface()
+	}
+
+	return ret
+}
+
+// DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
+func DumpList(t test.Failer, protoList []interface{}) []string {
 	res := []string{}
 	for _, i := range protoList {
-		p, ok := any(i).(proto.Message)
+		p, ok := i.(proto.Message)
 		if !ok {
 			t.Fatalf("expected proto, got %T", i)
 		}
@@ -402,8 +418,12 @@ func Dump(t test.Failer, p proto.Message) string {
 	return s
 }
 
-func MapKeys[M ~map[string]V, V any](mp M) []string {
-	res := maps.Keys(mp)
+func MapKeys(mp interface{}) []string {
+	keys := reflect.ValueOf(mp).MapKeys()
+	res := []string{}
+	for _, k := range keys {
+		res = append(res, k.String())
+	}
 	sort.Strings(res)
 	return res
 }

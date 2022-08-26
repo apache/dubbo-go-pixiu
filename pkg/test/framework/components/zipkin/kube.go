@@ -268,13 +268,13 @@ func (c *kubeComponent) Close() error {
 }
 
 func extractTraces(resp []byte) ([]Trace, error) {
-	var traceObjs []any
+	var traceObjs []interface{}
 	if err := json.Unmarshal(resp, &traceObjs); err != nil {
 		return []Trace{}, err
 	}
 	var ret []Trace
 	for _, t := range traceObjs {
-		spanObjs, ok := t.([]any)
+		spanObjs, ok := t.([]interface{})
 		if !ok || len(spanObjs) == 0 {
 			scopes.Framework.Debugf("cannot parse or cannot find spans in trace object %+v", t)
 			continue
@@ -303,9 +303,9 @@ func extractTraces(resp []byte) ([]Trace, error) {
 	return []Trace{}, errors.New("cannot find any traces")
 }
 
-func buildSpan(obj any) Span {
+func buildSpan(obj interface{}) Span {
 	var s Span
-	spanSpec := obj.(map[string]any)
+	spanSpec := obj.(map[string]interface{})
 	if spanID, ok := spanSpec["id"]; ok {
 		s.SpanID = spanID.(string)
 	}
@@ -313,7 +313,7 @@ func buildSpan(obj any) Span {
 		s.ParentSpanID = parentSpanID.(string)
 	}
 	if endpointObj, ok := spanSpec["localEndpoint"]; ok {
-		if em, ok := endpointObj.(map[string]any); ok {
+		if em, ok := endpointObj.(map[string]interface{}); ok {
 			s.ServiceName = em["serviceName"].(string)
 		}
 	}

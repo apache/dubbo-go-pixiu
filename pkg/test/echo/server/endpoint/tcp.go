@@ -22,8 +22,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -75,9 +73,9 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 
 	s.l = listener
 	if s.Port.TLS {
-		epLog.Infof("Listening TCP (over TLS) on %v\n", port)
+		fmt.Printf("Listening TCP (over TLS) on %v\n", port)
 	} else {
-		epLog.Infof("Listening TCP on %v\n", port)
+		fmt.Printf("Listening TCP on %v\n", port)
 	}
 
 	// Start serving TCP traffic.
@@ -89,25 +87,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 				return
 			}
 
-			id := uuid.New()
-			epLog.WithLabels("remote", conn.RemoteAddr(), "id", id).Infof("TCP Request")
-
-			done := make(chan struct{})
-			go func() {
-				s.echo(id, conn)
-				close(done)
-			}()
-
-			go func() {
-				select {
-				case <-done:
-					return
-				case <-time.After(requestTimeout):
-					epLog.WithLabels("id", id).Warnf("TCP forcing connection closed after request timeout")
-					_ = forceClose(conn)
-					return
-				}
-			}()
+			go s.echo(conn)
 		}
 	}()
 
@@ -118,53 +98,41 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 }
 
 // Handles incoming connection.
-func (s *tcpInstance) echo(id uuid.UUID, conn net.Conn) {
-	common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
-
-	var err error
+func (s *tcpInstance) echo(conn net.Conn) {
+	defer common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
 	defer func() {
-		if err != nil && err != io.EOF {
-			_ = forceClose(conn)
-		} else {
-			_ = conn.Close()
-		}
+		_ = conn.Close()
 	}()
 
 	// If this is server first, client expects a message from server. Send the magic string.
 	if s.Port.ServerFirst {
-		if _, err = conn.Write([]byte(common.ServerFirstMagicString)); err != nil {
-			epLog.WithLabels("id", id).Warnf("TCP server-first write failed: %v", err)
-			return
-		}
+		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
 	}
 
+	id := uuid.New()
+	epLog.WithLabels("remote", conn.RemoteAddr(), "id", id).Infof("TCP Request")
 	firstReply := true
-	responseFields := ""
 	buf := make([]byte, 4096)
 	for {
-		var n int
-		n, err = conn.Read(buf)
+		n, err := conn.Read(buf)
 
 		// important not to start sending any response until we've started reading the message,
 		// otherwise the response could be read when we expect the magic string
 		if firstReply {
-			responseFields = s.getResponseFields(conn)
-			if _, writeErr := conn.Write([]byte(responseFields)); writeErr != nil {
-				epLog.WithLabels("id", id).Warnf("TCP failed writing response fields: %v", writeErr)
-			}
+			s.writeResponse(conn)
 			firstReply = false
 		}
 
 		if err != nil && err != io.EOF {
-			epLog.WithLabels("id", id).Warnf("TCP read failed: %v", err)
+			epLog.Warnf("TCP read failed: %v", err.Error())
 			break
 		}
 
 		// echo the message from the request
 		if n > 0 {
 			out := buf[:n]
-			if _, err = conn.Write(out); err != nil {
-				epLog.WithLabels("id", id).Warnf("TCP failed writing echo response: %v", err)
+			if _, err := conn.Write(out); err != nil {
+				epLog.Warnf("TCP write failed, :%v", err)
 				break
 			}
 		}
@@ -175,10 +143,10 @@ func (s *tcpInstance) echo(id uuid.UUID, conn net.Conn) {
 		}
 	}
 
-	epLog.WithLabels("id", id).Infof("TCP Response Fields:\n%s", responseFields)
+	epLog.WithLabels("id", id).Infof("TCP Response")
 }
 
-func (s *tcpInstance) getResponseFields(conn net.Conn) string {
+func (s *tcpInstance) writeResponse(conn net.Conn) {
 	ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	// Write non-request fields specific to the instance
 	respFields := map[echo.Field]string{
@@ -194,18 +162,19 @@ func (s *tcpInstance) getResponseFields(conn net.Conn) string {
 	if hostname, err := os.Hostname(); err == nil {
 		respFields[echo.HostnameField] = hostname
 	}
-
-	var out strings.Builder
 	for field, val := range respFields {
 		val := fmt.Sprintf("%s=%s\n", string(field), val)
-		_, _ = out.WriteString(val)
+		_, err := conn.Write([]byte(val))
+		if err != nil {
+			epLog.Warnf("TCP write failed %q: %v", val, err)
+			break
+		}
 	}
-	return out.String()
 }
 
 func (s *tcpInstance) Close() error {
 	if s.l != nil {
-		_ = s.l.Close()
+		s.l.Close()
 	}
 	return nil
 }
@@ -218,7 +187,7 @@ func (s *tcpInstance) awaitReady(onReady OnReadyFunc, address string) {
 		if err != nil {
 			return err
 		}
-		defer func() { _ = conn.Close() }()
+		defer conn.Close()
 
 		// Server is up now, we're ready.
 		return nil

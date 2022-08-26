@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -106,7 +107,6 @@ func TestAgent(t *testing.T) {
 		// All of the other tests use ECC for speed. Here we make sure RSA still works
 		Setup(t, func(a AgentTest) AgentTest {
 			a.Security.ECCSigAlg = ""
-			a.Security.WorkloadRSAKeySize = 2048
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
@@ -578,7 +578,7 @@ func TestAgent(t *testing.T) {
 	})
 	t.Run("GCP", func(t *testing.T) {
 		os.MkdirAll(filepath.Join(wd, "var/run/secrets/tokens"), 0o755)
-		os.WriteFile(filepath.Join(wd, "var/run/secrets/tokens/istio-token"), []byte("test-token"), 0o644)
+		ioutil.WriteFile(filepath.Join(wd, "var/run/secrets/tokens/istio-token"), []byte("test-token"), 0o644)
 		a := Setup(t, func(a AgentTest) AgentTest {
 			a.envoyEnable = true
 			a.enableSTS = true
@@ -686,7 +686,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	}
 
 	a := NewAgent(resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
-	t.Cleanup(a.close)
+	t.Cleanup(a.Close)
 	ctx, done := context.WithCancel(context.Background())
 	wait, err := a.Run(ctx)
 	if err != nil {
@@ -838,7 +838,7 @@ func filenames(t *testing.T, dir string) []string {
 
 func proxyConfigToMetadata(t *testing.T, proxyConfig *meshconfig.ProxyConfig) model.NodeMetadata {
 	t.Helper()
-	m := map[string]any{}
+	m := map[string]interface{}{}
 	for k, v := range proxyConfig.ProxyMetadata {
 		if strings.HasPrefix(k, bootstrap.IstioMetaPrefix) {
 			m[strings.TrimPrefix(k, bootstrap.IstioMetaPrefix)] = v

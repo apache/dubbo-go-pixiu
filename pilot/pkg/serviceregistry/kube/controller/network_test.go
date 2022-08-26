@@ -35,7 +35,11 @@ import (
 
 func TestNetworkUpdateTriggers(t *testing.T) {
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
+	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
+	defer close(c.stop)
+	go func() {
+		c.Run(c.stop)
+	}()
 
 	if len(c.NetworkGateways()) != 0 {
 		t.Fatal("did not expect any gateways yet")
@@ -72,7 +76,7 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 				return fmt.Errorf("expected %d gateways but got %d", expectedGws, n)
 			}
 			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+		}, retry.Timeout(5*time.Second), retry.Delay(500*time.Millisecond))
 	}
 
 	t.Run("add meshnetworks", func(t *testing.T) {
@@ -115,14 +119,14 @@ func addLabeledServiceGateway(t *testing.T, c *FakeController, nw string) {
 		}}}},
 	}
 
-	if _, err := c.client.Kube().CoreV1().Services("arbitrary-ns").Get(ctx, "istio-labeled-gw", metav1.GetOptions{}); err == nil {
+	if _, err := c.client.CoreV1().Services("arbitrary-ns").Get(ctx, "istio-labeled-gw", metav1.GetOptions{}); err == nil {
 		// update
-		if _, err := c.client.Kube().CoreV1().Services("arbitrary-ns").Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.client.CoreV1().Services("arbitrary-ns").Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	} else if errors.IsNotFound(err) {
 		// create
-		if _, err := c.client.Kube().CoreV1().Services("arbitrary-ns").Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
+		if _, err := c.client.CoreV1().Services("arbitrary-ns").Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	} else {
@@ -131,14 +135,14 @@ func addLabeledServiceGateway(t *testing.T, c *FakeController, nw string) {
 }
 
 func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
-	err := c.client.Kube().CoreV1().Services("arbitrary-ns").Delete(context.TODO(), "istio-labeled-gw", metav1.DeleteOptions{})
+	err := c.client.CoreV1().Services("arbitrary-ns").Delete(context.TODO(), "istio-labeled-gw", metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {
-	_, err := c.client.Kube().CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
+	_, err := c.client.CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "istio-meshnetworks-gw", Namespace: "istio-system"},
 		Spec: corev1.ServiceSpec{
 			Type:  corev1.ServiceTypeLoadBalancer,

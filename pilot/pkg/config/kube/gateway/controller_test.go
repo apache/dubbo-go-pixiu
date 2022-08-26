@@ -21,6 +21,7 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -124,7 +125,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	})
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
+	g.Expect(controller.Recompute(model.NewGatewayContext(cg.PushContext()))).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.Gateway, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
@@ -169,7 +170,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 	})
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
+	g.Expect(controller.Recompute(model.NewGatewayContext(cg.PushContext()))).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.VirtualService, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))

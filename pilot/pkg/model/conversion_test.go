@@ -104,17 +104,17 @@ trafficPolicy:
     simple: UNSPECIFIED
 `
 
-	wantJSONMap := map[string]any{
+	wantJSONMap := map[string]interface{}{
 		"host": "something.svc.local",
-		"trafficPolicy": map[string]any{
-			"loadBalancer": map[string]any{
+		"trafficPolicy": map[string]interface{}{
+			"loadBalancer": map[string]interface{}{
 				"simple": "UNSPECIFIED",
 			},
 		},
-		"subsets": []any{
-			map[string]any{
+		"subsets": []interface{}{
+			map[string]interface{}{
 				"name": "foo",
-				"labels": map[string]any{
+				"labels": map[string]interface{}{
 					"test": "label",
 				},
 			},

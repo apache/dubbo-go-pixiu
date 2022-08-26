@@ -77,7 +77,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 
 	s.multiclusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
-		s.kubeClient.Kube(),
+		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
 		s.serviceEntryController,

@@ -40,22 +40,22 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: default
@@ -66,22 +66,22 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: foobar
@@ -92,48 +92,48 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: same-namespace
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-  - attachedRoutes: 0
+  - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: scope-route
@@ -142,22 +142,22 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: NoConflicts
+      reason: ListenerReady
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: ListenerReady
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ListenerReady
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ResolvedRefs
+      reason: ListenerReady
       status: "True"
       type: ResolvedRefs
     name: namespace-selector
@@ -176,15 +176,10 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid, bound to 2 parents
-      reason: Accepted
+      message: Route was valid
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -202,14 +197,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: no hostnames matched parent hostname "*.foobar.example"
-      reason: NoMatchingListenerHostname
+      reason: InvalidParentReference
       status: "False"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -229,14 +219,9 @@ status:
     - lastTransitionTime: fake
       message: hostnames matched parent hostname "*.namespace-selector.example", but
         namespace "default" is not allowed by the parent
-      reason: NotAllowedByListeners
+      reason: InvalidParentReference
       status: "False"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -255,14 +240,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: no hostnames matched parent hostname "*.same-namespace.example"
-      reason: NoMatchingListenerHostname
+      reason: InvalidParentReference
       status: "False"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       kind: Gateway
@@ -282,14 +262,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -308,14 +283,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -334,14 +304,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -360,14 +325,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -376,14 +336,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: Accepted
+      reason: RouteAdmitted
       status: "True"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
@@ -402,14 +357,9 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
-      reason: NotAllowedByListeners
+      reason: InvalidParentReference
       status: "False"
       type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway

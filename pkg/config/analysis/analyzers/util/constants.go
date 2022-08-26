@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DefaultClusterLocalDomain  = "svc." + constants.DefaultClusterLocalDomain
+	DefaultKubernetesDomain    = "svc." + constants.DefaultKubernetesDomain
 	ExportToNamespaceLocal     = "."
 	ExportToAllNamespaces      = "*"
 	IstioProxyName             = "istio-proxy"

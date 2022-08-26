@@ -87,8 +87,7 @@ func ApplyLocalityLBSetting(
 func applyLocalityWeight(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
-	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute,
-) {
+	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute) {
 	if distribute == nil {
 		return
 	}
@@ -147,8 +146,7 @@ func applyLocalityWeight(
 func applyLocalityFailover(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
-	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover,
-) {
+	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}
 
@@ -208,8 +206,7 @@ func applyPriorityFailover(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	proxyLabels map[string]string,
-	failoverPriorities []string,
-) {
+	failoverPriorities []string) {
 	if len(proxyLabels) == 0 || len(wrappedLocalityLbEndpoints) == 0 {
 		return
 	}
@@ -248,8 +245,7 @@ func applyPriorityFailover(
 func applyPriorityFailoverPerLocality(
 	proxyLabels map[string]string,
 	ep *WrappedLocalityLbEndpoints,
-	failoverPriorities []string,
-) []*endpoint.LocalityLbEndpoints {
+	failoverPriorities []string) []*endpoint.LocalityLbEndpoints {
 	lowestPriority := len(failoverPriorities)
 	// key is priority, value is the index of LocalityLbEndpoints.LbEndpoints
 	priorityMap := map[int][]int{}

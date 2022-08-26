@@ -25,7 +25,3 @@ const (
 	// External is a service registry for externally provided ServiceEntries
 	External ID = "External"
 )
-
-func (id ID) String() string {
-	return string(id)
-}

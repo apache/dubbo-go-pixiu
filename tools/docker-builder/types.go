@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"k8s.io/utils/env"
@@ -58,22 +57,20 @@ type Target struct {
 }
 
 type Args struct {
-	Push              bool
-	Save              bool
-	Builder           string
-	SupportsEmulation bool
-	NoClobber         bool
-	NoCache           bool
-	Targets           []string
-	Variants          []string
-	Architectures     []string
-	BaseVersion       string
-	ProxyVersion      string
-	IstioVersion      string
-	Tags              []string
-	Hubs              []string
-	// Suffix on artifacts, used for multi-arch images where we cannot use manifests
-	suffix string
+	Push          bool
+	Save          bool
+	Builder       string
+	KindLoad      bool
+	NoClobber     bool
+	NoCache       bool
+	Targets       []string
+	Variants      []string
+	Architectures []string
+	BaseVersion   string
+	ProxyVersion  string
+	IstioVersion  string
+	Tags          []string
+	Hubs          []string
 
 	// Plan describes the build plan, read from file.
 	// This is a map of architecture -> plan, as the plan is arch specific.
@@ -113,10 +110,6 @@ type ImagePlan struct {
 	Targets []string `json:"targets"`
 	// Base indicates if this is a base image or not
 	Base bool `json:"base"`
-	// EmulationRequired indicates if emulation is required when cross-compiling. It typically is not,
-	// as most building in Istio is done outside of docker.
-	// When this is set, cross-compile is disabled for components unless emulation is epxlicitly specified
-	EmulationRequired bool `json:"emulationRequired"`
 }
 
 func (p ImagePlan) Dependencies() []string {
@@ -138,13 +131,13 @@ func (p BuildPlan) Targets() []string {
 	return tgts.SortedList()
 }
 
-func (p BuildPlan) Find(n string) *ImagePlan {
+func (p BuildPlan) Find(n string) ImagePlan {
 	for _, i := range p.Images {
 		if i.Name == n {
-			return &i
+			return i
 		}
 	}
-	return nil
+	panic("couldn't find target " + n)
 }
 
 // Define variants, which control the base image of an image.
@@ -220,29 +213,19 @@ func DefaultArgs() Args {
 		builder = b
 	}
 
-	// TODO: consider automatically detecting Qemu support
-	qemu := false
-	if b, f := os.LookupEnv("ISTIO_DOCKER_QEMU"); f {
-		q, err := strconv.ParseBool(b)
-		if err == nil {
-			qemu = q
-		}
-	}
-
 	return Args{
-		Push:              false,
-		Save:              false,
-		NoCache:           false,
-		Hubs:              hub,
-		Tags:              tag,
-		BaseVersion:       fetchBaseVersion(),
-		IstioVersion:      fetchIstioVersion(),
-		ProxyVersion:      pv,
-		Architectures:     arch,
-		Targets:           targets,
-		Variants:          variants,
-		Builder:           builder,
-		SupportsEmulation: qemu,
+		Push:          false,
+		Save:          false,
+		NoCache:       false,
+		Hubs:          hub,
+		Tags:          tag,
+		BaseVersion:   fetchBaseVersion(),
+		IstioVersion:  fetchIstioVersion(),
+		ProxyVersion:  pv,
+		Architectures: arch,
+		Targets:       targets,
+		Variants:      variants,
+		Builder:       builder,
 	}
 }
 

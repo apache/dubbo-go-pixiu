@@ -21,7 +21,7 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
@@ -44,11 +44,6 @@ type ShardKey struct {
 
 func (sk ShardKey) String() string {
 	return fmt.Sprintf("%s/%s", sk.Provider, sk.Cluster)
-}
-
-// MarshalText implements the TextMarshaler interface (for json key usage)
-func (sk ShardKey) MarshalText() (text []byte, err error) {
-	return []byte(sk.String()), nil
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -118,7 +113,7 @@ func (e *EndpointIndex) clearCacheForService(svc, ns string) {
 		return
 	}
 	e.cache.Clear(map[ConfigKey]struct{}{{
-		Kind:      kind.ServiceEntry,
+		Kind:      gvk.ServiceEntry,
 		Name:      svc,
 		Namespace: ns,
 	}: {}})

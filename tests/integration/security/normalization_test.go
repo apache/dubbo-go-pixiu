@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/check"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func supportedPercentEncode(i int) bool {

@@ -86,7 +86,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
 		IngressClass:                "istio",
-		TrustDomain:                 constants.DefaultClusterLocalDomain,
+		TrustDomain:                 constants.DefaultKubernetesDomain,
 		TrustDomainAliases:          []string{},
 		EnableAutoMtls:              &wrappers.BoolValue{Value: true},
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
@@ -159,7 +159,7 @@ func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshco
 	return proxyConfig, nil
 }
 
-func extractYamlField(key string, mp map[string]any) (string, error) {
+func extractYamlField(key string, mp map[string]interface{}) (string, error) {
 	proxyConfig := mp[key]
 	if proxyConfig == nil {
 		return "", nil
@@ -171,8 +171,8 @@ func extractYamlField(key string, mp map[string]any) (string, error) {
 	return string(bytes), nil
 }
 
-func toMap(yamlText string) (map[string]any, error) {
-	mp := map[string]any{}
+func toMap(yamlText string) (map[string]interface{}, error) {
+	mp := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(yamlText), &mp); err != nil {
 		return nil, err
 	}

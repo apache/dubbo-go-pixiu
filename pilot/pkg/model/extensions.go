@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/credentials"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -73,7 +73,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
+		cfg = networking.MessageToAny(&wrapperspb.StringValue{
 			Value: cfgJSON,
 		})
 	}
@@ -166,8 +166,7 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 func buildVMConfig(
 	datasource *envoyCoreV3.AsyncDataSource,
 	resourceVersion string,
-	wasmPlugin *extensions.WasmPlugin,
-) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
+	wasmPlugin *extensions.WasmPlugin) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
 	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,

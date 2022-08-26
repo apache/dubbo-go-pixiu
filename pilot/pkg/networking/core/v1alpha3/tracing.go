@@ -127,8 +127,7 @@ func configureTracingFromSpec(
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
 func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
-	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
-) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
+	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
 	tracing := &hpb.HttpConnectionManager_Tracing{}
 	var rfCtx *xdsfilters.RouterFilterContext
 	var err error
@@ -282,8 +281,7 @@ func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
 type typedConfigGenFn func() (*anypb.Any, error)
 
 func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, maxTagLen uint32,
-	anyFn typedConfigGenFromClusterFn,
-) (*hpb.HttpConnectionManager_Tracing, error) {
+	anyFn typedConfigGenFromClusterFn) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
 
 	hostname, cluster, err := clusterLookupFn(pushCtx, svc, int(port))
@@ -309,14 +307,14 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 
 func buildHCMTracingOpenCensus(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
-	cfg, err := anyFn()
+	any, err := anyFn()
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}
 
 	config.Provider = &tracingcfg.Tracing_Http{
 		Name:       provider,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: cfg},
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: any},
 	}
 
 	if maxTagLen != 0 {
@@ -471,8 +469,7 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 }
 
 func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
-	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, metadata *model.NodeMetadata,
-) {
+	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, metadata *model.NodeMetadata) {
 	var tags []*tracing.CustomTag
 
 	// TODO(dougreid): remove support for this feature. We don't want this to be

@@ -47,7 +47,7 @@ const expectedResult = `	Hello1	Feature = "hello1"
 	Key2_Val2	Feature = "key2.val2"`
 
 func TestReadVal(t *testing.T) {
-	m := make(map[any]any)
+	m := make(map[interface{}]interface{})
 
 	err := yaml.Unmarshal([]byte(testYaml), &m)
 	if err != nil {

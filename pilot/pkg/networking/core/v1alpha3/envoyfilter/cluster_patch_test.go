@@ -25,8 +25,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -295,7 +295,7 @@ func TestClusterPatching(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
 										EcdhCurves:                []string{"X25519"},
@@ -326,7 +326,7 @@ func TestClusterPatching(t *testing.T) {
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 						CommonTlsContext: &tls.CommonTlsContext{
 							TlsParams: &tls.TlsParameters{
 								EcdhCurves:                []string{"X25519"},
@@ -351,7 +351,7 @@ func TestClusterPatching(t *testing.T) {
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 						CommonTlsContext: &tls.CommonTlsContext{
 							TlsParams: &tls.TlsParameters{
 								EcdhCurves:                []string{"X25519"},
@@ -376,7 +376,7 @@ func TestClusterPatching(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
 										EcdhCurves:                []string{"X25519"},
@@ -406,7 +406,7 @@ func TestClusterPatching(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
 										EcdhCurves:                []string{"X25519"},
@@ -434,7 +434,7 @@ func TestClusterPatching(t *testing.T) {
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 						CommonTlsContext: &tls.CommonTlsContext{
 							TlsParams: &tls.TlsParameters{
 								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
@@ -451,7 +451,7 @@ func TestClusterPatching(t *testing.T) {
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 						CommonTlsContext: &tls.CommonTlsContext{
 							TlsParams: &tls.TlsParameters{
 								EcdhCurves:                []string{"X25519"},
@@ -474,7 +474,7 @@ func TestClusterPatching(t *testing.T) {
 			TransportSocket: &core.TransportSocket{
 				Name: "transport_sockets.alts",
 				ConfigType: &core.TransportSocket_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&udpa.TypedStruct{
+					TypedConfig: util.MessageToAny(&udpa.TypedStruct{
 						TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
 						Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
 					}),
@@ -488,7 +488,7 @@ func TestClusterPatching(t *testing.T) {
 			TransportSocket: &core.TransportSocket{
 				Name: "transport_sockets.alts",
 				ConfigType: &core.TransportSocket_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&udpa.TypedStruct{
+					TypedConfig: util.MessageToAny(&udpa.TypedStruct{
 						TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
 						Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
 					}),
@@ -505,7 +505,7 @@ func TestClusterPatching(t *testing.T) {
 					TransportSocket: &core.TransportSocket{
 						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
 								CommonTlsContext: &tls.CommonTlsContext{
 									TlsParams: &tls.TlsParameters{
 										EcdhCurves:                []string{"X25519"},

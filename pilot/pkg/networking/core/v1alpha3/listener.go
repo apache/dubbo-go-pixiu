@@ -20,7 +20,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -28,24 +30,27 @@ import (
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/extension"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authnmodel "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/requestidextension"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto"
-	secconst "github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+	extensions "istio.io/api/extensions/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -103,8 +108,7 @@ var (
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
-	push *model.PushContext,
-) []*listener.Listener {
+	push *model.PushContext) []*listener.Listener {
 	builder := NewListenerBuilder(node, push)
 
 	switch node.Type {
@@ -119,15 +123,10 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
-) *auth.DownstreamTlsContext {
+	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
-	} else if transportProtocol == istionetworking.TransportProtocolTCP &&
-		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL &&
-		gatewayTCPServerWithTerminatingTLS {
-		alpnByTransport = util.ALPNDownstreamWithMxc
 	}
 
 	ctx := &auth.DownstreamTlsContext{
@@ -141,16 +140,13 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		ctx.RequireClientCertificate = proto.BoolTrue
 	}
-	credentialSocketExist := false
-	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
-		credentialSocketExist = true
-	}
+
 	if features.EnableLegacyIstioMutualCredentialName {
 		// Legacy code path. Can be removed after a couple releases.
 		switch {
 		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
+			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
 		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
 			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 		default:
@@ -171,7 +167,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
+			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
 		default:
 			certProxy := &model.Proxy{}
 			certProxy.IstioVersion = proxy.IstioVersion
@@ -288,8 +284,7 @@ func (c outboundListenerConflict) addMetric(metrics model.Metrics) {
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
 func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
-	push *model.PushContext,
-) []*listener.Listener {
+	push *model.PushContext) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
@@ -519,8 +514,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 }
 
 func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
-	push *model.PushContext,
-) *listener.Listener {
+	push *model.PushContext) *listener.Listener {
 	httpProxyPort := push.Mesh.ProxyHttpPort // global
 	if node.Metadata.HTTPProxyPort != "" {
 		port, err := strconv.Atoi(node.Metadata.HTTPProxyPort)
@@ -579,9 +573,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 
 func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
-	listenerMap map[string]*outboundListenerEntry, actualWildcard string,
-	listenerProtocol istionetworking.ListenerProtocol,
-) (bool, []*filterChainOpts) {
+	listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
@@ -640,6 +632,8 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 		}
 	}
 
+	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol, core.TrafficDirection_OUTBOUND)
+
 	// No conflicts. Add a http filter chain option to the listenerOpts
 	var rdsName string
 	if listenerOpts.port.Port == 0 {
@@ -653,7 +647,7 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 		}
 	}
 	httpOpts := &httpListenerOpts{
-		// Set useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost address of the sender,
+		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
 		useRemoteAddress: features.UseRemoteAddress,
@@ -678,8 +672,7 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 
 func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry,
-	virtualServices []config.Config, actualWildcard string,
-) (bool, []*filterChainOpts) {
+	virtualServices []config.Config, actualWildcard string) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 
@@ -788,8 +781,7 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
-	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string,
-) {
+	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcard string) {
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 	var ret bool
@@ -806,7 +798,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if listenerPortProtocol == protocol.HTTP_PROXY {
 		if ret, opts = buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
-			&listenerOpts, listenerMap, actualWildcard, listenerProtocol); !ret {
+			&listenerOpts, listenerMap, actualWildcard); !ret {
 			return
 		}
 		listenerOpts.filterChainOpts = opts
@@ -814,7 +806,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		switch listenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
 			if ret, opts = buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey,
-				&currentListenerEntry, &listenerOpts, listenerMap, actualWildcard, listenerProtocol); !ret {
+				&currentListenerEntry, &listenerOpts, listenerMap, actualWildcard); !ret {
 				return
 			}
 
@@ -893,7 +885,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 
 			// Add http filter chain and tcp filter chain to the listener opts
 			if ret, opts = buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
-				&listenerOpts, listenerMap, actualWildcard, listenerProtocol); !ret {
+				&listenerOpts, listenerMap, actualWildcard); !ret {
 				return
 			}
 
@@ -978,11 +970,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 	//  Type 7 can be resolved by appending service to existing services
 	//  Type 8 can be resolved by merging TCP filter chains
 	//  Type 9 can be resolved by merging TCP and HTTP filter chains
-	if currentListenerEntry != nil {
-		// Listener filters enable inspecting TLS or HTTP. If either filter chain depends on it, our final listener
-		// must also have the inspector.
-		currentListenerEntry.listener.ListenerFilters = mergeListenerFilters(currentListenerEntry.listener.ListenerFilters, mutable.Listener.ListenerFilters)
-	}
+
 	switch conflictType {
 	case NoConflict:
 		if currentListenerEntry != nil {
@@ -1001,12 +989,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		// Merge HTTP filter chain to TCP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(mutable.Listener.FilterChains, currentListenerEntry.listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 		currentListenerEntry.services = append(currentListenerEntry.services, listenerOpts.service)
 
 	case TCPOverHTTP:
 		// Merge TCP filter chain to HTTP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(currentListenerEntry.listener.FilterChains, mutable.Listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 	case TCPOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
@@ -1024,6 +1014,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			listener:    mutable.Listener,
 			protocol:    protocol.Unsupported,
 		}
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	case AutoOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
@@ -1031,6 +1022,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			listenerOpts, listenerMapKey, listenerMap)
 		currentListenerEntry.protocol = protocol.Unsupported
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	default:
 		// Covered previously - in this case we return early to prevent creating listeners that we end up throwing away
@@ -1096,6 +1088,122 @@ type buildListenerOpts struct {
 	class             istionetworking.ListenerClass
 	service           *model.Service
 	transport         istionetworking.TransportProtocol
+}
+
+func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts) *hcm.HttpConnectionManager {
+	if httpOpts.connectionManager == nil {
+		httpOpts.connectionManager = &hcm.HttpConnectionManager{}
+	}
+
+	connectionManager := httpOpts.connectionManager
+	if httpOpts.http3Only {
+		connectionManager.CodecType = hcm.HttpConnectionManager_HTTP3
+		connectionManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
+	} else {
+		connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
+	}
+	connectionManager.AccessLog = []*accesslog.AccessLog{}
+	connectionManager.StatPrefix = httpOpts.statPrefix
+
+	// Setup normalization
+	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
+	switch lb.push.Mesh.GetPathNormalization().GetNormalization() {
+	case meshconfig.MeshConfig_ProxyPathNormalization_NONE:
+		connectionManager.NormalizePath = proto.BoolFalse
+	case meshconfig.MeshConfig_ProxyPathNormalization_BASE, meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT:
+		connectionManager.NormalizePath = proto.BoolTrue
+	case meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+	case meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
+	}
+
+	if httpOpts.useRemoteAddress {
+		connectionManager.UseRemoteAddress = proto.BoolTrue
+	} else {
+		connectionManager.UseRemoteAddress = proto.BoolFalse
+	}
+
+	// Allow websocket upgrades
+	websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+
+	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
+	if err == nil {
+		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+			IdleTimeout: durationpb.New(idleTimeout),
+		}
+	}
+
+	notimeout := durationpb.New(0 * time.Second)
+	connectionManager.StreamIdleTimeout = notimeout
+
+	if httpOpts.rds != "" {
+		rds := &hcm.HttpConnectionManager_Rds{
+			Rds: &hcm.Rds{
+				ConfigSource: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+					InitialFetchTimeout: durationpb.New(0),
+					ResourceApiVersion:  core.ApiVersion_V3,
+				},
+				RouteConfigName: httpOpts.rds,
+			},
+		}
+		connectionManager.RouteSpecifier = rds
+	} else {
+		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
+	}
+
+	accessLogBuilder.setHTTPAccessLog(lb.push, lb.node, connectionManager, httpOpts.class)
+
+	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
+
+	filters := []*hcm.HttpFilter{}
+	wasm := lb.push.WasmPlugins(lb.node)
+	// TODO: how to deal with ext-authz? It will be in the ordering twice
+	filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
+	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
+	filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
+	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
+	filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+
+	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
+	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
+	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+
+	if features.MetadataExchange {
+		filters = append(filters, xdsfilters.HTTPMx)
+	}
+
+	if httpOpts.protocol == protocol.GRPCWeb {
+		filters = append(filters, xdsfilters.GrpcWeb)
+	}
+
+	if httpOpts.protocol.IsGRPC() {
+		filters = append(filters, xdsfilters.GrpcStats)
+	}
+
+	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
+	if features.ALPNFilter {
+		if httpOpts.class != istionetworking.ListenerClassSidecarInbound {
+			filters = append(filters, xdsfilters.Alpn)
+		}
+	}
+
+	// TypedPerFilterConfig in route needs these filters.
+	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
+	filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
+	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
+
+	connectionManager.HttpFilters = filters
+	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
+
+	return connectionManager
 }
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
@@ -1352,7 +1460,7 @@ func (ml *MutableListener) build(builder *ListenerBuilder, opts buildListenerOpt
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpConnectionManagers[i])},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
 			}
 			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
@@ -1364,8 +1472,7 @@ func (ml *MutableListener) build(builder *ListenerBuilder, opts buildListenerOpt
 }
 
 func mergeTCPFilterChains(incoming []*listener.FilterChain, listenerOpts buildListenerOpts, listenerMapKey string,
-	listenerMap map[string]*outboundListenerEntry,
-) []*listener.FilterChain {
+	listenerMap map[string]*outboundListenerEntry) []*listener.FilterChain {
 	// TODO(rshriram) merge multiple identical filter chains with just a single destination CIDR based
 	// filter chain match, into a single filter chain and array of destinationcidr matches
 
@@ -1539,29 +1646,24 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	return true
 }
 
-// mergeListenerFilters appends a TLS and/or HTTP inspector to `a` if `a` does not yet have it but `n` does.
-// This is used when merging filter chains - the listener filters should be the union.
-func mergeListenerFilters(a, b []*listener.ListenerFilter) []*listener.ListenerFilter {
-	alreadyHasTLSInspector := false
-	alreadyHasHTTPInspector := false
-	for _, f := range a {
-		alreadyHasTLSInspector = alreadyHasTLSInspector || f.Name == wellknown.TlsInspector
-		alreadyHasHTTPInspector = alreadyHasHTTPInspector || f.Name == wellknown.HttpInspector
-	}
-	wantTLSInspector := false
-	wantHTTPInspector := false
-	for _, f := range b {
-		wantTLSInspector = wantTLSInspector || f.Name == wellknown.TlsInspector
-		wantHTTPInspector = wantHTTPInspector || f.Name == wellknown.HttpInspector
+func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.ListenerFilter {
+	hasTLSInspector := false
+	hasHTTPInspector := false
+
+	for _, f := range filters {
+		hasTLSInspector = hasTLSInspector || f.Name == wellknown.TlsInspector
+		hasHTTPInspector = hasHTTPInspector || f.Name == wellknown.HttpInspector
 	}
 
-	if !alreadyHasTLSInspector && wantTLSInspector {
-		a = append(a, xdsfilters.TLSInspector)
+	if !hasTLSInspector {
+		filters = append(filters, xdsfilters.TLSInspector)
 	}
-	if !alreadyHasHTTPInspector && wantHTTPInspector {
-		a = append(a, xdsfilters.HTTPInspector)
+
+	if !hasHTTPInspector {
+		filters = append(filters, xdsfilters.HTTPInspector)
 	}
-	return a
+
+	return filters
 }
 
 // nolint: interfacer
@@ -1570,8 +1672,8 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 		return nil
 	}
 	return &core.TransportSocket{
-		Name:       wellknown.TransportSocketTls,
-		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
+		Name:       util.EnvoyTLSSocketName,
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 	}
 }
 
@@ -1580,9 +1682,9 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 		return nil
 	}
 	return &core.TransportSocket{
-		Name: wellknown.TransportSocketQuic,
+		Name: util.EnvoyQUICSocketName,
 		ConfigType: &core.TransportSocket_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&envoyquicv3.QuicDownstreamTransport{
+			TypedConfig: util.MessageToAny(&envoyquicv3.QuicDownstreamTransport{
 				DownstreamTlsContext: tlsContext,
 			}),
 		},

@@ -195,8 +195,7 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 	rangeInclude NetworkRange,
 	appendRule func(command iptableslog.Command, chain string, table string, params ...string) *builder.IptablesBuilder,
-	insert func(command iptableslog.Command, chain string, table string, position int, params ...string) *builder.IptablesBuilder,
-) {
+	insert func(command iptableslog.Command, chain string, table string, position int, params ...string) *builder.IptablesBuilder) {
 	// Apply outbound IP inclusions.
 	if rangeInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
@@ -262,6 +261,24 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 		}
 	}
 	return
+}
+
+func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
+	if cfg.DryRun {
+		log.Infof("skipping configuring routes due to dry run mode")
+		return nil
+	}
+	if ext != nil && cfg.CNIMode {
+		command := os.Args[0]
+		return ext.Run(command, constants.CommandConfigureRoutes)
+	}
+	if err := configureIPv6Addresses(cfg); err != nil {
+		return err
+	}
+	if err := configureTProxyRoutes(cfg); err != nil {
+		return err
+	}
+	return nil
 }
 
 // configureIPv6Addresses sets up a new IP address on local interface. This is used as the source IP
@@ -601,8 +618,7 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
 	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
-	ownerGroupsFilter config.InterceptFilter,
-) {
+	ownerGroupsFilter config.InterceptFilter) {
 	f := UDPRuleApplier{
 		iptables: iptables,
 		ext:      ext,
@@ -661,8 +677,7 @@ func HandleDNSUDP(
 // Traffic that goes from istio to DNS servers and vice versa are zone 1 and traffic from
 // DNS client to istio and vice versa goes to zone 2
 func addConntrackZoneDNSUDP(
-	f UDPRuleApplier, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
-) {
+	f UDPRuleApplier, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool) {
 	// TODO: add ip6 as well
 	for _, uid := range split(proxyUID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers

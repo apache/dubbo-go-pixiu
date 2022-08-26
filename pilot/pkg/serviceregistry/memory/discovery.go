@@ -24,7 +24,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
 )
 
 // ServiceController is a mock service controller
@@ -75,7 +74,7 @@ type ServiceDiscovery struct {
 	ip2workloadLabels map[string]labels.Instance
 
 	// XDSUpdater will push EDS changes to the ADS model.
-	XdsUpdater model.XDSUpdater
+	EDSUpdater model.XDSUpdater
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
@@ -129,22 +128,7 @@ func (sd *ServiceDiscovery) AddService(svc *model.Service) {
 	svc.Attributes.ServiceRegistry = provider.Mock
 	sd.services[svc.Hostname] = svc
 	sd.mutex.Unlock()
-}
-
-// AddServiceNotify adds an in-memory service and notifies
-func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
-	sd.AddService(svc)
-	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-	pushReq := &model.PushRequest{
-		Full: true,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      kind.ServiceEntry,
-			Name:      string(svc.Hostname),
-			Namespace: svc.Attributes.Namespace,
-		}: {}},
-		Reason: []model.TriggerReason{model.ServiceUpdate},
-	}
-	sd.XdsUpdater.ConfigUpdate(pushReq)
+	// TODO: notify listeners
 }
 
 // RemoveService removes an in-memory service.
@@ -152,8 +136,8 @@ func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	sd.mutex.Lock()
 	delete(sd.services, name)
 	sd.mutex.Unlock()
-	if sd.XdsUpdater != nil {
-		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
+	if sd.EDSUpdater != nil {
+		sd.EDSUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
 	}
 }
 
@@ -176,33 +160,6 @@ func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.Servi
 	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
-}
-
-// AddInstanceNotify adds an in-memory instance and notifies the XDS updater
-func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model.ServiceInstance) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	svc := sd.services[service]
-	if svc == nil {
-		return
-	}
-	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
-
-	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
-	instanceList := sd.instancesByPortNum[key]
-	sd.instancesByPortNum[key] = append(instanceList, instance)
-
-	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
-	instanceList = sd.instancesByPortName[key]
-	sd.instancesByPortName[key] = append(instanceList, instance)
-	var eps []*model.IstioEndpoint
-	for _, i := range sd.instancesByPortName[key] {
-		eps = append(eps, i.Endpoint)
-	}
-	if sd.XdsUpdater != nil {
-		sd.XdsUpdater.EDSUpdate(sd.shardKey(), string(service), svc.Attributes.Namespace, eps)
-	}
 }
 
 // AddEndpoint adds an endpoint to a service.
@@ -277,9 +234,7 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 
 	}
 	sd.mutex.Unlock()
-	if sd.XdsUpdater != nil {
-		sd.XdsUpdater.EDSUpdate(sd.shardKey(), service, namespace, endpoints)
-	}
+	sd.EDSUpdater.EDSUpdate(sd.shardKey(), service, namespace, endpoints)
 }
 
 // Services implements discovery interface
@@ -346,6 +301,18 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.In
 		}
 	}
 	return nil
+}
+
+// GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	for h, s := range sd.services {
+		if h == svc.Hostname {
+			return s.ServiceAccounts
+		}
+	}
+	return make([]string, 0)
 }
 
 func (sd *ServiceDiscovery) AddGateways(gws ...model.NetworkGateway) {

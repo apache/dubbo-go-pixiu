@@ -29,11 +29,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	extensions "istio.io/api/extensions/v1alpha1"
 )
@@ -45,8 +45,7 @@ type mockCache struct {
 
 func (c *mockCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
-) (string, error) {
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 
@@ -170,9 +169,9 @@ func TestWasmConvert(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			resources := make([]*anypb.Any, 0, len(c.input))
+			resources := make([]*any.Any, 0, len(c.input))
 			for _, i := range c.input {
-				resources = append(resources, protoconv.MessageToAny(i))
+				resources = append(resources, util.MessageToAny(i))
 			}
 			mc := &mockCache{}
 			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
@@ -200,7 +199,7 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	ws, _ := conversion.MessageToStruct(wasm)
 	return &core.TypedExtensionConfig{
 		Name: name,
-		TypedConfig: protoconv.MessageToAny(
+		TypedConfig: util.MessageToAny(
 			&udpa.TypedStruct{
 				TypeUrl: xds.WasmHTTPFilterType,
 				Value:   ws,
@@ -212,20 +211,20 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: protoconv.MessageToAny(wasm),
+		TypedConfig: util.MessageToAny(wasm),
 	}
 }
 
 var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 	"empty": {
 		Name: "empty",
-		TypedConfig: protoconv.MessageToAny(
+		TypedConfig: util.MessageToAny(
 			&structpb.Struct{},
 		),
 	},
 	"no-wasm": {
 		Name: "no-wasm",
-		TypedConfig: protoconv.MessageToAny(
+		TypedConfig: util.MessageToAny(
 			&udpa.TypedStruct{TypeUrl: resource.APITypePrefix + "sometype"},
 		),
 	},

@@ -23,17 +23,17 @@ import (
 type IstioKind struct {
 	meta_v1.TypeMeta
 	meta_v1.ObjectMeta `json:"metadata"`
-	Spec               map[string]any `json:"spec"`
-	Status             map[string]any `json:"status,omitempty"`
+	Spec               map[string]interface{} `json:"spec"`
+	Status             map[string]interface{} `json:"status,omitempty"`
 }
 
 // GetSpec from a wrapper
-func (in *IstioKind) GetSpec() map[string]any {
+func (in *IstioKind) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // GetStatus from a wrapper
-func (in *IstioKind) GetStatus() map[string]any {
+func (in *IstioKind) GetStatus() map[string]interface{} {
 	return in.Status
 }
 
@@ -73,7 +73,7 @@ func (in *IstioKind) DeepCopyObject() runtime.Object {
 // IstioObject is a k8s wrapper interface for config objects
 type IstioObject interface {
 	runtime.Object
-	GetSpec() map[string]any
-	GetStatus() map[string]any
+	GetSpec() map[string]interface{}
+	GetStatus() map[string]interface{}
 	GetObjectMeta() meta_v1.ObjectMeta
 }

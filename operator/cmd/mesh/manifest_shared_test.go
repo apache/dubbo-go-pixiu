@@ -58,7 +58,7 @@ const (
 
 // Golden output files add a lot of noise to pull requests. Use a unique suffix so
 // we can hide them by default. This should match one of the `linuguist-generated=true`
-// lines in github.com/apache/dubbo-go-pixiu/.gitattributes.
+// lines in istio.io/istio/.gitattributes.
 const (
 	goldenFileSuffixHideChangesInReview = ".golden.yaml"
 	goldenFileSuffixShowChangesInReview = ".golden-show-in-gh-pull-request.yaml"

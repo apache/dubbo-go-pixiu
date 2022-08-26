@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	metadatafake "k8s.io/client-go/metadata/fake"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -43,14 +44,17 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 	for _, s := range schemas.All() {
 		createCRD(t, fake, s.Resource())
 	}
-	stop := test.NewStop(t)
-	config, err := New(fake, "", "", "")
+	stop := make(chan struct{})
+	config, err := New(fake, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	go config.Run(stop)
 	fake.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, config.HasSynced)
+	cache.WaitForCacheSync(stop, config.HasSynced)
+	t.Cleanup(func() {
+		close(stop)
+	})
 	return config, fake
 }
 

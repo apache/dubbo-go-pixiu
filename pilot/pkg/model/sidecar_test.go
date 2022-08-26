@@ -28,7 +28,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"istio.io/api/mesh/v1alpha1"
@@ -41,14 +41,6 @@ var (
 		{
 			Name:     "uds",
 			Port:     9999,
-			Protocol: "HTTP",
-		},
-	}
-
-	port7000 = []*Port{
-		{
-			Name:     "uds",
-			Port:     7000,
 			Protocol: "HTTP",
 		},
 	}
@@ -482,19 +474,6 @@ var (
 		Spec: &networking.Sidecar{},
 	}
 
-	configs21 = &config.Config{
-		Meta: config.Meta{
-			Name: "virtual-service-destinations-matching-http-virtual-service-ports",
-		},
-		Spec: &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"foo/virtualbar"},
-				},
-			},
-		},
-	}
-
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -893,36 +872,6 @@ var (
 		},
 	}
 
-	services21 = []*Service{
-		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    twoPorts,
-			Attributes: ServiceAttributes{
-				Name:      "foo",
-				Namespace: "ns1",
-			},
-		},
-		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    twoPorts,
-			Attributes: ServiceAttributes{
-				Name:      "baz",
-				Namespace: "ns3",
-			},
-		},
-	}
-
-	services22 = []*Service{
-		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
-			Attributes: ServiceAttributes{
-				Name:      "baz",
-				Namespace: "ns3",
-			},
-		},
-	}
-
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -955,79 +904,6 @@ var (
 					{
 						Mirror: &networking.Destination{Host: "foo.svc.cluster.local"},
 						Route:  []*networking.HTTPRouteDestination{{Destination: &networking.Destination{Host: "baz.svc.cluster.local"}}},
-					},
-				},
-			},
-		},
-	}
-
-	virtualServices3 = []config.Config{
-		{
-			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-				Name:             "virtualbar",
-				Namespace:        "foo",
-			},
-			Spec: &networking.VirtualService{
-				Hosts: []string{"virtualbar"},
-				Http: []*networking.HTTPRoute{
-					{
-						Route: []*networking.HTTPRouteDestination{
-							{
-								Destination: &networking.Destination{
-									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
-								},
-							},
-						},
-						Mirror: &networking.Destination{Host: "foo.svc.cluster.local", Port: &networking.PortSelector{Number: 7000}},
-					},
-				},
-			},
-		},
-	}
-
-	virtualServices4 = []config.Config{
-		{
-			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-				Name:             "virtualbar",
-				Namespace:        "foo",
-			},
-			Spec: &networking.VirtualService{
-				Hosts: []string{"virtualbar"},
-				Tcp: []*networking.TCPRoute{
-					{
-						Route: []*networking.RouteDestination{
-							{
-								Destination: &networking.Destination{
-									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	virtualServices5 = []config.Config{
-		{
-			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-				Name:             "virtualbar",
-				Namespace:        "foo",
-			},
-			Spec: &networking.VirtualService{
-				Hosts: []string{"virtualbar"},
-				Tls: []*networking.TLSRoute{
-					{
-						Route: []*networking.RouteDestination{
-							{
-								Destination: &networking.Destination{
-									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
-								},
-							},
-						},
 					},
 				},
 			},
@@ -1523,49 +1399,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 		},
 		{
-			"virtual-service-destinations-matching-http-virtual-service-ports",
-			configs21,
-			services21,
-			virtualServices3,
-			[]*Service{
-				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7000,
-				},
-				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7000,
-				},
-			},
-			nil,
-		},
-		{
-			"virtual-service-destinations-matching-tcp-virtual-service-ports",
-			configs21,
-			services21,
-			virtualServices4,
-			[]*Service{
-				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7000,
-				},
-			},
-			nil,
-		},
-		{
-			"virtual-service-destinations-matching-tls-virtual-service-ports",
-			configs21,
-			services21,
-			virtualServices5,
-			[]*Service{
-				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7000,
-				},
-			},
-			nil,
-		},
-		{
 			"virtual-service-prefer-required",
 			configs12,
 			services12,
@@ -1650,14 +1483,6 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
-			nil,
-		},
-		{
-			"virtual-service-destination-port-missing-from-service",
-			configs21,
-			services22,
-			virtualServices3,
-			[]*Service{},
 			nil,
 		},
 		{
@@ -1808,7 +1633,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services: []*Service{
 				{
 					Hostname: "proxy",
-					Ports:    port7000,
+					Ports:    port9999,
 					Attributes: ServiceAttributes{
 						Name:      "s1",
 						Namespace: "default",
@@ -1834,7 +1659,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			excpectedServices: []*Service{
 				{
 					Hostname: "proxy",
-					Ports:    PortList{port7000[0], port7443[0], port7442[0]},
+					Ports:    PortList{port9999[0], port7443[0], port7442[0]},
 					Attributes: ServiceAttributes{
 						Name:      "s1",
 						Namespace: "default",
@@ -1925,7 +1750,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					&Proxy{
 						Metadata:        &NodeMetadata{Labels: tt.sidecarConfig.Labels},
 						ConfigNamespace: tt.sidecarConfig.Namespace,
-					}, host.Name("httpbin.org")).GetRule()
+					}, host.Name("httpbin.org"))
 				assert.Equal(t, dr, tt.expectedDr)
 			}
 		})
@@ -2029,13 +1854,6 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			expected:      []*Service{serviceA8000},
 			namespace:     "a",
 		},
-		{
-			name:          "fall back to wildcard namespace",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {"host"}, "a": {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
-		},
 	}
 
 	for _, tt := range tests {
@@ -2061,9 +1879,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 
 	allContains := func(ns string, contains bool) map[ConfigKey]bool {
 		return map[ConfigKey]bool{
-			{kind.ServiceEntry, svcName, ns}:   contains,
-			{kind.VirtualService, vsName, ns}:  contains,
-			{kind.DestinationRule, drName, ns}: contains,
+			{gvk.ServiceEntry, svcName, ns}:   contains,
+			{gvk.VirtualService, vsName, ns}:  contains,
+			{gvk.DestinationRule, drName, ns}: contains,
 		}
 	}
 
@@ -2080,7 +1898,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 		{"No Sidecar", nil, allContains("ns", true)},
 		{"No Sidecar Other Namespace", nil, allContains("other-ns", false)},
 		{"clusterScope resource", []string{"*/*"}, map[ConfigKey]bool{
-			{kind.AuthorizationPolicy, "authz", "default"}: true,
+			{gvk.AuthorizationPolicy, "authz", "default"}: true,
 		}},
 	}
 	for _, tt := range cases {
@@ -2161,10 +1979,10 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 		contains map[ConfigKey]bool
 	}{
 		{"authorizationPolicy in same ns with workload", []string{"*/*"}, map[ConfigKey]bool{
-			{kind.AuthorizationPolicy, "authz", "default"}: true,
+			{gvk.AuthorizationPolicy, "authz", "default"}: true,
 		}},
 		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
-			{kind.AuthorizationPolicy, "authz", "ns1"}: false,
+			{gvk.AuthorizationPolicy, "authz", "ns1"}: false,
 		}},
 	}
 

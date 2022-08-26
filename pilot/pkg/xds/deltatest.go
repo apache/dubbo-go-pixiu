@@ -44,7 +44,6 @@ func (s *DiscoveryServer) compareDiff(
 	deleted model.DeletedResources,
 	usedDelta bool,
 	delta model.ResourceDelta,
-	incremental bool,
 ) {
 	current := con.Watched(w.TypeUrl).LastResources
 	if current == nil {
@@ -123,8 +122,7 @@ func (s *DiscoveryServer) compareDiff(
 		if len(extraDeletes) > 0 {
 			log.Errorf("%s: TEST for node:%s unexpected deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, extraDeletes)
 		}
-		if len(missedDeletes) > 0 && !incremental {
-			// We can skip this if we are incremental; this expects us to only send a partial list. So these are not actually deletes
+		if len(missedDeletes) > 0 {
 			log.Errorf("%s: TEST for node:%s missed deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedDeletes)
 		}
 		if len(missedChanges) > 0 {

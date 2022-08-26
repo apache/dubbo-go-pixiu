@@ -31,7 +31,6 @@ import (
 
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
 var (
@@ -104,7 +103,7 @@ var (
 }`
 
 	// validRootCertFile, validIntCertFile and validWorkloadCertFile are in a certification chain.
-	// They are generated using tools/certs/Makefile. Replace "cluster.local" with "foo.domain.com"
+	// They are generated using tools/certs/Makefile. Replace "cluster.local" with "foo.doamin.com"
 	// export INTERMEDIATE_DAYS=3650
 	// export WORKLOAD_DAYS=3650
 	// make foo-certs-selfSigned
@@ -489,7 +488,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 		name         string
 		spiffeURI    []string
 		trustDomains []string
-		want         sets.Set
+		want         map[string]struct{}
 	}{
 		{
 			name:      "Basic",
@@ -560,7 +559,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ExpandWithTrustDomains(sets.New(tc.spiffeURI...), tc.trustDomains)
+			got := ExpandWithTrustDomains(tc.spiffeURI, tc.trustDomains)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("unexpected expanded results: %v", diff)
 			}

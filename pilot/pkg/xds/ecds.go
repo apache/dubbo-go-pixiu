@@ -23,9 +23,9 @@ import (
 	credscontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/credentials"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/protoconv"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/kind"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
@@ -48,11 +48,11 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
 	for config := range req.ConfigsUpdated {
 		switch config.Kind {
-		case kind.EnvoyFilter:
+		case gvk.EnvoyFilter:
 			return true
-		case kind.WasmPlugin:
+		case gvk.WasmPlugin:
 			return true
-		case kind.Secret:
+		case gvk.Secret:
 			return true
 		}
 	}
@@ -67,13 +67,13 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 
 	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
 	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
-	if !model.ConfigsHaveKind(req.ConfigsUpdated, kind.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, kind.EnvoyFilter) &&
-		model.ConfigsHaveKind(req.ConfigsUpdated, kind.Secret) {
+	if !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.EnvoyFilter) &&
+		model.ConfigsHaveKind(req.ConfigsUpdated, gvk.Secret) {
 		// Get the updated secrets
-		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
+		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret)
 		needsPush := false
 		for _, sr := range secretResources {
-			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
+			if _, found := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
 				needsPush = true
 				break
 			}
@@ -110,7 +110,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	for _, c := range ec {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
-			Resource: protoconv.MessageToAny(c),
+			Resource: util.MessageToAny(c),
 		})
 	}
 
