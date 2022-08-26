@@ -43,7 +43,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.2.0
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
-	github.com/google/cel-go v0.11.2
+	github.com/google/cel-go v0.12.5
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-containerregistry v0.8.0
 	github.com/google/gofuzz v1.2.0
@@ -109,8 +109,8 @@ require (
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.74.0
-	google.golang.org/genproto v0.0.0-20220414192740-2d67ff6cf2b4
-	google.golang.org/grpc v1.45.0
+	google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21
+	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
