@@ -1771,6 +1771,15 @@ header:
     - 'tools/packaging/deb_test.sh'
     - 'tools/packaging/postinst.sh'
     - 'tools/skip-image.sh'
+    - 'istioctl/cmd/version_test.go'
+    - 'pilot/cmd/pilot-agent/main_test.go'
+    - 'pilot/cmd/pilot-agent/request.go'
+    - 'pilot/cmd/pilot-agent/wait.go'
+    - 'pilot/pkg/serviceregistry/serviceentry/servicediscovery.go'
+    - 'pilot/pkg/serviceregistry/serviceentry/servicediscovery_test.go'
+    - 'pkg/config/analysis/analyzers/serviceentry/protocoladresses.go'
+    - 'pkg/kube/client_test.go'
+    - 'pkg/test/framework/components/istio/operator.go'
 
   comment: on-failure
 
