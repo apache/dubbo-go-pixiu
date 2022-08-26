@@ -24,7 +24,14 @@ if [ ! -f "${zkJar}" ]; then
     wget -P "${zkJarPath}" ${remoteJarUrl}
 fi
 
+# download envoy
 envoyPath="out/linux_amd64/"
-docker run -it --rm -v /tmp/envoy:/target envoyproxy/envoy:v1.22.5 cp /usr/local/bin/envoy /target
+sudo apt update
+sudo apt install -y apt-transport-https gnupg2 curl lsb-release
+curl -sL 'https://deb.dl.getenvoy.io/public/gpg.8115BA8E629CC074.key' | sudo gpg --dearmor -o /usr/share/keyrings/getenvoy-keyring.gpg
+echo a077cb587a1b622e03aa4bf2f3689de14658a9497a9af2c427bba5f4cc3c4723 /usr/share/keyrings/getenvoy-keyring.gpg | sha256sum --check
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/getenvoy-keyring.gpg] https://deb.dl.getenvoy.io/public/deb/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/getenvoy.list
+sudo apt update
+sudo apt install -y getenvoy-envoy
 mkdir -p ${envoyPath}
-cp -r /tmp/envoy/ ${envoyPath}
+cp /usr/bin/envoy ${envoyPath}/envoy
