@@ -96,7 +96,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-	//logger.Debugf("[dubbo-go-pixiu] client Before Api timout weite :%v", c.Timeout)
 	url := c.GetUrl()
 
 	newUrl := f.uriRegex.ReplaceAllString(url, f.replace)

@@ -87,7 +87,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
-	//logger.Debugf("[dubbo-go-pixiu] client Before Api timout jwt :%v", ctx.Timeout)
+
 	path := ctx.Request.RequestURI
 
 	router := false

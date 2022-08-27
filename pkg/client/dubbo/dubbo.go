@@ -52,6 +52,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -209,8 +210,6 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	span.SetAttributes(attribute.Key(spanTagValues).String(string(finalValues)))
 	defer span.End()
 	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
-	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
-	defer cancel()
 	rst, err := gs.Invoke(ctx, method, types, vals)
 	if err != nil {
 		return nil, err
@@ -299,7 +298,6 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 			useNacosRegister = true
 		}
 	}
-
 	refConf := dg.ReferenceConfig{
 		InterfaceName: irequest.Interface,
 		Cluster:       constant.ClusterKeyFailover,
@@ -316,6 +314,12 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 		refConf.Retries = irequest.DubboBackendConfig.Retries
 	}
 
+	if dc.dubboProxyConfig.Timeout != nil {
+		refConf.RequestTimeout = dc.dubboProxyConfig.Timeout.RequestTimeoutStr
+	} else {
+		refConf.RequestTimeout = cst.DefaultReqTimeout.String()
+	}
+	logger.Debugf("[dubbo-go-pixiu] client dubbo timeout val %v", refConf.RequestTimeout)
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 

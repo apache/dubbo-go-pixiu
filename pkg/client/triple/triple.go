@@ -35,7 +35,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // InitDefaultTripleClient init default dubbo client
@@ -91,7 +90,6 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	}
 	meta := make(map[string][]string)
 	reqData, _ := ioutil.ReadAll(req.IngressRequest.Body)
-	logger.Debugf("[dubbo-go-pixiu] client timeout val %v", req.Timeout)
 	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
 	defer cancel()
 	time.Sleep(100 * time.Nanosecond)

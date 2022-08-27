@@ -115,7 +115,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-	logger.Debugf("[dubbo-go-pixiu] client Before Api timout call :%v", c.Timeout)
 	if f.conf.Dpc.AutoResolve {
 		if err := f.resolve(c); err != nil {
 			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("auto resolve err: %s", err)))

@@ -46,7 +46,7 @@ const (
 	// console
 	Console = "console"
 
-	DefaultReqTimeout = 1 * time.Nanosecond
+	DefaultReqTimeout = 10 * time.Second
 )
 
 func ResolveTimeStr2Time(currentV string, defaultV time.Duration) time.Duration {

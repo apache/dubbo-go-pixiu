@@ -59,11 +59,7 @@ func (c *defaultFilterChain) AppendEncodeFilters(f ...HttpEncodeFilter) {
 }
 
 func (c *defaultFilterChain) OnDecode(ctx *http.HttpContext) {
-
 	for ; c.decodeFiltersIndex < len(c.decodeFilters); c.decodeFiltersIndex++ {
-
-		//logger.Debugf("[dubbo-go-pixiu] client Before Api timout :%v", ctx.Timeout)
-		//logger.Debugf("[dubbo-go-pixiu] client filter :%v", c.decodeFilters[c.decodeFiltersIndex])
 		filterStatus := c.decodeFilters[c.decodeFiltersIndex].Decode(ctx)
 
 		switch filterStatus {

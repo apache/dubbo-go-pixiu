@@ -124,7 +124,6 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 		ServerName:        "test_http_dubbo",
 		GenerateRequestID: false,
 		IdleTimeoutStr:    "100",
-		TimeoutStr:        "10s",
 	}
 
 	hcm := CreateHttpConnectionManager(&hcmc)

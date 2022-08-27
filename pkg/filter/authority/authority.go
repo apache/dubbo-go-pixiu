@@ -71,7 +71,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
-	//logger.Debugf("[dubbo-go-pixiu] client Before Api timout authority :%v", c.Timeout)
 	for _, r := range f.cfg.Rules {
 		item := c.GetClientIP()
 		if r.Limit == App {

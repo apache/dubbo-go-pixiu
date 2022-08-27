@@ -18,7 +18,6 @@
 package cors
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	stdHttp "net/http"
 )
 
@@ -80,7 +79,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
-	logger.Debugf("[dubbo-go-pixiu] client Before Api timout cors :%v", ctx.Timeout)
 	f.handleCors(ctx)
 	return filter.Continue
 }

@@ -70,7 +70,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
-	//logger.Debugf("[dubbo-go-pixiu] client Before Api timout event :%v", ctx.Timeout)
 	f.cfg.Timeout = ctx.Timeout
 	mqClient := mq.NewSingletonMQClient(*f.cfg)
 	req := client.NewReq(ctx.Request.Context(), ctx.Request, *ctx.GetAPI())

@@ -98,7 +98,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *pixiuHttp.HttpContext, cha
 
 // Decode handle http request to dubbo direct generic call and return http response
 func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
-	logger.Debugf("[dubbo-go-pixiu] client Before dubboproxy timout dubbo :%v", hc.Timeout)
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		logger.Info("[dubbo-go-pixiu] http not match route")
@@ -226,8 +225,6 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	invoc.SetReply(&resp)
 
 	invCtx := context.Background()
-	invCtx, cancel := context.WithTimeout(invCtx, hc.Timeout)
-	defer cancel()
 	result := invoker.Invoke(invCtx, invoc)
 	result.SetAttachments(invoc.Attachments())
 

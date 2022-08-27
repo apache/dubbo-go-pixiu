@@ -179,7 +179,6 @@ func getServiceAndMethod(path string) (string, string) {
 
 // Decode use the default http to grpc transcoding strategy https://cloud.google.com/endpoints/docs/grpc/transcoding
 func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
-	logger.Debugf("[dubbo-go-pixiu] client Before grpc timout grpc :%v", c.Timeout)
 	svc, mth := getServiceAndMethod(c.GetUrl())
 
 	var clientConn *grpc.ClientConn
