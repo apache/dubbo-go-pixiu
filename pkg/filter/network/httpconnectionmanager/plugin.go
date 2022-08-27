@@ -44,6 +44,7 @@ func (p *Plugin) Kind() string {
 // CreateFilter create http network filter
 func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.HttpConnectionManagerConfig)
+	hcmc.Timeout = constant.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return http.CreateHttpConnectionManager(hcmc), nil
 }
 

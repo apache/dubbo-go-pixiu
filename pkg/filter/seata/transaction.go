@@ -130,8 +130,9 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("encode request context failed, %v", err)))
 		return false
 	}
-
-	branchID, err := f.branchRegister(ctx.Ctx, xid, tccResource.PrepareRequestPath, apis.TCC, data, "")
+	Ctx, cancel := context.WithTimeout(ctx.Ctx, ctx.Timeout)
+	defer cancel()
+	branchID, err := f.branchRegister(Ctx, xid, tccResource.PrepareRequestPath, apis.TCC, data, "")
 	if err != nil {
 		logger.Errorf("branch transaction register failed, xid: %s, err: %v", xid, err)
 		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("branch transaction register failed, %v", err)))

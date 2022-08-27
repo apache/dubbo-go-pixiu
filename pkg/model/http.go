@@ -19,6 +19,7 @@ package model
 
 import (
 	"github.com/mitchellh/mapstructure"
+	"time"
 )
 
 import (
@@ -32,17 +33,23 @@ type HttpConnectionManagerConfig struct {
 	ServerName        string             `yaml:"server_name" json:"server_name" mapstructure:"server_name"`
 	IdleTimeoutStr    string             `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
 	GenerateRequestID bool               `yaml:"generate_request_id" json:"generate_request_id" mapstructure:"generate_request_id"`
+	TimeoutStr        string             `yaml:"timeout" json:"timeout" mapstructure:"timeout"`
+	Timeout           time.Duration      `yaml:"timeoutDuration" json:"timeoutDuration" mapstructure:"timeoutDuration"`
 }
 
 // GRPCConnectionManagerConfig
 type GRPCConnectionManagerConfig struct {
 	RouteConfig RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
+	TimeoutStr  string             `yaml:"timeout" json:"timeout" mapstructure:"timeout"`
+	Timeout     time.Duration      `yaml:"timeoutDuration" json:"timeoutDuration" mapstructure:"timeoutDuration"`
 }
 
 // DubboProxyConnectionManagerConfig
 type DubboProxyConnectionManagerConfig struct {
 	RouteConfig  RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
 	DubboFilters []*DubboFilter     `yaml:"dubbo_filters" json:"dubbo_filters" mapstructure:"dubbo_filters"`
+	TimeoutStr   string             `yaml:"timeout" json:"timeout" mapstructure:"timeout"`
+	Timeout      time.Duration      `yaml:"timeoutDuration" json:"timeoutDuration" mapstructure:"timeoutDuration"`
 }
 
 // HTTPFilter http filter

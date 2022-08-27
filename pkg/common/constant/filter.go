@@ -17,6 +17,11 @@
 
 package constant
 
+import (
+	"fmt"
+	"time"
+)
+
 var (
 	Default403Body = []byte("403 for bidden")
 	Default404Body = []byte("404 page not found")
@@ -40,4 +45,19 @@ const (
 	LogDataBuffer = 5000
 	// console
 	Console = "console"
+
+	DefaultReqTimeout = 10 * time.Second
 )
+
+func ResolveTimeStr2Time(currentV string, defaultV time.Duration) time.Duration {
+	fmt.Printf("timeout parse %s : %d", currentV, defaultV)
+	if currentV == "" {
+		return defaultV
+	} else {
+		if duration, err := time.ParseDuration(currentV); err != nil {
+			return defaultV
+		} else {
+			return duration
+		}
+	}
+}

@@ -43,9 +43,9 @@ import (
 )
 
 const (
-	open = iota
-	close
-	all
+	OPEN = iota
+	CLOSE
+	ALL
 )
 
 const (
@@ -99,7 +99,7 @@ func (factory *FilterFactory) Apply() error {
 	}
 	level := mockLevel(mock)
 	if level < 0 || level > 2 {
-		level = close
+		level = CLOSE
 	}
 	factory.conf.Level = level
 	// must init it at apply function
@@ -115,7 +115,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-
 	if f.conf.Dpc.AutoResolve {
 		if err := f.resolve(c); err != nil {
 			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("auto resolve err: %s", err)))
@@ -125,7 +124,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 
 	api := c.GetAPI()
 
-	if (f.conf.Level == open && api.Mock) || (f.conf.Level == all) {
+	if (f.conf.Level == OPEN && api.Mock) || (f.conf.Level == ALL) {
 		c.SourceResp = &contexthttp.ErrResponse{
 			Message: "mock success",
 		}
@@ -140,6 +139,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	req := client.NewReq(c.Request.Context(), c.Request, *api)
+	req.Timeout = c.Timeout
 	resp, err := cli.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)

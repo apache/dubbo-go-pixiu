@@ -59,6 +59,7 @@ func NewMQClient(config Config) (*Client, error) {
 	ctx := context.Background()
 	switch config.MqType {
 	case constant.MQTypeKafka:
+		config.KafkaProducerConfig.Timeout = config.Timeout
 		pf, err := NewKafkaProviderFacade(config.KafkaProducerConfig)
 		if err != nil {
 			return nil, err
@@ -125,7 +126,9 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 			consumerFacadeMap.Store(cReq.ConsumerGroup, facade)
 			if f, ok := consumerFacadeMap.Load(cReq.ConsumerGroup); ok {
 				cf := f.(ConsumerFacade)
-				err = cf.Subscribe(c.ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl), WithConsumerGroup(cReq.ConsumerGroup))
+				ctx, cancel := context.WithTimeout(c.ctx, req.Timeout)
+				defer cancel()
+				err = cf.Subscribe(ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl), WithConsumerGroup(cReq.ConsumerGroup))
 				if err != nil {
 					facade.Stop()
 					consumerFacadeMap.Delete(cReq.ConsumerGroup)

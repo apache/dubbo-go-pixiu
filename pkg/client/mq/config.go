@@ -40,10 +40,11 @@ type (
 	}
 
 	KafkaProducerConfig struct {
-		Brokers         []string `yaml:"brokers" json:"brokers"`
-		ProtocolVersion string   `yaml:"protocol_version" json:"protocol_version"`
-		Metadata        Metadata `yaml:"metadata" json:"metadata"`
-		Producer        Producer `yaml:"producer" json:"producer"`
+		Brokers         []string      `yaml:"brokers" json:"brokers"`
+		ProtocolVersion string        `yaml:"protocol_version" json:"protocol_version"`
+		Metadata        Metadata      `yaml:"metadata" json:"metadata"`
+		Producer        Producer      `yaml:"producer" json:"producer"`
+		Timeout         time.Duration `yaml:"timeout" json:"timeout"`
 	}
 
 	Metadata struct {
