@@ -24,9 +24,9 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds"
 )
 
 // DynamicResourceManager help to management the dynamic resource

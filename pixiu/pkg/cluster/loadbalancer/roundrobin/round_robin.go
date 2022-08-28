@@ -18,8 +18,8 @@
 package roundrobin
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 func init() {

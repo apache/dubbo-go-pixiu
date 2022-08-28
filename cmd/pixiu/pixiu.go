@@ -32,9 +32,9 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	pxruntime "github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/runtime"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/pluginregistry"
 )
 

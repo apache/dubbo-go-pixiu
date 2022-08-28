@@ -38,8 +38,8 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls/mocks"
 )

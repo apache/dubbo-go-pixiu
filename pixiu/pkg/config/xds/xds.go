@@ -26,9 +26,9 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
 )
 
