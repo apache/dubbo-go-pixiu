@@ -41,7 +41,7 @@ git clone -b main https://github.com/dubbo-go-pixiu/samples.git integrate_sample
 # update dubbo-go to current commit id
 go mod edit -replace=github.com/apache/dubbo-go-pixiu=github.com/"$1"@"$2"
 
-sed -i 's/"github.com\/apache\/dubbo-go-pixiu\/pkg\/config"/"github.com\/apache\/dubbo-go-pixiu\/pixiu\/pkg\/config"/g' pixiu/pixiu.go
+grep -rl "github.com/apache/dubbo-go-pixiu/pkg" | xargs sed -i 's/github.com\/apache\/dubbo-go-pixiu\/pkg\//github.com\/apache\/dubbo-go-pixiu\/pixiu\/pkg\//g'
 
 # prepare dependency
 go mod tidy
