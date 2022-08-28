@@ -60,7 +60,7 @@ func TestGetAPI(t *testing.T) {
 
 func TestLoadAPI(t *testing.T) {
 	apiDisSrv := NewLocalMemoryAPIDiscoveryService()
-	apiC, err := config.LoadAPIConfigFromFile("../../../../pixiu-config/mock/api_config.yml")
+	apiC, err := config.LoadAPIConfigFromFile("../../../../config/mock/api_config.yml")
 	assert.Empty(t, err)
 	err = apiDisSrv.InitAPIsFromConfig(*apiC)
 	assert.Nil(t, err)
