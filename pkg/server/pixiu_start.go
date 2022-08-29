@@ -90,7 +90,6 @@ func (s *Server) Start() {
 	defer func() {
 		if re := recover(); re != nil {
 			logger.Error(re)
-			// TODO stop
 		}
 	}()
 
@@ -115,6 +114,13 @@ func (s *Server) Start() {
 		}()
 		logger.Infof("[dubbopixiu go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
 	}
+}
+
+// Refresh server properties
+func (s *Server) Refresh() {
+
+	logger.Infof("%s Refreshing...", constant.LogPixiu)
+
 }
 
 // NewServer create server
