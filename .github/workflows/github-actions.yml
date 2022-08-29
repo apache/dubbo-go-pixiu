@@ -288,7 +288,7 @@ jobs:
         uses: ./.github/actions/actions-ding
         if: |
           always() &&
-          github.event_name == 'pull_request_target' &&
+          github.event_name == 'pull_request' &&
           github.repository == 'apache/dubbo-go-pixiu'
         with:
           dingToken: ${{ env.DING_TOKEN }}
