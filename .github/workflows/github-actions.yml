@@ -269,7 +269,7 @@ jobs:
         if: |
           always() &&
           github.event_name == 'push' &&
-          github.repository == 'apache/dubbo-go-proxy'
+          github.repository == 'apache/dubbo-go-pixiu'
         with:
           # DingDing bot token
           dingToken: ${{ env.DING_TOKEN }}
@@ -289,7 +289,7 @@ jobs:
         if: |
           always() &&
           github.event_name == 'pull_request_target' &&
-          github.repository == 'apache/dubbo-go-proxy'
+          github.repository == 'apache/dubbo-go-pixiu'
         with:
           dingToken: ${{ env.DING_TOKEN }}
           secret: ${{ env.DING_SIGN }}
