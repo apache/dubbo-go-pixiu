@@ -1,0 +1,94 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GatewayClass
+metadata:
+  creationTimestamp: null
+  name: istio
+  namespace: default
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Handled by Istio controller
+    reason: Accepted
+    status: "True"
+    type: Accepted
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: gateway
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.istio-system.svc.domain.suffix:34000,
+      and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
+      to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
+      not found'
+    reason: AddressNotAssigned
+    status: "False"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    name: http
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    name: tcp
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TCPRoute
+---

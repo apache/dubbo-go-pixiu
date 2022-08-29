@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: traffic
+  template:
+    metadata:
+      annotations:
+        # We set 4 CPUs here and concurrency=0 below. Expect concurrency to be set to 4.
+        sidecar.istio.io/proxyCPU: 4000m
+        traffic.sidecar.istio.io/includeInboundPorts: "1,2,3"
+        traffic.sidecar.istio.io/excludeInboundPorts: "4,5,6"
+        traffic.sidecar.istio.io/excludeOutboundPorts: "7,8,9"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: "127.0.0.1/24,10.96.0.1/24"
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "10.96.0.2/24,10.96.0.3/24"
+        proxy.istio.io/config: |-
+          discoveryAddress: foo:123
+          concurrency: 0
+          proxyMetadata:
+            FOO: bar
+            ISTIO_META_TLS_CLIENT_KEY: /etc/identity2/client/keys/client-key.pem
+      labels:
+        app: traffic
+    spec:
+      containers:
+        - name: traffic
+          image: "fake.docker.io/google-samples/traffic-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80
