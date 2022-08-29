@@ -261,6 +261,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [license-check, go-fmt, lint, go-test, integrate-test]
     steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
         # Because the contexts of push and PR are different, there are two Notify.
         # Notifications are triggered only in the dubbogo/dubbo-go-pixiu repository.
       - name: DingTalk Message Notify only Push
