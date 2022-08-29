@@ -34,6 +34,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -78,7 +79,12 @@ func createWasmService(service model.WasmService) (*WasmService, error) {
 	wasmService.instancePool = sync.Pool{
 		New: func() interface{} {
 			pwd, _ := os.Getwd()
-			instance := wasmer.NewWasmerInstanceFromFile(filepath.Join(pwd, cfg.Path))
+			path := filepath.Join(pwd, cfg.Path)
+			if _, err := os.Stat(path); err != nil {
+				logger.Warnf("[dubbo-go-pixiu] wasmFile path:%v error: %v", path, err)
+				return nil
+			}
+			instance := wasmer.NewWasmerInstanceFromFile(path)
 			proxywasm.RegisterImports(instance)
 			_ = instance.Start()
 			return instance
