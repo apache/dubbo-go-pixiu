@@ -267,6 +267,12 @@ jobs:
           submodules: recursive
         # Because the contexts of push and PR are different, there are two Notify.
         # Notifications are triggered only in the dubbogo/dubbo-go-pixiu repository.
+      - name: Test token
+        env:
+          DING_TOKEN: ${{ secrets.DING_TOKEN }}
+          DING_SIGN: ${{ secrets.DING_SIGN }}
+        run: |
+            echo $DING_TOKEN | wc && echo $DING_SIGN | wc
       - name: DingTalk Message Notify only Push
         uses: ./.github/actions/actions-ding
         # Whether job is successful or not, always () is always true.
@@ -276,8 +282,8 @@ jobs:
           github.repository == 'apache/dubbo-go-pixiu'
         with:
           # DingDing bot token
-          dingToken: ${{ env.DING_TOKEN }}
-          secret: ${{ env.DING_SIGN }}
+          dingToken: ${{ secrets.DING_TOKEN }}
+          secret: ${{ secrets.DING_SIGN }}
           # Post Body to send
           body: |
             {
