@@ -1,0 +1,15 @@
+base:
+  enabled: true
+cni:
+  enabled: false
+egressGateways:
+- enabled: false
+  name: istio-egressgateway
+ingressGateways:
+- enabled: true
+  name: istio-ingressgateway
+istiodRemote:
+  enabled: false
+pilot:
+  enabled: false
+

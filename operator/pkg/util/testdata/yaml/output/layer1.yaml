@@ -1,0 +1,19 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    base:
+      enabled: false
+    pilot:
+      enabled: false
+    ingressGateways:
+      - namespace: istio-system
+        name: istio-ingressgateway
+        enabled: true
+        label:
+          api: default
+        k8s:
+          service:
+            externalTrafficPolicy: Local
+          serviceAnnotations:
+            manifest-generate: "testserviceAnnotation"
