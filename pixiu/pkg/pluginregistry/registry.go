@@ -35,6 +35,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/httpproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/loadbalancer"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/proxyrewrite"
+	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/proxywasm"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/metric"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/network/dubboproxy"

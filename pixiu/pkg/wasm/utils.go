@@ -28,8 +28,8 @@ import (
 )
 
 import (
-	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
 
 type (
