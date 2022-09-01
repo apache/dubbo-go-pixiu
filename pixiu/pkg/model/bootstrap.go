@@ -24,6 +24,7 @@ type Bootstrap struct {
 	Metric           Metric            `yaml:"metric" json:"metric" mapstructure:"metric"`
 	Node             *Node             `yaml:"node" json:"node" mapstructure:"node"`
 	Trace            *TracerConfig     `yaml:"tracing" json:"tracing" mapstructure:"tracing"`
+	Wasm             *WasmConfig       `yaml:"wasm" json:"wasm" mapstructure:"wasm"`
 }
 
 // Node node info for dynamic identifier
