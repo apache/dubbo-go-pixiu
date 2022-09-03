@@ -15,10 +15,18 @@
  * limitations under the License.
  */
 
-package model
+package prometheus
 
-// Metirc config for otel metric.
-type Metric struct {
-	Enable         bool `yaml:"enable" json:"enable"`
-	PrometheusPort int  `yaml:"prometheus_port" json:"prometheus_port"`
-}
+type (
+	// AuthorityConfiguration blacklist/whitelist config
+	MetricCollectConfiguration struct {
+		Rules MetricCollectRule `yaml:"metric_collect_rules" json:"metric_collect_rules"` // Rules the authority rule list
+	}
+	// AuthorityRule blacklist/whitelist rule
+	MetricCollectRule struct {
+		Enable       bool   `json:"enbale,omitempty" yaml:"enable,omitempty"`
+		MeticPath    string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`
+		ExporterPort int    `json:"exporter_port,omitempty" yaml:"exporter_port,omitempty"` // Items the authority rule items
+
+	}
+)
