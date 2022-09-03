@@ -18,9 +18,11 @@
 package config
 
 import (
+	"github.com/apache/dubbo-go-pixiu/configcenter"
 	"io/ioutil"
 	"log"
 	"path/filepath"
+	"sync"
 )
 
 import (
@@ -41,6 +43,9 @@ var (
 	configPath     string
 	config         *model.Bootstrap
 	configLoadFunc LoadFunc = LoadYAMLConfig
+
+	configCenterType map[string]interface{}
+	once             sync.Once
 )
 
 // LoadFunc ConfigLoadFunc parse a input(usually file path) into a pixiu config
@@ -174,4 +179,39 @@ func GetDiscoveryType(cfg *model.Bootstrap) (err error) {
 		c.Type = discoveryType
 	}
 	return nil
+}
+
+type ConfigManager struct {
+	path   string
+	config *model.Bootstrap
+	load   configcenter.Load
+}
+
+func NewConfigManger() *ConfigManager {
+	return &ConfigManager{}
+}
+
+func (m *ConfigManager) LoadBootConfig() *model.Bootstrap {
+	configs := m.loadConfigs()
+	return configs
+}
+
+func (m *ConfigManager) loadConfigs() *model.Bootstrap {
+
+	// load file
+	bootstrap := Load(m.path)
+
+	// load remote
+	once.Do(func() {
+		m.load = configcenter.NewConfigLoad(bootstrap)
+	})
+	configs, err := m.load.LoadConfigs(bootstrap, func(opt *configcenter.Options) {
+		opt.Remote = true
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return configs
 }
