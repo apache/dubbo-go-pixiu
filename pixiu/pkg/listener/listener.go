@@ -18,6 +18,10 @@
 package listener
 
 import (
+	"sync/atomic"
+)
+
+import (
 	"github.com/pkg/errors"
 )
 
@@ -35,7 +39,7 @@ type (
 		// Close the listener service forcefully
 		Close() error
 		// ShutDown gracefully shuts down the listener.
-		ShutDown() error
+		ShutDown(interface{}) error
 		// Refresh config
 		Refresh(model.Listener) error
 	}
@@ -43,6 +47,11 @@ type (
 	BaseListenerService struct {
 		Config      *model.Listener
 		FilterChain *filterchain.NetworkFilterChain
+	}
+
+	ListenerGracefulShutdownConfig struct {
+		ActiveCount   int32
+		RejectRequest bool
 	}
 )
 
@@ -61,4 +70,8 @@ func CreateListenerService(lc *model.Listener, bs *model.Bootstrap) (ListenerSer
 		return reg, nil
 	}
 	return nil, errors.New("Registry " + lc.ProtocolStr + " does not support yet")
+}
+
+func (lgsc *ListenerGracefulShutdownConfig) AddActiveCount(num int32) {
+	atomic.AddInt32(&lgsc.ActiveCount, num)
 }

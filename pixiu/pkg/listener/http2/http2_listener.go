@@ -21,6 +21,8 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 )
 
 import (
@@ -29,6 +31,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
@@ -43,13 +46,15 @@ type (
 	// Http2ListenerService the facade of a listener
 	Http2ListenerService struct {
 		listener.BaseListenerService
-		listener net.Listener
-		server   *http.Server
+		listener        net.Listener
+		server          *http.Server
+		gShutdownConfig *listener.ListenerGracefulShutdownConfig
 	}
 )
 
 type handleWrapper struct {
-	fc *filterchain.NetworkFilterChain
+	fc              *filterchain.NetworkFilterChain
+	gShutdownConfig *listener.ListenerGracefulShutdownConfig
 }
 
 type h2cWrapper struct {
@@ -64,6 +69,12 @@ func (h *h2cWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ServeHTTP call FilterChain to handle http request and response.
 func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.gShutdownConfig.AddActiveCount(1)
+	defer h.gShutdownConfig.AddActiveCount(-1)
+	if h.gShutdownConfig.RejectRequest {
+		http.Error(w, "Pixiu is preparing to close, reject all new requests", http.StatusInternalServerError)
+		return
+	}
 	h.fc.ServeHTTP(w, r)
 }
 
@@ -74,8 +85,9 @@ func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.
 			Config:      lc,
 			FilterChain: fc,
 		},
-		listener: nil,
-		server:   nil,
+		listener:        nil,
+		server:          nil,
+		gShutdownConfig: &listener.ListenerGracefulShutdownConfig{},
 	}, nil
 }
 
@@ -91,7 +103,10 @@ func (ls *Http2ListenerService) Start() error {
 	}
 	ls.listener = l
 
-	handlerWrapper := &handleWrapper{ls.FilterChain}
+	handlerWrapper := &handleWrapper{
+		fc:              ls.FilterChain,
+		gShutdownConfig: ls.gShutdownConfig,
+	}
 	h2s := &http2.Server{}
 	h := &h2cWrapper{
 		w: handlerWrapper,
@@ -119,9 +134,22 @@ func (ls *Http2ListenerService) Close() error {
 	return ls.server.Close()
 }
 
-func (ls *Http2ListenerService) ShutDown() error {
-	//TODO implement me
-	panic("implement me")
+func (ls *Http2ListenerService) ShutDown(wg interface{}) error {
+	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
+	if timeout <= 0 {
+		return nil
+	}
+	// stop accept request
+	ls.gShutdownConfig.RejectRequest = true
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) && ls.gShutdownConfig.ActiveCount > 0 {
+		// sleep 100 ms and check it again
+		time.Sleep(100 * time.Millisecond)
+		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.ActiveCount)
+	}
+	wg.(*sync.WaitGroup).Done()
+	ls.server.Close()
+	return nil
 }
 
 func (ls *Http2ListenerService) Refresh(c model.Listener) error {

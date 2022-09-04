@@ -18,10 +18,12 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -32,6 +34,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
@@ -84,9 +87,17 @@ func (ls *HttpListenerService) Close() error {
 	return ls.srv.Close()
 }
 
-func (ls *HttpListenerService) ShutDown() error {
-	//TODO implement me
-	panic("implement me")
+func (ls *HttpListenerService) ShutDown(wg interface{}) error {
+	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
+	if timeout <= 0 {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer func() {
+		cancel()
+		wg.(*sync.WaitGroup).Done()
+	}()
+	return ls.srv.Shutdown(ctx)
 }
 
 func (ls *HttpListenerService) Refresh(c model.Listener) error {
