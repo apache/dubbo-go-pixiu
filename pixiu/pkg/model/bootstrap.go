@@ -33,7 +33,7 @@ type Bootstrap struct {
 	Node             *Node             `yaml:"node" json:"node" mapstructure:"node"`
 	Trace            *TracerConfig     `yaml:"tracing" json:"tracing" mapstructure:"tracing"`
 	Wasm             *WasmConfig       `yaml:"wasm" json:"wasm" mapstructure:"wasm"`
-	Config           *PixiuConfig
+	Config           *ConfigCenter
 	// Third party dependency
 	Nacos *Nacos `yaml:"nacos" json:"nacos" mapstructure:"nacos"`
 }
@@ -181,7 +181,7 @@ type NacosClientConfig struct {
 	//LogRollingConfig     *ClientLogRollingConfig  // the log rolling config
 }
 
-type PixiuConfig struct {
+type ConfigCenter struct {
 	Type   string `json:"type,omitempty" yaml:"type"`
 	Enable string `json:"enable" yaml:"enable"`
 }

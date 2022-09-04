@@ -30,7 +30,6 @@ import (
 )
 
 var (
-	deploy     = &DefaultDeployer{}
 	gatewayCmd = &cobra.Command{
 		Use:   "gateway",
 		Short: "Run dubbo go server in gateway mode",

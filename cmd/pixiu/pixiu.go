@@ -66,6 +66,9 @@ var (
 	initFromRemote = false
 )
 
+// deploy server deployment
+var deploy = &DefaultDeployer{}
+
 // main pixiu run method
 func main() {
 	app := getRootCmd()
@@ -103,7 +106,8 @@ func (d *DefaultDeployer) initialize() error {
 		logger.Warnf("[startGatewayCmd] failed to init logger, %s", err.Error())
 	}
 
-	d.bootstrap = d.configManger.LoadBootConfig()
+	// load Bootstrap config
+	d.bootstrap = d.configManger.LoadBootConfig(configPath)
 	if err != nil {
 		panic(fmt.Errorf("[startGatewayCmd] failed to get api meta config, %s", err.Error()))
 	}
@@ -153,11 +157,6 @@ func initDefaultValue() {
 	}
 }
 
-func loadConfigs() (*model.Bootstrap, error) {
-	bootstrap := config.Load(configPath)
-	return bootstrap, nil
-}
-
 // initLog
 func initLog() error {
 	err := logger.InitLog(logConfigPath)
@@ -193,4 +192,8 @@ func initLimitCpus() error {
 	runtime.GOMAXPROCS(limitCpuNumber)
 	logger.Infof("GOMAXPROCS set to %v", limitCpuNumber)
 	return nil
+}
+
+func init() {
+	deploy.configManger = config.NewConfigManger()
 }
