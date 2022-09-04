@@ -27,7 +27,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/scrape/scrapeImpl"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,13 +65,22 @@ func TestExporterApiMetric(t *testing.T) {
 
 }
 
-func GetApiStatsResponse() scrapeImpl.ApiStatsResponse {
-	return scrapeImpl.ApiStatsResponse{
-		ApiStats: []scrapeImpl.ApiStat{
+func GetApiStatsResponse() ApiStatsResponse {
+	return ApiStatsResponse{
+		ApiStats: []ApiStat{
 			{
 				ApiName:     "api1",
 				ApiRequests: 1000,
 			},
 		},
 	}
+}
+
+type ApiStatsResponse struct {
+	ApiStats []ApiStat `json:"api_stats"`
+}
+
+type ApiStat struct {
+	ApiName     string `json:"api_name"`
+	ApiRequests int64  `json:"api_requests"`
 }
