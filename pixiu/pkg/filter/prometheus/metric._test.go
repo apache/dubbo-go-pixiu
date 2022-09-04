@@ -34,72 +34,32 @@ import (
 func TestExporterApiMetric(t *testing.T) {
 
 	rules := MetricCollectConfiguration{
-		MetricCollectRule{Enable: true, MeticPath: "/metrics", ExporterPort: 9914},
+		MetricCollectRule{
+			Enable:              true,
+			MeticPath:           "/metrics",
+			PushGatewayURL:      "http://domain:port",
+			PushIntervalSeconds: 3,
+			PushJobName:         "prometheus",
+		},
 	}
-	p := Plugin{}
+	p := Plugin{
+		Cfg: &rules,
+	}
+
 	metricFilter, _ := p.CreateFilterFactory()
 	config := metricFilter.Config()
 	mockYaml, err := yaml.MarshalYML(rules)
 	assert.Nil(t, err)
 	err = yaml.UnmarshalYML(mockYaml, config)
 	assert.Nil(t, err)
-
 	err = metricFilter.Apply()
 	assert.Nil(t, err)
-	f := &Filter{Cfg: &rules}
+	f := &Filter{
+		Cfg: &rules,
+	}
 	data := GetApiStatsResponse()
 	body, _ := json.Marshal(&data)
 	request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
-	ctx := mock.GetMockHTTPContext(request)
-	filterStatus := f.Decode(ctx)
-	assert.Equal(t, filterStatus, filter.Continue)
-
-}
-
-func TestExporterClusterMetric(t *testing.T) {
-
-	rules := MetricCollectConfiguration{
-		MetricCollectRule{Enable: true, MeticPath: "/metrics", ExporterPort: 9914},
-	}
-	p := Plugin{}
-	metricFilter, _ := p.CreateFilterFactory()
-	config := metricFilter.Config()
-	mockYaml, err := yaml.MarshalYML(rules)
-	assert.Nil(t, err)
-	err = yaml.UnmarshalYML(mockYaml, config)
-	assert.Nil(t, err)
-
-	err = metricFilter.Apply()
-	assert.Nil(t, err)
-	f := &Filter{Cfg: &rules}
-	data := GetClusterStatsResponses()
-	body, _ := json.Marshal(&data)
-	request, _ := http.NewRequest("POST", "/_cluster/health", bytes.NewBuffer(body))
-	ctx := mock.GetMockHTTPContext(request)
-	filterStatus := f.Decode(ctx)
-	assert.Equal(t, filterStatus, filter.Continue)
-
-}
-
-func TestExporterFrontendMetric(t *testing.T) {
-
-	rules := MetricCollectConfiguration{
-		MetricCollectRule{Enable: true, MeticPath: "/metrics", ExporterPort: 9914},
-	}
-	p := Plugin{}
-	metricFilter, _ := p.CreateFilterFactory()
-	config := metricFilter.Config()
-	mockYaml, err := yaml.MarshalYML(rules)
-	assert.Nil(t, err)
-	err = yaml.UnmarshalYML(mockYaml, config)
-	assert.Nil(t, err)
-
-	err = metricFilter.Apply()
-	assert.Nil(t, err)
-	f := &Filter{Cfg: &rules}
-	data := GetFrontendStatsResponses()
-	body, _ := json.Marshal(&data)
-	request, _ := http.NewRequest("POST", "/_frontend/health", bytes.NewBuffer(body))
 	ctx := mock.GetMockHTTPContext(request)
 	filterStatus := f.Decode(ctx)
 	assert.Equal(t, filterStatus, filter.Continue)
@@ -113,41 +73,6 @@ func GetApiStatsResponse() scrapeImpl.ApiStatsResponse {
 				ApiName:     "api1",
 				ApiRequests: 1000,
 			},
-		},
-	}
-}
-
-func GetClusterStatsResponses() scrapeImpl.ClusterStatsResponses {
-	return scrapeImpl.ClusterStatsResponses{
-		ClusterStat: []scrapeImpl.ClusterStat{
-			{
-				ClusterName:         "cluster1",
-				Status:              "yellow",
-				TimedOut:            true,
-				NumberOfNodes:       100,
-				NumberOfDataNodes:   1000,
-				ActivePrimaryShards: 200,
-				ActiveShards:        300,
-				RelocatingShards:    800,
-				InitializingShards:  77,
-				UnassignedShards:    99,
-			},
-		},
-	}
-}
-
-func GetFrontendStatsResponses() scrapeImpl.FrontendStatsResponse {
-	return scrapeImpl.FrontendStatsResponse{
-		FrontedStats: scrapeImpl.FrontendStat{
-			Name:                "front2",
-			RequestsDeniedTotal: 1001,
-			RequestErrorsTotal:  2002,
-			Responses1XXTotal:   2389,
-			Responses2XXTotal:   4444,
-			Responses3XXTotal:   9990,
-			Responses4XXTotal:   7654,
-			Responses5XXTotal:   9087,
-			ConnectionsTotal:    5622,
 		},
 	}
 }

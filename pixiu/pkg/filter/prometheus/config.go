@@ -18,12 +18,18 @@ package prometheus
 
 type (
 	MetricCollectConfiguration struct {
-		Rules MetricCollectRule `yaml:"metric_collect_rules" json:"metric_collect_rules"` // Rules the authority rule list
+		Rules MetricCollectRule `yaml:"metric_collect_rules" json:"metric_collect_rules"`
 	}
 	MetricCollectRule struct {
-		Enable       bool   `json:"enbale,omitempty" yaml:"enable,omitempty"`
-		MeticPath    string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`
-		ExporterPort int    `json:"exporter_port,omitempty" yaml:"exporter_port,omitempty"` // Items the authority rule items
-
+		Enable    bool   `json:"enbale,omitempty" yaml:"enable,omitempty"`
+		MeticPath string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`
+		// Push Gateway URL in format http://domain:port
+		// where JOBNAME can be any string of your choice
+		PushGatewayURL string `json:"push_gateway_url,omitempty" yaml:"push_gateway_url,omitempty"`
+		// Push interval in seconds
+		// lint:ignore ST1011 renaming would be breaking change
+		PushIntervalSeconds int    `json:"push_interval_seconds,omitempty" yaml:"push_interval_seconds,omitempty"`
+		PushJobName         string `json:"push_job_name,omitempty" yaml:"push_job_name,omitempty"`
+		// Pushgateway job name, defaults to "prometheus"
 	}
 )

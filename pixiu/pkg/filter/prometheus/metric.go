@@ -18,16 +18,13 @@
 package prometheus
 
 import (
-	"strconv"
+	"time"
 )
-
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/collector"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/scrape"
-	"github.com/apache/dubbo-go-pixiu/pkg/metrics/scrape/scrapeImpl"
+	prom "github.com/apache/dubbo-go-pixiu/pkg/metrics/prometheus"
 )
 
 const (
@@ -35,11 +32,22 @@ const (
 )
 
 func init() {
-	filter.RegisterHttpFilter(&Plugin{})
+	filter.RegisterHttpFilter(&Plugin{
+		Cfg: &MetricCollectConfiguration{
+			Rules: MetricCollectRule{
+				Enable:              true,
+				MeticPath:           "/metrics",
+				PushGatewayURL:      "http://domain:port",
+				PushIntervalSeconds: 3,
+				PushJobName:         "prometheus",
+			},
+		},
+	})
 }
 
 type (
 	Plugin struct {
+		Cfg *MetricCollectConfiguration
 	}
 
 	FilterFactory struct {
@@ -56,18 +64,24 @@ func (p Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{Cfg: &MetricCollectConfiguration{}}, nil
+
+	return &FilterFactory{
+		Cfg: p.Cfg,
+	}, nil
 }
 
 func (factory *FilterFactory) Config() interface{} {
+
 	return factory.Cfg
 }
 
 func (factory *FilterFactory) Apply() error {
+
 	return nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
+
 	f := &Filter{
 		Cfg: factory.Cfg,
 	}
@@ -76,19 +90,13 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, c
 }
 
 func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
+	p := prom.NewPrometheus("pixiu")
 
-	cfg := collector.Config{
-		Enable:       f.Cfg.Rules.Enable,
-		MeticPath:    f.Cfg.Rules.MeticPath,
-		ExporterPort: ":" + strconv.Itoa(f.Cfg.Rules.ExporterPort),
-	}
-	enabledScrapers := []scrape.Scraper{
-		scrapeImpl.ApiScraper{},
-		scrapeImpl.ClusterScraper{},
-		scrapeImpl.FtontendScraper{},
-	}
-	go func() {
-		collector.ExporterServerOnHttp(ctx, cfg, enabledScrapers)
-	}()
+	p.SetMetricPath(f.Cfg.Rules.MeticPath)
+
+	p.SetPushGateway(f.Cfg.Rules.PushGatewayURL, time.Duration(f.Cfg.Rules.PushIntervalSeconds), f.Cfg.Rules.PushJobName)
+
+	start := p.HandlerFunc()
+	start(ctx)
 	return filter.Continue
 }

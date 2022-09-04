@@ -25,8 +25,6 @@ import (
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/promlog"
-	"github.com/prometheus/exporter-toolkit/web"
 )
 
 import (
@@ -95,12 +93,18 @@ type Config struct {
 	ExporterPort string
 }
 
-func ExporterServerOnHttp(ctx *contextHttp.HttpContext, cfg Config, scrapers []scrape.Scraper) {
+func ExporterServerOnHttp(ctx *contextHttp.HttpContext, scrapers []scrape.Scraper) http.HandlerFunc {
 	enabledScrapers := scrapers
 	handlerFunc := newHandler(ctx, NewMetrics(), enabledScrapers)
-	http.Handle(cfg.MeticPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
+	/* http.Handle(cfg.MeticPath, promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, handlerFunc))
 	srv := &http.Server{Addr: cfg.ExporterPort}
-	web.ListenAndServe(srv, "", promlog.New(&promlog.Config{}))
+	err := web.ListenAndServe(srv, "", promlog.New(&promlog.Config{}))
+	if err != nil {
+		return err
+	} else {
+		return nil
+	} */
+	return handlerFunc
 }
 
 func newHandler(ctx *contextHttp.HttpContext, metrics Metrics, scrapers []scrape.Scraper) http.HandlerFunc {

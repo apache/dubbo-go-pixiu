@@ -82,6 +82,7 @@ func (ApiScraper) Help() string {
 
 func (ApiScraper) Scrape(ctx *contextHttp.HttpContext, ch chan<- prometheus.Metric) error {
 	var data ApiStatsResponse
+
 	path := ctx.Request.URL.RequestURI()
 	if strings.HasPrefix(path, "/_api/health") {
 		_ = json.NewDecoder(ctx.Request.Body).Decode(&data)
