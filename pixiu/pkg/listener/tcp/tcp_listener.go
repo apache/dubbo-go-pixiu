@@ -21,6 +21,7 @@ package tcp
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -29,8 +30,10 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/listener"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
@@ -42,7 +45,8 @@ type (
 	// ListenerService the facade of a listener
 	TcpListenerService struct {
 		listener.BaseListenerService
-		server getty.Server
+		server          getty.Server
+		gShutdownConfig *listener.ListenerGracefulShutdownConfig
 	}
 )
 
@@ -57,7 +61,8 @@ func newTcpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.Li
 			Config:      lc,
 			FilterChain: fc,
 		},
-		server: server,
+		server:          server,
+		gShutdownConfig: &listener.ListenerGracefulShutdownConfig{},
 	}, nil
 }
 
@@ -72,9 +77,22 @@ func (ls *TcpListenerService) Close() error {
 	return nil
 }
 
-func (ls *TcpListenerService) ShutDown() error {
-	//TODO implement me
-	panic("implement me")
+func (ls *TcpListenerService) ShutDown(wg interface{}) error {
+	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
+	if timeout <= 0 {
+		return nil
+	}
+	// stop accept request
+	ls.gShutdownConfig.RejectRequest = true
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) && ls.gShutdownConfig.ActiveCount > 0 {
+		// sleep 100 ms and check it again
+		time.Sleep(100 * time.Millisecond)
+		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.ActiveCount)
+	}
+	wg.(*sync.WaitGroup).Done()
+	ls.server.Close()
+	return nil
 }
 
 func (ls *TcpListenerService) Refresh(c model.Listener) error {
