@@ -12,8 +12,6 @@ samples/dubbogo/simple/server/app/app
 /logs
 /.idea
 /.vscode
-log
-cache
 
 .DS_Store
 vendor/
@@ -23,9 +21,10 @@ coverage.txt
 *.iml
 
 *.exe
-test
 !samples/springcloud/zookeeper/test
 !samples/springcloud/nacos/test
 
 target/
 samples/**/dist
+
+out/
