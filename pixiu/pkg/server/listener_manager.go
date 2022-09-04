@@ -18,9 +18,12 @@
 package server
 
 import (
+	"os"
+	"os/signal"
 	"runtime/debug"
 	"strconv"
 	"sync"
+	"time"
 )
 
 import (
@@ -30,6 +33,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/shutdown"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
@@ -50,6 +54,8 @@ type ListenerManager struct {
 	activeListenerService map[string]*wrapListenerService
 	//readWriteLock
 	rwLock *sync.RWMutex
+	//shutdownWaitGroup
+	shutdownWG *sync.WaitGroup
 }
 
 // CreateDefaultListenerManager create listener manager from config
@@ -68,11 +74,55 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 		}
 	}
 
-	return &ListenerManager{
+	lm := &ListenerManager{
 		activeListenerService: listeners,
 		bootstrap:             bs,
 		rwLock:                &sync.RWMutex{},
+		shutdownWG:            &sync.WaitGroup{},
 	}
+	lm.gracefulShutdownInit()
+
+	return lm
+}
+
+func (lm *ListenerManager) gracefulShutdownInit() {
+	sdc := lm.bootstrap.GetShutdownConfig()
+	timeout := sdc.GetTimeout()
+	if timeout <= 0 {
+		return
+	}
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, shutdown.ShutdownSignals...)
+
+	go func() {
+		sig := <-signals
+		logger.Infof("get signal %s, dubbo-go-pixiu will start shutdown.", sig)
+
+		time.AfterFunc(timeout, func() {
+			logger.Warn("Shutdown gracefully timeout, listeners will shutdown immediately. ")
+			os.Exit(0)
+		})
+
+		for _, listener := range lm.activeListenerService {
+			lm.shutdownWG.Add(1)
+			go func(listener *wrapListenerService) {
+				err := listener.ListenerService.ShutDown(lm.shutdownWG)
+				if err != nil {
+					logger.Errorf("Shutdown Error: %+v", err)
+					os.Exit(0)
+				}
+			}(listener)
+		}
+		lm.shutdownWG.Wait()
+
+		// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
+		for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
+			if sig == dumpSignal {
+				debug.WriteHeapDump(os.Stdout.Fd())
+			}
+		}
+		os.Exit(0)
+	}()
 }
 
 func resolveListenerName(c *model.Listener) string {

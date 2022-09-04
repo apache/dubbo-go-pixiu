@@ -122,9 +122,12 @@ func (h *ServerHandler) OnClose(session getty.Session) {
 
 // OnMessage called when session receive new pkg
 func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
+	h.ls.gShutdownConfig.AddActiveCount(1)
+	defer h.ls.gShutdownConfig.AddActiveCount(-1)
+
 	h.rwlock.Lock()
 	if _, ok := h.sessionMap[session]; ok {
-		h.sessionMap[session].reqNum++
+		h.sessionMap[session].AddReqNum(1)
 	}
 	h.rwlock.Unlock()
 
@@ -181,6 +184,15 @@ func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
 			reply(session, resp)
 		}
 	}()
+
+	if h.ls.gShutdownConfig.RejectRequest {
+		err := perrors.Errorf("Pixiu is preparing to close, reject all new requests")
+		resp.Result = protocol.RPCResult{
+			Err: err,
+		}
+		reply(session, resp)
+		return
+	}
 
 	invoc, ok := req.Data.(*invocation.RPCInvocation)
 	if !ok {
