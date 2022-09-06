@@ -1570,7 +1570,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "apache/dubbo-pilot/pilot:latest"
+          image: "apache/dubbo-pilot/dubbo-pilot:latest"
           args:
           - "discovery"
           - --monitoringAddr=:15014
