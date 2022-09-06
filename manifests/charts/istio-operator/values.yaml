@@ -1,4 +1,4 @@
-hub: apache/dubbo-pilot
+hub: apache
 tag: latest
 
 # ImagePullSecrets for operator ServiceAccount, list of secrets in the same namespace

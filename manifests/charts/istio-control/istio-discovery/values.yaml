@@ -235,7 +235,7 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
-  hub: apache/dubbo-pilot
+  hub: apache
   # Default tag for Istio images.
   tag: latest
 

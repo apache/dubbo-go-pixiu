@@ -3,7 +3,7 @@ kind: IstioOperator
 metadata:
   namespace: istio-system
 spec:
-  hub: apache/dubbo-pilot
+  hub: apache
   tag: latest
 
   # You may override parts of meshconfig by uncommenting the following lines.
