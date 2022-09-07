@@ -90,7 +90,7 @@ spec:
         excludeIPRanges: ""
         excludeInboundPorts: ""
         excludeOutboundPorts: ""
-        image: proxyv2
+        image: dubbo-agent
         includeIPRanges: '*'
         logLevel: warning
         privileged: false
@@ -107,7 +107,7 @@ spec:
         statusPort: 15020
         tracer: zipkin
       proxy_init:
-        image: proxyv2
+        image: dubbo-agent
         resources:
           limits:
             cpu: 2000m

@@ -1539,7 +1539,7 @@ data:
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
           "holdApplicationUntilProxyStarts": false,
-          "image": "proxyv2",
+          "image": "dubbo-agent",
           "includeIPRanges": "*",
           "includeInboundPorts": "*",
           "includeOutboundPorts": "",
@@ -1562,7 +1562,7 @@ data:
           "tracer": "zipkin"
         },
         "proxy_init": {
-          "image": "proxyv2",
+          "image": "dubbo-agent",
           "resources": {
             "limits": {
               "cpu": "2000m",

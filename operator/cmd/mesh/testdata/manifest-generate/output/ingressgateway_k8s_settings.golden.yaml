@@ -137,7 +137,7 @@ spec:
           value: "true"
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-testing/dubbo-agent:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
@@ -298,7 +298,7 @@ spec:
       serviceAccountName: istio-ingressgateway-custom-service-account
       containers:
         - name: istio-proxy
-          image: "gcr.io/istio-testing/proxyv2:latest"
+          image: "gcr.io/istio-testing/dubbo-agent:latest"
           ports:
             - containerPort: 15021
               protocol: TCP
