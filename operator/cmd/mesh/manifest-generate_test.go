@@ -110,7 +110,7 @@ func TestMain(m *testing.M) {
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
-	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml"})
+	objs, err := runManifestCommands("component_hub_tag", "--set values.gateways.istio-ingressgateway.enabled=true", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +334,7 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
+	m, _, err := generateManifest("default", "-s values.gateways.istio-ingressgateway.enabled=true -s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
 		[]string{"templates/deployment.yaml", "templates/istiod-injector-configmap.yaml"})
 	if err != nil {
 		t.Fatal(err)
@@ -630,7 +630,7 @@ func TestConfigSelectors(t *testing.T) {
 		"templates/autoscale.yaml",
 		"templates/serviceaccount.yaml",
 	}
-	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts, selectors)
+	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-ingressgateway.enabled=true --set values.gateways.istio-egressgateway.enabled=true", liveCharts, selectors)
 	if err != nil {
 		t.Fatal(err)
 	}
