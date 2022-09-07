@@ -2826,7 +2826,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.1.4"
+          image: "docker.io/istio/dubbo-pilot:1.1.4"
           args:
           - "discovery"
           - --monitoringAddr=:15014

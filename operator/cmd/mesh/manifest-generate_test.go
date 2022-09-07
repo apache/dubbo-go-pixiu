@@ -123,12 +123,12 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		{
 			deploymentName: "istio-ingressgateway",
 			containerName:  "istio-proxy",
-			want:           "istio-spec.hub/proxyv2:istio-spec.tag",
+			want:           "istio-spec.hub/dubbo-agent:istio-spec.tag",
 		},
 		{
 			deploymentName: "istiod",
 			containerName:  "discovery",
-			want:           "component.pilot.hub/pilot:2",
+			want:           "component.pilot.hub/dubbo-pilot:2",
 		},
 	}
 
@@ -329,7 +329,7 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 	dobj := mustGetDeployment(g, objs, "istiod")
 
 	c := dobj.Container("discovery")
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "foo/pilot:bar"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "foo/dubbo-pilot:bar"}))
 }
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
@@ -346,7 +346,7 @@ func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 
 	c := dobj.Container("istio-proxy")
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "gcr.io/istio-testing/myproxy:latest"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "apache/myproxy:latest"}))
 
 	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured()
 	// TODO: change values to some nicer format rather than text block.

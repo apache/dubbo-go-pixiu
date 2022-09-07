@@ -138,7 +138,7 @@ spec:
       enableProtocolSniffingForInbound: true
       enableProtocolSniffingForOutbound: true
       env: {}
-      image: pilot
+      image: dubbo-pilot
       keepaliveMaxServerConnectionAge: 30m
       nodeSelector: {}
       podLabels: {}
