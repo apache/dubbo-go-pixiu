@@ -25,7 +25,7 @@ spec:
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: true
+      enabled: false
     egressGateways:
     - name: istio-egressgateway
       enabled: false
