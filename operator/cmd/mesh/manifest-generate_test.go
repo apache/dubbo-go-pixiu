@@ -110,7 +110,7 @@ func TestMain(m *testing.M) {
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
-	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml"})
+	objs, err := runManifestCommands("component_hub_tag", "--set values.gateways.istio-ingressgateway.enabled=true", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,12 +123,12 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		{
 			deploymentName: "istio-ingressgateway",
 			containerName:  "istio-proxy",
-			want:           "istio-spec.hub/proxyv2:istio-spec.tag",
+			want:           "istio-spec.hub/dubbo-agent:istio-spec.tag",
 		},
 		{
 			deploymentName: "istiod",
 			containerName:  "discovery",
-			want:           "component.pilot.hub/pilot:2",
+			want:           "component.pilot.hub/dubbo-pilot:2",
 		},
 	}
 
@@ -329,12 +329,12 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 	dobj := mustGetDeployment(g, objs, "istiod")
 
 	c := dobj.Container("discovery")
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "foo/pilot:bar"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "foo/dubbo-pilot:bar"}))
 }
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
+	m, _, err := generateManifest("default", "-s values.gateways.istio-ingressgateway.enabled=true -s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
 		[]string{"templates/deployment.yaml", "templates/istiod-injector-configmap.yaml"})
 	if err != nil {
 		t.Fatal(err)
@@ -346,7 +346,7 @@ func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 
 	c := dobj.Container("istio-proxy")
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "gcr.io/istio-testing/myproxy:latest"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "apache/myproxy:latest"}))
 
 	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured()
 	// TODO: change values to some nicer format rather than text block.
@@ -630,7 +630,7 @@ func TestConfigSelectors(t *testing.T) {
 		"templates/autoscale.yaml",
 		"templates/serviceaccount.yaml",
 	}
-	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts, selectors)
+	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-ingressgateway.enabled=true --set values.gateways.istio-egressgateway.enabled=true", liveCharts, selectors)
 	if err != nil {
 		t.Fatal(err)
 	}

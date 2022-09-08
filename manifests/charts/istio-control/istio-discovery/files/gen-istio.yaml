@@ -85,7 +85,7 @@ data:
           }
         },
         "externalIstiod": false,
-        "hub": "gcr.io/istio-testing",
+        "hub": "apache",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
@@ -119,7 +119,7 @@ data:
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
           "holdApplicationUntilProxyStarts": false,
-          "image": "proxyv2",
+          "image": "dubbo-agent",
           "includeIPRanges": "*",
           "includeInboundPorts": "*",
           "includeOutboundPorts": "",
@@ -142,7 +142,7 @@ data:
           "tracer": "zipkin"
         },
         "proxy_init": {
-          "image": "proxyv2",
+          "image": "dubbo-agent",
           "resources": {
             "limits": {
               "cpu": "2000m",
@@ -1570,7 +1570,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "gcr.io/istio-testing/pilot:latest"
+          image: "apache/dubbo-pilot:latest"
           args:
           - "discovery"
           - --monitoringAddr=:15014

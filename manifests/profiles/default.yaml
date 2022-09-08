@@ -3,7 +3,7 @@ kind: IstioOperator
 metadata:
   namespace: istio-system
 spec:
-  hub: gcr.io/istio-testing
+  hub: apache
   tag: latest
 
   # You may override parts of meshconfig by uncommenting the following lines.
@@ -25,7 +25,7 @@ spec:
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: true
+      enabled: false
     egressGateways:
     - name: istio-egressgateway
       enabled: false
@@ -52,7 +52,7 @@ spec:
       pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
-        image: proxyv2
+        image: dubbo-agent
         clusterDomain: "cluster.local"
         resources:
           requests:
@@ -76,7 +76,7 @@ spec:
         autoInject: enabled
         tracer: "zipkin"
       proxy_init:
-        image: proxyv2
+        image: dubbo-agent
         resources:
           limits:
             cpu: 2000m
@@ -124,7 +124,7 @@ spec:
       autoscaleMin: 1
       autoscaleMax: 5
       replicaCount: 1
-      image: pilot
+      image: dubbo-pilot
       traceSampling: 1.0
       env: {}
       cpu:
