@@ -64,9 +64,10 @@ func (a *Xds) createApiManager(config *model.ApiConfigSource,
 	case model.ApiTypeGRPC:
 		return apiclient.CreateGrpExtensionApiClient(config, node, a.exitCh, resourceType)
 	case model.ApiTypeIstioGRPC:
-		dubboServices, api, done := a.readDubboServiceFromListener()
-		if done {
-			return api
+		dubboServices, err := a.readDubboServiceFromListener()
+		if err != nil {
+			logger.Errorf("can not read listener. %v", err)
+			return nil
 		}
 		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType, apiclient.WithIstioService(dubboServices...))
 	default:
@@ -75,12 +76,11 @@ func (a *Xds) createApiManager(config *model.ApiConfigSource,
 	}
 }
 
-func (a *Xds) readDubboServiceFromListener() ([]string, DiscoverApi, bool) {
+func (a *Xds) readDubboServiceFromListener() ([]string, error) {
 	dubboServices := make([]string, 0)
 	listeners, err := a.listenerMg.CloneXdsControlListener()
 	if err != nil {
-		logger.Errorf("can not read listener. %v", err)
-		return nil, nil, true
+		return nil, err
 	}
 
 	for _, l := range listeners {
@@ -104,7 +104,7 @@ func (a *Xds) readDubboServiceFromListener() ([]string, DiscoverApi, bool) {
 			}
 		}
 	}
-	return dubboServices, nil, false
+	return dubboServices, nil
 }
 
 func (a *Xds) Start() {
