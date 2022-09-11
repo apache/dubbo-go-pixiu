@@ -37,7 +37,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "gcr.io/istio-testing/pilot:latest"
+          image: "gcr.io/istio-testing/dubbo-pilot:latest"
           args:
           - "discovery"
           - --monitoringAddr=:15014
