@@ -104,6 +104,10 @@ docker run --name pixiu-gateway -p 8888:8888 \
 - Observability: Integrate with opentelemetry and jaeger for distributed tracing.
 - Admin and visual interface: Have pixiu-admin for remote administration and visualization
 
+### Control Plane
+
+The pixiu control plane is forked from [istio](https://github.com/istio/istio) v1.14.3. Offers a variety of capabilities, including service discovery, traffic management, security management.
+
 ## Contact Us
 
 The project is under intensively iteration, you are more than welcome to use, suggest and contribute codes. 

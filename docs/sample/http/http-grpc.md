@@ -104,3 +104,5 @@ and
 ```
 curl http://127.0.0.1:8881/api/v1/provider.UserProvider/GetUser -X POST -d '{"userId":1}'
 ```
+
+> If response body is a json, the header of 'content-type' will set to 'application/json'. If it is just a plain text, the header of 'content-type' is 'text/plain'.

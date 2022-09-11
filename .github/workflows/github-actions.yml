@@ -20,33 +20,19 @@ name: CI
 
 on:
   push:
-    branches: [ master, develop ]
   pull_request:
-    branches: "*"
   pull_request_target:
-    branches: "*"
 
 jobs:
 
-  build:
-    name: ${{ matrix.os }} - Go ${{ matrix.go_version }}
-    runs-on: ${{ matrix.os }}
+  license-check:
+    name: License Check - Go ${{ matrix.go_version }}
+    runs-on: ubuntu-latest
     strategy:
-      # If you want to matrix build , you can append the following list.
       matrix:
         go_version:
-          - 1.17
-
-        os:
-          - ubuntu-latest
-
-    # https://docs.github.com/cn/actions/reference/encrypted-secrets
-    env:
-      DING_TOKEN: ${{ secrets.PROXY_DING_TOKEN }}
-      DING_SIGN: ${{ secrets.PROXY_DING_SIGN }}
-
+          - 1.18
     steps:
-
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -59,6 +45,25 @@ jobs:
       - name: Check License Header
         uses: apache/skywalking-eyes/header@501a28d2fb4a9b962661987e50cf0219631b32ff
 
+
+  go-fmt:
+    name: Go fmt ${{ matrix.os }} - Go ${{ matrix.go_version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # If you want to matrix build , you can append the following list.
+      matrix:
+        go_version:
+          - 1.18
+        os:
+          - ubuntu-latest
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go_version }}
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
       - name: Cache dependencies
         uses: actions/cache@v2
         with:
@@ -69,7 +74,6 @@ jobs:
           # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
           restore-keys: |
             ${{ runner.os }}-go-
-
       - name: Merge base
         if: ${{ github.event_name == 'pull_request' }}
         run: |
@@ -80,7 +84,6 @@ jobs:
           git config --global user.email "dubbo-go@github-ci.com"
           git config --global user.name "robot"
           git merge ${{github.event.pull_request.head.sha}}
-
       - name: Get dependencies
         run: |
           if [ -f Gopkg.toml ]; then
@@ -89,22 +92,163 @@ jobs:
           else
               go get -v -t -d ./...
           fi
-
       - name: Go Fmt
         run: |
           go fmt ./... && git status && [[ -z `git status -s` ]]
           # diff -u <(echo -n) <(gofmt -d -s .)
 
+  lint:
+    name: Lint ${{ matrix.os }} - Go ${{ matrix.go_version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # If you want to matrix build , you can append the following list.
+      matrix:
+        go_version:
+          - 1.18
+        os:
+          - ubuntu-latest
+
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go_version }}
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          # Cache
+          path: ~/go/pkg/mod
+          # Cache key
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Merge base
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin develop
+          git checkout -b develop origin/develop
+          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
+          git fetch devrepo ${{github.event.pull_request.head.sha}}
+          git config --global user.email "dubbo-go@github-ci.com"
+          git config --global user.name "robot"
+          git merge ${{github.event.pull_request.head.sha}}
+      - name: Get dependencies
+        run: |
+          if [ -f Gopkg.toml ]; then
+              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+              dep ensure
+          else
+              go get -v -t -d ./...
+          fi
       - name: Install go ci lint
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.41.1
-
+        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.48.0
       - name: Run Linter
-        run: GO111MODULE=on golangci-lint run --timeout=10m -v --disable-all --enable=govet --enable=staticcheck --enable=ineffassign --enable=misspell
+        run: GO111MODULE=on golangci-lint run --timeout=30m -v --disable-all --enable=govet --enable=staticcheck --enable=ineffassign --enable=misspell
 
+  go-test:
+    name: Go Test ${{ matrix.os }} - Go ${{ matrix.go_version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # If you want to matrix build , you can append the following list.
+      matrix:
+        go_version:
+          - 1.18
+        os:
+          - ubuntu-latest
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go_version }}
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          # Cache
+          path: ~/go/pkg/mod
+          # Cache key
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Merge base
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin develop
+          git checkout -b develop origin/develop
+          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
+          git fetch devrepo ${{github.event.pull_request.head.sha}}
+          git config --global user.email "dubbo-go@github-ci.com"
+          git config --global user.name "robot"
+          git merge ${{github.event.pull_request.head.sha}}
+      - name: Get dependencies
+        run: |
+          if [ -f Gopkg.toml ]; then
+              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+              dep ensure
+          else
+              go get -v -t -d ./...
+          fi
       - name: Go Test
         run: |
           chmod u+x before_ut.sh && ./before_ut.sh
-          go mod vendor && go test ./pkg/... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
+          go mod vendor && go test ./... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
+      - name: Coverage
+        run: bash <(curl -s https://codecov.io/bash)
+
+
+  integrate-test:
+    name: Integrate Test - ${{ matrix.os }} - Go ${{ matrix.go_version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # If you want to matrix build , you can append the following list.
+      matrix:
+        go_version:
+          - 1.18
+        os:
+          - ubuntu-latest
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go_version }}
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          # Cache
+          path: ~/go/pkg/mod
+          # Cache key
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Merge base
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin develop
+          git checkout -b develop origin/develop
+          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
+          git fetch devrepo ${{github.event.pull_request.head.sha}}
+          git config --global user.email "dubbo-go@github-ci.com"
+          git config --global user.name "robot"
+          git merge ${{github.event.pull_request.head.sha}}
+      - name: Get dependencies
+        run: |
+          if [ -f Gopkg.toml ]; then
+              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+              dep ensure
+          else
+              go get -v -t -d ./...
+          fi
       # integration test
       # This step only runs when the event type is a pull_request
       - name: Integrate Test
@@ -116,50 +260,3 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: |
           chmod +x start_integrate_test.sh && ./start_integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
-
-      - name: Coverage
-        run: bash <(curl -s https://codecov.io/bash)
-
-      - name: Hello world
-        run: echo Hello world ${{ secrets.PROXY_DING_TOKEN }} ${{ secrets.PROXY_DING_SIGN }}
-
-        # Because the contexts of push and PR are different, there are two Notify.
-        # Notifications are triggered only in the dubbogo/dubbo-go-pixiu repository.
-      - name: DingTalk Message Notify only Push
-        uses: ./.github/actions/actions-ding
-        # Whether job is successful or not, always () is always true.
-        if: |
-          always() &&
-          github.event_name == 'push' &&
-          github.repository == 'dubbogo/dubbo-go-proxy'
-        with:
-          # DingDing bot token
-          dingToken: ${{ env.DING_TOKEN }}
-          secret: ${{ env.DING_SIGN }}
-          # Post Body to send
-          body: |
-            {
-              "msgtype": "markdown",
-              "markdown": {
-                  "title": "Github Actions",
-                  "text": "## Github Actions \n - name: CI \n - repository: ${{ github.repository }} \n - trigger: ${{ github.actor }} \n - event: ${{ github.event_name }} \n - ref: ${{ github.ref }} \n - status: [${{ job.status	}}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) \n - environment: ${{ runner.os }} \n - SHA: [${{ github.sha }}](${{ github.event.compare }})"
-              }
-            }
-
-      - name: DingTalk Message Notify only PR
-        uses: ./.github/actions/actions-ding
-        if: |
-          always() &&
-          github.event_name == 'pull_request_target' &&
-          github.repository == 'dubbogo/dubbo-go-proxy'
-        with:
-          dingToken: ${{ env.DING_TOKEN }}
-          secret: ${{ env.DING_SIGN }}
-          body: |
-            {
-              "msgtype": "markdown",
-              "markdown": {
-                  "title": "Github Actions",
-                  "text": "## Github Actions \n - name: CI \n - repository: ${{ github.repository }} \n - pr_title: ${{ github.event.pull_request.title }} \n - trigger: ${{ github.actor }} \n - event: ${{ github.event_name }} \n - ref: [${{ github.ref }}](${{ github.event.pull_request._links.html.href }}) \n - status: [${{ job.status	}}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) \n - environment: ${{ runner.os }} \n > SHA: [${{ github.sha }}](${{ github.event.pull_request._links.html.href }})"
-              }
-            }
