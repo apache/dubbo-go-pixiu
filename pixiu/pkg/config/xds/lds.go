@@ -23,16 +23,14 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
+
 	xdsModel "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
 	"gopkg.in/yaml.v2"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
 type LdsManager struct {

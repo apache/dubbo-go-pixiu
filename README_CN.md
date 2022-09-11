@@ -101,6 +101,10 @@ docker run --name pixiuname -p 8888:8888 \
 - 可观测性：集成 opentelemetry 和 jaeger，便于进行分布式链路追踪
 - 自持 admin 和可视化界面：拥有 pixiu-admin 进行远程管理和可视化
 
+### 控制面
+
+Pixiu 控制面是 frok 自 [istio](https://github.com/istio/istio) v1.14.3 版本。提供包括服务发现、流量管理、安全等多种能力。
+
 ## 联系我们
 
 项目在快速迭代中，欢迎使用， 欢迎给出建议或者提交pr。

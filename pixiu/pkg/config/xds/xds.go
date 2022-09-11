@@ -18,20 +18,19 @@
 package xds
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/mitchellh/mapstructure"
 	"sync"
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-)
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type (

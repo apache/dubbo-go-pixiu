@@ -25,6 +25,10 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
+
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
@@ -37,12 +41,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"google.golang.org/protobuf/types/known/anypb"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
 
 // agent name to talk with xDS server

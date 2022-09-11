@@ -26,6 +26,8 @@ import (
 import (
 	"dubbo.apache.org/dubbo-go/v3/common/logger"
 
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
 	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
 
@@ -43,10 +45,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 type GrpcApiClientOption func(*AggGrpcApiClient)

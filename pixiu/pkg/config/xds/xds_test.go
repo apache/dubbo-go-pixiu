@@ -24,6 +24,12 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
+	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls/mocks"
+
 	monkey "github.com/cch123/supermonkey"
 
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
@@ -34,14 +40,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
-	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
 )
 
 func TestAdapter_createApiManager(t *testing.T) {
