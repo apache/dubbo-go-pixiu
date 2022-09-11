@@ -71,7 +71,7 @@ var (
 		REST_VALUE:      0,
 		GRPC_VALUE:      1,
 		DUBBO_VALUE:     2,
-		IstioGRPC_VALUE: 3,
+		ISTIOGRPC_VALUE: 3,
 	}
 )
 
