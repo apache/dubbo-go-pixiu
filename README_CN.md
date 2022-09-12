@@ -7,7 +7,7 @@
 
 # 简介
 
-**Dubbo-Go-Pixiu**(官网: https://dubbo-go-pixiu.github.io/) 是一款 Dubbo 生态下的高性能 API 网关和多语言解决方案 Sidecar
+**Dubbo-Go-Pixiu**(官网: https://dubbo.apache.org/zh/docs3-v2/dubbo-go-pixiu/) 是一款 Dubbo 生态下的高性能 API 网关和多语言解决方案 Sidecar
 
 ![](https://dubbo-go-pixiu.github.io/img/pixiu-dubbo-ecosystem.png)
 Pixiu 是一款开源的 Dubbo 生态的 API 网关和 接入 dubbo 集群的语言解决方案。作为 API 网关形态， Pixiu 能接收外界的网络请求，将其转换为 dubbo 等协议请求，转发给背后集群；作为 Sidecar，Pixiu 期望可以代替代理服务注册到 Dubbo 集群，让多语言服务接入 Dubbo 集群提供更快捷的解决方案
@@ -15,7 +15,7 @@ Pixiu 是一款开源的 Dubbo 生态的 API 网关和 接入 dubbo 集群的语
 
 ## 快速开始
 
-你可以在 https://github.com/dubbo-go-pixiu/samples 中找到所有有关 pixiu 功能的案例，可以按照如下的步骤进行操作。
+你可以在 https://github.com/apache/dubbo-go-pixiu-samples 中找到所有有关 pixiu 功能的案例，可以按照如下的步骤进行操作。
 
 #### 进入示例代码目录
 
