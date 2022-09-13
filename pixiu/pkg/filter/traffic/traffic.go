@@ -34,7 +34,7 @@ import (
 
 const (
 	canaryByHeader CanaryHeaders = "canary-by-header"
-	unInitialize                 = -1
+	unInitialize   int           = -1
 )
 
 func init() {
