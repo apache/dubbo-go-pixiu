@@ -18,12 +18,15 @@
 package prometheus
 
 import (
+	nh "net/http"
 	"time"
 )
+
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	prom "github.com/apache/dubbo-go-pixiu/pkg/metrics/prometheus"
 )
 
@@ -32,30 +35,21 @@ const (
 )
 
 func init() {
-	filter.RegisterHttpFilter(&Plugin{
-		Cfg: &MetricCollectConfiguration{
-			Rules: MetricCollectRule{
-				Enable:              true,
-				MeticPath:           "/metrics",
-				PushGatewayURL:      "http://domain:port",
-				PushIntervalSeconds: 3,
-				PushJobName:         "prometheus",
-			},
-		},
-	})
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
 	Plugin struct {
-		Cfg *MetricCollectConfiguration
 	}
 
 	FilterFactory struct {
-		Cfg *MetricCollectConfiguration
+		Cfg  *MetricCollectConfiguration
+		Prom *prom.Prometheus
 	}
 
 	Filter struct {
-		Cfg *MetricCollectConfiguration
+		Cfg  *MetricCollectConfiguration
+		Prom *prom.Prometheus
 	}
 )
 
@@ -66,7 +60,7 @@ func (p Plugin) Kind() string {
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 
 	return &FilterFactory{
-		Cfg: p.Cfg,
+		Prom: prom.NewPrometheus(),
 	}, nil
 }
 
@@ -83,20 +77,29 @@ func (factory *FilterFactory) Apply() error {
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
 
 	f := &Filter{
-		Cfg: factory.Cfg,
+		Cfg:  factory.Cfg,
+		Prom: factory.Prom,
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
 
 func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
-	p := prom.NewPrometheus("pixiu")
 
-	p.SetMetricPath(f.Cfg.Rules.MeticPath)
+	if f.Cfg == nil {
+		logger.Errorf("Message:Filter Metric Collect Configuration is null")
+		ctx.SendLocalReply(nh.StatusForbidden, constant.Default403Body)
+		return filter.Continue
+	}
+	if f.Prom == nil {
+		logger.Errorf("Message:Prometheus Collector is not initialized")
+		ctx.SendLocalReply(nh.StatusForbidden, constant.Default403Body)
+		return filter.Continue
+	}
 
-	p.SetPushGateway(f.Cfg.Rules.PushGatewayURL, time.Duration(f.Cfg.Rules.PushIntervalSeconds), f.Cfg.Rules.PushJobName)
-
-	start := p.HandlerFunc()
+	f.Prom.SetMetricPath(f.Cfg.Rules.MeticPath)
+	f.Prom.SetPushGateway(f.Cfg.Rules.PushGatewayURL, time.Duration(f.Cfg.Rules.PushIntervalSeconds), f.Cfg.Rules.PushJobName)
+	start := f.Prom.HandlerFunc()
 	start(ctx)
 	return filter.Continue
 }

@@ -221,7 +221,7 @@ type PushGateway struct {
 }
 
 // NewPrometheus generates a new set of metrics with a certain subsystem name
-func NewPrometheus(subsystem string) *Prometheus {
+func NewPrometheus() *Prometheus {
 	var metricsList []*Metric
 	metricsList = append(metricsList, standardMetrics...)
 	p := &Prometheus{
@@ -234,13 +234,13 @@ func NewPrometheus(subsystem string) *Prometheus {
 			return c.Request.Host
 		},
 	}
-	p.registerMetrics(subsystem)
+	p.registerMetrics()
 	return p
 }
 
-func (p *Prometheus) registerMetrics(subsystem string) {
+func (p *Prometheus) registerMetrics() {
 	for _, metricDef := range p.MetricsList {
-		metric := NewMetric(metricDef, subsystem)
+		metric := NewMetric(metricDef, p.Subsystem)
 		if err := prometheus.Register(metric); err != nil {
 			logger.Errorf("%s could not be registered in Prometheus: %v", metricDef.Name, err)
 		}
@@ -257,6 +257,7 @@ func (p *Prometheus) registerMetrics(subsystem string) {
 		metricDef.MetricCollector = metric
 	}
 }
+
 func (p *Prometheus) SetMetricPath(path string) {
 	p.MetricsPath = path
 }

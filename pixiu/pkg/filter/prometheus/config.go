@@ -20,6 +20,7 @@ type (
 	MetricCollectConfiguration struct {
 		Rules MetricCollectRule `yaml:"metric_collect_rules" json:"metric_collect_rules"`
 	}
+
 	MetricCollectRule struct {
 		Enable    bool   `json:"enbale,omitempty" yaml:"enable,omitempty"`
 		MeticPath string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`

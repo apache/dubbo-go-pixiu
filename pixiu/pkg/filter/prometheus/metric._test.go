@@ -23,11 +23,16 @@ import (
 	"net/http"
 	"testing"
 )
+
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/mock"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestExporterApiMetric(t *testing.T) {
@@ -41,27 +46,30 @@ func TestExporterApiMetric(t *testing.T) {
 			PushJobName:         "prometheus",
 		},
 	}
-	p := Plugin{
-		Cfg: &rules,
-	}
+	_, err := yaml.MarshalYML(rules)
+	assert.Nil(t, err)
 
-	metricFilter, _ := p.CreateFilterFactory()
-	config := metricFilter.Config()
-	mockYaml, err := yaml.MarshalYML(rules)
-	assert.Nil(t, err)
-	err = yaml.UnmarshalYML(mockYaml, config)
-	assert.Nil(t, err)
-	err = metricFilter.Apply()
-	assert.Nil(t, err)
-	f := &Filter{
-		Cfg: &rules,
+	config := &rules
+	p := Plugin{}
+	msg := "this is test msg"
+	metricFilterFactory, _ := p.CreateFilterFactory()
+
+	if factory, ok := metricFilterFactory.(*FilterFactory); ok {
+		factory.Cfg = config
+
+		err = factory.Apply()
+		assert.Nil(t, err)
+
+		chain := filter.NewDefaultFilterChain()
+		data := GetApiStatsResponse()
+		body, _ := json.Marshal(&data)
+		request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
+		ctx := mock.GetMockHTTPContext(request)
+		ctx.TargetResp = client.NewResponse([]byte(msg))
+		factory.PrepareFilterChain(ctx, chain)
+		chain.OnDecode(ctx)
+
 	}
-	data := GetApiStatsResponse()
-	body, _ := json.Marshal(&data)
-	request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
-	ctx := mock.GetMockHTTPContext(request)
-	filterStatus := f.Decode(ctx)
-	assert.Equal(t, filterStatus, filter.Continue)
 
 }
 
