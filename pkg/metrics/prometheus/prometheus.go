@@ -283,7 +283,11 @@ func (p *Prometheus) getMetrics() []byte {
 	out := &bytes.Buffer{}
 	metricFamilies, _ := prometheus.DefaultGatherer.Gather()
 	for i := range metricFamilies {
-		expfmt.MetricFamilyToText(out, metricFamilies[i])
+		_, err := expfmt.MetricFamilyToText(out, metricFamilies[i])
+		if err != nil {
+			logger.Errorf("failed to converts a MetricFamily proto message into text format %v", err)
+		}
+
 	}
 	return out.Bytes()
 }
@@ -317,7 +321,6 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		//fmt.Println("status", status)
 		start := time.Now()
 		reqSz, err1 := computeApproximateRequestSize(c.Request)
-
 		//fmt.Println("reqSz", reqSz)
 		elapsed := float64(time.Since(start)) / float64(time.Second)
 		//fmt.Println("elapsed ", elapsed)
@@ -335,7 +338,6 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		if err2 == nil {
 			p.resSz.WithLabelValues(statusStr, method, url).Observe(float64(resSz))
 		}
-
 		return nil
 	}
 }

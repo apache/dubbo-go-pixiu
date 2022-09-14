@@ -18,7 +18,7 @@
 package prometheus
 
 import (
-	nh "net/http"
+	stdHttp "net/http"
 	"time"
 )
 
@@ -88,18 +88,22 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 
 	if f.Cfg == nil {
 		logger.Errorf("Message:Filter Metric Collect Configuration is null")
-		ctx.SendLocalReply(nh.StatusForbidden, constant.Default403Body)
+		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
 		return filter.Continue
 	}
 	if f.Prom == nil {
 		logger.Errorf("Message:Prometheus Collector is not initialized")
-		ctx.SendLocalReply(nh.StatusForbidden, constant.Default403Body)
+		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
 		return filter.Continue
 	}
 
 	f.Prom.SetMetricPath(f.Cfg.Rules.MeticPath)
 	f.Prom.SetPushGateway(f.Cfg.Rules.PushGatewayURL, time.Duration(f.Cfg.Rules.PushIntervalSeconds), f.Cfg.Rules.PushJobName)
 	start := f.Prom.HandlerFunc()
-	start(ctx)
+	err := start(ctx)
+	if err != nil {
+		logger.Errorf("Message:Context HandlerFunc error")
+		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
+	}
 	return filter.Continue
 }

@@ -66,7 +66,8 @@ func TestExporterApiMetric(t *testing.T) {
 		request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
 		ctx := mock.GetMockHTTPContext(request)
 		ctx.TargetResp = client.NewResponse([]byte(msg))
-		factory.PrepareFilterChain(ctx, chain)
+		err := factory.PrepareFilterChain(ctx, chain)
+		assert.Nil(t, err)
 		chain.OnDecode(ctx)
 
 	}
