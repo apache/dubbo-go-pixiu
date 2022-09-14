@@ -53,7 +53,7 @@ type (
 
 	Filter struct {
 		weight int
-		record map[string]bool
+		record map[string]struct{}
 		Rules  []*ClusterWrapper
 	}
 
@@ -97,7 +97,7 @@ func (factory *FilterFactory) Apply() error {
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{
 		weight: unInitialize,
-		record: map[string]bool{},
+		record: map[string]struct{}{},
 	}
 	f.Rules = factory.rulesMatch(f, ctx.Request.RequestURI)
 	chain.AppendDecodeFilters(f)
@@ -107,8 +107,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	if f.Rules != nil {
 		for _, wp := range f.Rules {
-			result := f.traffic(wp, ctx)
-			if result {
+			if f.traffic(wp, ctx) {
 				ctx.Route.Cluster = wp.Cluster.Name
 				logger.Debugf("[dubbo-go-pixiu] execute traffic split to cluster %s", wp.Cluster.Name)
 				break
@@ -129,7 +128,7 @@ func (f *Filter) traffic(c *ClusterWrapper, ctx *http.HttpContext) bool {
 	res := false
 	if c.header != "" {
 		res = headerSpilt(ctx.Request, c.header)
-	} else if res == false && c.weightFloor != -1 && c.weightCeil != -1 {
+	} else if !res && c.weightFloor != -1 && c.weightCeil != -1 {
 		res = weightSpilt(f.weight, c.weightFloor, c.weightCeil)
 	}
 	return res
@@ -150,10 +149,10 @@ func (factory *FilterFactory) rulesMatch(f *Filter, path string) []*ClusterWrapp
 					weightFloor: -1,
 				}
 				if cluster.CanaryByHeader != "" {
-					if f.record[cluster.CanaryByHeader] {
+					if _, ok := f.record[cluster.CanaryByHeader]; ok {
 						panic("Duplicate canary-by-header values")
 					} else {
-						f.record[cluster.CanaryByHeader] = true
+						f.record[cluster.CanaryByHeader] = struct{}{}
 						wp.header = cluster.CanaryByHeader
 					}
 				}
@@ -165,7 +164,7 @@ func (factory *FilterFactory) rulesMatch(f *Filter, path string) []*ClusterWrapp
 					wp.weightFloor = up
 					up += val
 					if up > 100 {
-						panic("Total canary-weight more than 100")
+						logger.Errorf("[dubbo-go-pixiu] clusters' weight sum more than 100 in %v service!", cluster.Router)
 					}
 					wp.weightCeil = up
 				}
