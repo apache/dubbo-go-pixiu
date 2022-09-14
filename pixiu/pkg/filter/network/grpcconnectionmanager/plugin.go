@@ -21,6 +21,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/grpc"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
@@ -44,7 +45,7 @@ func (p *Plugin) Kind() string {
 // CreateFilter create grpc network filter
 func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.GRPCConnectionManagerConfig)
-	hcmc.Timeout = constant.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
+	hcmc.Timeout = stringutil.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return grpc.CreateGrpcConnectionManager(hcmc), nil
 }
 

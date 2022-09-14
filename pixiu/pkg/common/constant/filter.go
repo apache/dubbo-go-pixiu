@@ -18,7 +18,6 @@
 package constant
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -48,16 +47,3 @@ const (
 
 	DefaultReqTimeout = 10 * time.Second
 )
-
-func ResolveTimeStr2Time(currentV string, defaultV time.Duration) time.Duration {
-	fmt.Printf("timeout parse %s : %d", currentV, defaultV)
-	if currentV == "" {
-		return defaultV
-	} else {
-		if duration, err := time.ParseDuration(currentV); err != nil {
-			return defaultV
-		} else {
-			return duration
-		}
-	}
-}

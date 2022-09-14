@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 )
 
 import (

@@ -78,31 +78,31 @@ func (f *Filter) handleHttp1GlobalEnd(ctx *http.HttpContext) {
 }
 
 // handleHttp1BranchRegister return bool, represent whether continue
-func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *TCCResource) bool {
-	xid := ctx.Request.Header.Get(XID)
+func (f *Filter) handleHttp1BranchRegister(hctx *http.HttpContext, tccResource *TCCResource) bool {
+	xid := hctx.Request.Header.Get(XID)
 	if xid == "" {
 		logger.Error("failed to get xid from request header")
-		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte("failed to get xid from request header"))
+		hctx.SendLocalReply(netHttp.StatusInternalServerError, []byte("failed to get xid from request header"))
 		return false
 	}
 
-	bodyBytes, err := io.ReadAll(ctx.Request.Body)
+	bodyBytes, err := io.ReadAll(hctx.Request.Body)
 	if err != nil {
 		logger.Error(err)
-		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte("failed to retrieve request body"))
+		hctx.SendLocalReply(netHttp.StatusInternalServerError, []byte("failed to retrieve request body"))
 		return false
 	}
 
 	requestContext := &RequestContext{
 		ActionContext: make(map[string]string),
-		Headers:       ctx.Request.Header.Clone(),
+		Headers:       hctx.Request.Header.Clone(),
 		Body:          bodyBytes,
-		Trailers:      ctx.Request.Trailer.Clone(),
+		Trailers:      hctx.Request.Trailer.Clone(),
 	}
 	// Once read body, the body sawEOF will be true, then send request will have no body
-	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	hctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	rEntry := ctx.GetRouteEntry()
+	rEntry := hctx.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
 	}
@@ -112,14 +112,14 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	clusterManager := server.GetClusterManager()
 	endpoint := clusterManager.PickEndpoint(clusterName)
 	if endpoint == nil {
-		ctx.SendLocalReply(netHttp.StatusServiceUnavailable, []byte("cluster not found endpoint"))
+		hctx.SendLocalReply(netHttp.StatusServiceUnavailable, []byte("cluster not found endpoint"))
 		return false
 	}
 
 	requestContext.ActionContext[VarHost] = endpoint.Address.GetAddress()
 	requestContext.ActionContext[CommitRequestPath] = tccResource.CommitRequestPath
 	requestContext.ActionContext[RollbackRequestPath] = tccResource.RollbackRequestPath
-	queryString := ctx.Request.URL.RawQuery
+	queryString := hctx.Request.URL.RawQuery
 	if queryString != "" {
 		requestContext.ActionContext[VarQueryString] = queryString
 	}
@@ -127,19 +127,19 @@ func (f *Filter) handleHttp1BranchRegister(ctx *http.HttpContext, tccResource *T
 	data, err := requestContext.Encode()
 	if err != nil {
 		logger.Errorf("encode request context failed, request context: %v, err: %v", requestContext, err)
-		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("encode request context failed, %v", err)))
+		hctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("encode request context failed, %v", err)))
 		return false
 	}
-	Ctx, cancel := context.WithTimeout(ctx.Ctx, ctx.Timeout)
+	ctx, cancel := context.WithTimeout(hctx.Ctx, hctx.Timeout)
 	defer cancel()
-	branchID, err := f.branchRegister(Ctx, xid, tccResource.PrepareRequestPath, apis.TCC, data, "")
+	branchID, err := f.branchRegister(ctx, xid, tccResource.PrepareRequestPath, apis.TCC, data, "")
 	if err != nil {
 		logger.Errorf("branch transaction register failed, xid: %s, err: %v", xid, err)
-		ctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("branch transaction register failed, %v", err)))
+		hctx.SendLocalReply(netHttp.StatusInternalServerError, []byte(fmt.Sprintf("branch transaction register failed, %v", err)))
 		return false
 	}
-	ctx.Params[XID] = xid
-	ctx.Params[BranchID] = strconv.FormatInt(branchID, 10)
+	hctx.Params[XID] = xid
+	hctx.Params[BranchID] = strconv.FormatInt(branchID, 10)
 	return true
 }
 
