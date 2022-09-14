@@ -8,7 +8,7 @@ English | [中文](./README_CN.md)
 
 # Introduction
 
-**Dubbo-Go-Pixiu**(official site: https://dubbo-go-pixiu.github.io/) is a high-performance API gateway and multi-language solution Sidecar in the Dubbo ecosystem
+**Dubbo-Go-Pixiu**(official site: https://dubbo.apache.org/zh/docs3-v2/dubbo-go-pixiu/) is a high-performance API gateway and multi-language solution Sidecar in the Dubbo ecosystem
 
 
 ![](https://dubbo-go-pixiu.github.io/img/pixiu-dubbo-ecosystem.png)
@@ -18,7 +18,7 @@ It is an open source Dubbo ecosystem API gateway, and also a sidecar to let othe
 
 ## Quick Start
 
-you can find out all demo in https://github.com/dubbo-go-pixiu/samples.
+you can find out all demo in https://github.com/apache/dubbo-go-pixiu-samples.
 download it and operate as below.
 
 #### cd samples dir
@@ -103,6 +103,10 @@ docker run --name pixiu-gateway -p 8888:8888 \
 - Traffic management: Integrate with sentinel, support multiple protocols for rate limiting.
 - Observability: Integrate with opentelemetry and jaeger for distributed tracing.
 - Admin and visual interface: Have pixiu-admin for remote administration and visualization
+
+### Control Plane
+
+The pixiu control plane is forked from [istio](https://github.com/istio/istio) v1.14.3. Offers a variety of capabilities, including service discovery, traffic management, security management.
 
 ## Contact Us
 

@@ -26,9 +26,9 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
 )
 
 var (
