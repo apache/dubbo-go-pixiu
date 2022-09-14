@@ -74,8 +74,8 @@ func newClusterStore(bs *model.Bootstrap) *ClusterStore {
 	store := &ClusterStore{
 		clustersMap: map[string]*cluster.Cluster{},
 	}
-	for _, cluster := range bs.StaticResources.Clusters {
-		store.AddCluster(cluster)
+	for _, c := range bs.StaticResources.Clusters {
+		store.AddCluster(c)
 	}
 	return store
 }
@@ -153,15 +153,15 @@ func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
-	for _, cluster := range cm.store.Config {
-		if cluster.Name == clusterName {
-			return pickOneEndpoint(cluster)
+	for _, c := range cm.store.Config {
+		if c.Name == clusterName {
+			return cm.pickOneEndpoint(c)
 		}
 	}
 	return nil
 }
 
-func pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
+func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
 	if c.Endpoints == nil || len(c.Endpoints) == 0 {
 		return nil
 	}
@@ -184,12 +184,12 @@ func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
-	for i, cluster := range cm.store.Config {
-		if cluster == nil {
+	for i, c := range cm.store.Config {
+		if c == nil {
 			continue
 		}
 		for _, name := range namesToDel { // suppose resource to remove and clusters is few
-			if name == cluster.Name {
+			if name == c.Name {
 				removed := cm.store.Config[i]
 				cm.store.clustersMap[removed.Name].Stop()
 				cm.store.Config[i] = nil
@@ -221,6 +221,7 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	}
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
+	c.CreateConsistentHash()
 }
 
 func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
@@ -258,6 +259,9 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 			// endpoint create
 			c.Endpoints = append(c.Endpoints, endpoint)
 			cluster.AddEndpoint(endpoint)
+			if c.Hash.ConsistentHash != nil {
+				c.Hash.ConsistentHash.Add(endpoint.Address.Address)
+			}
 			return
 		}
 	}
@@ -274,6 +278,9 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 				if e.ID == endpointID {
 					cluster.RemoveEndpoint(e)
 					c.Endpoints = append(c.Endpoints[:i], c.Endpoints[i+1:]...)
+					if c.Hash.ConsistentHash != nil {
+						c.Hash.ConsistentHash.Remove(e.Address.Address)
+					}
 					return
 				}
 			}

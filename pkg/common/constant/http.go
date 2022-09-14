@@ -26,9 +26,11 @@ const (
 	HeaderKeyAccessControlMaxAge           = "Access-Control-Max-Age"
 	HeaderKeyAccessControlAllowCredentials = "Access-Control-Allow-Credentials"
 
-	HeaderValueJsonUtf8  = "application/json;charset=UTF-8"
-	HeaderValueTextPlain = "text/plain"
-	HeaderValueAll       = "*"
+	HeaderValueJsonUtf8        = "application/json;charset=UTF-8"
+	HeaderValueTextPlain       = "text/plain"
+	HeaderValueApplicationJson = "application/json"
+
+	HeaderValueAll = "*"
 
 	PathSlash           = "/"
 	ProtocolSlash       = "://"
@@ -53,8 +55,9 @@ const (
 )
 
 const (
-	DubboHttpDubboVersion = "x-dubbo-http1.1-dubbo-version"
-	DubboServiceProtocol  = "x-dubbo-service-protocol"
-	DubboServiceVersion   = "x-dubbo-service-version"
-	DubboGroup            = "x-dubbo-service-group"
+	DubboHttpDubboVersion   = "x-dubbo-http1.1-dubbo-version"
+	DubboServiceProtocol    = "x-dubbo-service-protocol"
+	DubboServiceVersion     = "x-dubbo-service-version"
+	DubboGroup              = "x-dubbo-service-group"
+	DubboServiceMethodTypes = "x-dubbo-service-method-overloading"
 )

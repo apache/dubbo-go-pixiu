@@ -19,6 +19,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"net"
 	"net/http"
@@ -177,8 +178,11 @@ func (hc *HttpContext) SendLocalReply(status int, body []byte) {
 	hc.statusCode = status
 	hc.localReplyBody = body
 	hc.TargetResp = &client.Response{Data: body}
-	hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
-
+	if json.Valid(body) {
+		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
+	} else {
+		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+	}
 	writer := hc.Writer
 	writer.WriteHeader(status)
 	_, err := writer.Write(body)
