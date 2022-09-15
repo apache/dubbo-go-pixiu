@@ -150,7 +150,7 @@ func (factory *FilterFactory) rulesMatch(f *Filter, path string) []*ClusterWrapp
 				}
 				if cluster.CanaryByHeader != "" {
 					if _, ok := f.record[cluster.CanaryByHeader]; ok {
-						panic("Duplicate canary-by-header values")
+						logger.Errorf("Duplicate canary-by-header values")
 					} else {
 						f.record[cluster.CanaryByHeader] = struct{}{}
 						wp.header = cluster.CanaryByHeader
@@ -159,7 +159,7 @@ func (factory *FilterFactory) rulesMatch(f *Filter, path string) []*ClusterWrapp
 				if cluster.CanaryWeight != "" {
 					val, err := strconv.Atoi(cluster.CanaryWeight)
 					if err != nil || val <= 0 {
-						panic(fmt.Sprintf("Wrong canary-weight value: %v", cluster.CanaryWeight))
+						logger.Errorf(fmt.Sprintf("Wrong canary-weight value: %v", cluster.CanaryWeight))
 					}
 					wp.weightFloor = up
 					up += val

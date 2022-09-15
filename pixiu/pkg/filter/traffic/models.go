@@ -22,10 +22,7 @@ import (
 )
 
 func headerSpilt(req *http.Request, value string) bool {
-	if v := req.Header.Get(string(canaryByHeader)); v != "" {
-		return v == value
-	}
-	return false
+	return req.Header.Get(string(canaryByHeader)) == value
 }
 
 func weightSpilt(weight, floor, ceil int) bool {
