@@ -127,9 +127,9 @@ func (f *Filter) traffic(c *ClusterWrapper, ctx *http.HttpContext) bool {
 
 	res := false
 	if c.header != "" {
-		res = headerSpilt(ctx.Request, c.header)
+		res = spiltHeader(ctx.Request, c.header)
 	} else if !res && c.weightFloor != -1 && c.weightCeil != -1 {
-		res = weightSpilt(f.weight, c.weightFloor, c.weightCeil)
+		res = spiltWeight(f.weight, c.weightFloor, c.weightCeil)
 	}
 	return res
 }

@@ -21,10 +21,10 @@ import (
 	"net/http"
 )
 
-func headerSpilt(req *http.Request, value string) bool {
+func spiltHeader(req *http.Request, value string) bool {
 	return req.Header.Get(string(canaryByHeader)) == value
 }
 
-func weightSpilt(weight, floor, ceil int) bool {
+func spiltWeight(weight, floor, ceil int) bool {
 	return weight >= floor && weight < ceil
 }
