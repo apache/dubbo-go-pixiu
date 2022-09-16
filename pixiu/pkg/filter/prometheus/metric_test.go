@@ -41,7 +41,7 @@ func TestExporterApiMetric(t *testing.T) {
 		MetricCollectRule{
 			Enable:              true,
 			MeticPath:           "/metrics",
-			PushGatewayURL:      "http://domain:port",
+			PushGatewayURL:      "http://127.0.0.1:9091",
 			PushIntervalSeconds: 3,
 			PushJobName:         "prometheus",
 		},
@@ -62,6 +62,7 @@ func TestExporterApiMetric(t *testing.T) {
 
 		chain := filter.NewDefaultFilterChain()
 		data := GetApiStatsResponse()
+
 		body, _ := json.Marshal(&data)
 		request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
 		ctx := mock.GetMockHTTPContext(request)

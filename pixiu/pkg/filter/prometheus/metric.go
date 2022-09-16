@@ -19,7 +19,6 @@ package prometheus
 
 import (
 	stdHttp "net/http"
-	"time"
 )
 
 import (
@@ -60,6 +59,7 @@ func (p Plugin) Kind() string {
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 
 	return &FilterFactory{
+		Cfg:  &MetricCollectConfiguration{},
 		Prom: prom.NewPrometheus(),
 	}, nil
 }
@@ -98,7 +98,7 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 	}
 
 	f.Prom.SetMetricPath(f.Cfg.Rules.MeticPath)
-	f.Prom.SetPushGateway(f.Cfg.Rules.PushGatewayURL, time.Duration(f.Cfg.Rules.PushIntervalSeconds), f.Cfg.Rules.PushJobName)
+	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, "/metrics", 3)
 	start := f.Prom.HandlerFunc()
 	err := start(ctx)
 	if err != nil {
