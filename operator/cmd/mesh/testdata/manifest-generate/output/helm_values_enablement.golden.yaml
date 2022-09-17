@@ -47,7 +47,7 @@ spec:
       serviceAccountName: istio-egressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "gcr.io/istio-testing/proxyv2:latest"
+          image: "gcr.io/istio-testing/dubbo-agent:latest"
           ports:
             - containerPort: 8080
               protocol: TCP

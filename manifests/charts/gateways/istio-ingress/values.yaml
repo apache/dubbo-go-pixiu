@@ -156,7 +156,7 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
-  hub: gcr.io/istio-testing
+  hub: apache
 
   # Default tag for Istio images.
   tag: latest
@@ -197,7 +197,7 @@ global:
   priorityClassName: ""
 
   proxy:
-    image: proxyv2
+    image: dubbo-agent
 
     # CAUTION: It is important to ensure that all Istio helm charts specify the same clusterDomain value
     # cluster domain. Default value is "cluster.local".

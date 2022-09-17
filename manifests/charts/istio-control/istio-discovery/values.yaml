@@ -13,7 +13,7 @@ pilot:
   tag: ""
 
   # Can be a full hub/image:tag
-  image: pilot
+  image: dubbo-pilot
   traceSampling: 1.0
 
   # Resources for a small pilot install
@@ -235,7 +235,7 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
-  hub: gcr.io/istio-testing
+  hub: apache
   # Default tag for Istio images.
   tag: latest
 
@@ -297,7 +297,7 @@ global:
   priorityClassName: ""
 
   proxy:
-    image: proxyv2
+    image: dubbo-agent
 
     # This controls the 'policy' in the sidecar injector.
     autoInject: enabled
@@ -367,7 +367,7 @@ global:
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
-    image: proxyv2
+    image: dubbo-agent
     resources:
       limits:
         cpu: 2000m

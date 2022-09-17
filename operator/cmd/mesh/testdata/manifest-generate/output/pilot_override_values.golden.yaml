@@ -77,7 +77,7 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        image: docker.io/istio/pilot:1.1.4
+        image: docker.io/istio/dubbo-pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 8080

@@ -1,4 +1,4 @@
-hub: gcr.io/istio-testing
+hub: apache
 tag: latest
 
 # ImagePullSecrets for operator ServiceAccount, list of secrets in the same namespace
