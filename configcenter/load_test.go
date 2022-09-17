@@ -2,9 +2,12 @@ package configcenter
 
 import (
 	"encoding/json"
+	"testing"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-	"testing"
 )
 
 func getBootstrap() *model.Bootstrap {

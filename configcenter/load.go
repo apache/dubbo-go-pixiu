@@ -1,10 +1,16 @@
 package configcenter
 
 import (
+	"strings"
+)
+
+import (
+	"github.com/ghodss/yaml"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-	"github.com/ghodss/yaml"
-	"strings"
 )
 
 const (

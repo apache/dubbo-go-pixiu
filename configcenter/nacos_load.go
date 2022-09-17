@@ -1,13 +1,16 @@
 package configcenter
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 const (
@@ -34,6 +37,7 @@ type (
 	NacosConfig struct {
 		client config_client.IConfigClient
 
+		// todo not support now
 		listenConfigCallback ListenConfig
 	}
 )
