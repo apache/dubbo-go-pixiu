@@ -1,7 +1,6 @@
-package nacos
+package configcenter
 
 import (
-	"github.com/apache/dubbo-go-pixiu/configcenter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/nacos-group/nacos-sdk-go/clients"
@@ -21,8 +20,9 @@ const (
 )
 
 const (
-	DataId = "pixiu.yaml"
-	Group  = "DEFAULT_GROUP"
+	DataId    = "pixiu.yaml"
+	Group     = "DEFAULT_GROUP"
+	Namespace = "dubbo-go-pixiu"
 
 	IpAddr      = "localhost"
 	ContextPath = "/nacos"
@@ -34,11 +34,11 @@ type (
 	NacosConfig struct {
 		client config_client.IConfigClient
 
-		listenConfigCallback configcenter.ListenConfig
+		listenConfigCallback ListenConfig
 	}
 )
 
-func NewNacosConfig(boot *model.Bootstrap) (configClient configcenter.ConfigClient, err error) {
+func NewNacosConfig(boot *model.Bootstrap) (configClient ConfigClient, err error) {
 
 	var sc []constant.ServerConfig
 	if len(boot.Nacos.ServerConfigs) == 0 {

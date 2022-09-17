@@ -1,7 +1,6 @@
 package configcenter
 
 import (
-	"github.com/apache/dubbo-go-pixiu/configcenter/nacos"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/ghodss/yaml"
@@ -26,8 +25,8 @@ type (
 
 	Options struct {
 		Remote bool
-		DataId []string
-		Group  []string
+		DataId string
+		Group  string
 		path   string
 		parser string
 	}
@@ -44,11 +43,11 @@ func NewConfigLoad(bootConfig *model.Bootstrap) *DefaultConfigLoad {
 
 	// config center load
 	if strings.EqualFold(bootConfig.Config.Type, KEY_CONFIG_TYPE_NACOS) {
-		configClient, _ = nacos.NewNacosConfig(bootConfig)
+		configClient, _ = NewNacosConfig(bootConfig)
 	}
 
 	if configClient == nil {
-		logger.Infof("no remote config-center")
+		logger.Warnf("no remote config-center")
 		return nil
 	}
 
@@ -70,19 +69,33 @@ func (d *DefaultConfigLoad) LoadConfigs(boot *model.Bootstrap, opts ...Option) (
 	}
 
 	m := map[string]interface{}{}
-	m["dataId"] = opt.DataId
-	m["group"] = opt.Group
 
-	// pi todo param
+	if strings.EqualFold(boot.Config.Type, KEY_CONFIG_TYPE_NACOS) {
+		getOrDefault(opt.DataId, DataId)
+		getOrDefault(opt.Group, Group)
+		m["dataId"] = opt.DataId
+		m["group"] = opt.Group
+	}
+
+	if len(m) == 0 {
+		logger.Errorf("no identify properties key when load from remote config center")
+		return boot, nil
+	}
+
 	data, err := d.configClient.LoadConfig(m)
 
 	if err != nil {
 		return nil, err
 	}
 
+	if len(data) == 0 {
+		logger.Errorf("the config data load from remote is nil, config center : %s", boot.Config.Type)
+		return boot, err
+	}
+
 	err = Parsers[".yml"]([]byte(data), boot)
 
-	return v, err
+	return boot, err
 }
 
 func ParseYamlBytes(content []byte, v interface{}) error {

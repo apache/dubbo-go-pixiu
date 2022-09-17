@@ -146,8 +146,8 @@ type Config struct {
 type Nacos struct {
 	ServerConfigs []*NacosServerConfig `yaml:"server_configs" json:"server-configs" mapstructure:"server_configs"`
 	ClientConfig  *NacosClientConfig   `yaml:"client-config" json:"client-config" mapstructure:"client_config"`
-	DataId        string               `yaml:"data-id" json:"data-id" mapstructure:"data_id"`
-	Group         string               `yaml:"group" json:"group" mapstructure:"group"`
+	DataId        string               `yaml:"data-id" json:"data-id" mapstructure:"data_id" default:"pixiu.yaml"`
+	Group         string               `yaml:"group" json:"group" mapstructure:"group" default:"DEFAULT_GROUP"`
 }
 
 type NacosServerConfig struct {
@@ -168,13 +168,13 @@ type NacosClientConfig struct {
 	AccessKey            string `json:"access_key,omitempty" yaml:"access_key" mapstructure:"access_key"`                                        // the AccessKey for kms
 	SecretKey            string `json:"secret_key,omitempty" yaml:"secret_key" mapstructure:"secret_key"`                                        // the SecretKey for kms
 	OpenKMS              bool   `json:"open_kms,omitempty" yaml:"open_kms" mapstructure:"open_kms"`                                              // it's to open kms,default is false. https://help.aliyun.com/product/28933.html
-	CacheDir             string `json:"cache_dir,omitempty" yaml:"cache_dir" mapstructure:"cache_dir"`                                           // the directory for persist nacos service info,default value is current path
+	CacheDir             string `json:"cache_dir,omitempty" yaml:"cache_dir" mapstructure:"cache_dir" default:"/tmp/nacos/cache"`                // the directory for persist nacos service info,default value is current path
 	UpdateThreadNum      int    `json:"update_thread_num,omitempty" yaml:"update_thread_num" mapstructure:"update_thread_num"`                   // the number of gorutine for update nacos service info,default value is 20
 	NotLoadCacheAtStart  bool   `json:"not_load_cache_at_start,omitempty" yaml:"not_load_cache_at_start" mapstructure:"not_load_cache_at_start"` // not to load persistent nacos service info in CacheDir at start time
 	UpdateCacheWhenEmpty bool   `json:"update_cache_when_empty,omitempty" yaml:"update_cache_when_empty" mapstructure:"update_cache_when_empty"` // update cache when get empty service instance from server
 	Username             string `json:"username,omitempty" yaml:"username" mapstructure:"username"`                                              // the username for nacos auth
 	Password             string `json:"password,omitempty" yaml:"password" mapstructure:"password"`                                              // the password for nacos auth
-	LogDir               string `json:"log_dir,omitempty" yaml:"log_dir" mapstructure:"log_dir"`                                                 // the directory for log, default is current path
+	LogDir               string `json:"log_dir,omitempty" yaml:"log_dir" mapstructure:"log_dir" default:"/tmp/nacos/log"`                        // the directory for log, default is current path
 	LogLevel             string `json:"log_level,omitempty" yaml:"log_level" mapstructure:"log_level"`                                           // the level of log, it's must be debug,info,warn,error, default value is info
 	//LogSampling          *ClientLogSamplingConfig // the sampling config of log
 	ContextPath string `json:"context_path,omitempty" yaml:"context_path" mapstructure:"context_path"` // the nacos server contextpath
