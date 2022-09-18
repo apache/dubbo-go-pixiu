@@ -85,7 +85,7 @@ func TestDefaultConfigLoad_LoadConfigs(t *testing.T) {
 			args: args{
 				boot: getBootstrap(),
 				opts: []Option{func(opt *Options) {
-					opt.Remote = true
+					opt.Remote = false // off
 					opt.DataId = DataId
 					opt.Group = Group
 				}},
@@ -102,7 +102,7 @@ func TestDefaultConfigLoad_LoadConfigs(t *testing.T) {
 			args: args{
 				boot: getBootstrap(),
 				opts: []Option{func(opt *Options) {
-					opt.Remote = true
+					opt.Remote = false // off
 					opt.DataId = ""
 					opt.Group = Group
 				}},
@@ -119,7 +119,7 @@ func TestDefaultConfigLoad_LoadConfigs(t *testing.T) {
 			args: args{
 				boot: getBootstrap(),
 				opts: []Option{func(opt *Options) {
-					opt.Remote = true
+					opt.Remote = false // off
 					opt.DataId = "ErrorDataId"
 					opt.Group = Group
 				}},

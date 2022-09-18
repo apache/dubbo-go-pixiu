@@ -18,8 +18,6 @@
 package config
 
 import (
-	"github.com/apache/dubbo-go-pixiu/configcenter"
-	"github.com/imdario/mergo"
 	"log"
 	"os"
 	"path/filepath"
@@ -33,9 +31,12 @@ import (
 	"github.com/ghodss/yaml"
 
 	"github.com/goinggo/mapstructure"
+
+	"github.com/imdario/mergo"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/configcenter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
