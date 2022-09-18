@@ -44,8 +44,8 @@ func getBootstrap() *model.Bootstrap {
 				},
 			},
 			ClientConfig: &model.NacosClientConfig{
-				CacheDir:    "/tmp/nacos/cache",
-				LogDir:      "/tmp/nacos/log",
+				CacheDir:    "./.cache",
+				LogDir:      "./.log",
 				NamespaceId: Namespace,
 			},
 			DataId: DataId,
