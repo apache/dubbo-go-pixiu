@@ -116,13 +116,6 @@ func (s *Server) Start() {
 	}
 }
 
-// Refresh server properties
-func (s *Server) Refresh() {
-
-	logger.Infof("%s Refreshing...", constant.LogPixiu)
-
-}
-
 // NewServer create server
 func NewServer() *Server {
 	return &Server{
