@@ -271,8 +271,6 @@ func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricsURL string, pushIn
 
 }
 
-// SetPushGateway sends metrics to a remote pushgateway exposed on pushGatewayURL
-// every pushInterval. Metrics are fetched from
 func (p *Prometheus) SetPushGateway() {
 	p.startPushTicker()
 }
@@ -300,13 +298,12 @@ func (p *Prometheus) getMetrics() []byte {
 }
 
 func (p *Prometheus) sendMetricsToPushGateway(metrics []byte) {
-	req, err := http.NewRequest("POST", p.getPushGatewayURL(), bytes.NewBuffer(metrics))
+	req, err := http.NewRequest(http.MethodPost, p.getPushGatewayURL(), bytes.NewBuffer(metrics))
 	if err != nil {
 		logger.Errorf("failed to create push gateway request: %v", err)
 		return
 	}
-	client := &http.Client{}
-	if _, err = client.Do(req); err != nil {
+	if _, err = (&http.Client{}).Do(req); err != nil {
 		logger.Errorf("Error sending to push gateway: %v", err)
 	}
 }

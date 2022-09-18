@@ -97,7 +97,8 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 		return filter.Continue
 	}
 
-	f.Prom.SetMetricPath(f.Cfg.Rules.MeticPath)
+	f.Prom.SetMetricPath(f.Cfg.Rules.MetricPath)
+
 	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, "/metrics", 3)
 	start := f.Prom.HandlerFunc()
 	err := start(ctx)

@@ -40,7 +40,7 @@ func TestExporterApiMetric(t *testing.T) {
 	rules := MetricCollectConfiguration{
 		MetricCollectRule{
 			Enable:              true,
-			MeticPath:           "/metrics",
+			MetricPath:          "/metrics",
 			PushGatewayURL:      "http://127.0.0.1:9091",
 			PushIntervalSeconds: 3,
 			PushJobName:         "prometheus",

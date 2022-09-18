@@ -23,11 +23,11 @@ type (
 	}
 
 	MetricCollectRule struct {
-		Enable    bool   `json:"enbale,omitempty" yaml:"enable,omitempty"`
-		MeticPath string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`
+		Enable     bool   `json:"enbale,omitempty" yaml:"enable,omitempty"`
+		MetricPath string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`
 		// Push Gateway URL in format http://domain:port
 		// where JOBNAME can be any string of your choice
-		PushGatewayURL string `json:"push_gateway_url,omitempty" yaml:"push_gateway_url,omitempty"`
+		PushGatewayURL string `default:"http://127.0.0.1:9091" json:"push_gateway_url,omitempty" yaml:"push_gateway_url,omitempty"`
 		// Push interval in seconds
 		// lint:ignore ST1011 renaming would be breaking change
 		PushIntervalSeconds int    `json:"push_interval_seconds,omitempty" yaml:"push_interval_seconds,omitempty"`
