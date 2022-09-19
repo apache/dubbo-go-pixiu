@@ -7,12 +7,10 @@
  Directly obtain the latest version of the official image `prom/pushgateway:latest` The startup command is as follows:
 
 ```shell
----
 $ docker pull prom/pushgateway
 ```
 
 ```shell
----
 $ docker run -d -p 9091:9091 prom/pushgateway
 ```
 
@@ -25,7 +23,6 @@ However, the PushGateway service itself comes with some metrics, which can be ob
 PushGateway provides a standard API interface and allows users to add data. The default URL address is: `http://<ip>:9091/metrics/job/<JOBNAME>{/<LABEL_NAME>/<LABEL_VALUE>}`, where `<JOBNAME>` It is a required item, which is the value of the job label. It can be followed by any number of label pairs. Generally, we will add an instance`/<INSTANCE_NAME>` instance name label to facilitate the distinction of each indicator.  Next, you can push a simple indicator data to PushGateway for testing.
 
 ```shell
----
 $ echo "test_metric 123456" | curl --data-binary @- http://<ip>:9091/metrics/job/test_job
 ```
 
@@ -33,7 +30,6 @@ After the execution is complete, refresh the PushGateway UI page to verify that 
 
 It can also be tested in the following way:
 ```shell
----
 $ cat <<EOF | curl --data-binary @- http://<ip>:9091/metrics/job/test_job/instance/test_instance
 # TYPE test_metrics counter
 test_metrics{label="app1",name="demo"} 100.00
@@ -50,7 +46,6 @@ Examples of official references is in `https://github.com/dubbo-go-pixiu/samples
 Add the following configuration file to the `samples/http/simple/pixiu/conf.yaml`
 
 ```yaml
----
 static_resources:
   listeners:
     - name: "net/http"
@@ -105,7 +100,6 @@ static_resources:
 Then execute the following command .
 
 ```shell
----
 go run cmd/pixiu/*.go gateway start -c samples/http/simplep/pixiu/conf.yaml
 ```
 Then you can also query the collected indicator data on the PushGateway UI page .
