@@ -23,7 +23,7 @@ require (
 	github.com/creasty/defaults v1.5.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v20.10.17+incompatible
-	github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220427143451-c0a68bf5b29a
+	github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
 	github.com/dubbogo/gost v1.11.25
 	github.com/dubbogo/grpc-go v1.42.9

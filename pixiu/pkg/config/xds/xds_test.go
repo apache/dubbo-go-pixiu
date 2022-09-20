@@ -24,6 +24,12 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
+	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls/mocks"
+
 	monkey "github.com/cch123/supermonkey"
 
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
@@ -34,14 +40,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
-	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls/mocks"
 )
 
 func TestAdapter_createApiManager(t *testing.T) {
@@ -100,10 +98,10 @@ func TestAdapter_createApiManager(t *testing.T) {
 	//	}, nil
 	//})
 
-	monkey.Patch((*apiclient.GrpcApiClient).Fetch, func(_ *apiclient.GrpcApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
+	monkey.Patch((*apiclient.GrpcExtensionApiClient).Fetch, func(_ *apiclient.GrpcExtensionApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
 		return nil, nil
 	})
-	monkey.Patch((*apiclient.GrpcApiClient).Delta, func(_ *apiclient.GrpcApiClient) (chan *apiclient.DeltaResources, error) {
+	monkey.Patch((*apiclient.GrpcExtensionApiClient).Delta, func(_ *apiclient.GrpcExtensionApiClient) (chan *apiclient.DeltaResources, error) {
 		ch := make(chan *apiclient.DeltaResources)
 		close(ch)
 		return ch, nil
