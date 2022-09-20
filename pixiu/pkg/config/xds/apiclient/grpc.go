@@ -25,6 +25,10 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
+
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
@@ -39,12 +43,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
-)
-
 // agent name to talk with xDS server
 const xdsAgentName = "dubbo-go-pixiu"
 
@@ -54,18 +52,19 @@ var (
 )
 
 type (
-	GrpcApiClient struct {
+	GrpcExtensionApiClient struct {
 		config             model.ApiConfigSource
 		grpcMg             *GRPCClusterManager
 		node               *model.Node
 		xDSExtensionClient extensionpb.ExtensionConfigDiscoveryServiceClient
 		resourceNames      []ResourceTypeName
+		typeUrl            string
 		exitCh             chan struct{}
-		xdsState           xdsState
 	}
 	xdsState struct {
 		nonce        string
 		deltaVersion map[string]string
+		versionInfo  string
 	}
 )
 
@@ -82,23 +81,23 @@ func Stop() {
 	}
 }
 
-// CreateGrpcApiClient create Grpc type ApiClient
-func CreateGrpcApiClient(config *model.ApiConfigSource, node *model.Node,
+// CreateGrpExtensionApiClient create Grpc type ApiClient
+func CreateGrpExtensionApiClient(config *model.ApiConfigSource, node *model.Node,
 	exitCh chan struct{},
-	typeNames ...ResourceTypeName) *GrpcApiClient {
-	v := &GrpcApiClient{
-		config:        *config,
-		node:          node,
-		resourceNames: typeNames,
-		grpcMg:        grpcMg,
-		exitCh:        exitCh,
+	typeName ResourceTypeName) *GrpcExtensionApiClient {
+	v := &GrpcExtensionApiClient{
+		config:  *config,
+		node:    node,
+		typeUrl: typeName,
+		grpcMg:  grpcMg,
+		exitCh:  exitCh,
 	}
 	v.init()
 	return v
 }
 
 // Fetch get config data from discovery service and return Any type.
-func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
+func (g *GrpcExtensionApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 	clsRsp, err := g.xDSExtensionClient.FetchExtensionConfigs(context.Background(), &discoverypb.DiscoveryRequest{
 		VersionInfo:   localVersion,
 		Node:          g.makeNode(),
@@ -120,17 +119,17 @@ func (g *GrpcApiClient) Fetch(localVersion string) ([]*ProtoAny, error) {
 	return extensions, nil
 }
 
-func (g *GrpcApiClient) decodeSource(resource *anypb.Any) (*ProtoAny, error) {
+func (g *GrpcExtensionApiClient) decodeSource(resource *anypb.Any) (*ProtoAny, error) {
 	extension := envoyconfigcorev3.TypedExtensionConfig{}
 	err := resource.UnmarshalTo(&extension)
 	if err != nil {
 		return nil, errors.Wrapf(err, "typed extension as expected.(%s)", g.resourceNames)
 	}
-	elems := &ProtoAny{&extension}
+	elems := &ProtoAny{typeConfig: &extension}
 	return elems, nil
 }
 
-func (g *GrpcApiClient) makeNode() *envoyconfigcorev3.Node {
+func (g *GrpcExtensionApiClient) makeNode() *envoyconfigcorev3.Node {
 	return &envoyconfigcorev3.Node{
 		Id:            g.node.Id,
 		Cluster:       g.node.Cluster,
@@ -138,21 +137,22 @@ func (g *GrpcApiClient) makeNode() *envoyconfigcorev3.Node {
 	}
 }
 
-func (g *GrpcApiClient) Delta() (chan *DeltaResources, error) {
+func (g *GrpcExtensionApiClient) Delta() (chan *DeltaResources, error) {
 	outputCh := make(chan *DeltaResources)
 	return outputCh, g.runDelta(outputCh)
 }
 
-func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
+func (g *GrpcExtensionApiClient) runDelta(output chan<- *DeltaResources) error {
 	var delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient
 	var cancel context.CancelFunc
+	var xState xdsState
 	backoff := func() {
 		for {
 			//back off
 			var err error
 			var ctx context.Context // context to sync exitCh
 			ctx, cancel = context.WithCancel(context.TODO())
-			delta, err = g.sendInitDeltaRequest(ctx)
+			delta, err = g.sendInitDeltaRequest(ctx, &xState)
 			if err != nil {
 				logger.Error("can not receive delta discovery request, will back off 1 sec later", err)
 				select {
@@ -187,9 +187,9 @@ func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 					logger.Error("can not receive delta discovery request", err)
 					break
 				}
-				g.handleDeltaResponse(resp, output)
+				g.handleDeltaResponse(resp, &xState, output)
 
-				err = g.subscribeOnGoingChang(delta)
+				err = g.subscribeOnGoingChang(delta, &xState)
 				if err != nil {
 					logger.Error("can not recv delta discovery request", err)
 					break
@@ -202,10 +202,10 @@ func (g *GrpcApiClient) runDelta(output chan<- *DeltaResources) error {
 	return nil
 }
 
-func (g *GrpcApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResponse, output chan<- *DeltaResources) {
+func (g *GrpcExtensionApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResponse, xState *xdsState, output chan<- *DeltaResources) {
 	// save the xds state
-	g.xdsState.deltaVersion = make(map[string]string, 1)
-	g.xdsState.nonce = resp.Nonce
+	xState.deltaVersion = make(map[string]string, 1)
+	xState.nonce = resp.Nonce
 
 	resources := &DeltaResources{
 		NewResources:    make([]*ProtoAny, 0, 1),
@@ -219,7 +219,7 @@ func (g *GrpcApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResp
 
 	for _, res := range resp.Resources {
 		logger.Infof("new resource found %s version=%s", res.Name, res.Version)
-		g.xdsState.deltaVersion[res.Name] = res.Version
+		xState.deltaVersion[res.Name] = res.Version
 		elems, err := g.decodeSource(res.Resource)
 		if err != nil {
 			logger.Infof("can not decode source %s version=%s", res.Name, res.Version, err)
@@ -230,17 +230,17 @@ func (g *GrpcApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResp
 	output <- resources
 }
 
-func (g *GrpcApiClient) subscribeOnGoingChang(delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient) error {
+func (g *GrpcExtensionApiClient) subscribeOnGoingChang(delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, xState *xdsState) error {
 	err := delta.Send(&discoverypb.DeltaDiscoveryRequest{
 		Node:                    g.makeNode(),
 		TypeUrl:                 resource.ExtensionConfigType,
-		InitialResourceVersions: g.xdsState.deltaVersion,
-		ResponseNonce:           g.xdsState.nonce,
+		InitialResourceVersions: xState.deltaVersion,
+		ResponseNonce:           xState.nonce,
 	})
 	return err
 }
 
-func (g *GrpcApiClient) sendInitDeltaRequest(ctx context.Context) (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
+func (g *GrpcExtensionApiClient) sendInitDeltaRequest(ctx context.Context, xState *xdsState) (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
 	delta, err := g.xDSExtensionClient.DeltaExtensionConfigs(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can not start delta stream with xds server ")
@@ -248,10 +248,10 @@ func (g *GrpcApiClient) sendInitDeltaRequest(ctx context.Context) (extensionpb.E
 	err = delta.Send(&discoverypb.DeltaDiscoveryRequest{
 		Node:                     g.makeNode(),
 		TypeUrl:                  resource.ExtensionConfigType,
-		ResourceNamesSubscribe:   g.resourceNames,
+		ResourceNamesSubscribe:   []string{g.typeUrl},
 		ResourceNamesUnsubscribe: nil,
-		InitialResourceVersions:  g.xdsState.deltaVersion,
-		ResponseNonce:            g.xdsState.nonce,
+		InitialResourceVersions:  xState.deltaVersion,
+		ResponseNonce:            xState.nonce,
 		ErrorDetail:              nil,
 	})
 	if err != nil {
@@ -260,7 +260,7 @@ func (g *GrpcApiClient) sendInitDeltaRequest(ctx context.Context) (extensionpb.E
 	return delta, nil
 }
 
-func (g *GrpcApiClient) init() {
+func (g *GrpcExtensionApiClient) init() {
 	if len(g.config.ClusterName) == 0 {
 		panic("should config one cluster at least")
 	}
@@ -362,11 +362,11 @@ func (g *GRPCCluster) GetConnection() (conn *grpc.ClientConn, err error) {
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),
 		)
-		logger.Infof("connected xds server (%s)", endpoint)
 		if err != nil {
 			err = errors.Errorf("grpc.Dial(%s) failed: %v", endpoint, err)
 			return
 		}
+		logger.Infof("connected xds server (%s)", endpoint)
 		g.conn = conn
 	})
 	return g.conn, nil

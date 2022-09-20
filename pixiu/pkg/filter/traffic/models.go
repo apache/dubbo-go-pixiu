@@ -18,61 +18,13 @@
 package traffic
 
 import (
-	"math/rand"
 	"net/http"
-	"strconv"
-	"time"
 )
 
-type splitAction func(header string, expectedValue string, r *http.Request) bool
-
-type ActionWrapper struct {
-	name   CanaryHeaders
-	action splitAction
+func spiltHeader(req *http.Request, value string) bool {
+	return req.Header.Get(string(canaryByHeader)) == value
 }
 
-type Actions struct {
-	wrappers []*ActionWrapper
-}
-
-var actions Actions
-
-func initActions() {
-	// canaryByHeader
-	headerAction := &ActionWrapper{
-		name: canaryByHeader,
-		action: func(header string, value string, r *http.Request) bool {
-			if v := r.Header.Get(header); v != "" {
-				return v == value
-			}
-			return false
-		},
-	}
-
-	// canaryWeight
-	weightAction := &ActionWrapper{
-		name: canaryWeight,
-		action: func(header string, value string, r *http.Request) bool {
-			rand.Seed(time.Now().UnixNano())
-			num := rand.Intn(100) + 1
-			intValue, _ := strconv.Atoi(value)
-			return num <= intValue
-		},
-	}
-
-	actions.wrappers = append(actions.wrappers, headerAction)
-	actions.wrappers = append(actions.wrappers, weightAction)
-}
-
-func spilt(request *http.Request, rules map[CanaryHeaders]*Cluster) *Cluster {
-	for _, wrapper := range actions.wrappers {
-		// call action, decide to return cluster or not
-		if cluster, exist := rules[wrapper.name]; exist {
-			header, value := cluster.Canary, cluster.Value
-			if wrapper.action(header, value, request) {
-				return cluster
-			}
-		}
-	}
-	return nil
+func spiltWeight(weight, floor, ceil int) bool {
+	return weight >= floor && weight < ceil
 }

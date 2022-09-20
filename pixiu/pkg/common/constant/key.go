@@ -46,6 +46,7 @@ const (
 	HTTPLoadBalanceFilter      = "dgp.filter.http.loadbalance"
 	HTTPEventFilter            = "dgp.filter.http.event"
 	HTTPTrafficFilter          = "dgp.filter.http.traffic"
+	HTTPPrometheusMetricFilter = "dgp.filter.http.prometheusmetric"
 
 	DubboHttpFilter  = "dgp.filter.dubbo.http"
 	DubboProxyFilter = "dgp.filter.dubbo.proxy"

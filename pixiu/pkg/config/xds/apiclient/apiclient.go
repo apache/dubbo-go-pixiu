@@ -24,6 +24,8 @@ import (
 import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
+	anypb "github.com/golang/protobuf/ptypes/any"
+
 	"github.com/pkg/errors"
 
 	"google.golang.org/protobuf/proto"
@@ -35,6 +37,7 @@ type (
 
 	ProtoAny struct {
 		typeConfig *v3.TypedExtensionConfig
+		any        *anypb.Any
 	}
 
 	DeltaResources struct {
@@ -48,6 +51,10 @@ func (p *ProtoAny) GetName() string {
 }
 
 func (p *ProtoAny) To(configModel PixiuDynamicConfigModel) error {
+	if p.any != nil {
+		return p.any.UnmarshalTo(configModel)
+	}
+
 	err := p.typeConfig.TypedConfig.UnmarshalTo(configModel)
 	if err != nil {
 		panic(err)
