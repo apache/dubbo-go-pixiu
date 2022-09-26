@@ -1,4 +1,4 @@
-[![Pixiu Logo](docs/images/pixiu-logo-v4.png)](http://alexstocks.github.io/html/dubbogo.html)
+[![Pixiu Logo](docs/images/pixiu-logo-v4.png)](http://alexstocks.github.io/html/dubbogo.html) test
 
 
 [![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
