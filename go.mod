@@ -90,8 +90,8 @@ require (
 	go.opencensus.io v0.23.0
 	go.opentelemetry.io/otel v1.7.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.7.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.1.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.0.0-RC1
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.6.3
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.6.3
 	go.opentelemetry.io/otel/exporters/prometheus v0.21.0
 	go.opentelemetry.io/otel/metric v0.21.0
 	go.opentelemetry.io/otel/sdk v1.7.0
@@ -294,6 +294,8 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.6.0-alpha.0 // indirect
 	go.etcd.io/etcd/client/v3 v3.6.0-alpha.0 // indirect
 	go.etcd.io/etcd/server/v3 v3.6.0-alpha.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.6.3 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.6.3 // indirect
 	go.opentelemetry.io/otel/internal/metric v0.21.0 // indirect
 	go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
