@@ -18,14 +18,8 @@
 package metric
 
 import (
-	"context"
 	"sync/atomic"
 	"time"
-)
-
-import (
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 )
 
 import (
@@ -103,18 +97,18 @@ func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
 }
 
 func registerOtelMetric() {
-	meter := global.GetMeterProvider().Meter("pixiu")
-	observerElapsedCallback := func(_ context.Context, result metric.Int64ObserverResult) {
-		result.Observe(totalElapsed)
-	}
-	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_elapsed", observerElapsedCallback,
-		metric.WithDescription("request total elapsed in pixiu"),
-	)
-
-	observerCountCallback := func(_ context.Context, result metric.Int64ObserverResult) {
-		result.Observe(totalCount)
-	}
-	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
-		metric.WithDescription("request total count in pixiu"),
-	)
+	//meter := global.MeterProvider().Meter("pixiu")
+	//observerElapsedCallback := func(_ context.Context, result metric.Int64ObserverResult) {
+	//	result.Observe(totalElapsed)
+	//}
+	//_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_elapsed", observerElapsedCallback,
+	//	metric.WithDescription("request total elapsed in pixiu"),
+	//)
+	//
+	//observerCountCallback := func(_ context.Context, result metric.Int64ObserverResult) {
+	//	result.Observe(totalCount)
+	//}
+	//_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
+	//	metric.WithDescription("request total count in pixiu"),
+	//)
 }
