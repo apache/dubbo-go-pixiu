@@ -78,8 +78,11 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 		gcm.writeStatus(w, status.New(codes.Unknown, "can't find endpoint in cluster"))
 		return
 	}
-
-	newReq := r.Clone(context.Background())
+	ctx := context.Background()
+	// timeout
+	ctx, cancel := context.WithTimeout(ctx, gcm.config.Timeout)
+	defer cancel()
+	newReq := r.Clone(ctx)
 	newReq.URL.Scheme = "http"
 	newReq.URL.Host = endpoint.Address.GetAddress()
 
