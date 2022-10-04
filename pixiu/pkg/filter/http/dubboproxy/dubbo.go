@@ -213,6 +213,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}
+
 	var resp interface{}
 	invoc.SetReply(&resp)
 

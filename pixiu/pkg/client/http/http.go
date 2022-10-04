@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 )
 
 import (
@@ -107,7 +106,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 
 	newReq, _ := http.NewRequest(req.IngressRequest.Method, targetURL, params.Body)
 	newReq.Header = params.Header
-	httpClient := &http.Client{Timeout: 5 * time.Second}
+	httpClient := &http.Client{Timeout: req.Timeout}
 
 	tr := otel.Tracer(traceNameHTTPClient)
 	_, span := tr.Start(req.Context, "HTTP "+newReq.Method, trace.WithSpanKind(trace.SpanKindClient))

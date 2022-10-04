@@ -25,6 +25,7 @@ import (
 	stdHttp "net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 import (
@@ -110,7 +111,8 @@ type (
 	Config struct {
 		DescriptorSourceStrategy DescriptorSourceStrategy `yaml:"descriptor_source_strategy" json:"descriptor_source_strategy" default:"auto"`
 		Path                     string                   `yaml:"path" json:"path"`
-		Rules                    []*Rule                  `yaml:"rules" json:"rules"` //nolint
+		Rules                    []*Rule                  `yaml:"rules" json:"rules"`     //nolint
+		Timeout                  time.Duration            `yaml:"timeout" json:"timeout"` //nolint
 	}
 
 	Rule struct {
@@ -190,7 +192,9 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte("cluster not exists"))
 		return filter.Stop
 	}
-
+	// timeout for Dial and Invoke
+	ctx, cancel := context.WithTimeout(c.Ctx, c.Timeout)
+	defer cancel()
 	ep := e.Address.GetAddress()
 
 	p, ok := f.pools[strings.Join([]string{re.Cluster, ep}, ".")]
@@ -201,7 +205,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	clientConn, ok = p.Get().(*grpc.ClientConn)
 	if !ok || clientConn == nil {
 		// TODO(Kenway): Support Credential and TLS
-		clientConn, err = grpc.DialContext(c.Ctx, ep, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		clientConn, err = grpc.DialContext(ctx, ep, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil || clientConn == nil {
 			logger.Errorf("%s err {failed to connect to grpc service provider}", loggerHeader)
 			c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte((fmt.Sprintf("%s", err))))
@@ -210,14 +214,14 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	}
 
 	// get DescriptorSource, contain file and reflection
-	source, err := f.descriptor.getDescriptorSource(context.WithValue(c.Ctx, ct.ContextKey(GrpcClientConnKey), clientConn), f.cfg)
+	source, err := f.descriptor.getDescriptorSource(context.WithValue(ctx, ct.ContextKey(GrpcClientConnKey), clientConn), f.cfg)
 	if err != nil {
 		logger.Errorf("%s err %s : %s ", loggerHeader, "get desc source fail", err)
 		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte("service not config proto file or the server not support reflection API"))
 		return filter.Stop
 	}
 	//put DescriptorSource concurrent, del if no need
-	c.Ctx = context.WithValue(c.Ctx, ct.ContextKey(DescriptorSourceKey), source)
+	ctx = context.WithValue(ctx, ct.ContextKey(DescriptorSourceKey), source)
 
 	dscp, err := source.FindSymbol(svc)
 	if err != nil {
@@ -256,7 +260,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 
 	// metadata in grpc has the same feature in http
 	md := mapHeaderToMetadata(c.AllHeaders())
-	ctx := metadata.NewOutgoingContext(c.Ctx, md)
+	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	md = metadata.MD{}
 	t := metadata.MD{}

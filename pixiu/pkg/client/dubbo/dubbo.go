@@ -52,6 +52,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
+	cst "github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
@@ -314,6 +315,12 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 		refConf.Retries = irequest.DubboBackendConfig.Retries
 	}
 
+	if dc.dubboProxyConfig.Timeout != nil {
+		refConf.RequestTimeout = dc.dubboProxyConfig.Timeout.RequestTimeoutStr
+	} else {
+		refConf.RequestTimeout = cst.DefaultReqTimeout.String()
+	}
+	logger.Debugf("[dubbo-go-pixiu] client dubbo timeout val %v", refConf.RequestTimeout)
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 

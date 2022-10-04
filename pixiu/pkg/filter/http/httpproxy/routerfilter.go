@@ -119,7 +119,12 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	}
 	req.Header = r.Header
 
-	resp, err := (&http3.Client{Transport: f.transport}).Do(req)
+	cli := &http3.Client{
+		Transport: f.transport,
+		Timeout:   hc.Timeout,
+	}
+
+	resp, err := cli.Do(req)
 	if err != nil {
 		panic(err)
 	}

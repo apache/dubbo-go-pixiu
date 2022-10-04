@@ -21,6 +21,7 @@ import (
 	perrors "github.com/pkg/errors"
 	"net"
 	"strings"
+	"time"
 )
 
 import (
@@ -105,4 +106,16 @@ func GetIPAndPort(address string) ([]*net.TCPAddr, error) {
 	}
 
 	return tcpAddr, nil
+}
+
+func ResolveTimeStr2Time(currentV string, defaultV time.Duration) time.Duration {
+	if currentV == "" {
+		return defaultV
+	} else {
+		if duration, err := time.ParseDuration(currentV); err != nil {
+			return defaultV
+		} else {
+			return duration
+		}
+	}
 }

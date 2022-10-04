@@ -85,7 +85,7 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 	hc.Writer = w
 	hc.Request = r
 	hc.Reset()
-
+	hc.Timeout = hcm.config.Timeout
 	err := hcm.Handle(hc)
 	if err != nil {
 		logger.Errorf("ServeHTTP %v", err)

@@ -75,6 +75,7 @@ func TestMain(m *testing.M) {
 		ServerName:        "test_http_dubbo",
 		GenerateRequestID: false,
 		IdleTimeoutStr:    "100",
+		TimeoutStr:        "10s",
 	}
 
 	var inInterface map[string]interface{}

@@ -20,6 +20,7 @@ package client
 import (
 	"context"
 	"net/http"
+	"time"
 )
 
 import (
@@ -32,6 +33,7 @@ type Request struct {
 	Context        context.Context
 	IngressRequest *http.Request
 	API            router.API
+	Timeout        time.Duration
 }
 
 // NewReq create a request

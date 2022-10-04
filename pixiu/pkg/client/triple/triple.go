@@ -89,7 +89,9 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	}
 	meta := make(map[string][]string)
 	reqData, _ := io.ReadAll(req.IngressRequest.Body)
-	call, err := p.Call(context.Background(), req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
+	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
+	defer cancel()
+	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
 	if err != nil {
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
