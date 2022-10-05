@@ -33,6 +33,11 @@ import (
 
 func TestMetric(t *testing.T) {
 	filter := &Filter{}
+	err := registerOtelMetric()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
 
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)

@@ -121,7 +121,8 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 
 	resp, err := (&http3.Client{Transport: f.transport}).Do(req)
 	if err != nil {
-		panic(err)
+		hc.SendLocalReply(http3.StatusServiceUnavailable, []byte(err.Error()))
+		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
 
