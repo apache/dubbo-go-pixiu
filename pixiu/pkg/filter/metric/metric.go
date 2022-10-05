@@ -18,10 +18,13 @@
 package metric
 
 import (
+	"time"
+)
+
+import (
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
-	"time"
 )
 
 import (

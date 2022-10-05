@@ -20,12 +20,6 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	sdkprometheus "github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/sdk/metric"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,9 +27,19 @@ import (
 
 import (
 	"github.com/google/uuid"
+
+	sdkprometheus "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"go.opentelemetry.io/otel/exporters/prometheus"
+
+	"go.opentelemetry.io/otel/metric/global"
+
+	"go.opentelemetry.io/otel/sdk/metric"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/tracing"
 )
