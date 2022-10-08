@@ -28,18 +28,14 @@ import (
 import (
 	"github.com/google/uuid"
 
+	sdkprometheus "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"go.opentelemetry.io/otel/exporters/prometheus"
 
 	"go.opentelemetry.io/otel/metric/global"
 
-	export "go.opentelemetry.io/otel/sdk/export/metric"
-	"go.opentelemetry.io/otel/sdk/metric/aggregator/histogram"
-	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
-	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
-	selector "go.opentelemetry.io/otel/sdk/metric/selector/simple"
-	"go.opentelemetry.io/otel/sdk/resource"
-
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"go.opentelemetry.io/otel/sdk/metric"
 )
 
 import (
@@ -50,33 +46,24 @@ import (
 
 func registerOtelMetricMeter(conf model.Metric) {
 	if conf.Enable {
-		config := prometheus.Config{}
-		resources := resource.NewWithAttributes(
-			semconv.SchemaURL,
-		)
-		c := controller.New(
-			processor.New(
-				selector.NewWithHistogramDistribution(
-					histogram.WithExplicitBoundaries(config.DefaultHistogramBoundaries),
-				),
-				export.CumulativeExportKindSelector(),
-				processor.WithMemory(true),
-			),
-			controller.WithResource(resources),
-		)
-		exporter, err := prometheus.New(config, c)
-		if err != nil {
-			logger.Error("failed to initialize prometheus exporter %v", err)
-		}
-		global.SetMeterProvider(exporter.MeterProvider())
+		exporter := prometheus.New()
+		provider := metric.NewMeterProvider(metric.WithReader(exporter))
 
-		http.HandleFunc("/", exporter.ServeHTTP)
+		registry := sdkprometheus.NewRegistry()
+		err := registry.Register(exporter.Collector)
+		if err != nil {
+			logger.Errorf("register otel metric meter failed, err: %v", err)
+			return
+		}
+
+		global.SetMeterProvider(provider)
+
+		http.Handle("/", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 		addr := ":" + strconv.Itoa(conf.PrometheusPort)
 		go func() {
+			logger.Info("Prometheus server running on " + addr)
 			_ = http.ListenAndServe(addr, nil)
 		}()
-
-		logger.Info("Prometheus server running on " + addr)
 	}
 }
 
