@@ -18,14 +18,13 @@
 package metric
 
 import (
-	"context"
-	"sync/atomic"
 	"time"
 )
 
 import (
-	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
 import (
@@ -40,8 +39,9 @@ const (
 )
 
 var (
-	totalElapsed int64
-	totalCount   int64
+	totalElapsed syncint64.Counter
+	totalCount   syncint64.Counter
+	totalError   syncint64.Counter
 )
 
 func init() {
@@ -67,18 +67,17 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	registerOtelMetric()
 	return &FilterFactory{}, nil
 }
 
 func (factory *FilterFactory) Config() interface{} {
-	return struct{}{}
+	return &struct{}{}
 }
 
 func (factory *FilterFactory) Apply() error {
 	// init
-	registerOtelMetric()
-	return nil
+	err := registerOtelMetric()
+	return err
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
@@ -95,26 +94,38 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 
 func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
 	latency := time.Since(f.start)
-	atomic.AddInt64(&totalElapsed, latency.Nanoseconds())
-	atomic.AddInt64(&totalCount, 1)
+	totalCount.Add(c.Ctx, 1)
+	totalElapsed.Add(c.Ctx, latency.Nanoseconds())
+	if c.LocalReply() {
+		totalError.Add(c.Ctx, 1)
+	}
 
 	logger.Debugf("[Metric] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.GetStatusCode(), latency, c.GetMethod(), c.GetUrl())
 	return filter.Continue
 }
 
-func registerOtelMetric() {
-	meter := global.GetMeterProvider().Meter("pixiu")
-	observerElapsedCallback := func(_ context.Context, result metric.Int64ObserverResult) {
-		result.Observe(totalElapsed)
-	}
-	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_elapsed", observerElapsedCallback,
-		metric.WithDescription("request total elapsed in pixiu"),
-	)
+func registerOtelMetric() error {
+	meter := global.MeterProvider().Meter("pixiu")
 
-	observerCountCallback := func(_ context.Context, result metric.Int64ObserverResult) {
-		result.Observe(totalCount)
+	elapsedCounter, err := meter.SyncInt64().Counter("pixiu_request_elapsed", instrument.WithDescription("request total elapsed in pixiu"))
+	if err != nil {
+		logger.Errorf("register pixiu_request_elapsed metric failed, err: %v", err)
+		return err
 	}
-	_ = metric.Must(meter).NewInt64SumObserver("pixiu_request_count", observerCountCallback,
-		metric.WithDescription("request total count in pixiu"),
-	)
+	totalElapsed = elapsedCounter
+
+	count, err := meter.SyncInt64().Counter("pixiu_request_count", instrument.WithDescription("request total count in pixiu"))
+	if err != nil {
+		logger.Errorf("register pixiu_request_count metric failed, err: %v", err)
+		return err
+	}
+	totalCount = count
+
+	errorCounter, err := meter.SyncInt64().Counter("pixiu_request_error_count", instrument.WithDescription("request error total count in pixiu"))
+	if err != nil {
+		logger.Errorf("register pixiu_request_error_count metric failed, err: %v", err)
+		return err
+	}
+	totalError = errorCounter
+	return nil
 }
