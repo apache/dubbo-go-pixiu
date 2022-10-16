@@ -18,7 +18,6 @@
 package http
 
 import (
-	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +28,7 @@ import (
 )
 
 import (
+	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/protocol"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 

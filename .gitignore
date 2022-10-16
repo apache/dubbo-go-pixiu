@@ -30,3 +30,4 @@ target/
 samples/**/dist
 
 out/
+/test

@@ -22,14 +22,15 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-)
-
-import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
+
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type (
@@ -54,18 +55,56 @@ type (
 
 func (a *Xds) createApiManager(config *model.ApiConfigSource,
 	node *model.Node,
-	resourceTypes ...apiclient.ResourceTypeName) DiscoverApi {
+	resourceType apiclient.ResourceTypeName) DiscoverApi {
 	if config == nil {
 		return nil
 	}
 
 	switch config.APIType {
 	case model.ApiTypeGRPC:
-		return apiclient.CreateGrpcApiClient(config, node, a.exitCh, resourceTypes...)
+		return apiclient.CreateGrpExtensionApiClient(config, node, a.exitCh, resourceType)
+	case model.ApiTypeIstioGRPC:
+		dubboServices, err := a.readDubboServiceFromListener()
+		if err != nil {
+			logger.Errorf("can not read listener. %v", err)
+			return nil
+		}
+		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType, apiclient.WithIstioService(dubboServices...))
 	default:
 		logger.Errorf("un-support the api type %s", config.APITypeStr)
 		return nil
 	}
+}
+
+func (a *Xds) readDubboServiceFromListener() ([]string, error) {
+	dubboServices := make([]string, 0)
+	listeners, err := a.listenerMg.CloneXdsControlListener()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, l := range listeners {
+		for _, filter := range l.FilterChain.Filters {
+			if filter.Name != constant.HTTPConnectManagerFilter {
+				continue
+			}
+			var cfg *model.HttpConnectionManagerConfig
+			if filter.Config != nil {
+				if err := mapstructure.Decode(filter.Config, &cfg); err != nil {
+					logger.Error("read listener config error when init xds", err)
+					continue
+				}
+			}
+			for _, httpFilter := range cfg.HTTPFilters {
+				if httpFilter.Name == constant.HTTPDirectDubboProxyFilter {
+					for _, route := range cfg.RouteConfig.Routes {
+						dubboServices = append(dubboServices, route.Route.Cluster)
+					}
+				}
+			}
+		}
+	}
+	return dubboServices, nil
 }
 
 func (a *Xds) Start() {

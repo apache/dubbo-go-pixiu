@@ -17,6 +17,10 @@
 
 package constant
 
+import (
+	"time"
+)
+
 var (
 	Default403Body = []byte("403 for bidden")
 	Default404Body = []byte("404 page not found")
@@ -40,4 +44,6 @@ const (
 	LogDataBuffer = 5000
 	// console
 	Console = "console"
+
+	DefaultReqTimeout = 10 * time.Second
 )

@@ -21,6 +21,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/http"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
@@ -44,6 +45,7 @@ func (p *Plugin) Kind() string {
 // CreateFilter create http network filter
 func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.HttpConnectionManagerConfig)
+	hcmc.Timeout = stringutil.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return http.CreateHttpConnectionManager(hcmc), nil
 }
 

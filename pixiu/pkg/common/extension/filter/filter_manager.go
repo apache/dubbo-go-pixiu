@@ -22,6 +22,7 @@ import (
 )
 
 import (
+	"github.com/creasty/defaults"
 	"github.com/pkg/errors"
 )
 
@@ -110,6 +111,9 @@ func (fm *FilterManager) Apply(name string, conf map[string]interface{}) (HttpFi
 	factoryConf := filter.Config()
 	if err := yaml.ParseConfig(factoryConf, conf); err != nil {
 		return nil, errors.Wrap(err, "config error")
+	}
+	if err = defaults.Set(factoryConf); err != nil {
+		return nil, err
 	}
 	err = filter.Apply()
 	if err != nil {

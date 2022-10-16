@@ -28,9 +28,10 @@ const (
 )
 
 const (
-	REST_VALUE  = "REST"
-	GRPC_VALUE  = "GRPC"
-	DUBBO_VALUE = "DUBBO"
+	REST_VALUE      = "REST"
+	GRPC_VALUE      = "GRPC"
+	DUBBO_VALUE     = "DUBBO"
+	ISTIOGRPC_VALUE = "ISTIO"
 )
 
 var (

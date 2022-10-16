@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/clock"
+	clock "k8s.io/utils/clock/testing"
 
 	rl "github.com/apache/dubbo-go-pixiu/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 )

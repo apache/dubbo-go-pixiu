@@ -43,6 +43,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/network/dubboproxy/filter/proxy"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/network/grpcconnectionmanager"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/network/httpconnectionmanager"
+	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/prometheus"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/seata"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/tracing"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/traffic"

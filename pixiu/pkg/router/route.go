@@ -24,7 +24,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 
@@ -35,6 +34,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/util/stringutil"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
 
 // Node defines the single method of the router configured API
