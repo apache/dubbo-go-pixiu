@@ -75,6 +75,7 @@ clean:
 	@rm -rf ./dubbo-go-pixiu
 
 # build pilot by docker-builder
+
 export
 RUN = ./tools/scripts/run.sh
 MAKE_DOCKER = $(RUN) make --no-print-directory -e -f Makefile.core.mk
