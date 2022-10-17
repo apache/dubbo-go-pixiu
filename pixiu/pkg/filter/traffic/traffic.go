@@ -18,9 +18,7 @@
 package traffic
 
 import (
-	"fmt"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -72,7 +70,7 @@ type (
 		Name           string `yaml:"name" json:"name" mapstructure:"name"`
 		Router         string `yaml:"router" json:"router" mapstructure:"router"`
 		CanaryByHeader string `yaml:"canary-by-header" json:"canary-by-header" mapstructure:"canary-by-header"`
-		CanaryWeight   string `yaml:"canary-weight" json:"canary-weight" mapstructure:"canary-weight"`
+		CanaryWeight   int    `yaml:"canary-weight" json:"canary-weight" mapstructure:"canary-weight"`
 	}
 )
 
@@ -105,13 +103,27 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
+	cluster := ""
 	if f.Rules != nil {
 		for _, wp := range f.Rules {
-			if f.traffic(wp, ctx) {
-				ctx.Route.Cluster = wp.Cluster.Name
+			if f.trafficHeader(wp, ctx) {
+				cluster = wp.Cluster.Name
 				logger.Debugf("[dubbo-go-pixiu] execute traffic split to cluster %s", wp.Cluster.Name)
 				break
 			}
+		}
+		if cluster == "" {
+			for _, wp := range f.Rules {
+				if f.trafficWeight(wp, ctx) {
+					ctx.Route.Cluster = wp.Cluster.Name
+					cluster = wp.Cluster.Name
+					logger.Debugf("[dubbo-go-pixiu] execute traffic split to cluster %s", wp.Cluster.Name)
+					break
+				}
+			}
+		}
+		if cluster != "" {
+			ctx.Route.Cluster = cluster
 		}
 	} else {
 		logger.Warnf("[dubbo-go-pixiu] execute traffic split fail because of empty rules.")
@@ -119,19 +131,17 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (f *Filter) traffic(c *ClusterWrapper, ctx *http.HttpContext) bool {
+func (f *Filter) trafficHeader(c *ClusterWrapper, ctx *http.HttpContext) bool {
+	return spiltHeader(ctx.Request, c.header)
+}
+
+func (f *Filter) trafficWeight(c *ClusterWrapper, ctx *http.HttpContext) bool {
 	if f.weight == unInitialize {
 		rand.Seed(time.Now().UnixNano())
 		f.weight = rand.Intn(100) + 1
 	}
 
-	res := false
-	if c.header != "" {
-		res = spiltHeader(ctx.Request, c.header)
-	} else if !res && c.weightFloor != -1 && c.weightCeil != -1 {
-		res = spiltWeight(f.weight, c.weightFloor, c.weightCeil)
-	}
-	return res
+	return spiltWeight(f.weight, c.weightFloor, c.weightCeil)
 }
 
 func (factory *FilterFactory) rulesMatch(f *Filter, path string) []*ClusterWrapper {
@@ -156,15 +166,12 @@ func (factory *FilterFactory) rulesMatch(f *Filter, path string) []*ClusterWrapp
 						wp.header = cluster.CanaryByHeader
 					}
 				}
-				if cluster.CanaryWeight != "" {
-					val, err := strconv.Atoi(cluster.CanaryWeight)
-					if err != nil || val <= 0 {
-						logger.Errorf(fmt.Sprintf("Wrong canary-weight value: %v", cluster.CanaryWeight))
-					}
+				if cluster.CanaryWeight > 0 && cluster.CanaryWeight <= 100 {
 					wp.weightFloor = up
-					up += val
+					up += cluster.CanaryWeight
 					if up > 100 {
 						logger.Errorf("[dubbo-go-pixiu] clusters' weight sum more than 100 in %v service!", cluster.Router)
+						continue
 					}
 					wp.weightCeil = up
 				}
