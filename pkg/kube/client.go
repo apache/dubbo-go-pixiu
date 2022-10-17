@@ -943,6 +943,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	}
 	opts.DynamicClient = c.dynamic
 	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun)
+	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamFieldValidation)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
