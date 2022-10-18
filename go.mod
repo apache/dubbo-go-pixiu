@@ -8,6 +8,10 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
+replace istio.io/api => github.com/mark4z/operator-api v0.0.0-20221017074935-81dbc40cee8d
+
+replace istio.io/client-go => github.com/mark4z/operator-client-go v0.0.0-20221017084620-1f32ff97e2b7
+
 require (
 	cloud.google.com/go/compute v1.6.0
 	cloud.google.com/go/security v1.3.0
@@ -121,7 +125,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.9.4
-	istio.io/api v0.0.0-20220906212632-fa18ce1fc2da
+	istio.io/api v0.0.0-20221004225839-607aeaab2827
 	istio.io/client-go v1.14.4-0.20220906213432-736be6f83263
 	istio.io/pkg v0.0.0-20220906212832-f98e656e3df0
 	k8s.io/api v0.24.2
@@ -321,7 +325,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.11.4 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
-	vimagination.zapto.org/memio v1.0.0 // indirect
+	vimagination.zapto.org/memio v0.0.0-20200222190306-588ebc67b97d // indirect
 )
 
 replace google.golang.org/protobuf v1.28.1 => google.golang.org/protobuf v1.28.0
