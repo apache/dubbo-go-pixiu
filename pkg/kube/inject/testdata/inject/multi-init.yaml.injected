@@ -95,7 +95,7 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: apache/dubbo-agent:latest
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -174,7 +174,7 @@ spec:
         - '*'
         - -d
         - 15090,15021,15020
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: apache/dubbo-agent:latest
         name: istio-init
         resources:
           limits:

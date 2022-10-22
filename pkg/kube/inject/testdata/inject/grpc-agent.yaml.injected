@@ -105,7 +105,7 @@ spec:
           value: "false"
         - name: DISABLE_ENVOY
           value: "true"
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: apache/dubbo-agent:latest
         name: istio-proxy
         readinessProbe:
           failureThreshold: 30

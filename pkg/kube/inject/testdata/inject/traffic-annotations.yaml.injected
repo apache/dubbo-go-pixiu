@@ -107,7 +107,7 @@ spec:
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY
           value: /etc/identity2/client/keys/client-key.pem
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: apache/dubbo-agent:latest
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -175,7 +175,7 @@ spec:
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY
           value: /etc/identity2/client/keys/client-key.pem
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: apache/dubbo-agent:latest
         name: istio-init
         resources:
           requests:
