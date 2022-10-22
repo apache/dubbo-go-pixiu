@@ -38,7 +38,6 @@ fi
 GIT_DESCRIBE_TAG=$(git describe --tags)
 HUB=${HUB:-"docker.io/istio"}
 
-
 # used by common/scripts/gobuild.sh
 echo "istio.io/pkg/version.buildVersion=${VERSION:-$BUILD_GIT_REVISION}"
 echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
