@@ -101,7 +101,7 @@ spec:
           value: cluster.local
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/readyz":{"httpGet":{"path":"/ip","port":8000}}}'
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: apache/dubbo-agent:latest
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -166,7 +166,7 @@ spec:
         - '*'
         - -d
         - 15090,15021,15020
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: apache/dubbo-agent:latest
         name: istio-init
         resources:
           limits:

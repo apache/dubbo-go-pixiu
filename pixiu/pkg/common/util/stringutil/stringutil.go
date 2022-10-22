@@ -18,7 +18,7 @@
 package stringutil
 
 import (
-	perrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"net"
 	"strings"
 	"time"
@@ -27,16 +27,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 )
-
-// StrInSlice returns whether the string is in the slice.
-func StrInSlice(str string, slice []string) bool {
-	for _, s := range slice {
-		if s == str {
-			return true
-		}
-	}
-	return false
-}
 
 // Split url split to []string by "/"
 func Split(path string) []string {
@@ -94,7 +84,7 @@ func GetTrieKey(method string, path string) string {
 
 func GetIPAndPort(address string) ([]*net.TCPAddr, error) {
 	if len(address) <= 0 {
-		return nil, perrors.Errorf("invalid address, %s", address)
+		return nil, errors.Errorf("invalid address, %s", address)
 	}
 	tcpAddr := make([]*net.TCPAddr, 0)
 	for _, addrs := range strings.Split(address, ",") {
