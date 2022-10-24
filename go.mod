@@ -8,9 +8,9 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-replace istio.io/api => github.com/mark4z/operator-api v0.0.0-20221017074935-81dbc40cee8d
+replace istio.io/api => github.com/mark4z/operator-api v0.0.0-20221023112827-13c922fdd816
 
-replace istio.io/client-go => github.com/mark4z/operator-client-go v0.0.0-20221017084620-1f32ff97e2b7
+replace istio.io/client-go => github.com/mark4z/operator-client-go v0.0.0-20221023113210-c2c7af30ac73
 
 require (
 	cloud.google.com/go/compute v1.6.0

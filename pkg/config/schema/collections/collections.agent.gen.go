@@ -150,6 +150,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// IstioNetworkingV1Alpha3Servicenamemappings describes the collection
+	// istio/networking/v1alpha3/servicenamemappings
+	IstioNetworkingV1Alpha3Servicenamemappings = collection.Builder{
+		Name:         "istio/networking/v1alpha3/servicenamemappings",
+		VariableName: "IstioNetworkingV1Alpha3Servicenamemappings",
+		Resource: resource.Builder{
+			Group:   "networking.istio.io",
+			Kind:    "ServiceNameMapping",
+			Plural:  "servicenamemappings",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.ServiceNameMapping", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceNameMapping{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioNetworkingV1Alpha3Sidecars describes the collection
 	// istio/networking/v1alpha3/sidecars
 	IstioNetworkingV1Alpha3Sidecars = collection.Builder{
@@ -321,6 +339,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
+		MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
@@ -341,6 +360,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
+		MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
@@ -368,6 +388,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
+		MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
@@ -386,6 +407,7 @@ var (
 			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 			MustAdd(IstioNetworkingV1Alpha3Gateways).
 			MustAdd(IstioNetworkingV1Alpha3Serviceentries).
+			MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 			MustAdd(IstioNetworkingV1Alpha3Sidecars).
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 			MustAdd(IstioNetworkingV1Alpha3Workloadentries).

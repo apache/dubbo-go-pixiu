@@ -81,6 +81,11 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.ServiceEntry)),
 		}, metav1.CreateOptions{})
+	case collections.IstioNetworkingV1Alpha3Servicenamemappings.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().ServiceNameMappings(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.ServiceNameMapping{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*networkingv1alpha3.ServiceNameMapping)),
+		}, metav1.CreateOptions{})
 	case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Sidecars(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.Sidecar{
 			ObjectMeta: objMeta,
@@ -187,6 +192,11 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.ServiceEntry)),
+		}, metav1.UpdateOptions{})
+	case collections.IstioNetworkingV1Alpha3Servicenamemappings.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().ServiceNameMappings(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.ServiceNameMapping{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*networkingv1alpha3.ServiceNameMapping)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Sidecars(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.Sidecar{
@@ -297,6 +307,12 @@ func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, c
 
 	case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case collections.IstioNetworkingV1Alpha3Servicenamemappings.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().ServiceNameMappings(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.ServiceNameMapping{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -469,6 +485,21 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().ServiceEntries(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Servicenamemappings.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.ServiceNameMapping{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.ServiceNameMapping)),
+		}
+		modRes := &clientnetworkingv1alpha3.ServiceNameMapping{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.ServiceNameMapping)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().ServiceNameMappings(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.Sidecar{
@@ -716,6 +747,8 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 		return ic.NetworkingV1alpha3().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().ServiceEntries(namespace).Delete(context.TODO(), name, deleteOptions)
+	case collections.IstioNetworkingV1Alpha3Servicenamemappings.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().ServiceNameMappings(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Sidecars(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
@@ -833,6 +866,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	collections.IstioNetworkingV1Alpha3Servicenamemappings.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*clientnetworkingv1alpha3.ServiceNameMapping)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Servicenamemappings.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
