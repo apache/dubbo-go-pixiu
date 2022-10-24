@@ -24,6 +24,24 @@ import (
 
 var (
 
+	// IstioExtensionsV1Alpha1Servicenamemappings describes the collection
+	// istio/extensions/v1alpha1/servicenamemappings
+	IstioExtensionsV1Alpha1Servicenamemappings = collection.Builder{
+		Name:         "istio/extensions/v1alpha1/servicenamemappings",
+		VariableName: "IstioExtensionsV1Alpha1Servicenamemappings",
+		Resource: resource.Builder{
+			Group:   "extensions.istio.io",
+			Kind:    "ServiceNameMapping",
+			Plural:  "servicenamemappings",
+			Version: "v1alpha1",
+			Proto:   "istio.extensions.v1alpha1.ServiceNameMapping", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.ServiceNameMapping{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioExtensionsV1Alpha1Wasmplugins describes the collection
 	// istio/extensions/v1alpha1/wasmplugins
 	IstioExtensionsV1Alpha1Wasmplugins = collection.Builder{
@@ -147,24 +165,6 @@ var (
 			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioNetworkingV1Alpha3Servicenamemappings describes the collection
-	// istio/networking/v1alpha3/servicenamemappings
-	IstioNetworkingV1Alpha3Servicenamemappings = collection.Builder{
-		Name:         "istio/networking/v1alpha3/servicenamemappings",
-		VariableName: "IstioNetworkingV1Alpha3Servicenamemappings",
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "ServiceNameMapping",
-			Plural:  "servicenamemappings",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.ServiceNameMapping", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceNameMapping{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -332,6 +332,7 @@ var (
 
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
 		MustAdd(IstioMeshV1Alpha1MeshNetworks).
@@ -339,7 +340,6 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
-		MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
@@ -353,6 +353,7 @@ var (
 
 	// Istio contains only Istio collections.
 	Istio = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
 		MustAdd(IstioMeshV1Alpha1MeshNetworks).
@@ -360,7 +361,6 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
-		MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
@@ -383,12 +383,12 @@ var (
 
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
-		MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
@@ -402,12 +402,12 @@ var (
 
 	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
 	PilotGatewayAPI = collection.NewSchemasBuilder().
+			MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 			MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 			MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 			MustAdd(IstioNetworkingV1Alpha3Gateways).
 			MustAdd(IstioNetworkingV1Alpha3Serviceentries).
-			MustAdd(IstioNetworkingV1Alpha3Servicenamemappings).
 			MustAdd(IstioNetworkingV1Alpha3Sidecars).
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 			MustAdd(IstioNetworkingV1Alpha3Workloadentries).

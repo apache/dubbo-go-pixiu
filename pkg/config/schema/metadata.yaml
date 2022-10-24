@@ -180,9 +180,9 @@ collections:
     name: "k8s/gateway_api/v1alpha2/referencepolicies"
     group: "gateway.networking.k8s.io"
 
-  - name: "istio/networking/v1alpha3/servicenamemappings"
+  - name: "istio/extensions/v1alpha1/servicenamemappings"
     kind: ServiceNameMapping
-    group: "networking.istio.io"
+    group: "extensions.istio.io"
     pilot: true
 
 # Configuration for resource types.
@@ -476,10 +476,10 @@ resources:
 
   - kind: ServiceNameMapping
     plural: "servicenamemappings"
-    group: "networking.istio.io"
-    version: "v1alpha3"
-    proto: "istio.networking.v1alpha3.ServiceNameMapping"
-    protoPackage: "istio.io/api/networking/v1alpha3"
+    group: "extensions.istio.io"
+    version: "v1alpha1"
+    proto: "istio.extensions.v1alpha1.ServiceNameMapping"
+    protoPackage: "istio.io/api/extensions/v1alpha1"
     description: "describes service name mappings"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
