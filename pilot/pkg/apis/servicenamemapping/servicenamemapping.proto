@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package servicenamemapping;
+
+option go_package = "github.com/apache/dubbo-go-pixiu/pilot/pkg/apis/servicenamemapping";
+
+// Provides an service for reporting the mapping relationship between interface => cluster
+// the cluster name will be versioned FQDN. such as "demo.default.svc.cluster.local"
+service ServiceNameMappingService{
+  rpc registerServiceAppMapping(stream ServiceMappingRequest) returns (ServiceMappingResponse);
+}
+
+message ServiceMappingRequest{
+  string applicationName = 1;
+
+  repeated string interfaceName = 2;
+}
+
+message ServiceMappingResponse{
+}

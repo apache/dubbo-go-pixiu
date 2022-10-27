@@ -168,6 +168,21 @@ func newGatewayIndex() gatewayIndex {
 	}
 }
 
+// serviceNameMappingIndex is the index of Service Name Mapping by various fields.
+type serviceNameMappingIndex struct {
+	// namespace contains gateways by namespace.
+	namespace map[string][]config.Config
+	// all contains all gateways.
+	all []config.Config
+}
+
+func newServiceNameMappingIndex() serviceNameMappingIndex {
+	return serviceNameMappingIndex{
+		namespace: map[string][]config.Config{},
+		all:       []config.Config{},
+	}
+}
+
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
@@ -202,6 +217,9 @@ type PushContext struct {
 
 	// sidecarIndex stores sidecar resources
 	sidecarIndex sidecarIndex
+
+	// serviceNameMappingIndex is the index of service name mapping.
+	serviceNameMappingIndex serviceNameMappingIndex
 
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
@@ -634,6 +652,7 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
+		serviceNameMappingIndex: newServiceNameMappingIndex(),
 	}
 }
 
@@ -1177,6 +1196,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 
 	// Must be initialized in the end
 	if err := ps.initSidecarScopes(env); err != nil {
+		return err
+	}
+	// service name mapping context init
+	if err := ps.initServiceNameMappings(env); err != nil {
 		return err
 	}
 	return nil
@@ -2178,6 +2201,24 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 		ps.GatewayAPIController = env.GatewayAPIController
 		return env.GatewayAPIController.Recompute(GatewayContext{ps})
 	}
+	return nil
+}
+
+// Split out of ServiceNameMapping expensive conversions - once per push.
+func (ps *PushContext) initServiceNameMappings(env *Environment) error {
+	configs, err := env.List(gvk.ServiceNameMapping, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	svcMappings := make([]config.Config, len(configs))
+	for i := range svcMappings {
+		svcMappings[i] = configs[i].DeepCopy()
+	}
+
+	ps.serviceNameMappingIndex.all = svcMappings
 	return nil
 }
 
