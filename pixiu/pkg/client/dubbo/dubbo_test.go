@@ -239,3 +239,9 @@ func TestBuildOption(t *testing.T) {
 	_, ok := option.(*interfaceOpt)
 	assert.True(t, ok)
 }
+
+func TestApply(t *testing.T) {
+	dClient := NewDubboClient()
+	err := dClient.Apply()
+	assert.Nil(t, err)
+}
