@@ -224,7 +224,7 @@ $(OUTPUT_DIRS):
 .PHONY: ${GEN_CERT}
 GEN_CERT := ${ISTIO_BIN}/generate_cert
 ${GEN_CERT}:
-	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && tools/scripts/gobuild.sh $@ ./security/tools/generate_cert
+	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && common/scripts/gobuild.sh $@ ./security/tools/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -268,8 +268,8 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	GOPROXY=https://goproxy.cn GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $(TARGET_OUT)/ $(STANDARD_BINARIES)
-	GOPROXY=https://goproxy.cn GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $(TARGET_OUT)/ -tags=agent $(AGENT_BINARIES)
+	GOPROXY=https://goproxy.cn GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ $(STANDARD_BINARIES)
+	GOPROXY=https://goproxy.cn GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=agent $(AGENT_BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
@@ -277,8 +277,8 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(STANDARD_BINARIES)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
 
 # Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
@@ -292,7 +292,7 @@ $(TARGET_OUT_LINUX)/$(shell basename $(1)): build-linux
 	@:
 else
 $(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(2) $(1)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(2) $(1)
 endif
 endef
 
@@ -396,17 +396,17 @@ gen-kustomize:
 
 # Non-static istioctl targets. These are typically a build artifact.
 ${TARGET_OUT}/release/istioctl-linux-amd64: depend
-	GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${TARGET_OUT}/release/istioctl-linux-armv7: depend
-	GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${TARGET_OUT}/release/istioctl-linux-arm64: depend
-	GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${TARGET_OUT}/release/istioctl-osx: depend
-	GOOS=darwin GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=darwin GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${TARGET_OUT}/release/istioctl-osx-arm64: depend
-	GOOS=darwin GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=darwin GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${TARGET_OUT}/release/istioctl-win.exe: depend
-	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) tools/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
 ${TARGET_OUT}/release/istioctl.bash: ${LOCAL_OUT}/istioctl
