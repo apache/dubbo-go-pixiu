@@ -26,5 +26,5 @@ func spiltHeader(req *http.Request, value string) bool {
 }
 
 func spiltWeight(weight, floor, ceil int) bool {
-	return weight >= floor && weight < ceil
+	return weight > floor && weight <= ceil
 }
