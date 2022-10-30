@@ -41,6 +41,9 @@ git clone -b main https://github.com/apache/dubbo-go-pixiu-samples.git integrate
 # update dubbo-go to current commit id
 go mod edit -replace=github.com/apache/dubbo-go-pixiu=github.com/"$1"@"$2"
 
+# use parent dir as dubbo-go-pixiu because it's easy for running integrate test locally.
+go mod edit -replace=github.com/apache/dubbo-go-pixiu=..
+
 #grep -rl "github.com/apache/dubbo-go-pixiu/pkg" | xargs sed -i 's/github.com\/apache\/dubbo-go-pixiu\/pkg\//github.com\/apache\/dubbo-go-pixiu\/pixiu\/pkg\//g'
 
 # prepare dependency
