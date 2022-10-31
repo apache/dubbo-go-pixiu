@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
 	_ "net/http/pprof"
 	"runtime"
 	"strconv"
@@ -40,7 +41,7 @@ import (
 
 var (
 	// Version pixiu version
-	Version = "0.3.0"
+	Version = "0.5.1"
 
 	flagToLogLevel = map[string]string{
 		"trace":    "TRACE",
@@ -65,6 +66,9 @@ var (
 	initFromRemote = false
 )
 
+// deploy server deployment
+var deploy = &DefaultDeployer{}
+
 // main pixiu run method
 func main() {
 	app := getRootCmd()
@@ -88,6 +92,42 @@ func getRootCmd() *cobra.Command {
 	rootCmd.AddCommand(sideCarCmd)
 
 	return rootCmd
+}
+
+type DefaultDeployer struct {
+	bootstrap    *model.Bootstrap
+	configManger *config.ConfigManager
+}
+
+func (d *DefaultDeployer) initialize() error {
+
+	err := initLog()
+	if err != nil {
+		logger.Warnf("[startGatewayCmd] failed to init logger, %s", err.Error())
+	}
+
+	// load Bootstrap config
+	d.bootstrap = d.configManger.LoadBootConfig(configPath)
+	if err != nil {
+		panic(fmt.Errorf("[startGatewayCmd] failed to get api meta config, %s", err.Error()))
+	}
+
+	err = initLimitCpus()
+	if err != nil {
+		logger.Errorf("[startCmd] failed to get limit cpu number, %s", err.Error())
+	}
+
+	return err
+}
+
+func (d *DefaultDeployer) start() error {
+	server.Start(d.bootstrap)
+	return nil
+}
+
+func (d *DefaultDeployer) stop() error {
+	//TODO implement me
+	panic("implement me")
 }
 
 // initDefaultValue If not set both in args and env, set default values
@@ -135,9 +175,9 @@ func initLog() error {
 }
 
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
-func initApiConfig() (*model.Bootstrap, bool, error) {
+func initApiConfig() (*model.Bootstrap, error) {
 	bootstrap := config.Load(configPath)
-	return bootstrap, false, nil
+	return bootstrap, nil
 }
 
 func initLimitCpus() error {
@@ -152,4 +192,8 @@ func initLimitCpus() error {
 	runtime.GOMAXPROCS(limitCpuNumber)
 	logger.Infof("GOMAXPROCS set to %v", limitCpuNumber)
 	return nil
+}
+
+func init() {
+	deploy.configManger = config.NewConfigManger()
 }

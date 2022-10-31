@@ -90,7 +90,6 @@ func (s *Server) Start() {
 	defer func() {
 		if re := recover(); re != nil {
 			logger.Error(re)
-			// TODO stop
 		}
 	}()
 

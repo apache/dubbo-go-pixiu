@@ -21,6 +21,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 )
 
 import (
@@ -29,9 +31,12 @@ import (
 	"github.com/ghodss/yaml"
 
 	"github.com/goinggo/mapstructure"
+
+	"github.com/imdario/mergo"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/configcenter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
@@ -41,6 +46,9 @@ var (
 	configPath     string
 	config         *model.Bootstrap
 	configLoadFunc LoadFunc = LoadYAMLConfig
+
+	configCenterType map[string]interface{}
+	once             sync.Once
 )
 
 // LoadFunc ConfigLoadFunc parse a input(usually file path) into a pixiu config
@@ -174,4 +182,79 @@ func GetDiscoveryType(cfg *model.Bootstrap) (err error) {
 		c.Type = discoveryType
 	}
 	return nil
+}
+
+type ConfigManager struct {
+	path         string
+	localConfig  *model.Bootstrap
+	remoteConfig *model.Bootstrap
+	load         configcenter.Load
+}
+
+func NewConfigManger() *ConfigManager {
+	return &ConfigManager{}
+}
+
+func (m *ConfigManager) LoadBootConfig(path string) *model.Bootstrap {
+
+	var configs *model.Bootstrap
+
+	// load file
+	configs = m.loadLocalBootConfigs(path)
+
+	if strings.EqualFold(m.localConfig.Config.Enable, "true") {
+		configs = m.loadRemoteBootConfigs()
+	}
+
+	config = configs
+
+	err := m.check()
+
+	if err != nil {
+		logger.Errorf("[Pixiu-Config] check bootstrap config fail : %s", err.Error())
+		panic(err)
+	}
+
+	return configs
+}
+
+func (m *ConfigManager) loadLocalBootConfigs(path string) *model.Bootstrap {
+	m.localConfig = Load(path)
+	return m.localConfig
+}
+
+func (m *ConfigManager) loadRemoteBootConfigs() *model.Bootstrap {
+
+	bootstrap := m.localConfig
+
+	// load remote
+	once.Do(func() {
+		m.load = configcenter.NewConfigLoad(bootstrap)
+	})
+
+	configs, err := m.load.LoadConfigs(bootstrap, func(opt *configcenter.Options) {
+		opt.Remote = true
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = mergo.Merge(configs, bootstrap, func(c *mergo.Config) {
+		c.Overwrite = false
+		c.AppendSlice = true
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	m.remoteConfig = configs
+
+	return configs
+}
+
+func (m *ConfigManager) check() error {
+
+	return Adapter(config)
 }
