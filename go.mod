@@ -19,7 +19,7 @@ require (
 	github.com/Shopify/sarama v1.19.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/apache/dubbo-getty v1.4.8
-	github.com/apache/dubbo-go-hessian2 v1.11.1
+	github.com/apache/dubbo-go-hessian2 v1.11.3
 	github.com/cch123/supermonkey v1.0.1
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/census-instrumentation/opencensus-proto v0.3.0
