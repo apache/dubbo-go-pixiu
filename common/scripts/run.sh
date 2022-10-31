@@ -41,6 +41,15 @@ read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
 # $CONTAINER_OPTIONS becomes an empty arg when quoted, so SC2086 is disabled for the
 # following command only
 # shellcheck disable=SC2086
+
+for arg in "$@" ; do
+  case $arg in
+  init)
+    IMG="docker.io/golang:latest"
+    ;;
+  esac
+  done
+
 "${CONTAINER_CLI}" run \
     --rm \
     "${DOCKER_RUN_OPTIONS[@]}" \

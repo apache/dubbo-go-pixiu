@@ -75,8 +75,16 @@ if [ "${DEBUG}" == "1" ]; then
     OPTIMIZATION_FLAGS=()
 fi
 
-time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} GOCACHE=/tmp ${GOBINARY} build \
+echo time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
+             ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
+             -o "${OUT}" \
+             "${OPTIMIZATION_FLAGS[@]}" \
+             -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
+             -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${@}"
+
+time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} CGO_ENABLED=0 GOCACHE=/tmp ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
+        -gcflags=all="-N -l" \
         -o "${OUT}" \
         "${OPTIMIZATION_FLAGS[@]}" \
         -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \

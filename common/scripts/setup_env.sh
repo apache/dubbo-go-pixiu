@@ -73,10 +73,10 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=latest
+  IMAGE_VERSION=release-1.14-4ccccb9c73fd9fe0d3b32d31738c8bb16c6b849d
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
-  IMAGE_NAME=golang
+  IMAGE_NAME=build-tools
 fi
 
 DOCKER_GID="${DOCKER_GID:-$(grep '^docker:' /etc/group | cut -f3 -d:)}"
@@ -89,7 +89,7 @@ TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_${TARGET_ARCH}}"
 CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
 CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_${TARGET_ARCH}}"
 
-IMG="${IMG:-docker.io/${IMAGE_NAME}:${IMAGE_VERSION}}"
+IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
 CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 
