@@ -43,11 +43,15 @@ read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
 # shellcheck disable=SC2086
 
 for arg in "$@" ; do
-  case $arg in
-  init)
+  if [[ $arg =~ "pilot-discovery" ]]
+  then
     IMG="docker.io/golang:latest"
-    ;;
-  esac
+  fi
+
+  if [[ $arg =~ "init" ]]
+  then
+    IMG="docker.io/golang:latest"
+  fi
   done
 
 "${CONTAINER_CLI}" run \
