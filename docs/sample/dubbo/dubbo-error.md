@@ -32,7 +32,7 @@ Dubbo server return error:
 
 ```bash
 2020-11-17T11:19:18.019+0800    ERROR   remote/call.go:87       [dubbo-go-pixiu] client call err:data is exist!
-github.com/apache/dubbo-go-pixiu/pkg/logger.Errorf
+github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger.Errorf
         /Users/tc/Documents/workspace_2020/dubbo-go-pixiu/pkg/logger/logging.go:52
 github.com/apache/dubbo-go-pixiu/pkg/filter/remote.(*clientFilter).doRemoteCall
         /Users/tc/Documents/workspace_2020/dubbo-go-pixiu/pkg/filter/remote/call.go:87
