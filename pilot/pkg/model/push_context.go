@@ -893,6 +893,12 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
+func (ps *PushContext) ServiceNameMappingsForProxy(proxyNamespace string) []config.Config {
+	res := make([]config.Config, 0, len(ps.serviceNameMappingIndex.namespace[proxyNamespace]))
+	res = append(res, ps.serviceNameMappingIndex.namespace[proxyNamespace]...)
+	return res
+}
+
 // DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
 func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
 	var out []ConfigKey
@@ -1211,7 +1217,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged, servicenamemappingsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1243,6 +1249,8 @@ func (ps *PushContext) updateContext(
 			telemetryChanged = true
 		case gvk.ProxyConfig:
 			proxyConfigsChanged = true
+		case gvk.ServiceNameMapping:
+			servicesChanged = true
 		}
 	}
 
@@ -1345,6 +1353,13 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
+	}
+	if servicenamemappingsChanged{
+		if err := ps.initServiceNameMappings(env); err != nil {
+			return err
+		}
+	}else{
+		ps.serviceNameMappingIndex = oldPushContext.serviceNameMappingIndex
 	}
 
 	return nil
@@ -2213,12 +2228,17 @@ func (ps *PushContext) initServiceNameMappings(env *Environment) error {
 
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
-	svcMappings := make([]config.Config, len(configs))
-	for i := range svcMappings {
-		svcMappings[i] = configs[i].DeepCopy()
+	snpMappings := make([]config.Config, len(configs))
+	for i := range snpMappings {
+		snpMappings[i] = configs[i].DeepCopy()
 	}
-
-	ps.serviceNameMappingIndex.all = svcMappings
+	for _, snp := range snpMappings {
+		if _, exists := ps.serviceNameMappingIndex.namespace[snp.Namespace]; !exists {
+			ps.serviceNameMappingIndex.namespace[snp.Namespace] = make([]config.Config, 0)
+		}
+		ps.serviceNameMappingIndex.namespace[snp.Namespace] = append(ps.serviceNameMappingIndex.namespace[snp.Namespace], snp)
+	}
+	ps.serviceNameMappingIndex.all = snpMappings
 	return nil
 }
 

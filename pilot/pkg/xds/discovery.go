@@ -17,6 +17,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/dubbogen"
 	"strconv"
 	"sync"
 	"time"
@@ -583,6 +584,9 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
+
+	s.Generators["dubbo"] = &dubbogen.DubboConfigGenerator{}
+	s.Generators[v3.DubboServiceNameMappingType] = s.Generators["dubbo"]
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
