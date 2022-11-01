@@ -107,9 +107,9 @@ DOCKERX_BUILD_TOP:=${TARGET_OUT_LINUX}/dockerx_build
 ISTIO_DOCKER_TAR:=${TARGET_OUT_LINUX}/release/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
-ifeq ($(PROXY_REPO_SHA),)
-  export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-endif
+#ifeq ($(PROXY_REPO_SHA),)
+#  export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+#endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
 

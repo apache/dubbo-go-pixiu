@@ -77,6 +77,7 @@ clean:
 # build pilot by docker-builder
 
 export
+# DEBUG = 1
 RUN = ./common/scripts/run.sh
 MAKE_DOCKER = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 %:
