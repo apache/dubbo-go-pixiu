@@ -21,8 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	http3 "net/http"
-	stdHttp "net/http"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -94,7 +93,7 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 	}
 
 	var (
-		req *http3.Request
+		req *http.Request
 		err error
 	)
 
@@ -114,7 +113,7 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 
 	body := invoc.Arguments()[2]
 	b, _ := json.Marshal(body)
-	req, err = http3.NewRequest(stdHttp.MethodPost, parsedURL.String(), strings.NewReader(string(b)))
+	req, err = http.NewRequest(http.MethodPost, parsedURL.String(), strings.NewReader(string(b)))
 	if err != nil {
 		err := errors.New(fmt.Sprintf("create new request failed: %v", err))
 		ctx.SetError(err)
@@ -129,13 +128,13 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 	req.Header.Set(constant.DubboServiceVersion, versionKey)
 	req.Header.Set(constant.DubboGroup, groupKey)
 
-	resp, err := (&http3.Client{}).Do(req)
+	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
 		ctx.SetError(err)
 		return filter.Stop
 	}
 
-	if resp.StatusCode != stdHttp.StatusOK {
+	if resp.StatusCode != http.StatusOK {
 		ctx.SetError(errors.New(fmt.Sprintf("upstream http response status code %d", resp.StatusCode)))
 		return filter.Stop
 	}

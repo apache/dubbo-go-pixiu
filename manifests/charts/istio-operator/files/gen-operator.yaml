@@ -174,7 +174,7 @@ spec:
       serviceAccountName: istio-operator
       containers:
         - name: istio-operator
-          image: apache/dubbo-operator:latest
+          image: gcr.io/istio-testing/dubbo-operator:v0.5.0-rc01
           command:
           - operator
           - server

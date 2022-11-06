@@ -9,6 +9,9 @@ package collections
 import (
 	"reflect"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
@@ -16,9 +19,6 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
