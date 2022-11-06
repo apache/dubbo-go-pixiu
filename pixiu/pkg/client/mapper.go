@@ -18,6 +18,7 @@
 package client
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -71,4 +72,34 @@ func GetMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, 
 		return nil, errors.Errorf("%s is not a map structure. It contains %v", keys[0], sourceMap[keys[0]])
 	}
 	return GetMapValue(deeperStruct, keys[1:])
+}
+
+func SetMapValue(sourceMap map[string]interface{}, keys []string, val interface{}, prefix string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	if len(keys) == 1 {
+		sourceMap[keys[0]] = val
+		return nil
+	}
+	valMap, ok := sourceMap[keys[0]]
+	if !ok {
+		valMap = map[string]interface{}{}
+		sourceMap[keys[0]] = valMap
+	}
+	// newprifix
+	newPrefix := fmt.Sprintf("%v.%v", prefix, keys[0])
+	if prefix == "" {
+		newPrefix = keys[0]
+	}
+
+	rvalue := reflect.ValueOf(valMap)
+	if rvalue.Type().Kind() != reflect.Map {
+		return errors.Errorf("key: %v, %s value is not a map struce", newPrefix, valMap)
+	}
+	deeperStruct, ok := valMap.(map[string]interface{})
+	if !ok {
+		return errors.Errorf("%s is not a map structure. It contains %v", newPrefix, valMap)
+	}
+	return SetMapValue(deeperStruct, keys[1:], val, newPrefix)
 }

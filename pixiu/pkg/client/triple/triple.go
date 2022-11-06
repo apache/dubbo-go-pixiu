@@ -18,7 +18,10 @@
 package triple
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/router"
 	"io"
 	"net/url"
 	"strings"
@@ -63,7 +66,38 @@ func (tc *Client) Apply() error {
 }
 
 func (tc *Client) MapParams(req *client.Request) (reqData interface{}, err error) {
-	panic("implement me")
+	rawBody, err := io.ReadAll(req.IngressRequest.Body)
+	defer func() {
+		req.IngressRequest.Body = io.NopCloser(bytes.NewReader(rawBody))
+	}()
+	if err != nil {
+		return nil, err
+	}
+	mapBody := map[string]interface{}{}
+	if err := json.Unmarshal(rawBody, &mapBody); err != nil {
+		return nil, err
+	}
+
+	// ===== uri =====
+	uriValues := router.GetURIParams(&req.API, *req.IngressRequest.URL)
+	for k, v := range uriValues {
+		mapBody[k] = v
+	}
+
+	// ===== query =====
+	queryParams := req.IngressRequest.URL.Query()
+	for k, v := range queryParams {
+		if len(v) > 1 {
+			//mapBody[k] = v // 有 bug, 需要测试
+			// TODO
+		} else {
+			keys := strings.Split(k, ".")
+			if err := client.SetMapValue(mapBody, keys, queryParams.Get(k), ""); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return mapBody, err
 }
 
 // Close clear GenericServicePool.
@@ -88,7 +122,16 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 		return "", errors.Errorf("connect triple server error = %s", err)
 	}
 	meta := make(map[string][]string)
-	reqData, _ := io.ReadAll(req.IngressRequest.Body)
+	//reqData, _ := io.ReadAll(req.IngressRequest.Body)
+	reqBody, err := dc.MapParams(req)
+	if err != nil {
+		return "", err
+	}
+	reqData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
 	defer cancel()
 	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
