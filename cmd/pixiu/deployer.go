@@ -15,16 +15,12 @@
  * limitations under the License.
  */
 
-package traffic
+package main
 
-import (
-	"net/http"
-)
+type Deployer interface {
+	initialize() error
 
-func spiltHeader(req *http.Request, value string) bool {
-	return req.Header.Get(string(canaryByHeader)) == value
-}
+	start() error
 
-func spiltWeight(weight, floor, ceil int) bool {
-	return weight > floor && weight <= ceil
+	stop() error
 }

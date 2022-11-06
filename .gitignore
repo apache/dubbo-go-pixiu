@@ -12,6 +12,8 @@ samples/dubbogo/simple/server/app/app
 /logs
 /.idea
 /.vscode
+.cache
+.log
 
 .DS_Store
 vendor/

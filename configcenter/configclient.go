@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package traffic
+package configcenter
 
-import (
-	"net/http"
+type (
+	ConfigClient interface {
+		LoadConfig(properties map[string]interface{}) (string, error)
+
+		ListenConfig(properties map[string]interface{}) (err error)
+	}
+
+	ListenConfig func(data string)
 )
-
-func spiltHeader(req *http.Request, value string) bool {
-	return req.Header.Get(string(canaryByHeader)) == value
-}
-
-func spiltWeight(weight, floor, ceil int) bool {
-	return weight > floor && weight <= ceil
-}

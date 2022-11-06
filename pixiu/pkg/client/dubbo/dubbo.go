@@ -132,20 +132,22 @@ func (dc *Client) SetConfig(dpc *DubboProxyConfig) {
 func (dc *Client) Apply() error {
 
 	rootConfigBuilder := dg.NewRootConfigBuilder()
-	for k, v := range dc.dubboProxyConfig.Registries {
-		if len(v.Protocol) == 0 {
-			logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
-			v.Protocol = defaultDubboProtocol
+	if dc.dubboProxyConfig != nil && dc.dubboProxyConfig.Registries != nil {
+		for k, v := range dc.dubboProxyConfig.Registries {
+			if len(v.Protocol) == 0 {
+				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
+				v.Protocol = defaultDubboProtocol
+			}
+			rootConfigBuilder.AddRegistry(k, &dg.RegistryConfig{
+				Protocol:  v.Protocol,
+				Address:   v.Address,
+				Timeout:   v.Timeout,
+				Username:  v.Username,
+				Password:  v.Password,
+				Namespace: v.Namespace,
+				Group:     v.Group,
+			})
 		}
-		rootConfigBuilder.AddRegistry(k, &dg.RegistryConfig{
-			Protocol:  v.Protocol,
-			Address:   v.Address,
-			Timeout:   v.Timeout,
-			Username:  v.Username,
-			Password:  v.Password,
-			Namespace: v.Namespace,
-			Group:     v.Group,
-		})
 	}
 	rootConfigBuilder.SetApplication(defaultApplication)
 	rootConfig := rootConfigBuilder.Build()

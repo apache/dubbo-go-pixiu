@@ -15,16 +15,9 @@
  * limitations under the License.
  */
 
-package traffic
+package constant
 
-import (
-	"net/http"
+// Log scene or topic
+const (
+	LogPixiu = "[Pixiu]"
 )
-
-func spiltHeader(req *http.Request, value string) bool {
-	return req.Header.Get(string(canaryByHeader)) == value
-}
-
-func spiltWeight(weight, floor, ceil int) bool {
-	return weight > floor && weight <= ceil
-}
