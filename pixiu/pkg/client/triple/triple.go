@@ -65,7 +65,97 @@ func (tc *Client) Apply() error {
 	panic("implement me")
 }
 
+// suppose proto file and pixiu files as follows:
+
+//test.proto
+//	message C {
+//		string f = 1;
+//	}
+//
+//	message TestRequest {
+//		int64 a = 1;
+//		string b = 2;
+//		C c = 3;
+//		repeated string e = 4;
+//	}
+//
+//	message TestResponse {
+//		int64 result = 1;
+//	}
+//
+//	service TestInterface {
+//		rpc Test(TestRequest) returns (TestResponse) {}
+//	}
+
+// api-config.yaml
+//		name: test
+//		description: http -> dubbo for test service
+//		resources:
+//		- path: '/test/:a'
+//		type: restful
+//		description: test
+//		methods:
+//		- httpVerb: GET
+//		enable: true
+//		inboundRequest:
+//			requestType: http
+//		integrationRequest:
+//			requestType: triple
+//			interface: "test.TestInterface"
+//			method: "Test"
+
+// =================================SUPPORT===========================
+//  1. support uri, body, query
+//    HTTP:  GET /test/1?b=3&a=2&c.f=fvalue
+//	  DUBBO: get TestRequest
+//		{
+//			"a": 2,
+//			"b": "3",
+//			"c": {
+//				"f": "fvalue"
+//			}
+//		}
+
+//    HTTP:  POST /test/1?c.f=fvalue
+//                body:
+//					{
+//						"a": 0,
+//						"b": "tony",
+//						"c": {
+//							"f": "f"
+//						}
+//					}
+//	  DUBBO: get TestRequest
+//		{
+//			"a": 1,
+//			"b": "tony",
+//			"c": {
+//				"f": "fvalue"
+//			}
+//		}
+
+// 2. same for other http verbs; values is filled with the following priority
+//    QUERY > URI > BODY
+
+// ==============================NOT SUPPORT===========================
+// 1. do not support array; which has repeated filed in proto files
+//    for example:
+// 	  	  HTTP:  GET /test/1?b=3&c.f=f&e=3&e=4
+//		  DUBBO: get TestRequest(e will be ignored)
+//			{
+//				"a": 1,
+//				"b": "3",
+//				"c": {
+//					"f": "f"
+//				}
+//			}
+
+//    	  HTTP:  GET /test/1?b=3&e=3 ===> c
+//		  DUBBO: get error: message type mismatch
+// 2. do not support header
+
 func (tc *Client) MapParams(req *client.Request) (reqData interface{}, err error) {
+	//===== body =====
 	rawBody, err := io.ReadAll(req.IngressRequest.Body)
 	defer func() {
 		req.IngressRequest.Body = io.NopCloser(bytes.NewReader(rawBody))
@@ -87,10 +177,7 @@ func (tc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 	// ===== query =====
 	queryParams := req.IngressRequest.URL.Query()
 	for k, v := range queryParams {
-		if len(v) > 1 {
-			//mapBody[k] = v // 有 bug, 需要测试
-			// TODO
-		} else {
+		if len(v) == 1 {
 			keys := strings.Split(k, ".")
 			if err := client.SetMapValue(mapBody, keys, queryParams.Get(k), ""); err != nil {
 				return nil, err

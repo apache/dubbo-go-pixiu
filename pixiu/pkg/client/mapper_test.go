@@ -18,6 +18,7 @@
 package client
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -75,4 +76,27 @@ func TestGetMapValue(t *testing.T) {
 	val, err = GetMapValue(map[string]interface{}{"structure": "test"}, []string{"structure", "name"})
 	assert.Nil(t, val)
 	assert.EqualError(t, err, "structure is not a map structure. It contains test")
+}
+
+func TestSetMapValue(t *testing.T) {
+	expected := map[string]interface{}{
+		"Test": "test",
+		"structure": map[string]interface{}{
+			"name": "joe",
+			"age":  77,
+		},
+	}
+	actual := make(map[string]interface{})
+	err := SetMapValue(actual, []string{"Test"}, "test", "")
+	assert.Nil(t, err)
+
+	err = SetMapValue(actual, []string{"structure", "name"}, "joe", "")
+	assert.Nil(t, err)
+
+	err = SetMapValue(actual, []string{"structure", "age"}, 77, "")
+	assert.Nil(t, err)
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("expected: %v is not equal to actual: %v", expected, actual)
+	}
 }
