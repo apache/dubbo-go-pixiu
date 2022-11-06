@@ -122,7 +122,6 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 		return "", errors.Errorf("connect triple server error = %s", err)
 	}
 	meta := make(map[string][]string)
-	//reqData, _ := io.ReadAll(req.IngressRequest.Body)
 	reqBody, err := dc.MapParams(req)
 	if err != nil {
 		return "", err
