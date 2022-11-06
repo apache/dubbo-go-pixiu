@@ -36,11 +36,19 @@ MOUNT_DEST="${MOUNT_DEST:-/work}"
 
 read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
 
-[[ -t 1 ]] && DOCKER_RUN_OPTIONS+=("-it")
+[[ -t 1 ]] && DOCKER_RUN_OPTIONS+=("-i")
 
 # $CONTAINER_OPTIONS becomes an empty arg when quoted, so SC2086 is disabled for the
 # following command only
 # shellcheck disable=SC2086
+
+for arg in "$@" ; do
+  if [[ $arg =~ "pilot-discovery" || $arg =~ "istioctl" || $arg =~ "init" ]]
+  then
+    IMG="docker.io/golang:latest"
+  fi
+  done
+
 "${CONTAINER_CLI}" run \
     --rm \
     "${DOCKER_RUN_OPTIONS[@]}" \
