@@ -170,9 +170,9 @@ func newGatewayIndex() gatewayIndex {
 
 // serviceNameMappingIndex is the index of Service Name Mapping by various fields.
 type serviceNameMappingIndex struct {
-	// namespace contains gateways by namespace.
+	// namespace contains Service Name Mapping by namespace.
 	namespace map[string][]config.Config
-	// all contains all gateways.
+	// all contains all Service Name Mapping.
 	all []config.Config
 }
 
@@ -1250,7 +1250,7 @@ func (ps *PushContext) updateContext(
 		case gvk.ProxyConfig:
 			proxyConfigsChanged = true
 		case gvk.ServiceNameMapping:
-			servicesChanged = true
+			servicenamemappingsChanged = true
 		}
 	}
 
@@ -1354,11 +1354,11 @@ func (ps *PushContext) updateContext(
 	} else {
 		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
 	}
-	if servicenamemappingsChanged{
+	if servicenamemappingsChanged {
 		if err := ps.initServiceNameMappings(env); err != nil {
 			return err
 		}
-	}else{
+	} else {
 		ps.serviceNameMappingIndex = oldPushContext.serviceNameMappingIndex
 	}
 

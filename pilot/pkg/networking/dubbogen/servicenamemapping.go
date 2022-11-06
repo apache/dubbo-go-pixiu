@@ -55,7 +55,7 @@ func (d *DubboConfigGenerator) buildServiceNameMappings(node *model.Proxy, req *
 
 func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []string) []*istioioapiextensionsv1alpha1.ServiceNameMapping {
 	namespace := node.ConfigNamespace
-	res := make([]*istioioapiextensionsv1alpha1.ServiceNameMapping, len(watchedResourceNames))
+	res := make([]*istioioapiextensionsv1alpha1.ServiceNameMapping, 0, len(watchedResourceNames))
 
 	watchedResourceNamesMap := map[string]interface{}{}
 	for _, name := range watchedResourceNames {
@@ -70,8 +70,8 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 	snps := req.Push.ServiceNameMappingsForProxy(namespace)
 	for _, snp := range snps {
 		mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
-		// if req.ConfigsUpdated, meaning a full push of watched snp resources.
-		if _, exists := updatedMap[mapping.InterfaceName]; exists || len(req.ConfigsUpdated) == 0 {
+		// if configsUpdated empty, meaning a full push of watched snp resources.
+		if _, exists := updatedMap[snp.Name]; exists || len(req.ConfigsUpdated) == 0 {
 			// filter watched resource
 			if _, exists := watchedResourceNamesMap[mapping.InterfaceName]; exists {
 				res = append(res, mapping)

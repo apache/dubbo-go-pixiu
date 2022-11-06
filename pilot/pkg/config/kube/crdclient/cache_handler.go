@@ -61,8 +61,6 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 		}
 		oldConfig = TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 	}
-	//TODO
-	log.Errorf("pixiu onEvent: %v, %v, %v", oldConfig, currConfig, event)
 
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
 	for _, f := range h.client.handlers[h.schema.Resource().GroupVersionKind()] {
