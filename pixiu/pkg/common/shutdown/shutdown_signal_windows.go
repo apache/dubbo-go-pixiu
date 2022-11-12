@@ -1,5 +1,5 @@
-//go:build !windows
-// +build !windows
+//go:build windows
+// +build windows
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -29,7 +29,7 @@ var (
 	ShutdownSignals = []os.Signal{
 		os.Interrupt, os.Kill, syscall.SIGKILL, syscall.SIGSTOP,
 		syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGILL, syscall.SIGTRAP,
-		syscall.SIGABRT, syscall.SIGSYS, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2,
+		syscall.SIGABRT, syscall.SIGSYS, syscall.SIGTERM, syscall.SIGBREAK
 	}
 
 	// DumpHeapShutdownSignals receives shutdown signals to process
