@@ -7,13 +7,15 @@ option go_package = "github.com/apache/dubbo-go-pixiu/pilot/pkg/apis/servicename
 // Provides an service for reporting the mapping relationship between interface => cluster
 // the cluster name will be versioned FQDN. such as "demo.default.svc.cluster.local"
 service ServiceNameMappingService{
-  rpc registerServiceAppMapping(stream ServiceMappingRequest) returns (ServiceMappingResponse);
+  rpc registerServiceAppMapping(ServiceMappingRequest) returns (ServiceMappingResponse);
 }
 
 message ServiceMappingRequest{
-  string applicationName = 1;
+  string namespace = 1;
 
-  repeated string interfaceName = 2;
+  string applicationName = 2;
+
+  repeated string interfaceName = 3;
 }
 
 message ServiceMappingResponse{

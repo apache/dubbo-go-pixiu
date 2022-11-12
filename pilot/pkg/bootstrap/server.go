@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/apis/servicenamemapping"
 	"net"
 	"net/http"
 	"os"
@@ -725,6 +726,8 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
+	snpServer := &servicenamemapping.Snp{KubeClient: s.kubeClient}
+	servicenamemapping.RegisterServiceNameMappingServiceServer(s.grpcServer, snpServer)
 }
 
 // initialize secureGRPCServer.
