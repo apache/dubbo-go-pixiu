@@ -776,6 +776,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
+	snpServer := &servicenamemapping.Snp{KubeClient: s.kubeClient}
+	servicenamemapping.RegisterServiceNameMappingServiceServer(s.secureGrpcServer, snpServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
