@@ -143,6 +143,10 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	resp, err := cli.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
+		if strings.Contains(strings.ToLower(err.Error()), "timeout") {
+			c.SendLocalReply(http.StatusGatewayTimeout, []byte(fmt.Sprintf("client call timeout err: %s", err)))
+			return filter.Stop
+		}
 		c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("client call err: %s", err)))
 		return filter.Stop
 	}

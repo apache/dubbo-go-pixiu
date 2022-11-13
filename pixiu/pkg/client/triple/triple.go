@@ -26,10 +26,11 @@ import (
 )
 
 import (
+	gerrors "github.com/mercari/grpc-http-proxy/errors"
 	proxymeta "github.com/mercari/grpc-http-proxy/metadata"
 	"github.com/mercari/grpc-http-proxy/proxy"
-
 	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
 )
 
 import (
@@ -93,6 +94,13 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	defer cancel()
 	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
 	if err != nil {
+		gerr, ok := err.(*gerrors.GRPCError)
+		if ok {
+			statusCode := codes.Code(gerr.StatusCode)
+			if statusCode == codes.Canceled || statusCode == codes.DeadlineExceeded {
+				return "", errors.Errorf("call triple server timeout error = %s", err)
+			}
+		}
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
 	return call, nil

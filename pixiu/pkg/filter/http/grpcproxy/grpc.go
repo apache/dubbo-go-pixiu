@@ -268,6 +268,11 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq, grpc.Header(&md), grpc.Trailer(&t))
 	// judge err is server side error or not
 	if st, ok := status.FromError(err); !ok || isServerError(st) {
+		if isServerTimeout(st) {
+			logger.Errorf("%s err {failed to invoke grpc service provider because timeout, err:%s}", loggerHeader, err.Error())
+			c.SendLocalReply(stdHttp.StatusGatewayTimeout, []byte(fmt.Sprintf("%s", err)))
+			return filter.Stop
+		}
 		logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 		c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte(fmt.Sprintf("%s", err)))
 		return filter.Stop
@@ -372,6 +377,10 @@ func protoMsgToJson(msg proto.Message) (string, error) {
 func isServerError(st *status.Status) bool {
 	return st.Code() == codes.DeadlineExceeded || st.Code() == codes.ResourceExhausted || st.Code() == codes.Internal ||
 		st.Code() == codes.Unavailable
+}
+
+func isServerTimeout(st *status.Status) bool {
+	return st.Code() == codes.DeadlineExceeded || st.Code() == codes.Canceled
 }
 
 func (factory *FilterFactory) Config() interface{} {

@@ -214,6 +214,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
 	rst, err := gs.Invoke(ctx, method, types, vals)
 	if err != nil {
+		// TODO statusCode 有待改善 ， 我目前不知道 dubbo 超时返回什么，就直接返回了，Call 调用时再判断
 		return nil, err
 	}
 

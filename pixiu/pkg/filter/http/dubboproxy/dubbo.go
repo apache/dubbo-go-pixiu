@@ -217,13 +217,18 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	var resp interface{}
 	invoc.SetReply(&resp)
 
-	invCtx := context.Background()
+	invCtx, cancel := context.WithTimeout(context.Background(), hc.Timeout)
+	defer cancel()
 	result := invoker.Invoke(invCtx, invoc)
 	result.SetAttachments(invoc.Attachments())
 
 	if result.Error() != nil {
 		logger.Debugf("[dubbo-go-pixiu] invoke result error %v", result.Error())
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("invoke result error %v", result.Error())})
+		// TODO statusCode 有待改善 ， 我目前不知道 dubbo 超时返回什么，先用字符串判断
+		if strings.Contains(result.Error().Error(), "timeout") {
+			hc.SendLocalReply(http.StatusGatewayTimeout, bt)
+		}
 		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}

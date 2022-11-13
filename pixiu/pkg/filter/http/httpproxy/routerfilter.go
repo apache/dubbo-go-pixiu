@@ -126,6 +126,11 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 
 	resp, err := cli.Do(req)
 	if err != nil {
+		urlErr, ok := err.(*url.Error)
+		if ok && urlErr.Timeout() {
+			hc.SendLocalReply(http3.StatusGatewayTimeout, []byte(err.Error()))
+			return filter.Stop
+		}
 		hc.SendLocalReply(http3.StatusServiceUnavailable, []byte(err.Error()))
 		return filter.Stop
 	}
