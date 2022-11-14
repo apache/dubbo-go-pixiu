@@ -6,6 +6,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	istioioapidubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 )
 
@@ -53,9 +54,9 @@ func (d *DubboConfigGenerator) buildServiceNameMappings(node *model.Proxy, req *
 	return resources
 }
 
-func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []string) []*istioioapiextensionsv1alpha1.ServiceNameMapping {
+func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []string) []*istioioapidubbov1alpha1.ServiceMappingXdsResponse {
 	namespace := node.ConfigNamespace
-	res := make([]*istioioapiextensionsv1alpha1.ServiceNameMapping, 0, len(watchedResourceNames))
+	res := make([]*istioioapidubbov1alpha1.ServiceMappingXdsResponse, 0, len(watchedResourceNames))
 
 	watchedResourceNamesMap := map[string]interface{}{}
 	for _, name := range watchedResourceNames {
@@ -74,7 +75,11 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 		if _, exists := updatedMap[snp.Name]; exists || len(req.ConfigsUpdated) == 0 {
 			// filter watched resource
 			if _, exists := watchedResourceNamesMap[mapping.InterfaceName]; exists {
-				res = append(res, mapping)
+				res = append(res, &istioioapidubbov1alpha1.ServiceMappingXdsResponse{
+					Namespace:        snp.Namespace,
+					InterfaceName:    mapping.InterfaceName,
+					ApplicationNames: mapping.ApplicationNames,
+				})
 			}
 		}
 	}

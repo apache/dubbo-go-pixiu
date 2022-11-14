@@ -1261,8 +1261,8 @@ github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJ
 github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0=
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/maratori/testpackage v1.0.1/go.mod h1:ddKdw+XG0Phzhx8BFDTKgpWP4i7MpApTE5fXSKAqwDU=
-github.com/mark4z/operator-api v0.0.0-20221024141850-66e222ce203a h1:dou2vLQYRx2fe/IFQy//pewXUCPv3AcfrQfi2dXQf9I=
-github.com/mark4z/operator-api v0.0.0-20221024141850-66e222ce203a/go.mod h1:diD0Ijv71MqwPkr1e7dcKh2X25rkg0D8zo5ra4YQ8aY=
+github.com/mark4z/operator-api v0.0.0-20221114074446-b6e49b3a044f h1:WSU16BIl/OIjW72wuGN0JzBMaBxwMgvMvs1TVwZZmCg=
+github.com/mark4z/operator-api v0.0.0-20221114074446-b6e49b3a044f/go.mod h1:diD0Ijv71MqwPkr1e7dcKh2X25rkg0D8zo5ra4YQ8aY=
 github.com/mark4z/operator-client-go v0.0.0-20221024142535-3cf550359c1c h1:/oP14AECMpldTBzblXLGUm9Bcy7m3xJFp9D+8oSAe2I=
 github.com/mark4z/operator-client-go v0.0.0-20221024142535-3cf550359c1c/go.mod h1:6nnGF6krISFEgcC4LH5r66NwSWfBpooXPGskRoEgnbw=
 github.com/marstr/guid v1.1.0/go.mod h1:74gB1z2wpxxInTG6yaqA7KrtM0NZ+RbrcqDvYHefzho=
