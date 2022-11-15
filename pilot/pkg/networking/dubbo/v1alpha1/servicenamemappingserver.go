@@ -2,20 +2,23 @@ package v1alpha1
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
+	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"github.com/pkg/errors"
 	dubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
 	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	istiolog "istio.io/pkg/log"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
+
+var log = istiolog.RegisterScope("Snp server", "Snp register server for Proxyless dubbo", 0)
 
 type Snp struct {
 	dubbov1alpha1.UnimplementedServiceNameMappingServiceServer
 
-	RWConfigStore model.ConfigStoreController
+	KubeClient kube.Client
 }
 
 //TODO: RegisterServiceAppMapping
@@ -25,57 +28,66 @@ func (s *Snp) RegisterServiceAppMapping(ctx context.Context, req *dubbov1alpha1.
 	applicationName := req.GetApplicationName()
 	for _, i := range interfaces {
 		for j := 0; j < 3; j++ {
-			err := tryRegister(s.RWConfigStore, namespace, applicationName, i)
+			err := tryRegister(ctx, s.KubeClient, namespace, applicationName, i)
 			if err == nil {
-				continue
+				break
 			}
-			logger.Errorf("RegisterServiceAppMapping error: %v", err)
+			log.Errorf("RegisterServiceAppMapping error: %v", err)
 		}
 	}
-	logger.Debugf("s RegisterServiceAppMapping finished, application: %s,interfaces:%v", applicationName, interfaces)
+	log.Debugf("snp RegisterServiceAppMapping finished, application: %s,interfaces:%v", applicationName, interfaces)
 	return &dubbov1alpha1.ServiceMappingResponse{}, nil
 }
 
-func tryRegister(configStore model.ConfigStoreController, namespace string, applicationName string, interfaceName string) error {
+func tryRegister(ctx context.Context, kubeClient kube.Client, namespace string, applicationName string, interfaceName string) error {
 	lowerCaseName := strings.ToLower(strings.ReplaceAll(interfaceName, ".", "-"))
-	snp := configStore.Get(gvk.ServiceNameMapping, lowerCaseName, namespace)
-	if snp == nil {
-		revision, err := configStore.Create(config.Config{
-			Meta: config.Meta{
-				Name:             lowerCaseName,
-				Namespace:        namespace,
-				GroupVersionKind: gvk.ServiceNameMapping,
-				Labels: map[string]string{
-					"interface": interfaceName,
+	snpInterface := kubeClient.Istio().ExtensionsV1alpha1().ServiceNameMappings(namespace)
+	snp, err := snpInterface.Get(ctx, lowerCaseName, v1.GetOptions{})
+	if err != nil {
+		if apierror.IsNotFound(err) {
+			//try to create snp, this operation may be conflict with other goroutine
+			snp, err = snpInterface.Create(ctx, &v1alpha1.ServiceNameMapping{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      lowerCaseName,
+					Namespace: namespace,
+					Labels: map[string]string{
+						"interface": interfaceName,
+					},
 				},
-			},
-			Spec: &extensionsv1alpha1.ServiceNameMapping{
-				InterfaceName:    interfaceName,
-				ApplicationNames: []string{applicationName},
-			},
-		})
-		if err == nil {
-			logger.Infof("create snp %s revision %s", interfaceName, revision)
-			return nil
-		}
-		// If the creation fails, meaning it already exists and needs to be updated
-		if errors.IsAlreadyExists(err) {
-			logger.Infof("Snp[%s] has been exists, err: %v", err)
-			snp = configStore.Get(gvk.ServiceNameMapping, lowerCaseName, namespace)
+				Spec: extensionsv1alpha1.ServiceNameMapping{
+					InterfaceName:    interfaceName,
+					ApplicationNames: []string{applicationName},
+				},
+			}, v1.CreateOptions{})
+			// create success
+			if err == nil {
+				log.Infof("create snp %s revision %s", interfaceName, snp.ResourceVersion)
+				return nil
+			}
+			// If the creation fails, meaning it already created by other goroutine, then get it
+			if apierror.IsAlreadyExists(err) {
+				log.Infof("Snp[%s] has been exists, err: %v", err)
+				snp, err = snpInterface.Get(ctx, lowerCaseName, v1.GetOptions{})
+				// maybe failed to get snp cause of network issue, just return error
+				if err != nil {
+					return errors.Wrap(err, "tryRegister retry get snp error")
+				}
+			}
+		} else {
+			return errors.Wrap(err, "tryRegister get snp error")
 		}
 	}
-	mapping := snp.Spec.(*extensionsv1alpha1.ServiceNameMapping)
-	for _, name := range mapping.ApplicationNames {
+	for _, name := range snp.Spec.ApplicationNames {
 		if name == applicationName {
 			return nil
 		}
 	}
-	mapping.ApplicationNames = append(mapping.ApplicationNames, applicationName)
-	revision, err := configStore.Update(*snp)
+	snp.Spec.ApplicationNames = append(snp.Spec.ApplicationNames, applicationName)
+	snp, err = snpInterface.Update(ctx, snp, v1.UpdateOptions{})
 	if err != nil {
-		logger.Errorf("s RegisterServiceAppMapping revision:%s", err)
-		return err
+		log.Errorf("s RegisterServiceAppMapping revision:%s", err)
+		return errors.Wrap(err, "tryRegister retry update snp error")
 	}
-	logger.Debugf("s RegisterServiceAppMapping revision:%s", revision)
+	log.Debugf("s RegisterServiceAppMapping revision:%s", snp.ResourceVersion)
 	return nil
 }

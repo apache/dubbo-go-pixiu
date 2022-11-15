@@ -727,8 +727,8 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
-	snpServer := &dubbov1alpha1.Snp{RWConfigStore: s.RWConfigStore}
-	apidubbov1alpha1.RegisterServiceNameMappingServiceServer(s.secureGrpcServer, snpServer)
+	snpServer := &dubbov1alpha1.Snp{KubeClient: s.kubeClient}
+	apidubbov1alpha1.RegisterServiceNameMappingServiceServer(s.grpcServer, snpServer)
 }
 
 // initialize secureGRPCServer.
@@ -777,7 +777,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
-	snpServer := &dubbov1alpha1.Snp{RWConfigStore: s.RWConfigStore}
+	snpServer := &dubbov1alpha1.Snp{KubeClient: s.kubeClient}
 	apidubbov1alpha1.RegisterServiceNameMappingServiceServer(s.secureGrpcServer, snpServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {

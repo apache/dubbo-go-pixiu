@@ -68,8 +68,8 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 			updatedMap[update.Name] = struct{}{}
 		}
 	}
-	snps := req.Push.ServiceNameMappingsForProxy(namespace)
-	for _, snp := range snps {
+	snpList := req.Push.ServiceNameMappingsForProxy(namespace)
+	for _, snp := range snpList {
 		mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
 		// if configsUpdated empty, meaning a full push of watched snp resources.
 		if _, exists := updatedMap[snp.Name]; exists || len(req.ConfigsUpdated) == 0 {
