@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	dubbov1alpha1 "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/dubbo/v1alpha1"
+	apidubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
 	"net"
 	"net/http"
 	"os"
@@ -725,8 +727,8 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
-	//snpServer := &servicenamemapping.Snp{KubeClient: s.kubeClient}
-	//servicenamemapping.RegisterServiceNameMappingServiceServer(s.grpcServer, snpServer)
+	snpServer := &dubbov1alpha1.Snp{RWConfigStore: s.RWConfigStore}
+	apidubbov1alpha1.RegisterServiceNameMappingServiceServer(s.secureGrpcServer, snpServer)
 }
 
 // initialize secureGRPCServer.
@@ -775,8 +777,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
-	//snpServer := &servicenamemapping.Snp{KubeClient: s.kubeClient}
-	//servicenamemapping.RegisterServiceNameMappingServiceServer(s.secureGrpcServer, snpServer)
+	snpServer := &dubbov1alpha1.Snp{RWConfigStore: s.RWConfigStore}
+	apidubbov1alpha1.RegisterServiceNameMappingServiceServer(s.secureGrpcServer, snpServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
