@@ -242,7 +242,7 @@ func (m *ConfigManager) loadRemoteBootConfigs() *model.Bootstrap {
 
 	err = mergo.Merge(configs, bootstrap, func(c *mergo.Config) {
 		c.Overwrite = false
-		c.AppendSlice = true
+		c.AppendSlice = false
 	})
 
 	if err != nil {
