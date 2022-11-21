@@ -122,17 +122,19 @@ func (s *Snp) debounce(stopCh <-chan struct{}) {
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
 		if eventDelay >= s.debounceMax || quietTime >= s.debounceAfter {
-			pushCounter++
+			if req != nil {
+				pushCounter++
 
-			log.Infof(" Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
-				pushCounter, debouncedEvents, configsUpdated(req),
-				quietTime, eventDelay)
-			free = false
-			go push(req)
-			req = &RegisterRequest{
-				ConfigsUpdated: make(map[model.ConfigKey]map[string]struct{}),
+				if req.ConfigsUpdated != nil {
+					log.Infof(" Push debounce stable[%d] %d for config %s: %v since last change, %v since last push",
+						pushCounter, debouncedEvents, configsUpdated(req),
+						quietTime, eventDelay)
+				}
+				free = false
+				go push(req)
+				req = nil
+				debouncedEvents = 0
 			}
-			debouncedEvents = 0
 		} else {
 			timeChan = time.After(s.debounceAfter - quietTime)
 		}
