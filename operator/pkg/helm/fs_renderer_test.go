@@ -18,7 +18,9 @@ import (
 	"errors"
 	"os"
 	"testing"
+)
 
+import (
 	"helm.sh/helm/v3/pkg/chart"
 )
 

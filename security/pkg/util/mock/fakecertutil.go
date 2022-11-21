@@ -14,7 +14,9 @@
 
 package mock
 
-import "time"
+import (
+	"time"
+)
 
 // FakeCertUtil is a mocked CertUtil for testing.
 type FakeCertUtil struct {

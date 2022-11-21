@@ -14,7 +14,9 @@
 
 package test
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestWrapper(t *testing.T) {
 	t.Run("fail", func(t *testing.T) {

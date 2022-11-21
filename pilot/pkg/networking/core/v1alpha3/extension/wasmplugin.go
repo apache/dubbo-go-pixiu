@@ -21,15 +21,15 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	extensions "istio.io/api/extensions/v1alpha1"
-
-	// include for registering wasm logging scope
 	_ "github.com/apache/dubbo-go-pixiu/pkg/wasm"
-	"istio.io/pkg/log"
 )
 
 var defaultConfigSource = &envoy_config_core_v3.ConfigSource{

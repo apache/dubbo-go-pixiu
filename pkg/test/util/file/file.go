@@ -22,9 +22,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	"github.com/mitchellh/go-homedir"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 

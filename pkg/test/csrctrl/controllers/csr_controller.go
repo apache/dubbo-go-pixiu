@@ -19,16 +19,20 @@ import (
 	"context"
 	"fmt"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	capi "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/csrctrl/signer"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/k8s/chiron"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 // CertificateSigningRequestSigningReconciler reconciles a CertificateSigningRequest object

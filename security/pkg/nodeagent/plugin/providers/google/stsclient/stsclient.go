@@ -22,12 +22,17 @@ import (
 	"io"
 	"net/http"
 	"time"
+)
 
+import (
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/monitoring"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (

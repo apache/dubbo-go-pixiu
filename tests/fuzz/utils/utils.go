@@ -16,7 +16,9 @@ package utils
 
 import (
 	"os"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 

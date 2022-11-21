@@ -18,15 +18,19 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/api/label"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
-	"istio.io/api/label"
 )
 
 func TestGetLocalityFromTopology(t *testing.T) {

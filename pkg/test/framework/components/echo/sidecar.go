@@ -17,7 +17,9 @@ package echo
 import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )

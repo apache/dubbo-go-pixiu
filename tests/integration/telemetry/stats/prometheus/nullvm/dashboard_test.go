@@ -26,11 +26,16 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"istio.io/pkg/log"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/http/headers"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
@@ -42,7 +47,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
 	common "github.com/apache/dubbo-go-pixiu/tests/integration/telemetry/stats/prometheus"
-	"istio.io/pkg/log"
 )
 
 var dashboards = []struct {

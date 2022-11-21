@@ -19,10 +19,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+)
 
+import (
+	"istio.io/api/analysis/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/url"
-	"istio.io/api/analysis/v1alpha1"
 )
 
 // MessageType is a type of diagnostic message

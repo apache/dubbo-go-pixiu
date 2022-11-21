@@ -16,17 +16,21 @@ package model
 
 import (
 	"strings"
+)
 
+import (
 	"github.com/gogo/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.

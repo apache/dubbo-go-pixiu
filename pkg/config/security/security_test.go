@@ -17,7 +17,9 @@ package security_test
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/security"
 )
 

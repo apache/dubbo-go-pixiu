@@ -20,7 +20,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"

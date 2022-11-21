@@ -16,7 +16,9 @@ package constants
 
 import (
 	"time"
+)
 
+import (
 	"istio.io/pkg/env"
 )
 

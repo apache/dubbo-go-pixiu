@@ -20,18 +20,20 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/kube"
-
-	// force registraton of factory func
 	_ "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/staticvm"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"

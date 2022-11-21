@@ -16,9 +16,13 @@ package collection_test
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 )

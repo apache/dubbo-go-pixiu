@@ -22,15 +22,19 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/api"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
-
-	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 )
 
 var (

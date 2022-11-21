@@ -21,7 +21,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+)
 
+import (
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
@@ -31,7 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/cache"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/controller/istiocontrolplane"
@@ -41,7 +46,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.

@@ -16,9 +16,14 @@ package apigen
 
 import (
 	"strings"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
@@ -26,7 +31,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
 )
 
 // APIGenerator supports generation of high-level API resources, similar with the MCP

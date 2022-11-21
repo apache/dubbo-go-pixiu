@@ -16,10 +16,14 @@ package configdump
 
 import (
 	"sort"
+)
 
+import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+)
 
+import (
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 )
 

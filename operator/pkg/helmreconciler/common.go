@@ -19,15 +19,19 @@ import (
 	"io"
 	"strconv"
 	"strings"
+)
 
+import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubectl/pkg/scheme"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
-	"istio.io/pkg/log"
 )
 
 const (

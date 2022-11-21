@@ -17,10 +17,14 @@ package verifier
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 )
 

@@ -16,7 +16,9 @@ package v3
 
 import (
 	"strings"
+)
 
+import (
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 )
 

@@ -15,10 +15,13 @@
 package model
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	authpb "istio.io/api/security/v1beta1"
 	istiolog "istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 )
 
 var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)

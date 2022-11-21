@@ -17,10 +17,14 @@ package gateway
 import (
 	"fmt"
 	"sort"
+)
 
+import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/kstatus"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"

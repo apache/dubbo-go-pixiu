@@ -21,10 +21,14 @@ import (
 	"path"
 	"strings"
 	"testing"
+)
 
+import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/datasets/validation"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"

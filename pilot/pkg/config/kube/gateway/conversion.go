@@ -18,12 +18,18 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+)
 
+import (
+	"istio.io/api/label"
+	istio "istio.io/api/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/credentials"
@@ -33,8 +39,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/api/label"
-	istio "istio.io/api/networking/v1alpha3"
 )
 
 const (

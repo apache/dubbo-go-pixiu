@@ -17,7 +17,9 @@ package compare
 import (
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 )
 

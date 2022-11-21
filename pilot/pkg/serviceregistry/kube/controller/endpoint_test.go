@@ -16,7 +16,9 @@ package controller
 
 import (
 	"testing"
+)
 
+import (
 	coreV1 "k8s.io/api/core/v1"
 )
 

@@ -16,9 +16,13 @@ package analysis
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/diag"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"

@@ -18,19 +18,23 @@ import (
 	"fmt"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/bootstrap"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 var (

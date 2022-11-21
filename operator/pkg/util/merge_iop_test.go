@@ -18,15 +18,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 )
 
 func TestOverlayIOP(t *testing.T) {

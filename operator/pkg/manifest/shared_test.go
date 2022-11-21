@@ -20,7 +20,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 )

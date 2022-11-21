@@ -16,7 +16,9 @@ package configdump
 
 import (
 	"testing"
+)
 
+import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"

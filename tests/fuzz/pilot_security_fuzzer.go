@@ -16,9 +16,13 @@ package fuzz
 
 import (
 	"fmt"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/matcher"
 )
 

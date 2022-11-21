@@ -14,7 +14,9 @@
 
 package validation
 
-import "embed"
+import (
+	"embed"
+)
 
 // FS embeds the manifests
 //

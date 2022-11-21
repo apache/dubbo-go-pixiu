@@ -21,7 +21,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/http/headers"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"

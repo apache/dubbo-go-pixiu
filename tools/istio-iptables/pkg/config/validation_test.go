@@ -16,7 +16,9 @@ package config
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	testdata "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/testing/data"
 )

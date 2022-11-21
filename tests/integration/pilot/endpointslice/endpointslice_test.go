@@ -20,7 +20,9 @@ package pilot
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/deployment"

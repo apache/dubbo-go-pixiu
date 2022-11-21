@@ -22,14 +22,18 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
+	"istio.io/pkg/log"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 // YAMLCmpReporter is a custom reporter to generate tree based diff for YAMLs, used by cmp.Equal().

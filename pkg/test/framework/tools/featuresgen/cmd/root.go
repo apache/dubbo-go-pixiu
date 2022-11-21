@@ -21,7 +21,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )

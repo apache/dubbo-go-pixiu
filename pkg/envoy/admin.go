@@ -20,12 +20,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
+)
 
+import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 
 // Shutdown initiates a graceful shutdown of Envoy.

@@ -28,12 +28,16 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/cenkalti/backoff/v4"
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"istio.io/pkg/log"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,15 +46,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/informers"
-
-	//  import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
-	//  import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/cache"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -59,8 +61,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages", 0)

@@ -8,11 +8,9 @@ package collections
 
 import (
 	"reflect"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
-
+import (
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
@@ -20,6 +18,12 @@ import (
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 )
 
 var (

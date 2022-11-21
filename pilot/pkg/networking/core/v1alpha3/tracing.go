@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+)
 
+import (
 	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
@@ -29,7 +31,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	telemetrypb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/extensionproviders"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -39,9 +46,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/requestidextension"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	telemetrypb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 // this is used for testing. it should not be changed in regular code.

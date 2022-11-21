@@ -22,11 +22,15 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+)
 
+import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/clusters"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/proto"
 )

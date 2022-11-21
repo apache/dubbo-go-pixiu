@@ -16,14 +16,18 @@ package kube
 
 import (
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
-	"istio.io/pkg/log"
 )
 
 var _ cache.Controller = &podController{}

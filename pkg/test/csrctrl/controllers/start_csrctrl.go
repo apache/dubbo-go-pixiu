@@ -19,16 +19,19 @@ import (
 	"os"
 	"strings"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	capi "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+)
 
-	// +kubebuilder:scaffold:imports
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/csrctrl/signer"
-	"istio.io/pkg/log"
 )
 
 const (

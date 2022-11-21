@@ -19,16 +19,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	"github.com/spf13/cobra"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helm"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helmreconciler"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/manifest"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
-	"istio.io/pkg/log"
 )
 
 type ManifestGenerateArgs struct {

@@ -16,10 +16,14 @@ package filter
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	cluster2 "github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/cluster"
 	config2 "github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/config"
 )

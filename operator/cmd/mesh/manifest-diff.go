@@ -18,9 +18,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+)
 
+import (
 	"github.com/spf13/cobra"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/compare"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )

@@ -14,7 +14,9 @@
 
 package kube
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIsAtLeastVersion(t *testing.T) {
 	tests := []struct {

@@ -14,7 +14,9 @@
 
 package wasm
 
-import "istio.io/pkg/monitoring"
+import (
+	"istio.io/pkg/monitoring"
+)
 
 // Const strings for label value.
 const (

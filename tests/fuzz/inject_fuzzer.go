@@ -16,9 +16,13 @@ package fuzz
 
 import (
 	"bytes"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
 )

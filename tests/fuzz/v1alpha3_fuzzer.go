@@ -17,9 +17,13 @@ package fuzz
 import (
 	"errors"
 	"testing"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3"
 	"github.com/apache/dubbo-go-pixiu/tests/fuzz/utils"

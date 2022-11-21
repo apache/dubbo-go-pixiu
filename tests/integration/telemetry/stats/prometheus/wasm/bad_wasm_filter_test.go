@@ -20,7 +20,9 @@ package wasm
 import (
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/match"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/prometheus"

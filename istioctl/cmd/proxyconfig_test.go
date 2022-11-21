@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )

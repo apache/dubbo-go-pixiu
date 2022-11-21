@@ -17,15 +17,19 @@ package revisions
 import (
 	"sync"
 	"time"
+)
 
+import (
+	"istio.io/api/label"
+	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
-	"istio.io/api/label"
-	"istio.io/pkg/log"
 )
 
 const (

@@ -16,7 +16,9 @@ package resource
 
 import (
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
 )
 

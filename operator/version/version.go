@@ -15,8 +15,11 @@
 package version
 
 import (
-	pkgversion "github.com/apache/dubbo-go-pixiu/operator/pkg/version"
 	buildversion "istio.io/pkg/version"
+)
+
+import (
+	pkgversion "github.com/apache/dubbo-go-pixiu/operator/pkg/version"
 )
 
 const (

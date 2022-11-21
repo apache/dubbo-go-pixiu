@@ -18,14 +18,18 @@ package loadbalancer
 import (
 	"math"
 	"sort"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
-	"istio.io/api/networking/v1alpha3"
 )
 
 func GetLocalityLbSetting(

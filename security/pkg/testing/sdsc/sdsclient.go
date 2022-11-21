@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"os"
 	"time"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,11 +30,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"istio.io/pkg/log"
+)
 
+import (
 	authn_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
-	"istio.io/pkg/log"
 )
 
 // Client is a lightweight client for testing secret discovery service server.

@@ -16,17 +16,19 @@ package fuzz
 
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	coreV1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 	networkingV1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+)
 
+import (
 	kubeIngress "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingress"
 	ingressv1 "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingressv1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func FuzzConvertIngressVirtualService(data []byte) int {

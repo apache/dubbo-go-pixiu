@@ -27,14 +27,21 @@ import (
 	"strconv"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
+	opAPI "istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/cmd"
 	"github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"
 	pkgAPI "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
@@ -52,9 +59,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
-	"istio.io/api/label"
-	opAPI "istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests

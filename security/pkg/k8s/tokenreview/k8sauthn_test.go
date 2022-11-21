@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+)
 
+import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 

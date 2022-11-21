@@ -19,10 +19,11 @@ import (
 	golog "log"
 	"net"
 	"os"
+)
 
+import (
 	"github.com/florianl/go-nflog/v2"
 	"golang.org/x/net/ipv4"
-
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

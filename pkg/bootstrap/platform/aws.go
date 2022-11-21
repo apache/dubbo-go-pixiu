@@ -17,11 +17,15 @@ package platform
 import (
 	"strings"
 	"time"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/http"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/http"
 )
 
 const (

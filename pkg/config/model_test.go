@@ -19,15 +19,19 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	networking "istio.io/api/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/config"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestDeepCopy(t *testing.T) {

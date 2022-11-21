@@ -17,7 +17,9 @@ package match
 import (
 	"path/filepath"
 	"strings"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

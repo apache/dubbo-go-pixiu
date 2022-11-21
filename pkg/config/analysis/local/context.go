@@ -19,7 +19,13 @@ package local
 import (
 	"encoding/json"
 	"fmt"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/file"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -29,7 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"istio.io/pkg/log"
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.

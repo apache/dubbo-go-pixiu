@@ -17,9 +17,10 @@ package xdstest
 import (
 	"context"
 	"time"
+)
 
+import (
 	"google.golang.org/grpc"
-
 	"istio.io/pkg/log"
 )
 

@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"io"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 )
 

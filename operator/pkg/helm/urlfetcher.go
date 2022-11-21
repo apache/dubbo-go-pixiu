@@ -21,7 +21,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/httprequest"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/tgz"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/version"

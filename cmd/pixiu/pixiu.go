@@ -19,7 +19,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
 	_ "net/http/pprof"
 	"runtime"
 	"strconv"
@@ -37,6 +36,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/pluginregistry"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
 )
 
 var (

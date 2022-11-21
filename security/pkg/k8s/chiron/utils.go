@@ -24,7 +24,10 @@ import (
 	"net"
 	"os"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	certv1 "k8s.io/api/certificates/v1"
 	certv1beta1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,9 +37,10 @@ import (
 	rand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 const (

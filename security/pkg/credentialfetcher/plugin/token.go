@@ -17,9 +17,14 @@ package plugin
 import (
 	"os"
 	"strings"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/security"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/security"
 )
 
 type KubernetesTokenPlugin struct {

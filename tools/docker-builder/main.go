@@ -21,14 +21,18 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/yaml"
-
-	testenv "github.com/apache/dubbo-go-pixiu/pkg/test/env"
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
+	"sigs.k8s.io/yaml"
+)
+
+import (
+	testenv "github.com/apache/dubbo-go-pixiu/pkg/test/env"
+	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
 func main() {

@@ -20,9 +20,13 @@ import (
 	"fmt"
 	"io"
 	"text/tabwriter"
+)
 
+import (
 	"github.com/spf13/cobra"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 )

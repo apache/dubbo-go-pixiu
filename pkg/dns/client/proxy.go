@@ -17,7 +17,9 @@ package client
 import (
 	"net"
 	"time"
+)
 
+import (
 	"github.com/miekg/dns"
 )
 

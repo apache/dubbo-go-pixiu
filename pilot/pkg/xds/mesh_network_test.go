@@ -20,12 +20,20 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/security/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
@@ -37,10 +45,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/api/security/v1beta1"
 )
 
 func TestNetworkGatewayUpdates(t *testing.T) {

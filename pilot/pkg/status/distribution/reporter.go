@@ -19,20 +19,24 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"gopkg.in/yaml.v2"
+	"istio.io/pkg/ledger"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/ledger"
 )
 
 func GenStatusReporterMapKey(conID string, distributionType xds.EventType) string {

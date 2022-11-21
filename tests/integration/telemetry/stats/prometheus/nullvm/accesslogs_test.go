@@ -36,9 +36,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"k8s.io/apimachinery/pkg/util/rand"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

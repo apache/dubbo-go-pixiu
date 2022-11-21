@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/kube"

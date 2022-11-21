@@ -22,9 +22,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
@@ -33,7 +38,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"
 	kubetest "github.com/apache/dubbo-go-pixiu/pkg/test/kube"
-	"istio.io/pkg/log"
 )
 
 const (

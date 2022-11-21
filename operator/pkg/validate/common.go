@@ -21,14 +21,18 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+)
 
+import (
+	"istio.io/pkg/log"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 var (

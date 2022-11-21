@@ -19,10 +19,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
 	"istio.io/pkg/log"
 )
 

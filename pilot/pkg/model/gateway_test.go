@@ -17,9 +17,14 @@ package model
 import (
 	"fmt"
 	"testing"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
+import (
 	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // nolint lll

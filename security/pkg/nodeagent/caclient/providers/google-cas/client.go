@@ -18,16 +18,20 @@ import (
 	"context"
 	"fmt"
 	"time"
+)
 
+import (
 	privateca "cloud.google.com/go/security/privateca/apiv1"
 	"google.golang.org/api/option"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/util/rand"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var googleCASClientLog = log.RegisterScope("googlecas", "Google CAS client debugging", 0)

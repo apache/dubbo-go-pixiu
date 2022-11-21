@@ -22,11 +22,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"cloud.google.com/go/compute/metadata"
-
-	"github.com/apache/dubbo-go-pixiu/security/pkg/util"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/security/pkg/util"
 )
 
 var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)

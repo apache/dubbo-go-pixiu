@@ -18,8 +18,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/fatih/color"
+	"istio.io/api/label"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
@@ -32,7 +35,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	operator_istio "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
@@ -42,7 +47,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"istio.io/api/label"
 )
 
 var istioOperatorGVR = apimachinery_schema.GroupVersionResource{

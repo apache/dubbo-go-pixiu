@@ -21,7 +21,9 @@ package v1alpha1
 
 import (
 	"encoding/json"
+)
 
+import (
 	github_com_golang_protobuf_jsonpb "github.com/golang/protobuf/jsonpb" // nolint: staticcheck
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"

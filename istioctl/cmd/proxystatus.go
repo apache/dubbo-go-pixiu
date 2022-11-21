@@ -19,11 +19,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+)
 
+import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	"istio.io/pkg/log"
 	"k8s.io/client-go/rest"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/multixds"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
@@ -31,7 +36,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/writer/pilot"
 	pilotxds "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 func statusCommand() *cobra.Command {

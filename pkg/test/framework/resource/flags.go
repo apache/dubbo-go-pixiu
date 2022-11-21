@@ -18,7 +18,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"

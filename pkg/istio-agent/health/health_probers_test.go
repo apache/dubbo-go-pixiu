@@ -23,7 +23,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
+)
 
+import (
 	"istio.io/api/networking/v1alpha3"
 )
 

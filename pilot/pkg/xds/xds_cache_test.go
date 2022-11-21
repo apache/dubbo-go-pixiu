@@ -20,11 +20,15 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"

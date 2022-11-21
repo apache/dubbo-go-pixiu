@@ -19,9 +19,15 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	meshapi "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
@@ -32,8 +38,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
-	meshapi "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {

@@ -21,8 +21,13 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 	ingress "k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,7 +36,9 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	networkinglister "k8s.io/client-go/listers/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	kubecontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -42,9 +49,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -60,17 +64,14 @@ import (
 // If ingress service is empty, it falls back to NodeExternalIP list, selected using the labels.
 // This is using 'namespace' of pilot - but seems to be broken (never worked), since it uses Pilot's pod labels
 // instead of the ingress labels.
-
 // Follows mesh.IngressControllerMode setting to enable - OFF|STRICT|DEFAULT.
 // STRICT requires "kubernetes.io/ingress.class" == mesh.IngressClass
 // DEFAULT allows Ingress without explicit class.
-
 // In 1.1:
 // - K8S_INGRESS_NS - namespace of the Gateway that will act as ingress.
 // - labels of the gateway set to "app=ingressgateway" for node_port, service set to 'ingressgateway' (matching default install)
 //   If we need more flexibility - we can add it (but likely we'll deprecate ingress support first)
 // -
-
 var schemas = collection.SchemasFor(
 	collections.IstioNetworkingV1Alpha3Virtualservices,
 	collections.IstioNetworkingV1Alpha3Gateways)

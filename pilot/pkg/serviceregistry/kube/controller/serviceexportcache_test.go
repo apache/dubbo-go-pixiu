@@ -19,14 +19,19 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"istio.io/api/label"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube"
@@ -34,7 +39,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
 	istiotest "github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/api/label"
 )
 
 const (

@@ -19,9 +19,13 @@ import (
 	"os"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/uuid"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )
 

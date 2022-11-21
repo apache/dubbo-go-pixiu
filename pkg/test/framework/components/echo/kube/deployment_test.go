@@ -15,7 +15,9 @@ package kube
 
 import (
 	"testing"
+)
 
+import (
 	testutil "github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"

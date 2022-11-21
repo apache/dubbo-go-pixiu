@@ -18,10 +18,14 @@ import (
 	"context"
 	"fmt"
 	"sync"
+)
 
+import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"

@@ -19,13 +19,17 @@ import (
 	"fmt"
 	"sort"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	istioKube "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"

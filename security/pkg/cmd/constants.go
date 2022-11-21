@@ -14,7 +14,9 @@
 
 package cmd
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	// DefaultSelfSignedCACertTTL is the default TTL of self-signed CA root certificate.

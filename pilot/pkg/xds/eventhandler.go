@@ -14,7 +14,9 @@
 
 package xds
 
-import v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
+import (
+	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
+)
 
 // EventType represents the type of object we are tracking, mapping to envoy TypeUrl.
 type EventType = string

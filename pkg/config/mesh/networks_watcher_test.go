@@ -17,12 +17,16 @@ package mesh_test
 import (
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 )
 
 func TestNewNetworksWatcherWithBadInputShouldFail(t *testing.T) {

@@ -16,7 +16,9 @@ package diag
 
 import (
 	"sort"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 )
 

@@ -28,10 +28,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/mock"
-	"istio.io/pkg/log"
 )
 
 type stsReqType int

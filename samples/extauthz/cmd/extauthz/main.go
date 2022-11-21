@@ -26,7 +26,9 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+)
 
+import (
 	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	authv2 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"

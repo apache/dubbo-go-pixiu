@@ -28,7 +28,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -37,9 +39,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	extensions "istio.io/api/extensions/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
 // Wasm header = magic number (4 bytes) + Wasm spec version (4 bytes).

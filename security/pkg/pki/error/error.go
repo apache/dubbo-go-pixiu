@@ -14,7 +14,9 @@
 
 package error
 
-import "google.golang.org/grpc/codes"
+import (
+	"google.golang.org/grpc/codes"
+)
 
 // ErrType is the type for CA errors.
 type ErrType int

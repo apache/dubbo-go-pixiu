@@ -24,7 +24,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

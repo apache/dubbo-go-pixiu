@@ -20,13 +20,17 @@ import (
 	"strconv"
 	"sync"
 	"time"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/controller/workloadentry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"

@@ -19,16 +19,20 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"istio.io/pkg/env"
+	istioversion "istio.io/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
-	"istio.io/pkg/env"
-	istioversion "istio.io/pkg/version"
 )
 
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier

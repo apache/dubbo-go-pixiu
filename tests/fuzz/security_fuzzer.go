@@ -20,17 +20,21 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"net"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	pb "istio.io/api/security/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	mockca "github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca/mock"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate"
-	pb "istio.io/api/security/v1alpha1"
 )
 
 func FuzzGenCSR(data []byte) int {

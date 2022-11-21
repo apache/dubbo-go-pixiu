@@ -18,7 +18,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
@@ -26,12 +28,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -39,6 +35,14 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
+	"github.com/apache/dubbo-go-pixiu/pkg/test"
+	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
 
 const (

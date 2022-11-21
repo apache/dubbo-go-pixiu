@@ -16,9 +16,13 @@ package ast
 
 import (
 	"encoding/json"
+)
 
+import (
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/strcase"
 )

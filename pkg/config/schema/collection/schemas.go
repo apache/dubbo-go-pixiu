@@ -18,11 +18,15 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 

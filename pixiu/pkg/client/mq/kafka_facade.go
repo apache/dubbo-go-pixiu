@@ -30,7 +30,6 @@ import (
 
 import (
 	"github.com/Shopify/sarama"
-
 	perrors "github.com/pkg/errors"
 )
 

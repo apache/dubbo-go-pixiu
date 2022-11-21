@@ -17,16 +17,20 @@ package kube
 import (
 	"context"
 	"reflect"
+)
 
+import (
 	gogoproto "github.com/gogo/protobuf/proto"
+	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
-	"istio.io/pkg/log"
 )
 
 type convertFn func(obj interface{}) metav1.Common

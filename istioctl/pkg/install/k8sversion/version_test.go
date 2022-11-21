@@ -19,13 +19,17 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
+import (
+	pkgVersion "istio.io/pkg/version"
 	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	pkgVersion "istio.io/pkg/version"
 )
 
 var (

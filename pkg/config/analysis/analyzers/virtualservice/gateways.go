@@ -17,7 +17,13 @@ package virtualservice
 import (
 	"fmt"
 	"strings"
+)
 
+import (
+	"istio.io/api/networking/v1alpha3"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
@@ -25,7 +31,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"istio.io/api/networking/v1alpha3"
 )
 
 // GatewayAnalyzer checks the gateways associated with each virtual service

@@ -19,7 +19,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 )
 

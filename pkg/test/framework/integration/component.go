@@ -16,7 +16,9 @@ package integration
 
 import (
 	"io"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 )
 

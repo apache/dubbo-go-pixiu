@@ -19,11 +19,8 @@ package jaeger
 
 import (
 	"github.com/mitchellh/mapstructure"
-
 	"github.com/pkg/errors"
-
 	"go.opentelemetry.io/otel/exporters/jaeger"
-
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 

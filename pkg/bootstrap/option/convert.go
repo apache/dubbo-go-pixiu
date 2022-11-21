@@ -20,7 +20,9 @@ import (
 	"net"
 	"os"
 	"strings"
+)
 
+import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -29,14 +31,16 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	meshAPI "istio.io/api/mesh/v1alpha1"
+	networkingAPI "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authn_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
-	meshAPI "istio.io/api/mesh/v1alpha1"
-	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 )
 
 // TransportSocket wraps UpstreamTLSContext

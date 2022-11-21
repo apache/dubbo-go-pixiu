@@ -22,11 +22,15 @@ import (
 	"context"
 	"testing"
 	"time"
+)
 
+import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"
 	kube2 "github.com/apache/dubbo-go-pixiu/pkg/test/kube"

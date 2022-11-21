@@ -16,7 +16,10 @@ package controllers
 
 import (
 	"fmt"
+)
 
+import (
+	istiolog "istio.io/pkg/log"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,10 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("controllers", "common controller logic", 0)

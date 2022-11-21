@@ -14,7 +14,9 @@
 
 package common
 
-import "github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
+)
 
 // TLSSettings defines TLS configuration for Echo server
 type TLSSettings struct {

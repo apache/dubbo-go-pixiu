@@ -21,17 +21,21 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+	"istio.io/pkg/log"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/leaderelection/k8sleaderelection"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/revisions"
-	"istio.io/pkg/log"
 )
 
 // Various locks used throughout the code

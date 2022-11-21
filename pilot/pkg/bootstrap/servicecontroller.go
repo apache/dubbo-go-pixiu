@@ -16,12 +16,17 @@ package bootstrap
 
 import (
 	"fmt"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/pkg/log"
 )
 
 func (s *Server) ServiceController() *aggregate.Controller {

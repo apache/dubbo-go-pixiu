@@ -14,7 +14,9 @@
 
 package resource
 
-import "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
+)
 
 // EnvironmentFactory creates an Environment.
 type EnvironmentFactory func(ctx Context) (Environment, error)

@@ -20,11 +20,16 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 
 // Holder of a mesh configuration.

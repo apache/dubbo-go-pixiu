@@ -17,13 +17,17 @@ package main
 
 import (
 	"log"
+)
 
+import (
 	"github.com/spf13/cobra"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
-	"github.com/apache/dubbo-go-pixiu/security/pkg/testing/sdsc"
 	"istio.io/pkg/env"
 	"istio.io/pkg/version"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
+	"github.com/apache/dubbo-go-pixiu/security/pkg/testing/sdsc"
 )
 
 var (

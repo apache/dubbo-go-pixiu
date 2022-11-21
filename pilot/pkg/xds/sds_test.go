@@ -22,14 +22,18 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+)
 
+import (
 	credentials "github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials/kube"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"

@@ -17,7 +17,9 @@ package loadbalancer
 import (
 	"math/rand"
 	"sync"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/loadbalancersim/network"
 )
 

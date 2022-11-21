@@ -16,7 +16,9 @@ package cache
 
 import (
 	"sync"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 )

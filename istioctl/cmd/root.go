@@ -19,13 +19,20 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/install"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/multicluster"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/validate"
@@ -33,9 +40,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/bugreport"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // CommandParseError distinguishes an error parsing istioctl CLI arguments from an error processing

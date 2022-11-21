@@ -14,7 +14,9 @@
 
 package env
 
-import "os"
+import (
+	"os"
+)
 
 // Variable is a wrapper for an environment variable.
 type Variable string

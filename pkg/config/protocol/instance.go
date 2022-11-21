@@ -14,7 +14,9 @@
 
 package protocol
 
-import "strings"
+import (
+	"strings"
+)
 
 // Instance defines network protocols for ports
 type Instance string

@@ -17,17 +17,21 @@ package mesh
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"istio.io/api/operator/v1alpha1"
+	buildversion "istio.io/pkg/version"
+)
 
+import (
 	iopv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/translate"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
-	"istio.io/api/operator/v1alpha1"
-	buildversion "istio.io/pkg/version"
 )
 
 type operatorInitArgs struct {

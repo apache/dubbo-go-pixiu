@@ -16,10 +16,15 @@ package main
 
 import (
 	"os"
+)
 
+import (
+	"istio.io/pkg/version"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"
 	binversion "github.com/apache/dubbo-go-pixiu/operator/version"
-	"istio.io/pkg/version"
 )
 
 func main() {

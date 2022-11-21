@@ -22,7 +22,9 @@ import (
 	"net/url"
 	"sync"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tests/util"
 )
 

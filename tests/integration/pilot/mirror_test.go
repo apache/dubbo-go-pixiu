@@ -22,16 +22,20 @@ import (
 	"math"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/util/rand"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/deployment"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 //	Virtual service topology
@@ -41,7 +45,6 @@ import (
 //	| Host0 | ----------> | Host1 | ----------> | Host2 |
 //	|-------|             |-------|             |-------|
 //
-
 type VirtualServiceMirrorConfig struct {
 	Name       string
 	Absent     bool

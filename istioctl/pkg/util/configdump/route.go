@@ -17,11 +17,15 @@ package configdump
 import (
 	"sort"
 	"time"
+)
 
+import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"google.golang.org/protobuf/types/known/anypb"
+)
 
+import (
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 )
 

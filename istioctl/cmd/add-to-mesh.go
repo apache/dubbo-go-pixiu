@@ -21,9 +21,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +38,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -44,9 +51,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
 	"github.com/apache/dubbo-go-pixiu/pkg/url"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 )
 
 var crdFactory = createDynamicInterface

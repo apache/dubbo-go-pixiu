@@ -19,9 +19,10 @@ package validation
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/google/cel-go/cel"
-
 	telemetry "istio.io/api/telemetry/v1alpha1"
 )
 

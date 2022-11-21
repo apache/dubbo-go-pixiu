@@ -16,7 +16,9 @@ package cache
 
 import (
 	"fmt"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

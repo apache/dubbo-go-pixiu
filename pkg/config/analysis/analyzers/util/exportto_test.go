@@ -16,7 +16,9 @@ package util
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 )
 

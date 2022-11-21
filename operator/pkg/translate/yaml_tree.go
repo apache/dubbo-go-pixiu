@@ -16,7 +16,9 @@ package translate
 
 import (
 	"gopkg.in/yaml.v2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )

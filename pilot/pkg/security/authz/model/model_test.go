@@ -17,13 +17,17 @@ package model
 import (
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/davecgh/go-spew/spew"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	authzpb "istio.io/api/security/v1beta1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/trustdomain"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	authzpb "istio.io/api/security/v1beta1"
 )
 
 func TestModel_MigrateTrustDomain(t *testing.T) {

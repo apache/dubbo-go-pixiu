@@ -19,14 +19,18 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	v1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )
 

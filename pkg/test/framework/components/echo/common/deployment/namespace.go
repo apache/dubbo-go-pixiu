@@ -16,7 +16,9 @@ package deployment
 
 import (
 	"strconv"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/ports"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/deployment"

@@ -26,12 +26,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 var goroutinesToIgnore = []string{

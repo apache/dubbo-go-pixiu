@@ -21,10 +21,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/miekg/dns"
 	"go.uber.org/atomic"
+)
 
+import (
 	dnsProto "github.com/apache/dubbo-go-pixiu/pkg/dns/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )

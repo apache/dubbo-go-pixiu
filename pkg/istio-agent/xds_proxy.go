@@ -28,7 +28,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
@@ -40,7 +42,11 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	any "google.golang.org/protobuf/types/known/anypb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	istiogrpc "github.com/apache/dubbo-go-pixiu/pilot/pkg/grpc"
@@ -56,8 +62,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/wasm"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 const (

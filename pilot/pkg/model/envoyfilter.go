@@ -17,14 +17,18 @@ package model
 import (
 	"regexp"
 	"strings"
+)
 
+import (
 	"google.golang.org/protobuf/proto"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data

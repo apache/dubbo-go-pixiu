@@ -20,12 +20,16 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	cert "k8s.io/api/certificates/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 )

@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

@@ -25,7 +25,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/admin"
@@ -39,7 +41,9 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/xds"
 	"k8s.io/utils/env"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/istio-agent/grpcxds"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"

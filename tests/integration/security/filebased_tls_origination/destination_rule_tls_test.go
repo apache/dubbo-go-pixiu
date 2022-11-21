@@ -21,7 +21,9 @@ import (
 	"os"
 	"path"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common/scheme"

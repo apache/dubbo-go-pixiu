@@ -17,7 +17,9 @@ package echo
 import (
 	"flag"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )
 

@@ -24,7 +24,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 )

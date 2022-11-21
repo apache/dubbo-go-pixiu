@@ -16,13 +16,17 @@ package k8sversion
 
 import (
 	"fmt"
+)
 
+import (
 	goversion "github.com/hashicorp/go-version"
+	pkgVersion "istio.io/pkg/version"
 	"k8s.io/apimachinery/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	pkgVersion "istio.io/pkg/version"
 )
 
 const (

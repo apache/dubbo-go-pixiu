@@ -18,13 +18,18 @@ import (
 	"crypto/tls"
 	"fmt"
 	"time"
+)
 
+import (
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	kubecontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/keepalive"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
 )
 
 // RegistryOptions provide configuration options for the configuration controller. If FileDir is set, that directory will

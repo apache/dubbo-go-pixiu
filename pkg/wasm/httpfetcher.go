@@ -19,7 +19,9 @@ import (
 	"io"
 	"net/http"
 	"time"
+)
 
+import (
 	"github.com/cenkalti/backoff/v4"
 )
 

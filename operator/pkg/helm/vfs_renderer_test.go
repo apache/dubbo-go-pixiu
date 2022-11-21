@@ -14,7 +14,9 @@
 
 package helm
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestStripPrefix(t *testing.T) {
 	cases := []struct {

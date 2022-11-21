@@ -20,9 +20,13 @@ import (
 	"io"
 	"log"
 	"os"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/ports"

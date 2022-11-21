@@ -20,13 +20,19 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
@@ -35,8 +41,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.ExtendedClient) {

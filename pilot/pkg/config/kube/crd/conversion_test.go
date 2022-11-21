@@ -16,12 +16,17 @@ package crd
 
 import (
 	"testing"
+)
 
+import (
+	"istio.io/api/meta/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/test/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
-	"istio.io/api/meta/v1alpha1"
 )
 
 func TestConvert(t *testing.T) {

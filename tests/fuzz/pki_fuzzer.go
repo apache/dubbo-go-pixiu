@@ -17,9 +17,13 @@ package fuzz
 import (
 	"crypto/x509/pkix"
 	"os"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 )
 

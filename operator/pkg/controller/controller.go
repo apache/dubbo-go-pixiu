@@ -16,7 +16,9 @@ package controller
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/controller/istiocontrolplane"
 )
 

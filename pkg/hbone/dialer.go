@@ -24,12 +24,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/proxy"
-
-	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	istiolog "istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 )
 
 var log = istiolog.RegisterScope("hbone", "", 0)

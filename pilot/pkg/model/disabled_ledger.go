@@ -16,7 +16,9 @@ package model
 
 import (
 	"errors"
+)
 
+import (
 	"istio.io/pkg/ledger"
 )
 

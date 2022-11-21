@@ -21,7 +21,9 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+)
 
+import (
 	"cloud.google.com/go/compute/metadata"
 )
 

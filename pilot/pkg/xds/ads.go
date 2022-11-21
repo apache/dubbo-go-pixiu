@@ -19,14 +19,20 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	uatomic "go.uber.org/atomic"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"istio.io/pkg/env"
+	istiolog "istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/controller/workloadentry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	istiogrpc "github.com/apache/dubbo-go-pixiu/pilot/pkg/grpc"
@@ -37,8 +43,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/env"
-	istiolog "istio.io/pkg/log"
 )
 
 var (

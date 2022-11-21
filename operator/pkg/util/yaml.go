@@ -21,7 +21,9 @@ import (
 	"io"
 	"reflect"
 	"strings"
+)
 
+import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/golang/protobuf/jsonpb"            // nolint: staticcheck
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
@@ -29,7 +31,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	yaml3 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 

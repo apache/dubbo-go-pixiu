@@ -18,11 +18,16 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
+import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 
 // NetworksHolder is a holder of a mesh networks configuration.

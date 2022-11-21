@@ -19,7 +19,9 @@ package externalca
 
 import (
 	"testing"
+)
 
+import (
 	csrctrl "github.com/apache/dubbo-go-pixiu/pkg/test/csrctrl/controllers"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

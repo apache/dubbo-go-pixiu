@@ -22,11 +22,16 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+)
 
+import (
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common/scheme"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
@@ -34,7 +39,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca"
-	"istio.io/pkg/log"
 )
 
 // DumpCertFromSidecar gets the certificates served by the destination.

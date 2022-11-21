@@ -23,12 +23,16 @@ import (
 	"sort"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/formatting"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"

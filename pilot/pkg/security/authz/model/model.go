@@ -17,11 +17,15 @@ package model
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/trustdomain"
 	authzpb "istio.io/api/security/v1beta1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/trustdomain"
 )
 
 const (
