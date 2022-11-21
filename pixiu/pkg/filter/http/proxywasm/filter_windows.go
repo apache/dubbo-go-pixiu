@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build windows
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -24,7 +24,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/wasm"
 )
 
 func init() {
@@ -40,56 +39,17 @@ type (
 	}
 
 	WasmFilter struct {
-		abiContextWrappers map[string]*wasm.ABIContextWrapper
 	}
 
 	Config struct {
-		WasmServices []*Service `yaml:"wasm_services" json:"wasm_services" mapstructure:"wasm_services"`
-	}
-
-	Service struct {
-		Name string `yaml:"name" json:"name" mapstructure:"name"`
 	}
 )
 
 func (w *WasmFilter) Decode(ctx *http.HttpContext) filter.FilterStatus {
-
-	// sample: display http header
-	if wrapper := w.abiContextWrappers[wasm.HeaderLevel]; wrapper != nil {
-		wrapper.Context.Instance.Lock(wrapper.Context)
-		defer wrapper.Context.Instance.Unlock()
-
-		err := wrapper.Context.GetExports().ProxyOnContextCreate(wrapper.ContextID, wasm.GetServiceRootID(wasm.HeaderLevel))
-		if err != nil {
-			logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnContextCreate failed: %v", err)
-			return filter.Continue
-		}
-
-		_, err = wrapper.Context.GetExports().ProxyOnRequestHeaders(wrapper.ContextID, int32(len(ctx.Request.Header)), 1)
-		if err != nil {
-			logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnRequestHeaders failed: %v", err)
-		}
-
-		err = wrapper.Context.GetExports().ProxyOnDelete(wrapper.ContextID)
-		if err != nil {
-			logger.Warnf("[dubbo-go-pixiu] wasmFilter call ProxyOnDelete failed: %v", err)
-		}
-	}
 	return filter.Continue
 }
 
 func (w *WasmFilter) Encode(ctx *http.HttpContext) filter.FilterStatus {
-	for _, wrapper := range w.abiContextWrappers {
-		if err := wasm.ContextDone(wrapper); err != nil {
-			logger.Warnf("[dubbo-go-pixiu] wasmFilter call contextDone failed: %v", err)
-		}
-	}
-
-	if val := ctx.GetHeader("go-wasm-header"); val != "" {
-		if _, err := ctx.Writer.Write([]byte(val)); err != nil {
-			logger.Errorf("write response error: %s", err)
-		}
-	}
 	return filter.Continue
 }
 
@@ -102,16 +62,7 @@ func (factory *WasmFilterFactory) Apply() error {
 }
 
 func (factory *WasmFilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	filter := &WasmFilter{
-		abiContextWrappers: make(map[string]*wasm.ABIContextWrapper),
-	}
-	for _, service := range factory.cfg.WasmServices {
-		if abiContext := wasm.CreateABIContextByName(service.Name, ctx); abiContext != nil {
-			filter.abiContextWrappers[service.Name] = abiContext
-		}
-	}
-	chain.AppendDecodeFilters(filter)
-	chain.AppendEncodeFilters(filter)
+	logger.Warnf("Wasm not support on windows now")
 	return nil
 }
 
