@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package shutdown
 
 import (
@@ -24,14 +25,11 @@ import (
 var (
 	// ShutdownSignals receives shutdown signals to process
 	ShutdownSignals = []os.Signal{
-		os.Interrupt, os.Kill, syscall.SIGKILL, syscall.SIGSTOP,
+		os.Interrupt, os.Kill, syscall.SIGKILL,
 		syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGILL, syscall.SIGTRAP,
-		syscall.SIGABRT, syscall.SIGSYS, syscall.SIGTERM,
+		syscall.SIGABRT, syscall.SIGTERM,
 	}
 
 	// DumpHeapShutdownSignals receives shutdown signals to process
-	DumpHeapShutdownSignals = []os.Signal{
-		syscall.SIGQUIT, syscall.SIGILL,
-		syscall.SIGTRAP, syscall.SIGABRT, syscall.SIGSYS,
-	}
+	DumpHeapShutdownSignals = []os.Signal{syscall.SIGQUIT, syscall.SIGILL, syscall.SIGTRAP, syscall.SIGABRT}
 )
