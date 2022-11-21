@@ -33,7 +33,7 @@ type Bootstrap struct {
 	Node             *Node             `yaml:"node" json:"node" mapstructure:"node"`
 	Trace            *TracerConfig     `yaml:"tracing" json:"tracing" mapstructure:"tracing"`
 	Wasm             *WasmConfig       `yaml:"wasm" json:"wasm" mapstructure:"wasm"`
-	Config           *ConfigCenter
+	Config           *ConfigCenter     `yaml:"config-center" json:"config-center" mapstructure:"config-center"`
 	// Third party dependency
 	Nacos *Nacos `yaml:"nacos" json:"nacos" mapstructure:"nacos"`
 }
