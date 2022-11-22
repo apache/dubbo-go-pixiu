@@ -21,9 +21,14 @@ import (
 	"net"
 	"net/http"
 	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 )
 
 const (

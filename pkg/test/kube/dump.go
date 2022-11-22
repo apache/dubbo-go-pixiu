@@ -23,18 +23,22 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istioctl"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
-	"istio.io/api/annotation"
 )
 
 const maxCoreDumpedPods = 5

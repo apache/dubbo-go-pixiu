@@ -18,9 +18,11 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 
 // MockDiscovery is a DiscoveryServer that allows users full control over responses.

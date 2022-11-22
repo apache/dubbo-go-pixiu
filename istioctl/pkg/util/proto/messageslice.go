@@ -16,9 +16,13 @@ package proto
 
 import (
 	"bytes"
+)
 
+import (
 	"google.golang.org/protobuf/proto"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 

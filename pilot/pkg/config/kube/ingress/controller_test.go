@@ -18,18 +18,22 @@ import (
 	"context"
 	"testing"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	kubecontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func newFakeController() (model.ConfigStoreController, kube.Client) {

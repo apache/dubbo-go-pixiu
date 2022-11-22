@@ -32,12 +32,16 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"istio.io/pkg/monitoring"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 )
 
 const (

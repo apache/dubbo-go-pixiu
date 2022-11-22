@@ -17,9 +17,14 @@ package option
 import (
 	"reflect"
 	"testing"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+import (
 	networkingAPI "istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 
 // nolint: lll

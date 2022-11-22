@@ -27,12 +27,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/google/go-containerregistry/pkg/name"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
 var wasmLog = log.RegisterScope("wasm", "", 0)

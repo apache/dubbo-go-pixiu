@@ -23,7 +23,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -35,7 +37,9 @@ import (
 	fakeclient "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/clock"
+)
 
+import (
 	rl "github.com/apache/dubbo-go-pixiu/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 )
 

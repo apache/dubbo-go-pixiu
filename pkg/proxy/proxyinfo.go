@@ -18,10 +18,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+)
 
+import (
+	istioVersion "istio.io/pkg/version"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	istioVersion "istio.io/pkg/version"
 )
 
 type sidecarSyncStatus struct {

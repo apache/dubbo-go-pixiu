@@ -21,10 +21,16 @@ package component
 
 import (
 	"fmt"
+)
 
+import (
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helm"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
@@ -32,8 +38,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/translate"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 const (

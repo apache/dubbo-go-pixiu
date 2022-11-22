@@ -20,15 +20,19 @@ import (
 	"os"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/vishvananda/netlink"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/builder"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"
 	dep "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/dependencies"
 	iptableslog "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/log"
-	"istio.io/pkg/log"
 )
 
 type Ops int

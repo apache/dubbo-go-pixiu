@@ -17,7 +17,9 @@ package authn
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 

@@ -16,7 +16,9 @@ package server
 
 import (
 	"sync"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

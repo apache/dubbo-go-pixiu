@@ -18,16 +18,20 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+)
 
+import (
+	"istio.io/api/operator/v1alpha1"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/version"
 	oversion "github.com/apache/dubbo-go-pixiu/operator/version"
-	"istio.io/api/operator/v1alpha1"
 )
 
 // ReverseTranslator is a set of mappings to translate between values.yaml and API paths, charts, k8s paths.

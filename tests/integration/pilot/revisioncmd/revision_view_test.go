@@ -25,10 +25,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+import (
 	"istio.io/api/label"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/cmd"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"

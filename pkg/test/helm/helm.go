@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/shell"
 )

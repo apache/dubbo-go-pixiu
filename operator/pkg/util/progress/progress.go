@@ -20,9 +20,13 @@ import (
 	"sort"
 	"strings"
 	"sync"
+)
 
+import (
 	"github.com/cheggaaa/pb/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 )
 

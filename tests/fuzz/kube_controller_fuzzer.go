@@ -19,13 +19,17 @@ package controller
 
 import (
 	"context"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 )
 

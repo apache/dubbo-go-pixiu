@@ -27,7 +27,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+)
 
+import (
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -36,14 +38,16 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type stats struct {

@@ -16,14 +16,18 @@ package model
 
 import (
 	"fmt"
+)
 
+import (
 	"google.golang.org/protobuf/proto"
+	networking "istio.io/api/networking/v1alpha3"
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // This function merges one or more destination rules for a given host string

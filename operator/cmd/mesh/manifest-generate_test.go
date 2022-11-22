@@ -22,13 +22,18 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"istio.io/pkg/version"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/compare"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helm"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helmreconciler"
@@ -42,7 +47,6 @@ import (
 	tutil "github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
-	"istio.io/pkg/version"
 )
 
 const (

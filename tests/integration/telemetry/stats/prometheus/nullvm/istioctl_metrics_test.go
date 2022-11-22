@@ -22,7 +22,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istioctl"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"

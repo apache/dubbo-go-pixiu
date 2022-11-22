@@ -18,12 +18,16 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"istio.io/api/meta/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func TestResourceLock_Lock(t *testing.T) {

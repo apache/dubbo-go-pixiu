@@ -14,7 +14,9 @@
 
 package cmd
 
-import "strings"
+import (
+	"strings"
+)
 
 // Values should try to use sendmail-style values as in <sysexits.h>
 // See e.g. https://man.openbsd.org/sysexits.3

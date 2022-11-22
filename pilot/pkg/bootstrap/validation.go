@@ -15,11 +15,14 @@
 package bootstrap
 
 import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks/validation/controller"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks/validation/server"
-	"istio.io/pkg/log"
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {

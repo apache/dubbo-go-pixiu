@@ -16,9 +16,14 @@ package server
 
 import (
 	"strconv"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+import (
 	"istio.io/pkg/monitoring"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 
 const (

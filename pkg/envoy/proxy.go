@@ -20,12 +20,16 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+)
 
+import (
 	"google.golang.org/protobuf/types/known/durationpb"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/network"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/network"
 )
 
 type envoy struct {

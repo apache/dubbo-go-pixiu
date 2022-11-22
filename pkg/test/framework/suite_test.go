@@ -19,9 +19,13 @@ import (
 	"os"
 	"sync"
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/environment/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"

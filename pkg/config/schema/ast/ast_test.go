@@ -16,7 +16,9 @@ package ast
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 )
 

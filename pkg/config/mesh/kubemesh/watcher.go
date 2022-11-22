@@ -16,15 +16,19 @@ package kubemesh
 
 import (
 	"fmt"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/configmapwatcher"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.

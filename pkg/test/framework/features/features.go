@@ -18,11 +18,15 @@ import (
 	"fmt"
 	"os"
 	"strings"
+)
 
-	"sigs.k8s.io/yaml"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
+import (
 	"istio.io/pkg/log"
+	"sigs.k8s.io/yaml"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 )
 
 type Feature string

@@ -18,16 +18,20 @@ import (
 	"errors"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/onsi/gomega"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 var createConfigSet = []*config.Config{

@@ -21,14 +21,18 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+)
 
+import (
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("status",

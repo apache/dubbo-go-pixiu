@@ -19,11 +19,16 @@ import (
 	"encoding/hex"
 	"strconv"
 	"strings"
+)
 
+import (
+	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Cache includes the variables that can influence a Route Configuration.

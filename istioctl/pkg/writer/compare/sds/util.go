@@ -19,12 +19,16 @@ import (
 	"encoding/pem"
 	"fmt"
 	"time"
+)
 
+import (
 	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-
-	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 )
 
 // SecretItemDiff represents a secret that has been diffed between nodeagent and proxy

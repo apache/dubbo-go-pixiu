@@ -17,15 +17,19 @@ package workloadinstances
 import (
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 var GlobalTime = time.Now()

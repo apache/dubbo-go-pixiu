@@ -16,7 +16,9 @@ package echotest
 
 import (
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"

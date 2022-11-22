@@ -22,13 +22,18 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+)
 
+import (
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
@@ -38,7 +43,6 @@ import (
 	kubetest "github.com/apache/dubbo-go-pixiu/pkg/test/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (

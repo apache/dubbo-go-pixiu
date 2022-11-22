@@ -26,9 +26,12 @@ import (
 	"io"
 	"strings"
 	"sync"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
+	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +39,9 @@ import (
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	kubeyaml2 "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/file/util/kubeyaml"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -47,7 +52,6 @@ import (
 	schemaresource "github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var (

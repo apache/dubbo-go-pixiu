@@ -25,9 +25,14 @@ import (
 	"strconv"
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
+	"istio.io/pkg/filewatcher"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/server"
@@ -37,7 +42,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/testcerts"
-	"istio.io/pkg/filewatcher"
 )
 
 func TestNewServerCertInit(t *testing.T) {

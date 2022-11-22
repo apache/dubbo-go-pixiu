@@ -19,17 +19,21 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/api/label"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/api/label"
-	"istio.io/pkg/log"
 )
 
 func newDefaultWatcher(client kube.Client, revision string) DefaultWatcher {

@@ -20,20 +20,24 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 var serviceExportTimeout = retry.Timeout(time.Second * 2)

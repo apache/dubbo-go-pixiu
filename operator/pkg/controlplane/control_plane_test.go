@@ -18,12 +18,17 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+)
 
+import (
+	"istio.io/api/operator/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/component"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/translate"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
-	"istio.io/api/operator/v1alpha1"
 )
 
 func TestOrderedKeys(t *testing.T) {

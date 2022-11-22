@@ -24,9 +24,13 @@ import (
 	"strings"
 	"testing"
 	"text/template"
+)
 
+import (
 	"github.com/Masterminds/sprig/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

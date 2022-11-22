@@ -17,12 +17,17 @@ package options
 import (
 	"path/filepath"
 	"time"
+)
 
+import (
+	"istio.io/pkg/env"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/jwt"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
-	"istio.io/pkg/env"
 )
 
 var (

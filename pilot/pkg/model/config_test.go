@@ -19,9 +19,13 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+)
 
+import (
 	"github.com/davecgh/go-spew/spew"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	mock_config "github.com/apache/dubbo-go-pixiu/pilot/test/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"

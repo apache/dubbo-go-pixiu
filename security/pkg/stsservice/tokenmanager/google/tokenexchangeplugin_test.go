@@ -19,7 +19,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/tokenmanager/google/mock"

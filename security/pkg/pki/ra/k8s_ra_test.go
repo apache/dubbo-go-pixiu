@@ -20,17 +20,21 @@ import (
 	"path"
 	"testing"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca"
 	pkiutil "github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (

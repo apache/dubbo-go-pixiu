@@ -23,10 +23,15 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice"
-	"istio.io/pkg/log"
 )
 
 const (

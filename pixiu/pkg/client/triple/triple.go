@@ -28,7 +28,6 @@ import (
 import (
 	proxymeta "github.com/mercari/grpc-http-proxy/metadata"
 	"github.com/mercari/grpc-http-proxy/proxy"
-
 	"github.com/pkg/errors"
 )
 

@@ -24,9 +24,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+)
 
+import (
 	"github.com/gorilla/mux"
-
 	"istio.io/pkg/log"
 )
 

@@ -16,7 +16,9 @@ package matcher
 
 import (
 	"strings"
+)
 
+import (
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 

@@ -18,14 +18,18 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+)
 
+import (
+	"istio.io/api/label"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
-	"istio.io/api/label"
 )
 
 var (

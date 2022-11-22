@@ -15,9 +15,14 @@ package envoyfilter
 
 import (
 	"sync"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
+import (
 	"istio.io/pkg/monitoring"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 )
 
 type Result string

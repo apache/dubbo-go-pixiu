@@ -25,11 +25,15 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common/scheme"
 )

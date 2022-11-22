@@ -16,7 +16,9 @@ package trustbundle
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
 )
 

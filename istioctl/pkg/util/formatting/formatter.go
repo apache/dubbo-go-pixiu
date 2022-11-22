@@ -20,12 +20,16 @@ import (
 	"io"
 	"os"
 	"strings"
+)
 
+import (
 	"github.com/mattn/go-isatty"
-	"sigs.k8s.io/yaml"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/diag"
 	"istio.io/pkg/env"
+	"sigs.k8s.io/yaml"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/diag"
 )
 
 // Formatting options for Messages

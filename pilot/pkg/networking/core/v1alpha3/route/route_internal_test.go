@@ -17,18 +17,22 @@ package route
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authzmatcher "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/matcher"
 	authz "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestIsCatchAllMatch(t *testing.T) {

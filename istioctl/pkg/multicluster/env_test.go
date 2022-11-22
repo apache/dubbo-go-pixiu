@@ -20,12 +20,16 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 

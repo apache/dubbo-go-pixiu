@@ -19,10 +19,15 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+)
 
+import (
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
 )
 
 type testCase struct {

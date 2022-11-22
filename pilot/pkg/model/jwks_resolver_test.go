@@ -19,9 +19,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+)
 
+import (
 	"go.opencensus.io/stats/view"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )

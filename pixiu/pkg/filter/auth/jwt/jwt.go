@@ -27,7 +27,6 @@ import (
 
 import (
 	"github.com/MicahParks/keyfunc"
-
 	jwt4 "github.com/golang-jwt/jwt/v4"
 )
 

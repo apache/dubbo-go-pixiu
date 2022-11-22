@@ -24,10 +24,15 @@ import (
 	"sort"
 	"testing"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func readCertFromFile(filename string) string {

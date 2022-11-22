@@ -16,21 +16,25 @@ package envoyfilter
 
 import (
 	"fmt"
+)
 
+import (
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto/merge"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 )
 
 // ApplyListenerPatches applies patches to LDS output

@@ -16,9 +16,14 @@ package distribution
 
 import (
 	"strconv"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
+import (
 	"istio.io/pkg/ledger"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func tryLedgerPut(configLedger ledger.Ledger, obj config.Config) {

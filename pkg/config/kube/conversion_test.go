@@ -16,9 +16,13 @@ package kube
 
 import (
 	"testing"
+)
 
+import (
 	coreV1 "k8s.io/api/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 )
 

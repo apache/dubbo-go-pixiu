@@ -20,12 +20,16 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+)
 
+import (
+	"istio.io/pkg/log"
 	"k8s.io/utils/env"
+)
 
+import (
 	testenv "github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Types mirrored from https://github.com/docker/buildx/blob/master/bake/bake.go

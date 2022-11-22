@@ -17,9 +17,13 @@ package apigen_test
 import (
 	"testing"
 	"time"
+)
 
+import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/apigen"

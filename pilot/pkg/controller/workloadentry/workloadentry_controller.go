@@ -21,15 +21,23 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/status"
@@ -38,10 +46,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 func init() {

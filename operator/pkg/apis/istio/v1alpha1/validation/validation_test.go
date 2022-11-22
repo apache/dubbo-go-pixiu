@@ -20,9 +20,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+)
 
+import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	v1alpha12 "istio.io/api/operator/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1/validation"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helm"
@@ -30,7 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 )
 
 // nolint: lll

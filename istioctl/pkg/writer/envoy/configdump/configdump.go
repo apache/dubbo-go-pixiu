@@ -20,10 +20,14 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+)
 
+import (
 	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 	sdscompare "github.com/apache/dubbo-go-pixiu/istioctl/pkg/writer/compare/sds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"

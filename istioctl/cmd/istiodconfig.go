@@ -26,12 +26,16 @@ import (
 	"sort"
 	"strings"
 	"sync"
+)
 
+import (
 	"github.com/spf13/cobra"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
-	"istio.io/pkg/log"
 )
 
 type flagState interface {

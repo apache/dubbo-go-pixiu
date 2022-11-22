@@ -17,30 +17,29 @@ package grpcgen
 import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	istiolog "istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
-	istiolog "istio.io/pkg/log"
 )
 
 // Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
 // The same response can also be used by other apps using XDS directly.
-
 // GRPC proposal:
 // https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md
 //
 // Note that this implementation is tested against gRPC, but it is generic - any other framework can
 // use this XDS mode to get load balancing info from Istio, including MC/VM/etc.
-
 // The corresponding RDS response is also generated - currently gRPC has special differences
 // and can't understand normal Istio RDS - in particular expects "" instead of "/" as
 // default prefix, and is expects just the route for one host.
 // handleAck will detect if the message is an ACK or NACK, and update/log/count
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
-
 var log = istiolog.RegisterScope("grpcgen", "xDS Generator for Proxyless gRPC", 0)
 
 type GrpcConfigGenerator struct{}

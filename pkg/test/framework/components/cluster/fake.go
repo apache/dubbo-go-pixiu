@@ -16,7 +16,9 @@ package cluster
 
 import (
 	"k8s.io/apimachinery/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 

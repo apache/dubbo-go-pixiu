@@ -21,9 +21,10 @@ import (
 	"os"
 	"strings"
 	"time"
+)
 
+import (
 	"google.golang.org/grpc/metadata"
-
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )

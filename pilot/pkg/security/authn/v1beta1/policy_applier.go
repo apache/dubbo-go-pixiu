@@ -20,14 +20,23 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	authn_alpha "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/security/v1beta1"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/extensionproviders"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -38,11 +47,6 @@ import (
 	authn_utils "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn/utils"
 	authn_model "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	authn_alpha "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/security/v1beta1"
-	"istio.io/pkg/log"
 )
 
 var authnLog = log.RegisterScope("authn", "authn debugging", 0)

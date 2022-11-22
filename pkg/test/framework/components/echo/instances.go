@@ -17,9 +17,13 @@ package echo
 import (
 	"errors"
 	"sort"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 )

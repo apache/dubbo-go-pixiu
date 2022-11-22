@@ -25,13 +25,20 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/ledger"
+	"istio.io/pkg/monitoring"
+)
 
+import (
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/trustbundle"
 	networkutil "github.com/apache/dubbo-go-pixiu/pilot/pkg/util/network"
@@ -43,9 +50,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/identifier"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}

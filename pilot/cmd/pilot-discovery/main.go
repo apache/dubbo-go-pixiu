@@ -16,9 +16,14 @@ package main
 
 import (
 	"os"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-discovery/app"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-discovery/app"
 )
 
 func main() {

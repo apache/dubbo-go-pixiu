@@ -21,9 +21,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
 	"istio.io/pkg/log"
 )
 

@@ -19,7 +19,9 @@ import (
 	"os"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/config"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/options"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"

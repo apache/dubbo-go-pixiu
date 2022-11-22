@@ -22,7 +22,9 @@ import (
 	"path"
 	"strings"
 	"testing"
+)
 
+import (
 	"istio.io/pkg/version"
 )
 

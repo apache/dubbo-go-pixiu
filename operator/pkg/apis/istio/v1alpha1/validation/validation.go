@@ -20,14 +20,18 @@ import (
 	"reflect"
 	"strings"
 	"unicode"
+)
 
+import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"istio.io/api/operator/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
 
+import (
 	valuesv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
-	"istio.io/api/operator/v1alpha1"
 )
 
 const (

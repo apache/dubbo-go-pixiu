@@ -24,7 +24,6 @@ import (
 
 import (
 	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
-
 	"github.com/stretchr/testify/assert"
 )
 

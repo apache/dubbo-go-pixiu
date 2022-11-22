@@ -16,15 +16,19 @@ package deprecation
 
 import (
 	"fmt"
+)
 
+import (
+	"istio.io/api/networking/v1alpha3"
 	k8sext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"istio.io/api/networking/v1alpha3"
 )
 
 // FieldAnalyzer checks for deprecated Istio types and fields

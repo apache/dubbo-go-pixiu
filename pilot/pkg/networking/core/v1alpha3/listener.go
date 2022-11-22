@@ -21,7 +21,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -32,7 +34,14 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	extensions "istio.io/api/extensions/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	istionetworking "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
@@ -49,11 +58,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	extensions "istio.io/api/extensions/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (

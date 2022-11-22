@@ -20,9 +20,14 @@ import (
 	"net"
 	"os"
 	"strconv"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 )
 
 var epLog = log.RegisterScope("endpoint", "echo serverside", 0)

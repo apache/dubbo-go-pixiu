@@ -32,20 +32,24 @@ import (
 	"syscall"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prometheus/pkg/textparse"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/testserver"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/apimirror"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 type handler struct{}

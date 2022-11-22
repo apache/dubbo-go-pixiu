@@ -20,10 +20,14 @@ package authz
 import (
 	"fmt"
 	"io"
+)
 
+import (
 	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
 )

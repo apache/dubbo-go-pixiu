@@ -15,7 +15,9 @@ package resource
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 )
 

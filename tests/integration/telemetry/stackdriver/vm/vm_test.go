@@ -22,19 +22,23 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/stackdriver"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	sdtest "github.com/apache/dubbo-go-pixiu/tests/integration/telemetry/stackdriver"
-	"istio.io/pkg/log"
 )
 
 func TestVMTelemetry(t *testing.T) {

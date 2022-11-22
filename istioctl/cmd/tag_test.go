@@ -20,16 +20,20 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
+import (
+	"istio.io/api/label"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/tag"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helmreconciler"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"istio.io/api/label"
 )
 
 const istioInjectionWebhookSuffix = "sidecar-injector.istio.io"

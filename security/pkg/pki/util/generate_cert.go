@@ -34,7 +34,9 @@ import (
 	"os"
 	"strings"
 	"time"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

@@ -20,15 +20,19 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+)
 
+import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 type DirectSecretManager struct {

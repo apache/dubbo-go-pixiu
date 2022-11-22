@@ -13,7 +13,9 @@
 // limitations under the License.
 package sidecar
 
-import "github.com/apache/dubbo-go-pixiu/pkg/config/resource"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
+)
 
 func getNames(entries []*resource.Instance) []string {
 	names := make([]string, 0, len(entries))

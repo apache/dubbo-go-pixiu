@@ -21,14 +21,18 @@ import (
 	"io"
 	"os"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+)
 
+import (
 	operator_istio "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"

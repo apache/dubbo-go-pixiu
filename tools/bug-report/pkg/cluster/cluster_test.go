@@ -16,10 +16,14 @@ package cluster
 
 import (
 	"testing"
+)
 
+import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	config2 "github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/config"
 )
 

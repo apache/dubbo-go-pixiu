@@ -14,7 +14,9 @@
 
 package network
 
-import "github.com/apache/dubbo-go-pixiu/pkg/util/identifier"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/util/identifier"
+)
 
 // ID is the unique identifier for a network.
 type ID string

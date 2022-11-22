@@ -22,17 +22,21 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+)
 
+import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 var InjectionFuncmap = createInjectionFuncmap()

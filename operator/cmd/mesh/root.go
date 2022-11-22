@@ -16,13 +16,17 @@ package mesh
 
 import (
 	"flag"
+)
 
+import (
 	"github.com/spf13/cobra"
-
-	binversion "github.com/apache/dubbo-go-pixiu/operator/version"
-	"github.com/apache/dubbo-go-pixiu/pkg/url"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+)
+
+import (
+	binversion "github.com/apache/dubbo-go-pixiu/operator/version"
+	"github.com/apache/dubbo-go-pixiu/pkg/url"
 )
 
 var (

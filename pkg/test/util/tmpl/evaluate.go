@@ -16,7 +16,9 @@ package tmpl
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 )

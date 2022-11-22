@@ -18,7 +18,9 @@ package capture
 
 import (
 	"errors"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
 )
 

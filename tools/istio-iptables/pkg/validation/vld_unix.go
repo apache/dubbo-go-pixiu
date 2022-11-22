@@ -22,11 +22,15 @@ import (
 	"fmt"
 	"net"
 	"syscall"
+)
 
+import (
 	"golang.org/x/sys/unix"
-
-	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"
 )
 
 // Recover the original address from redirect socket. Supposed to work for tcp over ipv4 and ipv6.

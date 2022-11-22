@@ -18,8 +18,11 @@
 package model
 
 import (
-	"github.com/mitchellh/mapstructure"
 	"time"
+)
+
+import (
+	"github.com/mitchellh/mapstructure"
 )
 
 import (

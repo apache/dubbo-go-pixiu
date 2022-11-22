@@ -21,13 +21,17 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/spf13/viper"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
 )
 
 // XTablesExittype is the exit type of xtables commands.

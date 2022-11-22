@@ -19,14 +19,18 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/revisions"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )

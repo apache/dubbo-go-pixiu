@@ -17,7 +17,9 @@ package keycertbundle
 import (
 	"os"
 	"sync"
+)
 
+import (
 	"go.uber.org/atomic"
 )
 

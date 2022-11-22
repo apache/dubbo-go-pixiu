@@ -19,14 +19,18 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/k8s/controller"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	certutil "github.com/apache/dubbo-go-pixiu/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 var rootCertRotatorLog = log.RegisterScope("rootcertrotator", "Self-signed CA root cert rotator log", 0)

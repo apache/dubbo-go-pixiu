@@ -17,7 +17,9 @@ package util
 import (
 	"errors"
 	"strings"
+)
 
+import (
 	"github.com/pmezard/go-difflib/difflib"
 )
 

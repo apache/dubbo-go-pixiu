@@ -15,9 +15,12 @@
 package bootstrap
 
 import (
+	"istio.io/pkg/ledger"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
-	"istio.io/pkg/ledger"
 )
 
 func hasKubeRegistry(registries []string) bool {

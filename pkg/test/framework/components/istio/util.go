@@ -21,10 +21,15 @@ import (
 	"strconv"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/environment/kube"
@@ -32,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (

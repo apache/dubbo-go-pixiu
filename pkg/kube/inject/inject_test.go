@@ -23,14 +23,21 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/api/annotation"
+	meshapi "istio.io/api/mesh/v1alpha1"
+	proxyConfig "istio.io/api/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+)
 
+import (
 	opconfig "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -40,9 +47,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/api/annotation"
-	meshapi "istio.io/api/mesh/v1alpha1"
-	proxyConfig "istio.io/api/networking/v1beta1"
 )
 
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output

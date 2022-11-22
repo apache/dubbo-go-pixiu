@@ -16,12 +16,16 @@ package informermetric
 
 import (
 	"sync"
+)
 
-	"k8s.io/client-go/tools/cache"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
+import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
+	"k8s.io/client-go/tools/cache"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 )
 
 var (

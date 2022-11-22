@@ -17,12 +17,16 @@ package serviceentry
 import (
 	"reflect"
 	"testing"
+)
 
+import (
+	networking "istio.io/api/networking/v1alpha3"
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestGetWorkloadServiceEntries(t *testing.T) {

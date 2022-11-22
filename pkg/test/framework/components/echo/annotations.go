@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+)
 
+import (
 	"istio.io/api/annotation"
 )
 

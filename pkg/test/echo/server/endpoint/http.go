@@ -27,12 +27,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"

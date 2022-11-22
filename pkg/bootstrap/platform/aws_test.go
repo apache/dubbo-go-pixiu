@@ -20,7 +20,9 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 

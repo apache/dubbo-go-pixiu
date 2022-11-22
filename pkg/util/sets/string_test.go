@@ -17,7 +17,9 @@ package sets
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
 

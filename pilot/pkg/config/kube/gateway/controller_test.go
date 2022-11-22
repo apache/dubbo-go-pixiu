@@ -16,10 +16,15 @@ package gateway
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+	networking "istio.io/api/networking/v1alpha3"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3"
@@ -29,7 +34,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 var (

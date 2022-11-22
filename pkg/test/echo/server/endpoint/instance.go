@@ -17,7 +17,9 @@ package endpoint
 import (
 	"fmt"
 	"io"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 )

@@ -17,9 +17,13 @@ package profile
 import (
 	"flag"
 	"os"
+)
 
+import (
 	"github.com/felixge/fgprof"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 

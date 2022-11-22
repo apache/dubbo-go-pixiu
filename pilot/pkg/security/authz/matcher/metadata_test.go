@@ -16,7 +16,9 @@ package matcher
 
 import (
 	"testing"
+)
 
+import (
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"

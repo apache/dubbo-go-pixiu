@@ -20,12 +20,16 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 

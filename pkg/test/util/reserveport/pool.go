@@ -14,7 +14,9 @@
 
 package reserveport
 
-import multierror "github.com/hashicorp/go-multierror"
+import (
+	multierror "github.com/hashicorp/go-multierror"
+)
 
 func allocatePool(size int) (pool []ReservedPort, err error) {
 	tempPool := make([]ReservedPort, size)

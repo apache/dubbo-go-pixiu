@@ -17,10 +17,14 @@ package aggregate
 
 import (
 	"errors"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"

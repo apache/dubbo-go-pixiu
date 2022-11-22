@@ -19,7 +19,9 @@ import (
 	"net"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/testserver"
 )
 

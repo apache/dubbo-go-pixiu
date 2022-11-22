@@ -20,14 +20,17 @@ package ca
 import (
 	"context"
 	"fmt"
+)
 
+import (
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	pb "istio.io/api/security/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	mockca "github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca/mock"
 	caerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 
 // FuzzCreateCertificate implements a fuzzer

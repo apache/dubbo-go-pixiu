@@ -19,11 +19,15 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+)
 
+import (
 	oidc "github.com/coreos/go-oidc/v3/oidc"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"istio.io/api/security/v1beta1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/security"
 )
 
 const (

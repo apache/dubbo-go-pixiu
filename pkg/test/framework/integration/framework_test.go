@@ -19,9 +19,13 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 )
 

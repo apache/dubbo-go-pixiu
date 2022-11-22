@@ -22,14 +22,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"golang.org/x/time/rate"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/common"
-	"istio.io/pkg/log"
 )
 
 const (

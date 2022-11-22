@@ -20,14 +20,17 @@ import (
 	"fmt"
 	"strings"
 	"time"
+)
 
+import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"google.golang.org/protobuf/proto"
 	kubeCore "k8s.io/api/core/v1"
+)
 
-	// Import all XDS config types
+import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"

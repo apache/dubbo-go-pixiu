@@ -19,12 +19,16 @@ import (
 	"os"
 	"regexp"
 	"strings"
+)
 
+import (
 	"github.com/pmezard/go-difflib/difflib"
+	"istio.io/pkg/env"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	"istio.io/pkg/env"
 )
 
 const (

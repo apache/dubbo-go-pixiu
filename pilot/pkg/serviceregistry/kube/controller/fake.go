@@ -16,7 +16,13 @@ package controller
 
 import (
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller/filter"
@@ -24,7 +30,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (

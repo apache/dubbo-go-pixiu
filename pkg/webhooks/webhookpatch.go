@@ -20,7 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+)
 
+import (
+	"istio.io/api/label"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,13 +33,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks/util"
-	"istio.io/api/label"
-	"istio.io/pkg/log"
 )
 
 var (

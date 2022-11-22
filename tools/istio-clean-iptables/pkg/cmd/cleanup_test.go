@@ -18,9 +18,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
+)
 
+import (
 	testutil "github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-clean-iptables/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"

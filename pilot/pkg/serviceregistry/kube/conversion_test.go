@@ -20,15 +20,19 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/api/annotation"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
-	"istio.io/api/annotation"
 )
 
 var (

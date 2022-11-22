@@ -14,7 +14,9 @@
 
 package reserveport
 
-import "testing"
+import (
+	"testing"
+)
 
 const (
 	poolSize = 50

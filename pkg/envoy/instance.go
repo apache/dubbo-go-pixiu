@@ -22,9 +22,10 @@ import (
 	"os/exec"
 	"sync"
 	"time"
+)
 
+import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-
 	"istio.io/pkg/log"
 )
 

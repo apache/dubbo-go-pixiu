@@ -21,9 +21,13 @@ import (
 	"net"
 	"net/http"
 	"strings"
+)
 
+import (
 	"github.com/gorilla/websocket"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 )
 

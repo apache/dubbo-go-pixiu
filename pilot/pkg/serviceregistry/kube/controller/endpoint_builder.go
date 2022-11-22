@@ -15,8 +15,11 @@
 package controller
 
 import (
+	"istio.io/api/label"
 	v1 "k8s.io/api/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube"
@@ -24,7 +27,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	kubeUtil "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
-	"istio.io/api/label"
 )
 
 // EndpointBuilder is a stateful IstioEndpoint builder with metadata used to build IstioEndpoint

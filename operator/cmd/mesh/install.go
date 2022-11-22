@@ -22,12 +22,18 @@ import (
 	"sort"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	revtag "github.com/apache/dubbo-go-pixiu/istioctl/pkg/tag"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/verifier"
@@ -44,8 +50,6 @@ import (
 	operatorVer "github.com/apache/dubbo-go-pixiu/operator/version"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 type InstallArgs struct {

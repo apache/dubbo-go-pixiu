@@ -19,7 +19,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/config"
 )

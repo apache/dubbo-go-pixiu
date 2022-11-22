@@ -25,12 +25,16 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+)
 
+import (
 	"golang.org/x/sync/errgroup"
+	"istio.io/pkg/log"
+)
 
+import (
 	testenv "github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // RunDocker builds docker images using the `docker buildx bake` commands. Buildx is the

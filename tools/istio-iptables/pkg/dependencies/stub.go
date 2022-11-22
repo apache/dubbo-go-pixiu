@@ -16,7 +16,9 @@ package dependencies
 
 import (
 	"strings"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

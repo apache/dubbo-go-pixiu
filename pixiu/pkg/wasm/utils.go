@@ -23,7 +23,6 @@ import (
 
 import (
 	"mosn.io/proxy-wasm-go-host/common"
-
 	"mosn.io/proxy-wasm-go-host/proxywasm"
 )
 

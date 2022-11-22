@@ -16,10 +16,15 @@ package server_test
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
@@ -27,7 +32,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	dnsProto "github.com/apache/dubbo-go-pixiu/pkg/dns/proto"
 	dnsServer "github.com/apache/dubbo-go-pixiu/pkg/dns/server"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // nolint

@@ -17,7 +17,9 @@ package common
 
 import (
 	"fmt"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

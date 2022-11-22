@@ -35,11 +35,13 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
 	"istio.io/api/envoy/config/filter/network/metadata_exchange"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 )
 
 const (

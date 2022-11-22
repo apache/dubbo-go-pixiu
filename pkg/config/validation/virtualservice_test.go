@@ -16,12 +16,16 @@ package validation
 
 import (
 	"testing"
+)
 
+import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func TestValidateChainingVirtualService(t *testing.T) {

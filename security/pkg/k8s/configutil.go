@@ -17,13 +17,17 @@ package k8s
 import (
 	"context"
 	"fmt"
+)
 
+import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 )
 

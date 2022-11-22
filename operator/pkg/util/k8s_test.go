@@ -15,13 +15,17 @@ package util
 
 import (
 	"testing"
+)
 
+import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	pkgAPI "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )

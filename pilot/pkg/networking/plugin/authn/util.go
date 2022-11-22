@@ -15,9 +15,12 @@
 package authn
 
 import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TrustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {

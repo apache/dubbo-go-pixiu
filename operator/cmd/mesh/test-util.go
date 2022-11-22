@@ -21,17 +21,21 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"istio.io/pkg/log"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+)
 
+import (
 	name2 "github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	"istio.io/pkg/log"
 )
 
 // PathValue is a path/value type.

@@ -21,11 +21,15 @@ import (
 	"net/http"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/semaphore"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 )
 

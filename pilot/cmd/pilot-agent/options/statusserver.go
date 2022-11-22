@@ -15,11 +15,14 @@
 package options
 
 import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	istioagent "github.com/apache/dubbo-go-pixiu/pkg/istio-agent"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {

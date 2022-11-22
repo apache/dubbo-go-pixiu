@@ -20,7 +20,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
+)
 
+import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )

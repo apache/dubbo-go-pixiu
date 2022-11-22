@@ -29,12 +29,16 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+)
 
+import (
 	"gopkg.in/yaml.v2"
-	yaml2 "sigs.k8s.io/yaml"
-
-	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"istio.io/pkg/log"
+	yaml2 "sigs.k8s.io/yaml"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )
 
 var scope = log.RegisterScope("tpath", "tree traverser", 0)

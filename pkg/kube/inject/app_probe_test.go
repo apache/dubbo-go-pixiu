@@ -16,12 +16,16 @@ package inject
 import (
 	"reflect"
 	"testing"
+)
 
+import (
+	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	"istio.io/api/annotation"
 )
 
 func TestFindSidecar(t *testing.T) {

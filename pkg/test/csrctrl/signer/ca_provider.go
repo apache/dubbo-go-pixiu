@@ -21,10 +21,14 @@ import (
 	"os"
 	"sync/atomic"
 	"time"
+)
 
+import (
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/cert/ca"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/csrctrl/authority"
 )

@@ -17,9 +17,13 @@ package name
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )

@@ -19,12 +19,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/moby/buildkit/frontend/dockerfile/shell"
-
-	"github.com/apache/dubbo-go-pixiu/tools/docker-builder/builder"
 	istiolog "istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/docker-builder/builder"
 )
 
 // Option is a functional option for remote operations.

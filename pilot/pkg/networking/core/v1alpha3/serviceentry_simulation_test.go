@@ -16,7 +16,9 @@ package v1alpha3_test
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/simulation"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"

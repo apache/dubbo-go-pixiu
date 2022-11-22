@@ -17,9 +17,13 @@ package util
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	kube2 "github.com/apache/dubbo-go-pixiu/pkg/config/legacy/source/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 )

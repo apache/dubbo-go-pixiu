@@ -17,7 +17,14 @@ package options
 import (
 	"fmt"
 	"strings"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	securityModel "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
@@ -27,8 +34,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/cafile"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/tokenmanager"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenManagerPlugin string) (*security.Options, error) {

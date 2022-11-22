@@ -20,16 +20,20 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
 	cert "k8s.io/api/certificates/v1"
 	clientset "k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/k8s/chiron"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca"
 	raerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API

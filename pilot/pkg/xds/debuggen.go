@@ -21,10 +21,14 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	any "google.golang.org/protobuf/types/known/anypb"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 

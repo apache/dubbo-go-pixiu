@@ -17,7 +17,9 @@ package mesh
 import (
 	"fmt"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/loadbalancersim/locality"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/loadbalancersim/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/loadbalancersim/timer"

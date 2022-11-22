@@ -22,7 +22,9 @@ import (
 	"net/http"
 	"testing"
 	"time"
+)
 
+import (
 	epb "github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

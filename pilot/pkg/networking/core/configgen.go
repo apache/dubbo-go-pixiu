@@ -18,11 +18,13 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3"
 	dnsProto "github.com/apache/dubbo-go-pixiu/pkg/dns/proto"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses

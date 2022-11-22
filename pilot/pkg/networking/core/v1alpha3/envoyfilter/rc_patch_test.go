@@ -16,14 +16,18 @@ package envoyfilter
 
 import (
 	"testing"
+)
 
+import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func Test_virtualHostMatch(t *testing.T) {

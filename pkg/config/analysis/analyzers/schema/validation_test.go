@@ -16,10 +16,15 @@ package schema
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/gomega"
+	"istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/testing/fixtures"
@@ -28,7 +33,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	resource2 "github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
-	"istio.io/api/networking/v1alpha3"
 )
 
 func TestCorrectArgs(t *testing.T) {

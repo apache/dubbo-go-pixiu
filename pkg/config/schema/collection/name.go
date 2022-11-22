@@ -14,7 +14,9 @@
 
 package collection
 
-import "regexp"
+import (
+	"regexp"
+)
 
 // Name of a collection.
 type Name string

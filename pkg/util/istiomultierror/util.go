@@ -17,7 +17,9 @@ package istiomultierror
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 )
 

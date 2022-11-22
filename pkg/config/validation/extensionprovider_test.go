@@ -16,7 +16,9 @@ package validation
 
 import (
 	"testing"
+)
 
+import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 

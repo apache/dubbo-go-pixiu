@@ -19,9 +19,13 @@ import (
 	"fmt"
 	"net"
 	"strings"
+)
 
+import (
 	"k8s.io/apimachinery/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
