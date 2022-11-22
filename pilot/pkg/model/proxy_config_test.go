@@ -17,18 +17,22 @@ package model
 import (
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/golang/protobuf/proto" // nolint: staticcheck
 	"github.com/golang/protobuf/ptypes/wrappers"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1beta1"
 	istioTypes "istio.io/api/type/v1beta1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
+	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
 
 var now = time.Now()

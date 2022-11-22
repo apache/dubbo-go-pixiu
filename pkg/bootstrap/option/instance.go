@@ -16,9 +16,10 @@ package option
 
 import (
 	"reflect"
+)
 
+import (
 	"google.golang.org/protobuf/types/known/durationpb"
-
 	networkingAPI "istio.io/api/networking/v1alpha3"
 )
 

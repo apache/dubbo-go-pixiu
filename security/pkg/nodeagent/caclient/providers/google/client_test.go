@@ -19,7 +19,9 @@ import (
 	"os"
 	"reflect"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/google/mock"
 )
 

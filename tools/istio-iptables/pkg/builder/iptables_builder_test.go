@@ -17,7 +17,9 @@ package builder
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"
 	iptableslog "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/log"

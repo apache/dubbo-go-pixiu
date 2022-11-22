@@ -26,11 +26,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"gopkg.in/square/go-jose.v2"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 )
 
 const (

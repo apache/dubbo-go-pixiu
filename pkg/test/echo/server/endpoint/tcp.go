@@ -22,9 +22,13 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+)
 
+import (
 	"github.com/google/uuid"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"

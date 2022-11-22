@@ -18,10 +18,14 @@ import (
 	"context"
 	"os"
 	"testing"
+)
 
+import (
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 )

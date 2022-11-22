@@ -17,7 +17,9 @@ package fixtures
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 )
 

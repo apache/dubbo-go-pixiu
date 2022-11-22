@@ -17,9 +17,13 @@ package xds
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+)
 
+import (
 	credscontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/credentials"

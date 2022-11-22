@@ -21,7 +21,9 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

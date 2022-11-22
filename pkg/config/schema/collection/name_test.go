@@ -16,7 +16,9 @@ package collection
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 )
 

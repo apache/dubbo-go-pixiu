@@ -22,12 +22,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"

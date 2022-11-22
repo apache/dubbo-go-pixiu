@@ -23,9 +23,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	kubecluster "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster/kube"

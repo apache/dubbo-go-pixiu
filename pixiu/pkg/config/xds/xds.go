@@ -22,15 +22,16 @@ import (
 )
 
 import (
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+	"github.com/mitchellh/mapstructure"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
-
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type (

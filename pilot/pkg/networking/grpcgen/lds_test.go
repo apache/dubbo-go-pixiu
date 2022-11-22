@@ -18,9 +18,13 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/istio-agent/grpcxds"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"

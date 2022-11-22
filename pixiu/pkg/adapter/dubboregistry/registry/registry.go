@@ -24,10 +24,8 @@ import (
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
-
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
-
 	"github.com/pkg/errors"
 )
 

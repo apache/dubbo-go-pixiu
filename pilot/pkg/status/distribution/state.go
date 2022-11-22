@@ -19,8 +19,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -30,13 +34,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/status"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("status",

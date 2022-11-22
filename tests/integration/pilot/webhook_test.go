@@ -22,14 +22,18 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+)
 
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
+import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 )

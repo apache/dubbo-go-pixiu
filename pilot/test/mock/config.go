@@ -20,19 +20,23 @@ import (
 	"strconv"
 	"testing"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+	networking "istio.io/api/networking/v1alpha3"
+	authz "istio.io/api/security/v1beta1"
+	api "istio.io/api/type/v1beta1"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	config2 "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	networking "istio.io/api/networking/v1alpha3"
-	authz "istio.io/api/security/v1beta1"
-	api "istio.io/api/type/v1beta1"
-	"istio.io/pkg/log"
 )
 
 var (

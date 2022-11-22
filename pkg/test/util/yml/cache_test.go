@@ -19,7 +19,9 @@ import (
 	"path"
 	"strings"
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 )
 

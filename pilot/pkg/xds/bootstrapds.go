@@ -18,18 +18,22 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+)
 
+import (
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Bootstrap generator produces an Envoy bootstrap from node descriptors.

@@ -19,9 +19,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+)
 
+import (
 	"gopkg.in/yaml.v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"

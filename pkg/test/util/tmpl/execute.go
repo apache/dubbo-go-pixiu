@@ -17,7 +17,9 @@ package tmpl
 import (
 	"bytes"
 	"text/template"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 

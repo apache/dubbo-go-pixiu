@@ -26,9 +26,16 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+)
 
+import (
 	"github.com/Masterminds/sprig/v3"
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	proxyConfig "istio.io/api/networking/v1beta1"
+	"istio.io/pkg/log"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -39,14 +46,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	opconfig "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
-	"istio.io/api/annotation"
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	proxyConfig "istio.io/api/networking/v1beta1"
-	"istio.io/pkg/log"
 )
 
 // InjectionPolicy determines the policy for injecting the

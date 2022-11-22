@@ -24,18 +24,17 @@ import (
 )
 
 import (
+	"github.com/cch123/supermonkey"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server/controls/mocks"
-
-	"github.com/cch123/supermonkey"
-
-	"github.com/golang/mock/gomock"
-
-	"github.com/stretchr/testify/require"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 )
 
 func TestGRPCClusterManager_GetGrpcCluster(t *testing.T) {

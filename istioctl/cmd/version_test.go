@@ -18,9 +18,14 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+import (
 	"istio.io/pkg/version"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 
 var meshInfo = version.MeshInfo{

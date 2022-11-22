@@ -21,9 +21,13 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+)
 
+import (
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"

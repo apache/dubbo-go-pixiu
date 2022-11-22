@@ -18,7 +18,13 @@ import (
 	"fmt"
 	"strings"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/formatting"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/diag"
@@ -27,7 +33,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/common"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/kubectlcmd"
-	"istio.io/pkg/log"
 )
 
 const (

@@ -28,7 +28,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"

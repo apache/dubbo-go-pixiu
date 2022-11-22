@@ -16,11 +16,15 @@ package mesh
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/spf13/cobra"
-
-	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	buildversion "istio.io/pkg/version"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 )
 
 type operatorDumpArgs struct {

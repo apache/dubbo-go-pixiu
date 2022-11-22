@@ -30,7 +30,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

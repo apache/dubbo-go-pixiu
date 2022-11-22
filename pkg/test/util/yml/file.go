@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 

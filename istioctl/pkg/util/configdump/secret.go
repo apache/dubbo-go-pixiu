@@ -17,7 +17,9 @@ package configdump
 import (
 	"encoding/base64"
 	"fmt"
+)
 
+import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	extapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	any "google.golang.org/protobuf/types/known/anypb"

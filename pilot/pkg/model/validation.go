@@ -17,9 +17,13 @@ package model
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 )

@@ -26,12 +26,17 @@ import (
 	"net/http/httputil"
 	"sync"
 	"time"
+)
 
+import (
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (

@@ -20,16 +20,20 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+)
 
+import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/manifests"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (

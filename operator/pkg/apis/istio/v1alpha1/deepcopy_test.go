@@ -17,14 +17,18 @@ package v1alpha1_test
 import (
 	"os"
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	install "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 )
 
 // This is to verify that certain proto types handle marshal and unmarshal properly

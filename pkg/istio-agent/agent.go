@@ -27,7 +27,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -35,7 +37,12 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/config"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
@@ -54,16 +61,11 @@ import (
 	gca "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/google"
 	cas "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/google-cas"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/sds"
-	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 )
 
 // To debug:
 // curl -X POST localhost:15000/logging?config=trace - to see SendingDiscoveryRequest
-
 // Breakpoints in secretcache.go GenerateSecret..
-
 // Note that istiod currently can't validate the JWT token unless it runs on k8s
 // Main problem is the JWT validation check which hardcodes the k8s server address and token location.
 //
@@ -76,7 +78,6 @@ import (
 // kis exec $POD -- cat /run/secrets/kubernetes.io/serviceaccount/{ca.crt,token} > var/run/secrets/kubernetes.io/serviceaccount/
 //
 // Or disable the jwt validation while debugging SDS problems.
-
 const (
 	// Location of K8S CA root.
 	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"

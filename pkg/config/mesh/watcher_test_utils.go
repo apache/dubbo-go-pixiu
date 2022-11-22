@@ -17,7 +17,9 @@ package mesh
 import (
 	"errors"
 	"time"
+)
 
+import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 

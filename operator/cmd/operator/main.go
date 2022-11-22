@@ -16,7 +16,9 @@ package main
 
 import (
 	"os"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

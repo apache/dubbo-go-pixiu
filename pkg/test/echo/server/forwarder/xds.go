@@ -16,13 +16,17 @@ package forwarder
 
 import (
 	"context"
+)
 
+import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/xds"
 	xdsresolver "google.golang.org/grpc/xds"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 )
 

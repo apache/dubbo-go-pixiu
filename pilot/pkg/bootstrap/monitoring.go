@@ -19,11 +19,12 @@ import (
 	"net"
 	"net/http"
 	"time"
+)
 
+import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
-
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 	"istio.io/pkg/version"

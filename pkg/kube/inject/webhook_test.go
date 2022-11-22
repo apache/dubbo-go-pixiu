@@ -26,10 +26,15 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+)
 
+import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	openshiftv1 "github.com/openshift/api/apps/v1"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	v1beta12 "istio.io/api/networking/v1beta1"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -40,7 +45,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/manifest"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
@@ -52,9 +59,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	sutil "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/util"
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	v1beta12 "istio.io/api/networking/v1beta1"
 )
 
 const yamlSeparator = "\n---"

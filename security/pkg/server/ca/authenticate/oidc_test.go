@@ -25,12 +25,16 @@ import (
 	"strconv"
 	"testing"
 	"time"
+)
 
+import (
 	"google.golang.org/grpc/metadata"
 	jose "gopkg.in/square/go-jose.v2"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"istio.io/api/security/v1beta1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/security"
 )
 
 const (

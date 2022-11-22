@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+)
 
+import (
 	"github.com/google/shlex"
-
 	"istio.io/pkg/log"
 )
 

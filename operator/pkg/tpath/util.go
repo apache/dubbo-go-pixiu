@@ -21,7 +21,9 @@ package tpath
 import (
 	"gopkg.in/yaml.v2"
 	yaml2 "sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )
 

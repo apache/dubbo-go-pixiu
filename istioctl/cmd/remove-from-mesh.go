@@ -20,23 +20,27 @@ import (
 	"fmt"
 	"io"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"istio.io/api/annotation"
+	"istio.io/pkg/log"
 	appsv1 "k8s.io/api/apps/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/handlers"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
-	"istio.io/api/annotation"
-	"istio.io/pkg/log"
 )
 
 func removeFromMeshCmd() *cobra.Command {

@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

@@ -21,7 +21,9 @@ import (
 	"net"
 	"strconv"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/http/headers"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common/scheme"

@@ -17,12 +17,16 @@ package envoyfilter
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestInsertedExtensionConfig(t *testing.T) {

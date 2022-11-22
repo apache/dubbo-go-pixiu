@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+)
 
+import (
 	fuzzheaders "github.com/AdaLogics/go-fuzz-headers"
 )
 

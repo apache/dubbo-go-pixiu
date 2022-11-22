@@ -17,7 +17,9 @@ package tokenmanager
 import (
 	"errors"
 	"fmt"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/tokenmanager/google"

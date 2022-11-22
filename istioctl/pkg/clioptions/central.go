@@ -17,7 +17,9 @@ package clioptions
 import (
 	"fmt"
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

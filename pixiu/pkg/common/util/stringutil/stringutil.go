@@ -18,10 +18,13 @@
 package stringutil
 
 import (
-	"github.com/pkg/errors"
 	"net"
 	"strings"
 	"time"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (

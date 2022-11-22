@@ -18,7 +18,9 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 )
 

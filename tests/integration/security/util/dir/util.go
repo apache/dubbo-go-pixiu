@@ -23,7 +23,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/shell"
 	"github.com/apache/dubbo-go-pixiu/tests/util"

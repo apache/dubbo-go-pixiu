@@ -23,18 +23,20 @@ import (
 	"os"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
-
-	// To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/server/forwarder"
-	"istio.io/pkg/log"
 )
 
 var (

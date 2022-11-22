@@ -16,9 +16,13 @@ package echo
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"
 )
 

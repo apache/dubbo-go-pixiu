@@ -18,9 +18,14 @@ import (
 	"errors"
 	"fmt"
 	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/test"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/test"
 )
 
 var scope = log.RegisterScope("retry", "logs for retries", 0)

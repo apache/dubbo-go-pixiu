@@ -19,7 +19,9 @@ import (
 	"runtime"
 	"sync"
 	"time"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

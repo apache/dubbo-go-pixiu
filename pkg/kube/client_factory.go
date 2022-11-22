@@ -16,7 +16,9 @@ package kube
 
 import (
 	"sync"
+)
 
+import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"

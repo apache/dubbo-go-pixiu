@@ -16,7 +16,9 @@ package filter
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	cluster2 "github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/config"

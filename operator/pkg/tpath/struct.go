@@ -21,9 +21,13 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+)
 
+import (
 	"google.golang.org/protobuf/types/known/structpb"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )
 

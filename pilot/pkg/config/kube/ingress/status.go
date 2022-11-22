@@ -20,7 +20,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,11 +33,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	listerv1beta1 "k8s.io/client-go/listers/networking/v1beta1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
-	"istio.io/pkg/log"
 )
 
 const (

@@ -17,9 +17,14 @@ package trustdomain
 import (
 	"fmt"
 	"strings"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
+import (
 	istiolog "istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 )
 
 var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)

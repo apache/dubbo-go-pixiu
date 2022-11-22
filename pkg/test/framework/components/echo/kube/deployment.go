@@ -24,14 +24,21 @@ import (
 	"strings"
 	"text/template"
 	"time"
+)
 
+import (
 	"github.com/Masterminds/sprig/v3"
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	echoCommon "github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
@@ -45,9 +52,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/tmpl"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 const (

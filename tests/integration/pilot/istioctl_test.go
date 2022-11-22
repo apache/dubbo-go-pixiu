@@ -27,10 +27,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

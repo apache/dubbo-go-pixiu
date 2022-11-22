@@ -16,13 +16,18 @@ package v1alpha3_test
 
 import (
 	"testing"
+)
 
+import (
+	"istio.io/pkg/env"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/simulation"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/xdstest"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/tmpl"
-	"istio.io/pkg/env"
 )
 
 func TestDisablePortTranslation(t *testing.T) {

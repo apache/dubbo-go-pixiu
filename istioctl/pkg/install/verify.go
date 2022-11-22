@@ -16,10 +16,14 @@ package install
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/formatting"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/verifier"

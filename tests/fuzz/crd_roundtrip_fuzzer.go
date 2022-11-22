@@ -21,24 +21,28 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto" // nolint: staticcheck
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 )
 
 var (

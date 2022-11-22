@@ -18,11 +18,16 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+)
 
+import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
+	"istio.io/pkg/log"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/jwt"
@@ -30,7 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/k8s/tokenreview"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (

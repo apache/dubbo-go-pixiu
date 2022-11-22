@@ -17,12 +17,16 @@ package builder
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/istiomultierror"
-	"istio.io/pkg/log"
 )
 
 var authzLog = log.RegisterScope("authorization", "Istio Authorization Policy", 0)

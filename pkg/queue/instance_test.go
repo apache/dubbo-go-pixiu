@@ -19,7 +19,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/cenkalti/backoff/v4"
 	"go.uber.org/atomic"
 )

@@ -21,7 +21,9 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

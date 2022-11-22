@@ -16,7 +16,9 @@ package resource
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 )

@@ -19,7 +19,9 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

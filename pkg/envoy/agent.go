@@ -21,10 +21,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var errAbort = errors.New("epoch aborted")

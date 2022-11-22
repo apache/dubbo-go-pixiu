@@ -16,11 +16,16 @@ package kube
 
 import (
 	"strings"
+)
 
+import (
+	"istio.io/api/annotation"
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
@@ -30,7 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
-	"istio.io/api/annotation"
 )
 
 const (

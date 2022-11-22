@@ -17,9 +17,14 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+)
 
-	types "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	types "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
 )
 
 // Command line options

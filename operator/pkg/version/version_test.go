@@ -17,9 +17,13 @@ package version
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	"gopkg.in/yaml.v2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
 

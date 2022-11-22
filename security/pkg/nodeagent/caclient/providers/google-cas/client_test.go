@@ -17,13 +17,17 @@ package caclient
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/google-cas/mock"
 )
 

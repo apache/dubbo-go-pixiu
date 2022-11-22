@@ -17,8 +17,11 @@ package configmapwatcher
 import (
 	"fmt"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,10 +30,11 @@ import (
 	"k8s.io/client-go/informers"
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
-	"istio.io/pkg/log"
 )
 
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.

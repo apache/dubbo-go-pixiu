@@ -23,9 +23,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

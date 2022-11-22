@@ -16,7 +16,9 @@ package errdict
 
 import (
 	"strings"
+)
 
+import (
 	"istio.io/pkg/structured"
 )
 

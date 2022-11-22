@@ -21,9 +21,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/annotations"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/authz"

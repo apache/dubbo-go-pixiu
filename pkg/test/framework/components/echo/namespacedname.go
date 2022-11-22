@@ -17,7 +17,9 @@ package echo
 import (
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )

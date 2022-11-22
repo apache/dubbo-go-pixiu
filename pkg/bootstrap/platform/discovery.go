@@ -18,7 +18,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

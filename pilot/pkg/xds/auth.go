@@ -19,16 +19,20 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+)
 
+import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"istio.io/pkg/env"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
-	"istio.io/pkg/env"
 )
 
 var AuthPlaintext = env.RegisterBoolVar("XDS_AUTH_PLAINTEXT", false,

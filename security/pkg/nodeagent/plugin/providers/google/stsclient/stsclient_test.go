@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/monitoring"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/util"

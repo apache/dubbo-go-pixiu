@@ -17,7 +17,9 @@ package processlog
 import (
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/util/match"
 )

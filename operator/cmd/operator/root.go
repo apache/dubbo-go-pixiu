@@ -16,10 +16,11 @@ package main
 
 import (
 	"flag"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/version"
 )

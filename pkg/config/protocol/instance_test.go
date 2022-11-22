@@ -16,7 +16,9 @@ package protocol_test
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 )
 

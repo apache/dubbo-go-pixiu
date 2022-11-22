@@ -24,7 +24,9 @@ import (
 	"path"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/http/headers"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	echoClient "github.com/apache/dubbo-go-pixiu/pkg/test/echo"

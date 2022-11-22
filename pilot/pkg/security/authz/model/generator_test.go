@@ -16,12 +16,16 @@ package model
 
 import (
 	"testing"
+)
 
+import (
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 

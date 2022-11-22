@@ -18,9 +18,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+)
 
+import (
+	"istio.io/api/annotation"
+	"istio.io/api/label"
 	v1 "k8s.io/api/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
@@ -28,8 +34,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"istio.io/api/annotation"
-	"istio.io/api/label"
 )
 
 // Analyzer checks conditions related to Istio sidecar injection.

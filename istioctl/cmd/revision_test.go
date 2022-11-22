@@ -17,9 +17,10 @@ package cmd
 import (
 	"sort"
 	"testing"
+)
 
+import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-
 	"istio.io/api/operator/v1alpha1"
 )
 

@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+)
 
+import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -31,7 +33,6 @@ import (
 // going forwards as we self host more and more components
 // and use ConfigMaps as the means to pass that configuration
 // data we will likely move to deprecate the Endpoints lock.
-
 type ConfigMapLock struct {
 	// ConfigMapMeta should contain a Name and a Namespace of a
 	// ConfigMapMeta object that the LeaderElector will attempt to lead.

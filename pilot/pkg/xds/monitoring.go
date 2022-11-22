@@ -16,13 +16,17 @@ package xds
 import (
 	"sync"
 	"time"
+)
 
+import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"istio.io/pkg/monitoring"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
-	"istio.io/pkg/monitoring"
 )
 
 var (

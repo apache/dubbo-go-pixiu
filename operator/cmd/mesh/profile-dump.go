@@ -19,15 +19,19 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/spf13/cobra"
+	"istio.io/pkg/log"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/manifest"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
-	"istio.io/pkg/log"
 )
 
 type profileDumpArgs struct {

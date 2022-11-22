@@ -18,7 +18,9 @@
 // upstream Kubernetes API instead.
 package apimirror
 
-import "k8s.io/apimachinery/pkg/util/intstr"
+import (
+	"k8s.io/apimachinery/pkg/util/intstr"
+)
 
 // HTTPGetAction describes an action based on HTTP Get requests.
 type HTTPGetAction struct {

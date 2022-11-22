@@ -26,11 +26,17 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
@@ -45,8 +51,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/kubeclient"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/kubectlcmd"
 	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/processlog"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (

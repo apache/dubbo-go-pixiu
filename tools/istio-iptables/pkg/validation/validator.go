@@ -22,9 +22,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
 )
 
 var istioLocalIPv6 = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6}

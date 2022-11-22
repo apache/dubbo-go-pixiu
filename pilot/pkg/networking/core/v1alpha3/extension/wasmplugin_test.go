@@ -16,16 +16,20 @@ package extension
 
 import (
 	"testing"
+)
 
+import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	extensions "istio.io/api/extensions/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 
 var (

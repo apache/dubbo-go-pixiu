@@ -20,7 +20,9 @@ package operator
 import (
 	"io"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/verifier"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"

@@ -24,17 +24,21 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+)
 
+import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/server/endpoint"
-	"istio.io/pkg/log"
 )
 
 // Config for an echo server Instance.

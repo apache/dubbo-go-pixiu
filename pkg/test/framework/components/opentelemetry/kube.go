@@ -19,7 +19,9 @@ import (
 	"net"
 	"os"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"

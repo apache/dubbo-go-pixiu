@@ -24,13 +24,20 @@ import (
 	"path"
 	"strings"
 	"time"
+)
 
+import (
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
+	"istio.io/api/security/v1beta1"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	securityModel "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
@@ -42,9 +49,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ra"
 	caserver "github.com/apache/dubbo-go-pixiu/security/pkg/server/ca"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate"
-	"istio.io/api/security/v1beta1"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 type caOptions struct {

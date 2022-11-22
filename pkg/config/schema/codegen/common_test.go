@@ -16,7 +16,9 @@ package codegen
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 )
 

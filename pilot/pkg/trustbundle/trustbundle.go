@@ -22,11 +22,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
-	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
+import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
+	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
 // Source is all possible sources of MeshConfig

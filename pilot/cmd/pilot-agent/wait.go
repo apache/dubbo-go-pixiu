@@ -19,9 +19,10 @@ import (
 	"io"
 	"net/http"
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
-
 	"istio.io/pkg/log"
 )
 

@@ -20,18 +20,22 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/pkg/log"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 // FromJSON converts a canonical JSON to a proto message

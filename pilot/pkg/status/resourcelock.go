@@ -18,11 +18,15 @@ import (
 	"context"
 	"strconv"
 	"sync"
+)
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
+import (
 	"istio.io/api/meta/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // Task to be performed.

@@ -22,12 +22,16 @@ import (
 	"path"
 	"strings"
 	"text/template"
+)
 
+import (
 	"github.com/Masterminds/sprig/v3"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 
 const (

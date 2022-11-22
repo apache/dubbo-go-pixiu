@@ -19,19 +19,23 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
+	apiannotation "istio.io/api/annotation"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
-	apiannotation "istio.io/api/annotation"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration

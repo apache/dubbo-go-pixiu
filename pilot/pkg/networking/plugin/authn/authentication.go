@@ -16,13 +16,15 @@ package authn
 
 import (
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authn/factory"
-	"istio.io/pkg/log"
 )
 
 var authnLog = log.RegisterScope("authn", "authn debugging", 0)

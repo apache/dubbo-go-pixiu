@@ -22,9 +22,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/miekg/dns"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"

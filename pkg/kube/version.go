@@ -16,7 +16,9 @@ package kube
 
 import (
 	"fmt"
+)
 
+import (
 	"k8s.io/apimachinery/pkg/util/version"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 )

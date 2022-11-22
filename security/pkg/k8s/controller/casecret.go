@@ -17,12 +17,13 @@ package controller
 import (
 	"context"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/pkg/log"
 )
 
 var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log", 0)

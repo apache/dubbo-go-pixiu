@@ -18,9 +18,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+)
 
+import (
 	kubeApiCore "k8s.io/api/core/v1"
+)
 
+import (
 	environ "github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"

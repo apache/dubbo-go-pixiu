@@ -19,7 +19,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+)
 
+import (
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/monitoring"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/credentials"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -27,8 +34,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/monitoring"
 )
 
 // ServerPort defines port for the gateway server.

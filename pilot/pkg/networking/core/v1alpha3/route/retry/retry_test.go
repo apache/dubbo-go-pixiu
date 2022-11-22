@@ -18,16 +18,20 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestRetry(t *testing.T) {

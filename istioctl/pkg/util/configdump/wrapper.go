@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"reflect"
 	"strings"
+)
 
+import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
 	"github.com/golang/protobuf/proto"  // nolint: staticcheck

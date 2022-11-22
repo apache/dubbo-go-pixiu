@@ -20,9 +20,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"

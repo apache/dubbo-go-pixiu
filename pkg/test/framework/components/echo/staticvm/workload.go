@@ -18,9 +18,13 @@ import (
 	"fmt"
 	"net"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	echoClient "github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"

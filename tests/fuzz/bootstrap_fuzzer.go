@@ -18,9 +18,13 @@ package fuzz
 import (
 	"os"
 	"time"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/bootstrap"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 )

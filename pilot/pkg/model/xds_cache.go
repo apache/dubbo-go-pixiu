@@ -18,16 +18,20 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"google.golang.org/protobuf/testing/protocmp"
+	"istio.io/pkg/monitoring"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/monitoring"
 )
 
 func init() {

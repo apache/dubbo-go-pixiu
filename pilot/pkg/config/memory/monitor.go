@@ -15,9 +15,12 @@
 package memory
 
 import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	config2 "github.com/apache/dubbo-go-pixiu/pkg/config"
-	"istio.io/pkg/log"
 )
 
 const (

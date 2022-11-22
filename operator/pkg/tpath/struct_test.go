@@ -16,9 +16,13 @@ package tpath
 
 import (
 	"testing"
+)
 
+import (
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )
 

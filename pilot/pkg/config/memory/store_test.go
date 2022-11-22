@@ -16,7 +16,9 @@ package memory_test
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/test/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"

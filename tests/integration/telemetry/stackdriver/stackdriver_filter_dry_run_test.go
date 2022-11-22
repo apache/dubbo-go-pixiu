@@ -21,9 +21,13 @@ import (
 	"context"
 	"net/http"
 	"testing"
+)
 
+import (
 	"golang.org/x/sync/errgroup"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/stackdriver"

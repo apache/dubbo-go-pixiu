@@ -33,7 +33,9 @@ import (
 	"sync"
 	"syscall"
 	"time"
+)
 
+import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,8 +47,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/metrics"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/grpcready"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
@@ -54,8 +60,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	dnsProto "github.com/apache/dubbo-go-pixiu/pkg/dns/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/apimirror"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (

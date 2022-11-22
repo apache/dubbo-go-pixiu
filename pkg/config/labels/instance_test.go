@@ -16,7 +16,9 @@ package labels_test
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 )
 

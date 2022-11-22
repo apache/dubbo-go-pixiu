@@ -21,9 +21,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+)
 
+import (
 	"gopkg.in/yaml.v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/config"

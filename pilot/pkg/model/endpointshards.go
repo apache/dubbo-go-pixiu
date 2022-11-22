@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"

@@ -18,8 +18,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+)
 
+import (
 	"google.golang.org/grpc/credentials"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -39,10 +44,6 @@ import (
 	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 	mcsapisclient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisinformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
-
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"istio.io/pkg/version"
 )
 
 var _ ExtendedClient = MockClient{}

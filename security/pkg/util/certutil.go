@@ -17,9 +17,14 @@ package util
 import (
 	"fmt"
 	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 )
 
 // CertUtil is an interface for utility functions on certificate.

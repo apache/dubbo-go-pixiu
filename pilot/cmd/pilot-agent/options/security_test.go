@@ -17,7 +17,9 @@ package options
 import (
 	"os"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 )
 

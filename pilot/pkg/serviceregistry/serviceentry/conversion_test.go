@@ -19,7 +19,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/api/label"
+	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
@@ -35,8 +42,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 var (

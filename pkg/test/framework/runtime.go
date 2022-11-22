@@ -16,7 +16,9 @@ package framework
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 )

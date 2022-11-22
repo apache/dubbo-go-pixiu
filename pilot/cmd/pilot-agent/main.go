@@ -19,10 +19,18 @@ import (
 	"fmt"
 	"net"
 	"os"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/config"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/options"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
@@ -39,10 +47,6 @@ import (
 	cleaniptables "github.com/apache/dubbo-go-pixiu/tools/istio-clean-iptables/pkg/cmd"
 	iptables "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/cmd"
 	iptableslog "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/log"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (

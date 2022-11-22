@@ -21,9 +21,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/miekg/dns"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
@@ -31,7 +36,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestGatewayHostnames(t *testing.T) {

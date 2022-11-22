@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	kubecluster "github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"

@@ -23,7 +23,9 @@ import (
 	"net/url"
 	"os"
 	"sync"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

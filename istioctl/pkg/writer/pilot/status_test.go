@@ -19,13 +19,18 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+)
 
+import (
 	envoycorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/google/uuid"
 	any "google.golang.org/protobuf/types/known/anypb"
+	istioversion "istio.io/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	networkingutil "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
@@ -33,7 +38,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/tests/util"
-	istioversion "istio.io/pkg/version"
 )
 
 var preDefinedNonce = newNonce()

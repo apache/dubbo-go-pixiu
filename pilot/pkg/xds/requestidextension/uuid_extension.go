@@ -18,7 +18,9 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	uuid_extension "github.com/envoyproxy/go-control-plane/envoy/extensions/request_id/uuid/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 )
 

@@ -17,9 +17,13 @@ package envoy_test
 import (
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/envoy"
 )
 

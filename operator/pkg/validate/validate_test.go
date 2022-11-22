@@ -16,9 +16,14 @@ package validate
 
 import (
 	"testing"
+)
 
-	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
+import (
 	"istio.io/api/operator/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 )
 
 func TestValidate(t *testing.T) {

@@ -17,13 +17,18 @@ package bootstrap
 import (
 	"encoding/json"
 	"os"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh/kubemesh"
+import (
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh/kubemesh"
 )
 
 const (

@@ -19,7 +19,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kr/pretty"
 	"sigs.k8s.io/yaml"

@@ -18,7 +18,9 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 )
 

@@ -22,7 +22,6 @@ import (
 
 // This file provides abstractions for setting the provider (e.g., prometheus)
 // of metrics.
-
 type leaderMetricsAdapter interface {
 	leaderOn(name string)
 	leaderOff(name string)

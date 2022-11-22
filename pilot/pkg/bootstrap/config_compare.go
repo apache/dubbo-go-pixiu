@@ -16,10 +16,14 @@ package bootstrap
 
 import (
 	"strings"
+)
 
+import (
 	gogoproto "github.com/gogo/protobuf/proto"
 	"google.golang.org/protobuf/proto"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 

@@ -17,9 +17,13 @@ package crd_test
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crd"
 )
 

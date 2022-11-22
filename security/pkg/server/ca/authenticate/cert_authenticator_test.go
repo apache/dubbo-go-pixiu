@@ -20,11 +20,15 @@ import (
 	"crypto/x509/pkix"
 	"reflect"
 	"testing"
+)
 
+import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 )

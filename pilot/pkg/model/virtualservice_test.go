@@ -18,11 +18,16 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	fuzz "github.com/google/gofuzz"
 	"google.golang.org/protobuf/types/known/durationpb"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
@@ -30,7 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 const wildcardIP = "0.0.0.0"

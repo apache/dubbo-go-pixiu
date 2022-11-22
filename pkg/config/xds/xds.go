@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+)
 
+import (
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -28,9 +30,11 @@ import (
 	"github.com/golang/protobuf/jsonpb" // nolint: staticcheck
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 
 // nolint: interfacer

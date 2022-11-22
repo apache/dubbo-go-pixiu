@@ -18,10 +18,12 @@
 package builder
 
 import (
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/trustdomain"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 
 func InternalFuzzBuildHTTP(data []byte) int {

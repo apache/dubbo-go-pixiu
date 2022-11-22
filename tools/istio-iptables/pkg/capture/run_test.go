@@ -20,7 +20,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+)
 
+import (
 	testutil "github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"

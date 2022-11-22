@@ -17,9 +17,13 @@ package kube
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	kubeCore "k8s.io/api/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 )

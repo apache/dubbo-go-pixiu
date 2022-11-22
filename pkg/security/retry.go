@@ -16,13 +16,17 @@ package security
 
 import (
 	"time"
+)
 
+import (
 	retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-
-	"github.com/apache/dubbo-go-pixiu/security/pkg/monitoring"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/security/pkg/monitoring"
 )
 
 var caLog = log.RegisterScope("ca", "ca client", 0)

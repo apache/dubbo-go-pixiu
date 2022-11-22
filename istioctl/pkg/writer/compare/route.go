@@ -18,9 +18,13 @@ import (
 	"bytes"
 	"fmt"
 	"time"
+)
 
+import (
 	"github.com/pmezard/go-difflib/difflib"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )
 

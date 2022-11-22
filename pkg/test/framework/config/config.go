@@ -19,10 +19,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+)
 
+import (
 	"go.uber.org/atomic"
 	"gopkg.in/yaml.v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
 )

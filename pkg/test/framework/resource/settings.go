@@ -19,11 +19,15 @@ import (
 	"os"
 	"path"
 	"strings"
+)
 
+import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"

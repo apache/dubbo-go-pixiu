@@ -18,7 +18,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+)
 
+import (
 	spdyStream "k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport/spdy"

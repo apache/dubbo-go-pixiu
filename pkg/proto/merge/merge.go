@@ -25,7 +25,9 @@ package merge
 
 import (
 	"fmt"
+)
 
+import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"

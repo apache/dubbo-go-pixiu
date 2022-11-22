@@ -17,10 +17,14 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+)
 
+import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"
 )

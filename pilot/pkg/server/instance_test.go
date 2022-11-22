@@ -18,10 +18,14 @@ import (
 	"errors"
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/server"
 )
 

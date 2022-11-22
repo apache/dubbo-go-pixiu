@@ -28,7 +28,6 @@ import (
 	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
 	triConfig "github.com/dubbogo/triple/pkg/config"
 	"github.com/dubbogo/triple/pkg/triple"
-
 	"github.com/pkg/errors"
 )
 

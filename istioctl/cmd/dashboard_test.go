@@ -19,7 +19,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 

@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"net"
 	"time"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

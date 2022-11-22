@@ -16,9 +16,14 @@ package v1alpha3
 
 import (
 	"testing"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
+import (
 	"istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 )
 
 func TestMatchTLS(t *testing.T) {

@@ -27,10 +27,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
+	"istio.io/api/label"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
@@ -41,7 +46,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/api/label"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)

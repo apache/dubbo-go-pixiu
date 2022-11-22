@@ -18,11 +18,16 @@ import (
 	"context"
 	"testing"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/server"
@@ -32,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (

@@ -25,7 +25,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+)
 
+import (
 	"github.com/docker/cli/cli/config/configfile"
 	dtypes "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"

@@ -16,7 +16,9 @@ package xds
 
 import (
 	"sync"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 

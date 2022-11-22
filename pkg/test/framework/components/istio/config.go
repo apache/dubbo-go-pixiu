@@ -20,9 +20,13 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	kubeCore "k8s.io/api/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"

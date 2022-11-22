@@ -22,14 +22,21 @@ import (
 	"sort"
 	"testing"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/meta/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -49,9 +56,6 @@ import (
 	kubeclient "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	istiotest "github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/meta/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func setupTest(t *testing.T) (
