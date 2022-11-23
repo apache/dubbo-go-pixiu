@@ -262,13 +262,9 @@ func (p *Prometheus) registerMetrics() {
 	}
 }
 
-func (p *Prometheus) SetMetricPath(path string) {
-	p.MetricsPath = path
-}
-
-func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricsURL string, pushInterval int) {
+func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricspath string, pushInterval int) {
 	p.Ppg.PushGatewayURL = pushGatewayURL
-	p.MetricsPath = metricsURL
+	p.MetricsPath = metricspath
 	p.Ppg.PushInterval = time.Duration(pushInterval)
 }
 
@@ -289,11 +285,10 @@ func (p *Prometheus) startPushTicker() {
 	//fmt.Println("@every " + d.String())
 	crontab.AddFunc("@every "+d.String(), task)
 	crontab.Start()
-	//defer crontab.Stop()
+	select {}
 }
 
 func (p *Prometheus) getMetrics() []byte {
-
 	out := &bytes.Buffer{}
 	metricFamilies, _ := prometheus.DefaultGatherer.Gather()
 	for i := range metricFamilies {
@@ -322,7 +317,7 @@ func (p *Prometheus) getPushGatewayURL() string {
 	if p.Ppg.Job == "" {
 		p.Ppg.Job = "pixiu"
 	}
-	return p.Ppg.PushGatewayURL + "/metrics/job/" + p.Ppg.Job + "/instance/" + h
+	return p.Ppg.PushGatewayURL + p.MetricsPath + "/job/" + p.Ppg.Job + "/instance/" + h
 }
 
 // HandlerFunc defines handler function for middleware

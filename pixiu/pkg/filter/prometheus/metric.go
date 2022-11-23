@@ -99,10 +99,12 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 
 	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, f.Cfg.Rules.MetricPath, f.Cfg.Rules.PushIntervalSeconds)
 	start := f.Prom.HandlerFunc()
-	err := start(ctx)
-	if err != nil {
-		logger.Errorf("Message:Context HandlerFunc error")
-		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
-	}
+	go func() {
+		err := start(ctx)
+		if err != nil {
+			logger.Errorf("Message:Context HandlerFunc error")
+			ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
+		}
+	}()
 	return filter.Continue
 }

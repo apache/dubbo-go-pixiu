@@ -48,7 +48,6 @@ func TestExporterApiMetric(t *testing.T) {
 	}
 	_, err := yaml.MarshalYML(rules)
 	assert.Nil(t, err)
-
 	config := &rules
 	p := Plugin{}
 	msg := "this is test msg"
@@ -56,13 +55,10 @@ func TestExporterApiMetric(t *testing.T) {
 
 	if factory, ok := metricFilterFactory.(*FilterFactory); ok {
 		factory.Cfg = config
-
 		err = factory.Apply()
 		assert.Nil(t, err)
-
 		chain := filter.NewDefaultFilterChain()
 		data := GetApiStatsResponse()
-
 		body, _ := json.Marshal(&data)
 		request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
 		ctx := mock.GetMockHTTPContext(request)
@@ -70,9 +66,7 @@ func TestExporterApiMetric(t *testing.T) {
 		err := factory.PrepareFilterChain(ctx, chain)
 		assert.Nil(t, err)
 		chain.OnDecode(ctx)
-
 	}
-
 }
 
 func GetApiStatsResponse() ApiStatsResponse {
