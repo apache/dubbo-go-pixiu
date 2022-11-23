@@ -30,6 +30,7 @@ import (
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	cron "github.com/robfig/cron/v3"
 )
 
 import (
@@ -265,12 +266,10 @@ func (p *Prometheus) SetMetricPath(path string) {
 	p.MetricsPath = path
 }
 
-func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricsURL string, pushInterval time.Duration) {
+func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricsURL string, pushInterval int) {
 	p.Ppg.PushGatewayURL = pushGatewayURL
 	p.MetricsPath = metricsURL
-	p.Ppg.PushInterval = pushInterval
-	p.MetricsPath = metricsURL
-
+	p.Ppg.PushInterval = time.Duration(pushInterval)
 }
 
 func (p *Prometheus) SetPushGateway() {
@@ -282,7 +281,15 @@ func (p *Prometheus) SetPushGatewayJob(j string) {
 }
 
 func (p *Prometheus) startPushTicker() {
-	p.sendMetricsToPushGateway(p.getMetrics())
+	crontab := cron.New(cron.WithSeconds())
+	task := func() {
+		p.sendMetricsToPushGateway(p.getMetrics())
+	}
+	d := time.Duration(time.Duration(p.Ppg.PushInterval) * time.Second)
+	//fmt.Println("@every " + d.String())
+	crontab.AddFunc("@every "+d.String(), task)
+	crontab.Start()
+	//defer crontab.Stop()
 }
 
 func (p *Prometheus) getMetrics() []byte {

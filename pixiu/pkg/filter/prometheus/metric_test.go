@@ -42,7 +42,7 @@ func TestExporterApiMetric(t *testing.T) {
 			Enable:              true,
 			MetricPath:          "/metrics",
 			PushGatewayURL:      "http://127.0.0.1:9091",
-			PushIntervalSeconds: 3,
+			PushIntervalSeconds: 5,
 			PushJobName:         "prometheus",
 		},
 	}
