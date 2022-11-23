@@ -21,20 +21,18 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
-)
 
-import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
-	cron "github.com/robfig/cron/v3"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
+	cron "github.com/robfig/cron/v3"
+
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
@@ -282,10 +280,8 @@ func (p *Prometheus) startPushTicker() {
 		p.sendMetricsToPushGateway(p.getMetrics())
 	}
 	d := time.Duration(time.Duration(p.Ppg.PushInterval) * time.Second)
-	//fmt.Println("@every " + d.String())
 	crontab.AddFunc("@every "+d.String(), task)
 	crontab.Start()
-	select {}
 }
 
 func (p *Prometheus) getMetrics() []byte {
@@ -317,6 +313,7 @@ func (p *Prometheus) getPushGatewayURL() string {
 	if p.Ppg.Job == "" {
 		p.Ppg.Job = "pixiu"
 	}
+	fmt.Println(p.MetricsPath)
 	return p.Ppg.PushGatewayURL + p.MetricsPath + "/job/" + p.Ppg.Job + "/instance/" + h
 }
 

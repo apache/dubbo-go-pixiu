@@ -36,7 +36,6 @@ import (
 )
 
 func TestExporterApiMetric(t *testing.T) {
-
 	rules := MetricCollectConfiguration{
 		MetricCollectRule{
 			Enable:              true,
@@ -52,7 +51,6 @@ func TestExporterApiMetric(t *testing.T) {
 	p := Plugin{}
 	msg := "this is test msg"
 	metricFilterFactory, _ := p.CreateFilterFactory()
-
 	if factory, ok := metricFilterFactory.(*FilterFactory); ok {
 		factory.Cfg = config
 		err = factory.Apply()
