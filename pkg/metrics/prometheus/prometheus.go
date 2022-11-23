@@ -280,7 +280,11 @@ func (p *Prometheus) startPushTicker() {
 		p.sendMetricsToPushGateway(p.getMetrics())
 	}
 	d := time.Duration(time.Duration(p.Ppg.PushInterval) * time.Second)
-	crontab.AddFunc("@every "+d.String(), task)
+	_, err := crontab.AddFunc("@every "+d.String(), task)
+	if err != nil {
+		logger.Errorf("(cron.Cron).AddFunc excute error %v", err)
+		return
+	}
 	crontab.Start()
 }
 
