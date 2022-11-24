@@ -99,7 +99,7 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
 		return filter.Continue
 	}
-	if f.Cfg.Rules.CounterPush == true && f.Cfg.Rules.PushIntervalThreshold == 0 {
+	if true && f.Cfg.Rules.PushIntervalThreshold == 0 {
 		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
 		return filter.Continue
 	}
