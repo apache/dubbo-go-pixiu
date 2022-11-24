@@ -85,7 +85,6 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.37.0
 	github.com/prometheus/prometheus v2.5.0+incompatible
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.4.0

@@ -19,13 +19,13 @@ package prometheus
 
 import (
 	stdHttp "net/http"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
+
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+
 	prom "github.com/apache/dubbo-go-pixiu/pkg/metrics/prometheus"
 )
 
@@ -80,6 +80,9 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, c
 		Cfg:  factory.Cfg,
 		Prom: factory.Prom,
 	}
+	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, f.Cfg.Rules.MetricPath)
+	f.Prom.SetPushIntervalThreshold(f.Cfg.Rules.CounterPush, f.Cfg.Rules.PushIntervalThreshold)
+	f.Prom.SetPushGatewayJob(f.Cfg.Rules.PushJobName)
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -96,15 +99,15 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
 		return filter.Continue
 	}
-
-	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, f.Cfg.Rules.MetricPath, f.Cfg.Rules.PushIntervalSeconds)
+	if f.Cfg.Rules.CounterPush == true && f.Cfg.Rules.PushIntervalThreshold == 0 {
+		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
+		return filter.Continue
+	}
 	start := f.Prom.HandlerFunc()
-	go func() {
-		err := start(ctx)
-		if err != nil {
-			logger.Errorf("Message:Context HandlerFunc error")
-			ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
-		}
-	}()
+	err := start(ctx)
+	if err != nil {
+		logger.Errorf("Message:Context HandlerFunc error")
+		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
+	}
 	return filter.Continue
 }

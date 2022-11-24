@@ -35,14 +35,14 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/mock"
 )
 
-func TestExporterApiMetric(t *testing.T) {
+func TestCounterExporterApiMetric(t *testing.T) {
 	rules := MetricCollectConfiguration{
 		MetricCollectRule{
-			Enable:              true,
-			MetricPath:          "/metrics",
-			PushGatewayURL:      "http://127.0.0.1:9091",
-			PushIntervalSeconds: 5,
-			PushJobName:         "prometheus",
+			MetricPath:            "/metrics",
+			PushGatewayURL:        "http://127.0.0.1:9091",
+			PushJobName:           "pixiu",
+			CounterPush:           true,
+			PushIntervalThreshold: 50,
 		},
 	}
 	_, err := yaml.MarshalYML(rules)
@@ -56,14 +56,16 @@ func TestExporterApiMetric(t *testing.T) {
 		err = factory.Apply()
 		assert.Nil(t, err)
 		chain := filter.NewDefaultFilterChain()
-		data := GetApiStatsResponse()
-		body, _ := json.Marshal(&data)
-		request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
-		ctx := mock.GetMockHTTPContext(request)
-		ctx.TargetResp = client.NewResponse([]byte(msg))
-		err := factory.PrepareFilterChain(ctx, chain)
-		assert.Nil(t, err)
-		chain.OnDecode(ctx)
+		for i := 0; i < 100; i++ {
+			data := GetApiStatsResponse()
+			body, _ := json.Marshal(&data)
+			request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))
+			ctx := mock.GetMockHTTPContext(request)
+			ctx.TargetResp = client.NewResponse([]byte(msg))
+			err := factory.PrepareFilterChain(ctx, chain)
+			assert.Nil(t, err)
+			chain.OnDecode(ctx)
+		}
 	}
 }
 
