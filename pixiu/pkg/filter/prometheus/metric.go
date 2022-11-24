@@ -80,6 +80,9 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, c
 		Cfg:  factory.Cfg,
 		Prom: factory.Prom,
 	}
+	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, f.Cfg.Rules.MetricPath)
+	f.Prom.SetPushIntervalThreshold(f.Cfg.Rules.CounterPush, f.Cfg.Rules.PushIntervalThreshold)
+	f.Prom.SetPushGatewayJob(f.Cfg.Rules.PushJobName)
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -96,10 +99,10 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
 		return filter.Continue
 	}
-
-	f.Prom.SetMetricPath(f.Cfg.Rules.MetricPath)
-
-	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, "/metrics", 3)
+	if f.Cfg.Rules.CounterPush && f.Cfg.Rules.PushIntervalThreshold == 0 {
+		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
+		return filter.Continue
+	}
 	start := f.Prom.HandlerFunc()
 	err := start(ctx)
 	if err != nil {
