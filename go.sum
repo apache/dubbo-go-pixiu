@@ -534,6 +534,10 @@ github.com/docker/go-units v0.4.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDD
 github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1/go.mod h1:cyGadeNEkKy96OOhEzfZl+yxihPEzKnqJwvfuSUqbZE=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
+github.com/dubbo-go-pixiu/operator-api v0.0.0-20221126054223-dda83ac319f4 h1:De7KZcGzrgYado/wA7PDBntNemkR7iYaO36gQagYYQY=
+github.com/dubbo-go-pixiu/operator-api v0.0.0-20221126054223-dda83ac319f4/go.mod h1:SWsRqLbdc3vFk5cIRylKHC28nx58hfikw2rjlpwR0Qs=
+github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20221126073212-882e30cca8f6 h1:GD5OCtBql9xl+UnWY+E7P4NCJBWyE+pE/JjY0jW+F8Y=
+github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20221126073212-882e30cca8f6/go.mod h1:If8h1tIkt2k4P4hKsnQxR8m2bUF2hZBpfLP6VyaFO+g=
 github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99 h1:UjDxgIEu6DbJVJTrxm5mwC0j54jNao1pkYVlT8X+KgY=
 github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99/go.mod h1:1l+6pDTdEHwCyyyJmfckOAdGp6f5PZ33ZVMgxso9q/U=
 github.com/dubbogo/go-zookeeper v1.0.3/go.mod h1:fn6n2CAEer3novYgk9ULLwAjuV8/g4DdC2ENwRb6E+c=
@@ -1261,10 +1265,6 @@ github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJ
 github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0=
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/maratori/testpackage v1.0.1/go.mod h1:ddKdw+XG0Phzhx8BFDTKgpWP4i7MpApTE5fXSKAqwDU=
-github.com/mark4z/operator-api v0.0.0-20221114075530-8c22a6cf36d8 h1:KyAzKqYTZt3mmzXO0XgFg5BrCAKBvCRiZJBqNtRQZx0=
-github.com/mark4z/operator-api v0.0.0-20221114075530-8c22a6cf36d8/go.mod h1:diD0Ijv71MqwPkr1e7dcKh2X25rkg0D8zo5ra4YQ8aY=
-github.com/mark4z/operator-client-go v0.0.0-20221024142535-3cf550359c1c h1:/oP14AECMpldTBzblXLGUm9Bcy7m3xJFp9D+8oSAe2I=
-github.com/mark4z/operator-client-go v0.0.0-20221024142535-3cf550359c1c/go.mod h1:6nnGF6krISFEgcC4LH5r66NwSWfBpooXPGskRoEgnbw=
 github.com/marstr/guid v1.1.0/go.mod h1:74gB1z2wpxxInTG6yaqA7KrtM0NZ+RbrcqDvYHefzho=
 github.com/marten-seemann/qpack v0.2.1 h1:jvTsT/HpCn2UZJdP+UUB53FfUUgeOyG5K1ns0OJOGVs=
 github.com/marten-seemann/qpack v0.2.1/go.mod h1:F7Gl5L1jIgN1D11ucXefiuJS9UMVP2opoCp2jDKb7wc=
