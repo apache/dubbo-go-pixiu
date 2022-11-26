@@ -18,13 +18,16 @@
 package dubbogen
 
 import (
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	istioioapidubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
+	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	istioioapidubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
-	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 )
 
 // Map of all configs that do not impact LDS

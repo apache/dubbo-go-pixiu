@@ -20,9 +20,11 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"strings"
+	"time"
+)
+
+import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	dubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
@@ -31,8 +33,12 @@ import (
 	istiolog "istio.io/pkg/log"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 
 var log = istiolog.RegisterScope("Snp server", "Snp register server for Proxyless dubbo", 0)

@@ -40,7 +40,7 @@ const (
 	BootstrapType = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
 
 	// nolint
-	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+	HttpProtocolOptionsType     = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
 	DubboServiceNameMappingType = "dubbo.networking.v1alpha1.v1.servicenamemapping"
 )
 

@@ -17,7 +17,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/dubbogen"
 	"strconv"
 	"sync"
 	"time"
@@ -38,6 +37,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/apigen"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/dubbogen"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/grpcgen"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"

@@ -18,9 +18,12 @@
 package dubbogen
 
 import (
+	istiolog "istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("dubbogen", "xDS Generator for Proxyless dubbo", 0)

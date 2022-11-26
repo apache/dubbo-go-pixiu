@@ -19,15 +19,21 @@ package v1alpha1
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
-	dubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+)
+
+import (
+	dubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
 
 func TestRegisterServiceAppMapping(t *testing.T) {
