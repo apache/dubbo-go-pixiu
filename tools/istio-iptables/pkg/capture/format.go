@@ -14,7 +14,9 @@
 
 package capture
 
-import "strings"
+import (
+	"strings"
+)
 
 func FormatIptablesCommands(commands [][]string) []string {
 	output := make([]string, 0, len(commands))

@@ -19,10 +19,14 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/ports"

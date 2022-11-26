@@ -17,9 +17,13 @@ package ready
 import (
 	"context"
 	"fmt"
+)
 
+import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/metrics"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/util"
 )

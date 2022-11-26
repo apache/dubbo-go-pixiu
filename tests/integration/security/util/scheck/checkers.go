@@ -24,7 +24,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+)
 
+import (
 	echoClient "github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common/scheme"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"

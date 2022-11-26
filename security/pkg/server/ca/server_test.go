@@ -23,19 +23,23 @@ import (
 	"net"
 	"net/http"
 	"testing"
+)
 
+import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	pb "istio.io/api/security/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	mockca "github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca/mock"
 	caerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate"
-	pb "istio.io/api/security/v1alpha1"
 )
 
 type mockAuthenticator struct {

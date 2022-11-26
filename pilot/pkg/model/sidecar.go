@@ -18,7 +18,13 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+)
 
+import (
+	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
@@ -26,7 +32,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 const (

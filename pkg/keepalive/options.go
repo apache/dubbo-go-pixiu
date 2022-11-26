@@ -17,7 +17,9 @@ package keepalive
 import (
 	"math"
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
 )
 

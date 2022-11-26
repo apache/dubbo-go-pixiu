@@ -23,12 +23,16 @@ import (
 	"sort"
 	"strings"
 	"time"
+)
 
+import (
 	prometheusApi "github.com/prometheus/client_golang/api"
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	istioKube "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"

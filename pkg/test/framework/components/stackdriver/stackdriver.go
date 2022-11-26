@@ -18,7 +18,9 @@ import (
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+)
 
+import (
 	md "github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"

@@ -22,7 +22,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/deployment"

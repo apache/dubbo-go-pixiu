@@ -22,16 +22,15 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
-
 	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"google.golang.org/protobuf/encoding/protojson"
-
 	structpb2 "google.golang.org/protobuf/types/known/structpb"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 func TestLdsManager_makeConfig(t *testing.T) {

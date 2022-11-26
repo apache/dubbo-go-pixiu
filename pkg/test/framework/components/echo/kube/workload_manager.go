@@ -19,10 +19,14 @@ import (
 	"fmt"
 	"io"
 	"sync"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	echoCommon "github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

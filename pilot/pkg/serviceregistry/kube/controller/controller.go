@@ -20,16 +20,23 @@ import (
 	"sort"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	"istio.io/api/label"
+	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry"
@@ -47,9 +54,6 @@ import (
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
-	"istio.io/api/label"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (

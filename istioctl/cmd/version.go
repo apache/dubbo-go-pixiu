@@ -19,21 +19,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+)
 
+import (
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	"istio.io/pkg/log"
+	istioVersion "istio.io/pkg/version"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/multixds"
 	"github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/proxy"
-	"istio.io/pkg/log"
-	istioVersion "istio.io/pkg/version"
 )
 
 func newVersionCommand() *cobra.Command {

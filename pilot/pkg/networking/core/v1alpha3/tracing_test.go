@@ -16,7 +16,9 @@ package v1alpha3
 
 import (
 	"testing"
+)
 
+import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -26,14 +28,16 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	tpb "istio.io/api/telemetry/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/extensionproviders"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking"
 	xdsfilters "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/filters"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/requestidextension"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tpb "istio.io/api/telemetry/v1alpha1"
 )
 
 func TestConfigureTracing(t *testing.T) {

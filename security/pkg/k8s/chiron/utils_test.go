@@ -24,13 +24,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	kt "k8s.io/client-go/testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	pkiutil "github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"

@@ -25,9 +25,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+)
 
+import (
 	"golang.org/x/sync/errgroup"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"

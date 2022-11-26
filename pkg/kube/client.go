@@ -27,11 +27,23 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
+	"istio.io/api/label"
+	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
+	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
+	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
+	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -71,22 +83,14 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
-	"istio.io/api/label"
-	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
-	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
-	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
-	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
-	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"istio.io/pkg/version"
 )
 
 const (

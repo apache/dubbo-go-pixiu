@@ -15,10 +15,14 @@ package xds
 
 import (
 	"net"
+)
 
+import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+)
 
+import (
 	configaggregate "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"

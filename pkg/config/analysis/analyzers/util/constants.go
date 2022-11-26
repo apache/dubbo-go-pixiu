@@ -16,7 +16,9 @@ package util
 
 import (
 	"regexp"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 )
 

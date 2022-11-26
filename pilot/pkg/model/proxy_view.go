@@ -17,7 +17,9 @@ package model
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/identifier"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )

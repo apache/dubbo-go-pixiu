@@ -17,9 +17,14 @@ package main
 import (
 	"fmt"
 	"os"
+)
 
-	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/bugreport"
+import (
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/bugreport"
 )
 
 func main() {

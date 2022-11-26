@@ -16,7 +16,9 @@ package collection
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
 )
 

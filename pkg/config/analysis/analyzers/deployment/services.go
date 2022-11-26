@@ -16,11 +16,15 @@ package deployment
 import (
 	"fmt"
 	"strconv"
+)
 
+import (
 	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"

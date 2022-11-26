@@ -19,15 +19,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+)
 
+import (
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
 	"github.com/apache/dubbo-go-pixiu/pkg/webhooks"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (

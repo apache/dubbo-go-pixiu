@@ -20,7 +20,9 @@ package outboundtrafficpolicy
 import (
 	"net/http"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/prometheus"
 )
 

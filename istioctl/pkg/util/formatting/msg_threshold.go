@@ -17,7 +17,9 @@ package formatting
 import (
 	"errors"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/diag"
 )
 

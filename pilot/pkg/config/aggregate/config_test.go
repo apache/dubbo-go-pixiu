@@ -18,10 +18,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/onsi/gomega"
 	"go.uber.org/atomic"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"

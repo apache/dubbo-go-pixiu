@@ -17,12 +17,17 @@ package translate
 import (
 	"fmt"
 	"testing"
+)
 
+import (
+	"istio.io/api/operator/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
-	"istio.io/api/operator/v1alpha1"
 )
 
 func Test_skipReplicaCountWithAutoscaleEnabled(t *testing.T) {

@@ -20,12 +20,16 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"

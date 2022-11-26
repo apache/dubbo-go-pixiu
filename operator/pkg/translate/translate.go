@@ -21,15 +21,21 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+)
 
+import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	iopv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
@@ -38,8 +44,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/version"
 	oversion "github.com/apache/dubbo-go-pixiu/operator/version"
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 const (

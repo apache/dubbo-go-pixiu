@@ -18,9 +18,16 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+)
 
+import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -28,9 +35,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	networking "istio.io/api/networking/v1alpha3"
-	security "istio.io/api/security/v1beta1"
-	"istio.io/api/type/v1beta1"
 )
 
 type LbEpInfo struct {

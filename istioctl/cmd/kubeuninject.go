@@ -24,19 +24,23 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"istio.io/pkg/log"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	istioStatus "github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
-	"istio.io/pkg/log"
 )
 
 const (

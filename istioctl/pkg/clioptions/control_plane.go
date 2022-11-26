@@ -14,7 +14,9 @@
 
 package clioptions
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+)
 
 // ControlPlaneOptions defines common options used by istioctl.
 type ControlPlaneOptions struct {

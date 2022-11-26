@@ -25,7 +25,13 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
@@ -33,7 +39,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient/providers/mock"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/cafile"
 	pkiutil "github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {

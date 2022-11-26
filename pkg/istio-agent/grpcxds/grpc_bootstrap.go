@@ -20,15 +20,19 @@ import (
 	"os"
 	"path"
 	"time"
+)
 
+import (
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 const (

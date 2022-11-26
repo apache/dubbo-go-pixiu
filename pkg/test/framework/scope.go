@@ -20,9 +20,13 @@ import (
 	"reflect"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 )

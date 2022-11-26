@@ -29,13 +29,20 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	pkgenv "istio.io/pkg/env"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	testutil "github.com/apache/dubbo-go-pixiu/pilot/test/util"
@@ -62,9 +69,6 @@ import (
 	stsmock "github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/mock"
 	stsserver "github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/server"
 	"github.com/apache/dubbo-go-pixiu/tests/util/leak"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	pkgenv "istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 func TestAgent(t *testing.T) {

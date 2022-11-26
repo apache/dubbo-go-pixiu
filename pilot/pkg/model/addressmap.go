@@ -16,7 +16,9 @@ package model
 
 import (
 	"sync"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 )
 

@@ -18,9 +18,13 @@ package local
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	"github.com/gogo/protobuf/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/legacy/source/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"

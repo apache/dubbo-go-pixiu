@@ -16,9 +16,13 @@ package workloadinstances
 
 import (
 	"strings"
+)
 
+import (
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/slices"
 )

@@ -24,18 +24,22 @@ import (
 	"os"
 	"strings"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/security"
-	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient"
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/security"
+	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/caclient"
 )
 
 const (

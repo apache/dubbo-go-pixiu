@@ -17,7 +17,9 @@ package matcher
 import (
 	"regexp"
 	"strings"
+)
 
+import (
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )

@@ -14,7 +14,9 @@
 
 package controller
 
-import "go.uber.org/atomic"
+import (
+	"go.uber.org/atomic"
+)
 
 var SyncAllKinds = map[string]struct{}{
 	"Services":      {},

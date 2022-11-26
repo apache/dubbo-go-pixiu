@@ -18,9 +18,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
+import (
 	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 )
 
 type HTTPRouteType int

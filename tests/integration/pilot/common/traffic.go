@@ -19,7 +19,9 @@ package common
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

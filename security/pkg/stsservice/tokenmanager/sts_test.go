@@ -26,7 +26,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice"
 	stsServer "github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/server"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice/tokenmanager/google"

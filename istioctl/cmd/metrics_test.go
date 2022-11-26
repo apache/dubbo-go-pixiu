@@ -22,12 +22,16 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prometheus_model "github.com/prometheus/common/model"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 

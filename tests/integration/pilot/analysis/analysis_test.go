@@ -22,12 +22,16 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/api/meta/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/msg"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"

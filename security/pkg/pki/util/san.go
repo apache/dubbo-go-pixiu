@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"net"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 )
 

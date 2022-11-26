@@ -16,13 +16,17 @@ package ra
 import (
 	"fmt"
 	"time"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	clientset "k8s.io/client-go/kubernetes"
+)
 
+import (
 	raerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	caserver "github.com/apache/dubbo-go-pixiu/security/pkg/server/ca"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // RegistrationAuthority : Registration Authority interface.

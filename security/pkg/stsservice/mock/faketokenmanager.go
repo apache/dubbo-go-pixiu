@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice"
 )

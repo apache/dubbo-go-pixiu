@@ -18,7 +18,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+)
 
+import (
+	"istio.io/api/label"
+	"istio.io/api/operator/v1alpha1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
+import (
 	v1alpha12 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/cache"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
@@ -38,8 +44,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/proxy"
-	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
 )
 
 const (

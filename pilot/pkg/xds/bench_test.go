@@ -23,12 +23,20 @@ import (
 	"testing"
 	"text/template"
 	"time"
+)
 
+import (
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	any "google.golang.org/protobuf/types/known/anypb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/env"
+	istiolog "istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crd"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -43,10 +51,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/env"
-	istiolog "istio.io/pkg/log"
 )
 
 // ConfigInput defines inputs passed to the test config templates

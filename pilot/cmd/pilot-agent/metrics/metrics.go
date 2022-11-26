@@ -16,7 +16,9 @@ package metrics
 
 import (
 	"time"
+)
 
+import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )

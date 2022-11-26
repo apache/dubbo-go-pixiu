@@ -17,10 +17,14 @@ package distribution
 import (
 	"reflect"
 	"testing"
+)
 
+import (
 	"github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/status"
 )
 

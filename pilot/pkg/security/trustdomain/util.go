@@ -14,7 +14,9 @@
 
 package trustdomain
 
-import "strings"
+import (
+	"strings"
+)
 
 // stringMatch checks if a string is in a list, it supports four types of string matches:
 // 1. Exact match.

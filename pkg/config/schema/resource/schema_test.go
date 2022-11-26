@@ -16,7 +16,9 @@ package resource
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"

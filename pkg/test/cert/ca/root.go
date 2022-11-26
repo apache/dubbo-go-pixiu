@@ -17,7 +17,9 @@ package ca
 import (
 	"os"
 	"path/filepath"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/cert"
 )
 

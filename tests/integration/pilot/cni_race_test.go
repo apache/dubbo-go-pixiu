@@ -23,10 +23,14 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	istioKube "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"

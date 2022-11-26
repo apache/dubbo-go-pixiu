@@ -17,7 +17,9 @@
 
 package model
 
-import "github.com/dubbogo/gost/hash/consistent"
+import (
+	"github.com/dubbogo/gost/hash/consistent"
+)
 
 const (
 	Static DiscoveryType = iota

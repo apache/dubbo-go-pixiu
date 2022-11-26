@@ -16,9 +16,13 @@ package network
 
 import (
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/loadbalancersim/timeseries"
 )
 

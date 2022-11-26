@@ -17,7 +17,14 @@ package bootstrap
 import (
 	"fmt"
 	"net/url"
+)
 
+import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+)
+
+import (
 	configaggregate "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/gateway"
@@ -34,8 +41,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/incluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 // URL schemes supported by the config store

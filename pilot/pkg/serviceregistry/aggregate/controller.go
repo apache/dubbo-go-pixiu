@@ -17,7 +17,13 @@ package aggregate
 import (
 	"sort"
 	"sync"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
@@ -26,7 +32,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/labels"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
-	"istio.io/pkg/log"
 )
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various

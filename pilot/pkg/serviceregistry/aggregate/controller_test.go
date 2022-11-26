@@ -19,10 +19,15 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/atomic"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
@@ -31,7 +36,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type mockMeshConfigHolder struct {

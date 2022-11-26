@@ -22,9 +22,13 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,14 +38,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (

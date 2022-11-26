@@ -22,11 +22,15 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"

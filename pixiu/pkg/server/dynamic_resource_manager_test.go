@@ -26,7 +26,6 @@ import (
 
 import (
 	"github.com/cch123/supermonkey"
-
 	"github.com/stretchr/testify/require"
 )
 

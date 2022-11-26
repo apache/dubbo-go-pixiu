@@ -15,8 +15,11 @@
 package status
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"istio.io/api/meta/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 const (

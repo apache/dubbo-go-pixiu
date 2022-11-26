@@ -16,11 +16,15 @@ package mesh
 
 import (
 	"time"
+)
 
+import (
 	"github.com/spf13/cobra"
-
-	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"istio.io/pkg/log"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 )
 
 type upgradeArgs struct {

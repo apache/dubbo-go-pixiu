@@ -17,11 +17,16 @@ package kube
 import (
 	"fmt"
 	"sync"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
-	"istio.io/pkg/log"
 )
 
 type secretHandler func(name string, namespace string)

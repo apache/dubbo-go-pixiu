@@ -23,11 +23,8 @@ import (
 
 import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
 	anypb "github.com/golang/protobuf/ptypes/any"
-
 	"github.com/pkg/errors"
-
 	"google.golang.org/protobuf/proto"
 )
 

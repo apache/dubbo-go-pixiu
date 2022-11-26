@@ -22,18 +22,22 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
+	"istio.io/pkg/log"
 	kubeApiCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	kube2 "github.com/apache/dubbo-go-pixiu/pkg/test/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
-	"istio.io/api/label"
-	"istio.io/pkg/log"
 )
 
 var (

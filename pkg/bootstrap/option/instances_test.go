@@ -17,14 +17,18 @@ package option_test
 import (
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/option"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/option"
 )
 
 // nolint: lll

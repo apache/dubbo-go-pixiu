@@ -21,16 +21,21 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	envoyCore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
+	"istio.io/api/label"
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube"
@@ -38,7 +43,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/api/label"
 )
 
 const (

@@ -26,9 +26,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/test/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 )

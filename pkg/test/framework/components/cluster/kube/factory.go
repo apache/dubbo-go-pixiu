@@ -18,9 +18,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+)
 
+import (
 	"k8s.io/client-go/rest"
+)
 
+import (
 	istioKube "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"

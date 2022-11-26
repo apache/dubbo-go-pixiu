@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+)
 
+import (
 	authv2 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"google.golang.org/grpc"

@@ -24,14 +24,15 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+)
 
+import (
 	"github.com/golang/protobuf/jsonpb"            // nolint: staticcheck
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"sigs.k8s.io/yaml"
-
 	"istio.io/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 var (

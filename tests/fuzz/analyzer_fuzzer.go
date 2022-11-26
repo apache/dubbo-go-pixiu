@@ -18,15 +18,19 @@ import (
 	"bytes"
 	"os"
 	"time"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/local"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/scope"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
-	"istio.io/pkg/log"
 )
 
 var availableAnalyzers = analyzers.All()

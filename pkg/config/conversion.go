@@ -18,7 +18,6 @@ package config
 
 import (
 	"google.golang.org/protobuf/types/known/timestamppb"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 )
 

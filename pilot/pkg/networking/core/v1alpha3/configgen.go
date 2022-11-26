@@ -15,8 +15,11 @@
 package v1alpha3
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 )
 
 type ConfigGeneratorImpl struct {

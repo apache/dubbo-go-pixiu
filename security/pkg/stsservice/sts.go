@@ -14,7 +14,9 @@
 
 package stsservice
 
-import "time"
+import (
+	"time"
+)
 
 // StsResponseParameters stores all attributes sent as JSON in a successful STS
 // response. These attributes are defined in

@@ -14,7 +14,9 @@
 
 package sets
 
-import "sort"
+import (
+	"sort"
+)
 
 type Set map[string]struct{}
 

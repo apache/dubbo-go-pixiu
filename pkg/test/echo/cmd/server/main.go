@@ -19,17 +19,19 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+)
 
+import (
 	"github.com/spf13/cobra"
-
-	// To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/server"
-	"istio.io/pkg/log"
 )
 
 var (

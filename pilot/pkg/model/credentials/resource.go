@@ -17,7 +17,9 @@ package credentials
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 )
 

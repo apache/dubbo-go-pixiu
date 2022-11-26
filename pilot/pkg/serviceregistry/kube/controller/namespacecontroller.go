@@ -22,7 +22,9 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/controllers"

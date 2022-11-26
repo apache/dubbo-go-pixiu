@@ -22,11 +22,15 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/client-go/util/jsonpath"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )

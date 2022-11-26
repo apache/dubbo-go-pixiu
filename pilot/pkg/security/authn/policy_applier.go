@@ -16,10 +16,12 @@ package authn
 
 import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"istio.io/api/security/v1beta1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/plugin"
-	"istio.io/api/security/v1beta1"
 )
 
 // PolicyApplier is the interface provides essential functionalities to help config Envoy (xDS) to enforce

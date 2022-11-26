@@ -19,12 +19,16 @@ import (
 	"io"
 	"sort"
 	"text/tabwriter"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"istio.io/pkg/env"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 )
 
 // settableFlags are the flags used to istioctl

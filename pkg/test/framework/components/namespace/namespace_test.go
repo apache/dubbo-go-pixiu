@@ -16,7 +16,9 @@ package namespace
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
 )
 

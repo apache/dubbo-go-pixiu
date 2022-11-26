@@ -18,13 +18,17 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
+import (
 	appsv1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 )
 

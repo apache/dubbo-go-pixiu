@@ -16,9 +16,13 @@ package kube
 
 import (
 	"fmt"
+)
 
+import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
+import (
 	istioKube "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/config"

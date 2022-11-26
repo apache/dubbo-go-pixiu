@@ -17,7 +17,9 @@ package builder
 import (
 	"fmt"
 	"strconv"
+)
 
+import (
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
@@ -25,12 +27,14 @@ import (
 	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/annotation"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	authzmodel "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/trustdomain"
-	"istio.io/api/annotation"
 )
 
 var rbacPolicyMatchNever = &rbacpb.Policy{

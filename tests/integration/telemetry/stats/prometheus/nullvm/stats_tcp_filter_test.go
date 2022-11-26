@@ -19,7 +19,9 @@ package nullvm
 
 import (
 	"testing"
+)
 
+import (
 	common "github.com/apache/dubbo-go-pixiu/tests/integration/telemetry/stats/prometheus"
 )
 

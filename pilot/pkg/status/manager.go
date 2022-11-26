@@ -17,11 +17,14 @@
 package status
 
 import (
+	"istio.io/api/meta/v1alpha1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	"istio.io/api/meta/v1alpha1"
 )
 
 // Manager allows multiple controllers to provide input into configuration

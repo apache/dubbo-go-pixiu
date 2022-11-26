@@ -16,11 +16,16 @@ package gateway
 
 import (
 	"testing"
+)
 
+import (
+	"istio.io/api/networking/v1alpha3"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
-	"istio.io/api/networking/v1alpha3"
 )
 
 func TestIsTLSServer(t *testing.T) {

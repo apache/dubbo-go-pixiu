@@ -16,7 +16,9 @@
 // from Kubernetes resources.
 package labels
 
-import "github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+)
 
 // CanonicalService returns the values of the following labels from the supplied map:
 // - service.istio.io/canonical-name

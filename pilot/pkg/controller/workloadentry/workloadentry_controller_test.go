@@ -19,13 +19,19 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -38,8 +44,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 )
 
 func init() {

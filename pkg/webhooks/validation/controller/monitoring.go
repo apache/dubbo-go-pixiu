@@ -16,7 +16,9 @@ package controller
 
 import (
 	"context"
+)
 
+import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"

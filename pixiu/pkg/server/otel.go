@@ -27,14 +27,10 @@ import (
 
 import (
 	"github.com/google/uuid"
-
 	sdkprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	"go.opentelemetry.io/otel/exporters/prometheus"
-
 	"go.opentelemetry.io/otel/metric/global"
-
 	"go.opentelemetry.io/otel/sdk/metric"
 )
 

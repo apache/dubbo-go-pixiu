@@ -21,15 +21,19 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+)
 
+import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/multixds"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	xdsresource "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
-	"istio.io/pkg/log"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Istiod responses

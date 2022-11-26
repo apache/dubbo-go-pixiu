@@ -19,12 +19,17 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
-	"istio.io/pkg/log"
 )
 
 type Test interface {

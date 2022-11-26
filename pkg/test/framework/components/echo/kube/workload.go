@@ -19,10 +19,14 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
+)
 
+import (
 	istioKube "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	echoClient "github.com/apache/dubbo-go-pixiu/pkg/test/echo"

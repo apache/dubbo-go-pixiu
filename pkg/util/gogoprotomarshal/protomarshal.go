@@ -16,10 +16,11 @@ package gogoprotomarshal
 
 import (
 	"strings"
+)
 
+import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-
 	"istio.io/pkg/log"
 )
 

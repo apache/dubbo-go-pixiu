@@ -17,7 +17,9 @@ package util
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/diag"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 )

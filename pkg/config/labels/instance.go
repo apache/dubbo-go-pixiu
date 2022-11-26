@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 )
 

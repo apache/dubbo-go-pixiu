@@ -25,9 +25,12 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"golang.org/x/sync/errgroup"
+	"istio.io/api/annotation"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,8 +39,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/yaml"
+)
 
-	"istio.io/api/annotation"
+import (
 	kube "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/mcs"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"

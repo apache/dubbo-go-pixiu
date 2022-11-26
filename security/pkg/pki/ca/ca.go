@@ -21,16 +21,20 @@ import (
 	"fmt"
 	"os"
 	"time"
+)
 
+import (
+	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/cmd"
 	k8ssecret "github.com/apache/dubbo-go-pixiu/security/pkg/k8s/secret"
 	caerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	certutil "github.com/apache/dubbo-go-pixiu/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (

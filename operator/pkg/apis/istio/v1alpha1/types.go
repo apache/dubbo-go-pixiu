@@ -17,14 +17,12 @@
 package v1alpha1
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	operatorv1alpha1 "istio.io/api/operator/v1alpha1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // IstioOperatorSpec defines the desired installed state of Istio components.
 // The spec is a used to define a customization of the default profile values that are supplied with each Istio release.
 // Because the spec is a customization API, specifying an empty IstioOperatorSpec results in a default Istio

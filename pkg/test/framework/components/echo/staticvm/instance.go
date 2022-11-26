@@ -19,10 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	echoClient "github.com/apache/dubbo-go-pixiu/pkg/test/echo"

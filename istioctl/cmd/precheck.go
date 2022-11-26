@@ -21,7 +21,9 @@ import (
 	"net"
 	"strconv"
 	"strings"
+)
 
+import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
@@ -30,7 +32,9 @@ import (
 	"golang.org/x/sync/semaphore"
 	authorizationapi "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/install/k8sversion"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/formatting"

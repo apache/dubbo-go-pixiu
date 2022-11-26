@@ -16,9 +16,13 @@ package yml_test
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/yml"
 )
 

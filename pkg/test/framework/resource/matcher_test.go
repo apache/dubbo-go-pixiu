@@ -14,7 +14,9 @@
 
 package resource
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestMatcher(t *testing.T) {
 	cases := []struct {

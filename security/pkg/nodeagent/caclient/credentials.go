@@ -18,9 +18,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+)
 
+import (
 	"google.golang.org/grpc/credentials"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/stsservice"

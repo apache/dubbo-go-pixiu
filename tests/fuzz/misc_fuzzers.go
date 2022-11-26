@@ -22,7 +22,10 @@ package fuzz
 
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"istio.io/api/operator/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1/validation"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/controlplane"
@@ -34,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/validate"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/diag"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
-	"istio.io/api/operator/v1alpha1"
 )
 
 func FuzzCheckIstioOperatorSpec(data []byte) int {

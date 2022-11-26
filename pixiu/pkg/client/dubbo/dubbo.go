@@ -38,13 +38,9 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/protocol"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/zookeeper"
-
 	hessian "github.com/apache/dubbo-go-hessian2"
-
 	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/pkg/errors"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

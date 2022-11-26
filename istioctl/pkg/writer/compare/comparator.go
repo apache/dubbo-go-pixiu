@@ -18,10 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+)
 
+import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/configdump"
 )
 

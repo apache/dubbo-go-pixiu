@@ -22,11 +22,15 @@ import (
 	"os"
 	"path"
 	"time"
+)
 
+import (
 	"go.opencensus.io/stats/view"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/file"
 	"istio.io/pkg/env"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/file"
 )
 
 var k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",

@@ -16,18 +16,22 @@ package envoyfilter
 
 import (
 	"fmt"
+)
 
+import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/proto"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/util/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/proto/merge"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.

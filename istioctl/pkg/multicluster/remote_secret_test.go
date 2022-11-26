@@ -22,7 +22,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
@@ -31,7 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd/api"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"

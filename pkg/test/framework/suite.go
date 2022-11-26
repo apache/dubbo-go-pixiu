@@ -26,9 +26,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	"gopkg.in/yaml.v2"
+	"istio.io/pkg/log"
+)
 
+import (
 	kubelib "github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
@@ -39,7 +44,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/scopes"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/file"
-	"istio.io/pkg/log"
 )
 
 // test.Run uses 0, 1, 2 exit codes. Use different exit codes for our framework.

@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

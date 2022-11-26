@@ -21,9 +21,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+)
 
+import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo/common/ports"

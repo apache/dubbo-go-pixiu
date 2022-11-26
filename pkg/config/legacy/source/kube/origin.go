@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"

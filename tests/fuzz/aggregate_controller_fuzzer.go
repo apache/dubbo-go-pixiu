@@ -17,12 +17,16 @@ package fuzz
 
 import (
 	"fmt"
+)
 
+import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 var meshHolder fuzzMeshConfigHolder

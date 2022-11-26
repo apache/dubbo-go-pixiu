@@ -17,17 +17,21 @@ package wasm
 import (
 	"sync"
 	"time"
+)
 
+import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
+	extensions "istio.io/api/extensions/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
-	extensions "istio.io/api/extensions/v1alpha1"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.

@@ -17,7 +17,9 @@ package telemetry
 import (
 	"strconv"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"

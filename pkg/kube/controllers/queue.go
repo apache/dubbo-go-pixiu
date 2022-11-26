@@ -16,10 +16,9 @@ package controllers
 
 import (
 	"go.uber.org/atomic"
+	istiolog "istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-
-	istiolog "istio.io/pkg/log"
 )
 
 // Queue defines an abstraction around Kubernetes' workqueue.

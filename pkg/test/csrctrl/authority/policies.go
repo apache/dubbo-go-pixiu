@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"sort"
 	"time"
+)
 
+import (
 	capi "k8s.io/api/certificates/v1"
 )
 

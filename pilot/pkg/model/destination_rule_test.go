@@ -16,9 +16,13 @@ package model
 
 import (
 	"testing"
+)
 
+import (
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
 

@@ -18,15 +18,20 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+	istiolog "istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crdclient"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -40,7 +45,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)

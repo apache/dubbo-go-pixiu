@@ -22,13 +22,17 @@ import (
 	"io"
 	"strings"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 )

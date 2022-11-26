@@ -17,7 +17,9 @@ package error
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	"google.golang.org/grpc/codes"
 )
 

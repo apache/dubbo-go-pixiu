@@ -20,17 +20,21 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestNetworkUpdateTriggers(t *testing.T) {

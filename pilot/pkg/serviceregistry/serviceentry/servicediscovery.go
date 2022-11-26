@@ -20,9 +20,15 @@ import (
 	"strconv"
 	"sync"
 	"time"
+)
 
+import (
+	networking "istio.io/api/networking/v1alpha3"
+	istiolog "istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/status"
@@ -39,8 +45,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	networking "istio.io/api/networking/v1alpha3"
-	istiolog "istio.io/pkg/log"
 )
 
 var (

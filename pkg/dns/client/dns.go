@@ -21,15 +21,19 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+)
 
+import (
 	"github.com/google/uuid"
 	"github.com/miekg/dns"
+	istiolog "istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	dnsProto "github.com/apache/dubbo-go-pixiu/pkg/dns/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)

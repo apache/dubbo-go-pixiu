@@ -20,14 +20,18 @@ import (
 	"crypto/rsa"
 	"testing"
 	"time"
+)
 
+import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/cmd"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	certutil "github.com/apache/dubbo-go-pixiu/security/pkg/util"

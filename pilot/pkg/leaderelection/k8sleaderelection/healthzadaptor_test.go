@@ -22,9 +22,13 @@ import (
 	"net/http"
 	"testing"
 	"time"
+)
 
+import (
 	clock "k8s.io/utils/clock/testing"
+)
 
+import (
 	rl "github.com/apache/dubbo-go-pixiu/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 )
 

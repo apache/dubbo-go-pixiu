@@ -17,7 +17,9 @@ package util
 import (
 	"context"
 	"time"
+)
 
+import (
 	"istio.io/pkg/log"
 )
 

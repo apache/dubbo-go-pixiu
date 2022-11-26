@@ -17,11 +17,12 @@ package queue
 import (
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/cenkalti/backoff/v4"
-	"k8s.io/apimachinery/pkg/util/rand"
-
 	"istio.io/pkg/log"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // Task to be performed.

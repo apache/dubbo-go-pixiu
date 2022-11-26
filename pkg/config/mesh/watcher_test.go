@@ -19,15 +19,19 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/filewatcher"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/filewatcher"
 )
 
 func TestNewWatcherWithBadInputShouldFail(t *testing.T) {

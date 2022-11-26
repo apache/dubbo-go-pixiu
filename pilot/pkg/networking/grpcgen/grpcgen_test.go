@@ -24,7 +24,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
+)
 
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -34,10 +36,13 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 	"google.golang.org/grpc/status"
-
-	// To install the xds resolvers and balancers.
 	xdsgrpc "google.golang.org/grpc/xds"
+	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
@@ -51,9 +56,6 @@ import (
 	echoproto "github.com/apache/dubbo-go-pixiu/pkg/test/echo/proto"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/server/endpoint"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
-	networking "istio.io/api/networking/v1alpha3"
-	security "istio.io/api/security/v1beta1"
-	"istio.io/pkg/log"
 )
 
 // Address of the Istiod gRPC service, used in tests.

@@ -22,12 +22,17 @@ import (
 	"sync"
 	"text/template"
 	"time"
+)
 
+import (
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	configaggregate "github.com/apache/dubbo-go-pixiu/pilot/pkg/config/aggregate"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crd"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
@@ -44,7 +49,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type TestOptions struct {

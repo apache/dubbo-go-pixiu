@@ -22,7 +22,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+)
 
+import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 

@@ -16,13 +16,17 @@ package translate
 
 import (
 	"fmt"
+)
 
+import (
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"istio.io/api/operator/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/name"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/tpath"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util"
-	"istio.io/api/operator/v1alpha1"
 )
 
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.

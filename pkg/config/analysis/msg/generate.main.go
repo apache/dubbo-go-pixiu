@@ -23,7 +23,9 @@ import (
 	"os"
 	"regexp"
 	"text/template"
+)
 
+import (
 	"sigs.k8s.io/yaml"
 )
 

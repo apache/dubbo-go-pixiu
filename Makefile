@@ -74,6 +74,11 @@ integrate-test:
 clean:
 	@rm -rf ./dubbo-go-pixiu
 
+import-format:check-import-format
+	@imports-formatter -bl=false -module=github.com/apache/dubbo-go-pixiu
+check-import-format:
+	@type imports-formatter >/dev/null 2>&1 || echo "imports-formatter is not installed, please install it first by run 'go install github.com/dubbogo/tools/cmd/imports-formatter@latest'"
+
 # build pilot by docker-builder
 
 export

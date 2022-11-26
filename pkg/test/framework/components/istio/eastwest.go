@@ -22,10 +22,14 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+)
 
+import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"

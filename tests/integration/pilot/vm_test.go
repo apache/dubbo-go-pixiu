@@ -24,10 +24,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/controller/workloadentry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"

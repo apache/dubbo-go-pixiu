@@ -26,9 +26,15 @@ import (
 	"sync"
 	"text/template"
 	"time"
+)
 
+import (
 	"github.com/prometheus/prometheus/util/strutil"
 	"gomodules.xyz/jsonpatch/v3"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +45,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	opconfig "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -47,10 +55,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/api/annotation"
-	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 var (

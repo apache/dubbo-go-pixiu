@@ -20,11 +20,15 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+)
 
+import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/tag"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/util/formatting"
 	"github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"

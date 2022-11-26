@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/spf13/cobra"
 )
 

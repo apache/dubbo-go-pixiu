@@ -18,11 +18,15 @@ import (
 	"fmt"
 	"io"
 	"strings"
+)
 
+import (
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/multixds"
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/writer/pilot"

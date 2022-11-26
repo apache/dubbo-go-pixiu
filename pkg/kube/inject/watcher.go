@@ -19,14 +19,18 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+)
 
+import (
 	"github.com/fsnotify/fsnotify"
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/configmapwatcher"
-	"istio.io/pkg/log"
 )
 
 // Watcher watches for and reacts to injection config updates.

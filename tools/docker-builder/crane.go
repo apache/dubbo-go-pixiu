@@ -19,14 +19,18 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+)
 
+import (
 	"golang.org/x/sync/errgroup"
+	"istio.io/pkg/log"
+)
 
+import (
 	testenv "github.com/apache/dubbo-go-pixiu/pkg/test/env"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 	"github.com/apache/dubbo-go-pixiu/tools/docker-builder/builder"
 	"github.com/apache/dubbo-go-pixiu/tools/docker-builder/dockerfile"
-	"istio.io/pkg/log"
 )
 
 // RunCrane builds docker images using go-containerregistry, rather than relying on Docker. This

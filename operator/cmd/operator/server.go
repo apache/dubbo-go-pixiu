@@ -19,28 +19,30 @@ import (
 	"os"
 	"strings"
 	"time"
+)
 
+import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"go.opencensus.io/stats/view"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+)
 
+import (
 	root "github.com/apache/dubbo-go-pixiu/operator/cmd/mesh"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/controller"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/controller/istiocontrolplane"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/metrics"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 // Should match deploy/service.yaml

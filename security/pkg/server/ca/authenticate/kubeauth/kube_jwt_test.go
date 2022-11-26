@@ -18,20 +18,24 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+)
 
+import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	k8sauth "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/jwt"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca/authenticate"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type mockMeshConfigHolder struct {

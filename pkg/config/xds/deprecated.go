@@ -14,7 +14,9 @@
 
 package xds
 
-import "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+import (
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+)
 
 var (
 	// DeprecatedFilterNames is to support both canonical filter names

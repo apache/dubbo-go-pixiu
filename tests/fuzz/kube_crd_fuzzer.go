@@ -16,7 +16,9 @@ package fuzz
 
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/crd"
 	config2 "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"

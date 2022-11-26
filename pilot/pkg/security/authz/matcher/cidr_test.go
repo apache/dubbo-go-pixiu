@@ -17,7 +17,9 @@ package matcher
 import (
 	"strings"
 	"testing"
+)
 
+import (
 	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"

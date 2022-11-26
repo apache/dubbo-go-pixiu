@@ -23,17 +23,22 @@ import (
 	"net"
 	"strings"
 	"time"
+)
 
+import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/gateway"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/kube/ingress"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/controller/workloadentry"
@@ -56,7 +61,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/multicluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/retry"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type FakeOptions struct {

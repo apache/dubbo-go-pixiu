@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+)
 
+import (
 	goversion "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v2"
 )

@@ -16,10 +16,14 @@ package staticvm
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/echo"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/namespace"

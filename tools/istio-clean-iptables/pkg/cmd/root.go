@@ -19,16 +19,20 @@ import (
 	"os"
 	"os/user"
 	"strings"
+)
 
+import (
 	"github.com/miekg/dns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/tools/istio-clean-iptables/pkg/config"
 	common "github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/capture"
 	"github.com/apache/dubbo-go-pixiu/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (

@@ -18,12 +18,16 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+)
 
+import (
 	"github.com/onsi/gomega"
+	networking "istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 var gatewayYAML = `

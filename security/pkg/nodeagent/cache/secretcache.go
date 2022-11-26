@@ -25,10 +25,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
+	istiolog "istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/queue"
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
@@ -37,7 +42,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/monitoring"
 	nodeagentutil "github.com/apache/dubbo-go-pixiu/security/pkg/nodeagent/util"
 	pkiutil "github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
-	istiolog "istio.io/pkg/log"
 )
 
 var (

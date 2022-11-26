@@ -18,7 +18,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -30,7 +32,13 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	authn_alpha "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	"istio.io/api/security/v1beta1"
+	type_beta "istio.io/api/type/v1beta1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model/test"
@@ -40,10 +48,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	protovalue "github.com/apache/dubbo-go-pixiu/pkg/proto"
 	istiotest "github.com/apache/dubbo-go-pixiu/pkg/test"
-	authn_alpha "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	"istio.io/api/security/v1beta1"
-	type_beta "istio.io/api/type/v1beta1"
 )
 
 func TestJwtFilter(t *testing.T) {

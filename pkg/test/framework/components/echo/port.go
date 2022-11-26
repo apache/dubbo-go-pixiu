@@ -17,7 +17,9 @@ package echo
 import (
 	"fmt"
 	"reflect"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/echo/common/scheme"
 )

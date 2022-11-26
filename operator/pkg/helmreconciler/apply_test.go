@@ -20,17 +20,21 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+)
 
+import (
+	v1alpha12 "istio.io/api/operator/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/object"
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 )
 
 func TestHelmReconciler_ApplyObject(t *testing.T) {

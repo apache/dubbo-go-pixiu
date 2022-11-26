@@ -16,7 +16,9 @@ package configdump
 
 import (
 	"fmt"
+)
 
+import (
 	any "google.golang.org/protobuf/types/known/anypb"
 )
 

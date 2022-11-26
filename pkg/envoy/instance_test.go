@@ -22,10 +22,14 @@ import (
 	"runtime"
 	"testing"
 	"time"
+)
 
+import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/envoy"
 	testEnvoy "github.com/apache/dubbo-go-pixiu/pkg/test/envoy"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/reserveport"

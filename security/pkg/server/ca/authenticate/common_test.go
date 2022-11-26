@@ -17,9 +17,13 @@ package authenticate
 import (
 	"context"
 	"testing"
+)
 
+import (
 	"google.golang.org/grpc/metadata"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 )
 

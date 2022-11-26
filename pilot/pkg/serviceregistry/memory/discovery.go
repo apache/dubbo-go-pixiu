@@ -17,7 +17,9 @@ package memory
 import (
 	"fmt"
 	"sync"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"

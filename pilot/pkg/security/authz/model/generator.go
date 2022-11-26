@@ -17,9 +17,13 @@ package model
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/security/authz/matcher"
 	sm "github.com/apache/dubbo-go-pixiu/pilot/pkg/security/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"

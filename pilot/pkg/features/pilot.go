@@ -17,14 +17,18 @@ package features
 import (
 	"strings"
 	"time"
+)
 
+import (
 	"google.golang.org/protobuf/types/known/durationpb"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/jwt"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (

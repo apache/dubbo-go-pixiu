@@ -14,7 +14,9 @@
 
 package common
 
-import "net/http"
+import (
+	"net/http"
+)
 
 const (
 	webSocketHeaderKey   = "testwebsocket"

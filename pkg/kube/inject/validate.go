@@ -19,15 +19,19 @@ import (
 	"net"
 	"strconv"
 	"strings"
+)
 
+import (
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type annotationValidationFunc func(value string) error

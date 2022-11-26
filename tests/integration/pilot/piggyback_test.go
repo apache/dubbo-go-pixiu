@@ -19,9 +19,13 @@ package pilot
 
 import (
 	"testing"
+)
 
+import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
 )

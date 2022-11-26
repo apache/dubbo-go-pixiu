@@ -17,9 +17,10 @@ package framework
 import (
 	"flag"
 	"io"
+)
 
+import (
 	"google.golang.org/grpc/grpclog"
-
 	"istio.io/pkg/log"
 )
 

@@ -19,18 +19,22 @@ import (
 	"reflect"
 	"testing"
 	"time"
+)
 
+import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/memory"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/host"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 )
 
 func TestNodeMetadata(t *testing.T) {

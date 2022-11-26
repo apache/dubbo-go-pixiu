@@ -21,19 +21,23 @@ import (
 	"net"
 	"sync"
 	"time"
+)
 
+import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	pb "istio.io/api/security/v1alpha1"
+	"istio.io/pkg/log"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/security"
 	"github.com/apache/dubbo-go-pixiu/pkg/spiffe"
 	caerror "github.com/apache/dubbo-go-pixiu/security/pkg/pki/error"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/util"
 	"github.com/apache/dubbo-go-pixiu/security/pkg/server/ca"
-	pb "istio.io/api/security/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)

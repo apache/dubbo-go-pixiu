@@ -23,7 +23,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -34,13 +36,15 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"istio.io/api/label"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/config/memory"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 )
 
 type testAdscRunServer struct{}

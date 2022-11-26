@@ -18,7 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+)
 
+import (
 	"sigs.k8s.io/yaml"
 )
 

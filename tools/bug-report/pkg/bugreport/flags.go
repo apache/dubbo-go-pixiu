@@ -19,11 +19,15 @@ import (
 	"fmt"
 	"os"
 	"time"
+)
 
+import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/kube/inject"
 	config2 "github.com/apache/dubbo-go-pixiu/tools/bug-report/pkg/config"
 )

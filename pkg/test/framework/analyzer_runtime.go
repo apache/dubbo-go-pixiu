@@ -20,9 +20,13 @@ import (
 	"os"
 	"path"
 	"sync"
+)
 
+import (
 	"gopkg.in/yaml.v2"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"

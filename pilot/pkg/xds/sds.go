@@ -20,14 +20,19 @@ import (
 	"fmt"
 	"strings"
 	"time"
+)
 
+import (
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	mesh "istio.io/api/mesh/v1alpha1"
+)
 
+import (
 	credscontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/credentials"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
@@ -37,7 +42,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
-	mesh "istio.io/api/mesh/v1alpha1"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented

@@ -16,9 +16,13 @@ package model_test
 
 import (
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/network"
 )

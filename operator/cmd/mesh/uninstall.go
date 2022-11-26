@@ -18,10 +18,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+)
 
+import (
 	"github.com/spf13/cobra"
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
+import (
 	iopv1alpha1 "github.com/apache/dubbo-go-pixiu/operator/pkg/apis/istio/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/cache"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/helmreconciler"
@@ -32,8 +38,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/clog"
 	"github.com/apache/dubbo-go-pixiu/operator/pkg/util/progress"
 	proxyinfo "github.com/apache/dubbo-go-pixiu/pkg/proxy"
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
 )
 
 type uninstallArgs struct {

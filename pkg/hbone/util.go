@@ -20,7 +20,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
+)
 
+import (
 	istiolog "istio.io/pkg/log"
 )
 

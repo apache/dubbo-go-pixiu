@@ -18,7 +18,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+)
 
+import (
 	"gopkg.in/yaml.v2"
 )
 

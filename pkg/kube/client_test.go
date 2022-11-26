@@ -18,7 +18,9 @@ import (
 	"context"
 	"reflect"
 	"testing"
+)
 
+import (
 	version2 "istio.io/pkg/version"
 )
 

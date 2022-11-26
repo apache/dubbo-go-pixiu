@@ -17,7 +17,9 @@ package grpcready
 import (
 	"fmt"
 	"sync"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status/ready"
 	"github.com/apache/dubbo-go-pixiu/pkg/file"
 	"github.com/apache/dubbo-go-pixiu/pkg/istio-agent/grpcxds"

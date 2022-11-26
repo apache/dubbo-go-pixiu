@@ -19,14 +19,18 @@ package inject
 import (
 	"encoding/json"
 	"strconv"
+)
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
+import (
 	"istio.io/api/annotation"
 	"istio.io/pkg/log"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/cmd/pilot-agent/status"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.

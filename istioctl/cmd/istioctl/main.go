@@ -17,12 +17,15 @@ package main
 import (
 	"fmt"
 	"os"
+)
 
-	// import all known client auth plugins
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"github.com/apache/dubbo-go-pixiu/istioctl/cmd"
+import (
 	"istio.io/pkg/log"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/istioctl/cmd"
 )
 
 func main() {

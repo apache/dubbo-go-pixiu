@@ -20,7 +20,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+)
 
+import (
 	cloudtrace "google.golang.org/api/cloudtrace/v1"
 	logging "google.golang.org/api/logging/v2"
 	monitoring "google.golang.org/api/monitoring/v3"
@@ -30,7 +32,9 @@ import (
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+)
 
+import (
 	md "github.com/apache/dubbo-go-pixiu/pkg/bootstrap/platform"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/resource"
 )

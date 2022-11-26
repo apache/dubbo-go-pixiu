@@ -22,20 +22,24 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+)
 
+import (
 	"github.com/spf13/cobra"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	api_pkg_labels "k8s.io/apimachinery/pkg/labels"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/istioctl/pkg/clioptions"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/injection"
 	analyzer_util "github.com/apache/dubbo-go-pixiu/pkg/config/analysis/analyzers/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/resource"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
-	"istio.io/api/annotation"
-	"istio.io/api/label"
 )
 
 type revisionCount struct {

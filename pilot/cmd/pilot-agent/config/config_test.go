@@ -17,13 +17,17 @@ package config
 import (
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 )
 
 func TestGetMeshConfig(t *testing.T) {

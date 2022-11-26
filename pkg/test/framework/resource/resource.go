@@ -14,7 +14,9 @@
 
 package resource
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Resource of a resource.
 type Resource interface {

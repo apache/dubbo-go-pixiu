@@ -17,16 +17,20 @@ package distribution
 import (
 	"testing"
 	"time"
+)
 
+import (
 	. "github.com/onsi/gomega"
+	"istio.io/pkg/ledger"
 	"k8s.io/utils/clock"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/status"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	"istio.io/pkg/ledger"
 )
 
 func TestStatusMaps(t *testing.T) {

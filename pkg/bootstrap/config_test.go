@@ -19,15 +19,19 @@ import (
 	"os"
 	"reflect"
 	"testing"
+)
 
+import (
 	. "github.com/onsi/gomega"
+	"istio.io/api/mesh/v1alpha1"
 	"k8s.io/kubectl/pkg/util/fieldpath"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/bootstrap/option"
 	"github.com/apache/dubbo-go-pixiu/pkg/test"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	"istio.io/api/mesh/v1alpha1"
 )
 
 func TestParseDownwardApi(t *testing.T) {

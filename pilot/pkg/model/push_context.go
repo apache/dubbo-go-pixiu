@@ -23,10 +23,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
+	extensions "istio.io/api/extensions/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/monitoring"
 	"k8s.io/apimachinery/pkg/types"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -37,10 +45,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/gvk"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/visibility"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
-	extensions "istio.io/api/extensions/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/monitoring"
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.

@@ -22,9 +22,13 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/google/uuid"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/components/istio"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/framework/label"

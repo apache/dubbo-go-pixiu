@@ -21,7 +21,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/constants"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )

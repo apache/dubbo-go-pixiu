@@ -16,7 +16,9 @@ package v1alpha3
 
 import (
 	"testing"
+)
 
+import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
@@ -31,7 +33,11 @@ import (
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	tpb "istio.io/api/telemetry/v1alpha1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/util"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/provider"
@@ -40,8 +46,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/protocol"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 	"github.com/apache/dubbo-go-pixiu/pkg/util/protomarshal"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tpb "istio.io/api/telemetry/v1alpha1"
 )
 
 var (

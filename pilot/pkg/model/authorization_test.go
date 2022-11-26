@@ -18,16 +18,20 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+)
 
+import (
 	"github.com/golang/protobuf/proto" // nolint: staticcheck
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	authpb "istio.io/api/security/v1beta1"
+	selectorpb "istio.io/api/type/v1beta1"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/mesh"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	authpb "istio.io/api/security/v1beta1"
-	selectorpb "istio.io/api/type/v1beta1"
 )
 
 func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
