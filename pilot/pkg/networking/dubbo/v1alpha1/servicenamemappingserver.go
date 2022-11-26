@@ -89,6 +89,10 @@ func (s *Snp) Register(server *grpc.Server) {
 }
 
 func (s *Snp) Start(stop <-chan struct{}) {
+	if s == nil {
+		log.Warn("Snp server is not init, skip start")
+		return
+	}
 	go s.debounce(stop)
 }
 
