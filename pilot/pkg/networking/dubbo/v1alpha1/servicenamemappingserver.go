@@ -93,10 +93,26 @@ func (s *Snp) Start(stop <-chan struct{}) {
 		log.Warn("Snp server is not init, skip start")
 		return
 	}
-	go s.debounce(stop)
+	go s.debounce(stop, s.push)
 }
 
-func (s *Snp) debounce(stopCh <-chan struct{}) {
+func (s *Snp) push(req *RegisterRequest) {
+	for key, m := range req.ConfigsUpdated {
+		var appNames []string
+		for app := range m {
+			appNames = append(appNames, app)
+		}
+		for i := 0; i < 3; i++ {
+			if err := tryRegister(s.KubeClient, key.Namespace, key.Name, appNames); err != nil {
+				log.Errorf(" register [%v] failed: %v, try again later", key, err)
+			} else {
+				break
+			}
+		}
+	}
+}
+
+func (s *Snp) debounce(stopCh <-chan struct{}, pushFn func(req *RegisterRequest)) {
 	ch := s.queue
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
@@ -111,19 +127,7 @@ func (s *Snp) debounce(stopCh <-chan struct{}) {
 	freeCh := make(chan struct{}, 1)
 
 	push := func(req *RegisterRequest) {
-		for key, m := range req.ConfigsUpdated {
-			var appNames []string
-			for app := range m {
-				appNames = append(appNames, app)
-			}
-			for i := 0; i < 3; i++ {
-				if err := tryRegister(s.KubeClient, key.Namespace, key.Name, appNames); err != nil {
-					log.Errorf(" register [%v] failed: %v, try again later", key, err)
-				} else {
-					break
-				}
-			}
-		}
+		pushFn(req)
 		freeCh <- struct{}{}
 	}
 
