@@ -182,6 +182,39 @@ func (s *Snp) debounce(stopCh <-chan struct{}) {
 }
 
 func tryRegister(kubeClient kube.Client, namespace, interfaceName string, newApps []string) error {
+	snp, err := getOrCreateSnp(kubeClient, namespace, interfaceName, newApps)
+	if err != nil {
+		return err
+	}
+
+	previousLen := len(snp.Spec.ApplicationNames)
+	previousAppNames := make(map[string]struct{}, previousLen)
+	for _, name := range snp.Spec.ApplicationNames {
+		previousAppNames[name] = struct{}{}
+	}
+	for _, newApp := range newApps {
+		previousAppNames[newApp] = struct{}{}
+	}
+	if len(previousAppNames) == previousLen {
+		log.Infof("[%s] has been registered: %v", interfaceName, newApps)
+		return nil
+	}
+
+	mergedApps := make([]string, 0, len(previousAppNames))
+	for name := range previousAppNames {
+		mergedApps = append(mergedApps, name)
+	}
+	snp.Spec.ApplicationNames = mergedApps
+	snpInterface := kubeClient.Istio().ExtensionsV1alpha1().ServiceNameMappings(namespace)
+	snp, err = snpInterface.Update(context.Background(), snp, v1.UpdateOptions{})
+	if err != nil {
+		return errors.Wrap(err, " update failed")
+	}
+	log.Debugf(" register success, revision:%s", snp.ResourceVersion)
+	return nil
+}
+
+func getOrCreateSnp(kubeClient kube.Client, namespace string, interfaceName string, newApps []string) (*v1alpha1.ServiceNameMapping, error) {
 	ctx := context.TODO()
 	lowerCaseName := strings.ToLower(strings.ReplaceAll(interfaceName, ".", "-"))
 	snpInterface := kubeClient.Istio().ExtensionsV1alpha1().ServiceNameMappings(namespace)
@@ -205,7 +238,7 @@ func tryRegister(kubeClient kube.Client, namespace, interfaceName string, newApp
 			// create success
 			if err == nil {
 				log.Infof("create snp %s revision %s", interfaceName, snp.ResourceVersion)
-				return nil
+				return snp, nil
 			}
 			// If the creation fails, meaning it already created by other goroutine, then get it
 			if apierror.IsAlreadyExists(err) {
@@ -213,38 +246,14 @@ func tryRegister(kubeClient kube.Client, namespace, interfaceName string, newApp
 				snp, err = snpInterface.Get(ctx, lowerCaseName, v1.GetOptions{})
 				// maybe failed to get snp cause of network issue, just return error
 				if err != nil {
-					return errors.Wrap(err, "tryRegister retry get snp error")
+					return nil, errors.Wrap(err, "tryRegister retry get snp error")
 				}
 			}
 		} else {
-			return errors.Wrap(err, "tryRegister get snp error")
+			return nil, errors.Wrap(err, "tryRegister get snp error")
 		}
 	}
-
-	previousLen := len(snp.Spec.ApplicationNames)
-	previousAppNames := make(map[string]struct{}, previousLen)
-	for _, name := range snp.Spec.ApplicationNames {
-		previousAppNames[name] = struct{}{}
-	}
-	for _, newApp := range newApps {
-		previousAppNames[newApp] = struct{}{}
-	}
-	if len(previousAppNames) == previousLen {
-		log.Infof("[%s] has been registered: %v", interfaceName, newApps)
-		return nil
-	}
-
-	mergedApps := make([]string, 0, len(previousAppNames))
-	for name := range previousAppNames {
-		mergedApps = append(mergedApps, name)
-	}
-	snp.Spec.ApplicationNames = mergedApps
-	snp, err = snpInterface.Update(ctx, snp, v1.UpdateOptions{})
-	if err != nil {
-		return errors.Wrap(err, " update failed")
-	}
-	log.Debugf(" register success, revision:%s", snp.ResourceVersion)
-	return nil
+	return snp, nil
 }
 
 type RegisterRequest struct {
