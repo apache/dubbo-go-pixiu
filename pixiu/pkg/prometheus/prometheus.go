@@ -293,7 +293,11 @@ func (p *Prometheus) SetPushGateway() {
 
 func (p *Prometheus) getMetrics() []byte {
 	out := &bytes.Buffer{}
-	metricFamilies, _ := prometheus.DefaultGatherer.Gather()
+	metricFamilies, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		logger.Errorf("prometheus.DefaultGatherer.Gather error: %v", err)
+		return []byte{}
+	}
 	for i := range metricFamilies {
 		_, err := expfmt.MetricFamilyToText(out, metricFamilies[i])
 		if err != nil {
