@@ -63,6 +63,7 @@ func NewSnp(kubeClient kube.Client) *Snp {
 	}
 }
 
+// RegisterServiceAppMapping register service app mapping.
 func (s *Snp) RegisterServiceAppMapping(ctx context.Context, req *dubbov1alpha1.ServiceMappingRequest) (*dubbov1alpha1.ServiceMappingResponse, error) {
 	namespace := req.GetNamespace()
 	interfaces := req.GetInterfaceNames()
@@ -112,6 +113,14 @@ func (s *Snp) push(req *RegisterRequest) {
 	}
 }
 
+// Each application registers its services with the Snp server at startup,
+// and there are usually multiple copies of a deployment. They make requests
+// at the same time. So we need to debounce these requests,
+// because only one request is valid for the same deployment!
+// So we wait for a while, merge incoming requests, and submit them when
+// there is a timeout or a short period of no subsequent requests,
+// by default a minimum of 200ms and a maximum of 1s, which is usually acceptable.
+// The above can significantly reduce the pressure on the registry.
 func (s *Snp) debounce(stopCh <-chan struct{}, pushFn func(req *RegisterRequest)) {
 	ch := s.queue
 	var timeChan <-chan time.Time
