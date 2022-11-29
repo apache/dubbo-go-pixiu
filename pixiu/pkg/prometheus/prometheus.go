@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -344,7 +345,10 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		if err2 == nil {
 			p.resSz.WithLabelValues(statusStr, method, url).Observe(float64(resSz))
 		}
+		var mutex sync.RWMutex
+		mutex.Lock()
 		p.Ppg.counter = p.Ppg.counter + 1
+		mutex.Unlock()
 		p.SetPushGateway()
 		return nil
 	}

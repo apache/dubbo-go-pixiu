@@ -42,7 +42,7 @@ func TestCounterExporterApiMetric(t *testing.T) {
 			PushGatewayURL:        "http://127.0.0.1:9091",
 			PushJobName:           "pixiu",
 			CounterPush:           true,
-			PushIntervalThreshold: 50,
+			PushIntervalThreshold: 100,
 		},
 	}
 	_, err := yaml.MarshalYML(rules)
@@ -56,7 +56,7 @@ func TestCounterExporterApiMetric(t *testing.T) {
 		err = factory.Apply()
 		assert.Nil(t, err)
 		chain := filter.NewDefaultFilterChain()
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 1000; i++ {
 			data := GetApiStatsResponse()
 			body, _ := json.Marshal(&data)
 			request, _ := http.NewRequest("POST", "/_api/health", bytes.NewBuffer(body))

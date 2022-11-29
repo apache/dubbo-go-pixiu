@@ -26,7 +26,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	prom "github.com/apache/dubbo-go-pixiu/pkg/metrics/prometheus"
+	prom "github.com/apache/dubbo-go-pixiu/pixiu/pkg/prometheus"
 )
 
 const (

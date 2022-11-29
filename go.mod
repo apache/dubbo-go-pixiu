@@ -321,7 +321,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.11.4 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
-	vimagination.zapto.org/memio v1.0.0 // indirect
+	vimagination.zapto.org/memio v0.0.0-20221021163155-6d79b4ee428f // indirect
 )
 
 replace google.golang.org/protobuf v1.28.1 => google.golang.org/protobuf v1.28.0
