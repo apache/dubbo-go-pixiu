@@ -88,6 +88,9 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	}
 	meta := make(map[string][]string)
 	reqData, _ := io.ReadAll(req.IngressRequest.Body)
+	for name, values := range req.IngressRequest.Header {
+		meta[name] = values
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
 	defer cancel()
 	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
