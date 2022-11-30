@@ -86,14 +86,15 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	if err := p.Connect(context.Background(), targetURL); err != nil {
 		return "", errors.Errorf("connect triple server error = %s", err)
 	}
-	meta := make(map[string][]string)
+	//meta := make(map[string][]string)
 	reqData, _ := io.ReadAll(req.IngressRequest.Body)
-	for name, values := range req.IngressRequest.Header {
+	/*for name, values := range req.IngressRequest.Header {
 		meta[name] = values
-	}
+	}*/
+	meta := proxymeta.MetadataFromHeaders(req.IngressRequest.Header)
 	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
 	defer cancel()
-	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
+	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, &meta)
 	if err != nil {
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
