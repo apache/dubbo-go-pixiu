@@ -8,9 +8,17 @@ package collections
 
 import (
 	"reflect"
-)
 
-import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
+	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicorev1 "k8s.io/api/core/v1"
+	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
@@ -18,18 +26,6 @@ import (
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
-	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	k8sioapiappsv1 "k8s.io/api/apps/v1"
-	k8sioapicorev1 "k8s.io/api/core/v1"
-	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
-	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 )
 
 var (
