@@ -64,7 +64,7 @@ spec:
           cpu: 10m
       imagePullPolicy: ""
       imagePullSecrets: []
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       istiod:
         enableAnalysis: false
       jwtPolicy: third-party-jwt

@@ -3,7 +3,7 @@ apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-staging
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   acme:
     # The ACME server URL
@@ -20,7 +20,7 @@ apiVersion: certmanager.k8s.io/v1alpha1
 kind: Certificate
 metadata:
   name: istio-ingressgateway-certs
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   secretName: istio-ingressgateway-certs
   issuerRef:

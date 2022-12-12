@@ -4,15 +4,15 @@ metadata:
   labels:
     app: istio-reader
     release: istio
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
 subjects:
 - kind: ServiceAccount
   name: my-service-role
-  namespace: istio-system
+  namespace: dubbo-system
 ---
 
 

@@ -2,7 +2,7 @@ apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
   name: metrics
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   metrics:
   - providers:

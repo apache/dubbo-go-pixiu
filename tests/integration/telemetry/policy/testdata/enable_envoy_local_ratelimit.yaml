@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: filter-local-ratelimit-svc
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   workloadSelector:
     labels:

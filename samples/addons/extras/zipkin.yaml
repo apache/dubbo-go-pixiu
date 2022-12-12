@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zipkin
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: zipkin
 spec:
@@ -33,7 +33,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: tracing
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: zipkin
 spec:
@@ -52,7 +52,7 @@ metadata:
   labels:
     name: zipkin
   name: zipkin
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   ports:
     - port: 9411

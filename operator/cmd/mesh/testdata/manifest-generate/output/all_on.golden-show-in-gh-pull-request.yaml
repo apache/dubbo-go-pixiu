@@ -6487,7 +6487,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-egressgateway-service-account
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-egressgateway
     istio: egressgateway
@@ -6500,7 +6500,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ingressgateway-service-account
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -6513,7 +6513,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-reader-service-account
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-reader
     release: istio
@@ -6522,7 +6522,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6531,7 +6531,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istiod-service-account
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6539,7 +6539,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-clusterrole-istio-system
+  name: istio-reader-clusterrole-dubbo-system
   labels:
     app: istio-reader
     release: istio
@@ -6583,7 +6583,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
   labels:
     app: istio-reader
     release: istio
@@ -6627,7 +6627,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-clusterrole-istio-system
+  name: istiod-clusterrole-dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6734,7 +6734,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-gateway-controller-istio-system
+  name: istiod-gateway-controller-dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6749,7 +6749,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-istio-system
+  name: istiod-dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6856,87 +6856,87 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-clusterrole-istio-system
+  name: istio-reader-clusterrole-dubbo-system
   labels:
     app: istio-reader
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-clusterrole-istio-system
+  name: istio-reader-clusterrole-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
   labels:
     app: istio-reader
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-clusterrole-istio-system
+  name: istiod-clusterrole-dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-clusterrole-istio-system
+  name: istiod-clusterrole-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istiod
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-gateway-controller-istio-system
+  name: istiod-gateway-controller-dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-gateway-controller-istio-system
+  name: istiod-gateway-controller-dubbo-system
 subjects:
 - kind: ServiceAccount
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-istio-system
+  name: istiod-dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-istio-system
+  name: istiod-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istiod-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istio-validator-istio-system
+  name: istio-validator-dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6950,7 +6950,7 @@ webhooks:
       # Should change from base but cannot for API compat
       service:
         name: istiod
-        namespace: istio-system
+        namespace: dubbo-system
         path: "/validate"
     rules:
       - operations:
@@ -6982,7 +6982,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.11
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7104,7 +7104,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.12
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7226,7 +7226,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.13
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7348,7 +7348,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.14
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7470,7 +7470,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.15
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7592,7 +7592,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.11
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7706,7 +7706,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.12
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7820,7 +7820,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.13
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -7934,7 +7934,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.14
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -8048,7 +8048,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.15
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
@@ -8162,7 +8162,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -8176,20 +8176,20 @@ data:
 
   mesh: |-
     defaultConfig:
-      discoveryAddress: istiod.istio-system.svc:15012
+      discoveryAddress: istiod.dubbo-system.svc:15012
       proxyMetadata: {}
       tracing:
         zipkin:
-          address: zipkin.istio-system:9411
+          address: zipkin.dubbo-system:9411
     enablePrometheusMerge: true
-    rootNamespace: istio-system
+    rootNamespace: dubbo-system
     trustDomain: cluster.local
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -8219,7 +8219,7 @@ data:
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
-        "istioNamespace": "istio-system",
+        "istioNamespace": "dubbo-system",
         "istiod": {
           "enableAnalysis": false
         },
@@ -8235,7 +8235,7 @@ data:
           "clusterName": "",
           "enabled": false
         },
-        "namespace": "istio-system",
+        "namespace": "dubbo-system",
         "network": "",
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
@@ -9386,7 +9386,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None
@@ -9415,7 +9415,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None
@@ -9446,7 +9446,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None
@@ -9473,7 +9473,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None
@@ -9503,7 +9503,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-egressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-egressgateway
     istio: egressgateway
@@ -9595,7 +9595,7 @@ spec:
           - name: PILOT_CERT_PROVIDER
             value: istiod
           - name: CA_ADDR
-            value: istiod.istio-system.svc:15012
+            value: istiod.dubbo-system.svc:15012
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -9628,7 +9628,7 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-egressgateway
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
+            value: kubernetes://apis/apps/v1/namespaces/dubbo-system/deployments/istio-egressgateway
           - name: ISTIO_META_MESH_ID
             value: "cluster.local"
           - name: TRUST_DOMAIN
@@ -9747,7 +9747,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -9841,7 +9841,7 @@ spec:
           - name: PILOT_CERT_PROVIDER
             value: istiod
           - name: CA_ADDR
-            value: istiod.istio-system.svc:15012
+            value: istiod.dubbo-system.svc:15012
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -9874,7 +9874,7 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/dubbo-system/deployments/istio-ingressgateway
           - name: ISTIO_META_MESH_ID
             value: "cluster.local"
           - name: TRUST_DOMAIN
@@ -9993,7 +9993,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     istio.io/rev: default
@@ -10082,7 +10082,7 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "true"
           - name: ISTIOD_ADDR
-            value: istiod.istio-system.svc:15012
+            value: istiod.dubbo-system.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
@@ -10139,7 +10139,7 @@ apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istio-egressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-egressgateway
     istio: egressgateway
@@ -10158,7 +10158,7 @@ apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -10177,7 +10177,7 @@ apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     istio.io/rev: default
@@ -10196,7 +10196,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: istio-egressgateway-sds
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio
     istio.io/rev: default
@@ -10211,7 +10211,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: istio-ingressgateway-sds
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio
     istio.io/rev: default
@@ -10226,7 +10226,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -10243,8 +10243,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istiod-istio-system
-  namespace: istio-system
+  name: istiod-dubbo-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -10262,7 +10262,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: istio-egressgateway-sds
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio
     istio.io/rev: default
@@ -10280,7 +10280,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: istio-ingressgateway-sds
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio
     istio.io/rev: default
@@ -10298,7 +10298,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -10309,30 +10309,30 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istiod
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istiod-istio-system
-  namespace: istio-system
+  name: istiod-dubbo-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istiod-istio-system
+  name: istiod-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istiod-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-egressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-egressgateway
     istio: egressgateway
@@ -10359,7 +10359,7 @@ apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -10386,7 +10386,7 @@ apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -10412,7 +10412,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-egressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   annotations:
   labels:
     app: istio-egressgateway
@@ -10442,7 +10442,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   annotations:
   labels:
     app: istio-ingressgateway
@@ -10477,7 +10477,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown

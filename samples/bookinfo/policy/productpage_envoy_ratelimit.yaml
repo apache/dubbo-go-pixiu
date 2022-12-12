@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: filter-ratelimit
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   workloadSelector:
     # select by label in the same namespace
@@ -59,7 +59,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: filter-ratelimit-svc
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   workloadSelector:
     labels:

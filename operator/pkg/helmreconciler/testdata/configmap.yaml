@@ -3,6 +3,6 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: config
-  namespace: istio-system
+  namespace: dubbo-system
 data:
   field: one

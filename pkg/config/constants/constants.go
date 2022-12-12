@@ -76,7 +76,7 @@ const (
 	IstioIngressLabelValue = "ingressgateway"
 
 	// IstioSystemNamespace is the namespace where Istio's components are deployed
-	IstioSystemNamespace = "istio-system"
+	IstioSystemNamespace = "dubbo-system"
 
 	// DefaultAuthenticationPolicyName is the name of the cluster-scoped authentication policy. Only
 	// policy with this name in the cluster-scoped will be considered.
