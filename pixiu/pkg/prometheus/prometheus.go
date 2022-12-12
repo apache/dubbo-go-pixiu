@@ -223,6 +223,7 @@ type PushGateway struct {
 	PushGatewayURL        string
 	Job                   string
 	counter               int
+	mutex                 sync.RWMutex
 }
 
 // NewPrometheus generates a new set of metrics with a certain subsystem name
@@ -265,6 +266,7 @@ func (p *Prometheus) registerMetrics() {
 }
 
 func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricspath string) {
+
 	p.Ppg.PushGatewayURL = pushGatewayURL
 	p.MetricsPath = metricspath
 }
@@ -349,10 +351,9 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		if err2 == nil {
 			p.resSz.WithLabelValues(statusStr, method, url).Observe(float64(resSz))
 		}
-		var mutex sync.RWMutex
-		mutex.Lock()
+		p.Ppg.mutex.Lock()
 		p.Ppg.counter = p.Ppg.counter + 1
-		mutex.Unlock()
+		defer p.Ppg.mutex.Unlock()
 		p.SetPushGateway()
 		return nil
 	}

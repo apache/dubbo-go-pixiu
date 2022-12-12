@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 )
 
 import (
@@ -67,6 +68,7 @@ func TestCounterExporterApiMetric(t *testing.T) {
 			chain.OnDecode(ctx)
 		}
 	}
+	time.Sleep(20 * time.Second)
 }
 
 func GetApiStatsResponse() ApiStatsResponse {
