@@ -19,11 +19,11 @@ package prometheus
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -36,6 +36,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/context"
 )
 
 var defaultSubsystem = "pixiu"
@@ -216,9 +217,13 @@ type Prometheus struct {
 
 // PushGateway contains the configuration for pushing to a Prometheus pushgateway (optional)
 type PushGateway struct {
-	PushInterval   time.Duration
-	PushGatewayURL string
-	Job            string
+	CounterPush           bool
+	PushIntervalSeconds   time.Duration
+	PushIntervalThreshold int
+	PushGatewayURL        string
+	Job                   string
+	counter               int
+	mutex                 sync.RWMutex
 }
 
 // NewPrometheus generates a new set of metrics with a certain subsystem name
@@ -236,7 +241,6 @@ func NewPrometheus() *Prometheus {
 		},
 	}
 	p.registerMetrics()
-
 	return p
 }
 
@@ -261,40 +265,46 @@ func (p *Prometheus) registerMetrics() {
 	}
 }
 
-func (p *Prometheus) SetMetricPath(path string) {
-	p.MetricsPath = path
-}
+func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricspath string) {
 
-func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricsURL string, pushInterval time.Duration) {
 	p.Ppg.PushGatewayURL = pushGatewayURL
-	p.MetricsPath = metricsURL
-	p.Ppg.PushInterval = pushInterval
-	p.MetricsPath = metricsURL
-
+	p.MetricsPath = metricspath
 }
 
-func (p *Prometheus) SetPushGateway() {
-	p.startPushTicker()
+func (p *Prometheus) SetPushIntervalThreshold(isTurn bool, pushIntervalThreshold int) {
+	p.Ppg.CounterPush = isTurn
+	p.Ppg.PushIntervalThreshold = pushIntervalThreshold
 }
 
 func (p *Prometheus) SetPushGatewayJob(j string) {
 	p.Ppg.Job = j
 }
 
-func (p *Prometheus) startPushTicker() {
-	p.sendMetricsToPushGateway(p.getMetrics())
+func (p *Prometheus) startPushCounter() {
+	if p.Ppg.counter >= p.Ppg.PushIntervalThreshold {
+		go p.sendMetricsToPushGateway(p.getMetrics())
+		p.Ppg.counter = 0
+	}
+}
+
+func (p *Prometheus) SetPushGateway() {
+	if p.Ppg.CounterPush {
+		p.startPushCounter()
+	}
 }
 
 func (p *Prometheus) getMetrics() []byte {
-
 	out := &bytes.Buffer{}
-	metricFamilies, _ := prometheus.DefaultGatherer.Gather()
+	metricFamilies, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		logger.Errorf("prometheus.DefaultGatherer.Gather error: %v", err)
+		return []byte{}
+	}
 	for i := range metricFamilies {
 		_, err := expfmt.MetricFamilyToText(out, metricFamilies[i])
 		if err != nil {
 			logger.Errorf("failed to converts a MetricFamily proto message into text format %v", err)
 		}
-
 	}
 	return out.Bytes()
 }
@@ -315,14 +325,12 @@ func (p *Prometheus) getPushGatewayURL() string {
 	if p.Ppg.Job == "" {
 		p.Ppg.Job = "pixiu"
 	}
-	return p.Ppg.PushGatewayURL + "/metrics/job/" + p.Ppg.Job + "/instance/" + h
+	return p.Ppg.PushGatewayURL + p.MetricsPath + "/job/" + p.Ppg.Job + "/instance/" + h
 }
 
 // HandlerFunc defines handler function for middleware
 func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
-
 	return func(c *contextHttp.HttpContext) error {
-
 		start := time.Now()
 		reqSz, err1 := computeApproximateRequestSize(c.Request)
 		//fmt.Println("reqSz", reqSz)
@@ -343,6 +351,9 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		if err2 == nil {
 			p.resSz.WithLabelValues(statusStr, method, url).Observe(float64(resSz))
 		}
+		p.Ppg.mutex.Lock()
+		p.Ppg.counter = p.Ppg.counter + 1
+		defer p.Ppg.mutex.Unlock()
 		p.SetPushGateway()
 		return nil
 	}

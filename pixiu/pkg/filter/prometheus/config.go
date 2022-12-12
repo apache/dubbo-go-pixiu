@@ -23,15 +23,12 @@ type (
 	}
 
 	MetricCollectRule struct {
-		Enable     bool   `json:"enbale,omitempty" yaml:"enable,omitempty"`
 		MetricPath string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`
 		// Push Gateway URL in format http://domain:port
 		// where JOBNAME can be any string of your choice
-		PushGatewayURL string `default:"http://127.0.0.1:9091" json:"push_gateway_url,omitempty" yaml:"push_gateway_url,omitempty"`
-		// Push interval in seconds
-		// lint:ignore ST1011 renaming would be breaking change
-		PushIntervalSeconds int    `json:"push_interval_seconds,omitempty" yaml:"push_interval_seconds,omitempty"`
-		PushJobName         string `json:"push_job_name,omitempty" yaml:"push_job_name,omitempty"`
-		// Pushgateway job name, defaults to "prometheus"
+		PushGatewayURL        string `default:"http://127.0.0.1:9091" json:"push_gateway_url,omitempty" yaml:"push_gateway_url,omitempty"`
+		CounterPush           bool   `json:"counter_push,omitempty" yaml:"counter_push,omitempty"`
+		PushIntervalThreshold int    `json:"push_interval_threshold" yaml:"push_interval_threshold,omitempty"`
+		PushJobName           string `json:"push_job_name,omitempty" yaml:"push_job_name,omitempty"`
 	}
 )
