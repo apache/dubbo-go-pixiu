@@ -113,5 +113,5 @@ func extractNameAndNameSpace(watchedResource, defaultNamespace string) (string, 
 	if len(split) == 1 || split[1] == "" {
 		return defaultNamespace, split[1]
 	}
-	return split[0], split[1]
+	return split[1], split[0]
 }
