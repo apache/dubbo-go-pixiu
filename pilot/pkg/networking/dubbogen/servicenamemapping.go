@@ -111,7 +111,7 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 func extractNameAndNameSpace(watchedResource, defaultNamespace string) (string, string) {
 	split := strings.Split(watchedResource, "|")
 	if len(split) == 1 || split[1] == "" {
-		return defaultNamespace, split[0]
+		return defaultNamespace, split[1]
 	}
 	return split[0], split[1]
 }
