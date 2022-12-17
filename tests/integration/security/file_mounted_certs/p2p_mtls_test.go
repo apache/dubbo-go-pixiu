@@ -51,7 +51,7 @@ func TestClientToServiceTls(t *testing.T) {
 			client, server, serviceNamespace := setupEcho(t)
 
 			createObject(t, serviceNamespace.Name(), DestinationRuleConfigMutual)
-			createObject(t, "istio-system", PeerAuthenticationConfig)
+			createObject(t, "dubbo-system", PeerAuthenticationConfig)
 
 			opts := echo.CallOptions{
 				To: server,
@@ -95,7 +95,7 @@ apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: default
-  namespace: "istio-system"
+  namespace: "dubbo-system"
 spec:
   mtls:
     mode: STRICT

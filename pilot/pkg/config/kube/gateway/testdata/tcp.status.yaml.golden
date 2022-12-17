@@ -18,7 +18,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   addresses:
@@ -26,7 +26,7 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    message: Gateway valid, assigned to service(s) istio-ingressgateway.dubbo-system.svc.domain.suffix:34000
     reason: ListenersValid
     status: "True"
     type: Ready
@@ -81,5 +81,5 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
 ---

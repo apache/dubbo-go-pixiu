@@ -59,7 +59,7 @@ import (
 )
 
 // Address of the Istiod gRPC service, used in tests.
-var istiodSvcHost = "istiod.istio-system.svc.cluster.local"
+var istiodSvcHost = "istiod.dubbo-system.svc.cluster.local"
 
 // Local integration tests for proxyless gRPC.
 // The tests will start an in-process Istiod, using the memory store, and use
@@ -215,9 +215,9 @@ func TestGRPC(t *testing.T) {
 
 	t.Run("gRPC-dial", func(t *testing.T) {
 		for _, host := range []string{
-			"istiod.istio-system.svc.cluster.local",
-			//"istiod.istio-system.svc",
-			//"istiod.istio-system",
+			"istiod.dubbo-system.svc.cluster.local",
+			//"istiod.dubbo-system.svc",
+			//"istiod.dubbo-system",
 			//"istiod",
 		} {
 			t.Run(host, func(t *testing.T) {
@@ -243,7 +243,7 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 	sd.AddService(&model.Service{
 		Attributes: model.ServiceAttributes{
 			Name:      "istiod",
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 		},
 		Hostname:       host.Name(istiodSvcHost),
 		DefaultAddress: "127.0.1.12",
@@ -255,7 +255,7 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 			},
 		},
 	})
-	sd.SetEndpoints(istiodSvcHost, "istio-system", []*model.IstioEndpoint{
+	sd.SetEndpoints(istiodSvcHost, "dubbo-system", []*model.IstioEndpoint{
 		{
 			Address:         "127.0.0.1",
 			EndpointPort:    uint32(xdsPort),
@@ -464,9 +464,9 @@ func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseR
 	// {"loadBalancingConfig":[
 	//  {"xds_cluster_manager_experimental":{
 	//     "children":{
-	//        "cluster:outbound|14057||istiod.istio-system.svc.cluster.local":{
+	//        "cluster:outbound|14057||istiod.dubbo-system.svc.cluster.local":{
 	//           "childPolicy":[
 	//          {"cds_experimental":
-	//         		{"cluster":"outbound|14057||istiod.istio-system.svc.cluster.local"}}]}}}}]}
+	//         		{"cluster":"outbound|14057||istiod.dubbo-system.svc.cluster.local"}}]}}}}]}
 	return &serviceconfig.ParseResult{}
 }

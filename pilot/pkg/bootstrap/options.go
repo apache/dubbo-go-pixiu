@@ -124,7 +124,7 @@ var (
 
 // Revision is the value of the Istio control plane revision, e.g. "canary",
 // and is the value used by the "istio.io/rev" label.
-var Revision = env.RegisterStringVar("REVISION", "", "").Get()
+var Revision = env.RegisterStringVar("REVISION", "dubbo", "").Get()
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {

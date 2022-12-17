@@ -81,7 +81,7 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 		for _, gvk := range append(h.NamespacedResources(), ClusterCPResources...) {
 			receiver := &unstructured.Unstructured{}
 			receiver.SetGroupVersionKind(schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind})
-			objKey := client.ObjectKey{Namespace: "istio-system", Name: "istiod-test"}
+			objKey := client.ObjectKey{Namespace: "dubbo-system", Name: "istiod-test"}
 			if gvk.Kind == name.MutatingWebhookConfigurationStr {
 				objKey.Name = "istio-sidecar-injector-test"
 			}

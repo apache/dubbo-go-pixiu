@@ -1,7 +1,7 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istiod-default-validator
+  name: istiod-dubbo-validator
   labels:
     app: istiod
     istio: istiod

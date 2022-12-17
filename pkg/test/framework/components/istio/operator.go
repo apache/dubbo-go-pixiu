@@ -743,7 +743,7 @@ func install(c *operatorComponent, installArgs *mesh.InstallArgs, clusterName st
 		Set:           installArgs.Set,
 		Force:         installArgs.Force,
 		ManifestsPath: installArgs.ManifestsPath,
-		Revision:      installArgs.Revision,
+		Revision:      "dubbo",
 	}, cmdLogOptions(), cmdLogger(&stdOut, &stdErr)); err != nil {
 		return err
 	}

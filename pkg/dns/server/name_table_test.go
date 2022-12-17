@@ -48,7 +48,7 @@ func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, 
 }
 
 func TestNameTable(t *testing.T) {
-	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	mesh := &meshconfig.MeshConfig{RootNamespace: "dubbo-system"}
 	proxy := &model.Proxy{
 		IPAddresses: []string{"9.9.9.9"},
 		Metadata:    &model.NodeMetadata{},

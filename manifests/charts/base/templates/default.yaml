@@ -2,7 +2,7 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istiod-default-validator
+  name: istiod-dubbo-validator
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -15,7 +15,7 @@ webhooks:
       url: {{ .Values.base.validationURL }}
       {{- else }}
       service:
-        {{- if (eq .Values.defaultRevision "default") }}
+        {{- if (eq .Values.defaultRevision "dubbo") }}
         name: istiod
         {{- else }}
         name: istiod-{{ .Values.defaultRevision }}

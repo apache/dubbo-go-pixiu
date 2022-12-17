@@ -40,7 +40,7 @@ type manifestDiffArgs struct {
 	// selectResources constrains the list of resources to compare to only the ones in this list, ignoring all others.
 	// The format of each list item is :: and the items are comma separated. The * character represents wildcard selection.
 	// e.g.
-	// Deployment:istio-system:* - compare all deployments in istio-system namespace
+	// Deployment:dubbo-system:* - compare all deployments in dubbo-system namespace
 	// Service:*:istio-pilot - compare Services called "istio-pilot" in all namespaces.
 	selectResources string
 	// ignoreResources ignores all listed items during comparison. It uses the same list format as selectResources.
@@ -60,7 +60,7 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 		"Constrain the list of resources to compare to only the ones in this list, ignoring all others.\n"+
 			"The format of each list item is \"::\" and the items are comma separated. The \"*\" character represents wildcard selection.\n"+
 			"e.g.\n"+
-			"    Deployment:istio-system:* - compare all deployments in istio-system namespace\n"+
+			"    Deployment:dubbo-system:* - compare all deployments in dubbo-system namespace\n"+
 			"    Service:*:istiod - compare Services called \"istiod\" in all namespaces")
 	cmd.PersistentFlags().StringVar(&diffArgs.ignoreResources, "ignore", "",
 		"Ignore all listed items during comparison, using the same list format as selectResources.")

@@ -105,7 +105,7 @@ func addInstallFlags(cmd *cobra.Command, args *InstallArgs) {
 	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "dubbo", revisionFlagHelpStr)
 }
 
 // InstallCmdWithArgs generates an Istio install manifest and applies it to a cluster
@@ -178,7 +178,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	}
 
 	// Ignore the err because we don't want to show
-	// "no running Istio pods in istio-system" for the first time
+	// "no running Istio pods in dubbo-system" for the first time
 	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, setFlags)
 
 	// Warn users if they use `istioctl install` without any config args.

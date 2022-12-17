@@ -36,7 +36,7 @@ import (
 
 const (
 	// DefaultSystemNamespace default value for SystemNamespace
-	DefaultSystemNamespace = "istio-system"
+	DefaultSystemNamespace = "dubbo-system"
 
 	// IntegrationTestDefaultsIOP is the path of the default IstioOperator spec to use
 	// for integration tests
@@ -96,7 +96,7 @@ var (
 
 // Config provide kube-specific Config from flags.
 type Config struct {
-	// The namespace where the Istio components (<=1.1) reside in a typical deployment (default: "istio-system").
+	// The namespace where the Istio components (<=1.1) reside in a typical deployment (default: "dubbo-system").
 	SystemNamespace string
 
 	// The namespace in which kiali, tracing providers, graphana, prometheus are deployed.

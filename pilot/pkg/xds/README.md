@@ -4,7 +4,7 @@ The debug handlers are configured on the monitoring port (default 15014) as well
 as on the http port (8080).
 
 ```bash
-PILOT=istiod.istio-system:15014
+PILOT=istiod.dubbo-system:15014
 
 # What is sent to envoy
 # Listeners and routes
@@ -50,30 +50,30 @@ Example for EDS:
 {
 
    // Cluster
-   "echosrv.istio-system.svc.cluster.local|grpc-ping": {
+   "echosrv.dubbo-system.svc.cluster.local|grpc-ping": {
     "EdsClients": {
       // One for each connected envoy.
-      "sidecar~172.17.0.8~echosrv-deployment-5b7878cc9-dlm8j.istio-system~istio-system.svc.cluster.local-116": {
+      "sidecar~172.17.0.8~echosrv-deployment-5b7878cc9-dlm8j.dubbo-system~dubbo-system.svc.cluster.local-116": {
         // Should match the info in the node (this is the real remote address)
         "PeerAddr": "172.17.0.8:42044",
         "Clusters": [
           // Should match the cluster, this is what is monitored
-          "echosrv.istio-system.svc.cluster.local|grpc-ping"
+          "echosrv.dubbo-system.svc.cluster.local|grpc-ping"
         ],
         // Time the sidecar connected to pilot
         "Connect": "2018-03-22T15:01:07.527304202Z"
       },
-      "sidecar~172.17.0.9~echosrv-deployment-5b7878cc9-wb9b7.istio-system~istio-system.svc.cluster.local-75": {
+      "sidecar~172.17.0.9~echosrv-deployment-5b7878cc9-wb9b7.dubbo-system~dubbo-system.svc.cluster.local-75": {
         "PeerAddr": "172.17.0.9:47182",
         "Clusters": [
-          "echosrv.istio-system.svc.cluster.local|grpc-ping"
+          "echosrv.dubbo-system.svc.cluster.local|grpc-ping"
         ],
         "Connect": "2018-03-22T15:01:00.465066249Z"
       }
     },
     // The info pushed to each connected sidecar watching the cluster.
     "LoadAssignment": {
-      "cluster_name": "echosrv.istio-system.svc.cluster.local|grpc-ping",
+      "cluster_name": "echosrv.dubbo-system.svc.cluster.local|grpc-ping",
       "endpoints": [
         {
           "locality": {},
@@ -133,9 +133,9 @@ possible to map an event in the registry to config pushes.
 EDS:
 
 ```plain
-node:<id:"ingress~~istio-ingress-6796c456f4-7zqtm.istio-system~istio-system.svc.cluster.local"
+node:<id:"ingress~~istio-ingress-6796c456f4-7zqtm.dubbo-system~dubbo-system.svc.cluster.local"
 cluster:"istio-ingress"
 build_version:"0/1.6.0-dev//RELEASE" >
-resource_names:"echosrv.istio-system.svc.cluster.local|http-echo"
+resource_names:"echosrv.dubbo-system.svc.cluster.local|http-echo"
 type_url:"type.googleapis.com/envoy.api.v2.ClusterLoadAssignment"
 ```

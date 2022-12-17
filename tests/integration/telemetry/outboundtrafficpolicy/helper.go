@@ -70,7 +70,7 @@ spec:
   egress:
   - hosts:
     - "{{.ImportNamespace}}/*"
-    - "istio-system/*"
+    - "dubbo-system/*"
   outboundTrafficPolicy:
     mode: "{{.TrafficPolicyMode}}"
 `
@@ -108,7 +108,7 @@ spec:
         port: 80
       route:
       - destination:
-          host: istio-egressgateway.istio-system.svc.cluster.local
+          host: istio-egressgateway.dubbo-system.svc.cluster.local
           port:
             number: 80
         weight: 100
@@ -212,7 +212,7 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 	// Setup of environment:
 	// 1. client and destination are deployed to app-1-XXXX namespace
 	// 2. client is restricted to talk to destination via Sidecar scope where outbound policy is set (ALLOW_ANY, REGISTRY_ONLY)
-	//    and clients' egress can only be to service-2-XXXX/* and istio-system/*
+	//    and clients' egress can only be to service-2-XXXX/* and dubbo-system/*
 	// 3. a namespace service-2-YYYY is created
 	// 4. A gateway is put in service-2-YYYY where its host is set for some-external-site.com on port 80 and 443
 	// 3. a VirtualService is also created in service-2-XXXX to:

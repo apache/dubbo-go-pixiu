@@ -47,7 +47,7 @@ The intended users of this repo are users running Istio in production who want t
 and understand each binary that gets deployed, and select which combination to use.
 
 Note: each component can be installed in parallel with an existing Istio 1.0 or 1.1 install in
-`istio-system`. The new components will not interfere with existing apps, but can interoperate
+`dubbo-system`. The new components will not interfere with existing apps, but can interoperate
 and it is possible to gradually move apps from Istio 1.0/1.1 to the new environments and
 across environments ( for example canary -> prod )
 
@@ -57,7 +57,7 @@ will need to move to the security component.
 ## Everything is Optional
 
 Each component in the new installer is optional. Users can install the component defined in the new installer,
-use the equivalent component in `istio-system`, configured with the official installer, or use a different
+use the equivalent component in `dubbo-system`, configured with the official installer, or use a different
 version or implementation.
 
 For example you may use your own Prometheus and Grafana installs, or you may use a specialized/custom
@@ -113,7 +113,7 @@ and it is recommended to have Pilot running in each region and in multiple avail
 
 ```bash
 iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
-            --set global.istioNamespace=istio-system
+            --set global.istioNamespace=dubbo-system
 
 # Second istio-discovery, using master version of istio
 TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \

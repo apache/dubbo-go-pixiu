@@ -51,7 +51,7 @@ func newCAProvider(signerRoot, signerName string) (*caProvider, error) {
 		return nil, fmt.Errorf("error reading CA cert file %s: %v", strRoot, err)
 	}
 	// Create the new extensions config for the CA
-	caConfig, err := ca.NewIstioConfig("istio-system")
+	caConfig, err := ca.NewIstioConfig("dubbo-system")
 	if err != nil {
 		return nil, err
 	}

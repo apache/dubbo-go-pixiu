@@ -85,10 +85,10 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		vm.Test(t, s)
 	})
 	t.Run("gateway added via label", func(t *testing.T) {
-		_, err := s.KubeClient().CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
+		_, err := s.KubeClient().CoreV1().Services("dubbo-system").Create(context.TODO(), &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "istio-ingressgateway",
-				Namespace: "istio-system",
+				Namespace: "dubbo-system",
 				Labels: map[string]string{
 					label.TopologyNetwork.Name: "network-1",
 				},
@@ -114,10 +114,10 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 	})
 
 	t.Run("gateway added via meshconfig", func(t *testing.T) {
-		_, err := s.KubeClient().CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
+		_, err := s.KubeClient().CoreV1().Services("dubbo-system").Create(context.TODO(), &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "istio-meshnetworks-gateway",
-				Namespace: "istio-system",
+				Namespace: "dubbo-system",
 			},
 			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
 			Status: corev1.ServiceStatus{
@@ -133,7 +133,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 				},
 				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
 					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
-						RegistryServiceName: "istio-meshnetworks-gateway.istio-system.svc.cluster.local",
+						RegistryServiceName: "istio-meshnetworks-gateway.dubbo-system.svc.cluster.local",
 					},
 					Port: 15443,
 				}},
@@ -159,7 +159,7 @@ func TestMeshNetworking(t *testing.T) {
 			"cluster-1": {&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
+					Namespace: "dubbo-system",
 				},
 				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
 				Status: corev1.ServiceStatus{
@@ -170,7 +170,7 @@ func TestMeshNetworking(t *testing.T) {
 			"cluster-2": {&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
+					Namespace: "dubbo-system",
 					Labels: map[string]string{
 						label.TopologyNetwork.Name: "network-2",
 					},
@@ -186,7 +186,7 @@ func TestMeshNetworking(t *testing.T) {
 			"cluster-1": {&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
+					Namespace: "dubbo-system",
 				},
 				Spec: corev1.ServiceSpec{
 					Type:        corev1.ServiceTypeClusterIP,
@@ -197,7 +197,7 @@ func TestMeshNetworking(t *testing.T) {
 			"cluster-2": {&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
+					Namespace: "dubbo-system",
 					Labels: map[string]string{
 						label.TopologyNetwork.Name: "network-2",
 					},
@@ -214,7 +214,7 @@ func TestMeshNetworking(t *testing.T) {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
-						Namespace:   "istio-system",
+						Namespace:   "dubbo-system",
 						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
 					},
 					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 15443, NodePort: 25443}}},
@@ -225,7 +225,7 @@ func TestMeshNetworking(t *testing.T) {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
-						Namespace:   "istio-system",
+						Namespace:   "dubbo-system",
 						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
 						Labels: map[string]string{
 							label.TopologyNetwork.Name: "network-2",
@@ -258,7 +258,7 @@ func TestMeshNetworking(t *testing.T) {
 				}},
 				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
 					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
-						RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+						RegistryServiceName: "istio-ingressgateway.dubbo-system.svc.cluster.local",
 					},
 					Port: 15443,
 				}},
@@ -280,7 +280,7 @@ func TestMeshNetworking(t *testing.T) {
 			Config: config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.PeerAuthentication,
-					Namespace:        "istio-system",
+					Namespace:        "dubbo-system",
 					Name:             "peer-authn-mtls-" + name,
 				},
 				Spec: &v1beta1.PeerAuthentication{

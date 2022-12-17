@@ -87,13 +87,13 @@ func debugCommand() *cobra.Command {
 		Short: "Retrieves the debug information of istio",
 		Long: `
 Retrieves the debug information from Istiod or Pods in the mesh using the service account from the pod if --cert-dir is empty.
-By default it will use the default serviceAccount from (istio-system) namespace if the pod is not specified.
+By default it will use the default serviceAccount from (dubbo-system) namespace if the pod is not specified.
 `,
 		Example: `  # Retrieve sync status for all Envoys in a mesh
   istioctl x internal-debug syncz
 
   # Retrieve sync diff for a single Envoy and Istiod
-  istioctl x internal-debug syncz istio-egressgateway-59585c5b9c-ndc59.istio-system
+  istioctl x internal-debug syncz istio-egressgateway-59585c5b9c-ndc59.dubbo-system
 
   # SECURITY OPTIONS
 

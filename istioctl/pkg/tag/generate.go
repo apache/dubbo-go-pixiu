@@ -162,7 +162,7 @@ func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
 
 // Create applies the given tag manifests.
 func Create(client kube.ExtendedClient, manifests string) error {
-	if err := applyYAML(client, manifests, "istio-system"); err != nil {
+	if err := applyYAML(client, manifests, "dubbo-system"); err != nil {
 		return fmt.Errorf("failed to apply tag manifests to cluster: %v", err)
 	}
 	return nil

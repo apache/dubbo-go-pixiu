@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	configMapNamespace string = "istio-system"
+	configMapNamespace string = "dubbo-system"
 	configMapName      string = "watched"
 )
 

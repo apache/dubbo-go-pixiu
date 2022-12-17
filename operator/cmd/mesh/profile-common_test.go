@@ -42,7 +42,7 @@ func TestParseYAMLFiles(t *testing.T) {
 			expectedOverlay: `apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   values:
     pilot:

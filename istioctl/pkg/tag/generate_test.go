@@ -145,7 +145,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 	deserializer := codecFactory.UniversalDeserializer()
 
 	for _, tc := range tcs {
-		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, "default", "istio-system")
+		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, "default", "dubbo-system")
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
@@ -239,7 +239,7 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 	deserializer := codecFactory.UniversalDeserializer()
 
 	for _, tc := range tcs {
-		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName, "istio-system")
+		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName, "dubbo-system")
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}

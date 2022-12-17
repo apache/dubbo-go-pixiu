@@ -112,13 +112,13 @@ An existing helm release can be `helm upgrade`d to this chart by using the same 
 installation was done like:
 
 ```console
-helm install istio-ingress manifests/charts/gateways/istio-ingress -n istio-system
+helm install istio-ingress manifests/charts/gateways/istio-ingress -n dubbo-system
 ```
 
 It could be upgraded with
 
 ```console
-helm upgrade istio-ingress manifests/charts/gateway -n istio-system --set name=istio-ingressgateway --set labels.app=istio-ingressgateway --set labels.istio=ingressgateway
+helm upgrade istio-ingress manifests/charts/gateway -n dubbo-system --set name=istio-ingressgateway --set labels.app=istio-ingressgateway --set labels.istio=ingressgateway
 ```
 
 Note the name and labels are overridden to match the names of the existing installation.
@@ -137,7 +137,7 @@ The script below can handle this for you. Replace `RELEASE` and `NAMESPACE` with
 ```console
 KINDS=(service deployment)
 RELEASE=istio-ingressgateway
-NAMESPACE=istio-system
+NAMESPACE=dubbo-system
 for KIND in "${KINDS[@]}"; do
     kubectl --namespace $NAMESPACE --overwrite=true annotate $KIND $RELEASE meta.helm.sh/release-name=$RELEASE
     kubectl --namespace $NAMESPACE --overwrite=true annotate $KIND $RELEASE meta.helm.sh/release-namespace=$NAMESPACE

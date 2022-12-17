@@ -54,7 +54,7 @@ var (
 )
 
 const (
-	testNamespace          = "istio-system-test"
+	testNamespace          = "dubbo-system-test"
 	testServiceAccountName = "test-service-account"
 	testKubeconfig         = "test-kubeconfig"
 	testContext            = "test-context"
@@ -330,7 +330,7 @@ metadata:
   labels:
     istio/multiCluster: "true"
   name: %s
-  namespace: istio-system-test
+  namespace: dubbo-system-test
 stringData:
   %s: |
     apiVersion: v1
@@ -495,7 +495,7 @@ func TestGenerateServiceAccount(t *testing.T) {
 		CreateServiceAccount: true,
 		ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
 		KubeOptions: KubeOptions{
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 		},
 	}
 	yaml, err := generateServiceAccountYAML(opts)
@@ -508,8 +508,8 @@ func TestGenerateServiceAccount(t *testing.T) {
 	}
 
 	mustFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
-	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRole")
-	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
+	mustFindObject(t, objs, "istio-reader-clusterrole-dubbo-system", "ClusterRole")
+	mustFindObject(t, objs, "istio-reader-clusterrole-dubbo-system", "ClusterRoleBinding")
 }
 
 func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) {
