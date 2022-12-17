@@ -18,6 +18,10 @@
 package dubbogen
 
 import (
+	"strings"
+)
+
+import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	istioioapidubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -75,7 +79,7 @@ func (d *DubboConfigGenerator) buildServiceNameMappings(node *model.Proxy, req *
 }
 
 func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []string) []*istioioapidubbov1alpha1.ServiceMappingXdsResponse {
-	namespace := node.ConfigNamespace
+	defaultNs := node.ConfigNamespace
 	res := make([]*istioioapidubbov1alpha1.ServiceMappingXdsResponse, 0, len(watchedResourceNames))
 
 	watchedResourceNamesMap := map[string]interface{}{}
@@ -84,17 +88,15 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 	}
 	updatedMap := map[string]interface{}{}
 	for update, _ := range req.ConfigsUpdated {
-		if update.Namespace == namespace {
-			updatedMap[update.Name] = struct{}{}
-		}
+		updatedMap[update.Name] = struct{}{}
 	}
-	snpList := req.Push.ServiceNameMappingsForProxy(namespace)
-	for _, snp := range snpList {
-		mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
+	// if req.ConfigsUpdated is empty, it means that all watched resources need to be pushed
+	for _, w := range watchedResourceNames {
 		// if configsUpdated empty, meaning a full push of watched snp resources.
-		if _, exists := updatedMap[snp.Name]; exists || len(req.ConfigsUpdated) == 0 {
-			// filter watched resource
-			if _, exists := watchedResourceNamesMap[mapping.InterfaceName]; exists {
+		if _, exists := updatedMap[w]; exists || len(req.ConfigsUpdated) == 0 {
+			namespace, snpName := extractNameAndNameSpace(w, defaultNs)
+			if snp := req.Push.ServiceNameMappingsByNameSpaceAndInterfaceName(namespace, snpName); snp != nil {
+				mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
 				res = append(res, &istioioapidubbov1alpha1.ServiceMappingXdsResponse{
 					Namespace:        snp.Namespace,
 					InterfaceName:    mapping.InterfaceName,
@@ -104,4 +106,12 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 		}
 	}
 	return res
+}
+
+func extractNameAndNameSpace(watchedResource, defaultNamespace string) (string, string) {
+	split := strings.Split(watchedResource, "|")
+	if len(split) == 1 || split[1] == "" {
+		return defaultNamespace, split[0]
+	}
+	return split[0], split[1]
 }

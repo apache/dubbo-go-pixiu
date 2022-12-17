@@ -28,6 +28,7 @@ import (
 import (
 	"go.uber.org/atomic"
 	extensions "istio.io/api/extensions/v1alpha1"
+	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/monitoring"
@@ -175,15 +176,18 @@ func newGatewayIndex() gatewayIndex {
 // serviceNameMappingIndex is the index of Service Name Mapping by various fields.
 type serviceNameMappingIndex struct {
 	// namespace contains Service Name Mapping by namespace.
-	namespace map[string][]config.Config
+	namespace map[string][]*config.Config
+	// interface by namespace
+	interfaceByNamespace map[string]map[string]*config.Config
 	// all contains all Service Name Mapping.
-	all []config.Config
+	all []*config.Config
 }
 
 func newServiceNameMappingIndex() serviceNameMappingIndex {
 	return serviceNameMappingIndex{
-		namespace: map[string][]config.Config{},
-		all:       []config.Config{},
+		namespace:            map[string][]*config.Config{},
+		interfaceByNamespace: map[string]map[string]*config.Config{},
+		all:                  []*config.Config{},
 	}
 }
 
@@ -897,10 +901,13 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-func (ps *PushContext) ServiceNameMappingsForProxy(proxyNamespace string) []config.Config {
-	res := make([]config.Config, 0, len(ps.serviceNameMappingIndex.namespace[proxyNamespace]))
-	res = append(res, ps.serviceNameMappingIndex.namespace[proxyNamespace]...)
-	return res
+func (ps *PushContext) ServiceNameMappingsByNameSpaceAndInterfaceName(proxyNamespace, interfaceName string) *config.Config {
+	if namespace, exists := ps.serviceNameMappingIndex.interfaceByNamespace[proxyNamespace]; exists {
+		if snp, exists := namespace[interfaceName]; exists {
+			return snp
+		}
+	}
+	return nil
 }
 
 // DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
@@ -2232,15 +2239,24 @@ func (ps *PushContext) initServiceNameMappings(env *Environment) error {
 
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
-	snpMappings := make([]config.Config, len(configs))
+	snpMappings := make([]*config.Config, len(configs))
 	for i := range snpMappings {
-		snpMappings[i] = configs[i].DeepCopy()
+		deepCopy := configs[i].DeepCopy()
+		snpMappings[i] = &deepCopy
 	}
 	for _, snp := range snpMappings {
-		if _, exists := ps.serviceNameMappingIndex.namespace[snp.Namespace]; !exists {
-			ps.serviceNameMappingIndex.namespace[snp.Namespace] = make([]config.Config, 0)
+		byNamespace := ps.serviceNameMappingIndex.namespace
+		if _, exists := byNamespace[snp.Namespace]; !exists {
+			byNamespace[snp.Namespace] = make([]*config.Config, 0)
 		}
-		ps.serviceNameMappingIndex.namespace[snp.Namespace] = append(ps.serviceNameMappingIndex.namespace[snp.Namespace], snp)
+		byNamespace[snp.Namespace] = append(byNamespace[snp.Namespace], snp)
+
+		interfaceByNamespace := ps.serviceNameMappingIndex.interfaceByNamespace
+		if _, exists := interfaceByNamespace[snp.Namespace]; !exists {
+			interfaceByNamespace[snp.Namespace] = make(map[string]*config.Config, 0)
+		}
+		mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
+		interfaceByNamespace[snp.Namespace][mapping.GetInterfaceName()] = snp
 	}
 	ps.serviceNameMappingIndex.all = snpMappings
 	return nil

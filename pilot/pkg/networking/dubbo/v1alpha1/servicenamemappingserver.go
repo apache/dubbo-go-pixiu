@@ -229,6 +229,7 @@ func tryRegister(kubeClient kube.Client, namespace, interfaceName string, newApp
 
 func getOrCreateSnp(kubeClient kube.Client, namespace string, interfaceName string, newApps []string) (*v1alpha1.ServiceNameMapping, error) {
 	ctx := context.TODO()
+	// snp name is a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-'
 	lowerCaseName := strings.ToLower(strings.ReplaceAll(interfaceName, ".", "-"))
 	snpInterface := kubeClient.Istio().ExtensionsV1alpha1().ServiceNameMappings(namespace)
 	snp, err := snpInterface.Get(ctx, lowerCaseName, v1.GetOptions{})
