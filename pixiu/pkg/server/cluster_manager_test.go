@@ -65,6 +65,6 @@ func TestClusterManager(t *testing.T) {
 		Address: model.SocketAddress{},
 		ID:      "2",
 	})
-	assert.Equal(t, cm.PickEndpoint("test").ID, "1")
+	assert.Equal(t, cm.PickEndpoint("test", nil).ID, "1")
 	cm.DeleteEndpoint("test2", "1")
 }

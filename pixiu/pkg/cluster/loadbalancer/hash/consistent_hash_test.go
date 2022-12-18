@@ -18,11 +18,14 @@
 package consistent
 
 import (
+	"fmt"
+	stdHttp "net/http"
 	"strconv"
 	"testing"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
@@ -42,10 +45,14 @@ func TestHashRing(t *testing.T) {
 		LbStr: model.LoadBalanceConsistentHashing, Hash: model.Hash{ReplicaNum: 10, MaxVnodeNum: 1023}}
 	cluster.CreateConsistentHash()
 
-	hashing := ConsistentHashing{}
+	var (
+		hashing = ConsistentHashing{}
+		path    string
+	)
 
-	for i := 0; i < 10; i++ {
-		t.Log(hashing.Handler(cluster))
+	for i := 1; i <= 20; i++ {
+		path = fmt.Sprintf("/pixiu?total=%d", i)
+		t.Log(hashing.Handler(cluster, &http.HttpContext{Request: &stdHttp.Request{Method: stdHttp.MethodGet, RequestURI: path}}))
 	}
 
 }

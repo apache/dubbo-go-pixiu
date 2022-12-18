@@ -231,3 +231,8 @@ func (hc *HttpContext) AppendFilterFunc(ff ...FilterFunc) {
 		hc.Filters = append(hc.Filters, v)
 	}
 }
+
+func (hc *HttpContext) GenerateHash() string {
+	req := hc.Request
+	return req.Method + "." + req.RequestURI
+}

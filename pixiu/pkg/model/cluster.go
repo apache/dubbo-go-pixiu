@@ -18,6 +18,11 @@
 package model
 
 import (
+	"fmt"
+	"math"
+)
+
+import (
 	"github.com/dubbogo/gost/hash/consistent"
 )
 
@@ -103,7 +108,7 @@ type (
 )
 
 func (c *ClusterConfig) GetEndpoint(mustHealth bool) []*Endpoint {
-	var endpoints []*Endpoint
+	var endpoints = make([]*Endpoint, 0, len(c.Endpoints))
 	for _, e := range c.Endpoints {
 		// select all endpoint or endpoint is health
 		if !mustHealth || !e.UnHealthy {
@@ -115,10 +120,23 @@ func (c *ClusterConfig) GetEndpoint(mustHealth bool) []*Endpoint {
 
 func (c *ClusterConfig) CreateConsistentHash() {
 	if c.LbStr == LoadBalanceConsistentHashing {
-		h := consistent.NewConsistentHash(consistent.WithReplicaNum(c.Hash.ReplicaNum),
-			consistent.WithMaxVnodeNum(int(c.Hash.MaxVnodeNum)))
+		var ops []consistent.Option
+
+		if c.Hash.ReplicaNum != 0 {
+			ops = append(ops, consistent.WithReplicaNum(c.Hash.ReplicaNum))
+		}
+
+		if c.Hash.MaxVnodeNum != 0 {
+			ops = append(ops, consistent.WithMaxVnodeNum(int(c.Hash.MaxVnodeNum)))
+		} else {
+			c.Hash.MaxVnodeNum = math.MinInt32
+		}
+
+		h := consistent.NewConsistentHash(ops...)
+
 		for _, endpoint := range c.Endpoints {
-			h.Add(endpoint.Address.Address)
+			address := endpoint.Address
+			h.Add(fmt.Sprintf("%s:%d", address.Address, address.Port))
 		}
 		c.Hash.ConsistentHash = h
 	}

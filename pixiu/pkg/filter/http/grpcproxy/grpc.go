@@ -183,7 +183,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	re := c.GetRouteEntry()
 	logger.Debugf("%s client choose endpoint from cluster :%v", loggerHeader, re.Cluster)
 
-	e := server.GetClusterManager().PickEndpoint(re.Cluster)
+	e := server.GetClusterManager().PickEndpoint(re.Cluster, c)
 	if e == nil {
 		logger.Errorf("%s err {cluster not exists}", loggerHeader)
 		c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte("cluster not exists"))

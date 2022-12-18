@@ -31,7 +31,7 @@ require (
 	github.com/docker/cli v20.10.17+incompatible
 	github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
-	github.com/dubbogo/gost v1.11.25
+	github.com/dubbogo/gost v1.13.3-0.20221216065235-4c45e166b5a0
 	github.com/dubbogo/grpc-go v1.42.9
 	github.com/dubbogo/triple v1.1.8
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220428052930-ec95b9f870a8
@@ -75,7 +75,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/moby/buildkit v0.10.1
-	github.com/nacos-group/nacos-sdk-go v1.1.1
+	github.com/nacos-group/nacos-sdk-go v1.1.3
 	github.com/onsi/gomega v1.20.1
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/opentrx/seata-golang/v2 v2.0.5
@@ -116,7 +116,7 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.74.0
 	google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21
-	google.golang.org/grpc v1.47.0
+	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -159,7 +159,6 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/RoaringBitmap/roaring v0.7.1 // indirect
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/Workiva/go-datastructures v1.0.52 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
@@ -267,6 +266,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/prometheus/prom2json v1.3.1 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
@@ -276,8 +276,7 @@ require (
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
-	github.com/shirou/gopsutil v3.21.3+incompatible // indirect
-	github.com/shirou/gopsutil/v3 v3.21.10 // indirect
+	github.com/shirou/gopsutil/v3 v3.22.2 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -285,8 +284,8 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
-	github.com/tklauser/go-sysconf v0.3.9 // indirect
-	github.com/tklauser/numcpus v0.3.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.10 // indirect
+	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/uber/jaeger-client-go v2.29.1+incompatible // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/ugorji/go/codec v1.2.6 // indirect
@@ -297,6 +296,7 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
+	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.5 // indirect
 	go.etcd.io/etcd/client/v3 v3.5.5 // indirect
 	go.etcd.io/etcd/server/v3 v3.5.5 // indirect
