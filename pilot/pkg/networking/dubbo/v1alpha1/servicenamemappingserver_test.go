@@ -32,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 	"github.com/apache/dubbo-go-pixiu/pkg/test/util/assert"
 )
@@ -66,4 +67,95 @@ func TestRegisterServiceAppMapping(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, len(mapping.Spec.ApplicationNames), 100)
+}
+
+func TestReqMerge(t *testing.T) {
+	tests := []struct {
+		name string
+		reqs []*RegisterRequest
+		want *RegisterRequest
+	}{
+		{
+			name: "different",
+			reqs: []*RegisterRequest{
+				{
+					ConfigsUpdated: map[model.ConfigKey]map[string]struct{}{
+						model.ConfigKey{
+							Name:      "a-b-c-demoservice",
+							Namespace: "default",
+						}: {
+							"app1": struct{}{},
+							"app2": struct{}{},
+						},
+					},
+				},
+				{
+					ConfigsUpdated: map[model.ConfigKey]map[string]struct{}{
+						model.ConfigKey{
+							Name:      "a-b-c-demoservice",
+							Namespace: "default",
+						}: {
+							"app3": struct{}{},
+						},
+					},
+				},
+			},
+			want: &RegisterRequest{
+				ConfigsUpdated: map[model.ConfigKey]map[string]struct{}{
+					model.ConfigKey{
+						Name:      "a-b-c-demoservice",
+						Namespace: "default",
+					}: {
+						"app1": struct{}{},
+						"app2": struct{}{},
+						"app3": struct{}{},
+					},
+				},
+			},
+		},
+		{
+			name: "same",
+			reqs: []*RegisterRequest{
+				{
+					ConfigsUpdated: map[model.ConfigKey]map[string]struct{}{
+						model.ConfigKey{
+							Name:      "a-b-c-demoservice",
+							Namespace: "default",
+						}: {
+							"app1": struct{}{},
+						},
+					},
+				},
+				{
+					ConfigsUpdated: map[model.ConfigKey]map[string]struct{}{
+						model.ConfigKey{
+							Name:      "a-b-c-demoservice",
+							Namespace: "default",
+						}: {
+							"app1": struct{}{},
+						},
+					},
+				},
+			},
+			want: &RegisterRequest{
+				ConfigsUpdated: map[model.ConfigKey]map[string]struct{}{
+					model.ConfigKey{
+						Name:      "a-b-c-demoservice",
+						Namespace: "default",
+					}: {
+						"app1": struct{}{},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		var got *RegisterRequest
+		t.Run(tt.name, func(t *testing.T) {
+			for _, r := range tt.reqs {
+				got = got.Merge(r)
+			}
+			assert.Equal(t, got, tt.want)
+		})
+	}
 }

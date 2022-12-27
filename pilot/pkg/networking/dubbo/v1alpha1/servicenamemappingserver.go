@@ -195,7 +195,12 @@ func (s *Snp) debounce(stopCh <-chan struct{}, pushFn func(req *RegisterRequest)
 }
 
 func tryRegister(kubeClient kube.Client, namespace, interfaceName string, newApps []string) error {
-	snp, err := getOrCreateSnp(kubeClient, namespace, interfaceName, newApps)
+	log.Debugf("try register [%s] in namespace [%s] with [%v] apps", interfaceName, namespace, len(newApps))
+	snp, created, err := getOrCreateSnp(kubeClient, namespace, interfaceName, newApps)
+	if created {
+		log.Debugf("register success, revision:%s", snp.ResourceVersion)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -209,7 +214,7 @@ func tryRegister(kubeClient kube.Client, namespace, interfaceName string, newApp
 		previousAppNames[newApp] = struct{}{}
 	}
 	if len(previousAppNames) == previousLen {
-		log.Infof("[%s] has been registered: %v", interfaceName, newApps)
+		log.Debugf("[%s] has been registered: %v", interfaceName, newApps)
 		return nil
 	}
 
@@ -223,11 +228,11 @@ func tryRegister(kubeClient kube.Client, namespace, interfaceName string, newApp
 	if err != nil {
 		return errors.Wrap(err, " update failed")
 	}
-	log.Debugf(" register success, revision:%s", snp.ResourceVersion)
+	log.Debugf("register update success, revision:%s", snp.ResourceVersion)
 	return nil
 }
 
-func getOrCreateSnp(kubeClient kube.Client, namespace string, interfaceName string, newApps []string) (*v1alpha1.ServiceNameMapping, error) {
+func getOrCreateSnp(kubeClient kube.Client, namespace string, interfaceName string, newApps []string) (*v1alpha1.ServiceNameMapping, bool, error) {
 	ctx := context.TODO()
 	// snp name is a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-'
 	lowerCaseName := strings.ToLower(strings.ReplaceAll(interfaceName, ".", "-"))
@@ -251,23 +256,23 @@ func getOrCreateSnp(kubeClient kube.Client, namespace string, interfaceName stri
 			}, v1.CreateOptions{})
 			// create success
 			if err == nil {
-				log.Infof("create snp %s revision %s", interfaceName, snp.ResourceVersion)
-				return snp, nil
+				log.Debugf("create snp %s revision %s", interfaceName, snp.ResourceVersion)
+				return snp, true, nil
 			}
 			// If the creation fails, meaning it already created by other goroutine, then get it
 			if apierror.IsAlreadyExists(err) {
-				log.Infof("[%s] has been exists, err: %v", err)
+				log.Debugf("[%s] has been exists, err: %v", err)
 				snp, err = snpInterface.Get(ctx, lowerCaseName, v1.GetOptions{})
 				// maybe failed to get snp cause of network issue, just return error
 				if err != nil {
-					return nil, errors.Wrap(err, "tryRegister retry get snp error")
+					return nil, false, errors.Wrap(err, "tryRegister retry get snp error")
 				}
 			}
 		} else {
-			return nil, errors.Wrap(err, "tryRegister get snp error")
+			return nil, false, errors.Wrap(err, "tryRegister get snp error")
 		}
 	}
-	return snp, nil
+	return snp, false, nil
 }
 
 type RegisterRequest struct {
