@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	IstioNamespace      = "istio-system"
+	IstioNamespace      = "dubbo-system"
 	ReleasePrefix       = "istio-"
 	BaseChart           = "base"
 	CRDsFolder          = "crds"

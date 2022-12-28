@@ -76,7 +76,7 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_NAMESPACE
           value: |
-            istio-system
+            dubbo-system
         image: busybox:1.28
         name: grpc-bootstrap-init
         resources: {}

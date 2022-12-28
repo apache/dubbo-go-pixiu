@@ -48,7 +48,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: tracing-gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -70,7 +70,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: tracing-vs
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
   - "tracing.{INGRESS_DOMAIN}"
@@ -96,7 +96,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: tracing
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   host: tracing
   trafficPolicy:
@@ -112,7 +112,7 @@ metadata:
 spec:
   hosts:
   # must be of form name.namespace.global
-  - zipkin.istio-system.global
+  - zipkin.dubbo-system.global
   # Treat remote cluster services as part of the service mesh
   # as all clusters in the service mesh share the same root of trust.
   location: MESH_INTERNAL
@@ -122,7 +122,7 @@ spec:
     protocol: http
   resolution: DNS
   addresses:
-  # the IP address to which zipkin.istio-system.global will resolve to
+  # the IP address to which zipkin.dubbo-system.global will resolve to
   # must be unique for each remote service, within a given cluster.
   # This address need not be routable. Traffic for this IP will be captured
   # by the sidecar and routed appropriately.

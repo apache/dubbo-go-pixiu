@@ -71,7 +71,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			configs := make(map[string]string)
 			t.ConditionalCleanup(func() {
 				for _, config := range configs {
-					_ = t.ConfigIstio().YAML("istio-system", config).Delete()
+					_ = t.ConfigIstio().YAML("dubbo-system", config).Delete()
 				}
 			})
 

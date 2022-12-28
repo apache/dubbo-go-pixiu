@@ -446,7 +446,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: &networking.DestinationRule{
 						Host: "*.example.org",
@@ -497,7 +497,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: &networking.DestinationRule{
 						Host: "*.example.org",
@@ -552,7 +552,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: &networking.DestinationRule{
 						Host:    "*.example.org",
@@ -598,7 +598,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: portLevelDestinationRuleWithSubsetPolicy,
 				},
@@ -639,7 +639,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
-				Namespace:        "istio-system",
+				Namespace:        "dubbo-system",
 			},
 		}
 		rule := networkingDestinationRule
@@ -679,7 +679,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
 					Name:             "acme",
-					Namespace:        "istio-system",
+					Namespace:        "dubbo-system",
 				},
 				Spec: portLevelDestinationRule,
 			}},
@@ -941,7 +941,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: networkingDestinationRule,
 				},
@@ -959,7 +959,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: networkingDestinationRuleWithPortLevelTrafficPolicy,
 				},
@@ -1810,7 +1810,7 @@ var networkingDestinationRule = &networking.DestinationRule{
 	},
 }
 
-var exampleService = []*model.Service{{Hostname: "*.example.org", Attributes: model.ServiceAttributes{Namespace: "istio-system"}}}
+var exampleService = []*model.Service{{Hostname: "*.example.org", Attributes: model.ServiceAttributes{Namespace: "dubbo-system"}}}
 
 var networkingDestinationRuleWithPortLevelTrafficPolicy = &networking.DestinationRule{
 	Host: "*.example.org",

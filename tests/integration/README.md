@@ -471,7 +471,7 @@ $ ls /foo
   galley-test-4ef25d910d2746f9b38/
 
 $ ls /foo/galley-test-4ef25d910d2746f9b38/
-  istio-system-1537332205890088657.yaml
+  dubbo-system-1537332205890088657.yaml
   ...
 ```
 
@@ -546,7 +546,7 @@ The test framework supports the following command-line flags:
         Deploy Istio east west gateway into the target Kubernetes environment. (default true)
 
   -istio.test.kube.systemNamespace string
-        The namespace where the Istio components reside in a typical deployment. (default "istio-system")
+        The namespace where the Istio components reside in a typical deployment. (default "dubbo-system")
 
   -istio.test.kube.helm.values string
         Manual overrides for Helm values file. Only valid when deploying Istio.

@@ -124,7 +124,7 @@ func TestNewServerCertInit(t *testing.T) {
 			test.SetStringForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetBoolForTest(t, &features.EnableCAServer, c.enableCA)
 			args := NewPilotArgs(func(p *PilotArgs) {
-				p.Namespace = "istio-system"
+				p.Namespace = "dubbo-system"
 				p.ServerOptions = DiscoveryServerOptions{
 					// Dynamically assign all ports.
 					HTTPAddr:       ":0",
@@ -287,7 +287,7 @@ func TestNewServer(t *testing.T) {
 			}
 
 			args := NewPilotArgs(func(p *PilotArgs) {
-				p.Namespace = "istio-system"
+				p.Namespace = "dubbo-system"
 				p.ServerOptions = DiscoveryServerOptions{
 					// Dynamically assign all ports.
 					HTTPAddr:       ":0",
@@ -367,7 +367,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 			}
 
 			args := NewPilotArgs(func(p *PilotArgs) {
-				p.Namespace = "istio-system"
+				p.Namespace = "dubbo-system"
 				p.ServerOptions = DiscoveryServerOptions{
 					// Dynamically assign all ports.
 					HTTPAddr:       ":0",

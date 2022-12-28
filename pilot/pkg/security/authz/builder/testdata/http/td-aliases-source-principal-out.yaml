@@ -17,7 +17,7 @@ typedConfig:
                     principalName:
                       safeRegex:
                         googleRe2: {}
-                        regex: .*/ns/istio-system/.*
+                        regex: .*/ns/dubbo-system/.*
             - orIds:
                 ids:
                 - authenticated:

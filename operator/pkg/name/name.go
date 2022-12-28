@@ -31,7 +31,7 @@ import (
 
 // Istio default namespace
 const (
-	IstioDefaultNamespace = "istio-system"
+	IstioDefaultNamespace = "dubbo-system"
 )
 
 // Kubernetes Kind strings.

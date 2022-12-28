@@ -35,16 +35,16 @@ import (
 var (
 	someAuthNFilter = &model.WasmPluginWrapper{
 		Name:         "someAuthNFilter",
-		Namespace:    "istio-system",
-		ResourceName: "istio-system.someAuthNFilter",
+		Namespace:    "dubbo-system",
+		ResourceName: "dubbo-system.someAuthNFilter",
 		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1},
 		},
 	}
 	someAuthZFilter = &model.WasmPluginWrapper{
 		Name:         "someAuthZFilter",
-		Namespace:    "istio-system",
-		ResourceName: "istio-system.someAuthZFilter",
+		Namespace:    "dubbo-system",
+		ResourceName: "dubbo-system.someAuthZFilter",
 		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1000},
 		},
@@ -76,7 +76,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 			names: []string{someAuthNFilter.Namespace + "." + someAuthNFilter.Name},
 			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
 				{
-					Name:        "istio-system.someAuthNFilter",
+					Name:        "dubbo-system.someAuthNFilter",
 					TypedConfig: wasm,
 				},
 			},

@@ -67,7 +67,7 @@ pilot:
     GODEBUG: gctrace=1
 global:
   hub: docker.io/istio
-  istioNamespace: istio-system
+  istioNamespace: dubbo-system
   tag: 1.2.3
   proxy:
     readinessInitialDelaySeconds: 2
@@ -115,7 +115,7 @@ components:
            maxUnavailable: 25%
 values:
   global:
-    istioNamespace: istio-system
+    istioNamespace: dubbo-system
     proxy:
       readinessInitialDelaySeconds: 2
   pilot:
@@ -129,7 +129,7 @@ values:
 			valueYAML: `
 global:
   hub: docker.io/istio
-  istioNamespace: istio-system
+  istioNamespace: dubbo-system
   tag: 1.2.3
 pilot:
   enabled: true
@@ -164,7 +164,7 @@ components:
           maxUnavailable: 1
 values:
   global:
-    istioNamespace: istio-system
+    istioNamespace: dubbo-system
 `,
 		},
 		{
@@ -174,7 +174,7 @@ pilot:
   enabled: true
 global:
   hub: docker.io/istio
-  istioNamespace: istio-system
+  istioNamespace: dubbo-system
   tag: 1.2.3
 `,
 			want: `
@@ -185,7 +185,7 @@ components:
      enabled: true
 values:
   global:
-    istioNamespace: istio-system
+    istioNamespace: dubbo-system
 `,
 		},
 	}
@@ -269,7 +269,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
 `,
@@ -321,7 +321,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
     pilot:
@@ -391,7 +391,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
 `,
@@ -439,7 +439,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
     pilot:
@@ -511,7 +511,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
 `,
@@ -559,7 +559,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
     pilot:
@@ -630,7 +630,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
 `,
@@ -682,7 +682,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
     pilot:
@@ -759,7 +759,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
 `,
@@ -813,7 +813,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       proxy:
         readinessInitialDelaySeconds: 2
     pilot:
@@ -854,7 +854,7 @@ spec:
     pilot:
       enabled: false
     ingressGateways:
-    - namespace: istio-system
+    - namespace: dubbo-system
       name: istio-ingressgateway
       enabled: true
       k8s:
@@ -875,14 +875,14 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
 `,
 			want: `
 spec:
   components:
     ingressGateways:
     - name: istio-ingressgateway
-      namespace: istio-system
+      namespace: dubbo-system
       enabled: true
       k8s:
         securityContext:
@@ -904,7 +904,7 @@ spec:
     global:
       hub: docker.io/istio
       tag: 1.2.3
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
 `,
 		},
 		{

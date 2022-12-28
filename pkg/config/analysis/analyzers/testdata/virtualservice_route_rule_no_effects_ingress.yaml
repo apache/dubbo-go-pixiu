@@ -3,7 +3,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: testing-gateway-01-test-01
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -22,7 +22,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-01
+  - dubbo-system/testing-gateway-01-test-01
   hosts:
   - testing-01.com
   http:
@@ -34,7 +34,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: testing-gateway-02-test-02
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -53,7 +53,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-02-test-02
+  - dubbo-system/testing-gateway-02-test-02
   hosts:
   - testing-02.com
   http:

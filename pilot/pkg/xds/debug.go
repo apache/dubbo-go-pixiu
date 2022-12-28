@@ -252,7 +252,7 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		// TODO: Check that the identity contains istio-system namespace, else block or restrict to only info that
+		// TODO: Check that the identity contains dubbo-system namespace, else block or restrict to only info that
 		// is visible to the authenticated SA. Will require changes in docs and istioctl too.
 		next.ServeHTTP(w, req)
 	}

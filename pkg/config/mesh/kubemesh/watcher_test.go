@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	namespace string = "istio-system"
+	namespace string = "dubbo-system"
 	name      string = "istio"
 	key       string = "MeshConfig"
 )

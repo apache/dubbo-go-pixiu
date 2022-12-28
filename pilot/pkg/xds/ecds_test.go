@@ -105,7 +105,7 @@ var (
 	defaultPullSecret = makeDockerCredentials("default-pull-secret", "default", map[string]string{
 		corev1.DockerConfigJsonKey: "default-docker-credential",
 	}, corev1.SecretTypeDockerConfigJson)
-	rootPullSecret = makeDockerCredentials("root-pull-secret", "istio-system", map[string]string{
+	rootPullSecret = makeDockerCredentials("root-pull-secret", "dubbo-system", map[string]string{
 		corev1.DockerConfigJsonKey: "root-docker-credential",
 	}, corev1.SecretTypeDockerConfigJson)
 	wrongTypeSecret = makeDockerCredentials("wrong-type-pull-secret", "default", map[string]string{
@@ -116,7 +116,7 @@ var (
 	wasmPluginWithSec      = makeWasmPlugin("default-plugin-with-sec", "default", "default-pull-secret")
 	wasmPluginWrongSec     = makeWasmPlugin("default-plugin-wrong-sec", "default", "wrong-secret")
 	wasmPluginWrongSecType = makeWasmPlugin("default-plugin-wrong-sec-type", "default", "wrong-type-pull-secret")
-	rootWasmPluginWithSec  = makeWasmPlugin("root-plugin", "istio-system", "root-pull-secret")
+	rootWasmPluginWithSec  = makeWasmPlugin("root-plugin", "dubbo-system", "root-pull-secret")
 )
 
 func TestECDSGenerate(t *testing.T) {
@@ -164,16 +164,16 @@ func TestECDSGenerate(t *testing.T) {
 			name:             "root_and_default",
 			proxyNamespace:   "default",
 			request:          &model.PushRequest{Full: true},
-			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
+			watchedResources: []string{"default.default-plugin-with-sec", "dubbo-system.root-plugin"},
+			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "dubbo-system.root-plugin": {}},
 			wantSecrets:      sets.Set{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 		{
 			name:             "only_root",
 			proxyNamespace:   "somenamespace",
 			request:          &model.PushRequest{Full: true},
-			watchedResources: []string{"istio-system.root-plugin"},
-			wantExtensions:   sets.Set{"istio-system.root-plugin": {}},
+			watchedResources: []string{"dubbo-system.root-plugin"},
+			wantExtensions:   sets.Set{"dubbo-system.root-plugin": {}},
 			wantSecrets:      sets.Set{"root-docker-credential": {}},
 		},
 		{
@@ -185,7 +185,7 @@ func TestECDSGenerate(t *testing.T) {
 					{Kind: gvk.AuthorizationPolicy}: {},
 				},
 			},
-			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
+			watchedResources: []string{"default.default-plugin-with-sec", "dubbo-system.root-plugin"},
 			wantExtensions:   sets.Set{},
 			wantSecrets:      sets.Set{},
 		},
@@ -254,8 +254,8 @@ func TestECDSGenerate(t *testing.T) {
 					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
-			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
+			watchedResources: []string{"default.default-plugin-with-sec", "dubbo-system.root-plugin"},
+			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "dubbo-system.root-plugin": {}},
 			wantSecrets:      sets.Set{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 	}
@@ -277,7 +277,7 @@ func TestECDSGenerate(t *testing.T) {
 				},
 			}
 			tt.request.Push = s.PushContext()
-			tt.request.Push.Mesh.RootNamespace = "istio-system"
+			tt.request.Push.Mesh.RootNamespace = "dubbo-system"
 			resources, _, _ := gen.Generate(s.SetupProxy(proxy),
 				&model.WatchedResource{ResourceNames: tt.watchedResources}, tt.request)
 			gotExtensions := sets.Set{}

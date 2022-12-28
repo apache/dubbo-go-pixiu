@@ -6,7 +6,7 @@ spec:
     extensionProviders:
     - name: otel
       envoyOtelAls:
-        service: otel-collector.istio-system.svc.cluster.local
+        service: otel-collector.dubbo-system.svc.cluster.local
         port: 4317
     - name: prometheus
       prometheus:

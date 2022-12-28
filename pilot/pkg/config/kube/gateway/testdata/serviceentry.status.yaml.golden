@@ -3,12 +3,12 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: hostname "gateway.istio-system.svc.domain.suffix"
+    message: 'failed to assign to any requested addresses: hostname "gateway.dubbo-system.svc.domain.suffix"
       not found'
     reason: AddressNotAssigned
     status: "False"
@@ -64,5 +64,5 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
 ---

@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	defaultIstioNamespace = "istio-system"
+	defaultIstioNamespace = "dubbo-system"
 )
 
 // Use UUID of kube-system Namespace as unique identifier for cluster.

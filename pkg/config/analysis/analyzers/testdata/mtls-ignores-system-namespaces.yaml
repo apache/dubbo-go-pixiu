@@ -12,7 +12,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: default
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   host: "*.local"
   trafficPolicy:

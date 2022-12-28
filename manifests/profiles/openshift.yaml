@@ -12,7 +12,7 @@ spec:
       chained: false
       cniConfFileName: "istio-cni.conf"
       excludeNamespaces:
-       - istio-system
+       - dubbo-system
        - kube-system
       logLevel: info
       privileged: true

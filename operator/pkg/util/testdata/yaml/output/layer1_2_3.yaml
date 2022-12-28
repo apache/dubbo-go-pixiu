@@ -15,6 +15,6 @@ spec:
           serviceAnnotations:
             manifest-generate: testserviceAnnotation
         name: istio-ingressgateway
-        namespace: istio-system
+        namespace: dubbo-system
     pilot:
       enabled: true

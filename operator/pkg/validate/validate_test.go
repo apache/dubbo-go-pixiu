@@ -59,7 +59,7 @@ components:
 hub: docker.io/istio
 tag: v1.2.3
 meshConfig:
-  rootNamespace: istio-system
+  rootNamespace: dubbo-system
 values:
   global:
     proxy:

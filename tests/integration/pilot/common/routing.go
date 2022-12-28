@@ -980,7 +980,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: cross-network-gateway-test
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -1115,7 +1115,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -1246,7 +1246,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -2903,7 +2903,7 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: default
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"

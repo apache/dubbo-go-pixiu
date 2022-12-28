@@ -13,7 +13,7 @@ spec:
         # Base component only allows overlays field.
         overlays:
           - kind: ClusterRoleBinding
-            name: istio-reader-istio-system
+            name: istio-reader-dubbo-system
             patches:
               # Select list item by value
               - path: subjects.[name:istio-reader-service-account].name

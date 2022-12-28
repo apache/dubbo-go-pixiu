@@ -32,7 +32,7 @@ spec:
     metadata:
       labels:
 {{ $gateway.labels | toYaml | indent 8 }}
-{{- if eq .Release.Namespace "istio-system"}}
+{{- if eq .Release.Namespace "dubbo-system"}}
         heritage: Tiller
         release: istio
         chart: gateways

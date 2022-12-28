@@ -9,7 +9,7 @@ metadata:
     operator.istio.io/component: IngressGateways
     release: istio
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   maxReplicas: 222
   metrics:
