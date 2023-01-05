@@ -36,14 +36,14 @@ var (
 	defaultRevisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector",
-			Labels: map[string]string{label.IoIstioRev.Name: "default"},
+			Labels: map[string]string{label.IoIstioRev.Name: "dubbo"},
 		},
 		Webhooks: []admit_v1.MutatingWebhook{
 			{
 				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
 					Service: &admit_v1.ServiceReference{
-						Namespace: "default",
+						Namespace: "dubbo-system",
 						Name:      "istiod",
 					},
 					CABundle: []byte("ca"),
@@ -53,7 +53,7 @@ var (
 				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
 					Service: &admit_v1.ServiceReference{
-						Namespace: "default",
+						Namespace: "dubbo-system",
 						Name:      "istiod",
 					},
 					CABundle: []byte("ca"),
@@ -72,7 +72,7 @@ var (
 				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
 					Service: &admit_v1.ServiceReference{
-						Namespace: "default",
+						Namespace: "dubbo-system",
 						Name:      "istiod-revision",
 						Path:      &samplePath,
 					},
@@ -83,7 +83,7 @@ var (
 				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
 					Service: &admit_v1.ServiceReference{
-						Namespace: "default",
+						Namespace: "dubbo-system",
 						Name:      "istiod-revision",
 					},
 					CABundle: []byte("ca"),

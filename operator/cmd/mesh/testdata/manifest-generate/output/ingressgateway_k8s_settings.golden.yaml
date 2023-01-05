@@ -42,44 +42,7 @@ spec:
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - arm64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
           requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - arm64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - proxy
@@ -137,7 +100,7 @@ spec:
           value: "true"
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: gcr.io/istio-testing/dubbo-agent:latest
+        image: apache/dubbo-agent:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
@@ -298,7 +261,7 @@ spec:
       serviceAccountName: istio-ingressgateway-custom-service-account
       containers:
         - name: istio-proxy
-          image: "gcr.io/istio-testing/dubbo-agent:latest"
+          image: "apache/dubbo-agent:latest"
           ports:
             - containerPort: 15021
               protocol: TCP
@@ -456,44 +419,7 @@ spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-              - matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "amd64"
-                  - "arm64"
-                  - "ppc64le"
-                  - "s390x"
           preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "amd64"
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "arm64"
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "ppc64le"
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "s390x"
 ---
 
 
