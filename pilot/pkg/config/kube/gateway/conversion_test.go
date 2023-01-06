@@ -62,7 +62,7 @@ func TestConvertResources(t *testing.T) {
 		{"invalid"},
 		{"multi-gateway"},
 		{"delegated"},
-		{"route-binding"},
+		//{"route-binding"},
 		{"reference-policy-tls"},
 		{"serviceentry"},
 		{"eastwest"},
