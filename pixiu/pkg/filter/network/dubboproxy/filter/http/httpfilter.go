@@ -85,7 +85,7 @@ func (f Filter) Handle(ctx *dubbo2.RpcContext) filter.FilterStatus {
 	ra := ctx.Route
 	clusterName := ra.Cluster
 	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName)
+	endpoint := clusterManager.PickEndpoint(clusterName, ctx)
 	if endpoint == nil {
 		ctx.SetError(errors.Errorf("Requested dubbo rpc invocation endpoint not found"))
 		return filter.Stop

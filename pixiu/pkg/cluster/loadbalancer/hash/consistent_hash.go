@@ -18,7 +18,7 @@
 package consistent
 
 import (
-	"math/rand"
+	"fmt"
 )
 
 import (
@@ -32,17 +32,26 @@ func init() {
 
 type ConsistentHashing struct{}
 
-func (ConsistentHashing) Handler(c *model.ClusterConfig) *model.Endpoint {
-	hash, err := c.Hash.ConsistentHash.GetHash(uint32(rand.Int31n(c.Hash.MaxVnodeNum)))
+func (ConsistentHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
+	u := c.Hash.ConsistentHash.Hash(policy.GenerateHash())
+
+	hash, err := c.Hash.ConsistentHash.GetHash(u)
 	if err != nil {
 		return nil
 	}
 
-	for _, endpoint := range c.Endpoints {
-		if endpoint.Address.Address == hash {
+	endpoints := c.GetEndpoint(true)
+
+	for _, endpoint := range endpoints {
+		address := endpoint.Address
+		if fmt.Sprintf("%s:%d", address.Address, address.Port) == hash {
 			return endpoint
 		}
 	}
 
-	return nil
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	return endpoints[0]
 }

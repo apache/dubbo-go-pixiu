@@ -109,7 +109,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 
 	clusterName := rEntry.Cluster
 	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName)
+	endpoint := clusterManager.PickEndpoint(clusterName, hc)
 	if endpoint == nil {
 		logger.Info("[dubbo-go-pixiu] cluster not found endpoint")
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "cluster not found endpoint"})
