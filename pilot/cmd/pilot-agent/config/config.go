@@ -160,7 +160,7 @@ func GetPilotSan(discoveryAddress string) string {
 	discHost := strings.Split(discoveryAddress, ":")[0]
 	// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
 	if discHost == "localhost" {
-		discHost = "istiod.istio-system.svc"
+		discHost = "istiod.dubbo-system.svc"
 	}
 	return discHost
 }

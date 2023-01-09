@@ -121,7 +121,7 @@ spec:
 kind: Service
 metadata:
   name: hello
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   ports:
     -
@@ -253,7 +253,7 @@ spec:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: istio-system`
+  name: dubbo-system`
 	invalidUnsupportedKey = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -274,13 +274,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello
-  namespace: istio-system
+  namespace: dubbo-system
 spec: ~`
 	invalidIstioConfig = `
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
   name: example-istiocontrolplane
 spec:
   dummy:
@@ -292,7 +292,7 @@ spec:
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
   name: example-istiocontrolplane
 spec:
   addonComponents:
@@ -452,7 +452,7 @@ func TestValidateResource(t *testing.T) {
 			defer func() { recover() }()
 			v := &validator{}
 			var writer io.Writer
-			warn, err := v.validateResource("istio-system", "", fromYAML(c.in), writer)
+			warn, err := v.validateResource("dubbo-system", "", fromYAML(c.in), writer)
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%v", err == nil, c.valid, err)
 			}
@@ -616,7 +616,7 @@ Error: 1 error occurred:
 			wantError: true,
 		},
 	}
-	istioNamespace := "istio-system"
+	istioNamespace := "dubbo-system"
 	defaultNamespace := ""
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {

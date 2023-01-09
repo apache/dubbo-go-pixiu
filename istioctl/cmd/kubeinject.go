@@ -531,9 +531,9 @@ It's best to do kube-inject when the resource is initially created.
   kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 
   # Capture cluster configuration for later use with kube-inject
-  kubectl -n istio-system get cm istio-sidecar-injector  -o jsonpath="{.data.config}" > /tmp/inj-template.tmpl
-  kubectl -n istio-system get cm istio -o jsonpath="{.data.mesh}" > /tmp/mesh.yaml
-  kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath="{.data.values}" > /tmp/values.json
+  kubectl -n dubbo-system get cm istio-sidecar-injector  -o jsonpath="{.data.config}" > /tmp/inj-template.tmpl
+  kubectl -n dubbo-system get cm istio -o jsonpath="{.data.mesh}" > /tmp/mesh.yaml
+  kubectl -n dubbo-system get cm istio-sidecar-injector -o jsonpath="{.data.values}" > /tmp/values.json
 
   # Use kube-inject based on captured configuration
   istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \

@@ -19,7 +19,7 @@
     "hub": "apache",
     "imagePullPolicy": "",
     "imagePullSecrets": [],
-    "istioNamespace": "istio-system",
+    "istioNamespace": "dubbo-system",
     "istiod": {
       "enableAnalysis": false
     },
@@ -35,7 +35,7 @@
       "clusterName": "",
       "enabled": false
     },
-    "namespace": "istio-system",
+    "namespace": "dubbo-system",
     "network": "network1",
     "omitSidecarInjectorConfigMap": false,
     "oneNamespace": false,

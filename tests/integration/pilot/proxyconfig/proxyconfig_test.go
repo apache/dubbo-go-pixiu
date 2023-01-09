@@ -96,7 +96,7 @@ func TestProxyConfig(t *testing.T) {
 					"",
 					"",
 					[]proxyConfigInstance{
-						newProxyConfig("global", "istio-system", nil, map[string]string{
+						newProxyConfig("global", "dubbo-system", nil, map[string]string{
 							"A": "3",
 						}),
 					},

@@ -88,7 +88,7 @@ func TestMetrics(t *testing.T) {
 func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.ExtendedClient, error) {
 	return &kube.MockClient{
 		DiscoverablePods: map[string]map[string]*v1.PodList{
-			"istio-system": {
+			"dubbo-system": {
 				"app=prometheus": {
 					Items: []v1.Pod{
 						{

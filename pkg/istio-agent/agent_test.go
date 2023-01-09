@@ -88,7 +88,7 @@ func TestAgent(t *testing.T) {
 	certDir := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot")
 	fakeSpiffeID := "spiffe://cluster.local/ns/fake-namespace/sa/fake-sa"
 	// As a hack, we are using the serving sets as client cert, so the identity here is istiod not a spiffe
-	preProvisionID := "istiod.istio-system.svc"
+	preProvisionID := "istiod.dubbo-system.svc"
 
 	checkCertsWritten := func(t *testing.T, dir string) {
 		retry.UntilSuccessOrFail(t, func() error {

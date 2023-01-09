@@ -18,7 +18,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   addresses:
@@ -26,7 +26,7 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Gateway valid, assigned to service(s) istio-ingressgateway.dubbo-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
     type: Ready
@@ -68,7 +68,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: invalid-service
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   conditions:
@@ -116,13 +116,13 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: target-port-reference
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
     message: 'failed to assign to any requested addresses: port 8080 not found for
-      hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
+      hostname "istio-ingressgateway.dubbo-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
     reason: AddressNotAssigned
@@ -214,7 +214,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: invalid-tls
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   conditions:
@@ -276,7 +276,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -296,7 +296,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -316,5 +316,5 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
 ---

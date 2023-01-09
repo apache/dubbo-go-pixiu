@@ -18,7 +18,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: third-party-gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -26,7 +26,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   addresses:
@@ -34,7 +34,7 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Gateway valid, assigned to service(s) istio-ingressgateway.dubbo-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
     type: Ready
@@ -89,5 +89,5 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: third-party-gateway
-      namespace: istio-system
+      namespace: dubbo-system
 ---

@@ -11,7 +11,7 @@ spec:
   rules:
     - from:
         - source:
-            namespaces: ["istio-system"]
+            namespaces: ["dubbo-system"]
       when:
         - key: "source.principal"
           values: ["*", "*/ns/foo/sa/all-td", "*-td/ns/foo/sa/prefix-td"]

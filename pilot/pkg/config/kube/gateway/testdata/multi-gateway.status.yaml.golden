@@ -18,7 +18,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   addresses:
@@ -26,8 +26,8 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.istio-system.svc.domain.suffix:34000,
-      and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
+    message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.dubbo-system.svc.domain.suffix:34000,
+      and istio-ingressgateway.dubbo-system.svc.domain.suffix:80, but failed to assign
       to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
       not found'
     reason: AddressNotAssigned

@@ -34,7 +34,7 @@ func TestConfigList(t *testing.T) {
 authority                                default
 cert-dir                                 default
 insecure                                 default
-istioNamespace          istio-system     default
+istioNamespace          dubbo-system     default
 plaintext                                default
 prefer-experimental                      default
 xds-address                              default

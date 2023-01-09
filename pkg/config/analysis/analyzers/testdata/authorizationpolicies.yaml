@@ -92,7 +92,7 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: meshwide-httpbin
-  namespace: istio-system # valid: it applies to whole mesh
+  namespace: dubbo-system # valid: it applies to whole mesh
 spec:
   {}
 ---
@@ -100,7 +100,7 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: meshwide-httpbin-v1
-  namespace: istio-system # invalid: no pods running anywhere in the mesh
+  namespace: dubbo-system # invalid: no pods running anywhere in the mesh
 spec:
   selector:
     matchLabels:

@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: cert-manager-gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -18,7 +18,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: cert-manager
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
   - "*"

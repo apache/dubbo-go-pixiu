@@ -2,7 +2,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: eastwestgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     topology.istio.io/network: "network-1"
 spec:
@@ -29,7 +29,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: eastwestgateway-grpc
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   parentRefs:
   - name: eastwestgateway
@@ -44,7 +44,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: eastwestgateway-webhook
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   parentRefs:
   - name: eastwestgateway

@@ -191,10 +191,10 @@ func TestEnvoyFilters(t *testing.T) {
 
 	push := &PushContext{
 		Mesh: &meshconfig.MeshConfig{
-			RootNamespace: "istio-system",
+			RootNamespace: "dubbo-system",
 		},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
-			"istio-system": envoyFilters,
+			"dubbo-system": envoyFilters,
 			"test-ns":      envoyFilters,
 		},
 	}
@@ -225,7 +225,7 @@ func TestEnvoyFilters(t *testing.T) {
 			name: "proxy in root namespace matches an envoyfilter",
 			proxy: &Proxy{
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
-				ConfigNamespace: "istio-system",
+				ConfigNamespace: "dubbo-system",
 			},
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
@@ -962,11 +962,11 @@ func TestInitPushContext(t *testing.T) {
 
 func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "dubbo-system"})}
 	ps.Mesh = env.Mesh()
 	ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
 	ps.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
-	ps.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc3.dubbo-system.cluster.local"] = map[string]*Service{"dubbo-system": nil}
 
 	configStore := NewFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
@@ -1038,9 +1038,9 @@ func TestSidecarScope(t *testing.T) {
 			describe: "no sidecar",
 		},
 		{
-			proxy:    &Proxy{Type: Router, ConfigNamespace: "istio-system"},
+			proxy:    &Proxy{Type: Router, ConfigNamespace: "dubbo-system"},
 			labels:   labels.Instance{"app": "istio-gateway"},
-			sidecar:  "istio-system/default-sidecar",
+			sidecar:  "dubbo-system/default-sidecar",
 			describe: "gateway sidecar scope",
 		},
 	}
@@ -1058,7 +1058,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	const partialNS string = "partial"
 	const wholeNS string = "whole"
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "dubbo-system"})}
 	sd := &localServiceDiscovery{}
 	env.ServiceDiscovery = sd
 	ps.Mesh = env.Mesh()
@@ -1169,7 +1169,7 @@ func scopeToSidecar(scope *SidecarScope) string {
 func TestSetDestinationRuleInheritance(t *testing.T) {
 	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
 	ps := NewPushContext()
-	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "dubbo-system"}
 	testhost := "httpbin.org"
 	meshDestinationRule := config.Config{
 		Meta: config.Meta{
@@ -1292,7 +1292,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule",
 			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "dubbo-system", Name: "meshRule"},
 				{Namespace: "test", Name: "nsRule"},
 				{Namespace: "test", Name: "svcRule"},
 			},
@@ -1323,7 +1323,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule2",
 			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "dubbo-system", Name: "meshRule"},
 				{Namespace: "test2", Name: "svcRule2"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
@@ -1348,7 +1348,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: testhost,
 			expectedConfig:  "drRule2",
 			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "dubbo-system", Name: "meshRule"},
 				{Namespace: "test2", Name: "drRule2"},
 				{Namespace: "test2", Name: "svcRule2"},
 			},
@@ -1380,7 +1380,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: "unknown.host",
 			expectedConfig:  "nsRule",
 			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "dubbo-system", Name: "meshRule"},
 				{Namespace: "test", Name: "nsRule"},
 			},
 			expectedPolicy: &networking.TrafficPolicy{
@@ -1412,7 +1412,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceHostname: "unknown.host",
 			expectedConfig:  "meshRule",
 			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "dubbo-system", Name: "meshRule"},
 			},
 			expectedPolicy: meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
 		},
@@ -1447,7 +1447,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 
 func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 	ps := NewPushContext()
-	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "dubbo-system"}
 	testhost := "httpbin.org"
 	app1DestinationRule := config.Config{
 		Meta: config.Meta{
@@ -1674,7 +1674,7 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 
 func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	ps := NewPushContext()
-	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "dubbo-system"}
 	testhost := "httpbin.org"
 	appHost := "foo.app.org"
 	wildcardHost1 := "*.org"
@@ -1754,7 +1754,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	destinationRuleRootNamespace := config.Config{
 		Meta: config.Meta{
 			Name:      "rule4",
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 		},
 		Spec: &networking.DestinationRule{
 			Host: testhost,
@@ -1771,7 +1771,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	destinationRuleRootNamespaceLocal := config.Config{
 		Meta: config.Meta{
 			Name:      "rule1",
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 		},
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
@@ -1789,7 +1789,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	destinationRuleRootNamespaceLocalWithWildcardHost1 := config.Config{
 		Meta: config.Meta{
 			Name:      "rule2",
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 		},
 		Spec: &networking.DestinationRule{
 			Host:     wildcardHost1,
@@ -1807,7 +1807,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	destinationRuleRootNamespaceLocalWithWildcardHost2 := config.Config{
 		Meta: config.Meta{
 			Name:      "rule3",
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 		},
 		Spec: &networking.DestinationRule{
 			Host:     wildcardHost2,
@@ -1889,20 +1889,20 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			wantSubsets: []string{"subset5", "subset6"},
 		},
 		{
-			proxyNs:     "istio-system",
+			proxyNs:     "dubbo-system",
 			serviceNs:   "random",
 			host:        testhost,
 			wantSubsets: []string{"subset9", "subset10"},
 		},
 		{
-			proxyNs:     "istio-system",
-			serviceNs:   "istio-system",
+			proxyNs:     "dubbo-system",
+			serviceNs:   "dubbo-system",
 			host:        testhost,
 			wantSubsets: []string{"subset9", "subset10"},
 		},
 		{
-			proxyNs:     "istio-system",
-			serviceNs:   "istio-system",
+			proxyNs:     "dubbo-system",
+			serviceNs:   "dubbo-system",
 			host:        appHost,
 			wantSubsets: []string{"subset13", "subset14"},
 		},
@@ -2083,7 +2083,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 
 func TestInitVirtualService(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "dubbo-system"})}
 	ps.Mesh = env.Mesh()
 	configStore := NewFakeStore()
 	gatewayName := "ns1/gateway"
@@ -2262,7 +2262,7 @@ func TestServiceWithExportTo(t *testing.T) {
 func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{
-		RootNamespace: "istio-system",
+		RootNamespace: "dubbo-system",
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
 				Name: "otel",

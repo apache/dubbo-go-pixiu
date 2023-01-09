@@ -136,7 +136,7 @@ components:
       overlays:
         # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
         - kind: ClusterRole
-          name: istiod-clusterrole-istio-system
+          name: istiod-clusterrole-dubbo-system
           patches:
             - path: rules[-1]
               value: |

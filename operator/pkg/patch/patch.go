@@ -24,7 +24,7 @@ kind: Deployment
 metadata:
 
 	name: istio-citadel
-	namespace: istio-system
+	namespace: dubbo-system
 
 a:
 

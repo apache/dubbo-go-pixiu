@@ -895,7 +895,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	m := mesh.DefaultMeshConfig()
 	store := model.NewFakeStore()
 	for i := 0; i < pcResources; i++ {
-		store.Create(newProxyConfig(fmt.Sprintf("pc-%d", i), "istio-system", &v1beta12.ProxyConfig{
+		store.Create(newProxyConfig(fmt.Sprintf("pc-%d", i), "dubbo-system", &v1beta12.ProxyConfig{
 			Concurrency: &wrapperspb.Int32Value{Value: int32(i % 5)},
 			EnvironmentVariables: map[string]string{
 				fmt.Sprintf("VAR_%d", i): fmt.Sprint(i),

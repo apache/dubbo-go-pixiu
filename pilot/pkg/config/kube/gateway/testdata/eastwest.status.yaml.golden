@@ -3,12 +3,12 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: eastwestgateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: hostname "eastwestgateway.istio-system.svc.domain.suffix"
+    message: 'failed to assign to any requested addresses: hostname "eastwestgateway.dubbo-system.svc.domain.suffix"
       not found'
     reason: AddressNotAssigned
     status: "False"
@@ -103,7 +103,7 @@ kind: TLSRoute
 metadata:
   creationTimestamp: null
   name: eastwestgateway-grpc
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   parents:
@@ -124,7 +124,7 @@ kind: TLSRoute
 metadata:
   creationTimestamp: null
   name: eastwestgateway-webhook
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   parents:

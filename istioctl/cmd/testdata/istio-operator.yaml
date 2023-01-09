@@ -2,7 +2,7 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   name: test
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   meshConfig:
     # Set enableTracing to false to disable request tracing.

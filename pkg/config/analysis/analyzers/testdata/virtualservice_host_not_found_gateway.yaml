@@ -3,7 +3,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: testing-gateway-01-test-01
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -22,7 +22,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-01
+  - dubbo-system/testing-gateway-01-test-01
   hosts:
   - testing-01.com # Expected: no validation error since this host exists
   http:
@@ -40,7 +40,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-01
+  - dubbo-system/testing-gateway-01-test-01
   hosts:
   - wrong-01.com # Expected: validation error since this host does not exist
   http:
@@ -55,7 +55,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: testing-gateway-01-test-02
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -74,7 +74,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-02
+  - dubbo-system/testing-gateway-01-test-02
   hosts:
   - 'web.testing-02.com' # Expected: no validation error since this host match the wildcard
   http:
@@ -92,7 +92,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-02
+  - dubbo-system/testing-gateway-01-test-02
   hosts:
   - 'web.wrong.com' # Expected: validation error since this host does not exist
   http:
@@ -107,7 +107,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: testing-gateway-01-test-03
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -123,7 +123,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: testing-gateway-02-test-03
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -142,8 +142,8 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-03
-  - istio-system/testing-gateway-02-test-03
+  - dubbo-system/testing-gateway-01-test-03
+  - dubbo-system/testing-gateway-02-test-03
   hosts:
   - 'user.api.testing-03.com'
   - 'profile.homepage.testing-03.com' # Expected: no validation error since this host match the wildcard
@@ -162,8 +162,8 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-03
-  - istio-system/testing-gateway-02-test-03
+  - dubbo-system/testing-gateway-01-test-03
+  - dubbo-system/testing-gateway-02-test-03
   hosts:
   - 'user.api.testing-03.com' # Expected: validation error since this host does not exist
   http:
@@ -178,7 +178,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: testing-gateway-01-test-04
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -203,7 +203,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-04
+  - dubbo-system/testing-gateway-01-test-04
   hosts:
   - 'web.testing-02-04.com' # Expected: no validation error since this host exists
   http:
@@ -221,7 +221,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-04
+  - dubbo-system/testing-gateway-01-test-04
   hosts:
   - 'profile.user.testing-01-04.com' # Expected: no validation error since this host match the wildcard
   http:
@@ -239,7 +239,7 @@ metadata:
   namespace: default
 spec:
   gateways:
-  - istio-system/testing-gateway-01-test-04
+  - dubbo-system/testing-gateway-01-test-04
   hosts:
   - 'user.testing-02-04.com'
   - 'users.testing-02-04.com' # Expected: validation error since this host does not exist

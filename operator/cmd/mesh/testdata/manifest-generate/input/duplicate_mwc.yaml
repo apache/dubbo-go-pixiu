@@ -2,8 +2,8 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   profile: default
-  namespace: istio-system
+  namespace: dubbo-system
 

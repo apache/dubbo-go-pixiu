@@ -54,7 +54,7 @@ import (
 )
 
 const (
-	IstioNamespace    = "istio-system"
+	IstioNamespace    = "dubbo-system"
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
 	retryTimeOut      = 20 * time.Minute
@@ -259,8 +259,8 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 		t.Logf("failed to list existing CR: %v", err.Error())
 	}
 
-	scopes.Framework.Infof("waiting for pods in istio-system to be deleted")
-	// wait for pods in istio-system to be deleted
+	scopes.Framework.Infof("waiting for pods in dubbo-system to be deleted")
+	// wait for pods in dubbo-system to be deleted
 	err = retry.UntilSuccess(func() error {
 		podList, err := cs.Kube().CoreV1().Pods(IstioNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
 		if err != nil {
@@ -279,7 +279,7 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 	if err != nil {
 		t.Logf("failed to delete pods in %s: %v", IstioNamespace, err)
 	} else {
-		t.Logf("all pods in istio-system deleted")
+		t.Logf("all pods in dubbo-system deleted")
 	}
 }
 
@@ -291,7 +291,7 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   name: %s
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
 `
 	if revision != "" {
