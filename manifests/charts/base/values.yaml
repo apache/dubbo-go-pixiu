@@ -6,7 +6,7 @@ global:
   imagePullSecrets: []
 
   # Used to locate istiod.
-  istioNamespace: istio-system
+  istioNamespace: dubbo-system
 
   istiod:
     enableAnalysis: false
@@ -26,4 +26,4 @@ base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
 
-defaultRevision: "default"
+defaultRevision: "dubbo"

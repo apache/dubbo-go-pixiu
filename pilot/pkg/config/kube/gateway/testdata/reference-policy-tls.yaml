@@ -9,7 +9,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   addresses:
   - value: istio-ingressgateway
@@ -41,7 +41,7 @@ spec:
   from:
   - group: networking.gateway.k8s.io
     kind: Gateway
-    namespace: istio-system
+    namespace: dubbo-system
   to:
     - group: ""
       kind: Secret
@@ -54,7 +54,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
   hostnames: ["cert.domain.example"]
   rules:
   - backendRefs:

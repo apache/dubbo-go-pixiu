@@ -157,7 +157,7 @@ func TestCitadelClientRotation(t *testing.T) {
 		server.Authenticator.Set("fake", "")
 		checkSign(t, cli, false)
 		// Expiring the token is harder, so just switch to only allow certs
-		server.Authenticator.Set("", "istiod.istio-system.svc")
+		server.Authenticator.Set("", "istiod.dubbo-system.svc")
 		checkSign(t, cli, false)
 		checkSign(t, cli, false)
 	})
@@ -184,7 +184,7 @@ func TestCitadelClientRotation(t *testing.T) {
 		t.Cleanup(cli.Close)
 		server.Authenticator.Set("fake", "")
 		checkSign(t, cli, false)
-		server.Authenticator.Set("", "istiod.istio-system.svc")
+		server.Authenticator.Set("", "istiod.dubbo-system.svc")
 		checkSign(t, cli, true)
 	})
 	t.Run("cert present later", func(t *testing.T) {
@@ -212,7 +212,7 @@ func TestCitadelClientRotation(t *testing.T) {
 		server.Authenticator.Set("fake", "")
 		checkSign(t, cli, false)
 		checkSign(t, cli, false)
-		server.Authenticator.Set("", "istiod.istio-system.svc")
+		server.Authenticator.Set("", "istiod.dubbo-system.svc")
 		checkSign(t, cli, true)
 		if err := file.Copy(filepath.Join(certDir, "cert-chain.pem"), dir, "cert-chain.pem"); err != nil {
 			t.Fatal(err)

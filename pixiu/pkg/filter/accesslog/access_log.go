@@ -117,6 +117,7 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 	}
 
 	builder := strings.Builder{}
+	builder.Grow(16)
 	builder.WriteString("[")
 	builder.WriteString(time.Now().Format(constant.MessageDateLayout))
 	builder.WriteString("] ")

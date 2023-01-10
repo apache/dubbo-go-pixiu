@@ -33,7 +33,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/security/pkg/pki/ca"
 )
 
-const namespace = "istio-system"
+const namespace = "dubbo-system"
 
 func TestRemoteCerts(t *testing.T) {
 	g := NewWithT(t)

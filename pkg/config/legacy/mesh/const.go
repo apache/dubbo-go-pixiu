@@ -19,7 +19,7 @@ import (
 )
 
 // MeshConfigResourceName is the resource name for the Istio MeshConfig resource.
-var MeshConfigResourceName = resource.NewFullName("istio-system", "meshconfig")
+var MeshConfigResourceName = resource.NewFullName("dubbo-system", "meshconfig")
 
 // MeshNetworksResourceName is the resource name for the Istio MeshNetworks resource.
-var MeshNetworksResourceName = resource.NewFullName("istio-system", "meshnetworks")
+var MeshNetworksResourceName = resource.NewFullName("dubbo-system", "meshnetworks")

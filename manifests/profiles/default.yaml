@@ -1,7 +1,7 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hub: apache
   tag: latest
@@ -43,7 +43,7 @@ spec:
   values:
     defaultRevision: ""
     global:
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       istiod:
         enableAnalysis: false
       logging:

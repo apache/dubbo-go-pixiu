@@ -70,7 +70,7 @@ func TestMergeVirtualServices(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
-			Namespace:        "istio-system",
+			Namespace:        "dubbo-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -157,7 +157,7 @@ func TestMergeVirtualServices(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
-			Namespace:        "istio-system",
+			Namespace:        "dubbo-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -249,7 +249,7 @@ func TestMergeVirtualServices(t *testing.T) {
 		}
 	}
 
-	delegateVs := createDelegateVs("productpage-vs", "default", []string{"istio-system"})
+	delegateVs := createDelegateVs("productpage-vs", "default", []string{"dubbo-system"})
 	delegateVsExportedToAll := createDelegateVs("productpage-vs", "default", []string{})
 
 	delegateVsNotExported := config.Config{
@@ -269,7 +269,7 @@ func TestMergeVirtualServices(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
-			Namespace:        "istio-system",
+			Namespace:        "dubbo-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -442,7 +442,7 @@ func TestMergeVirtualServices(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
-			Namespace:        "istio-system",
+			Namespace:        "dubbo-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -509,7 +509,7 @@ func TestMergeVirtualServices(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
-			Namespace:        "istio-system",
+			Namespace:        "dubbo-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -579,7 +579,7 @@ func TestMergeVirtualServices(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
-			Namespace:        "istio-system",
+			Namespace:        "dubbo-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},

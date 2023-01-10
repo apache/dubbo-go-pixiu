@@ -149,19 +149,19 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 	return true
 }
 
-func (cm *ClusterManager) PickEndpoint(clusterName string) *model.Endpoint {
+func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
 	for _, c := range cm.store.Config {
 		if c.Name == clusterName {
-			return cm.pickOneEndpoint(c)
+			return cm.pickOneEndpoint(c, policy)
 		}
 	}
 	return nil
 }
 
-func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig) *model.Endpoint {
+func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
 	if c.Endpoints == nil || len(c.Endpoints) == 0 {
 		return nil
 	}
@@ -175,9 +175,9 @@ func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig) *model.Endpoin
 
 	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
 	if ok {
-		return loadBalancer.Handler(c)
+		return loadBalancer.Handler(c, policy)
 	}
-	return loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand].Handler(c)
+	return loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand].Handler(c, policy)
 }
 
 func (cm *ClusterManager) RemoveCluster(namesToDel []string) {

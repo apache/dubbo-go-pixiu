@@ -9,7 +9,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   addresses:
   - value: istio-ingressgateway
@@ -64,7 +64,7 @@ spec:
   - kind: Mesh
     name: istio
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
   hostnames: ["foo.example.com"]
   rules:
   - backendRefs:

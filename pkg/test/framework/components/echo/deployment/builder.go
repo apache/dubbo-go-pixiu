@@ -204,10 +204,10 @@ func (b builder) Build() (out echo.Instances, err error) {
 
 // injectionTemplates lists the set of templates for each Kube cluster
 func (b builder) injectionTemplates() (map[string]sets.Set, error) {
-	ns := "istio-system"
+	ns := "dubbo-system"
 	i, err := istio.Get(b.ctx)
 	if err != nil {
-		scopes.Framework.Infof("defaulting to istio-system namespace for injection template discovery: %v", err)
+		scopes.Framework.Infof("defaulting to dubbo-system namespace for injection template discovery: %v", err)
 	} else {
 		ns = i.Settings().SystemNamespace
 	}

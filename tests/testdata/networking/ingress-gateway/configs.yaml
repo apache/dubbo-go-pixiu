@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: BACKEND
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
   - https.secure.com
@@ -23,10 +23,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
-  - istio-ingressgateway.istio-system.svc.cluster.local
+  - istio-ingressgateway.dubbo-system.svc.cluster.local
   addresses:
   - 1.1.1.3
   ports:
@@ -50,7 +50,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -94,12 +94,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: bookinfo
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
   - "*.bookinfo.com"
   gateways:
-  - istio-system/istio-ingressgateway
+  - dubbo-system/istio-ingressgateway
   http:
   - route:
     - destination:
@@ -111,12 +111,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: https
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
   - https.secure.com
   gateways:
-  - istio-system/istio-ingressgateway
+  - dubbo-system/istio-ingressgateway
   tls:
   - match:
     - sniHosts:
@@ -131,12 +131,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: tls
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
   - tls.secure.com
   gateways:
-  - istio-system/istio-ingressgateway
+  - dubbo-system/istio-ingressgateway
   tls:
   - match:
     - sniHosts:

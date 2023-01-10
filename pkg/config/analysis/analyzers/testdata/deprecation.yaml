@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: istio-multicluster-egressgateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
    # workloadLabels is deprecated
    workloadLabels:
@@ -49,7 +49,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: QuotaSpec
 metadata:
   name: request-count
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   rules:
   - quotas:

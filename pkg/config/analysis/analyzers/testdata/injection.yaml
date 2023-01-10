@@ -90,7 +90,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: istiod-canary-1234567890-12345
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     istio: pilot

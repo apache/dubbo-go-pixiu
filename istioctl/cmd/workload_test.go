@@ -182,7 +182,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 							Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
 						},
 						&v1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
+							ObjectMeta: metav1.ObjectMeta{Namespace: "dubbo-system", Name: "istio-rev-1"},
 							Data: map[string]string{
 								"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
 							},
@@ -275,7 +275,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 					Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
 				},
 				&v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "dubbo-system", Name: "istio"},
 					Data: map[string]string{
 						"mesh": "defaultConfig: {}",
 					},

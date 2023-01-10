@@ -73,7 +73,7 @@ type caOptions struct {
 // Support for signing other root CA has been removed - too dangerous, no clear use case.
 //
 // Default config, for backward compat with Citadel:
-// - if "cacerts" secret exists in istio-system, will be mounted. It may contain an optional "root-cert.pem",
+// - if "cacerts" secret exists in dubbo-system, will be mounted. It may contain an optional "root-cert.pem",
 // with additional roots and optional {ca-key, ca-cert, cert-chain}.pem user-provided root CA.
 // - if user-provided root CA is not found, the Secret "istio-ca-secret" is used, with ca-cert.pem and ca-key.pem files.
 // - if neither is found, istio-ca-secret will be created.

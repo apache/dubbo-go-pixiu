@@ -101,7 +101,7 @@ func saveCreds(certPem []byte, privPem []byte) {
 }
 
 func signCertFromCitadel() (*x509.Certificate, crypto.PrivateKey) {
-	args := []string{"get", "secret", "-n", "istio-system", "istio-ca-secret", "-o", "json"}
+	args := []string{"get", "secret", "-n", "dubbo-system", "istio-ca-secret", "-o", "json"}
 	cmd := exec.Command("kubectl", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

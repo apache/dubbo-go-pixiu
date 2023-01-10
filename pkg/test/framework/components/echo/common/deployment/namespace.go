@@ -219,7 +219,7 @@ spec:
   egress:
   - hosts:
     - "./*"
-    - "istio-system/*"
+    - "dubbo-system/*"
 {{ range $ns := .otherNS }}
     - "{{ $ns }}/*"
 {{ end }}

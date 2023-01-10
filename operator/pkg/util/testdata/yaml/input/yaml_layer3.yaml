@@ -5,7 +5,7 @@ spec:
     base:
       enabled: true
     ingressGateways:
-      - namespace: istio-system
+      - namespace: dubbo-system
         name: istio-ingressgateway
         enabled: false
         k8s:

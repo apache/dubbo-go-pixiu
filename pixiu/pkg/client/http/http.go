@@ -122,6 +122,10 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	}
 	if err != nil {
 		span.AddEvent(semconv.ExceptionEventName, trace.WithAttributes(semconv.ExceptionMessageKey.String(err.Error())))
+		urlErr, ok := err.(*url.Error)
+		if ok && urlErr.Timeout() {
+			err = errors.Errorf("http req call timeout err: %s", err.Error())
+		}
 	}
 
 	return tmpRet, err

@@ -344,7 +344,7 @@ kind: DestinationRule
 metadata:
   name: egressgateway-for-server-filebased
 spec:
-  host: istio-egressgateway.istio-system.svc.cluster.local
+  host: istio-egressgateway.dubbo-system.svc.cluster.local
   subsets:
   - name: server
     trafficPolicy:
@@ -373,7 +373,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: istio-egressgateway.istio-system.svc.cluster.local
+            host: istio-egressgateway.dubbo-system.svc.cluster.local
             subset: server
             port:
               number: 443

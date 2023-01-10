@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: otel-collector-conf
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: otel-collector
 data:
@@ -28,7 +28,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: otel-collector
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: otel-collector
 spec:
@@ -44,7 +44,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: otel-collector
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   minReadySeconds: 5
   progressDeadlineSeconds: 120

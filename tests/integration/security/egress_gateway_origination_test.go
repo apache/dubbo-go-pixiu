@@ -90,7 +90,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 					Gateway:         false,
 				},
 
-				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
+				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in dubbo-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing secret",
@@ -194,7 +194,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 					Gateway:         false,
 				},
 
-				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
+				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in dubbo-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing",
@@ -248,7 +248,7 @@ kind: DestinationRule
 metadata:
   name: egressgateway-for-server-sds
 spec:
-  host: istio-egressgateway.istio-system.svc.cluster.local
+  host: istio-egressgateway.dubbo-system.svc.cluster.local
   subsets:
   - name: server
     trafficPolicy:
@@ -277,7 +277,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: istio-egressgateway.istio-system.svc.cluster.local
+            host: istio-egressgateway.dubbo-system.svc.cluster.local
             subset: server
             port:
               number: 443
@@ -300,7 +300,7 @@ spec:
 )
 
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
-// routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
+// routed to egress-gateway service in dubbo-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
 func CreateGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances) {
 	args := map[string]interface{}{"to": to}
@@ -328,7 +328,7 @@ spec:
 `
 )
 
-// Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
+// Create the DestinationRule for TLS origination at Gateway by reading secret in dubbo-system namespace.
 func CreateDestinationRule(t framework.TestContext, to echo.Instances,
 	destinationRuleMode string, credentialName string) {
 	args := map[string]interface{}{

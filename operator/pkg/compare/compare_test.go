@@ -53,14 +53,14 @@ func TestYAMLCmp(t *testing.T) {
 			a: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio`,
 			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -76,14 +76,14 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
 			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio`,
 			want: `metadata:
@@ -98,7 +98,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -106,7 +106,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio`,
 			want: `metadata:
@@ -120,14 +120,14 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio`,
 			b: `apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -142,7 +142,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -150,7 +150,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -162,7 +162,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -170,7 +170,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -183,7 +183,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -191,7 +191,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-egressgateway
     release: istio`,
@@ -206,7 +206,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio
@@ -231,7 +231,7 @@ metadata:
     app: istio-ingressgateway
     release: istio
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   maxReplicas: 5
   metrics:
@@ -257,7 +257,7 @@ spec:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -267,7 +267,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -281,7 +281,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -291,7 +291,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label5
@@ -309,7 +309,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -319,7 +319,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label2
    - label3
@@ -337,7 +337,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     - label0
     - label1
@@ -347,7 +347,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     - label4
     - label5
@@ -371,7 +371,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -381,7 +381,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -401,7 +401,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -413,7 +413,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
  name: istio-ingressgateway
- namespace: istio-system
+ namespace: dubbo-system
  labels:
    - label1
    - label2
@@ -449,7 +449,7 @@ func TestYAMLCmpWithIgnore(t *testing.T) {
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -457,7 +457,7 @@ metadata:
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -472,7 +472,7 @@ metadata:
   annotations:
     checksum/config-volume: 43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -482,7 +482,7 @@ metadata:
   annotations:
     checksum/config-volume: 03ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -497,7 +497,7 @@ metadata:
   annotations:
     checksum/config-volume: 43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -507,7 +507,7 @@ metadata:
   annotations:
     checksum/config-volume:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -522,7 +522,7 @@ metadata:
   annotations:
     checksum/config-volume:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -532,7 +532,7 @@ metadata:
   annotations:
     checksum/config-volume: 43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -547,7 +547,7 @@ metadata:
   annotations:
     checksum/config-volume: 43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -556,7 +556,7 @@ kind: Deployment
 metadata:
   annotations:
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -574,7 +574,7 @@ metadata:
   annotations:
     checksum/config-volume: 01d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     checksum/config-volume: 02ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
     app: istio-ingressgateway
@@ -585,7 +585,7 @@ metadata:
   annotations:
     checksum/config-volume: 03ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     checksum/config-volume: 04ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
     app: istio-ingressgateway
@@ -601,7 +601,7 @@ metadata:
   annotations:
     checksum/config-volume: 01d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     checksum/config-volume: 02ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
     app: istio-ingressgateway
@@ -612,7 +612,7 @@ metadata:
   annotations:
     checksum/config-volume: 03ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     checksum/config-volume: 04ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
     app: istio-ingressgateway
@@ -632,7 +632,7 @@ metadata:
   annotations:
     checksum/config-volume: 43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: ingressgateway
     release: istio`,
@@ -642,7 +642,7 @@ metadata:
   annotations:
     checksum/config-volume: 03ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -660,7 +660,7 @@ metadata:
   annotations:
     checksum/config-volume: 43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: ingressgateway
     release: istio`,
@@ -670,7 +670,7 @@ metadata:
   annotations:
     checksum/config-volume: 03ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
   name: istio-ingressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-ingressgateway
     release: istio`,
@@ -843,7 +843,7 @@ data:
     defaultConfig:
       tracing:
         zipkin:
-          address: zipkin.istio-system:9411
+          address: zipkin.dubbo-system:9411
       controlPlaneAuthPolicy: NONE
       connectTimeout: 10s`,
 			b: `apiVersion: v1
@@ -856,14 +856,14 @@ data:
       connectTimeout: 10s
       tracing:
         zipkin:
-          address: zipkin.istio-system:9412
+          address: zipkin.dubbo-system:9412
       controlPlaneAuthPolicy: NONE`,
 			want: `data:
   mesh:
     defaultConfig:
       tracing:
         zipkin:
-          address: zipkin.istio-system:9411 -> zipkin.istio-system:9412
+          address: zipkin.dubbo-system:9411 -> zipkin.dubbo-system:9412
 `,
 		},
 		{
@@ -872,7 +872,7 @@ data:
 kind: ConfigMap
 metadata:
   name: injector-mesh
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio
 data:
@@ -887,14 +887,14 @@ data:
       concurrency: 2
       tracing:
         zipkin:
-          address: zipkin.istio-system:9411
+          address: zipkin.dubbo-system:9411
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-system:15010`,
+      discoveryAddress: istio-pilot.dubbo-system:15010`,
 			b: `apiVersion: v1
 kind: ConfigMap
 metadata:
   name: injector-mesh
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     release: istio
 data:
@@ -909,9 +909,9 @@ data:
       concurrency: 2
       tracing:
         zipkin:
-          address: zipkin.istio-system:9411
+          address: zipkin.dubbo-system:9411
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-system:15010`,
+      discoveryAddress: istio-pilot.dubbo-system:15010`,
 			want: `data:
   mesh:
     defaultConfig:
@@ -980,7 +980,7 @@ func TestManifestDiff(t *testing.T) {
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -999,7 +999,7 @@ spec:
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -1018,7 +1018,7 @@ spec:
 kind: Pod
 metadata:
   name: istio-galley-75bcd59768-hpt5t
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: galley
 spec:
@@ -1040,7 +1040,7 @@ metadata:
   labels:
     app: pilot
   name: istio-pilot
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   type: ClusterIP
   ports:
@@ -1078,25 +1078,25 @@ spec:
 			"ManifestDiffWithDifferentResource",
 			testDeploymentYaml1,
 			testDeploymentYaml2,
-			"Object Deployment:istio-system:istio-citadel has diffs",
+			"Object Deployment:dubbo-system:istio-citadel has diffs",
 		},
 		{
 			"ManifestDiffWithDifferentMultipleResources",
 			testDeploymentYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
 			testDeploymentYaml2 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
-			"Object Deployment:istio-system:istio-citadel has diffs",
+			"Object Deployment:dubbo-system:istio-citadel has diffs",
 		},
 		{
 			"ManifestDiffMissingResourcesInA",
 			testPodYaml1 + object.YAMLSeparator + testDeploymentYaml1 + object.YAMLSeparator,
 			testDeploymentYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
-			"Object Service:istio-system:istio-pilot is missing in A",
+			"Object Service:dubbo-system:istio-pilot is missing in A",
 		},
 		{
 			"ManifestDiffMissingResourcesInB",
 			testDeploymentYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
 			testServiceYaml1 + object.YAMLSeparator + testPodYaml1,
-			"Object Deployment:istio-system:istio-citadel is missing in B",
+			"Object Deployment:dubbo-system:istio-citadel is missing in B",
 		},
 	}
 
@@ -1120,7 +1120,7 @@ func TestManifestDiffWithSelectAndIgnore(t *testing.T) {
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -1143,7 +1143,7 @@ spec:
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -1166,7 +1166,7 @@ spec:
 kind: Pod
 metadata:
   name: istio-galley-75bcd59768-hpt5t
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: galley
 spec:
@@ -1189,7 +1189,7 @@ metadata:
   labels:
     app: pilot
   name: istio-pilot
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   type: ClusterIP
   ports:
@@ -1235,7 +1235,7 @@ spec:
 			testDeploymentYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
 			testDeploymentYaml1,
 			"Deployment:*:istio-citadel",
-			"Pod::*,Service:istio-system:*",
+			"Pod::*,Service:dubbo-system:*",
 			"",
 		},
 		{
@@ -1250,7 +1250,7 @@ spec:
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourcesSelectSingle",
 			testDeploymentYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
 			testServiceYaml1 + object.YAMLSeparator + testDeploymentYaml1,
-			"Deployment::istio-citadel,Service:istio-system:istio-pilot,Pod:*:*",
+			"Deployment::istio-citadel,Service:dubbo-system:istio-pilot,Pod:*:*",
 			"Pod:*:*",
 			"",
 		},
@@ -1260,7 +1260,7 @@ spec:
 			testDeploymentYaml2 + object.YAMLSeparator,
 			"::",
 			"",
-			"Object Deployment:istio-system:istio-citadel has diffs",
+			"Object Deployment:dubbo-system:istio-citadel has diffs",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourceForSingleSelectAndIgnore",
@@ -1268,23 +1268,23 @@ spec:
 			testDeploymentYaml2 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
 			"Deployment:*:*",
 			"Pod:*:*",
-			"Object Deployment:istio-system:istio-citadel has diffs",
+			"Object Deployment:dubbo-system:istio-citadel has diffs",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForMissingResourcesInA",
 			testPodYaml1 + object.YAMLSeparator + testDeploymentYaml1,
 			testDeploymentYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
-			"Pod:istio-system:Citadel,Service:istio-system:",
+			"Pod:dubbo-system:Citadel,Service:dubbo-system:",
 			"Pod:*:*",
-			"Object Service:istio-system:istio-pilot is missing in A",
+			"Object Service:dubbo-system:istio-pilot is missing in A",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForMissingResourcesInB",
 			testDeploymentYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator + testServiceYaml1,
 			testServiceYaml1 + object.YAMLSeparator + testPodYaml1 + object.YAMLSeparator,
-			"*:istio-system:*",
+			"*:dubbo-system:*",
 			"Pod::",
-			"Object Deployment:istio-system:istio-citadel is missing in B",
+			"Object Deployment:dubbo-system:istio-citadel is missing in B",
 		},
 	}
 
@@ -1309,7 +1309,7 @@ func TestManifestDiffWithRenameSelectIgnore(t *testing.T) {
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -1332,7 +1332,7 @@ spec:
 kind: Deployment
 metadata:
   name: istio-ca
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -1357,7 +1357,7 @@ metadata:
   labels:
     app: pilot
   name: istio-pilot
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   type: ClusterIP
   ports:
@@ -1380,7 +1380,7 @@ metadata:
   labels:
     app: pilot
   name: istio-control
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   type: ClusterIP
   ports:
@@ -1415,13 +1415,13 @@ spec:
 			"",
 			`
 
-Object Deployment:istio-system:istio-ca has diffs:
+Object Deployment:dubbo-system:istio-ca has diffs:
 
 metadata:
   name: istio-citadel -> istio-ca
 
 
-Object Service:istio-system:istio-control has diffs:
+Object Service:dubbo-system:istio-control has diffs:
 
 metadata:
   name: istio-pilot -> istio-control
@@ -1431,18 +1431,18 @@ metadata:
 			"ManifestDiffDeployWithRenamedFlagMultiResource",
 			testDeploymentYaml + object.YAMLSeparator + testServiceYaml,
 			testDeploymentYamlRenamed + object.YAMLSeparator + testServiceYamlRenamed,
-			"Service:istio-system:istio-pilot->Service:istio-system:istio-control,Deployment:istio-system:istio-citadel->Deployment:istio-system:istio-ca",
+			"Service:dubbo-system:istio-pilot->Service:dubbo-system:istio-control,Deployment:dubbo-system:istio-citadel->Deployment:dubbo-system:istio-ca",
 			"::",
 			"",
 			`
 
-Object Deployment:istio-system:istio-ca has diffs:
+Object Deployment:dubbo-system:istio-ca has diffs:
 
 metadata:
   name: istio-citadel -> istio-ca
 
 
-Object Service:istio-system:istio-control has diffs:
+Object Service:dubbo-system:istio-control has diffs:
 
 metadata:
   name: istio-pilot -> istio-control
@@ -1452,12 +1452,12 @@ metadata:
 			"ManifestDiffDeployWithRenamedFlag",
 			testDeploymentYaml,
 			testDeploymentYamlRenamed,
-			"Deployment:istio-system:istio-citadel->Deployment:istio-system:istio-ca",
+			"Deployment:dubbo-system:istio-citadel->Deployment:dubbo-system:istio-ca",
 			"::",
 			"",
 			`
 
-Object Deployment:istio-system:istio-ca has diffs:
+Object Deployment:dubbo-system:istio-ca has diffs:
 
 metadata:
   name: istio-citadel -> istio-ca
@@ -1472,11 +1472,11 @@ metadata:
 			"",
 			`
 
-Object Deployment:istio-system:istio-ca is missing in A:
+Object Deployment:dubbo-system:istio-ca is missing in A:
 
 
 
-Object Deployment:istio-system:istio-citadel is missing in B:
+Object Deployment:dubbo-system:istio-citadel is missing in B:
 
 `,
 		},

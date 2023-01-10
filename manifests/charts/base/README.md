@@ -16,6 +16,6 @@ _See [helm repo](https://helm.sh/docs/helm/helm_repo/) for command documentation
 To install the chart with the release name `istio-base`:
 
 ```console
-kubectl create namespace istio-system
-helm install istio-base istio/base -n istio-system
+kubectl create namespace dubbo-system
+helm install istio-base istio/base -n dubbo-system
 ```

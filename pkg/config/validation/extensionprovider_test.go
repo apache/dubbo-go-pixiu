@@ -39,12 +39,12 @@ func TestValidateExtensionProviderService(t *testing.T) {
 			name:    "pure ip6 address",
 		},
 		{
-			service: "istio-pilot.istio-system.svc.cluster.local",
+			service: "istio-pilot.dubbo-system.svc.cluster.local",
 			valid:   true,
 			name:    "standard kubernetes FQDN",
 		},
 		{
-			service: "istio-pilot.istio-system.svc.cluster.local:3000",
+			service: "istio-pilot.dubbo-system.svc.cluster.local:3000",
 			valid:   false,
 			name:    "standard kubernetes FQDN with port",
 		},
@@ -85,7 +85,7 @@ func TestValidateExtensionProviderTracingZipkin(t *testing.T) {
 		{
 			name: "zipkin normal",
 			config: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
-				Service: "zipkin.istio-system",
+				Service: "zipkin.dubbo-system",
 				Port:    9411,
 			},
 			valid: true,
@@ -93,7 +93,7 @@ func TestValidateExtensionProviderTracingZipkin(t *testing.T) {
 		{
 			name: "zipkin service with namespace",
 			config: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
-				Service: "namespace/zipkin.istio-system",
+				Service: "namespace/zipkin.dubbo-system",
 				Port:    9411,
 			},
 			valid: true,
@@ -101,7 +101,7 @@ func TestValidateExtensionProviderTracingZipkin(t *testing.T) {
 		{
 			name: "zipkin service with invalid namespace",
 			config: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
-				Service: "name/space/zipkin.istio-system",
+				Service: "name/space/zipkin.dubbo-system",
 				Port:    9411,
 			},
 			valid: false,
@@ -109,7 +109,7 @@ func TestValidateExtensionProviderTracingZipkin(t *testing.T) {
 		{
 			name: "zipkin service with port",
 			config: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
-				Service: "zipkin.istio-system:9411",
+				Service: "zipkin.dubbo-system:9411",
 				Port:    9411,
 			},
 			valid: false,

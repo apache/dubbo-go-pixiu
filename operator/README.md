@@ -79,16 +79,16 @@ Install the controller manifest:
 
 ```bash
 istioctl operator init --hub docker.io/<your-account> --tag latest
-kubectl create ns istio-system
+kubectl create ns dubbo-system
 kubectl apply -f operator/samples/default-install.yaml
 ```
 
 This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
-the Istio control plane into the istio-system namespace by default.
+the Istio control plane into the dubbo-system namespace by default.
 
 ### Controller (running locally)
 
-1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
+1. Set env $WATCH_NAMESPACE (default value is "dubbo-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
 1. Create the `WATCH_NAMESPACE` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
 
@@ -416,7 +416,7 @@ the spec.
 ## Interaction with controller
 
 The controller shares the same API as the operator CLI, so it's possible to install any of the above examples as a CR
-in the cluster in the istio-system namespace and the controller will react to it with the same outcome as running
+in the cluster in the dubbo-system namespace and the controller will react to it with the same outcome as running
 `istioctl install -f <path-to-custom-resource-file>`.
 
 ## Architecture

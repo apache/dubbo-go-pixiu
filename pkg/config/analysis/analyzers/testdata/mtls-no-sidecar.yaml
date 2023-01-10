@@ -13,7 +13,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: default
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   host: "*.local"
   trafficPolicy:
@@ -48,7 +48,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: no-sidecar-service-dr
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   host: missing-sidecar-service.no-sidecar.svc.cluster.local
   trafficPolicy:
@@ -74,7 +74,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: missing-pod-service-dr
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   host: missing-pod-service.no-sidecar.svc.cluster.local
   trafficPolicy:

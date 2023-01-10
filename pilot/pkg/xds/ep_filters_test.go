@@ -294,7 +294,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.PeerAuthentication,
 						Name:             "mtls-partial",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: &security.PeerAuthentication{
 						Selector: &v1beta1.WorkloadSelector{
@@ -311,7 +311,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.PeerAuthentication,
 						Name:             "mtls-on",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: &security.PeerAuthentication{
 						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_STRICT},
@@ -324,7 +324,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					Meta: config.Meta{
 						GroupVersionKind: gvk.PeerAuthentication,
 						Name:             "mtls-off",
-						Namespace:        "istio-system",
+						Namespace:        "dubbo-system",
 					},
 					Spec: &security.PeerAuthentication{
 						Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
@@ -571,7 +571,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	origServices := ds.Env().Services()
 	origGateways := ds.Env().NetworkGateways()
 	ds.MemRegistry.AddService(&model.Service{
-		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
+		Hostname: "istio-ingressgateway.dubbo-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
 			ClusterExternalAddresses: model.AddressMap{
 				Addresses: map[cluster.ID][]string{

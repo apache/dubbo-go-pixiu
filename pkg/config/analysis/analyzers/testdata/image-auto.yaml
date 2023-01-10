@@ -22,7 +22,7 @@ webhooks:
     clientConfig:
       service:
         name: fake
-        namespace: istio-system
+        namespace: dubbo-system
     name: namespace.sidecar-injector.istio.io
     namespaceSelector:
       matchLabels:
@@ -32,7 +32,7 @@ webhooks:
     clientConfig:
       service:
         name: fake
-        namespace: istio-system
+        namespace: dubbo-system
     name: object.sidecar-injector.istio.io
     objectSelector:
       matchLabels:
@@ -75,7 +75,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: istiod-canary-1234567890-12345
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     istio: pilot

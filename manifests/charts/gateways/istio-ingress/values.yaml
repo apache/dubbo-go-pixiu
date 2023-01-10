@@ -224,7 +224,7 @@ global:
   caAddress: ""
 
   # Used to locate istiod.
-  istioNamespace: istio-system
+  istioNamespace: dubbo-system
 
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".

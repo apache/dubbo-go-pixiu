@@ -36,8 +36,8 @@ func TestHash(t *testing.T) {
 		want      string
 	}{
 		{"CalculateHashForObjectWithNormalCharacter", "Service", "default", "ingressgateway", "Service:default:ingressgateway"},
-		{"CalculateHashForObjectWithDash", "Deployment", "istio-system", "istio-pilot", "Deployment:istio-system:istio-pilot"},
-		{"CalculateHashForObjectWithDot", "ConfigMap", "istio-system", "my.config", "ConfigMap:istio-system:my.config"},
+		{"CalculateHashForObjectWithDash", "Deployment", "dubbo-system", "istio-pilot", "Deployment:dubbo-system:istio-pilot"},
+		{"CalculateHashForObjectWithDot", "ConfigMap", "dubbo-system", "my.config", "ConfigMap:dubbo-system:my.config"},
 	}
 
 	for _, tt := range hashTests {
@@ -59,8 +59,8 @@ func TestFromHash(t *testing.T) {
 		name      string
 	}{
 		{"ParseHashWithNormalCharacter", "Service:default:ingressgateway", "Service", "default", "ingressgateway"},
-		{"ParseHashForObjectWithDash", "Deployment:istio-system:istio-pilot", "Deployment", "istio-system", "istio-pilot"},
-		{"ParseHashForObjectWithDot", "ConfigMap:istio-system:my.config", "ConfigMap", "istio-system", "my.config"},
+		{"ParseHashForObjectWithDash", "Deployment:dubbo-system:istio-pilot", "Deployment", "dubbo-system", "istio-pilot"},
+		{"ParseHashForObjectWithDot", "ConfigMap:dubbo-system:my.config", "ConfigMap", "dubbo-system", "my.config"},
 		{"InvalidHash", "test", "Bad hash string: test", "", ""},
 	}
 
@@ -102,7 +102,7 @@ func TestParseJSONToK8sObject(t *testing.T) {
 	"kind": "Deployment",
 	"metadata": {
 		"name": "istio-citadel",
-		"namespace": "istio-system",
+		"namespace": "dubbo-system",
 		"labels": {
 			"istio": "citadel"
 		}
@@ -129,8 +129,8 @@ func TestParseJSONToK8sObject(t *testing.T) {
 							"--append-dns-names=true",
 							"--grpc-port=8060",
 							"--grpc-hostname=citadel",
-							"--citadel-storage-namespace=istio-system",
-							"--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system",
+							"--citadel-storage-namespace=dubbo-system",
+							"--custom-dns-names=istio-pilot-service-account.dubbo-system:istio-pilot.dubbo-system",
 							"--monitoring-port=15014",
 							"--self-signed-ca=true"
 					  ]
@@ -145,7 +145,7 @@ func TestParseJSONToK8sObject(t *testing.T) {
 	"kind": "Pod",
 	"metadata": {
 		"name": "istio-galley-75bcd59768-hpt5t",
-		"namespace": "istio-system",
+		"namespace": "dubbo-system",
 		"labels": {
 			"istio": "galley"
 		}
@@ -163,7 +163,7 @@ func TestParseJSONToK8sObject(t *testing.T) {
 					"--livenessProbePath=/healthliveness",
 					"--readinessProbePath=/healthready",
 					"--readinessProbeInterval=1s",
-					"--deployment-namespace=istio-system",
+					"--deployment-namespace=dubbo-system",
 					"--insecure=true",
 					"--validation-webhook-config-file",
 					"/etc/config/validatingwebhookconfiguration.yaml",
@@ -196,7 +196,7 @@ func TestParseJSONToK8sObject(t *testing.T) {
 					"app": "pilot"
 			},
 			"name": "istio-pilot",
-			"namespace": "istio-system"
+			"namespace": "dubbo-system"
 	},
 	"spec": {
 			"clusterIP": "10.102.230.31",
@@ -245,9 +245,9 @@ func TestParseJSONToK8sObject(t *testing.T) {
 		wantNamespace string
 		wantErr       bool
 	}{
-		{"ParseJsonToK8sDeployment", testDeploymentJSON, "apps", "Deployment", "istio-citadel", "istio-system", false},
-		{"ParseJsonToK8sPod", testPodJSON, "", "Pod", "istio-galley-75bcd59768-hpt5t", "istio-system", false},
-		{"ParseJsonToK8sService", testServiceJSON, "", "Service", "istio-pilot", "istio-system", false},
+		{"ParseJsonToK8sDeployment", testDeploymentJSON, "apps", "Deployment", "istio-citadel", "dubbo-system", false},
+		{"ParseJsonToK8sPod", testPodJSON, "", "Pod", "istio-galley-75bcd59768-hpt5t", "dubbo-system", false},
+		{"ParseJsonToK8sService", testServiceJSON, "", "Service", "istio-pilot", "dubbo-system", false},
 		{"ParseJsonError", testInvalidJSON, "", "", "", "", true},
 	}
 
@@ -283,7 +283,7 @@ func TestParseYAMLToK8sObject(t *testing.T) {
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -303,8 +303,8 @@ spec:
         - "--append-dns-names=true"
         - "--grpc-port=8060"
         - "--grpc-hostname=citadel"
-        - "--citadel-storage-namespace=istio-system"
-        - "--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system"
+        - "--citadel-storage-namespace=dubbo-system"
+        - "--custom-dns-names=istio-pilot-service-account.dubbo-system:istio-pilot.dubbo-system"
         - "--monitoring-port=15014"
         - "--self-signed-ca=true"`
 
@@ -312,7 +312,7 @@ spec:
 kind: Pod
 metadata:
   name: istio-galley-75bcd59768-hpt5t
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: galley
 spec:
@@ -327,7 +327,7 @@ spec:
     - "--livenessProbePath=/healthliveness"
     - "--readinessProbePath=/healthready"
     - "--readinessProbeInterval=1s"
-    - "--deployment-namespace=istio-system"
+    - "--deployment-namespace=dubbo-system"
     - "--insecure=true"
     - "--validation-webhook-config-file"
     - "/etc/config/validatingwebhookconfiguration.yaml"
@@ -347,7 +347,7 @@ metadata:
   labels:
     app: pilot
   name: istio-pilot
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   clusterIP: 10.102.230.31
   ports:
@@ -380,9 +380,9 @@ spec:
 		wantName      string
 		wantNamespace string
 	}{
-		{"ParseYamlToK8sDeployment", testDeploymentYaml, "apps", "Deployment", "istio-citadel", "istio-system"},
-		{"ParseYamlToK8sPod", testPodYaml, "", "Pod", "istio-galley-75bcd59768-hpt5t", "istio-system"},
-		{"ParseYamlToK8sService", testServiceYaml, "", "Service", "istio-pilot", "istio-system"},
+		{"ParseYamlToK8sDeployment", testDeploymentYaml, "apps", "Deployment", "istio-citadel", "dubbo-system"},
+		{"ParseYamlToK8sPod", testPodYaml, "", "Pod", "istio-galley-75bcd59768-hpt5t", "dubbo-system"},
+		{"ParseYamlToK8sService", testServiceYaml, "", "Service", "istio-pilot", "dubbo-system"},
 	}
 
 	for _, tt := range parseYAMLToK8sObjectTests {
@@ -412,7 +412,7 @@ func TestParseK8sObjectsFromYAMLManifest(t *testing.T) {
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: citadel
 spec:
@@ -432,8 +432,8 @@ spec:
         - "--append-dns-names=true"
         - "--grpc-port=8060"
         - "--grpc-hostname=citadel"
-        - "--citadel-storage-namespace=istio-system"
-        - "--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system"
+        - "--citadel-storage-namespace=dubbo-system"
+        - "--custom-dns-names=istio-pilot-service-account.dubbo-system:istio-pilot.dubbo-system"
         - "--monitoring-port=15014"
         - "--self-signed-ca=true"`
 
@@ -441,7 +441,7 @@ spec:
 kind: Pod
 metadata:
   name: istio-galley-75bcd59768-hpt5t
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio: galley
 spec:
@@ -456,7 +456,7 @@ spec:
     - "--livenessProbePath=/healthliveness"
     - "--readinessProbePath=/healthready"
     - "--readinessProbeInterval=1s"
-    - "--deployment-namespace=istio-system"
+    - "--deployment-namespace=dubbo-system"
     - "--insecure=true"
     - "--validation-webhook-config-file"
     - "/etc/config/validatingwebhookconfiguration.yaml"
@@ -476,7 +476,7 @@ metadata:
   labels:
     app: pilot
   name: istio-pilot
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   clusterIP: 10.102.230.31
   ports:
@@ -508,9 +508,9 @@ spec:
 		{
 			"FromHybridYAMLManifest",
 			map[string]string{
-				"Deployment:istio-system:istio-citadel":          testDeploymentYaml,
-				"Pod:istio-system:istio-galley-75bcd59768-hpt5t": testPodYaml,
-				"Service:istio-system:istio-pilot":               testServiceYaml,
+				"Deployment:dubbo-system:istio-citadel":          testDeploymentYaml,
+				"Pod:dubbo-system:istio-galley-75bcd59768-hpt5t": testPodYaml,
+				"Service:dubbo-system:istio-pilot":               testServiceYaml,
 			},
 		},
 	}
@@ -619,7 +619,7 @@ func TestK8sObject_ResolveK8sConflict(t *testing.T) {
                     labels:
                       app: pilot
                     name: istio-pilot
-                    namespace: istio-system
+                    namespace: dubbo-system
                   spec:
                     clusterIP: 10.102.230.31`),
 			o2: getK8sObject(`
@@ -629,7 +629,7 @@ func TestK8sObject_ResolveK8sConflict(t *testing.T) {
                     labels:
                       app: pilot
                     name: istio-pilot
-                    namespace: istio-system
+                    namespace: dubbo-system
                   spec:
                     clusterIP: 10.102.230.31`),
 		},

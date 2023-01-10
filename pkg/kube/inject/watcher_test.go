@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	namespace string = "istio-system"
+	namespace string = "dubbo-system"
 	cmName    string = "istio-sidecar-injector"
 	configKey string = "config"
 	valuesKey string = "values"

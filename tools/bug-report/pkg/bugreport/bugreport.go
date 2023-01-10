@@ -59,7 +59,7 @@ const (
 )
 
 var (
-	bugReportDefaultIstioNamespace = "istio-system"
+	bugReportDefaultIstioNamespace = "dubbo-system"
 	bugReportDefaultInclude        = []string{""}
 	bugReportDefaultExclude        = []string{strings.Join(inject.IgnoredNamespaces.SortedList(), ",")}
 )

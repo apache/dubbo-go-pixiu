@@ -887,8 +887,8 @@ func endpointConfigCmd() *cobra.Command {
   # Retrieve full endpoint with a address (172.17.0.2).
   istioctl proxy-config endpoint <pod-name[.namespace]> --address 172.17.0.2 -o json
 
-  # Retrieve full endpoint with a cluster name (outbound|9411||zipkin.istio-system.svc.cluster.local).
-  istioctl proxy-config endpoint <pod-name[.namespace]> --cluster "outbound|9411||zipkin.istio-system.svc.cluster.local" -o json
+  # Retrieve full endpoint with a cluster name (outbound|9411||zipkin.dubbo-system.svc.cluster.local).
+  istioctl proxy-config endpoint <pod-name[.namespace]> --cluster "outbound|9411||zipkin.dubbo-system.svc.cluster.local" -o json
   # Retrieve full endpoint with the status (healthy).
   istioctl proxy-config endpoint <pod-name[.namespace]> --status healthy -ojson
 

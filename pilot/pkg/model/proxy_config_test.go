@@ -37,7 +37,7 @@ import (
 
 var now = time.Now()
 
-const istioRootNamespace = "istio-system"
+const istioRootNamespace = "dubbo-system"
 
 func TestConvertToMeshConfigProxyConfig(t *testing.T) {
 	cases := []struct {

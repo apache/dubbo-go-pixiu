@@ -217,9 +217,9 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  # This VirtualService is in 'istio-system' and uses a FQDN destination
+  # This VirtualService is in 'dubbo-system' and uses a FQDN destination
   name: cross-namespace
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts: [reviews]
   http:
@@ -248,9 +248,9 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  # This VirtualService is in 'istio-system' and uses a FQDN destination, but this ns doesn't see that Service
+  # This VirtualService is in 'dubbo-system' and uses a FQDN destination, but this ns doesn't see that Service
   name: cross-namespace-details
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts: [details]
   http:

@@ -50,7 +50,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: test-lua
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   workloadSelector:
     labels:
