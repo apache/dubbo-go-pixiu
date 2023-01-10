@@ -88,7 +88,7 @@ meshConfig:
   defaultConfig:
     tracing:
       openCensusAgent:
-        address: "dns:opentelemetry-collector.istio-system.svc:55678"
+        address: "dns:opentelemetry-collector.dubbo-system.svc:55678"
         context: [B3]
 `
 	cfg.Values["pilot.traceSampling"] = "100.0"

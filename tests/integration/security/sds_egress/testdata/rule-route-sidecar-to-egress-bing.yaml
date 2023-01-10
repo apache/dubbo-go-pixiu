@@ -15,7 +15,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: istio-egressgateway.istio-system.svc.cluster.local
+            host: istio-egressgateway.dubbo-system.svc.cluster.local
             subset: bing
             port:
               number: 80

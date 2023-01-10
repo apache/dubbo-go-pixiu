@@ -9,7 +9,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   addresses:
   - value: istio-ingressgateway
@@ -28,7 +28,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: invalid-service
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -44,7 +44,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: target-port-reference
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   addresses:
   - value: istio-ingressgateway
@@ -76,7 +76,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: invalid-tls
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   addresses:
   - value: istio-ingressgateway
@@ -103,7 +103,7 @@ spec:
   hostnames: ["first.domain.example"]
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
   rules:
   - filters:
     - type: ExtensionRef
@@ -119,7 +119,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
   hostnames: ["second.domain.example"]
   rules:
   - backendRefs:
@@ -134,7 +134,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
   rules:
   - filters:
     - type: RequestMirror

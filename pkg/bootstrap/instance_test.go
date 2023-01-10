@@ -321,7 +321,7 @@ func TestGolden(t *testing.T) {
 				StsPort:     c.stsPort,
 				ProxyConfig: proxyConfig,
 				PilotSubjectAltName: []string{
-					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
+					"spiffe://cluster.local/ns/dubbo-system/sa/istio-pilot-service-account",
 				},
 				OutlierLogPath:      "/dev/stdout",
 				annotationFilePath:  annoFile.Name(),

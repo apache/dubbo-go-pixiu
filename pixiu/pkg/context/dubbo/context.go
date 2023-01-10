@@ -60,3 +60,8 @@ func (c *RpcContext) SetInvocation(invocation *invocation.RPCInvocation) {
 func (c *RpcContext) SetRoute(route *model.RouteAction) {
 	c.Route = route
 }
+
+func (c *RpcContext) GenerateHash() string {
+	req := c.RpcInvocation
+	return req.MethodName() + "." + req.Invoker().GetURL().String()
+}

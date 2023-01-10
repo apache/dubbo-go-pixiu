@@ -24,7 +24,7 @@ import (
 	version2 "istio.io/pkg/version"
 )
 
-const istioNamespace = "istio-system"
+const istioNamespace = "dubbo-system"
 
 func TestMockClient_GetIstioVersions(t *testing.T) {
 	tests := []struct {

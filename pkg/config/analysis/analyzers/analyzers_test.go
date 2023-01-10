@@ -304,7 +304,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-mirror-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
 			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService default/reviews-2port-missing"},
-			{msg.ReferencedResourceNotFound, "VirtualService istio-system/cross-namespace-details"},
+			{msg.ReferencedResourceNotFound, "VirtualService dubbo-system/cross-namespace-details"},
 		},
 	},
 	{
@@ -379,8 +379,8 @@ var testGrid = []testCase{
 		meshNetworksFile: "testdata/common/meshnetworks.yaml",
 		analyzer:         &multicluster.MeshNetworksAnalyzer{},
 		expected: []message{
-			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks istio-system/meshnetworks"},
-			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks istio-system/meshnetworks"},
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks dubbo-system/meshnetworks"},
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks dubbo-system/meshnetworks"},
 		},
 	},
 	{
@@ -390,7 +390,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &authz.AuthorizationPoliciesAnalyzer{},
 		expected: []message{
-			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy istio-system/meshwide-httpbin-v1"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy dubbo-system/meshwide-httpbin-v1"},
 			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-empty/httpbin-empty-namespace-wide"},
 			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin/httpbin-nopods"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-ns"},
@@ -539,9 +539,9 @@ var testGrid = []testCase{
 		},
 		analyzer: &gateway.CertificateAnalyzer{},
 		expected: []message{
-			{msg.GatewayDuplicateCertificate, "Gateway istio-system/gateway-01-test-01"},
-			{msg.GatewayDuplicateCertificate, "Gateway istio-system/gateway-02-test-01"},
-			{msg.GatewayDuplicateCertificate, "Gateway istio-system/gateway-01-test-02"},
+			{msg.GatewayDuplicateCertificate, "Gateway dubbo-system/gateway-01-test-01"},
+			{msg.GatewayDuplicateCertificate, "Gateway dubbo-system/gateway-02-test-01"},
+			{msg.GatewayDuplicateCertificate, "Gateway dubbo-system/gateway-01-test-02"},
 			{msg.GatewayDuplicateCertificate, "Gateway default/gateway-01-test-03"},
 		},
 	},
@@ -771,7 +771,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "dubbo-system", cr, true, 10*time.Second)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {

@@ -29,7 +29,7 @@ TMP=$(mktemp -d)
 # Set up kiali
 {
 helm3 template kiali-server \
-  --namespace istio-system \
+  --namespace dubbo-system \
   --version 1.50.0 \
   --set deployment.image_version=v1.50 \
   --include-crds \
@@ -42,7 +42,7 @@ helm3 template kiali-server \
 
 # Set up prometheus
 helm3 template prometheus prometheus \
-  --namespace istio-system \
+  --namespace dubbo-system \
   --version 15.0.1 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
@@ -55,7 +55,7 @@ function compressDashboard() {
 # Set up grafana
 {
   helm3 template grafana grafana \
-    --namespace istio-system \
+    --namespace dubbo-system \
     --version 6.18.2 \
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-grafana.yaml"
@@ -68,13 +68,13 @@ function compressDashboard() {
   compressDashboard "istio-mesh-dashboard.json"
   compressDashboard "istio-extension-dashboard.json"
   echo -e "\n---\n"
-  kubectl create configmap -n istio-system istio-grafana-dashboards \
+  kubectl create configmap -n dubbo-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
     --from-file=pilot-dashboard.json="${TMP}/pilot-dashboard.json" \
     --from-file=istio-performance-dashboard.json="${TMP}/istio-performance-dashboard.json"
 
   echo -e "\n---\n"
-  kubectl create configmap -n istio-system istio-services-grafana-dashboards \
+  kubectl create configmap -n dubbo-system istio-services-grafana-dashboards \
     --dry-run=client -oyaml \
     --from-file=istio-workload-dashboard.json="${TMP}/istio-workload-dashboard.json" \
     --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \

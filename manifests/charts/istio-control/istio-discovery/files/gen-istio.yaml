@@ -4,7 +4,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     istio.io/rev: default
@@ -24,7 +24,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -34,7 +34,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -48,10 +48,10 @@ data:
 
   mesh: |-
     defaultConfig:
-      discoveryAddress: istiod.istio-system.svc:15012
+      discoveryAddress: istiod.dubbo-system.svc:15012
       tracing:
         zipkin:
-          address: zipkin.istio-system:9411
+          address: zipkin.dubbo-system:9411
     enablePrometheusMerge: true
     rootNamespace: null
     trustDomain: cluster.local
@@ -61,7 +61,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -88,7 +88,7 @@ data:
         "hub": "apache",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
-        "istioNamespace": "istio-system",
+        "istioNamespace": "dubbo-system",
         "istiod": {
           "enableAnalysis": false
         },
@@ -1407,7 +1407,7 @@ data:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-clusterrole-istio-system
+  name: istiod-clusterrole-dubbo-system
   labels:
     app: istiod
     release: istio
@@ -1515,7 +1515,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-gateway-controller-istio-system
+  name: istiod-gateway-controller-dubbo-system
   labels:
     app: istiod
     release: istio
@@ -1531,7 +1531,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-clusterrole-istio-system
+  name: istio-reader-clusterrole-dubbo-system
   labels:
     app: istio-reader
     release: istio
@@ -1576,59 +1576,59 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-clusterrole-istio-system
+  name: istiod-clusterrole-dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-clusterrole-istio-system
+  name: istiod-clusterrole-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istiod
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 # Source: istiod/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-gateway-controller-istio-system
+  name: istiod-gateway-controller-dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-gateway-controller-istio-system
+  name: istiod-gateway-controller-dubbo-system
 subjects:
 - kind: ServiceAccount
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
 ---
 # Source: istiod/templates/reader-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-clusterrole-istio-system
+  name: istio-reader-clusterrole-dubbo-system
   labels:
     app: istio-reader
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-clusterrole-istio-system
+  name: istio-reader-clusterrole-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 # Source: istiod/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -1650,7 +1650,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -1661,14 +1661,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istiod
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 # Source: istiod/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
@@ -1702,7 +1702,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     istio.io/rev: default
@@ -1791,7 +1791,7 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "true"
           - name: ISTIOD_ADDR
-            value: istiod.istio-system.svc:15012
+            value: istiod.dubbo-system.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
@@ -1849,7 +1849,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -1882,11 +1882,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.11
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2007,11 +2007,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.11
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2124,11 +2124,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.12
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2249,11 +2249,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.12
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2366,11 +2366,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.13
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2491,11 +2491,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.13
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2608,11 +2608,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.14
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2733,11 +2733,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.14
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2850,11 +2850,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.15
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2975,11 +2975,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.15
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     istio.io/rev: default
 spec:
-  priority: -1
+  
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -3102,7 +3102,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None
@@ -3131,7 +3131,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None
@@ -3162,7 +3162,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None
@@ -3189,7 +3189,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: "/inject"
       port: 443
   sideEffects: None

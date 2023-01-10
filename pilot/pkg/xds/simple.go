@@ -83,7 +83,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env.Init()
 
 	ds := NewDiscoveryServer(env, "istiod", map[string]string{})
-	ds.InitGenerators(env, "istio-system")
+	ds.InitGenerators(env, "dubbo-system")
 	ds.CachesSynced()
 
 	// Config will have a fixed format:

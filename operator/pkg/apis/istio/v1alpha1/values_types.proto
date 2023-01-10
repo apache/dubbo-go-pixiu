@@ -350,7 +350,7 @@ message GlobalConfig {
   //     endpoints:
   //     - fromRegistry: reg1
   //     gateways:
-  //     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+  //     - registryServiceName: istio-ingressgateway.dubbo-system.svc.cluster.local
   //       port: 443
   //
   google.protobuf.Struct meshNetworks = 19;

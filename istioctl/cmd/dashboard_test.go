@@ -109,12 +109,12 @@ func TestDashboard(t *testing.T) {
 			expectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
 		},
 		{ // case 16
-			args:           strings.Split("dashboard controlz --browser=false pod-123456-7890 -n istio-system", " "),
+			args:           strings.Split("dashboard controlz --browser=false pod-123456-7890 -n dubbo-system", " "),
 			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
 			wantException:  false,
 		},
 		{ // case 17
-			args:           strings.Split("dashboard envoy --browser=false pod-123456-7890 -n istio-system", " "),
+			args:           strings.Split("dashboard envoy --browser=false pod-123456-7890 -n dubbo-system", " "),
 			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
 			wantException:  false,
 		},

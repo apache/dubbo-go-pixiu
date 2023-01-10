@@ -489,7 +489,7 @@ func mtlsMode(m string) string {
 kind: PeerAuthentication
 metadata:
   name: default
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   mtls:
     mode: %s

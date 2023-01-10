@@ -41,9 +41,9 @@ function startIstio() {
 function startIstiodLocal() {
     export TOKEN_ISSUER=https://localhost:15012
     export MASTER_ELECTION=false
-    export ISTIOD_ADDR=istiod.istio-system.svc:15012
+    export ISTIOD_ADDR=istiod.dubbo-system.svc:15012
     cd /
-    /usr/local/bin/pilot-discovery discovery -n istio-system \
+    /usr/local/bin/pilot-discovery discovery -n dubbo-system \
       --configDir /var/lib/istio/config --registries Mock &
     sleep 1
 }
@@ -62,21 +62,21 @@ function istioStats() {
     # Try to get the endpoints over https
     curl -k --key tests/testdata/certs/default/key.pem \
         --cert tests/testdata/certs/default/cert-chain.pem  \
-        -v https://istio-pilot.istio-system:15011/debug/endpointz
+        -v https://istio-pilot.dubbo-system:15011/debug/endpointz
 }
 
 function istioCheckServerCert {
   curl --key /etc/certs/key.pem --cert /etc/certs/cert-chain.pem --cacert /etc/certs/root-cert.pem -vvv --http2 \
-    https://istiod.istio-system.svc:15012
+    https://istiod.dubbo-system.svc:15012
 }
 
 
 function istioRun {
-  export CA_ADDR=istiod.istio-system.svc:15012
+  export CA_ADDR=istiod.dubbo-system.svc:15012
   export PROV_CERT=/etc/certs
   export OUTPUT_CERTS=/etc/certs
 
-  /usr/local/bin/pilot-agent proxy  --serviceCluster rawvm  --discoveryAddress istiod.istio-system.svc:15012
+  /usr/local/bin/pilot-agent proxy  --serviceCluster rawvm  --discoveryAddress istiod.dubbo-system.svc:15012
 
 }
 

@@ -36,21 +36,21 @@ spec:
   - match:
     - port: 15012
       sniHosts:
-      - "istiod-{{.Revision}}.istio-system.svc"
-      - "istiod-{{.Revision}}.istio-system.svc.cluster.local"
+      - "istiod-{{.Revision}}.dubbo-system.svc"
+      - "istiod-{{.Revision}}.dubbo-system.svc.cluster.local"
     route:
     - destination:
-        host: istiod-{{.Revision}}.istio-system.svc.cluster.local
+        host: istiod-{{.Revision}}.dubbo-system.svc.cluster.local
         port:
           number: 15012
   - match:
     - port: 15017
       sniHosts:
-      - "istiod-{{.Revision}}.istio-system.svc"
-      - "istiod-{{.Revision}}.istio-system.svc.cluster.local"
+      - "istiod-{{.Revision}}.dubbo-system.svc"
+      - "istiod-{{.Revision}}.dubbo-system.svc.cluster.local"
     route:
     - destination:
-        host: istiod-{{.Revision}}.istio-system.svc.cluster.local
+        host: istiod-{{.Revision}}.dubbo-system.svc.cluster.local
         port:
           number: 443
 

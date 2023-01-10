@@ -109,7 +109,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 
 	clusterName := rEntry.Cluster
 	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName)
+	endpoint := clusterManager.PickEndpoint(clusterName, hc)
 	if endpoint == nil {
 		logger.Info("[dubbo-go-pixiu] cluster not found endpoint")
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "cluster not found endpoint"})
@@ -217,13 +217,18 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	var resp interface{}
 	invoc.SetReply(&resp)
 
-	invCtx := context.Background()
+	invCtx, cancel := context.WithTimeout(context.Background(), hc.Timeout)
+	defer cancel()
 	result := invoker.Invoke(invCtx, invoc)
 	result.SetAttachments(invoc.Attachments())
 
 	if result.Error() != nil {
 		logger.Debugf("[dubbo-go-pixiu] invoke result error %v", result.Error())
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("invoke result error %v", result.Error())})
+		// TODO statusCode I don't know what dubbo returns when it times out, first use the string to judge
+		if strings.Contains(result.Error().Error(), "timeout") {
+			hc.SendLocalReply(http.StatusGatewayTimeout, bt)
+		}
 		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}

@@ -28,9 +28,9 @@ The Gateways use "istio: ingressgateway$SUFFIX" selectors.
 
 
 
-# Migration from istio-system
+# Migration from dubbo-system
 
-Istio 1.0 includes the gateways in istio-system. Since the external IP is associated
+Istio 1.0 includes the gateways in dubbo-system. Since the external IP is associated
 with the Service and bound to the namespace, it is recommended to:
 
 1. Install the new gateway in a new namespace.
@@ -38,8 +38,8 @@ with the Service and bound to the namespace, it is recommended to:
 3. Checking the new gateway work - for example by overriding the IP in /etc/hosts
 4. Modify the DNS server to add the A record of the new namespace
 5. Check traffic
-6. Delete the A record corresponding to the gateway in istio-system
-7. Upgrade istio-system, disabling the ingressgateway
-8. Delete the domain TLS certs from istio-system.
+6. Delete the A record corresponding to the gateway in dubbo-system
+7. Upgrade dubbo-system, disabling the ingressgateway
+8. Delete the domain TLS certs from dubbo-system.
 
 If using certmanager, all Certificate and associated configs must be moved as well.

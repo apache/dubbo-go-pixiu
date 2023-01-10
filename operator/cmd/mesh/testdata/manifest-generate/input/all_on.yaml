@@ -9,10 +9,10 @@ spec:
     cni:
       enabled: false
     ingressGateways:
-      - namespace: istio-system
+      - namespace: dubbo-system
         name: istio-ingressgateway
         enabled: true
     egressGateways:
-      - namespace: istio-system
+      - namespace: dubbo-system
         name: istio-egressgateway
         enabled: true

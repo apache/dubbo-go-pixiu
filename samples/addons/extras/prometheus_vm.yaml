@@ -10,7 +10,7 @@ metadata:
     chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
-  namespace: istio-system
+  namespace: dubbo-system
   annotations:
     {}
 ---
@@ -25,7 +25,7 @@ metadata:
     chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
-  namespace: istio-system
+  namespace: dubbo-system
 data:
   alerting_rules.yml: |
     {}
@@ -388,7 +388,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: prometheus
-    namespace: istio-system
+    namespace: dubbo-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -405,7 +405,7 @@ metadata:
     chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   ports:
     - name: http
@@ -430,7 +430,7 @@ metadata:
     chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     matchLabels:

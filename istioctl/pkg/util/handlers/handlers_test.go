@@ -27,16 +27,16 @@ func TestInferPodInfo(t *testing.T) {
 		wantNamespace string
 	}{
 		{
-			proxyName:     "istio-ingressgateway-8d9697654-qdzgh.istio-system",
+			proxyName:     "istio-ingressgateway-8d9697654-qdzgh.dubbo-system",
 			namespace:     "kube-system",
 			wantPodName:   "istio-ingressgateway-8d9697654-qdzgh",
-			wantNamespace: "istio-system",
+			wantNamespace: "dubbo-system",
 		},
 		{
-			proxyName:     "istio-ingressgateway-8d9697654-qdzgh.istio-system",
+			proxyName:     "istio-ingressgateway-8d9697654-qdzgh.dubbo-system",
 			namespace:     "",
 			wantPodName:   "istio-ingressgateway-8d9697654-qdzgh",
-			wantNamespace: "istio-system",
+			wantNamespace: "dubbo-system",
 		},
 		{
 			proxyName:     "istio-ingressgateway-8d9697654-qdzgh",
@@ -45,16 +45,16 @@ func TestInferPodInfo(t *testing.T) {
 			wantNamespace: "kube-system",
 		},
 		{
-			proxyName:     "istio-security-post-install-1.2.2-bm9w2.istio-system",
-			namespace:     "istio-system",
+			proxyName:     "istio-security-post-install-1.2.2-bm9w2.dubbo-system",
+			namespace:     "dubbo-system",
 			wantPodName:   "istio-security-post-install-1.2.2-bm9w2",
-			wantNamespace: "istio-system",
+			wantNamespace: "dubbo-system",
 		},
 		{
-			proxyName:     "istio-security-post-install-1.2.2-bm9w2.istio-system",
+			proxyName:     "istio-security-post-install-1.2.2-bm9w2.dubbo-system",
 			namespace:     "",
 			wantPodName:   "istio-security-post-install-1.2.2-bm9w2",
-			wantNamespace: "istio-system",
+			wantNamespace: "dubbo-system",
 		},
 	}
 	for _, tt := range tests {

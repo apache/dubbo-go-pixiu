@@ -75,5 +75,5 @@ func sidecarID(ip, deployment string) string { // nolint: unparam
 }
 
 func gatewayID(ip string) string { //nolint: unparam
-	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
+	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.dubbo-system~dubbo-system.svc.cluster.local", ip)
 }

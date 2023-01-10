@@ -979,7 +979,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	}
 	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
-	// because sometimes, istio-system tends to become the root config namespace.
+	// because sometimes, dubbo-system tends to become the root config namespace.
 	// Destination rules are defined here for global purposes. We do not want these
 	// catch all destination rules to be the only dest rule, when processing CDS for
 	// proxies like the istio-ingressgateway or istio-egressgateway.
@@ -1965,7 +1965,7 @@ func (ps *PushContext) initGateways(env *Environment) error {
 // InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is
 // only used internally to transfer information from the Kubernetes Gateway API to the Istio Gateway API
 // which does not have a field to represent this.
-// The format is a comma separated list of hostnames. For example, "ingress.istio-system.svc.cluster.local,ingress.example.com"
+// The format is a comma separated list of hostnames. For example, "ingress.dubbo-system.svc.cluster.local,ingress.example.com"
 // The Gateway will apply to all ServiceInstances of these services, *in the same namespace as the Gateway*.
 const InternalGatewayServiceAnnotation = "internal.istio.io/gateway-service"
 
@@ -2041,7 +2041,7 @@ func NewGatewayContext(ps *PushContext) GatewayContext {
 // gateways, so this is not 100% accurate, but sufficient to expose intent to users.
 // The actual configuration generation is done on a per-workload basis and will get the exact set of matched instances for that workload.
 // Three sets are exposed:
-// * Internal addresses (ie istio-ingressgateway.istio-system.svc.cluster.local:80).
+// * Internal addresses (ie istio-ingressgateway.dubbo-system.svc.cluster.local:80).
 // * External addresses (ie 1.2.3.4), this comes from LoadBalancer services. There may be multiple in some cases (especially multi cluster).
 // * Warnings for references that could not be resolved. These are intended to be user facing.
 func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []string, servers []*networking.Server) (internal, external, warns []string) {

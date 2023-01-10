@@ -79,12 +79,12 @@ func TestValidateFQDN(t *testing.T) {
 			name:  "unambiguous FQDN",
 		},
 		{
-			fqdn:  "istio-pilot.istio-system.svc.cluster.local",
+			fqdn:  "istio-pilot.dubbo-system.svc.cluster.local",
 			valid: true,
 			name:  "standard kubernetes FQDN",
 		},
 		{
-			fqdn:  "istio-pilot.istio-system.svc.cluster.local.",
+			fqdn:  "istio-pilot.dubbo-system.svc.cluster.local.",
 			valid: true,
 			name:  "unambiguous kubernetes FQDN",
 		},
@@ -491,14 +491,14 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
 		ConfigPath:             "/etc/istio/proxy",
 		BinaryPath:             "/usr/local/bin/envoy",
-		DiscoveryAddress:       "istio-pilot.istio-system:15010",
+		DiscoveryAddress:       "istio-pilot.dubbo-system:15010",
 		ProxyAdminPort:         15000,
 		DrainDuration:          durationpb.New(45 * time.Second),
 		ParentShutdownDuration: durationpb.New(60 * time.Second),
 		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "istio-proxy"},
-		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
-		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
-		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
+		StatsdUdpAddress:       "istio-statsd-prom-bridge.dubbo-system:9125",
+		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.dubbo-system:15000"},
+		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.dubbo-system:15000"},
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
 		StatusPort:             15020,
@@ -586,14 +586,14 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		{
 			name: "envoy metrics service address invalid",
 			in: modify(valid, func(c *meshconfig.ProxyConfig) {
-				c.EnvoyMetricsService = &meshconfig.RemoteService{Address: "metrics-service.istio-system"}
+				c.EnvoyMetricsService = &meshconfig.RemoteService{Address: "metrics-service.dubbo-system"}
 			}),
 			isValid: false,
 		},
 		{
 			name: "envoy access log service address invalid",
 			in: modify(valid, func(c *meshconfig.ProxyConfig) {
-				c.EnvoyAccessLogService = &meshconfig.RemoteService{Address: "accesslog-service.istio-system"}
+				c.EnvoyAccessLogService = &meshconfig.RemoteService{Address: "accesslog-service.dubbo-system"}
 			}),
 			isValid: false,
 		},
@@ -609,7 +609,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 					c.Tracing = &meshconfig.Tracing{
 						Tracer: &meshconfig.Tracing_Zipkin_{
 							Zipkin: &meshconfig.Tracing_Zipkin{
-								Address: "zipkin.istio-system:9411",
+								Address: "zipkin.dubbo-system:9411",
 							},
 						},
 					}
@@ -6783,7 +6783,7 @@ func TestValidateMeshNetworks(t *testing.T) {
 						Gateways: []*meshconfig.Network_IstioNetworkGateway{
 							{
 								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
-									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+									RegistryServiceName: "istio-ingressgateway.dubbo-system.svc.cluster.local",
 								},
 								Port: 80,
 							},
@@ -6800,7 +6800,7 @@ func TestValidateMeshNetworks(t *testing.T) {
 						Gateways: []*meshconfig.Network_IstioNetworkGateway{
 							{
 								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
-									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+									RegistryServiceName: "istio-ingressgateway.dubbo-system.svc.cluster.local",
 								},
 								Port: 443,
 							},
@@ -6850,7 +6850,7 @@ func TestValidateMeshNetworks(t *testing.T) {
 						Gateways: []*meshconfig.Network_IstioNetworkGateway{
 							{
 								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
-									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+									RegistryServiceName: "istio-ingressgateway.dubbo-system.svc.cluster.local",
 								},
 								Port: 80,
 							},

@@ -15,4 +15,4 @@ spec:
       protocol: TCP
       name: tcp
     hosts:
-    - a.istio-system.svc.cluster.local
+    - a.dubbo-system.svc.cluster.local

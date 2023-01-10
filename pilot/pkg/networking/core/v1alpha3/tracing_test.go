@@ -354,7 +354,7 @@ func fakeSkywalking() *meshconfig.MeshConfig_ExtensionProvider {
 		Name: "foo",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_Skywalking{
 			Skywalking: &meshconfig.MeshConfig_ExtensionProvider_SkyWalkingTracingProvider{
-				Service: "skywalking-oap.istio-system.svc.cluster.local",
+				Service: "skywalking-oap.dubbo-system.svc.cluster.local",
 				Port:    11800,
 			},
 		},
@@ -370,7 +370,7 @@ func fakeOptsOnlySkywalkingTelemetryAPI() buildListenerOpts {
 					Name: "foo",
 					Provider: &meshconfig.MeshConfig_ExtensionProvider_Skywalking{
 						Skywalking: &meshconfig.MeshConfig_ExtensionProvider_SkyWalkingTracingProvider{
-							Service: "skywalking-oap.istio-system.svc.cluster.local",
+							Service: "skywalking-oap.dubbo-system.svc.cluster.local",
 							Port:    11800,
 						},
 					},

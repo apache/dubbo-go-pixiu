@@ -41,7 +41,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: otel-gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   selector:
     istio: ingressgateway
@@ -57,7 +57,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: opentelemetry-collector
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
   - "opentelemetry-collector.{INGRESS_DOMAIN}"
@@ -76,7 +76,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: opentelemetry-collector
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   host: opentelemetry-collector
   trafficPolicy:
@@ -92,7 +92,7 @@ metadata:
 spec:
   hosts:
   # must be of form name.namespace.global
-  - opentelemetry-collector.istio-system.global
+  - opentelemetry-collector.dubbo-system.global
   # Treat remote cluster services as part of the service mesh
   # as all clusters in the service mesh share the same root of trust.
   location: MESH_INTERNAL
@@ -102,7 +102,7 @@ spec:
     protocol: http
   resolution: DNS
   addresses:
-  # the IP address to which opentelemetry-collector.istio-system.global will resolve to
+  # the IP address to which opentelemetry-collector.dubbo-system.global will resolve to
   # must be unique for each remote service, within a given cluster.
   # This address need not be routable. Traffic for this IP will be captured
   # by the sidecar and routed appropriately.

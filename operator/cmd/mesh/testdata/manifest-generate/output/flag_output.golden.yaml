@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     istio.io/rev: default
@@ -37,7 +37,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "gcr.io/istio-testing/dubbo-pilot:latest"
+          image: "apache/dubbo-pilot:latest"
           args:
           - "discovery"
           - --monitoringAddr=:15014
@@ -91,7 +91,7 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "true"
           - name: ISTIOD_ADDR
-            value: istiod.istio-system.svc:15012
+            value: istiod.dubbo-system.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
