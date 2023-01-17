@@ -210,6 +210,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
 	rst, err := gs.Invoke(ctx, method, types, vals)
 	if err != nil {
+		// TODO statusCode I don’t know what dubbo will return when it times out, so I will return it directly. I will judge it when I call it.
 		return nil, err
 	}
 
