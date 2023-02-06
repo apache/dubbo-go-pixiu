@@ -54,6 +54,7 @@ import (
 	istiogrpc "github.com/apache/dubbo-go-pixiu/pilot/pkg/grpc"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	dubbov1alpha1 "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/dubbo/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/server"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
@@ -178,6 +179,9 @@ type Server struct {
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+
+	// ServiceMetadataServer
+	metadataServer *dubbov1alpha1.ServiceMetadataServer
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -273,6 +277,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
+	if s.kubeClient != nil {
+		s.metadataServer = dubbov1alpha1.NewServiceMetadataServer(s.environment, s.kubeClient)
+	}
+
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
 	if err := s.initSecureDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
@@ -340,6 +348,13 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
+	}
+
+	if s.metadataServer != nil {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			s.metadataServer.Start(stop)
+			return nil
+		})
 	}
 
 	// This must be last, otherwise we will not know which informers to register
@@ -729,6 +744,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
+	s.metadataServer.Register(s.grpcServer)
 }
 
 // initialize secureGRPCServer.
@@ -777,6 +793,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
+	s.metadataServer.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {

@@ -33,6 +33,7 @@ var (
 	Secret                       = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 	Service                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
 	ServiceEntry                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}
+	ServiceMetadata              = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "ServiceMetadata"}
 	Sidecar                      = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}
 	TCPRoute                     = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
 	TLSRoute                     = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}

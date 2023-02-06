@@ -172,6 +172,21 @@ func newGatewayIndex() gatewayIndex {
 	}
 }
 
+// serviceMetadataIndex is the index of service metadata by various fields.
+type serviceMetadataIndex struct {
+	namespace                  map[string][]*config.Config
+	applicationNameByNamespace map[string]map[string]*config.Config
+	all                        []*config.Config
+}
+
+func newServiceMetadataIndex() serviceMetadataIndex {
+	return serviceMetadataIndex{
+		namespace:                  map[string][]*config.Config{},
+		applicationNameByNamespace: map[string]map[string]*config.Config{},
+		all:                        []*config.Config{},
+	}
+}
+
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
@@ -206,6 +221,9 @@ type PushContext struct {
 
 	// sidecarIndex stores sidecar resources
 	sidecarIndex sidecarIndex
+
+	// serviceMetadataIndex stores service metadata resources
+	serviceMetadataIndex serviceMetadataIndex
 
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
@@ -636,6 +654,7 @@ func NewPushContext() *PushContext {
 		sidecarIndex:            newSidecarIndex(),
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 		gatewayIndex:            newGatewayIndex(),
+		serviceMetadataIndex:    newServiceMetadataIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
 	}
@@ -1085,6 +1104,13 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 	return nil
 }
 
+func (ps *PushContext) ServiceMetadata(namespace, applicationName, revision string) *config.Config {
+	if conf, ok := ps.serviceMetadataIndex.applicationNameByNamespace[namespace][strings.ToLower(fmt.Sprintf("%s-%s", applicationName, revision))]; ok {
+		return conf
+	}
+	return nil
+}
+
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
@@ -1176,6 +1202,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	}
 
 	if err := ps.initGateways(env); err != nil {
+		return err
+	}
+
+	if err := ps.initServiceMetadata(env); err != nil {
 		return err
 	}
 
@@ -1959,6 +1989,35 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	} else {
 		ps.gatewayIndex.all = gatewayConfigs
 	}
+	return nil
+}
+
+func (ps *PushContext) initServiceMetadata(env *Environment) error {
+	metadataConfig, err := env.List(gvk.ServiceMetadata, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(metadataConfig)
+
+	ps.serviceMetadataIndex.namespace = make(map[string][]*config.Config)
+	ps.serviceMetadataIndex.applicationNameByNamespace = make(map[string]map[string]*config.Config)
+	ps.serviceMetadataIndex.all = make([]*config.Config, 0)
+
+	for _, conf := range metadataConfig {
+		if _, ok := ps.serviceMetadataIndex.namespace[conf.Namespace]; !ok {
+			ps.serviceMetadataIndex.namespace[conf.Namespace] = make([]*config.Config, 0)
+		}
+
+		if _, ok := ps.serviceMetadataIndex.applicationNameByNamespace[conf.Namespace]; !ok {
+			ps.serviceMetadataIndex.applicationNameByNamespace[conf.Namespace] = make(map[string]*config.Config, 0)
+		}
+
+		ps.serviceMetadataIndex.namespace[conf.Namespace] = append(ps.serviceMetadataIndex.namespace[conf.Namespace], &conf)
+		ps.serviceMetadataIndex.applicationNameByNamespace[conf.Namespace][conf.Name] = &conf
+		ps.serviceMetadataIndex.all = append(ps.serviceMetadataIndex.all, &conf)
+	}
+
 	return nil
 }
 
