@@ -18,7 +18,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   addresses:
@@ -26,7 +26,7 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Gateway valid, assigned to service(s) istio-ingressgateway.dubbo-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
     type: Ready
@@ -183,7 +183,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -203,7 +203,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: foobar
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -225,7 +225,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: namespace-selector
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -247,7 +247,7 @@ status:
     parentRef:
       kind: Gateway
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: same-namespace
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -268,7 +268,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: foobar
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -289,7 +289,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: namespace-selector
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -310,7 +310,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: namespace-selector
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -318,7 +318,7 @@ kind: HTTPRoute
 metadata:
   creationTimestamp: null
   name: same-namespace-valid
-  namespace: istio-system
+  namespace: dubbo-system
 spec: null
 status:
   parents:
@@ -331,7 +331,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: same-namespace
   - conditions:
     - lastTransitionTime: fake
@@ -342,7 +342,7 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: foobar
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -363,6 +363,6 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
+      namespace: dubbo-system
       sectionName: foobar
 ---

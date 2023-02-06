@@ -70,7 +70,7 @@ spec:
    - "*"
 ---
 #And the associated VirtualService to route from the sidecar to the
-#gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
+#gateway service (istio-egressgateway.dubbo-system.svc.cluster.local), as
 #well as route from the gateway to the external service.
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -90,7 +90,7 @@ spec:
       - mesh
     route:
     - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
+        host: istio-egressgateway.dubbo-system.svc.cluster.local
   - match:
     - port: 80
       gateways:

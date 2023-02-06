@@ -109,7 +109,7 @@ func (f *Filter) handleHttp1BranchRegister(hctx *http.HttpContext, tccResource *
 
 	clusterName := rEntry.Cluster
 	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName)
+	endpoint := clusterManager.PickEndpoint(clusterName, hctx)
 	if endpoint == nil {
 		hctx.SendLocalReply(netHttp.StatusServiceUnavailable, []byte("cluster not found endpoint"))
 		return false

@@ -55,7 +55,7 @@ type operatorCommonArgs struct {
 const (
 	operatorResourceName     = "istio-operator"
 	operatorDefaultNamespace = "istio-operator"
-	istioDefaultNamespace    = "istio-system"
+	istioDefaultNamespace    = "dubbo-system"
 )
 
 // isControllerInstalled reports whether an operator deployment exists in the given namespace.

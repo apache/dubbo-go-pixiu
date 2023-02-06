@@ -168,7 +168,7 @@ type fakeController struct {
 
 const (
 	istiod    = "istio-revision"
-	namespace = "istio-system"
+	namespace = "dubbo-system"
 	revision  = "revision"
 )
 

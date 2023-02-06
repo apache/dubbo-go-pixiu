@@ -4,10 +4,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
-  - istio-ingressgateway.istio-system.svc.cluster.local
+  - istio-ingressgateway.dubbo-system.svc.cluster.local
   ports:
   - number: 80
     targetPort: 8080
@@ -23,10 +23,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: internal
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   hosts:
-  - knative-local-gateway.istio-system.svc.cluster.local
+  - knative-local-gateway.dubbo-system.svc.cluster.local
   ports:
   - number: 80
     targetPort: 8081

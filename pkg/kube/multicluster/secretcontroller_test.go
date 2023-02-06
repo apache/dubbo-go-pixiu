@@ -39,7 +39,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/util/sets"
 )
 
-const secretNamespace string = "istio-system"
+const secretNamespace string = "dubbo-system"
 
 type clusterCredential struct {
 	clusterID  string

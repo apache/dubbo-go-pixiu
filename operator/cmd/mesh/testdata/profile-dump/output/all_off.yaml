@@ -10,13 +10,13 @@ spec:
     - enabled: false
       name: istio-egressgateway
     ingressGateways:
-    - enabled: true
+    - enabled: false
       name: istio-ingressgateway
     istiodRemote:
       enabled: false
     pilot:
       enabled: false
-  hub: gcr.io/istio-testing
+  hub: apache
 
   meshConfig:
     defaultConfig:
@@ -64,7 +64,7 @@ spec:
           cpu: 10m
       imagePullPolicy: ""
       imagePullSecrets: []
-      istioNamespace: istio-system
+      istioNamespace: dubbo-system
       istiod:
         enableAnalysis: false
       jwtPolicy: third-party-jwt

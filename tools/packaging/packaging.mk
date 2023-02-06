@@ -193,7 +193,7 @@ DEB_PORT_PREFIX ?= 1600
 #
 # export TOKEN_ISSUER=https://localhost # Dummy, to ignore missing token. Can be real OIDC server.
 # export MASTER_ELECTION=false
-# istiod discovery -n istio-system
+# istiod discovery -n dubbo-system
 #
 deb/run/docker:
 	docker run --cap-add=NET_ADMIN --rm \
@@ -205,7 +205,7 @@ deb/run/docker:
       --add-host echo:10.1.1.1 \
       --add-host byon.test.istio.io:10.1.1.2 \
       --add-host byon-docker.test.istio.io:10.1.1.2 \
-      --add-host istiod.istio-system.svc:${DEB_PILOT_IP} \
+      --add-host istiod.dubbo-system.svc:${DEB_PILOT_IP} \
       ${DEB_ENV} -e ISTIO_SERVICE_CIDR=10.1.1.0/24 \
       -e ISTIO_INBOUND_PORTS=7070,7072,7073,7074,7075 \
       -e PILOT_CERT_DIR=/var/lib/istio/pilot \

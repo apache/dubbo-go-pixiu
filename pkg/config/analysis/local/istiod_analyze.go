@@ -294,7 +294,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
 		_, err := c.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
-			// An AnalysisMessage already show up to warn the absence of istio-system namespace, so making it debug level.
+			// An AnalysisMessage already show up to warn the absence of dubbo-system namespace, so making it debug level.
 			scope.Analysis.Debugf("%v namespace not found. Istio may not be installed in the target cluster. "+
 				"Using default mesh configuration values for analysis", sa.istioNamespace.String())
 		} else if err != nil {
@@ -451,8 +451,8 @@ type AnalysisSuppression struct {
 
 	// ResourceName is the name of the resource to suppress the message for. For
 	// K8s resources it has the same form as used by istioctl (e.g.
-	// "DestinationRule default.istio-system"). Note that globbing wildcards are
-	// supported (e.g. "DestinationRule *.istio-system").
+	// "DestinationRule default.dubbo-system"). Note that globbing wildcards are
+	// supported (e.g. "DestinationRule *.dubbo-system").
 	ResourceName string
 }
 

@@ -52,7 +52,7 @@ func makeSecret(name string, data map[string]string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 		},
 		Data: bdata,
 	}
@@ -103,7 +103,7 @@ func TestGenerate(t *testing.T) {
 	}{
 		{
 			name:      "simple",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
@@ -115,7 +115,7 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "sidecar",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
@@ -134,7 +134,7 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "multiple",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: allResources,
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
@@ -160,10 +160,10 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "full push with updates",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert"},
 			request: &model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls", Namespace: "dubbo-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
@@ -181,10 +181,10 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "incremental push with updates",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic", Namespace: "dubbo-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
@@ -195,10 +195,10 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "incremental push with updates - mtls",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls", Namespace: "dubbo-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls": {
@@ -212,10 +212,10 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "incremental push with updates - mtls split",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls-split", Namespace: "dubbo-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
@@ -229,10 +229,10 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "incremental push with updates - mtls split ca update",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split-cacert", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls-split-cacert", Namespace: "dubbo-system", Kind: gvk.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
@@ -247,7 +247,7 @@ func TestGenerate(t *testing.T) {
 		{
 			// If an unknown resource is request, we return all the ones we do know about
 			name:      "unknown",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: []string{"kubernetes://generic", "foo://invalid", "kubernetes://not-found", "default", "builtin://"},
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
@@ -260,7 +260,7 @@ func TestGenerate(t *testing.T) {
 		{
 			// proxy without authorization
 			name:      "unauthorized",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"}, Type: model.Router},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
 			// Should get a response, but it will be empty
@@ -325,9 +325,9 @@ func TestCaching(t *testing.T) {
 	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
 	istiosystem := &model.Proxy{
 		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
-		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "dubbo-system"},
 		Type:             model.Router,
-		ConfigNamespace:  "istio-system",
+		ConfigNamespace:  "dubbo-system",
 	}
 	otherNamespace := &model.Proxy{
 		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},

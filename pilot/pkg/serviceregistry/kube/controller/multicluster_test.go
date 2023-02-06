@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	testSecretNameSpace = "istio-system"
+	testSecretNameSpace = "dubbo-system"
 	DomainSuffix        = "fake_domain"
 )
 

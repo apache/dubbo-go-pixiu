@@ -146,8 +146,8 @@ func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {
-	_, err := c.client.CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: "istio-meshnetworks-gw", Namespace: "istio-system"},
+	_, err := c.client.CoreV1().Services("dubbo-system").Create(context.TODO(), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-meshnetworks-gw", Namespace: "dubbo-system"},
 		Spec: corev1.ServiceSpec{
 			Type:  corev1.ServiceTypeLoadBalancer,
 			Ports: []corev1.ServicePort{{Port: 15443, Protocol: corev1.ProtocolTCP}},
@@ -167,7 +167,7 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 			}},
 			Gateways: []*meshconfig.Network_IstioNetworkGateway{{
 				Port: 15443,
-				Gw:   &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{RegistryServiceName: "istio-meshnetworks-gw.istio-system.svc.cluster.local"},
+				Gw:   &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{RegistryServiceName: "istio-meshnetworks-gw.dubbo-system.svc.cluster.local"},
 			}},
 		},
 		"nw1": {
@@ -176,7 +176,7 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 			}},
 			Gateways: []*meshconfig.Network_IstioNetworkGateway{{
 				Port: 15443,
-				Gw:   &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{RegistryServiceName: "istio-meshnetworks-gw.istio-system.svc.cluster.local"},
+				Gw:   &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{RegistryServiceName: "istio-meshnetworks-gw.dubbo-system.svc.cluster.local"},
 			}},
 		},
 	}})

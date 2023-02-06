@@ -51,7 +51,7 @@ func TestIsClusterLocal(t *testing.T) {
 		{
 			name:     "discovery server is local",
 			m:        mesh.DefaultMeshConfig(),
-			host:     "istiod.istio-system.svc.cluster.local",
+			host:     "istiod.dubbo-system.svc.cluster.local",
 			expected: true,
 		},
 		{

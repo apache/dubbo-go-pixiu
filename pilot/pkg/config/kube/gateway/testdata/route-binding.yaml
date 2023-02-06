@@ -9,7 +9,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   addresses:
   - value: istio-ingressgateway
@@ -62,7 +62,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: foobar
   hostnames: ["alpha.foobar.example"]
   rules:
@@ -74,14 +74,14 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: same-namespace-valid
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: foobar
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: same-namespace
   rules:
   - backendRefs:
@@ -97,7 +97,7 @@ spec:
   parentRefs:
   - kind: Gateway
     name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: same-namespace
   hostnames: ["foo.same.example"]
   rules:
@@ -114,7 +114,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: foobar
   rules:
   - backendRefs:
@@ -129,7 +129,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: foobar
   hostnames: ["no.match.example"]
   rules:
@@ -145,7 +145,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
   rules:
   - backendRefs:
     - name: httpbin
@@ -159,7 +159,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: namespace-selector
   rules:
   - backendRefs:
@@ -174,7 +174,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: namespace-selector
   rules:
   - backendRefs:
@@ -189,7 +189,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: dubbo-system
     sectionName: namespace-selector
   rules:
   - backendRefs:

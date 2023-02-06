@@ -6,7 +6,7 @@ egressGateways:
 - enabled: false
   name: istio-egressgateway
 ingressGateways:
-- enabled: true
+- enabled: false
   name: istio-ingressgateway
 istiodRemote:
   enabled: false

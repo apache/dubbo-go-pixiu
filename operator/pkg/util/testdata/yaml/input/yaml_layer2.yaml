@@ -5,7 +5,7 @@ spec:
     pilot:
       enabled: true
     ingressGateways:
-      - namespace: istio-system
+      - namespace: dubbo-system
         name: istio-ingressgateway
         enabled: true
         label:

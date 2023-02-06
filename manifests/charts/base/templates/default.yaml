@@ -15,7 +15,7 @@ webhooks:
       url: {{ .Values.base.validationURL }}
       {{- else }}
       service:
-        {{- if (eq .Values.defaultRevision "default") }}
+        {{- if (eq .Values.defaultRevision "dubbo") }}
         name: istiod
         {{- else }}
         name: istiod-{{ .Values.defaultRevision }}

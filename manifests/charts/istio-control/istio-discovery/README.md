@@ -18,8 +18,8 @@ Before installing, ensure CRDs are installed in the cluster (from the `istio/bas
 To install the chart with the release name `istiod`:
 
 ```console
-kubectl create namespace istio-system
-helm install istiod istio/istiod --namespace istio-system
+kubectl create namespace dubbo-system
+helm install istiod istio/istiod --namespace dubbo-system
 ```
 
 ## Uninstalling the Chart
@@ -27,7 +27,7 @@ helm install istiod istio/istiod --namespace istio-system
 To uninstall/delete the `istiod` deployment:
 
 ```console
-helm delete istiod --namespace istio-system
+helm delete istiod --namespace dubbo-system
 ```
 
 ## Configuration

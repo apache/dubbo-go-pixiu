@@ -42,12 +42,12 @@ istioctl install --set profile=demo -y
 Next, add a Telemetry resource that tells Istio to send access logs to the OpenTelemetry collector.
 
 ```bash
-cat <<EOF | kubectl apply -n istio-system -f -
+cat <<EOF | kubectl apply -n dubbo-system -f -
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
   name: mesh-default
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   accessLogging:
     - providers:
@@ -68,12 +68,12 @@ kubectl exec -it $(kubectl get po | grep fortio | awk '{print $1}') -- fortio cu
 Run the following script to checkout ALS output.
 
 ```bash
-kubectl logs $(kubectl get po -n istio-system | grep otel | awk '{print $1}') -n istio-system
+kubectl logs $(kubectl get po -n dubbo-system | grep otel | awk '{print $1}') -n dubbo-system
 ```
 
 ## Cleanup
 
 ```bash
 kubectl delete -f otel.yaml
-kubectl delete telemetry mesh-default -nistio-system
+kubectl delete telemetry mesh-default -ndubbo-system
 ```

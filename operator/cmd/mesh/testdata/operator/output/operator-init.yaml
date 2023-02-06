@@ -149,7 +149,7 @@ spec:
       serviceAccountName: istio-operator
       containers:
         - name: istio-operator
-          image: foo.io/istio/operator:1.2.3
+          image: foo.io/istio/dubbo-operator:1.2.3
           command:
           - operator
           - server

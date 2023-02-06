@@ -61,7 +61,7 @@ resource:
 	err = yaml.UnmarshalStrict([]byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
   name: example-istiocontrolplane
 spec:
   profile: demo
@@ -89,7 +89,7 @@ spec:
 	err = yaml.UnmarshalStrict([]byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: istio-system
+  namespace: dubbo-system
   name: example-istiocontrolplane
 spec:
   profile: demo

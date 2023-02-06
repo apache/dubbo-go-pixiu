@@ -979,7 +979,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	knownHosts := []string{"istiod", "istiod-remote", "istio-pilot"}
 	// In some conditions, pilot address for sds is different from other xds,
 	// like multi-cluster primary-remote mode with revision.
-	if args.Revision != "" && args.Revision != "default" {
+	if args.Revision != "" && args.Revision != "dubbo" {
 		knownHosts = append(knownHosts, "istiod"+"-"+args.Revision)
 	}
 

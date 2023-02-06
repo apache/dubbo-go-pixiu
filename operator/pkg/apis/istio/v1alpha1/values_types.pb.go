@@ -1473,7 +1473,7 @@ type GlobalConfig struct {
 	//     endpoints:
 	//     - fromRegistry: reg1
 	//     gateways:
-	//     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+	//     - registryServiceName: istio-ingressgateway.dubbo-system.svc.cluster.local
 	//       port: 443
 	//
 	MeshNetworks *structpb.Struct `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
