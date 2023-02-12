@@ -1,6 +1,32 @@
 # Release Notes
 
 ---
+## 0.6.0
+
+### New Features
+- [nacos config](https://github.com/apache/dubbo-go-pixiu/pull/497)
+- [OSPP: Traffic Distribution](https://github.com/apache/dubbo-go-pixiu/pull/501)
+- [Add Graceful Shutdown](https://github.com/apache/dubbo-go-pixiu/pull/474)
+- [WASM Plugin for Pixiu](https://github.com/apache/dubbo-go-pixiu/pull/469)
+- [deploy pixiu as dubbo service egress gateway in k8s istio](https://github.com/apache/dubbo-go-pixiu/pull/446)
+- [ASoC 2022: Pixiu Metrics Implementation](https://github.com/apache/dubbo-go-pixiu/pull/480)
+- [ospp: Feature/traffic](https://github.com/apache/dubbo-go-pixiu/pull/496)
+- [feat:consistent hashing](https://github.com/apache/dubbo-go-pixiu/pull/436)
+
+
+### Enhancement
+- [Remove "Types" on Http to dubbo proxy](https://github.com/apache/dubbo-go-pixiu/pull/456)
+- [ASoC 2002: Optimization of Pixiu timeout feature ](https://github.com/apache/dubbo-go-pixiu/pull/475)
+- 
+
+### Bugfixes
+
+- [fix response header Content-Type](https://github.com/apache/dubbo-go-pixiu/pull/462)
+- [fix listener session exception](https://github.com/apache/dubbo-go-pixiu/pull/458)
+
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/7](https://github.com/apache/dubbo-go-pixiu/milestone/7)
+
+
 ## 0.5.1
 
 ### New Features
