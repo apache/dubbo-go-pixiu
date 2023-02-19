@@ -170,7 +170,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 	g := NewWithT(t)
 
-	istioNamespace := resource.Namespace("istio-system")
+	istioNamespace := resource.Namespace("dubbo-system")
 
 	testRootNamespace := "testNamespace"
 

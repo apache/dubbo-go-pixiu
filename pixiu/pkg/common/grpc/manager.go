@@ -37,6 +37,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/router"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
@@ -70,7 +71,7 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 	clusterName := ra.Cluster
 	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName)
+	endpoint := clusterManager.PickEndpoint(clusterName, &http.HttpContext{Request: r})
 	if endpoint == nil {
 		logger.Infof("GrpcConnectionManager can't find endpoint in cluster")
 		gcm.writeStatus(w, status.New(codes.Unknown, "can't find endpoint in cluster"))
@@ -90,6 +91,10 @@ func (gcm *GrpcConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 	if err != nil {
 		logger.Infof("GrpcConnectionManager forward request error %v", err)
+		if err == context.DeadlineExceeded {
+			gcm.writeStatus(w, status.New(codes.DeadlineExceeded, fmt.Sprintf("forward timeout error = %v", err)))
+			return
+		}
 		gcm.writeStatus(w, status.New(codes.Unknown, fmt.Sprintf("forward error not = %v", err)))
 		return
 	}

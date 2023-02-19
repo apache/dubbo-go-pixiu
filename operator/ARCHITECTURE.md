@@ -88,7 +88,7 @@ level, with each lower level overriding the setting of the higher parent level. 
 namespace is defined as:
 
 ```yaml
-defaultNamespace: istio-system
+defaultNamespace: dubbo-system
 ```
 
 and namespaces are specialized for the gateway feature and its components:

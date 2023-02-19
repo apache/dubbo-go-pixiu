@@ -60,11 +60,11 @@ keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth, serverAuth
 subjectAltName = @alt_names
 [alt_names]
-URI = spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account
-DNS.1 = istiod.istio-system
-DNS.2 = istiod.istio-system.svc
-DNS.3 = istio-pilot.istio-system
-DNS.4 = istio-pilot.istio-system.svc
+URI = spiffe://cluster.local/ns/dubbo-system/sa/istio-pilot-service-account
+DNS.1 = istiod.dubbo-system
+DNS.2 = istiod.dubbo-system.svc
+DNS.3 = istio-pilot.dubbo-system
+DNS.4 = istio-pilot.dubbo-system.svc
 DNS.5 = localhost
 EOF
 

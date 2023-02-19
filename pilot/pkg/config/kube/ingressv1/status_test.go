@@ -40,10 +40,10 @@ var (
 
 func setupFake(t *testing.T, client kubelib.Client) {
 	t.Helper()
-	if _, err := client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &coreV1.Pod{
+	if _, err := client.Kube().CoreV1().Pods("dubbo-system").Create(context.TODO(), &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "ingressgateway",
-			Namespace: "istio-system",
+			Namespace: "dubbo-system",
 			Labels: map[string]string{
 				"istio": "ingressgateway",
 			},
@@ -173,7 +173,7 @@ func testRunningAddressesWithHostname(t *testing.T) {
 }
 
 func TestRunningAddressesWithPod(t *testing.T) {
-	ingressNamespace = "istio-system" // it is set in real pilot on newController.
+	ingressNamespace = "dubbo-system" // it is set in real pilot on newController.
 	syncer := makeStatusSyncer(t)
 	syncer.meshHolder = fakeMeshHolder("")
 

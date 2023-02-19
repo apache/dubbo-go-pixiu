@@ -124,7 +124,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: bootstrap-tag
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   configPatches:
   - applyTo: BOOTSTRAP
@@ -136,7 +136,7 @@ spec:
           - regex: "(custom_dimension=\\.=(.*?);\\.;)"
             tag_name: "custom_dimension"
 `
-	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(resource.Wait); err != nil {
+	if err := ctx.ConfigIstio().YAML("dubbo-system", bootstrapPatch).Apply(resource.Wait); err != nil {
 		return err
 	}
 

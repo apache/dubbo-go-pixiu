@@ -33,7 +33,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: n1
@@ -61,7 +61,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: n1
@@ -83,7 +83,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: "n1"
@@ -105,7 +105,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: n1
@@ -126,7 +126,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - list:
@@ -145,7 +145,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: n1
@@ -165,7 +165,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: n1
@@ -187,7 +187,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: n1
@@ -210,7 +210,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 a:
   b:
   - name: n1
@@ -233,7 +233,7 @@ a:
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s for string:\n%s\n", tt.desc, err, oh)
 			}
-			got, err := YAMLManifestPatch(base, "istio-system", rc.Overlays)
+			got, err := YAMLManifestPatch(base, "dubbo-system", rc.Overlays)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}
@@ -250,7 +250,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -285,7 +285,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -313,7 +313,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -342,7 +342,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -370,7 +370,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -397,7 +397,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -423,7 +423,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -452,7 +452,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   template:
     spec:
@@ -483,7 +483,7 @@ spec:
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
-			got, err := YAMLManifestPatch(base, "istio-system", rc.Overlays)
+			got, err := YAMLManifestPatch(base, "dubbo-system", rc.Overlays)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}

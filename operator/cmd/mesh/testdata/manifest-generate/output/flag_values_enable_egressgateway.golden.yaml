@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-egressgateway
-  namespace: istio-system
+  namespace: dubbo-system
   annotations:
   labels:
     app: istio-egressgateway

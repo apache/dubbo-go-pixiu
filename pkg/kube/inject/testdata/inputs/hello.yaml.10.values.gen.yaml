@@ -21,7 +21,7 @@
     "imagePullSecrets": [
       "barSecret"
     ],
-    "istioNamespace": "istio-system",
+    "istioNamespace": "dubbo-system",
     "istiod": {
       "enableAnalysis": false
     },
@@ -37,7 +37,7 @@
       "clusterName": "",
       "enabled": false
     },
-    "namespace": "istio-system",
+    "namespace": "dubbo-system",
     "network": "",
     "omitSidecarInjectorConfigMap": false,
     "oneNamespace": false,

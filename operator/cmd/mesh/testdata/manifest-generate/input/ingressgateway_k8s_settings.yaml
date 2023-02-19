@@ -5,7 +5,7 @@ spec:
     pilot:
       enabled: false
     ingressGateways:
-    - namespace: istio-system
+    - namespace: dubbo-system
       name: istio-ingressgateway
       enabled: true
       k8s:
@@ -17,7 +17,7 @@ spec:
           sysctls:
           - name: "net.ipv4.ip_local_port_range"
             value: "80 65535"
-    - namespace: istio-system
+    - namespace: dubbo-system
       name: istio-ingressgateway-custom
       enabled: true
       k8s:

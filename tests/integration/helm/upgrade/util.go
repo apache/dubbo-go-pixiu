@@ -182,7 +182,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		})
 
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			"istio-validator-istio-system",
+			"istio-validator-dubbo-system",
 		})
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
@@ -199,7 +199,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 
 		// in-place upgrades will only have the default validator from the new version
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			"istiod-default-validator",
+			"istiod-dubbo-validator",
 		})
 
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
@@ -252,7 +252,7 @@ func performRevisionUpgradeFunc(previousVersion, previousValidatingWebhookName s
 		})
 
 		validatingWebhooks := []string{
-			"istiod-default-validator",
+			"istiod-dubbo-validator",
 		}
 
 		if validatingWebhookCarriesOver {
@@ -293,7 +293,7 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		})
 
 		// install MAJOR.MINOR.PATCH charts with revision set to "MAJOR-MINOR-PATCH" name. For example,
-		// helm install istio-base ../tests/integration/helm/testdata/1.10.0/base.tar.gz --namespace istio-system -f values.yaml
+		// helm install istio-base ../tests/integration/helm/testdata/1.10.0/base.tar.gz --namespace dubbo-system -f values.yaml
 		// helm install istiod-1-10 ../tests/integration/helm/testdata/1.10.0/istio-control/istio-discovery.tar.gz -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, previousRevision)
@@ -315,14 +315,14 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		// install the charts from this branch with revision set to "latest"
-		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
+		// helm upgrade istio-base ../manifests/charts/base --namespace dubbo-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
 		s := t.Settings()
 		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, latestRevisionTag)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
-		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace istio-system
+		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace dubbo-system
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={canary}
 		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
@@ -333,7 +333,7 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		})
 
 		validatingWebhooks := []string{
-			"istiod-default-validator",
+			"istiod-dubbo-validator",
 		}
 
 		if validatingWebhookCarriesOver {
@@ -351,8 +351,8 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		// in default-1 namespace and a server in the default-2 namespace, respectively
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
 
-		// change the mutating webhook configuration to use the latest revision (istiod-latest service in istio-system)
-		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace istio-system
+		// change the mutating webhook configuration to use the latest revision (istiod-latest service in dubbo-system)
+		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace dubbo-system
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={prod}
 		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, prodTag, helmtest.ManifestsChartPath, "")
 

@@ -45,7 +45,7 @@ func TestDefaultRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionUpgradeFunc(previousSupportedVersion, "istio-validator-istio-system", true))
+		Run(performRevisionUpgradeFunc(previousSupportedVersion, "istio-validator-dubbo-system", true))
 }
 
 // TestDefaultRevisionUpgradeFromPreviousMinorRelease
@@ -55,7 +55,7 @@ func TestDefaultRevisionUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionUpgradeFunc(nMinusTwoVersion, "istiod-istio-system", false))
+		Run(performRevisionUpgradeFunc(nMinusTwoVersion, "istiod-dubbo-system", false))
 }
 
 // TestRevisionTagsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
@@ -65,7 +65,7 @@ func TestRevisionTagsUpgradeFromPreviousMinorRelease(t *testing.T) {
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
 		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion,
-			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision), true))
+			fmt.Sprintf("istio-validator-%s-dubbo-system", previousRevision), true))
 }
 
 // TestRevisionTagsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
@@ -73,5 +73,5 @@ func TestRevisionTagsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, "istiod-istio-system", false))
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, "istiod-dubbo-system", false))
 }

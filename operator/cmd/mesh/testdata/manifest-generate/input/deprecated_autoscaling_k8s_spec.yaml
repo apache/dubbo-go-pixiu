@@ -21,7 +21,7 @@ spec:
               name: cpu
               targetAverageUtilization: 444
     ingressGateways:
-    - namespace: istio-system
+    - namespace: dubbo-system
       name: istio-ingressgateway
       enabled: true
       k8s:

@@ -178,7 +178,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	}
 
 	// Ignore the err because we don't want to show
-	// "no running Istio pods in istio-system" for the first time
+	// "no running Istio pods in dubbo-system" for the first time
 	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, setFlags)
 
 	// Warn users if they use `istioctl install` without any config args.

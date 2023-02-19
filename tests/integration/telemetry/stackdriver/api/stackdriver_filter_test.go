@@ -114,7 +114,7 @@ apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
   name: mesh-default
-  namespace: istio-system
+  namespace: dubbo-system
 spec:
   accessLogging:
   - providers:

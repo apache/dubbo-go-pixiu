@@ -165,7 +165,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	})
 	labels := labels.Instance{"istio": "ingressgateway"}
 	adsc := s.Connect(&model.Proxy{
-		ConfigNamespace: "istio-system",
+		ConfigNamespace: "dubbo-system",
 		Metadata:        &model.NodeMetadata{Labels: labels},
 		IPAddresses:     []string{"99.1.1.1"},
 		Type:            model.Router,

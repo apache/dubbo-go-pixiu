@@ -6573,7 +6573,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-reader-service-account
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istio-reader
     release: istio
@@ -6588,7 +6588,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istiod-service-account
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6602,7 +6602,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-istio-system
+  name: istiod-dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6710,7 +6710,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
   labels:
     app: istio-reader
     release: istio
@@ -6760,35 +6760,35 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
   labels:
     app: istio-reader
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-istio-system
+  name: istio-reader-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 # Source: base/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-istio-system
+  name: istiod-dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-istio-system
+  name: istiod-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istiod-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 # Source: base/templates/role.yaml
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -6799,8 +6799,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istiod-istio-system
-  namespace: istio-system
+  name: istiod-dubbo-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
@@ -6826,19 +6826,19 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istiod-istio-system
-  namespace: istio-system
+  name: istiod-dubbo-system
+  namespace: dubbo-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istiod-istio-system
+  name: istiod-dubbo-system
 subjects:
   - kind: ServiceAccount
     name: istiod-service-account
-    namespace: istio-system
+    namespace: dubbo-system
 ---
 # Source: base/templates/default.yaml
 apiVersion: admissionregistration.k8s.io/v1
@@ -6855,7 +6855,7 @@ webhooks:
     clientConfig:
       service:
         name: istiod
-        namespace: istio-system
+        namespace: dubbo-system
         path: "/validate"
     rules:
       - operations:

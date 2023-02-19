@@ -4,10 +4,10 @@ networks:
       - fromRegistry: kubernetes
     gateways:
       - port: 443
-        registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+        registry_service_name: istio-ingressgateway.dubbo-system.svc.cluster.local
   network2:
     endpoints:
       - fromRegistry: istio-testing
     gateways:
       - port: 443
-        registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+        registry_service_name: istio-ingressgateway.dubbo-system.svc.cluster.local

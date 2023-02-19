@@ -154,8 +154,8 @@ func TestRemoveFromMesh(t *testing.T) {
 			description:       "Invalid namespace - system namespace not allowed",
 			args:              strings.Split("experimental remove-from-mesh service istio-ingressgateway", " "),
 			expectedException: true,
-			namespace:         "istio-system",
-			expectedOutput:    "Error: namespace istio-system is a system namespace and has no Istio sidecar injected\n",
+			namespace:         "dubbo-system",
+			expectedOutput:    "Error: namespace dubbo-system is a system namespace and has no Istio sidecar injected\n",
 		},
 		{
 			description:       "valid case - remove service from mesh",

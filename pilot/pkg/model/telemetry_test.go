@@ -306,7 +306,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"provider only",
-			[]config.Config{newTelemetry("istio-system", envoy)},
+			[]config.Config{newTelemetry("dubbo-system", envoy)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -314,7 +314,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"client - gateway",
-			[]config.Config{newTelemetry("istio-system", client)},
+			[]config.Config{newTelemetry("dubbo-system", client)},
 			networking.ListenerClassGateway,
 			sidecar,
 			nil,
@@ -322,7 +322,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"client - outbound",
-			[]config.Config{newTelemetry("istio-system", client)},
+			[]config.Config{newTelemetry("dubbo-system", client)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -330,7 +330,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"client - inbound",
-			[]config.Config{newTelemetry("istio-system", client)},
+			[]config.Config{newTelemetry("dubbo-system", client)},
 			networking.ListenerClassSidecarInbound,
 			sidecar,
 			nil,
@@ -338,7 +338,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"client - disabled server",
-			[]config.Config{newTelemetry("istio-system", client), newTelemetry("default", serverDisabled)},
+			[]config.Config{newTelemetry("dubbo-system", client), newTelemetry("default", serverDisabled)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -346,7 +346,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"client - disabled client",
-			[]config.Config{newTelemetry("istio-system", client), newTelemetry("default", clientDisabled)},
+			[]config.Config{newTelemetry("dubbo-system", client), newTelemetry("default", clientDisabled)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -354,7 +354,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"client - disabled - enabled",
-			[]config.Config{newTelemetry("istio-system", client), newTelemetry("default", clientDisabled), newTelemetry("default", sidecarClient)},
+			[]config.Config{newTelemetry("dubbo-system", client), newTelemetry("default", clientDisabled), newTelemetry("default", sidecarClient)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -362,7 +362,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"server - gateway",
-			[]config.Config{newTelemetry("istio-system", server)},
+			[]config.Config{newTelemetry("dubbo-system", server)},
 			networking.ListenerClassGateway,
 			sidecar,
 			nil,
@@ -370,7 +370,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"server - inbound",
-			[]config.Config{newTelemetry("istio-system", server)},
+			[]config.Config{newTelemetry("dubbo-system", server)},
 			networking.ListenerClassSidecarInbound,
 			sidecar,
 			nil,
@@ -378,7 +378,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"server - outbound",
-			[]config.Config{newTelemetry("istio-system", server)},
+			[]config.Config{newTelemetry("dubbo-system", server)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -386,7 +386,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"server and client - gateway",
-			[]config.Config{newTelemetry("istio-system", serverAndClient)},
+			[]config.Config{newTelemetry("dubbo-system", serverAndClient)},
 			networking.ListenerClassGateway,
 			sidecar,
 			nil,
@@ -394,7 +394,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"server and client - inbound",
-			[]config.Config{newTelemetry("istio-system", serverAndClient)},
+			[]config.Config{newTelemetry("dubbo-system", serverAndClient)},
 			networking.ListenerClassSidecarInbound,
 			sidecar,
 			nil,
@@ -402,7 +402,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"server and client - outbound",
-			[]config.Config{newTelemetry("istio-system", serverAndClient)},
+			[]config.Config{newTelemetry("dubbo-system", serverAndClient)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -410,7 +410,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"override default",
-			[]config.Config{newTelemetry("istio-system", envoy)},
+			[]config.Config{newTelemetry("dubbo-system", envoy)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			[]string{"stackdriver"},
@@ -418,7 +418,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"override namespace",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", stackdriver)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -426,7 +426,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"empty config inherits",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", empty)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", empty)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -434,7 +434,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"default envoy JSON",
-			[]config.Config{newTelemetry("istio-system", defaultJSON)},
+			[]config.Config{newTelemetry("dubbo-system", defaultJSON)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -442,7 +442,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"disable config",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disabled)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", disabled)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -704,35 +704,35 @@ func TestTracing(t *testing.T) {
 		},
 		{
 			"provider only",
-			[]config.Config{newTelemetry("istio-system", envoy)},
+			[]config.Config{newTelemetry("dubbo-system", envoy)},
 			sidecar,
 			nil,
 			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"override default",
-			[]config.Config{newTelemetry("istio-system", envoy)},
+			[]config.Config{newTelemetry("dubbo-system", envoy)},
 			sidecar,
 			[]string{"stackdriver"},
 			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"override namespace",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", stackdriver)},
 			sidecar,
 			nil,
 			newTracingConfig("stackdriver", reportingEnabled),
 		},
 		{
 			"empty config inherits",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", empty)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", empty)},
 			sidecar,
 			nil,
 			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"disable config",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disabled)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", disabled)},
 			sidecar,
 			nil,
 			newTracingConfig("envoy", reportingDisabled),
@@ -756,7 +756,7 @@ func TestTracing(t *testing.T) {
 		},
 		{
 			"overrides",
-			[]config.Config{newTelemetry("istio-system", overidesA)},
+			[]config.Config{newTelemetry("dubbo-system", overidesA)},
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
@@ -781,7 +781,7 @@ func TestTracing(t *testing.T) {
 		},
 		{
 			"overrides with default sampling",
-			[]config.Config{newTelemetry("istio-system", overridesWithDefaultSampling)},
+			[]config.Config{newTelemetry("dubbo-system", overridesWithDefaultSampling)},
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
@@ -807,7 +807,7 @@ func TestTracing(t *testing.T) {
 		{
 			"multi overrides",
 			[]config.Config{
-				newTelemetry("istio-system", overidesA),
+				newTelemetry("dubbo-system", overidesA),
 				newTelemetry("default", overidesB),
 			},
 			sidecar,
@@ -835,7 +835,7 @@ func TestTracing(t *testing.T) {
 		},
 		{
 			"client-only override",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", clientSideSampling)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", clientSideSampling)},
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
@@ -857,7 +857,7 @@ func TestTracing(t *testing.T) {
 		},
 		{
 			"server-only override",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", serverSideDisabled)},
+			[]config.Config{newTelemetry("dubbo-system", envoy), newTelemetry("default", serverSideDisabled)},
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
@@ -1001,7 +1001,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"disabled-prometheus",
-			[]config.Config{newTelemetry("istio-system", disbaledAllMetrics)},
+			[]config.Config{newTelemetry("dubbo-system", disbaledAllMetrics)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -1011,7 +1011,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-empty",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("dubbo-system", disbaledAllMetrics),
 				newTelemetry("default", emptyPrometheus),
 			},
 			sidecar,
@@ -1023,7 +1023,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-overrides",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("dubbo-system", disbaledAllMetrics),
 				newTelemetry("default", overridesPrometheus),
 			},
 			sidecar,
@@ -1036,7 +1036,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"default prometheus",
-			[]config.Config{newTelemetry("istio-system", emptyPrometheus)},
+			[]config.Config{newTelemetry("dubbo-system", emptyPrometheus)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -1058,7 +1058,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"prometheus overrides",
-			[]config.Config{newTelemetry("istio-system", overridesPrometheus)},
+			[]config.Config{newTelemetry("dubbo-system", overridesPrometheus)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -1069,7 +1069,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"prometheus overrides TCP",
-			[]config.Config{newTelemetry("istio-system", overridesPrometheus)},
+			[]config.Config{newTelemetry("dubbo-system", overridesPrometheus)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolTCP,
@@ -1080,7 +1080,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"empty stackdriver",
-			[]config.Config{newTelemetry("istio-system", emptyStackdriver)},
+			[]config.Config{newTelemetry("dubbo-system", emptyStackdriver)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -1091,7 +1091,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"overrides stackdriver",
-			[]config.Config{newTelemetry("istio-system", overridesStackdriver)},
+			[]config.Config{newTelemetry("dubbo-system", overridesStackdriver)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -1104,7 +1104,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"namespace empty merge",
 			[]config.Config{
-				newTelemetry("istio-system", emptyPrometheus),
+				newTelemetry("dubbo-system", emptyPrometheus),
 				newTelemetry("default", emptyStackdriver),
 			},
 			sidecar,
@@ -1118,7 +1118,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"namespace overrides merge without provider",
 			[]config.Config{
-				newTelemetry("istio-system", emptyPrometheus),
+				newTelemetry("dubbo-system", emptyPrometheus),
 				newTelemetry("default", overridesEmptyProvider),
 			},
 			sidecar,

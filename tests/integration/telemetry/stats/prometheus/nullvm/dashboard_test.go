@@ -150,7 +150,7 @@ func TestDashboard(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.ConfigKube().YAML("istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(t)
+			t.ConfigKube().YAML("dubbo-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(t)
 
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
@@ -207,9 +207,9 @@ var replacer = strings.NewReplacer(
 	`connection_security_policy="unknown"`, `connection_security_policy=~".*"`,
 	`connection_security_policy="mutual_tls"`, `connection_security_policy=~".*"`,
 	`connection_security_policy!="mutual_tls"`, `connection_security_policy=~".*"`,
-	// Test runs in istio-system
-	`destination_workload_namespace!="istio-system"`, `destination_workload_namespace=~".*"`,
-	`source_workload_namespace!="istio-system"`, `source_workload_namespace=~".*"`,
+	// Test runs in dubbo-system
+	`destination_workload_namespace!="dubbo-system"`, `destination_workload_namespace=~".*"`,
+	`source_workload_namespace!="dubbo-system"`, `source_workload_namespace=~".*"`,
 )
 
 func checkMetric(cl cluster.Cluster, p prometheus.Instance, query string, excluded []string) error {

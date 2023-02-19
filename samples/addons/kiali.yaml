@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kiali
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     helm.sh/chart: kiali-server-1.50.0
     app: kiali
@@ -21,7 +21,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kiali
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     helm.sh/chart: kiali-server-1.50.0
     app: kiali
@@ -69,7 +69,7 @@ data:
         log_level: info
         sampler_rate: "1"
         time_field_format: 2006-01-02T15:04:05Z07:00
-      namespace: istio-system
+      namespace: dubbo-system
       node_selector: {}
       pod_annotations: {}
       pod_labels:
@@ -92,11 +92,11 @@ data:
       custom_dashboards:
         enabled: true
       istio:
-        root_namespace: istio-system
+        root_namespace: dubbo-system
     identity:
       cert_file: ""
       private_key_file: ""
-    istio_namespace: istio-system
+    istio_namespace: dubbo-system
     kiali_feature_flags:
       certificates_information_indicators:
         enabled: true
@@ -326,7 +326,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kiali
-  namespace: istio-system
+  namespace: dubbo-system
 ...
 ---
 # Source: kiali-server/templates/role-controlplane.yaml
@@ -334,7 +334,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: kiali-controlplane
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     helm.sh/chart: kiali-server-1.50.0
     app: kiali
@@ -367,7 +367,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: kiali-controlplane
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     helm.sh/chart: kiali-server-1.50.0
     app: kiali
@@ -384,7 +384,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kiali
-  namespace: istio-system
+  namespace: dubbo-system
 ...
 ---
 # Source: kiali-server/templates/service.yaml
@@ -392,7 +392,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kiali
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     helm.sh/chart: kiali-server-1.50.0
     app: kiali
@@ -421,7 +421,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kiali
-  namespace: istio-system
+  namespace: dubbo-system
   labels:
     helm.sh/chart: kiali-server-1.50.0
     app: kiali

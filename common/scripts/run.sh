@@ -45,7 +45,7 @@ read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
 for arg in "$@" ; do
   if [[ $arg =~ "pilot-discovery" || $arg =~ "istioctl" || $arg =~ "init" ]]
   then
-    IMG="docker.io/golang:latest"
+    IMG="docker.io/golang:1.18"
   fi
   done
 

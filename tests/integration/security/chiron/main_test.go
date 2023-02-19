@@ -52,10 +52,10 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 values:
   meshConfig:
     certificates:
-      - dnsNames: [istio-pilot.istio-system.svc, istio-pilot.istio-system]
+      - dnsNames: [istio-pilot.dubbo-system.svc, istio-pilot.dubbo-system]
       - secretName: dns.istio-galley-service-account
-        dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
+        dnsNames: [istio-galley.dubbo-system.svc, istio-galley.dubbo-system]
       - secretName: dns.istio-sidecar-injector-service-account
-        dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+        dnsNames: [istio-sidecar-injector.dubbo-system.svc, istio-sidecar-injector.dubbo-system]
 `
 }

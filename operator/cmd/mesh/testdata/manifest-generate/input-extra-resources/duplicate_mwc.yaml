@@ -3,7 +3,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   labels:
     app: sidecar-injector
-  name: w-istio-sidecar-injector-istio-system
+  name: w-istio-sidecar-injector-dubbo-system
   
 webhooks:
 - admissionReviewVersions:
@@ -12,7 +12,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: /inject
       port: 443
   failurePolicy: Fail
@@ -51,7 +51,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: /inject
       port: 443
   failurePolicy: Fail
@@ -92,7 +92,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: /inject
       port: 443
   failurePolicy: Fail
@@ -129,7 +129,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: /inject
       port: 443
   failurePolicy: Fail
@@ -168,7 +168,7 @@ webhooks:
   clientConfig:
     service:
       name: istiod
-      namespace: istio-system
+      namespace: dubbo-system
       path: /inject
       port: 443
   failurePolicy: Fail

@@ -31,3 +31,7 @@ var LbPolicyTypeValue = map[string]LbPolicyType{
 	"RoundRobin":        LoadBalancerRoundRobin,
 	"ConsistentHashing": LoadBalanceConsistentHashing,
 }
+
+type LbPolicy interface {
+	GenerateHash() string
+}
