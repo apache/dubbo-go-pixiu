@@ -26,15 +26,13 @@ import (
 )
 
 import (
-	gerrors "github.com/mercari/grpc-http-proxy/errors"
-	proxymeta "github.com/mercari/grpc-http-proxy/metadata"
-	"github.com/mercari/grpc-http-proxy/proxy"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client/proxy"
 )
 
 // InitDefaultTripleClient init default dubbo client
@@ -79,6 +77,7 @@ func SingletonTripleClient() *Client {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
+	// TODO: maybe use req.GetURL() instead ?
 	address := strings.Split(req.API.IntegrationRequest.HTTPBackendConfig.URL, ":")
 	p := proxy.NewProxy()
 	targetURL := &url.URL{
@@ -88,19 +87,14 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	if err := p.Connect(context.Background(), targetURL); err != nil {
 		return "", errors.Errorf("connect triple server error = %s", err)
 	}
+	// TODO: pass the header of HTTP
 	meta := make(map[string][]string)
 	reqData, _ := io.ReadAll(req.IngressRequest.Body)
 	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
 	defer cancel()
-	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
+	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*metadata.MD)(&meta))
 	if err != nil {
-		gerr, ok := err.(*gerrors.GRPCError)
-		if ok {
-			statusCode := codes.Code(gerr.StatusCode)
-			if statusCode == codes.Canceled || statusCode == codes.DeadlineExceeded {
-				return "", errors.Errorf("call triple server timeout error = %s", err)
-			}
-		}
+		// TODO: err handle properly
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
 	return call, nil
