@@ -77,7 +77,6 @@ func SingletonTripleClient() *Client {
 
 // Call invoke service
 func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
-	// TODO: maybe use req.GetURL() instead ?
 	address := strings.Split(req.API.IntegrationRequest.HTTPBackendConfig.URL, ":")
 	p := proxy.NewProxy()
 	targetURL := &url.URL{
@@ -94,7 +93,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	defer cancel()
 	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*metadata.MD)(&meta))
 	if err != nil {
-		// TODO: err handle properly
+		// TODO: handler timeout error
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
 	return call, nil

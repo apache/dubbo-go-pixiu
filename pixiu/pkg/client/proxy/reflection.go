@@ -25,6 +25,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/pkg/errors"
 )
 
 type Reflector struct {
@@ -43,8 +44,8 @@ func (r *Reflector) CreateInvocation(ctx context.Context, serviceName, methodNam
 		return nil, err
 	}
 	methodDesc := serviceDesc.FindMethodByName(methodName)
-	if methodDesc == nil { // TODO: optimize errors
-		return nil, err
+	if methodDesc == nil {
+		return nil, errors.New("method not found upstream")
 	}
 	inputMessage := dynamic.NewMessage(methodDesc.GetInputType())
 	err = inputMessage.UnmarshalJSON(input)
