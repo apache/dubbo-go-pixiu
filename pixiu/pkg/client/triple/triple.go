@@ -20,6 +20,7 @@ package triple
 import (
 	"context"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -66,7 +67,7 @@ func (tc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 }
 
 // Close clear GenericServicePool.
-func (dc *Client) Close() error {
+func (tc *Client) Close() error {
 	return nil
 }
 
@@ -76,7 +77,7 @@ func SingletonTripleClient() *Client {
 }
 
 // Call invoke service
-func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
+func (tc *Client) Call(req *client.Request) (res interface{}, err error) {
 	address := strings.Split(req.API.IntegrationRequest.HTTPBackendConfig.URL, ":")
 	p := proxy.NewProxy()
 	targetURL := &url.URL{
@@ -86,15 +87,27 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	if err := p.Connect(context.Background(), targetURL); err != nil {
 		return "", errors.Errorf("connect triple server error = %s", err)
 	}
-	// TODO: pass the header of HTTP
+
+	header := tc.forwardHeaders(req.IngressRequest.Header)
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	meta := make(map[string][]string)
 	reqData, _ := io.ReadAll(req.IngressRequest.Body)
-	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
 	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*metadata.MD)(&meta))
 	if err != nil {
-		// TODO: handler timeout error
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
 	return call, nil
+}
+
+// forwardHeaders specific what headers should be forwarded
+func (tc *Client) forwardHeaders(header http.Header) metadata.MD {
+	md := metadata.MD{}
+	for k, vals := range header {
+		if s := strings.ToLower(k); strings.HasPrefix(s, "tri-") {
+			md.Set(k, vals...)
+		}
+	}
+	return md
 }
