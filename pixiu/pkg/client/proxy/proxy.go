@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
@@ -47,7 +48,7 @@ func NewProxy() *Proxy {
 
 // Connect opens a connection to target.
 func (p *Proxy) Connect(ctx context.Context, target *url.URL) error {
-	cc, err := grpc.DialContext(ctx, target.String(), grpc.WithInsecure())
+	cc, err := grpc.DialContext(ctx, target.String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
@@ -87,16 +88,3 @@ func (p *Proxy) Call(ctx context.Context, serviceName, methodName string, messag
 	}
 	return m, err
 }
-
-//func test() {
-//	b, err := os.ReadFile("filename.pb")
-//	if err != nil {
-//		return
-//	}
-//	var fs descriptorpb.FileDescriptorSet
-//	err = proto.Unmarshal(b, &fs)
-//	if err != nil {
-//		return
-//	}
-//
-//}
