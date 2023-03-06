@@ -87,3 +87,16 @@ func (p *Proxy) Call(ctx context.Context, serviceName, methodName string, messag
 	}
 	return m, err
 }
+
+//func test() {
+//	b, err := os.ReadFile("filename.pb")
+//	if err != nil {
+//		return
+//	}
+//	var fs descriptorpb.FileDescriptorSet
+//	err = proto.Unmarshal(b, &fs)
+//	if err != nil {
+//		return
+//	}
+//
+//}
