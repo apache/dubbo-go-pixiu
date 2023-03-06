@@ -19,15 +19,13 @@
 
 ### builder
 FROM golang:alpine as builder
-LABEL MAINTAINER="dubbogo.pixiu@outlook.com"
+LABEL MAINTAINER="dev@dubbo.apache.org"
 
-ENV GOPROXY="https://goproxy.cn,direct" \
-    GO111MODULE=on \
-    CGO_ENABLED=0 \
+ENV GO111MODULE=on \
+    CGO_ENABLED=1 \
     GOOS=linux \
     GOARCH=amd64
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 WORKDIR /app/
 COPY . .
 RUN go mod download
