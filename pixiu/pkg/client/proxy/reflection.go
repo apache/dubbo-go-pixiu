@@ -28,6 +28,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/grpcproxy"
+)
+
 type Reflector struct {
 	c *grpcreflect.Client
 }
@@ -38,11 +42,32 @@ func NewReflector(client *grpcreflect.Client) *Reflector {
 }
 
 // CreateInvocation creates a MethodInvocation by performing reflection
-func (r *Reflector) CreateInvocation(ctx context.Context, serviceName, methodName string, input []byte) (*MethodInvocation, error) {
-	serviceDesc, err := r.c.ResolveService(serviceName)
-	if err != nil {
-		return nil, err
+func (r *Reflector) CreateInvocation(ctx context.Context, serviceName, methodName string, input []byte, ps grpcproxy.DescriptorSource) (*MethodInvocation, error) {
+	var (
+		serviceDesc *desc.ServiceDescriptor
+		err         error
+	)
+
+	if ps != nil {
+		// Parsing reflection through protoset files
+		var dsc desc.Descriptor
+		dsc, err = ps.FindSymbol(serviceName)
+		if err != nil {
+			return nil, errors.Errorf("service was not found upstream even though it should have been there: %v", err)
+		}
+
+		var ok bool
+		serviceDesc, ok = dsc.(*desc.ServiceDescriptor)
+		if !ok {
+			return nil, errors.Errorf("target server does not expose service %s", serviceName)
+		}
+	} else {
+		serviceDesc, err = r.c.ResolveService(serviceName)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	methodDesc := serviceDesc.FindMethodByName(methodName)
 	if methodDesc == nil {
 		return nil, errors.New("method not found upstream")

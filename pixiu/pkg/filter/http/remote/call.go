@@ -104,7 +104,7 @@ func (factory *FilterFactory) Apply() error {
 	factory.conf.Level = level
 	// must init it at apply function
 	dubbo.InitDefaultDubboClient(factory.conf.Dpc)
-	triple.InitDefaultTripleClient()
+	triple.InitDefaultTripleClient(factory.conf.Dpc.Protoset)
 	return nil
 }
 
@@ -133,7 +133,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 
 	typ := api.Method.IntegrationRequest.RequestType
 
-	cli, err := matchClient(typ)
+	cli, err := f.matchClient(typ)
 	if err != nil {
 		panic(err)
 	}
@@ -142,7 +142,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	req.Timeout = c.Timeout
 	resp, err := cli.Call(req)
 	if err != nil {
-		logger.Errorf("[dubbo-go-pixiu] client call err:%v!", err)
+		logger.Errorf("[dubbo-go-pixiu] client call err: %v!", err)
 		if strings.Contains(strings.ToLower(err.Error()), "timeout") {
 			c.SendLocalReply(http.StatusGatewayTimeout, []byte(fmt.Sprintf("client call timeout err: %s", err)))
 			return filter.Stop
@@ -151,19 +151,19 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
+	logger.Debugf("[dubbo-go-pixiu] client call resp: %v", resp)
 
 	c.SourceResp = resp
 	return filter.Continue
 }
 
-func matchClient(typ apiConf.RequestType) (client.Client, error) {
+func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
 	switch strings.ToLower(string(typ)) {
 	case string(apiConf.DubboRequest):
 		return dubbo.SingletonDubboClient(), nil
 	// todo @(laurence) add triple to apiConf
 	case "triple":
-		return triple.SingletonTripleClient(), nil
+		return triple.SingletonTripleClient(f.conf.Dpc.Protoset), nil
 	case string(apiConf.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:

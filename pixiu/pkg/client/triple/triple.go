@@ -34,11 +34,13 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client/proxy"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/grpcproxy"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
 
 // InitDefaultTripleClient init default dubbo client
-func InitDefaultTripleClient() {
-	tripleClient = NewTripleClient()
+func InitDefaultTripleClient(protoset []string) {
+	tripleClient = NewTripleClient(protoset)
 }
 
 var (
@@ -47,15 +49,22 @@ var (
 )
 
 // NewTripleClient create dubbo client
-func NewTripleClient() *Client {
+func NewTripleClient(protoset []string) *Client {
 	clientOnce.Do(func() {
-		tripleClient = &Client{}
+		dsp, err := proxy.DescriptorSourceFromProtoset(protoset)
+		if err != nil {
+			logger.Errorf("[dubbo-go-pixiu] error when loading protoset files: %v", err)
+		}
+		tripleClient = &Client{
+			protosetSource: dsp,
+		}
 	})
 	return tripleClient
 }
 
 // Client client to generic invoke dubbo
 type Client struct {
+	protosetSource grpcproxy.DescriptorSource
 }
 
 func (tc *Client) Apply() error {
@@ -72,14 +81,14 @@ func (tc *Client) Close() error {
 }
 
 // SingletonTripleClient singleton dubbo clent
-func SingletonTripleClient() *Client {
-	return NewTripleClient()
+func SingletonTripleClient(protoset []string) *Client {
+	return NewTripleClient(protoset)
 }
 
 // Call invoke service
 func (tc *Client) Call(req *client.Request) (res interface{}, err error) {
 	address := strings.Split(req.API.IntegrationRequest.HTTPBackendConfig.URL, ":")
-	p := proxy.NewProxy()
+	p := proxy.NewProxy(tc.protosetSource)
 	targetURL := &url.URL{
 		Scheme: address[0],
 		Opaque: address[1],
