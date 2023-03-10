@@ -53,7 +53,7 @@ func NewTripleClient(protoset []string) *Client {
 	clientOnce.Do(func() {
 		dsp, err := proxy.DescriptorSourceFromProtoset(protoset)
 		if err != nil {
-			logger.Errorf("[dubbo-go-pixiu] error when loading protoset files: %v", err)
+			logger.Infof("[dubbo-go-pixiu] could not load protoset files: %v", err)
 		}
 		tripleClient = &Client{
 			protosetSource: dsp,

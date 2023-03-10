@@ -38,11 +38,14 @@ import (
 // whose contents are Protocol Buffer source files. The given importPaths are used to locate
 // any imported files.
 func DescriptorSourceFromProtoset(filenames []string) (grpcproxy.DescriptorSource, error) {
+	if len(filenames) < 1 {
+		return nil, errors.New("no protoset files provided")
+	}
 	files := &descriptorpb.FileDescriptorSet{}
 	for _, filename := range filenames {
 		b, err := os.ReadFile(filename)
 		if err != nil {
-			return nil, errors.Errorf("could not load protoset file %q: %v", filename, err)
+			return nil, errors.Errorf("wrong path to load protoset file %q: %v", filename, err)
 		}
 		var fs descriptorpb.FileDescriptorSet
 		err = proto.Unmarshal(b, &fs)
