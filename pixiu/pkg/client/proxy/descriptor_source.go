@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+// This file contains code that is copied and modified from:
+// https://github.com/fullstorydev/grpcurl/blob/v1.8.7/desc_source.go
+
 package proxy
 
 import (
@@ -32,7 +35,23 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/grpcproxy"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
+
+var (
+	sourceOnce     sync.Once
+	protosetSource grpcproxy.DescriptorSource
+)
+
+func InitProtosetSource(protoset []string) {
+	sourceOnce.Do(func() {
+		var err error
+		protosetSource, err = DescriptorSourceFromProtoset(protoset)
+		if err != nil {
+			logger.Infof("[dubbo-go-pixiu] could not load protoset files: %v", err)
+		}
+	})
+}
 
 // DescriptorSourceFromProtoset creates a DescriptorSource that is backed by the named files,
 // whose contents are Protocol Buffer source files. The given importPaths are used to locate

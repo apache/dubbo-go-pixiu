@@ -34,8 +34,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client/proxy"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/grpcproxy"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
 
 // InitDefaultTripleClient init default dubbo client
@@ -51,20 +49,14 @@ var (
 // NewTripleClient create dubbo client
 func NewTripleClient(protoset []string) *Client {
 	clientOnce.Do(func() {
-		dsp, err := proxy.DescriptorSourceFromProtoset(protoset)
-		if err != nil {
-			logger.Infof("[dubbo-go-pixiu] could not load protoset files: %v", err)
-		}
-		tripleClient = &Client{
-			protosetSource: dsp,
-		}
+		tripleClient = &Client{}
+		proxy.InitProtosetSource(protoset)
 	})
 	return tripleClient
 }
 
 // Client client to generic invoke dubbo
 type Client struct {
-	protosetSource grpcproxy.DescriptorSource
 }
 
 func (tc *Client) Apply() error {
@@ -88,19 +80,23 @@ func SingletonTripleClient(protoset []string) *Client {
 // Call invoke service
 func (tc *Client) Call(req *client.Request) (res interface{}, err error) {
 	address := strings.Split(req.API.IntegrationRequest.HTTPBackendConfig.URL, ":")
-	p := proxy.NewProxy(tc.protosetSource)
+	p := proxy.NewProxy()
 	targetURL := &url.URL{
 		Scheme: address[0],
 		Opaque: address[1],
 	}
-	if err := p.Connect(context.Background(), targetURL); err != nil {
-		return "", errors.Errorf("connect triple server error = %s", err)
+	if err = p.Connect(context.Background(), targetURL); err != nil {
+		return nil, errors.Errorf("connect triple server error = %s", err)
 	}
 
 	header := tc.forwardHeaders(req.IngressRequest.Header)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	meta := make(map[string][]string)
-	reqData, _ := io.ReadAll(req.IngressRequest.Body)
+	reqData, err := io.ReadAll(req.IngressRequest.Body)
+	if err != nil {
+		return nil, errors.Errorf("read request body error = %s", err)
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
 	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*metadata.MD)(&meta))

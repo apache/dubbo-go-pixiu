@@ -35,22 +35,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/grpcproxy"
-)
-
 type Proxy struct {
 	cc        *grpc.ClientConn
 	reflector *Reflector
 	stub      grpcdynamic.Stub
-	ps        grpcproxy.DescriptorSource
 }
 
 // NewProxy creates a new client
-func NewProxy(protosetSource grpcproxy.DescriptorSource) *Proxy {
-	return &Proxy{
-		ps: protosetSource,
-	}
+func NewProxy() *Proxy {
+	return &Proxy{}
 }
 
 // Connect opens a connection to target.
@@ -68,7 +61,7 @@ func (p *Proxy) Connect(ctx context.Context, target *url.URL) error {
 
 // Call performs the gRPC call after doing reflection to obtain type information.
 func (p *Proxy) Call(ctx context.Context, serviceName, methodName string, message []byte, md *metadata.MD) ([]byte, error) {
-	invocation, err := p.reflector.CreateInvocation(ctx, serviceName, methodName, message, p.ps)
+	invocation, err := p.reflector.CreateInvocation(ctx, serviceName, methodName, message)
 	if err != nil {
 		return nil, err
 	}
