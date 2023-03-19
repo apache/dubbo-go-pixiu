@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package model
+package maglev
 
-// LbPolicyType the load balance policy enum
-type LbPolicyType string
-
-const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
-	LoadBalanceMaglevHashing     LbPolicyType = "MaglevHashing"
+import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
-var LbPolicyTypeValue = map[string]LbPolicyType{
-	"Rand":              LoadBalancerRand,
-	"RoundRobin":        LoadBalancerRoundRobin,
-	"ConsistentHashing": LoadBalanceConsistentHashing,
-	"MaglevHashing":     LoadBalanceMaglevHashing,
+func init() {
+	loadbalancer.RegisterLoadBalancer(model.LoadBalanceMaglevHashing, MaglevHash{})
 }
 
-type LbPolicy interface {
-	GenerateHash() string
+type MaglevHash struct{}
+
+func (m MaglevHash) Handler(c *model.ClusterConfig, lb model.LbPolicy) *model.Endpoint {
+	c.GetEndpoint(true)
+	return nil
 }
