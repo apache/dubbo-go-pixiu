@@ -31,4 +31,6 @@ type DubboProxyConfig struct {
 	IsDefaultMap bool
 	// AutoResolve whether to resolve api config from request
 	AutoResolve bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
+	// Protoset path to load protoset files
+	Protoset []string `yaml:"protoset" json:"protoset,omitempty"`
 }

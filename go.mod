@@ -69,7 +69,6 @@ require (
 	github.com/lestrrat-go/jwx v1.2.23
 	github.com/lucas-clemente/quic-go v0.27.0
 	github.com/mattn/go-isatty v0.0.14
-	github.com/mercari/grpc-http-proxy v0.1.2
 	github.com/miekg/dns v1.1.48
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
