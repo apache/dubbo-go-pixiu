@@ -8,6 +8,10 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
+replace istio.io/api => github.com/dubbo-go-pixiu/operator-api v0.0.0-20221126054223-dda83ac319f4
+
+replace istio.io/client-go => github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20221126073212-882e30cca8f6
+
 require (
 	cloud.google.com/go/compute v1.6.0
 	cloud.google.com/go/security v1.3.0
@@ -69,7 +73,6 @@ require (
 	github.com/lestrrat-go/jwx v1.2.23
 	github.com/lucas-clemente/quic-go v0.27.0
 	github.com/mattn/go-isatty v0.0.14
-	github.com/mercari/grpc-http-proxy v0.1.2
 	github.com/miekg/dns v1.1.48
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -122,7 +125,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.10.3
-	istio.io/api v0.0.0-20220906212632-fa18ce1fc2da
+	istio.io/api v0.0.0-20221004225839-607aeaab2827
 	istio.io/client-go v1.14.4-0.20220906213432-736be6f83263
 	istio.io/pkg v0.0.0-20220906212832-f98e656e3df0
 	k8s.io/api v0.25.2
@@ -307,7 +310,7 @@ require (
 	golang.org/x/arch v0.0.0-20200826200359-b19915210f00 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.3.8 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gomodules.xyz/orderedmap v0.1.0 // indirect

@@ -37,6 +37,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/apigen"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/dubbogen"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/grpcgen"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
@@ -587,6 +588,9 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
+
+	s.Generators["dubbo"] = &dubbogen.DubboConfigGenerator{}
+	s.Generators[v3.DubboServiceNameMappingType] = s.Generators["dubbo"]
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen

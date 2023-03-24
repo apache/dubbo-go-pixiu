@@ -20,26 +20,25 @@ package triple
 import (
 	"context"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 )
 
 import (
-	gerrors "github.com/mercari/grpc-http-proxy/errors"
-	proxymeta "github.com/mercari/grpc-http-proxy/metadata"
-	"github.com/mercari/grpc-http-proxy/proxy"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client/proxy"
 )
 
 // InitDefaultTripleClient init default dubbo client
-func InitDefaultTripleClient() {
-	tripleClient = NewTripleClient()
+func InitDefaultTripleClient(protoset []string) {
+	tripleClient = NewTripleClient(protoset)
 }
 
 var (
@@ -48,9 +47,10 @@ var (
 )
 
 // NewTripleClient create dubbo client
-func NewTripleClient() *Client {
+func NewTripleClient(protoset []string) *Client {
 	clientOnce.Do(func() {
 		tripleClient = &Client{}
+		proxy.InitProtosetSource(protoset)
 	})
 	return tripleClient
 }
@@ -68,40 +68,51 @@ func (tc *Client) MapParams(req *client.Request) (reqData interface{}, err error
 }
 
 // Close clear GenericServicePool.
-func (dc *Client) Close() error {
+func (tc *Client) Close() error {
 	return nil
 }
 
 // SingletonTripleClient singleton dubbo clent
-func SingletonTripleClient() *Client {
-	return NewTripleClient()
+func SingletonTripleClient(protoset []string) *Client {
+	return NewTripleClient(protoset)
 }
 
 // Call invoke service
-func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
+func (tc *Client) Call(req *client.Request) (res interface{}, err error) {
 	address := strings.Split(req.API.IntegrationRequest.HTTPBackendConfig.URL, ":")
 	p := proxy.NewProxy()
 	targetURL := &url.URL{
 		Scheme: address[0],
 		Opaque: address[1],
 	}
-	if err := p.Connect(context.Background(), targetURL); err != nil {
-		return "", errors.Errorf("connect triple server error = %s", err)
+	if err = p.Connect(context.Background(), targetURL); err != nil {
+		return nil, errors.Errorf("connect triple server error = %s", err)
 	}
+
+	header := tc.forwardHeaders(req.IngressRequest.Header)
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	meta := make(map[string][]string)
-	reqData, _ := io.ReadAll(req.IngressRequest.Body)
-	ctx, cancel := context.WithTimeout(context.Background(), req.Timeout)
-	defer cancel()
-	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*proxymeta.Metadata)(&meta))
+	reqData, err := io.ReadAll(req.IngressRequest.Body)
 	if err != nil {
-		gerr, ok := err.(*gerrors.GRPCError)
-		if ok {
-			statusCode := codes.Code(gerr.StatusCode)
-			if statusCode == codes.Canceled || statusCode == codes.DeadlineExceeded {
-				return "", errors.Errorf("call triple server timeout error = %s", err)
-			}
-		}
+		return nil, errors.Errorf("read request body error = %s", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
+	defer cancel()
+	call, err := p.Call(ctx, req.API.Method.IntegrationRequest.Interface, req.API.Method.IntegrationRequest.Method, reqData, (*metadata.MD)(&meta))
+	if err != nil {
 		return "", errors.Errorf("call triple server error = %s", err)
 	}
 	return call, nil
+}
+
+// forwardHeaders specific what headers should be forwarded
+func (tc *Client) forwardHeaders(header http.Header) metadata.MD {
+	md := metadata.MD{}
+	for k, vals := range header {
+		if s := strings.ToLower(k); strings.HasPrefix(s, "tri-") {
+			md.Set(k, vals...)
+		}
+	}
+	return md
 }
