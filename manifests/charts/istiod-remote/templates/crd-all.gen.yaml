@@ -10,6 +10,66 @@ metadata:
     chart: istio
     heritage: Tiller
     release: istio
+  name: servicenamemappings.extensions.istio.io
+spec:
+  group: extensions.istio.io
+  names:
+    categories:
+    - istio-io
+    - extensions-istio-io
+    kind: ServiceNameMapping
+    listKind: ServiceNameMappingList
+    plural: servicenamemappings
+    shortNames:
+    - snp
+    singular: servicenamemapping
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            description: 'it''s the spec of Service Name Mapping, which is used to
+              map the interface name See more details at:'
+            properties:
+              applicationNames:
+                items:
+                  type: string
+                type: array
+              interfaceName:
+                description: InterfaceName.
+                type: string
+            type: object
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
   name: wasmplugins.extensions.istio.io
 spec:
   group: extensions.istio.io

@@ -54,6 +54,7 @@ import (
 	istiogrpc "github.com/apache/dubbo-go-pixiu/pilot/pkg/grpc"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/keycertbundle"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	dubbov1alpha1 "github.com/apache/dubbo-go-pixiu/pilot/pkg/networking/dubbo/v1alpha1"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/server"
 	"github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "github.com/apache/dubbo-go-pixiu/pilot/pkg/serviceregistry/kube/controller"
@@ -178,6 +179,9 @@ type Server struct {
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+
+	//Service Name mapping register
+	snpServer *dubbov1alpha1.Snp
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -271,6 +275,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// Create Istiod certs and setup watches.
 	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
 		return nil, err
+	}
+
+	// Create Service Name mapping server
+	if s.kubeClient != nil {
+		s.snpServer = dubbov1alpha1.NewSnp(s.kubeClient)
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
@@ -647,6 +656,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		return nil
 	})
 
+	// Implement ServiceNameMapping grace shutdown
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		log.Infof("Starting ADS server")
+		s.snpServer.Start(stop)
+		return nil
+	})
+
 	s.initGrpcServer(args.KeepaliveOptions)
 
 	if args.ServerOptions.GRPCAddr != "" {
@@ -729,6 +745,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
+	s.snpServer.Register(s.grpcServer)
 }
 
 // initialize secureGRPCServer.
@@ -777,6 +794,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
+	s.snpServer.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {

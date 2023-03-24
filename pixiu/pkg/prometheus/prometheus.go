@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/context"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 )
@@ -36,7 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/context"
 )
 
 var defaultSubsystem = "pixiu"
