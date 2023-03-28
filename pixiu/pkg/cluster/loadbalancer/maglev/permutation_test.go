@@ -19,11 +19,9 @@ package maglev
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"strconv"
 	"testing"
 
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -50,14 +48,9 @@ func init() {
 }
 
 func createTableWithNodes(factor, nodeCount int) *LookUpTable {
-	nodes := make([]*model.Endpoint, 0, nodeCount)
+	nodes := make([]string, 0, nodeCount)
 	for i := 1; i <= nodeCount; i++ {
-		name := strconv.Itoa(i)
-		nodes = append(nodes, &model.Endpoint{
-			ID:      name,
-			Name:    name,
-			Address: model.SocketAddress{Address: "192.168.1." + name, Port: 1000 + i},
-		})
+		nodes = append(nodes, fmt.Sprintf("192.168.1.%d:%d", i, 1000+i))
 	}
 	return NewLookUpTable(factor, nodes)
 }

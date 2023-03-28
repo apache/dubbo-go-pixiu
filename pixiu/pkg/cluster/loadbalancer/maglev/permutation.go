@@ -19,7 +19,8 @@ package maglev
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
+	"hash/crc32"
 	"math"
 	"sync"
 
@@ -27,11 +28,10 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 type permutation struct {
-	pos   []uint64
+	pos   []uint32
 	next  int
 	index int
 	hit   int
@@ -46,17 +46,16 @@ type LookUpTable struct {
 	sync.RWMutex
 }
 
-func NewLookUpTable(factor int, endpoints []*model.Endpoint) *LookUpTable {
+func NewLookUpTable(factor int, hosts []string) *LookUpTable {
 	if factor < 10 {
-		logger.Debugf("[dubbo-go-pixiu] The factor of Maglev load balancing should be an integer greater than 10,"+
-			" but got %d instead. Setting factor to 10 by default.", factor)
+		logger.Debugf("[dubbo-go-pixiu] The factor of Maglev load balancing should greater than 10, "+
+			"but got %d instead. Setting factor to 10 by default.", factor)
 		factor = 10
 	}
 
 	buckets := make(map[int]string)
-	for i, endpoint := range endpoints {
-		address := endpoint.Address
-		buckets[i] = fmt.Sprintf("%s:%d", address.Address, address.Port)
+	for i, host := range hosts {
+		buckets[i] = host
 	}
 	n := len(buckets)
 	m := factor * n
@@ -78,7 +77,7 @@ func (t *LookUpTable) Populate() {
 	t.genPermutations()
 
 	full, miss := 0, 0
-	for miss == t.endpointNum && t.endpointNum != 0 || full != t.size {
+	for miss == t.endpointNum && t.endpointNum > 0 || full != t.size {
 		for _, p := range t.permutations {
 			if p.next == t.size {
 				continue
@@ -98,17 +97,18 @@ func (t *LookUpTable) Populate() {
 		}
 	}
 
-	// Fill the empty slot with the least placed Endpoint.
+	// Fill the empty slots with the least placed Endpoint.
+	// It happens in a very tiny small chance, let say 0.001%.
 	if full != t.size {
-		t.fillMissingSlot()
+		t.fillMissingSlots()
 	}
 }
 
 func (t *LookUpTable) genPermutations() {
-	var offset, skip, j uint64
-	m := uint64(t.size)
+	var offset, skip, j uint32
+	m := uint32(t.size)
 	for i, B := range t.buckets {
-		pos := make([]uint64, m)
+		pos := make([]uint32, m)
 		offset = _hash1(B) % m
 		skip = _hash2(B)%m*(m-1) + 1
 		for j = 0; j < m; j++ {
@@ -118,8 +118,7 @@ func (t *LookUpTable) genPermutations() {
 	}
 }
 
-func (t *LookUpTable) fillMissingSlot() {
-	// todo: what to do when hit == 0
+func (t *LookUpTable) fillMissingSlots() {
 	var minP *permutation
 	minHit := math.MaxInt
 	for _, p := range t.permutations {
@@ -136,12 +135,67 @@ func (t *LookUpTable) fillMissingSlot() {
 	}
 }
 
-func _hash1(key string) uint64 {
-	out := sha3.Sum512([]byte(key))
-	return binary.LittleEndian.Uint64(out[:])
+// Hash the input key.
+func (t *LookUpTable) Hash(key string) uint32 {
+	return crc32.Checksum([]byte(key), crc32.IEEETable)
 }
 
-func _hash2(key string) uint64 {
+// Get a slot by hashing the input key.
+func (t *LookUpTable) Get(key string) (string, error) {
+	t.RLock()
+	defer t.RUnlock()
+
+	if t.size == 0 {
+		return "", errors.New("no host added")
+	}
+
+	dst := t.Hash(key) % uint32(t.size)
+	return t.slot[dst], nil
+}
+
+// GetHash a slot by a hashed key.
+func (t *LookUpTable) GetHash(key uint32) (string, error) {
+	t.RLock()
+	defer t.RUnlock()
+
+	if t.size == 0 {
+		return "", errors.New("no host added")
+	}
+
+	return t.slot[key], nil
+}
+
+// Add an endpoint into lookup table.
+func (t *LookUpTable) Add(host string) {
+	t.Lock()
+	defer t.Unlock()
+
+	t.add(host)
+}
+
+func (t *LookUpTable) add(host string) {
+	// todo
+}
+
+// Remove an endpoint from lookup table.
+func (t *LookUpTable) Remove(host string) bool {
+	t.Lock()
+	defer t.Unlock()
+
+	return t.remove(host)
+}
+
+func (t *LookUpTable) remove(host string) bool {
+	// todo
+	return true
+}
+
+func _hash1(key string) uint32 {
+	out := sha3.Sum512([]byte(key))
+	return binary.LittleEndian.Uint32(out[:])
+}
+
+func _hash2(key string) uint32 {
 	out := blake2b.Sum512([]byte(key))
-	return binary.LittleEndian.Uint64(out[:])
+	return binary.LittleEndian.Uint32(out[:])
 }

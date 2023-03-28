@@ -24,11 +24,37 @@ import (
 
 func init() {
 	loadbalancer.RegisterLoadBalancer(model.LoadBalanceMaglevHashing, MaglevHash{})
+	loadbalancer.RegisterConsistentHashInit(model.LoadBalanceMaglevHashing, NewMaglevHash)
+}
+
+func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
+	hosts := make([]string, len(endpoints))
+	for i, endpoint := range endpoints {
+		hosts[i] = endpoint.GetHost()
+	}
+	m := NewLookUpTable(config.ReplicaFactor, hosts)
+	return m
 }
 
 type MaglevHash struct{}
 
-func (m MaglevHash) Handler(c *model.ClusterConfig, lb model.LbPolicy) *model.Endpoint {
-	c.GetEndpoint(true)
-	return nil
+func (m MaglevHash) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
+	dst, err := c.ConsistentHash.Hash.Get(policy.GenerateHash())
+	if err != nil {
+		return nil
+	}
+
+	endpoints := c.GetEndpoint(true)
+
+	for _, endpoint := range endpoints {
+		if endpoint.GetHost() == dst {
+			return endpoint
+		}
+	}
+
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	return endpoints[0]
 }
