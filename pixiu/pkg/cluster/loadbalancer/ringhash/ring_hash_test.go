@@ -41,8 +41,12 @@ func TestHashRing(t *testing.T) {
 			Address: model.SocketAddress{Address: "192.168.1." + name, Port: 1000 + i}})
 	}
 
-	cluster := &model.ClusterConfig{Name: "cluster1", Endpoints: nodes,
-		LbStr: model.LoadBalanceConsistentHashing, Hash: model.Hash{ReplicaNum: 10, MaxVnodeNum: 1023}}
+	cluster := &model.ClusterConfig{
+		Name:           "cluster1",
+		Endpoints:      nodes,
+		LbStr:          model.LoadBalanceConsistentHashing,
+		ConsistentHash: model.ConsistentHash{ReplicaNum: 10, MaxVnodeNum: 1023},
+	}
 	cluster.CreateConsistentHash()
 
 	var (

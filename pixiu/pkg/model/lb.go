@@ -17,6 +17,13 @@
 
 package model
 
+import (
+	"fmt"
+	"math"
+
+	"github.com/dubbogo/gost/hash/consistent"
+)
+
 // LbPolicyType the load balance policy enum
 type LbPolicyType string
 
@@ -36,4 +43,33 @@ var LbPolicyTypeValue = map[string]LbPolicyType{
 
 type LbPolicy interface {
 	GenerateHash() string
+}
+
+type LbConsistentHash interface {
+	Hash(key string) uint32
+	Add(host string)
+	Get(key string) (string, error)
+	GetHash(key uint32) (string, error)
+	Remove(host string) bool
+}
+
+func NewRingHash(config ConsistentHash, endpoints []*Endpoint) LbConsistentHash {
+	var ops []consistent.Option
+
+	if config.ReplicaNum != 0 {
+		ops = append(ops, consistent.WithReplicaNum(config.ReplicaNum))
+	}
+
+	if config.MaxVnodeNum != 0 {
+		ops = append(ops, consistent.WithMaxVnodeNum(int(config.MaxVnodeNum)))
+	} else {
+		config.MaxVnodeNum = math.MinInt32
+	}
+
+	h := consistent.NewConsistentHash(ops...)
+	for _, endpoint := range endpoints {
+		address := endpoint.Address
+		h.Add(fmt.Sprintf("%s:%d", address.Address, address.Port))
+	}
+	return h
 }

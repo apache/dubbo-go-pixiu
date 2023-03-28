@@ -33,9 +33,9 @@ func init() {
 type ConsistentHashing struct{}
 
 func (ConsistentHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
-	u := c.Hash.ConsistentHash.Hash(policy.GenerateHash())
+	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
 
-	hash, err := c.Hash.ConsistentHash.GetHash(u)
+	hash, err := c.ConsistentHash.Hash.GetHash(u)
 	if err != nil {
 		return nil
 	}
