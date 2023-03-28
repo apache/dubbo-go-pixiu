@@ -288,7 +288,7 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 			return
 		}
 	}
-	logger.Warnf("not found  cluster %s", clusterName)
+	logger.Warnf("not found cluster %s", clusterName)
 }
 
 func (s *ClusterStore) HasCluster(clusterName string) bool {

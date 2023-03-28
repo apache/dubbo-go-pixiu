@@ -38,7 +38,7 @@ type LbPolicy interface {
 	GenerateHash() string
 }
 
-// LbConsistentHash supports consistent hash load balancing:
+// LbConsistentHash supports consistent hash load balancing
 type LbConsistentHash interface {
 	Hash(key string) uint32
 	Add(host string)
@@ -49,4 +49,5 @@ type LbConsistentHash interface {
 
 type ConsistentHashInitFunc = func(ConsistentHash, []*Endpoint) LbConsistentHash
 
+// ConsistentHashInitMap stores the Init functions for consistent hash load balancing
 var ConsistentHashInitMap = map[LbPolicyType]ConsistentHashInitFunc{}

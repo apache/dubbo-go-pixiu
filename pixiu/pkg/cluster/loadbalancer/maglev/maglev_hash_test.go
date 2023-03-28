@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package consistent
+package maglev
 
 import (
 	"fmt"
+
 	std "net/http"
 	"strconv"
 	"testing"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
-func TestHashRing(t *testing.T) {
+func TestMaglevHash(t *testing.T) {
 
 	nodeCount := 5
 
@@ -42,15 +41,15 @@ func TestHashRing(t *testing.T) {
 	}
 
 	cluster := &model.ClusterConfig{
-		Name:           "cluster1",
+		Name:           "test-cluster",
 		Endpoints:      nodes,
-		LbStr:          model.LoadBalanceRingHashing,
-		ConsistentHash: model.ConsistentHash{ReplicaNum: 10, MaxVnodeNum: 1023},
+		LbStr:          model.LoadBalanceMaglevHashing,
+		ConsistentHash: model.ConsistentHash{ReplicaFactor: 10},
 	}
 	cluster.CreateConsistentHash()
 
 	var (
-		hashing = RingHashing{}
+		hashing = MaglevHash{}
 		path    string
 	)
 

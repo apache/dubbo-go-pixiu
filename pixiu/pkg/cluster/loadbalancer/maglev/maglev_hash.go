@@ -33,6 +33,7 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 		hosts[i] = endpoint.GetHost()
 	}
 	m := NewLookUpTable(config.ReplicaFactor, hosts)
+	m.Populate()
 	return m
 }
 
