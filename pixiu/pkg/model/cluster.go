@@ -17,6 +17,8 @@
 
 package model
 
+import "fmt"
+
 const (
 	Static DiscoveryType = iota
 	StrictDNS
@@ -53,7 +55,7 @@ type (
 		Type                 DiscoveryType       `yaml:"-" json:"-"`       // Type the cluster discovery type
 		EdsClusterConfig     EdsClusterConfig    `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
 		LbStr                LbPolicyType        `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
-		ConsistentHash       ConsistentHash      `yaml:"consistent" json:"consistent"` // Consistent ringhash config info
+		ConsistentHash       ConsistentHash      `yaml:"consistent" json:"consistent"` // Consistent hash config info
 		HealthChecks         []HealthCheckConfig `yaml:"health_checks" json:"health_checks"`
 		Endpoints            []*Endpoint         `yaml:"endpoints" json:"endpoints"`
 		PrePickEndpointIndex int
@@ -113,8 +115,11 @@ func (c *ClusterConfig) GetEndpoint(mustHealth bool) []*Endpoint {
 
 // CreateConsistentHash creates consistent hashing algorithms for Load Balance.
 func (c *ClusterConfig) CreateConsistentHash() {
-	switch c.LbStr {
-	case LoadBalanceConsistentHashing:
-		c.ConsistentHash.Hash = NewRingHash(c.ConsistentHash, c.Endpoints)
+	if newConsistentHash, ok := ConsistentHashInitMap[c.LbStr]; ok {
+		c.ConsistentHash.Hash = newConsistentHash(c.ConsistentHash, c.Endpoints)
 	}
+}
+
+func (e Endpoint) GetHost() string {
+	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
 }

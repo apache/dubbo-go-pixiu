@@ -17,34 +17,28 @@
 
 package model
 
-import (
-	"fmt"
-	"math"
-
-	"github.com/dubbogo/gost/hash/consistent"
-)
-
 // LbPolicyType the load balance policy enum
 type LbPolicyType string
 
 const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
-	LoadBalanceMaglevHashing     LbPolicyType = "MaglevHashing"
+	LoadBalancerRand         LbPolicyType = "Rand"
+	LoadBalancerRoundRobin   LbPolicyType = "RoundRobin"
+	LoadBalanceRingHashing   LbPolicyType = "RingHashing"
+	LoadBalanceMaglevHashing LbPolicyType = "MaglevHashing"
 )
 
 var LbPolicyTypeValue = map[string]LbPolicyType{
-	"Rand":              LoadBalancerRand,
-	"RoundRobin":        LoadBalancerRoundRobin,
-	"ConsistentHashing": LoadBalanceConsistentHashing,
-	"MaglevHashing":     LoadBalanceMaglevHashing,
+	"Rand":          LoadBalancerRand,
+	"RoundRobin":    LoadBalancerRoundRobin,
+	"RingHashing":   LoadBalanceRingHashing,
+	"MaglevHashing": LoadBalanceMaglevHashing,
 }
 
 type LbPolicy interface {
 	GenerateHash() string
 }
 
+// LbConsistentHash supports consistent hash load balancing:
 type LbConsistentHash interface {
 	Hash(key string) uint32
 	Add(host string)
@@ -53,23 +47,6 @@ type LbConsistentHash interface {
 	Remove(host string) bool
 }
 
-func NewRingHash(config ConsistentHash, endpoints []*Endpoint) LbConsistentHash {
-	var ops []consistent.Option
+type ConsistentHashInitFunc = func(ConsistentHash, []*Endpoint) LbConsistentHash
 
-	if config.ReplicaNum != 0 {
-		ops = append(ops, consistent.WithReplicaNum(config.ReplicaNum))
-	}
-
-	if config.MaxVnodeNum != 0 {
-		ops = append(ops, consistent.WithMaxVnodeNum(int(config.MaxVnodeNum)))
-	} else {
-		config.MaxVnodeNum = math.MinInt32
-	}
-
-	h := consistent.NewConsistentHash(ops...)
-	for _, endpoint := range endpoints {
-		address := endpoint.Address
-		h.Add(fmt.Sprintf("%s:%d", address.Address, address.Port))
-	}
-	return h
-}
+var ConsistentHashInitMap = map[LbPolicyType]ConsistentHashInitFunc{}

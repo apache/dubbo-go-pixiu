@@ -18,23 +18,43 @@
 package consistent
 
 import (
-	"fmt"
-)
+	"math"
 
-import (
+	"github.com/dubbogo/gost/hash/consistent"
+
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalanceConsistentHashing, ConsistentHashing{})
+	loadbalancer.RegisterLoadBalancer(model.LoadBalanceRingHashing, RingHashing{})
+	loadbalancer.RegisterConsistentHashInit(model.LoadBalanceRingHashing, NewRingHash)
 }
 
-type ConsistentHashing struct{}
+func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
+	var ops []consistent.Option
 
-func (ConsistentHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
+	if config.ReplicaNum != 0 {
+		ops = append(ops, consistent.WithReplicaNum(config.ReplicaNum))
+	}
+
+	if config.MaxVnodeNum != 0 {
+		ops = append(ops, consistent.WithMaxVnodeNum(int(config.MaxVnodeNum)))
+	} else {
+		config.MaxVnodeNum = math.MinInt32
+	}
+
+	h := consistent.NewConsistentHash(ops...)
+	for _, endpoint := range endpoints {
+		h.Add(endpoint.GetHost())
+	}
+	return h
+}
+
+type RingHashing struct{}
+
+func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
 	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
-
 	hash, err := c.ConsistentHash.Hash.GetHash(u)
 	if err != nil {
 		return nil
@@ -43,8 +63,7 @@ func (ConsistentHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) 
 	endpoints := c.GetEndpoint(true)
 
 	for _, endpoint := range endpoints {
-		address := endpoint.Address
-		if fmt.Sprintf("%s:%d", address.Address, address.Port) == hash {
+		if endpoint.GetHost() == hash {
 			return endpoint
 		}
 	}

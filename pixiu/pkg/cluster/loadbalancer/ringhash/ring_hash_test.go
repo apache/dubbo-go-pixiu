@@ -44,13 +44,13 @@ func TestHashRing(t *testing.T) {
 	cluster := &model.ClusterConfig{
 		Name:           "cluster1",
 		Endpoints:      nodes,
-		LbStr:          model.LoadBalanceConsistentHashing,
+		LbStr:          model.LoadBalanceRingHashing,
 		ConsistentHash: model.ConsistentHash{ReplicaNum: 10, MaxVnodeNum: 1023},
 	}
 	cluster.CreateConsistentHash()
 
 	var (
-		hashing = ConsistentHashing{}
+		hashing = RingHashing{}
 		path    string
 	)
 
