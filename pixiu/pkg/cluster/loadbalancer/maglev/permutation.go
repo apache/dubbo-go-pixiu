@@ -38,19 +38,20 @@ type permutation struct {
 }
 
 type LookUpTable struct {
-	slot         []string
+	slots        []string
 	permutations []*permutation
 	buckets      map[int]string
 	endpointNum  int
 	size         int
+	factor       int
 	sync.RWMutex
 }
 
 func NewLookUpTable(factor int, hosts []string) *LookUpTable {
-	if factor < 10 {
-		logger.Debugf("[dubbo-go-pixiu] The factor of Maglev load balancing should greater than 10, "+
-			"but got %d instead. Setting factor to 10 by default.", factor)
-		factor = 10
+	if factor < 10 || factor > 1000 {
+		logger.Debugf("[dubbo-go-pixiu] The factor of Maglev load balancing should between 10 and 1000 "+
+			"but got %d instead. Setting factor to 100 by default.", factor)
+		factor = 100
 	}
 
 	buckets := make(map[int]string)
@@ -61,11 +62,10 @@ func NewLookUpTable(factor int, hosts []string) *LookUpTable {
 	m := factor * n
 
 	return &LookUpTable{
-		slot:         make([]string, m),
-		permutations: make([]*permutation, n),
-		buckets:      buckets,
-		endpointNum:  n,
-		size:         m,
+		buckets:     buckets,
+		endpointNum: n,
+		size:        m,
+		factor:      factor,
 	}
 }
 
@@ -74,20 +74,25 @@ func (t *LookUpTable) Populate() {
 	t.Lock()
 	defer t.Unlock()
 
-	t.genPermutations()
+	t.generatePerms()
+	t.populate()
+}
+
+func (t *LookUpTable) populate() {
+	t.slots = make([]string, t.size)
 
 	full, miss := 0, 0
-	for miss == t.endpointNum && t.endpointNum > 0 || full != t.size {
+	for miss < t.endpointNum && full < t.size {
 		for _, p := range t.permutations {
 			if p.next == t.size {
 				continue
 			}
 			start := p.next
-			for start < t.size && len(t.slot[p.pos[start]]) > 0 {
+			for start < t.size && len(t.slots[p.pos[start]]) > 0 {
 				start++
 			}
 			if start < t.size {
-				t.slot[p.pos[start]] = t.buckets[p.index]
+				t.slots[p.pos[start]] = t.buckets[p.index]
 				p.hit++
 				full++
 			} else {
@@ -98,23 +103,8 @@ func (t *LookUpTable) Populate() {
 	}
 
 	// Fill the empty slots with the least placed Endpoint.
-	// It happens in a very tiny small chance, let say 0.001%.
-	if full != t.size {
+	if full != t.size && miss > 0 {
 		t.fillMissingSlots()
-	}
-}
-
-func (t *LookUpTable) genPermutations() {
-	var offset, skip, j uint32
-	m := uint32(t.size)
-	for i, B := range t.buckets {
-		pos := make([]uint32, m)
-		offset = _hash1(B) % m
-		skip = _hash2(B)%m*(m-1) + 1
-		for j = 0; j < m; j++ {
-			pos[j] = (offset + j*skip) % m
-		}
-		t.permutations[i] = &permutation{pos, 0, i, 0}
 	}
 }
 
@@ -127,11 +117,53 @@ func (t *LookUpTable) fillMissingSlots() {
 			minP = p
 		}
 	}
-	for i, s := range t.slot {
+	for i, s := range t.slots {
 		if len(s) == 0 {
-			t.slot[i] = t.buckets[minP.index]
+			t.slots[i] = t.buckets[minP.index]
 			minP.hit++
 		}
+	}
+}
+
+func (t *LookUpTable) generatePerms() {
+	t.permutations = make([]*permutation, 0, t.endpointNum)
+
+	for i, b := range t.buckets {
+		t.generatePerm(b, i)
+	}
+}
+
+func (t *LookUpTable) generatePerm(bucket string, i int) {
+	var offs, skip, j uint32
+
+	m := uint32(t.size)
+	pos := make([]uint32, m)
+	offs = _hash1(bucket) % m
+	skip = _hash2(bucket)%m*(m-1) + 1
+	for j = 0; j < m; j++ {
+		pos[j] = (offs + j*skip) % m
+	}
+	t.permutations = append(t.permutations, &permutation{pos, 0, i, 0})
+}
+
+func (t *LookUpTable) resetPerms() {
+	for _, p := range t.permutations {
+		p.next = 0
+		p.hit = 0
+	}
+}
+
+func (t *LookUpTable) removePerm(dst int) {
+	del := -1
+	for i, p := range t.permutations {
+		if p.index == dst {
+			del = i
+			break
+		}
+	}
+	if del != -1 {
+		t.permutations[del] = nil
+		t.permutations = append(t.permutations[:del], t.permutations[del+1:]...)
 	}
 }
 
@@ -145,12 +177,16 @@ func (t *LookUpTable) Get(key string) (string, error) {
 	t.RLock()
 	defer t.RUnlock()
 
-	if t.size == 0 {
+	if len(t.slots) == 0 {
+		return "", errors.New("no slot initialized, please call Populate() before Get()")
+	}
+
+	if t.size == 0 || t.endpointNum == 0 {
 		return "", errors.New("no host added")
 	}
 
 	dst := t.Hash(key) % uint32(t.size)
-	return t.slot[dst], nil
+	return t.slots[dst], nil
 }
 
 // GetHash a slot by a hashed key.
@@ -158,14 +194,18 @@ func (t *LookUpTable) GetHash(key uint32) (string, error) {
 	t.RLock()
 	defer t.RUnlock()
 
-	if t.size == 0 {
+	if len(t.slots) == 0 {
+		return "", errors.New("no slot initialized, please call Populate() before Get()")
+	}
+
+	if t.size == 0 || t.endpointNum == 0 {
 		return "", errors.New("no host added")
 	}
 
-	return t.slot[key], nil
+	return t.slots[key], nil
 }
 
-// Add an endpoint into lookup table.
+// Add one endpoint into lookup table.
 func (t *LookUpTable) Add(host string) {
 	t.Lock()
 	defer t.Unlock()
@@ -174,10 +214,30 @@ func (t *LookUpTable) Add(host string) {
 }
 
 func (t *LookUpTable) add(host string) {
-	// todo
+	dst := 0
+	for i, bucket := range t.buckets {
+		if bucket == host {
+			return
+		}
+		if i > dst {
+			dst = i
+		}
+	}
+	t.buckets[dst+1] = host
+	t.endpointNum++
+
+	// Add new endpoint could cause table size changed.
+	if t.endpointNum*t.factor > t.size {
+		t.size = t.endpointNum * t.factor
+		t.generatePerms()
+	} else {
+		t.resetPerms()
+		t.generatePerm(host, dst+1)
+	}
+	t.populate()
 }
 
-// Remove an endpoint from lookup table.
+// Remove one endpoint from lookup table.
 func (t *LookUpTable) Remove(host string) bool {
 	t.Lock()
 	defer t.Unlock()
@@ -186,8 +246,22 @@ func (t *LookUpTable) Remove(host string) bool {
 }
 
 func (t *LookUpTable) remove(host string) bool {
-	// todo
-	return true
+	if t.endpointNum <= 0 {
+		return false
+	}
+
+	for i, bucket := range t.buckets {
+		if bucket == host {
+			delete(t.buckets, i)
+			t.endpointNum--
+			t.removePerm(i)
+			t.resetPerms()
+			t.populate()
+			return true
+		}
+	}
+
+	return false
 }
 
 func _hash1(key string) uint32 {
