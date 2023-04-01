@@ -6960,14 +6960,14 @@ subjects:
 ---
 # Source: base/templates/default.yaml
 apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
+kind: Val:wqidatingWebhookConfiguration
 metadata:
   name: istiod-default-validator
   labels:
     app: istiod
     release: istio
     istio: istiod
-    istio.io/rev: default
+    istio.io/rev: dubbo
 webhooks:
   - name: validation.istio.io
     clientConfig:

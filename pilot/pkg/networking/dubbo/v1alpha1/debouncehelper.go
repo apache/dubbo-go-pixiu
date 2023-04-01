@@ -3,9 +3,10 @@ package v1alpha1
 import (
 	"fmt"
 	"time"
+)
 
+import (
 	"go.uber.org/atomic"
-	"istio.io/pkg/log"
 )
 
 /**
@@ -33,6 +34,13 @@ type DebounceHelper struct {
 }
 
 func (h *DebounceHelper) Debounce(ch chan *pushRequest, stopCh <-chan struct{}, opts debounceOptions, pushFn func(req *pushRequest), updateSent *atomic.Int64) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			log.Infof("Debounce panic caused by: {%+v}", err)
+		}
+	}()
+
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -65,7 +73,7 @@ func (h *DebounceHelper) Debounce(ch chan *pushRequest, stopCh <-chan struct{}, 
 						quietTime, eventDelay)
 				} else {
 					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push",
-						pushCounter, debouncedEvents, configsUpdated(req),
+						pushCounter, debouncedEvents, PushRequestConfigsUpdated(req),
 						quietTime, eventDelay)
 				}
 				free = false
@@ -111,7 +119,7 @@ func (h *DebounceHelper) Debounce(ch chan *pushRequest, stopCh <-chan struct{}, 
 	}
 }
 
-func configsUpdated(req *pushRequest) string {
+func PushRequestConfigsUpdated(req *pushRequest) string {
 	configs := ""
 	for key := range req.ConfigsUpdated {
 		configs += key.String()

@@ -1136,6 +1136,13 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 	return nil
 }
 
+func (ps *PushContext) ServiceMetadata(namespace, applicationName, revision string) *config.Config {
+	if conf, ok := ps.serviceMetadataIndex.applicationNameByNamespace[namespace][strings.ToLower(fmt.Sprintf("%s-%s", applicationName, revision))]; ok {
+		return conf
+	}
+	return nil
+}
+
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
@@ -2027,6 +2034,35 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	} else {
 		ps.gatewayIndex.all = gatewayConfigs
 	}
+	return nil
+}
+
+func (ps *PushContext) initServiceMetadata(env *Environment) error {
+	metadataConfig, err := env.List(gvk.ServiceMetadata, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(metadataConfig)
+
+	ps.serviceMetadataIndex.namespace = make(map[string][]*config.Config)
+	ps.serviceMetadataIndex.applicationNameByNamespace = make(map[string]map[string]*config.Config)
+	ps.serviceMetadataIndex.all = make([]*config.Config, 0)
+
+	for _, conf := range metadataConfig {
+		if _, ok := ps.serviceMetadataIndex.namespace[conf.Namespace]; !ok {
+			ps.serviceMetadataIndex.namespace[conf.Namespace] = make([]*config.Config, 0)
+		}
+
+		if _, ok := ps.serviceMetadataIndex.applicationNameByNamespace[conf.Namespace]; !ok {
+			ps.serviceMetadataIndex.applicationNameByNamespace[conf.Namespace] = make(map[string]*config.Config, 0)
+		}
+
+		ps.serviceMetadataIndex.namespace[conf.Namespace] = append(ps.serviceMetadataIndex.namespace[conf.Namespace], &conf)
+		ps.serviceMetadataIndex.applicationNameByNamespace[conf.Namespace][conf.Name] = &conf
+		ps.serviceMetadataIndex.all = append(ps.serviceMetadataIndex.all, &conf)
+	}
+
 	return nil
 }
 

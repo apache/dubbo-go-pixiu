@@ -3,22 +3,27 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
-	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/kube"
+	"strconv"
+	"time"
+)
+
+import (
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	dubbov1alpha1 "istio.io/api/dubbo/v1alpha1"
-	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
+	istioextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	"istio.io/client-go/pkg/apis/extensions/v1alpha1"
-	"istio.io/pkg/log"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strconv"
-	"strings"
-	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/features"
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/kube"
 )
 
 type ServiceMetadataServer struct {
@@ -81,8 +86,9 @@ func (pr *pushRequest) Merge(other *pushRequest) *pushRequest {
 
 func NewServiceMetadataServer(env *model.Environment, client kube.Client) *ServiceMetadataServer {
 	return &ServiceMetadataServer{
-		KubeClient: client,
-		ch:         make(chan *pushRequest, 10),
+		CommittedUpdates: atomic.NewInt64(0),
+		KubeClient:       client,
+		ch:               make(chan *pushRequest, 10),
 		debounceOptions: debounceOptions{
 			debounceAfter:  features.SMDebounceAfter,
 			debounceMax:    features.SMDebounceMax,
@@ -102,6 +108,14 @@ func (s *ServiceMetadataServer) Register(rpcs *grpc.Server) {
 }
 
 func (s *ServiceMetadataServer) Publish(ctx context.Context, request *dubbov1alpha1.PublishServiceMetadataRequest) (*dubbov1alpha1.PublishServiceMetadataResponse, error) {
+	if exists, err := s.isNamespaceExists(ctx, request.GetNamespace()); err != nil {
+		if !exists {
+			return nil, status.Errorf(codes.Aborted, "Namespace Not Exists")
+		}
+	} else {
+		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+
 	pushReq := &pushRequest{ConfigsUpdated: map[model.ConfigKey]metadataConfig{}}
 
 	key := model.ConfigKey{
@@ -110,8 +124,10 @@ func (s *ServiceMetadataServer) Publish(ctx context.Context, request *dubbov1alp
 	}
 
 	pushReq.ConfigsUpdated[key] = metadataConfig{
-		metadataInfo: request.GetMetadataInfo(),
-		timestamp:    time.Now(),
+		applicationName: request.GetApplicationName(),
+		revision:        request.GetRevision(),
+		metadataInfo:    request.GetMetadataInfo(),
+		timestamp:       time.Now(),
 	}
 
 	s.ch <- pushReq
@@ -120,7 +136,8 @@ func (s *ServiceMetadataServer) Publish(ctx context.Context, request *dubbov1alp
 }
 
 func getConfigKeyName(applicationName, revision string) string {
-	return strings.ToLower(fmt.Sprintf("%s-%s", applicationName, revision))
+	log.Infof("application name: %s, revision: %s", applicationName, revision)
+	return fmt.Sprintf("%s-%s", applicationName, revision)
 }
 
 func (s *ServiceMetadataServer) Get(ctx context.Context, request *dubbov1alpha1.GetServiceMetadataRequest) (*dubbov1alpha1.GetServiceMetadataResponse, error) {
@@ -130,6 +147,16 @@ func (s *ServiceMetadataServer) Get(ctx context.Context, request *dubbov1alpha1.
 	}
 
 	return &dubbov1alpha1.GetServiceMetadataResponse{MetadataInfo: metadata.Spec.GetMetadataInfo()}, nil
+}
+
+func (s *ServiceMetadataServer) isNamespaceExists(ctx context.Context, namespace string) (bool, error) {
+	_, err := s.KubeClient.Kube().CoreV1().Namespaces().Get(ctx, namespace, v1.GetOptions{})
+	if err != nil {
+		if !apierror.IsNotFound(err) {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func (s *ServiceMetadataServer) handleUpdate(stopCh <-chan struct{}) {
@@ -142,7 +169,7 @@ func (s *ServiceMetadataServer) Push(req *pushRequest) {
 	for key, config := range req.ConfigsUpdated {
 		metadata, err := getOrCreateCRD(s.KubeClient, ctx, key.Namespace, config.applicationName, config.revision, config.metadataInfo, config.timestamp)
 		if err != nil {
-			log.Errorf("Failed to get metadata, %s", err.Error())
+			log.Errorf("Failed to getOrCreateCRD, %s", err.Error())
 			return
 		}
 
@@ -157,12 +184,19 @@ func (s *ServiceMetadataServer) Push(req *pushRequest) {
 }
 
 func getOrCreateCRD(kubeClient kube.Client, ctx context.Context, namespace string, applicationName, revision, metadataInfo string, createTime time.Time) (*v1alpha1.ServiceMetadata, error) {
+	var (
+		metadata *v1alpha1.ServiceMetadata
+	)
+
 	serviceMetadataInterface := kubeClient.Istio().ExtensionsV1alpha1().ServiceMetadatas(namespace)
 	crdName := getConfigKeyName(applicationName, revision)
 	metadata, err := serviceMetadataInterface.Get(ctx, crdName, v1.GetOptions{})
+
+	log.Infof("metadata: %+v", metadata)
+
 	if err != nil {
 		if apierror.IsNotFound(err) {
-			metadata := &v1alpha1.ServiceMetadata{
+			mt := &v1alpha1.ServiceMetadata{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      crdName,
 					Namespace: namespace,
@@ -170,19 +204,19 @@ func getOrCreateCRD(kubeClient kube.Client, ctx context.Context, namespace strin
 						"updateTime": strconv.FormatInt(createTime.Unix(), 10),
 					},
 				},
-				Spec: extensionsv1alpha1.ServiceMetadata{
+				Spec: istioextensionsv1alpha1.ServiceMetadata{
 					ApplicationName: applicationName,
 					Revision:        revision,
 					MetadataInfo:    metadataInfo,
 				},
 			}
 
-			metadata, err := serviceMetadataInterface.Create(ctx, metadata, v1.CreateOptions{})
+			metadata, err = serviceMetadataInterface.Create(ctx, mt, v1.CreateOptions{})
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "Failed to create metadata")
 			}
 		} else {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to check metadata exists or not")
 		}
 	} else {
 		// if metadata exist in crd, then update timestamp
