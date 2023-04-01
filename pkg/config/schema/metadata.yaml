@@ -185,6 +185,11 @@ collections:
     group: "extensions.istio.io"
     pilot: true
 
+  - name: "istio/extensions/v1alpha1/servicenamemappings"
+    kind: ServiceNameMapping
+    group: "extensions.istio.io"
+    pilot: true
+
 # Configuration for resource types.
 resources:
   # Kubernetes specific configuration.
@@ -481,5 +486,15 @@ resources:
     proto: "istio.extensions.v1alpha1.ServiceMetadata"
     protoPackage: "istio.io/api/extensions/v1alpha1"
     description: "describes service metadata"
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
+  - kind: ServiceNameMapping
+    plural: "servicenamemappings"
+    group: "extensions.istio.io"
+    version: "v1alpha1"
+    proto: "istio.extensions.v1alpha1.ServiceNameMapping"
+    protoPackage: "istio.io/api/extensions/v1alpha1"
+    description: "describes service name mappings"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"

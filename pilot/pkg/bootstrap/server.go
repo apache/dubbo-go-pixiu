@@ -182,6 +182,9 @@ type Server struct {
 
 	// ServiceMetadataServer
 	metadataServer *dubbov1alpha1.ServiceMetadataServer
+
+	//Service Name mapping register
+	snpServer *dubbov1alpha1.Snp
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -281,6 +284,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		s.metadataServer = dubbov1alpha1.NewServiceMetadataServer(s.environment, s.kubeClient)
 	}
 
+	// Create Service Name mapping server
+	if s.kubeClient != nil {
+		s.snpServer = dubbov1alpha1.NewSnp(s.kubeClient)
+	}
+
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
 	if err := s.initSecureDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
@@ -348,13 +356,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
-	}
-
-	if s.metadataServer != nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			s.metadataServer.Start(stop)
-			return nil
-		})
 	}
 
 	// This must be last, otherwise we will not know which informers to register
@@ -662,6 +663,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		return nil
 	})
 
+	// Implement ServiceNameMapping grace shutdown
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		log.Infof("Starting ADS server")
+		s.snpServer.Start(stop)
+		return nil
+	})
+
 	s.initGrpcServer(args.KeepaliveOptions)
 
 	if args.ServerOptions.GRPCAddr != "" {
@@ -745,6 +753,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
 	s.metadataServer.Register(s.grpcServer)
+	s.snpServer.Register(s.grpcServer)
 }
 
 // initialize secureGRPCServer.
@@ -794,6 +803,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
 	s.metadataServer.Register(s.secureGrpcServer)
+	s.snpServer.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {

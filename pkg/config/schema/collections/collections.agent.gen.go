@@ -8,11 +8,9 @@ package collections
 
 import (
 	"reflect"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
-
+import (
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
@@ -20,6 +18,12 @@ import (
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collection"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/resource"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/validation"
 )
 
 var (
@@ -36,6 +40,24 @@ var (
 			Version: "v1alpha1",
 			Proto:   "istio.extensions.v1alpha1.ServiceMetadata", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 			ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.ServiceMetadata{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioExtensionsV1Alpha1Servicenamemappings describes the collection
+	// istio/extensions/v1alpha1/servicenamemappings
+	IstioExtensionsV1Alpha1Servicenamemappings = collection.Builder{
+		Name:         "istio/extensions/v1alpha1/servicenamemappings",
+		VariableName: "IstioExtensionsV1Alpha1Servicenamemappings",
+		Resource: resource.Builder{
+			Group:   "extensions.istio.io",
+			Kind:    "ServiceNameMapping",
+			Plural:  "servicenamemappings",
+			Version: "v1alpha1",
+			Proto:   "istio.extensions.v1alpha1.ServiceNameMapping", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.ServiceNameMapping{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -333,6 +355,7 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(IstioExtensionsV1Alpha1Servicemetadatas).
+		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
 		MustAdd(IstioMeshV1Alpha1MeshNetworks).
@@ -353,6 +376,7 @@ var (
 
 	// Istio contains only Istio collections.
 	Istio = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Servicemetadatas).
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
@@ -384,6 +408,7 @@ var (
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
 		MustAdd(IstioExtensionsV1Alpha1Servicemetadatas).
+		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
@@ -403,6 +428,7 @@ var (
 	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
 	PilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(IstioExtensionsV1Alpha1Servicemetadatas).
+			MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 			MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 			MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).

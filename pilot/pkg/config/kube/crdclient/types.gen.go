@@ -24,18 +24,11 @@ package crdclient
 import (
 	"context"
 	"fmt"
-	metav1alpha1 "istio.io/api/meta/v1alpha1"
+)
 
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
-
+import (
 	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
+	metav1alpha1 "istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	securityv1beta1 "istio.io/api/security/v1beta1"
@@ -45,13 +38,22 @@ import (
 	clientnetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
-
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/schema/collections"
 )
 
 func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
@@ -60,6 +62,11 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 		return ic.ExtensionsV1alpha1().ServiceMetadatas(cfg.Namespace).Create(context.TODO(), &clientextensionsv1alpha1.ServiceMetadata{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*extensionsv1alpha1.ServiceMetadata)),
+		}, metav1.CreateOptions{})
+	case collections.IstioExtensionsV1Alpha1Servicenamemappings.Resource().GroupVersionKind():
+		return ic.ExtensionsV1alpha1().ServiceNameMappings(cfg.Namespace).Create(context.TODO(), &clientextensionsv1alpha1.ServiceNameMapping{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*extensionsv1alpha1.ServiceNameMapping)),
 		}, metav1.CreateOptions{})
 	case collections.IstioExtensionsV1Alpha1Wasmplugins.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Create(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
@@ -173,6 +180,11 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*extensionsv1alpha1.ServiceMetadata)),
 		}, metav1.UpdateOptions{})
+	case collections.IstioExtensionsV1Alpha1Servicenamemappings.Resource().GroupVersionKind():
+		return ic.ExtensionsV1alpha1().ServiceNameMappings(cfg.Namespace).Update(context.TODO(), &clientextensionsv1alpha1.ServiceNameMapping{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*extensionsv1alpha1.ServiceNameMapping)),
+		}, metav1.UpdateOptions{})
 	case collections.IstioExtensionsV1Alpha1Wasmplugins.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Update(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
 			ObjectMeta: objMeta,
@@ -283,6 +295,12 @@ func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, c
 
 	case collections.IstioExtensionsV1Alpha1Servicemetadatas.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().ServiceMetadatas(cfg.Namespace).UpdateStatus(context.TODO(), &clientextensionsv1alpha1.ServiceMetadata{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case collections.IstioExtensionsV1Alpha1Servicenamemappings.Resource().GroupVersionKind():
+		return ic.ExtensionsV1alpha1().ServiceNameMappings(cfg.Namespace).UpdateStatus(context.TODO(), &clientextensionsv1alpha1.ServiceNameMapping{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -425,6 +443,21 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 			return nil, err
 		}
 		return ic.ExtensionsV1alpha1().ServiceMetadatas(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioExtensionsV1Alpha1Servicenamemappings.Resource().GroupVersionKind():
+		oldRes := &clientextensionsv1alpha1.ServiceNameMapping{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*extensionsv1alpha1.ServiceNameMapping)),
+		}
+		modRes := &clientextensionsv1alpha1.ServiceNameMapping{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*extensionsv1alpha1.ServiceNameMapping)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.ExtensionsV1alpha1().ServiceNameMappings(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioExtensionsV1Alpha1Wasmplugins.Resource().GroupVersionKind():
 		oldRes := &clientextensionsv1alpha1.WasmPlugin{
@@ -739,6 +772,8 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 	switch typ {
 	case collections.IstioExtensionsV1Alpha1Servicemetadatas.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().ServiceMetadatas(namespace).Delete(context.TODO(), name, deleteOptions)
+	case collections.IstioExtensionsV1Alpha1Servicenamemappings.Resource().GroupVersionKind():
+		return ic.ExtensionsV1alpha1().ServiceNameMappings(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioExtensionsV1Alpha1Wasmplugins.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().WasmPlugins(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
@@ -790,6 +825,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioExtensionsV1Alpha1Servicemetadatas.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	collections.IstioExtensionsV1Alpha1Servicenamemappings.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*clientextensionsv1alpha1.ServiceNameMapping)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.IstioExtensionsV1Alpha1Servicenamemappings.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

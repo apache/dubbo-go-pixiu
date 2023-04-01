@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-package dubbo
+package dubbogen
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	istiolog "istio.io/pkg/log"
 )
 
-// DubboProxyConfig the config for dubbo proxy
-type DubboProxyConfig struct {
-	// Registries such as zk,nacos or etcd
-	Registries map[string]model.Registry `yaml:"registries" json:"registries"`
-	// Timeout
-	Timeout *model.TimeoutConfig `yaml:"timeout_config" json:"timeout_config"`
-	// IsDefaultMap whether to use DefaultMap role
-	IsDefaultMap bool
-	// AutoResolve whether to resolve api config from request
-	AutoResolve bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
-	// Protoset path to load protoset files
-	Protoset []string `yaml:"protoset" json:"protoset,omitempty"`
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
+)
+
+var log = istiolog.RegisterScope("dubbogen", "xDS Generator for Proxyless dubbo", 0)
+
+type DubboConfigGenerator struct{}
+
+func (d *DubboConfigGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	switch w.TypeUrl {
+	case v3.DubboServiceNameMappingType:
+		return d.buildServiceNameMappings(proxy, req, w.ResourceNames), model.DefaultXdsLogDetails, nil
+	default:
+		log.Warnf("not support now %s", w.TypeUrl)
+		return nil, model.DefaultXdsLogDetails, nil
+	}
 }

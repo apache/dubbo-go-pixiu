@@ -464,6 +464,69 @@ func TestShouldRespond(t *testing.T) {
 			},
 			response: false,
 		},
+		{
+			name: "resources change",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.DubboServiceNameMappingType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"dubbo.demo.hello1"},
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.DubboServiceNameMappingType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{"dubbo.demo.hello1", "dubbo.demo.hello2"},
+			},
+			response: true,
+		},
+		{
+			name: "ack with same resources",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.DubboServiceNameMappingType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"dubbo.demo.hello1", "dubbo.demo.hello2"},
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.DubboServiceNameMappingType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{"dubbo.demo.hello1", "dubbo.demo.hello2"},
+			},
+			response: false,
+		},
+		{
+			name: "unsubscribe snp",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.DubboServiceNameMappingType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"dubbo.demo.hello1", "dubbo.demo.hello2"},
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.DubboServiceNameMappingType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{},
+			},
+			response: false,
+		},
 	}
 
 	for _, tt := range tests {
