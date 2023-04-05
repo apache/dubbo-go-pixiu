@@ -19,7 +19,7 @@ package maglev
 
 import (
 	"fmt"
-	std "net/http"
+	stdHttp "net/http"
 	"strconv"
 	"testing"
 )
@@ -56,7 +56,7 @@ func TestMaglevHash(t *testing.T) {
 
 	for i := 1; i <= 20; i++ {
 		path = fmt.Sprintf("/pixiu?total=%d", i)
-		t.Log(hashing.Handler(cluster, &http.HttpContext{Request: &std.Request{Method: std.MethodGet, RequestURI: path}}))
+		t.Log(hashing.Handler(cluster, &http.HttpContext{Request: &stdHttp.Request{Method: stdHttp.MethodGet, RequestURI: path}}))
 	}
 
 }

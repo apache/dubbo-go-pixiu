@@ -58,7 +58,7 @@ func NewLookUpTable(factor int, hosts []string) *LookUpTable {
 		factor = 100
 	}
 
-	buckets := make(map[int]string)
+	buckets := make(map[int]string, len(hosts))
 	for i, host := range hosts {
 		buckets[i] = host
 	}
