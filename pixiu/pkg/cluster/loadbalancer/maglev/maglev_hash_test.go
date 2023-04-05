@@ -19,11 +19,12 @@ package maglev
 
 import (
 	"fmt"
-
 	std "net/http"
 	"strconv"
 	"testing"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )

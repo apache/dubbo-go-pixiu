@@ -23,10 +23,14 @@ import (
 	"hash/crc32"
 	"math"
 	"sync"
+)
 
+import (
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
 

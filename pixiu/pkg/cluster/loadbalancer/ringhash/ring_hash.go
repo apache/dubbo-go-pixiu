@@ -19,9 +19,13 @@ package consistent
 
 import (
 	"math"
+)
 
+import (
 	"github.com/dubbogo/gost/hash/consistent"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
