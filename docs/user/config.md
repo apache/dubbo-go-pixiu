@@ -1,5 +1,3 @@
-
-
 ### Config
  
 Pixiu supports specifying local config file with argument `-c` which you can find in those samples pixiu dir. 
@@ -22,21 +20,21 @@ static_resources:
           address: "0.0.0.0"
           port: 8888
       filter_chains:
-          filters:
-            - name: dgp.filter.httpconnectionmanager
-              config:
-                route_config:
-                  routes:
-                    - match:
-                        prefix: "/user"
-                      route:
-                        cluster: "user"
-                        cluster_not_found_response_code: 505
-                http_filters:
-                  - name: dgp.filter.http.httpproxy
-                    config:
-                  - name: dgp.filter.http.response
-                    config:
+        filters:
+          - name: dgp.filter.httpconnectionmanager
+            config:
+              route_config:
+                routes:
+                  - match:
+                      prefix: "/user"
+                    route:
+                      cluster: "user"
+                      cluster_not_found_response_code: 505
+              http_filters:
+                - name: dgp.filter.http.httpproxy
+                  config:
+                - name: dgp.filter.http.response
+                  config:
   clusters:
     - name: "user"
       lb_policy: "lb"

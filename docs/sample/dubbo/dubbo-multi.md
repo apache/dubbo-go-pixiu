@@ -1,6 +1,6 @@
 # Get the parameter from the part of uri
 
-> GET request [sample](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/sample/dubbo/multi)
+> GET request [sample](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/multi)
 
 ## Simple Demo
 
@@ -95,6 +95,7 @@ resources:
 ```
 
 ### server config
+
 ```yaml
 # dubbo server yaml configure file
 # application config

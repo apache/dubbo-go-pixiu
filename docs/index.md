@@ -15,7 +15,6 @@
 * [Tracing](sample/others/jaeger.md)
 * [springcloud](sample/springcloud/README.md)
 
-
 ## [Developer Guide](developer/README.md)
 
 * [Concept](developer/concept.md)

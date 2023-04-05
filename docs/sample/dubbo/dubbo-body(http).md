@@ -54,6 +54,6 @@ curl host:port/api/v1/test-dubbo/user -X POST -d '{"name": "tiecheng","id": "000
 
 ```json
 {
-    "message": "data is exist"
+  "message": "data is exist"
 }
 ```

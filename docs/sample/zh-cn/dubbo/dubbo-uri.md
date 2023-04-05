@@ -1,6 +1,6 @@
 # 从请求的URI部分获取参数
 
-> GET 请求 [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/uri)
+> GET 请求 [samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/simple/uri)
 
 ## 简单示例
 
