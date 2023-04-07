@@ -93,12 +93,12 @@ type (
 		UnHealthy bool
 	}
 
-	// ConsistentHash methods include: RingHash, Maglev etc
+	// ConsistentHash methods include: RingHash, MaglevHash
 	ConsistentHash struct {
-		ReplicaNum    int   `yaml:"replica_num" json:"replica_num"`
-		MaxVnodeNum   int32 `yaml:"max_vnode_num" json:"max_vnode_num"`
-		ReplicaFactor int   `yaml:"replica_factor" json:"replica_factor"`
-		Hash          LbConsistentHash
+		ReplicaNum      int   `yaml:"replica_num" json:"replica_num"`
+		MaxVnodeNum     int32 `yaml:"max_vnode_num" json:"max_vnode_num"`
+		MaglevTableSize int   `yaml:"maglev_table_size" json:"maglev_table_size"`
+		Hash            LbConsistentHash
 	}
 )
 

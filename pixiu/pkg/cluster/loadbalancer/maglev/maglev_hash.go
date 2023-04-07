@@ -19,6 +19,8 @@ package maglev
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
+	consistent "github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer/ringhash"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
@@ -32,9 +34,15 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 	for i, endpoint := range endpoints {
 		hosts[i] = endpoint.GetHost()
 	}
-	m := NewLookUpTable(config.ReplicaFactor, hosts)
-	m.Populate()
-	return m
+
+	h, err := NewLookUpTable(config.MaglevTableSize, hosts)
+	if err == nil {
+		h.Populate()
+		return h
+	}
+
+	logger.Debugf("[dubbo-go-pixiu] maglev hash load balancing error cause: %v, using ring hash instead", err)
+	return consistent.NewRingHash(config, endpoints)
 }
 
 type MaglevHash struct{}

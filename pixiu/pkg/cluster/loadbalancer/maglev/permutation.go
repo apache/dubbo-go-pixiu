@@ -19,19 +19,16 @@ package maglev
 
 import (
 	"encoding/binary"
-	"errors"
 	"hash/crc32"
 	"math"
+	"math/big"
 	"sync"
 )
 
 import (
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
 
 type permutation struct {
@@ -47,15 +44,13 @@ type LookUpTable struct {
 	buckets      map[int]string
 	endpointNum  int
 	size         int
-	factor       int
 	sync.RWMutex
 }
 
-func NewLookUpTable(factor int, hosts []string) *LookUpTable {
-	if factor < 10 || factor > 1000 {
-		logger.Debugf("[dubbo-go-pixiu] The factor of Maglev load balancing should between 10 and 1000 "+
-			"but got %d instead. Setting factor to 100 by default.", factor)
-		factor = 100
+func NewLookUpTable(tableSize int, hosts []string) (*LookUpTable, error) {
+	if tableSize < len(hosts)*100 && !big.NewInt(0).SetUint64(uint64(tableSize)).ProbablyPrime(1) {
+		return nil, errors.Errorf("table size should be a prime number that greater than at least "+
+			"100 times of endpoints size, but got %d instead", tableSize)
 	}
 
 	buckets := make(map[int]string, len(hosts))
@@ -63,14 +58,12 @@ func NewLookUpTable(factor int, hosts []string) *LookUpTable {
 		buckets[i] = host
 	}
 	n := len(buckets)
-	m := factor * n
 
 	return &LookUpTable{
 		buckets:     buckets,
 		endpointNum: n,
-		size:        m,
-		factor:      factor,
-	}
+		size:        tableSize,
+	}, nil
 }
 
 // Populate Magelev hashing look up table.
@@ -143,7 +136,7 @@ func (t *LookUpTable) generatePerm(bucket string, i int) {
 	m := uint32(t.size)
 	pos := make([]uint32, m)
 	offs = _hash1(bucket) % m
-	skip = _hash2(bucket)%m*(m-1) + 1
+	skip = _hash2(bucket)%(m-1) + 1
 	for j = 0; j < m; j++ {
 		pos[j] = (offs + j*skip) % m
 	}
@@ -229,15 +222,8 @@ func (t *LookUpTable) add(host string) {
 	}
 	t.buckets[dst+1] = host
 	t.endpointNum++
-
-	// Add new endpoint could cause table size changed.
-	if t.endpointNum*t.factor > t.size {
-		t.size = t.endpointNum * t.factor
-		t.generatePerms()
-	} else {
-		t.resetPerms()
-		t.generatePerm(host, dst+1)
-	}
+	t.resetPerms()
+	t.generatePerm(host, dst+1)
 	t.populate()
 }
 

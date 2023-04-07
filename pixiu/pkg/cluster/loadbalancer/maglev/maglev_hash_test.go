@@ -45,7 +45,7 @@ func TestMaglevHash(t *testing.T) {
 		Name:           "test-cluster",
 		Endpoints:      nodes,
 		LbStr:          model.LoadBalanceMaglevHashing,
-		ConsistentHash: model.ConsistentHash{ReplicaFactor: 10},
+		ConsistentHash: model.ConsistentHash{MaglevTableSize: 521},
 	}
 	cluster.CreateConsistentHash()
 
