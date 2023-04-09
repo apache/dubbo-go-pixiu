@@ -19,7 +19,7 @@ package maglev
 
 import (
 	"encoding/binary"
-	"hash/crc32"
+	"hash/maphash"
 	"math"
 	"math/big"
 	"sync"
@@ -30,6 +30,15 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/sha3"
 )
+
+// Default table size support maximum 10,000 endpoints
+var defaultTableSize = []int{
+	307, 503, 1511, 2503, 5099, 7877,
+	10007, 14207, 20903, 40423, 88721,
+	123911, 164821, 199999, 218077, 299777,
+	344941, 399989, 463031, 514399, 604613,
+	686669, 726337, 799789, 857011, 999983,
+}
 
 type permutation struct {
 	pos   []uint32
@@ -48,7 +57,18 @@ type LookUpTable struct {
 }
 
 func NewLookUpTable(tableSize int, hosts []string) (*LookUpTable, error) {
-	if tableSize < len(hosts)*100 && !big.NewInt(0).SetUint64(uint64(tableSize)).ProbablyPrime(1) {
+	expectN := len(hosts) * 100
+	if tableSize == 0 {
+		// find closet table size
+		for _, size := range defaultTableSize {
+			if expectN < size {
+				tableSize = size
+				break
+			}
+		}
+	}
+
+	if tableSize < expectN && !big.NewInt(0).SetUint64(uint64(tableSize)).ProbablyPrime(1) {
 		return nil, errors.Errorf("table size should be a prime number that greater than at least "+
 			"100 times of endpoints size, but got %d instead", tableSize)
 	}
@@ -166,7 +186,10 @@ func (t *LookUpTable) removePerm(dst int) {
 
 // Hash the input key.
 func (t *LookUpTable) Hash(key string) uint32 {
-	return crc32.Checksum([]byte(key), crc32.IEEETable)
+	var h maphash.Hash
+	h.SetSeed(maphash.MakeSeed())
+	h.WriteString(key)
+	return uint32(h.Sum64())
 }
 
 // Get a slot by hashing the input key.

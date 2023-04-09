@@ -49,6 +49,42 @@ func createEndpoint(id int) string {
 	return fmt.Sprintf("192.168.1.%d:%d", id, 1000+id)
 }
 
+func TestCreateLookUpTableWithoutTableSize(t *testing.T) {
+	testCases := []struct {
+		nodeCount  int
+		expectSize int
+	}{
+		{
+			nodeCount:  0,
+			expectSize: 307,
+		},
+		{
+			nodeCount:  1,
+			expectSize: 307,
+		},
+		{
+			nodeCount:  3,
+			expectSize: 307,
+		},
+		{
+			nodeCount:  5,
+			expectSize: 503,
+		},
+		{
+			nodeCount:  15,
+			expectSize: 1511,
+		},
+		{
+			nodeCount:  100001,
+			expectSize: 0,
+		},
+	}
+	for _, tc := range testCases {
+		table := createTableWithNodes(0, tc.nodeCount)
+		assert.Equal(t, tc.expectSize, table.size, "Wrong default table size")
+	}
+}
+
 func TestLookUpTable_Populate(t *testing.T) {
 	testCases := []struct {
 		nodeCount int
