@@ -41,7 +41,7 @@ import (
 
 var (
 	// Version pixiu version
-	Version = "0.5.1"
+	Version = "0.6.0"
 
 	flagToLogLevel = map[string]string{
 		"trace":    "TRACE",
