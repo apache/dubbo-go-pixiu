@@ -44,7 +44,7 @@ func TestMaglevHash(t *testing.T) {
 	cluster := &model.ClusterConfig{
 		Name:           "test-cluster",
 		Endpoints:      nodes,
-		LbStr:          model.LoadBalanceMaglevHashing,
+		LbStr:          model.LoadBalancerMaglevHashing,
 		ConsistentHash: model.ConsistentHash{MaglevTableSize: 521},
 	}
 	cluster.CreateConsistentHash()

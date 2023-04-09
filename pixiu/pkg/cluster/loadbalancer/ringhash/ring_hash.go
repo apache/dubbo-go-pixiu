@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package consistent
+package ringhash
 
 import (
 	"math"
@@ -27,12 +27,13 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalanceRingHashing, RingHashing{})
-	loadbalancer.RegisterConsistentHashInit(model.LoadBalanceRingHashing, NewRingHash)
+	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRingHashing, RingHashing{})
+	loadbalancer.RegisterConsistentHashInit(model.LoadBalancerRingHashing, NewRingHash)
 }
 
 func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
@@ -61,6 +62,7 @@ func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *mod
 	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
 	hash, err := c.ConsistentHash.Hash.GetHash(u)
 	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] error of getting from ring hash: %v", err)
 		return nil
 	}
 

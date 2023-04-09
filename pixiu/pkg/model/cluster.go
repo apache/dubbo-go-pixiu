@@ -17,7 +17,9 @@
 
 package model
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	Static DiscoveryType = iota

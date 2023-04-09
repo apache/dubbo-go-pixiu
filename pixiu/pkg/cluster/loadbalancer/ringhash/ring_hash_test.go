@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package consistent
+package ringhash
 
 import (
 	"fmt"
@@ -44,7 +44,7 @@ func TestHashRing(t *testing.T) {
 	cluster := &model.ClusterConfig{
 		Name:           "cluster1",
 		Endpoints:      nodes,
-		LbStr:          model.LoadBalanceRingHashing,
+		LbStr:          model.LoadBalancerRingHashing,
 		ConsistentHash: model.ConsistentHash{ReplicaNum: 10, MaxVnodeNum: 1023},
 	}
 	cluster.CreateConsistentHash()

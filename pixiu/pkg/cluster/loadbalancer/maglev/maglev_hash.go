@@ -19,14 +19,14 @@ package maglev
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
-	consistent "github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer/ringhash"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer/ringhash"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalanceMaglevHashing, MaglevHash{})
-	loadbalancer.RegisterConsistentHashInit(model.LoadBalanceMaglevHashing, NewMaglevHash)
+	loadbalancer.RegisterLoadBalancer(model.LoadBalancerMaglevHashing, MaglevHash{})
+	loadbalancer.RegisterConsistentHashInit(model.LoadBalancerMaglevHashing, NewMaglevHash)
 }
 
 func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
@@ -41,8 +41,11 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 		return h
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] maglev hash load balancing error cause: %v, using ring hash instead", err)
-	return consistent.NewRingHash(config, endpoints)
+	logger.Infof("[dubbo-go-pixiu] maglev hash load balancing fail: %v, using ring hash instead", err)
+	if config.ReplicaNum == 0 {
+		config.ReplicaNum = 2 * len(endpoints)
+	}
+	return ringhash.NewRingHash(config, endpoints)
 }
 
 type MaglevHash struct{}
@@ -50,6 +53,7 @@ type MaglevHash struct{}
 func (m MaglevHash) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
 	dst, err := c.ConsistentHash.Hash.Get(policy.GenerateHash())
 	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] error of getting from maglev hash: %v", err)
 		return nil
 	}
 

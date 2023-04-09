@@ -21,17 +21,17 @@ package model
 type LbPolicyType string
 
 const (
-	LoadBalancerRand         LbPolicyType = "Rand"
-	LoadBalancerRoundRobin   LbPolicyType = "RoundRobin"
-	LoadBalanceRingHashing   LbPolicyType = "RingHashing"
-	LoadBalanceMaglevHashing LbPolicyType = "MaglevHashing"
+	LoadBalancerRand          LbPolicyType = "Rand"
+	LoadBalancerRoundRobin    LbPolicyType = "RoundRobin"
+	LoadBalancerRingHashing   LbPolicyType = "RingHashing"
+	LoadBalancerMaglevHashing LbPolicyType = "MaglevHashing"
 )
 
 var LbPolicyTypeValue = map[string]LbPolicyType{
 	"Rand":          LoadBalancerRand,
 	"RoundRobin":    LoadBalancerRoundRobin,
-	"RingHashing":   LoadBalanceRingHashing,
-	"MaglevHashing": LoadBalanceMaglevHashing,
+	"RingHashing":   LoadBalancerRingHashing,
+	"MaglevHashing": LoadBalancerMaglevHashing,
 }
 
 type LbPolicy interface {
