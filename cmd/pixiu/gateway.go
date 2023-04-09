@@ -32,7 +32,7 @@ import (
 var (
 	gatewayCmd = &cobra.Command{
 		Use:   "gateway",
-		Short: "Run dubbo go server in gateway mode",
+		Short: "Run dubbo go pixiu in gateway mode",
 	}
 
 	startGatewayCmd = &cobra.Command{
