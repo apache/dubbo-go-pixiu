@@ -33,5 +33,5 @@ func init() {
 type Rand struct{}
 
 func (Rand) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
-	return c.GetEndpoint(true)[rand.Intn(len(c.Endpoints))]
+	return c.GetEndpoint(true)[rand.Intn(len(c.Endpoints)-1)]
 }

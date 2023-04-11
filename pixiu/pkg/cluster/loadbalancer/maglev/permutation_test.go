@@ -79,9 +79,13 @@ func TestCreateLookUpTableWithoutTableSize(t *testing.T) {
 			expectSize: 0,
 		},
 	}
-	for _, tc := range testCases {
+	for i, tc := range testCases {
 		table := createTableWithNodes(0, tc.nodeCount)
-		assert.Equal(t, tc.expectSize, table.size, "Wrong default table size")
+		if i == 5 {
+			assert.Nil(t, table, "Got non nil table")
+		} else {
+			assert.Equal(t, tc.expectSize, table.size, "Wrong default table size")
+		}
 	}
 }
 
