@@ -110,6 +110,28 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	).Get()
 
+	SNPDebounceAfter = env.RegisterDurationVar(
+		"PILOT_SNP_DEBOUNCE_AFTER",
+		100*time.Millisecond,
+		"The delay added to config/registry events for debouncing. This will delay the push by "+
+			"at least this interval. If no change is detected within this period, the push will happen, "+
+			" otherwise we'll keep delaying until things settle, up to a max of PILOT_SNP_DEBOUNCE_MAX.",
+	).Get()
+
+	SNPDebounceMax = env.RegisterDurationVar(
+		"PILOT_SNP_DEBOUNCE_MAX",
+		1*time.Second,
+		"The maximum amount of time to wait for events while debouncing. If events keep showing up with no breaks "+
+			"for this time, we'll trigger a push.",
+	).Get()
+
+	SNPEnableDebounce = env.RegisterBoolVar(
+		"PILOT_SNP_ENABLE_DEBOUNCE",
+		true,
+		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_SNP_DEBOUNCE_AFTER and PILOT_SNP_DEBOUNCE_MAX."+
+			" SNP register may be delayed, but there will be fewer pushes. By default this is enabled",
+	).Get()
+
 	SendUnhealthyEndpoints = env.RegisterBoolVar(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
 		false,

@@ -210,7 +210,6 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	defer span.End()
 
 	// tracing inject manually;
-	//ctx = context.WithValue(ctx, constant.TracingRemoteSpanCtx, span.SpanContext())
 	carrier := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	ctxWithAttachment := context.WithValue(ctx, constant.AttachmentKey, map[string]string(carrier))

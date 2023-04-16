@@ -437,7 +437,7 @@ func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
 // resource names.
 func isWildcardTypeURL(typeURL string) bool {
 	switch typeURL {
-	case v3.SecretType, v3.EndpointType, v3.RouteType, v3.ExtensionConfigurationType:
+	case v3.SecretType, v3.EndpointType, v3.RouteType, v3.ExtensionConfigurationType, v3.DubboServiceNameMappingType:
 		// By XDS spec, these are not wildcard
 		return false
 	case v3.ClusterType, v3.ListenerType:
@@ -630,7 +630,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute, gvk.ServiceNameMapping:
 				sidecar = true
 			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass:
 				gateway = true

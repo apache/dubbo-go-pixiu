@@ -164,6 +164,7 @@ var (
 		"nodes":                         "Nodes",
 		"secrets":                       "Secrets",
 		"ingresses":                     "Ingresses",
+		"servicenamemappings":           "ServiceNameMappings",
 	}
 
 	noSpec = map[string]struct{}{

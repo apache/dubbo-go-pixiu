@@ -40,7 +40,7 @@ if [ -f "$LOG" ]; then
     CMD_PARAMS="$CMD_PARAMS -g /etc/pixiu/${LOG}"
 fi
 
-cd /app/ && ls -al .
+cd / ls -al .
 echo "current path: $(pwd)"
 echo "CMD_PARAMS: $CMD_PARAMS"
 ./dubbo-go-pixiu gateway start $CMD_PARAMS
