@@ -34,3 +34,10 @@ func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
 	}
 	LoadBalancerStrategy[name] = balancer
 }
+
+func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {
+	if _, ok := model.ConsistentHashInitMap[name]; ok {
+		panic("consistent hash load balancer register fail " + name)
+	}
+	model.ConsistentHashInitMap[name] = function
+}

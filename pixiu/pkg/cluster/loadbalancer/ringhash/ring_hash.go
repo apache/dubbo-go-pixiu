@@ -15,36 +15,61 @@
  * limitations under the License.
  */
 
-package consistent
+package ringhash
 
 import (
-	"fmt"
+	"math"
+)
+
+import (
+	"github.com/dubbogo/gost/hash/consistent"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
 func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalanceConsistentHashing, ConsistentHashing{})
+	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRingHashing, RingHashing{})
+	loadbalancer.RegisterConsistentHashInit(model.LoadBalancerRingHashing, NewRingHash)
 }
 
-type ConsistentHashing struct{}
+func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
+	var ops []consistent.Option
 
-func (ConsistentHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
-	u := c.Hash.ConsistentHash.Hash(policy.GenerateHash())
+	if config.ReplicaNum != 0 {
+		ops = append(ops, consistent.WithReplicaNum(config.ReplicaNum))
+	}
 
-	hash, err := c.Hash.ConsistentHash.GetHash(u)
+	if config.MaxVnodeNum != 0 {
+		ops = append(ops, consistent.WithMaxVnodeNum(int(config.MaxVnodeNum)))
+	} else {
+		config.MaxVnodeNum = math.MinInt32
+	}
+
+	h := consistent.NewConsistentHash(ops...)
+	for _, endpoint := range endpoints {
+		h.Add(endpoint.GetHost())
+	}
+	return h
+}
+
+type RingHashing struct{}
+
+func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
+	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
+	hash, err := c.ConsistentHash.Hash.GetHash(u)
 	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] error of getting from ring hash: %v", err)
 		return nil
 	}
 
 	endpoints := c.GetEndpoint(true)
 
 	for _, endpoint := range endpoints {
-		address := endpoint.Address
-		if fmt.Sprintf("%s:%d", address.Address, address.Port) == hash {
+		if endpoint.GetHost() == hash {
 			return endpoint
 		}
 	}

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package consistent
+package maglev
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
-func TestHashRing(t *testing.T) {
+func TestMaglevHash(t *testing.T) {
 
 	nodeCount := 5
 
@@ -41,12 +41,16 @@ func TestHashRing(t *testing.T) {
 			Address: model.SocketAddress{Address: "192.168.1." + name, Port: 1000 + i}})
 	}
 
-	cluster := &model.ClusterConfig{Name: "cluster1", Endpoints: nodes,
-		LbStr: model.LoadBalanceConsistentHashing, Hash: model.Hash{ReplicaNum: 10, MaxVnodeNum: 1023}}
+	cluster := &model.ClusterConfig{
+		Name:           "test-cluster",
+		Endpoints:      nodes,
+		LbStr:          model.LoadBalancerMaglevHashing,
+		ConsistentHash: model.ConsistentHash{MaglevTableSize: 521},
+	}
 	cluster.CreateConsistentHash()
 
 	var (
-		hashing = ConsistentHashing{}
+		hashing = MaglevHash{}
 		path    string
 	)
 
