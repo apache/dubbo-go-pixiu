@@ -44,7 +44,7 @@ curl host:port/api/v1/test-http/user -X POST -d '{"name": "tiecheng1","code": 4,
 }
 ```
 
-- If you add user multi, return like: 
+- If you add user multi, return like:
 
 ```json
 {
