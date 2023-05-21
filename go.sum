@@ -122,10 +122,6 @@ github.com/HdrHistogram/hdrhistogram-go v1.1.2 h1:5IcZpTvzydCQeHzK4Ef/D5rrSqwxob
 github.com/HdrHistogram/hdrhistogram-go v1.1.2/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/Julusian/godocdown v0.0.0-20170816220326-6d19f8ff2df8/go.mod h1:INZr5t32rG59/5xeltqoCJoNY7e5x/3xoY9WSWVWg74=
 github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=
-github.com/MasterKenway/operator-api v0.0.0-20221211072128-dc774d069438 h1:HN6hlSoBvxDrJn/W+2G7N0YERRbRmiP16R8uyRSiU/Y=
-github.com/MasterKenway/operator-api v0.0.0-20221211072128-dc774d069438/go.mod h1:mH17EbLKZIqmjUo4pVTlDwElm6llfE+PBi6yj0O6JxA=
-github.com/MasterKenway/operator-client-go v0.0.0-20221211114042-023758009a3f h1:cfezsgMvY3br+y6Zg7Qi7bs41eX3mYKXZjptANbyvjU=
-github.com/MasterKenway/operator-client-go v0.0.0-20221211114042-023758009a3f/go.mod h1:8ZN35/An4j9FteYQESHD+YqgHowAFkiLR6dhvk7hOck=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
 github.com/Masterminds/goutils v1.1.1 h1:5nUrii3FMTL5diU80unEVvNevw1nH4+ZV4DSLVJLSYI=
@@ -495,10 +491,10 @@ github.com/docker/go-units v0.4.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDD
 github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1/go.mod h1:cyGadeNEkKy96OOhEzfZl+yxihPEzKnqJwvfuSUqbZE=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
-github.com/dubbo-go-pixiu/operator-api v0.0.0-20221126054223-dda83ac319f4 h1:De7KZcGzrgYado/wA7PDBntNemkR7iYaO36gQagYYQY=
-github.com/dubbo-go-pixiu/operator-api v0.0.0-20221126054223-dda83ac319f4/go.mod h1:SWsRqLbdc3vFk5cIRylKHC28nx58hfikw2rjlpwR0Qs=
-github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20221126073212-882e30cca8f6 h1:GD5OCtBql9xl+UnWY+E7P4NCJBWyE+pE/JjY0jW+F8Y=
-github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20221126073212-882e30cca8f6/go.mod h1:If8h1tIkt2k4P4hKsnQxR8m2bUF2hZBpfLP6VyaFO+g=
+github.com/dubbo-go-pixiu/operator-api v0.0.0-20230521024122-de7669e54430 h1:2Qjn7n3kCSJ60VSNnpA/RbmeXcel6ftjhrN6opQ4SJQ=
+github.com/dubbo-go-pixiu/operator-api v0.0.0-20230521024122-de7669e54430/go.mod h1:SWsRqLbdc3vFk5cIRylKHC28nx58hfikw2rjlpwR0Qs=
+github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20230521064746-0907a7fb8042 h1:L/NmoQfKNhNObrfqVpit3q1DxN6hXn8N0EG9fCtDRaI=
+github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20230521064746-0907a7fb8042/go.mod h1:PvtYHGhoKNXvyX9hPuScG/bQ2CLD47OSNvltcWmE8H4=
 github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99 h1:UjDxgIEu6DbJVJTrxm5mwC0j54jNao1pkYVlT8X+KgY=
 github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99/go.mod h1:1l+6pDTdEHwCyyyJmfckOAdGp6f5PZ33ZVMgxso9q/U=
 github.com/dubbogo/go-zookeeper v1.0.3/go.mod h1:fn6n2CAEer3novYgk9ULLwAjuV8/g4DdC2ENwRb6E+c=
