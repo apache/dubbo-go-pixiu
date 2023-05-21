@@ -11,14 +11,13 @@
 * [dubbo-incomplete](dubbo-incomplete.md)
 * [dubbo-registry](dubbo-registry.md)
 
-
 ### http to http-protocl-base dubbo request
 
 * [http-body](http-body.md)
 * [http-query](http-query.md)
 * [http-uri](http-uri.md)
 
-> Based on [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple)
+> Based on [samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/simple)
 
 How do I run a simple test example [document](dubbo-simple-run.md)
 

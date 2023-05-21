@@ -1,6 +1,6 @@
 # Use dubbo request universality
 
-> POST request [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/proxy)
+> POST request [samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/simple/proxy)
 
 ## Suggest
 
@@ -132,7 +132,7 @@ Use for dubbogo `GenericService#Invoke` func arg 1rd param.
 
 - opt.group
 
-Dubbo group in `ReferenceConfig#Group`. 
+Dubbo group in `ReferenceConfig#Group`.
 
 - opt.version
 
@@ -152,22 +152,20 @@ Use for dubbogo `GenericService#Invoke` func arg 3rd param.
 
 #### Explain
 
-##### Single params 
+##### Single params
 
 request body
 
 ```json
 {
-    "types": [
-        "string"
-    ],
+    "types": ["string"],
     "values": "tc"
 }
 ```
 
 ```yaml
-            - name: requestBody.types
-              mapTo: opt.types
+  - name: requestBody.types
+    mapTo: opt.types
 ```
 
 - `requestBody.types` means body content with types key.

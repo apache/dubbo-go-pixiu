@@ -1,6 +1,6 @@
 # Get the parameter from the query
 
-> GET request [samples](https://github.com/dubbogo/dubbo-go-proxy/tree/develop/samples/dubbogo/simple/query)
+> GET request [samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/simple/query)
 
 ## Simple Demo
 
