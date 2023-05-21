@@ -4,8 +4,8 @@ go 1.18
 
 replace (
 	google.golang.org/protobuf v1.28.1 => google.golang.org/protobuf v1.28.0
-	istio.io/api v0.0.0-20221004225839-607aeaab2827 => github.com/MasterKenway/operator-api v0.0.0-20221211072128-dc774d069438
-	istio.io/client-go v1.14.4-0.20220906213432-736be6f83263 => github.com/MasterKenway/operator-client-go v0.0.0-20221211114042-023758009a3f
+	istio.io/api v0.0.0-20221004225839-607aeaab2827 => github.com/dubbo-go-pixiu/operator-api v0.0.0-20230521024122-de7669e54430
+	istio.io/client-go v1.14.4-0.20220906213432-736be6f83263 => github.com/dubbo-go-pixiu/operator-client-go v1.14.6-0.20230521064746-0907a7fb8042
 )
 
 // https://github.com/containerd/containerd/issues/5781
