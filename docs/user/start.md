@@ -2,7 +2,6 @@
 
 How to start the dubbo-go-pixiu
 
-
 #### 1 cd samples dir
 
 ```
@@ -27,6 +26,7 @@ prepare command will prepare dubbo-server and pixiu config file and start docker
 ```
 
 if prepare config file manually, notice:
+
 - modify $PROJECT_DIR in conf.yaml to absolute path in your compute
 
 #### 3 start dubbo or http server
@@ -46,7 +46,6 @@ if run pixiu manually, use command as below
 ```
  go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbo/simple/body/pixiu/conf.yaml
 ```
-
 
 #### 5. Try a request
 

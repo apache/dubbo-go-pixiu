@@ -21,17 +21,33 @@ package model
 type LbPolicyType string
 
 const (
-	LoadBalancerRand             LbPolicyType = "Rand"
-	LoadBalancerRoundRobin       LbPolicyType = "RoundRobin"
-	LoadBalanceConsistentHashing LbPolicyType = "ConsistentHashing"
+	LoadBalancerRand          LbPolicyType = "Rand"
+	LoadBalancerRoundRobin    LbPolicyType = "RoundRobin"
+	LoadBalancerRingHashing   LbPolicyType = "RingHashing"
+	LoadBalancerMaglevHashing LbPolicyType = "MaglevHashing"
 )
 
 var LbPolicyTypeValue = map[string]LbPolicyType{
-	"Rand":              LoadBalancerRand,
-	"RoundRobin":        LoadBalancerRoundRobin,
-	"ConsistentHashing": LoadBalanceConsistentHashing,
+	"Rand":          LoadBalancerRand,
+	"RoundRobin":    LoadBalancerRoundRobin,
+	"RingHashing":   LoadBalancerRingHashing,
+	"MaglevHashing": LoadBalancerMaglevHashing,
 }
 
 type LbPolicy interface {
 	GenerateHash() string
 }
+
+// LbConsistentHash supports consistent hash load balancing
+type LbConsistentHash interface {
+	Hash(key string) uint32
+	Add(host string)
+	Get(key string) (string, error)
+	GetHash(key uint32) (string, error)
+	Remove(host string) bool
+}
+
+type ConsistentHashInitFunc = func(ConsistentHash, []*Endpoint) LbConsistentHash
+
+// ConsistentHashInitMap stores the Init functions for consistent hash load balancing
+var ConsistentHashInitMap = map[LbPolicyType]ConsistentHashInitFunc{}

@@ -28,6 +28,7 @@ import (
 import (
 	"go.uber.org/atomic"
 	extensions "istio.io/api/extensions/v1alpha1"
+	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/monitoring"
@@ -172,6 +173,24 @@ func newGatewayIndex() gatewayIndex {
 	}
 }
 
+// serviceNameMappingIndex is the index of Service Name Mapping by various fields.
+type serviceNameMappingIndex struct {
+	// namespace contains Service Name Mapping by namespace.
+	namespace map[string][]*config.Config
+	// interface by namespace
+	interfaceByNamespace map[string]map[string]*config.Config
+	// all contains all Service Name Mapping.
+	all []*config.Config
+}
+
+func newServiceNameMappingIndex() serviceNameMappingIndex {
+	return serviceNameMappingIndex{
+		namespace:            map[string][]*config.Config{},
+		interfaceByNamespace: map[string]map[string]*config.Config{},
+		all:                  []*config.Config{},
+	}
+}
+
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
@@ -206,6 +225,9 @@ type PushContext struct {
 
 	// sidecarIndex stores sidecar resources
 	sidecarIndex sidecarIndex
+
+	// serviceNameMappingIndex is the index of service name mapping.
+	serviceNameMappingIndex serviceNameMappingIndex
 
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
@@ -638,6 +660,7 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
+		serviceNameMappingIndex: newServiceNameMappingIndex(),
 	}
 }
 
@@ -876,6 +899,15 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 
 	return res
+}
+
+func (ps *PushContext) ServiceNameMappingsByNameSpaceAndInterfaceName(proxyNamespace, interfaceName string) *config.Config {
+	if namespace, exists := ps.serviceNameMappingIndex.interfaceByNamespace[proxyNamespace]; exists {
+		if snp, exists := namespace[interfaceName]; exists {
+			return snp
+		}
+	}
+	return nil
 }
 
 // DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
@@ -1183,6 +1215,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	if err := ps.initSidecarScopes(env); err != nil {
 		return err
 	}
+	// service name mapping context init
+	if err := ps.initServiceNameMappings(env); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1192,7 +1228,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged, servicenamemappingsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1224,6 +1260,8 @@ func (ps *PushContext) updateContext(
 			telemetryChanged = true
 		case gvk.ProxyConfig:
 			proxyConfigsChanged = true
+		case gvk.ServiceNameMapping:
+			servicenamemappingsChanged = true
 		}
 	}
 
@@ -1326,6 +1364,13 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
+	}
+	if servicenamemappingsChanged {
+		if err := ps.initServiceNameMappings(env); err != nil {
+			return err
+		}
+	} else {
+		ps.serviceNameMappingIndex = oldPushContext.serviceNameMappingIndex
 	}
 
 	return nil
@@ -2182,6 +2227,38 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 		ps.GatewayAPIController = env.GatewayAPIController
 		return env.GatewayAPIController.Recompute(GatewayContext{ps})
 	}
+	return nil
+}
+
+// Split out of ServiceNameMapping expensive conversions - once per push.
+func (ps *PushContext) initServiceNameMappings(env *Environment) error {
+	configs, err := env.List(gvk.ServiceNameMapping, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	snpMappings := make([]*config.Config, len(configs))
+	for i := range snpMappings {
+		deepCopy := configs[i].DeepCopy()
+		snpMappings[i] = &deepCopy
+	}
+	for _, snp := range snpMappings {
+		byNamespace := ps.serviceNameMappingIndex.namespace
+		if _, exists := byNamespace[snp.Namespace]; !exists {
+			byNamespace[snp.Namespace] = make([]*config.Config, 0)
+		}
+		byNamespace[snp.Namespace] = append(byNamespace[snp.Namespace], snp)
+
+		interfaceByNamespace := ps.serviceNameMappingIndex.interfaceByNamespace
+		if _, exists := interfaceByNamespace[snp.Namespace]; !exists {
+			interfaceByNamespace[snp.Namespace] = make(map[string]*config.Config, 0)
+		}
+		mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
+		interfaceByNamespace[snp.Namespace][mapping.GetInterfaceName()] = snp
+	}
+	ps.serviceNameMappingIndex.all = snpMappings
 	return nil
 }
 

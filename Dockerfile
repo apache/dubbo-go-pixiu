@@ -17,26 +17,37 @@
 # under the License.
 #
 
+
+
 ### builder
-FROM golang:alpine as builder
+FROM amd64/ubuntu:latest as builder
 LABEL MAINTAINER="dev@dubbo.apache.org"
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc
+
+ADD https://golang.google.cn/dl/go1.18.7.linux-amd64.tar.gz .
+RUN tar -xf go1.18.7.linux-amd64.tar.gz -C /usr/local/
+ENV PATH=$PATH:/usr/local/go/bin
+
+WORKDIR /app/
+COPY . .
 
 ENV GO111MODULE=on \
     CGO_ENABLED=1 \
     GOOS=linux \
     GOARCH=amd64
 
-WORKDIR /app/
-COPY . .
-RUN go mod download
-RUN go build -ldflags "-s -w" -o dubbo-go-pixiu ./cmd/pixiu/*.go
-
+RUN go build -ldflags '-r ./lib -s -w' -trimpath -o dubbo-go-pixiu ./cmd/pixiu/*.go
 
 ### alpine
-FROM amd64/ubuntu:latest
-COPY --from=builder /app/dubbo-go-pixiu /app/
-COPY --from=builder /app/docker-entrypoint.sh /app/
-COPY --from=builder /app/configs/* /etc/pixiu/
-WORKDIR /app/
-RUN ["chmod", "+x","./docker-entrypoint.sh"]
-ENTRYPOINT ["./docker-entrypoint.sh"]
+FROM amd64/pingcap/alpine-glibc:latest
+RUN addgroup -S nonroot \
+    && adduser -S nonroot -G nonroot
+USER nonroot
+COPY docker-entrypoint.sh /
+COPY configs/* /etc/pixiu/
+COPY --from=builder /root/go/pkg/mod/github.com/wasmerio/wasmer-go@v1.0.4/wasmer/packaged/lib/linux-amd64/libwasmer.so /lib/
+COPY --from=builder /app/dubbo-go-pixiu /
+RUN ["chmod", "+x", "/docker-entrypoint.sh"]
+ENTRYPOINT ["sh","./docker-entrypoint.sh"]

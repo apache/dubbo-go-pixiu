@@ -19,11 +19,6 @@ package model
 
 import (
 	"fmt"
-	"math"
-)
-
-import (
-	"github.com/dubbogo/gost/hash/consistent"
 )
 
 const (
@@ -62,7 +57,7 @@ type (
 		Type                 DiscoveryType       `yaml:"-" json:"-"`       // Type the cluster discovery type
 		EdsClusterConfig     EdsClusterConfig    `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
 		LbStr                LbPolicyType        `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
-		Hash                 Hash                `yaml:"consistent" json:"consistent"` // Consistent hash config info
+		ConsistentHash       ConsistentHash      `yaml:"consistent" json:"consistent"` // Consistent hash config info
 		HealthChecks         []HealthCheckConfig `yaml:"health_checks" json:"health_checks"`
 		Endpoints            []*Endpoint         `yaml:"endpoints" json:"endpoints"`
 		PrePickEndpointIndex int
@@ -100,10 +95,12 @@ type (
 		UnHealthy bool
 	}
 
-	Hash struct {
-		ReplicaNum     int   `yaml:"replica_num" json:"replica_num"`
-		MaxVnodeNum    int32 `yaml:"max_vnode_num" json:"max_vnode_num"`
-		ConsistentHash *consistent.Consistent
+	// ConsistentHash methods include: RingHash, MaglevHash
+	ConsistentHash struct {
+		ReplicaNum      int   `yaml:"replica_num" json:"replica_num"`
+		MaxVnodeNum     int32 `yaml:"max_vnode_num" json:"max_vnode_num"`
+		MaglevTableSize int   `yaml:"maglev_table_size" json:"maglev_table_size"`
+		Hash            LbConsistentHash
 	}
 )
 
@@ -118,26 +115,13 @@ func (c *ClusterConfig) GetEndpoint(mustHealth bool) []*Endpoint {
 	return endpoints
 }
 
+// CreateConsistentHash creates consistent hashing algorithms for Load Balance.
 func (c *ClusterConfig) CreateConsistentHash() {
-	if c.LbStr == LoadBalanceConsistentHashing {
-		var ops []consistent.Option
-
-		if c.Hash.ReplicaNum != 0 {
-			ops = append(ops, consistent.WithReplicaNum(c.Hash.ReplicaNum))
-		}
-
-		if c.Hash.MaxVnodeNum != 0 {
-			ops = append(ops, consistent.WithMaxVnodeNum(int(c.Hash.MaxVnodeNum)))
-		} else {
-			c.Hash.MaxVnodeNum = math.MinInt32
-		}
-
-		h := consistent.NewConsistentHash(ops...)
-
-		for _, endpoint := range c.Endpoints {
-			address := endpoint.Address
-			h.Add(fmt.Sprintf("%s:%d", address.Address, address.Port))
-		}
-		c.Hash.ConsistentHash = h
+	if newConsistentHash, ok := ConsistentHashInitMap[c.LbStr]; ok {
+		c.ConsistentHash.Hash = newConsistentHash(c.ConsistentHash, c.Endpoints)
 	}
+}
+
+func (e Endpoint) GetHost() string {
+	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
 }

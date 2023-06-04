@@ -83,8 +83,11 @@ resources:
                 - name: queryStrings.time
                   mapTo: requestBody.time
 ```
+
 ## Sample Requests
+
 ### Passthrough Get request
+
 ```bash
 curl --request GET 'localhost:8888/api/v1/test-http/user?name=joe2'
 ```
@@ -95,16 +98,17 @@ curl --request GET 'localhost:8888/api/v1/test-http/user?name=joe2'
 
 ```json
 {
-    "id": "XVlBz",
-    "name": "joe2",
-    "age": 20,
-    "time": "2021-01-01T00:00:00Z"
+  "id": "XVlBz",
+  "name": "joe2",
+  "age": 20,
+  "time": "2021-01-01T00:00:00Z"
 }
 ```
 
 - Not found, return: nil
 
 ### Mix Post request
+
 ```bash
 curl --request POST 'localhost:8888/api/v1/test-http/user/tc2?time=2021-01-01T00:00:00Z' \
 --header 'Content-Type: application/json' \
@@ -114,26 +118,30 @@ curl --request POST 'localhost:8888/api/v1/test-http/user/tc2?time=2021-01-01T00
 ```
 
 #### Response
+
 ```json
 {
-    "id": "XVlBz",
-    "name": "tc2",
-    "age": 19,
-    "time": "2021-01-01T00:00:00Z"
+  "id": "XVlBz",
+  "name": "tc2",
+  "age": 19,
+  "time": "2021-01-01T00:00:00Z"
 }
 ```
+
 ### Mix GET request
+
 ```bash
 curl --request GET 'localhost:8888/api/v1/test-http/user/tc'
 ```
 
 #### Response
+
 ```json
 {
-    "id": "0001",
-    "name": "tc",
-    "age": 18,
-    "time": "2020-12-28T13:38:25.687309+08:00"
+  "id": "0001",
+  "name": "tc",
+  "age": 18,
+  "time": "2020-12-28T13:38:25.687309+08:00"
 }
 ```
 

@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package loadbalancer
+package dubbogen
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	istiolog "istio.io/pkg/log"
 )
 
-type LoadBalancer interface {
-	Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint
-}
+import (
+	"github.com/apache/dubbo-go-pixiu/pilot/pkg/model"
+	v3 "github.com/apache/dubbo-go-pixiu/pilot/pkg/xds/v3"
+)
 
-// LoadBalancerStrategy load balancer strategy mode
-var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
+var log = istiolog.RegisterScope("dubbogen", "xDS Generator for Proxyless dubbo", 0)
 
-func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
-	if _, ok := LoadBalancerStrategy[name]; ok {
-		panic("load balancer register fail " + name)
+type DubboConfigGenerator struct{}
+
+func (d *DubboConfigGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	switch w.TypeUrl {
+	case v3.DubboServiceNameMappingType:
+		return d.buildServiceNameMappings(proxy, req, w.ResourceNames), model.DefaultXdsLogDetails, nil
+	default:
+		log.Warnf("not support now %s", w.TypeUrl)
+		return nil, model.DefaultXdsLogDetails, nil
 	}
-	LoadBalancerStrategy[name] = balancer
-}
-
-func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {
-	if _, ok := model.ConsistentHashInitMap[name]; ok {
-		panic("consistent hash load balancer register fail " + name)
-	}
-	model.ConsistentHashInitMap[name] = function
 }
