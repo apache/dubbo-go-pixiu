@@ -340,8 +340,6 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/watchdog/v3"
-
-	// Istio-specific Envoy filters
 	_ "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
 	_ "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	_ "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
