@@ -21,17 +21,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
-type traceGenerator func(Trace) Trace
-
-// One protocol for one Trace.
-var TraceFactory map[ProtocolName]traceGenerator
-
-func init() {
-	TraceFactory = make(map[ProtocolName]traceGenerator)
-	TraceFactory[HTTPProtocol] = NewHTTPTracer
-}
-
-// Driver maintains all tracers and the provider.
+// TraceDriverManager Driver maintains all tracers and the provider.
 type TraceDriverManager struct {
 	driver    *TraceDriver
 	bootstrap *model.Bootstrap
@@ -47,9 +37,4 @@ func CreateDefaultTraceDriverManager(bs *model.Bootstrap) *TraceDriverManager {
 
 func (manager *TraceDriverManager) GetDriver() *TraceDriver {
 	return manager.driver
-}
-
-func (manager *TraceDriverManager) Close() {
-	driver := manager.driver
-	_ = driver.Tp.Shutdown(driver.context)
 }
