@@ -38,7 +38,7 @@ ENV GO111MODULE=on \
     GOOS=linux \
     GOARCH=amd64
 
-RUN go build -ldflags '-r ./lib -s -w' -trimpath -o dubbo-go-pixiu ./cmd/pixiu/*.go
+RUN go build -ldflags '-r ./lib -s -w' -tags="wasm" -trimpath -o dubbo-go-pixiu ./cmd/pixiu/*.go
 
 ### alpine
 FROM amd64/pingcap/alpine-glibc:latest
