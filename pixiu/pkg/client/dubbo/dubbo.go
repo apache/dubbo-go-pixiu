@@ -43,6 +43,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -201,16 +202,22 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 
 	gs := dc.Get(dm)
 	tr := otel.Tracer(traceNameDubbogoClient)
-	_, span := tr.Start(req.Context, spanNameDubbogoClient)
+	ctx, span := tr.Start(req.Context, spanNameDubbogoClient)
 	trace.SpanFromContext(req.Context).SpanContext()
 	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
 	span.SetAttributes(attribute.Key(spanTagType).StringSlice(types))
 	span.SetAttributes(attribute.Key(spanTagValues).String(string(finalValues)))
 	defer span.End()
-	ctx := context.WithValue(req.Context, constant.TracingRemoteSpanCtx, trace.SpanFromContext(req.Context).SpanContext())
-	rst, err := gs.Invoke(ctx, method, types, vals)
+
+	// tracing inject manually;
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	ctxWithAttachment := context.WithValue(ctx, constant.AttachmentKey, map[string]string(carrier))
+
+	rst, err := gs.Invoke(ctxWithAttachment, method, types, vals)
 	if err != nil {
 		// TODO statusCode I don’t know what dubbo will return when it times out, so I will return it directly. I will judge it when I call it.
+		span.RecordError(err)
 		return nil, err
 	}
 
