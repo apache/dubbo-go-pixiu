@@ -112,7 +112,7 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 			RouteTrie: trie.NewTrieWithDefault("POST/api/v1/**", model.RouteAction{
 				Cluster:                     "test_dubbo",
 				ClusterNotFoundResponseCode: 505,
-			}),
+			}, nil),
 			Dynamic: false,
 		},
 		HTTPFilters: []*model.HTTPFilter{

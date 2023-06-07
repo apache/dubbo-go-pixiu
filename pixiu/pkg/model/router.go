@@ -45,7 +45,7 @@ type (
 		Path   string `yaml:"path" json:"path" mapstructure:"path"`
 		// Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"` TODO: next version
 		Methods []string        `yaml:"methods" json:"methods" mapstructure:"methods"`
-		Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`
+		Headers []HeaderMatcher `yaml:"headers,omitempty" json:"headers,omitempty" mapstructure:"headers"`
 		// pathRE  *regexp.Regexp
 	}
 
@@ -62,7 +62,7 @@ type (
 		Dynamic   bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
 	}
 
-	// HeaderMatcher include Name header key, Values header value
+	// HeaderMatcher include Name header key, Values header value, Regex regex value
 	HeaderMatcher struct {
 		Name    string   `yaml:"name" json:"name" mapstructure:"name"`
 		Values  []string `yaml:"values" json:"values" mapstructure:"values"`
