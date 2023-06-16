@@ -123,6 +123,7 @@ func (rm *RouterCoordinator) initRegex() {
 				err := headers[i].SetValueRegex(headers[i].Values[0])
 				if err != nil {
 					logger.Errorf("invalid regexp in headers[%d]: %v", i, err)
+					panic(err)
 				}
 			}
 		}
