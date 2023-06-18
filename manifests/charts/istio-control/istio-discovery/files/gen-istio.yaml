@@ -1886,7 +1886,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2011,7 +2011,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2128,7 +2128,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2253,7 +2253,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2370,7 +2370,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2495,7 +2495,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2612,7 +2612,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2737,7 +2737,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
@@ -2854,7 +2854,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -2979,7 +2979,7 @@ metadata:
   labels:
     istio.io/rev: default
 spec:
-  
+
   configPatches:
     - applyTo: NETWORK_FILTER
       match:
