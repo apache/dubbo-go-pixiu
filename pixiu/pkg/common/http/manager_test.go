@@ -109,10 +109,12 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 
 	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			RouteTrie: trie.NewTrieWithDefault("POST/api/v1/**", model.RouteAction{
-				Cluster:                     "test_dubbo",
-				ClusterNotFoundResponseCode: 505,
-			}, nil),
+			RouteTrie: trie.NewTrieWithDefault("POST/api/v1/**", model.TrieRouteAction{
+				RouteAction: model.RouteAction{
+					Cluster:                     "test_dubbo",
+					ClusterNotFoundResponseCode: 505,
+				},
+			}),
 			Dynamic: false,
 		},
 		HTTPFilters: []*model.HTTPFilter{

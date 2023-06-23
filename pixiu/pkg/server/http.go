@@ -27,9 +27,11 @@ import (
 func DefaultHttpConnectionManager() *model.HttpConnectionManagerConfig {
 	return &model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			RouteTrie: trie.NewTrieWithDefault("/api/v1/**", model.RouteAction{
-				Cluster: constant.HeaderValueAll,
-			}, nil),
+			RouteTrie: trie.NewTrieWithDefault("/api/v1/**", model.TrieRouteAction{
+				RouteAction: model.RouteAction{
+					Cluster: constant.HeaderValueAll,
+				},
+			}),
 		},
 		HTTPFilters: []*model.HTTPFilter{
 			{

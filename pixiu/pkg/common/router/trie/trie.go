@@ -18,7 +18,6 @@
 package trie
 
 import (
-	"net/http"
 	"strings"
 )
 
@@ -42,22 +41,21 @@ func NewTrie() Trie {
 }
 
 // NewTrieWithDefault
-func NewTrieWithDefault(path string, defVal interface{}, header map[string][]string) Trie {
+func NewTrieWithDefault(path string, defVal interface{}) Trie {
 	ret := Trie{root: Node{endOfPath: false, matchStr: ""}}
-	_, _ = ret.Put(path, defVal, header)
+	_, _ = ret.Put(path, defVal)
 	return ret
 }
 
 // Node
 type Node struct {
-	matchStr         string              // abc match abc, :a match all words as a variable names a , * match all words  ,** match all words and children.
-	children         map[string]*Node    // in path /a/b/c  , b is child of a , c is child of b
-	PathVariablesSet map[string]*Node    // in path /:a/b/c/:d , :a is a path variable node of level1 , :d is path variable node of level4
-	PathVariableNode *Node               // in path /:a/b/c/:d , /b/c/:d is a child tree of pathVariable node :a ,and some special logic for match pathVariable it better not store in children.
-	MatchAllNode     *Node               // /a/b/**  /** is a match all Node.
-	endOfPath        bool                // if true means a real path exists ,  /a/b/c/d only node of d is true, a,b,c is false.
-	bizInfo          interface{}         // route info and any other info store here.
-	header           map[string][]string // enabled when prefix along with header
+	matchStr         string           // abc match abc, :a match all words as a variable names a , * match all words  ,** match all words and children.
+	children         map[string]*Node // in path /a/b/c  , b is child of a , c is child of b
+	PathVariablesSet map[string]*Node // in path /:a/b/c/:d , :a is a path variable node of level1 , :d is path variable node of level4
+	PathVariableNode *Node            // in path /:a/b/c/:d , /b/c/:d is a child tree of pathVariable node :a ,and some special logic for match pathVariable it better not store in children.
+	MatchAllNode     *Node            // /a/b/**  /** is a match all Node.
+	endOfPath        bool             // if true means a real path exists ,  /a/b/c/d only node of d is true, a,b,c is false.
+	bizInfo          interface{}      // route info and any other info store here.
 }
 
 func (trie *Trie) Clear() bool {
@@ -70,16 +68,16 @@ func (trie *Trie) IsEmpty() bool {
 }
 
 // Put put key and values into trie as map.
-func (trie *Trie) Put(withOutHost string, bizInfo interface{}, header map[string][]string) (bool, error) {
+func (trie *Trie) Put(withOutHost string, bizInfo interface{}) (bool, error) {
 	if bizInfo == nil {
 		return false, errors.Errorf("data to put should not be nil.")
 	}
 	parts := stringutil.Split(withOutHost)
-	return trie.root.internalPut(parts, bizInfo, header)
+	return trie.root.internalPut(parts, bizInfo)
 }
 
 // Put put key and values into trie as map.
-func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo interface{}, header map[string][]string) (bool, error) {
+func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo interface{}) (bool, error) {
 	if bizInfo == nil {
 		return false, errors.Errorf("data to put should not be nil.")
 	}
@@ -90,7 +88,7 @@ func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo interface{}, header ma
 	//if n != nil {
 	//	//TODO: log n.bizInfo for trouble shooting
 	//}
-	return trie.root.internalPut(parts, bizInfo, header)
+	return trie.root.internalPut(parts, bizInfo)
 }
 
 // Get get values according key.pathVariable not supported.
@@ -148,7 +146,7 @@ func (trie Trie) Contains(withOutHost string) (bool, error) {
 }
 
 // Put node put
-func (node *Node) internalPut(keys []string, bizInfo interface{}, header map[string][]string) (bool, error) {
+func (node *Node) internalPut(keys []string, bizInfo interface{}) (bool, error) {
 	// empty node initialization
 	if node.children == nil {
 		node.children = map[string]*Node{}
@@ -160,7 +158,7 @@ func (node *Node) internalPut(keys []string, bizInfo interface{}, header map[str
 	key := keys[0]
 	// isReal is the end of url path, means node is a place of url end,so the path with parentNode has a real url exists.
 	isReal := len(keys) == 1
-	isSuccess := node.put(key, isReal, bizInfo, header)
+	isSuccess := node.put(key, isReal, bizInfo)
 
 	if !isSuccess {
 		return false, nil
@@ -168,11 +166,11 @@ func (node *Node) internalPut(keys []string, bizInfo interface{}, header map[str
 	childKeys := keys[1:]
 
 	if stringutil.IsPathVariableOrWildcard(key) {
-		return node.PathVariableNode.internalPut(childKeys, bizInfo, header)
+		return node.PathVariableNode.internalPut(childKeys, bizInfo)
 	} else if stringutil.IsMatchAll(key) {
 		return isSuccess, nil
 	} else {
-		return node.children[key].internalPut(childKeys, bizInfo, header)
+		return node.children[key].internalPut(childKeys, bizInfo)
 	}
 
 }
@@ -193,25 +191,6 @@ func (node *Node) IsEmpty() bool {
 // GetBizInfo get info
 func (node *Node) GetBizInfo() interface{} {
 	return node.bizInfo
-}
-
-// HasHeader whether node has header
-func (node *Node) HasHeader() bool {
-	return len(node.header) != 0
-}
-
-// MatchHeader match the headers, excluding regex type
-func (node *Node) MatchHeader(header http.Header) bool {
-	for h, src := range node.header {
-		if dst := header.Get(h); len(dst) > 0 {
-			for _, v := range src {
-				if v == dst {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 //Match node match
@@ -304,20 +283,20 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 
 }
 
-func (node *Node) put(key string, isReal bool, bizInfo interface{}, header map[string][]string) bool {
+func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 
 	if !stringutil.IsPathVariableOrWildcard(key) {
 		if stringutil.IsMatchAll(key) {
-			return node.putMatchAllNode(key, isReal, bizInfo, header)
+			return node.putMatchAllNode(key, isReal, bizInfo)
 		} else {
-			return node.putNode(key, isReal, bizInfo, header)
+			return node.putNode(key, isReal, bizInfo)
 		}
 	}
 	pathVariable := stringutil.VariableName(key)
-	return node.putPathVariable(pathVariable, isReal, bizInfo, header)
+	return node.putPathVariable(pathVariable, isReal, bizInfo)
 }
 
-func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo interface{}, header map[string][]string) bool {
+func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo interface{}) bool {
 	//path variable put
 	if node.PathVariableNode == nil {
 		node.PathVariableNode = &Node{endOfPath: false}
@@ -329,7 +308,6 @@ func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo inte
 	if isReal {
 		node.PathVariableNode.bizInfo = bizInfo
 		node.PathVariableNode.matchStr = pathVariable
-		node.header = header
 	}
 	node.PathVariableNode.endOfPath = node.PathVariableNode.endOfPath || isReal
 	if node.PathVariablesSet == nil {
@@ -339,7 +317,7 @@ func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo inte
 	return true
 }
 
-func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}, header map[string][]string) bool {
+func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) bool {
 
 	selfNode := &Node{endOfPath: isReal, matchStr: matchStr}
 	old := node.children[matchStr]
@@ -355,14 +333,13 @@ func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}, hea
 
 	if isReal {
 		selfNode.bizInfo = bizInfo
-		selfNode.header = header
 	}
 	selfNode.endOfPath = isReal || old.endOfPath
 	node.children[matchStr] = selfNode
 	return true
 }
 
-func (node *Node) putMatchAllNode(matchStr string, isReal bool, bizInfo interface{}, header map[string][]string) bool {
+func (node *Node) putMatchAllNode(matchStr string, isReal bool, bizInfo interface{}) bool {
 
 	selfNode := &Node{endOfPath: isReal, matchStr: matchStr}
 	old := node.MatchAllNode
@@ -378,7 +355,6 @@ func (node *Node) putMatchAllNode(matchStr string, isReal bool, bizInfo interfac
 
 	if isReal {
 		selfNode.bizInfo = bizInfo
-		selfNode.header = header
 	}
 	selfNode.endOfPath = selfNode.endOfPath || old.endOfPath
 	node.MatchAllNode = selfNode

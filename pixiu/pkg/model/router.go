@@ -69,13 +69,19 @@ type (
 		Regex   bool     `yaml:"regex" json:"regex" mapstructure:"regex"`
 		valueRE *regexp.Regexp
 	}
+
+	// TrieRouteAction indicates the action when matched the trie
+	TrieRouteAction struct {
+		RouteAction
+		RouterMatch
+	}
 )
 
 func NewRouterMatchPrefix(name string) RouterMatch {
 	return RouterMatch{Prefix: "/" + name + "/"}
 }
 
-func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string, header stdHttp.Header) (*RouteAction, error) {
+func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string, req *stdHttp.Request) (*RouteAction, error) {
 	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
@@ -84,18 +90,19 @@ func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string, header s
 	if node == nil {
 		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(method, path))
 	}
-	if node.HasHeader() && !node.MatchHeader(header) {
-		return nil, errors.New("prefix matched, but no headers matched.")
-	}
 	if node.GetBizInfo() == nil {
 		return nil, errors.Errorf("action is nil. please check your configuration.")
 	}
-	ret := (node.GetBizInfo()).(RouteAction)
-	return &ret, nil
+	ret := (node.GetBizInfo()).(TrieRouteAction)
+	if len(ret.Headers) > 0 && !ret.MatchHeader(req) {
+		return nil, errors.New("prefix matched, but no headers matched.")
+	}
+
+	return &ret.RouteAction, nil
 }
 
 func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) {
-	return rc.RouteByPathAndMethod(req.URL.Path, req.Method, req.Header)
+	return rc.RouteByPathAndMethod(req.URL.Path, req.Method, req)
 }
 
 // MatchHeader used when there's only headers to match
@@ -117,18 +124,6 @@ HEADER:
 		}
 	}
 	return false
-}
-
-// HeaderMap return the map of headers, excluding regex type
-func (rm *RouterMatch) HeaderMap() map[string][]string {
-	header := map[string][]string{}
-	for _, h := range rm.Headers {
-		if h.Regex {
-			continue
-		}
-		header[h.Name] = h.Values
-	}
-	return header
 }
 
 // MatchValues match values in header, including regex type

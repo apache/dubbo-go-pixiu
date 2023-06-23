@@ -131,7 +131,7 @@ func (rt *Route) PutAPI(api router.API) error {
 		}
 		rt.lock.Lock()
 		defer rt.lock.Unlock()
-		_, _ = rt.tree.Put(key, rn, nil)
+		_, _ = rt.tree.Put(key, rn)
 		return nil
 	}
 	return errors.Errorf("Method %s with address %s already exists in path %s",
@@ -169,7 +169,7 @@ func (rt *Route) PutOrUpdateAPI(api router.API) error {
 			}
 		}
 	} else {
-		if ok, err := rt.tree.PutOrUpdate(key, rn, nil); !ok {
+		if ok, err := rt.tree.PutOrUpdate(key, rn); !ok {
 			return err
 		}
 	}

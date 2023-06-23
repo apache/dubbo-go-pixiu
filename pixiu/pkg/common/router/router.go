@@ -146,7 +146,10 @@ func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 		} else {
 			key = getTrieKey(method, r.Match.Path, isPrefix)
 		}
-		_, _ = rm.activeConfig.RouteTrie.Put(key, r.Route, r.Match.HeaderMap())
+		_, _ = rm.activeConfig.RouteTrie.Put(key, model.TrieRouteAction{
+			RouteAction: r.Route,
+			RouterMatch: r.Match,
+		})
 	}
 }
 
