@@ -68,7 +68,7 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 	rm.rw.RLock()
 	defer rm.rw.RUnlock()
 
-	return rm.activeConfig.RouteByPathAndMethod(path, method, nil)
+	return rm.activeConfig.RouteByPathAndMethod(path, method)
 }
 
 func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, error) {
@@ -91,7 +91,8 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 		return &matched[0].Route, nil
 	}
 
-	// match those route that only contains prefix or both prefix and header
+	// match those route that only contains prefix
+	// TODO: may consider implementing both prefix and header in the future
 	return rm.activeConfig.Route(req)
 }
 
@@ -146,10 +147,7 @@ func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 		} else {
 			key = getTrieKey(method, r.Match.Path, isPrefix)
 		}
-		_, _ = rm.activeConfig.RouteTrie.Put(key, model.TrieRouteAction{
-			RouteAction: r.Route,
-			RouterMatch: r.Match,
-		})
+		_, _ = rm.activeConfig.RouteTrie.Put(key, r.Route)
 	}
 }
 

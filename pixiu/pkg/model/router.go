@@ -69,19 +69,13 @@ type (
 		Regex   bool     `yaml:"regex" json:"regex" mapstructure:"regex"`
 		valueRE *regexp.Regexp
 	}
-
-	// TrieRouteAction indicates the action when matched the trie
-	TrieRouteAction struct {
-		RouteAction
-		RouterMatch
-	}
 )
 
 func NewRouterMatchPrefix(name string) RouterMatch {
 	return RouterMatch{Prefix: "/" + name + "/"}
 }
 
-func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string, req *stdHttp.Request) (*RouteAction, error) {
+func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string) (*RouteAction, error) {
 	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
@@ -93,16 +87,13 @@ func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string, req *std
 	if node.GetBizInfo() == nil {
 		return nil, errors.Errorf("action is nil. please check your configuration.")
 	}
-	ret := (node.GetBizInfo()).(TrieRouteAction)
-	if len(ret.Headers) > 0 && !ret.MatchHeader(req) {
-		return nil, errors.New("prefix matched, but no headers matched.")
-	}
+	ret := (node.GetBizInfo()).(RouteAction)
 
-	return &ret.RouteAction, nil
+	return &ret, nil
 }
 
 func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) {
-	return rc.RouteByPathAndMethod(req.URL.Path, req.Method, req)
+	return rc.RouteByPathAndMethod(req.URL.Path, req.Method)
 }
 
 // MatchHeader used when there's only headers to match
