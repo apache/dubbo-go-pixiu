@@ -19,4 +19,6 @@
 
 package pluginregistry
 
-import _ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/proxywasm"
+import (
+	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/proxywasm"
+)
