@@ -101,7 +101,7 @@ func (pr *pushRequest) Merge(other *pushRequest) *pushRequest {
 	return pr
 }
 
-func NewServiceMetadataServer(env *model.Environment, client kube.Client) *ServiceMetadataServer {
+func NewServiceMetadataServer(client kube.Client) *ServiceMetadataServer {
 	return &ServiceMetadataServer{
 		CommittedUpdates: atomic.NewInt64(0),
 		KubeClient:       client,

@@ -281,7 +281,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	if s.kubeClient != nil {
-		s.metadataServer = dubbov1alpha1.NewServiceMetadataServer(s.environment, s.kubeClient)
+		s.metadataServer = dubbov1alpha1.NewServiceMetadataServer(s.kubeClient)
 	}
 
 	// Create Service Name mapping server

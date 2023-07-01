@@ -29,14 +29,14 @@ SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 cd "${ROOTDIR}"
 
-REPO="github.com/MasterKenway/operator-api"
+REPO="github.com/istio/api"
 # using the pseudo version we have in go.mod file. e.g. v.0.0.0-<timestamp>-<SHA>
 # first check if there's a replace: e.g. replace istio.io/api => github.com/USER/istioapi v0.0.0-<timestamp>-<SHA>
-SHA=$(grep "MasterKenway/operator-api" go.mod | grep "^replace" | awk -F "-" '{print $NF}')
+SHA=$(grep "istio.io/api" go.mod | grep "^replace" | awk -F "-" '{print $NF}')
 if [ -n "${SHA}" ]; then
-  REPO=$(grep "MasterKenway/operator-api" go.mod | grep "^replace" | awk '{print $4}')
+  REPO=$(grep "istio.io/api" go.mod | grep "^replace" | awk '{print $4}')
 else
-  SHA=$(grep "MasterKenway/operator-api" go.mod | head -n1 | awk -F "-" '{print $NF}')
+  SHA=$(grep "istio.io/api" go.mod | head -n1 | awk -F "-" '{print $NF}')
 fi
 
 if [ -z "${SHA}" ]; then
