@@ -26,7 +26,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/tracing"
 )
 
 const TraceIDInHeader = "dubbo-go-pixiu-trace-id"
@@ -77,8 +76,8 @@ func (mf *TraceFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 // Docode execute tracerFilter filter logic.
 func (f *TraceFilter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	spanName := "HTTP-" + hc.Request.Method
-	tr, _ := server.NewTracer(tracing.HTTPProtocol)
-	ctxWithId, span := tr.StartSpanFromContext(spanName, hc.Ctx)
+	tr := server.GetTraceDriverManager().GetDriver().Tracer("tracing.HTTPProtocol")
+	ctxWithId, span := tr.Start(hc.Ctx, spanName)
 
 	hc.Request = hc.Request.WithContext(ctxWithId)
 	f.span = span

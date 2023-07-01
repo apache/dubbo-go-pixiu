@@ -180,6 +180,9 @@ type Server struct {
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
 
+	// ServiceMetadataServer
+	metadataServer *dubbov1alpha1.ServiceMetadataServer
+
 	//Service Name mapping register
 	snpServer *dubbov1alpha1.Snp
 }
@@ -275,6 +278,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// Create Istiod certs and setup watches.
 	if err := s.initIstiodCerts(args, string(istiodHost)); err != nil {
 		return nil, err
+	}
+
+	if s.kubeClient != nil {
+		s.metadataServer = dubbov1alpha1.NewServiceMetadataServer(s.environment, s.kubeClient)
 	}
 
 	// Create Service Name mapping server
@@ -745,6 +752,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
+	s.metadataServer.Register(s.grpcServer)
 	s.snpServer.Register(s.grpcServer)
 }
 
@@ -794,6 +802,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
+	s.metadataServer.Register(s.secureGrpcServer)
 	s.snpServer.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {

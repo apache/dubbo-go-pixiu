@@ -1,3 +1,5 @@
+//go:build wasm
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,14 +17,6 @@
  * limitations under the License.
  */
 
-package tracing
+package pluginregistry
 
-import (
-	"go.opentelemetry.io/otel/trace"
-)
-
-// Wrap the tracer provided by otel and be asked to implement the Trace interface
-// to customize the Span implementation.
-type Tracer struct {
-	Trace trace.Tracer
-}
+import _ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/proxywasm"

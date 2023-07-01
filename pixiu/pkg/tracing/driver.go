@@ -20,14 +20,16 @@ package tracing
 import (
 	"context"
 	"errors"
-	"sync"
+	"fmt"
 )
 
 import (
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -57,20 +59,14 @@ const (
 	OTLP   = "otlp"
 )
 
-// Unique Name by making Id self-incrementing。
+// Holder Unique Name by making Id self-incrementing。
 type Holder struct {
 	Tracers map[string]Trace
 }
 
 // Tracers corresponding to the listening protocol are maintained by the holder
 type TraceDriver struct {
-	Holders sync.Map
-	Tp      *sdktrace.TracerProvider
-	context context.Context
-}
-
-func NewTraceDriver() *TraceDriver {
-	return &TraceDriver{}
+	trace.TracerProvider
 }
 
 // InitDriver loading BootStrap configuration about trace
@@ -86,21 +82,10 @@ func InitDriver(bs *model.Bootstrap) *TraceDriver {
 		logger.Warnf("[dubbo-go-pixiu] create trace exporter failed: %v", err)
 		return nil
 	}
-	driver := NewTraceDriver()
 	provider := newTraceProvider(exp, config)
-
 	otel.SetTracerProvider(provider)
 
-	driver.Tp = provider
-	return driver
-}
-
-// GetHolder return the holder of the corresponding protocol. If None, create new holder.
-func (driver *TraceDriver) GetHolder(name ProtocolName) *Holder {
-	holder, _ := driver.Holders.LoadOrStore(name, &Holder{
-		Tracers: make(map[string]Trace),
-	})
-	return holder.(*Holder)
+	return &TraceDriver{TracerProvider: provider}
 }
 
 func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExporter, error) {
@@ -124,12 +109,34 @@ func newTraceProvider(exp sdktrace.SpanExporter, cfg *model.TracerConfig) *sdktr
 		semconv.SchemaURL,
 		semconv.ServiceNameKey.String(cfg.ServiceName),
 	)
-
+	//otel.SetTextMapPropagator(propagation.TraceContext{})
+	otel.SetTextMapPropagator(customJaegerInject{})
 	return sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(resource),
 		sdktrace.WithSampler(newSampler(cfg.Sampler)),
 	)
+}
+
+type customJaegerInject struct {
+	propagation.TraceContext
+}
+
+func (c customJaegerInject) Inject(ctx context.Context, carrier propagation.TextMapCarrier) {
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsValid() {
+		return
+	}
+
+	// Clear all flags other than the trace-context supported sampling bit.
+	flags := sc.TraceFlags() & trace.FlagsSampled
+
+	h := fmt.Sprintf("%s:%s:%s:%s",
+		sc.TraceID(),
+		sc.SpanID(),
+		sc.SpanID(),
+		flags)
+	carrier.Set("uber-trace-id", h)
 }
 
 func newSampler(sample model.Sampler) sdktrace.Sampler {

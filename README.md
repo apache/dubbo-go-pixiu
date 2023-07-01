@@ -18,67 +18,114 @@ It is an open source Dubbo ecosystem API gateway, and also a sidecar to let othe
 
 ## Quick Start
 
+#### Requirment
+1. go 1.17 or higher
+2. docker or docker-desktop
+
 you can find out all demo in https://github.com/apache/dubbo-go-pixiu-samples.
 download it and operate as below.
+```shell
+git clone https://github.com/apache/dubbo-go-pixiu-samples.git
+```
+
+#### update pixiu to latest version
+```shell
+go get github.com/apache/dubbo-go-pixiu@v0.6.0-rc2
+```
 
 #### cd samples dir
 
-```
+```shell
 cd dubbogo/simple
 ```
 
 we can use start.sh to run samples quickly. for more info, execute command as below for more help
 
-```
+```shell
 ./start.sh [action] [project]
 ./start.sh help
 ```
 
-we run body samples below step
+we run [direct] samples step by step as follows.
 
 #### prepare config file and docker 
 
-prepare command will prepare dubbo-server and pixiu config file and start docker container needed
+'prepare' command will prepare dubbo-server and pixiu config file firstly, and then start docker container.
 
-```
-./start.sh prepare body
+```shell
+./start.sh prepare direct
 ```
 
 if prepare config file manually, notice:
-- modify $PROJECT_DIR in conf.yaml to absolute path in your compute 
+- modify $PROJECT_DIR in conf.yaml to absolute path 
 
 #### start dubbo or http server
 
-```
-./start.sh startServer body
+```shell
+./start.sh startServer direct
 ```
 
 #### start pixiu 
 
-```
-./start.sh startPixiu body
+```shell
+./start.sh startPixiu direct
 ```
 
 if run pixiu manually in pixiu project, use command as below.
 
-```
- go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/body/pixiu/conf.yaml
+```shell
+ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/direct/pixiu/conf.yaml
 ```
 
+if run pixiu manually in pixiu project and wasm feature, use command as below.
+
+build pixiu project use command operate
+
+```shell
+go build -tags wasm -o pixiu cmd/pixiu/*.go
+```
+
+run pixiu app binary
+
+```shell
+go build cmd/pixiu/*.go
+./pixiu gateway start -c /[absolute-path]/dubbo-go-pixiu/samples/dubbogo/simple/direct/pixiu/conf.yaml
+```
 
 #### Try a request
 
 use curl to try or use unit test
 
-```bash
-curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"name":"dubbogo","age":99}' --header 'Content-Type: application/json' 
+```shell
+curl http://localhost:8883/UserService/com.dubbogo.pixiu.UserService/GetUserByCode \
+-H "x-dubbo-http1.1-dubbo-version:1.0.0" -H "x-dubbo-service-protocol:dubbo" \
+-H "x-dubbo-service-version:1.0.0" -H "x-dubbo-service-group:test" \
+-H "Content-Type:application/json" \
+ -d '[1]'
+```
+```shell
+curl http://localhost:8883/UserService/com.dubbogo.pixiu.UserService/UpdateUserByName  \
+-H "x-dubbo-http1.1-dubbo-version:1.0.0" -H "x-dubbo-service-protocol:dubbo" \
+-H "x-dubbo-service-version:1.0.0" -H "x-dubbo-service-group:test" \
+-H "Content-Type:application/json" \
+ -d '["tc",{"id":"0002","code":1,"name":"tc","age":15}]'
+```
+```shell
+curl http://localhost:8883/UserService/com.dubbogo.pixiu.UserService/GetUserByCode \
+-H "x-dubbo-http1.1-dubbo-version:1.0.0" -H "x-dubbo-service-protocol:dubbo" \
+-H "x-dubbo-service-version:1.0.0" -H "x-dubbo-service-group:test" \
+-H "Content-Type:application/json" \
+ -d '[1]'
+```
+
+```shell 
 ./start.sh startTest body
 ```
 
 #### Clean
 
-```
-./start.sh clean body
+```shell
+./start.sh clean direct
 ```
 
 ## Start Docker
@@ -86,9 +133,9 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 #### 
 ```shell
 docker run --name pixiu-gateway -p 8888:8888 dubbogopixiu/dubbo-go-pixiu:latest
+```
 
-```
-```
+```shell
 docker run --name pixiu-gateway -p 8888:8888 \
     -v /yourpath/conf.yaml:/etc/pixiu/conf.yaml \
     -v /yourpath/log.yml:/etc/pixiu/log.yml \
@@ -112,8 +159,9 @@ The pixiu control plane is forked from [istio](https://github.com/istio/istio) v
 
 The project is under intensively iteration, you are more than welcome to use, suggest and contribute codes. 
 
+
 ### Community
- 
+
 **DingDing Group (31203920):**
 
 [![flowchart](./docs/images/group-pixiu-dingding.jpg)](docs/images/group-pixiu-dingding.jpg)

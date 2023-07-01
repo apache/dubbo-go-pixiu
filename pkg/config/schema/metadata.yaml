@@ -180,6 +180,11 @@ collections:
     name: "k8s/gateway_api/v1alpha2/referencepolicies"
     group: "gateway.networking.k8s.io"
 
+  - kind: "ServiceMetadata"
+    name: "istio/extensions/v1alpha1/servicemetadatas"
+    group: "extensions.istio.io"
+    pilot: true
+
   - name: "istio/extensions/v1alpha1/servicenamemappings"
     kind: ServiceNameMapping
     group: "extensions.istio.io"
@@ -471,6 +476,16 @@ resources:
     proto: "istio.extensions.v1alpha1.WasmPlugin"
     protoPackage: "istio.io/api/extensions/v1alpha1"
     description: ""
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
+  - kind: ServiceMetadata
+    plural: "servicemetadatas"
+    group: "extensions.istio.io"
+    version: "v1alpha1"
+    proto: "istio.extensions.v1alpha1.ServiceMetadata"
+    protoPackage: "istio.io/api/extensions/v1alpha1"
+    description: "describes service metadata"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
