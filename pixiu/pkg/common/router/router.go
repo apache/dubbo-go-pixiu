@@ -18,8 +18,13 @@
 package router
 
 import (
+	stdHttp "net/http"
 	"strings"
 	"sync"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
@@ -27,6 +32,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
 )
@@ -46,6 +52,7 @@ func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoord
 		server.GetRouterManager().AddRouterListener(rc)
 	}
 	rc.initTrie()
+	rc.initRegex()
 	return rc
 }
 
@@ -54,7 +61,7 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 	rm.rw.RLock()
 	defer rm.rw.RUnlock()
 
-	return rm.activeConfig.Route(hc.Request)
+	return rm.route(hc.Request)
 }
 
 func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.RouteAction, error) {
@@ -62,6 +69,31 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 	defer rm.rw.RUnlock()
 
 	return rm.activeConfig.RouteByPathAndMethod(path, method)
+}
+
+func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, error) {
+	// match those route that only contains headers first
+	var matched []*model.Router
+	for _, route := range rm.activeConfig.Routes {
+		if len(route.Match.Prefix) > 0 {
+			continue
+		}
+		if route.Match.MatchHeader(req) {
+			matched = append(matched, route)
+		}
+	}
+
+	// always return the first match of header if got any
+	if len(matched) > 0 {
+		if len(matched[0].Route.Cluster) == 0 {
+			return nil, errors.New("action is nil. please check your configuration.")
+		}
+		return &matched[0].Route, nil
+	}
+
+	// match those route that only contains prefix
+	// TODO: may consider implementing both prefix and header in the future
+	return rm.activeConfig.Route(req)
 }
 
 func getTrieKey(method string, path string, isPrefix bool) string {
@@ -80,6 +112,22 @@ func (rm *RouterCoordinator) initTrie() {
 	}
 	for _, router := range rm.activeConfig.Routes {
 		rm.OnAddRouter(router)
+	}
+}
+
+func (rm *RouterCoordinator) initRegex() {
+	for _, router := range rm.activeConfig.Routes {
+		headers := router.Match.Headers
+		for i := range headers {
+			if headers[i].Regex && len(headers[i].Values) > 0 {
+				// regexp always use first value of header
+				err := headers[i].SetValueRegex(headers[i].Values[0])
+				if err != nil {
+					logger.Errorf("invalid regexp in headers[%d]: %v", i, err)
+					panic(err)
+				}
+			}
+		}
 	}
 }
 

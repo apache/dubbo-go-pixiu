@@ -44,8 +44,8 @@ type (
 		Prefix string `yaml:"prefix" json:"prefix" mapstructure:"prefix"`
 		Path   string `yaml:"path" json:"path" mapstructure:"path"`
 		// Regex   string          `yaml:"regex" json:"regex" mapstructure:"regex"` TODO: next version
-		Methods []string `yaml:"methods" json:"methods" mapstructure:"methods"`
-		// Headers []HeaderMatcher `yaml:"headers" json:"headers" mapstructure:"headers"`
+		Methods []string        `yaml:"methods" json:"methods" mapstructure:"methods"`
+		Headers []HeaderMatcher `yaml:"headers,omitempty" json:"headers,omitempty" mapstructure:"headers"`
 		// pathRE  *regexp.Regexp
 	}
 
@@ -62,7 +62,7 @@ type (
 		Dynamic   bool      `yaml:"dynamic" json:"dynamic" mapstructure:"dynamic"`
 	}
 
-	// Name header key, Value header value, Regex header value is regex
+	// HeaderMatcher include Name header key, Values header value, Regex regex value
 	HeaderMatcher struct {
 		Name    string   `yaml:"name" json:"name" mapstructure:"name"`
 		Values  []string `yaml:"values" json:"values" mapstructure:"values"`
@@ -82,15 +82,62 @@ func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string) (*RouteA
 
 	node, _, _ := rc.RouteTrie.Match(stringutil.GetTrieKey(method, path))
 	if node == nil {
-		return nil, errors.Errorf("route failed for %s,no rules matched.", stringutil.GetTrieKey(method, path))
+		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(method, path))
 	}
 	if node.GetBizInfo() == nil {
-		return nil, errors.Errorf("info is nil.please check your configuration.")
+		return nil, errors.Errorf("action is nil. please check your configuration.")
 	}
 	ret := (node.GetBizInfo()).(RouteAction)
+
 	return &ret, nil
 }
 
 func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) {
 	return rc.RouteByPathAndMethod(req.URL.Path, req.Method)
+}
+
+// MatchHeader used when there's only headers to match
+func (rm *RouterMatch) MatchHeader(req *stdHttp.Request) bool {
+	if len(rm.Methods) > 0 {
+		for _, method := range rm.Methods {
+			if method == req.Method {
+				goto HEADER
+			}
+		}
+		return false
+	}
+HEADER:
+	for _, header := range rm.Headers {
+		if val := req.Header.Get(header.Name); len(val) > 0 {
+			if header.MatchValues(val) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// MatchValues match values in header, including regex type
+func (hm *HeaderMatcher) MatchValues(dst string) bool {
+	if hm.Regex && hm.valueRE != nil {
+		return hm.valueRE.MatchString(dst)
+	}
+
+	for _, src := range hm.Values {
+		if src == dst {
+			return true
+		}
+	}
+	return false
+}
+
+// SetValueRegex compile the regex, disable regex if it failed
+func (hm *HeaderMatcher) SetValueRegex(regex string) error {
+	r, err := regexp.Compile(regex)
+	if err == nil {
+		hm.valueRE = r
+		return nil
+	}
+	hm.Regex = false
+	return err
 }
