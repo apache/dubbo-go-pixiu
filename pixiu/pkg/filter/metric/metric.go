@@ -18,16 +18,21 @@
 package metric
 
 import (
+	"fmt"
+	http2 "net/http"
 	"time"
 )
 
 import (
+	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
@@ -42,6 +47,10 @@ var (
 	totalElapsed syncint64.Counter
 	totalCount   syncint64.Counter
 	totalError   syncint64.Counter
+
+	sizeRequest  syncint64.Counter
+	sizeResponse syncint64.Counter
+	durationHist syncint64.Histogram
 )
 
 func init() {
@@ -93,15 +102,71 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 }
 
 func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
+
+	commonAttrs := []attribute.KeyValue{
+		attribute.String("code", fmt.Sprintf("%d", c.GetStatusCode())),
+		attribute.String("method", c.Request.Method),
+		attribute.String("url", c.GetUrl()),
+		attribute.String("host", c.Request.Host),
+	}
+
 	latency := time.Since(f.start)
-	totalCount.Add(c.Ctx, 1)
-	totalElapsed.Add(c.Ctx, latency.Nanoseconds())
+	totalCount.Add(c.Ctx, 1, commonAttrs...)
+	latencyMilli := latency.Milliseconds()
+	totalElapsed.Add(c.Ctx, latencyMilli, commonAttrs...)
 	if c.LocalReply() {
 		totalError.Add(c.Ctx, 1)
 	}
 
+	durationHist.Record(c.Ctx, latencyMilli, commonAttrs...)
+	size, err := computeApproximateRequestSize(c.Request)
+	if err != nil {
+		logger.Warn("can not compute request size", err)
+	} else {
+		sizeRequest.Add(c.Ctx, int64(size), commonAttrs...)
+	}
+
+	size, err = computeApproximateResponseSize(c.TargetResp)
+	if err != nil {
+		logger.Warn("can not compute response size", err)
+	} else {
+		sizeResponse.Add(c.Ctx, int64(size), commonAttrs...)
+	}
+
 	logger.Debugf("[Metric] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.GetStatusCode(), latency, c.GetMethod(), c.GetUrl())
 	return filter.Continue
+}
+
+func computeApproximateResponseSize(res *client.Response) (int, error) {
+	if res == nil {
+		return 0, errors.New("client.Response is null pointer ")
+	}
+	s := 0
+	s += len(res.Data)
+	return s, nil
+}
+
+func computeApproximateRequestSize(r *http2.Request) (int, error) {
+	if r == nil {
+		return 0, errors.New("http.Request is null pointer ")
+	}
+	s := 0
+	if r.URL != nil {
+		s = len(r.URL.Path)
+	}
+	s += len(r.Method)
+	s += len(r.Proto)
+	for name, values := range r.Header {
+		s += len(name)
+		for _, value := range values {
+			s += len(value)
+		}
+	}
+	s += len(r.Host)
+	if r.ContentLength != -1 {
+		s += int(r.ContentLength)
+	}
+	return s, nil
 }
 
 func registerOtelMetric() error {
@@ -127,5 +192,27 @@ func registerOtelMetric() error {
 		return err
 	}
 	totalError = errorCounter
+
+	sizeRequest, err = meter.SyncInt64().Counter("pixiu_request_content_length", instrument.WithDescription("request total content length in pixiu"))
+	if err != nil {
+		logger.Errorf("register pixiu_request_content_length metric failed, err: %v", err)
+		return err
+	}
+
+	sizeResponse, err = meter.SyncInt64().Counter("pixiu_response_content_length", instrument.WithDescription("request total content length response in pixiu"))
+	if err != nil {
+		logger.Errorf("register pixiu_response_content_length metric failed, err: %v", err)
+		return err
+	}
+
+	durationHist, err = meter.SyncInt64().Histogram(
+		"pixiu_process_time_millicec",
+		instrument.WithDescription("request process time response in pixiu"),
+	)
+	if err != nil {
+		logger.Errorf("register pixiu_process_time_millisec metric failed, err: %v", err)
+		return err
+	}
+
 	return nil
 }
