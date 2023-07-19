@@ -139,7 +139,7 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 	}
 	resp := c.TargetResp.Data
 	if err != nil {
-		builder.WriteString(fmt.Sprintf(" response can not convert to string"))
+		builder.WriteString(" response can not convert to string")
 		builder.WriteString("] ")
 	} else {
 		builder.WriteString(fmt.Sprintf(" response [ %+v", string(resp)))
