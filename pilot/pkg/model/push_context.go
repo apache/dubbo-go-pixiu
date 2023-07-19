@@ -28,7 +28,6 @@ import (
 import (
 	"go.uber.org/atomic"
 	extensions "istio.io/api/extensions/v1alpha1"
-	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/monitoring"
@@ -2314,7 +2313,7 @@ func (ps *PushContext) initServiceNameMappings(env *Environment) error {
 		if _, exists := interfaceByNamespace[snp.Namespace]; !exists {
 			interfaceByNamespace[snp.Namespace] = make(map[string]*config.Config, 0)
 		}
-		mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
+		mapping := snp.Spec.(*extensions.ServiceNameMapping)
 		interfaceByNamespace[snp.Namespace][mapping.GetInterfaceName()] = snp
 	}
 	ps.serviceNameMappingIndex.all = snpMappings

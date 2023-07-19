@@ -27,7 +27,6 @@ import (
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo3"
-	tpconst "github.com/dubbogo/triple/pkg/common/constant"
 	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
 	"github.com/pkg/errors"
 )
@@ -161,7 +160,7 @@ func (f Filter) sendTripleRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 	path := invoc.GetAttachmentInterface(dubboConstant.PathKey).(string)
 	// create URL from RpcInvocation
 	url, err := common.NewURL(endpoint.Address.GetAddress(),
-		common.WithProtocol(tpconst.TRIPLE), common.WithParamsValue(dubboConstant.SerializationKey, dubboConstant.Hessian2Serialization),
+		common.WithProtocol(tripleConstant.TRIPLE), common.WithParamsValue(dubboConstant.SerializationKey, dubboConstant.Hessian2Serialization),
 		common.WithParamsValue(dubboConstant.GenericFilterKey, "true"),
 		common.WithParamsValue(dubboConstant.AppVersionKey, "3.0.0"),
 		common.WithParamsValue(dubboConstant.InterfaceKey, path),
