@@ -125,14 +125,6 @@ func (s *ServiceMetadataServer) Register(rpcs *grpc.Server) {
 }
 
 func (s *ServiceMetadataServer) Publish(ctx context.Context, request *dubbov1alpha1.PublishServiceMetadataRequest) (*dubbov1alpha1.PublishServiceMetadataResponse, error) {
-	if exists, err := s.isNamespaceExists(ctx, request.GetNamespace()); err != nil {
-		if !exists {
-			return nil, status.Errorf(codes.Aborted, "Namespace Not Exists")
-		}
-	} else {
-		return nil, status.Errorf(codes.Aborted, err.Error())
-	}
-
 	pushReq := &pushRequest{ConfigsUpdated: map[model.ConfigKey]metadataConfig{}}
 
 	key := model.ConfigKey{
@@ -164,16 +156,6 @@ func (s *ServiceMetadataServer) Get(ctx context.Context, request *dubbov1alpha1.
 	}
 
 	return &dubbov1alpha1.GetServiceMetadataResponse{MetadataInfo: metadata.Spec.GetMetadataInfo()}, nil
-}
-
-func (s *ServiceMetadataServer) isNamespaceExists(ctx context.Context, namespace string) (bool, error) {
-	_, err := s.KubeClient.Kube().CoreV1().Namespaces().Get(ctx, namespace, v1.GetOptions{})
-	if err != nil {
-		if !apierror.IsNotFound(err) {
-			return false, err
-		}
-	}
-	return true, nil
 }
 
 func (s *ServiceMetadataServer) handleUpdate(stopCh <-chan struct{}) {
