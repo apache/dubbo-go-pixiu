@@ -49,7 +49,7 @@ func NewTrieWithDefault(path string, defVal interface{}) Trie {
 
 // Node
 type Node struct {
-	matchStr         string           //abc match abc, :a match all words as a variable names a , * match all words  ,** match all words and children.
+	matchStr         string           // abc match abc, :a match all words as a variable names a , * match all words  ,** match all words and children.
 	children         map[string]*Node // in path /a/b/c  , b is child of a , c is child of b
 	PathVariablesSet map[string]*Node // in path /:a/b/c/:d , :a is a path variable node of level1 , :d is path variable node of level4
 	PathVariableNode *Node            // in path /:a/b/c/:d , /b/c/:d is a child tree of pathVariable node :a ,and some special logic for match pathVariable it better not store in children.
