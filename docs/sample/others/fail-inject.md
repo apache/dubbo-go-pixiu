@@ -28,14 +28,15 @@ static_resources:
                       cluster_not_found_response_code: 505
                 http_filters:
                   - name: dgp.filter.http.faultinjection
-                    rules:
-                      - /uri:
-                        type: delay
-                        trigger_type: random
-                        status_code: 500
-                        body: 'error'
-                        delay: 5s
-                        odds: 30
+                    config:
+                      fail_inject_rules:
+                        "/UserService/com.dubbogo.pixiu.UserService/GetUserByCode":
+                          type: delay
+                          trigger_type: random
+                          status_code: 500
+                          body: 'error'
+                          delay: 5s
+                          odds: 30
       config:
         idle_timeout: 5s
         read_timeout: 5s
