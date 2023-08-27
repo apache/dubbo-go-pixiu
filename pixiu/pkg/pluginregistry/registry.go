@@ -29,6 +29,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/authority"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/cors"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/csrf"
+	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/failinject"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/header"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/host"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/filter/http/apiconfig"

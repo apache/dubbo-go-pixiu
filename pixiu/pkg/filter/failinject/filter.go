@@ -18,11 +18,13 @@
 package failinject
 
 import (
+	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
-	"math/rand"
-	"time"
 )
 
 const (
@@ -54,6 +56,7 @@ func (factory *FilterFactory) Config() interface{} {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
+	fmt.Println(factory.cfg)
 	f := Filter{
 		cfg: factory.cfg,
 	}
@@ -88,15 +91,13 @@ func (f Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 	}
 
 	if uriCfg.Type == TypeAbort {
-		ctx.Writer.WriteHeader(uriCfg.StatusCode)
-		_, _ = ctx.Writer.Write([]byte(uriCfg.Body))
+		ctx.SendLocalReply(uriCfg.StatusCode, []byte(uriCfg.Body))
 		return filter.Stop
 	}
 
 	if uriCfg.Type == TypeDelay {
 		time.Sleep(uriCfg.Delay)
-		ctx.Writer.WriteHeader(uriCfg.StatusCode)
-		_, _ = ctx.Writer.Write([]byte(uriCfg.Body))
+		ctx.SendLocalReply(uriCfg.StatusCode, []byte(uriCfg.Body))
 		return filter.Stop
 	}
 
