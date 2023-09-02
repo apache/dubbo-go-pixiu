@@ -665,8 +665,15 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 
 	// Implement ServiceNameMapping grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		log.Infof("Starting ADS server")
+		log.Infof("Starting SNP server")
 		s.snpServer.Start(stop)
+		return nil
+	})
+
+	// Implement ServiceNameMapping grace shutdown
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		log.Infof("Starting MetaData server")
+		s.metadataServer.Start(stop)
 		return nil
 	})
 
