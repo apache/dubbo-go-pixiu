@@ -20,8 +20,9 @@ package httpproxy
 import (
 	"encoding/json"
 	"fmt"
-	http3 "net/http"
+	stdhttp "net/http"
 	"net/url"
+	"time"
 )
 
 import (
@@ -47,14 +48,20 @@ type (
 	}
 	// FilterFactory is http filter instance
 	FilterFactory struct {
-		cfg *Config
+		cfg    *Config
+		client stdhttp.Client
 	}
 	//Filter
 	Filter struct {
-		transport http3.RoundTripper
+		client stdhttp.Client
 	}
 	// Config describe the config of FilterFactory
-	Config struct{}
+	Config struct {
+		Timeout             time.Duration `yaml:"timeout" json:"timeout,omitempty"`
+		MaxIdleConns        int           `yaml:"maxIdleConns" json:"maxIdleConns,omitempty"`
+		MaxIdleConnsPerHost int           `yaml:"maxIdleConnsPerHost" json:"maxIdleConnsPerHost,omitempty"`
+		MaxConnsPerHost     int           `yaml:"maxConnsPerHost" json:"maxConnsPerHost,omitempty"`
+	}
 )
 
 func (p *Plugin) Kind() string {
@@ -70,11 +77,22 @@ func (factory *FilterFactory) Config() interface{} {
 }
 
 func (factory *FilterFactory) Apply() error {
+	cfg := factory.cfg
+	client := stdhttp.Client{
+		Timeout: cfg.Timeout,
+		Transport: stdhttp.RoundTripper(&stdhttp.Transport{
+			MaxIdleConns:        cfg.MaxIdleConns,
+			MaxIdleConnsPerHost: cfg.MaxIdleConnsPerHost,
+			MaxConnsPerHost:     cfg.MaxConnsPerHost,
+		}),
+	}
+	factory.client = client
 	return nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{transport: &http3.Transport{}}
+	//reuse http client
+	f := &Filter{factory.client}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -92,7 +110,7 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	if endpoint == nil {
 		logger.Debugf("[dubbo-go-pixiu] cluster not found endpoint")
 		bt, _ := json.Marshal(http.ErrResponse{Message: "cluster not found endpoint"})
-		hc.SendLocalReply(http3.StatusServiceUnavailable, bt)
+		hc.SendLocalReply(stdhttp.StatusServiceUnavailable, bt)
 		return filter.Stop
 	}
 
@@ -100,7 +118,7 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 	r := hc.Request
 
 	var (
-		req *http3.Request
+		req *stdhttp.Request
 		err error
 	)
 
@@ -111,31 +129,25 @@ func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
 		RawQuery: r.URL.RawQuery,
 	}
 
-	req, err = http3.NewRequest(r.Method, parsedURL.String(), r.Body)
+	req, err = stdhttp.NewRequest(r.Method, parsedURL.String(), r.Body)
 	if err != nil {
 		bt, _ := json.Marshal(http.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
-		hc.SendLocalReply(http3.StatusInternalServerError, bt)
+		hc.SendLocalReply(stdhttp.StatusInternalServerError, bt)
 		return filter.Stop
 	}
 	req.Header = r.Header
 
-	cli := &http3.Client{
-		Transport: f.transport,
-		Timeout:   hc.Timeout,
-	}
-
-	resp, err := cli.Do(req)
+	resp, err := f.client.Do(req)
 	if err != nil {
 		urlErr, ok := err.(*url.Error)
 		if ok && urlErr.Timeout() {
-			hc.SendLocalReply(http3.StatusGatewayTimeout, []byte(err.Error()))
+			hc.SendLocalReply(stdhttp.StatusGatewayTimeout, []byte(err.Error()))
 			return filter.Stop
 		}
-		hc.SendLocalReply(http3.StatusServiceUnavailable, []byte(err.Error()))
+		hc.SendLocalReply(stdhttp.StatusServiceUnavailable, []byte(err.Error()))
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
-
 	hc.SourceResp = resp
 	// response write in hcm
 	return filter.Continue

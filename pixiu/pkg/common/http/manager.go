@@ -132,6 +132,8 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		if err != nil {
 			panic(err)
 		}
+		//close body
+		_ = res.Body.Close()
 		//Merge header
 		remoteHeader := res.Header
 		for k := range remoteHeader {
