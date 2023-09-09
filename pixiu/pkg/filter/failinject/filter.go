@@ -18,7 +18,6 @@
 package failinject
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -56,7 +55,6 @@ func (factory *FilterFactory) Config() interface{} {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
-	fmt.Println(factory.cfg)
 	f := Filter{
 		cfg: factory.cfg,
 	}
@@ -104,7 +102,16 @@ func (f Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-// 当前请求是否命中判断
+// match determines whether a given request hits the error injection based on the rule's trigger type.
+//
+// - If the rule is nil, the request doesn't hit the error injection.
+// - If the rule's trigger type is "Always", the request always hits the error injection.
+// - If the rule's trigger type is "Percentage", the request hits the error injection based on a specified percentage chance.
+// - If the rule's trigger type is "Random", the request hits the error injection based on a random chance.
+//
+// Returns:
+//   - true if the request hits the error injection
+//   - false otherwise
 func (f Filter) match(rule *Rule) (matched bool) {
 	if rule == nil {
 		return false
@@ -126,7 +133,15 @@ func random() bool {
 	return (rand.Intn(1000)+1)%2 == 0
 }
 
-// percentage if the current request is matched, odds is the percentage
+// percentage checks if the current request matches based on a given odds percentage.
+// The function returns true with a probability equal to the odds percentage.
+//
+// Parameters:
+//   - odds: Percentage chance (0-100) of the function returning true.
+//
+// Returns:
+//   - true if a generated random number between 1 and 100 (inclusive) is less than or equal to the odds.
+//   - false otherwise.
 func percentage(odds int) bool {
 	if odds <= 0 {
 		return false
