@@ -386,7 +386,5 @@ func computeApproximateResponseSize(res *client.Response) (int, error) {
 	if res == nil {
 		return 0, errors.New("client.Response is null pointer ")
 	}
-	s := 0
-	s += len(res.Data)
-	return s, nil
+	return len(res.Data), nil
 }

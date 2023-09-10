@@ -19,7 +19,7 @@ package metric
 
 import (
 	"fmt"
-	http2 "net/http"
+	stdhttp "net/http"
 	"time"
 )
 
@@ -141,12 +141,10 @@ func computeApproximateResponseSize(res *client.Response) (int, error) {
 	if res == nil {
 		return 0, errors.New("client.Response is null pointer ")
 	}
-	s := 0
-	s += len(res.Data)
-	return s, nil
+	return len(res.Data), nil
 }
 
-func computeApproximateRequestSize(r *http2.Request) (int, error) {
+func computeApproximateRequestSize(r *stdhttp.Request) (int, error) {
 	if r == nil {
 		return 0, errors.New("http.Request is null pointer ")
 	}
