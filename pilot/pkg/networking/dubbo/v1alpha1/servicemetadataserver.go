@@ -115,6 +115,10 @@ func NewServiceMetadataServer(client kube.Client) *ServiceMetadataServer {
 }
 
 func (s *ServiceMetadataServer) Start(stopCh <-chan struct{}) {
+	if s == nil {
+		log.Warn("ServiceMetadataServer is not init, skip start")
+		return
+	}
 	go s.handleUpdate(stopCh)
 	go s.removeOutdatedCRD(stopCh)
 }
