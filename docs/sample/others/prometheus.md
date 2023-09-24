@@ -66,14 +66,20 @@ static_resources:
                     route:
                       cluster: user
                       cluster_not_found_response_code: 505
-                http_filters:
-                  - name: dgp.filter.http.prometheusmetric
+              http_filters:
+                - name: dgp.filter.http.httpproxy
+                  config:
+                    maxIdleConns: 100
+                    maxIdleConnsPerHost: 100
+                    MaxConnsPerHost: 100
+                - name: dgp.filter.http.prometheusmetric
+                  config:
                     metric_collect_rules:
                       metric_path: "/metrics"
                       push_gateway_url: "http://127.0.0.1:9091"
                       counter_push: true
                       push_interval_threshold: 10
-                      push_job_name: "prometheus"
+                      push_job_name: "pixiu"
       config:
         idle_timeout: 5s
         read_timeout: 5s
