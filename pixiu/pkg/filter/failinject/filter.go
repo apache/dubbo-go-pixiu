@@ -95,7 +95,6 @@ func (f Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 
 	if uriCfg.Type == TypeDelay {
 		time.Sleep(uriCfg.Delay)
-		ctx.SendLocalReply(uriCfg.StatusCode, []byte(uriCfg.Body))
 		return filter.Stop
 	}
 
