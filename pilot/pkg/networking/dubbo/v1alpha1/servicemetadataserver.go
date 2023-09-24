@@ -247,7 +247,8 @@ func (s *ServiceMetadataServer) removeOutdatedCRD(stopChan <-chan struct{}) {
 		select {
 		case <-stopChan:
 			cancel()
-			break
+			ticker.Stop()
+			return
 		case <-ticker.C:
 			namespaces, err := s.KubeClient.Kube().CoreV1().Namespaces().List(ctx, v1.ListOptions{})
 			if err != nil {
