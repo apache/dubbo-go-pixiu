@@ -82,19 +82,17 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 	defaultNs := node.ConfigNamespace
 	res := make([]*istioioapidubbov1alpha1.ServiceMappingXdsResponse, 0, len(watchedResourceNames))
 
-	watchedResourceNamesMap := map[string]interface{}{}
-	for _, name := range watchedResourceNames {
-		watchedResourceNamesMap[name] = struct{}{}
-	}
 	updatedMap := map[string]interface{}{}
 	for update, _ := range req.ConfigsUpdated {
-		updatedMap[update.Name] = struct{}{}
+		watchedResourceName := buildNameAndNameSpace(update.Name, update.Namespace)
+		updatedMap[watchedResourceName] = struct{}{}
 	}
 	// if req.ConfigsUpdated is empty, it means that all watched resources need to be pushed
 	for _, w := range watchedResourceNames {
+		watchedResourceName := buildNameAndNameSpace(w, defaultNs)
 		// if configsUpdated empty, meaning a full push of watched snp resources.
-		if _, exists := updatedMap[w]; exists || len(req.ConfigsUpdated) == 0 {
-			namespace, snpName := extractNameAndNameSpace(w, defaultNs)
+		if _, exists := updatedMap[watchedResourceName]; exists || len(req.ConfigsUpdated) == 0 {
+			snpName, namespace := extractNameAndNameSpace(watchedResourceName, defaultNs)
 			if snp := req.Push.ServiceNameMappingsByNameSpaceAndInterfaceName(namespace, snpName); snp != nil {
 				mapping := snp.Spec.(*istioioapiextensionsv1alpha1.ServiceNameMapping)
 				res = append(res, &istioioapidubbov1alpha1.ServiceMappingXdsResponse{
@@ -108,10 +106,22 @@ func buildSnp(node *model.Proxy, req *model.PushRequest, watchedResourceNames []
 	return res
 }
 
+// extractNameAndNameSpace watchedResource should like '[a.b.interface]|[namespace]', if namespace is nil,
+// defaultNamespace will be used.
 func extractNameAndNameSpace(watchedResource, defaultNamespace string) (string, string) {
 	split := strings.Split(watchedResource, "|")
 	if len(split) == 1 || split[1] == "" {
-		return defaultNamespace, split[1]
+		return split[0], defaultNamespace
 	}
-	return split[1], split[0]
+	return split[0], split[1]
+}
+
+// buildNameAndNameSpace watchedResource should like '[a.b.interface]|[namespace]', if namespace is nil,
+// defaultNamespace will be used.
+func buildNameAndNameSpace(watchedResource, defaultNamespace string) string {
+	split := strings.Split(watchedResource, "|")
+	if len(split) == 1 || split[1] == "" {
+		return strings.Join([]string{split[0], defaultNamespace}, "|")
+	}
+	return watchedResource
 }

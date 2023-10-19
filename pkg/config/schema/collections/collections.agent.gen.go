@@ -376,8 +376,8 @@ var (
 
 	// Istio contains only Istio collections.
 	Istio = collection.NewSchemasBuilder().
-		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Servicemetadatas).
+		MustAdd(IstioExtensionsV1Alpha1Servicenamemappings).
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
 		MustAdd(IstioMeshV1Alpha1MeshNetworks).

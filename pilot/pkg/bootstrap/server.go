@@ -281,7 +281,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	if s.kubeClient != nil {
-		s.metadataServer = dubbov1alpha1.NewServiceMetadataServer(s.environment, s.kubeClient)
+		s.metadataServer = dubbov1alpha1.NewServiceMetadataServer(s.kubeClient)
 	}
 
 	// Create Service Name mapping server
@@ -665,8 +665,15 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 
 	// Implement ServiceNameMapping grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		log.Infof("Starting ADS server")
+		log.Infof("Starting SNP server")
 		s.snpServer.Start(stop)
+		return nil
+	})
+
+	// Implement ServiceNameMapping grace shutdown
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		log.Infof("Starting MetaData server")
+		s.metadataServer.Start(stop)
 		return nil
 	})
 

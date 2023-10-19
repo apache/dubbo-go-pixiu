@@ -101,7 +101,7 @@ func (pr *pushRequest) Merge(other *pushRequest) *pushRequest {
 	return pr
 }
 
-func NewServiceMetadataServer(env *model.Environment, client kube.Client) *ServiceMetadataServer {
+func NewServiceMetadataServer(client kube.Client) *ServiceMetadataServer {
 	return &ServiceMetadataServer{
 		CommittedUpdates: atomic.NewInt64(0),
 		KubeClient:       client,
@@ -115,6 +115,10 @@ func NewServiceMetadataServer(env *model.Environment, client kube.Client) *Servi
 }
 
 func (s *ServiceMetadataServer) Start(stopCh <-chan struct{}) {
+	if s == nil {
+		log.Warn("ServiceMetadataServer is not init, skip start")
+		return
+	}
 	go s.handleUpdate(stopCh)
 	go s.removeOutdatedCRD(stopCh)
 }
@@ -125,14 +129,6 @@ func (s *ServiceMetadataServer) Register(rpcs *grpc.Server) {
 }
 
 func (s *ServiceMetadataServer) Publish(ctx context.Context, request *dubbov1alpha1.PublishServiceMetadataRequest) (*dubbov1alpha1.PublishServiceMetadataResponse, error) {
-	if exists, err := s.isNamespaceExists(ctx, request.GetNamespace()); err != nil {
-		if !exists {
-			return nil, status.Errorf(codes.Aborted, "Namespace Not Exists")
-		}
-	} else {
-		return nil, status.Errorf(codes.Aborted, err.Error())
-	}
-
 	pushReq := &pushRequest{ConfigsUpdated: map[model.ConfigKey]metadataConfig{}}
 
 	key := model.ConfigKey{
@@ -164,16 +160,6 @@ func (s *ServiceMetadataServer) Get(ctx context.Context, request *dubbov1alpha1.
 	}
 
 	return &dubbov1alpha1.GetServiceMetadataResponse{MetadataInfo: metadata.Spec.GetMetadataInfo()}, nil
-}
-
-func (s *ServiceMetadataServer) isNamespaceExists(ctx context.Context, namespace string) (bool, error) {
-	_, err := s.KubeClient.Kube().CoreV1().Namespaces().Get(ctx, namespace, v1.GetOptions{})
-	if err != nil {
-		if !apierror.IsNotFound(err) {
-			return false, err
-		}
-	}
-	return true, nil
 }
 
 func (s *ServiceMetadataServer) handleUpdate(stopCh <-chan struct{}) {
@@ -261,7 +247,8 @@ func (s *ServiceMetadataServer) removeOutdatedCRD(stopChan <-chan struct{}) {
 		select {
 		case <-stopChan:
 			cancel()
-			break
+			ticker.Stop()
+			return
 		case <-ticker.C:
 			namespaces, err := s.KubeClient.Kube().CoreV1().Namespaces().List(ctx, v1.ListOptions{})
 			if err != nil {
