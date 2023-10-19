@@ -103,6 +103,9 @@ func (factory *FilterFactory) Apply() error {
 	}
 	factory.conf.Level = level
 	// must init it at apply function
+	if factory.conf.Dpc == nil {
+		return errors.New("expect the dubboProxyConfig config the registries")
+	}
 	dubbo.InitDefaultDubboClient(factory.conf.Dpc)
 	triple.InitDefaultTripleClient(factory.conf.Dpc.Protoset)
 	return nil
