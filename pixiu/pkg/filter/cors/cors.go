@@ -25,6 +25,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/http/headers"
 )
 
 const (
@@ -79,41 +80,50 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 }
 
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
-	f.handleCors(ctx)
-	return filter.Continue
-}
-
-func (f *Filter) handleCors(ctx *http.HttpContext) {
+	writer := ctx.Writer
 	c := f.cfg
 	if c == nil {
-		return
+		return filter.Continue
+	}
+	if ctx.GetHeader(headers.Origin) == "" {
+		// not a cors request
+		return filter.Continue
 	}
 
 	domains := c.AllowOrigin
 	if len(domains) != 0 {
 		for _, domain := range domains {
-			if ctx.Request.Host == domain || ctx.Request.URL.Host == domain ||
-				ctx.GetHeader("Host") == domain || ctx.GetHeader("host") == domain {
-				ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlAllowOrigin, domain)
+			if domain == "*" || ctx.GetHeader("Origin") == domain {
+				writer.Header().Add(constant.HeaderKeyAccessControlAllowOrigin, domain)
+				continue
 			}
 		}
 	}
 
 	if c.AllowHeaders != "" {
-		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlExposeHeaders, c.AllowHeaders)
+		writer.Header().Add(constant.HeaderKeyAccessControlAllowHeaders, c.AllowHeaders)
+	}
+
+	if c.ExposeHeaders != "" {
+		writer.Header().Add(constant.HeaderKeyAccessControlExposeHeaders, c.ExposeHeaders)
 	}
 
 	if c.AllowMethods != "" {
-		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlAllowMethods, c.AllowMethods)
+		writer.Header().Add(constant.HeaderKeyAccessControlAllowMethods, c.AllowMethods)
 	}
 
 	if c.MaxAge != "" {
-		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlMaxAge, c.MaxAge)
+		writer.Header().Add(constant.HeaderKeyAccessControlMaxAge, c.MaxAge)
 	}
 
 	if c.AllowCredentials {
-		ctx.SourceResp.(*stdHttp.Response).Header.Add(constant.HeaderKeyAccessControlAllowCredentials, "true")
+		writer.Header().Add(constant.HeaderKeyAccessControlAllowCredentials, "true")
 	}
+	if ctx.Request.Method == stdHttp.MethodOptions {
+		ctx.SendLocalReply(stdHttp.StatusOK, nil)
+		return filter.Stop
+	}
+	return filter.Continue
 }
 
 func (factory *FilterFactory) Apply() error {

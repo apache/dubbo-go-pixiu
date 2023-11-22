@@ -21,6 +21,7 @@ const (
 	HeaderKeyContextType = "Content-Type"
 
 	HeaderKeyAccessControlAllowOrigin      = "Access-Control-Allow-Origin"
+	HeaderKeyAccessControlAllowHeaders     = "Access-Control-Allow-Headers"
 	HeaderKeyAccessControlExposeHeaders    = "Access-Control-Expose-Headers"
 	HeaderKeyAccessControlAllowMethods     = "Access-Control-Allow-Methods"
 	HeaderKeyAccessControlMaxAge           = "Access-Control-Max-Age"
@@ -48,10 +49,11 @@ const (
 )
 
 const (
-	Get    = "GET"
-	Put    = "PUT"
-	Post   = "POST"
-	Delete = "DELETE"
+	Get     = "GET"
+	Put     = "PUT"
+	Post    = "POST"
+	Delete  = "DELETE"
+	Options = "OPTIONS"
 )
 
 const (
