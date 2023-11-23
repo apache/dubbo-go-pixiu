@@ -137,7 +137,7 @@ func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 	rm.rw.Lock()
 	defer rm.rw.Unlock()
 	if r.Match.Methods == nil {
-		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post}
+		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post, constant.Options}
 	}
 	isPrefix := r.Match.Prefix != ""
 	for _, method := range r.Match.Methods {
