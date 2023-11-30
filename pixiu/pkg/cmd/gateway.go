@@ -117,9 +117,6 @@ func (d *DefaultDeployer) initialize() error {
 
 	// load Bootstrap config
 	d.bootstrap = d.configManger.LoadBootConfig(configPath)
-	if err != nil {
-		panic(fmt.Errorf("[startGatewayCmd] failed to get api meta config, %s", err.Error()))
-	}
 
 	err = initLimitCpus()
 	if err != nil {
