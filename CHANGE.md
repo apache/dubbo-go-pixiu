@@ -1,6 +1,39 @@
 # Release Notes
 
 ---
+## 1.0.0
+
+### New Features
+- [fail inject](https://github.com/apache/dubbo-go-pixiu/pull/571)
+- [add support for header based route](https://github.com/apache/dubbo-go-pixiu/pull/565)
+- [Add Maglev hashing LB algorithm](https://github.com/apache/dubbo-go-pixiu/pull/554)
+- [triple proxy support import protosets](https://github.com/apache/dubbo-go-pixiu/pull/548)
+- [Add GracefulShutdown Signal For Windows ](https://github.com/apache/dubbo-go-pixiu/pull/522)
+- [Tracing support dubbo invoke](https://github.com/apache/dubbo-go-pixiu/pull/559)
+
+### Enhancement
+- [refactor prometheus metric](https://github.com/apache/dubbo-go-pixiu/pull/573)
+- [remove unused pkg imports](https://github.com/apache/dubbo-go-pixiu/pull/574)
+- [chore: unnecessary use of fmt.Sprintf](https://github.com/apache/dubbo-go-pixiu/pull/575)
+- [chore:use wasm filter build tags add wasm](https://github.com/apache/dubbo-go-pixiu/pull/567)
+- [docs:format and change samples link](https://github.com/apache/dubbo-go-pixiu/pull/556)
+- [revert gatewayCmd to Run dubbo go pixiu](https://github.com/apache/dubbo-go-pixiu/pull/557)
+- [full import format](https://github.com/apache/dubbo-go-pixiu/pull/527)
+- [upgrade hessian2 to v1.11.3](https://github.com/apache/dubbo-go-pixiu/pull/516)
+
+### Bugfixes
+- [register hashing and array out of bounds and init hashing](https://github.com/apache/dubbo-go-pixiu/pull/530)
+- [optimize timeout statusCode](https://github.com/apache/dubbo-go-pixiu/pull/521)
+- [optimizing Metric Implementation](https://github.com/apache/dubbo-go-pixiu/pull/528)
+- [add and modify nacos config arguments](https://github.com/apache/dubbo-go-pixiu/pull/524)
+- [fix NPE when filter config is nil](https://github.com/apache/dubbo-go-pixiu/pull/517)
+- [use wasmer-go v1.0.4 which is compatible with mac arm](https://github.com/apache/dubbo-go-pixiu/pull/515)
+- [fix sample url using github.com/apache/dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu/pull/506)
+- [traffic filter fix weight strategy and error handle within Apply method](https://github.com/apache/dubbo-go-pixiu/pull/507)
+- [httpfilter loadbalancer does not work when it has spaces between multiple urls](https://github.com/apache/dubbo-go-pixiu/pull/513)
+
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/8](https://github.com/apache/dubbo-go-pixiu/milestone/8)
+
 ## 0.6.0
 
 ### New Features
@@ -17,7 +50,7 @@
 ### Enhancement
 - [Remove "Types" on Http to dubbo proxy](https://github.com/apache/dubbo-go-pixiu/pull/456)
 - [ASoC 2002: Optimization of Pixiu timeout feature ](https://github.com/apache/dubbo-go-pixiu/pull/475)
-- 
+-
 
 ### Bugfixes
 
@@ -110,7 +143,7 @@ Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/6](https://github
 - [Fix filterManager get filters with random order](https://github.com/apache/dubbo-go-pixiu/pull/264)
 - [Fix nil issue for timeout filter](https://github.com/apache/dubbo-go-pixiu/pull/278)
 
-Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/5](https://github.com/apache/dubbo-go-pixiu/milestone/5) 
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/5](https://github.com/apache/dubbo-go-pixiu/milestone/5)
 
 
 ## 0.3.0
@@ -120,25 +153,25 @@ Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/5](https://github
 - [add integrate test](https://github.com/apache/dubbo-go-pixiu/pull/183)
 - [handle rate limit config update event](https://github.com/apache/dubbo-go-pixiu/pull/196)
 - [add otel metric export to prometheus in pixiu](https://github.com/apache/dubbo-go-pixiu/pull/204)
-- [make Pixiu Admin config management finer-grained](https://github.com/apache/dubbo-go-pixiu/pull/171)     
-     
+- [make Pixiu Admin config management finer-grained](https://github.com/apache/dubbo-go-pixiu/pull/171)
+
 ### Enhancement
 - [update samples/admin](https://github.com/apache/dubbo-go-pixiu/pull/208)
 - [update ratelimit samples](https://github.com/apache/dubbo-go-pixiu/pull/206)
 - [make router case sensitive](https://github.com/apache/dubbo-go-pixiu/pull/209)
 - [add more test case](https://github.com/apache/dubbo-go-pixiu/pull/203)
 - [Enrich filter test case](https://github.com/apache/dubbo-go-pixiu/pull/202)
-- [Enrich response.go's test case](https://github.com/apache/dubbo-go-pixiu/pull/197)    
-          
+- [Enrich response.go's test case](https://github.com/apache/dubbo-go-pixiu/pull/197)
+
 ### Bugfixes
 - [Fix CI check status not match required](https://github.com/apache/dubbo-go-pixiu/pull/199)
 - [Fix timeout config overridden](https://github.com/apache/dubbo-go-pixiu/pull/190)
 - [Fix/quickstart](https://github.com/apache/dubbo-go-pixiu/pull/191)
 - [FixBug: can't delete node by path](https://github.com/apache/dubbo-go-pixiu/pull/201)
 - [Fix flow chart](https://github.com/apache/dubbo-go-pixiu/pull/205)
-- [Fix reviewdog](https://github.com/apache/dubbo-go-pixiu/pull/195)   
-     
-Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/4](https://github.com/apache/dubbo-go-pixiu/milestone/4) 
+- [Fix reviewdog](https://github.com/apache/dubbo-go-pixiu/pull/195)
+
+Milestone: [https://github.com/apache/dubbo-go-pixiu/milestone/4](https://github.com/apache/dubbo-go-pixiu/milestone/4)
 
 
 ## 0.2.1
