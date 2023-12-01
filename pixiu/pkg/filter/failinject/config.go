@@ -17,7 +17,9 @@
 
 package failinject
 
-import "time"
+import (
+	"time"
+)
 
 type URI string
 
