@@ -191,7 +191,7 @@ func (opt *paramTypesOpt) Action(target, val interface{}) error {
 		return errors.New("Target is not dubboTarget in target parameter")
 	}
 	// empty types for func like func()
-	var types []string
+	types := make([]string, 0)
 	if v, ok := val.(string); ok {
 		if len(v) > 0 {
 			types = strings.Split(v, ",")
