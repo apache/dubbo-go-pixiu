@@ -186,24 +186,19 @@ type paramTypesOpt struct{}
 // Action for paramTypesOpt override the other param types mapping/config.
 // The val must be string(e.g. "int, object"), and will then assign to the target.(dubboTarget).Types
 func (opt *paramTypesOpt) Action(target, val interface{}) error {
-	v, ok := val.(string)
-	if !ok {
-		return errors.New("The val type must be string")
-	}
-	types := strings.Split(v, ",")
 	dubboTarget, ok := target.(*dubboTarget)
 	if !ok {
 		return errors.New("Target is not dubboTarget in target parameter")
 	}
-	for i := range types {
-		trimType := strings.TrimSpace(types[i])
-		if len(trimType) == 0 {
-			continue
+	// empty types for func like func()
+	types := make([]string, 0)
+	if v, ok := val.(string); ok {
+		if len(v) > 0 {
+			types = strings.Split(v, ",")
+			for i := range types {
+				types[i] = strings.TrimSpace(types[i])
+			}
 		}
-		if _, ok = constant.JTypeMapper[trimType]; !ok {
-			return errors.Errorf("Types invalid %s", trimType)
-		}
-		types[i] = trimType
 	}
 	dubboTarget.Types = types
 	return nil
