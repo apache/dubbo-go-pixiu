@@ -195,9 +195,6 @@ func (opt *paramTypesOpt) Action(target, val interface{}) error {
 	if v, ok := val.(string); ok {
 		if len(v) > 0 {
 			types = strings.Split(v, ",")
-			if !ok {
-				return errors.New("Target is not dubboTarget in target parameter")
-			}
 			for i := range types {
 				types[i] = strings.TrimSpace(types[i])
 			}

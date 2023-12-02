@@ -84,14 +84,15 @@ func TestParamTypesOptAction(t *testing.T) {
 	assert.Equal(t, "string", target.Types[1])
 
 	err = opt.Action(target, "object,whatsoever")
-	assert.EqualError(t, err, "Types invalid whatsoever")
+	assert.Nil(t, err)
 
 	err = opt.Action("target", []string{})
-	assert.EqualError(t, err, "The val type must be string")
+	assert.EqualError(t, err, "Target is not dubboTarget in target parameter")
 	err = opt.Action(target, "object,")
 	assert.Nil(t, err)
 	assert.Equal(t, "object", target.Types[0])
-	err = opt.Action(target, "object")
+
+	err = opt.Action(target, "object ")
 	assert.Nil(t, err)
 	assert.Equal(t, "object", target.Types[0])
 }
