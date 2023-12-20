@@ -18,9 +18,7 @@
 package main
 
 import (
-	"fmt"
 	_ "net/http/pprof"
-	"runtime"
 	"strconv"
 	"time"
 )
@@ -30,44 +28,14 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
-	pxruntime "github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/runtime"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cmd"
 	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/pluginregistry"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
 )
 
-var (
+const (
 	// Version pixiu version
-	Version = "0.6.0"
-
-	flagToLogLevel = map[string]string{
-		"trace":    "TRACE",
-		"debug":    "DEBUG",
-		"info":     "INFO",
-		"warning":  "WARN",
-		"error":    "ERROR",
-		"critical": "FATAL",
-	}
-
-	configPath    string
-	apiConfigPath string
-	logConfigPath string
-	logLevel      string
-
-	// CURRENTLY USELESS
-	logFormat string
-
-	limitCpus string
-
-	// Currently default set to false, wait for up coming support
-	initFromRemote = false
+	Version = "1.0.0"
 )
-
-// deploy server deployment
-var deploy = &DefaultDeployer{}
 
 // main pixiu run method
 func main() {
@@ -88,112 +56,8 @@ func getRootCmd() *cobra.Command {
 		Version: Version,
 	}
 
-	rootCmd.AddCommand(gatewayCmd)
-	rootCmd.AddCommand(sideCarCmd)
+	rootCmd.AddCommand(cmd.GatewayCmd)
+	rootCmd.AddCommand(cmd.SideCarCmd)
 
 	return rootCmd
-}
-
-type DefaultDeployer struct {
-	bootstrap    *model.Bootstrap
-	configManger *config.ConfigManager
-}
-
-func (d *DefaultDeployer) initialize() error {
-
-	err := initLog()
-	if err != nil {
-		logger.Warnf("[startGatewayCmd] failed to init logger, %s", err.Error())
-	}
-
-	// load Bootstrap config
-	d.bootstrap = d.configManger.LoadBootConfig(configPath)
-	if err != nil {
-		panic(fmt.Errorf("[startGatewayCmd] failed to get api meta config, %s", err.Error()))
-	}
-
-	err = initLimitCpus()
-	if err != nil {
-		logger.Errorf("[startCmd] failed to get limit cpu number, %s", err.Error())
-	}
-
-	return err
-}
-
-func (d *DefaultDeployer) start() error {
-	server.Start(d.bootstrap)
-	return nil
-}
-
-func (d *DefaultDeployer) stop() error {
-	//TODO implement me
-	panic("implement me")
-}
-
-// initDefaultValue If not set both in args and env, set default values
-func initDefaultValue() {
-	if configPath == "" {
-		configPath = constant.DefaultConfigPath
-	}
-
-	if apiConfigPath == "" {
-		apiConfigPath = constant.DefaultApiConfigPath
-	}
-
-	if logConfigPath == "" {
-		logConfigPath = constant.DefaultLogConfigPath
-	}
-
-	if logLevel == "" {
-		logLevel = constant.DefaultLogLevel
-	}
-
-	if limitCpus == "" {
-		limitCpus = constant.DefaultLimitCpus
-	}
-
-	if logFormat == "" {
-		logFormat = constant.DefaultLogFormat
-	}
-}
-
-// initLog
-func initLog() error {
-	err := logger.InitLog(logConfigPath)
-	if err != nil {
-		// cause `logger.InitLog` already handle init failed, so just use logger to log
-		return err
-	}
-
-	if level, ok := flagToLogLevel[logLevel]; ok {
-		logger.SetLoggerLevel(level)
-	} else {
-		logger.SetLoggerLevel(flagToLogLevel[constant.DefaultLogLevel])
-		return fmt.Errorf("logLevel is invalid, set log level to default: %s", constant.DefaultLogLevel)
-	}
-	return nil
-}
-
-// initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
-func initApiConfig() (*model.Bootstrap, error) {
-	bootstrap := config.Load(configPath)
-	return bootstrap, nil
-}
-
-func initLimitCpus() error {
-	limitCpuNumberFromEnv, err := strconv.ParseInt(limitCpus, 10, 64)
-	if err != nil {
-		return err
-	}
-	limitCpuNumber := int(limitCpuNumberFromEnv)
-	if limitCpuNumber <= 0 {
-		limitCpuNumber = pxruntime.GetCPUNum()
-	}
-	runtime.GOMAXPROCS(limitCpuNumber)
-	logger.Infof("GOMAXPROCS set to %v", limitCpuNumber)
-	return nil
-}
-
-func init() {
-	deploy.configManger = config.NewConfigManger()
 }
