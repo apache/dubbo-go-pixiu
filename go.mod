@@ -70,7 +70,7 @@ require (
 	github.com/jhump/protoreflect v1.9.0
 	github.com/kr/pretty v0.3.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lestrrat-go/jwx v1.2.27
+	github.com/lestrrat-go/jwx v1.2.28
 	github.com/lucas-clemente/quic-go v0.27.0
 	github.com/mattn/go-isatty v0.0.14
 	github.com/miekg/dns v1.1.48
@@ -110,7 +110,7 @@ require (
 	go.opentelemetry.io/proto/otlp v0.19.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.16.0
+	golang.org/x/crypto v0.17.0
 	golang.org/x/net v0.17.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	golang.org/x/sync v0.1.0
