@@ -68,9 +68,10 @@ import (
 // STRICT requires "kubernetes.io/ingress.class" == mesh.IngressClass
 // DEFAULT allows Ingress without explicit class.
 // In 1.1:
-// - K8S_INGRESS_NS - namespace of the Gateway that will act as ingress.
-// - labels of the gateway set to "app=ingressgateway" for node_port, service set to 'ingressgateway' (matching default install)
-//   If we need more flexibility - we can add it (but likely we'll deprecate ingress support first)
+//   - K8S_INGRESS_NS - namespace of the Gateway that will act as ingress.
+//   - labels of the gateway set to "app=ingressgateway" for node_port, service set to 'ingressgateway' (matching default install)
+//     If we need more flexibility - we can add it (but likely we'll deprecate ingress support first)
+//
 // -
 var schemas = collection.SchemasFor(
 	collections.IstioNetworkingV1Alpha3Virtualservices,

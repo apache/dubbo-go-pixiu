@@ -21,7 +21,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // IstioOperatorSpec defines the desired installed state of Istio components.
 // The spec is a used to define a customization of the default profile values that are supplied with each Istio release.

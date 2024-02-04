@@ -29,14 +29,20 @@ import (
 	_ "dubbo.apache.org/dubbo-go/v3/cluster/cluster/failover"
 	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/random"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
-	_ "dubbo.apache.org/dubbo-go/v3/common/proxy/proxy_factory"
 	dg "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	_ "dubbo.apache.org/dubbo-go/v3/filter/generic"
 	_ "dubbo.apache.org/dubbo-go/v3/filter/graceful_shutdown"
+	_ "dubbo.apache.org/dubbo-go/v3/metadata/mapping/metadata"
+	_ "dubbo.apache.org/dubbo-go/v3/metadata/report/nacos"
+	_ "dubbo.apache.org/dubbo-go/v3/metadata/report/zookeeper"
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/service/local"
+	_ "dubbo.apache.org/dubbo-go/v3/metadata/service/remote"
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
+	_ "dubbo.apache.org/dubbo-go/v3/proxy/proxy_factory"
+	_ "dubbo.apache.org/dubbo-go/v3/registry/directory"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/protocol"
+	_ "dubbo.apache.org/dubbo-go/v3/registry/servicediscovery"
 	_ "dubbo.apache.org/dubbo-go/v3/registry/zookeeper"
 	hessian "github.com/apache/dubbo-go-hessian2"
 	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
@@ -62,6 +68,8 @@ const (
 
 const (
 	defaultDubboProtocol = "zookeeper"
+
+	defaultDubbogoRegistryType = "interface"
 
 	traceNameDubbogoClient = "dubbogo-client"
 	spanNameDubbogoClient  = "DUBBOGO CLIENT"
@@ -136,13 +144,14 @@ func (dc *Client) Apply() error {
 				v.Protocol = defaultDubboProtocol
 			}
 			rootConfigBuilder.AddRegistry(k, &dg.RegistryConfig{
-				Protocol:  v.Protocol,
-				Address:   v.Address,
-				Timeout:   v.Timeout,
-				Username:  v.Username,
-				Password:  v.Password,
-				Namespace: v.Namespace,
-				Group:     v.Group,
+				Protocol:     v.Protocol,
+				Address:      v.Address,
+				Timeout:      v.Timeout,
+				Username:     v.Username,
+				Password:     v.Password,
+				Namespace:    v.Namespace,
+				Group:        v.Group,
+				RegistryType: defaultDubbogoRegistryType,
 			})
 		}
 	}

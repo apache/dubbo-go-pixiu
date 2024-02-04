@@ -25,10 +25,10 @@ import (
 
 import (
 	"cloud.google.com/go/compute/metadata"
-	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
+	"cloud.google.com/go/logging/apiv2/loggingpb"
+	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	cloudtracepb "cloud.google.com/go/trace/apiv1/tracepb"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
-	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
-	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 	kubeApiCore "k8s.io/api/core/v1"
 )
 
