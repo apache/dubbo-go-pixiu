@@ -15,31 +15,12 @@
  * limitations under the License.
  */
 
-package main
+package cmd
 
-import (
-	"fmt"
-)
+type Deployer interface {
+	initialize() error
 
-import (
-	"github.com/spf13/cobra"
-)
+	start() error
 
-var (
-	sideCarCmd = &cobra.Command{
-		Use:   "sidecar",
-		Short: "Run dubbo go pixiu in sidecar mode  (implement in the future)",
-	}
-
-	startSideCarCmd = &cobra.Command{
-		Use:   "start",
-		Short: "Start sidecar  (implement in the future)",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Meet you in the Future!")
-		},
-	}
-)
-
-func init() {
-	sideCarCmd.AddCommand(startSideCarCmd)
+	stop() error
 }

@@ -20,7 +20,9 @@ package failinject
 import (
 	"math/rand"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
