@@ -122,7 +122,7 @@ func TestRetry(t *testing.T) {
 				Retries: &networking.HTTPRetry{
 					// Explicitly not retrying.
 					Attempts: 2,
-					RetryOn: " some,	,fake ,	conditions, ,",
+					RetryOn:  " some,	,fake ,	conditions, ,",
 				},
 			},
 			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {

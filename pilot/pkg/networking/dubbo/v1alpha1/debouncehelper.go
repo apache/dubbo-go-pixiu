@@ -26,7 +26,8 @@ import (
 	"go.uber.org/atomic"
 )
 
-/**
+/*
+*
 Copy From pilot/pkg/xds/discovery.go
 */
 type debounceOptions struct {

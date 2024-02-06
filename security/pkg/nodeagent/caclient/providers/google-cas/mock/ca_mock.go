@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
+	"cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
