@@ -18,6 +18,7 @@
 package server
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 )
 
@@ -42,12 +43,14 @@ func (rm *RouterManager) AddRouterListener(l RouterListener) {
 }
 
 func (rm *RouterManager) AddRouter(r *model.Router) {
+	logger.Infof("add router: %v", r)
 	for _, l := range rm.rls {
 		l.OnAddRouter(r)
 	}
 }
 
 func (rm *RouterManager) DeleteRouter(r *model.Router) {
+	logger.Infof("del router: %v", r)
 	for _, l := range rm.rls {
 		l.OnDeleteRouter(r)
 	}

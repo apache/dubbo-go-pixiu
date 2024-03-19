@@ -58,10 +58,10 @@ func (acm *ApiConfigManager) AddApiConfigListener(adapterID string, l ApiConfigL
 
 func (acm *ApiConfigManager) AddAPI(adapterID string, r router.API) error {
 	l, existed := acm.als[adapterID]
-	if !existed {
-		return errors.Errorf("no listener found")
+	if existed {
+		return l.OnAddAPI(r)
 	}
-	return l.OnAddAPI(r)
+	return nil
 }
 
 func (acm *ApiConfigManager) RemoveAPI(adapterID string, r router.API) error {
