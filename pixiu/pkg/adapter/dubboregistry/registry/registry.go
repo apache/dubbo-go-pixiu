@@ -134,11 +134,7 @@ func ParseDubboString(urlString string) (config.DubboBackendConfig, []string, st
 
 // GetAPIPattern generate the API path pattern. /application/interface/version
 func GetAPIPattern(bkConfig config.DubboBackendConfig) string {
-	if bkConfig.Version == "" {
-		// if the version is empty, make sure the url path is valid.
-		return strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface}, constant.PathSlash)
-	}
-	return strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface, bkConfig.Version}, constant.PathSlash)
+	return strings.Join([]string{"/" + bkConfig.ApplicationName, bkConfig.Interface}, constant.PathSlash)
 }
 
 func GetRouter() model.Router {

@@ -20,6 +20,7 @@ package model
 import (
 	stdHttp "net/http"
 	"regexp"
+	"strings"
 )
 
 import (
@@ -140,4 +141,16 @@ func (hm *HeaderMatcher) SetValueRegex(regex string) error {
 	}
 	hm.Regex = false
 	return err
+}
+
+func (r *Router) String() string {
+	var builder strings.Builder
+	builder.WriteString("[" + strings.Join(r.Match.Methods, ",") + "] ")
+	if r.Match.Prefix != "" {
+		builder.WriteString("prefix " + r.Match.Prefix)
+	} else {
+		builder.WriteString("path " + r.Match.Path)
+	}
+	builder.WriteString(" to cluster " + r.Route.Cluster)
+	return builder.String()
 }

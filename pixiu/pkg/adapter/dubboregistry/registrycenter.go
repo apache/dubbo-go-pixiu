@@ -19,11 +19,8 @@ package dubboregistry
 
 import (
 	"os"
-)
-
-import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+	"strconv"
+	"strings"
 )
 
 import (
@@ -35,6 +32,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/server"
+
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 func init() {
@@ -65,19 +65,19 @@ func (p Plugin) Kind() string {
 func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
 	adapter := &Adapter{id: a.ID,
 		registries: make(map[string]registry.Registry),
-		cfg:        AdaptorConfig{Registries: make(map[string]model.Registry)}}
+		cfg:        &AdaptorConfig{Registries: make(map[string]model.Registry)}}
 	return adapter, nil
 }
 
 // Adapter to monitor dubbo services on registry center
 type Adapter struct {
 	id         string
-	cfg        AdaptorConfig
+	cfg        *AdaptorConfig
 	registries map[string]registry.Registry
 }
 
 // Start starts the adaptor
-func (a Adapter) Start() {
+func (a *Adapter) Start() {
 	for _, reg := range a.registries {
 		if err := reg.Subscribe(); err != nil {
 			logger.Errorf("Subscribe fail, error is {%s}", err.Error())
@@ -113,21 +113,43 @@ func (a *Adapter) Apply() error {
 }
 
 // Config returns the config of the adaptor
-func (a Adapter) Config() interface{} {
+func (a *Adapter) Config() interface{} {
 	return a.cfg
 }
 
 func (a *Adapter) OnAddAPI(r router.API) error {
-	acm := server.GetApiConfigManager()
-	return acm.AddAPI(a.id, r)
+	ipPort := strings.Split(r.IntegrationRequest.URL, ":")
+	port, err := strconv.Atoi(ipPort[1])
+	if err != nil {
+		return err
+	}
+	cluster := getClusterName(r)
+	server.GetClusterManager().SetEndpoint(cluster, &model.Endpoint{
+		ID: r.IntegrationRequest.URL,
+		Address: model.SocketAddress{
+			Address: ipPort[0],
+			Port:    port,
+		}},
+	)
+	path := strings.Join([]string{r.ApplicationName, r.Interface, r.Method.Method}, constant.PathSlash)
+	match := model.RouterMatch{Path: path, Methods: []string{string(r.HTTPVerb)}}
+	route := model.RouteAction{Cluster: cluster}
+	added := &model.Router{ID: path, Match: match, Route: route}
+	server.GetRouterManager().AddRouter(added)
+	return server.GetApiConfigManager().AddAPI(a.id, r)
 }
 
 func (a *Adapter) OnRemoveAPI(r router.API) error {
-	acm := server.GetApiConfigManager()
-	return acm.RemoveAPI(a.id, r)
+	cluster := getClusterName(r)
+	server.GetClusterManager().DeleteEndpoint(cluster, r.IntegrationRequest.URL)
+	return server.GetApiConfigManager().RemoveAPI(a.id, r)
 }
 
 func (a *Adapter) OnDeleteRouter(r config.Resource) error {
 	acm := server.GetApiConfigManager()
 	return acm.DeleteRouter(a.id, r)
+}
+
+func getClusterName(r router.API) string {
+	return strings.Join([]string{r.ApplicationName, r.Interface, r.Method.Method, r.Version, r.Group}, constant.PathSlash)
 }

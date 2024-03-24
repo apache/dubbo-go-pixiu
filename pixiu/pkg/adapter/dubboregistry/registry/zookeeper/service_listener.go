@@ -18,7 +18,6 @@
 package zookeeper
 
 import (
-	"strings"
 	"sync"
 	"time"
 )
@@ -33,7 +32,6 @@ import (
 	common2 "github.com/apache/dubbo-go-pixiu/pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/logger"
 )
 
@@ -128,16 +126,15 @@ func (zkl *serviceListener) waitEventAndHandlePeriod(children []string, e <-chan
 
 // whenever it is called, the children node changed and refresh the api configuration.
 func (zkl *serviceListener) handleEvent() {
+	// get all children of provider, such as /dubbo-app/org.apache.dubbo.samples.api.DemoService/providers
 	children, err := zkl.client.GetChildren(zkl.path)
 	if err != nil {
-		// disable the API
-		bkConf, methods, _, _ := registry.ParseDubboString(zkl.url.String())
+		// disable the service all methods
+		bkConf, _, _, _ := registry.ParseDubboString(zkl.url.String())
 		apiPattern := registry.GetAPIPattern(bkConf)
-		for i := range methods {
-			path := strings.Join([]string{apiPattern, methods[i]}, constant.PathSlash)
-			if err := zkl.adapterListener.OnDeleteRouter(config.Resource{Path: path}); err != nil {
-				logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), path)
-			}
+		// delete all config of an interface, such as /dubbo-app/org.apache.dubbo.samples.api.DemoService
+		if err := zkl.adapterListener.OnDeleteRouter(config.Resource{Path: apiPattern}); err != nil {
+			logger.Errorf("Error={%s} when try to remove API by path: %s", err.Error(), apiPattern)
 		}
 		return
 	}
