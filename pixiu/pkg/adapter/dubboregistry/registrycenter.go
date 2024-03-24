@@ -123,7 +123,7 @@ func (a *Adapter) OnAddAPI(r router.API) error {
 	if err != nil {
 		return err
 	}
-	cluster := strings.Join([]string{r.ApplicationName, r.Interface, r.Version, r.Group}, constant.PathSlash)
+	cluster := getClusterName(r)
 	server.GetClusterManager().SetEndpoint(cluster, &model.Endpoint{
 		ID: r.IntegrationRequest.URL,
 		Address: model.SocketAddress{
@@ -131,23 +131,25 @@ func (a *Adapter) OnAddAPI(r router.API) error {
 			Port:    port,
 		}},
 	)
-	prefix := strings.Join([]string{"/" + r.ApplicationName, r.Interface}, constant.PathSlash)
-	match := model.RouterMatch{Prefix: prefix, Methods: []string{string(r.HTTPVerb)}}
+	path := strings.Join([]string{r.ApplicationName, r.Interface, r.Method.Method}, constant.PathSlash)
+	match := model.RouterMatch{Path: path, Methods: []string{string(r.HTTPVerb)}}
 	route := model.RouteAction{Cluster: cluster}
-	added := &model.Router{ID: r.URLPattern, Match: match, Route: route}
+	added := &model.Router{ID: path, Match: match, Route: route}
 	server.GetRouterManager().AddRouter(added)
 	return server.GetApiConfigManager().AddAPI(a.id, r)
 }
 
 func (a *Adapter) OnRemoveAPI(r router.API) error {
-	cluster := strings.Join([]string{r.ApplicationName, r.Interface, r.Version, r.Group}, constant.PathSlash)
+	cluster := getClusterName(r)
 	server.GetClusterManager().DeleteEndpoint(cluster, r.IntegrationRequest.URL)
 	return server.GetApiConfigManager().RemoveAPI(a.id, r)
 }
 
 func (a *Adapter) OnDeleteRouter(r config.Resource) error {
-	empty := &model.ClusterConfig{Name: r.Path, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{}}
-	server.GetClusterManager().UpdateCluster(empty)
-	server.GetRouterManager().DeleteRouter(&model.Router{Match: model.RouterMatch{Prefix: r.Path}})
-	return server.GetApiConfigManager().DeleteRouter(a.id, r)
+	acm := server.GetApiConfigManager()
+	return acm.DeleteRouter(a.id, r)
+}
+
+func getClusterName(r router.API) string {
+	return strings.Join([]string{r.ApplicationName, r.Interface, r.Method.Method, r.Version, r.Group}, constant.PathSlash)
 }
