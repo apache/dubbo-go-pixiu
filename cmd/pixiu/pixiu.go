@@ -28,8 +28,8 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/cmd"
-	_ "github.com/apache/dubbo-go-pixiu/pixiu/pkg/pluginregistry"
+	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/pluginregistry"
 )
 
 const (
