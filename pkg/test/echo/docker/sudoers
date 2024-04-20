@@ -1,4 +1,0 @@
-root    ALL=(ALL)       ALL
-%wheel  ALL=(ALL)       ALL
-application ALL=NOPASSWD: ALL
-istio-proxy ALL=NOPASSWD: ALL

@@ -25,7 +25,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/http/headers"
 )
 
 const (
@@ -85,7 +84,7 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	if c == nil {
 		return filter.Continue
 	}
-	if ctx.GetHeader(headers.Origin) == "" {
+	if ctx.GetHeader(constant.Origin) == "" {
 		// not a cors request
 		return filter.Continue
 	}

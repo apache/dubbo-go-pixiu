@@ -63,3 +63,12 @@ const (
 	DubboGroup              = "x-dubbo-service-group"
 	DubboServiceMethodTypes = "x-dubbo-service-method-overloading"
 )
+
+const (
+	Host                       = "Host"
+	Authorization              = "Authorization"
+	XForwardedFor              = "X-Forwarded-For"
+	AccessControlRequestMethod = "Access-Control-Request-Method"
+	Origin                     = "Origin"
+	XForwardedProto            = "X-Forwarded-Proto"
+)

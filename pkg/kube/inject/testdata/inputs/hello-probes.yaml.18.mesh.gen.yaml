@@ -1,9 +1,0 @@
-defaultConfig:
-  discoveryAddress: istiod.dubbo-system.svc:15012
-  proxyMetadata: {}
-  tracing:
-    zipkin:
-      address: zipkin.dubbo-system:9411
-enablePrometheusMerge: true
-rootNamespace: dubbo-system
-trustDomain: cluster.local
