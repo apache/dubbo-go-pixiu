@@ -118,6 +118,8 @@ func (d *DefaultDeployer) initialize() error {
 	// load Bootstrap config
 	d.bootstrap = d.configManger.LoadBootConfig(configPath)
 
+	initLogWithConfig(d.bootstrap)
+
 	err = initLimitCpus()
 	if err != nil {
 		logger.Errorf("[startCmd] failed to get limit cpu number, %s", err.Error())
@@ -178,6 +180,12 @@ func initLog() error {
 		return fmt.Errorf("logLevel is invalid, set log level to default: %s", constant.DefaultLogLevel)
 	}
 	return nil
+}
+
+func initLogWithConfig(boot *model.Bootstrap) {
+	if boot.Log != nil {
+		logger.InitLogger(boot.Log.Build())
+	}
 }
 
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)

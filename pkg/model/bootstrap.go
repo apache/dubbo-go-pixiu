@@ -36,6 +36,7 @@ type Bootstrap struct {
 	Config           *ConfigCenter     `yaml:"config-center" json:"config-center" mapstructure:"config-center"`
 	// Third party dependency
 	Nacos *Nacos `yaml:"nacos" json:"nacos" mapstructure:"nacos"`
+	Log   *Log   `yaml:"log" json:"log" mapstructure:"log"`
 }
 
 // Node node info for dynamic identifier

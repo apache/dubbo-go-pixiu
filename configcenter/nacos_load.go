@@ -97,7 +97,6 @@ func NewNacosConfig(boot *model.Bootstrap) (configClient ConfigClient, err error
 }
 
 func (n *NacosConfig) LoadConfig(param map[string]interface{}) (string, error) {
-
 	return n.client.GetConfig(vo.ConfigParam{
 		DataId: getOrDefault(param[KeyDataId].(string), DataId),
 		Group:  getOrDefault(param[KeyGroup].(string), Group),
