@@ -8,7 +8,7 @@
 
 # 简介
 
-**Dubbo-Go-Pixiu**(官网: https://dubbo.apache.org/zh/docs3-v2/dubbo-go-pixiu/) 是一款 Dubbo 生态下的高性能 API 网关和多语言解决方案 Sidecar
+**Dubbo-Go-Pixiu**(官网: https://cn.dubbo.apache.org/zh-cn/overview/reference/pixiu/) 是一款 Dubbo 生态下的高性能 API 网关和多语言解决方案 Sidecar
 
 
 ![](https://dubbo-go-pixiu.github.io/img/pixiu-dubbo-ecosystem.png)
@@ -30,7 +30,7 @@ git clone https://github.com/apache/dubbo-go-pixiu-samples.git
 
 #### 更新pixiu到最新版本
 ```shell
-go get github.com/apache/dubbo-go-pixiu@v0.6.0-rc2
+go get github.com/apache/dubbo-go-pixiu@v1.0.0-rc4
 ```
 
 #### 进入示例代码目录
