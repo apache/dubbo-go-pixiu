@@ -21,7 +21,7 @@ require (
 	github.com/go-errors/errors v1.0.1
 	github.com/go-playground/assert/v2 v2.2.0
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
-	github.com/golang-jwt/jwt/v4 v4.4.2
+	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.3
 	github.com/imdario/mergo v0.3.12
