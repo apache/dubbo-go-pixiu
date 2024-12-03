@@ -18,12 +18,9 @@
 package model
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type Log struct {
@@ -37,6 +34,26 @@ type Log struct {
 	OutputPaths       []string               `json:"outputPaths" yaml:"outputPaths"`
 	ErrorOutputPaths  []string               `json:"errorOutputPaths" yaml:"errorOutputPaths"`
 	InitialFields     map[string]interface{} `json:"initialFields" yaml:"initialFields"`
+}
+
+func (l *Log) Build() *zap.Config {
+	lvl, err := zap.ParseAtomicLevel(l.Level)
+	if err != nil {
+		logger.Errorf("failed parse %s to zap.AtomicLevel", l.Level)
+	}
+
+	return &zap.Config{
+		Level:             lvl,
+		Development:       l.Development,
+		DisableCaller:     l.DisableCaller,
+		DisableStacktrace: l.DisableStacktrace,
+		Sampling:          l.Sampling.build(),
+		Encoding:          l.Encoding,
+		EncoderConfig:     l.EncoderConfig.build(),
+		OutputPaths:       l.OutputPaths,
+		ErrorOutputPaths:  l.ErrorOutputPaths,
+		InitialFields:     l.InitialFields,
+	}
 }
 
 type SamplingConfig struct {
@@ -148,25 +165,5 @@ func (e *EncoderConfig) unmarshalNameEncoder() zapcore.NameEncoder {
 		return zapcore.FullNameEncoder
 	default:
 		return zapcore.FullNameEncoder
-	}
-}
-
-func (l *Log) Build() *zap.Config {
-	lvl, err := zap.ParseAtomicLevel(l.Level)
-	if err != nil {
-		logger.Errorf("failed parse %s to zap.AtomicLevel", l.Level)
-	}
-
-	return &zap.Config{
-		Level:             lvl,
-		Development:       l.Development,
-		DisableCaller:     l.DisableCaller,
-		DisableStacktrace: l.DisableStacktrace,
-		Sampling:          l.Sampling.build(),
-		Encoding:          l.Encoding,
-		EncoderConfig:     l.EncoderConfig.build(),
-		OutputPaths:       l.OutputPaths,
-		ErrorOutputPaths:  l.ErrorOutputPaths,
-		InitialFields:     l.InitialFields,
 	}
 }
