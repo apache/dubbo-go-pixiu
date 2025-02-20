@@ -76,8 +76,6 @@ func (am *AdapterManager) initAdapters() {
 			logger.Error("initAdapters init config error %s", err)
 		}
 
-		logger.Warnf("initAdapters init config %+v", cfg)
-
 		err = hf.Apply()
 		if err != nil {
 			logger.Error("initFilterIfNeed apply adapter error %s", err)
