@@ -48,13 +48,13 @@ var _ registry.Listener = new(applicationServiceListener)
 
 // applicationServiceListener normally monitors the /services/[:application]
 type applicationServiceListener struct {
-	urls            []*dubboCommon.URL
-	servicePath     string
-	client          *zookeeper.ZooKeeperClient
-	adapterListener common.RegistryEventListener
+	urls        []*dubboCommon.URL
+	servicePath string
+	client      *zookeeper.ZooKeeperClient
 
-	exit chan struct{}
-	wg   sync.WaitGroup
+	exit            chan struct{}
+	wg              sync.WaitGroup
+	adapterListener common.RegistryEventListener
 }
 
 // newApplicationServiceListener creates a new zk service listener
@@ -69,7 +69,6 @@ func newApplicationServiceListener(path string, client *zookeeper.ZooKeeperClien
 
 func (asl *applicationServiceListener) WatchAndHandle() {
 	defer asl.wg.Done()
-
 	var (
 		failTimes  int64 = 0
 		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
@@ -77,7 +76,6 @@ func (asl *applicationServiceListener) WatchAndHandle() {
 	defer delayTimer.Stop()
 	for {
 		children, e, err := asl.client.GetChildrenW(asl.servicePath)
-		// error handling
 		if err != nil {
 			failTimes++
 			logger.Infof("watching (path{%s}) = error{%v}", asl.servicePath, err)
@@ -251,6 +249,8 @@ func toZookeeperInstance(cris *curator_discovery.ServiceInstance) dr.ServiceInst
 
 // getMethods return the methods of a service
 func (asl *applicationServiceListener) getMethods(in string) ([]string, error) {
+	// TODO: zookeeper do not have the path
+	// then we can not get methods from this path
 	path := strings.Join([]string{methodsRootPath, in}, constant.PathSlash)
 	data, err := asl.client.GetContent(path)
 	if err != nil {

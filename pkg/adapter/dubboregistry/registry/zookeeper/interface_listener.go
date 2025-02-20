@@ -82,7 +82,6 @@ func (z *zkIntfListener) watch() {
 	defer delayTimer.Stop()
 	for {
 		_, e, err := z.client.GetChildrenW(z.path)
-		// error handling
 		if err != nil {
 			failTimes++
 			logger.Infof("watching (path{%s}) = error{%v}", z.path, err)

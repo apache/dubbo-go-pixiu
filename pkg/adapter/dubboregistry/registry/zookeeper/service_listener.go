@@ -64,12 +64,10 @@ func newZkSrvListener(url *common.URL, path string, client *zookeeper.ZooKeeperC
 
 func (zkl *serviceListener) WatchAndHandle() {
 	defer zkl.wg.Done()
-
 	var (
 		failTimes  int64 = 0
 		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
 	)
-
 	for {
 		children, e, err := zkl.client.GetChildrenW(zkl.path)
 		// error handling

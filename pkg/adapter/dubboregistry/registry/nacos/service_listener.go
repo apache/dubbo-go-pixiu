@@ -130,7 +130,6 @@ func (z *serviceListener) Callback(services []nacosModel.SubscribeService, err e
 }
 
 func (z *serviceListener) handle(url *dubboCommon.URL, action remoting.EventType) {
-
 	logger.Infof("update begin, service event: %v %v", action, url)
 
 	bkConfig, methods, location, err := registry.ParseDubboString(url.String())
@@ -167,6 +166,7 @@ func (z *serviceListener) handle(url *dubboCommon.URL, action remoting.EventType
 	}
 }
 
+// TODO: this function is useless for service listener
 func (z *serviceListener) NotifyAll(e []*dubboRegistry.ServiceEvent, f func()) {
 }
 
@@ -184,7 +184,7 @@ func generateURL(instance nacosModel.Instance) *dubboCommon.URL {
 	path := instance.Metadata["path"]
 	myInterface := instance.Metadata["interface"]
 	if len(path) == 0 && len(myInterface) == 0 {
-		logger.Errorf("nacos instance metadata does not have  both path key and interface key,instance:%+v", instance)
+		logger.Errorf("nacos instance metadata does not have both path key and interface key,instance:%+v", instance)
 		return nil
 	}
 	if len(path) == 0 && len(myInterface) != 0 {

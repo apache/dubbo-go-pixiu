@@ -75,7 +75,6 @@ func (z *zkAppListener) WatchAndHandle() {
 
 func (z *zkAppListener) watch() {
 	defer z.wg.Done()
-
 	var (
 		failTimes  int64 = 0
 		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
