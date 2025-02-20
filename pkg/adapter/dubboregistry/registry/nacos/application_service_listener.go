@@ -23,20 +23,24 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+)
 
+import (
 	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	dubboConst "dubbo.apache.org/dubbo-go/v3/common/constant"
-	"dubbo.apache.org/dubbo-go/v3/remoting"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
-
 	dr "dubbo.apache.org/dubbo-go/v3/registry"
 	"dubbo.apache.org/dubbo-go/v3/registry/servicediscovery"
+	"dubbo.apache.org/dubbo-go/v3/remoting"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
+)
+
+import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 )
 
 var _ registry.Listener = new(appServiceListener)
