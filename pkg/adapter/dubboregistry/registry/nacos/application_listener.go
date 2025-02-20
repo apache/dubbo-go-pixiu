@@ -51,6 +51,7 @@ type nacosAppListener struct {
 	appInfoMap      map[string]*applicationInfo
 }
 
+// newNacosAppListener returns a new nacosAppListener with pre-defined path according to the registered type.
 func newNacosAppListener(client naming_client.INamingClient, reg *NacosRegistry, regConf *model.Registry, adapterListener common2.RegistryEventListener) registry.Listener {
 	return &nacosAppListener{
 		exit:            make(chan struct{}),
@@ -146,7 +147,6 @@ func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 		if _, ok := n.appInfoMap[key]; !ok {
 			url, _ := dubboCommon.NewURL("mock://localhost:8848")
 			url.SetParam(constant.ApplicationKey, appInfo.appName)
-			// url: mock://localhost:8848?application=BDTService
 			l := newNacosAppSrvListener(n.client, n.adapterListener)
 			l.wg.Add(1)
 
