@@ -46,7 +46,6 @@ import (
 var _ registry.Listener = new(appServiceListener)
 
 type appServiceListener struct {
-	urls        []*dubboCommon.URL
 	client      naming_client.INamingClient
 	instanceMap map[string]nacosModel.Instance
 	cacheLock   sync.Mutex
@@ -117,26 +116,20 @@ func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, er
 	l.instanceMap = newInstanceMap
 	for i := range addInstances {
 		newURLs := l.getURLs(addInstances[i])
-		if newURLs != nil {
-			for _, url := range newURLs {
-				l.handle(url, remoting.EventTypeAdd)
-			}
+		for _, url := range newURLs {
+			l.handle(url, remoting.EventTypeAdd)
 		}
 	}
 	for i := range delInstances {
 		newURLs := l.getURLs(delInstances[i])
-		if newURLs != nil {
-			for _, url := range newURLs {
-				l.handle(url, remoting.EventTypeDel)
-			}
+		for _, url := range newURLs {
+			l.handle(url, remoting.EventTypeDel)
 		}
 	}
 	for i := range updateInstances {
 		newURLs := l.getURLs(updateInstances[i])
-		if newURLs != nil {
-			for _, url := range newURLs {
-				l.handle(url, remoting.EventTypeUpdate)
-			}
+		for _, url := range newURLs {
+			l.handle(url, remoting.EventTypeUpdate)
 		}
 	}
 }
