@@ -249,8 +249,6 @@ func toZookeeperInstance(cris *curator_discovery.ServiceInstance) dr.ServiceInst
 
 // getMethods return the methods of a service
 func (asl *applicationServiceListener) getMethods(in string) ([]string, error) {
-	// TODO: zookeeper do not have the path
-	// then we can not get methods from this path
 	path := strings.Join([]string{methodsRootPath, in}, constant.PathSlash)
 	data, err := asl.client.GetContent(path)
 	if err != nil {

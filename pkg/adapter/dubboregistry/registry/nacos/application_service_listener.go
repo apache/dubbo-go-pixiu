@@ -137,6 +137,7 @@ func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, er
 func (l *appServiceListener) handle(url *dubboCommon.URL, action remoting.EventType) {
 	logger.Infof("update begin, service event : %v %v", action, url)
 
+	// NOTE: _ is methods, we can not get methods by application discovery
 	bkConfig, _, location, err := registry.ParseDubboString(url.String())
 	if err != nil {
 		logger.Errorf("parse dubbo url error = %s", err)
@@ -155,9 +156,6 @@ func (l *appServiceListener) handle(url *dubboCommon.URL, action remoting.EventT
 		},
 	}
 
-	// TODO: can not fetch methods, use http prefix pattern.
-	// we need fetch methods, use methods to create api.
-	// zookeeper has the same problem too.
 	api := registry.CreateAPIConfig(apiPattern, location, bkConfig, constant.AnyValue, mappingParams)
 	if action == remoting.EventTypeDel {
 		if err := l.adapterListener.OnRemoveAPI(api); err != nil {
