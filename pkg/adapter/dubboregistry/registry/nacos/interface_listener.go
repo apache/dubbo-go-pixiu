@@ -165,20 +165,16 @@ func (n *nacosIntfListener) updateServiceList(serviceList []string) error {
 			svcInfo.listener = l
 			n.serviceInfoMap[key] = svcInfo
 
-			// subscribe go routine
-			go func(v *serviceInfo) {
-				defer l.wg.Done()
+			sub := &vo.SubscribeParam{
+				ServiceName:       getSubscribeName(url),
+				SubscribeCallback: l.Callback,
+				GroupName:         n.regConf.Group,
+			}
 
-				sub := &vo.SubscribeParam{
-					ServiceName:       getSubscribeName(url),
-					SubscribeCallback: l.Callback,
-					GroupName:         n.regConf.Group,
-				}
-
-				if err := n.client.Subscribe(sub); err != nil {
-					logger.Errorf("subscribe listener with interfaceKey = %s, error = %s", l, err)
-				}
-			}(svcInfo)
+			if err := n.client.Subscribe(sub); err != nil {
+				logger.Errorf("subscribe listener with interfaceKey = %s, error = %s", l, err)
+			}
+			l.wg.Done()
 		}
 	}
 

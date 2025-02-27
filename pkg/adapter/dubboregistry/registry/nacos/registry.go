@@ -45,11 +45,11 @@ type NacosRegistry struct {
 }
 
 func (n *NacosRegistry) DoSubscribe() error {
-	intfListener, ok := n.nacosListeners[n.RegisteredType]
+	Listener, ok := n.nacosListeners[n.RegisteredType]
 	if !ok {
 		return errors.New("Listener for interface level registration does not initialized")
 	}
-	go intfListener.WatchAndHandle()
+	go Listener.WatchAndHandle()
 	return nil
 }
 

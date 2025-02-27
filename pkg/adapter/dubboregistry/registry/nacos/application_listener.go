@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
-	"dubbo.apache.org/dubbo-go/v3/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
@@ -145,29 +143,22 @@ func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 		key := appInfo.String()
 		newServiceMap[key] = true
 		if _, ok := n.appInfoMap[key]; !ok {
-			url, _ := dubboCommon.NewURL("mock://localhost:8848")
-			url.SetParam(constant.ApplicationKey, appInfo.appName)
 			l := newNacosAppSrvListener(n.client, n.adapterListener)
 			l.wg.Add(1)
 
 			appInfo.listener = l
 			n.appInfoMap[key] = appInfo
 
-			// subscribe go routine
-			go func(a *applicationInfo) {
-				defer l.wg.Done()
+			sub := &vo.SubscribeParam{
+				ServiceName:       appInfo.appName,
+				SubscribeCallback: l.Callback,
+				GroupName:         n.regConf.Group,
+			}
 
-				sub := &vo.SubscribeParam{
-					ServiceName:       a.appName,
-					SubscribeCallback: l.Callback,
-					GroupName:         n.regConf.Group,
-				}
-
-				if err := n.client.Subscribe(sub); err != nil {
-					logger.Errorf("subscribe listener with interfaceKey = %s, error = %s", l, err)
-					return
-				}
-			}(appInfo)
+			if err := n.client.Subscribe(sub); err != nil {
+				logger.Errorf("subscribe listener with interfaceKey = %s, error = %s", l, err)
+			}
+			l.wg.Done()
 		}
 	}
 
