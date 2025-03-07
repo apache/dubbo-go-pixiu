@@ -132,7 +132,7 @@ func fromServiceKey(serviceKey string) *applicationInfo {
 
 func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 	// add new service info and watch
-	newServiceMap := make(map[string]bool)
+	newServiceMap := make(map[string]bool, len(serviceList))
 
 	for _, v := range serviceList {
 		appInfo := fromServiceKey(v)
