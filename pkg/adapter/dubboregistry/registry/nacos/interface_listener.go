@@ -144,7 +144,7 @@ func fromServiceFullKey(fullKey string) *serviceInfo {
 
 func (n *nacosIntfListener) updateServiceList(serviceList []string) error {
 	// add new service info and watch
-	newServiceMap := make(map[string]bool)
+	newServiceMap := make(map[string]struct{})
 
 	for _, v := range serviceList {
 		svcInfo := fromServiceFullKey(v)
@@ -153,7 +153,7 @@ func (n *nacosIntfListener) updateServiceList(serviceList []string) error {
 			continue
 		}
 		key := svcInfo.String()
-		newServiceMap[key] = true
+		newServiceMap[key] = struct{}{}
 		if _, ok := n.serviceInfoMap[key]; !ok {
 			url, _ := dubboCommon.NewURL("mock://localhost:8848")
 			url.SetParam(constant.InterfaceKey, svcInfo.interfaceName)

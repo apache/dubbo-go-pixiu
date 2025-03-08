@@ -132,7 +132,7 @@ func fromServiceKey(serviceKey string) *applicationInfo {
 
 func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 	// add new service info and watch
-	newServiceMap := make(map[string]bool, len(serviceList))
+	newServiceMap := make(map[string]struct{}, len(serviceList))
 
 	for _, v := range serviceList {
 		appInfo := fromServiceKey(v)
@@ -141,7 +141,7 @@ func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 			continue
 		}
 		key := appInfo.String()
-		newServiceMap[key] = true
+		newServiceMap[key] = struct{}{}
 		if _, ok := n.appInfoMap[key]; !ok {
 			l := newNacosAppSrvListener(n.client, n.adapterListener)
 			l.wg.Add(1)
