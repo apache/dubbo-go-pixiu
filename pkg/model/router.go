@@ -80,7 +80,6 @@ func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string) (*RouteA
 	if rc.RouteTrie.IsEmpty() {
 		return nil, errors.Errorf("router configuration is empty")
 	}
-
 	node, _, _ := rc.RouteTrie.Match(stringutil.GetTrieKey(method, path))
 	if node == nil {
 		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(method, path))
@@ -89,7 +88,6 @@ func (rc *RouteConfiguration) RouteByPathAndMethod(path, method string) (*RouteA
 		return nil, errors.Errorf("action is nil. please check your configuration.")
 	}
 	ret := (node.GetBizInfo()).(RouteAction)
-
 	return &ret, nil
 }
 

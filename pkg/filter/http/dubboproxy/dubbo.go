@@ -196,6 +196,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 		common.WithParamsValue(dubboConstant.VersionKey, versionKey),
 		common.WithPath(interfaceKey),
 	)
+
 	if err != nil {
 		logger.Infof("[dubbo-go-pixiu] newURL error %v", err)
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("newURL error %v", err)})

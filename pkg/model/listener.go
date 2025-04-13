@@ -17,6 +17,11 @@
 
 package model
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"strings"
+)
+
 const (
 	ProtocolTypeHTTP ProtocolType = 0 + iota // support for 1.0
 	ProtocolTypeTCP
@@ -72,3 +77,11 @@ type (
 		Config      interface{}  `yaml:"config" json:"config" mapstructure:"config"`
 	}
 )
+
+func (l *Listener) InitProtocol() {
+	if val, ok := ProtocolTypeValue[strings.ToUpper(l.ProtocolStr)]; ok {
+		l.Protocol = ProtocolType(val)
+	} else {
+		logger.Errorf("Invalid protocol type: %s", l.ProtocolStr)
+	}
+}

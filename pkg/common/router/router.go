@@ -45,6 +45,10 @@ type (
 	}
 )
 
+func (rc *RouterCoordinator) GetActiveConfig() *model.RouteConfiguration {
+	return rc.activeConfig
+}
+
 // CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoordinator {
 	rc := &RouterCoordinator{activeConfig: routeConfig}
@@ -90,7 +94,6 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 		}
 		return &matched[0].Route, nil
 	}
-
 	// match those route that only contains prefix
 	// TODO: may consider implementing both prefix and header in the future
 	return rm.activeConfig.Route(req)

@@ -20,9 +20,7 @@ package hotreload
 import (
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -46,7 +44,7 @@ type Coordinator struct {
 	manager   *config.ConfigManager // Configuration manager
 }
 
-var coordinator = Coordinator{reloaders: []HotReloader{&LoggerReloader{}}}
+var coordinator = Coordinator{reloaders: []HotReloader{&LoggerReloader{}, &RouteReloader{}}}
 
 // StartHotReload initializes the hot reload process.
 // It should be called when the project starts, e.g., in cmd/gateway.go.
@@ -58,6 +56,7 @@ func StartHotReload(manager *config.ConfigManager, boot *model.Bootstrap) {
 
 	coordinator.manager = manager
 	coordinator.boot = boot
+
 	go coordinator.HotReload()
 }
 
@@ -70,7 +69,6 @@ func (c *Coordinator) HotReload() {
 		if boot == nil {
 			continue
 		}
-
 		c.hotReload(boot)
 	}
 }
@@ -79,7 +77,6 @@ func (c *Coordinator) HotReload() {
 func (c *Coordinator) hotReload(newBoot *model.Bootstrap) {
 	changed := false
 	wg := &sync.WaitGroup{}
-
 	for _, reloader := range c.reloaders {
 		if reloader.CheckUpdate(c.boot, newBoot) {
 			changed = true
