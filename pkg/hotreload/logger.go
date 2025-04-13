@@ -62,7 +62,7 @@ func (r *LoggerReloader) CheckUpdate(oldConfig, newConfig *model.Bootstrap) bool
 		return true
 	}
 
-	return true
+	return false
 }
 
 // HotReload applies the new logger configuration.
