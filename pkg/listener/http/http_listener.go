@@ -155,7 +155,7 @@ func (ls *HttpListenerService) httpListener() {
 	}
 
 	logger.Infof("[dubbo-go-server] httpListener start at : %s", ls.srv.Addr)
-	
+
 	log.Println(ls.srv.ListenAndServe())
 }
 

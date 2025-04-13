@@ -19,16 +19,20 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/hotreload"
 	"os"
 	"runtime"
 	"strconv"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+import (
 	"github.com/spf13/cobra"
+)
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	pxruntime "github.com/apache/dubbo-go-pixiu/pkg/common/runtime"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/hotreload"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"

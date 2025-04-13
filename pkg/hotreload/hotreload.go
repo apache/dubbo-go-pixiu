@@ -80,7 +80,7 @@ func (c *Coordinator) HotReload() {
 func (c *Coordinator) hotReload(newBoot *model.Bootstrap) {
 	changed := false
 	wg := &sync.WaitGroup{}
-	
+
 	for _, reloader := range c.reloaders {
 		if reloader.CheckUpdate(c.boot, newBoot) {
 			changed = true

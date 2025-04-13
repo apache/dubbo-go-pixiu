@@ -197,6 +197,7 @@ func (m *ConfigManager) LoadBootConfig(path string) *model.Bootstrap {
 
 	// load file
 	configs = m.loadLocalBootConfigs(path)
+	
 	if m.localConfig != nil && m.localConfig.Config != nil {
 		if strings.EqualFold(m.localConfig.Config.Enable, "true") {
 			configs = m.loadRemoteBootConfigs()

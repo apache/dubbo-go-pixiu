@@ -109,7 +109,7 @@ func (d *DefaultConfigLoad) LoadConfigs(boot *model.Bootstrap, opts ...Option) (
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(data) == 0 {
 		logger.Errorf("the config data load from remote is nil, config center : %s", boot.Config.Type)
 		return boot, err

@@ -95,6 +95,7 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 // handleHTTPRequest handle http request
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	filterChain := hcm.filterManager.CreateFilterChain(c)
+
 	// recover any err when filterChain run
 	defer func() {
 		if err := recover(); err != nil {
@@ -102,6 +103,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 			c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("Occur An Unexpected Err: %v", err)))
 		}
 	}()
+	
 	//todo timeout
 	filterChain.OnDecode(c)
 	hcm.buildTargetResponse(c)
