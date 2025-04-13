@@ -114,6 +114,7 @@ func (ls *HttpListenerService) httpsListener() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
+
 	m := &autocert.Manager{
 		Cache:      autocert.DirCache(ls.Config.Address.SocketAddress.CertsDir),
 		Prompt:     autocert.AcceptTOS,
@@ -142,6 +143,7 @@ func (ls *HttpListenerService) httpListener() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
+
 	sa := ls.Config.Address.SocketAddress
 	ls.srv = &http.Server{
 		Addr:           resolveAddress(sa.Address + ":" + strconv.Itoa(sa.Port)),
@@ -151,7 +153,9 @@ func (ls *HttpListenerService) httpListener() {
 		IdleTimeout:    resolveStr2Time(hc.IdleTimeoutStr, 20*time.Second),
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
+
 	logger.Infof("[dubbo-go-server] httpListener start at : %s", ls.srv.Addr)
+	
 	log.Println(ls.srv.ListenAndServe())
 }
 

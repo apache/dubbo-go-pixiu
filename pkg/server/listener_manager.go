@@ -20,18 +20,22 @@ package server
 import (
 	"os"
 	"os/signal"
-	// "reflect"
 	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
+)
 
+import (
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/shutdown"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 )
 
 // wrapListenerService wrap listener service and its configuration.
@@ -251,77 +255,3 @@ func (lm *ListenerManager) RemoveListener(names []string) {
 		delete(lm.activeListenerService, name)
 	}
 }
-
-// func (lm *ListenerManager) HotUpdateListener(newListener *model.Listener) error {
-// 	if newListener == nil {
-// 		return errors.New("UpdateListener error: listener config is nil")
-// 	}
-
-// 	newListener.InitProtocol()
-// 	lm.rwLock.Lock()
-// 	defer lm.rwLock.Unlock()
-
-// 	newListenerName := resolveListenerName(newListener)
-// 	var oldLS *wrapListenerService
-// 	for _, ls := range lm.activeListenerService {
-// 		if ls.config.Name == newListener.Name {
-// 			oldLS = ls
-// 			break
-// 		}
-// 	}
-// 	if oldLS == nil {
-// 		return fmt.Errorf("old listener %s not found", newListener.Name)
-// 	}
-
-// 	oldListenerName := resolveListenerName(oldLS.config)
-// 	logger.Infof("Updating listener %s: oldConfig=%+v, newConfig=%+v", newListener.Name, oldLS.config, newListener)
-
-// 	needRestart := oldLS.config.Protocol != newListener.Protocol ||
-// 		!Equal(oldLS.config.Address, newListener.Address) ||
-// 		!reflect.DeepEqual(oldLS.config.FilterChain, newListener.FilterChain)
-// 	logger.Infof("Listener %s: needRestart=%v", newListener.Name, needRestart)
-
-// 	if !needRestart {
-// 		oldLS.config = newListener
-// 		return oldLS.Refresh(*newListener)
-// 	}
-
-//     // 如果需要重启，先尝试通过 Refresh 更新端口
-//     if err := oldLS.Refresh(*newListener); err == nil {
-//         logger.Infof("Listener %s refreshed with new configuration", newListener.Name)
-//         oldLS.config = newListener
-//         return nil
-//     }
-
-//     // 如果 Refresh 失败，则完全重启监听器
-//     logger.Warnf("Listener %s refresh failed, falling back to full restart", newListener.Name)
-
-//     // 创建并启动新监听器
-//     newLS, err := listener.CreateListenerService(newListener, lm.bootstrap)
-//     if err != nil {
-//         return fmt.Errorf("failed to create new listener %s: %v", newListener.Name, err)
-//     }
-//     if err := newLS.Start(); err != nil {
-//         return fmt.Errorf("failed to start new listener %s: %v", newListener.Name, err)
-//     }
-
-// 	// 关闭旧监听器
-//     if err := oldLS.Close(); err != nil {
-//         logger.Errorf("Failed to close old listener %s: %v", newListener.Name, err)
-//     }
-
-//     // 更新监听器映射
-//     delete(lm.activeListenerService, oldListenerName)
-//     lm.activeListenerService[newListenerName] = &wrapListenerService{
-//         ListenerService: newLS,
-//         config:          newListener,
-//     }
-
-//     logger.Infof("Listener %s updated and restarted", newListener.Name)
-//     return nil
-// }
-
-// func Equal(a model.Address, b model.Address) bool {
-// 	return a.SocketAddress.Address == b.SocketAddress.Address &&
-// 		a.SocketAddress.Port == b.SocketAddress.Port
-// }

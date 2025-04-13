@@ -208,32 +208,26 @@ func TestTrie_ParamMatch(t *testing.T) {
 }
 
 func TestTrieSoftDelete(t *testing.T) {
-    trie := NewTrie()
+	trie := NewTrie()
 
-    // 添加路由
-    trie.Put("/a/b/c", "route1")
-    trie.Put("/a/b/c/d", "route2")
-    trie.Put("/a/b/e", "route3")
+	trie.Put("/a/b/c", "route1")
+	trie.Put("/a/b/c/d", "route2")
+	trie.Put("/a/b/e", "route3")
 
-    // 验证路由匹配
-    node, _, ok := trie.Match("/a/b/c")
-    assert.True(t, ok)
-    assert.Equal(t, "route1", node.GetBizInfo())
+	node, _, ok := trie.Match("/a/b/c")
+	assert.True(t, ok)
+	assert.Equal(t, "route1", node.GetBizInfo())
 
-    // 软删除路由 /a/b/c
-    trie.Remove("/a/b/c")
+	trie.Remove("/a/b/c")
 
-    // 验证软删除后的路由
-    node, _, ok = trie.Match("/a/b/c")
-    assert.False(t, ok) // 路由已被软删除，不应匹配成功
+	node, _, ok = trie.Match("/a/b/c")
+	assert.False(t, ok)
 
-    // 验证子路由仍然存在
-    node, _, ok = trie.Match("/a/b/c/d")
-    assert.True(t, ok)
-    assert.Equal(t, "route2", node.GetBizInfo())
-
-    // 验证其他路由不受影响
-    node, _, ok = trie.Match("/a/b/e")
-    assert.True(t, ok)
-    assert.Equal(t, "route3", node.GetBizInfo())
+	node, _, ok = trie.Match("/a/b/c/d")
+	assert.True(t, ok)
+	assert.Equal(t, "route2", node.GetBizInfo())
+	
+	node, _, ok = trie.Match("/a/b/e")
+	assert.True(t, ok)
+	assert.Equal(t, "route3", node.GetBizInfo())
 }

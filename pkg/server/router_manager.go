@@ -30,8 +30,7 @@ type (
 	}
 
 	RouterManager struct {
-		rls          []RouterListener
-		activeConfig *model.RouteConfiguration
+		rls []RouterListener
 	}
 )
 

@@ -45,10 +45,6 @@ type (
 	}
 )
 
-func (rc *RouterCoordinator) GetActiveConfig() *model.RouteConfiguration {
-	return rc.activeConfig
-}
-
 // CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoordinator {
 	rc := &RouterCoordinator{activeConfig: routeConfig}

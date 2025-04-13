@@ -45,7 +45,6 @@ type Server struct {
 	apiConfigManager      *ApiConfigManager
 	dynamicResourceManger DynamicResourceManager
 	traceDriverManager    *tracing.TraceDriverManager
-	hotReloadCallback     func()
 }
 
 func (s *Server) initialize(bs *model.Bootstrap) {
