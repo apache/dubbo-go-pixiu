@@ -85,3 +85,11 @@ const (
 	SSEEvent = "event"
 	SSEId    = "id"
 )
+
+// Content type prefixes for streamable responses
+const (
+	ContentTypeTextPrefix             = "text/"
+	ContentTypeApplicationOctetStream = "application/octet-stream"
+	ContentTypeApplicationJson        = "application/json"
+	ContentTypeApplicationNDJson      = "application/x-ndjson"
+)

@@ -105,7 +105,15 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 		}
 	}()
 
-	//todo timeout
+	// process timeout
+	ctx := c.Ctx
+	if c.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.Timeout)
+		c.Ctx = ctx
+		defer cancel()
+	}
+
 	filterChain.OnDecode(c)
 	hcm.buildTargetResponse(c)
 	//todo: stream resp has to set HTTP Server's WriteTimeout to 0, need to check it
@@ -179,6 +187,12 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 							_ = res.Stream.Close()
 							return
 						}
+						// For non-SSE streams, we need to flush after each write
+						if !res.IsSSE() {
+							if flusher, ok := c.Writer.(stdHttp.Flusher); ok {
+								flusher.Flush()
+							}
+						}
 					case err := <-errCh:
 						if err != nil && err != io.EOF {
 							logger.Errorf("Stream error: %v", err)
@@ -189,7 +203,6 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 			default:
 				logger.Errorf("Unknown response type: %T", c.TargetResp)
 			}
-
 		}
 	}
 }
@@ -210,7 +223,9 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		c.StatusCode(res.StatusCode)
 
 		if http.IsSSEStream(res) {
-			c.TargetResp = &client.StreamResponse{Stream: res.Body}
+			c.TargetResp = &client.StreamResponse{Stream: res.Body, IsSSEStream: true}
+		} else if http.IsStreamableResponse(res) {
+			c.TargetResp = &client.StreamResponse{Stream: res.Body, IsSSEStream: false}
 		} else {
 			body, err := io.ReadAll(res.Body)
 			if err != nil {

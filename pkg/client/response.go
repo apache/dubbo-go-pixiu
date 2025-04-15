@@ -23,6 +23,7 @@ import (
 
 type Response interface {
 	IsStream() bool
+	IsSSE() bool
 }
 
 // ByteResponse response from endpoint
@@ -34,6 +35,10 @@ func (r *ByteResponse) IsStream() bool {
 	return false
 }
 
+func (r *ByteResponse) IsSSE() bool {
+	return false
+}
+
 // NewByteResponse create response contains a []byte
 func NewByteResponse(data []byte) *ByteResponse {
 	return &ByteResponse{Data: data}
@@ -41,14 +46,19 @@ func NewByteResponse(data []byte) *ByteResponse {
 
 // StreamResponse response from endpoint
 type StreamResponse struct {
-	Stream io.ReadCloser
+	Stream      io.ReadCloser
+	IsSSEStream bool
 }
 
 func (r *StreamResponse) IsStream() bool {
 	return true
 }
 
+func (r *StreamResponse) IsSSE() bool {
+	return r.IsSSEStream
+}
+
 // NewStreamResponse create response contains a stream
-func NewStreamResponse(stream io.ReadCloser) *StreamResponse {
-	return &StreamResponse{Stream: stream}
+func NewStreamResponse(stream io.ReadCloser, isSSE bool) *StreamResponse {
+	return &StreamResponse{Stream: stream, IsSSEStream: isSSE}
 }

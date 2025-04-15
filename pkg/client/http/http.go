@@ -206,3 +206,13 @@ func IsSSEStream(resp *http.Response) bool {
 	contentType := resp.Header.Get(constant.HeaderKeyContextType)
 	return contentType == constant.HeaderValueTextEventStream
 }
+
+// IsStreamableResponse check if the response is streamable
+func IsStreamableResponse(resp *http.Response) bool {
+	contentType := resp.Header.Get(constant.HeaderKeyContextType)
+	return contentType == constant.HeaderValueTextEventStream ||
+		strings.HasPrefix(contentType, constant.ContentTypeTextPrefix) ||
+		strings.HasPrefix(contentType, constant.ContentTypeApplicationOctetStream) ||
+		strings.HasPrefix(contentType, constant.ContentTypeApplicationJson) ||
+		strings.HasPrefix(contentType, constant.ContentTypeApplicationNDJson)
+}
