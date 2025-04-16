@@ -32,6 +32,8 @@ import (
 )
 
 import (
+	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
@@ -44,9 +46,9 @@ var (
 	streamEventCh = make(chan string, 10)
 )
 
-// 测试各种普通流式HTTP响应类型
+// Test a variety of common streaming HTTP response types
 func TestStreamableHTTPResponse(t *testing.T) {
-	// 定义要测试的内容类型
+	// define the type of content you want to test
 	contentTypes := []string{
 		"text/plain",
 		"application/json",
@@ -207,4 +209,72 @@ func NewTestStreamServerWithURL(URL string, handler stdhttp.Handler) (*httptest.
 	}
 	ts.Start()
 	return ts, nil
+}
+
+// TestIsStreamableResponse Test whether it is a function that can be streamed and responded
+func TestIsStreamableResponse(t *testing.T) {
+	tests := []struct {
+		name     string
+		headers  map[string]string
+		expected bool
+	}{
+		{
+			name: "sseResponse",
+			headers: map[string]string{
+				constant.HeaderKeyContextType: constant.HeaderValueTextEventStream,
+			},
+			expected: true,
+		},
+		{
+			name: "chunkedEncodingResponses",
+			headers: map[string]string{
+				constant.HeaderKeyContextType:      constant.HeaderValueApplicationJson,
+				constant.HeaderKeyTransferEncoding: constant.HeaderValueChunked,
+			},
+			expected: true,
+		},
+		{
+			name: "JsonResponseWithoutContent-Length",
+			headers: map[string]string{
+				constant.HeaderKeyContextType: constant.HeaderValueApplicationJson,
+			},
+			expected: true,
+		},
+		{
+			name: "The text response is large Content-Length",
+			headers: map[string]string{
+				constant.HeaderKeyContextType:   constant.HeaderValueTextPlain,
+				constant.HeaderKeyContentLength: "2097152", // 2MB
+			},
+			expected: true,
+		},
+		{
+			name: "JSON response Content-Length",
+			headers: map[string]string{
+				constant.HeaderKeyContextType:   constant.HeaderValueApplicationJson,
+				constant.HeaderKeyContentLength: "1024", // 1KB
+			},
+			expected: false,
+		},
+		{
+			name: "no stream Content-Type",
+			headers: map[string]string{
+				constant.HeaderKeyContextType: "image/jpeg",
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := &stdhttp.Response{
+				Header: make(stdhttp.Header),
+			}
+			for k, v := range tt.headers {
+				resp.Header.Set(k, v)
+			}
+			result := clienthttp.IsStreamableResponse(resp)
+			assert.Equal(t, tt.expected, result, "IsStreamableResponse() return err")
+		})
+	}
 }

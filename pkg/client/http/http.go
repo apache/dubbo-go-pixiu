@@ -20,6 +20,7 @@ package http
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -208,11 +209,49 @@ func IsSSEStream(resp *http.Response) bool {
 }
 
 // IsStreamableResponse check if the response is streamable
+// Determine whether it is a streaming response based on the following conditions:
+// 1. Using Transfer-Encoding: chunked
+// 2. The content type indicates that this is a streamable response (e.g. text/event-stream, application/json, etc.)
 func IsStreamableResponse(resp *http.Response) bool {
+	if IsSSEStream(resp) {
+		return true
+	}
+
+	// check if the block encoded transfer is used
+	transferEncoding := resp.Header.Get(constant.HeaderKeyTransferEncoding)
+	if strings.Contains(strings.ToLower(transferEncoding), constant.HeaderValueChunked) {
+		return true
+	}
+
+	// check the content type
 	contentType := resp.Header.Get(constant.HeaderKeyContextType)
-	return contentType == constant.HeaderValueTextEventStream ||
-		strings.HasPrefix(contentType, constant.ContentTypeTextPrefix) ||
-		strings.HasPrefix(contentType, constant.ContentTypeApplicationOctetStream) ||
-		strings.HasPrefix(contentType, constant.ContentTypeApplicationJson) ||
-		strings.HasPrefix(contentType, constant.ContentTypeApplicationNDJson)
+
+	// check if it s a streamable content type
+	streamableTypes := []string{
+		constant.HeaderValueTextPrefix,
+		constant.HeaderValueApplicationJson,
+		constant.HeaderValueApplicationNDJson,
+		constant.HeaderValueApplicationOctetStream,
+	}
+
+	for _, streamableType := range streamableTypes {
+		if strings.HasPrefix(contentType, streamableType) {
+			// For these content types, if you don't have Content-Length set or if Content-Length is large,
+			// may be a good candidate for streaming
+			contentLength := resp.Header.Get(constant.HeaderKeyContentLength)
+
+			// If Content-Length is not specified, it is possible that the server is not aware of the content length
+			if contentLength == "" {
+				return true
+			}
+
+			// If the Content-Length is large (> 1MB), streaming is also suitable
+			length, err := strconv.ParseInt(contentLength, 10, 64)
+			if err == nil && length > 1024*1024 {
+				return true
+			}
+		}
+	}
+
+	return false
 }
