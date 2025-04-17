@@ -19,14 +19,9 @@ package tokenizer
 
 import (
 	"bufio"
-	"bytes"
-	"errors"
+	"encoding/json"
 	"io"
 	"strings"
-)
-
-import (
-	"github.com/pkoukk/tiktoken-go"
 )
 
 import (
@@ -38,7 +33,8 @@ import (
 )
 
 const (
-	Kind = constant.LLMTokenizerFilter
+	Kind      = constant.LLMTokenizerFilter
+	LoggerFmt = "[Tokenizer] [DOWNSTREAM] "
 )
 
 func init() {
@@ -56,13 +52,9 @@ type (
 	// Filter is http filter instance
 	Filter struct {
 		cfg *Config
-		tkm *tiktoken.Tiktoken
 	}
 	// Config describe the config of FilterFactory
 	Config struct {
-		//OfflineLoader    bool   `yaml:"offline_loader" json:"offline_loader" mapstructure:"offline_loader"`
-		Encoding         string `yaml:"encoding" json:"encoding" mapstructure:"encoding"`
-		EncodingForModel string `yaml:"encoding_for_model" json:"encoding_for_model" mapstructure:"encoding_for_model"`
 	}
 )
 
@@ -83,80 +75,70 @@ func (factory *FilterFactory) Apply() error {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	c := factory.cfg
-	if c == nil {
-		return nil
-	}
-
-	var tkm *tiktoken.Tiktoken
-	var err error
-
-	if c.EncodingForModel != "" {
-		tkm, err = tiktoken.EncodingForModel(c.EncodingForModel)
-		if err != nil {
-			logger.Error("Get tokenizer failed", err)
-		}
-	} else if c.Encoding != "" {
-		tkm, err = tiktoken.GetEncoding(c.Encoding)
-		if err != nil {
-			logger.Error("Get tokenizer failed", err)
-		}
-	} else {
-		return errors.New("no encoding or model specified")
-	}
-
 	f := &Filter{
 		cfg: factory.cfg,
-		tkm: tkm,
 	}
 	chain.AppendEncodeFilters(f)
-	chain.AppendDecodeFilters(f)
 	return nil
 }
 
 func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 	switch res := hc.TargetResp.(type) {
-	case client.StreamResponse:
-		go func() {
-			var buf bytes.Buffer
-			if _, err := io.Copy(&buf, res.Stream); err != nil {
-				return
-			}
-
-			scanner := bufio.NewScanner(&buf)
-			for scanner.Scan() {
-				line := scanner.Text()
-				if strings.HasPrefix(line, "data:") {
-					line = strings.TrimPrefix(line, "data:")
-					token := f.tkm.EncodeOrdinary(line)
-					logger.Debugf("[Tokenizer] [DOWNSTREAM] receive response | %d | %s | ", len(token), line)
-				}
-			}
-		}()
-	case client.ByteResponse:
-		go func() {
-			resp := res.Data
-			token := f.tkm.EncodeOrdinary(string(resp))
-			logger.Debugf("[Tokenizer] [DOWNSTREAM] receive response | %d | %s | ", len(token), resp)
-		}()
+	case *client.StreamResponse:
+		go f.processStreamResponse(res)
+	case *client.UnaryResponse:
+		f.processUsageData(res.Data)
 	default:
-		logger.Warnf("Respones type not suitable for token calc")
+		logger.Infof(LoggerFmt+"Response type not suitable for token calc: %T", res)
 	}
 
 	return filter.Continue
 }
 
-func (f *Filter) Decode(hc *http.HttpContext) filter.FilterStatus {
-	go func() {
-		var buf bytes.Buffer
-		if _, err := io.Copy(&buf, hc.Request.Body); err != nil {
-			return
+func (f *Filter) processStreamResponse(res *client.StreamResponse) {
+	scanner := bufio.NewScanner(res.Stream)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "data:") {
+			line = strings.TrimPrefix(line, "data:")
+			f.processUsageData([]byte(line))
 		}
+	}
+	if err := scanner.Err(); err != nil && err != io.EOF {
+		logger.Errorf(LoggerFmt+"Error reading stream: %v", err)
+	}
+}
 
-		resp := buf.String()
-		token := f.tkm.EncodeOrdinary(resp)
-		logger.Debugf("[Tokenizer] [UPSTREAM] receive response | %d | %s | ", len(token), resp)
-	}()
+func (f *Filter) processUsageData(data []byte) {
+	var dataCont map[string]interface{}
+	err := json.Unmarshal(data, &dataCont)
+	if err != nil {
+		logger.Infof(LoggerFmt+"Unmarshal response data failed: %v, data: %s", err, string(data))
+		return
+	}
 
-	return filter.Continue
+	usage, ok := dataCont["usage"].(map[string]interface{})
+	if !ok || usage == nil {
+		logger.Debugf("Usage field not found or is not a map")
+		return
+	}
+
+	f.logUsage(usage)
+}
+
+func (f *Filter) logUsage(usage map[string]interface{}) {
+	for key, value := range usage {
+		if key == "prompt_tokens_details" {
+			promptTokensDetails, ok := value.(map[string]interface{})
+			if !ok {
+				logger.Warnf(LoggerFmt+"prompt_tokens_details is not a map, value: %+v", value)
+				continue
+			}
+			for detailKey, detailValue := range promptTokensDetails {
+				logger.Debugf(LoggerFmt+"Usage | %s: %v", detailKey, detailValue)
+			}
+		} else {
+			logger.Debugf(LoggerFmt+"Usage | %s: %v", key, value)
+		}
+	}
 }
