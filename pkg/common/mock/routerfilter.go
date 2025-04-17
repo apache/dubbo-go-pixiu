@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -103,14 +102,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		err error
 	)
 
-	parsedURL := url.URL{
-		Host:     r.URL.Host,
-		Scheme:   "http",
-		Path:     r.URL.Path,
-		RawQuery: r.URL.RawQuery,
-	}
-
-	req, err = http.NewRequest(r.Method, parsedURL.String(), r.Body)
+	req, err = http.NewRequest(r.Method, r.URL.String(), r.Body)
 	if err != nil {
 		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
 		hc.SendLocalReply(http.StatusInternalServerError, bt)
@@ -121,11 +113,6 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	resp, err := f.client.Do(req)
 
 	if err != nil {
-		urlErr, ok := err.(*url.Error)
-		if ok && urlErr.Timeout() {
-			hc.SendLocalReply(http.StatusGatewayTimeout, []byte(err.Error()))
-			return filter.Stop
-		}
 		hc.SendLocalReply(http.StatusServiceUnavailable, []byte(err.Error()))
 		return filter.Stop
 	}
