@@ -204,5 +204,5 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 // IsSSEStream check if the response is a SSE stream
 func IsSSEStream(resp *http.Response) bool {
 	contentType := resp.Header.Get(constant.HeaderKeyContextType)
-	return contentType == constant.HeaderValueTextEventStream
+	return strings.Contains(contentType, constant.HeaderValueTextEventStream)
 }
