@@ -27,8 +27,6 @@ import (
 )
 
 import (
-	"github.com/pkoukk/tiktoken-go"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,16 +35,23 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
-func TestMetric(t *testing.T) {
-	encoding := "cl100k_base"
-	tke, err := tiktoken.GetEncoding(encoding)
-	filter := &Filter{tkm: tke}
+func TestUnaryResponse(t *testing.T) {
+	filter := &Filter{}
 
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request)
-	filter.Decode(c)
-	c.TargetResp = client.StreamResponse{Stream: io.NopCloser(strings.NewReader("data: response"))}
+	c.TargetResp = &client.UnaryResponse{Data: []byte("{\"object\":\"chat.completion\",\"created\":1744871476,\"model\":\"deepseek-chat\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The sum of 3 and 5 is calculated as follows:\\n\\n\\\\[ 3 + 5 = 8 \\\\]\\n\\nSo, the answer is **8**.\"},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":32,\"total_tokens\":39,\"prompt_tokens_details\":{\"cached_tokens\":0},\"prompt_cache_hit_tokens\":0,\"prompt_cache_miss_tokens\":7},\"system_fingerprint\":\"fp_3d5141a69a_prod0225\"}")}
 	filter.Encode(c)
-	time.Sleep(15 * time.Millisecond)
+}
+
+func TestStreamResponse(t *testing.T) {
+	filter := &Filter{}
+
+	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+	assert.NoError(t, err)
+	c := mock.GetMockHTTPContext(request)
+	c.TargetResp = &client.StreamResponse{Stream: io.NopCloser(strings.NewReader("data: {\"object\":\"chat.completion\",\"created\":1744871476,\"model\":\"deepseek-chat\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The sum of 3 and 5 is calculated as follows:\\n\\n\\\\[ 3 + 5 = 8 \\\\]\\n\\nSo, the answer is **8**.\"},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":32,\"total_tokens\":39,\"prompt_tokens_details\":{\"cached_tokens\":0},\"prompt_cache_hit_tokens\":0,\"prompt_cache_miss_tokens\":7},\"system_fingerprint\":\"fp_3d5141a69a_prod0225\"}"))}
+	filter.Encode(c)
+	time.Sleep(1 * time.Millisecond)
 }
