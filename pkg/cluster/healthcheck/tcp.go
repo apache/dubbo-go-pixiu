@@ -18,12 +18,7 @@
 package healthcheck
 
 import (
-	"net"
 	"time"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type TCPChecker struct {
@@ -32,13 +27,7 @@ type TCPChecker struct {
 }
 
 func (s *TCPChecker) CheckHealth() bool {
-	conn, err := net.DialTimeout("tcp", s.address, s.timeout)
-	if err != nil {
-		logger.Infof("[health check] tcp checker for host %s error: %v", s.address, err)
-		return false
-	}
-	conn.Close()
-	return true
+	return TcpConn(s.address, 8081, s.timeout)
 }
 
 func (s *TCPChecker) OnTimeout() {}

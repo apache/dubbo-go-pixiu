@@ -18,13 +18,7 @@
 package healthcheck
 
 import (
-	"net"
-	"strings"
 	"time"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type HTTPChecker struct {
@@ -34,21 +28,7 @@ type HTTPChecker struct {
 
 func (s *HTTPChecker) CheckHealth() bool {
 	tarAddr := s.address
-	if _, _, err := net.SplitHostPort(tarAddr); err != nil {
-		if strings.Contains(err.Error(), "missing port in address") {
-			tarAddr = tarAddr + ":80"
-		} else {
-			logger.Infof("[health check] invalid address format: %s", s.address)
-			return false
-		}
-	}
-	conn, err := net.DialTimeout("tcp", tarAddr, s.timeout)
-	if err != nil {
-		logger.Infof("[health check] http checker for host %s error: %v", tarAddr, err)
-		return false
-	}
-	conn.Close()
-	return true
+	return TcpConn(tarAddr, 80, s.timeout)
 }
 
 func (s *HTTPChecker) OnTimeout() {}
