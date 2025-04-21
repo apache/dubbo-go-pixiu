@@ -18,10 +18,13 @@
 package healthcheck
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"net"
 	"strings"
 	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 func TcpConn(tarAddr string, tarPort string, timeout time.Duration) bool {
