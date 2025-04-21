@@ -20,6 +20,7 @@ package healthcheck
 import (
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -76,7 +77,7 @@ func TestTcpConn(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := TcpConn(tc.addr, tc.port, tc.timeout)
+			actual := TcpConn(tc.addr, strconv.Itoa(tc.port), tc.timeout)
 			if actual != tc.expected {
 				t.Fail()
 			}
