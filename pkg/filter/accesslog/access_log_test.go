@@ -64,7 +64,7 @@ func TestApply(t *testing.T) {
 
 	request, _ := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	ctx := mock.GetMockHTTPContext(request)
-	ctx.TargetResp = client.NewResponse([]byte(msg))
+	ctx.TargetResp = client.NewByteResponse([]byte(msg))
 
 	f.Decode(ctx)
 	f.Encode(ctx)

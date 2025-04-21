@@ -25,7 +25,9 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
 	"go.opentelemetry.io/otel/attribute"
+
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
@@ -58,7 +60,7 @@ func init() {
 }
 
 type (
-	// FilterFactory is http filter plugin.
+	// Plugin is http filter plugin.
 	Plugin struct {
 	}
 	// FilterFactory is http filter instance
@@ -137,11 +139,11 @@ func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func computeApproximateResponseSize(res *client.Response) (int, error) {
+func computeApproximateResponseSize(res client.Response) (int, error) {
 	if res == nil {
-		return 0, errors.New("client.Response is null pointer ")
+		return 0, errors.New("client.UnaryResponse is null pointer ")
 	}
-	return len(res.Data), nil
+	return len(res.(*client.UnaryResponse).Data), nil
 }
 
 func computeApproximateRequestSize(r *stdhttp.Request) (int, error) {

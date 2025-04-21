@@ -18,7 +18,9 @@
 package constant
 
 const (
-	HeaderKeyContextType = "Content-Type"
+	HeaderKeyContextType  = "Content-Type"
+	HeaderKeyCacheControl = "Cache-Control"
+	HeaderKeyConnection   = "Connection"
 
 	HeaderKeyAccessControlAllowOrigin      = "Access-Control-Allow-Origin"
 	HeaderKeyAccessControlAllowHeaders     = "Access-Control-Allow-Headers"
@@ -29,7 +31,11 @@ const (
 
 	HeaderValueJsonUtf8        = "application/json;charset=UTF-8"
 	HeaderValueTextPlain       = "text/plain"
+	HeaderValueTextEventStream = "text/event-stream"
 	HeaderValueApplicationJson = "application/json"
+
+	HeaderValueKeepAlive = "keep-alive"
+	HeaderValueNoCache   = "no-cache"
 
 	HeaderValueAll = "*"
 
@@ -71,4 +77,11 @@ const (
 	AccessControlRequestMethod = "Access-Control-Request-Method"
 	Origin                     = "Origin"
 	XForwardedProto            = "X-Forwarded-Proto"
+)
+
+// SSE response prefixes
+const (
+	SSEData  = "data"
+	SSEEvent = "event"
+	SSEId    = "id"
 )

@@ -26,6 +26,7 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
@@ -107,6 +108,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	newReq.Header = params.Header
 	httpClient := &http.Client{Timeout: req.Timeout}
 
+	// Observability
 	tr := otel.Tracer(traceNameHTTPClient)
 	_, span := tr.Start(req.Context, "HTTP "+newReq.Method, trace.WithSpanKind(trace.SpanKindClient))
 	trace.SpanFromContext(req.Context).SpanContext()
@@ -116,6 +118,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	newReq.Header.Set(jaegerTraceIDInHeader, span.SpanContext().TraceID().String())
 	defer span.End()
 
+	// Real request
 	tmpRet, err := httpClient.Do(newReq)
 	if tmpRet != nil {
 		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(tmpRet.StatusCode))
@@ -196,4 +199,10 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 		RawQuery: params.Query.Encode(),
 	}
 	return parsedURL.String(), nil
+}
+
+// IsSSEStream check if the response is a SSE stream
+func IsSSEStream(resp *http.Response) bool {
+	contentType := resp.Header.Get(constant.HeaderKeyContextType)
+	return strings.Contains(contentType, constant.HeaderValueTextEventStream)
 }

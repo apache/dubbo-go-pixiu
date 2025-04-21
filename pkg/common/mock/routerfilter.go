@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package httpproxy
+package mock
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 const (
 	// Kind is the kind of Fallback.
-	Kind = constant.HTTPProxyFilter
+	Kind = "dgp.filter.http.sse.httpproxy"
 )
 
 func init() {
@@ -72,12 +69,12 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (factory *FilterFactory) Config() interface{} {
-	return factory.cfg
+func (ff *FilterFactory) Config() interface{} {
+	return ff.cfg
 }
 
-func (factory *FilterFactory) Apply() error {
-	cfg := factory.cfg
+func (ff *FilterFactory) Apply() error {
+	cfg := ff.cfg
 	client := http.Client{
 		Timeout: cfg.Timeout,
 		Transport: http.RoundTripper(&http.Transport{
@@ -86,35 +83,18 @@ func (factory *FilterFactory) Apply() error {
 			MaxConnsPerHost:     cfg.MaxConnsPerHost,
 		}),
 	}
-	factory.client = client
+	ff.client = client
 	return nil
 }
 
-func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+func (ff *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	//reuse http client
-	f := &Filter{factory.client}
+	f := &Filter{ff.client}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
 
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
-	rEntry := hc.GetRouteEntry()
-	if rEntry == nil {
-		panic("no route entry")
-	}
-	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", rEntry.Cluster)
-
-	clusterName := rEntry.Cluster
-	clusterManager := server.GetClusterManager()
-	endpoint := clusterManager.PickEndpoint(clusterName, hc)
-	if endpoint == nil {
-		logger.Debugf("[dubbo-go-pixiu] cluster not found endpoint")
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "cluster not found endpoint"})
-		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
-		return filter.Stop
-	}
-
-	logger.Debugf("[dubbo-go-pixiu] client choose endpoint :%v", endpoint.Address.GetAddress())
 	r := hc.Request
 
 	var (
@@ -122,14 +102,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		err error
 	)
 
-	parsedURL := url.URL{
-		Host:     endpoint.Address.GetAddress(),
-		Scheme:   "http",
-		Path:     r.URL.Path,
-		RawQuery: r.URL.RawQuery,
-	}
-
-	req, err = http.NewRequest(r.Method, parsedURL.String(), r.Body)
+	req, err = http.NewRequest(r.Method, r.URL.String(), r.Body)
 	if err != nil {
 		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
 		hc.SendLocalReply(http.StatusInternalServerError, bt)
@@ -138,17 +111,15 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	req.Header = r.Header
 
 	resp, err := f.client.Do(req)
+
 	if err != nil {
-		urlErr, ok := err.(*url.Error)
-		if ok && urlErr.Timeout() {
-			hc.SendLocalReply(http.StatusGatewayTimeout, []byte(err.Error()))
-			return filter.Stop
-		}
 		hc.SendLocalReply(http.StatusServiceUnavailable, []byte(err.Error()))
 		return filter.Stop
 	}
-	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
+
 	hc.SourceResp = resp
+
+	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
 	// response write in hcm
 	return filter.Continue
 }

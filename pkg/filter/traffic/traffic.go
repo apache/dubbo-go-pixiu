@@ -157,7 +157,7 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 		}
 		if cluster != "" {
 			ctx.Route.Cluster = cluster
-		} else if cluster == "" {
+		} else {
 			for _, wp := range f.Rules {
 				if f.trafficWeight(wp) {
 					ctx.Route.Cluster = wp.Cluster.Name
@@ -179,8 +179,8 @@ func (f *Filter) trafficHeader(c *ClusterWrapper, ctx *http.HttpContext) bool {
 
 func (f *Filter) trafficWeight(c *ClusterWrapper) bool {
 	if f.weight == unInitialize {
-		rand.Seed(time.Now().UnixNano())
-		f.weight = rand.Intn(100) + 1
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		f.weight = rng.Intn(100) + 1
 	}
 
 	return spiltWeight(f.weight, c.weightFloor, c.weightCeil)
