@@ -18,6 +18,15 @@
 
 github:
   protected_branches: ~
+  features:
+    # Enable wiki for documentation
+    wiki: true
+    # Enable issue management
+    issues: true
+    # Enable projects for project management boards
+    projects: true
+    # Enable GitHub Discussions for community discussions
+    discussions: true
   enabled_merge_buttons:
     # enable squash button:
     squash:  true
@@ -31,4 +40,4 @@ notifications:
   issues:       notifications@dubbo.apache.org
   pullrequests: notifications@dubbo.apache.org
   jira_options: link label link label
-
+  discussions:  notifications@dubbo.apache.org

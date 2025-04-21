@@ -27,7 +27,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
@@ -205,7 +204,7 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 // IsSSEStream check if the response is a SSE stream
 func IsSSEStream(resp *http.Response) bool {
 	contentType := resp.Header.Get(constant.HeaderKeyContextType)
-	return contentType == constant.HeaderValueTextEventStream
+	return strings.Contains(contentType, constant.HeaderValueTextEventStream)
 }
 
 // IsStreamableResponse check if the response is streamable

@@ -26,8 +26,8 @@ LABEL MAINTAINER="dev@dubbo.apache.org"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc
 
-ADD https://golang.google.cn/dl/go1.18.7.linux-amd64.tar.gz .
-RUN tar -xf go1.18.7.linux-amd64.tar.gz -C /usr/local/
+ADD https://golang.google.cn/dl/go1.23.4.linux-amd64.tar.gz .
+RUN tar -xf go1.23.4.linux-amd64.tar.gz -C /usr/local/
 ENV PATH=$PATH:/usr/local/go/bin
 
 WORKDIR /app/

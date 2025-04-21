@@ -105,15 +105,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 		}
 	}()
 
-	// process timeout
-	ctx := c.Ctx
-	if c.Timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.Timeout)
-		c.Ctx = ctx
-		defer cancel()
-	}
-
+	//todo timeout
 	filterChain.OnDecode(c)
 	hcm.buildTargetResponse(c)
 	//todo: stream resp has to set HTTP Server's WriteTimeout to 0, need to check it
@@ -127,7 +119,7 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 		c.Writer.WriteHeader(c.GetStatusCode())
 		if c.TargetResp != nil {
 			switch res := c.TargetResp.(type) {
-			case *client.ByteResponse:
+			case *client.UnaryResponse:
 				_, err := c.Writer.Write(res.Data)
 				if err != nil {
 					logger.Errorf("Write response failed: %v", err)
@@ -137,13 +129,13 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 				ctx, cancel := context.WithCancel(c.Ctx)
 				defer cancel()
 
-				dataCh := make(chan []byte)
-				errCh := make(chan error, 1)
+				dataC := make(chan []byte)
+				errC := make(chan error, 1)
 
 				// goroutine read stream
 				go func() {
-					defer close(dataCh)
-					defer close(errCh)
+					defer close(dataC)
+					defer close(errC)
 					buf := make([]byte, 1024) // 1KB buffer
 					for {
 						select {
@@ -156,16 +148,16 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 								data := make([]byte, n)
 								copy(data, buf[:n])
 								select {
-								case dataCh <- data:
+								case dataC <- data:
 								case <-ctx.Done():
 									return
 								}
 							}
 							if err != nil {
 								if err != io.EOF {
-									errCh <- fmt.Errorf("stream read error: %w", err)
+									errC <- fmt.Errorf("stream read error: %w", err)
 								} else {
-									errCh <- io.EOF
+									errC <- io.EOF
 								}
 								return
 							}
@@ -178,7 +170,7 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 					case <-ctx.Done():
 						_ = res.Stream.Close()
 						return
-					case data, ok := <-dataCh:
+					case data, ok := <-dataC:
 						if !ok {
 							return
 						}
@@ -193,7 +185,7 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 								flusher.Flush()
 							}
 						}
-					case err := <-errCh:
+					case err := <-errC:
 						if err != nil && err != io.EOF {
 							logger.Errorf("Stream error: %v", err)
 						}
@@ -242,7 +234,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		} else {
 			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		}
-		c.TargetResp = &client.ByteResponse{Data: res}
+		c.TargetResp = &client.UnaryResponse{Data: res}
 	default:
 		//dubbo go generic invoke
 		response := util.NewDubboResponse(res, false)

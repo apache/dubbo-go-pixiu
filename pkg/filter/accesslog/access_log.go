@@ -138,7 +138,7 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 		builder.WriteString(fmt.Sprintf("invoke err [ %v", err))
 		builder.WriteString("] ")
 	}
-	resp := c.TargetResp.(client.ByteResponse).Data
+	resp := c.TargetResp.(*client.UnaryResponse).Data
 	if err != nil {
 		builder.WriteString(" response can not convert to string")
 		builder.WriteString("] ")

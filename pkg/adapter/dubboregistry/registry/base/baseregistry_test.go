@@ -46,10 +46,10 @@ func (m *mockRegFacade) DoUnsubscribe() error {
 func CreateMockRegisteredAPI(urlPattern string) router.API {
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	randStringRunes := func(n int) string {
-		rand.Seed(time.Now().UnixNano())
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 		b := make([]rune, n)
 		for i := range b {
-			b[i] = letterRunes[rand.Intn(len(letterRunes))]
+			b[i] = letterRunes[rng.Intn(len(letterRunes))]
 		}
 		return string(b)
 	}

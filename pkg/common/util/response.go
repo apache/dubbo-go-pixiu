@@ -28,10 +28,10 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 )
 
-func NewDubboResponse(data interface{}, hump bool) *client.ByteResponse {
+func NewDubboResponse(data interface{}, hump bool) *client.UnaryResponse {
 	r, _ := dealResp(data, hump)
 	bytes, _ := json.Marshal(r)
-	return &client.ByteResponse{Data: bytes}
+	return &client.UnaryResponse{Data: bytes}
 }
 
 func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
