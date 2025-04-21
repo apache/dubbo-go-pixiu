@@ -27,7 +27,7 @@ type TCPChecker struct {
 }
 
 func (s *TCPChecker) CheckHealth() bool {
-	return TcpConn(s.address, 8081, s.timeout)
+	return TcpConn(s.address, "", s.timeout)
 }
 
 func (s *TCPChecker) OnTimeout() {}

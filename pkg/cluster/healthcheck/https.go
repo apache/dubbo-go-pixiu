@@ -28,7 +28,7 @@ type HTTPSChecker struct {
 
 func (s *HTTPSChecker) CheckHealth() bool {
 	tarAddr := s.address
-	return TcpConn(tarAddr, 443, s.timeout)
+	return TcpConn(tarAddr, "443", s.timeout)
 
 }
 
