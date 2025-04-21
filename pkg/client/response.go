@@ -46,9 +46,8 @@ func NewByteResponse(data []byte) *UnaryResponse {
 
 // StreamResponse response from endpoint
 type StreamResponse struct {
-	Stream 		io.ReadCloser
+	Stream      io.ReadCloser
 	IsSSEStream bool
-
 }
 
 func (r *StreamResponse) IsStream() bool {

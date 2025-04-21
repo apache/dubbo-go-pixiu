@@ -109,7 +109,6 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	filterChain.OnDecode(c)
 	hcm.buildTargetResponse(c)
 	//todo: stream resp has to set HTTP Server's WriteTimeout to 0, need to check it
-	//todo: stream resp ignores OnEncode stage
 	filterChain.OnEncode(c)
 	hcm.writeResponse(c)
 }
@@ -225,7 +224,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 			}
 			//close body
 			_ = res.Body.Close()
-			c.TargetResp = &client.ByteResponse{Data: body}
+			c.TargetResp = &client.UnaryResponse{Data: body}
 		}
 	case []byte:
 		c.StatusCode(stdHttp.StatusOK)
