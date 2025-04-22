@@ -29,7 +29,7 @@ import (
 )
 
 import (
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	perrors "github.com/pkg/errors"
 )
 

@@ -19,9 +19,14 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 import (
@@ -30,6 +35,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	commonmock "github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
@@ -41,6 +47,10 @@ const (
 	DEMO = "dgp.filters.http.demo"
 	// Kind is the kind of plugin.
 	Kind = DEMO
+)
+
+var (
+	eventCh = make(chan string, 3)
 )
 
 type (
@@ -89,10 +99,10 @@ func (f *DemoFilter) Encode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 func (f *DemoFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	c := f.conf
 	str := fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
-	filter := &DemoFilter{str: str}
+	demoFilter := &DemoFilter{str: str}
 
-	chain.AppendDecodeFilters(filter)
-	chain.AppendEncodeFilters(filter)
+	chain.AppendDecodeFilters(demoFilter)
+	chain.AppendEncodeFilters(demoFilter)
 	return nil
 }
 
@@ -131,7 +141,7 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/api/v1?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	request.Header = map[string][]string{
-		"X-Dgp-Way": []string{"Dubbo"},
+		"X-Dgp-Way": {"Dubbo"},
 	}
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request)
@@ -139,4 +149,132 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 	assert.NoError(t, err)
 	err = hcm.Handle(c)
 	assert.NoError(t, err)
+}
+
+// test SSE case
+func TestStreamingResponse(t *testing.T) {
+	hcmc := model.HttpConnectionManagerConfig{
+		RouteConfig: model.RouteConfiguration{
+			RouteTrie: trie.NewTrieWithDefault("GET/api/sse", model.RouteAction{
+				Cluster: "mock_stream_cluster",
+			}),
+		},
+		HTTPFilters: []*model.HTTPFilter{
+			{
+				Name: commonmock.Kind,
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// mock server
+	upstreamServer, _ := NewTestServerWithURL("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		flusher := w.(http.Flusher)
+
+		for i := 1; i <= 3; i++ {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				time.Sleep(10 * time.Millisecond)
+				event := fmt.Sprintf("data: %d\nevent: %d\nid: %d\n\n", i, i, i)
+				_, _ = w.Write([]byte(event))
+				flusher.Flush()
+				logger.Info("Upstream sent event ", i)
+			}
+		}
+	}))
+	defer upstreamServer.Close()
+
+	req := httptest.NewRequest("GET", "http://localhost:8080/api/sse", nil).WithContext(ctx)
+
+	done := make(chan struct{})
+
+	httpCtx := &contexthttp.HttpContext{
+		Request: req,
+		Writer:  NewStreamRecorder(),
+		Ctx:     ctx,
+	}
+	go func() {
+		defer close(done)
+
+		hcm := CreateHttpConnectionManager(&hcmc)
+
+		if err := hcm.Handle(httpCtx); err != nil {
+			t.Errorf("Handle failed: %v", err)
+		}
+
+		// test targetResp
+		if httpCtx.TargetResp == nil {
+			t.Error("TargetResp is nil")
+			return
+		}
+	}()
+
+	// event waiting test
+	for {
+		receivedEvents := httpCtx.Writer.(*StreamRecorder).receivedBuf
+		select {
+		case event := <-eventCh:
+			logger.Info("Received event: %s", strings.ReplaceAll(event, "\n", "\\n"))
+		case <-done:
+			assert.Equal(t, 3, len(receivedEvents), "Should receive 3 events")
+			return
+		case <-time.After(5 * time.Second):
+			t.Fatal("Test timeout")
+			return
+		}
+	}
+
+}
+
+// mock recorder
+type StreamRecorder struct {
+	http.ResponseWriter
+	http.Flusher
+	receivedBuf []string
+	headers     http.Header
+	status      int
+}
+
+func NewStreamRecorder() *StreamRecorder {
+	return &StreamRecorder{
+		receivedBuf: make([]string, 0),
+		headers:     make(http.Header),
+	}
+}
+
+func (r *StreamRecorder) Header() http.Header {
+	return r.headers
+}
+
+func (r *StreamRecorder) WriteHeader(statusCode int) {
+	r.status = statusCode
+}
+
+func (r *StreamRecorder) Write(data []byte) (int, error) {
+	eventCh <- string(data)
+	r.receivedBuf = append(r.receivedBuf, string(data))
+	return len(data), nil
+}
+
+func NewTestServerWithURL(URL string, handler http.Handler) (*httptest.Server, error) {
+	ts := httptest.NewUnstartedServer(handler)
+	if URL != "" {
+		l, err := net.Listen("tcp", URL)
+		if err != nil {
+			return nil, err
+		}
+		err = ts.Listener.Close()
+		if err != nil {
+			return nil, err
+		}
+		ts.Listener = l
+	}
+	ts.Start()
+	return ts, nil
 }

@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -137,7 +138,7 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 		builder.WriteString(fmt.Sprintf("invoke err [ %v", err))
 		builder.WriteString("] ")
 	}
-	resp := c.TargetResp.Data
+	resp := c.TargetResp.(*client.UnaryResponse).Data
 	if err != nil {
 		builder.WriteString(" response can not convert to string")
 		builder.WriteString("] ")

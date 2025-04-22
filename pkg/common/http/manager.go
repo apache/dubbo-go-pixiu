@@ -32,6 +32,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/client/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	router2 "github.com/apache/dubbo-go-pixiu/pkg/common/router"
@@ -107,16 +108,87 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	//todo timeout
 	filterChain.OnDecode(c)
 	hcm.buildTargetResponse(c)
+	//todo: stream resp has to set HTTP Server's WriteTimeout to 0, need to check it
 	filterChain.OnEncode(c)
 	hcm.writeResponse(c)
 }
 
 func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 	if !c.LocalReply() {
-		writer := c.Writer
-		writer.WriteHeader(c.GetStatusCode())
-		if _, err := writer.Write(c.TargetResp.Data); err != nil {
-			logger.Errorf("write response error: %s", err)
+		c.Writer.WriteHeader(c.GetStatusCode())
+		if c.TargetResp != nil {
+			switch res := c.TargetResp.(type) {
+			case *client.UnaryResponse:
+				_, err := c.Writer.Write(res.Data)
+				if err != nil {
+					logger.Errorf("Write response failed: %v", err)
+				}
+			case *client.StreamResponse:
+				// create ctx helps goroutine exit
+				ctx, cancel := context.WithCancel(c.Ctx)
+				defer cancel()
+
+				dataC := make(chan []byte)
+				errC := make(chan error, 1)
+
+				// goroutine read stream
+				go func() {
+					defer close(dataC)
+					defer close(errC)
+					buf := make([]byte, 1024) // 1KB buffer
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						default:
+							n, err := res.Stream.Read(buf)
+							if n > 0 {
+								// copy data to prevent data cover
+								data := make([]byte, n)
+								copy(data, buf[:n])
+								select {
+								case dataC <- data:
+								case <-ctx.Done():
+									return
+								}
+							}
+							if err != nil {
+								if err != io.EOF {
+									errC <- fmt.Errorf("stream read error: %w", err)
+								} else {
+									errC <- io.EOF
+								}
+								return
+							}
+						}
+					}
+				}()
+
+				for {
+					select {
+					case <-ctx.Done():
+						_ = res.Stream.Close()
+						return
+					case data, ok := <-dataC:
+						if !ok {
+							return
+						}
+						if _, err := c.Writer.Write(data); err != nil {
+							cancel()
+							_ = res.Stream.Close()
+							return
+						}
+					case err := <-errC:
+						if err != nil && err != io.EOF {
+							logger.Errorf("Stream error: %v", err)
+						}
+						return
+					}
+				}
+			default:
+				logger.Errorf("Unknown response type: %T", c.TargetResp)
+			}
+
 		}
 	}
 }
@@ -128,12 +200,6 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 
 	switch res := c.SourceResp.(type) {
 	case *stdHttp.Response:
-		body, err := io.ReadAll(res.Body)
-		if err != nil {
-			panic(err)
-		}
-		//close body
-		_ = res.Body.Close()
 		//Merge header
 		remoteHeader := res.Header
 		for k := range remoteHeader {
@@ -141,7 +207,18 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		}
 		//status code
 		c.StatusCode(res.StatusCode)
-		c.TargetResp = &client.Response{Data: body}
+
+		if http.IsSSEStream(res) {
+			c.TargetResp = &client.StreamResponse{Stream: res.Body}
+		} else {
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				panic(err)
+			}
+			//close body
+			_ = res.Body.Close()
+			c.TargetResp = &client.UnaryResponse{Data: body}
+		}
 	case []byte:
 		c.StatusCode(stdHttp.StatusOK)
 		if json.Valid(res) {
@@ -149,7 +226,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		} else {
 			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		}
-		c.TargetResp = &client.Response{Data: res}
+		c.TargetResp = &client.UnaryResponse{Data: res}
 	default:
 		//dubbo go generic invoke
 		response := util.NewDubboResponse(res, false)

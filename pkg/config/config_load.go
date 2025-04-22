@@ -26,9 +26,9 @@ import (
 )
 
 import (
+	"dario.cat/mergo"
 	"github.com/creasty/defaults"
 	"github.com/goinggo/mapstructure"
-	"github.com/imdario/mergo"
 	"gopkg.in/yaml.v3"
 )
 
