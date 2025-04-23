@@ -19,6 +19,7 @@ package healthcheck
 
 import (
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -168,7 +169,8 @@ func (hc *HealthChecker) stopCheck(endpoint *model.Endpoint) {
 
 func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
 	var checker Checker
-	switch hc.protocol {
+	protocol := strings.ToLower(hc.protocol)
+	switch protocol {
 	case "tcp":
 		checker = &TCPChecker{
 			address: endpoint.Address.GetAddress(),
