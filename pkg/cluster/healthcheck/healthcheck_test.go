@@ -21,7 +21,6 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 )
@@ -48,12 +47,11 @@ func TestTcpConn(t *testing.T) {
 	time.Sleep(100 * time.Millisecond) // Give the server some time to start
 
 	type TestCase struct {
-		name         string
-		addr         string
-		port         int
-		timeout      time.Duration
-		shouldListen bool
-		expected     bool
+		name     string
+		addr     string
+		port     int
+		timeout  time.Duration
+		expected bool
 	}
 
 	testCases := []TestCase{
@@ -73,8 +71,6 @@ func TestTcpConn(t *testing.T) {
 		},
 	}
 
-	var wg sync.WaitGroup
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := TcpConn(tc.addr, strconv.Itoa(tc.port), tc.timeout)
@@ -83,6 +79,4 @@ func TestTcpConn(t *testing.T) {
 			}
 		})
 	}
-
-	wg.Wait()
 }
