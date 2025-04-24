@@ -27,37 +27,37 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-func TcpConn(tarAddr string, tarPort string, timeout time.Duration) bool {
+func TcpConn(address string, port string, timeout time.Duration) bool {
 
-	if tarPort == "" {
-		// if tarPort is empty, tarAddr must has port
-		_, _, err := net.SplitHostPort(tarAddr)
+	if port == "" {
+		// if port is empty, address must has port
+		_, _, err := net.SplitHostPort(address)
 		if err != nil {
-			logger.Infof("[health check] no port specified, invalid address format: %s", tarAddr)
+			logger.Infof("[health check] no port specified, invalid address format: %s", address)
 			return false
 		}
 	} else {
-		// if tarPort is not empty, check tarAddr has port or not
-		realAddress, realPort, err := net.SplitHostPort(tarAddr)
+		// if port is not empty, check address has port or not
+		realAddress, realPort, err := net.SplitHostPort(address)
 		if err != nil {
-			// if tarAddr has no port, add tarPort to tarAddr
+			// if address has no port, add port to address
 			if strings.Contains(err.Error(), "missing port in address") {
-				tarAddr = net.JoinHostPort(tarAddr, tarPort)
+				address = net.JoinHostPort(address, port)
 			} else {
-				logger.Infof("[health check] invalid address format: %s", tarAddr)
+				logger.Infof("[health check] invalid address format: %s", address)
 				return false
 			}
 		} else {
-			// if tarAddr has port, check if it is the same as tarPort
-			if realPort != tarPort {
-				tarAddr = net.JoinHostPort(realAddress, tarPort)
+			// if address has port, check if it is the same as port
+			if realPort != port {
+				address = net.JoinHostPort(realAddress, port)
 			}
 		}
 	}
 
-	conn, err := net.DialTimeout("tcp", tarAddr, timeout)
+	conn, err := net.DialTimeout("tcp", address, timeout)
 	if err != nil {
-		logger.Infof("[health check] http checker for host %s error: %v", tarAddr, err)
+		logger.Infof("[health check] http checker for host %s error: %v", address, err)
 		return false
 	}
 	defer conn.Close()
