@@ -27,7 +27,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-func TcpConn(address string, port string, timeout time.Duration) bool {
+func CheckTcpConn(address string, port string, timeout time.Duration) bool {
 
 	if port == "" {
 		// if port is empty, address must has port
