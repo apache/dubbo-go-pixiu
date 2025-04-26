@@ -28,38 +28,49 @@ import (
 )
 
 func CheckTcpConn(address string, port string, timeout time.Duration) bool {
-
-	if port == "" {
-		// if port is empty, address must has port
-		_, _, err := net.SplitHostPort(address)
-		if err != nil {
-			logger.Infof("[health check] no port specified, invalid address format: %s", address)
-			return false
-		}
-	} else {
-		// if port is not empty, check address has port or not
-		realAddress, realPort, err := net.SplitHostPort(address)
-		if err != nil {
-			// if address has no port, add port to address
-			if strings.Contains(err.Error(), "missing port in address") {
-				address = net.JoinHostPort(address, port)
-			} else {
-				logger.Infof("[health check] invalid address format: %s", address)
-				return false
-			}
-		} else {
-			// if address has port, check if it is the same as port
-			if realPort != port {
-				address = net.JoinHostPort(realAddress, port)
-			}
-		}
+	normalizedAddress, err := normalizeAddress(address, port)
+	if err != nil {
+		logger.Infof("[health check] address format for address \"%s\" failed, %s", address, err.Error())
+		return false
 	}
 
-	conn, err := net.DialTimeout("tcp", address, timeout)
+	conn, err := net.DialTimeout("tcp", normalizedAddress, timeout)
 	if err != nil {
-		logger.Infof("[health check] http checker for host %s error: %v", address, err)
+		logger.Infof("[health check] health check for address \"%s\" failed, %s", normalizedAddress, err.Error())
 		return false
 	}
 	defer conn.Close()
 	return true
+}
+
+// normalizeAddress normalizes the address by ensuring it has the correct port.
+// If the port field is empty, it will check if the address already has a port.
+//   - If the address has a port, it will return the address as is.
+//   - If the address does not have a port, it will return err.
+//
+// If the port field is not empty, it will check if the address's port matches the provided port.
+//   - If it matches, it will return the address as is.
+//   - If it does not match, it will return the address with the new port.
+func normalizeAddress(address string, port string) (string, error) {
+	if port == "" {
+		_, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return "", err
+		}
+		return address, nil
+	}
+
+	host, existingPort, err := net.SplitHostPort(address)
+	if err != nil {
+		if strings.Contains(err.Error(), "missing port in address") {
+			return net.JoinHostPort(strings.Trim(address, "[]"), port), nil
+		}
+		return "", err
+	}
+
+	if existingPort != port {
+		return net.JoinHostPort(host, port), nil
+	}
+
+	return address, nil
 }
