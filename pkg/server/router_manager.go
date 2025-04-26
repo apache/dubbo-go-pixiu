@@ -94,7 +94,7 @@ func (rm *RouterManager) UpdateRoutes(oldRoutes []*model.Router, newRoutes []*mo
 
 // validateRoutes performs basic validation on the provided routes.
 func validateRoutes(routes []*model.Router) error {
-	routeIDs := make(map[string]struct{})
+	routeIDs := make(map[string]struct{}, len(routes))
 	for _, route := range routes {
 		// Check for duplicate IDs
 		if _, exists := routeIDs[route.ID]; exists {
