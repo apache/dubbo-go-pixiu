@@ -148,9 +148,9 @@ func TestCheckTcpConn(t *testing.T) {
 	// Failure case 2: Connection timeout
 	t.Run("failed connection due to timeout", func(t *testing.T) {
 		// Use a non-routable local address to ensure a timeout
-		success := CheckTcpConn("10.255.255.1", "80", 100*time.Millisecond)
+		success := CheckTcpConn("127.0.0.1", "80", 100*time.Millisecond)
 		if success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return false due to timeout", "10.255.255.1", "80")
+			t.Errorf("CheckTcpConn(%q, %q, ...) should return false due to timeout", "127.0.0.1", "80")
 		}
 	})
 
