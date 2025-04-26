@@ -143,5 +143,8 @@ type (
 )
 
 func (a SocketAddress) GetAddress() string {
+	if len(a.Domains) > 0 {
+		return a.Domains[0]
+	}
 	return fmt.Sprintf("%s:%v", a.Address, a.Port)
 }

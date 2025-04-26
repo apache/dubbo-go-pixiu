@@ -19,18 +19,17 @@ package healthcheck
 
 import (
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 import (
-	gxtime "github.com/dubbogo/gost/time"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+
+	gxtime "github.com/dubbogo/gost/time"
 )
 
 const (
@@ -52,14 +51,15 @@ type HealthChecker struct {
 	initialDelay       time.Duration
 	cluster            *model.ClusterConfig
 	unhealthyThreshold uint32
+	protocol           string
 }
 
 // EndpointChecker is a wrapper of types.HealthCheckSession for health check
 type EndpointChecker struct {
 	endpoint      *model.Endpoint
 	HealthChecker *HealthChecker
-	// TCP checker, can extend to http, grpc, dubbo or other protocol checker
-	tcpChecker    *TCPChecker
+	// checker, todo can extend to TCP, http, grpc, dubbo or other protocol checker
+	checker       Checker
 	resp          chan checkResponse
 	timeout       chan bool
 	checkID       uint64
@@ -71,6 +71,11 @@ type EndpointChecker struct {
 	threshold     uint32
 
 	once sync.Once
+}
+
+type Checker interface {
+	CheckHealth() bool
+	OnTimeout()
 }
 
 type checkResponse struct {
@@ -108,6 +113,7 @@ func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig
 	}
 
 	hc := &HealthChecker{
+		protocol:           cfg.Protocol,
 		sessionConfig:      cfg.SessionConfig,
 		cluster:            cluster,
 		timeout:            timeout,
@@ -162,8 +168,34 @@ func (hc *HealthChecker) stopCheck(endpoint *model.Endpoint) {
 }
 
 func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
+	var checker Checker
+	protocol := strings.ToLower(hc.protocol)
+	switch protocol {
+	case "tcp":
+		checker = &TCPChecker{
+			address: endpoint.Address.GetAddress(),
+			timeout: hc.timeout,
+		}
+	case "http":
+		checker = &HTTPChecker{
+			address: endpoint.Address.GetAddress(),
+			timeout: hc.timeout,
+		}
+	case "https":
+		checker = &HTTPSChecker{
+			address: endpoint.Address.GetAddress(),
+			timeout: hc.timeout,
+		}
+	default:
+		logger.Warnf("[health check] %s health checker is not implemented, using tcp checker", hc.protocol)
+		checker = &TCPChecker{
+			address: endpoint.Address.GetAddress(),
+			timeout: hc.timeout,
+		}
+	}
+
 	c := &EndpointChecker{
-		tcpChecker:    newTcpChecker(endpoint, hc.timeout),
+		checker:       checker,
 		endpoint:      endpoint,
 		HealthChecker: hc,
 		resp:          make(chan checkResponse),
@@ -171,13 +203,6 @@ func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
 		stop:          make(chan struct{}),
 	}
 	return c
-}
-
-func newTcpChecker(endpoint *model.Endpoint, timeout time.Duration) *TCPChecker {
-	return &TCPChecker{
-		addr:    endpoint.Address.GetAddress(),
-		timeout: timeout,
-	}
 }
 
 func (hc *HealthChecker) getCheckInterval() time.Duration {
@@ -279,7 +304,7 @@ func (c *EndpointChecker) OnCheck() {
 	c.checkTimeout = gxtime.AfterFunc(c.HealthChecker.timeout, c.OnTimeout)
 	c.resp <- checkResponse{
 		ID:      id,
-		Healthy: c.tcpChecker.CheckHealth(),
+		Healthy: c.checker.CheckHealth(),
 	}
 }
 
