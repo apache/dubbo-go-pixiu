@@ -149,7 +149,7 @@ func (a *CloudAdapter) Apply() error {
 	case Zookeeper:
 		sd, err = zookeeper.NewZKServiceDiscovery(a.cfg.Services, a.cfg.Registry, a)
 	default:
-		return errors.New("adapter init error registry not recognise")
+		return errors.New("adapter init error registry not recognize")
 	}
 	if err != nil {
 		logger.Errorf("Apply NewServiceDiscovery %s ", a.cfg.Registry.Protocol, err.Error())
