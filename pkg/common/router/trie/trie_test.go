@@ -210,15 +210,21 @@ func TestTrie_ParamMatch(t *testing.T) {
 func TestTrieSoftDelete(t *testing.T) {
 	trie := NewTrie()
 
-	trie.Put("/a/b/c", "route1")
-	trie.Put("/a/b/c/d", "route2")
-	trie.Put("/a/b/e", "route3")
+	ret, _ := trie.Put("/a/b/c", "route1")
+	assert.True(t, ret)
+
+	ret, _ = trie.Put("/a/b/c/d", "route2")
+	assert.True(t, ret)
+
+	ret, _ = trie.Put("/a/b/e", "route3")
+	assert.True(t, ret)
 
 	node, _, ok := trie.Match("/a/b/c")
 	assert.True(t, ok)
 	assert.Equal(t, "route1", node.GetBizInfo())
 
-	trie.Remove("/a/b/c")
+	node, _ = trie.Remove("/a/b/c")
+	assert.True(t, ret)
 
 	node, _, ok = trie.Match("/a/b/c")
 	assert.False(t, ok)
@@ -226,7 +232,7 @@ func TestTrieSoftDelete(t *testing.T) {
 	node, _, ok = trie.Match("/a/b/c/d")
 	assert.True(t, ok)
 	assert.Equal(t, "route2", node.GetBizInfo())
-	
+
 	node, _, ok = trie.Match("/a/b/e")
 	assert.True(t, ok)
 	assert.Equal(t, "route3", node.GetBizInfo())
