@@ -76,10 +76,6 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (factory *FilterFactory) Config() interface{} {
-	return factory.cfg
-}
-
-func (factory *FilterFactory) Apply() error {
 	scheme := strings.TrimSpace(strings.ToLower(factory.cfg.Scheme))
 
 	if scheme != "http" && scheme != "https" {
@@ -88,6 +84,10 @@ func (factory *FilterFactory) Apply() error {
 
 	factory.cfg.Scheme = scheme
 
+	return factory.cfg
+}
+
+func (factory *FilterFactory) Apply() error {
 	cfg := factory.cfg
 	client := http.Client{
 		Timeout: cfg.Timeout,
