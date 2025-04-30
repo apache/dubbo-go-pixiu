@@ -19,7 +19,6 @@ package hotreload
 
 import (
 	"encoding/json"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 import (
@@ -27,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
