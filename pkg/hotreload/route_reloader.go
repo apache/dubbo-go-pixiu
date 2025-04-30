@@ -19,6 +19,7 @@ package hotreload
 
 import (
 	"encoding/json"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 import (
@@ -64,18 +65,19 @@ func (r *RouteReloader) HotReload(oldConfig, newConfig *model.Bootstrap) error {
 		logger.Infof("Failed to Routes reloaded.")
 		return err
 	}
-	logger.Infof("Routes reloaded successfully.")
 
 	return nil
 }
 
 // extractRoutes extracts routes from the configuration by parsing the filters.
 func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
-	var routeConfig model.RouteConfiguration
-
+	var (
+		routeConfig     model.RouteConfiguration
+		invalidRouteIDs []string
+	)
 	for _, listener := range config.StaticResources.Listeners {
 		for _, filterChain := range listener.FilterChain.Filters {
-			if filterChain.Name == "dgp.filter.httpconnectionmanager" {
+			if filterChain.Name == constant.HTTPConnectManagerFilter {
 				// Extract route_config
 				rawRouteConfig, ok := filterChain.Config["route_config"]
 				if !ok {
@@ -103,6 +105,7 @@ func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
 				validRoutes := make([]*model.Router, 0, len(routeConfig.Routes))
 				for _, route := range routeConfig.Routes {
 					if err := validateRoute(route); err != nil {
+						invalidRouteIDs = append(invalidRouteIDs, route.ID)
 						logger.Warnf("Skipping invalid route %s: %v", route.ID, err)
 						continue
 					}
@@ -120,7 +123,9 @@ func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
 		}
 	}
 
-	logger.Warnf("No valid routes found in configuration")
+	if len(invalidRouteIDs) > 0 {
+		logger.Warnf("No valid routes found in configuration: %v", invalidRouteIDs)
+	}
 	return routeConfig
 }
 
