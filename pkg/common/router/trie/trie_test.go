@@ -228,6 +228,7 @@ func TestTrieSoftDelete(t *testing.T) {
 
 	node, _, ok = trie.Match("/a/b/c")
 	assert.False(t, ok)
+	assert.Nil(t, node)
 
 	node, _, ok = trie.Match("/a/b/c/d")
 	assert.True(t, ok)
