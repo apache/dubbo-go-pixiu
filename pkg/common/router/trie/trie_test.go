@@ -237,4 +237,8 @@ func TestTrieSoftDelete(t *testing.T) {
 	node, _, ok = trie.Match("/a/b/e")
 	assert.True(t, ok)
 	assert.Equal(t, "route3", node.GetBizInfo())
+
+	node, _, ok = trie.Match("/a/b/c/")
+	assert.False(t, ok)
+	assert.Nil(t, node)
 }
