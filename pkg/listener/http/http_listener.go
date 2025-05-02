@@ -114,6 +114,7 @@ func (ls *HttpListenerService) httpsListener() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
+
 	m := &autocert.Manager{
 		Cache:      autocert.DirCache(ls.Config.Address.SocketAddress.CertsDir),
 		Prompt:     autocert.AcceptTOS,
