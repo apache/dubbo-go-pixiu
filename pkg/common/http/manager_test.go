@@ -52,8 +52,7 @@ const (
 )
 
 var (
-	eventCh       = make(chan string, 3)
-	streamEventCh = make(chan string, 10)
+	eventCh = make(chan string, 3)
 )
 
 type (
@@ -307,7 +306,7 @@ func (r *StreamHTTPRecorder) WriteHeader(statusCode int) {
 }
 
 func (r *StreamHTTPRecorder) Write(data []byte) (int, error) {
-	streamEventCh <- string(data)
+	eventCh <- string(data)
 	r.receivedBuf = append(r.receivedBuf, string(data))
 	return len(data), nil
 }
@@ -351,8 +350,8 @@ func testStreamableResponse(t *testing.T, contentType string) {
 	defer cancel()
 
 	// Clear any data that may have been left over from the previous test
-	for len(streamEventCh) > 0 {
-		<-streamEventCh
+	for len(eventCh) > 0 {
+		<-eventCh
 	}
 
 	// mock server
@@ -418,7 +417,7 @@ func testStreamableResponse(t *testing.T, contentType string) {
 	for {
 		receivedEvents := httpCtx.Writer.(*StreamHTTPRecorder).receivedBuf
 		select {
-		case event := <-streamEventCh:
+		case event := <-eventCh:
 			logger.Info("Received chunk: %s", event)
 			receivedChunks++
 		case <-done:

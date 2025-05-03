@@ -20,24 +20,18 @@ package http
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
-)
 
-import (
-	"github.com/pkg/errors"
-	"golang.org/x/crypto/acme/autocert"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 func init() {
@@ -110,7 +104,7 @@ func (ls *HttpListenerService) httpsListener() {
 	hl := createDefaultHttpWorker(ls)
 
 	// user customize http config
-	hc := model.MapInStruct(ls.Config)
+	hc := model.MapInStruct(ls.Config.Config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
@@ -139,7 +133,7 @@ func (ls *HttpListenerService) httpListener() {
 	hl := createDefaultHttpWorker(ls)
 
 	// user customize http config
-	hc := model.MapInStruct(ls.Config)
+	hc := model.MapInStruct(ls.Config.Config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", hl.ServeHTTP)
@@ -154,9 +148,16 @@ func (ls *HttpListenerService) httpListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 	}
 
-	logger.Infof("[dubbo-go-server] httpListener start at : %s", ls.srv.Addr)
+	logger.Infof("[dubbo-go-server] httpListener starting at %s with WriteTimeout: %v, IdleTimeout: %v, ReadTimeout: %v",
+		ls.srv.Addr, ls.srv.WriteTimeout, ls.srv.IdleTimeout, ls.srv.ReadTimeout)
 
-	log.Println(ls.srv.ListenAndServe())
+	err := ls.srv.ListenAndServe()
+	// Improved error logging and replace log.Println
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Errorf("[dubbo-go-server] httpListener ListenAndServe error: %v", err)
+	} else {
+		logger.Info("[dubbo-go-server] httpListener stopped gracefully.")
+	}
 }
 
 // createDefaultHttpWorker create http listener
@@ -184,6 +185,7 @@ func resolveStr2Time(currentV string, defaultV time.Duration) time.Duration {
 		return defaultV
 	} else {
 		if duration, err := time.ParseDuration(currentV); err != nil {
+			logger.Errorf("Parse duration failed, err: %v", err)
 			return 20 * time.Second
 		} else {
 			return duration
