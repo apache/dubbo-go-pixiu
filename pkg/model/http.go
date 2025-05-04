@@ -114,11 +114,11 @@ type HttpConfig struct {
 }
 
 func MapInStruct(cfg interface{}) *HttpConfig {
-	var hc *HttpConfig
+	var hc HttpConfig
 	if cfg != nil {
-		if ok := mapstructure.Decode(cfg, &hc); ok != nil {
-			logger.Error("Config error", ok)
+		if err := mapstructure.Decode(cfg, &hc); err != nil {
+			logger.Error("Config error", err)
 		}
 	}
-	return hc
+	return &hc
 }

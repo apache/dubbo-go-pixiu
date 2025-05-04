@@ -59,7 +59,7 @@ type HttpContext struct {
 	// localReplyBody: happen error
 	localReplyBody []byte
 	// the response context will return.
-	TargetResp *client.Response
+	TargetResp client.Response
 	// client call response.
 	SourceResp interface{}
 
@@ -171,13 +171,13 @@ func (hc *HttpContext) GetApplicationName() string {
 	return ""
 }
 
-// SendLocalReply Means that the request was interrupted and Response will be sent directly
+// SendLocalReply Means that the request was interrupted and UnaryResponse will be sent directly
 // Even if it’s currently in to Decode stage
 func (hc *HttpContext) SendLocalReply(status int, body []byte) {
 	hc.localReply = true
 	hc.statusCode = status
 	hc.localReplyBody = body
-	hc.TargetResp = &client.Response{Data: body}
+	hc.TargetResp = &client.UnaryResponse{Data: body}
 	if json.Valid(body) {
 		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
 	} else {

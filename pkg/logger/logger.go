@@ -21,31 +21,34 @@ import (
 	"fmt"
 	"os"
 	"path"
-)
+	"strings"
 
-import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-)
-
 var control *logController
+
+// PaddedCallerEncoder is a custom caller encoder that ensures that all file paths are displayed at the same length
+func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+
+	callerPath := caller.TrimmedPath()
+
+	// Set a fixed length, and if the path is too short, add a space after it
+	const fixedLength = 30
+	if len(callerPath) < fixedLength {
+		padding := strings.Repeat(" ", fixedLength-len(callerPath))
+		callerPath = callerPath + padding
+	}
+
+	enc.AppendString(callerPath)
+}
 
 type logger struct {
 	*zap.SugaredLogger
 	config *zap.Config
-}
-
-func init() {
-	// only use in test case, so just load default config
-	if control == nil {
-		control = new(logController)
-		InitLogger(nil)
-	}
 }
 
 // InitLog load from config path
@@ -91,11 +94,14 @@ func InitLogger(conf *zap.Config) {
 			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
 			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeDuration: zapcore.SecondsDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
+			EncodeCaller:   PaddedCallerEncoder,
+			// EncodeCaller:   zapcore.ShortCallerEncoder,
 		}
 		zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
 	} else {
 		zapLoggerConfig = *conf
+		// Set up a custom encoder directly without checking the original value
+		zapLoggerConfig.EncoderConfig.EncodeCaller = PaddedCallerEncoder
 	}
 	zapLogger, _ := zapLoggerConfig.Build(zap.AddCallerSkip(2))
 	l := &logger{zapLogger.Sugar(), &zapLoggerConfig}

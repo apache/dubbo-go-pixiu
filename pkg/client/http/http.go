@@ -20,6 +20,7 @@ package http
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -107,6 +108,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	newReq.Header = params.Header
 	httpClient := &http.Client{Timeout: req.Timeout}
 
+	// Observability
 	tr := otel.Tracer(traceNameHTTPClient)
 	_, span := tr.Start(req.Context, "HTTP "+newReq.Method, trace.WithSpanKind(trace.SpanKindClient))
 	trace.SpanFromContext(req.Context).SpanContext()
@@ -116,6 +118,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 	newReq.Header.Set(jaegerTraceIDInHeader, span.SpanContext().TraceID().String())
 	defer span.End()
 
+	// Real request
 	tmpRet, err := httpClient.Do(newReq)
 	if tmpRet != nil {
 		span.SetAttributes(semconv.HTTPStatusCodeKey.Int(tmpRet.StatusCode))
@@ -196,4 +199,58 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 		RawQuery: params.Query.Encode(),
 	}
 	return parsedURL.String(), nil
+}
+
+// IsSSEStream check if the response is a SSE stream
+func IsSSEStream(resp *http.Response) bool {
+	contentType := resp.Header.Get(constant.HeaderKeyContextType)
+	return strings.Contains(contentType, constant.HeaderValueTextEventStream)
+}
+
+// IsStreamableResponse check if the response is streamable
+// Determine whether it is a streaming response based on the following conditions:
+// 1. Using Transfer-Encoding: chunked
+// 2. The content type indicates that this is a streamable response (e.g. text/event-stream, application/json, etc.)
+func IsStreamableResponse(resp *http.Response) bool {
+	if IsSSEStream(resp) {
+		return true
+	}
+
+	// check if the block encoded transfer is used
+	transferEncoding := resp.Header.Get(constant.HeaderKeyTransferEncoding)
+	if strings.Contains(strings.ToLower(transferEncoding), constant.HeaderValueChunked) {
+		return true
+	}
+
+	// check the content type
+	contentType := resp.Header.Get(constant.HeaderKeyContextType)
+
+	// check if it s a streamable content type
+	streamableTypes := []string{
+		constant.HeaderValueTextPrefix,
+		constant.HeaderValueApplicationJson,
+		constant.HeaderValueApplicationNDJson,
+		constant.HeaderValueApplicationOctetStream,
+	}
+
+	for _, streamableType := range streamableTypes {
+		if strings.HasPrefix(contentType, streamableType) {
+			// For these content types, if you don't have Content-Length set or if Content-Length is large,
+			// may be a good candidate for streaming
+			contentLength := resp.Header.Get(constant.HeaderKeyContentLength)
+
+			// If Content-Length is not specified, it is possible that the server is not aware of the content length
+			if contentLength == "" {
+				return true
+			}
+
+			// If the Content-Length is large (> 1MB), streaming is also suitable
+			length, err := strconv.ParseInt(contentLength, 10, 64)
+			if err == nil && length > 1024*1024 {
+				return true
+			}
+		}
+	}
+
+	return false
 }

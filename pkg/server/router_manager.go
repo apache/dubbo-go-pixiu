@@ -18,6 +18,10 @@
 package server
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -54,4 +58,59 @@ func (rm *RouterManager) DeleteRouter(r *model.Router) {
 	for _, l := range rm.rls {
 		l.OnDeleteRouter(r)
 	}
+}
+
+// UpdateRoutes updates the routes in RouterManager with the provided new routes.
+func (rm *RouterManager) UpdateRoutes(oldRoutes []*model.Router, newRoutes []*model.Router) error {
+	logger.Infof("Starting route update with %d new routes", len(newRoutes))
+
+	// Validate new routes
+	if err := validateRoutes(newRoutes); err != nil {
+		logger.Errorf("Invalid routes provided: %v", err)
+		return errors.Wrap(err, "route validation failed")
+	}
+
+	// Notify listeners to delete existing routes
+	for _, route := range oldRoutes {
+		logger.Debugf("Notifying listeners to delete route: %s", route.String())
+		for _, listener := range rm.rls {
+			listener.OnDeleteRouter(route)
+		}
+	}
+
+	// Notify listeners to add new routes
+	for _, route := range newRoutes {
+		logger.Debugf("Notifying listeners to add route: %s", route.String())
+		for _, listener := range rm.rls {
+			listener.OnAddRouter(route)
+		}
+	}
+
+	// Atomically update the active configuration
+	logger.Infof("Routes updated successfully with %d routes", len(newRoutes))
+
+	return nil
+}
+
+// validateRoutes performs basic validation on the provided routes.
+func validateRoutes(routes []*model.Router) error {
+	routeIDs := make(map[string]struct{}, len(routes))
+	for _, route := range routes {
+		// Check for duplicate IDs
+		if _, exists := routeIDs[route.ID]; exists {
+			return errors.Errorf("duplicate route ID: %s", route.ID)
+		}
+		routeIDs[route.ID] = struct{}{}
+
+		// Ensure route has a valid match condition
+		if route.Match.Prefix == "" && route.Match.Path == "" {
+			return errors.Errorf("route %s has no prefix or path defined", route.ID)
+		}
+
+		// Ensure cluster is specified
+		if route.Route.Cluster == "" {
+			return errors.Errorf("route %s has no cluster defined", route.ID)
+		}
+	}
+	return nil
 }
