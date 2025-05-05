@@ -21,13 +21,15 @@ import (
 	"time"
 )
 
-type TCPChecker struct {
+type HTTPSChecker struct {
 	address string
 	timeout time.Duration
 }
 
-func (s *TCPChecker) CheckHealth() bool {
-	return CheckTcpConn(s.address, "", s.timeout)
+func (s *HTTPSChecker) CheckHealth() bool {
+	tarAddr := s.address
+	return CheckTcpConn(tarAddr, "443", s.timeout)
+
 }
 
-func (s *TCPChecker) OnTimeout() {}
+func (s *HTTPSChecker) OnTimeout() {}

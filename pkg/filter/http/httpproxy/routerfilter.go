@@ -19,9 +19,11 @@ package httpproxy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -51,9 +53,9 @@ type (
 		cfg    *Config
 		client http.Client
 	}
-	//Filter
 	Filter struct {
 		client http.Client
+		scheme string
 	}
 	// Config describe the config of FilterFactory
 	Config struct {
@@ -61,6 +63,7 @@ type (
 		MaxIdleConns        int           `yaml:"maxIdleConns" json:"maxIdleConns,omitempty"`
 		MaxIdleConnsPerHost int           `yaml:"maxIdleConnsPerHost" json:"maxIdleConnsPerHost,omitempty"`
 		MaxConnsPerHost     int           `yaml:"maxConnsPerHost" json:"maxConnsPerHost,omitempty"`
+		Scheme              string        `yaml:"scheme" json:"scheme,omitempty" default:"http"`
 	}
 )
 
@@ -77,6 +80,14 @@ func (factory *FilterFactory) Config() interface{} {
 }
 
 func (factory *FilterFactory) Apply() error {
+	scheme := strings.TrimSpace(strings.ToLower(factory.cfg.Scheme))
+
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("%s: scheme must be http or https", Kind)
+	}
+
+	factory.cfg.Scheme = scheme
+
 	cfg := factory.cfg
 	client := http.Client{
 		Timeout: cfg.Timeout,
@@ -92,7 +103,7 @@ func (factory *FilterFactory) Apply() error {
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	//reuse http client
-	f := &Filter{factory.client}
+	f := &Filter{factory.client, factory.cfg.Scheme}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -124,7 +135,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	parsedURL := url.URL{
 		Host:     endpoint.Address.GetAddress(),
-		Scheme:   "http",
+		Scheme:   f.scheme,
 		Path:     r.URL.Path,
 		RawQuery: r.URL.RawQuery,
 	}
@@ -139,7 +150,8 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	resp, err := f.client.Do(req)
 	if err != nil {
-		urlErr, ok := err.(*url.Error)
+		var urlErr *url.Error
+		ok := errors.As(err, &urlErr)
 		if ok && urlErr.Timeout() {
 			hc.SendLocalReply(http.StatusGatewayTimeout, []byte(err.Error()))
 			return filter.Stop
