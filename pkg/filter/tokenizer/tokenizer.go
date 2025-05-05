@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"sync"
 )
 
 import (
@@ -85,7 +86,9 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 	switch res := hc.TargetResp.(type) {
 	case *client.StreamResponse:
-		go f.processStreamResponse(res)
+		pr, pw := io.Pipe()
+		res.Stream = newTeeReadCloser(res.Stream, pw)
+		go f.processStreamResponse(pr)
 	case *client.UnaryResponse:
 		f.processUsageData(res.Data)
 	default:
@@ -95,8 +98,8 @@ func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (f *Filter) processStreamResponse(res *client.StreamResponse) {
-	scanner := bufio.NewScanner(res.Stream)
+func (f *Filter) processStreamResponse(stream io.Reader) {
+	scanner := bufio.NewScanner(stream)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "data:") {
@@ -113,16 +116,15 @@ func (f *Filter) processUsageData(data []byte) {
 	var dataCont map[string]interface{}
 	err := json.Unmarshal(data, &dataCont)
 	if err != nil {
-		logger.Infof(LoggerFmt+"Unmarshal response data failed: %v, data: %s", err, string(data))
 		return
 	}
 
 	usage, ok := dataCont["usage"].(map[string]interface{})
 	if !ok || usage == nil {
-		logger.Debugf("Usage field not found or is not a map")
 		return
 	}
 
+	// todo: currently we only log the usage, we should export it to metrics
 	f.logUsage(usage)
 }
 
@@ -135,10 +137,58 @@ func (f *Filter) logUsage(usage map[string]interface{}) {
 				continue
 			}
 			for detailKey, detailValue := range promptTokensDetails {
-				logger.Debugf(LoggerFmt+"Usage | %s: %v", detailKey, detailValue)
+				logger.Infof(LoggerFmt+"Usage | %s: %v", detailKey, detailValue)
 			}
 		} else {
-			logger.Debugf(LoggerFmt+"Usage | %s: %v", key, value)
+			logger.Infof(LoggerFmt+"Usage | %s: %v", key, value)
 		}
 	}
+}
+
+type teeReadCloser struct {
+	reader   io.Reader
+	closer   io.Closer
+	writer   io.Writer
+	once     sync.Once
+	closeErr error
+}
+
+func newTeeReadCloser(r io.ReadCloser, w io.Writer) *teeReadCloser {
+	return &teeReadCloser{
+		reader: r,
+		closer: r,
+		writer: w,
+	}
+}
+
+func (t *teeReadCloser) Read(p []byte) (n int, err error) {
+	n, err = t.reader.Read(p)
+	if n > 0 {
+		nw, ew := t.writer.Write(p[:n])
+		if ew != nil {
+			logger.Errorf(LoggerFmt+"Error writing to tee writer: %v", ew)
+		}
+		if nw != n {
+			logger.Errorf(LoggerFmt+"Short write to tee writer: %d/%d", nw, n)
+		}
+	}
+	return
+}
+
+func (t *teeReadCloser) Close() error {
+	t.once.Do(func() {
+		err1 := t.closer.Close()
+		err2 := t.writer.(io.Closer).Close() // PipeWriter also implements Closer
+		if err1 != nil {
+			t.closeErr = err1
+		}
+		if err2 != nil {
+			if t.closeErr == nil {
+				t.closeErr = err2
+			} else {
+				logger.Errorf(LoggerFmt+"Error closing tee writer: %v", err2)
+			}
+		}
+	})
+	return t.closeErr
 }
