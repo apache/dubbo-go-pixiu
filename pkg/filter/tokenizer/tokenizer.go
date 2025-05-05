@@ -20,6 +20,7 @@ package tokenizer
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -67,7 +68,7 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }
 
@@ -92,7 +93,7 @@ func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 	case *client.UnaryResponse:
 		f.processUsageData(res.Data)
 	default:
-		logger.Infof(LoggerFmt+"Response type not suitable for token calc: %T", res)
+		logger.Warnf(LoggerFmt+"Response type not suitable for token calc: %T", res)
 	}
 
 	return filter.Continue
@@ -113,13 +114,13 @@ func (f *Filter) processStreamResponse(stream io.Reader) {
 }
 
 func (f *Filter) processUsageData(data []byte) {
-	var dataCont map[string]interface{}
+	var dataCont map[string]any
 	err := json.Unmarshal(data, &dataCont)
 	if err != nil {
 		return
 	}
 
-	usage, ok := dataCont["usage"].(map[string]interface{})
+	usage, ok := dataCont["usage"].(map[string]any)
 	if !ok || usage == nil {
 		return
 	}
@@ -128,10 +129,10 @@ func (f *Filter) processUsageData(data []byte) {
 	f.logUsage(usage)
 }
 
-func (f *Filter) logUsage(usage map[string]interface{}) {
+func (f *Filter) logUsage(usage map[string]any) {
 	for key, value := range usage {
 		if key == "prompt_tokens_details" {
-			promptTokensDetails, ok := value.(map[string]interface{})
+			promptTokensDetails, ok := value.(map[string]any)
 			if !ok {
 				logger.Warnf(LoggerFmt+"prompt_tokens_details is not a map, value: %+v", value)
 				continue
@@ -163,32 +164,37 @@ func newTeeReadCloser(r io.ReadCloser, w io.Writer) *teeReadCloser {
 
 func (t *teeReadCloser) Read(p []byte) (n int, err error) {
 	n, err = t.reader.Read(p)
-	if n > 0 {
-		nw, ew := t.writer.Write(p[:n])
-		if ew != nil {
-			logger.Errorf(LoggerFmt+"Error writing to tee writer: %v", ew)
-		}
-		if nw != n {
-			logger.Errorf(LoggerFmt+"Short write to tee writer: %d/%d", nw, n)
-		}
+	if n <= 0 {
+		return
+	}
+	nw, ew := t.writer.Write(p[:n])
+	if ew != nil {
+		logger.Errorf(LoggerFmt+"Error writing to tee writer: %v", ew)
+	}
+	if nw != n {
+		logger.Errorf(LoggerFmt+"Short write to tee writer: %d/%d", nw, n)
 	}
 	return
 }
 
-func (t *teeReadCloser) Close() error {
+func (t *teeReadCloser) Close() (err error) {
 	t.once.Do(func() {
-		err1 := t.closer.Close()
-		err2 := t.writer.(io.Closer).Close() // PipeWriter also implements Closer
-		if err1 != nil {
-			t.closeErr = err1
+		closerErr := t.closer.Close()
+		if closerErr != nil {
+			logger.Errorf(LoggerFmt+"Error closing closer: %v", closerErr)
 		}
-		if err2 != nil {
-			if t.closeErr == nil {
-				t.closeErr = err2
-			} else {
-				logger.Errorf(LoggerFmt+"Error closing tee writer: %v", err2)
-			}
+
+		writerErr := t.writer.(io.Closer).Close()
+		if writerErr != nil {
+			logger.Errorf(LoggerFmt+"Error closing writer: %v", writerErr)
+		}
+
+		if closerErr != nil || writerErr != nil {
+			err = fmt.Errorf("closing closer error: %s. closing writer error: %s",
+				closerErr.Error(),
+				writerErr.Error(),
+			)
 		}
 	})
-	return t.closeErr
+	return
 }
