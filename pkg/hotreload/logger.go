@@ -44,25 +44,25 @@ func (r *LoggerReloader) CheckUpdate(oldConfig, newConfig *model.Bootstrap) bool
 		oc.DisableCaller != nc.DisableCaller ||
 		oc.DisableStacktrace != nc.DisableStacktrace ||
 		oc.Encoding != nc.Encoding {
-		return false
+		return true
 	}
 
 	// Check sampling configuration.
 	if !r.checkSampling(oc.Sampling, nc.Sampling) {
-		return false
+		return true
 	}
 
 	// Check encoder configuration.
 	if !r.checkEncoderConfig(oc.EncoderConfig, nc.EncoderConfig) {
-		return false
+		return true
 	}
 
 	// Check output paths.
 	if !equal(oc.OutputPaths, nc.OutputPaths) {
-		return false
+		return true
 	}
 
-	return true
+	return false
 }
 
 // HotReload applies the new logger configuration.

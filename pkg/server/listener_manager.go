@@ -140,6 +140,9 @@ func (lm *ListenerManager) AddListener(lsConf *model.Listener) error {
 }
 
 func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
+	if m == nil {
+		return errors.New("UpdateListener error: provided listener config is nil")
+	}
 	// lock
 	lm.rwLock.Lock()
 	defer lm.rwLock.Unlock()

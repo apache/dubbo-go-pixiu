@@ -46,7 +46,7 @@ type Coordinator struct {
 	manager   *config.ConfigManager // Configuration manager
 }
 
-var coordinator = Coordinator{reloaders: []HotReloader{&LoggerReloader{}}}
+var coordinator = Coordinator{reloaders: []HotReloader{&LoggerReloader{}, &RouteReloader{}}}
 
 // StartHotReload initializes the hot reload process.
 // It should be called when the project starts, e.g., in cmd/gateway.go.
@@ -58,6 +58,7 @@ func StartHotReload(manager *config.ConfigManager, boot *model.Bootstrap) {
 
 	coordinator.manager = manager
 	coordinator.boot = boot
+
 	go coordinator.HotReload()
 }
 
