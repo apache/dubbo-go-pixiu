@@ -102,6 +102,11 @@ func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 func (f *Filter) processStreamResponse(stream io.Reader) {
 	scanner := bufio.NewScanner(stream)
 	currentLine := make([]byte, 0, 1024)
+	// read the stream by line
+	// and process the data lines
+	// the data line is prefixed with "data:"
+	// the data line is a json string
+	// the for loop is to read the stream line by line and concat the separate "data:" lines
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(line)
