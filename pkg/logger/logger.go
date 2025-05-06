@@ -22,11 +22,16 @@ import (
 	"os"
 	"path"
 	"strings"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 )
 
 var control *logController
@@ -44,6 +49,14 @@ func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayE
 	}
 
 	enc.AppendString(callerPath)
+}
+
+func init() {
+	// only use in test case, so just load default config
+	if control == nil {
+		control = new(logController)
+		//InitLogger(nil)
+	}
 }
 
 type logger struct {
