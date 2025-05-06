@@ -52,7 +52,7 @@ func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }
 

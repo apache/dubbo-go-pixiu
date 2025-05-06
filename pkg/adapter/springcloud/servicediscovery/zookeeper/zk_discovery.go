@@ -283,11 +283,11 @@ func (sd *zookeeperDiscovery) pathForName(name string) string {
 }
 
 type SpringCloudZKInstance struct {
-	Name    string      `json:"name"`
-	ID      string      `json:"id"`
-	Address string      `json:"address"`
-	Port    int         `json:"port"`
-	SslPort interface{} `json:"sslPort"`
+	Name    string `json:"name"`
+	ID      string `json:"id"`
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+	SslPort any    `json:"sslPort"`
 	Payload struct {
 		Class    string `json:"@class"`
 		ID       string `json:"id"`

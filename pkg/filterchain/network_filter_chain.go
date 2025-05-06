@@ -47,7 +47,7 @@ func (fc NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // OnDecode decode bytes received from getty listener
-func (fc NetworkFilterChain) OnDecode(data []byte) (interface{}, int, error) {
+func (fc NetworkFilterChain) OnDecode(data []byte) (any, int, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnDecode(data)
@@ -56,7 +56,7 @@ func (fc NetworkFilterChain) OnDecode(data []byte) (interface{}, int, error) {
 }
 
 // OnEncode encode struct to bytes sent to getty listener
-func (fc NetworkFilterChain) OnEncode(p interface{}) ([]byte, error) {
+func (fc NetworkFilterChain) OnEncode(p any) ([]byte, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnEncode(p)
@@ -65,7 +65,7 @@ func (fc NetworkFilterChain) OnEncode(p interface{}) ([]byte, error) {
 }
 
 // OnData handle dubbo rpc invocation
-func (fc NetworkFilterChain) OnData(data interface{}) (interface{}, error) {
+func (fc NetworkFilterChain) OnData(data any) (any, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnData(data)
@@ -74,7 +74,7 @@ func (fc NetworkFilterChain) OnData(data interface{}) (interface{}, error) {
 }
 
 // OnTripleData handle triple rpc invocation
-func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnTripleData(ctx, methodName, arguments)

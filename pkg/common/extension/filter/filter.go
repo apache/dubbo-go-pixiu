@@ -45,7 +45,7 @@ type (
 	// HttpFilterFactory describe http filter
 	HttpFilterFactory interface {
 		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
-		Config() interface{}
+		Config() any
 
 		// Apply After the config is injected, check it or make it to default
 		Apply() error
@@ -80,9 +80,9 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 		// CreateFilterFactory return the filter callback
-		CreateFilter(config interface{}) (NetworkFilter, error)
+		CreateFilter(config any) (NetworkFilter, error)
 		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
-		Config() interface{}
+		Config() any
 	}
 
 	// NetworkFilter describe network filter
@@ -90,13 +90,13 @@ type (
 		// ServeHTTP handle http request and response
 		ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request)
 		// OnDecode decode bytes received from getty server
-		OnDecode(data []byte) (interface{}, int, error)
+		OnDecode(data []byte) (any, int, error)
 		// OnEncode encode interface sent to getty server
-		OnEncode(p interface{}) ([]byte, error)
+		OnEncode(p any) ([]byte, error)
 		// OnData dubbo rpc invocation from getty server
-		OnData(data interface{}) (interface{}, error)
+		OnData(data any) (any, error)
 		// OnTripleData triple rpc invocation from triple-server
-		OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error)
+		OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error)
 	}
 
 	// EmptyNetworkFilter default empty network filter adapter which offers empty function implements
@@ -113,9 +113,9 @@ type (
 		// Kind returns the unique kind name to represent itself.
 		Kind() string
 		// CreateFilter return the filter callback
-		CreateFilter(config interface{}) (DubboFilter, error)
+		CreateFilter(config any) (DubboFilter, error)
 		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
-		Config() interface{}
+		Config() any
 	}
 )
 
@@ -126,22 +126,22 @@ var (
 )
 
 // OnDecode empty implement
-func (enf *EmptyNetworkFilter) OnDecode(data []byte) (interface{}, int, error) {
+func (enf *EmptyNetworkFilter) OnDecode(data []byte) (any, int, error) {
 	panic("OnDecode is not implemented")
 }
 
 // OnEncode empty implement
-func (enf *EmptyNetworkFilter) OnEncode(p interface{}) ([]byte, error) {
+func (enf *EmptyNetworkFilter) OnEncode(p any) ([]byte, error) {
 	panic("OnEncode is not implemented")
 }
 
 // OnData receive data from listener
-func (enf *EmptyNetworkFilter) OnData(data interface{}) (interface{}, error) {
+func (enf *EmptyNetworkFilter) OnData(data any) (any, error) {
 	panic("OnData is not implemented")
 }
 
 // OnTripleData empty implement
-func (enf *EmptyNetworkFilter) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+func (enf *EmptyNetworkFilter) OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error) {
 	panic("OnTripleData is not implemented")
 }
 

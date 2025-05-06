@@ -23,7 +23,7 @@ import (
 )
 
 // Object represents the java.lang.Object type
-type Object interface{}
+type Object any
 
 // JTypeMapper maps the java basic types to golang types
 var JTypeMapper = map[string]reflect.Type{

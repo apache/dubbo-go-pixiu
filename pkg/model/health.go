@@ -19,15 +19,15 @@ package model
 
 // HealthCheck
 type HealthCheckConfig struct {
-	Protocol            string                 `yaml:"protocol" json:"protocol,omitempty" mapstructure:"protocol"`
-	TimeoutConfig       string                 `yaml:"timeout" json:"timeout,omitempty" mapstructure:"timeout"`
-	IntervalConfig      string                 `yaml:"interval" json:"interval,omitempty" mapstructure:"interval"`
-	InitialDelaySeconds string                 `yaml:"initial_delay_seconds" json:"initial_delay_seconds,omitempty" mapstructure:"initial_delay_seconds"`
-	HealthyThreshold    uint32                 `yaml:"healthy_threshold" json:"healthy_threshold,omitempty" mapstructure:"healthy_threshold"`
-	UnhealthyThreshold  uint32                 `yaml:"unhealthy_threshold" json:"unhealthy_threshold,omitempty" mapstructure:"unhealthy_threshold"`
-	ServiceName         string                 `yaml:"service_name" json:"service_name,omitempty" mapstructure:"service_name"`
-	SessionConfig       map[string]interface{} `yaml:"check_config" json:"check_config,omitempty" mapstructure:"check_config"`
-	CommonCallbacks     []string               `yaml:"common_callbacks" json:"common_callbacks,omitempty" mapstructure:"common_callbacks"`
+	Protocol            string         `yaml:"protocol" json:"protocol,omitempty" mapstructure:"protocol"`
+	TimeoutConfig       string         `yaml:"timeout" json:"timeout,omitempty" mapstructure:"timeout"`
+	IntervalConfig      string         `yaml:"interval" json:"interval,omitempty" mapstructure:"interval"`
+	InitialDelaySeconds string         `yaml:"initial_delay_seconds" json:"initial_delay_seconds,omitempty" mapstructure:"initial_delay_seconds"`
+	HealthyThreshold    uint32         `yaml:"healthy_threshold" json:"healthy_threshold,omitempty" mapstructure:"healthy_threshold"`
+	UnhealthyThreshold  uint32         `yaml:"unhealthy_threshold" json:"unhealthy_threshold,omitempty" mapstructure:"unhealthy_threshold"`
+	ServiceName         string         `yaml:"service_name" json:"service_name,omitempty" mapstructure:"service_name"`
+	SessionConfig       map[string]any `yaml:"check_config" json:"check_config,omitempty" mapstructure:"check_config"`
+	CommonCallbacks     []string       `yaml:"common_callbacks" json:"common_callbacks,omitempty" mapstructure:"common_callbacks"`
 }
 
 // HttpHealthCheck
@@ -50,5 +50,5 @@ type GrpcHealthCheck struct {
 type CustomHealthCheck struct {
 	HealthCheckConfig
 	Name   string
-	Config interface{}
+	Config any
 }

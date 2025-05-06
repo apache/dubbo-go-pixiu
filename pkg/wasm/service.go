@@ -77,7 +77,7 @@ func createWasmService(service model.WasmService) (*WasmService, error) {
 	wasmService.rootContextID = atomic.AddInt32(&wasmService.contextIDGenerator, 1)
 
 	wasmService.instancePool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			pwd, _ := os.Getwd()
 			path := filepath.Join(pwd, cfg.Path)
 			if _, err := os.Stat(path); err != nil {

@@ -41,7 +41,7 @@ func LoadYMLConfig(confProFile string) ([]byte, error) {
 }
 
 // UnmarshalYMLConfig Load yml config byte from file, then unmarshal to object
-func UnmarshalYMLConfig(confProFile string, out interface{}) error {
+func UnmarshalYMLConfig(confProFile string, out any) error {
 	confFileStream, err := LoadYMLConfig(confProFile)
 	if err != nil {
 		return perrors.Errorf("os.ReadFile(file:%s) = error:%v", confProFile, perrors.WithStack(err))
@@ -50,17 +50,17 @@ func UnmarshalYMLConfig(confProFile string, out interface{}) error {
 }
 
 // UnmarshalYML unmarshals decodes the first document found within the in byte slice and assigns decoded values into the out value.
-func UnmarshalYML(data []byte, out interface{}) error {
+func UnmarshalYML(data []byte, out any) error {
 	return yaml.Unmarshal(data, out)
 }
 
 // MarshalYML serializes the value provided into a YAML document.
-func MarshalYML(in interface{}) ([]byte, error) {
+func MarshalYML(in any) ([]byte, error) {
 	return yaml.Marshal(in)
 }
 
 // ParseConfig get config struct from map[string]interface{}
-func ParseConfig(factoryConfStruct interface{}, conf map[string]interface{}) error {
+func ParseConfig(factoryConfStruct any, conf map[string]any) error {
 	// conf will be map, convert to yaml
 	yamlBytes, err := yaml.Marshal(conf)
 	if err != nil {

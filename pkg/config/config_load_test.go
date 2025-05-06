@@ -77,7 +77,7 @@ func TestMain(m *testing.M) {
 		TimeoutStr:        "10s",
 	}
 
-	var inInterface map[string]interface{}
+	var inInterface map[string]any
 	inrec, _ := json.Marshal(hcmc)
 	_ = json.Unmarshal(inrec, &inInterface)
 	b = model.Bootstrap{

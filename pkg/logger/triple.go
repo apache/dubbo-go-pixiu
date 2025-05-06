@@ -26,34 +26,34 @@ func GetTripleLogger() *TripleLogger {
 	return &TripleLogger{}
 }
 
-func (l *TripleLogger) Info(args ...interface{}) {
+func (l *TripleLogger) Info(args ...any) {
 	control.info(args...)
 }
 
-func (l *TripleLogger) Warn(args ...interface{}) {
+func (l *TripleLogger) Warn(args ...any) {
 	control.warn(args...)
 }
 
-func (l *TripleLogger) Error(args ...interface{}) {
+func (l *TripleLogger) Error(args ...any) {
 	control.error(args...)
 }
 
-func (l *TripleLogger) Debug(args ...interface{}) {
+func (l *TripleLogger) Debug(args ...any) {
 	control.debug(args...)
 }
 
-func (l *TripleLogger) Infof(fmt string, args ...interface{}) {
+func (l *TripleLogger) Infof(fmt string, args ...any) {
 	control.infof(fmt, args...)
 }
 
-func (l *TripleLogger) Warnf(fmt string, args ...interface{}) {
+func (l *TripleLogger) Warnf(fmt string, args ...any) {
 	control.warnf(fmt, args...)
 }
 
-func (l *TripleLogger) Errorf(fmt string, args ...interface{}) {
+func (l *TripleLogger) Errorf(fmt string, args ...any) {
 	control.errorf(fmt, args...)
 }
 
-func (l *TripleLogger) Debugf(fmt string, args ...interface{}) {
+func (l *TripleLogger) Debugf(fmt string, args ...any) {
 	control.debugf(fmt, args...)
 }

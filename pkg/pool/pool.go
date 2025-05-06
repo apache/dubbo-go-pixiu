@@ -48,12 +48,12 @@ func newClientPool() *ClientPool {
 	}
 	// init default support request type
 	clientPool.poolMap[config.DubboRequest] = &sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return dubbo.NewDubboClient()
 		},
 	}
 	clientPool.poolMap[config.HTTPRequest] = &sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return http.NewHTTPClient()
 		},
 	}

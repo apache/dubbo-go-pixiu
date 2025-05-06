@@ -108,7 +108,7 @@ func (f *DemoFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, cha
 	return nil
 }
 
-func (f *DemoFilterFactory) Config() interface{} {
+func (f *DemoFilterFactory) Config() any {
 	return f.conf
 }
 

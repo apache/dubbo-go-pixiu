@@ -53,7 +53,7 @@ func (a *DemoAdapter) Apply() error {
 }
 
 // Config get config for Adapter
-func (a *DemoAdapter) Config() interface{} {
+func (a *DemoAdapter) Config() any {
 	return a.cfg
 }
 

@@ -380,7 +380,7 @@ func isServerTimeout(st *status.Status) bool {
 	return st.Code() == codes.DeadlineExceeded || st.Code() == codes.Canceled
 }
 
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }
 

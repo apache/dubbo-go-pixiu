@@ -85,7 +85,7 @@ func (ls *HttpListenerService) Close() error {
 	return ls.srv.Close()
 }
 
-func (ls *HttpListenerService) ShutDown(wg interface{}) error {
+func (ls *HttpListenerService) ShutDown(wg any) error {
 	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
 	if timeout <= 0 {
 		return nil

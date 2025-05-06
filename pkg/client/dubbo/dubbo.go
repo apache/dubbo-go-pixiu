@@ -161,7 +161,7 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
+func (dc *Client) Call(req *client.Request) (res any, err error) {
 	// if GET with no args, values would be nil
 	values, err := dc.genericArgs(req)
 	if err != nil {
@@ -220,7 +220,7 @@ func (dc *Client) Call(req *client.Request) (res interface{}, err error) {
 	return rst, nil
 }
 
-func (dc *Client) genericArgs(req *client.Request) (interface{}, error) {
+func (dc *Client) genericArgs(req *client.Request) (any, error) {
 	values, err := dc.MapParams(req)
 	if err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func (dc *Client) genericArgs(req *client.Request) (interface{}, error) {
 }
 
 // MapParams params mapping to api.
-func (dc *Client) MapParams(req *client.Request) (interface{}, error) {
+func (dc *Client) MapParams(req *client.Request) (any, error) {
 	r := req.API.Method.IntegrationRequest
 	values := newDubboTarget(r.MappingParams)
 	if dc.dubboProxyConfig != nil && dc.dubboProxyConfig.IsDefaultMap {

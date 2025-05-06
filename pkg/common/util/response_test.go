@@ -27,13 +27,13 @@ import (
 
 func TestNewDubboMapResponse(t *testing.T) {
 	slice := append(make([]string, 0), "read")
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"age":   18,
 		"iD":    0o001,
 		"name":  "tc",
 		"time":  nil,
 		"hobby": slice,
-		"father": map[string]interface{}{
+		"father": map[string]any{
 			"name": "bob",
 		},
 	}
@@ -41,23 +41,23 @@ func TestNewDubboMapResponse(t *testing.T) {
 	if err != nil {
 		t.Error("failed to deal resp")
 	}
-	r := result.(map[string]interface{})
+	r := result.(map[string]any)
 	assert.Equal(t, 18, r["age"])
 	assert.Equal(t, 1, r["iD"])
 	assert.Equal(t, "tc", r["name"])
 	assert.Equal(t, "read", r["hobby"].([]string)[0])
-	assert.Equal(t, "bob", r["father"].(map[string]interface{})["name"])
+	assert.Equal(t, "bob", r["father"].(map[string]any)["name"])
 }
 
 func TestNewDubboMapHumpResponse(t *testing.T) {
 	slice := append(make([]string, 0), "readBook")
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"age":         18,
 		"iD":          0o001,
 		"name":        "tc",
 		"time":        nil,
 		"simpleHobby": slice,
-		"father": map[string]interface{}{
+		"father": map[string]any{
 			"name": "bob",
 		},
 	}
@@ -65,21 +65,21 @@ func TestNewDubboMapHumpResponse(t *testing.T) {
 	if err != nil {
 		t.Error("failed to deal resp")
 	}
-	r := result.(map[string]interface{})
+	r := result.(map[string]any)
 	assert.Equal(t, 18, r["age"])
 	assert.Equal(t, 1, r["i_d"])
 	assert.Equal(t, "tc", r["name"])
-	assert.Equal(t, "readBook", r["simple_hobby"].([]interface{})[0])
-	assert.Equal(t, "bob", r["father"].(map[string]interface{})["name"])
+	assert.Equal(t, "readBook", r["simple_hobby"].([]any)[0])
+	assert.Equal(t, "bob", r["father"].(map[string]any)["name"])
 }
 
 func TestNewDubboSliceResponse(t *testing.T) {
-	resp := append(make([]map[string]interface{}, 0), map[string]interface{}{
+	resp := append(make([]map[string]any, 0), map[string]any{
 		"age":  18,
 		"iD":   0o001,
 		"name": "tc",
 		"time": nil,
-		"father": map[string]interface{}{
+		"father": map[string]any{
 			"name": "bob",
 		},
 	})
@@ -87,9 +87,9 @@ func TestNewDubboSliceResponse(t *testing.T) {
 	if err != nil {
 		t.Error("failed to deal resp")
 	}
-	r := result.([]interface{})[0].(map[string]interface{})
+	r := result.([]any)[0].(map[string]any)
 	assert.Equal(t, 18, r["age"])
 	assert.Equal(t, 1, r["iD"])
 	assert.Equal(t, "tc", r["name"])
-	assert.Equal(t, "bob", r["father"].(map[string]interface{})["name"])
+	assert.Equal(t, "bob", r["father"].(map[string]any)["name"])
 }

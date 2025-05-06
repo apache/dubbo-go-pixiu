@@ -165,7 +165,7 @@ func TestBodyMapper(t *testing.T) {
 	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Types[2], "object")
-	assert.Equal(t, target.Values[2], map[string]interface{}(map[string]interface{}{
+	assert.Equal(t, target.Values[2], map[string]any(map[string]any{
 		"firstName": "Joe", "lastName": "Biden",
 	}))
 }
@@ -285,7 +285,7 @@ func TestNewDubboTarget(t *testing.T) {
 }
 
 func TestSetCommonTarget(t *testing.T) {
-	vals := make([]interface{}, 10)
+	vals := make([]any, 10)
 	types := make([]string, 10)
 	target := &dubboTarget{
 		Values: vals,
@@ -307,12 +307,12 @@ func TestSetGenericTarget(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := &dubboTarget{
-		Values: make([]interface{}, 3),
+		Values: make([]any, 3),
 		Types:  make([]string, 3),
 	}
 
 	opt := DefaultMapOption[optionKeyValues]
-	err := setGenericTarget(req, opt, target, []interface{}{1, "abc", struct{ Name string }{"joe"}}, "int, string, object")
+	err := setGenericTarget(req, opt, target, []any{1, "abc", struct{ Name string }{"joe"}}, "int, string, object")
 	assert.Nil(t, err)
 	assert.Equal(t, target.Values[0], 1)
 	assert.Equal(t, target.Values[1], "abc")

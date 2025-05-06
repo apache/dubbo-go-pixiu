@@ -58,7 +58,7 @@ func (ap *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &TraceFilterFactory{}, nil
 }
 
-func (m *TraceFilterFactory) Config() interface{} {
+func (m *TraceFilterFactory) Config() any {
 	return &Config{}
 }
 

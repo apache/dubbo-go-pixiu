@@ -29,10 +29,10 @@ func NewPackageHandler(ls *TcpListenerService) *PackageHandler {
 	return &PackageHandler{ls}
 }
 
-func (h *PackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
+func (h *PackageHandler) Read(ss getty.Session, data []byte) (any, int, error) {
 	return h.ls.FilterChain.OnDecode(data)
 }
 
-func (h *PackageHandler) Write(ss getty.Session, p interface{}) ([]byte, error) {
+func (h *PackageHandler) Write(ss getty.Session, p any) ([]byte, error) {
 	return h.ls.FilterChain.OnEncode(p)
 }

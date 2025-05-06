@@ -63,7 +63,7 @@ func (tc *Client) Apply() error {
 	panic("implement me")
 }
 
-func (tc *Client) MapParams(req *client.Request) (reqData interface{}, err error) {
+func (tc *Client) MapParams(req *client.Request) (reqData any, err error) {
 	panic("implement me")
 }
 
@@ -78,7 +78,7 @@ func SingletonTripleClient(protoset []string) *Client {
 }
 
 // Call invoke service
-func (tc *Client) Call(req *client.Request) (res interface{}, err error) {
+func (tc *Client) Call(req *client.Request) (res any, err error) {
 	address := strings.Split(req.API.IntegrationRequest.HTTPBackendConfig.URL, ":")
 	p := proxy.NewProxy()
 	targetURL := &url.URL{

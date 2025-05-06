@@ -113,7 +113,7 @@ func (a *Adapter) Apply() error {
 }
 
 // Config returns the config of the adaptor
-func (a *Adapter) Config() interface{} {
+func (a *Adapter) Config() any {
 	return a.cfg
 }
 

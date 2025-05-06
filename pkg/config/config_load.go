@@ -133,7 +133,7 @@ func GetHttpConfig(cfg *model.Bootstrap) (err error) {
 	for i, l := range cfg.StaticResources.Listeners {
 		hc := &model.HttpConfig{}
 		if l.Config != nil {
-			if v, ok := l.Config.(map[string]interface{}); ok {
+			if v, ok := l.Config.(map[string]any); ok {
 				logger.Info("http config:", v, ok)
 				switch l.Name {
 				case constant.DefaultHTTPType:

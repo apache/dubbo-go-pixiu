@@ -213,19 +213,19 @@ func TestSetTarget(t *testing.T) {
 	err = setTarget(emptyRequestParams, constant.QueryStrings, "id", 123)
 	assert.EqualError(t, err, "queryStrings only accepts string")
 
-	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct", map[string]interface{}{"test": "happy", "name": "mock"})
+	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct", map[string]any{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
 	rawBody, err := io.ReadAll(emptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\"}}")
 
-	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct.secondLayer", map[string]interface{}{"test": "happy", "name": "mock"})
+	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct.secondLayer", map[string]any{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
 	rawBody, err = io.ReadAll(emptyRequestParams.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody), "{\"testStruct\":{\"secondLayer\":{\"name\":\"mock\",\"test\":\"happy\"}}}")
 
-	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct.secondLayer.thirdLayer", map[string]interface{}{"test": "happy", "name": "mock"})
+	err = setTarget(emptyRequestParams, constant.RequestBody, "testStruct.secondLayer.thirdLayer", map[string]any{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
 	rawBody, err = io.ReadAll(emptyRequestParams.Body)
 	assert.Nil(t, err)
@@ -237,7 +237,7 @@ func TestSetTarget(t *testing.T) {
 
 	nonEmptyRequestParams := newRequestParams()
 	nonEmptyRequestParams.Body = io.NopCloser(bytes.NewReader([]byte("{\"testStruct\":\"abcde\"}")))
-	err = setTarget(nonEmptyRequestParams, constant.RequestBody, "testStruct", map[string]interface{}{"test": "happy", "name": "mock"})
+	err = setTarget(nonEmptyRequestParams, constant.RequestBody, "testStruct", map[string]any{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
 	rawBody, err = io.ReadAll(nonEmptyRequestParams.Body)
 	assert.Nil(t, err)
@@ -245,7 +245,7 @@ func TestSetTarget(t *testing.T) {
 
 	nonEmptyRequestParams = newRequestParams()
 	nonEmptyRequestParams.Body = io.NopCloser(bytes.NewReader([]byte("{\"otherStructure\":\"abcde\"}")))
-	err = setTarget(nonEmptyRequestParams, constant.RequestBody, "testStruct", map[string]interface{}{"test": "happy", "name": "mock"})
+	err = setTarget(nonEmptyRequestParams, constant.RequestBody, "testStruct", map[string]any{"test": "happy", "name": "mock"})
 	assert.Nil(t, err)
 	rawBody, err = io.ReadAll(nonEmptyRequestParams.Body)
 	assert.Nil(t, err)

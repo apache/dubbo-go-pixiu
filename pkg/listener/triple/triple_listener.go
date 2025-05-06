@@ -98,7 +98,7 @@ func (ls *TripleListenerService) Close() error {
 	return nil
 }
 
-func (ls *TripleListenerService) ShutDown(wg interface{}) error {
+func (ls *TripleListenerService) ShutDown(wg any) error {
 	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
 	if timeout <= 0 {
 		return nil
@@ -124,13 +124,13 @@ func (ls *TripleListenerService) Refresh(c model.Listener) error {
 }
 
 // GetReqParamsInterfaces get params
-func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{}, bool) {
+func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]any, bool) {
 	val, ok := d.reqTypeMap.Load(methodName)
 	if !ok {
 		return nil, false
 	}
 	typs := val.([]reflect.Type)
-	reqParamsInterfaces := make([]interface{}, 0, len(typs))
+	reqParamsInterfaces := make([]any, 0, len(typs))
 	for _, typ := range typs {
 		reqParamsInterfaces = append(reqParamsInterfaces, reflect.New(typ).Interface())
 	}
@@ -138,7 +138,7 @@ func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]interface{},
 }
 
 // InvokeWithArgs called when rpc invocation comes
-func (d *ProxyService) InvokeWithArgs(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
+func (d *ProxyService) InvokeWithArgs(ctx context.Context, methodName string, arguments []any) (any, error) {
 	d.ls.gShutdownConfig.AddActiveCount(1)
 	defer d.ls.gShutdownConfig.AddActiveCount(-1)
 	if d.ls.gShutdownConfig.RejectRequest {

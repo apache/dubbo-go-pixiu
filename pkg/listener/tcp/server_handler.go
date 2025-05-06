@@ -118,7 +118,7 @@ func (h *ServerHandler) OnClose(session getty.Session) {
 }
 
 // OnMessage called when session receive new pkg
-func (h *ServerHandler) OnMessage(session getty.Session, pkg interface{}) {
+func (h *ServerHandler) OnMessage(session getty.Session, pkg any) {
 	h.ls.gShutdownConfig.AddActiveCount(1)
 	defer h.ls.gShutdownConfig.AddActiveCount(-1)
 

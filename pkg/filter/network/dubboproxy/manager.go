@@ -60,7 +60,7 @@ func CreateDubboProxyConnectionManager(config *model.DubboProxyConnectionManager
 }
 
 // OnDecode decode bytes to DecodeResult
-func (dcm *DubboProxyConnectionManager) OnDecode(data []byte) (interface{}, int, error) {
+func (dcm *DubboProxyConnectionManager) OnDecode(data []byte) (any, int, error) {
 
 	resp, length, err := dcm.codec.Decode(data)
 	// err := pkg.Unmarshal(buf, p.client)
@@ -75,7 +75,7 @@ func (dcm *DubboProxyConnectionManager) OnDecode(data []byte) (interface{}, int,
 }
 
 // OnEncode encode Response to bytes
-func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error) {
+func (dcm *DubboProxyConnectionManager) OnEncode(pkg any) ([]byte, error) {
 	res, ok := pkg.(*remoting.Response)
 	if ok {
 		buf, err := (dcm.codec).EncodeResponse(res)
@@ -101,8 +101,8 @@ func (dcm *DubboProxyConnectionManager) OnEncode(pkg interface{}) ([]byte, error
 }
 
 // OnTripleData handle triple rpc invocation
-func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []interface{}) (interface{}, error) {
-	dubboAttachment := make(map[string]interface{})
+func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error) {
+	dubboAttachment := make(map[string]any)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for k := range md {
@@ -137,7 +137,7 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 }
 
 // OnData handle dubbo rpc invocation
-func (dcm *DubboProxyConnectionManager) OnData(data interface{}) (interface{}, error) {
+func (dcm *DubboProxyConnectionManager) OnData(data any) (any, error) {
 	old_invoc, ok := data.(*invocation.RPCInvocation)
 	if !ok {
 		panic("create invocation occur some exception for the type is not suitable one.")

@@ -64,7 +64,7 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	}, nil
 }
 
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 
 	return factory.Cfg
 }

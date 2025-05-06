@@ -99,7 +99,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.conf
 }
 

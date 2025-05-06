@@ -43,7 +43,7 @@ const (
 
 type HealthChecker struct {
 	checkers      map[string]*EndpointChecker
-	sessionConfig map[string]interface{}
+	sessionConfig map[string]any
 	// check config
 	timeout            time.Duration
 	intervalBase       time.Duration

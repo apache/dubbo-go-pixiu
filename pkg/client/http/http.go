@@ -91,7 +91,7 @@ func (dc *Client) Close() error {
 }
 
 // Call invoke service
-func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
+func (dc *Client) Call(req *client.Request) (resp any, err error) {
 	// Map the origin parameters to backend parameters according to the API configure
 	transformedParams, err := dc.MapParams(req)
 	if err != nil {
@@ -135,7 +135,7 @@ func (dc *Client) Call(req *client.Request) (resp interface{}, err error) {
 }
 
 // MapParams param mapping to api.
-func (dc *Client) MapParams(req *client.Request) (reqData interface{}, err error) {
+func (dc *Client) MapParams(req *client.Request) (reqData any, err error) {
 	mp := req.API.IntegrationRequest.MappingParams
 	r := newRequestParams()
 	if len(mp) == 0 {

@@ -41,7 +41,7 @@ func NewTrie() Trie {
 }
 
 // NewTrieWithDefault
-func NewTrieWithDefault(path string, defVal interface{}) Trie {
+func NewTrieWithDefault(path string, defVal any) Trie {
 	ret := Trie{root: Node{endOfPath: false, matchStr: ""}}
 	_, _ = ret.Put(path, defVal)
 	return ret
@@ -55,7 +55,7 @@ type Node struct {
 	PathVariableNode *Node            // in path /:a/b/c/:d , /b/c/:d is a child tree of pathVariable node :a ,and some special logic for match pathVariable it better not store in children.
 	MatchAllNode     *Node            // /a/b/**  /** is a match all Node.
 	endOfPath        bool             // if true means a real path exists ,  /a/b/c/d only node of d is true, a,b,c is false.
-	bizInfo          interface{}      // route info and any other info store here.
+	bizInfo          any              // route info and any other info store here.
 }
 
 func (trie *Trie) Clear() bool {
@@ -68,7 +68,7 @@ func (trie *Trie) IsEmpty() bool {
 }
 
 // Put put key and values into trie as map.
-func (trie *Trie) Put(withOutHost string, bizInfo interface{}) (bool, error) {
+func (trie *Trie) Put(withOutHost string, bizInfo any) (bool, error) {
 	if bizInfo == nil {
 		return false, errors.Errorf("data to put should not be nil.")
 	}
@@ -77,7 +77,7 @@ func (trie *Trie) Put(withOutHost string, bizInfo interface{}) (bool, error) {
 }
 
 // Put put key and values into trie as map.
-func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo interface{}) (bool, error) {
+func (trie *Trie) PutOrUpdate(withOutHost string, bizInfo any) (bool, error) {
 	if bizInfo == nil {
 		return false, errors.Errorf("data to put should not be nil.")
 	}
@@ -146,7 +146,7 @@ func (trie Trie) Contains(withOutHost string) (bool, error) {
 }
 
 // Put node put
-func (node *Node) internalPut(keys []string, bizInfo interface{}) (bool, error) {
+func (node *Node) internalPut(keys []string, bizInfo any) (bool, error) {
 	// empty node initialization
 	if node.children == nil {
 		node.children = map[string]*Node{}
@@ -189,7 +189,7 @@ func (node *Node) IsEmpty() bool {
 }
 
 // GetBizInfo get info
-func (node *Node) GetBizInfo() interface{} {
+func (node *Node) GetBizInfo() any {
 	return node.bizInfo
 }
 
@@ -283,7 +283,7 @@ func (node *Node) Get(keys []string) (*Node, []string, bool, error) {
 
 }
 
-func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
+func (node *Node) put(key string, isReal bool, bizInfo any) bool {
 
 	if !stringutil.IsPathVariableOrWildcard(key) {
 		if stringutil.IsMatchAll(key) {
@@ -296,7 +296,7 @@ func (node *Node) put(key string, isReal bool, bizInfo interface{}) bool {
 	return node.putPathVariable(pathVariable, isReal, bizInfo)
 }
 
-func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo interface{}) bool {
+func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo any) bool {
 	//path variable put
 	if node.PathVariableNode == nil {
 		node.PathVariableNode = &Node{endOfPath: false}
@@ -317,7 +317,7 @@ func (node *Node) putPathVariable(pathVariable string, isReal bool, bizInfo inte
 	return true
 }
 
-func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) bool {
+func (node *Node) putNode(matchStr string, isReal bool, bizInfo any) bool {
 
 	selfNode := &Node{endOfPath: isReal, matchStr: matchStr}
 	old := node.children[matchStr]
@@ -339,7 +339,7 @@ func (node *Node) putNode(matchStr string, isReal bool, bizInfo interface{}) boo
 	return true
 }
 
-func (node *Node) putMatchAllNode(matchStr string, isReal bool, bizInfo interface{}) bool {
+func (node *Node) putMatchAllNode(matchStr string, isReal bool, bizInfo any) bool {
 
 	selfNode := &Node{endOfPath: isReal, matchStr: matchStr}
 	old := node.MatchAllNode

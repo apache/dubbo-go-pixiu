@@ -24,6 +24,6 @@ type WasmConfig struct {
 
 // WasmService includes all information about the specific application.
 type WasmService struct {
-	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
-	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
+	Name   string         `yaml:"name" json:"name" mapstructure:"name"`
+	Config map[string]any `yaml:"config" json:"config" mapstructure:"config"`
 }

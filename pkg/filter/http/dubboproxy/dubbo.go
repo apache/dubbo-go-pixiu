@@ -80,7 +80,7 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 // Config return filter facotry config, now is empty
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }
 
@@ -145,7 +145,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	var body interface{}
+	var body any
 	if err := json.Unmarshal(rawBody, &body); err != nil {
 		logger.Infof("[dubbo-go-pixiu] unmarshal request body error %v", err)
 		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("unmarshal request body error %v", err)})
@@ -153,7 +153,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	inIArr := make([]interface{}, 3)
+	inIArr := make([]any, 3)
 	inVArr := make([]reflect.Value, 3)
 	inIArr[0] = method
 
@@ -167,8 +167,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	}
 
 	values := body
-	if _, ok := values.([]interface{}); ok {
-		for _, v := range values.([]interface{}) {
+	if _, ok := values.([]any); ok {
+		for _, v := range values.([]any) {
 			valuesList = append(valuesList, v)
 		}
 	} else {
@@ -214,7 +214,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	var resp interface{}
+	var resp any
 	invoc.SetReply(&resp)
 
 	invCtx, cancel := context.WithTimeout(context.Background(), hc.Timeout)

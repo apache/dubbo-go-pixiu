@@ -53,7 +53,7 @@ func (w *WasmFilter) Encode(ctx *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (factory *WasmFilterFactory) Config() interface{} {
+func (factory *WasmFilterFactory) Config() any {
 	return factory.cfg
 }
 

@@ -46,7 +46,7 @@ func (d *DemoAdapterPlugin) Kind() string {
 	return "test"
 }
 
-func (p *DemoAdapterPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
+func (d *DemoAdapterPlugin) CreateAdapter(ad *model.Adapter) (adapter.Adapter, error) {
 	return &DemoAdapter{cfg: &Config{}}, nil
 }
 
@@ -60,7 +60,7 @@ func (a *DemoAdapter) Apply() error {
 }
 
 // Config get config for Adapter
-func (a *DemoAdapter) Config() interface{} {
+func (a *DemoAdapter) Config() any {
 	return a.cfg
 }
 
@@ -74,9 +74,9 @@ func TestAdapterManager(t *testing.T) {
 	bs := &model.Bootstrap{
 		StaticResources: model.StaticResources{
 			Adapters: []*model.Adapter{
-				&model.Adapter{
+				{
 					Name:   "test",
-					Config: make(map[string]interface{}),
+					Config: make(map[string]any),
 				},
 			},
 		},

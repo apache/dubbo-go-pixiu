@@ -26,10 +26,10 @@ type Client interface {
 	Close() error
 
 	// Call invoke the downstream service.
-	Call(req *Request) (res interface{}, err error)
+	Call(req *Request) (res any, err error)
 
 	// MapParams mapping param, uri, query, body ...
-	MapParams(req *Request) (reqData interface{}, err error)
+	MapParams(req *Request) (reqData any, err error)
 }
 
 /**
@@ -42,5 +42,5 @@ type MapOption map[string]RequestOption
 
 // RequestOption option interface.
 type RequestOption interface {
-	Action(target, val interface{}) error
+	Action(target, val any) error
 }

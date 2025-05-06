@@ -48,8 +48,8 @@ var mappers = map[string]client.ParamMapper{
 }
 
 type dubboTarget struct {
-	Values []interface{} // the slice contains the parameters.
-	Types  []string      // the slice contains the parameters' types. It should match the values one by one.
+	Values []any    // the slice contains the parameters.
+	Types  []string // the slice contains the parameters' types. It should match the values one by one.
 }
 
 // pre-allocate proper memory according to the params' usability.
@@ -65,7 +65,7 @@ func newDubboTarget(mps []config.MappingParam) *dubboTarget {
 	}
 
 	if length > 0 {
-		val := make([]interface{}, length)
+		val := make([]any, length)
 		target := &dubboTarget{
 			Values: val,
 			Types:  make([]string, length),
@@ -78,7 +78,7 @@ func newDubboTarget(mps []config.MappingParam) *dubboTarget {
 type queryStringsMapper struct{}
 
 // nolint
-func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
+func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, target any, option client.RequestOption) error {
 	t, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func (qm queryStringsMapper) Map(mp config.MappingParam, c *client.Request, targ
 type headerMapper struct{}
 
 // nolint
-func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target any, option client.RequestOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, target int
 type bodyMapper struct{}
 
 // nolint
-func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target any, option client.RequestOption) error {
 	// TO-DO: add support for content-type other than application/json
 	rv, err := validateTarget(target)
 	if err != nil {
@@ -149,7 +149,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 	if err != nil {
 		return err
 	}
-	mapBody := map[string]interface{}{}
+	mapBody := map[string]any{}
 	json.Unmarshal(rawBody, &mapBody)
 	val, err := client.GetMapValue(mapBody, keys)
 
@@ -164,7 +164,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, target inter
 type uriMapper struct{}
 
 // nolint
-func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interface{}, option client.RequestOption) error {
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target any, option client.RequestOption) error {
 	rv, err := validateTarget(target)
 	if err != nil {
 		return err
@@ -184,7 +184,7 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target interf
 
 // validateTarget verify if the incoming target for the Map function
 // can be processed as expected.
-func validateTarget(target interface{}) (*dubboTarget, error) {
+func validateTarget(target any) (*dubboTarget, error) {
 	val, ok := target.(*dubboTarget)
 	if !ok {
 		return nil, errors.New("Target params for dubbo backend must be *dubbogoTarget")
@@ -193,7 +193,7 @@ func validateTarget(target interface{}) (*dubboTarget, error) {
 }
 
 func setTargetWithOpt(req *client.Request, option client.RequestOption,
-	target *dubboTarget, pos int, value interface{}, targetType string) error {
+	target *dubboTarget, pos int, value any, targetType string) error {
 	if option != nil {
 		return setGenericTarget(req, option, target, value, targetType)
 	}
@@ -206,24 +206,24 @@ func setTargetWithOpt(req *client.Request, option client.RequestOption,
 }
 
 func setGenericTarget(req *client.Request, option client.RequestOption,
-	target *dubboTarget, value interface{}, targetType string) error {
+	target *dubboTarget, value any, targetType string) error {
 	var err error
 	switch option.(type) {
 	case *groupOpt, *versionOpt, *interfaceOpt, *applicationOpt, *methodOpt:
 		err = option.Action(req, value)
 	case *valuesOpt:
-		err = option.Action(target, [2]interface{}{value, targetType})
+		err = option.Action(target, [2]any{value, targetType})
 	case *paramTypesOpt:
 		err = option.Action(target, value)
 	}
 	return err
 }
 
-func setCommonTarget(target *dubboTarget, pos int, value interface{}, targetType string) {
+func setCommonTarget(target *dubboTarget, pos int, value any, targetType string) {
 	// if the mapTo position is greater than the numbers of usable parameters,
 	// extend the values and types slices. It changes the address of the the target.
 	if cap(target.Values) <= pos {
-		list := make([]interface{}, pos+1-len(target.Values))
+		list := make([]any, pos+1-len(target.Values))
 		typeList := make([]string, pos+1-len(target.Types))
 		target.Values = append(target.Values, list...)
 		target.Types = append(target.Types, typeList...)
@@ -232,7 +232,7 @@ func setCommonTarget(target *dubboTarget, pos int, value interface{}, targetType
 	target.Types[pos] = targetType
 }
 
-func mapTypes(jType string, originVal interface{}) (interface{}, error) {
+func mapTypes(jType string, originVal any) (any, error) {
 	targetType, ok := constant.JTypeMapper[jType]
 	if !ok {
 		return nil, errors.Errorf("Invalid parameter type: %s", jType)

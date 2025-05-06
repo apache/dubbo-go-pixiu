@@ -90,7 +90,7 @@ func (c Client) Close() error {
 	return nil
 }
 
-func (c Client) Call(req *client.Request) (res interface{}, err error) {
+func (c Client) Call(req *client.Request) (res any, err error) {
 	body, err := io.ReadAll(req.IngressRequest.Body)
 	if err != nil {
 		return nil, err
@@ -154,6 +154,6 @@ func (c Client) Call(req *client.Request) (res interface{}, err error) {
 	return nil, nil
 }
 
-func (c Client) MapParams(req *client.Request) (reqData interface{}, err error) {
+func (c Client) MapParams(req *client.Request) (reqData any, err error) {
 	return nil, perrors.New("map params does not support on mq mqClient")
 }

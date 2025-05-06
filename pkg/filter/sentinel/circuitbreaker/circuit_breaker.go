@@ -104,7 +104,7 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }
 

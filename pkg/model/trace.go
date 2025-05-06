@@ -19,10 +19,10 @@ package model
 
 // TracerConfig inclueds detail information about the exporter
 type TracerConfig struct {
-	Name        string                 `yaml:"name" json:"name" mapstructure:"name"`
-	ServiceName string                 `yaml:"serviceName" json:"serviceName" mapstructure:"serviceName"`
-	Sampler     Sampler                `yaml:"sampler" json:"sampler" mapstructure:"sampler"`
-	Config      map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
+	Name        string         `yaml:"name" json:"name" mapstructure:"name"`
+	ServiceName string         `yaml:"serviceName" json:"serviceName" mapstructure:"serviceName"`
+	Sampler     Sampler        `yaml:"sampler" json:"sampler" mapstructure:"sampler"`
+	Config      map[string]any `yaml:"config" json:"config" mapstructure:"config"`
 }
 
 // Sampler policy

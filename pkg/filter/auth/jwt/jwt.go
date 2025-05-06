@@ -220,6 +220,6 @@ func checkToken(value, prefix, providerName string, provider Provider) bool {
 	return token.Valid
 }
 
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }

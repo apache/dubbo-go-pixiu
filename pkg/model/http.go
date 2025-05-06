@@ -57,14 +57,14 @@ type DubboProxyConnectionManagerConfig struct {
 
 // HTTPFilter http filter
 type HTTPFilter struct {
-	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
-	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
+	Name   string         `yaml:"name" json:"name" mapstructure:"name"`
+	Config map[string]any `yaml:"config" json:"config" mapstructure:"config"`
 }
 
 // DubboFilter dubbo filter
 type DubboFilter struct {
-	Name   string                 `yaml:"name" json:"name" mapstructure:"name"`
-	Config map[string]interface{} `yaml:"config" json:"config" mapstructure:"config"`
+	Name   string         `yaml:"name" json:"name" mapstructure:"name"`
+	Config map[string]any `yaml:"config" json:"config" mapstructure:"config"`
 }
 
 type RequestMethod int32
@@ -113,7 +113,7 @@ type HttpConfig struct {
 	MaxHeaderBytes  int    `json:"max_header_bytes,omitempty" yaml:"max_header_bytes,omitempty" mapstructure:"max_header_bytes"`
 }
 
-func MapInStruct(cfg interface{}) *HttpConfig {
+func MapInStruct(cfg any) *HttpConfig {
 	var hc HttpConfig
 	if cfg != nil {
 		if err := mapstructure.Decode(cfg, &hc); err != nil {

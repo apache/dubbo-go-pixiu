@@ -27,16 +27,16 @@ import (
 )
 
 type Log struct {
-	Level             string                 `json:"level" yaml:"level"`
-	Development       bool                   `json:"development" yaml:"development"`
-	DisableCaller     bool                   `json:"disableCaller" yaml:"disableCaller"`
-	DisableStacktrace bool                   `json:"disableStacktrace" yaml:"disableStacktrace"`
-	Sampling          SamplingConfig         `json:"sampling" yaml:"sampling"`
-	Encoding          string                 `json:"encoding" yaml:"encoding"`
-	EncoderConfig     EncoderConfig          `json:"encoderConfig" yaml:"encoderConfig"`
-	OutputPaths       []string               `json:"outputPaths" yaml:"outputPaths"`
-	ErrorOutputPaths  []string               `json:"errorOutputPaths" yaml:"errorOutputPaths"`
-	InitialFields     map[string]interface{} `json:"initialFields" yaml:"initialFields"`
+	Level             string         `json:"level" yaml:"level"`
+	Development       bool           `json:"development" yaml:"development"`
+	DisableCaller     bool           `json:"disableCaller" yaml:"disableCaller"`
+	DisableStacktrace bool           `json:"disableStacktrace" yaml:"disableStacktrace"`
+	Sampling          SamplingConfig `json:"sampling" yaml:"sampling"`
+	Encoding          string         `json:"encoding" yaml:"encoding"`
+	EncoderConfig     EncoderConfig  `json:"encoderConfig" yaml:"encoderConfig"`
+	OutputPaths       []string       `json:"outputPaths" yaml:"outputPaths"`
+	ErrorOutputPaths  []string       `json:"errorOutputPaths" yaml:"errorOutputPaths"`
+	InitialFields     map[string]any `json:"initialFields" yaml:"initialFields"`
 }
 
 func (l *Log) Build() *zap.Config {

@@ -35,7 +35,7 @@ import (
 // ParamMapper defines the interface about how to map the params in the inbound request.
 type ParamMapper interface {
 	// Map implements how the request parameters map to the target parameters described by config.MappingParam
-	Map(config.MappingParam, *Request, interface{}, RequestOption) error
+	Map(config.MappingParam, *Request, any, RequestOption) error
 }
 
 // ParseMapSource parses the source parameter config in the mappingParams
@@ -50,7 +50,7 @@ func ParseMapSource(source string) (from string, params []string, err error) {
 }
 
 // GetMapValue return the value from map base on the path
-func GetMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, error) {
+func GetMapValue(sourceMap map[string]any, keys []string) (any, error) {
 	if len(keys) > 0 && keys[0] == constant.DefaultBodyAll {
 		return sourceMap, nil
 	}
@@ -65,7 +65,7 @@ func GetMapValue(sourceMap map[string]interface{}, keys []string) (interface{}, 
 	if rvalue.Type().Kind() != reflect.Map && len(keys) == 1 {
 		return rvalue.Interface(), nil
 	}
-	deeperStruct, ok := sourceMap[keys[0]].(map[string]interface{})
+	deeperStruct, ok := sourceMap[keys[0]].(map[string]any)
 	if !ok {
 		return nil, errors.Errorf("%s is not a map structure. It contains %v", keys[0], sourceMap[keys[0]])
 	}

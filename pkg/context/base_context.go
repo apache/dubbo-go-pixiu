@@ -46,7 +46,7 @@ type (
 		GetClientIP() string
 		GetApplicationName() string
 
-		WriteErr(p interface{})
+		WriteErr(p any)
 
 		Request()
 		Response()

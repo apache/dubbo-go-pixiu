@@ -95,7 +95,7 @@ func (f *DemoFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, cha
 	return nil
 }
 
-func (f *DemoFilterFactory) Config() interface{} {
+func (f *DemoFilterFactory) Config() any {
 	return f.conf
 }
 
@@ -106,7 +106,7 @@ func (f *DemoFilterFactory) Apply() error {
 func TestApply(t *testing.T) {
 	fm := NewEmptyFilterManager()
 
-	conf := map[string]interface{}{}
+	conf := map[string]any{}
 	conf["foo"] = "Cat"
 	conf["bar"] = "The Walnut"
 	f, err := fm.Apply(DEMO, conf)
@@ -120,7 +120,7 @@ func TestApply(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	fm := NewEmptyFilterManager()
-	conf := map[string]interface{}{}
+	conf := map[string]any{}
 	conf["foo"] = "Cat"
 	conf["bar"] = "The Walnut"
 

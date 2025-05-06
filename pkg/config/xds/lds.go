@@ -188,7 +188,7 @@ func (l *LdsManager) makeFilters(filters []*xdsModel.NetworkFilter) []model.Netw
 	return result
 }
 
-func (l *LdsManager) makeConfig(filter *xdsModel.NetworkFilter) (m map[string]interface{}) {
+func (l *LdsManager) makeConfig(filter *xdsModel.NetworkFilter) (m map[string]any) {
 	switch cfg := filter.Config.(type) {
 	case *xdsModel.NetworkFilter_Yaml:
 		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {

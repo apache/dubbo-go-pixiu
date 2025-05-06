@@ -28,15 +28,15 @@ import (
 func TestValuesOpt(t *testing.T) {
 	opt := &valuesOpt{}
 	target := &dubboTarget{
-		Values: make([]interface{}, 3),
+		Values: make([]any, 3),
 		Types:  make([]string, 3),
 	}
-	vals := []interface{}{
+	vals := []any{
 		struct{ Name string }{"joe"},
 		"abc",
 		123,
 	}
-	err := opt.Action(target, [2]interface{}{
+	err := opt.Action(target, [2]any{
 		vals,
 		"object, string, int",
 	})
@@ -47,22 +47,22 @@ func TestValuesOpt(t *testing.T) {
 	assert.Equal(t, target.Types[1], "string")
 	assert.Equal(t, target.Types[2], "int")
 
-	err = opt.Action(target, []interface{}{
+	err = opt.Action(target, []any{
 		vals,
 		"object, string, int",
 	})
 	assert.NotNil(t, err)
 
 	target = &dubboTarget{
-		Values: make([]interface{}, 3),
+		Values: make([]any, 3),
 		Types:  make([]string, 3),
 	}
-	vals = []interface{}{
+	vals = []any{
 		struct{ Name string }{"joe"},
 		"abc",
 		123,
 	}
-	err = opt.Action(target, [2]interface{}{
+	err = opt.Action(target, [2]any{
 		vals,
 		"",
 	})
@@ -75,7 +75,7 @@ func TestValuesOpt(t *testing.T) {
 func TestParamTypesOptAction(t *testing.T) {
 	opt := &paramTypesOpt{}
 	target := &dubboTarget{
-		Values: make([]interface{}, 3),
+		Values: make([]any, 3),
 		Types:  make([]string, 3),
 	}
 	err := opt.Action(target, "object,string")

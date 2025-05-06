@@ -23,9 +23,9 @@ import (
 
 type (
 	ConfigClient interface {
-		LoadConfig(properties map[string]interface{}) (string, error)
+		LoadConfig(properties map[string]any) (string, error)
 
-		ListenConfig(properties map[string]interface{}) (err error)
+		ListenConfig(properties map[string]any) (err error)
 
 		// ViewConfig returns the current remote configuration.
 		ViewConfig() *model.Bootstrap

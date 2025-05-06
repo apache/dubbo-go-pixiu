@@ -68,13 +68,13 @@ func (p Plugin) Kind() string {
 }
 
 // CreateFilter return the filter callback
-func (p Plugin) CreateFilter(config interface{}) (filter.DubboFilter, error) {
+func (p Plugin) CreateFilter(config any) (filter.DubboFilter, error) {
 	cfg := config.(*Config)
 	return Filter{Config: cfg}, nil
 }
 
 // Config Expose the config so that Filter Manger can inject it, so it must be a pointer
-func (p Plugin) Config() interface{} {
+func (p Plugin) Config() any {
 	return &Config{}
 }
 
@@ -129,7 +129,7 @@ func (f Filter) sendDubboRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		ctx.SetError(errors.Errorf("can't connect to upstream server %s with address %s", endpoint.Name, endpoint.Address.GetAddress()))
 		return filter.Stop
 	}
-	var resp interface{}
+	var resp any
 	invoc.SetReply(&resp)
 
 	invCtx := context.Background()
@@ -178,7 +178,7 @@ func (f Filter) sendTripleRequest(ctx *dubbo2.RpcContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	var resp interface{}
+	var resp any
 	invoc.SetReply(&resp)
 	invCtx := context.Background()
 	result := invoker.Invoke(invCtx, invoc)

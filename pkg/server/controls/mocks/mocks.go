@@ -60,7 +60,7 @@ func (m *MockClusterManager) AddCluster(cluster *model.ClusterConfig) {
 }
 
 // AddCluster indicates an expected call of AddCluster.
-func (mr *MockClusterManagerMockRecorder) AddCluster(cluster interface{}) *gomock.Call {
+func (mr *MockClusterManagerMockRecorder) AddCluster(cluster any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCluster", reflect.TypeOf((*MockClusterManager)(nil).AddCluster), cluster)
 }
@@ -89,7 +89,7 @@ func (m *MockClusterManager) HasCluster(name string) bool {
 }
 
 // HasCluster indicates an expected call of HasCluster.
-func (mr *MockClusterManagerMockRecorder) HasCluster(name interface{}) *gomock.Call {
+func (mr *MockClusterManagerMockRecorder) HasCluster(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasCluster", reflect.TypeOf((*MockClusterManager)(nil).HasCluster), name)
 }
@@ -101,7 +101,7 @@ func (m *MockClusterManager) RemoveCluster(names []string) {
 }
 
 // RemoveCluster indicates an expected call of RemoveCluster.
-func (mr *MockClusterManagerMockRecorder) RemoveCluster(names interface{}) *gomock.Call {
+func (mr *MockClusterManagerMockRecorder) RemoveCluster(names any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCluster", reflect.TypeOf((*MockClusterManager)(nil).RemoveCluster), names)
 }
@@ -113,7 +113,7 @@ func (m *MockClusterManager) UpdateCluster(cluster *model.ClusterConfig) {
 }
 
 // UpdateCluster indicates an expected call of UpdateCluster.
-func (mr *MockClusterManagerMockRecorder) UpdateCluster(cluster interface{}) *gomock.Call {
+func (mr *MockClusterManagerMockRecorder) UpdateCluster(cluster any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCluster", reflect.TypeOf((*MockClusterManager)(nil).UpdateCluster), cluster)
 }
@@ -150,7 +150,7 @@ func (m_2 *MockListenerManager) AddListener(m *model.Listener) error {
 }
 
 // AddOrUpdateListener indicates an expected call of AddOrUpdateListener.
-func (mr *MockListenerManagerMockRecorder) AddOrUpdateListener(m interface{}) *gomock.Call {
+func (mr *MockListenerManagerMockRecorder) AddOrUpdateListener(m any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddListener", reflect.TypeOf((*MockListenerManager)(nil).AddListener), m)
 }
@@ -162,7 +162,7 @@ func (m *MockListenerManager) RemoveListener(names []string) {
 }
 
 // RemoveListener indicates an expected call of RemoveListener.
-func (mr *MockListenerManagerMockRecorder) RemoveListener(names interface{}) *gomock.Call {
+func (mr *MockListenerManagerMockRecorder) RemoveListener(names any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveListener", reflect.TypeOf((*MockListenerManager)(nil).RemoveListener), names)
 }
@@ -278,7 +278,7 @@ func (m *MockClusterStore) HasCluster(name string) bool {
 }
 
 // HasCluster indicates an expected call of HasCluster.
-func (mr *MockClusterStoreMockRecorder) HasCluster(name interface{}) *gomock.Call {
+func (mr *MockClusterStoreMockRecorder) HasCluster(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasCluster", reflect.TypeOf((*MockClusterStore)(nil).HasCluster), name)
 }

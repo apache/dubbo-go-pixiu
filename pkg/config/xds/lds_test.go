@@ -48,26 +48,26 @@ http_filters:
   - name: dgp.filter.http.response
     config:
 `
-	configMap := map[string]interface{}{
-		"route_config": map[string]interface{}{
-			"routes": []interface{}{
-				map[string]interface{}{
-					"match": map[string]interface{}{
+	configMap := map[string]any{
+		"route_config": map[string]any{
+			"routes": []any{
+				map[string]any{
+					"match": map[string]any{
 						"prefix": "/",
 					},
-					"route": map[string]interface{}{
+					"route": map[string]any{
 						"cluster":                         "http_bin",
 						"cluster_not_found_response_code": "505",
 					},
 				},
 			},
 		},
-		"http_filters": []interface{}{
-			map[string]interface{}{
+		"http_filters": []any{
+			map[string]any{
 				"name":   "dgp.filter.http.httpproxy",
 				"config": nil,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"name":   "dgp.filter.http.response",
 				"config": nil,
 			},
@@ -75,26 +75,26 @@ http_filters:
 	}
 	httpManagerConfigStruct, _ := structpb2.NewStruct(configMap)
 
-	oneConfigMap := map[string]interface{}{
-		"route_config": map[interface{}]interface{}{
-			"routes": []interface{}{
-				map[interface{}]interface{}{
-					"match": map[interface{}]interface{}{
+	oneConfigMap := map[string]any{
+		"route_config": map[any]any{
+			"routes": []any{
+				map[any]any{
+					"match": map[any]any{
 						"prefix": "/",
 					},
-					"route": map[interface{}]interface{}{
+					"route": map[any]any{
 						"cluster":                         "http_bin",
 						"cluster_not_found_response_code": "505",
 					},
 				},
 			},
 		},
-		"http_filters": []interface{}{
-			map[interface{}]interface{}{
+		"http_filters": []any{
+			map[any]any{
 				"name":   "dgp.filter.http.httpproxy",
 				"config": nil,
 			},
-			map[interface{}]interface{}{
+			map[any]any{
 				"name":   "dgp.filter.http.response",
 				"config": nil,
 			},
@@ -107,7 +107,7 @@ http_filters:
 	tests := []struct {
 		name  string
 		args  args
-		wantM map[string]interface{}
+		wantM map[string]any
 	}{
 		{
 			name: "yaml",

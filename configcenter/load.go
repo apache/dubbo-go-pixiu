@@ -34,7 +34,7 @@ const (
 	KEY_CONFIG_TYPE_NACOS = "nacos"
 )
 
-var Parsers = map[string]func(data []byte, v interface{}) error{
+var Parsers = map[string]func(data []byte, v any) error{
 	".yaml": ParseYamlBytes,
 	".yml":  ParseYamlBytes,
 }
@@ -93,7 +93,7 @@ func (d *DefaultConfigLoad) LoadConfigs(boot *model.Bootstrap, opts ...Option) (
 		return nil, nil
 	}
 
-	m := map[string]interface{}{}
+	m := map[string]any{}
 
 	if strings.EqualFold(boot.Config.Type, KEY_CONFIG_TYPE_NACOS) {
 		m["dataId"] = getOrDefault(opt.DataId, DataId)
@@ -133,6 +133,6 @@ func (d *DefaultConfigLoad) ViewRemoteConfig() *model.Bootstrap {
 	return d.configClient.ViewConfig()
 }
 
-func ParseYamlBytes(content []byte, v interface{}) error {
+func ParseYamlBytes(content []byte, v any) error {
 	return yaml.Unmarshal(content, v)
 }

@@ -222,12 +222,12 @@ func (asl *applicationServiceListener) getUrls(path string) []*dubboCommon.URL {
 
 // toZookeeperInstance convert to registry's service instance
 func toZookeeperInstance(cris *curator_discovery.ServiceInstance) dr.ServiceInstance {
-	pl, ok := cris.Payload.(map[string]interface{})
+	pl, ok := cris.Payload.(map[string]any)
 	if !ok {
 		logger.Errorf("toZookeeperInstance{%s} payload is not map[string]interface{}", cris.ID)
 		return nil
 	}
-	mdi, ok := pl["metadata"].(map[string]interface{})
+	mdi, ok := pl["metadata"].(map[string]any)
 	if !ok {
 		logger.Errorf("toZookeeperInstance{%s} metadata is not map[string]interface{}", cris.ID)
 		return nil

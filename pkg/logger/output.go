@@ -17,34 +17,34 @@
 
 package logger
 
-func Info(args ...interface{}) {
+func Info(args ...any) {
 	control.info(args...)
 }
 
-func Warn(args ...interface{}) {
+func Warn(args ...any) {
 	control.warn(args...)
 }
 
-func Error(args ...interface{}) {
+func Error(args ...any) {
 	control.error(args...)
 }
 
-func Debug(args ...interface{}) {
+func Debug(args ...any) {
 	control.debug(args...)
 }
 
-func Infof(fmt string, args ...interface{}) {
+func Infof(fmt string, args ...any) {
 	control.infof(fmt, args...)
 }
 
-func Warnf(fmt string, args ...interface{}) {
+func Warnf(fmt string, args ...any) {
 	control.warnf(fmt, args...)
 }
 
-func Errorf(fmt string, args ...interface{}) {
+func Errorf(fmt string, args ...any) {
 	control.errorf(fmt, args...)
 }
 
-func Debugf(fmt string, args ...interface{}) {
+func Debugf(fmt string, args ...any) {
 	control.debugf(fmt, args...)
 }

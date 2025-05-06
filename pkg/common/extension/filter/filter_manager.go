@@ -96,7 +96,7 @@ func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 }
 
 // Apply return a new filter factory by name & conf
-func (fm *FilterManager) Apply(name string, conf map[string]interface{}) (HttpFilterFactory, error) {
+func (fm *FilterManager) Apply(name string, conf map[string]any) (HttpFilterFactory, error) {
 	plugin, err := GetHttpFilterPlugin(name)
 	if err != nil {
 		return nil, errors.New("filter not found")

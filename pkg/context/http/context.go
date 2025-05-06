@@ -49,7 +49,7 @@ type HttpContext struct {
 	Filters FilterChain
 	Timeout time.Duration
 	Ctx     context.Context
-	Params  map[string]interface{}
+	Params  map[string]any
 
 	// localReply Means that the request was interrupted,
 	// which may occur in the Decode or Encode stage
@@ -61,7 +61,7 @@ type HttpContext struct {
 	// the response context will return.
 	TargetResp client.Response
 	// client call response.
-	SourceResp interface{}
+	SourceResp any
 
 	HttpConnectionManager model.HttpConnectionManagerConfig
 	Route                 *model.RouteAction

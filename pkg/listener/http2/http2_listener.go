@@ -134,7 +134,7 @@ func (ls *Http2ListenerService) Close() error {
 	return ls.server.Close()
 }
 
-func (ls *Http2ListenerService) ShutDown(wg interface{}) error {
+func (ls *Http2ListenerService) ShutDown(wg any) error {
 	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
 	if timeout <= 0 {
 		return nil

@@ -30,19 +30,19 @@ func GetWrappedLogger() loggerWrapper {
 	return loggerWrapper{}
 }
 
-func (l loggerWrapper) Debug(msg string, keysAndValues ...interface{}) {
+func (l loggerWrapper) Debug(msg string, keysAndValues ...any) {
 	logger.Debugf(msg, keysAndValues...)
 }
 
-func (l loggerWrapper) Info(msg string, keysAndValues ...interface{}) {
+func (l loggerWrapper) Info(msg string, keysAndValues ...any) {
 	logger.Infof(msg, keysAndValues...)
 }
 
-func (l loggerWrapper) Warn(msg string, keysAndValues ...interface{}) {
+func (l loggerWrapper) Warn(msg string, keysAndValues ...any) {
 	logger.Warnf(msg, keysAndValues...)
 }
 
-func (l loggerWrapper) Error(err error, msg string, keysAndValues ...interface{}) {
+func (l loggerWrapper) Error(err error, msg string, keysAndValues ...any) {
 	logger.Warnf(msg, err, keysAndValues)
 }
 

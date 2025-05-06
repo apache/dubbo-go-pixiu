@@ -237,7 +237,7 @@ func (rt *Route) DeleteAPI(fullPath string, httpverb config.HTTPVerb) bool {
 }
 
 func (rt *Route) getNode(fullPath string) (*Node, bool) {
-	var n interface{}
+	var n any
 	var found bool
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
@@ -254,7 +254,7 @@ func (rt *Route) getNode(fullPath string) (*Node, bool) {
 }
 
 func (rt *Route) matchNode(fullPath string) (*Node, bool) {
-	var n interface{}
+	var n any
 	var found bool
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()

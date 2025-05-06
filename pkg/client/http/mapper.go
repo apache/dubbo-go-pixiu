@@ -64,7 +64,7 @@ func newRequestParams() *requestParams {
 type queryStringsMapper struct{}
 
 // nolint
-func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
+func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawTarget any, option client.RequestOption) error {
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawT
 type headerMapper struct{}
 
 // nolint
-func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
+func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget any, option client.RequestOption) error {
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (hm headerMapper) Map(mp config.MappingParam, c *client.Request, rawTarget 
 type bodyMapper struct{}
 
 // nolint
-func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
+func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget any, option client.RequestOption) error {
 	// TO-DO: add support for content-type other than application/json
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
@@ -115,7 +115,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget in
 	if err != nil {
 		return err
 	}
-	mapBody := map[string]interface{}{}
+	mapBody := map[string]any{}
 	json.Unmarshal(rawBody, &mapBody)
 	val, err := client.GetMapValue(mapBody, fromKey)
 	if err != nil {
@@ -128,7 +128,7 @@ func (bm bodyMapper) Map(mp config.MappingParam, c *client.Request, rawTarget in
 type uriMapper struct{}
 
 // nolint
-func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget interface{}, option client.RequestOption) error {
+func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget any, option client.RequestOption) error {
 	target, fromKey, to, toKey, err := mapPrepare(mp, rawTarget)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, rawTarget int
 	return nil
 }
 
-func validateTarget(target interface{}) (*requestParams, error) {
+func validateTarget(target any) (*requestParams, error) {
 	val, ok := target.(*requestParams)
 	if !ok || val == nil {
 		return nil, errors.New("Target params must be a requestParams pointer")
@@ -151,7 +151,7 @@ func validateTarget(target interface{}) (*requestParams, error) {
 	return val, nil
 }
 
-func setTarget(target *requestParams, to string, key string, val interface{}) error {
+func setTarget(target *requestParams, to string, key string, val any) error {
 	valType := reflect.TypeOf(val)
 	if (to == constant.Headers || to == constant.QueryStrings) && valType.Kind() != reflect.String {
 		return errors.Errorf("%s only accepts string", to)
@@ -171,7 +171,7 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 		if err != nil {
 			return errors.New("Raw body read failed")
 		}
-		mapBody := map[string]interface{}{}
+		mapBody := map[string]any{}
 		if len(rawBody) != 0 {
 			err = json.Unmarshal(rawBody, &mapBody)
 			if err != nil {
@@ -192,7 +192,7 @@ func setTarget(target *requestParams, to string, key string, val interface{}) er
 // setMapWithPath set the value to the target map. If the origin targetMap has
 // {"abc": "cde": {"f":1, "g":2}} and the path is abc, value is "123", then the
 // targetMap will be updated to {"abc", "123"}
-func setMapWithPath(targetMap map[string]interface{}, path string, val interface{}) map[string]interface{} {
+func setMapWithPath(targetMap map[string]any, path string, val any) map[string]any {
 	keys := strings.Split(path, constant.Dot)
 
 	_, ok := targetMap[keys[0]]
@@ -201,13 +201,13 @@ func setMapWithPath(targetMap map[string]interface{}, path string, val interface
 		return targetMap
 	}
 	if !ok && len(keys) != 1 {
-		targetMap[keys[0]] = make(map[string]interface{})
-		targetMap[keys[0]] = setMapWithPath(targetMap[keys[0]].(map[string]interface{}), strings.Join(keys[1:], constant.Dot), val)
+		targetMap[keys[0]] = make(map[string]any)
+		targetMap[keys[0]] = setMapWithPath(targetMap[keys[0]].(map[string]any), strings.Join(keys[1:], constant.Dot), val)
 	}
 	return targetMap
 }
 
-func mapPrepare(mp config.MappingParam, rawTarget interface{}) (target *requestParams, fromKey []string, to string, toKey []string, err error) {
+func mapPrepare(mp config.MappingParam, rawTarget any) (target *requestParams, fromKey []string, to string, toKey []string, err error) {
 	// ensure the target is a pointer and type is requestParams
 	target, err = validateTarget(rawTarget)
 	if err != nil {

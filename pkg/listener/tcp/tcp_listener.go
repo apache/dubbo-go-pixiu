@@ -77,7 +77,7 @@ func (ls *TcpListenerService) Close() error {
 	return nil
 }
 
-func (ls *TcpListenerService) ShutDown(wg interface{}) error {
+func (ls *TcpListenerService) ShutDown(wg any) error {
 	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
 	if timeout <= 0 {
 		return nil

@@ -49,9 +49,9 @@ func TestParseMapSource(t *testing.T) {
 }
 
 func TestGetMapValue(t *testing.T) {
-	testMap := map[string]interface{}{
+	testMap := map[string]any{
 		"Test": "test",
-		"structure": map[string]interface{}{
+		"structure": map[string]any{
 			"name": "joe",
 			"age":  77,
 		},
@@ -68,11 +68,11 @@ func TestGetMapValue(t *testing.T) {
 	val, err = GetMapValue(testMap, []string{"structure", "name"})
 	assert.Nil(t, err)
 	assert.Equal(t, val, "joe")
-	val, err = GetMapValue(map[string]interface{}{}, []string{"structure"})
+	val, err = GetMapValue(map[string]any{}, []string{"structure"})
 	assert.Nil(t, val)
 	assert.EqualError(t, err, "structure does not exist in request body")
 
-	val, err = GetMapValue(map[string]interface{}{"structure": "test"}, []string{"structure", "name"})
+	val, err = GetMapValue(map[string]any{"structure": "test"}, []string{"structure", "name"})
 	assert.Nil(t, val)
 	assert.EqualError(t, err, "structure is not a map structure. It contains test")
 }

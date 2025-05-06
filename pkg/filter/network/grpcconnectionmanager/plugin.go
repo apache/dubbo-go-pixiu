@@ -43,13 +43,13 @@ func (p *Plugin) Kind() string {
 }
 
 // CreateFilter create grpc network filter
-func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
+func (p *Plugin) CreateFilter(config any) (filter.NetworkFilter, error) {
 	hcmc := config.(*model.GRPCConnectionManagerConfig)
 	hcmc.Timeout = stringutil.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return grpc.CreateGrpcConnectionManager(hcmc), nil
 }
 
 // Config return GRPCConnectionManagerConfig
-func (p *Plugin) Config() interface{} {
+func (p *Plugin) Config() any {
 	return &model.GRPCConnectionManagerConfig{}
 }

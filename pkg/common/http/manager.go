@@ -54,7 +54,7 @@ type HttpConnectionManager struct {
 // CreateHttpConnectionManager create http connection manager
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpConnectionManager {
 	hcm := &HttpConnectionManager{config: hcmc}
-	hcm.pool.New = func() interface{} {
+	hcm.pool.New = func() any {
 		return hcm.allocateContext()
 	}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
@@ -65,7 +65,7 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpC
 
 func (hcm *HttpConnectionManager) allocateContext() *pch.HttpContext {
 	return &pch.HttpContext{
-		Params: make(map[string]interface{}),
+		Params: make(map[string]any),
 	}
 }
 

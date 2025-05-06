@@ -56,49 +56,49 @@ func (c *logController) updateLogger(l *logger) {
 	c.logger = l
 }
 
-func (c *logController) debug(args ...interface{}) {
+func (c *logController) debug(args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Debug(args...)
 }
 
-func (c *logController) info(args ...interface{}) {
+func (c *logController) info(args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Info(args...)
 }
 
-func (c *logController) warn(args ...interface{}) {
+func (c *logController) warn(args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Warn(args...)
 }
 
-func (c *logController) error(args ...interface{}) {
+func (c *logController) error(args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Error(args...)
 }
 
-func (c *logController) debugf(fmt string, args ...interface{}) {
+func (c *logController) debugf(fmt string, args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Debugf(fmt, args...)
 }
 
-func (c *logController) infof(fmt string, args ...interface{}) {
+func (c *logController) infof(fmt string, args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Infof(fmt, args...)
 }
 
-func (c *logController) warnf(fmt string, args ...interface{}) {
+func (c *logController) warnf(fmt string, args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Warnf(fmt, args...)
 }
 
-func (c *logController) errorf(fmt string, args ...interface{}) {
+func (c *logController) errorf(fmt string, args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Errorf(fmt, args...)

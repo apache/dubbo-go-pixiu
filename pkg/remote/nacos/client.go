@@ -58,7 +58,7 @@ func (client *NacosClient) Unsubscribe(param *vo.SubscribeParam) error {
 }
 
 func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {
-	configMap := make(map[string]interface{}, 2)
+	configMap := make(map[string]any, 2)
 	addresses := strings.Split(config.Address, ",")
 	serverConfigs := make([]constant.ServerConfig, 0, len(addresses))
 	for _, addr := range addresses {

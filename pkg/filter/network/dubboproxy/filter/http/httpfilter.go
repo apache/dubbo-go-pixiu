@@ -69,13 +69,13 @@ func (p Plugin) Kind() string {
 }
 
 // CreateFilter return the filter
-func (p Plugin) CreateFilter(config interface{}) (filter.DubboFilter, error) {
+func (p Plugin) CreateFilter(config any) (filter.DubboFilter, error) {
 	cfg := config.(*Config)
 	return Filter{Config: cfg}, nil
 }
 
 // Config Expose the config so that Filter Manger can inject it, so it must be a pointer
-func (p Plugin) Config() interface{} {
+func (p Plugin) Config() any {
 	return &Config{}
 }
 

@@ -39,7 +39,7 @@ type (
 		// Close the listener service forcefully
 		Close() error
 		// ShutDown gracefully shuts down the listener.
-		ShutDown(interface{}) error
+		ShutDown(any) error
 		// Refresh config
 		Refresh(model.Listener) error
 	}

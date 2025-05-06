@@ -68,7 +68,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	c.Request.Host = f.cfg.Host
 	return filter.Continue
 }
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }
 

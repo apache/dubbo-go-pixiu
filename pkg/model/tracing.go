@@ -26,6 +26,6 @@ type Tracing struct {
 
 // Tracing
 type Http struct {
-	Name   string      `yaml:"name"`
-	Config interface{} `yaml:"config"`
+	Name   string `yaml:"name"`
+	Config any    `yaml:"config"`
 }

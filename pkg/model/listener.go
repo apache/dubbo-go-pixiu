@@ -69,6 +69,6 @@ type (
 		ProtocolStr string       `default:"http" yaml:"protocol_type" json:"protocol_type" mapstructure:"protocol_type"`
 		Protocol    ProtocolType `default:"http" yaml:"omitempty" json:"omitempty"`
 		FilterChain FilterChain  `yaml:"filter_chains" json:"filter_chains" mapstructure:"filter_chains"`
-		Config      interface{}  `yaml:"config" json:"config" mapstructure:"config"`
+		Config      any          `yaml:"config" json:"config" mapstructure:"config"`
 	}
 )

@@ -99,7 +99,7 @@ func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
 }
 
 // Config return config of filter
-func (factory *FilterFactory) Config() interface{} {
+func (factory *FilterFactory) Config() any {
 	return factory.conf
 }
 
@@ -152,7 +152,7 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 
 // nolint
 // converter interface to byte array
-func getBytes(key interface{}) ([]byte, error) {
+func getBytes(key any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(key)

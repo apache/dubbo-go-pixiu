@@ -108,7 +108,7 @@ func getNacosConfigClient(boot *model.Bootstrap) (config_client.IConfigClient, e
 }
 
 // LoadConfig retrieves the configuration from Nacos based on the provided parameters.
-func (n *NacosConfig) LoadConfig(param map[string]interface{}) (string, error) {
+func (n *NacosConfig) LoadConfig(param map[string]any) (string, error) {
 	return n.client.GetConfig(vo.ConfigParam{
 		DataId: getOrDefault(param[KeyDataId].(string), DataId),
 		Group:  getOrDefault(param[KeyGroup].(string), Group),
@@ -124,7 +124,7 @@ func getOrDefault(target, fallback string) string {
 }
 
 // ListenConfig listens for configuration changes in Nacos.
-func (n *NacosConfig) ListenConfig(param map[string]interface{}) error {
+func (n *NacosConfig) ListenConfig(param map[string]any) error {
 	return n.client.ListenConfig(vo.ConfigParam{
 		DataId:   getOrDefault(param[KeyDataId].(string), DataId),
 		Group:    getOrDefault(param[KeyGroup].(string), Group),

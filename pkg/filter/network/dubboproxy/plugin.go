@@ -43,7 +43,7 @@ func (p *Plugin) Kind() string {
 }
 
 // CreateFilter create dubbo networkfilter
-func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) {
+func (p *Plugin) CreateFilter(config any) (filter.NetworkFilter, error) {
 	hcmc, ok := config.(*model.DubboProxyConnectionManagerConfig)
 	hcmc.Timeout = stringutil.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	if !ok {
@@ -53,6 +53,6 @@ func (p *Plugin) CreateFilter(config interface{}) (filter.NetworkFilter, error) 
 }
 
 // Config return DubboProxyConnectionManagerConfig
-func (p *Plugin) Config() interface{} {
+func (p *Plugin) Config() any {
 	return &model.DubboProxyConnectionManagerConfig{}
 }

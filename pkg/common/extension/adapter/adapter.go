@@ -48,7 +48,7 @@ type (
 		// Apply init
 		Apply() error
 		// Config get config for Adapter
-		Config() interface{}
+		Config() any
 	}
 )
 

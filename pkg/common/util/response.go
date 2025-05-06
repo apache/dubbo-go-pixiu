@@ -28,25 +28,25 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 )
 
-func NewDubboResponse(data interface{}, hump bool) *client.UnaryResponse {
+func NewDubboResponse(data any, hump bool) *client.UnaryResponse {
 	r, _ := dealResp(data, hump)
 	bytes, _ := json.Marshal(r)
 	return &client.UnaryResponse{Data: bytes}
 }
 
-func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
+func dealResp(in any, HumpToLine bool) (any, error) {
 	if in == nil {
 		return in, nil
 	}
 	switch reflect.TypeOf(in).Kind() {
 	case reflect.Map:
-		if _, ok := in.(map[interface{}]interface{}); ok {
+		if _, ok := in.(map[any]any); ok {
 			m := mapIItoMapSI(in)
 			if HumpToLine {
 				m = humpToLine(m)
 			}
 			return m, nil
-		} else if inm, ok := in.(map[string]interface{}); ok {
+		} else if inm, ok := in.(map[string]any); ok {
 			if HumpToLine {
 				m := humpToLine(in)
 				return m, nil
@@ -59,7 +59,7 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 			return data, nil
 		}
 		value := reflect.ValueOf(in)
-		newTemps := make([]interface{}, 0, value.Len())
+		newTemps := make([]any, 0, value.Len())
 		for i := 0; i < value.Len(); i++ {
 			if value.Index(i).CanInterface() {
 				newTemp, e := dealResp(value.Index(i).Interface(), HumpToLine)
@@ -78,14 +78,14 @@ func dealResp(in interface{}, HumpToLine bool) (interface{}, error) {
 	return in, nil
 }
 
-func mapIItoMapSI(in interface{}) interface{} {
-	var inMap map[interface{}]interface{}
-	if v, ok := in.(map[interface{}]interface{}); !ok {
+func mapIItoMapSI(in any) any {
+	var inMap map[any]any
+	if v, ok := in.(map[any]any); !ok {
 		return in
 	} else {
 		inMap = v
 	}
-	outMap := make(map[string]interface{}, len(inMap))
+	outMap := make(map[string]any, len(inMap))
 
 	for k, v := range inMap {
 		if v == nil {
@@ -99,12 +99,12 @@ func mapIItoMapSI(in interface{}) interface{} {
 		vt := reflect.TypeOf(v)
 		switch vt.Kind() {
 		case reflect.Map:
-			if _, ok := v.(map[interface{}]interface{}); ok {
+			if _, ok := v.(map[any]any); ok {
 				v = mapIItoMapSI(v)
 			}
 		case reflect.Slice:
 			vl := reflect.ValueOf(v)
-			os := make([]interface{}, 0, vl.Len())
+			os := make([]any, 0, vl.Len())
 			for i := 0; i < vl.Len(); i++ {
 				if vl.Index(i).CanInterface() {
 					osv := mapIItoMapSI(vl.Index(i).Interface())
@@ -120,15 +120,15 @@ func mapIItoMapSI(in interface{}) interface{} {
 }
 
 // traverse all the keys in the map and change the hump to underline
-func humpToLine(in interface{}) interface{} {
-	var m map[string]interface{}
-	if v, ok := in.(map[string]interface{}); ok {
+func humpToLine(in any) any {
+	var m map[string]any
+	if v, ok := in.(map[string]any); ok {
 		m = v
 	} else {
 		return in
 	}
 
-	out := make(map[string]interface{}, len(m))
+	out := make(map[string]any, len(m))
 	for k1, v1 := range m {
 		x := humpToUnderline(k1)
 
@@ -138,7 +138,7 @@ func humpToLine(in interface{}) interface{} {
 			out[x] = humpToLine(struct2Map(v1))
 		} else if reflect.TypeOf(v1).Kind() == reflect.Slice {
 			value := reflect.ValueOf(v1)
-			newTemps := make([]interface{}, 0, value.Len())
+			newTemps := make([]any, 0, value.Len())
 			for i := 0; i < value.Len(); i++ {
 				newTemp := humpToLine(value.Index(i).Interface())
 				newTemps = append(newTemps, newTemp)
@@ -170,11 +170,11 @@ func humpToUnderline(s string) string {
 	return strings.ToLower(string(data[:]))
 }
 
-func struct2Map(obj interface{}) map[string]interface{} {
+func struct2Map(obj any) map[string]any {
 	t := reflect.TypeOf(obj)
 	v := reflect.ValueOf(obj)
 
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	for i := 0; i < t.NumField(); i++ {
 		data[t.Field(i).Name] = v.Field(i).Interface()
 	}

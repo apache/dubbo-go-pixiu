@@ -55,7 +55,7 @@ var DefaultMapOption = client.MapOption{
 type groupOpt struct{}
 
 // nolint
-func (opt *groupOpt) Action(target, val interface{}) error {
+func (opt *groupOpt) Action(target, val any) error {
 	v, ok := val.(string)
 	if !ok {
 		return errors.New("Group value is not string")
@@ -71,7 +71,7 @@ func (opt *groupOpt) Action(target, val interface{}) error {
 type versionOpt struct{}
 
 // nolint
-func (opt *versionOpt) Action(target, val interface{}) error {
+func (opt *versionOpt) Action(target, val any) error {
 	v, ok := val.(string)
 	if !ok {
 		return errors.New("Version value is not string")
@@ -87,7 +87,7 @@ func (opt *versionOpt) Action(target, val interface{}) error {
 type methodOpt struct{}
 
 // nolint
-func (opt *methodOpt) Action(target, val interface{}) error {
+func (opt *methodOpt) Action(target, val any) error {
 	v, ok := val.(string)
 	if !ok {
 		return errors.New("Method value is not string")
@@ -103,7 +103,7 @@ func (opt *methodOpt) Action(target, val interface{}) error {
 type applicationOpt struct{}
 
 // nolint
-func (opt *applicationOpt) Action(target, val interface{}) error {
+func (opt *applicationOpt) Action(target, val any) error {
 	v, ok := val.(string)
 	if !ok {
 		return errors.New("Application value is not string")
@@ -119,7 +119,7 @@ func (opt *applicationOpt) Action(target, val interface{}) error {
 type interfaceOpt struct{}
 
 // nolint
-func (opt *interfaceOpt) Action(target, val interface{}) error {
+func (opt *interfaceOpt) Action(target, val any) error {
 	v, ok := val.(string)
 	if !ok {
 		return errors.New("Interface value is not string")
@@ -138,25 +138,25 @@ type valuesOpt struct{}
 // parameter values to dubbo generic call. the second element is string, which is the types
 // for the generic call, it could be empty or types sep from ','. If empty, it should retrieve types from
 // another generic option - types.
-func (opt *valuesOpt) Action(target, val interface{}) error {
+func (opt *valuesOpt) Action(target, val any) error {
 	dubboTarget, ok := target.(*dubboTarget)
 	if !ok {
 		return errors.New("Target is not dubboTarget in value options")
 	}
-	v, ok := val.([2]interface{})
+	v, ok := val.([2]any)
 	if !ok {
 		return errors.New("The value must be [2]interface{}")
 	}
-	var toVals []interface{}
+	var toVals []any
 	toTypes := []string{}
 
 	if t, tok := v[1].(string); tok && len(t) != 0 {
 		toTypes = strings.Split(t, ",")
 	}
-	if val, vok := v[0].([]interface{}); vok {
+	if val, vok := v[0].([]any); vok {
 		toVals = val
 	} else if val, ok := v[0].(string); !ok || val != "" {
-		toVals = []interface{}{v[0]}
+		toVals = []any{v[0]}
 	}
 	if !(len(toTypes) != 0 && len(toTypes) == len(toVals)) {
 		dubboTarget.Types = toTypes
@@ -185,7 +185,7 @@ type paramTypesOpt struct{}
 
 // Action for paramTypesOpt override the other param types mapping/config.
 // The val must be string(e.g. "int, object"), and will then assign to the target.(dubboTarget).Types
-func (opt *paramTypesOpt) Action(target, val interface{}) error {
+func (opt *paramTypesOpt) Action(target, val any) error {
 	dubboTarget, ok := target.(*dubboTarget)
 	if !ok {
 		return errors.New("Target is not dubboTarget in target parameter")

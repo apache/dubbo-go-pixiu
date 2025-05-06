@@ -94,7 +94,7 @@ jobs:
           fi
       - name: Go Fmt
         run: |
-          go fmt ./... && git status && [[ -z `git status -s` ]]
+          go fmt ./... && gofmt -s && git status && [[ -z `git status -s` ]]
           # diff -u <(echo -n) <(gofmt -d -s .)
 
   lint:
