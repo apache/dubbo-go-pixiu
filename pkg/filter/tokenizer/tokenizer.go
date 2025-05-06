@@ -101,13 +101,18 @@ func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 
 func (f *Filter) processStreamResponse(stream io.Reader) {
 	scanner := bufio.NewScanner(stream)
+	currentLine := make([]byte, 0, 1024)
 	for scanner.Scan() {
 		line := scanner.Text()
+		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "data:") {
+			f.processUsageData(currentLine)
+			currentLine = make([]byte, 0, 1024)
 			line = strings.TrimPrefix(line, "data:")
-			f.processUsageData([]byte(line))
 		}
+		currentLine = append(currentLine, line...)
 	}
+	f.processUsageData(currentLine)
 	if err := scanner.Err(); err != nil && err != io.EOF {
 		logger.Errorf(LoggerFmt+"Error reading stream: %v", err)
 	}
