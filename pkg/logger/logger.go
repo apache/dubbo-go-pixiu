@@ -55,7 +55,7 @@ func init() {
 	// only use in test case, so just load default config
 	if control == nil {
 		control = new(logController)
-		//InitLogger(nil)
+		InitLogger(nil)
 	}
 }
 

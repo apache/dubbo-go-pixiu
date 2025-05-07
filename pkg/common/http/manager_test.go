@@ -173,8 +173,8 @@ func TestStreamingResponse(t *testing.T) {
 
 	// mock server
 	upstreamServer, _ := NewTestServerWithURL("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueTextEventStream)
+		w.Header().Set(constant.HeaderKeyCacheControl, constant.HeaderValueNoCache)
 		flusher := w.(http.Flusher)
 
 		for i := 1; i <= 3; i++ {
@@ -319,10 +319,10 @@ func (r *StreamHTTPRecorder) Flush() {
 func TestStreamableHTTPResponse(t *testing.T) {
 	// define the type of content you want to test
 	contentTypes := []string{
-		"text/plain",
-		"application/json",
-		"application/octet-stream",
-		"application/x-ndjson",
+		constant.HeaderValueTextPlain,
+		constant.HeaderValueApplicationJson,
+		constant.HeaderValueApplicationOctetStream,
+		constant.HeaderValueApplicationNDJson,
 	}
 
 	for _, contentType := range contentTypes {
@@ -356,7 +356,7 @@ func testStreamableResponse(t *testing.T, contentType string) {
 
 	// mock server
 	upstreamServer, _ := NewTestServerWithURL("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", contentType)
+		w.Header().Set(constant.HeaderKeyContextType, contentType)
 		flusher := w.(http.Flusher)
 
 		// Generate appropriate test data based on content type
@@ -369,11 +369,11 @@ func testStreamableResponse(t *testing.T, contentType string) {
 				time.Sleep(10 * time.Millisecond)
 
 				switch contentType {
-				case "application/json":
+				case constant.HeaderValueApplicationJson:
 					data = []byte(fmt.Sprintf(`{"id": %d, "message": "test chunk %d"}\n`, i, i))
-				case "application/x-ndjson":
+				case constant.HeaderValueApplicationNDJson:
 					data = []byte(fmt.Sprintf(`{"id": %d, "message": "test chunk %d"}\n`, i, i))
-				case "application/octet-stream":
+				case constant.HeaderValueApplicationOctetStream:
 					data = []byte(fmt.Sprintf("CHUNK-%d", i))
 				default: // text/plain
 					data = []byte(fmt.Sprintf("Chunk %d\n", i))
