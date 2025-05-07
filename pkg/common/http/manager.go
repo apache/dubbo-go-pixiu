@@ -171,6 +171,7 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 						return
 					case data, ok := <-dataC:
 						if !ok {
+							_ = res.Stream.Close()
 							return
 						}
 						if _, err := c.Writer.Write(data); err != nil {
@@ -182,6 +183,7 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 						if err != nil && err != io.EOF {
 							logger.Errorf("Stream error: %v", err)
 						}
+						_ = res.Stream.Close()
 						return
 					}
 				}
