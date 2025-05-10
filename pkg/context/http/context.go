@@ -59,7 +59,7 @@ type HttpContext struct {
 	// localReplyBody: happen error
 	localReplyBody []byte
 	// the response context will return.
-	TargetResp client.Response
+	TargetResp any
 	// client call response.
 	SourceResp any
 

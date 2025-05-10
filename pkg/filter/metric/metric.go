@@ -137,7 +137,7 @@ func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func computeApproximateResponseSize(res client.Response) (int, error) {
+func computeApproximateResponseSize(res any) (int, error) {
 	if res == nil {
 		return 0, errors.New("client.UnaryResponse is null pointer ")
 	}

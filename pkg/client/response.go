@@ -21,26 +21,16 @@ import (
 	"io"
 )
 
-type Response interface {
-	IsStream() bool
-	IsSSE() bool
-}
+//type Response interface {
+//}
 
 // UnaryResponse response from endpoint
 type UnaryResponse struct {
 	Data []byte
 }
 
-func (r *UnaryResponse) IsStream() bool {
-	return false
-}
-
-func (r *UnaryResponse) IsSSE() bool {
-	return false
-}
-
-// NewByteResponse create response contains a []byte
-func NewByteResponse(data []byte) *UnaryResponse {
+// NewUnaryResponse create response contains a []byte
+func NewUnaryResponse(data []byte) *UnaryResponse {
 	return &UnaryResponse{Data: data}
 }
 
@@ -48,10 +38,6 @@ func NewByteResponse(data []byte) *UnaryResponse {
 type StreamResponse struct {
 	Stream      io.ReadCloser
 	IsSSEStream bool
-}
-
-func (r *StreamResponse) IsStream() bool {
-	return true
 }
 
 func (r *StreamResponse) IsSSE() bool {

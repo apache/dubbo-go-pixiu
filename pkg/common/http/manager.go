@@ -179,12 +179,11 @@ func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {
 							_ = res.Stream.Close()
 							return
 						}
-						// For non-SSE streams, we need to flush after each write
-						if !res.IsSSE() {
-							if flusher, ok := c.Writer.(stdHttp.Flusher); ok {
-								flusher.Flush()
-							}
+
+						if flusher, ok := c.Writer.(stdHttp.Flusher); ok {
+							flusher.Flush()
 						}
+
 					case err := <-errC:
 						if err != nil && err != io.EOF {
 							logger.Errorf("Stream error: %v", err)
@@ -215,10 +214,8 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		//status code
 		c.StatusCode(res.StatusCode)
 
-		if http.IsSSEStream(res) {
-			c.TargetResp = &client.StreamResponse{Stream: res.Body, IsSSEStream: true}
-		} else if http.IsStreamableResponse(res) {
-			c.TargetResp = &client.StreamResponse{Stream: res.Body, IsSSEStream: false}
+		if http.IsStreamableResponse(res) {
+			c.TargetResp = client.NewStreamResponse(res.Body, http.IsSSEStream(res))
 		} else {
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -226,7 +223,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 			}
 			//close body
 			_ = res.Body.Close()
-			c.TargetResp = &client.UnaryResponse{Data: body}
+			c.TargetResp = client.NewUnaryResponse(body)
 		}
 	case []byte:
 		c.StatusCode(stdHttp.StatusOK)
@@ -235,7 +232,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		} else {
 			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 		}
-		c.TargetResp = &client.UnaryResponse{Data: res}
+		c.TargetResp = client.NewUnaryResponse(res)
 	default:
 		//dubbo go generic invoke
 		response := util.NewDubboResponse(res, false)
