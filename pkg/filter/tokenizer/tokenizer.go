@@ -35,8 +35,9 @@ import (
 )
 
 const (
-	Kind      = constant.LLMTokenizerFilter
-	LoggerFmt = "[Tokenizer] [DOWNSTREAM] "
+	Kind                = constant.LLMTokenizerFilter
+	LoggerFmt           = "[Tokenizer] [DOWNSTREAM] "
+	PromptTokensDetails = "prompt_tokens_details"
 )
 
 func init() {
@@ -106,7 +107,7 @@ func (f *Filter) processStreamResponse(stream io.Reader) {
 	// and process the data lines
 	// the data line is prefixed with "data:"
 	// the data line is a json string
-	// the for loop is to read the stream line by line and concat the separate "data:" lines
+	// the for loop is to read the streamline by line and concat the separate "data:" lines
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(line)
@@ -141,13 +142,13 @@ func (f *Filter) processUsageData(data []byte) {
 
 func (f *Filter) logUsage(usage map[string]any) {
 	for key, value := range usage {
-		if key == "prompt_tokens_details" {
-			promptTokensDetails, ok := value.(map[string]any)
+		if key == PromptTokensDetails {
+			details, ok := value.(map[string]any)
 			if !ok {
-				logger.Warnf(LoggerFmt+"prompt_tokens_details is not a map, value: %+v", value)
+				logger.Warnf(LoggerFmt+PromptTokensDetails+" is not a map, value: %+v", value)
 				continue
 			}
-			for detailKey, detailValue := range promptTokensDetails {
+			for detailKey, detailValue := range details {
 				logger.Infof(LoggerFmt+"Usage | %s: %v", detailKey, detailValue)
 			}
 		} else {
@@ -174,37 +175,44 @@ func newTeeReadCloser(r io.ReadCloser, w io.Writer) *teeReadCloser {
 
 func (t *teeReadCloser) Read(p []byte) (n int, err error) {
 	n, err = t.reader.Read(p)
-	if n <= 0 {
+	if n <= 0 || err != nil {
 		return
 	}
-	nw, ew := t.writer.Write(p[:n])
-	if ew != nil {
-		logger.Errorf(LoggerFmt+"Error writing to tee writer: %v", ew)
+	nw, err := t.writer.Write(p[:n])
+	if err != nil {
+		logger.Errorf(LoggerFmt+"Error writing to tee writer: %v", err)
+		return
 	}
 	if nw != n {
 		logger.Errorf(LoggerFmt+"Short write to tee writer: %d/%d", nw, n)
+		//err = fmt.Errorf("short write to tee writer: %d/%d", nw, n)
 	}
-	return
+	return n, nil
 }
 
 func (t *teeReadCloser) Close() (err error) {
+	var closerErr error
+	var writerErr error
+
 	t.once.Do(func() {
-		closerErr := t.closer.Close()
+		closerErr = t.closer.Close()
 		if closerErr != nil {
 			logger.Errorf(LoggerFmt+"Error closing closer: %v", closerErr)
 		}
 
-		writerErr := t.writer.(io.Closer).Close()
-		if writerErr != nil {
-			logger.Errorf(LoggerFmt+"Error closing writer: %v", writerErr)
-		}
-
-		if closerErr != nil || writerErr != nil {
-			err = fmt.Errorf("closing closer error: %s. closing writer error: %s",
-				closerErr.Error(),
-				writerErr.Error(),
-			)
+		if t.writer != nil {
+			writerCloser, ok := t.writer.(io.Closer)
+			if ok {
+				writerErr = writerCloser.Close()
+				if writerErr != nil {
+					logger.Errorf(LoggerFmt+"Error closing writer: %v", writerErr)
+				}
+			}
 		}
 	})
-	return
+
+	if closerErr != nil || writerErr != nil {
+		err = fmt.Errorf("closing closer error: %w. closing writer error: %w", closerErr, writerErr)
+	}
+	return err
 }
