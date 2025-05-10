@@ -263,6 +263,9 @@ func (r *StreamRecorder) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+func (r *StreamRecorder) Flush() {
+}
+
 func NewTestServerWithURL(URL string, handler http.Handler) (*httptest.Server, error) {
 	ts := httptest.NewUnstartedServer(handler)
 	if URL != "" {
