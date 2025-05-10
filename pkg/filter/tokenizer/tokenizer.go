@@ -191,8 +191,10 @@ func (t *teeReadCloser) Read(p []byte) (n int, err error) {
 }
 
 func (t *teeReadCloser) Close() (err error) {
-	var closerErr error
-	var writerErr error
+	var (
+		closerErr error
+		writerErr error
+	)
 
 	t.once.Do(func() {
 		closerErr = t.closer.Close()
