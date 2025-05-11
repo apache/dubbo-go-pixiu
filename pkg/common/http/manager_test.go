@@ -481,7 +481,7 @@ func TestIsStreamableResponse(t *testing.T) {
 		{
 			name: "no stream Content-Type",
 			headers: map[string]string{
-				constant.HeaderKeyContextType: "image/jpeg",
+				constant.HeaderKeyContextType: constant.HeaderValueImageJpeg,
 			},
 			expected: false,
 		},

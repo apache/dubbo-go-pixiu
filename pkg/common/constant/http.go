@@ -37,6 +37,7 @@ const (
 	HeaderValueApplicationJson        = "application/json"
 	HeaderValueApplicationOctetStream = "application/octet-stream"
 	HeaderValueApplicationNDJson      = "application/x-ndjson"
+	HeaderValueImageJpeg              = "image/jpeg"
 	HeaderValueChunked                = "chunked"
 	HeaderValueTextPrefix             = "text/"
 
