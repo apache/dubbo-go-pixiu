@@ -15,29 +15,21 @@
  * limitations under the License.
  */
 
-package loadbalancer
+package model
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+// RetryPolicyType the load balance policy enum
+type RetryPolicyType string
+
+const (
+	RetryerExit    RetryPolicyType = "Exit"
+	RetryerTryNext RetryPolicyType = "TryNext"
+	RetryerRand    RetryPolicyType = "Rand"
+	RetryerRetry   RetryPolicyType = "Retry"
 )
 
-type LoadBalancer interface {
-	Handler(c *model.ClusterConfig, policy model.Policy) *model.Endpoint
-}
-
-// LoadBalancerStrategy load balancer strategy mode
-var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
-
-func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
-	if _, ok := LoadBalancerStrategy[name]; ok {
-		panic("load balancer register fail " + name)
-	}
-	LoadBalancerStrategy[name] = balancer
-}
-
-func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {
-	if _, ok := model.ConsistentHashInitMap[name]; ok {
-		panic("consistent hash load balancer register fail " + name)
-	}
-	model.ConsistentHashInitMap[name] = function
+var RetryPolicyTypeValue = map[string]RetryPolicyType{
+	"Exit":    RetryerExit,
+	"TryNext": RetryerTryNext,
+	"Retry":   RetryerRetry,
+	"Rand":    RetryerRand,
 }

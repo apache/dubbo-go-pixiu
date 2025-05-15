@@ -56,8 +56,9 @@ type (
 		TypeStr              string              `yaml:"type" json:"type"` // Type the cluster discovery type string value
 		Type                 DiscoveryType       `yaml:"-" json:"-"`       // Type the cluster discovery type
 		EdsClusterConfig     EdsClusterConfig    `yaml:"eds_cluster_config" json:"eds_cluster_config" mapstructure:"eds_cluster_config"`
-		LbStr                LbPolicyType        `yaml:"lb_policy" json:"lb_policy"`   // Lb the cluster select node used loadBalance policy
-		ConsistentHash       ConsistentHash      `yaml:"consistent" json:"consistent"` // Consistent hash config info
+		LbStr                LbPolicyType        `yaml:"lb_policy" json:"lb_policy"`       // Lb the cluster select node used loadBalance policy
+		RetryStr             RetryPolicyConfig   `yaml:"retry_policy" json:"retry_policy"` // Retry next node used retry policy
+		ConsistentHash       ConsistentHash      `yaml:"consistent" json:"consistent"`     // Consistent hash config info
 		HealthChecks         []HealthCheckConfig `yaml:"health_checks" json:"health_checks"`
 		Endpoints            []*Endpoint         `yaml:"endpoints" json:"endpoints"`
 		PrePickEndpointIndex int
@@ -102,6 +103,11 @@ type (
 		MaxVnodeNum     int32 `yaml:"max_vnode_num" json:"max_vnode_num"`
 		MaglevTableSize int   `yaml:"maglev_table_size" json:"maglev_table_size"`
 		Hash            LbConsistentHash
+	}
+
+	RetryPolicyConfig struct {
+		RetryPolicyType RetryPolicyType `yaml:"policy" json:"policy"`
+		MaxRetryTimes   int             `yaml:"max_retry_times" json:"max_retry_times"`
 	}
 )
 

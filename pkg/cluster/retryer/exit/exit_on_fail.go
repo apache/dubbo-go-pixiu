@@ -15,29 +15,23 @@
  * limitations under the License.
  */
 
-package loadbalancer
+package exit
 
 import (
+	"math/rand"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retryer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-type LoadBalancer interface {
-	Handler(c *model.ClusterConfig, policy model.Policy) *model.Endpoint
+func init() {
+	retryer.RegisterRetryer(model.RetryerExit, ExitOnFail{})
 }
 
-// LoadBalancerStrategy load balancer strategy mode
-var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
+type ExitOnFail struct{}
 
-func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
-	if _, ok := LoadBalancerStrategy[name]; ok {
-		panic("load balancer register fail " + name)
-	}
-	LoadBalancerStrategy[name] = balancer
-}
-
-func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {
-	if _, ok := model.ConsistentHashInitMap[name]; ok {
-		panic("consistent hash load balancer register fail " + name)
-	}
-	model.ConsistentHashInitMap[name] = function
+func (ExitOnFail) Handler(c *model.ClusterConfig, _ model.Policy) *model.Endpoint {
+	return c.GetEndpoint(true)[rand.Intn(len(c.Endpoints)-1)]
 }

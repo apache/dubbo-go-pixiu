@@ -15,50 +15,20 @@
  * limitations under the License.
  */
 
-package ringhash
+package exit
 
 import (
-	"math"
-)
-
-import (
-	"github.com/dubbogo/gost/hash/consistent"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retryer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func init() {
-	loadbalancer.RegisterLoadBalancer(model.LoadBalancerRingHashing, RingHashing{})
-	loadbalancer.RegisterConsistentHashInit(model.LoadBalancerRingHashing, NewRingHash)
+	retryer.RegisterRetryer(model.RetryerTryNext, TryNext{})
 }
 
-func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
-	var ops []consistent.Option
+type TryNext struct{}
 
-	if config.ReplicaNum != 0 {
-		ops = append(ops, consistent.WithReplicaNum(config.ReplicaNum))
-	}
-
-	if config.MaxVnodeNum != 0 {
-		ops = append(ops, consistent.WithMaxVnodeNum(int(config.MaxVnodeNum)))
-	} else {
-		config.MaxVnodeNum = math.MinInt32
-	}
-
-	h := consistent.NewConsistentHash(ops...)
-	for _, endpoint := range endpoints {
-		h.Add(endpoint.GetHost())
-	}
-	return h
-}
-
-type RingHashing struct{}
-
-func (r RingHashing) Handler(c *model.ClusterConfig, policy model.Policy) *model.Endpoint {
+func (TryNext) Handler(c *model.ClusterConfig, policy model.Policy) *model.Endpoint {
 	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
 	hash, err := c.ConsistentHash.Hash.GetHash(u)
 	if err != nil {
