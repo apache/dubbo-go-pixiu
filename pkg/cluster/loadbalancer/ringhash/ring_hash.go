@@ -58,7 +58,7 @@ func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model
 
 type RingHashing struct{}
 
-func (r RingHashing) Handler(c *model.ClusterConfig, policy model.Policy) *model.Endpoint {
+func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
 	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
 	hash, err := c.ConsistentHash.Hash.GetHash(u)
 	if err != nil {

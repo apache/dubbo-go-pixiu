@@ -50,7 +50,7 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 
 type MaglevHash struct{}
 
-func (m MaglevHash) Handler(c *model.ClusterConfig, policy model.Policy) *model.Endpoint {
+func (m MaglevHash) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
 	dst, err := c.ConsistentHash.Hash.Get(policy.GenerateHash())
 	if err != nil {
 		logger.Warnf("[dubbo-go-pixiu] error of getting from maglev hash: %v", err)

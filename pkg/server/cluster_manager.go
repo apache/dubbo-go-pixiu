@@ -149,7 +149,7 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 	return true
 }
 
-func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.Policy) *model.Endpoint {
+func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
@@ -161,7 +161,7 @@ func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.Policy) 
 	return nil
 }
 
-func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig, policy model.Policy) *model.Endpoint {
+func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
 	if len(c.Endpoints) == 0 {
 		return nil
 	}

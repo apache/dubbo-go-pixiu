@@ -53,7 +53,6 @@ const (
 	DubboProxyFilter = "dgp.filter.dubbo.proxy"
 
 	LLMTokenizerFilter = "dgp.filter.llm.tokenizer"
-	LLMProxyFilter     = "dgp.filter.llm.llmproxy"
 )
 
 const (

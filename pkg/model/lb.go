@@ -34,7 +34,7 @@ var LbPolicyTypeValue = map[string]LbPolicyType{
 	"MaglevHashing": LoadBalancerMaglevHashing,
 }
 
-type Policy interface {
+type LbPolicy interface {
 	GenerateHash() string
 }
 
