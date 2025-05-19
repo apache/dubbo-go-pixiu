@@ -25,6 +25,7 @@ const (
 	LoadBalancerRoundRobin    LbPolicyType = "RoundRobin"
 	LoadBalancerRingHashing   LbPolicyType = "RingHashing"
 	LoadBalancerMaglevHashing LbPolicyType = "MaglevHashing"
+	LoadBalancerWeightRandom  LbPolicyType = "WeightRandom"
 )
 
 var LbPolicyTypeValue = map[string]LbPolicyType{
@@ -32,6 +33,7 @@ var LbPolicyTypeValue = map[string]LbPolicyType{
 	"RoundRobin":    LoadBalancerRoundRobin,
 	"RingHashing":   LoadBalancerRingHashing,
 	"MaglevHashing": LoadBalancerMaglevHashing,
+	"WeightRandom":  LoadBalancerWeightRandom,
 }
 
 type LbPolicy interface {
