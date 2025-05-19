@@ -117,8 +117,10 @@ func TestWeightRandom_Handler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Mock GetEndpoint method
 
-			wr := WeightRandom{}
-			got := wr.Handler(tt.clusterConfig, nil)
+			var (
+				wr  = WeightRandom{}
+				got = wr.Handler(tt.clusterConfig, nil)
+			)
 
 			if tt.want == nil {
 				if got == nil {
@@ -191,9 +193,11 @@ func TestWeightRandom_Handler_Probabilistic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clusterConfig := createWeightedClusterConfig(tt.endpointsWeights)
-			wr := WeightRandom{}
-			counts := make(map[string]int)
+			var (
+				clusterConfig = createWeightedClusterConfig(tt.endpointsWeights)
+				wr            = WeightRandom{}
+				counts        = make(map[string]int)
+			)
 
 			for i := 0; i < tt.iterations; i++ {
 				endpoint := wr.Handler(clusterConfig, nil)
