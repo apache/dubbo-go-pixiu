@@ -36,6 +36,8 @@ type weightedEndpoint struct {
 	weight   int
 }
 
+// WeightRandom is a load balancing strategy that selects an endpoint based on weighted random selection.
+// It assigns weights to endpoints and uses these weights to influence the probability of selection.
 type WeightRandom struct{}
 
 func (WeightRandom) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
