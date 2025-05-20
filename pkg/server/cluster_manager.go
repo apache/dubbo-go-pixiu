@@ -33,7 +33,10 @@ import (
 )
 
 // generate cluster name for unnamed cluster
-var clusterIndex int32 = 1
+var (
+	clusterIndex  int32 = 1
+	endpointIndex int32 = 1
+)
 
 type (
 	ClusterManager struct {
@@ -215,17 +218,48 @@ func (cm *ClusterManager) HasCluster(clusterName string) bool {
 }
 
 func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
+	atomic.SwapInt32(&endpointIndex, 1)
+
 	if c.Name == "" {
 		index := atomic.AddInt32(&clusterIndex, 1)
 		c.Name = fmt.Sprintf("cluster%d", index)
 	}
+
+	s.AssembleLLMCLusterEndpoints(c)
+
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
 	c.CreateConsistentHash()
 }
 
-func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
+func (s *ClusterStore) AssembleLLMCLusterEndpoints(c *model.ClusterConfig) {
+	if c == nil {
+		return
+	}
 
+	for _, endpoint := range c.Endpoints {
+		// not a llm endpoint
+		if endpoint.LLMMeta == nil {
+			continue
+		}
+
+		if endpoint.LLMMeta.Name == "" {
+			index := atomic.AddInt32(&endpointIndex, 1)
+			endpoint.LLMMeta.Name = fmt.Sprintf("%s-%d", endpoint.LLMMeta.Provider, index)
+		}
+
+		if endpoint.Address.Address == "0.0.0.0" && endpoint.Address.Domains == nil {
+			domain, err := model.GetLLMProviderDomains(endpoint.LLMMeta.Provider)
+			if err != nil {
+				logger.Errorf("failed to get llm provider domains, err: %v", err)
+				continue
+			}
+			endpoint.Address.Domains = []string{domain.BaseUrl}
+		}
+	}
+}
+
+func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 	for i, c := range s.Config {
 		if c.Name == new.Name {
 			s.Config[i] = new

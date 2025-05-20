@@ -94,6 +94,8 @@ type (
 		Address   SocketAddress     `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"` // Address socket address
 		Metadata  map[string]string `yaml:"meta" json:"meta"`                                                   // Metadata extra info such as label or other meta data
 		UnHealthy bool
+
+		LLMMeta *LLMMeta `yaml:"llm_meta" json:"llm_meta"` // LLMMeta extra info such as label or other meta data
 	}
 
 	// ConsistentHash methods include: RingHash, MaglevHash
