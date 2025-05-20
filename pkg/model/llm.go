@@ -18,8 +18,11 @@
 package model
 
 import (
-	perrors "github.com/pkg/errors"
 	"sync"
+)
+
+import (
+	perrors "github.com/pkg/errors"
 )
 
 import (
