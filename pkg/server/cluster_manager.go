@@ -233,6 +233,9 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	c.CreateConsistentHash()
 }
 
+// AssembleLLMClusterEndpoints assembles the LLM cluster endpoints
+// by setting the name and domains for each endpoint
+// based on the LLM provider denoted in the endpoint LLMMeta.
 func (s *ClusterStore) AssembleLLMClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
@@ -249,6 +252,8 @@ func (s *ClusterStore) AssembleLLMClusterEndpoints(c *model.ClusterConfig) {
 			endpoint.LLMMeta.Name = fmt.Sprintf("%s-%d", endpoint.LLMMeta.Provider, index)
 		}
 
+		// If the endpoint address and domain are not set, set them based on the provider.
+		// If the endpoint address or domain is set, do not modify them.
 		if endpoint.Address.Address == constant.PprofDefaultAddress && endpoint.Address.Domains == nil {
 			domain, err := model.GetLLMProviderDomains(endpoint.LLMMeta.Provider)
 			if err != nil {
