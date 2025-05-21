@@ -26,6 +26,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -225,14 +226,14 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 		c.Name = fmt.Sprintf("cluster%d", index)
 	}
 
-	s.AssembleLLMCLusterEndpoints(c)
+	s.AssembleLLMClusterEndpoints(c)
 
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
 	c.CreateConsistentHash()
 }
 
-func (s *ClusterStore) AssembleLLMCLusterEndpoints(c *model.ClusterConfig) {
+func (s *ClusterStore) AssembleLLMClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
 	}
@@ -248,7 +249,7 @@ func (s *ClusterStore) AssembleLLMCLusterEndpoints(c *model.ClusterConfig) {
 			endpoint.LLMMeta.Name = fmt.Sprintf("%s-%d", endpoint.LLMMeta.Provider, index)
 		}
 
-		if endpoint.Address.Address == "0.0.0.0" && endpoint.Address.Domains == nil {
+		if endpoint.Address.Address == constant.PprofDefaultAddress && endpoint.Address.Domains == nil {
 			domain, err := model.GetLLMProviderDomains(endpoint.LLMMeta.Provider)
 			if err != nil {
 				logger.Errorf("failed to get llm provider domains, err: %v", err)
