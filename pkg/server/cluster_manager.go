@@ -241,6 +241,9 @@ func (s *ClusterStore) AssembleLLMClusterEndpoints(c *model.ClusterConfig) {
 		return
 	}
 
+	// Map to keep track of the number of endpoints for each provider
+	providerCounts := make(map[string]int)
+
 	for _, endpoint := range c.Endpoints {
 		// not a llm endpoint
 		if endpoint.LLMMeta == nil {
@@ -248,8 +251,19 @@ func (s *ClusterStore) AssembleLLMClusterEndpoints(c *model.ClusterConfig) {
 		}
 
 		if endpoint.LLMMeta.Name == "" {
-			index := atomic.AddInt32(&endpointIndex, 1)
-			endpoint.LLMMeta.Name = fmt.Sprintf("%s-%d", endpoint.LLMMeta.Provider, index)
+			provider := endpoint.LLMMeta.Provider
+			// Check if the provider is already in the map
+			count := providerCounts[provider]
+
+			if count == 0 {
+				// The first time this provider is encountered
+				endpoint.LLMMeta.Name = provider
+				count = 1 // start from 1 instead of 0
+			} else {
+				// Subsequent encounters with the same provider
+				endpoint.LLMMeta.Name = fmt.Sprintf("%s-%d", provider, count)
+			}
+			providerCounts[provider] = count + 1
 		}
 
 		// If the endpoint address and domain are not set, set them based on the provider.

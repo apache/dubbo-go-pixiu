@@ -22,11 +22,17 @@ providers:
     name: DeepSeek
     description: DeepSeek uses advanced llms to improve search accuracy and relevance, seamlessly integrating AI into existing search systems for smarter information retrieval across various fields.
     base_url: api.deepseek.com
+    endpoints:
+      chatComplete: /chat/completions
   openai:
     name: OpenAI
     description: OpenAI is an AI research and deployment company. Their mission is to ensure that artificial general intelligence benefits all of humanity.
     base_url: api.openai.com/v1
+    endpoints:
+      chatComplete: /chat/completions
   dashscope:
     name: Dashscope
     description: Alibaba Cloud's Tongyi Generative AI Platform (BaiLian) offers official APIs for the Tongyi series of large models. This high-performance, cost-effective model service helps you focus on business innovation, freeing you from the burden of technical operations and maintenance.
     base_url: dashscope.aliyuncs.com/compatible-mode/v1
+    endpoints:
+      chatComplete: /chat/completions

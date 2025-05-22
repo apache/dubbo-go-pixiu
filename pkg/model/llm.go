@@ -48,9 +48,10 @@ type (
 	}
 
 	LLMProvider struct {
-		Name        string `yaml:"name" json:"name"` // provider' name
-		Description string `yaml:"description" json:"description"`
-		BaseUrl     string `yaml:"base_url" json:"base_url"` // Target domain
+		Name        string            `yaml:"name" json:"name"` // provider' name
+		Description string            `yaml:"description" json:"description"`
+		BaseUrl     string            `yaml:"base_url" json:"base_url"`                            // Target domain
+		Endpoints   map[string]string `yaml:"endpoints" json:"endpoints" mapstructure:"endpoints"` // Endpoints for the provider
 	}
 )
 
