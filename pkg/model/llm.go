@@ -32,8 +32,6 @@ import (
 type (
 	// LLMMeta LLM metadata for llm call
 	LLMMeta struct {
-		ID       string      `yaml:"ID" json:"ID"`                                     // ID indicate one endpoint
-		Name     string      `yaml:"name" json:"name"`                                 // Name the cluster unique name
 		Provider string      `yaml:"provider" json:"provider"`                         // Provider the cluster unique name
 		APIKeys  []LLMAPIKey `yaml:"api_keys" json:"api_keys" mapstructure:"api_keys"` // APIKey the cluster unique name
 	}
@@ -44,7 +42,7 @@ type (
 	}
 
 	LLMProviderDomains struct {
-		Providers map[string]LLMProvider `yaml:"providers"`
+		Providers map[string]LLMProvider `yaml:"providers" mapstructure:"providers"`
 	}
 
 	LLMProvider struct {

@@ -19,6 +19,7 @@ package server
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 )
@@ -35,8 +36,7 @@ import (
 
 // generate cluster name for unnamed cluster
 var (
-	clusterIndex  int32 = 1
-	endpointIndex int32 = 1
+	clusterIndex int32 = 1
 )
 
 type (
@@ -219,56 +219,43 @@ func (cm *ClusterManager) HasCluster(clusterName string) bool {
 }
 
 func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
-	atomic.SwapInt32(&endpointIndex, 1)
-
 	if c.Name == "" {
-		index := atomic.AddInt32(&clusterIndex, 1)
-		c.Name = fmt.Sprintf("cluster%d", index)
+		c.Name = fmt.Sprintf("cluster-%d", clusterIndex)
+		atomic.AddInt32(&clusterIndex, 1)
 	}
 
-	s.AssembleLLMClusterEndpoints(c)
+	s.AssembleClusterEndpoints(c)
 
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
 	c.CreateConsistentHash()
 }
 
-// AssembleLLMClusterEndpoints assembles the LLM cluster endpoints
-// by setting the name and domains for each endpoint
-// based on the LLM provider denoted in the endpoint LLMMeta.
-func (s *ClusterStore) AssembleLLMClusterEndpoints(c *model.ClusterConfig) {
+// AssembleClusterEndpoints assembles the cluster endpoints
+// by formatting the ID, name and domains for each endpoint
+// If endpoint.LLMMeta is not nil, the assimilation of name and domain is based on
+// the LLM provider denoted in the endpoint LLMMeta.
+func (s *ClusterStore) AssembleClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
 	}
 
-	// Map to keep track of the number of endpoints for each provider
-	providerCounts := make(map[string]int)
-
-	for _, endpoint := range c.Endpoints {
-		// not a llm endpoint
-		if endpoint.LLMMeta == nil {
-			continue
+	for i, endpoint := range c.Endpoints {
+		// If the endpoint ID is not set, set it to the index + 1
+		if endpoint.ID == "" {
+			endpoint.ID = strconv.Itoa(i + 1)
 		}
 
-		if endpoint.LLMMeta.Name == "" {
-			provider := endpoint.LLMMeta.Provider
-			// Check if the provider is already in the map
-			count := providerCounts[provider]
-
-			if count == 0 {
-				// The first time this provider is encountered
-				endpoint.LLMMeta.Name = provider
-				count = 1 // start from 1 instead of 0
-			} else {
-				// Subsequent encounters with the same provider
-				endpoint.LLMMeta.Name = fmt.Sprintf("%s-%d", provider, count)
-			}
-			providerCounts[provider] = count + 1
+		// If the endpoint has no name, set a default name
+		if endpoint.Name == "" && endpoint.LLMMeta != nil {
+			endpoint.Name = fmt.Sprintf("endpoint-%d#%s", i+1, endpoint.LLMMeta.Provider)
+		} else if endpoint.Name == "" && endpoint.LLMMeta == nil {
+			endpoint.Name = fmt.Sprintf("endpoint-%d", i+1)
 		}
 
-		// If the endpoint address and domain are not set, set them based on the provider.
+		// If the endpoint address and domain are not set, set them based on the LLM provider.
 		// If the endpoint address or domain is set, do not modify them.
-		if endpoint.Address.Address == constant.PprofDefaultAddress && endpoint.Address.Domains == nil {
+		if endpoint.LLMMeta != nil && endpoint.Address.Address == constant.PprofDefaultAddress && endpoint.Address.Domains == nil {
 			domain, err := model.GetLLMProviderDomains(endpoint.LLMMeta.Provider)
 			if err != nil {
 				logger.Errorf("failed to get llm provider domains, err: %v", err)

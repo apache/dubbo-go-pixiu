@@ -90,7 +90,7 @@ type (
 	// Endpoint
 	Endpoint struct {
 		ID        string            `yaml:"ID" json:"ID"`                                                       // ID indicate one endpoint
-		Name      string            `yaml:"name" json:"name"`                                                   // Name the cluster unique name
+		Name      string            `yaml:"name" json:"name"`                                                   // Name the endpoint unique name
 		Address   SocketAddress     `yaml:"socket_address" json:"socket_address" mapstructure:"socket_address"` // Address socket address
 		Metadata  map[string]string `yaml:"meta" json:"meta"`                                                   // Metadata extra info such as label or other meta data
 		UnHealthy bool
