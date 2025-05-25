@@ -36,6 +36,19 @@ import (
 
 var control *logController
 
+type pixiuLogger struct {
+	*zap.SugaredLogger
+	config *zap.Config
+}
+
+func init() {
+	// only use in test case, so just load default config
+	if control == nil {
+		control = new(logController)
+		InitLogger(nil)
+	}
+}
+
 // PaddedCallerEncoder is a custom caller encoder that ensures that all file paths are displayed at the same length
 func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 
@@ -49,19 +62,6 @@ func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayE
 	}
 
 	enc.AppendString(callerPath)
-}
-
-func init() {
-	// only use in test case, so just load default config
-	if control == nil {
-		control = new(logController)
-		InitLogger(nil)
-	}
-}
-
-type logger struct {
-	*zap.SugaredLogger
-	config *zap.Config
 }
 
 // InitLog load from config path
@@ -85,7 +85,7 @@ func InitLog(logConfFile string) error {
 	err = yaml.UnmarshalYML(confFileStream, conf)
 	if err != nil {
 		InitLogger(nil)
-		return perrors.New(fmt.Sprintf("[Unmarshal]init logger error: %v", err))
+		return perrors.New(fmt.Sprintf("[Unmarshal]init pixiuLogger error: %v", err))
 	}
 
 	InitLogger(conf)
@@ -100,7 +100,7 @@ func InitLogger(conf *zap.Config) {
 		zapLoggerEncoderConfig := zapcore.EncoderConfig{
 			TimeKey:        "time",
 			LevelKey:       "level",
-			NameKey:        "logger",
+			NameKey:        "pixiuLogger",
 			CallerKey:      "caller",
 			MessageKey:     "message",
 			StacktraceKey:  "stacktrace",
@@ -117,7 +117,7 @@ func InitLogger(conf *zap.Config) {
 		zapLoggerConfig.EncoderConfig.EncodeCaller = PaddedCallerEncoder
 	}
 	zapLogger, _ := zapLoggerConfig.Build(zap.AddCallerSkip(2))
-	l := &logger{zapLogger.Sugar(), &zapLoggerConfig}
+	l := &pixiuLogger{zapLogger.Sugar(), &zapLoggerConfig}
 
 	control.updateLogger(l)
 }

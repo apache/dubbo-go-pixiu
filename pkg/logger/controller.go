@@ -31,7 +31,7 @@ import (
 type logController struct {
 	mu sync.RWMutex
 
-	logger *logger
+	logger *pixiuLogger
 }
 
 // setLoggerLevel safely changes the log level in a concurrent manner.
@@ -45,12 +45,12 @@ func (c *logController) setLoggerLevel(level string) bool {
 
 	c.logger.config.Level = *lvl
 	l, _ := c.logger.config.Build(zap.AddCallerSkip(2))
-	c.logger = &logger{SugaredLogger: l.Sugar(), config: c.logger.config}
+	c.logger = &pixiuLogger{SugaredLogger: l.Sugar(), config: c.logger.config}
 	return true
 }
 
 // updateLogger safely modifies the log object in a concurrent manner.
-func (c *logController) updateLogger(l *logger) {
+func (c *logController) updateLogger(l *pixiuLogger) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.logger = l
