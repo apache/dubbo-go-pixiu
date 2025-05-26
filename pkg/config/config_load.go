@@ -235,6 +235,8 @@ func (m *ConfigManager) loadRemoteBootConfigs() *model.Bootstrap {
 	configs, err := m.load.LoadConfigs(
 		bootstrap, func(opt *configcenter.Options) {
 			opt.Remote = true
+			opt.DataId = bootstrap.Nacos.DataId
+			opt.Group = bootstrap.Nacos.Group
 		},
 	)
 
