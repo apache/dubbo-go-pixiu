@@ -90,17 +90,19 @@ func getNacosConfigClient(boot *model.Bootstrap) (config_client.IConfigClient, e
 		})
 	}
 
-	clientConfig := constant.ClientConfig{
-		NamespaceId:         boot.Nacos.ClientConfig.NamespaceId,
-		TimeoutMs:           boot.Nacos.ClientConfig.TimeoutMs,
-		NotLoadCacheAtStart: boot.Nacos.ClientConfig.NotLoadCacheAtStart,
-		LogDir:              boot.Nacos.ClientConfig.LogDir,
-		CacheDir:            boot.Nacos.ClientConfig.CacheDir,
-		LogLevel:            boot.Nacos.ClientConfig.LogLevel,
-	}
+	clientConfig := constant.NewClientConfig(
+		constant.WithUsername(boot.Nacos.ClientConfig.Username),
+		constant.WithPassword(boot.Nacos.ClientConfig.Password),
+		constant.WithNamespaceId(boot.Nacos.ClientConfig.NamespaceId),
+		constant.WithTimeoutMs(boot.Nacos.ClientConfig.TimeoutMs),
+		constant.WithNotLoadCacheAtStart(boot.Nacos.ClientConfig.NotLoadCacheAtStart),
+		constant.WithLogDir(boot.Nacos.ClientConfig.LogDir),
+		constant.WithCacheDir(boot.Nacos.ClientConfig.CacheDir),
+		constant.WithLogLevel(boot.Nacos.ClientConfig.LogLevel),
+	)
 
 	clientParam := vo.NacosClientParam{
-		ClientConfig:  &clientConfig,
+		ClientConfig:  clientConfig,
 		ServerConfigs: serverConfigs,
 	}
 
