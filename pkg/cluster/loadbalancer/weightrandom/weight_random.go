@@ -65,7 +65,7 @@ func (WeightRandom) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.End
 
 	if totalWeight <= 0 {
 		// if the sum of weights is 0 or negative, return a random endpoint
-		randomIndex := rand.Intn(len(endpoints))
+		randomIndex := rand.Intn(len(endpoints)) // NOSONAR
 		return endpoints[randomIndex]
 	}
 
