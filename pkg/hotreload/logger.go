@@ -18,9 +18,12 @@
 package hotreload
 
 import (
+	"go.uber.org/zap"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"go.uber.org/zap"
 )
 
 // LoggerReloader implements the HotReloader interface for reloading logger configurations.
