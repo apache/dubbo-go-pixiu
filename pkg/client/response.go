@@ -21,9 +21,6 @@ import (
 	"io"
 )
 
-//type Response interface {
-//}
-
 // UnaryResponse response from endpoint
 type UnaryResponse struct {
 	Data []byte
