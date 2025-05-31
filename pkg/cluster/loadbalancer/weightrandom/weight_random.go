@@ -69,7 +69,7 @@ func (WeightRandom) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.End
 		return endpoints[randomIndex]
 	}
 
-	randomNumber := rand.Intn(totalWeight)
+	randomNumber := rand.Intn(totalWeight) // NOSONAR
 
 	// iterate through the weighted endpoints
 	// find the one that corresponds to the random number
