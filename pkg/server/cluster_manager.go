@@ -157,9 +157,39 @@ func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
+	c := cm.getCluster(clusterName)
+	if c == nil {
+		return nil
+	}
+	return cm.pickOneEndpoint(c, policy)
+}
+
+func (cm *ClusterManager) PickNextEndpoint(clusterName string, curEndpointID string) *model.Endpoint {
+	cm.rw.RLock()
+	defer cm.rw.RUnlock()
+
+	c := cm.getCluster(clusterName)
+	if c == nil {
+		return nil
+	}
+
+	for i, endpoint := range c.Endpoints {
+		if endpoint.ID == curEndpointID {
+			// pick next endpoint
+			if i < len(c.Endpoints)-1 {
+				return c.Endpoints[i+1]
+			}
+			return nil // have tried all endpoints
+		}
+	}
+
+	return nil
+}
+
+func (cm *ClusterManager) getCluster(clusterName string) *model.ClusterConfig {
 	for _, c := range cm.store.Config {
 		if c.Name == clusterName {
-			return cm.pickOneEndpoint(c, policy)
+			return c
 		}
 	}
 	return nil

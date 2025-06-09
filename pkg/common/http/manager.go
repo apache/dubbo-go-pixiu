@@ -100,7 +100,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	// recover any err when filterChain run
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Warnf("[dubbopixiu go] Occur An Unexpected Err: %+v", err)
+			logger.Warnf("[dubbo-go-pixiu] Occur An Unexpected Err: %+v", err)
 			c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("Occur An Unexpected Err: %v", err)))
 		}
 	}()

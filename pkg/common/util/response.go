@@ -180,3 +180,7 @@ func struct2Map(obj any) map[string]any {
 	}
 	return data
 }
+
+func HTTPRespIsSuccessful(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 300
+}
