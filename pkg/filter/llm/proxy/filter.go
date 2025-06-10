@@ -113,7 +113,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
-	logger.SetLoggerLevel("debug")
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		panic("no route entry")
