@@ -135,6 +135,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	r := hc.Request
+	defer r.Body.Close()
 
 	var (
 		req  *http.Request
@@ -150,7 +151,6 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 			hc.SendLocalReply(http.StatusInternalServerError, bt)
 			return filter.Stop
 		}
-		defer r.Body.Close() // Close the original body
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
