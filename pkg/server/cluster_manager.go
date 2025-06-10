@@ -153,6 +153,7 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 	return true
 }
 
+// PickEndpoint picks an endpoint from the cluster by its name and load balancing policy.
 func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
@@ -164,6 +165,7 @@ func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy
 	return cm.pickOneEndpoint(c, policy)
 }
 
+// PickNextEndpoint picks the next endpoint in the cluster after the current endpoint ID.
 func (cm *ClusterManager) PickNextEndpoint(clusterName string, curEndpointID string) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
@@ -186,6 +188,7 @@ func (cm *ClusterManager) PickNextEndpoint(clusterName string, curEndpointID str
 	return nil
 }
 
+// getCluster returns the cluster configuration by its name.
 func (cm *ClusterManager) getCluster(clusterName string) *model.ClusterConfig {
 	for _, c := range cm.store.Config {
 		if c.Name == clusterName {

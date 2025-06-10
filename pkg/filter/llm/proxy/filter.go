@@ -158,7 +158,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 FALLBACK:
 	for {
 	RETRY:
-		for retry := uint(0); retry < endpoint.LLMMeta.RetryTimes; retry++ {
+		for retry := uint(0); retry <= endpoint.LLMMeta.RetryTimes; retry++ {
 			req, err = f.assembleRequest(endpoint, r)
 			if err != nil {
 				break RETRY
@@ -174,12 +174,15 @@ FALLBACK:
 				break RETRY
 			}
 			if util.HTTPRespIsSuccessful(resp.StatusCode) {
+				// If the response is successful, we can break out of the fallback loop.
 				break FALLBACK
 			}
+			// If the response is not successful, we will retry with the next endpoint.
 			logger.Debugf("[dubbo-go-pixiu] client retry endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 		}
 
 		if !endpoint.LLMMeta.Fallback {
+			// If fallback is not enabled, we will break out of the fallback loop.
 			break FALLBACK
 		}
 
@@ -188,6 +191,7 @@ FALLBACK:
 			break FALLBACK
 		}
 
+		// If we have a next endpoint, we will retry with the next endpoint.
 		logger.Debugf("[dubbo-go-pixiu] client fallback to endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 	}
 
