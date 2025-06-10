@@ -115,7 +115,9 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
-		panic("no route entry")
+		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "no route entry"})
+		hc.SendLocalReply(http.StatusBadRequest, bt)
+		return filter.Stop
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster: %v", rEntry.Cluster)
