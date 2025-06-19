@@ -144,13 +144,19 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		err  error
 	)
 
-	var bodyBytes []byte
-	if r.Body != nil {
-		bodyBytes, err = io.ReadAll(r.Body)
+	if hc.Request.Body != nil && hc.Request.GetBody == nil {
+		bodyBytes, err := io.ReadAll(hc.Request.Body)
+		hc.Request.Body.Close()
+
 		if err != nil {
 			bt, _ := json.Marshal(contexthttp.ErrResponse{Message: fmt.Sprintf("failed to read request body: %v", err)})
 			hc.SendLocalReply(http.StatusInternalServerError, bt)
 			return filter.Stop
+		}
+
+		hc.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		hc.Request.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(bodyBytes)), nil
 		}
 	}
 
@@ -164,11 +170,6 @@ FALLBACK:
 			req, err = f.assembleRequest(endpoint, r)
 			if err != nil {
 				break RETRY
-			}
-			if bodyBytes != nil {
-				req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-				// Also reset the ContentLength, as it's based on the body.
-				req.ContentLength = int64(len(bodyBytes))
 			}
 
 			resp, err = f.client.Do(req)
