@@ -20,6 +20,7 @@ package filter
 import (
 	"context"
 	"fmt"
+	grpcCtx "github.com/apache/dubbo-go-pixiu/pkg/context/grpc"
 	stdHttp "net/http"
 )
 
@@ -30,6 +31,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 type (
@@ -97,6 +99,10 @@ type (
 		OnData(data any) (any, error)
 		// OnTripleData triple rpc invocation from triple-server
 		OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error)
+		// OnUnaryRPC handles a unary RPC call.
+		OnUnaryRPC(ctx context.Context, fullMethod string, req interface{}) (interface{}, error)
+		// OnStreamRPC handles a streaming RPC call.
+		OnStreamRPC(stream model.RPCStream, info *model.RPCStreamInfo) error
 	}
 
 	// EmptyNetworkFilter default empty network filter adapter which offers empty function implements
@@ -117,12 +123,29 @@ type (
 		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
 		Config() any
 	}
+
+	// GrpcFilter interface for gRPC filters, similar to DubboFilter
+	GrpcFilter interface {
+		// Handle gRPC invocation
+		Handle(ctx *grpcCtx.GrpcContext) FilterStatus
+	}
+
+	// GrpcFilterPlugin interface for gRPC filter plugins
+	GrpcFilterPlugin interface {
+		// Kind returns the unique kind name to represent itself.
+		Kind() string
+		// CreateFilter return the filter callback
+		CreateFilter(config any) (GrpcFilter, error)
+		// Config Expose the config so that Filter Manger can inject it, so it must be a pointer
+		Config() any
+	}
 )
 
 var (
 	httpFilterPluginRegistry    = map[string]HttpFilterPlugin{}
 	networkFilterPluginRegistry = map[string]NetworkFilterPlugin{}
 	dubboFilterPluginRegistry   = map[string]DubboFilterPlugin{}
+	grpcFilterPluginRegistry    = map[string]GrpcFilterPlugin{}
 )
 
 // OnDecode empty implement
@@ -143,6 +166,16 @@ func (enf *EmptyNetworkFilter) OnData(data any) (any, error) {
 // OnTripleData empty implement
 func (enf *EmptyNetworkFilter) OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error) {
 	panic("OnTripleData is not implemented")
+}
+
+// OnUnaryRPC empty implement
+func (enf *EmptyNetworkFilter) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (interface{}, error) {
+	panic("OnUnaryRPC is not implemented")
+}
+
+// OnStreamRPC empty implement
+func (enf *EmptyNetworkFilter) OnStreamRPC(stream model.RPCStream, info *model.RPCStreamInfo) error {
+	panic("OnStreamRPC is not implemented")
 }
 
 // ServeHTTP empty implement
@@ -213,6 +246,28 @@ func RegisterDubboFilterPlugin(f DubboFilterPlugin) {
 // GetDubboFilterPlugin get plugin by kind
 func GetDubboFilterPlugin(kind string) (DubboFilterPlugin, error) {
 	existedFilter, existed := dubboFilterPluginRegistry[kind]
+	if existed {
+		return existedFilter, nil
+	}
+	return nil, errors.Errorf("plugin not found %s", kind)
+}
+
+// RegisterGrpcFilterPlugin registers gRPC filter plugin.
+func RegisterGrpcFilterPlugin(f GrpcFilterPlugin) {
+	if f.Kind() == "" {
+		panic(fmt.Errorf("%T: empty kind", f))
+	}
+
+	existedFilter, existed := grpcFilterPluginRegistry[f.Kind()]
+	if existed {
+		panic(fmt.Errorf("%T and %T got same kind: %s", f, existedFilter, f.Kind()))
+	}
+
+	grpcFilterPluginRegistry[f.Kind()] = f
+}
+
+func GetGrpcFilterPlugin(kind string) (GrpcFilterPlugin, error) {
+	existedFilter, existed := grpcFilterPluginRegistry[kind]
 	if existed {
 		return existedFilter, nil
 	}

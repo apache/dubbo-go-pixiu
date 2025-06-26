@@ -39,7 +39,7 @@ type NetworkFilterChain struct {
 }
 
 // ServeHTTP handle http request
-func (fc NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (fc *NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		filter.ServeHTTP(w, r)
@@ -47,7 +47,7 @@ func (fc NetworkFilterChain) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // OnDecode decode bytes received from getty listener
-func (fc NetworkFilterChain) OnDecode(data []byte) (any, int, error) {
+func (fc *NetworkFilterChain) OnDecode(data []byte) (any, int, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnDecode(data)
@@ -56,7 +56,7 @@ func (fc NetworkFilterChain) OnDecode(data []byte) (any, int, error) {
 }
 
 // OnEncode encode struct to bytes sent to getty listener
-func (fc NetworkFilterChain) OnEncode(p any) ([]byte, error) {
+func (fc *NetworkFilterChain) OnEncode(p any) ([]byte, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnEncode(p)
@@ -65,7 +65,7 @@ func (fc NetworkFilterChain) OnEncode(p any) ([]byte, error) {
 }
 
 // OnData handle dubbo rpc invocation
-func (fc NetworkFilterChain) OnData(data any) (any, error) {
+func (fc *NetworkFilterChain) OnData(data any) (any, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnData(data)
@@ -80,6 +80,24 @@ func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName strin
 		return filter.OnTripleData(ctx, methodName, arguments)
 	}
 	return nil, errors.Errorf("filterChain don't have network filter")
+}
+
+// OnUnaryRPC handles a unary RPC call.
+func (fc *NetworkFilterChain) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (interface{}, error) {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnUnaryRPC(ctx, fullMethod, req)
+	}
+	return nil, errors.Errorf("filterChain don't have gRPC unary filter")
+}
+
+// OnStreamRPC handles a streaming RPC call.
+func (fc *NetworkFilterChain) OnStreamRPC(stream model.RPCStream, info *model.RPCStreamInfo) error {
+	// todo: only one filter will exist for now, needs change when more than one
+	for _, filter := range fc.filtersArray {
+		return filter.OnStreamRPC(stream, info)
+	}
+	return errors.Errorf("filterChain don't have gRPC stream filter")
 }
 
 // CreateNetworkFilterChain create network filter chain
