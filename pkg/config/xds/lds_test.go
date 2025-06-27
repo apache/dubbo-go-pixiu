@@ -75,32 +75,6 @@ http_filters:
 	}
 	httpManagerConfigStruct, _ := structpb2.NewStruct(configMap)
 
-	oneConfigMap := map[string]any{
-		"route_config": map[any]any{
-			"routes": []any{
-				map[any]any{
-					"match": map[any]any{
-						"prefix": "/",
-					},
-					"route": map[any]any{
-						"cluster":                         "http_bin",
-						"cluster_not_found_response_code": "505",
-					},
-				},
-			},
-		},
-		"http_filters": []any{
-			map[any]any{
-				"name":   "dgp.filter.http.httpproxy",
-				"config": nil,
-			},
-			map[any]any{
-				"name":   "dgp.filter.http.response",
-				"config": nil,
-			},
-		},
-	}
-
 	type args struct {
 		filter *pixiupb.NetworkFilter
 	}
@@ -113,20 +87,20 @@ http_filters:
 			name: "yaml",
 			args: args{
 				filter: &pixiupb.NetworkFilter{
-					Name: "",
+					Name: "yaml_filter",
 					Config: &pixiupb.NetworkFilter_Yaml{
 						Yaml: &pixiupb.Config{
 							Content: httpManagerConfigYaml,
 						}},
 				},
 			},
-			wantM: oneConfigMap,
+			wantM: configMap,
 		},
 		{
 			name: "struct",
 			args: args{
 				filter: &pixiupb.NetworkFilter{
-					Name:   "",
+					Name:   "struct_filter",
 					Config: &pixiupb.NetworkFilter_Struct{Struct: httpManagerConfigStruct},
 				},
 			},
@@ -136,9 +110,10 @@ http_filters:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &LdsManager{}
-			r := l.makeConfig(tt.args.filter)
-			assert := require.New(t)
-			assert.Equal(tt.wantM, r)
+			gotM := l.makeConfig(tt.args.filter)
+			assertions := require.New(t)
+
+			assertions.Equal(tt.wantM, gotM)
 		})
 	}
 }
