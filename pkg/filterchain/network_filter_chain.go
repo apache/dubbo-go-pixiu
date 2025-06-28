@@ -88,7 +88,7 @@ func (fc *NetworkFilterChain) OnUnaryRPC(ctx context.Context, fullMethod string,
 	for _, filter := range fc.filtersArray {
 		return filter.OnUnaryRPC(ctx, fullMethod, req)
 	}
-	return nil, errors.Errorf("filterChain don't have gRPC unary filter")
+	return nil, errors.Errorf("filterChain don't have unary filter")
 }
 
 // OnStreamRPC handles a streaming RPC call.
@@ -98,6 +98,20 @@ func (fc *NetworkFilterChain) OnStreamRPC(stream model.RPCStream, info *model.RP
 		return filter.OnStreamRPC(stream, info)
 	}
 	return errors.Errorf("filterChain don't have gRPC stream filter")
+}
+
+// Close closes the filter chain and all filters in it.
+func (fc *NetworkFilterChain) Close() error {
+	var firstErr error
+	for _, f := range fc.filtersArray {
+		if err := f.Close(); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			logger.Warnf("Failed to close filter: %v", err)
+		}
+	}
+	return firstErr
 }
 
 // CreateNetworkFilterChain create network filter chain

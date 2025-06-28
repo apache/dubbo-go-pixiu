@@ -19,6 +19,7 @@ package grpcproxy
 
 import (
 	"context"
+	"strings"
 )
 import (
 	"github.com/pkg/errors"
@@ -67,39 +68,6 @@ func determineStreamType(isClientStream, isServerStream bool) grpcCtx.StreamType
 	return grpcCtx.UnaryCall
 }
 
-// OnUnaryRPC handles a unary RPC call.
-func (gcm *GrpcProxyConnectionManager) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (interface{}, error) {
-	// Create gRPC context
-	grpcCtx := &grpcCtx.GrpcContext{
-		Context:     ctx,
-		MethodName:  fullMethod,
-		Arguments:   []any{req}, // Unary call has only one request parameter
-		StreamType:  grpcCtx.UnaryCall,
-		IsStreaming: false,
-	}
-
-	// Extract service name
-	serviceName := gcm.extractServiceName(ctx, fullMethod)
-	grpcCtx.ServiceName = serviceName
-
-	// Set metadata
-	gcm.extractAndSetMetadata(ctx, grpcCtx)
-
-	// Route to backend service
-	if err := gcm.routeRequest(grpcCtx, serviceName, fullMethod); err != nil {
-		return nil, err
-	}
-
-	// Process request through filter chain
-	gcm.handleGrpcInvocation(grpcCtx)
-
-	if grpcCtx.Error != nil {
-		return nil, grpcCtx.Error
-	}
-
-	return grpcCtx.Result, nil
-}
-
 // OnStreamRPC handles a streaming RPC call.
 func (gcm *GrpcProxyConnectionManager) OnStreamRPC(stream model.RPCStream, info *model.RPCStreamInfo) error {
 	ctx := stream.Context()
@@ -108,7 +76,6 @@ func (gcm *GrpcProxyConnectionManager) OnStreamRPC(stream model.RPCStream, info 
 	// Create gRPC context
 	grpcCtx := &grpcCtx.GrpcContext{
 		Context:        ctx,
-		MethodName:     fullMethod,
 		IsStream:       true,
 		IsClientStream: info.IsClientStream,
 		IsServerStream: info.IsServerStream,
@@ -117,15 +84,17 @@ func (gcm *GrpcProxyConnectionManager) OnStreamRPC(stream model.RPCStream, info 
 		IsStreaming:    true,
 	}
 
-	// Extract service name
+	// Extract service and method names for context, not for routing.
 	serviceName := gcm.extractServiceName(ctx, fullMethod)
+	methodName := gcm.extractMethodName(fullMethod)
 	grpcCtx.ServiceName = serviceName
+	grpcCtx.MethodName = methodName
 
 	// Set metadata
 	gcm.extractAndSetMetadata(ctx, grpcCtx)
 
-	// Route to backend service
-	if err := gcm.routeRequest(grpcCtx, serviceName, fullMethod); err != nil {
+	// Route to backend service using the full method as path and "POST" as the HTTP method.
+	if err := gcm.routeRequest(grpcCtx, fullMethod, "POST"); err != nil {
 		return err
 	}
 
@@ -133,6 +102,10 @@ func (gcm *GrpcProxyConnectionManager) OnStreamRPC(stream model.RPCStream, info 
 	gcm.handleGrpcInvocation(grpcCtx)
 
 	return grpcCtx.Error
+}
+
+func (gcm *GrpcProxyConnectionManager) Close() error {
+	return gcm.handleGrpcClose()
 }
 
 // extractAndSetMetadata extracts and sets gRPC metadata
@@ -148,11 +121,11 @@ func (gcm *GrpcProxyConnectionManager) extractAndSetMetadata(ctx context.Context
 	grpcContext.Attachments = grpcAttachment
 }
 
-// routeRequest routes the request to backend service
-func (gcm *GrpcProxyConnectionManager) routeRequest(grpcContext *grpcCtx.GrpcContext, serviceName, methodName string) error {
-	ra, err := gcm.routerCoordinator.RouteByPathAndName(serviceName, methodName)
+// routeRequest routes the request to a backend service using path and method.
+func (gcm *GrpcProxyConnectionManager) routeRequest(grpcContext *grpcCtx.GrpcContext, path, method string) error {
+	ra, err := gcm.routerCoordinator.RouteByPathAndName(path, method)
 	if err != nil {
-		return errors.Errorf("gRPC route not found: %s/%s", serviceName, methodName)
+		return errors.Errorf("gRPC route not found for path: %s, method: %s", path, method)
 	}
 
 	grpcContext.Route = ra
@@ -183,6 +156,32 @@ func (gcm *GrpcProxyConnectionManager) handleGrpcInvocation(ctx *grpcCtx.GrpcCon
 	}
 }
 
+// handleGrpcClose handle gRPC request through filter chain
+func (gcm *GrpcProxyConnectionManager) handleGrpcClose() error {
+	var firstErr error
+	filterChain := gcm.filterManager.filters
+
+	for _, f := range filterChain {
+		if err := f.Close(); err != nil {
+			logger.Warnf("Failed to close gRPC filter: %v", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
+// extractMethodName extracts the method name from the full gRPC method string.
+// For example, from "/package.Service/Method", it returns "Method".
+func (gcm *GrpcProxyConnectionManager) extractMethodName(fullMethod string) string {
+	lastSlash := strings.LastIndex(fullMethod, "/")
+	if lastSlash == -1 || lastSlash == len(fullMethod)-1 {
+		return fullMethod // Return the original string if format is unexpected
+	}
+	return fullMethod[lastSlash+1:]
+}
+
 // extractServiceName extract service name from context or method name
 func (gcm *GrpcProxyConnectionManager) extractServiceName(ctx context.Context, methodName string) string {
 	// Try to get service name from metadata
@@ -190,11 +189,6 @@ func (gcm *GrpcProxyConnectionManager) extractServiceName(ctx context.Context, m
 		if service := md.Get("grpc-service"); len(service) > 0 {
 			return service[0]
 		}
-	}
-
-	// Parse service name from method name, format is usually /package.Service/Method
-	if len(methodName) > 0 && methodName[0] == '/' {
-		methodName = methodName[1:]
 	}
 
 	lastSlash := -1

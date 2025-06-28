@@ -23,13 +23,18 @@ import (
 	"net"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+)
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/codec/grpc/passthrough"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
@@ -76,10 +81,8 @@ func newGrpcListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.L
 	// Parse gRPC specific configuration
 	grpcConfig := model.MapInGrpcStruct(lc.Config)
 
-	// Build server options with interceptors
-	opts := buildGrpcServerOptions(grpcConfig)
-	opts = append(opts, grpc.UnaryInterceptor(ls.unaryInterceptor))
-	opts = append(opts, grpc.StreamInterceptor(ls.streamInterceptor))
+	// Build server options with a proxy handler for unknown services
+	opts := buildGrpcServerOptions(grpcConfig, ls)
 
 	// Create and configure gRPC server
 	server := grpc.NewServer(opts...)
@@ -100,7 +103,6 @@ func (ls *GrpcListenerService) Start() error {
 	}
 	ls.listener = listener
 
-	logger.Infof("gRPC listener starting at %s", address)
 	ls.logConfiguration()
 
 	// Start server in a goroutine
@@ -123,6 +125,57 @@ func (ls *GrpcListenerService) serveGrpc(listener net.Listener) {
 	}
 }
 
+// proxyStreamHandler handles all unknown gRPC streams and forwards them through the filter chain.
+// This is the core of the gRPC proxy functionality.
+func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream) error {
+	start := time.Now()
+
+	// The full method name is available in the stream's context.
+	fullMethod, ok := grpc.MethodFromServerStream(ss)
+	if !ok {
+		return errors.New("could not determine method from stream")
+	}
+
+	logger.Debugf("gRPC proxy stream request: %s", fullMethod)
+
+	// Check if server is shutting down
+	if ls.gShutdownConfig.RejectRequest {
+		logger.Warnf("Rejecting gRPC stream request %s during shutdown", fullMethod)
+		return errors.New("server is shutting down")
+	}
+
+	// Track active request count
+	ls.gShutdownConfig.ActiveCount++
+	defer func() {
+		ls.gShutdownConfig.ActiveCount--
+	}()
+
+	// Since we don't have StreamInfo here, we must rely on the filter chain to get it if needed.
+	// For a pure proxy, we just need to forward the stream.
+	stream := &RPCStreamImpl{ServerStream: ss}
+
+	// The filter chain needs RPCStreamInfo. Let's create a basic one.
+	// We can't know IsClientStream/IsServerStream without parsing the descriptor,
+	// but the grpc-proxy filter doesn't rely on it. It re-infers this.
+	// We pass the full method name which is the most critical piece of information.
+	streamInfo := &model.RPCStreamInfo{
+		FullMethod: fullMethod,
+	}
+
+	// Process stream through filter chain
+	err := ls.FilterChain.OnStreamRPC(stream, streamInfo)
+
+	// Log request completion
+	duration := time.Since(start)
+	if err != nil {
+		logger.Errorf("gRPC stream request %s failed: %v (took %v)", fullMethod, err, duration)
+	} else {
+		logger.Debugf("gRPC stream request %s completed (took %v)", fullMethod, duration)
+	}
+
+	return err
+}
+
 // logConfiguration logs the current gRPC server configuration
 func (ls *GrpcListenerService) logConfiguration() {
 	if grpcConfig, ok := ls.Config.Config.(model.GrpcConfig); ok {
@@ -138,6 +191,13 @@ func (ls *GrpcListenerService) Close() error {
 	// Stop gRPC server
 	if ls.server != nil {
 		ls.server.Stop()
+	}
+
+	// Close filter chain
+	if ls.FilterChain != nil {
+		if err := ls.FilterChain.Close(); err != nil {
+			logger.Warnf("Error closing filter chain: %v", err)
+		}
 	}
 
 	// Close network listener
@@ -174,6 +234,13 @@ func (ls *GrpcListenerService) ShutDown(wg any) error {
 
 	// Gracefully stop the server
 	ls.gracefulStopServer()
+
+	// Close filter chain
+	if ls.FilterChain != nil {
+		if err := ls.FilterChain.Close(); err != nil {
+			logger.Warnf("Error closing filter chain during shutdown: %v", err)
+		}
+	}
 
 	logger.Info("gRPC listener shutdown completed")
 	return nil
@@ -224,8 +291,16 @@ func (ls *GrpcListenerService) Refresh(c model.Listener) error {
 }
 
 // buildGrpcServerOptions creates gRPC server options from config
-func buildGrpcServerOptions(config *model.GrpcConfig) []grpc.ServerOption {
+func buildGrpcServerOptions(config *model.GrpcConfig, ls *GrpcListenerService) []grpc.ServerOption {
 	var opts []grpc.ServerOption
+
+	// Force the server to use a passthrough codec for all requests.
+	// This is essential for a transparent proxy, as the server does not know the message types.
+	// It allows the server to receive raw bytes, which can then be forwarded by the proxy filter.
+	opts = append(opts, grpc.ForceServerCodec(passthrough.Codec{}))
+
+	// Set the handler for unknown services to the proxy handler
+	opts = append(opts, grpc.UnknownServiceHandler(ls.proxyStreamHandler))
 
 	// Set message size limits
 	opts = append(opts, grpc.MaxRecvMsgSize(config.MaxReceiveMessageSize))
@@ -328,75 +403,4 @@ func (s *RPCStreamImpl) SendMsg(m interface{}) error {
 // RecvMsg implements model.RPCStream interface
 func (s *RPCStreamImpl) RecvMsg(m interface{}) error {
 	return s.ServerStream.RecvMsg(m)
-}
-
-// unaryInterceptor handles unary RPC calls
-func (ls *GrpcListenerService) unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	start := time.Now()
-	logger.Debugf("gRPC unary request: %s", info.FullMethod)
-
-	// Check if server is shutting down
-	if ls.gShutdownConfig.RejectRequest {
-		logger.Warnf("Rejecting gRPC unary request %s during shutdown", info.FullMethod)
-		return nil, errors.New("server is shutting down")
-	}
-
-	// Track active request count
-	ls.gShutdownConfig.ActiveCount++
-	defer func() {
-		ls.gShutdownConfig.ActiveCount--
-	}()
-
-	// Process request through filter chain
-	result, err := ls.FilterChain.OnUnaryRPC(ctx, info.FullMethod, req)
-
-	// Log request completion
-	duration := time.Since(start)
-	if err != nil {
-		logger.Errorf("gRPC unary request %s failed: %v (took %v)", info.FullMethod, err, duration)
-	} else {
-		logger.Debugf("gRPC unary request %s completed (took %v)", info.FullMethod, duration)
-	}
-
-	return result, err
-}
-
-// streamInterceptor handles streaming RPC calls
-func (ls *GrpcListenerService) streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	start := time.Now()
-	logger.Debugf("gRPC stream request: %s (ClientStream: %v, ServerStream: %v)",
-		info.FullMethod, info.IsClientStream, info.IsServerStream)
-
-	// Check if server is shutting down
-	if ls.gShutdownConfig.RejectRequest {
-		logger.Warnf("Rejecting gRPC stream request %s during shutdown", info.FullMethod)
-		return errors.New("server is shutting down")
-	}
-
-	// Track active request count
-	ls.gShutdownConfig.ActiveCount++
-	defer func() {
-		ls.gShutdownConfig.ActiveCount--
-	}()
-
-	// Create stream wrapper and info
-	stream := &RPCStreamImpl{ServerStream: ss}
-	streamInfo := &model.RPCStreamInfo{
-		FullMethod:     info.FullMethod,
-		IsClientStream: info.IsClientStream,
-		IsServerStream: info.IsServerStream,
-	}
-
-	// Process stream through filter chain
-	err := ls.FilterChain.OnStreamRPC(stream, streamInfo)
-
-	// Log request completion
-	duration := time.Since(start)
-	if err != nil {
-		logger.Errorf("gRPC stream request %s failed: %v (took %v)", info.FullMethod, err, duration)
-	} else {
-		logger.Debugf("gRPC stream request %s completed (took %v)", info.FullMethod, duration)
-	}
-
-	return err
 }

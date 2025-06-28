@@ -20,7 +20,6 @@ package filter
 import (
 	"context"
 	"fmt"
-	grpcCtx "github.com/apache/dubbo-go-pixiu/pkg/context/grpc"
 	stdHttp "net/http"
 )
 
@@ -30,6 +29,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/dubbo"
+	grpcCtx "github.com/apache/dubbo-go-pixiu/pkg/context/grpc"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -102,7 +102,12 @@ type (
 		// OnUnaryRPC handles a unary RPC call.
 		OnUnaryRPC(ctx context.Context, fullMethod string, req interface{}) (interface{}, error)
 		// OnStreamRPC handles a streaming RPC call.
+		// In gRPC, a Unary call is fundamentally a special, short-lived case of a stream.
+		// By consolidating all handling here, we leverage a single, robust logic path for all
+		// gRPC proxying, simplifying the architecture and ensuring consistent behavior.
 		OnStreamRPC(stream model.RPCStream, info *model.RPCStreamInfo) error
+		// Close the filter and release resources
+		Close() error
 	}
 
 	// EmptyNetworkFilter default empty network filter adapter which offers empty function implements
@@ -128,6 +133,8 @@ type (
 	GrpcFilter interface {
 		// Handle gRPC invocation
 		Handle(ctx *grpcCtx.GrpcContext) FilterStatus
+		// Close the filter and release resources
+		Close() error
 	}
 
 	// GrpcFilterPlugin interface for gRPC filter plugins
@@ -181,6 +188,10 @@ func (enf *EmptyNetworkFilter) OnStreamRPC(stream model.RPCStream, info *model.R
 // ServeHTTP empty implement
 func (enf *EmptyNetworkFilter) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
 	panic("ServeHTTP is not implemented")
+}
+
+func (enf *EmptyNetworkFilter) Close() error {
+	panic("Close is not implemented")
 }
 
 // Register registers filter plugin.
