@@ -35,7 +35,7 @@ func init() {
 }
 
 // Marshal checks if the value is already bytes or a proto.Message and marshals accordingly.
-func (c Codec) Marshal(v interface{}) ([]byte, error) {
+func (c Codec) Marshal(v any) ([]byte, error) {
 	if p, ok := v.(proto.Message); ok {
 		return proto.Marshal(p)
 	}
@@ -46,7 +46,7 @@ func (c Codec) Marshal(v interface{}) ([]byte, error) {
 }
 
 // Unmarshal stores the raw data into the target, which must be a *[]byte or proto.Message.
-func (c Codec) Unmarshal(data []byte, v interface{}) error {
+func (c Codec) Unmarshal(data []byte, v any) error {
 	if vb, ok := v.(*[]byte); ok {
 		*vb = data
 		return nil

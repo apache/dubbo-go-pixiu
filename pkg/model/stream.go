@@ -24,8 +24,8 @@ import (
 // RPCStream represents a gRPC stream
 type RPCStream interface {
 	Context() context.Context
-	SendMsg(m interface{}) error
-	RecvMsg(m interface{}) error
+	SendMsg(m any) error
+	RecvMsg(m any) error
 }
 
 // RPCStreamInfo contains information about the RPC stream

@@ -176,7 +176,7 @@ func (enf *EmptyNetworkFilter) OnTripleData(ctx context.Context, methodName stri
 }
 
 // OnUnaryRPC empty implement
-func (enf *EmptyNetworkFilter) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (interface{}, error) {
+func (enf *EmptyNetworkFilter) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (any, error) {
 	panic("OnUnaryRPC is not implemented")
 }
 
