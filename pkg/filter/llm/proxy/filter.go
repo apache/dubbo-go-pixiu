@@ -40,7 +40,6 @@ import (
 )
 
 const (
-	// Kind is the kind of Fallback.
 	Kind = constant.LLMProxyFilter
 )
 
@@ -169,14 +168,16 @@ FALLBACK:
 		for retry := uint(0); retry <= endpoint.LLMMeta.RetryTimes; retry++ {
 			req, err = f.assembleRequest(endpoint, r)
 			if err != nil {
+				logger.Warnf("[dubbo-go-pixiu] client assemble request failed: %v", err)
 				break RETRY
 			}
 
 			resp, err = f.client.Do(req)
 			if err != nil {
+				logger.Warnf("[dubbo-go-pixiu] client call endpoint [%s: %v] failed: %v", endpoint.ID, endpoint.Address.GetAddress(), err)
 				break RETRY
 			}
-			if util.HTTPRespIsSuccessful(resp.StatusCode) {
+			if util.IsHTTPRespSuccessful(resp.StatusCode) {
 				// If the response is successful, we can break out of the fallback loop.
 				break FALLBACK
 			}

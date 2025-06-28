@@ -160,6 +160,7 @@ func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy
 
 	c := cm.getCluster(clusterName)
 	if c == nil {
+		logger.Warnf("[dubbo-go-pixiu] cluster %s not found", clusterName)
 		return nil
 	}
 	return cm.pickOneEndpoint(c, policy)
@@ -172,6 +173,7 @@ func (cm *ClusterManager) PickNextEndpoint(clusterName string, curEndpointID str
 
 	c := cm.getCluster(clusterName)
 	if c == nil {
+		logger.Warnf("[dubbo-go-pixiu] cluster %s not found", clusterName)
 		return nil
 	}
 
