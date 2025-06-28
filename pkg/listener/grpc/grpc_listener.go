@@ -309,12 +309,6 @@ func buildGrpcServerOptions(config *model.GrpcConfig, ls *GrpcListenerService) [
 	// Configure keepalive parameters
 	configureKeepalive(config, &opts)
 
-	// Configure compression if enabled
-	if config.EnableCompression {
-		// gRPC supports gzip compression by default
-		// Additional compression algorithms can be added as needed
-	}
-
 	// Configure TLS if enabled
 	configureTLS(config, &opts)
 
@@ -407,11 +401,11 @@ func (s *RPCStreamImpl) Context() context.Context {
 }
 
 // SendMsg implements model.RPCStream interface
-func (s *RPCStreamImpl) SendMsg(m interface{}) error {
+func (s *RPCStreamImpl) SendMsg(m any) error {
 	return s.ServerStream.SendMsg(m)
 }
 
 // RecvMsg implements model.RPCStream interface
-func (s *RPCStreamImpl) RecvMsg(m interface{}) error {
+func (s *RPCStreamImpl) RecvMsg(m any) error {
 	return s.ServerStream.RecvMsg(m)
 }

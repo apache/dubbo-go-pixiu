@@ -83,7 +83,7 @@ func (fc *NetworkFilterChain) OnTripleData(ctx context.Context, methodName strin
 }
 
 // OnUnaryRPC handles a unary RPC call.
-func (fc *NetworkFilterChain) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (interface{}, error) {
+func (fc *NetworkFilterChain) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (any, error) {
 	// todo: only one filter will exist for now, needs change when more than one
 	for _, filter := range fc.filtersArray {
 		return filter.OnUnaryRPC(ctx, fullMethod, req)

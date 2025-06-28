@@ -100,7 +100,7 @@ type (
 		// OnTripleData triple rpc invocation from triple-server
 		OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error)
 		// OnUnaryRPC handles a unary RPC call.
-		OnUnaryRPC(ctx context.Context, fullMethod string, req interface{}) (interface{}, error)
+		OnUnaryRPC(ctx context.Context, fullMethod string, req any) (any, error)
 		// OnStreamRPC handles a streaming RPC call.
 		// In gRPC, a Unary call is fundamentally a special, short-lived case of a stream.
 		// By consolidating all handling here, we leverage a single, robust logic path for all
@@ -176,7 +176,7 @@ func (enf *EmptyNetworkFilter) OnTripleData(ctx context.Context, methodName stri
 }
 
 // OnUnaryRPC empty implement
-func (enf *EmptyNetworkFilter) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (interface{}, error) {
+func (enf *EmptyNetworkFilter) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (any, error) {
 	panic("OnUnaryRPC is not implemented")
 }
 
