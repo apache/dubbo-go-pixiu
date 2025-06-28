@@ -23,7 +23,6 @@ import (
 )
 import (
 	"github.com/pkg/errors"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -41,16 +40,14 @@ type GrpcProxyConnectionManager struct {
 	config            *model.GRPCConnectionManagerConfig
 	routerCoordinator *router2.RouterCoordinator
 	filterManager     *GrpcFilterManager
-	clientConnPool    map[string]*grpc.ClientConn
 }
 
 // CreateGrpcProxyConnectionManager create gRPC proxy connection manager
 func CreateGrpcProxyConnectionManager(config *model.GRPCConnectionManagerConfig) *GrpcProxyConnectionManager {
 	filterManager := NewGrpcFilterManager(config.GrpcFilters)
 	gcm := &GrpcProxyConnectionManager{
-		config:         config,
-		filterManager:  filterManager,
-		clientConnPool: make(map[string]*grpc.ClientConn),
+		config:        config,
+		filterManager: filterManager,
 	}
 	gcm.routerCoordinator = router2.CreateRouterCoordinator(&config.RouteConfig)
 	return gcm
@@ -105,7 +102,18 @@ func (gcm *GrpcProxyConnectionManager) OnStreamRPC(stream model.RPCStream, info 
 }
 
 func (gcm *GrpcProxyConnectionManager) Close() error {
-	return gcm.handleGrpcClose()
+	var firstErr error
+	filterChain := gcm.filterManager.filters
+
+	for _, f := range filterChain {
+		if err := f.Close(); err != nil {
+			logger.Warnf("Failed to close gRPC filter: %v", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
 }
 
 // extractAndSetMetadata extracts and sets gRPC metadata
@@ -129,7 +137,6 @@ func (gcm *GrpcProxyConnectionManager) routeRequest(grpcContext *grpcCtx.GrpcCon
 	}
 
 	grpcContext.Route = ra
-	logger.Debugf("[dubbo-go-pixiu] gRPC choose endpoint from cluster: %v", ra.Cluster)
 	return nil
 }
 
@@ -183,25 +190,25 @@ func (gcm *GrpcProxyConnectionManager) extractMethodName(fullMethod string) stri
 }
 
 // extractServiceName extract service name from context or method name
-func (gcm *GrpcProxyConnectionManager) extractServiceName(ctx context.Context, methodName string) string {
-	// Try to get service name from metadata
+func (gcm *GrpcProxyConnectionManager) extractServiceName(ctx context.Context, fullMethod string) string {
+	// Try to get service name from metadata first
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if service := md.Get("grpc-service"); len(service) > 0 {
 			return service[0]
 		}
 	}
 
-	lastSlash := -1
-	for i := len(methodName) - 1; i >= 0; i-- {
-		if methodName[i] == '/' {
-			lastSlash = i
-			break
-		}
+	// Fallback to parsing from the full method string, e.g., "/package.Service/Method" -> "package.Service"
+	// Trim leading slash for consistency
+	if strings.HasPrefix(fullMethod, "/") {
+		fullMethod = fullMethod[1:]
 	}
 
-	if lastSlash >= 0 {
-		return methodName[:lastSlash]
+	lastSlash := strings.LastIndex(fullMethod, "/")
+	if lastSlash > 0 {
+		return fullMethod[:lastSlash]
 	}
 
+	// If no slash is found, or it's at the beginning, the format is unexpected.
 	return "unknown.service"
 }

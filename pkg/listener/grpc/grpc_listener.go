@@ -62,6 +62,7 @@ type GrpcListenerService struct {
 	server          *grpc.Server
 	listener        net.Listener
 	gShutdownConfig *listener.ListenerGracefulShutdownConfig
+	closeOnce       sync.Once
 }
 
 // newGrpcListenerService creates a new gRPC listener service
@@ -89,6 +90,8 @@ func newGrpcListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.L
 	registerProxyServices(server)
 	ls.server = server
 
+	ls.logConfiguration()
+
 	return ls, nil
 }
 
@@ -108,8 +111,8 @@ func (ls *GrpcListenerService) Start() error {
 	// Start server in a goroutine
 	go ls.serveGrpc(listener)
 
-	// Wait briefly to ensure server starts
-	time.Sleep(defaultStartupWait)
+	// The listener is ready as soon as net.Listen succeeds and the goroutine is running.
+	// We don't need a fixed sleep here as it's unreliable.
 	logger.Infof("gRPC listener successfully started at %s", address)
 
 	return nil
@@ -136,7 +139,8 @@ func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream)
 		return errors.New("could not determine method from stream")
 	}
 
-	logger.Debugf("gRPC proxy stream request: %s", fullMethod)
+	// This log is a bit too verbose, as the filter chain will provide more detailed logs.
+	// logger.Debugf("gRPC proxy stream request: %s", fullMethod)
 
 	// Check if server is shutting down
 	if ls.gShutdownConfig.RejectRequest {
@@ -170,7 +174,7 @@ func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream)
 	if err != nil {
 		logger.Errorf("gRPC stream request %s failed: %v (took %v)", fullMethod, err, duration)
 	} else {
-		logger.Debugf("gRPC stream request %s completed (took %v)", fullMethod, duration)
+		logger.Debugf("gRPC stream for %s completed in %v", fullMethod, duration)
 	}
 
 	return err
@@ -186,25 +190,25 @@ func (ls *GrpcListenerService) logConfiguration() {
 	}
 }
 
-// Close stops the gRPC server and closes the listener
+// cleanup closes the filter chain and other resources. It's designed to be called once.
+func (ls *GrpcListenerService) cleanup() {
+	ls.closeOnce.Do(func() {
+		logger.Info("Cleaning up gRPC listener resources...")
+		if ls.FilterChain != nil {
+			if err := ls.FilterChain.Close(); err != nil {
+				logger.Warnf("Error closing filter chain: %v", err)
+			}
+		}
+	})
+}
+
+// Close stops the gRPC server immediately. It is a hard stop.
 func (ls *GrpcListenerService) Close() error {
-	// Stop gRPC server
+	logger.Info("Forcefully closing gRPC listener...")
 	if ls.server != nil {
 		ls.server.Stop()
 	}
-
-	// Close filter chain
-	if ls.FilterChain != nil {
-		if err := ls.FilterChain.Close(); err != nil {
-			logger.Warnf("Error closing filter chain: %v", err)
-		}
-	}
-
-	// Close network listener
-	if ls.listener != nil {
-		return ls.listener.Close()
-	}
-
+	ls.cleanup()
 	return nil
 }
 
@@ -235,12 +239,8 @@ func (ls *GrpcListenerService) ShutDown(wg any) error {
 	// Gracefully stop the server
 	ls.gracefulStopServer()
 
-	// Close filter chain
-	if ls.FilterChain != nil {
-		if err := ls.FilterChain.Close(); err != nil {
-			logger.Warnf("Error closing filter chain during shutdown: %v", err)
-		}
-	}
+	// Clean up resources
+	ls.cleanup()
 
 	logger.Info("gRPC listener shutdown completed")
 	return nil
@@ -323,26 +323,37 @@ func buildGrpcServerOptions(config *model.GrpcConfig, ls *GrpcListenerService) [
 
 // configureKeepalive sets up keepalive parameters for the gRPC server
 func configureKeepalive(config *model.GrpcConfig, opts *[]grpc.ServerOption) {
-	idleTimeout, err1 := time.ParseDuration(config.IdleTimeout)
-	maxConnectionAge, err2 := time.ParseDuration(config.MaxConnectionAge)
-
-	if err1 == nil && err2 == nil {
-		// Server parameters
-		kasp := keepalive.ServerParameters{
-			Time:                  idleTimeout,
-			Timeout:               defaultTLSTimeout,
-			MaxConnectionAge:      maxConnectionAge,
-			MaxConnectionAgeGrace: defaultGracePeriod,
-		}
-		*opts = append(*opts, grpc.KeepaliveParams(kasp))
-
-		// Enforcement policy
-		kaep := keepalive.EnforcementPolicy{
-			MinTime:             defaultMinKeepalive,
-			PermitWithoutStream: true,
-		}
-		*opts = append(*opts, grpc.KeepaliveEnforcementPolicy(kaep))
+	idleTimeout, err := time.ParseDuration(config.IdleTimeout)
+	if config.IdleTimeout != "" && err != nil {
+		logger.Warnf("Invalid gRPC idle_timeout format: %s, keepalive disabled.", config.IdleTimeout)
+		return
 	}
+	if config.IdleTimeout == "" {
+		// Use a default or skip if not provided
+		return
+	}
+
+	maxConnectionAge, err := time.ParseDuration(config.MaxConnectionAge)
+	if config.MaxConnectionAge != "" && err != nil {
+		logger.Warnf("Invalid gRPC max_connection_age format: %s, using infinite.", config.MaxConnectionAge)
+		maxConnectionAge = 0 // Or some other default
+	}
+
+	// Server parameters
+	kasp := keepalive.ServerParameters{
+		Time:                  idleTimeout,
+		Timeout:               defaultTLSTimeout,
+		MaxConnectionAge:      maxConnectionAge,
+		MaxConnectionAgeGrace: defaultGracePeriod,
+	}
+	*opts = append(*opts, grpc.KeepaliveParams(kasp))
+
+	// Enforcement policy
+	kaep := keepalive.EnforcementPolicy{
+		MinTime:             defaultMinKeepalive,
+		PermitWithoutStream: true,
+	}
+	*opts = append(*opts, grpc.KeepaliveEnforcementPolicy(kaep))
 }
 
 // configureTLS sets up TLS credentials for the gRPC server if enabled

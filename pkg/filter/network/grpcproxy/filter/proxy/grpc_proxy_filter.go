@@ -151,8 +151,8 @@ func (f *Filter) Handle(ctx *grpcCtx.GrpcContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	logger.Debugf("gRPC proxy forwarding %s.%s to endpoint: %s",
-		ctx.ServiceName, ctx.MethodName, address)
+	logger.Debugf("Forwarding gRPC request %s to cluster %s, endpoint %s",
+		ctx.ServiceName+"/"+ctx.MethodName, ctx.Route.Cluster, address)
 
 	return f.handleStream(ctx, address)
 }
@@ -177,7 +177,7 @@ func (f *Filter) handleStream(ctx *grpcCtx.GrpcContext, address string) filter.F
 
 	// Create the full method path for the gRPC call
 	fullMethod := ctx.ServiceName + "/" + ctx.MethodName
-	logger.Debugf("[dubbo-go-pixiu] gRPC proxy bidirectional stream to %s", fullMethod)
+	// logger.Debugf("[dubbo-go-pixiu] gRPC proxy bidirectional stream to %s", fullMethod)
 
 	// Create a new client stream to the backend
 	clientStream, err := conn.NewStream(outCtx, &grpc.StreamDesc{
@@ -239,7 +239,8 @@ func (f *Filter) handleStream(ctx *grpcCtx.GrpcContext, address string) filter.F
 		return filter.Stop
 	}
 
-	logger.Debugf("gRPC stream for %s completed successfully", fullMethod)
+	// The listener already logs the successful completion with duration.
+	// logger.Debugf("gRPC stream for %s completed successfully", fullMethod)
 	return filter.Continue
 }
 
