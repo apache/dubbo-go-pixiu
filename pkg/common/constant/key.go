@@ -18,9 +18,10 @@
 package constant
 
 const (
-	HTTPConnectManagerFilter  = "dgp.filter.httpconnectionmanager"
-	GRPCConnectManagerFilter  = "dgp.filter.grpcconnectionmanager"
-	GRPCProxyConnectionFilter = "dgp.filter.network.grpcproxy"
+	HTTPConnectManagerFilter = "dgp.filter.httpconnectionmanager"
+	GRPCConnectManagerFilter = "dgp.filter.grpcconnectionmanager"
+	// TODO: Pending refactor, move network.grpcconnectionmanager and network.dubboconnectionmanager into common
+	GRPCProxyConnectionFilter = "dgp.filter.network.grpcconnectionmanager"
 	DubboConnectManagerFilter = "dgp.filter.network.dubboconnectionmanager"
 
 	HTTPAuthorityFilter        = "dgp.filter.http.authority"
