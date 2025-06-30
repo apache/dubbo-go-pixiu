@@ -47,12 +47,12 @@ import (
 
 // Constants for gRPC proxy filter
 const (
-	Kind                    = constant.GRPCProxyFilter
-	defaultKeepAliveTime    = 300 * time.Second
-	defaultKeepAliveTimeout = 5 * time.Second
-	defaultConnectTimeout   = 5 * time.Second
-	defaultMaxRetryCount    = 3
-	defaultMaxMsgSize       = 4 * 1024 * 1024 // 4MB
+	Kind                       = constant.GRPCProxyFilter
+	defaultKeepAliveTime       = 300 * time.Second
+	defaultKeepAliveTimeout    = 5 * time.Second
+	defaultConnectTimeout      = 5 * time.Second
+	defaultMaxMsgSize          = 4 * 1024 * 1024 // 4MB
+	defaultHealthCheckInterval = 30 * time.Second
 )
 
 func init() {
@@ -392,7 +392,7 @@ func (f *Filter) getOrCreateConnection(address string) (*grpc.ClientConn, error)
 
 // monitorConnection periodically checks connection health and removes bad connections
 func (f *Filter) monitorConnection(cacheKey string, conn *grpc.ClientConn) {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(defaultHealthCheckInterval)
 	defer ticker.Stop()
 
 	for {
@@ -443,7 +443,7 @@ func (f *Filter) createConnection(address string) (*grpc.ClientConn, error) {
 	opts = append(opts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                f.Config.KeepAliveTime,
 		Timeout:             f.Config.KeepAliveTimeout,
-		PermitWithoutStream: true, // Allow pings even without active streams
+		PermitWithoutStream: false,
 	}))
 
 	// Configure connection timeout

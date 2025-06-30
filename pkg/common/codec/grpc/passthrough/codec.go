@@ -26,6 +26,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Name is the name of this codec.
+const Name = "pass_through"
+
 // Codec is a gRPC codec that passes through bytes as is.
 // This is used for transparent proxying where the message types are unknown at compile time.
 type Codec struct{}
@@ -59,5 +62,5 @@ func (c Codec) Unmarshal(data []byte, v any) error {
 
 // Name returns the name of the codec.
 func (c Codec) Name() string {
-	return "pass_through"
+	return Name
 }

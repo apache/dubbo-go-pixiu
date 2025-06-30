@@ -52,7 +52,6 @@ const (
 	defaultTLSTimeout      = 20 * time.Second
 	defaultGracePeriod     = 5 * time.Second
 	defaultMinKeepalive    = 30 * time.Second
-	defaultStartupWait     = 100 * time.Millisecond
 	defaultShutdownTimeout = 5 * time.Second
 )
 
@@ -139,9 +138,6 @@ func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream)
 		return errors.New("could not determine method from stream")
 	}
 
-	// This log is a bit too verbose, as the filter chain will provide more detailed logs.
-	// logger.Debugf("gRPC proxy stream request: %s", fullMethod)
-
 	// Check if server is shutting down
 	if ls.gShutdownConfig.RejectRequest {
 		logger.Warnf("Rejecting gRPC stream request %s during shutdown", fullMethod)
@@ -159,11 +155,13 @@ func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream)
 	stream := &RPCStreamImpl{ServerStream: ss}
 
 	// The filter chain needs RPCStreamInfo. Let's create a basic one.
-	// We can't know IsClientStream/IsServerStream without parsing the descriptor,
-	// but the grpc-proxy filter doesn't rely on it. It re-infers this.
-	// We pass the full method name which is the most critical piece of information.
+	// Since we cannot determine the exact stream type (unary, client-stream, server-stream)
+	// at this transparent proxy layer without parsing descriptors, we assume it's a
+	// bidirectional stream by default. The downstream filters can re-infer this if needed.
 	streamInfo := &model.RPCStreamInfo{
-		FullMethod: fullMethod,
+		FullMethod:     fullMethod,
+		IsClientStream: true, // Assume client streaming
+		IsServerStream: true, // Assume server streaming
 	}
 
 	// Process stream through filter chain

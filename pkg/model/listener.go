@@ -113,11 +113,5 @@ func MapInGrpcStruct(cfg any) *GrpcConfig {
 	if gc.MaxSendMessageSize == 0 {
 		gc.MaxSendMessageSize = 4 * 1024 * 1024 // 4MB default
 	}
-	if gc.IdleTimeout == "" {
-		gc.IdleTimeout = "60s"
-	}
-	if gc.MaxConnectionAge == "" {
-		gc.MaxConnectionAge = "300s"
-	}
 	return &gc
 }

@@ -19,26 +19,24 @@ package grpc
 
 import (
 	"context"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // GrpcContext gRPC request context, similar to dubbo.RpcContext
 type GrpcContext struct {
-	Context        context.Context
-	MethodName     string
-	ServiceName    string
-	Arguments      []any
-	Attachments    map[string]any
-	Route          *model.RouteAction
-	Result         any
-	Error          error
-	StreamType     StreamType
-	IsStreaming    bool
-	IsStream       bool
-	IsClientStream bool
-	IsServerStream bool
-	Stream         model.RPCStream
+	Context     context.Context
+	MethodName  string
+	ServiceName string
+	Arguments   []any
+	Attachments map[string]any
+	Route       *model.RouteAction
+	Result      any
+	Error       error
+	StreamType  StreamType
+	Stream      model.RPCStream
 }
 
 // StreamType defines the type of gRPC stream

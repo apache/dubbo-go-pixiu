@@ -55,14 +55,16 @@ func CreateGrpcProxyConnectionManager(config *model.GRPCConnectionManagerConfig)
 
 // determineStreamType determines the StreamType based on client and server streaming flags
 func determineStreamType(isClientStream, isServerStream bool) grpcCtx.StreamType {
-	if isClientStream && isServerStream {
+	switch {
+	case isClientStream && isServerStream:
 		return grpcCtx.BidirectionalStream
-	} else if isClientStream {
+	case isClientStream:
 		return grpcCtx.ClientStream
-	} else if isServerStream {
+	case isServerStream:
 		return grpcCtx.ServerStream
+	default:
+		return grpcCtx.UnaryCall
 	}
-	return grpcCtx.UnaryCall
 }
 
 // OnStreamRPC handles a streaming RPC call.
@@ -72,13 +74,9 @@ func (gcm *GrpcProxyConnectionManager) OnStreamRPC(stream model.RPCStream, info 
 
 	// Create gRPC context
 	grpcCtx := &grpcCtx.GrpcContext{
-		Context:        ctx,
-		IsStream:       true,
-		IsClientStream: info.IsClientStream,
-		IsServerStream: info.IsServerStream,
-		Stream:         stream,
-		StreamType:     determineStreamType(info.IsClientStream, info.IsServerStream),
-		IsStreaming:    true,
+		Context:    ctx,
+		Stream:     stream,
+		StreamType: determineStreamType(info.IsClientStream, info.IsServerStream),
 	}
 
 	// Extract service and method names for context, not for routing.
