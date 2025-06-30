@@ -60,6 +60,7 @@ type GrpcListenerService struct {
 	listener.BaseListenerService
 	server          *grpc.Server
 	listener        net.Listener
+	grpcConfig      *model.GrpcConfig
 	gShutdownConfig *listener.ListenerGracefulShutdownConfig
 	closeOnce       sync.Once
 }
@@ -80,6 +81,7 @@ func newGrpcListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.L
 
 	// Parse gRPC specific configuration
 	grpcConfig := model.MapInGrpcStruct(lc.Config)
+	ls.grpcConfig = grpcConfig
 
 	// Build server options with a proxy handler for unknown services
 	opts := buildGrpcServerOptions(grpcConfig, ls)
@@ -105,7 +107,7 @@ func (ls *GrpcListenerService) Start() error {
 	}
 	ls.listener = listener
 
-	ls.logConfiguration()
+	//ls.logConfiguration()
 
 	// Start server in a goroutine
 	go ls.serveGrpc(listener)
@@ -180,7 +182,7 @@ func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream)
 
 // logConfiguration logs the current gRPC server configuration
 func (ls *GrpcListenerService) logConfiguration() {
-	if grpcConfig, ok := ls.Config.Config.(model.GrpcConfig); ok {
+	if grpcConfig := ls.grpcConfig; grpcConfig != nil {
 		logger.Infof("gRPC server config: MaxRecvSize=%dMB, MaxSendSize=%dMB, TLS=%t",
 			grpcConfig.MaxReceiveMessageSize/(1024*1024),
 			grpcConfig.MaxSendMessageSize/(1024*1024),
