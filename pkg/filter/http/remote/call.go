@@ -28,7 +28,6 @@ import (
 
 import (
 	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 import (
@@ -39,6 +38,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver/dubbo_resolver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -73,6 +74,8 @@ type (
 	config struct {
 		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
 		Dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
+		// resolvers is a list of resolvers that can resolve HTTP requests to Dubbo services.
+		resolver resolver.Resolver
 	}
 )
 
@@ -81,7 +84,9 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{conf: &config{}}, nil
+	return &FilterFactory{conf: &config{
+		resolver: &dubbo_resolver.StandardDubboResolver{},
+	}}, nil
 }
 
 func (factory *FilterFactory) Config() any {
@@ -174,77 +179,24 @@ func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
 	}
 }
 
+// Resolve is the main dispatcher function.
+// It iterates through the configured resolvers and
+// uses the first one that successfully handles the request.
 func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
-	// method must be post
-	req := ctx.Request
-	if req.Method != http.MethodPost {
-		return errors.New("http request method must be post when trying to auto resolve")
+	api, err := f.conf.resolver.Resolve(ctx)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] resolver err: %v", err)
+		return err
 	}
-	// header must has x-dubbo-http1.1-dubbo-version to declare using auto resolve rule
-	version := req.Header.Get(constant.DubboHttpDubboVersion)
-	if version == "" {
-		return errors.New("http request must has x-dubbo-http1.1-dubbo-version header when trying to auto resolve")
-	}
-
-	// http://host/{application}/{service}/{method} or https://host/{application}/{service}/{method}
-	rawPath := req.URL.Path
-	rawPath = strings.Trim(rawPath, "/")
-	splits := strings.Split(rawPath, "/")
-	if len(splits) != 3 {
-		return errors.New("http request path must meet {application}/{service}/{method} format when trying to auto resolve")
+	if api != nil {
+		// Resolver successfully processed the request.
+		ctx.API(*api)
+		return nil
 	}
 
-	integrationRequest := apiConf.IntegrationRequest{}
-	resolveProtocol := req.Header.Get(constant.DubboServiceProtocol)
-	if resolveProtocol == string(apiConf.HTTPRequest) {
-		integrationRequest.RequestType = apiConf.HTTPRequest
-	} else if resolveProtocol == string(apiConf.DubboRequest) {
-		integrationRequest.RequestType = apiConf.DubboRequest
-	} else if resolveProtocol == "triple" {
-		integrationRequest.RequestType = "triple"
-	} else {
-		return errors.New("http request has unknown protocol in x-dubbo-service-protocol when trying to auto resolve")
-	}
-
-	dubboBackendConfig := apiConf.DubboBackendConfig{}
-	dubboBackendConfig.Version = req.Header.Get(constant.DubboServiceVersion)
-	dubboBackendConfig.Group = req.Header.Get(constant.DubboGroup)
-	integrationRequest.DubboBackendConfig = dubboBackendConfig
-
-	defaultMappingParams := []apiConf.MappingParam{
-		{
-			Name:  "requestBody.values",
-			MapTo: "opt.values",
-		}, {
-			Name:  "requestBody.types",
-			MapTo: "opt.types",
-		}, {
-			Name:  "uri.application",
-			MapTo: "opt.application",
-		}, {
-			Name:  "uri.interface",
-			MapTo: "opt.interface",
-		}, {
-			Name:  "uri.method",
-			MapTo: "opt.method",
-		},
-	}
-	integrationRequest.MappingParams = defaultMappingParams
-
-	method := apiConf.Method{
-		Enable:   true,
-		Mock:     false,
-		HTTPVerb: http.MethodPost,
-	}
-	method.IntegrationRequest = integrationRequest
-
-	inboundRequest := apiConf.InboundRequest{}
-	inboundRequest.RequestType = apiConf.HTTPRequest
-	method.InboundRequest = inboundRequest
-
-	api := router.API{}
-	api.URLPattern = "/:application/:interface/:method"
-	api.Method = method
-	ctx.API(api)
-	return nil
+	// If no resolver could handle the request, return a generic error.
+	// This maintains the original behavior of failing if auto-resolve conditions aren't met.
+	err = errors.New("http request cannot be resolved to a Dubbo service")
+	logger.Errorf("[dubbo-go-pixiu] resolver err: %v", err)
+	return err
 }
