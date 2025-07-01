@@ -260,17 +260,19 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 			req, err = executor.filter.assembleRequest(endpoint, executor.hc.Request)
 			if err != nil {
 				// Request assembly error is fatal for this endpoint, break retry loop to go to fallback
+				logger.Warnf("[dubbo-go-pixiu] failed to assemble request for endpoint [%s: %v]: %v. Skipping to next endpoint.")
 				break
 			}
 
 			resp, err = executor.filter.client.Do(req)
 
 			if err != nil {
+				logger.Warnf("[dubbo-go-pixiu] request to endpoint [%s: %v] failed: %v", endpoint.ID, endpoint.Address.GetAddress(), err)
 				break // Exit the retry loop on any error
 			}
 
 			// If success, we are done. Return immediately.
-			if util.HTTPRespIsSuccessful(resp.StatusCode) {
+			if util.IsHTTPRespSuccessful(resp.StatusCode) {
 				return resp, nil
 			}
 
