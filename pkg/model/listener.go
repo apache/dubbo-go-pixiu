@@ -18,6 +18,7 @@
 package model
 
 import (
+	"github.com/creasty/defaults"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -82,8 +83,8 @@ type (
 
 	// GrpcConfig gRPC listener specific configuration
 	GrpcConfig struct {
-		MaxReceiveMessageSize int        `yaml:"max_receive_message_size" json:"max_receive_message_size" mapstructure:"max_receive_message_size"`
-		MaxSendMessageSize    int        `yaml:"max_send_message_size" json:"max_send_message_size" mapstructure:"max_send_message_size"`
+		MaxReceiveMessageSize int        `default:"4194304" yaml:"max_receive_message_size" json:"max_receive_message_size" mapstructure:"max_receive_message_size"`
+		MaxSendMessageSize    int        `default:"4194304" yaml:"max_send_message_size" json:"max_send_message_size" mapstructure:"max_send_message_size"`
 		EnableCompression     bool       `yaml:"enable_compression" json:"enable_compression" mapstructure:"enable_compression"`
 		IdleTimeout           string     `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
 		MaxConnectionAge      string     `yaml:"max_connection_age" json:"max_connection_age" mapstructure:"max_connection_age"`
@@ -106,12 +107,8 @@ func MapInGrpcStruct(cfg any) *GrpcConfig {
 			logger.Error("gRPC Config error", err)
 		}
 	}
-	// set default
-	if gc.MaxReceiveMessageSize == 0 {
-		gc.MaxReceiveMessageSize = 4 * 1024 * 1024 // 4MB default
-	}
-	if gc.MaxSendMessageSize == 0 {
-		gc.MaxSendMessageSize = 4 * 1024 * 1024 // 4MB default
+	if err := defaults.Set(&gc); err != nil {
+		logger.Errorf("set grpc config default error %v", err)
 	}
 	return &gc
 }
