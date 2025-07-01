@@ -74,7 +74,7 @@ type (
 	config struct {
 		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
 		Dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
-		// resolvers is a list of resolvers that can resolve HTTP requests to Dubbo services.
+		// resolver is the resolver to resolve HTTP requests to Dubbo services.
 		resolver resolver.Resolver
 	}
 )
