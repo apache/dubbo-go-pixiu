@@ -60,7 +60,7 @@ func (e *ExponentialBackoffRetry) Attempt(err error) bool {
 		backoff := float64(e.InitialInterval) * math.Pow(e.Multiplier, float64(e.currentTry-1))
 		cappedBackoff := time.Duration(math.Min(backoff, float64(e.MaxInterval)))
 		// Add jitter to prevent thundering herd
-		jitter := time.Duration(rand.Intn(100)) * time.Millisecond
+		jitter := time.Duration(rand.Intn(100)) * time.Millisecond // NOSONAR
 		time.Sleep(cappedBackoff + jitter)
 	}
 
