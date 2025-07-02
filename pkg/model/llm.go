@@ -32,10 +32,10 @@ import (
 type (
 	// LLMMeta LLM metadata for llm call
 	LLMMeta struct {
-		Provider   string      `yaml:"provider" json:"provider"`                                              // Provider the cluster unique name
-		APIKeys    []LLMAPIKey `yaml:"api_keys" json:"api_keys" mapstructure:"api_keys"`                      // APIKey the cluster unique name
-		RetryTimes uint        `yaml:"retry_times" json:"retry_times" mapstructure:"retry_times" default:"0"` // Retry times for failed call
-		Fallback   bool        `yaml:"fallback" json:"fallback" mapstructure:"fallback"`                      // Fallback to other provider if failed
+		Provider    string      `yaml:"provider" json:"provider"`                                     // Provider the cluster unique name
+		APIKeys     []LLMAPIKey `yaml:"api_keys" json:"api_keys" mapstructure:"api_keys"`             // APIKey the cluster unique name
+		RetryPolicy RetryPolicy `yaml:"retry_policy" json:"retry_policy" mapstructure:"retry_policy"` // RetryPolicy key
+		Fallback    bool        `yaml:"fallback" json:"fallback" mapstructure:"fallback"`             // Fallback to the next provider if failed
 	}
 
 	LLMAPIKey struct {
