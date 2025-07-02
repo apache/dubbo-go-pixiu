@@ -17,7 +17,9 @@
 
 package model
 
-import "strings"
+import (
+	"strings"
+)
 
 // RetryPolicy holds the raw configuration for a policy from the endpoint metadata.
 type RetryPolicy struct {

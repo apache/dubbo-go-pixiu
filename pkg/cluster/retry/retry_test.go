@@ -27,7 +27,6 @@ import (
 )
 
 // --- Test Helper Implementations ---
-
 // dummyRetryer is a mock implementation of the Retryer interface for testing.
 type dummyRetryer struct {
 	configValue string

@@ -19,12 +19,16 @@ package exponential_backoff
 
 import (
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/mitchellh/mapstructure"
 	"math"
 	"math/rand"
 	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 func init() {

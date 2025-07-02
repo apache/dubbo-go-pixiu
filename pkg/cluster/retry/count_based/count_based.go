@@ -19,6 +19,9 @@ package count_based
 
 import (
 	"fmt"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
