@@ -179,9 +179,7 @@ func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
 	}
 }
 
-// Resolve is the main dispatcher function.
-// It iterates through the configured resolvers and
-// uses the first one that successfully handles the request.
+// Resolve is the function calls resolver.Resolve.
 func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
 	api, err := f.conf.resolver.Resolve(ctx)
 	if err != nil {

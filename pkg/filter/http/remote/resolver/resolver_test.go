@@ -34,7 +34,6 @@ import (
 
 // TestBaseResolver_PreCheck tests the PreCheck method of the BaseResolver.
 func TestBaseResolver_PreCheck(t *testing.T) {
-	// Define test cases
 	tests := []struct {
 		name        string
 		setupReq    func() *http.Request
@@ -91,7 +90,6 @@ func TestBaseResolver_PreCheck(t *testing.T) {
 		},
 	}
 
-	// Run test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resolver := &BaseResolver{}
@@ -110,12 +108,10 @@ func TestBaseResolver_PreCheck(t *testing.T) {
 
 // TestBaseResolver_BuildAPI tests the BuildAPI method of the BaseResolver.
 func TestBaseResolver_BuildAPI(t *testing.T) {
-	// Define some sample mapping params for reuse
 	sampleMappingParams := []apiConf.MappingParam{
 		{Name: "requestBody.name", MapTo: "opt.name"},
 	}
 
-	// Define test cases
 	tests := []struct {
 		name                string
 		setupReq            func() *http.Request
@@ -186,7 +182,6 @@ func TestBaseResolver_BuildAPI(t *testing.T) {
 		},
 	}
 
-	// Run test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resolver := &BaseResolver{}
