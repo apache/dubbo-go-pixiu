@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package dubbo_resolver
+package dubbo
 
 import (
 	"context"
