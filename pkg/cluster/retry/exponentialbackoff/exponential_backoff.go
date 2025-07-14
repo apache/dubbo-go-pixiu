@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package exponential_backoff
+package exponentialbackoff
 
 import (
 	"fmt"

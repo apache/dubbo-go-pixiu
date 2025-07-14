@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package no_retry
+package noretry
 
 import (
 	"errors"

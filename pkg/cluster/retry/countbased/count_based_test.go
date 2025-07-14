@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package count_based
+package countbased
 
 import (
 	"errors"

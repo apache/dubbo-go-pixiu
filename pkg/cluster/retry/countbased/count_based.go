@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,11 @@
  * limitations under the License.
  */
 
-package no_retry
+package countbased
+
+import (
+	"fmt"
+)
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
@@ -23,25 +27,37 @@ import (
 )
 
 func init() {
-	retry.RegisterRetryPolicy(model.RetryerNoRetry, newNoRetryPolicy)
+	retry.RegisterRetryPolicy(model.RetryerCountBased, newCountBasedRetry)
 }
 
-type NoRetryPolicy struct {
-	firstTime bool
+type CountBasedRetry struct {
+	MaxAttempts uint
+	currentTry  uint
 }
 
-func (n *NoRetryPolicy) Attempt(err error) bool {
-	if !n.firstTime {
-		n.firstTime = true
-		return true // Allow the first attempt
+func (r *CountBasedRetry) Attempt(err error) bool {
+	if r.currentTry < r.MaxAttempts {
+		r.currentTry++
+		return true
 	}
 	return false
 }
 
-func (n *NoRetryPolicy) Reset() {
-	n.firstTime = false
+func (r *CountBasedRetry) Reset() {
+	r.currentTry = 0
 }
 
-func newNoRetryPolicy(config map[string]any) (retry.Retryer, error) {
-	return &NoRetryPolicy{firstTime: false}, nil
+func newCountBasedRetry(config map[string]any) (retry.Retryer, error) {
+	timesValue, exists := config["times"]
+	if !exists {
+		return nil, fmt.Errorf("'times' field is missing in retry configuration")
+	}
+
+	timesUint, ok := timesValue.(int)
+	if !ok {
+		return nil, fmt.Errorf("invalid type for 'retry.count_based.times', expected int but got %T", timesValue)
+	}
+
+	// Total attempts = 1 initial try plus number of retries.
+	return &CountBasedRetry{MaxAttempts: uint(timesUint) + 1}, nil
 }
