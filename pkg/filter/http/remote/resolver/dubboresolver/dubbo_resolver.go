@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package dubbo
+package dubboresolver
 
 import (
 	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
