@@ -39,7 +39,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver/dubbo_resolver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -68,14 +67,15 @@ type (
 	}
 
 	Filter struct {
-		conf config
+		conf     config
+		resolver resolver.Resolver
 	}
 
 	config struct {
-		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
-		Dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
-		// resolver is the resolver to resolve HTTP requests to Dubbo services.
-		resolver resolver.Resolver
+		Level            mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
+		DubboProxyConfig *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
+		// Resolver is the Resolver to resolve HTTP requests to Dubbo services.
+		Resolver string `yaml:"resolver,omitempty" json:"resolver,omitempty" default:"StandardDubboResolver"`
 	}
 )
 
@@ -84,9 +84,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{conf: &config{
-		resolver: &dubbo_resolver.StandardDubboResolver{},
-	}}, nil
+	return &FilterFactory{conf: &config{}}, nil
 }
 
 func (factory *FilterFactory) Config() any {
@@ -108,22 +106,33 @@ func (factory *FilterFactory) Apply() error {
 	}
 	factory.conf.Level = level
 	// must init it at apply function
-	if factory.conf.Dpc == nil {
+	if factory.conf.DubboProxyConfig == nil {
 		return errors.New("expect the dubboProxyConfig config the registries")
 	}
-	dubbo.InitDefaultDubboClient(factory.conf.Dpc)
-	triple.InitDefaultTripleClient(factory.conf.Dpc.Protoset)
+	dubbo.InitDefaultDubboClient(factory.conf.DubboProxyConfig)
+	triple.InitDefaultTripleClient(factory.conf.DubboProxyConfig.Protoset)
 	return nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{conf: *factory.conf}
+	r, err := resolver.GetResolver(factory.conf.Resolver)
+
+	if err != nil {
+		logger.Errorf("get resolver fail %s", err.Error())
+	}
+
+	f := &Filter{
+		conf:     *factory.conf,
+		resolver: r,
+	}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-	if f.conf.Dpc != nil && f.conf.Dpc.AutoResolve {
+	logger.Info(f.conf.DubboProxyConfig != nil)
+	logger.Info(f.conf.DubboProxyConfig.AutoResolve)
+	if f.conf.DubboProxyConfig != nil && f.conf.DubboProxyConfig.AutoResolve {
 		if err := f.resolve(c); err != nil {
 			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("auto resolve err: %s", err)))
 			return filter.Stop
@@ -171,7 +180,7 @@ func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
 		return dubbo.SingletonDubboClient(), nil
 	// todo @(laurence) add triple to apiConf
 	case "triple":
-		return triple.SingletonTripleClient(f.conf.Dpc.Protoset), nil
+		return triple.SingletonTripleClient(f.conf.DubboProxyConfig.Protoset), nil
 	case string(apiConf.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
@@ -181,9 +190,9 @@ func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
 
 // Resolve is the function calls resolver.Resolve.
 func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
-	api, err := f.conf.resolver.Resolve(ctx)
+	api, err := f.resolver.Resolve(ctx)
 	if err != nil {
-		logger.Errorf("[dubbo-go-pixiu] resolver err: %v", err)
+		logger.Warnf("[dubbo-go-pixiu] resolver err: %v", err)
 		return err
 	}
 	if api != nil {

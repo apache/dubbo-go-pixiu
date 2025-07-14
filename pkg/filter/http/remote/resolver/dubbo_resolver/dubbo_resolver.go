@@ -24,15 +24,20 @@ import (
 import (
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
+
+func init() {
+	resolver.RegisterResolver(model.StandardDubboResolver, StandardDubboResolver{})
+}
 
 // StandardDubboResolver handles Dubbo generic calls that include parameter types.
 type StandardDubboResolver struct {
 	resolver.BaseResolver
 }
 
-func (s *StandardDubboResolver) Resolve(ctx *contexthttp.HttpContext) (*router.API, error) {
+func (s StandardDubboResolver) Resolve(ctx *contexthttp.HttpContext) (*router.API, error) {
 	req := ctx.Request
 	if err := s.PreCheck(req); err != nil {
 		return nil, err // Not applicable

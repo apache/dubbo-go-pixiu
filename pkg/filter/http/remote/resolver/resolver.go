@@ -19,6 +19,7 @@ package resolver
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -30,6 +31,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
@@ -48,7 +50,7 @@ type BaseResolver struct{}
 
 func (b *BaseResolver) PreCheck(req *http.Request) error {
 	// 1. Method must be POST.
-	// 2. Header must has x-dubbo-http1.1-dubbo-version.
+	// 2. Header must have x-dubbo-http1.1-dubbo-version.
 	// 3. Path must be in {application}/{service}/{method} format.
 	if req.Method != http.MethodPost || req.Header.Get(constant.DubboHttpDubboVersion) == "" {
 		return errors.New("http request must be POST and have x-dubbo-http1.1-dubbo-version header")
@@ -101,4 +103,27 @@ func (b *BaseResolver) BuildAPI(req *http.Request, mappingParams []apiConf.Mappi
 	}
 
 	return &api, nil
+}
+
+// resolverRegistry holds all available resolver factory.
+var resolverRegistry = make(map[string]Resolver)
+
+// RegisterResolver register resolver factory to registry.
+// This function is called from init() functions in files that define a resolver.
+func RegisterResolver(name string, r Resolver) {
+	name = strings.ToLower(name)
+	if _, exists := resolverRegistry[name]; exists {
+		logger.Warnf("retry policy type '%s' is being overwritten", name)
+	}
+	resolverRegistry[name] = r
+}
+
+// GetResolver dynamically creates a resolver.
+func GetResolver(name string) (Resolver, error) {
+	r, exists := resolverRegistry[strings.ToLower(name)]
+	if !exists {
+		return nil, fmt.Errorf("unknown resolver type '%s'", name)
+	}
+
+	return r, nil
 }
