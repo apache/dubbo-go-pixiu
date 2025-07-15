@@ -40,6 +40,8 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/loadbalancer"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/proxyrewrite"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver/dubboresolver"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/llm/proxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/llm/tokenizer"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/dubboproxy"

@@ -55,6 +55,7 @@ const (
 	DubboProxyFilter = "dgp.filter.dubbo.proxy"
 	GRPCProxyFilter  = "dgp.filter.grpc.proxy"
 
+	LLMProxyFilter     = "dgp.filter.llm.proxy"
 	LLMTokenizerFilter = "dgp.filter.llm.tokenizer"
 )
 
