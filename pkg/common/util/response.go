@@ -180,3 +180,8 @@ func struct2Map(obj any) map[string]any {
 	}
 	return data
 }
+
+// IsHTTPRespSuccessful checks if the HTTP response status code indicates success (2xx).
+func IsHTTPRespSuccessful(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 300
+}

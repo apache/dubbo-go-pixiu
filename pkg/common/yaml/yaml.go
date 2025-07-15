@@ -25,7 +25,7 @@ import (
 
 import (
 	perrors "github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // LoadYMLConfig Load yml config byte from file

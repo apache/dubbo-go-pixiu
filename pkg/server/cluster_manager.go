@@ -153,13 +153,48 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 	return true
 }
 
+// PickEndpoint picks an endpoint from the cluster by its name and load balancing policy.
 func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
+	c := cm.getCluster(clusterName)
+	if c == nil {
+		logger.Warnf("[dubbo-go-pixiu] cluster %s not found", clusterName)
+		return nil
+	}
+	return cm.pickOneEndpoint(c, policy)
+}
+
+// PickNextEndpoint picks the next endpoint in the cluster after the current endpoint ID.
+func (cm *ClusterManager) PickNextEndpoint(clusterName string, curEndpointID string) *model.Endpoint {
+	cm.rw.RLock()
+	defer cm.rw.RUnlock()
+
+	c := cm.getCluster(clusterName)
+	if c == nil {
+		logger.Warnf("[dubbo-go-pixiu] cluster %s not found", clusterName)
+		return nil
+	}
+
+	for i, endpoint := range c.Endpoints {
+		if endpoint.ID == curEndpointID {
+			// pick next endpoint
+			if i < len(c.Endpoints)-1 {
+				return c.Endpoints[i+1]
+			}
+			return nil // have tried all endpoints
+		}
+	}
+
+	return nil
+}
+
+// getCluster returns the cluster configuration by its name.
+func (cm *ClusterManager) getCluster(clusterName string) *model.ClusterConfig {
 	for _, c := range cm.store.Config {
 		if c.Name == clusterName {
-			return cm.pickOneEndpoint(c, policy)
+			return c
 		}
 	}
 	return nil

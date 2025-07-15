@@ -51,7 +51,6 @@ require (
 	golang.org/x/net v0.39.0
 	google.golang.org/grpc v1.56.3
 	google.golang.org/protobuf v1.36.6
-	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	mosn.io/proxy-wasm-go-host v0.1.0
 )
@@ -171,4 +170,5 @@ require (
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
