@@ -32,7 +32,7 @@ clusters:
 - **描述**: 用于识别 LLM 提供商的名称，请查看[此处]()了解所有支持的 LLM
   提供商。这主要用于访问对应的 LLM 提供商。
 
-`fallbackEnabled`
+`fallback`
 
 - **类型**: `boolean`
 - **描述**: 决定如果在此endpoint上的所有重试尝试都失败后，网关是否应继续处理集群中的下一个 endpoint。

@@ -34,7 +34,7 @@ The llm_meta block holds all the configuration specific to how the gateway shoul
 - Description: A name to identify the LLM provider check [here]() for all supported llm providers. This is primarily for
   routing for specific llm provider.
 
-`fallbackEnabled`
+`fallback`
 
 - Type: `boolean`
 - Description: Determines if the gateway should proceed to the next endpoint in the cluster if all retry attempts on
