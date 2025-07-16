@@ -55,7 +55,7 @@ const (
 	LLMProxyFilter     = "dgp.filter.llm.proxy"
 	LLMTokenizerFilter = "dgp.filter.llm.tokenizer"
 
-	MCPExecutorFilter = "dgp.filter.mcp.mcpexecutor"
+	MCPServerFilter = "dgp.filter.mcp.mcpserver"
 )
 
 const (

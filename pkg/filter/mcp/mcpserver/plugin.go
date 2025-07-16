@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package mcpexecutor
+package mcpserver
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
@@ -23,25 +23,28 @@ import (
 )
 
 const (
-	// Kind is the kind of dgp.filter.mcp.mcpexecutor.
-	Kind = constant.MCPExecutorFilter
+	// Kind 是 MCP Server Filter 的类型标识
+	Kind = constant.MCPServerFilter
 )
 
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
 
-type (
-	// Plugin is the mcp_executor filter plugin.
-	Plugin struct{}
-)
+// Plugin 实现 filter.HttpFilterPlugin 接口
+type Plugin struct{}
 
-// Kind returns the kind of the plugin.
+// Kind 返回插件类型
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
-// CreateFilterFactory returns the factory of the mcp_executor filter.
+// CreateFilterFactory 创建 FilterFactory
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
+}
+
+// Config 返回配置结构体
+func (p *Plugin) Config() any {
+	return &Config{}
 }

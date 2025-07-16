@@ -26,20 +26,33 @@ import (
 	"net/url"
 	"strings"
 	"time"
-)
 
-import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 const abortIndex int8 = math.MaxInt8 / 2
+
+// MCP 相关的上下文键常量
+const (
+	// MCPRequestKey 标识这是一个 MCP 请求
+	MCPRequestKey = "mcp.request"
+	// MCPMethodKey 存储 MCP 方法名
+	MCPMethodKey = "mcp.method"
+	// MCPRequestIDKey 存储 JSON-RPC 请求 ID
+	MCPRequestIDKey = "mcp.request_id"
+	// MCPToolCallKey 标识这是一个工具调用请求
+	MCPToolCallKey = "mcp.tool_call"
+	// MCPToolNameKey 存储工具名称
+	MCPToolNameKey = "mcp.tool_name"
+	// MCPClusterKey 存储目标集群信息
+	MCPClusterKey = "mcp.cluster"
+	// MCPProcessedKey 标识请求已被处理过
+	MCPProcessedKey = "mcp.processed"
+)
 
 // HttpContext http context
 type HttpContext struct {
@@ -235,4 +248,148 @@ func (hc *HttpContext) AppendFilterFunc(ff ...FilterFunc) {
 func (hc *HttpContext) GenerateHash() string {
 	req := hc.Request
 	return req.Method + "." + req.RequestURI
+}
+
+// MCP 相关的辅助方法
+
+// SetMCPRequest 标记这是一个 MCP 请求
+func (hc *HttpContext) SetMCPRequest(isMCP bool) {
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[MCPRequestKey] = isMCP
+}
+
+// IsMCPRequest 检查是否是 MCP 请求
+func (hc *HttpContext) IsMCPRequest() bool {
+	if hc.Params == nil {
+		return false
+	}
+	if val, exists := hc.Params[MCPRequestKey]; exists {
+		if isMCP, ok := val.(bool); ok {
+			return isMCP
+		}
+	}
+	return false
+}
+
+// SetMCPMethod 设置 MCP 方法名
+func (hc *HttpContext) SetMCPMethod(method string) {
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[MCPMethodKey] = method
+}
+
+// GetMCPMethod 获取 MCP 方法名
+func (hc *HttpContext) GetMCPMethod() string {
+	if hc.Params == nil {
+		return ""
+	}
+	if val, exists := hc.Params[MCPMethodKey]; exists {
+		if method, ok := val.(string); ok {
+			return method
+		}
+	}
+	return ""
+}
+
+// SetMCPRequestID 设置 JSON-RPC 请求 ID
+func (hc *HttpContext) SetMCPRequestID(id any) {
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[MCPRequestIDKey] = id
+}
+
+// GetMCPRequestID 获取 JSON-RPC 请求 ID
+func (hc *HttpContext) GetMCPRequestID() any {
+	if hc.Params == nil {
+		return nil
+	}
+	return hc.Params[MCPRequestIDKey]
+}
+
+// SetMCPToolCall 标记这是一个工具调用请求
+func (hc *HttpContext) SetMCPToolCall(isToolCall bool) {
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[MCPToolCallKey] = isToolCall
+}
+
+// IsMCPToolCall 检查是否是工具调用请求
+func (hc *HttpContext) IsMCPToolCall() bool {
+	if hc.Params == nil {
+		return false
+	}
+	if val, exists := hc.Params[MCPToolCallKey]; exists {
+		if isToolCall, ok := val.(bool); ok {
+			return isToolCall
+		}
+	}
+	return false
+}
+
+// SetMCPToolName 设置工具名称
+func (hc *HttpContext) SetMCPToolName(toolName string) {
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[MCPToolNameKey] = toolName
+}
+
+// GetMCPToolName 获取工具名称
+func (hc *HttpContext) GetMCPToolName() string {
+	if hc.Params == nil {
+		return ""
+	}
+	if val, exists := hc.Params[MCPToolNameKey]; exists {
+		if toolName, ok := val.(string); ok {
+			return toolName
+		}
+	}
+	return ""
+}
+
+// SetMCPCluster 设置目标集群信息
+func (hc *HttpContext) SetMCPCluster(cluster string) {
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[MCPClusterKey] = cluster
+}
+
+// GetMCPCluster 获取目标集群信息
+func (hc *HttpContext) GetMCPCluster() string {
+	if hc.Params == nil {
+		return ""
+	}
+	if val, exists := hc.Params[MCPClusterKey]; exists {
+		if cluster, ok := val.(string); ok {
+			return cluster
+		}
+	}
+	return ""
+}
+
+// SetMCPProcessed 标记请求已被处理过
+func (hc *HttpContext) SetMCPProcessed(processed bool) {
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[MCPProcessedKey] = processed
+}
+
+// IsMCPProcessed 检查请求是否已被处理过
+func (hc *HttpContext) IsMCPProcessed() bool {
+	if hc.Params == nil {
+		return false
+	}
+	if val, exists := hc.Params[MCPProcessedKey]; exists {
+		if processed, ok := val.(bool); ok {
+			return processed
+		}
+	}
+	return false
 }
