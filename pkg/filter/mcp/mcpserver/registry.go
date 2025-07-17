@@ -24,24 +24,33 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// ToolRegistry 工具注册表，线程安全
+// ToolRegistry tool registry, thread-safe
 type ToolRegistry struct {
-	mu        sync.RWMutex
-	tools     map[string]ToolConfig
-	resources map[string]ResourceConfig
-	prompts   map[string]PromptConfig
+	mu                sync.RWMutex
+	tools             map[string]ToolConfig
+	resources         map[string]ResourceConfig         // indexed by name
+	resourcesURI      map[string]ResourceConfig         // indexed by URI
+	resourceTemplates map[string]ResourceTemplateConfig // indexed by name
+	prompts           map[string]PromptConfig
+
+	// TODO: Dynamic update support - add when integrating with Nacos
+	// changeListeners   []ChangeListener              // change listeners
+	// nacosClient      nacos.ConfigClient            // Nacos config client
+	// serviceDiscovery nacos.NamingClient            // Nacos service discovery client
 }
 
-// NewToolRegistry 创建新的工具注册表
+// NewToolRegistry creates a new tool registry
 func NewToolRegistry() *ToolRegistry {
 	return &ToolRegistry{
-		tools:     make(map[string]ToolConfig),
-		resources: make(map[string]ResourceConfig),
-		prompts:   make(map[string]PromptConfig),
+		tools:             make(map[string]ToolConfig),
+		resources:         make(map[string]ResourceConfig),
+		resourcesURI:      make(map[string]ResourceConfig),
+		resourceTemplates: make(map[string]ResourceTemplateConfig),
+		prompts:           make(map[string]PromptConfig),
 	}
 }
 
-// RegisterTool 注册工具
+// RegisterTool registers a tool
 func (r *ToolRegistry) RegisterTool(tool ToolConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -51,10 +60,14 @@ func (r *ToolRegistry) RegisterTool(tool ToolConfig) error {
 	}
 
 	r.tools[tool.Name] = tool
+
+	// TODO: Dynamic update notification - enable when integrating with Nacos
+	// r.notifyToolsListChanged()
+
 	return nil
 }
 
-// RegisterResource 注册资源
+// RegisterResource registers a resource
 func (r *ToolRegistry) RegisterResource(resource ResourceConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -63,11 +76,16 @@ func (r *ToolRegistry) RegisterResource(resource ResourceConfig) error {
 		return fmt.Errorf("resource %s already exists", resource.Name)
 	}
 
+	if _, exists := r.resourcesURI[resource.URI]; exists {
+		return fmt.Errorf("resource with URI %s already exists", resource.URI)
+	}
+
 	r.resources[resource.Name] = resource
+	r.resourcesURI[resource.URI] = resource
 	return nil
 }
 
-// GetTool 获取工具配置
+// GetTool gets tool configuration
 func (r *ToolRegistry) GetTool(name string) (ToolConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -76,7 +94,7 @@ func (r *ToolRegistry) GetTool(name string) (ToolConfig, bool) {
 	return tool, exists
 }
 
-// GetResource 获取资源配置
+// GetResource gets resource configuration (by name)
 func (r *ToolRegistry) GetResource(name string) (ResourceConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -85,7 +103,50 @@ func (r *ToolRegistry) GetResource(name string) (ResourceConfig, bool) {
 	return resource, exists
 }
 
-// ListTools 列出所有工具
+// GetResourceByURI gets resource configuration (by URI)
+func (r *ToolRegistry) GetResourceByURI(uri string) (ResourceConfig, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	resource, exists := r.resourcesURI[uri]
+	return resource, exists
+}
+
+// RegisterResourceTemplate registers a resource template
+func (r *ToolRegistry) RegisterResourceTemplate(template ResourceTemplateConfig) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.resourceTemplates[template.Name]; exists {
+		return fmt.Errorf("resource template %s already exists", template.Name)
+	}
+
+	r.resourceTemplates[template.Name] = template
+	return nil
+}
+
+// GetResourceTemplate gets resource template configuration
+func (r *ToolRegistry) GetResourceTemplate(name string) (ResourceTemplateConfig, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	template, exists := r.resourceTemplates[name]
+	return template, exists
+}
+
+// ListResourceTemplates lists all resource templates
+func (r *ToolRegistry) ListResourceTemplates() []ResourceTemplateConfig {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	templates := make([]ResourceTemplateConfig, 0, len(r.resourceTemplates))
+	for _, template := range r.resourceTemplates {
+		templates = append(templates, template)
+	}
+	return templates
+}
+
+// ListTools lists all tools
 func (r *ToolRegistry) ListTools() []ToolConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -97,7 +158,7 @@ func (r *ToolRegistry) ListTools() []ToolConfig {
 	return tools
 }
 
-// ListResources 列出所有资源
+// ListResources lists all resources
 func (r *ToolRegistry) ListResources() []ResourceConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -109,13 +170,13 @@ func (r *ToolRegistry) ListResources() []ResourceConfig {
 	return resources
 }
 
-// ToMCPTools 将工具配置转换为工具列表
+// ToMCPTools converts tool configurations to tool list
 func (r *ToolRegistry) ToMCPTools() ([]map[string]any, error) {
 	tools := r.ListTools()
 	mcpTools := make([]map[string]any, 0, len(tools))
 
 	for _, tool := range tools {
-		// 根据 MCP 协议规范构建工具
+		// Build tool according to MCP protocol specification
 		mcpTool := map[string]any{
 			"name":        tool.Name,
 			"description": tool.Description,
@@ -127,7 +188,7 @@ func (r *ToolRegistry) ToMCPTools() ([]map[string]any, error) {
 	return mcpTools, nil
 }
 
-// convertToInputSchema 将工具参数转换为 MCP inputSchema 格式
+// convertToInputSchema converts tool parameters to MCP inputSchema format
 func (r *ToolRegistry) convertToInputSchema(tool ToolConfig) map[string]any {
 	allParams, err := tool.GetAllParameters()
 	if err != nil {
@@ -174,7 +235,7 @@ func (r *ToolRegistry) convertToInputSchema(tool ToolConfig) map[string]any {
 	return schema
 }
 
-// ToMCPResources 将资源配置转换为资源列表
+// ToMCPResources converts resource configurations to resource list
 func (r *ToolRegistry) ToMCPResources() ([]map[string]any, error) {
 	resources := r.ListResources()
 	mcpResources := make([]map[string]any, 0, len(resources))
@@ -192,15 +253,56 @@ func (r *ToolRegistry) ToMCPResources() ([]map[string]any, error) {
 	return mcpResources, nil
 }
 
-// Count 返回注册的工具、资源和提示词数量
-func (r *ToolRegistry) Count() (int, int, int) {
+// ToMCPResourceTemplates converts resource template configurations to MCP resource template list
+func (r *ToolRegistry) ToMCPResourceTemplates() ([]map[string]any, error) {
+	templates := r.ListResourceTemplates()
+	mcpTemplates := make([]map[string]any, 0, len(templates))
+
+	for _, template := range templates {
+		mcpTemplate := map[string]any{
+			"uriTemplate": template.URITemplate,
+			"name":        template.Name,
+			"description": template.Description,
+			"mimeType":    template.MIMEType,
+		}
+
+		// Add optional fields
+		if template.Title != "" {
+			mcpTemplate["title"] = template.Title
+		}
+
+		// Add annotations
+		if template.Annotations != nil {
+			annotations := make(map[string]any)
+			if len(template.Annotations.Audience) > 0 {
+				annotations["audience"] = template.Annotations.Audience
+			}
+			if template.Annotations.Priority != nil {
+				annotations["priority"] = *template.Annotations.Priority
+			}
+			if template.Annotations.LastModified != "" {
+				annotations["lastModified"] = template.Annotations.LastModified
+			}
+			if len(annotations) > 0 {
+				mcpTemplate["annotations"] = annotations
+			}
+		}
+
+		mcpTemplates = append(mcpTemplates, mcpTemplate)
+	}
+
+	return mcpTemplates, nil
+}
+
+// Count returns the number of registered tools, resources, resource templates, and prompts
+func (r *ToolRegistry) Count() (int, int, int, int) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return len(r.tools), len(r.resources), len(r.prompts)
+	return len(r.tools), len(r.resources), len(r.resourceTemplates), len(r.prompts)
 }
 
-// RegisterPrompt 注册提示词
+// RegisterPrompt registers a prompt
 func (r *ToolRegistry) RegisterPrompt(prompt PromptConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -213,7 +315,7 @@ func (r *ToolRegistry) RegisterPrompt(prompt PromptConfig) error {
 	return nil
 }
 
-// GetPrompt 获取提示词
+// GetPrompt gets a prompt
 func (r *ToolRegistry) GetPrompt(name string) (PromptConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -222,7 +324,7 @@ func (r *ToolRegistry) GetPrompt(name string) (PromptConfig, bool) {
 	return prompt, exists
 }
 
-// ListPrompts 列出所有提示词
+// ListPrompts lists all prompts
 func (r *ToolRegistry) ListPrompts() []PromptConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -235,7 +337,7 @@ func (r *ToolRegistry) ListPrompts() []PromptConfig {
 	return prompts
 }
 
-// ToMCPPrompts 将提示词配置转换为 MCP 提示词列表
+// ToMCPPrompts converts prompt configurations to MCP prompt list
 func (r *ToolRegistry) ToMCPPrompts() ([]map[string]any, error) {
 	prompts := r.ListPrompts()
 	mcpPrompts := make([]map[string]any, 0, len(prompts))
@@ -268,3 +370,42 @@ func (r *ToolRegistry) ToMCPPrompts() ([]map[string]any, error) {
 
 	return mcpPrompts, nil
 }
+
+// TODO: Dynamic update functionality - implement when integrating with Nacos
+//
+// Planned features:
+// 1. Service discovery integration
+//    - Listen to Nacos service registration/deregistration events
+//    - Automatically generate MCP tools for new services
+//    - Generate tool descriptions and parameters based on service metadata
+//
+// 2. Dynamic configuration updates
+//    - Listen to Nacos configuration changes
+//    - Dynamically update tool, resource, and prompt configurations
+//    - Support hot updates without service restart
+//
+// 3. Notification mechanism
+//    - Implement MCP client notification interface
+//    - Send notifications/tools/list_changed
+//    - Send notifications/resources/list_changed
+//    - Send notifications/prompts/list_changed
+//
+// 4. Extension interfaces
+//    type ChangeListener interface {
+//        OnToolsChanged(added, removed, updated []ToolConfig)
+//        OnResourcesChanged(added, removed, updated []ResourceConfig)
+//        OnPromptsChanged(added, removed, updated []PromptConfig)
+//    }
+//
+//    func (r *ToolRegistry) AddChangeListener(listener ChangeListener)
+//    func (r *ToolRegistry) RemoveChangeListener(listener ChangeListener)
+//    func (r *ToolRegistry) notifyToolsListChanged()
+//    func (r *ToolRegistry) notifyResourcesListChanged()
+//    func (r *ToolRegistry) notifyPromptsListChanged()
+//
+// 5. Nacos integration
+//    func (r *ToolRegistry) EnableNacosIntegration(config NacosConfig) error
+//    func (r *ToolRegistry) StartServiceDiscovery() error
+//    func (r *ToolRegistry) StopServiceDiscovery() error
+//
+// Reference documentation: https://nacos.io/docs/latest/manual/user/ai/api-to-mcp/

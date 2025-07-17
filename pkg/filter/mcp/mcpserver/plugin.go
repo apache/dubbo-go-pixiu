@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	// Kind 是 MCP Server Filter 的类型标识
+	// Kind is the type identifier for MCP Server Filter
 	Kind = constant.MCPServerFilter
 )
 
@@ -31,20 +31,20 @@ func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
 
-// Plugin 实现 filter.HttpFilterPlugin 接口
+// Plugin implements filter.HttpFilterPlugin interface
 type Plugin struct{}
 
-// Kind 返回插件类型
+// Kind returns the plugin type
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
-// CreateFilterFactory 创建 FilterFactory
+// CreateFilterFactory creates FilterFactory
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-// Config 返回配置结构体
+// Config returns the configuration struct
 func (p *Plugin) Config() any {
 	return &Config{}
 }

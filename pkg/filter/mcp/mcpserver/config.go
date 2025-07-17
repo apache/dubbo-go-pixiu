@@ -26,16 +26,17 @@ import (
 )
 
 type (
-	// Config MCP Server Filter 配置
+	// Config MCP Server Filter configuration
 	Config struct {
-		ServerInfo ServerInfo       `yaml:"server_info" json:"server_info"`
-		Endpoint   string           `yaml:"endpoint" json:"endpoint" default:"/mcp"`
-		Tools      []ToolConfig     `yaml:"tools,omitempty" json:"tools,omitempty"`
-		Resources  []ResourceConfig `yaml:"resources,omitempty" json:"resources,omitempty"`
-		Prompts    []PromptConfig   `yaml:"prompts,omitempty" json:"prompts,omitempty"`
+		ServerInfo        ServerInfo               `yaml:"server_info" json:"server_info"`
+		Endpoint          string                   `yaml:"endpoint" json:"endpoint" default:"/mcp"`
+		Tools             []ToolConfig             `yaml:"tools,omitempty" json:"tools,omitempty"`
+		Resources         []ResourceConfig         `yaml:"resources,omitempty" json:"resources,omitempty"`
+		ResourceTemplates []ResourceTemplateConfig `yaml:"resource_templates,omitempty" json:"resource_templates,omitempty"`
+		Prompts           []PromptConfig           `yaml:"prompts,omitempty" json:"prompts,omitempty"`
 	}
 
-	// ServerInfo 服务器信息
+	// ServerInfo server information
 	ServerInfo struct {
 		Name         string `yaml:"name" json:"name" default:"Pixiu MCP Server"`
 		Version      string `yaml:"version" json:"version" default:"1.0.0"`
@@ -43,7 +44,7 @@ type (
 		Instructions string `yaml:"instructions,omitempty" json:"instructions,omitempty" default:"Use the provided tools to interact with backend services."`
 	}
 
-	// ToolConfig 工具配置
+	// ToolConfig tool configuration
 	ToolConfig struct {
 		Name        string          `yaml:"name" json:"name"`
 		Description string          `yaml:"description" json:"description"`
@@ -53,7 +54,7 @@ type (
 		Response    *ResponseConfig `yaml:"response,omitempty" json:"response,omitempty"`
 	}
 
-	// RequestConfig 请求配置
+	// RequestConfig request configuration
 	RequestConfig struct {
 		Method  string            `yaml:"method" json:"method" default:"GET"`
 		Path    string            `yaml:"path" json:"path"`
@@ -61,7 +62,7 @@ type (
 		Timeout string            `yaml:"timeout,omitempty" json:"timeout,omitempty" default:"30s"`
 	}
 
-	// ArgConfig 参数配置
+	// ArgConfig parameter configuration
 	ArgConfig struct {
 		Name        string `yaml:"name" json:"name"`
 		Type        string `yaml:"type" json:"type" default:"string"`
@@ -70,7 +71,7 @@ type (
 		Required    bool   `yaml:"required,omitempty" json:"required,omitempty" default:"false"`
 		Default     any    `yaml:"default,omitempty" json:"default,omitempty"`
 
-		// 验证选项
+		// Validation options
 		Enum      []string `yaml:"enum,omitempty" json:"enum,omitempty"`
 		Pattern   string   `yaml:"pattern,omitempty" json:"pattern,omitempty"`
 		Format    string   `yaml:"format,omitempty" json:"format,omitempty"`
@@ -79,11 +80,11 @@ type (
 		Minimum   *float64 `yaml:"minimum,omitempty" json:"minimum,omitempty"`
 		Maximum   *float64 `yaml:"maximum,omitempty" json:"maximum,omitempty"`
 
-		// 高级验证规则
+		// Advanced validation rules
 		Validate *ValidateConfig `yaml:"validate,omitempty" json:"validate,omitempty"`
 	}
 
-	// ValidateConfig 验证规则配置
+	// ValidateConfig validation rule configuration
 	ValidateConfig struct {
 		Required bool     `yaml:"required,omitempty" json:"required,omitempty"`
 		Enum     []string `yaml:"enum,omitempty" json:"enum,omitempty"`
@@ -93,7 +94,7 @@ type (
 		Max      *float64 `yaml:"max,omitempty" json:"max,omitempty"`
 	}
 
-	// ResponseConfig 响应配置
+	// ResponseConfig response configuration
 	ResponseConfig struct {
 		Format      string `yaml:"format,omitempty" json:"format,omitempty" default:"json"`
 		Description string `yaml:"description,omitempty" json:"description,omitempty"`
@@ -102,7 +103,7 @@ type (
 		Transform   string `yaml:"transform,omitempty" json:"transform,omitempty" default:"none"`
 	}
 
-	// ResourceConfig 资源配置
+	// ResourceConfig resource configuration
 	ResourceConfig struct {
 		Name        string         `yaml:"name" json:"name"`
 		URI         string         `yaml:"uri" json:"uri"`
@@ -111,13 +112,41 @@ type (
 		Source      ResourceSource `yaml:"source" json:"source"`
 	}
 
-	// ResourceSource 资源来源配置
+	// ResourceSource resource source configuration
 	ResourceSource struct {
 		Type   string         `yaml:"type" json:"type"`
 		Config map[string]any `yaml:"config,omitempty" json:"config,omitempty"`
 	}
 
-	// ComputedParameter 计算得出的参数（用于内部处理）
+	// ResourceTemplateConfig resource template configuration
+	ResourceTemplateConfig struct {
+		Name        string                       `yaml:"name" json:"name"`
+		URITemplate string                       `yaml:"uri_template" json:"uri_template"`
+		Title       string                       `yaml:"title,omitempty" json:"title,omitempty"`
+		Description string                       `yaml:"description,omitempty" json:"description,omitempty"`
+		MIMEType    string                       `yaml:"mime_type,omitempty" json:"mime_type,omitempty"`
+		Parameters  []ResourceTemplateParameter  `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+		Annotations *ResourceTemplateAnnotations `yaml:"annotations,omitempty" json:"annotations,omitempty"`
+	}
+
+	// ResourceTemplateParameter resource template parameter
+	ResourceTemplateParameter struct {
+		Name        string   `yaml:"name" json:"name"`
+		Type        string   `yaml:"type" json:"type" default:"string"`
+		Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+		Required    bool     `yaml:"required,omitempty" json:"required,omitempty" default:"false"`
+		Enum        []string `yaml:"enum,omitempty" json:"enum,omitempty"`
+		Default     any      `yaml:"default,omitempty" json:"default,omitempty"`
+	}
+
+	// ResourceTemplateAnnotations resource template annotations
+	ResourceTemplateAnnotations struct {
+		Audience     []string `yaml:"audience,omitempty" json:"audience,omitempty"`
+		Priority     *float64 `yaml:"priority,omitempty" json:"priority,omitempty"`
+		LastModified string   `yaml:"last_modified,omitempty" json:"last_modified,omitempty"`
+	}
+
+	// ComputedParameter computed parameter (for internal processing)
 	ComputedParameter struct {
 		Name        string
 		Type        string
@@ -136,9 +165,9 @@ type (
 	}
 )
 
-// Validate 验证工具配置的有效性
+// Validate validates the tool configuration
 func (tc *ToolConfig) Validate() error {
-	// 验证基本字段
+	// Validate basic fields
 	if tc.Name == "" {
 		return fmt.Errorf("tool name is required")
 	}
@@ -146,25 +175,25 @@ func (tc *ToolConfig) Validate() error {
 		return fmt.Errorf("tool cluster is required")
 	}
 
-	// 验证请求配置
+	// Validate request configuration
 	if tc.Request.Method == "" {
 		return fmt.Errorf("request method is required")
 	}
 
-	// 验证路径格式
+	// Validate path format
 	if !strings.HasPrefix(tc.Request.Path, "/") {
 		return fmt.Errorf("request path must start with '/': %s", tc.Request.Path)
 	}
 
-	// 提取路径参数
+	// Extract path parameters
 	pathParams := GetPathParameterNames(tc.Request.Path)
 
-	// 验证参数配置
+	// Validate parameter configuration
 	argNames := make(map[string]bool)
 	pathArgNames := make(map[string]bool)
 
 	for _, arg := range tc.Args {
-		// 验证参数名称
+		// Validate parameter name
 		if arg.Name == "" {
 			return fmt.Errorf("arg name is required")
 		}
@@ -173,22 +202,22 @@ func (tc *ToolConfig) Validate() error {
 		}
 		argNames[arg.Name] = true
 
-		// 验证参数位置
+		// Validate parameter location
 		if arg.In != "path" && arg.In != "query" && arg.In != "header" && arg.In != "body" {
 			return fmt.Errorf("invalid arg location '%s' for arg '%s', must be one of: path, query, header, body",
 				arg.In, arg.Name)
 		}
 
-		// 记录路径参数
+		// Record path parameters
 		if arg.In == "path" {
 			pathArgNames[arg.Name] = true
 		}
 	}
 
-	// 验证路径参数是否都有定义
+	// Validate that all path parameters are defined
 	for _, pathParam := range pathParams {
 		if !pathArgNames[pathParam] {
-			// 路径参数未在 args 中定义，但这是可以接受的（会自动推断）
+			// Path parameter not defined in args, but this is acceptable (will be auto-inferred)
 			logger.Warnf("path parameter '%s' in path '%s' is not explicitly defined in args",
 				pathParam, tc.Request.Path)
 		}
@@ -197,14 +226,14 @@ func (tc *ToolConfig) Validate() error {
 	return nil
 }
 
-// GetAllParameters 获取工具的所有参数
+// GetAllParameters gets all parameters of the tool
 func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 	var allParams []ComputedParameter
 
-	// 1. 自动提取路径参数
+	// 1. Automatically extract path parameters
 	pathParams := GetPathParameterNames(tc.Request.Path)
 	for _, paramName := range pathParams {
-		// 查找对应的 arg 配置
+		// Find corresponding arg configuration
 		var argConfig *ArgConfig
 		for _, arg := range tc.Args {
 			if arg.Name == paramName && arg.In == "path" {
@@ -213,15 +242,15 @@ func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 			}
 		}
 
-		// 创建计算参数
+		// Create computed parameter
 		computed := ComputedParameter{
 			Name:     paramName,
-			Type:     "string", // 默认类型
+			Type:     "string", // Default type
 			In:       "path",
-			Required: true, // 路径参数总是必需的
+			Required: true, // Path parameters are always required
 		}
 
-		// 应用 arg 配置
+		// Apply arg configuration
 		if argConfig != nil {
 			computed.Type = argConfig.Type
 			computed.Description = argConfig.Description
@@ -232,7 +261,7 @@ func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 		allParams = append(allParams, computed)
 	}
 
-	// 2. 添加非路径参数
+	// 2. Add non-path parameters
 	for _, arg := range tc.Args {
 		if arg.In != "path" {
 			computed := ComputedParameter{
@@ -257,12 +286,12 @@ func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 	return allParams, nil
 }
 
-// GetPathParameterNames 获取路径模板中的所有参数名称
+// GetPathParameterNames gets all parameter names in the path template
 func GetPathParameterNames(pathTemplate string) []string {
 	re := regexp.MustCompile(`\{([^}]+)\}`)
 	matches := re.FindAllStringSubmatch(pathTemplate, -1)
 
-	// 初始化为空切片而不是 nil
+	// Initialize as empty slice instead of nil
 	names := []string{}
 	for _, match := range matches {
 		names = append(names, match[1])
@@ -271,7 +300,7 @@ func GetPathParameterNames(pathTemplate string) []string {
 	return names
 }
 
-// PromptConfig 提示词配置
+// PromptConfig prompt configuration
 type PromptConfig struct {
 	Name        string                 `yaml:"name" json:"name"`
 	Title       string                 `yaml:"title,omitempty" json:"title,omitempty"`
@@ -280,14 +309,14 @@ type PromptConfig struct {
 	Messages    []PromptMessageConfig  `yaml:"messages" json:"messages"`
 }
 
-// PromptArgumentConfig 提示词参数配置
+// PromptArgumentConfig prompt argument configuration
 type PromptArgumentConfig struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
 }
 
-// PromptMessageConfig 提示词消息配置
+// PromptMessageConfig prompt message configuration
 type PromptMessageConfig struct {
 	Role    string `yaml:"role" json:"role"` // "user" or "assistant"
 	Content string `yaml:"content" json:"content"`
