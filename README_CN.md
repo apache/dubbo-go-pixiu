@@ -124,13 +124,12 @@ docker run --name pixiu-gateway -p 8888:8888 -d \
 
 ## 可视化控制面：Pixiu Admin
 
-我们提供了一个强大的管理控制台 `pixiu-admin`，用于可视化配置服务发现、流量管理和安全策略。
+强大的 Pixiu 管理控制台 `pixiu-admin`，已被[迁移](https://github.com/dubbo-go-pixiu/pixiu-admin)至本仓库，可以用于可视化配置服务发现、流量管理和安全策略。
 
 **使用 Docker Compose 快速启动：**
 
 ```shell
-git clone https://github.com/apache/pixiu-admin.git
-cd pixiu-admin
+cd /[absolute-path]/dubbo-go-pixiu
 docker-compose up -d
 ```
 

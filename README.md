@@ -124,17 +124,16 @@ For more information, visit the [Pixiu Docker Hub](https://hub.docker.com/r/dubb
 
 ## Visual Control Plane: Pixiu Admin
 
-We provide a powerful management console, `pixiu-admin`, for visual configuration of service discovery, traffic management, and security policies.
+The powerful Pixiu management plane `pixiu-admin` has been [migrated](https://github.com/dubbo-go-pixiu/pixiu-admin) to this repository and can be used for visual configuration of service discovery, traffic management, and security policies.
 
 **Quick Start with Docker Compose:**
 
 ```shell
-git clone https://github.com/apache/pixiu-admin.git
-cd pixiu-admin
+cd /[absolute-path]/dubbo-go-pixiu
 docker-compose up -d
 ```
 
-After starting, you can access the management UI by navigating to `http://localhost:8080` in your browser.
+After starting, you can access the management plane by opening `http://localhost:8080` in your browser.
 
 ![pixiu-admin.png](./docs/images/pixiu-admin.png)
 
