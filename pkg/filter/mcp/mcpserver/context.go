@@ -43,11 +43,6 @@ func NewMCPContext(httpCtx *h.HttpContext) *MCPContext {
 	}
 }
 
-// GetMCPData gets MCP data
-func (ctx *MCPContext) GetMCPData() *MCPData {
-	return ctx.mcpData
-}
-
 // IsMCPRequest checks if it's an MCP request (by method name)
 func (ctx *MCPContext) IsMCPRequest() bool {
 	return ctx.mcpData.Method != ""
@@ -77,11 +72,6 @@ func (ctx *MCPContext) GetMCPRequestID() any {
 func (ctx *MCPContext) IsMCPToolCall() bool {
 	return ctx.mcpData.Method == "tools/call"
 }
-
-// Removed unnecessary methods:
-// - SetMCPToolName/GetMCPToolName: tool name can be parsed from request parameters
-// - SetMCPCluster/GetMCPCluster: cluster information can be obtained from tool configuration
-// - SetMCPProcessed/IsMCPProcessed: FilterChain ensures no duplicate execution
 
 // ToHttpContext gets the underlying HttpContext
 func (ctx *MCPContext) ToHttpContext() *h.HttpContext {

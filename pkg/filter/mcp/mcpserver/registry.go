@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/mark3labs/mcp-go/mcp"
 )
 
 // ToolRegistry tool registry, thread-safe
@@ -235,17 +236,18 @@ func (r *ToolRegistry) convertToInputSchema(tool ToolConfig) map[string]any {
 	return schema
 }
 
-// ToMCPResources converts resource configurations to resource list
-func (r *ToolRegistry) ToMCPResources() ([]map[string]any, error) {
+// ToMCPResources converts resource configurations to MCP resource list using mcp-go structures
+func (r *ToolRegistry) ToMCPResources() ([]mcp.Resource, error) {
 	resources := r.ListResources()
-	mcpResources := make([]map[string]any, 0, len(resources))
+	mcpResources := make([]mcp.Resource, 0, len(resources))
 
 	for _, resource := range resources {
-		mcpResource := map[string]any{
-			"uri":         resource.URI,
-			"name":        resource.Name,
-			"description": resource.Description,
-			"mimeType":    resource.MIMEType,
+		// Use mcp-go Resource structure
+		mcpResource := mcp.Resource{
+			URI:         resource.URI,
+			Name:        resource.Name,
+			Description: resource.Description,
+			MIMEType:    resource.MIMEType,
 		}
 		mcpResources = append(mcpResources, mcpResource)
 	}
@@ -372,40 +374,3 @@ func (r *ToolRegistry) ToMCPPrompts() ([]map[string]any, error) {
 }
 
 // TODO: Dynamic update functionality - implement when integrating with Nacos
-//
-// Planned features:
-// 1. Service discovery integration
-//    - Listen to Nacos service registration/deregistration events
-//    - Automatically generate MCP tools for new services
-//    - Generate tool descriptions and parameters based on service metadata
-//
-// 2. Dynamic configuration updates
-//    - Listen to Nacos configuration changes
-//    - Dynamically update tool, resource, and prompt configurations
-//    - Support hot updates without service restart
-//
-// 3. Notification mechanism
-//    - Implement MCP client notification interface
-//    - Send notifications/tools/list_changed
-//    - Send notifications/resources/list_changed
-//    - Send notifications/prompts/list_changed
-//
-// 4. Extension interfaces
-//    type ChangeListener interface {
-//        OnToolsChanged(added, removed, updated []ToolConfig)
-//        OnResourcesChanged(added, removed, updated []ResourceConfig)
-//        OnPromptsChanged(added, removed, updated []PromptConfig)
-//    }
-//
-//    func (r *ToolRegistry) AddChangeListener(listener ChangeListener)
-//    func (r *ToolRegistry) RemoveChangeListener(listener ChangeListener)
-//    func (r *ToolRegistry) notifyToolsListChanged()
-//    func (r *ToolRegistry) notifyResourcesListChanged()
-//    func (r *ToolRegistry) notifyPromptsListChanged()
-//
-// 5. Nacos integration
-//    func (r *ToolRegistry) EnableNacosIntegration(config NacosConfig) error
-//    func (r *ToolRegistry) StartServiceDiscovery() error
-//    func (r *ToolRegistry) StopServiceDiscovery() error
-//
-// Reference documentation: https://nacos.io/docs/latest/manual/user/ai/api-to-mcp/
