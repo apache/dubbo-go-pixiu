@@ -18,11 +18,7 @@
 package mcpserver
 
 import (
-	"fmt"
 	"regexp"
-	"strings"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 type (
@@ -46,12 +42,11 @@ type (
 
 	// ToolConfig tool configuration
 	ToolConfig struct {
-		Name        string          `yaml:"name" json:"name"`
-		Description string          `yaml:"description" json:"description"`
-		Cluster     string          `yaml:"cluster" json:"cluster"`
-		Request     RequestConfig   `yaml:"request" json:"request"`
-		Args        []ArgConfig     `yaml:"args,omitempty" json:"args,omitempty"`
-		Response    *ResponseConfig `yaml:"response,omitempty" json:"response,omitempty"`
+		Name        string        `yaml:"name" json:"name"`
+		Description string        `yaml:"description" json:"description"`
+		Cluster     string        `yaml:"cluster" json:"cluster"`
+		Request     RequestConfig `yaml:"request" json:"request"`
+		Args        []ArgConfig   `yaml:"args,omitempty" json:"args,omitempty"`
 	}
 
 	// RequestConfig request configuration
@@ -62,45 +57,15 @@ type (
 		Timeout string            `yaml:"timeout,omitempty" json:"timeout,omitempty" default:"30s"`
 	}
 
-	// ArgConfig parameter configuration
+	// ArgConfig parameter configuration (simplified)
 	ArgConfig struct {
-		Name        string `yaml:"name" json:"name"`
-		Type        string `yaml:"type" json:"type" default:"string"`
-		In          string `yaml:"in" json:"in"`
-		Description string `yaml:"description,omitempty" json:"description,omitempty"`
-		Required    bool   `yaml:"required,omitempty" json:"required,omitempty" default:"false"`
-		Default     any    `yaml:"default,omitempty" json:"default,omitempty"`
-
-		// Validation options
-		Enum      []string `yaml:"enum,omitempty" json:"enum,omitempty"`
-		Pattern   string   `yaml:"pattern,omitempty" json:"pattern,omitempty"`
-		Format    string   `yaml:"format,omitempty" json:"format,omitempty"`
-		MinLength *int     `yaml:"min_length,omitempty" json:"min_length,omitempty"`
-		MaxLength *int     `yaml:"max_length,omitempty" json:"max_length,omitempty"`
-		Minimum   *float64 `yaml:"minimum,omitempty" json:"minimum,omitempty"`
-		Maximum   *float64 `yaml:"maximum,omitempty" json:"maximum,omitempty"`
-
-		// Advanced validation rules
-		Validate *ValidateConfig `yaml:"validate,omitempty" json:"validate,omitempty"`
-	}
-
-	// ValidateConfig validation rule configuration
-	ValidateConfig struct {
-		Required bool     `yaml:"required,omitempty" json:"required,omitempty"`
-		Enum     []string `yaml:"enum,omitempty" json:"enum,omitempty"`
-		Pattern  string   `yaml:"pattern,omitempty" json:"pattern,omitempty"`
-		Format   string   `yaml:"format,omitempty" json:"format,omitempty"`
-		Min      *float64 `yaml:"min,omitempty" json:"min,omitempty"`
-		Max      *float64 `yaml:"max,omitempty" json:"max,omitempty"`
-	}
-
-	// ResponseConfig response configuration
-	ResponseConfig struct {
-		Format      string `yaml:"format,omitempty" json:"format,omitempty" default:"json"`
-		Description string `yaml:"description,omitempty" json:"description,omitempty"`
-		PrependText string `yaml:"prepend_text,omitempty" json:"prepend_text,omitempty"`
-		AppendText  string `yaml:"append_text,omitempty" json:"append_text,omitempty"`
-		Transform   string `yaml:"transform,omitempty" json:"transform,omitempty" default:"none"`
+		Name        string   `yaml:"name" json:"name"`
+		Type        string   `yaml:"type" json:"type" default:"string"`
+		In          string   `yaml:"in" json:"in"`
+		Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+		Required    bool     `yaml:"required,omitempty" json:"required,omitempty"`
+		Default     any      `yaml:"default,omitempty" json:"default,omitempty"`
+		Enum        []string `yaml:"enum,omitempty" json:"enum,omitempty"`
 	}
 
 	// ResourceConfig resource configuration
@@ -112,10 +77,13 @@ type (
 		Source      ResourceSource `yaml:"source" json:"source"`
 	}
 
-	// ResourceSource resource source configuration
+	// ResourceSource resource source configuration (simplified)
 	ResourceSource struct {
-		Type   string         `yaml:"type" json:"type"`
-		Config map[string]any `yaml:"config,omitempty" json:"config,omitempty"`
+		Type     string `yaml:"type" json:"type"`
+		Path     string `yaml:"path,omitempty" json:"path,omitempty"`         // for file type
+		URL      string `yaml:"url,omitempty" json:"url,omitempty"`           // for url type
+		Content  string `yaml:"content,omitempty" json:"content,omitempty"`   // for inline type
+		Template string `yaml:"template,omitempty" json:"template,omitempty"` // for template type
 	}
 
 	// ResourceTemplateConfig resource template configuration
@@ -146,7 +114,7 @@ type (
 		LastModified string   `yaml:"last_modified,omitempty" json:"last_modified,omitempty"`
 	}
 
-	// ComputedParameter computed parameter (for internal processing)
+	// ComputedParameter computed parameter (for internal processing, simplified)
 	ComputedParameter struct {
 		Name        string
 		Type        string
@@ -155,76 +123,8 @@ type (
 		Required    bool
 		Enum        []string
 		Default     any
-		MinLength   *int
-		MaxLength   *int
-		Minimum     *float64
-		Maximum     *float64
-		Pattern     string
-		Format      string
-		Example     string
 	}
 )
-
-// Validate validates the tool configuration
-func (tc *ToolConfig) Validate() error {
-	// Validate basic fields
-	if tc.Name == "" {
-		return fmt.Errorf("tool name is required")
-	}
-	if tc.Cluster == "" {
-		return fmt.Errorf("tool cluster is required")
-	}
-
-	// Validate request configuration
-	if tc.Request.Method == "" {
-		return fmt.Errorf("request method is required")
-	}
-
-	// Validate path format
-	if !strings.HasPrefix(tc.Request.Path, "/") {
-		return fmt.Errorf("request path must start with '/': %s", tc.Request.Path)
-	}
-
-	// Extract path parameters
-	pathParams := GetPathParameterNames(tc.Request.Path)
-
-	// Validate parameter configuration
-	argNames := make(map[string]bool)
-	pathArgNames := make(map[string]bool)
-
-	for _, arg := range tc.Args {
-		// Validate parameter name
-		if arg.Name == "" {
-			return fmt.Errorf("arg name is required")
-		}
-		if argNames[arg.Name] {
-			return fmt.Errorf("duplicate arg name: %s", arg.Name)
-		}
-		argNames[arg.Name] = true
-
-		// Validate parameter location
-		if arg.In != "path" && arg.In != "query" && arg.In != "header" && arg.In != "body" {
-			return fmt.Errorf("invalid arg location '%s' for arg '%s', must be one of: path, query, header, body",
-				arg.In, arg.Name)
-		}
-
-		// Record path parameters
-		if arg.In == "path" {
-			pathArgNames[arg.Name] = true
-		}
-	}
-
-	// Validate that all path parameters are defined
-	for _, pathParam := range pathParams {
-		if !pathArgNames[pathParam] {
-			// Path parameter not defined in args, but this is acceptable (will be auto-inferred)
-			logger.Warnf("path parameter '%s' in path '%s' is not explicitly defined in args",
-				pathParam, tc.Request.Path)
-		}
-	}
-
-	return nil
-}
 
 // GetAllParameters gets all parameters of the tool
 func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
@@ -254,8 +154,7 @@ func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 		if argConfig != nil {
 			computed.Type = argConfig.Type
 			computed.Description = argConfig.Description
-			computed.Pattern = argConfig.Pattern
-			computed.Format = argConfig.Format
+			// Simplified: removed Pattern and Format fields
 		}
 
 		allParams = append(allParams, computed)
@@ -272,12 +171,7 @@ func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 				Required:    arg.Required,
 				Enum:        arg.Enum,
 				Default:     arg.Default,
-				Pattern:     arg.Pattern,
-				Format:      arg.Format,
-				MinLength:   arg.MinLength,
-				MaxLength:   arg.MaxLength,
-				Minimum:     arg.Minimum,
-				Maximum:     arg.Maximum,
+				// Simplified: removed complex validation fields
 			}
 			allParams = append(allParams, computed)
 		}
@@ -288,7 +182,7 @@ func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 
 // GetPathParameterNames gets all parameter names in the path template
 func GetPathParameterNames(pathTemplate string) []string {
-	re := regexp.MustCompile(`\{([^}]+)\}`)
+	re := regexp.MustCompile(`\{([^}]+)}`)
 	matches := re.FindAllStringSubmatch(pathTemplate, -1)
 
 	// Initialize as empty slice instead of nil

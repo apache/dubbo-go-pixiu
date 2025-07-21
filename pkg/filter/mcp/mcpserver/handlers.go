@@ -20,14 +20,22 @@ package mcpserver
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-// Note: Using mcp-go library's standard InitializeResult structure instead of custom InitializeResponse
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
 
 // handleInitialize handles the initialize method
 func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
@@ -68,7 +76,7 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 	if instructions == "" {
 		instructions = "This MCP server provides API access through tools, documentation through resources, and AI assistance through prompts."
 	}
-	result := mcp.NewInitializeResult(mcpProtocolVersion, capabilities, serverInfo, instructions)
+	result := mcp.NewInitializeResult(mcp.LATEST_PROTOCOL_VERSION, capabilities, serverInfo, instructions)
 
 	// Create JSON-RPC response
 	response := f.responseBuilder.Success(req.ID, result)
@@ -110,8 +118,14 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 					opts = append(opts, mcp.Required())
 				}
 				if arg.Default != nil {
-					if defaultNum, ok := arg.Default.(float64); ok {
-						opts = append(opts, mcp.DefaultNumber(defaultNum))
+					// Handle both int and float64 types from YAML parsing
+					switch defaultVal := arg.Default.(type) {
+					case float64:
+						opts = append(opts, mcp.DefaultNumber(defaultVal))
+					case int:
+						opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
+					case int64:
+						opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
 					}
 				}
 				toolOptions = append(toolOptions, mcp.WithNumber(arg.Name, opts...))
@@ -339,4 +353,209 @@ func (f *MCPServerFilter) replacePromptArguments(content string, arguments map[s
 	}
 
 	return result
+}
+
+// handleToolCall handles tool call requests by forwarding to backend
+func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+	// Parse tool call parameters
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal tool call params: %v", err)
+		return f.errorHandler.SendInternalError(ctx, req.ID, "invalid tool call parameters")
+	}
+
+	var params struct {
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments,omitempty"`
+	}
+	if err := json.Unmarshal(paramsBytes, &params); err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp server failed to parse tool call params: %v", err)
+		return f.errorHandler.SendInvalidParams(ctx, req.ID, "invalid tool call parameters")
+	}
+
+	// Find tool configuration
+	toolConfig, exists := f.registry.GetTool(params.Name)
+	if !exists {
+		logger.Warnf("[dubbo-go-pixiu] mcp server tool not found: %s", params.Name)
+		return f.errorHandler.SendToolCallError(ctx, req.ID, fmt.Sprintf("tool not found: %s", params.Name))
+	}
+
+	// Build backend request
+	err = f.buildBackendRequest(ctx, toolConfig, params.Arguments)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp server failed to build backend request: %v", err)
+		return f.errorHandler.SendToolCallError(ctx, req.ID, "failed to build backend request")
+	}
+
+	// Set cluster information for routing
+	if ctx.Params == nil {
+		ctx.Params = make(map[string]any)
+	}
+
+	logger.Infof("[dubbo-go-pixiu] mcp server forwarding tool call: %s -> %s %s (cluster: %s)",
+		params.Name, toolConfig.Request.Method, ctx.Request.URL.Path, toolConfig.Cluster)
+
+	// Store MCP data for Encode stage processing
+	ctx.StoreMCPDataInParams()
+
+	ctx.Route = &model.RouteAction{
+		Cluster: toolConfig.Cluster,
+	}
+
+	// Continue to next filter for backend forwarding
+	return filter.Continue
+}
+
+// buildBackendRequest builds the complete backend request including path, body, and headers
+func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolConfig, arguments map[string]any) error {
+	// Set HTTP method
+	ctx.Request.Method = toolConfig.Request.Method
+
+	// Build request path and body based on argument locations
+	path := toolConfig.Request.Path
+	bodyParams := make(map[string]any)
+	queryParams := make(map[string]string)
+
+	// Process arguments based on their location (path, query, body)
+	if arguments != nil {
+		for argName, argValue := range arguments {
+			// Find argument configuration
+			var argConfig *ArgConfig
+			for _, arg := range toolConfig.Args {
+				if arg.Name == argName {
+					argConfig = &arg
+					break
+				}
+			}
+
+			if argConfig == nil {
+				continue // Skip unknown arguments
+			}
+
+			switch argConfig.In {
+			case "path":
+				// Replace path parameters
+				placeholder := fmt.Sprintf("{%s}", argName)
+				replacement := fmt.Sprintf("%v", argValue)
+				path = strings.ReplaceAll(path, placeholder, replacement)
+
+			case "query":
+				// Add to query parameters
+				queryParams[argName] = fmt.Sprintf("%v", argValue)
+
+			case "body":
+				// Add to request body
+				bodyParams[argName] = argValue
+			}
+		}
+	}
+
+	// Set the request path
+	ctx.Request.URL.Path = path
+
+	// Add query parameters
+	if len(queryParams) > 0 {
+		query := ctx.Request.URL.Query()
+		for key, value := range queryParams {
+			query.Set(key, value)
+		}
+		ctx.Request.URL.RawQuery = query.Encode()
+	}
+
+	// Build request body for POST/PUT requests
+	if len(bodyParams) > 0 && (toolConfig.Request.Method == constant.Post || toolConfig.Request.Method == constant.Put) {
+		bodyJSON, err := json.Marshal(bodyParams)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request body: %v", err)
+		}
+
+		// Set request body
+		ctx.Request.Body = io.NopCloser(strings.NewReader(string(bodyJSON)))
+		ctx.Request.ContentLength = int64(len(bodyJSON))
+
+		// Set Content-Type header
+		ctx.Request.Header.Set(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
+
+		logger.Debugf("[dubbo-go-pixiu] mcp server built request body: %s", string(bodyJSON))
+	}
+
+	return nil
+}
+
+// handleToolCallResponse handles tool call responses, wrapping backend responses in MCP format
+func (f *MCPServerFilter) handleToolCallResponse(ctx *MCPContext) filter.FilterStatus {
+	logger.Debugf("[dubbo-go-pixiu] mcp server handling tool call response")
+
+	// Extract request information
+	requestID := ctx.GetMCPRequestID()
+	if requestID == nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp server missing request ID for tool call response")
+		return filter.Continue
+	}
+
+	// Extract backend response
+	responseBody, statusCode, err := f.extractBackendResponse(ctx)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp server failed to extract backend response: %v", err)
+		return f.errorHandler.SendToolCallError(ctx, requestID, "failed to process backend response")
+	}
+
+	// Process the response
+	return f.processToolCallResponse(ctx, requestID, responseBody, statusCode)
+}
+
+// extractBackendResponse extracts response data from the context
+func (f *MCPServerFilter) extractBackendResponse(ctx *MCPContext) ([]byte, int, error) {
+	if ctx.TargetResp == nil {
+		return nil, 0, fmt.Errorf("no target response available")
+	}
+
+	unaryResp, ok := ctx.TargetResp.(*client.UnaryResponse)
+	if !ok {
+		return nil, 0, fmt.Errorf("unexpected response type")
+	}
+
+	responseBody := unaryResp.Data
+	statusCode := ctx.GetStatusCode()
+
+	if len(responseBody) == 0 {
+		return nil, statusCode, fmt.Errorf("empty response body")
+	}
+
+	logger.Debugf("[dubbo-go-pixiu] mcp server backend response: status=%d, size=%d bytes", statusCode, len(responseBody))
+	return responseBody, statusCode, nil
+}
+
+// processToolCallResponse processes the tool call response and sends the result
+func (f *MCPServerFilter) processToolCallResponse(ctx *MCPContext, requestID any, responseBody []byte, statusCode int) filter.FilterStatus {
+	// Check for backend errors
+	if statusCode >= 400 {
+		logger.Errorf("[dubbo-go-pixiu] mcp server backend returned error status: %d", statusCode)
+		return f.errorHandler.SendToolCallError(ctx, requestID, fmt.Sprintf("backend error: %d", statusCode))
+	}
+
+	// Build successful response using ToolCallSuccess method
+	content := strings.TrimSpace(string(responseBody))
+	mcpResponse := f.responseBuilder.ToolCallSuccess(requestID, content)
+	return f.sendMCPResponse(ctx, mcpResponse)
+}
+
+// sendMCPResponse sends an MCP response and updates the target response
+func (f *MCPServerFilter) sendMCPResponse(ctx *MCPContext, response mcp.JSONRPCResponse) filter.FilterStatus {
+	mcpResponseBody, err := json.Marshal(response)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal MCP response: %v", err)
+		return filter.Continue
+	}
+
+	// Override TargetResp to ensure MCP format response is sent
+	ctx.TargetResp = &client.UnaryResponse{Data: mcpResponseBody}
+	ctx.StatusCode(http.StatusOK)
+	ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
+
+	// Critical: Clear Content-Length header to prevent mismatch errors
+	ctx.Writer.Header().Del(constant.HeaderKeyContentLength)
+
+	logger.Debugf("[dubbo-go-pixiu] mcp server successfully wrapped backend response in MCP format")
+	return filter.Continue
 }

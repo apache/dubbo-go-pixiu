@@ -20,17 +20,21 @@ package mcpserver
 import (
 	"fmt"
 	"sync"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-// ToolRegistry tool registry, thread-safe
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
+
+// ToolRegistry tool registry, thread-safe (optimized with single indexing)
 type ToolRegistry struct {
 	mu                sync.RWMutex
 	tools             map[string]ToolConfig
-	resources         map[string]ResourceConfig         // indexed by name
-	resourcesURI      map[string]ResourceConfig         // indexed by URI
+	resources         map[string]ResourceConfig         // indexed by name only
 	resourceTemplates map[string]ResourceTemplateConfig // indexed by name
 	prompts           map[string]PromptConfig
 
@@ -45,7 +49,6 @@ func NewToolRegistry() *ToolRegistry {
 	return &ToolRegistry{
 		tools:             make(map[string]ToolConfig),
 		resources:         make(map[string]ResourceConfig),
-		resourcesURI:      make(map[string]ResourceConfig),
 		resourceTemplates: make(map[string]ResourceTemplateConfig),
 		prompts:           make(map[string]PromptConfig),
 	}
@@ -68,7 +71,7 @@ func (r *ToolRegistry) RegisterTool(tool ToolConfig) error {
 	return nil
 }
 
-// RegisterResource registers a resource
+// RegisterResource registers a resource (simplified, no URI duplication check)
 func (r *ToolRegistry) RegisterResource(resource ResourceConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -77,12 +80,9 @@ func (r *ToolRegistry) RegisterResource(resource ResourceConfig) error {
 		return fmt.Errorf("resource %s already exists", resource.Name)
 	}
 
-	if _, exists := r.resourcesURI[resource.URI]; exists {
-		return fmt.Errorf("resource with URI %s already exists", resource.URI)
-	}
-
+	// Note: URI uniqueness is not enforced to simplify implementation
+	// Multiple resources can have the same URI if needed
 	r.resources[resource.Name] = resource
-	r.resourcesURI[resource.URI] = resource
 	return nil
 }
 
@@ -104,13 +104,18 @@ func (r *ToolRegistry) GetResource(name string) (ResourceConfig, bool) {
 	return resource, exists
 }
 
-// GetResourceByURI gets resource configuration (by URI)
+// GetResourceByURI gets resource configuration (by URI, using linear search)
 func (r *ToolRegistry) GetResourceByURI(uri string) (ResourceConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	resource, exists := r.resourcesURI[uri]
-	return resource, exists
+	// Linear search through resources to find matching URI
+	for _, resource := range r.resources {
+		if resource.URI == uri {
+			return resource, true
+		}
+	}
+	return ResourceConfig{}, false
 }
 
 // RegisterResourceTemplate registers a resource template
@@ -294,14 +299,6 @@ func (r *ToolRegistry) ToMCPResourceTemplates() ([]map[string]any, error) {
 	}
 
 	return mcpTemplates, nil
-}
-
-// Count returns the number of registered tools, resources, resource templates, and prompts
-func (r *ToolRegistry) Count() (int, int, int, int) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	return len(r.tools), len(r.resources), len(r.resourceTemplates), len(r.prompts)
 }
 
 // RegisterPrompt registers a prompt

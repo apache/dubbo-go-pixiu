@@ -18,8 +18,13 @@
 package mcpserver
 
 import (
+	"github.com/mark3labs/mcp-go/mcp"
+)
+import (
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
+
+const MCPDataKey = "mcp_data"
 
 // MCPData stores MCP-related data
 type MCPData struct {
@@ -70,12 +75,7 @@ func (ctx *MCPContext) GetMCPRequestID() any {
 
 // IsMCPToolCall checks if it's a tool call request (by method name)
 func (ctx *MCPContext) IsMCPToolCall() bool {
-	return ctx.mcpData.Method == "tools/call"
-}
-
-// ToHttpContext gets the underlying HttpContext
-func (ctx *MCPContext) ToHttpContext() *h.HttpContext {
-	return ctx.HttpContext
+	return ctx.mcpData.Method == string(mcp.MethodToolsCall)
 }
 
 // StoreMCPDataInParams stores MCP data in HttpContext.Params for passing through the filter chain
@@ -83,7 +83,7 @@ func (ctx *MCPContext) StoreMCPDataInParams() {
 	if ctx.HttpContext.Params == nil {
 		ctx.HttpContext.Params = make(map[string]any)
 	}
-	ctx.HttpContext.Params["mcp_data"] = ctx.mcpData
+	ctx.HttpContext.Params[MCPDataKey] = ctx.mcpData
 }
 
 // LoadMCPDataFromParams loads MCP data from HttpContext.Params
@@ -91,7 +91,7 @@ func (ctx *MCPContext) LoadMCPDataFromParams() {
 	if ctx.HttpContext.Params == nil {
 		return
 	}
-	if data, ok := ctx.HttpContext.Params["mcp_data"].(*MCPData); ok {
+	if data, ok := ctx.HttpContext.Params[MCPDataKey].(*MCPData); ok {
 		ctx.mcpData = data
 	}
 }
