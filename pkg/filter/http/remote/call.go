@@ -28,7 +28,6 @@ import (
 
 import (
 	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 import (
@@ -39,6 +38,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -67,12 +67,15 @@ type (
 	}
 
 	Filter struct {
-		conf config
+		conf     config
+		resolver resolver.Resolver
 	}
 
 	config struct {
-		Level mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
-		Dpc   *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
+		Level            mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
+		DubboProxyConfig *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
+		// Resolver is the Resolver to resolve HTTP requests to Dubbo services.
+		Resolver string `yaml:"resolver,omitempty" json:"resolver,omitempty" default:"StandardDubboResolver"`
 	}
 )
 
@@ -103,22 +106,31 @@ func (factory *FilterFactory) Apply() error {
 	}
 	factory.conf.Level = level
 	// must init it at apply function
-	if factory.conf.Dpc == nil {
+	if factory.conf.DubboProxyConfig == nil {
 		return errors.New("expect the dubboProxyConfig config the registries")
 	}
-	dubbo.InitDefaultDubboClient(factory.conf.Dpc)
-	triple.InitDefaultTripleClient(factory.conf.Dpc.Protoset)
+	dubbo.InitDefaultDubboClient(factory.conf.DubboProxyConfig)
+	triple.InitDefaultTripleClient(factory.conf.DubboProxyConfig.Protoset)
 	return nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{conf: *factory.conf}
+	r, err := resolver.GetResolver(factory.conf.Resolver)
+
+	if err != nil {
+		logger.Errorf("get resolver fail %s", err.Error())
+	}
+
+	f := &Filter{
+		conf:     *factory.conf,
+		resolver: r,
+	}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-	if f.conf.Dpc != nil && f.conf.Dpc.AutoResolve {
+	if f.conf.DubboProxyConfig != nil && f.conf.DubboProxyConfig.AutoResolve {
 		if err := f.resolve(c); err != nil {
 			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("auto resolve err: %s", err)))
 			return filter.Stop
@@ -166,7 +178,7 @@ func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
 		return dubbo.SingletonDubboClient(), nil
 	// todo @(laurence) add triple to apiConf
 	case "triple":
-		return triple.SingletonTripleClient(f.conf.Dpc.Protoset), nil
+		return triple.SingletonTripleClient(f.conf.DubboProxyConfig.Protoset), nil
 	case string(apiConf.HTTPRequest):
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
@@ -174,77 +186,22 @@ func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
 	}
 }
 
+// Resolve is the function calls resolver.Resolve.
 func (f *Filter) resolve(ctx *contexthttp.HttpContext) error {
-	// method must be post
-	req := ctx.Request
-	if req.Method != http.MethodPost {
-		return errors.New("http request method must be post when trying to auto resolve")
+	api, err := f.resolver.Resolve(ctx)
+	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] resolver err: %v", err)
+		return err
 	}
-	// header must has x-dubbo-http1.1-dubbo-version to declare using auto resolve rule
-	version := req.Header.Get(constant.DubboHttpDubboVersion)
-	if version == "" {
-		return errors.New("http request must has x-dubbo-http1.1-dubbo-version header when trying to auto resolve")
-	}
-
-	// http://host/{application}/{service}/{method} or https://host/{application}/{service}/{method}
-	rawPath := req.URL.Path
-	rawPath = strings.Trim(rawPath, "/")
-	splits := strings.Split(rawPath, "/")
-	if len(splits) != 3 {
-		return errors.New("http request path must meet {application}/{service}/{method} format when trying to auto resolve")
+	if api != nil {
+		// Resolver successfully processed the request.
+		ctx.API(*api)
+		return nil
 	}
 
-	integrationRequest := apiConf.IntegrationRequest{}
-	resolveProtocol := req.Header.Get(constant.DubboServiceProtocol)
-	if resolveProtocol == string(apiConf.HTTPRequest) {
-		integrationRequest.RequestType = apiConf.HTTPRequest
-	} else if resolveProtocol == string(apiConf.DubboRequest) {
-		integrationRequest.RequestType = apiConf.DubboRequest
-	} else if resolveProtocol == "triple" {
-		integrationRequest.RequestType = "triple"
-	} else {
-		return errors.New("http request has unknown protocol in x-dubbo-service-protocol when trying to auto resolve")
-	}
-
-	dubboBackendConfig := apiConf.DubboBackendConfig{}
-	dubboBackendConfig.Version = req.Header.Get(constant.DubboServiceVersion)
-	dubboBackendConfig.Group = req.Header.Get(constant.DubboGroup)
-	integrationRequest.DubboBackendConfig = dubboBackendConfig
-
-	defaultMappingParams := []apiConf.MappingParam{
-		{
-			Name:  "requestBody.values",
-			MapTo: "opt.values",
-		}, {
-			Name:  "requestBody.types",
-			MapTo: "opt.types",
-		}, {
-			Name:  "uri.application",
-			MapTo: "opt.application",
-		}, {
-			Name:  "uri.interface",
-			MapTo: "opt.interface",
-		}, {
-			Name:  "uri.method",
-			MapTo: "opt.method",
-		},
-	}
-	integrationRequest.MappingParams = defaultMappingParams
-
-	method := apiConf.Method{
-		Enable:   true,
-		Mock:     false,
-		HTTPVerb: http.MethodPost,
-	}
-	method.IntegrationRequest = integrationRequest
-
-	inboundRequest := apiConf.InboundRequest{}
-	inboundRequest.RequestType = apiConf.HTTPRequest
-	method.InboundRequest = inboundRequest
-
-	api := router.API{}
-	api.URLPattern = "/:application/:interface/:method"
-	api.Method = method
-	ctx.API(api)
-	return nil
+	// If no resolver could handle the request, return a generic error.
+	// This maintains the original behavior of failing if auto-resolve conditions aren't met.
+	err = errors.New("http request cannot be resolved to a Dubbo service")
+	logger.Errorf("[dubbo-go-pixiu] resolver err: %v", err)
+	return err
 }
