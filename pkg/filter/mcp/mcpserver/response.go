@@ -29,7 +29,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -146,7 +145,7 @@ func (eh *ErrorHandler) sendResponse(ctx *MCPContext, response any) filter.Filte
 	}
 
 	// Critical: Clear Content-Length header to prevent mismatch errors
-	ctx.Writer.Header().Del(constant.HeaderKeyContentLength)
+	ctx.ClearContentLengthHeader()
 	ctx.SendLocalReply(http.StatusOK, responseBody)
 	return filter.Stop
 }

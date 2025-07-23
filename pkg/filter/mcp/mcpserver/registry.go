@@ -34,7 +34,7 @@ import (
 type ToolRegistry struct {
 	mu                sync.RWMutex
 	tools             map[string]ToolConfig
-	resources         map[string]ResourceConfig         // indexed by name only
+	resources         map[string]ResourceConfig         // indexed by URI
 	resourceTemplates map[string]ResourceTemplateConfig // indexed by name
 	prompts           map[string]PromptConfig
 
@@ -71,18 +71,17 @@ func (r *ToolRegistry) RegisterTool(tool ToolConfig) error {
 	return nil
 }
 
-// RegisterResource registers a resource (simplified, no URI duplication check)
+// RegisterResource registers a resource (indexed by URI as per MCP specification)
 func (r *ToolRegistry) RegisterResource(resource ResourceConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, exists := r.resources[resource.Name]; exists {
-		return fmt.Errorf("resource %s already exists", resource.Name)
+	if _, exists := r.resources[resource.URI]; exists {
+		return fmt.Errorf("resource with URI %s already exists", resource.URI)
 	}
 
-	// Note: URI uniqueness is not enforced to simplify implementation
-	// Multiple resources can have the same URI if needed
-	r.resources[resource.Name] = resource
+	// Register resource by URI as per MCP specification
+	r.resources[resource.URI] = resource
 	return nil
 }
 
@@ -95,27 +94,14 @@ func (r *ToolRegistry) GetTool(name string) (ToolConfig, bool) {
 	return tool, exists
 }
 
-// GetResource gets resource configuration (by name)
-func (r *ToolRegistry) GetResource(name string) (ResourceConfig, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	resource, exists := r.resources[name]
-	return resource, exists
-}
-
-// GetResourceByURI gets resource configuration (by URI, using linear search)
+// GetResourceByURI gets resource configuration (by URI, O(1) lookup)
 func (r *ToolRegistry) GetResourceByURI(uri string) (ResourceConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	// Linear search through resources to find matching URI
-	for _, resource := range r.resources {
-		if resource.URI == uri {
-			return resource, true
-		}
-	}
-	return ResourceConfig{}, false
+	// Direct O(1) lookup by URI
+	resource, exists := r.resources[uri]
+	return resource, exists
 }
 
 // RegisterResourceTemplate registers a resource template

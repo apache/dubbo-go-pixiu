@@ -30,7 +30,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -238,7 +237,7 @@ func (f *MCPServerFilter) sendJSONResponse(ctx *MCPContext, response any) filter
 	logger.Infof("[dubbo-go-pixiu] mcp server response sent: %s (id: %v)", method, requestID)
 
 	// Critical: Clear Content-Length header to prevent mismatch errors
-	ctx.Writer.Header().Del(constant.HeaderKeyContentLength)
+	ctx.ClearContentLengthHeader()
 	ctx.SendLocalReply(http.StatusOK, responseBody)
 	return filter.Stop
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -101,4 +102,9 @@ func NewMCPContextFromHttpContext(httpCtx *h.HttpContext) *MCPContext {
 	mcpCtx := NewMCPContext(httpCtx)
 	mcpCtx.LoadMCPDataFromParams()
 	return mcpCtx
+}
+
+// ClearContentLengthHeader removes the Content-Length header to prevent conflicts with chunked transfer encoding.
+func (ctx *MCPContext) ClearContentLengthHeader() {
+	ctx.Writer.Header().Del(constant.HeaderKeyContentLength)
 }
