@@ -23,6 +23,7 @@ const (
 	HeaderKeyConnection       = "Connection"
 	HeaderKeyTransferEncoding = "Transfer-Encoding"
 	HeaderKeyContentLength    = "Content-Length"
+	HeaderKeyContentEncoding  = "Content-Encoding"
 
 	HeaderKeyAccessControlAllowOrigin      = "Access-Control-Allow-Origin"
 	HeaderKeyAccessControlAllowHeaders     = "Access-Control-Allow-Headers"

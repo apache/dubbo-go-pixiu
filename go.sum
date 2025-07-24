@@ -729,6 +729,10 @@ github.com/gonum/internal v0.0.0-20181124074243-f884aa714029/go.mod h1:Pu4dmpkhS
 github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9/go.mod h1:XA3DeT6rxh2EAE789SSiSJNqxPaC0aE9J8NTOI0Jo/A=
 github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9/go.mod h1:0EXg4mc1CNP0HCqCz+K4ts155PXIlUywf0wqN+GfPZw=
 github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b/go.mod h1:Z4GIJBJO3Wa4gD4vbwQxXXZ+WHmW6E9ixmNrwvs0iZs=
+github.com/google/brotli/go/brotli v1.1.1-rc0 h1:eoqIqYQOGQklpIRy7h7ZpgcornVZDJHCwMrIVSb9piE=
+github.com/google/brotli/go/brotli v1.1.1-rc0/go.mod h1:YxJlH7Wh10ij62fUKHspdbd+THlW1vMIuei0oXsBK9Y=
+github.com/google/brotli/go/cbrotli v1.1.0 h1:YwHD/rwSgUSL4b2S3ZM2jnNymm+tmwKQqjUIC63nmHU=
+github.com/google/brotli/go/cbrotli v1.1.0/go.mod h1:nOPhAkwVliJdNTkj3gXpljmWhjc4wCaVqbMJcPKWP4s=
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0 h1:0udJVsspx3VBr5FwtLhQQtuAsVc79tTq0ocGIPAU6qo=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=

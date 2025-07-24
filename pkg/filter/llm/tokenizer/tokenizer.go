@@ -19,9 +19,13 @@ package tokenizer
 
 import (
 	"bufio"
+	"compress/flate"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"sync"
 )
@@ -30,7 +34,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -77,7 +81,7 @@ func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{
 		cfg: factory.cfg,
 	}
@@ -85,12 +89,12 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 	return nil
 }
 
-func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
+func (f *Filter) Encode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	switch res := hc.TargetResp.(type) {
 	case *client.StreamResponse:
 		pr, pw := io.Pipe()
 		res.Stream = newTeeReadCloser(res.Stream, pw)
-		go f.processStreamResponse(pr)
+		go f.processStreamResponse(pr, hc.Writer.Header())
 	case *client.UnaryResponse:
 		f.processUsageData(res.Data)
 	default:
@@ -100,13 +104,39 @@ func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (f *Filter) processStreamResponse(stream io.Reader) {
+func (f *Filter) processStreamResponse(body io.Reader, header http.Header) {
+	var stream io.Reader
+	// Use the Content-Encoding header to select the correct decompressor
+	switch header.Get(constant.HeaderKeyContentEncoding) {
+	case "gzip":
+		gzipReader, err := gzip.NewReader(body)
+		if err != nil {
+			logger.Errorf("Failed to create gzip reader: %v", err)
+			return
+		}
+		defer gzipReader.Close()
+		stream = gzipReader
+
+	case "deflate":
+		flateReader := flate.NewReader(body)
+		defer flateReader.Close()
+		stream = flateReader
+
+	case "":
+		// If no encoding, use the body directly
+		stream = body
+
+	default:
+		logger.Errorf("Unsupported content encoding: %s", header.Get(constant.HeaderKeyContentEncoding))
+		return
+	}
+
 	scanner := bufio.NewScanner(stream)
 	currentLine := make([]byte, 0, 1024)
 	// read the stream by line
 	// and process the data lines
 	// the data line is prefixed with "data:"
-	// the data line is a json string
+	// the data line is a JSON string
 	// the for loop is to read the streamline by line and concat the separate "data:" lines
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -119,7 +149,7 @@ func (f *Filter) processStreamResponse(stream io.Reader) {
 		currentLine = append(currentLine, line...)
 	}
 	f.processUsageData(currentLine)
-	if err := scanner.Err(); err != nil && err != io.EOF {
+	if err := scanner.Err(); err != nil && err != io.EOF && !errors.Is(err, io.ErrUnexpectedEOF) {
 		logger.Errorf(LoggerFmt+"Error reading stream: %v", err)
 	}
 }

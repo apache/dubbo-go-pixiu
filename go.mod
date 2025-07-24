@@ -26,6 +26,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
+	github.com/google/brotli/go/brotli v1.1.1-rc0
 	github.com/jhump/protoreflect v1.9.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.3
@@ -89,6 +90,7 @@ require (
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/brotli/go/cbrotli v1.1.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gopherjs/gopherjs v1.12.80 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
