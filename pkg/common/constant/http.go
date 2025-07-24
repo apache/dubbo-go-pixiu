@@ -42,6 +42,9 @@ const (
 	HeaderValueChunked                = "chunked"
 	HeaderValueTextPrefix             = "text/"
 
+	HeaderValueGzip    = "gzip"
+	HeaderValueDeflate = "deflate"
+
 	HeaderValueKeepAlive = "keep-alive"
 	HeaderValueNoCache   = "no-cache"
 

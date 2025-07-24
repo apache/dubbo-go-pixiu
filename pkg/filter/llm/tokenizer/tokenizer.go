@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,14 +18,12 @@
 package tokenizer
 
 import (
-	"bufio"
+	"bytes"
 	"compress/flate"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"sync"
 )
@@ -90,13 +88,15 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Encode(hc *contexthttp.HttpContext) filter.FilterStatus {
+	encoding := hc.Writer.Header().Get(constant.HeaderKeyContentEncoding)
+
 	switch res := hc.TargetResp.(type) {
 	case *client.StreamResponse:
 		pr, pw := io.Pipe()
 		res.Stream = newTeeReadCloser(res.Stream, pw)
-		go f.processStreamResponse(pr, hc.Writer.Header())
+		go f.processStreamResponse(pr, encoding)
 	case *client.UnaryResponse:
-		f.processUsageData(res.Data)
+		f.processUsageData(res.Data, encoding) // Unary response is not a stream
 	default:
 		logger.Warnf(LoggerFmt+"Response type not suitable for token calc: %T", res)
 	}
@@ -104,60 +104,81 @@ func (f *Filter) Encode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (f *Filter) processStreamResponse(body io.Reader, header http.Header) {
-	var stream io.Reader
-	// Use the Content-Encoding header to select the correct decompressor
-	switch header.Get(constant.HeaderKeyContentEncoding) {
-	case "gzip":
-		gzipReader, err := gzip.NewReader(body)
-		if err != nil {
-			logger.Errorf("Failed to create gzip reader: %v", err)
-			return
-		}
-		defer gzipReader.Close()
-		stream = gzipReader
-
-	case "deflate":
-		flateReader := flate.NewReader(body)
-		defer flateReader.Close()
-		stream = flateReader
-
+// getDecompressedReader returns an io.ReadCloser that decompresses the body based on the encoding.
+func getDecompressedReader(body io.Reader, encoding string) (io.ReadCloser, error) {
+	switch encoding {
+	case constant.HeaderValueGzip:
+		return gzip.NewReader(body)
+	case constant.HeaderValueDeflate:
+		return flate.NewReader(body), nil
 	case "":
-		// If no encoding, use the body directly
-		stream = body
-
+		return io.NopCloser(body), nil
 	default:
-		logger.Errorf("Unsupported content encoding: %s", header.Get(constant.HeaderKeyContentEncoding))
-		return
-	}
-
-	scanner := bufio.NewScanner(stream)
-	currentLine := make([]byte, 0, 1024)
-	// read the stream by line
-	// and process the data lines
-	// the data line is prefixed with "data:"
-	// the data line is a JSON string
-	// the for loop is to read the streamline by line and concat the separate "data:" lines
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "data:") {
-			f.processUsageData(currentLine)
-			currentLine = make([]byte, 0, 1024)
-			line = strings.TrimPrefix(line, "data:")
-		}
-		currentLine = append(currentLine, line...)
-	}
-	f.processUsageData(currentLine)
-	if err := scanner.Err(); err != nil && err != io.EOF && !errors.Is(err, io.ErrUnexpectedEOF) {
-		logger.Errorf(LoggerFmt+"Error reading stream: %v", err)
+		return nil, fmt.Errorf("unsupported content encoding: %s", encoding)
 	}
 }
 
-func (f *Filter) processUsageData(data []byte) {
+func (f *Filter) processStreamResponse(body io.Reader, encoding string) {
+	// For streams, we decompress the entire stream first, then process its content.
+	// The content itself (with "data:" prefixes) is passed to processUsageData.
+	decompressedReader, err := getDecompressedReader(body, encoding)
+	if err != nil {
+		logger.Errorf(LoggerFmt+"%v", err)
+		return
+	}
+	defer decompressedReader.Close()
+
+	decompressedData, err := io.ReadAll(decompressedReader)
+	if err != nil {
+		logger.Errorf(LoggerFmt+"Error reading decompressed stream: %v", err)
+		return
+	}
+
+	decompressedDataTrim := strings.Trim(string(decompressedData), "data:")
+
+	// Now process the fully decompressed stream data
+	f.processUsageData([]byte(decompressedDataTrim), "")
+}
+
+func (f *Filter) processUsageData(data []byte, encoding string) {
+	var processedData []byte
+	// Decompress data if an encoding is specified (primarily for unary responses)
+	if encoding != "" {
+		bodyReader := bytes.NewReader(data)
+		decompressedReader, err := getDecompressedReader(bodyReader, encoding)
+		if err != nil {
+			logger.Errorf(LoggerFmt+"Failed to create decompressor: %v", err)
+			return // Cannot proceed if decompression fails
+		}
+		defer decompressedReader.Close()
+
+		decompressedData, err := io.ReadAll(decompressedReader)
+		if err != nil {
+			logger.Errorf(LoggerFmt+"Failed to read decompressed data: %v", err)
+			return // Cannot proceed if read fails
+		}
+		processedData = decompressedData
+	} else {
+		// If no encoding, use the data as is
+		processedData = data
+	}
+
+	if len(processedData) == 0 {
+		return
+	}
+
+	f.parseAndLogUsage(processedData)
+}
+
+// parseAndLogUsage is a helper to parse the final JSON data and log it.
+func (f *Filter) parseAndLogUsage(data []byte) {
+	if len(data) == 0 {
+		return
+	}
 	var dataCont map[string]any
 	err := json.Unmarshal(data, &dataCont)
 	if err != nil {
+		// Suppress unmarshal errors for potentially incomplete stream chunks
 		return
 	}
 

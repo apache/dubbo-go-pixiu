@@ -4,9 +4,10 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
+
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,37 +39,96 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
-func TestUnaryResponse(t *testing.T) {
-	filter := &Filter{}
+// TestUnaryResponseWithEncodings is a table-driven test for unary (non-streaming) responses.
+// It covers multiple content encodings like gzip and deflate.
+func TestUnaryResponseWithEncodings(t *testing.T) {
+	// This is the payload we expect to process after decompression.
+	const payload = `{
+       "usage": {
+          "prompt_tokens": 7
+       }
+    }`
 
-	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
-	assert.NoError(t, err)
-	c := mock.GetMockHTTPContext(request)
-	c.TargetResp = &client.UnaryResponse{
-		Data: []byte(`{
-		"usage": {
-			"prompt_tokens": 7,
-			"completion_tokens": 32,
-			"total_tokens": 39,
-			"prompt_tokens_details": {
-				"cached_tokens": 0
+	// Helper function to compress data with gzip for our test case.
+	compressGzipBytes := func(data string) []byte {
+		var buf bytes.Buffer
+		writer := gzip.NewWriter(&buf)
+		_, err := writer.Write([]byte(data))
+		assert.NoError(t, err)
+		err = writer.Close()
+		assert.NoError(t, err)
+		return buf.Bytes()
+	}
+
+	// Helper function to compress data with flate/deflate for our test case.
+	compressFlateBytes := func(data string) []byte {
+		var buf bytes.Buffer
+		writer, err := flate.NewWriter(&buf, -1)
+		assert.NoError(t, err)
+		_, err = writer.Write([]byte(data))
+		assert.NoError(t, err)
+		err = writer.Close()
+		assert.NoError(t, err)
+		return buf.Bytes()
+	}
+
+	// Define all test cases in a table.
+	testCases := []struct {
+		name     string
+		encoding string
+		getData  func(string) []byte
+	}{
+		{
+			name:     "No Encoding",
+			encoding: "",
+			getData: func(s string) []byte {
+				return []byte(s)
 			},
-			"prompt_cache_hit_tokens": 0,
-			"prompt_cache_miss_tokens": 7
-		}
-	}`)}
-	filter.Encode(c)
+		},
+		{
+			name:     "Gzip Encoding",
+			encoding: "gzip",
+			getData:  compressGzipBytes,
+		},
+		{
+			name:     "Flate Encoding",
+			encoding: "deflate",
+			getData:  compressFlateBytes,
+		},
+	}
+
+	// Run the tests for each case.
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			filter := &Filter{}
+
+			request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
+			assert.NoError(t, err)
+			c := mock.GetMockHTTPContext(request)
+
+			// Prepare the (potentially) compressed data
+			compressedData := tc.getData(payload)
+
+			c.TargetResp = &client.UnaryResponse{
+				Data: compressedData,
+			}
+			c.AddHeader(constant.HeaderKeyContentEncoding, tc.encoding)
+
+			// Call the filter's Encode method
+			filter.Encode(c)
+		})
+	}
 }
 
-// TestStreamResponseWithEncodings is a new table-driven test for streaming responses.
+// TestStreamResponseWithEncodings is a table-driven test for streaming responses.
 // It replaces the old TestStreamResponse.
 func TestStreamResponseWithEncodings(t *testing.T) {
 	// This is the payload we expect to process after decompression.
 	const payload = `data: {
-		"usage": {
-			"prompt_tokens": 7
-		}
-	}`
+       "usage": {
+          "prompt_tokens": 7
+       }
+    }`
 
 	// Helper function to compress data with gzip for our test case.
 	compressGzip := func(data string) io.Reader {
