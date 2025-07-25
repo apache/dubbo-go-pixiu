@@ -58,7 +58,7 @@ type (
 	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of FilterFactory
+	// Config describes the config of FilterFactory
 	Config struct {
 	}
 )
@@ -104,63 +104,28 @@ func (f *Filter) Encode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-// getDecompressedReader returns an io.ReadCloser that decompresses the body based on the encoding.
-func getDecompressedReader(body io.Reader, encoding string) (io.ReadCloser, error) {
-	switch encoding {
-	case constant.HeaderValueGzip:
-		return gzip.NewReader(body)
-	case constant.HeaderValueDeflate:
-		return flate.NewReader(body), nil
-	case "":
-		return io.NopCloser(body), nil
-	default:
-		return nil, fmt.Errorf("unsupported content encoding: %s", encoding)
-	}
-}
-
 func (f *Filter) processStreamResponse(body io.Reader, encoding string) {
 	// For streams, we decompress the entire stream first, then process its content.
 	// The content itself (with "data:" prefixes) is passed to processUsageData.
-	decompressedReader, err := getDecompressedReader(body, encoding)
-	if err != nil {
-		logger.Errorf(LoggerFmt+"%v", err)
-		return
-	}
-	defer decompressedReader.Close()
-
-	decompressedData, err := io.ReadAll(decompressedReader)
-	if err != nil {
-		logger.Errorf(LoggerFmt+"Error reading decompressed stream: %v", err)
+	decompressedData, ok := decompress(body, encoding)
+	if !ok {
 		return
 	}
 
-	decompressedDataTrim := strings.Trim(string(decompressedData), "data:")
+	decompressedDataTrim := strings.TrimPrefix(string(decompressedData), "data:")
 
 	// Now process the fully decompressed stream data
 	f.processUsageData([]byte(decompressedDataTrim), "")
 }
 
 func (f *Filter) processUsageData(data []byte, encoding string) {
-	var processedData []byte
+	processedData := data
 	// Decompress data if an encoding is specified (primarily for unary responses)
 	if encoding != "" {
 		bodyReader := bytes.NewReader(data)
-		decompressedReader, err := getDecompressedReader(bodyReader, encoding)
-		if err != nil {
-			logger.Errorf(LoggerFmt+"Failed to create decompressor: %v", err)
-			return // Cannot proceed if decompression fails
+		if decompressedData, ok := decompress(bodyReader, encoding); ok {
+			processedData = decompressedData
 		}
-		defer decompressedReader.Close()
-
-		decompressedData, err := io.ReadAll(decompressedReader)
-		if err != nil {
-			logger.Errorf(LoggerFmt+"Failed to read decompressed data: %v", err)
-			return // Cannot proceed if read fails
-		}
-		processedData = decompressedData
-	} else {
-		// If no encoding, use the data as is
-		processedData = data
 	}
 
 	if len(processedData) == 0 {
@@ -206,6 +171,36 @@ func (f *Filter) logUsage(usage map[string]any) {
 			logger.Infof(LoggerFmt+"Usage | %s: %v", key, value)
 		}
 	}
+}
+
+// getDecompressedReader returns an io.ReadCloser that decompresses the body based on the encoding.
+func getDecompressedReader(body io.Reader, encoding string) (io.ReadCloser, error) {
+	switch encoding {
+	case constant.HeaderValueGzip:
+		return gzip.NewReader(body)
+	case constant.HeaderValueDeflate:
+		return flate.NewReader(body), nil
+	case "":
+		return io.NopCloser(body), nil
+	default:
+		return nil, fmt.Errorf("unsupported content encoding: %s", encoding)
+	}
+}
+
+func decompress(body io.Reader, encoding string) ([]byte, bool) {
+	decompressedReader, err := getDecompressedReader(body, encoding)
+	if err != nil {
+		logger.Errorf(LoggerFmt+"%v", err)
+		return nil, false
+	}
+	defer decompressedReader.Close()
+
+	decompressedData, err := io.ReadAll(decompressedReader)
+	if err != nil {
+		logger.Errorf(LoggerFmt+"Error reading decompressed stream: %v", err)
+		return nil, false
+	}
+	return decompressedData, true
 }
 
 type teeReadCloser struct {
