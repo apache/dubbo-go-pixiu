@@ -382,7 +382,7 @@ func computeApproximateRequestSize(r *http.Request) (int, error) {
 	return s, nil
 }
 
-func computeApproximateResponseSize(res interface{}) (int, error) {
+func computeApproximateResponseSize(res any) (int, error) {
 	if res == nil {
 		return 0, errors.New("client response is nil")
 	}
