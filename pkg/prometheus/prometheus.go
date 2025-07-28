@@ -347,7 +347,7 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		if err1 == nil {
 			p.reqSz.WithLabelValues(statusStr, method, url).Observe(float64(reqSz))
 		}
-		resSz, err2 := computeApproximateResponseSize(c.TargetResp.(*client.UnaryResponse))
+		resSz, err2 := computeApproximateResponseSize(c.TargetResp)
 		if err2 == nil {
 			p.resSz.WithLabelValues(statusStr, method, url).Observe(float64(resSz))
 		}
