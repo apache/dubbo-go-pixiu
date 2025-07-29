@@ -67,6 +67,10 @@ type DubboFilter struct {
 	Config map[string]any `yaml:"config" json:"config" mapstructure:"config"`
 }
 
+const (
+	StandardDubboResolver = "StandardDubboResolver" // standard dubbo resolver
+)
+
 type RequestMethod int32
 
 const (
