@@ -180,10 +180,8 @@ func getDecompressedReader(body io.Reader, encoding string) (io.ReadCloser, erro
 		return gzip.NewReader(body)
 	case constant.HeaderValueDeflate:
 		return flate.NewReader(body), nil
-	case "":
-		return io.NopCloser(body), nil
 	default:
-		return nil, fmt.Errorf("unsupported content encoding: %s", encoding)
+		return io.NopCloser(body), nil
 	}
 }
 
