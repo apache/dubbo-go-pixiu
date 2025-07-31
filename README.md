@@ -83,7 +83,7 @@ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu-samples/h
 When you see logs similar to the following, Pixiu has started successfully and is listening on port `8888`:
 
 ```log
-2025-05-19T12:46:00.104+0800	INFO	server/pixiu_start.go:127	[dubbopixiu go] start by config : &{StaticResources:{Listeners:[0xc0007b7a20] Clusters:[0xc0007cc5a0] Adapters:[] ShutdownConfig:0xc00067fb30 PprofConf:{Enable:false Address:{SocketAddress:{Address:0.0.0.0 Port:8881 ResolverName: Domains:[] CertsDir:} Name:}}} DynamicResources:<nil> Metric:{Enable:false PrometheusPort:0} Node:<nil> Trace:<nil> Wasm:<nil> Config:<nil> Nacos:<nil> Log:<nil>}
+2025-05-19T12:46:00.104+0800	INFO	server/pixiu_start.go:127	[dubbo-go-pixiu] start by config : &{StaticResources:{Listeners:[0xc0007b7a20] Clusters:[0xc0007cc5a0] Adapters:[] ShutdownConfig:0xc00067fb30 PprofConf:{Enable:false Address:{SocketAddress:{Address:0.0.0.0 Port:8881 ResolverName: Domains:[] CertsDir:} Name:}}} DynamicResources:<nil> Metric:{Enable:false PrometheusPort:0} Node:<nil> Trace:<nil> Wasm:<nil> Config:<nil> Nacos:<nil> Log:<nil>}
 2025-05-19T12:46:00.104+0800	INFO	healthcheck/healthcheck.go:157	[health check] create a health check session for 127.0.0.1:1314
 2025-05-19T12:46:00.105+0800	INFO	tracing/driver.go:76	[dubbo-go-pixiu] no trace configuration in conf.yaml
 2025-05-19T12:46:00.105+0800	INFO	http/http_listener.go:157	[dubbo-go-server] httpListener start at : 0.0.0.0:8888
