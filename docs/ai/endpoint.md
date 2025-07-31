@@ -3,8 +3,7 @@
 
 English | [中文](./endpoint_CN.md)
 
-This document explains how to configure upstream endpoints for Large Language Models (LLMs) within your
-gateway's routing configuration.
+This document explains how to configure upstream endpoints for Large Language Models (LLMs) within your gateway's routing configuration.
 
 ### Endpoint Structure
 
@@ -31,16 +30,12 @@ The llm_meta block holds all the configuration specific to how the gateway shoul
 `provider`
 
 - Type: `string`
-- Description: A name to identify the LLM provider check [here]() for all supported llm providers. This is primarily for
-  routing for specific llm provider.
+- Description: A name to identify the LLM provider check [here]() for all supported llm providers. This is primarily for routing for specific llm provider.
 
 `fallback`
 
 - Type: `boolean`
-- Description: Determines if the gateway should proceed to the next endpoint in the cluster if all retry attempts on
-  this endpoint fail.true: If this endpoint fails, the gateway will attempt the next available endpoint.false: If this
-  endpoint fails, the process stops, and the last error is returned to the client. This should be set to false for the
-  last endpoint in a fallback chain.
+- Description: Determines if the gateway should proceed to the next endpoint in the cluster if all retry attempts on this endpoint fail.true: If this endpoint fails, the gateway will attempt the next available endpoint.false: If this endpoint fails, the process stops, and the last error is returned to the client. This should be set to false for the last endpoint in a fallback chain.
 
 `retry_policy`
 
@@ -69,8 +64,7 @@ Here are the built-in retry policies you can specify by name.
 
    #### Config Parameters:
 
-    - times (integer): The number of times to retry after the initial attempt fails. A value of 3 means there will be 1
-      initial attempt and up to 3 retries, for a total of 4 attempts.
+    - times (integer): The number of times to retry after the initial attempt fails. A value of 3 means there will be 1 initial attempt and up to 3 retries, for a total of 4 attempts.
 
    Example:
 
@@ -83,17 +77,14 @@ Here are the built-in retry policies you can specify by name.
 
 2. `ExponentialBackoff`
 
-   This policy retries a specified number of times, increasing the delay between each subsequent retry. This is the
-   recommended strategy for handling rate limits and transient network issues.
+   This policy retries a specified number of times, increasing the delay between each subsequent retry. This is the recommended strategy for handling rate limits and transient network issues.
 
    #### Config Parameters:
 
     - times (integer): The number of times to retry after the initial attempt fails.
     - initialInterval (string): The duration of the initial wait time before the first retry (e.g., "100ms", "1s").
-    - maxInterval (string): The maximum possible delay between retries. The calculated backoff delay will be capped at
-      this value.
-    - multiplier (float): The factor by which the delay is multiplied after each attempt. A value of 2.0 will double the
-      delay.
+    - maxInterval (string): The maximum possible delay between retries. The calculated backoff delay will be capped at this value.
+    - multiplier (float): The factor by which the delay is multiplied after each attempt. A value of 2.0 will double the delay.
 
    Example:
     ```yaml
@@ -108,8 +99,7 @@ Here are the built-in retry policies you can specify by name.
 
 3. `NoRetry`
 
-   This is the default retry policy. This policy only performs the initial attempt and does not perform any retries if
-   it fails.
+   This is the default retry policy. This policy only performs the initial attempt and does not perform any retries if it fails.
 
    #### Config Parameters:
 
@@ -125,11 +115,9 @@ Here are the built-in retry policies you can specify by name.
 
 This example shows a cluster with two endpoints.
 
-The first (deepseek-primary) uses an `ExponentialBackoff` retry policy and will fall back to the next endpoint on
-failure.
+The first (deepseek-primary) uses an `ExponentialBackoff` retry policy and will fall back to the next endpoint on failure.
 
-The second (deepseek-fallback) is the final endpoint, using a simple `CountBased` retry policy and with fallback
-disabled.
+The second (deepseek-fallback) is the final endpoint, using a simple `CountBased` retry policy and with fallback disabled.
 
 ```yaml
 clusters:

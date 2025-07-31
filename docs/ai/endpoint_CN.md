@@ -37,8 +37,7 @@ clusters:
 - **类型**: `boolean`
 - **描述**: 决定如果在此endpoint上的所有重试尝试都失败后，网关是否应继续处理集群中的下一个 endpoint。
     - `true`: 如果此endpoint失败，网关将尝试下一个可用的 endpoint。
-    - `false`: 如果此endpoint失败，则处理停止，并将最后一个错误返回给客户端。对于 fallback 链中的最后一个 endpoint ，此值应设置为
-      `false`。
+    - `false`: 如果此endpoint失败，则处理停止，并将最后一个错误返回给客户端。对于 fallback 链中的最后一个 endpoint ，此值应设置为 `false`。
 
 `retry_policy`
 
