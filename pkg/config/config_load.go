@@ -57,7 +57,7 @@ func GetBootstrap() *model.Bootstrap {
 
 // Load config file and parse
 func Load(path string) *model.Bootstrap {
-	logger.Infof("[dubbopixiu go] load path:%s", path)
+	logger.Infof("[dubbo-go-pixiu] load path:%s", path)
 	configPath, _ = filepath.Abs(path)
 	if configPath != "" && CheckYamlFormat(configPath) {
 		RegisterConfigLoadFunc(LoadYAMLConfig)
