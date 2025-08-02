@@ -18,7 +18,9 @@
 package tokenizer
 
 import (
-	"bufio"
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,7 +32,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -56,7 +58,7 @@ type (
 	Filter struct {
 		cfg *Config
 	}
-	// Config describe the config of FilterFactory
+	// Config describes the config of FilterFactory
 	Config struct {
 	}
 )
@@ -77,7 +79,7 @@ func (factory *FilterFactory) Apply() error {
 	return nil
 }
 
-func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{
 		cfg: factory.cfg,
 	}
@@ -85,14 +87,16 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 	return nil
 }
 
-func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
+func (f *Filter) Encode(hc *contexthttp.HttpContext) filter.FilterStatus {
+	encoding := hc.Writer.Header().Get(constant.HeaderKeyContentEncoding)
+
 	switch res := hc.TargetResp.(type) {
 	case *client.StreamResponse:
 		pr, pw := io.Pipe()
 		res.Stream = newTeeReadCloser(res.Stream, pw)
-		go f.processStreamResponse(pr)
+		go f.processStreamResponse(pr, encoding)
 	case *client.UnaryResponse:
-		f.processUsageData(res.Data)
+		f.processUsageData(res.Data, encoding) // Unary response is not a stream
 	default:
 		logger.Warnf(LoggerFmt+"Response type not suitable for token calc: %T", res)
 	}
@@ -100,34 +104,46 @@ func (f *Filter) Encode(hc *http.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (f *Filter) processStreamResponse(stream io.Reader) {
-	scanner := bufio.NewScanner(stream)
-	currentLine := make([]byte, 0, 1024)
-	// read the stream by line
-	// and process the data lines
-	// the data line is prefixed with "data:"
-	// the data line is a json string
-	// the for loop is to read the streamline by line and concat the separate "data:" lines
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "data:") {
-			f.processUsageData(currentLine)
-			currentLine = make([]byte, 0, 1024)
-			line = strings.TrimPrefix(line, "data:")
-		}
-		currentLine = append(currentLine, line...)
+func (f *Filter) processStreamResponse(body io.Reader, encoding string) {
+	// For streams, we decompress the entire stream first, then process its content.
+	// The content itself (with "data:" prefixes) is passed to processUsageData.
+	decompressedData, ok := decompress(body, encoding)
+	if !ok {
+		return
 	}
-	f.processUsageData(currentLine)
-	if err := scanner.Err(); err != nil && err != io.EOF {
-		logger.Errorf(LoggerFmt+"Error reading stream: %v", err)
-	}
+
+	decompressedDataTrim := strings.TrimPrefix(string(decompressedData), "data:")
+
+	// Now process the fully decompressed stream data
+	f.processUsageData([]byte(decompressedDataTrim), "")
 }
 
-func (f *Filter) processUsageData(data []byte) {
+func (f *Filter) processUsageData(data []byte, encoding string) {
+	processedData := data
+	// Decompress data if an encoding is specified (primarily for unary responses)
+	if encoding != "" {
+		bodyReader := bytes.NewReader(data)
+		if decompressedData, ok := decompress(bodyReader, encoding); ok {
+			processedData = decompressedData
+		}
+	}
+
+	if len(processedData) == 0 {
+		return
+	}
+
+	f.parseAndLogUsage(processedData)
+}
+
+// parseAndLogUsage is a helper to parse the final JSON data and log it.
+func (f *Filter) parseAndLogUsage(data []byte) {
+	if len(data) == 0 {
+		return
+	}
 	var dataCont map[string]any
 	err := json.Unmarshal(data, &dataCont)
 	if err != nil {
+		// Suppress unmarshal errors for potentially incomplete stream chunks
 		return
 	}
 
@@ -155,6 +171,34 @@ func (f *Filter) logUsage(usage map[string]any) {
 			logger.Infof(LoggerFmt+"Usage | %s: %v", key, value)
 		}
 	}
+}
+
+// getDecompressedReader returns an io.ReadCloser that decompresses the body based on the encoding.
+func getDecompressedReader(body io.Reader, encoding string) (io.ReadCloser, error) {
+	switch encoding {
+	case constant.HeaderValueGzip:
+		return gzip.NewReader(body)
+	case constant.HeaderValueDeflate:
+		return flate.NewReader(body), nil
+	default:
+		return io.NopCloser(body), nil
+	}
+}
+
+func decompress(body io.Reader, encoding string) ([]byte, bool) {
+	decompressedReader, err := getDecompressedReader(body, encoding)
+	if err != nil {
+		logger.Errorf(LoggerFmt+"%v", err)
+		return nil, false
+	}
+	defer decompressedReader.Close()
+
+	decompressedData, err := io.ReadAll(decompressedReader)
+	if err != nil {
+		logger.Errorf(LoggerFmt+"Error reading decompressed stream: %v", err)
+		return nil, false
+	}
+	return decompressedData, true
 }
 
 type teeReadCloser struct {
