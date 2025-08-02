@@ -27,8 +27,11 @@ import (
 
 import (
 	"github.com/mitchellh/mapstructure"
+
 	"mosn.io/proxy-wasm-go-host/common"
+
 	"mosn.io/proxy-wasm-go-host/proxywasm"
+
 	"mosn.io/proxy-wasm-go-host/wasmer"
 )
 
