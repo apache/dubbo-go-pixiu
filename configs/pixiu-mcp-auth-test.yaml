@@ -1,0 +1,215 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# MCP Auth Filter Test Configuration
+# This configuration tests the new mcp_auth filter along with tools functionality.
+
+static_resources:
+  listeners:
+    - name: "net/http"
+      protocol_type: "HTTP"
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 8888
+      filter_chains:
+        filters:
+          - name: "dgp.filter.httpconnectionmanager"
+            config:
+              route_config:
+                routes:
+                  # MCP endpoint route - now protected
+                  - match:
+                      prefix: "/mcp"
+                    route:
+                      cluster: "mock-backend"
+                      cluster_not_found_response_code: 505
+                  # API routes for backend testing - unprotected
+                  - match:
+                      prefix: "/api"
+                    route:
+                      cluster: "mock-backend"
+                      cluster_not_found_response_code: 404
+                  # Root route
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: "mock-backend"
+                      cluster_not_found_response_code: 404
+              http_filters:
+                # 1. MCP Auth Filter - Protects the /mcp endpoint
+                - name: "dgp.filter.http.auth.mcp"
+                  config:
+                    # Define trusted JWT providers
+                    providers:
+                      - name: "mock-auth-server"
+                        issuer: "https://auth.example.com/"
+                        audiences:
+                          - "pixiu-gateway"
+                        jwks_source:
+                          local:
+                            # A sample EC P-256 public key in JWKS format for testing.
+                            # Private key is not needed here.
+                            inline: |
+                              {
+                                "keys": [
+                                  {
+                                    "kty": "EC",
+                                    "crv": "P-256",
+                                    "x": "SVqWn34FSYf-b43O8v4aA42B3A4Qz1gYxQrTz4u6p1A",
+                                    "y": "Z5F9J1mXb7y1g4g2g4x4gYj1gQ1hYxQrTz4u6p1B"
+                                  }
+                                ]
+                              }
+
+                    # Configure the /.well-known/oauth-protected-resource endpoint
+                    resource_metadata:
+                      enabled: true
+                      server_host: "http://127.0.0.1:8888"
+                      authorization_servers:
+                        - issuer: "https://auth.example.com/"
+
+                    # Define authentication/authorization rules
+                    rules:
+                      - match:
+                          prefix: "/mcp"
+                        provider_name: "mock-auth-server"
+                        required_scopes:
+                          - "mcp:access"
+
+                # 2. MCP Server Filter - Same as before
+                - name: "dgp.filter.mcp.mcpserver"
+                  config:
+                    server_info:
+                      name: "MCP Tools Test Server"
+                      version: "1.0.0"
+                      description: "MCP Server for testing all tools functionality"
+                      instructions: "Use these tools to interact with the mock backend API. Test all CRUD operations and search functionality."
+                    tools:
+                      - name: "get_user"
+                        description: "Get user information by ID with optional profile details"
+                        cluster: "mock-backend"
+                        request:
+                          method: "GET"
+                          path: "/api/users/{id}"
+                          timeout: "10s"
+                        args:
+                          - name: "id"
+                            type: "integer"
+                            in: "path"
+                            description: "User ID to retrieve"
+                            required: true
+                          - name: "include_profile"
+                            type: "boolean"
+                            in: "query"
+                            description: "Include user profile information"
+                            required: false
+                            default: false
+                      - name: "search_users"
+                        description: "Search users by name or email with pagination"
+                        cluster: "mock-backend"
+                        request:
+                          method: "GET"
+                          path: "/api/users/search"
+                          timeout: "10s"
+                        args:
+                          - name: "q"
+                            type: "string"
+                            in: "query"
+                            description: "Search query (name or email)"
+                            required: true
+                          - name: "page"
+                            type: "integer"
+                            in: "query"
+                            description: "Page number for pagination"
+                            required: false
+                            default: 1
+                          - name: "limit"
+                            type: "integer"
+                            in: "query"
+                            description: "Number of results per page (1-100)"
+                            required: false
+                            default: 10
+                      - name: "create_user"
+                        description: "Create a new user account"
+                        cluster: "mock-backend"
+                        request:
+                          method: "POST"
+                          path: "/api/users"
+                          timeout: "10s"
+                          headers:
+                            Content-Type: "application/json"
+                        args:
+                          - name: "name"
+                            type: "string"
+                            in: "body"
+                            description: "User's full name"
+                            required: true
+                          - name: "email"
+                            type: "string"
+                            in: "body"
+                            description: "User's email address"
+                            required: true
+                          - name: "age"
+                            type: "integer"
+                            in: "body"
+                            description: "User's age"
+                            required: false
+                      - name: "get_user_posts"
+                        description: "Get all posts by a specific user with status filtering"
+                        cluster: "mock-backend"
+                        request:
+                          method: "GET"
+                          path: "/api/users/{user_id}/posts"
+                          timeout: "10s"
+                        args:
+                          - name: "user_id"
+                            type: "integer"
+                            in: "path"
+                            description: "User ID to get posts for"
+                            required: true
+                          - name: "status"
+                            type: "string"
+                            in: "query"
+                            description: "Filter posts by status"
+                            required: false
+                            default: "published"
+                            enum: ["published", "draft", "all"]
+                      - name: "health_check"
+                        description: "Check the health and status of the backend service"
+                        cluster: "mock-backend"
+                        request:
+                          method: "GET"
+                          path: "/api/health"
+                          timeout: "5s"
+                      - name: "get_server_info"
+                        description: "Get basic server information and available endpoints"
+                        cluster: "mock-backend"
+                        request:
+                          method: "GET"
+                          path: "/"
+                          timeout: "5s"
+
+                # 3. HTTP Proxy Filter
+                - name: "dgp.filter.http.httpproxy"
+
+  clusters:
+    - name: "mock-backend"
+      type: "STATIC"
+      lb_policy: "ROUND_ROBIN"
+      endpoints:
+        - socket_address:
+            address: "127.0.0.1"
+            port: 8081 
