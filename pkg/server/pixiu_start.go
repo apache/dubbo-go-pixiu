@@ -112,7 +112,7 @@ func (s *Server) Start() {
 				return
 			}
 		}()
-		logger.Infof("[dubbopixiu go pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
+		logger.Infof("[dubbo-go-pixiu pprof] httpListener start by : %s", addr.Address+":"+strconv.Itoa(addr.Port))
 	}
 }
 
@@ -124,7 +124,7 @@ func NewServer() *Server {
 }
 
 func Start(bs *model.Bootstrap) {
-	logger.Infof("[dubbopixiu go] start by config : %+v", bs)
+	logger.Infof("[dubbo-go-pixiu] start by config : %+v", bs)
 	// global variable
 	server = NewServer()
 	server.initialize(bs)
