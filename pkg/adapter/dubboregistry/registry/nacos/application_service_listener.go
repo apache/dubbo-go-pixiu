@@ -31,7 +31,9 @@ import (
 	dr "dubbo.apache.org/dubbo-go/v3/registry"
 	"dubbo.apache.org/dubbo-go/v3/registry/servicediscovery"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
+
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
 )

@@ -26,6 +26,7 @@ import (
 import (
 	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+
 	"github.com/stretchr/testify/assert"
 )
 
