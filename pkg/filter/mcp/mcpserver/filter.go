@@ -26,6 +26,7 @@ import (
 
 import (
 	"github.com/creasty/defaults"
+
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
