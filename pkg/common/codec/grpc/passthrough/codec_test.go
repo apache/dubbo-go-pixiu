@@ -24,7 +24,9 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
+
 	"google.golang.org/protobuf/proto"
+
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 

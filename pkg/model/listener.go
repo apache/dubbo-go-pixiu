@@ -19,6 +19,7 @@ package model
 
 import (
 	"github.com/creasty/defaults"
+
 	"github.com/mitchellh/mapstructure"
 )
 
