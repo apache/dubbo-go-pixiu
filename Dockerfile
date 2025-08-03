@@ -17,37 +17,46 @@
 # under the License.
 #
 
-
-
 ### builder
-FROM amd64/ubuntu:latest as builder
+FROM golang:1.23.4-bookworm AS  builder
 LABEL MAINTAINER="dev@dubbo.apache.org"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc
+RUN apt-get update && apt-get install -y --no-install-recommends gcc
 
-ADD https://golang.google.cn/dl/go1.23.4.linux-amd64.tar.gz .
-RUN tar -xf go1.23.4.linux-amd64.tar.gz -C /usr/local/
-ENV PATH=$PATH:/usr/local/go/bin
+WORKDIR /app
 
-WORKDIR /app/
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
 
-ENV GO111MODULE=on \
-    CGO_ENABLED=1 \
+ENV CGO_ENABLED=1 \
     GOOS=linux \
     GOARCH=amd64
 
-RUN go build -ldflags '-r ./lib -s -w' -tags="wasm" -trimpath -o dubbo-go-pixiu ./cmd/pixiu/*.go
+# Here I still remains "wasmer" tag, because we need to build the wasmer plugin
+# if wasm feature is removed in the future, this tag and following wasm related command can be removed
+RUN go build -ldflags '-r ./lib -s -w' -tags="wasmer" -trimpath -o /app/dubbo-go-pixiu ./cmd/pixiu/*.go
 
-### alpine
-FROM amd64/pingcap/alpine-glibc:latest
+RUN find /go/pkg/mod -name "libwasmer.so" -exec cp {} /app/libwasmer.so \;
+
+
+FROM pingcap/alpine-glibc:alpine-3.14.6
+LABEL MAINTAINER="dev@dubbo.apache.org"
+
 RUN addgroup -S nonroot \
     && adduser -S nonroot -G nonroot
+
+WORKDIR /app
+COPY docker-entrypoint.sh .
+COPY configs ./configs
+
+COPY --from=builder /app/dubbo-go-pixiu .
+COPY --from=builder /app/libwasmer.so /lib/
+
+RUN chown -R nonroot:nonroot /app \
+    && chmod +x /app/docker-entrypoint.sh
+
 USER nonroot
-COPY docker-entrypoint.sh /
-COPY configs/* /etc/pixiu/
-COPY --from=builder /root/go/pkg/mod/github.com/wasmerio/wasmer-go@v1.0.4/wasmer/packaged/lib/linux-amd64/libwasmer.so /lib/
-COPY --from=builder /app/dubbo-go-pixiu /
-RUN ["chmod", "+x", "/docker-entrypoint.sh"]
-ENTRYPOINT ["sh","./docker-entrypoint.sh"]
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

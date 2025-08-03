@@ -26,13 +26,13 @@ import (
 
 import (
 	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 // Resolver defines the interface for resolving an HTTP request to a specific API configuration.
