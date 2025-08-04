@@ -32,13 +32,14 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/jhump/protoreflect v1.17.0
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
+	github.com/mark3labs/mcp-go v0.32.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common v0.37.0
 	github.com/smartystreets/goconvey v1.7.2
-	github.com/spf13/cast v1.5.0
+	github.com/spf13/cast v1.7.1
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.10.0
