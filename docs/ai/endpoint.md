@@ -35,7 +35,7 @@ The llm_meta block holds all the configuration specific to how the gateway shoul
 `fallback`
 
 - Type: `boolean`
-- Description: Determines if the gateway should proceed to the next endpoint in the cluster if all retry attempts on this endpoint fail.true: If this endpoint fails, the gateway will attempt the next available endpoint.false: If this endpoint fails, the process stops, and the last error is returned to the client. This should be set to false for the last endpoint in a fallback chain.
+- Description: Determines if the gateway should proceed to the next endpoint in the cluster if all retry attempts on this endpoint fail. When the value is `true`, and if this endpoint fails, the gateway will attempt the next available endpoint. When the value is `false`, and if this endpoint fails, the process stops, and the last error is returned to the client.
 
 `retry_policy`
 
