@@ -3,6 +3,9 @@ logs/
 .vscode
 .mvn/
 
+# admin
+etcd-data/
+
 # app
 dubbo-go-pixiu
 dubbo-go-pixiu.exe

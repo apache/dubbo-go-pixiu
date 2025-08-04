@@ -17,6 +17,16 @@
 
 package model
 
+import (
+	"github.com/creasty/defaults"
+
+	"github.com/mitchellh/mapstructure"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
+
 const (
 	ProtocolTypeHTTP ProtocolType = 0 + iota // support for 1.0
 	ProtocolTypeTCP
@@ -71,4 +81,35 @@ type (
 		FilterChain FilterChain  `yaml:"filter_chains" json:"filter_chains" mapstructure:"filter_chains"`
 		Config      any          `yaml:"config" json:"config" mapstructure:"config"`
 	}
+
+	// GrpcConfig gRPC listener specific configuration
+	GrpcConfig struct {
+		MaxReceiveMessageSize int        `default:"4194304" yaml:"max_receive_message_size" json:"max_receive_message_size" mapstructure:"max_receive_message_size"`
+		MaxSendMessageSize    int        `default:"4194304" yaml:"max_send_message_size" json:"max_send_message_size" mapstructure:"max_send_message_size"`
+		EnableCompression     bool       `yaml:"enable_compression" json:"enable_compression" mapstructure:"enable_compression"`
+		IdleTimeout           string     `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
+		MaxConnectionAge      string     `yaml:"max_connection_age" json:"max_connection_age" mapstructure:"max_connection_age"`
+		EnableTLS             bool       `yaml:"enable_tls" json:"enable_tls" mapstructure:"enable_tls"`
+		TLS                   *TLSConfig `yaml:"tls,omitempty" json:"tls,omitempty" mapstructure:"tls,omitempty"`
+	}
+
+	// TLSConfig TLS configuration for gRPC (optional)
+	TLSConfig struct {
+		CertFile string `yaml:"cert_file" json:"cert_file" mapstructure:"cert_file"`
+		KeyFile  string `yaml:"key_file" json:"key_file" mapstructure:"key_file"`
+	}
 )
+
+// MapInGrpcStruct maps any config to GrpcConfig struct
+func MapInGrpcStruct(cfg any) *GrpcConfig {
+	var gc GrpcConfig
+	if cfg != nil {
+		if err := mapstructure.Decode(cfg, &gc); err != nil {
+			logger.Error("gRPC Config error", err)
+		}
+	}
+	if err := defaults.Set(&gc); err != nil {
+		logger.Errorf("set grpc config default error %v", err)
+	}
+	return &gc
+}

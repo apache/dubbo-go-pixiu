@@ -1,0 +1,7 @@
+启动之后打开对应的页面：
+登录页面：http://localhost:8080/login.html#/
+登录页面：http://localhost:8080/manage.html#/
+无人驾驶页面：http://localhost:8080/screen.html#/
+
+vue.config.js
+proxy配置对应的接口地址

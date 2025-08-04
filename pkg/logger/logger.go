@@ -132,3 +132,7 @@ func HotReload(conf *zap.Config) error {
 	InitLogger(conf)
 	return nil
 }
+
+func GetLogger() *pixiuLogger {
+	return control.logger
+}
