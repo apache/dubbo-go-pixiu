@@ -22,6 +22,8 @@
 * **云原生设计**：为现代微服务和云原生架构而生，全面支持容器化部署。
 * **高可扩展性**：灵活的过滤器和插件机制，让您轻松定制功能。
 
+**即刻体验 Pixiu 网关功能**：请访问我们的 [使用示例](https://github.com/apache/dubbo-go-pixiu-samples)。
+
 ## ✨ 我们正在演进为 AI 网关 [开发中]
 
 我们正在将 Pixiu 升级为**新一代 AI 网关**，旨在成为连接用户与大语言模型（LLMs）的桥梁。通过 Pixiu，您可以：
@@ -45,7 +47,7 @@
 
 ## 快速开始
 
-本指南将引导您启动一个 Pixiu 网关，并通过 HTTP 协议访问一个后端服务。
+本指南将引导您，基于我们的[使用示例](https://github.com/apache/dubbo-go-pixiu-samples)启动一个 Pixiu 网关，并通过 HTTP 协议访问一个后端服务。
 
 ### 前置条件
 
@@ -101,30 +103,48 @@ go test -v ./http/simple/test/
 ./http/simple/request.sh
 ```
 
+更多使用示例见[dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)。
+
 ## 使用 Docker 部署
 
 我们也提供 Docker 镜像，以便快速、轻松地进行部署。
 
-**1. 使用默认配置运行 Pixiu**
+**1. 从源代码构建 Docker 镜像**
+
+首先，请确保您的机器上已经安装了 Docker。然后，在项目根目录下（即 `Dockerfile` 所在的目录），运行以下命令来构建镜像：
 
 ```shell
-docker run --name pixiu-gateway -p 8888:8888 -d dubbogopixiu/dubbo-go-pixiu:latest
+# 您可以自定义镜像的名称和标签，这里我们使用 dubbo-go-pixiu:local
+docker build -t dubbo-go-pixiu:local .
+````
+
+构建过程可能需要几分钟时间。成功后，您就可以在本地使用这个名为 `dubbo-go-pixiu:local` 的镜像了。
+
+**2. 使用默认配置运行 Pixiu**
+
+使用您刚刚构建的本地镜像来启动一个容器。
+
+```shell
+docker run --name pixiu-gateway -p 8888:8888 -d dubbo-go-pixiu:local
 ```
 
-**2. 挂载自定义配置文件运行**
+**3. 挂载自定义配置文件运行**
+
+如果您需要使用自己的配置文件，可以将本地文件挂载到容器的 `/etc/pixiu/` 目录下。
 
 ```shell
+# 确保使用您本地构建的镜像名称，例如 dubbo-go-pixiu:local
 docker run --name pixiu-gateway -p 8888:8888 -d \
     -v /your/local/path/conf.yaml:/etc/pixiu/conf.yaml \
     -v /your/local/path/log.yml:/etc/pixiu/log.yml \
-    dubbogopixiu/dubbo-go-pixiu:latest
+    dubbo-go-pixiu:local
 ```
 
 更多信息，请访问 [Pixiu Docker Hub](https://hub.docker.com/r/dubbogopixiu/dubbo-go-pixiu)。
 
 ## 可视化控制面：Pixiu Admin
 
-强大的 Pixiu 管理控制台 `pixiu-admin`，已被[迁移](https://github.com/dubbo-go-pixiu/pixiu-admin)至本仓库，可以用于可视化配置服务发现、流量管理和安全策略。
+强大的 Pixiu 管理控制台 `pixiu-admin`，已被[合并](https://github.com/dubbo-go-pixiu/pixiu-admin)至本仓库，可以用于可视化配置服务发现、流量管理和安全策略。
 
 **使用 Docker Compose 快速启动：**
 

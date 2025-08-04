@@ -18,7 +18,7 @@
 #
 
 ### builder
-FROM golang:1.23.4-bookworm AS  builder
+FROM golang:1.23.4-bullseye AS builder
 LABEL MAINTAINER="dev@dubbo.apache.org"
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc
@@ -47,14 +47,16 @@ LABEL MAINTAINER="dev@dubbo.apache.org"
 RUN addgroup -S nonroot \
     && adduser -S nonroot -G nonroot
 
+RUN mkdir -p /etc/pixiu
+
 WORKDIR /app
-COPY docker-entrypoint.sh .
-COPY configs ./configs
+COPY docker-entrypoint.sh /app
+COPY configs /etc/pixiu/
 
 COPY --from=builder /app/dubbo-go-pixiu .
 COPY --from=builder /app/libwasmer.so /lib/
 
-RUN chown -R nonroot:nonroot /app \
+RUN chown -R nonroot:nonroot /app /etc/pixiu \
     && chmod +x /app/docker-entrypoint.sh
 
 USER nonroot
