@@ -25,10 +25,12 @@ import (
 )
 
 import (
+	"github.com/mitchellh/mapstructure"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 func init() {
