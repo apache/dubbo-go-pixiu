@@ -32,7 +32,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -104,7 +104,7 @@ func (f *FilterFactory) Config() any {
 }
 
 // PrepareFilterChain prepares the filter chain
-func (f *FilterFactory) PrepareFilterChain(ctx *h.HttpContext, chain filter.FilterChain) error {
+func (f *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	mcpFilter := &MCPServerFilter{
 		cfg:             f.cfg,
 		registry:        f.registry,
@@ -117,7 +117,7 @@ func (f *FilterFactory) PrepareFilterChain(ctx *h.HttpContext, chain filter.Filt
 }
 
 // Decode processes incoming HTTP requests for MCP protocol.
-func (f *MCPServerFilter) Decode(ctx *h.HttpContext) filter.FilterStatus {
+func (f *MCPServerFilter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	// Check if it's an MCP request
 	if !f.isMCPRequest(ctx) {
 		return filter.Continue
@@ -199,7 +199,7 @@ func (f *MCPServerFilter) handleTerminalMethod(ctx *MCPContext, req mcp.JSONRPCR
 }
 
 // Encode processes outgoing HTTP responses.
-func (f *MCPServerFilter) Encode(ctx *h.HttpContext) filter.FilterStatus {
+func (f *MCPServerFilter) Encode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	// Create MCP context wrapper and load stored MCP data
 	mcpCtx := NewMCPContextFromHttpContext(ctx)
 
@@ -218,7 +218,7 @@ func (f *MCPServerFilter) Encode(ctx *h.HttpContext) filter.FilterStatus {
 }
 
 // isMCPRequest checks if it's an MCP request
-func (f *MCPServerFilter) isMCPRequest(ctx *h.HttpContext) bool {
+func (f *MCPServerFilter) isMCPRequest(ctx *contexthttp.HttpContext) bool {
 	return ctx.Request.URL.Path == f.cfg.Endpoint
 }
 
@@ -232,8 +232,8 @@ func (f *MCPServerFilter) sendJSONResponse(ctx *MCPContext, response any) filter
 	}
 
 	// Get method and request ID for logging
-	method := ctx.GetMCPMethod()
-	requestID := ctx.GetMCPRequestID()
+	method := ctx.McpMethod()
+	requestID := ctx.McpRequestID()
 
 	logger.Infof("[dubbo-go-pixiu] mcp server response sent: %s (id: %v)", method, requestID)
 
