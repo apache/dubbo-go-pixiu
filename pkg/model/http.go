@@ -43,6 +43,7 @@ type HttpConnectionManagerConfig struct {
 // GRPCConnectionManagerConfig
 type GRPCConnectionManagerConfig struct {
 	RouteConfig RouteConfiguration `yaml:"route_config" json:"route_config" mapstructure:"route_config"`
+	GrpcFilters []*GrpcFilter      `yaml:"grpc_filters" json:"grpc_filters" mapstructure:"grpc_filters"`
 	TimeoutStr  string             `yaml:"timeout" json:"timeout" mapstructure:"timeout"`
 	Timeout     time.Duration      `yaml:"-" json:"-" mapstructure:"-"`
 }
@@ -63,6 +64,12 @@ type HTTPFilter struct {
 
 // DubboFilter dubbo filter
 type DubboFilter struct {
+	Name   string         `yaml:"name" json:"name" mapstructure:"name"`
+	Config map[string]any `yaml:"config" json:"config" mapstructure:"config"`
+}
+
+// GrpcFilter grpc filter
+type GrpcFilter struct {
 	Name   string         `yaml:"name" json:"name" mapstructure:"name"`
 	Config map[string]any `yaml:"config" json:"config" mapstructure:"config"`
 }

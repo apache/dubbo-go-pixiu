@@ -30,6 +30,7 @@ import (
 
 import (
 	"github.com/IBM/sarama"
+
 	perrors "github.com/pkg/errors"
 )
 

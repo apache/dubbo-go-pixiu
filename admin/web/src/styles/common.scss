@@ -1,0 +1,482 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+$main-color: #3C4150;
+$second-color: #01C1B2;
+$three-color: #4494F9;
+$header-height: 50px;
+$rd: #fe0303;
+
+$dialog-height: calc(100vh * 0.7);
+
+.el-dialog{
+  margin: 0 auto 0;
+}
+
+#new-user-reserve {
+  span {
+    min-width: 52px
+  }
+
+  .lbl {
+    min-width: 70px;
+    display: inline-block;
+    text-align: right;
+  }
+
+  .el-row {
+    padding: 10px;
+  }
+
+  .el-dialog {
+    height: 60%;
+    border-radius: 6px;
+
+    .el-dialog__header {
+      height: 35px;
+      background-color: #3C4150;
+      text-align: left;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      padding: 0px 20px;
+
+      .el-dialog__title {
+        line-height: 40px;
+        font-family: PingFangSC-Regular;
+        font-size: 20px;
+        color: #01C1B2;
+        letter-spacing: 0;
+        height: 40px;
+      }
+
+      .el-dialog__headerbtn {
+        font-size: 20px;
+        line-height: 40px;
+        top: 0px;
+        right: 10px;
+      }
+    }
+
+    .el-dialog__body {
+      padding: 0px 0px 0px 0px;
+
+      .dialog-content {
+        min-height: 350px;
+        margin: 10px 0px 0px 0px;
+
+      }
+    }
+  }
+
+}
+
+.el-menu {
+  min-width: 118px;
+}
+
+.my_msgBox {
+  border: none;
+  width: 417px !important;
+  min-width: 200px;
+  padding-bottom: 0;
+
+  .el-message-box__content {
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .el-message-box__header {
+    padding: 0 15px;
+    height: 35px;
+    line-height: 35px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+    .el-message-box__headerbtn {
+      top: 0;
+      position: relative;
+      right: 0;
+    }
+  }
+
+  .el-message-box__btns {
+    display: block !important;
+    flex: 1 !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    text-align: center;
+    padding: 0;
+
+    > button {
+      flex: 1;
+      width: 50%;
+      border: none;
+      border-radius: 0;
+      border-top: 1px solid #01C1B2;
+      color: #01C1B2;
+      font-family: PingFangSC-Regular;
+      font-size: 17px;
+      letter-spacing: 8.5px;
+    }
+
+    .el-button--primary {
+      margin: 0;
+      color: #fff;
+    }
+  }
+
+  .el-message-box__header {
+    background: #3C4150;
+    color: #fff;
+
+    .el-message-box__title {
+      color: #01C1B2;
+    }
+  }
+}
+
+.singelBtn {
+  .el-message-box__btns {
+    .el-button--primary {
+      width: 100%;
+    }
+  }
+}
+
+
+
+.card-issue-content {
+  background: #ffffff;
+  padding: 12px 36px 12px 79px;
+
+  .title {
+      letter-spacing: 2px;
+      font-family: 'PingFangSC-Regular';
+      text-align: left;
+      height: 22px;
+      line-height: 22px;
+      color: #000000;
+      border-left: 2px solid #5584ff;
+      padding: 0px 0px 0px 12px;
+
+      span {
+          color: #a0a2ad;
+          font-size: 12px;
+          display: inline-block;
+          margin-left: 36px;
+      }
+  }
+
+  .info,.cust-info, .obu-info, .sys-info {
+      margin: 12px 0px 12px 40px;
+
+      .el-col {
+          text-align: left;
+          padding: 6px 0px 6px 0px;
+
+          label {
+              display: inline-block;
+              font-size: 12px;
+              color: #999999;
+              text-align: right;
+              min-width: 70px;
+              font-weight: normal;
+              padding-right: 8px;
+          }
+
+          .rg{
+              display: inline-block;
+              text-align: left;
+              font-size: 14px;
+              min-width: 60px;
+              color: #000000;
+          }
+
+          .official {
+              height: 28px;
+              width: 97px;
+              background-color: #01c1b2;
+              line-height: 28px;
+              padding: 0px;
+              border-radius: 6px;
+
+              span {
+                  color: #ffffff;
+              }
+          }
+      }
+  }
+}
+
+.biz-dialog{
+  .el-steps .el-step .el-step__title{
+    text-indent: 10px;
+  }
+}
+.my_form_item {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 18px;
+  margin-right: 10px;
+  :before{
+    display: none !important;
+  }
+  .el-icon-arrow-up:before{
+    display: inline-block !important;
+  }
+
+  .el-form-item__content{
+    margin-left: 0!important;
+    flex: 1;
+    .el-input{
+      flex: 1;
+    }
+    .el-radio-group{
+      width: 100%;
+    }
+  }
+  .my_form_item_label {
+    width: 100px;
+    font-size: .35rem !important;
+    display: flex;
+    padding-right: 12px;
+    flex-direction: row;
+    box-sizing: border-box;
+    justify-content: flex-end;
+    align-items: center;
+    text-align: right;
+
+    .my_form_item_star {
+      color: #F56C6C;
+      margin-right: 4px;
+    }
+
+    .my_form_item_label_top {
+      letter-spacing: 5px;
+    }
+
+    .my_form_item_label_bottom {
+      letter-spacing: 1px;
+      text-align: center
+    }
+  }
+
+  .my_form_item_input {
+    flex: 1;
+
+  }
+
+  .el-input__inner{
+    height: 36px !important;
+    line-height: 28px !important;
+    flex: 1;
+  }
+  .my_form_item_colon{
+    text-align: right;
+  }
+}
+
+
+.vehicleTab {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  flex: 1;
+  align-items: center;
+  box-shadow: 0px 4px 5px #e5e5e5;
+  margin-bottom: 10px;
+
+  > div {
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    border-bottom: 2px solid transparent;
+  }
+
+  .popClass {
+    border-bottom-color: $second-color;
+    color: $second-color;
+    background: #eeeeee;
+  }
+}
+.ocrRecognition {
+  .el-input__inner{
+    background: $three-color !important;
+  }
+}
+
+.my_photoForm{
+  padding-top: 15px;
+  background: $main-color;
+  .el-form-item__label{
+    color: #fff !important;
+  }
+}
+
+.my_list_row{
+  background: #ffffff;
+  padding: 12px 36px 12px 79px;
+
+  .title {
+    letter-spacing: 2px;
+    font-family: 'PingFangSC-Regular';
+    text-align: left;
+    height: 22px;
+    line-height: 22px;
+    color: #000000;
+    border-left: 2px solid #5584ff;
+    padding: 0px 0px 0px 12px;
+
+    span {
+      color: #a0a2ad;
+      font-size: 12px;
+      display: inline-block;
+      margin-left: 36px;
+    }
+  }
+
+  .info {
+    margin: 12px 0px 12px 40px;
+
+    .el-col {
+      text-align: left;
+      padding: 6px 0px 6px 0px;
+
+      label {
+        display: inline-block;
+        font-size: 12px;
+        color: #999999;
+        text-align: right;
+        //min-width: 70px;
+        font-weight: normal;
+        //padding-right: 8px;
+      }
+
+      // {
+      //  display: inline-block;
+      //  text-align: left;
+      //  font-size: 14px;
+      //  min-width: 60px;
+      //  color: #000000;
+      //}
+
+      .official {
+        height: 28px;
+        width: 97px;
+        background-color: #01c1b2;
+        line-height: 28px;
+        padding: 0px;
+        border-radius: 6px;
+
+        span {
+          color: #ffffff;
+        }
+      }
+    }
+  }
+}
+
+
+.my_main_dialog {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  .el-dialog {
+    border-radius: 6px;
+    overflow: hidden;
+    width: 80%;
+    max-width: 1248px;
+    margin-top: 0 !important;
+  }
+
+  .el-dialog__body {
+    padding: 0;
+  }
+
+  .el-dialog__header {
+    padding: 10px;
+    background: $main-color;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+    .el-dialog__title {
+      color: $second-color;
+    }
+
+    .el-dialog__headerbtn {
+      position: relative;
+      top: 0;
+      right: 0;
+
+      .el-dialog__close {
+        color: #ffffff;
+      }
+    }
+    .my_photoDialog{
+        margin-top: 15vh !important;
+      .el-dialog__headerbtn {
+        font-size: 20px;
+        line-height: 40px;
+
+        .el-icon-close{
+          background: red !important;
+        }
+        .el-icon-close::before {
+          content: "" !important;
+          display: block;
+          height: 30px !important;
+          width: 30px !important;
+          background-image:'url(' + require('@assets/back.png') + ')' !important;
+          background-repeat: no-repeat !important;
+
+        }
+      }
+    }
+  }
+}
+
+
+.new-user-container{
+  .el-input.is-disabled .el-input__inner{
+    color: #333333;
+  }
+  .el-radio-button__orig-radio:disabled + .el-radio-button__inner{
+    color: #333333;
+  }
+}
+.vehicle-info-container{
+  .el-input.is-disabled .el-input__inner{
+    color: #333333;
+  }
+  .el-radio-button__orig-radio:disabled + .el-radio-button__inner{
+    color: #333333;
+  }
+}
+.disabledButtonWeb .el-radio-button__inner{
+  background-color: #01c1b2 !important;
+  color: #FFFFFF !important;
+}

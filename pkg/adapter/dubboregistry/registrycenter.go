@@ -24,6 +24,11 @@ import (
 )
 
 import (
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/nacos"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/zookeeper"
@@ -32,9 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
-
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 func init() {

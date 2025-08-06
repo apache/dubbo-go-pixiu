@@ -26,6 +26,7 @@ import (
 
 import (
 	perrors "github.com/pkg/errors"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -130,4 +131,8 @@ func SetLoggerLevel(level string) bool {
 func HotReload(conf *zap.Config) error {
 	InitLogger(conf)
 	return nil
+}
+
+func GetLogger() *pixiuLogger {
+	return control.logger
 }

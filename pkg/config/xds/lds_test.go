@@ -23,9 +23,12 @@ import (
 
 import (
 	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"google.golang.org/protobuf/encoding/protojson"
+
 	structpb2 "google.golang.org/protobuf/types/known/structpb"
 )
 

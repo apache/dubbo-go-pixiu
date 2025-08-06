@@ -19,13 +19,13 @@ package dubboresolver
 
 import (
 	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 import (
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 )
 
 func init() {

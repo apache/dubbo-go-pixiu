@@ -22,6 +22,8 @@
 * **Cloud-Native by Design**: Built for modern microservices and cloud-native architectures, with full support for containerized deployment.
 * **Highly Extensible**: A flexible filter and plugin mechanism allows you to easily customize its functionality.
 
+**Try Pixiu Gateway features now**: Visit our [Samples](https://github.com/apache/dubbo-go-pixiu-samples).
+
 ## ✨ We are Evolving into an AI Gateway [WIP]
 
 We are upgrading Pixiu into a **next-generation AI Gateway**, designed to be the bridge connecting users to Large Language Models (LLMs). With Pixiu, you can:
@@ -45,7 +47,7 @@ We are upgrading Pixiu into a **next-generation AI Gateway**, designed to be the
 
 ## Quick Start
 
-This guide will walk you through starting a Pixiu gateway and accessing a backend Dubbo service via the HTTP protocol.
+This guide will walk you through starting a Pixiu gateway based on our [samples](https://github.com/apache/dubbo-go-pixiu-samples) and accessing a backend Dubbo service via the HTTP protocol.
 
 ### Prerequisites
 
@@ -83,7 +85,7 @@ go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu-samples/h
 When you see logs similar to the following, Pixiu has started successfully and is listening on port `8888`:
 
 ```log
-2025-05-19T12:46:00.104+0800	INFO	server/pixiu_start.go:127	[dubbopixiu go] start by config : &{StaticResources:{Listeners:[0xc0007b7a20] Clusters:[0xc0007cc5a0] Adapters:[] ShutdownConfig:0xc00067fb30 PprofConf:{Enable:false Address:{SocketAddress:{Address:0.0.0.0 Port:8881 ResolverName: Domains:[] CertsDir:} Name:}}} DynamicResources:<nil> Metric:{Enable:false PrometheusPort:0} Node:<nil> Trace:<nil> Wasm:<nil> Config:<nil> Nacos:<nil> Log:<nil>}
+2025-05-19T12:46:00.104+0800	INFO	server/pixiu_start.go:127	[dubbo-go-pixiu] start by config : &{StaticResources:{Listeners:[0xc0007b7a20] Clusters:[0xc0007cc5a0] Adapters:[] ShutdownConfig:0xc00067fb30 PprofConf:{Enable:false Address:{SocketAddress:{Address:0.0.0.0 Port:8881 ResolverName: Domains:[] CertsDir:} Name:}}} DynamicResources:<nil> Metric:{Enable:false PrometheusPort:0} Node:<nil> Trace:<nil> Wasm:<nil> Config:<nil> Nacos:<nil> Log:<nil>}
 2025-05-19T12:46:00.104+0800	INFO	healthcheck/healthcheck.go:157	[health check] create a health check session for 127.0.0.1:1314
 2025-05-19T12:46:00.105+0800	INFO	tracing/driver.go:76	[dubbo-go-pixiu] no trace configuration in conf.yaml
 2025-05-19T12:46:00.105+0800	INFO	http/http_listener.go:157	[dubbo-go-server] httpListener start at : 0.0.0.0:8888
@@ -101,23 +103,41 @@ go test -v ./http/simple/test/
 ./http/simple/request.sh
 ```
 
+More usage examples can be found in the [dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples).
+
 ## Deploying with Docker
 
 We also provide Docker images for quick and easy deployment.
 
-**1. Run Pixiu with Default Configuration**
+**1. Build Docker Image from Source Code**
+
+Make sure you are in the root directory of the project (where the `Dockerfile` is located), then run the following command to build the image:
 
 ```shell
-docker run --name pixiu-gateway -p 8888:8888 -d dubbogopixiu/dubbo-go-pixiu:latest
+# You can customize the image name and tag, here we use dubbo-go-pixiu:local
+docker build -t dubbo-go-pixiu:local .
+````
+
+It may take a few minutes to build. Once successful, you can use the local image named `dubbo-go-pixiu:local`.
+
+**2. Run Pixiu with Default Configuration**
+
+Start a container using the local image you just built:
+
+```shell
+docker run --name pixiu-gateway -p 8888:8888 -d dubbo-go-pixiu:local
 ```
 
-**2. Run with Custom Configuration Files Mounted**
+**3. Run with Custom Configuration File**
+
+If you need to use your own configuration file, you can mount a local file to the container's `/etc/pixiu/` directory.
 
 ```shell
+# make sure to use the local image name you built, i.e., dubbo-go-pixiu:local
 docker run --name pixiu-gateway -p 8888:8888 -d \
     -v /your/local/path/conf.yaml:/etc/pixiu/conf.yaml \
     -v /your/local/path/log.yml:/etc/pixiu/log.yml \
-    dubbogopixiu/dubbo-go-pixiu:latest
+    dubbo-go-pixiu:local
 ```
 
 For more information, visit the [Pixiu Docker Hub](https://hub.docker.com/r/dubbogopixiu/dubbo-go-pixiu).

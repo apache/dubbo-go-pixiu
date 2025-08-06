@@ -32,6 +32,8 @@ header:
     - '**/*.woff'
     - '**/*.woff2'
     - '**/*.yaml'
+    - '**/*.env'
+    - '**/*.lock'
     - '**/*Dockerfile**'
     - 'dist'
     - 'go.mod'

@@ -76,7 +76,10 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 
 // PrepareFilterChain prepare chain when http context init
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{alw: factory.alw}
+	f := &Filter{
+		conf: factory.conf,
+		alw:  factory.alw,
+	}
 	chain.AppendDecodeFilters(f)
 	chain.AppendEncodeFilters(f)
 	return nil
@@ -138,7 +141,12 @@ func buildAccessLogMsg(c *http.HttpContext, cost time.Duration) string {
 		builder.WriteString(fmt.Sprintf("invoke err [ %v", err))
 		builder.WriteString("] ")
 	}
-	resp := c.TargetResp.(*client.UnaryResponse).Data
+	var resp []byte
+	if unaryResponse, ok := c.TargetResp.(*client.UnaryResponse); ok {
+		resp = unaryResponse.Data
+	} else {
+		resp = []byte("received a non-unary response")
+	}
 	if err != nil {
 		builder.WriteString(" response can not convert to string")
 		builder.WriteString("] ")
