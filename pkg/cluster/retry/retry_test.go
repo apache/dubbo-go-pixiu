@@ -27,31 +27,31 @@ import (
 )
 
 // --- Test Helper Implementations ---
-// dummyRetryer is a mock implementation of the Retryer interface for testing.
-type dummyRetryer struct {
+// dummyRetryPolicy is a mock implementation of the RetryPolicy interface for testing.
+type dummyRetryPolicy struct {
 	configValue string
 }
 
-func (d *dummyRetryer) Attempt(err error) bool { return false }
-func (d *dummyRetryer) Reset()                 {}
+func (d *dummyRetryPolicy) Attempt(err error) bool { return false }
+func (d *dummyRetryPolicy) Reset()                 {}
 
-// newDummyRetryer is a mock factory function for creating dummyRetryer instances.
-func newDummyRetryer(config map[string]any) (Retryer, error) {
+// newDummyRetryer is a mock factory function for creating dummyRetryPolicy instances.
+func newDummyRetryer(config map[string]any) (RetryPolicy, error) {
 	val, ok := config["key"].(string)
 	if !ok {
 		return nil, fmt.Errorf("config missing 'key' or key is not a string")
 	}
-	return &dummyRetryer{configValue: val}, nil
+	return &dummyRetryPolicy{configValue: val}, nil
 }
 
-// anotherDummyRetryer is a different implementation to test overwriting.
-type anotherDummyRetryer struct{}
+// anotherDummyRetryPolicy is a different implementation to test overwriting.
+type anotherDummyRetryPolicy struct{}
 
-func (d *anotherDummyRetryer) Attempt(err error) bool { return false }
-func (d *anotherDummyRetryer) Reset()                 {}
+func (d *anotherDummyRetryPolicy) Attempt(err error) bool { return false }
+func (d *anotherDummyRetryPolicy) Reset()                 {}
 
-func newAnotherDummyRetryer(config map[string]any) (Retryer, error) {
-	return &anotherDummyRetryer{}, nil
+func newAnotherDummyRetryer(config map[string]any) (RetryPolicy, error) {
+	return &anotherDummyRetryPolicy{}, nil
 }
 
 // cleanupRegistry resets the global registry between tests to ensure they are isolated.
@@ -88,9 +88,9 @@ func TestRetryPolicyRegistry(t *testing.T) {
 			t.Fatal("GetRetryPolicy() returned a nil policy")
 		}
 
-		p, ok := policy.(*dummyRetryer)
+		p, ok := policy.(*dummyRetryPolicy)
 		if !ok {
-			t.Fatalf("Expected policy of type *dummyRetryer, but got %T", policy)
+			t.Fatalf("Expected policy of type *dummyRetryPolicy, but got %T", policy)
 		}
 		if p.configValue != "test-value" {
 			t.Errorf("Expected config value 'test-value', but got '%s'", p.configValue)
@@ -136,8 +136,8 @@ func TestRetryPolicyRegistry(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetRetryPolicy() failed with case-insensitive name: %v", err)
 		}
-		if _, ok := policy.(*dummyRetryer); !ok {
-			t.Fatalf("Expected policy of type *dummyRetryer, but got %T", policy)
+		if _, ok := policy.(*dummyRetryPolicy); !ok {
+			t.Fatalf("Expected policy of type *dummyRetryPolicy, but got %T", policy)
 		}
 	})
 
@@ -165,8 +165,8 @@ func TestRetryPolicyRegistry(t *testing.T) {
 		}
 
 		// Check that the retrieved policy is from the *second* factory
-		if _, ok := policy.(*anotherDummyRetryer); !ok {
-			t.Fatalf("Expected policy to be of the overwritten type *anotherDummyRetryer, but got %T", policy)
+		if _, ok := policy.(*anotherDummyRetryPolicy); !ok {
+			t.Fatalf("Expected policy to be of the overwritten type *anotherDummyRetryPolicy, but got %T", policy)
 		}
 	})
 }

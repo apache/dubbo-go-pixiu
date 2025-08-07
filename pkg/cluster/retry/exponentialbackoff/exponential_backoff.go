@@ -42,7 +42,7 @@ type ExponentialBackoffRetry struct {
 	InitialInterval time.Duration
 	MaxInterval     time.Duration
 	Multiplier      float64
-	currentTry      uint
+	retryTimes      uint
 }
 
 type ExponentialBackoffConfig struct {
@@ -53,28 +53,28 @@ type ExponentialBackoffConfig struct {
 }
 
 func (e *ExponentialBackoffRetry) Attempt(err error) bool {
-	if e.currentTry >= e.MaxAttempts {
+	if e.retryTimes >= e.MaxAttempts {
 		return false
 	}
 
 	// Don't wait before the first try
-	if e.currentTry > 0 {
-		backoff := float64(e.InitialInterval) * math.Pow(e.Multiplier, float64(e.currentTry-1))
+	if e.retryTimes > 0 {
+		backoff := float64(e.InitialInterval) * math.Pow(e.Multiplier, float64(e.retryTimes-1))
 		cappedBackoff := time.Duration(math.Min(backoff, float64(e.MaxInterval)))
 		// Add jitter to prevent thundering herd
 		jitter := time.Duration(rand.Intn(100)) * time.Millisecond // NOSONAR
 		time.Sleep(cappedBackoff + jitter)
 	}
 
-	e.currentTry++
+	e.retryTimes++
 	return true
 }
 
 func (e *ExponentialBackoffRetry) Reset() {
-	e.currentTry = 0
+	e.retryTimes = 0
 }
 
-func newExponentialBackoffRetry(config map[string]any) (retry.Retryer, error) {
+func newExponentialBackoffRetry(config map[string]any) (retry.RetryPolicy, error) {
 	var cfg ExponentialBackoffConfig
 	if err := mapstructure.Decode(config, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode exponential backoff config: %w", err)

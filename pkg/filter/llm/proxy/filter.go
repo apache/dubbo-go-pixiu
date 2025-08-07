@@ -245,7 +245,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		logger.Debugf("[dubbo-go-pixiu] client attempting endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 
 		// 3. Dynamically load the retry policy for the current endpoint
-		var retryPolicy retry.Retryer
+		var retryPolicy retry.RetryPolicy
 		retryPolicy, err = retry.GetRetryPolicy(endpoint)
 		if err != nil {
 			logger.Errorf("could not load retry policy for endpoint %s: %v. Skipping to next endpoint.", endpoint.ID, err)

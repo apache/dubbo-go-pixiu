@@ -27,8 +27,8 @@ import (
 )
 
 type (
-	// Retryer defines the interface for retry logic.
-	Retryer interface {
+	// RetryPolicy defines the interface for retry logic.
+	RetryPolicy interface {
 		// Attempt checks if a retry should be performed and potentially waits.
 		// It returns true if the request should be attempted, false otherwise.
 		// The `err` parameter can be used for policies that act on specific errors.
@@ -37,8 +37,8 @@ type (
 		Reset()
 	}
 
-	// RetryPolicyFactory creates an instance of a Retryer from a config map.
-	RetryPolicyFactory func(config map[string]any) (Retryer, error)
+	// RetryPolicyFactory creates an instance of a RetryPolicy from a config map.
+	RetryPolicyFactory func(config map[string]any) (RetryPolicy, error)
 )
 
 // retryPolicyRegistry holds all available retry policy implementations.
@@ -54,8 +54,8 @@ func RegisterRetryPolicy(name model.RetryType, factory RetryPolicyFactory) {
 	retryPolicyRegistry[name] = factory
 }
 
-// GetRetryPolicy dynamically creates a Retryer based on endpoint metadata.
-func GetRetryPolicy(endpoint *model.Endpoint) (Retryer, error) {
+// GetRetryPolicy dynamically creates a RetryPolicy based on endpoint metadata.
+func GetRetryPolicy(endpoint *model.Endpoint) (RetryPolicy, error) {
 	retryPolicy := endpoint.LLMMeta.RetryPolicy
 	factory, exists := retryPolicyRegistry[retryPolicy.Name.ToLower()]
 	if !exists {

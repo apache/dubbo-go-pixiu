@@ -32,22 +32,22 @@ func init() {
 
 type CountBasedRetry struct {
 	MaxAttempts uint
-	currentTry  uint
+	retryTimes  uint
 }
 
 func (r *CountBasedRetry) Attempt(err error) bool {
-	if r.currentTry < r.MaxAttempts {
-		r.currentTry++
+	if r.retryTimes < r.MaxAttempts {
+		r.retryTimes++
 		return true
 	}
 	return false
 }
 
 func (r *CountBasedRetry) Reset() {
-	r.currentTry = 0
+	r.retryTimes = 0
 }
 
-func newCountBasedRetry(config map[string]any) (retry.Retryer, error) {
+func newCountBasedRetry(config map[string]any) (retry.RetryPolicy, error) {
 	timesValue, exists := config["times"]
 	if !exists {
 		return nil, fmt.Errorf("'times' field is missing in retry configuration")

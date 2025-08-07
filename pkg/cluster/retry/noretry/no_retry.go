@@ -42,6 +42,6 @@ func (n *NoRetryPolicy) Reset() {
 	n.firstTime = false
 }
 
-func newNoRetryPolicy(config map[string]any) (retry.Retryer, error) {
+func newNoRetryPolicy(config map[string]any) (retry.RetryPolicy, error) {
 	return &NoRetryPolicy{firstTime: false}, nil
 }
