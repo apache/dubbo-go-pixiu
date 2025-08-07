@@ -25,8 +25,6 @@ import (
 )
 
 import (
-	"github.com/creasty/defaults"
-
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -55,11 +53,6 @@ type (
 
 // Apply prepares the MCP server and tool registry.
 func (f *FilterFactory) Apply() error {
-	// Set configuration default values
-	if err := defaults.Set(f.cfg); err != nil {
-		return fmt.Errorf("failed to set config defaults: %v", err)
-	}
-
 	// Initialize tool registry
 	f.registry = NewToolRegistry()
 
@@ -108,8 +101,8 @@ func (f *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain f
 	mcpFilter := &MCPServerFilter{
 		cfg:             f.cfg,
 		registry:        f.registry,
-		errorHandler:    GetErrorHandler(),
-		responseBuilder: GetResponseBuilder(),
+		errorHandler:    NewErrorHandler(),
+		responseBuilder: NewResponseBuilder(),
 	}
 	chain.AppendDecodeFilters(mcpFilter)
 	chain.AppendEncodeFilters(mcpFilter) // Add to Encode chain

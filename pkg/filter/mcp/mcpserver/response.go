@@ -41,8 +41,8 @@ var (
 	responseBuilderOnce     sync.Once
 )
 
-// GetResponseBuilder returns the singleton ResponseBuilder instance
-func GetResponseBuilder() *ResponseBuilder {
+// NewResponseBuilder returns the singleton ResponseBuilder instance
+func NewResponseBuilder() *ResponseBuilder {
 	responseBuilderOnce.Do(func() {
 		responseBuilderInstance = &ResponseBuilder{}
 	})
@@ -101,11 +101,11 @@ var (
 	errorHandlerOnce     sync.Once
 )
 
-// GetErrorHandler returns the singleton ErrorHandler instance
-func GetErrorHandler() *ErrorHandler {
+// NewErrorHandler returns the singleton ErrorHandler instance
+func NewErrorHandler() *ErrorHandler {
 	errorHandlerOnce.Do(func() {
 		errorHandlerInstance = &ErrorHandler{
-			responseBuilder: GetResponseBuilder(),
+			responseBuilder: NewResponseBuilder(),
 		}
 	})
 	return errorHandlerInstance
