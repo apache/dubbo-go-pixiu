@@ -18,8 +18,11 @@
 package countbased
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 // TestCountBasedRetry_Factory verifies the creation of policies via the factory.
