@@ -18,6 +18,7 @@
 package countbased
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -47,10 +48,8 @@ func TestCountBasedRetry_Factory(t *testing.T) {
 		config := map[string]any{
 			"other_key": "some_value",
 		}
-		_, err := newCountBasedRetry(config)
-		if err == nil {
-			t.Error("expected an error when 'times' key is missing, but got nil")
-		}
+		policy, _ := newCountBasedRetry(config)
+		assert.Equal(t, policy.(*CountBasedRetry).MaxAttempts, uint(3), "expected 'times' key to default to 3")
 	})
 
 	t.Run("should fail when times has invalid type", func(t *testing.T) {
