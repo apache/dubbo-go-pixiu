@@ -33,6 +33,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const (
+	defaultMaxAttempts     uint    = 2
+	defaultInitialInterval string  = "100ms"
+	defaultMaxInterval     string  = "5s"
+	defaultMultiplier      float64 = 2.0
+)
+
 func init() {
 	retry.RegisterRetryPolicy(model.RetryerExponentialBackoff, newExponentialBackoffRetry)
 }
@@ -46,13 +53,13 @@ type ExponentialBackoffRetry struct {
 }
 
 type ExponentialBackoffConfig struct {
-	Times           uint    `mapstructure:"times" default:"3"`
+	Times           uint    `mapstructure:"times" default:"2"`
 	InitialInterval string  `mapstructure:"initialInterval" default:"100ms"`
 	MaxInterval     string  `mapstructure:"maxInterval" default:"5s"`
 	Multiplier      float64 `mapstructure:"multiplier" default:"2.0"`
 }
 
-func (e *ExponentialBackoffRetry) Attempt(err error) bool {
+func (e *ExponentialBackoffRetry) Attempt() bool {
 	if e.retryTimes >= e.MaxAttempts {
 		return false
 	}
@@ -75,7 +82,12 @@ func (e *ExponentialBackoffRetry) Reset() {
 }
 
 func newExponentialBackoffRetry(config map[string]any) (retry.RetryPolicy, error) {
-	var cfg ExponentialBackoffConfig
+	cfg := ExponentialBackoffConfig{
+		Times:           defaultMaxAttempts,
+		InitialInterval: defaultInitialInterval,
+		MaxInterval:     defaultMaxInterval,
+		Multiplier:      defaultMultiplier,
+	}
 	if err := mapstructure.Decode(config, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode exponential backoff config: %w", err)
 	}

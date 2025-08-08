@@ -26,6 +26,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const (
+	retryTimesKey     = "times"
+	defaultRetryTimes = 2
+)
+
 func init() {
 	retry.RegisterRetryPolicy(model.RetryerCountBased, newCountBasedRetry)
 }
@@ -35,7 +40,7 @@ type CountBasedRetry struct {
 	retryTimes  uint
 }
 
-func (r *CountBasedRetry) Attempt(err error) bool {
+func (r *CountBasedRetry) Attempt() bool {
 	if r.retryTimes < r.MaxAttempts {
 		r.retryTimes++
 		return true
@@ -48,9 +53,9 @@ func (r *CountBasedRetry) Reset() {
 }
 
 func newCountBasedRetry(config map[string]any) (retry.RetryPolicy, error) {
-	timesValue, exists := config["times"]
+	timesValue, exists := config[retryTimesKey]
 	if !exists {
-		return nil, fmt.Errorf("'times' field is missing in retry configuration")
+		timesValue = defaultRetryTimes
 	}
 
 	timesUint, ok := timesValue.(int)

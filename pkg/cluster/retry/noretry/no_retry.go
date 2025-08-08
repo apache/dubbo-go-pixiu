@@ -30,7 +30,7 @@ type NoRetryPolicy struct {
 	firstTime bool
 }
 
-func (n *NoRetryPolicy) Attempt(err error) bool {
+func (n *NoRetryPolicy) Attempt() bool {
 	if !n.firstTime {
 		n.firstTime = true
 		return true // Allow the first attempt

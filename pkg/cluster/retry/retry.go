@@ -31,8 +31,7 @@ type (
 	RetryPolicy interface {
 		// Attempt checks if a retry should be performed and potentially waits.
 		// It returns true if the request should be attempted, false otherwise.
-		// The `err` parameter can be used for policies that act on specific errors.
-		Attempt(err error) bool
+		Attempt() bool
 		// Reset re-initializes the policy's state.
 		Reset()
 	}

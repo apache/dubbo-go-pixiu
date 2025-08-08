@@ -18,7 +18,6 @@
 package countbased
 
 import (
-	"errors"
 	"testing"
 )
 
@@ -69,17 +68,16 @@ func TestCountBasedRetry_Factory(t *testing.T) {
 func TestCountBasedRetry_Attempts(t *testing.T) {
 	config := map[string]any{"times": 2}
 	policy, _ := newCountBasedRetry(config)
-	dummyError := errors.New("simulated failure")
 
 	// Should allow exactly 3 attempts (1 initial + 2 retries)
 	for i := 0; i < 3; i++ {
-		if !policy.Attempt(dummyError) {
+		if !policy.Attempt() {
 			t.Fatalf("attempt %d should have been allowed, but was blocked", i+1)
 		}
 	}
 
 	// The 4th attempt should be blocked
-	if policy.Attempt(dummyError) {
+	if policy.Attempt() {
 		t.Fatal("4th attempt should have been blocked, but was allowed")
 	}
 }
@@ -91,14 +89,14 @@ func TestCountBasedRetry_Reset(t *testing.T) {
 
 	// --- First Cycle ---
 	// Run through a full cycle of attempts
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("first attempt in first cycle failed")
 	}
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("second attempt in first cycle failed")
 	}
 	// Verify it's exhausted
-	if policy.Attempt(nil) {
+	if policy.Attempt() {
 		t.Fatal("policy allowed too many attempts in first cycle")
 	}
 
@@ -107,14 +105,14 @@ func TestCountBasedRetry_Reset(t *testing.T) {
 
 	// --- Second Cycle ---
 	// It should behave identically to the first cycle
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("first attempt in second cycle failed after reset")
 	}
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("second attempt in second cycle failed after reset")
 	}
 	// Verify it's exhausted again
-	if policy.Attempt(nil) {
+	if policy.Attempt() {
 		t.Fatal("policy allowed too many attempts in second cycle after reset")
 	}
 }

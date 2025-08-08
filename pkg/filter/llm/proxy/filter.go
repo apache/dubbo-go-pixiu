@@ -255,7 +255,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		retryPolicy.Reset()
 
 		// 4. The retry loop for the current endpoint.
-		for retryPolicy.Attempt(err) {
+		for retryPolicy.Attempt() {
 			var req *http.Request
 			req, err = executor.filter.assembleRequest(endpoint, executor.hc.Request)
 			if err != nil {

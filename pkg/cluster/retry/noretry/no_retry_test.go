@@ -18,7 +18,6 @@
 package noretry
 
 import (
-	"errors"
 	"testing"
 )
 
@@ -34,18 +33,17 @@ func TestNoRetryPolicy(t *testing.T) {
 
 		// 1. First call to Attempt() should return true to allow the initial request.
 		// We pass a dummy error to simulate a failed attempt.
-		dummyError := errors.New("simulated request failure")
-		if !policy.Attempt(dummyError) {
+		if !policy.Attempt() {
 			t.Error("First call to Attempt() should return true, but got false")
 		}
 
 		// 2. Second call to Attempt() should return false, as no retries are allowed.
-		if policy.Attempt(dummyError) {
+		if policy.Attempt() {
 			t.Error("Second call to Attempt() should return false, but got true")
 		}
 
 		// 3. Any later call should also return false.
-		if policy.Attempt(dummyError) {
+		if policy.Attempt() {
 			t.Error("Third call to Attempt() should return false, but got true")
 		}
 	})
@@ -55,8 +53,8 @@ func TestNoRetryPolicy(t *testing.T) {
 		policy, _ := newNoRetryPolicy(nil)
 
 		// Simulate a full cycle: one attempt, one failed retry.
-		policy.Attempt(nil) // First attempt
-		if policy.Attempt(nil) {
+		policy.Attempt() // First attempt
+		if policy.Attempt() {
 			t.Fatal("Policy allowed a retry before being reset")
 		}
 
@@ -64,12 +62,12 @@ func TestNoRetryPolicy(t *testing.T) {
 		policy.Reset()
 
 		// 5. After resetting, the first call to Attempt() should once again return true.
-		if !policy.Attempt(nil) {
+		if !policy.Attempt() {
 			t.Error("Attempt() should return true after Reset(), but got false")
 		}
 
 		// 6. And the later call should return false again.
-		if policy.Attempt(nil) {
+		if policy.Attempt() {
 			t.Error("Attempt() should return false on the second try after Reset(), but got true")
 		}
 	})

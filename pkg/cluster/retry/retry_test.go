@@ -32,8 +32,8 @@ type dummyRetryPolicy struct {
 	configValue string
 }
 
-func (d *dummyRetryPolicy) Attempt(err error) bool { return false }
-func (d *dummyRetryPolicy) Reset()                 {}
+func (d *dummyRetryPolicy) Attempt() bool { return false }
+func (d *dummyRetryPolicy) Reset()        {}
 
 // newDummyRetryer is a mock factory function for creating dummyRetryPolicy instances.
 func newDummyRetryer(config map[string]any) (RetryPolicy, error) {
@@ -47,8 +47,8 @@ func newDummyRetryer(config map[string]any) (RetryPolicy, error) {
 // anotherDummyRetryPolicy is a different implementation to test overwriting.
 type anotherDummyRetryPolicy struct{}
 
-func (d *anotherDummyRetryPolicy) Attempt(err error) bool { return false }
-func (d *anotherDummyRetryPolicy) Reset()                 {}
+func (d *anotherDummyRetryPolicy) Attempt() bool { return false }
+func (d *anotherDummyRetryPolicy) Reset()        {}
 
 func newAnotherDummyRetryer(config map[string]any) (RetryPolicy, error) {
 	return &anotherDummyRetryPolicy{}, nil

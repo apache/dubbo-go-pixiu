@@ -89,15 +89,14 @@ func (factory *FilterFactory) Apply() error {
 	factory.cfg.Scheme = scheme
 
 	cfg := factory.cfg
-	client := http.Client{
+	factory.client = http.Client{
 		Timeout: cfg.Timeout,
-		Transport: http.RoundTripper(&http.Transport{
+		Transport: &http.Transport{
 			MaxIdleConns:        cfg.MaxIdleConns,
 			MaxIdleConnsPerHost: cfg.MaxIdleConnsPerHost,
 			MaxConnsPerHost:     cfg.MaxConnsPerHost,
-		}),
+		},
 	}
-	factory.client = client
 	return nil
 }
 

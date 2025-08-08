@@ -18,7 +18,6 @@
 package exponentialbackoff
 
 import (
-	"errors"
 	"testing"
 	"time"
 )
@@ -105,13 +104,13 @@ func TestExponentialBackoffRetry_Attempts(t *testing.T) {
 
 	// Should allow 3 attempts (1 initial + 2 retries)
 	for i := 0; i < 3; i++ {
-		if !policy.Attempt(nil) {
+		if !policy.Attempt() {
 			t.Fatalf("attempt %d should have been allowed, but was blocked", i+1)
 		}
 	}
 
 	// The 4th attempt should be blocked
-	if policy.Attempt(nil) {
+	if policy.Attempt() {
 		t.Fatal("4th attempt should have been blocked, but was allowed")
 	}
 }
@@ -130,11 +129,9 @@ func TestExponentialBackoffRetry_Timing(t *testing.T) {
 	}
 	policy, _ := newExponentialBackoffRetry(config)
 
-	dummyError := errors.New("failure")
-
 	// 1st attempt: no delay
 	start := time.Now()
-	if !policy.Attempt(dummyError) {
+	if !policy.Attempt() {
 		t.Fatal("first attempt failed")
 	}
 	elapsed := time.Since(start)
@@ -145,7 +142,7 @@ func TestExponentialBackoffRetry_Timing(t *testing.T) {
 	// 2nd attempt (1st retry): delay should be ~20ms
 	expectedDelay1 := initialInterval
 	start = time.Now()
-	if !policy.Attempt(dummyError) {
+	if !policy.Attempt() {
 		t.Fatal("second attempt failed")
 	}
 	elapsed = time.Since(start)
@@ -156,7 +153,7 @@ func TestExponentialBackoffRetry_Timing(t *testing.T) {
 	// 3rd attempt (2nd retry): delay should be ~40ms
 	expectedDelay2 := time.Duration(float64(initialInterval) * multiplier)
 	start = time.Now()
-	if !policy.Attempt(dummyError) {
+	if !policy.Attempt() {
 		t.Fatal("third attempt failed")
 	}
 	elapsed = time.Since(start)
@@ -175,13 +172,13 @@ func TestExponentialBackoffRetry_Reset(t *testing.T) {
 	policy, _ := newExponentialBackoffRetry(config)
 
 	// Run through a full cycle
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("first attempt in first cycle failed")
 	}
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("second attempt in first cycle failed")
 	}
-	if policy.Attempt(nil) {
+	if policy.Attempt() {
 		t.Fatal("policy allowed too many attempts in first cycle")
 	}
 
@@ -189,13 +186,13 @@ func TestExponentialBackoffRetry_Reset(t *testing.T) {
 	policy.Reset()
 
 	// Run through a second cycle, it should behave identically
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("first attempt in second cycle failed after reset")
 	}
-	if !policy.Attempt(nil) {
+	if !policy.Attempt() {
 		t.Fatal("second attempt in second cycle failed after reset")
 	}
-	if policy.Attempt(nil) {
+	if policy.Attempt() {
 		t.Fatal("policy allowed too many attempts in second cycle after reset")
 	}
 }
