@@ -30,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util"
@@ -48,19 +49,25 @@ func init() {
 }
 
 type (
-	// Plugin is http filter plugin.
-	Plugin struct {
-	}
-	// FilterFactory is http filter instance
+	// Plugin is the main plugin entrypoint.
+	Plugin struct{}
+
+	// FilterFactory creates filter instances.
 	FilterFactory struct {
 		cfg    *Config
 		client http.Client
 	}
+
+	// Filter is the processing entity for each request.
 	Filter struct {
-		client http.Client
-		scheme string
+		client         http.Client
+		scheme         string
+		strategy       *Strategy
+		clusterManager *server.ClusterManager
 	}
-	// Config describe the config of FilterFactory
+
+	// Config describes the top-level configuration for the filter.
+	// Note: Strategy-specific configurations are now defined on the endpoints.
 	Config struct {
 		Timeout             time.Duration `yaml:"timeout" json:"timeout,omitempty"`
 		MaxIdleConns        int           `yaml:"maxIdleConns" json:"maxIdleConns,omitempty"`
@@ -68,156 +75,141 @@ type (
 		MaxConnsPerHost     int           `yaml:"maxConnsPerHost" json:"maxConnsPerHost,omitempty"`
 		Scheme              string        `yaml:"scheme" json:"scheme,omitempty" default:"http"`
 	}
+
+	RequestExecutor struct {
+		hc             *contexthttp.HttpContext
+		filter         *Filter
+		clusterName    string
+		clusterManager *server.ClusterManager
+	}
 )
 
+// Kind returns the unique name of this filter.
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
+// CreateFilterFactory creates a new factory instance for this filter.
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
+// Config returns the configuration struct for the factory.
 func (factory *FilterFactory) Config() any {
 	return factory.cfg
 }
 
+// Apply initializes the factory from its configuration.
 func (factory *FilterFactory) Apply() error {
 	scheme := strings.TrimSpace(strings.ToLower(factory.cfg.Scheme))
-
 	if scheme != "http" && scheme != "https" {
 		return fmt.Errorf("%s: scheme must be http or https", Kind)
 	}
-
 	factory.cfg.Scheme = scheme
 
 	cfg := factory.cfg
-	client := http.Client{
+	factory.client = http.Client{
 		Timeout: cfg.Timeout,
-		Transport: http.RoundTripper(&http.Transport{
+		Transport: &http.Transport{
 			MaxIdleConns:        cfg.MaxIdleConns,
 			MaxIdleConnsPerHost: cfg.MaxIdleConnsPerHost,
 			MaxConnsPerHost:     cfg.MaxConnsPerHost,
-		}),
+		},
 	}
-	factory.client = client
 	return nil
 }
 
+// PrepareFilterChain creates a new Filter instance for a request chain.
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	//reuse http client
-	f := &Filter{factory.client, factory.cfg.Scheme}
+	f := &Filter{
+		client:         factory.client,
+		scheme:         factory.cfg.Scheme,
+		strategy:       &Strategy{},
+		clusterManager: server.GetClusterManager(),
+	}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
 
+// Decode is the main entry point for processing an incoming request.
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "no route entry"})
-		hc.SendLocalReply(http.StatusBadRequest, bt)
+		sendJSONError(hc, http.StatusBadRequest, "no route entry found for request")
 		return filter.Stop
 	}
-
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster: %v", rEntry.Cluster)
 
-	var (
-		clusterName    = rEntry.Cluster
-		clusterManager = server.GetClusterManager()
-		endpoint       = clusterManager.PickEndpoint(clusterName, hc)
-	)
-
-	if endpoint == nil {
-		logger.Debugf("[dubbo-go-pixiu] cluster not found endpoint")
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "cluster not found endpoint"})
-		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
+	// Ensure the request body can be re-read for retries
+	if err := f.prepareRequestBody(hc); err != nil {
+		sendJSONError(hc, http.StatusInternalServerError, fmt.Sprintf("failed to read request body: %v", err))
 		return filter.Stop
 	}
+	defer hc.Request.Body.Close()
 
-	r := hc.Request
-	defer r.Body.Close()
-
-	var (
-		req  *http.Request
-		resp *http.Response
-		err  error
-	)
-
-	if hc.Request.Body != nil && hc.Request.GetBody == nil {
-		bodyBytes, err := io.ReadAll(hc.Request.Body)
-		hc.Request.Body.Close()
-
-		if err != nil {
-			bt, _ := json.Marshal(contexthttp.ErrResponse{Message: fmt.Sprintf("failed to read request body: %v", err)})
-			hc.SendLocalReply(http.StatusInternalServerError, bt)
-			return filter.Stop
-		}
-
-		hc.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		hc.Request.GetBody = func() (io.ReadCloser, error) {
-			return io.NopCloser(bytes.NewReader(bodyBytes)), nil
-		}
+	// Set up the context for our strategy executor
+	executor := &RequestExecutor{
+		hc:             hc,
+		filter:         f,
+		clusterName:    rEntry.Cluster,
+		clusterManager: f.clusterManager,
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] client choose endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
+	// Delegate the complex execution logic to the strategy
+	resp, err := f.strategy.Execute(executor)
 
-	// make request
-FALLBACK:
-	for {
-	RETRY:
-		for retry := uint(0); retry <= endpoint.LLMMeta.RetryTimes; retry++ {
-			req, err = f.assembleRequest(endpoint, r)
-			if err != nil {
-				logger.Warnf("[dubbo-go-pixiu] client assemble request failed: %v", err)
-				break RETRY
-			}
-
-			resp, err = f.client.Do(req)
-			if err != nil {
-				logger.Warnf("[dubbo-go-pixiu] client call endpoint [%s: %v] failed: %v", endpoint.ID, endpoint.Address.GetAddress(), err)
-				break RETRY
-			}
-			if util.IsHTTPRespSuccessful(resp.StatusCode) {
-				// If the response is successful, we can break out of the fallback loop.
-				break FALLBACK
-			}
-			// If the response is not successful, we will retry with the next endpoint.
-			logger.Debugf("[dubbo-go-pixiu] client retry endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
-		}
-
-		if !endpoint.LLMMeta.Fallback {
-			// If fallback is not enabled, we will break out of the fallback loop.
-			break FALLBACK
-		}
-
-		endpoint = clusterManager.PickNextEndpoint(clusterName, endpoint.ID)
-		if endpoint == nil {
-			break FALLBACK
-		}
-
-		// If we have a next endpoint, we will retry with the next endpoint.
-		logger.Debugf("[dubbo-go-pixiu] client fallback to endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
-	}
-
+	// Handle the outcome
 	if err != nil {
+		logger.Infof("[dubbo-go-pixiu] request execution failed after all attempts: %v", err)
 		var urlErr *url.Error
-		ok := errors.As(err, &urlErr)
-		if ok && urlErr.Timeout() {
-			hc.SendLocalReply(http.StatusGatewayTimeout, []byte(err.Error()))
-			return filter.Stop
+		if errors.As(err, &urlErr) && urlErr.Timeout() {
+			sendJSONError(hc, http.StatusGatewayTimeout, err.Error())
+		} else if resp == nil {
+			// This handles errors where no response was ever received (e.g., DNS error, connection refused)
+			sendJSONError(hc, http.StatusServiceUnavailable, err.Error())
+		} else {
+			// A response was received, but it was a failure. Pass it along.
+			hc.SourceResp = resp
 		}
-		hc.SendLocalReply(http.StatusServiceUnavailable, []byte(err.Error()))
-		return filter.Stop
+		return filter.Continue // Let the response writer handle the failed response
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)
+	logger.Debugf("[dubbo-go-pixiu] client call successful, resp status: %s", resp.Status)
 	hc.SourceResp = resp
-	// response write in hcm
 	return filter.Continue
-
 }
 
+// prepareRequestBody ensures the request body can be read multiple times.
+func (f *Filter) prepareRequestBody(hc *contexthttp.HttpContext) error {
+	if hc.Request.Body == nil || hc.Request.GetBody != nil {
+		return nil // Nothing to do
+	}
+
+	bodyBytes, err := io.ReadAll(hc.Request.Body)
+	if err != nil {
+		return err
+	}
+	hc.Request.Body.Close() // Close the original body
+
+	// Set the body to a new reader and provide a function to get a new reader for later reads
+	hc.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	hc.Request.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(bodyBytes)), nil
+	}
+	return nil
+}
+
+// assembleRequest creates a new http.Request for a specific endpoint.
 func (f *Filter) assembleRequest(endpoint *model.Endpoint, r *http.Request) (*http.Request, error) {
+	// Reset the body to the beginning for each new request attempt
+	if r.GetBody != nil {
+		var err error
+		r.Body, err = r.GetBody()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	parsedURL := url.URL{
 		Host:     endpoint.Address.GetAddress(),
 		Scheme:   f.scheme,
@@ -229,7 +221,99 @@ func (f *Filter) assembleRequest(endpoint *model.Endpoint, r *http.Request) (*ht
 	if err != nil {
 		return nil, err
 	}
+	// Copy headers from original request
 	req.Header = r.Header
 
 	return req, nil
+}
+
+// Strategy is a stateless executor that orchestrates the request lifecycle.
+type Strategy struct{}
+
+// Execute orchestrates the request lifecycle using dynamic policies from endpoints.
+func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
+	var (
+		resp *http.Response
+		err  error
+	)
+
+	// 1. Pick initial endpoint from the cluster
+	endpoint := executor.clusterManager.PickEndpoint(executor.clusterName, executor.hc)
+
+	// 2. The main fallback loop. It continues as long as we have a valid endpoint to try.
+	for endpoint != nil {
+		logger.Debugf("[dubbo-go-pixiu] client attempting endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
+
+		// 3. Dynamically load the retry policy for the current endpoint
+		var retryPolicy retry.RetryPolicy
+		retryPolicy, err = retry.GetRetryPolicy(endpoint)
+		if err != nil {
+			logger.Errorf("could not load retry policy for endpoint %s: %v. Skipping to next endpoint.", endpoint.ID, err)
+			endpoint = getNextFallbackEndpoint(endpoint, executor)
+			continue
+		}
+		retryPolicy.Reset()
+
+		// 4. The retry loop for the current endpoint.
+		for retryPolicy.Attempt() {
+			var req *http.Request
+			req, err = executor.filter.assembleRequest(endpoint, executor.hc.Request)
+			if err != nil {
+				// Request assembly error is fatal for this endpoint, break retry loop to go to fallback
+				logger.Warnf("[dubbo-go-pixiu] failed to assemble request for endpoint [%s: %v]: %v. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress(), err)
+				break
+			}
+
+			resp, err = executor.filter.client.Do(req)
+
+			if err != nil {
+				logger.Warnf("[dubbo-go-pixiu] request to endpoint [%s: %v] failed: %v", endpoint.ID, endpoint.Address.GetAddress(), err)
+				break // Exit the retry loop on any error
+			}
+
+			// If success, we are done. Return immediately.
+			if util.IsHTTPRespSuccessful(resp.StatusCode) {
+				return resp, nil
+			}
+
+			logger.Debugf("[dubbo-go-pixiu] attempt failed for endpoint [%s: %v]. Error: %v, Status: %s trying to retry",
+				endpoint.ID, endpoint.Address.GetAddress(), err, resp.Status)
+		}
+
+		// 5. If we are here, all retries for the current endpoint are exhausted.
+		// Get the next endpoint for fallback. The loop will terminate if it's nil.
+		endpoint = getNextFallbackEndpoint(endpoint, executor)
+	}
+
+	// 6. If we've exited the loop, all attempts and fallbacks have failed.
+	// Return the last known error and response.
+	if err == nil && resp != nil {
+		err = fmt.Errorf("request failed with status code %d after all retries and fallbacks", resp.StatusCode)
+	} else if err == nil {
+		err = errors.New("all retries and fallbacks failed without a definitive error or response")
+	}
+	return resp, err
+}
+
+// getNextFallbackEndpoint checks if fallback is enabled and returns the next endpoint.
+func getNextFallbackEndpoint(currentEndpoint *model.Endpoint, executor *RequestExecutor) *model.Endpoint {
+	// Fallback is controlled by a boolean in metadata. Default to false.
+	if !currentEndpoint.LLMMeta.Fallback {
+		return nil // Fallback disabled, end the process.
+	}
+
+	nextEndpoint := executor.clusterManager.PickNextEndpoint(executor.clusterName, currentEndpoint.ID)
+	if nextEndpoint != nil {
+		logger.Debugf("[dubbo-go-pixiu] client fallback to endpoint [%s: %v]", nextEndpoint.ID, nextEndpoint.Address.GetAddress())
+	} else {
+		logger.Debugf("[dubbo-go-pixiu] no more fallback endpoints available.")
+	}
+
+	return nextEndpoint
+}
+
+// sendJSONError is a helper to send a structured JSON error message.
+func sendJSONError(hc *contexthttp.HttpContext, code int, message string) {
+	bt, _ := json.Marshal(contexthttp.ErrResponse{Message: message})
+	hc.SendLocalReply(code, bt)
 }
