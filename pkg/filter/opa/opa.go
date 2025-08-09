@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package opa
 
 import (
@@ -23,14 +22,15 @@ import (
 	"fmt"
 )
 
-import(
+import (
 	"github.com/open-policy-agent/opa/rego"
 )
 
-import(
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
@@ -74,7 +74,7 @@ func (factory *FilterFactory) Config() any {
 
 // Apply is called after the configuration is loaded and is used to prepare the OPA query.
 func (factory *FilterFactory) Apply() error {
-    policy := factory.cfg.Policy
+	policy := factory.cfg.Policy
 	if policy == "" {
 		return fmt.Errorf("OPA policy is empty in the configuration")
 	}
@@ -94,7 +94,7 @@ func (factory *FilterFactory) Apply() error {
 
 	// Store the prepared query in the factory for later use by the filter.
 	factory.preparedQuery = &preparedQuery
-	
+
 	return nil
 }
 
@@ -108,28 +108,28 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 
 	if f.preparedQuery == nil {
-		fmt.Println("OPA filter not initialized properly.")
+		logger.Error("OPA filter not initialized properly.")
 		return filter.Stop
 	}
 
 	input := map[string]interface{}{
-		"method":     c.Request.Method,
-		"path":       c.Request.URL.Path,
-		"headers":    c.Request.Header,
-		"client_ip":  c.GetClientIP(),
-		"query":      c.Request.URL.Query(),      // URL query parameters as map[string][]string
-		"host":       c.Request.Host,             // Request host name
-		"remote_addr": c.Request.RemoteAddr,      // Remote address (IP:Port)
-		"user_agent": c.Request.UserAgent(),      // User-Agent request header
-		"route":      c.GetRouteEntry(),          // Route information
-		"api":        c.GetAPI(),                 // API information
-		"params":     c.Params,                   // Custom parameters stored in HttpContext
+		"method":      c.Request.Method,
+		"path":        c.Request.URL.Path,
+		"headers":     c.Request.Header,
+		"client_ip":   c.GetClientIP(),
+		"query":       c.Request.URL.Query(), // URL query parameters as map[string][]string
+		"host":        c.Request.Host,        // Request host name
+		"remote_addr": c.Request.RemoteAddr,  // Remote address (IP:Port)
+		"user_agent":  c.Request.UserAgent(), // User-Agent request header
+		"route":       c.GetRouteEntry(),     // Route information
+		"api":         c.GetAPI(),            // API information
+		"params":      c.Params,              // Custom parameters stored in HttpContext
 	}
 
 	// Use the OPA engine to evaluate the policy.
 	results, err := f.preparedQuery.Eval(context.Background(), rego.EvalInput(input))
 	if err != nil {
-		fmt.Printf("OPA evaluation error: %v\n", err)
+		logger.Error("OPA evaluation error: %v\n", err)
 		return filter.Stop
 	}
 

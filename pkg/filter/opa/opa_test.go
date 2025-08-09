@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-import(
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
@@ -38,7 +38,7 @@ import future.keywords.if
 default allow := false
 
 allow if {
-	 input.headers.X[0] == "1"
+	input.headers[Test_Header][0] == "1"
 }
 `
 
@@ -49,7 +49,7 @@ func setupFilterWithoutFile(t *testing.T, policy string) *Filter {
 	assert.Nil(t, err)
 
 	fFactory := filterFactory.(*FilterFactory)
-	
+
 	fFactory.cfg = &Config{
 		Policy:     policy,
 		Entrypoint: "data.test.allow",
@@ -67,7 +67,7 @@ func setupFilterWithoutFile(t *testing.T, policy string) *Filter {
 func TestAllowedRule(t *testing.T) {
 	f := setupFilterWithoutFile(t, testPolicy)
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.Header.Set("X", "1")
+	req.Header.Set("Test_Header", "1")
 
 	rec := httptest.NewRecorder()
 	ctx := &http.HttpContext{
@@ -78,4 +78,3 @@ func TestAllowedRule(t *testing.T) {
 	result := f.Decode(ctx)
 	assert.Equal(t, filter.Continue, result)
 }
-
