@@ -84,6 +84,10 @@ type (
 	}
 )
 
+const (
+	APIKeyPrefix = "Bearer"
+)
+
 // Kind returns the unique name of this filter.
 func (p *Plugin) Kind() string {
 	return Kind
@@ -224,6 +228,12 @@ func (f *Filter) assembleRequest(endpoint *model.Endpoint, r *http.Request) (*ht
 	// Copy headers from original request
 	req.Header = r.Header
 
+	// replace the header value with the endpoint's api key
+	if apiKey := endpoint.LLMMeta.APIKey; apiKey != "" {
+		req.Header.Set(constant.HeaderValueAuthorization, fmt.Sprintf("%s %s", APIKeyPrefix, apiKey))
+	}
+	req.Header.Set(constant.HeaderKeyUserAgent, fmt.Sprintf("%s %s", constant.Name, constant.Version))
+
 	return req, nil
 }
 
@@ -237,24 +247,41 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		err  error
 	)
 
-	// 1. Pick initial endpoint from the cluster
+	// 1. Pick initial endpoint from the cluster based on load balancing.
 	endpoint := executor.clusterManager.PickEndpoint(executor.clusterName, executor.hc)
 
 	// 2. The main fallback loop. It continues as long as we have a valid endpoint to try.
 	for endpoint != nil {
 		logger.Debugf("[dubbo-go-pixiu] client attempting endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 
-		// 3. Dynamically load the retry policy for the current endpoint
+		// 3. Check the health of current endpoint,
+		if unhealthy, ok := endpoint.Metadata["LLMUnhealthy"]; ok && unhealthy == "true" {
+			// check the health cooldown time
+			if t, ok := endpoint.Metadata["HealthyCheckTime"]; ok {
+				lt, err := time.Parse(time.RFC3339, t)
+				if err == nil && time.Since(lt) < time.Millisecond*time.Duration(endpoint.LLMMeta.HealthCheckInterval) {
+					logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] is still in unhealthy cooldown period. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress())
+					endpoint = getNextFallbackEndpoint(endpoint, executor)
+					continue
+				}
+				// The Cooldown period has passed, ready for a new attempt
+				delete(endpoint.Metadata, "LLMUnhealthy")
+				delete(endpoint.Metadata, "HealthyCheckTime")
+				logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] cooldown period passed. Retrying this endpoint.", endpoint.ID, endpoint.Address.GetAddress())
+			}
+		}
+
+		// 4. Dynamically load the retry policy for the current endpoint
 		var retryPolicy retry.RetryPolicy
 		retryPolicy, err = retry.GetRetryPolicy(endpoint)
 		if err != nil {
-			logger.Errorf("could not load retry policy for endpoint %s: %v. Skipping to next endpoint.", endpoint.ID, err)
+			logger.Errorf("could not load retry policy for endpoint [%s: %v]. Skipping to next endpoint.", endpoint.ID, err)
 			endpoint = getNextFallbackEndpoint(endpoint, executor)
 			continue
 		}
 		retryPolicy.Reset()
 
-		// 4. The retry loop for the current endpoint.
+		// 5. The retry loop for the current endpoint.
 		for retryPolicy.Attempt() {
 			var req *http.Request
 			req, err = executor.filter.assembleRequest(endpoint, executor.hc.Request)
@@ -280,12 +307,14 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 				endpoint.ID, endpoint.Address.GetAddress(), err, resp.Status)
 		}
 
-		// 5. If we are here, all retries for the current endpoint are exhausted.
+		// 6. If we are here, all retries for the current endpoint are exhausted.
 		// Get the next endpoint for fallback. The loop will terminate if it's nil.
+		endpoint.Metadata["LLMUnhealthy"] = "true"
+		endpoint.Metadata["HealthyCheckTime"] = time.Now().Format(time.RFC3339)
 		endpoint = getNextFallbackEndpoint(endpoint, executor)
 	}
 
-	// 6. If we've exited the loop, all attempts and fallbacks have failed.
+	// 7. If we've exited the loop, all attempts and fallbacks have failed.
 	// Return the last known error and response.
 	if err == nil && resp != nil {
 		err = fmt.Errorf("request failed with status code %d after all retries and fallbacks", resp.StatusCode)

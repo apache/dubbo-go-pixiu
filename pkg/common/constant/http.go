@@ -24,6 +24,7 @@ const (
 	HeaderKeyTransferEncoding = "Transfer-Encoding"
 	HeaderKeyContentLength    = "Content-Length"
 	HeaderKeyContentEncoding  = "Content-Encoding"
+	HeaderKeyUserAgent        = "User-Agent"
 
 	HeaderKeyAccessControlAllowOrigin      = "Access-Control-Allow-Origin"
 	HeaderKeyAccessControlAllowHeaders     = "Access-Control-Allow-Headers"
@@ -47,6 +48,8 @@ const (
 
 	HeaderValueKeepAlive = "keep-alive"
 	HeaderValueNoCache   = "no-cache"
+
+	HeaderValueAuthorization = "Authorization"
 
 	HeaderValueAll = "*"
 

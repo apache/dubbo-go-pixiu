@@ -21,6 +21,13 @@ import (
 	"time"
 )
 
+const (
+	// Name pixiu name
+	Name = "dubbo-go-pixiu"
+	// Version pixiu version
+	Version = "1.0.0"
+)
+
 // default timeout 1s.
 const (
 	DefaultTimeoutStr = "1s"

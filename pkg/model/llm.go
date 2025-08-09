@@ -32,15 +32,11 @@ import (
 type (
 	// LLMMeta LLM metadata for llm call
 	LLMMeta struct {
-		Provider    string      `yaml:"provider" json:"provider"`                                     // Provider the cluster unique name
-		APIKeys     []LLMAPIKey `yaml:"api_keys" json:"api_keys" mapstructure:"api_keys"`             // APIKey the cluster unique name
-		RetryPolicy RetryPolicy `yaml:"retry_policy" json:"retry_policy" mapstructure:"retry_policy"` // RetryPolicy key
-		Fallback    bool        `yaml:"fallback" json:"fallback" mapstructure:"fallback"`             // Fallback to the next provider if failed
-	}
-
-	LLMAPIKey struct {
-		Name string `yaml:"name" json:"name"` // Name of the api key
-		Key  string `yaml:"key" json:"key"`   // Real Key
+		Provider            string      `yaml:"provider" json:"provider"`                                                                               // Provider the cluster unique name
+		APIKey              string      `yaml:"api_key" json:"api_key" mapstructure:"api_key"`                                                          // APIKey the cluster unique name
+		RetryPolicy         RetryPolicy `yaml:"retry_policy" json:"retry_policy" mapstructure:"retry_policy"`                                           // RetryPolicy key
+		Fallback            bool        `yaml:"fallback" json:"fallback" mapstructure:"fallback"`                                                       // Fallback to the next provider if failed
+		HealthCheckInterval int64       `yaml:"health_check_interval" json:"health_check_interval" mapstructure:"health_check_interval" default:"5000"` // HealthCheckInterval the interval for health check
 	}
 
 	LLMProviderDomains struct {
