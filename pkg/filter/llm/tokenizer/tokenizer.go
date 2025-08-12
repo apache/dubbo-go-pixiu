@@ -23,7 +23,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"go.opentelemetry.io/otel/metric/unit"
 	"io"
 	"strconv"
 	"strings"
@@ -37,6 +36,7 @@ import (
 	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/metric/instrument/syncfloat64"
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
+	"go.opentelemetry.io/otel/metric/unit"
 )
 
 import (
