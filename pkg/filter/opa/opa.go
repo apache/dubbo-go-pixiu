@@ -106,7 +106,6 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 
 // Decode is the core logic of the filter. It converts HTTP request data into a standard OPA input format and evaluates the policy.
 func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
-
 	if f.preparedQuery == nil {
 		logger.Error("OPA filter not initialized properly.")
 		return filter.Stop
@@ -134,7 +133,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	}
 
 	// Check the evaluation result of the OPA policy. If the result is empty or not true, the request is denied.
-	if len(results) == 0 || results[0].Expressions[0].Value != true {
+	if len(results) == 0 || !results[0].Expressions[0].Value {
 		return filter.Stop
 	}
 
