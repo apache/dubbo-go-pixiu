@@ -17,38 +17,56 @@
 
 package validator
 
-type (
-	// Provider represents a single trusted JWT issuer.
-	Provider struct {
-		// Name is a unique identifier for this provider.
-		Name string `yaml:"name" json:"name"`
-		// Issuer is the required "iss" claim for the JWT.
-		Issuer string `yaml:"issuer" json:"issuer"`
-		// Audiences is a list of required "aud" claims. Validation will pass
-		// if the token's "aud" claim contains ANY of these values.
-		Audiences []string `yaml:"audiences" json:"audiences"`
-		// JwksSource specifies the location of the JSON Web Key Set.
-		JwksSource JwksSource `yaml:"jwks_source" json:"jwks_source"`
-	}
+// InternalValidatorConfig represents the internal configuration for the JWT validator
+type InternalValidatorConfig struct {
+	// Providers is the list of JWT providers (using external Provider type)
+	Providers []Provider `yaml:"providers" json:"providers"`
+}
 
-	// JwksSource defines where to fetch the JWKS from.
-	// Only one of its fields should be set.
-	JwksSource struct {
-		// Remote specifies a remote JWKS endpoint.
-		Remote *Remote `yaml:"remote,omitempty" json:"remote,omitempty"`
-		// Local specifies an inline JWKS.
-		Local *Local `yaml:"local,omitempty" json:"local,omitempty"`
-	}
+// Provider represents a JWT provider configuration (internal use)
+type Provider struct {
+	// Name is the unique identifier for this provider
+	Name string `yaml:"name" json:"name" mapstructure:"name"`
 
-	// Remote defines configuration for a remote JWKS endpoint.
-	Remote struct {
-		// URI is the URL for the remote JWKS endpoint.
-		URI string `yaml:"uri" json:"uri"`
-	}
+	// Issuer is the JWT issuer identifier
+	Issuer string `yaml:"issuer" json:"issuer" mapstructure:"issuer"`
 
-	// Local defines an inline JWKS.
-	Local struct {
-		// Inline is the raw JSON string of the JWKS.
-		Inline string `yaml:"inline" json:"inline"`
-	}
-)
+	// Audience is the single valid audience value
+	Audience string `yaml:"audience" json:"audience" mapstructure:"audience"`
+
+	// JWKSSource defines how to obtain the JWKS
+	JWKSSource JWKSSource `yaml:"jwks_source" json:"jwks_source" mapstructure:"jwks_source"`
+}
+
+// JWKSSource defines the source of JWKS
+type JWKSSource struct {
+	// Remote defines remote JWKS configuration
+	Remote *RemoteJWKS `yaml:"remote" json:"remote" mapstructure:"remote"`
+
+	// Local defines local JWKS configuration
+	Local *LocalJWKS `yaml:"local" json:"local" mapstructure:"local"`
+}
+
+// RemoteJWKS defines remote JWKS configuration with jwx v3 support
+type RemoteJWKS struct {
+	// URI is the JWKS endpoint URL
+	URI string `yaml:"uri" json:"uri" mapstructure:"uri"`
+
+	// RefreshInterval is the interval for automatic JWKS refresh (jwx v3)
+	RefreshInterval string `yaml:"refresh_interval" json:"refresh_interval" mapstructure:"refresh_interval" default:"15m"`
+
+	// CacheTTL is the cache time-to-live for JWKS (jwx v3)
+	CacheTTL string `yaml:"cache_ttl" json:"cache_ttl" mapstructure:"cache_ttl" default:"1h"`
+
+	// Timeout is the HTTP request timeout
+	Timeout string `yaml:"timeout" json:"timeout" mapstructure:"timeout" default:"5s"`
+}
+
+// LocalJWKS defines local JWKS configuration
+type LocalJWKS struct {
+	// InlineString is the JWKS JSON string
+	InlineString string `yaml:"inline_string" json:"inline_string" mapstructure:"inline_string"`
+
+	// FilePath is the path to JWKS file
+	FilePath string `yaml:"file_path" json:"file_path" mapstructure:"file_path"`
+}
