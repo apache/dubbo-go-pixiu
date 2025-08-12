@@ -443,6 +443,9 @@ func registerLLMMetrics() error {
 		instrument.WithDescription("Total number of streaming LLM requests."),
 		instrument.WithUnit("1"),
 	)
+	if err != nil {
+		return err
+	}
 
 	logger.Info("LLM metrics registered successfully.")
 	return nil
