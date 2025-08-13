@@ -18,11 +18,13 @@
 package opa
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
 )
 
 import (
+	"github.com/open-policy-agent/opa/rego"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,29 +40,27 @@ import future.keywords.if
 default allow := false
 
 allow if {
-	input.headers[Test_Header][0] == "1"
+    input.headers[Test_Header][0] == "1"
 }
 `
 
+// setupFilterWithoutFile is a helper function for testing. It simulates the core logic of
+// PrepareFilterChain by creating an OPA Rego instance and preparing a query directly.
 func setupFilterWithoutFile(t *testing.T, policy string) *Filter {
-	p := Plugin{}
+	r := rego.New(
+		rego.Query("data.test.allow"),
+		rego.Module("policy.rego", policy),
+	)
 
-	filterFactory, err := p.CreateFilterFactory()
-	assert.Nil(t, err)
-
-	fFactory := filterFactory.(*FilterFactory)
-
-	fFactory.cfg = &Config{
-		Policy:     policy,
-		Entrypoint: "data.test.allow",
-	}
-
-	err = fFactory.Apply()
+	preparedQuery, err := r.PrepareForEval(context.Background())
 	assert.Nil(t, err)
 
 	return &Filter{
-		cfg:           fFactory.cfg,
-		preparedQuery: fFactory.preparedQuery,
+		cfg: &Config{
+			Policy:     policy,
+			Entrypoint: "data.test.allow",
+		},
+		preparedQuery: &preparedQuery,
 	}
 }
 
@@ -73,6 +73,7 @@ func TestAllowedRule(t *testing.T) {
 	ctx := &http.HttpContext{
 		Writer:  rec,
 		Request: req,
+		Ctx:     context.Background(),
 	}
 
 	result := f.Decode(ctx)

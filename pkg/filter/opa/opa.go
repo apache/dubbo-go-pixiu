@@ -18,7 +18,6 @@
 package opa
 
 import (
-	"context"
 	"fmt"
 )
 
@@ -45,8 +44,8 @@ type (
 	Plugin struct{}
 
 	FilterFactory struct {
-		cfg           *Config
-		preparedQuery *rego.PreparedEvalQuery
+		cfg  *Config
+		rego *rego.Rego
 	}
 
 	Filter struct {
@@ -55,8 +54,8 @@ type (
 	}
 
 	Config struct {
-		Policy     string `yaml:"policy" json:"policy" mapstructure:"policy"`
-		Entrypoint string `yaml:"entrypoint" json:"entrypoint" mapstructure:"entrypoint"`
+		Policy     string `yaml:"policy" json:"policy" `
+		Entrypoint string `yaml:"entrypoint" json:"entrypoint" `
 	}
 )
 
@@ -79,27 +78,28 @@ func (factory *FilterFactory) Apply() error {
 		return fmt.Errorf("OPA policy is empty in the configuration")
 	}
 
-	// Create a new Rego instance, loading the policy directly from the string.
-	// We also specify the entrypoint for the policy evaluation.
 	r := rego.New(
 		rego.Query(factory.cfg.Entrypoint),
 		rego.Module("policy.rego", policy),
 	)
 
-	// Prepare the query for evaluation. This step compiles the policy.
-	preparedQuery, err := r.PrepareForEval(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to prepare OPA query: %w", err)
-	}
-
-	// Store the prepared query in the factory for later use by the filter.
-	factory.preparedQuery = &preparedQuery
+	factory.rego = r
 
 	return nil
 }
 
+// PrepareFilterChain prepares the filter chain for a new request by dynamically creating a Filter
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg, preparedQuery: factory.preparedQuery}
+	if factory.rego == nil {
+		return fmt.Errorf("Rego instance not initialized in factory")
+	}
+
+	preparedQuery, err := factory.rego.PrepareForEval(ctx.Ctx)
+	if err != nil {
+		return fmt.Errorf("failed to prepare OPA query: %w", err)
+	}
+
+	f := &Filter{cfg: factory.cfg, preparedQuery: &preparedQuery}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -111,29 +111,27 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"method":      c.Request.Method,
 		"path":        c.Request.URL.Path,
 		"headers":     c.Request.Header,
 		"client_ip":   c.GetClientIP(),
-		"query":       c.Request.URL.Query(), // URL query parameters as map[string][]string
-		"host":        c.Request.Host,        // Request host name
-		"remote_addr": c.Request.RemoteAddr,  // Remote address (IP:Port)
-		"user_agent":  c.Request.UserAgent(), // User-Agent request header
-		"route":       c.GetRouteEntry(),     // Route information
-		"api":         c.GetAPI(),            // API information
-		"params":      c.Params,              // Custom parameters stored in HttpContext
+		"query":       c.Request.URL.Query(),
+		"host":        c.Request.Host,
+		"remote_addr": c.Request.RemoteAddr,
+		"user_agent":  c.Request.UserAgent(),
+		"route":       c.GetRouteEntry(),
+		"api":         c.GetAPI(),
+		"params":      c.Params,
 	}
 
-	// Use the OPA engine to evaluate the policy.
-	results, err := f.preparedQuery.Eval(context.Background(), rego.EvalInput(input))
+	results, err := f.preparedQuery.Eval(c.Ctx, rego.EvalInput(input))
 	if err != nil {
 		logger.Error("OPA evaluation error: %v\n", err)
 		return filter.Stop
 	}
 
-	// Check the evaluation result of the OPA policy. If the result is empty or not true, the request is denied.
-	if len(results) == 0 || !results[0].Expressions[0].Value {
+	if len(results) == 0 || results[0].Expressions[0].Value != true {
 		return filter.Stop
 	}
 
