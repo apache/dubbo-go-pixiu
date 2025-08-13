@@ -180,7 +180,7 @@ func (f *Filter) trafficHeader(c *ClusterWrapper, ctx *http.HttpContext) bool {
 func (f *Filter) trafficWeight(c *ClusterWrapper) bool {
 	if f.weight == unInitialize {
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-		f.weight = rng.Intn(100) + 1
+		f.weight = rng.Intn(100) + 1 // NOSONAR
 	}
 
 	return spiltWeight(f.weight, c.weightFloor, c.weightCeil)
