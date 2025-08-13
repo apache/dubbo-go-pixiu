@@ -3,12 +3,6 @@ description: "Create a technical proposal"
 title: "[PROPOSAL] "
 labels: ["proposal"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        ## 📋 Proposal Details
-        Please use this for a concrete design proposal for functionality.
-        If you just want to request a new feature and discuss the possible business value, create a Feature Request instead.
 
   - type: checkboxes
     id: duplicate-check
@@ -18,6 +12,13 @@ body:
       options:
         - label: "🔍 I have searched the [existing issues](https://github.com/apache/dubbo-go-pixiu/issues) and confirmed this is not a duplicate"
           required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 📋 Proposal Details
+        Please use this for a concrete design proposal for functionality.
+        If you just want to request a new feature and discuss the possible business value, create a Feature Request instead.
 
   - type: textarea
     id: proposal-summary

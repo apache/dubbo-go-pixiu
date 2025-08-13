@@ -3,13 +3,7 @@ description: "创建一个技术提案"
 title: "[提案] "
 labels: ["proposal"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        ## 📋 提案详情
-        请使用此模板提交具体的功能设计提案。
-        如果您只想请求新功能并讨论可能的业务价值，请创建功能请求。
-
+  -
   - type: checkboxes
     id: verification
     attributes:
@@ -18,6 +12,13 @@ body:
       options:
         - label: "🔍 我已经搜索过 [现有 Issues](https://github.com/apache/dubbo-go-pixiu/issues)，确信这不是重复问题"
           required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 📋 提案详情
+        请使用此模板提交具体的功能设计提案。
+        如果您只想请求新功能并讨论可能的业务价值，请创建功能请求。
 
   - type: textarea
     id: proposal-summary
