@@ -79,3 +79,19 @@ func TestAllowedRule(t *testing.T) {
 	result := f.Decode(ctx)
 	assert.Equal(t, filter.Continue, result)
 }
+
+func TestDeniedRule(t *testing.T) {
+	f := setupFilterWithoutFile(t, testPolicy)
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Test_Header", "0")
+
+	rec := httptest.NewRecorder()
+	ctx := &http.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	result := f.Decode(ctx)
+	assert.Equal(t, filter.Stop, result)
+}
