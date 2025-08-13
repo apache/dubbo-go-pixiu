@@ -43,23 +43,23 @@ body:
     validations:
       required: true
 
-#  - type: input
-#    id: server-config
-#    attributes:
-#      label: "🖥️ 服务端配置"
-#      description: "服务端使用的框架和版本信息"
-#      placeholder: "例如：Dubbo-go, v3.0.5"
-#    validations:
-#      required: false
-#
-#  - type: input
-#    id: client-config
-#    attributes:
-#      label: "💻 客户端配置"
-#      description: "客户端使用的框架和版本信息"
-#      placeholder: "例如：Dubbo-go, v3.0.5"
-#    validations:
-#      required: false
+  - type: input
+    id: server-config
+    attributes:
+      label: "🖥️ 服务端配置"
+      description: "服务端使用的框架和版本信息"
+      placeholder: "例如：Dubbo-go, v3.0.5"
+    validations:
+      required: false
+
+  - type: input
+    id: client-config
+    attributes:
+      label: "💻 客户端配置"
+      description: "客户端使用的框架和版本信息"
+      placeholder: "例如：Dubbo-go, v3.0.5"
+    validations:
+      required: false
 
   - type: input
     id: protocol-config
