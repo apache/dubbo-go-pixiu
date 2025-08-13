@@ -54,6 +54,7 @@ const (
 	Kind                = constant.LLMTokenizerFilter
 	LoggerFmt           = "[Tokenizer] [DOWNSTREAM] "
 	PromptTokensDetails = "prompt_tokens_details"
+	StreamBufferSIze    = 4096
 
 	// Metric meter name
 	meterName = "dubbo-go-pixiu.ai-gateway"
@@ -85,7 +86,7 @@ const (
 	metricUpstreamSuccess   = "pixiu_llm_upstream_requests_success_total"
 	metricUpstreamFailure   = "pixiu_llm_upstream_requests_failure_total"
 	metricTotalDurationSum  = "pixiu_llm_total_duration_microseconds_sum_total"
-	metricTTFTSum           = "pixiu_llm_time_to_first_token_milliseconds_sum_total"
+	metricTTLTSum           = "pixiu_llm_time_to_last_token_milliseconds_sum_total"
 	metricStreamingRequests = "pixiu_llm_streaming_requests_total"
 )
 
@@ -98,7 +99,7 @@ var (
 	llmUpstreamRequestsSuccessTotal syncint64.Counter
 	llmUpstreamRequestsFailureTotal syncint64.Counter
 	llmTotalDurationSum             syncfloat64.Counter
-	llmTimeToFirstTokenSum          syncfloat64.Counter
+	llmTimeToLastTokenSum           syncfloat64.Counter
 	llmStreamingRequestsTotal       syncint64.Counter
 )
 
@@ -219,7 +220,7 @@ func (f *Filter) processStreamResponse(hc *contexthttp.HttpContext, body io.Read
 	}
 	defer decompressedReader.Close()
 
-	buf := make([]byte, 4096)
+	buf := make([]byte, StreamBufferSIze)
 	var eventBuffer bytes.Buffer
 
 	for {
@@ -257,14 +258,14 @@ func (f *Filter) processStreamResponse(hc *contexthttp.HttpContext, body io.Read
 
 	// On the very first successful read, record Time to First Token.
 	f.recordTTFTOnce.Do(func() {
-		ttft := time.Since(streamStartTime)
+		ttlt := time.Since(streamStartTime)
 		clusterName := "unknown"
 		if rEntry := hc.GetRouteEntry(); rEntry != nil {
 			clusterName = rEntry.Cluster
 		}
 		attrs := attribute.String(attrClusterName, clusterName)
 
-		llmTimeToFirstTokenSum.Add(hc.Ctx, float64(ttft.Milliseconds()), attrs)
+		llmTimeToLastTokenSum.Add(hc.Ctx, float64(ttlt.Milliseconds()), attrs)
 		llmStreamingRequestsTotal.Add(hc.Ctx, 1, attrs)
 	})
 }
@@ -430,9 +431,9 @@ func registerLLMMetrics() error {
 		return err
 	}
 
-	llmTimeToFirstTokenSum, err = meter.SyncFloat64().Counter(
-		metricTTFTSum,
-		instrument.WithDescription("Sum of Time to First Token for streaming responses in milliseconds."),
+	llmTimeToLastTokenSum, err = meter.SyncFloat64().Counter(
+		metricTTLTSum,
+		instrument.WithDescription("Sum of Time to Last Token for streaming responses in milliseconds."),
 		instrument.WithUnit("ms"),
 	)
 	if err != nil {
