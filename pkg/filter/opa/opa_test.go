@@ -25,6 +25,7 @@ import (
 
 import (
 	"github.com/open-policy-agent/opa/rego"
+
 	"github.com/stretchr/testify/assert"
 )
 
