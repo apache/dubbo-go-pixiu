@@ -131,7 +131,7 @@ func (f Filter) match(rule *Rule) (matched bool) {
 
 // random if the current request is matched
 func random() bool {
-	return (rand.Intn(1000)+1)%2 == 0
+	return (rand.Intn(1000)+1)%2 == 0 // NOSONAR
 }
 
 // percentage checks if the current request matches based on a given odds percentage.
@@ -148,6 +148,6 @@ func percentage(odds int) bool {
 		return false
 	}
 	// generate rand number in 1-100
-	num := rand.Intn(100) + 1
+	num := rand.Intn(100) + 1 // NOSONAR
 	return num <= odds
 }
