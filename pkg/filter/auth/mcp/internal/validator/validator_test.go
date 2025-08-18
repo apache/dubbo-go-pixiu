@@ -18,36 +18,44 @@
 package validator
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func tempJWKSFileURL(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	p := filepath.Join(dir, "jwks.json")
+	if err := os.WriteFile(p, []byte(`{"keys":[]}`), 0644); err != nil {
+		t.Fatalf("write temp jwks: %v", err)
+	}
+	return "file://" + p
+}
+
 func TestNewValidator(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  InternalValidatorConfig
+		config  Config
 		wantErr bool
 	}{
 		{
 			name:    "empty providers",
-			config:  InternalValidatorConfig{Providers: []Provider{}},
+			config:  Config{Providers: []Provider{}},
 			wantErr: true,
 		},
 		{
 			name: "valid provider with local JWKS",
-			config: InternalValidatorConfig{
+			config: Config{
 				Providers: []Provider{
 					{
 						Name:     "test-provider",
 						Issuer:   "https://test.issuer.com",
 						Audience: "test-audience",
-						JWKSSource: JWKSSource{
-							Local: &LocalJWKS{
-								InlineString: `{"keys":[]}`,
-							},
-						},
+						JWKS:     tempJWKSFileURL(t),
 					},
 				},
 			},
@@ -70,27 +78,19 @@ func TestNewValidator(t *testing.T) {
 }
 
 func TestValidator_ListProviders(t *testing.T) {
-	config := InternalValidatorConfig{
+	config := Config{
 		Providers: []Provider{
 			{
 				Name:     "provider1",
 				Issuer:   "https://issuer1.com",
 				Audience: "audience1",
-				JWKSSource: JWKSSource{
-					Local: &LocalJWKS{
-						InlineString: `{"keys":[]}`,
-					},
-				},
+				JWKS:     tempJWKSFileURL(t),
 			},
 			{
 				Name:     "provider2",
 				Issuer:   "https://issuer2.com",
 				Audience: "audience2",
-				JWKSSource: JWKSSource{
-					Local: &LocalJWKS{
-						InlineString: `{"keys":[]}`,
-					},
-				},
+				JWKS:     tempJWKSFileURL(t),
 			},
 		},
 	}
@@ -105,17 +105,13 @@ func TestValidator_ListProviders(t *testing.T) {
 }
 
 func TestValidator_GetProvider(t *testing.T) {
-	config := InternalValidatorConfig{
+	config := Config{
 		Providers: []Provider{
 			{
 				Name:     "test-provider",
 				Issuer:   "https://test.issuer.com",
 				Audience: "test-audience",
-				JWKSSource: JWKSSource{
-					Local: &LocalJWKS{
-						InlineString: `{"keys":[]}`,
-					},
-				},
+				JWKS:     tempJWKSFileURL(t),
 			},
 		},
 	}
@@ -146,17 +142,13 @@ func TestValidationError_Error(t *testing.T) {
 }
 
 func TestProvider_Configuration(t *testing.T) {
-	config := InternalValidatorConfig{
+	config := Config{
 		Providers: []Provider{
 			{
 				Name:     "test-provider",
 				Issuer:   "https://test.issuer.com",
 				Audience: "test-audience",
-				JWKSSource: JWKSSource{
-					Local: &LocalJWKS{
-						InlineString: `{"keys":[]}`,
-					},
-				},
+				JWKS:     tempJWKSFileURL(t),
 			},
 		},
 	}

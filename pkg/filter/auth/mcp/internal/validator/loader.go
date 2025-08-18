@@ -32,51 +32,38 @@ type JWKSLoader interface {
 	Load(ctx context.Context) (jwk.Set, error)
 }
 
-// LocalLoader loads a jwk.Set parsed from inline string or file path.
-type LocalLoader struct {
-	set jwk.Set
-}
+// StaticLoader loads a pre-parsed jwk.Set
+type StaticLoader struct{ set jwk.Set }
 
-func newLocalLoader(local *LocalJWKS) (JWKSLoader, error) {
-	if local == nil {
-		return nil, errors.New("local jwks config is nil")
-	}
-
-	var data []byte
-	var err error
-	if local.InlineString != "" {
-		data = []byte(local.InlineString)
-	} else if local.FilePath != "" {
-		data, err = os.ReadFile(local.FilePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read JWKS file %s: %w", local.FilePath, err)
-		}
-	} else {
-		return nil, errors.New("either inline_string or file_path must be specified for local JWKS")
-	}
-
+func newStaticLoaderFromBytes(data []byte) (JWKSLoader, error) {
 	keySet, err := jwk.Parse(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JWKS: %w", err)
 	}
-	return &LocalLoader{set: keySet}, nil
+	return &StaticLoader{set: keySet}, nil
 }
 
-func (l *LocalLoader) Load(_ context.Context) (jwk.Set, error) {
-	return l.set, nil
+func newStaticLoaderFromFile(path string) (JWKSLoader, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read JWKS file %s: %w", path, err)
+	}
+	return newStaticLoaderFromBytes(data)
 }
 
-// RemoteLoader loads a jwk.Set from a prepared jwk.Cache by lookup only.
-type RemoteLoader struct {
+func (l *StaticLoader) Load(_ context.Context) (jwk.Set, error) { return l.set, nil }
+
+// HTTPLoader loads a jwk.Set from a prepared jwk.Cache by lookup only.
+type HTTPLoader struct {
 	uri   string
 	cache *jwk.Cache
 }
 
-func newRemoteLoader(cache *jwk.Cache, uri string) JWKSLoader {
-	return &RemoteLoader{uri: uri, cache: cache}
+func newHTTPLoader(cache *jwk.Cache, uri string) JWKSLoader {
+	return &HTTPLoader{uri: uri, cache: cache}
 }
 
-func (r *RemoteLoader) Load(ctx context.Context) (jwk.Set, error) {
+func (r *HTTPLoader) Load(ctx context.Context) (jwk.Set, error) {
 	if r.cache == nil || r.uri == "" {
 		return nil, errors.New("remote loader not properly initialized")
 	}

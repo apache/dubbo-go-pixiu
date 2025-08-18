@@ -22,11 +22,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/lestrrat-go/httprc/v3"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
@@ -40,9 +43,12 @@ const (
 	ErrCodeTokenNotYet     = "token_not_yet_valid"
 )
 
-const defaultAcceptableSkew = 60 * time.Second
-
 // TODO(validator): dynamic provider update (Add/Update/Remove) via atomic snapshot or RWMutex
+
+const (
+	defaultAcceptableSkew        = 60 * time.Second
+	defaultRemoteJWKSHTTPTimeout = 5 * time.Second
+)
 
 // allowedSignatureAlgorithms defines the whitelist of acceptable JWS algorithms
 // for verifying access tokens. This mitigates algorithm confusion/downgrade.
@@ -68,6 +74,7 @@ var allowedSignatureAlgorithms = map[string]struct{}{
 	"HS512": {},
 }
 
+// filterKeySetByAllowedAlgorithms filters a JWK set to only include keys
 func filterKeySetByAllowedAlgorithms(source jwk.Set) (jwk.Set, int) {
 	if source == nil {
 		return nil, 0
@@ -79,12 +86,18 @@ func filterKeySetByAllowedAlgorithms(source jwk.Set) (jwk.Set, int) {
 		if !ok {
 			continue
 		}
-		var alg string
-		if err := key.Get("alg", &alg); err != nil || alg == "" {
-			// Missing or unreadable alg: skip to avoid algorithm confusion
+		var algStr string
+		if err := key.Get("alg", &algStr); err != nil || algStr == "" {
+			// Try retrieving as jwa.SignatureAlgorithm, then stringify
+			var sa jwa.SignatureAlgorithm
+			if err2 := key.Get("alg", &sa); err2 == nil {
+				algStr = sa.String()
+			}
+		}
+		if algStr == "" {
 			continue
 		}
-		if _, ok := allowedSignatureAlgorithms[alg]; !ok {
+		if _, ok := allowedSignatureAlgorithms[algStr]; !ok {
 			continue
 		}
 		if err := filtered.AddKey(key); err == nil {
@@ -95,8 +108,7 @@ func filterKeySetByAllowedAlgorithms(source jwk.Set) (jwk.Set, int) {
 }
 
 // Validator represents a JWT validator instance
-// Step 1: introduce jwk.Cache for remote JWKS auto-refresh
-// Local JWKS stays as parsed key set.
+// Remote providers use jwk.Cache for JWKS auto-refresh; local providers use a static key set.
 type Validator struct {
 	providers map[string]*providerInfo
 	mu        sync.RWMutex
@@ -104,8 +116,7 @@ type Validator struct {
 	cancel    context.CancelFunc
 }
 
-// providerInfo contains the provider configuration and JWKS
-// If remote: use cache+uri; If local: use keySet.
+// providerInfo contains the provider configuration and its JWKS loader
 type providerInfo struct {
 	config Provider
 	loader JWKSLoader
@@ -125,6 +136,7 @@ func (e ValidationError) Error() string {
 // Unwrap exposes the underlying error for errors.Is / errors.As without leaking to clients
 func (e ValidationError) Unwrap() error { return e.Err }
 
+// categorizeJWKSLoadError maps loader errors to standardized error code/message
 func categorizeJWKSLoadError(err error) (code, msg string) {
 	if err == nil {
 		return ErrCodeJWKS, "jwks error"
@@ -132,6 +144,7 @@ func categorizeJWKSLoadError(err error) (code, msg string) {
 	return ErrCodeJWKS, err.Error()
 }
 
+// categorizeJWTError categorizes JWT validation errors into standard error codes
 func categorizeJWTError(err error) (code, msg string) {
 	if err == nil {
 		return ErrCodeInvalidToken, "invalid token"
@@ -147,7 +160,7 @@ func categorizeJWTError(err error) (code, msg string) {
 }
 
 // NewValidator creates a new JWT validator instance
-func NewValidator(config InternalValidatorConfig) (*Validator, error) {
+func NewValidator(config Config) (*Validator, error) {
 	if len(config.Providers) == 0 {
 		return nil, errors.New("at least one provider must be configured")
 	}
@@ -172,62 +185,79 @@ func NewValidator(config InternalValidatorConfig) (*Validator, error) {
 
 // addProvider adds a provider to the validator
 func (v *Validator) addProvider(provider Provider) error {
-	pi := &providerInfo{config: provider}
+	entry := &providerInfo{config: provider}
 
-	if provider.JWKSSource.Remote != nil {
-		cache, err := v.createRemoteJWKS(provider.JWKSSource.Remote)
-		if err != nil {
-			logger.Errorf("[dubbo-go-pixiu] jwt validator init remote jwks cache failed: provider=%s uri=%s err=%v", provider.Name, provider.JWKSSource.Remote.URI, err)
-			return fmt.Errorf("failed to init remote JWKS cache: %w", err)
-		}
-		pi.loader = newRemoteLoader(cache, provider.JWKSSource.Remote.URI)
-		logger.Debugf("[dubbo-go-pixiu] jwt validator provider ready (remote): name=%s uri=%s", provider.Name, provider.JWKSSource.Remote.URI)
-	} else if provider.JWKSSource.Local != nil {
-		loader, err := newLocalLoader(provider.JWKSSource.Local)
-		if err != nil {
-			logger.Errorf("[dubbo-go-pixiu] jwt validator parse local jwks failed: provider=%s file=%s err=%v", provider.Name, provider.JWKSSource.Local.FilePath, err)
-			return fmt.Errorf("failed to init local JWKS: %w", err)
-		}
-		pi.loader = loader
-		logger.Debugf("[dubbo-go-pixiu] jwt validator provider ready (local): name=%s", provider.Name)
-	} else {
-		return errors.New("either remote or local JWKS must be configured")
+	loader, err := v.buildLoaderFromJWKS(provider.JWKS)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] jwt validator build loader failed: provider=%s jwks=%s err=%v", provider.Name, provider.JWKS, err)
+		return fmt.Errorf("failed to init JWKS loader: %w", err)
 	}
+	entry.loader = loader
 
 	v.mu.Lock()
-	v.providers[provider.Name] = pi
+	v.providers[provider.Name] = entry
 	v.mu.Unlock()
 	return nil
 }
 
-// createRemoteJWKS sets up a jwk.Cache and registers the JWKS URI.
-func (v *Validator) createRemoteJWKS(remote *RemoteJWKS) (*jwk.Cache, error) {
-	// Build http client with timeout derived from config
-	var timeout time.Duration
-	if remote.Timeout != "" {
-		if d, err := time.ParseDuration(remote.Timeout); err == nil {
-			timeout = d
-		} else {
-			logger.Warnf("[dubbo-go-pixiu] jwt validator invalid timeout, fallback: timeout=%s err=%v", remote.Timeout, err)
-			timeout = 5 * time.Second
-		}
-	} else {
-		timeout = 5 * time.Second
-	}
-
-	httpClient := &http.Client{Timeout: timeout}
-	client := httprc.NewClient(httprc.WithHTTPClient(httpClient))
-
-	c, err := jwk.NewCache(v.ctx, client)
+// ProviderByTokenIssuer parses token without validation to extract the issuer
+// and returns the provider name configured for that issuer.
+func (v *Validator) ProviderByTokenIssuer(tokenString string) (string, error) {
+	// Parse token without validation to read claims
+	tok, err := jwt.Parse([]byte(tokenString), jwt.WithValidate(false))
 	if err != nil {
-		logger.Errorf("[dubbo-go-pixiu] jwt validator create jwk cache failed: err=%v", err)
-		return nil, fmt.Errorf("failed to create jwk cache: %w", err)
+		return "", fmt.Errorf("failed to parse token for issuer extraction: %w", err)
 	}
-	if err := c.Register(v.ctx, remote.URI); err != nil {
-		logger.Errorf("[dubbo-go-pixiu] jwt validator register jwks uri failed: uri=%s err=%v", remote.URI, err)
-		return nil, fmt.Errorf("failed to register JWKS uri %s: %w", remote.URI, err)
+
+	var iss string
+	if err := tok.Get("iss", &iss); err != nil || iss == "" {
+		// fallback to Issuer() accessor (returns issuer string and ok bool)
+		if iss2, ok := tok.Issuer(); ok {
+			iss = iss2
+		}
+		if iss == "" {
+			return "", fmt.Errorf("issuer claim not found in token")
+		}
 	}
-	return c, nil
+
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	for name, entry := range v.providers {
+		if entry.config.Issuer == iss {
+			return name, nil
+		}
+	}
+	return "", fmt.Errorf("no provider found for issuer %s", iss)
+}
+
+// buildLoaderFromJWKS parses provider.JWKS and constructs an appropriate loader.
+func (v *Validator) buildLoaderFromJWKS(jwks string) (JWKSLoader, error) {
+	if jwks == "" {
+		return nil, errors.New("jwks must be specified")
+	}
+	u, err := url.Parse(jwks)
+	if err != nil {
+		return nil, fmt.Errorf("invalid jwks uri: %w", err)
+	}
+	switch u.Scheme {
+	case "http", "https":
+		timeout := defaultRemoteJWKSHTTPTimeout
+		// Build http client with resolved timeout
+		httpClient := &http.Client{Timeout: timeout}
+		client := httprc.NewClient(httprc.WithHTTPClient(httpClient))
+		c, err := jwk.NewCache(v.ctx, client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create jwk cache: %w", err)
+		}
+		if err := c.Register(v.ctx, jwks); err != nil {
+			return nil, fmt.Errorf("failed to register JWKS uri %s: %w", jwks, err)
+		}
+		return newHTTPLoader(c, jwks), nil
+	case "file":
+		return newStaticLoaderFromFile(u.Path)
+	default:
+		return nil, fmt.Errorf("unsupported jwks scheme: %s", u.Scheme)
+	}
 }
 
 // Validate validates a JWT token using the specified provider
@@ -266,12 +296,13 @@ func (v *Validator) Validate(providerName, tokenString string) (jwt.Token, error
 	}
 
 	// Build parse options
-	opts := []jwt.ParseOption{
+	opts := make([]jwt.ParseOption, 0, 5)
+	opts = append(opts,
 		jwt.WithKeySet(filteredKeySet),
 		jwt.WithIssuer(provider.config.Issuer),
 		jwt.WithValidate(true),
 		jwt.WithAcceptableSkew(defaultAcceptableSkew),
-	}
+	)
 	if provider.config.Audience != "" {
 		opts = append(opts, jwt.WithAudience(provider.config.Audience))
 	}
@@ -306,6 +337,10 @@ func (v *Validator) Providers() []string {
 	names := make([]string, 0, len(v.providers))
 	for name := range v.providers {
 		names = append(names, name)
+	}
+	// Keep return deterministic for callers that rely on stable order
+	if len(names) > 1 {
+		sort.Strings(names)
 	}
 	return names
 }

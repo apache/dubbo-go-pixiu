@@ -18,48 +18,100 @@
 package mcp
 
 import (
+	"fmt"
+
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/auth/mcp/internal/validator"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-type (
-	// Config defines the configuration for the MCP Auth filter.
-	Config struct {
-		// Providers lists the trusted JWT providers for this filter.
-		Providers []validator.Provider `yaml:"providers" json:"providers"`
-		// ResourceMetadata configures the /.well-known/oauth-protected-resource endpoint.
-		ResourceMetadata ResourceMetadata `yaml:"resource_metadata" json:"resource_metadata"`
-		// Rules define which paths require authentication and what scopes they need.
-		Rules []Rule `yaml:"rules" json:"rules"`
+// Config defines the MCP auth filter configuration.
+// It wires resource metadata (RFC9728), JWT providers, and path-based auth rules.
+type Config struct {
+	// ResourceMetadata controls /.well-known/oauth-protected-resource exposure and values.
+	ResourceMetadata ResourceMetadata `yaml:"resource_metadata" json:"resource_metadata" mapstructure:"resource_metadata"`
+
+	// Providers declares JWT validation providers reused by rules.
+	Providers []validator.Provider `yaml:"providers" json:"providers" mapstructure:"providers"`
+
+	// Rules binds request paths to a provider and required scopes.
+	Rules []Rule `yaml:"rules" json:"rules" mapstructure:"rules"`
+}
+
+// ResourceMetadata represents OAuth 2.0 Protected Resource Metadata (RFC9728)
+// that MCP clients discover via /.well-known/oauth-protected-resource
+type ResourceMetadata struct {
+	// Path is the well-known endpoint path to serve metadata from.
+	// Default: "/.well-known/oauth-protected-resource"
+	Path string `yaml:"path" json:"path" mapstructure:"path"`
+
+	// Resource is the canonical resource identifier (RFC8707) that clients
+	// should request tokens for (e.g. "https://mcp.example.com").
+	Resource string `yaml:"resource" json:"resource" mapstructure:"resource"`
+
+	// AuthorizationServers lists candidate Authorization Server metadata endpoints
+	// (e.g. "https://auth.example.com/.well-known/oauth-authorization-server").
+	AuthorizationServers []string `yaml:"authorization_servers" json:"authorization_servers" mapstructure:"authorization_servers"`
+}
+
+// Rule describes how to protect requests under a given path prefix.
+type Rule struct {
+	// Cluster is the route cluster name matched by the framework router.
+	// The MCP filter will protect routes that resolve to this cluster.
+	Cluster string `yaml:"cluster" json:"cluster" mapstructure:"cluster"`
+
+	// Provider is the name of the JWT provider to validate tokens with.
+	Provider string `yaml:"provider" json:"provider" mapstructure:"provider"`
+}
+
+// Validate performs basic semantic checks on the configuration.
+func (c *Config) Validate() error {
+	// Resource metadata
+	if c.ResourceMetadata.Path == "" {
+		c.ResourceMetadata.Path = "/.well-known/oauth-protected-resource"
+		logger.Warnf("[dubbo-go-pixiu] resource_metadata.path is not set, using default value: %s", c.ResourceMetadata.Path)
+	}
+	if c.ResourceMetadata.Resource == "" {
+		return fmt.Errorf("resource_metadata.resource must be set to the canonical MCP server URI")
+	}
+	if len(c.ResourceMetadata.AuthorizationServers) == 0 {
+		return fmt.Errorf("resource_metadata.authorization_servers must not be empty")
 	}
 
-	// ResourceMetadata defines the content for the metadata endpoint.
-	ResourceMetadata struct {
-		// Enabled controls whether to serve the metadata endpoint.
-		Enabled bool `yaml:"enabled" json:"enabled"`
-		// ServerHost is the public-facing hostname of the gateway, used to build the
-		// WWW-Authenticate header. e.g., "https://api.example.com"
-		ServerHost string `yaml:"server_host" json:"server_host"`
-		// AuthorizationServers lists the authorization servers to be included in the metadata response.
-		AuthorizationServers []AuthorizationServer `yaml:"authorization_servers" json:"authorization_servers"`
+	// Providers presence
+	if len(c.Providers) == 0 {
+		return fmt.Errorf("providers must not be empty")
 	}
 
-	// AuthorizationServer corresponds to an entry in the "authorization_servers" array.
-	AuthorizationServer struct {
-		Issuer string `yaml:"issuer" json:"issuer"`
+	// Index providers by name for rule validation
+	providerNames := make(map[string]struct{}, len(c.Providers))
+	for _, p := range c.Providers {
+		if p.Name == "" {
+			return fmt.Errorf("provider name must not be empty")
+		}
+		if p.Issuer == "" {
+			return fmt.Errorf("provider '%s': issuer must not be empty", p.Name)
+		}
+		if p.JWKS == "" {
+			return fmt.Errorf("provider '%s': jwks must not be empty", p.Name)
+		}
+		if _, exists := providerNames[p.Name]; exists {
+			return fmt.Errorf("duplicated provider name '%s'", p.Name)
+		}
+		providerNames[p.Name] = struct{}{}
 	}
 
-	// Rule defines an authentication/authorization rule for a specific path.
-	Rule struct {
-		Match Match `yaml:"match" json:"match"`
-		// RequiredScopes lists the scopes required to access this path.
-		// The token must contain ALL of these scopes.
-		RequiredScopes []string `yaml:"required_scopes" json:"required_scopes"`
-		// ProviderName specifies which provider to use for validating the token for this rule.
-		ProviderName string `yaml:"provider_name" json:"provider_name"`
+	// Rules
+	for idx, r := range c.Rules {
+		if r.Cluster == "" {
+			return fmt.Errorf("rules[%d].cluster must not be empty", idx)
+		}
+		if r.Provider == "" {
+			return fmt.Errorf("rules[%d].provider must not be empty", idx)
+		}
+		if _, ok := providerNames[r.Provider]; !ok {
+			return fmt.Errorf("rules[%d].provider '%s' not found in providers", idx, r.Provider)
+		}
 	}
 
-	// Match defines the path matching rule.
-	Match struct {
-		Prefix string `yaml:"prefix" json:"prefix"`
-	}
-)
+	return nil
+}

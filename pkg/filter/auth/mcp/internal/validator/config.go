@@ -17,8 +17,8 @@
 
 package validator
 
-// InternalValidatorConfig represents the internal configuration for the JWT validator
-type InternalValidatorConfig struct {
+// Config represents the configuration for the JWT validator
+type Config struct {
 	// Providers is the list of JWT providers (using external Provider type)
 	Providers []Provider `yaml:"providers" json:"providers"`
 }
@@ -34,39 +34,9 @@ type Provider struct {
 	// Audience is the single valid audience value
 	Audience string `yaml:"audience" json:"audience" mapstructure:"audience"`
 
-	// JWKSSource defines how to obtain the JWKS
-	JWKSSource JWKSSource `yaml:"jwks_source" json:"jwks_source" mapstructure:"jwks_source"`
-}
-
-// JWKSSource defines the source of JWKS
-type JWKSSource struct {
-	// Remote defines remote JWKS configuration
-	Remote *RemoteJWKS `yaml:"remote" json:"remote" mapstructure:"remote"`
-
-	// Local defines local JWKS configuration
-	Local *LocalJWKS `yaml:"local" json:"local" mapstructure:"local"`
-}
-
-// RemoteJWKS defines remote JWKS configuration with jwx v3 support
-type RemoteJWKS struct {
-	// URI is the JWKS endpoint URL
-	URI string `yaml:"uri" json:"uri" mapstructure:"uri"`
-
-	// RefreshInterval is the interval for automatic JWKS refresh (jwx v3)
-	RefreshInterval string `yaml:"refresh_interval" json:"refresh_interval" mapstructure:"refresh_interval" default:"15m"`
-
-	// CacheTTL is the cache time-to-live for JWKS (jwx v3)
-	CacheTTL string `yaml:"cache_ttl" json:"cache_ttl" mapstructure:"cache_ttl" default:"1h"`
-
-	// Timeout is the HTTP request timeout
-	Timeout string `yaml:"timeout" json:"timeout" mapstructure:"timeout" default:"5s"`
-}
-
-// LocalJWKS defines local JWKS configuration
-type LocalJWKS struct {
-	// InlineString is the JWKS JSON string
-	InlineString string `yaml:"inline_string" json:"inline_string" mapstructure:"inline_string"`
-
-	// FilePath is the path to JWKS file
-	FilePath string `yaml:"file_path" json:"file_path" mapstructure:"file_path"`
+	// JWKS is a single URI-like string that specifies how to obtain JWKS
+	// Supported schemes:
+	//  - http(s)://...  (remote JWKS, uses default timeout)
+	//  - file:///abs/path/jwks.json  (local file)
+	JWKS string `yaml:"jwks" json:"jwks" mapstructure:"jwks"`
 }
