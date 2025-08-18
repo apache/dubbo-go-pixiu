@@ -1,0 +1,182 @@
+<!--
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+    <!-- <link rel="icon" href="<%= BASE_URL %>favicon.ico"> -->
+    <!--    <script src="http://localhost:8098"></script>-->
+    <script src="static/js/protocolcheck.js" type="text/javascript"></script>
+    <script src="https://s1.pstatp.com/cdn/expire-1-M/three.js/63/three.min.js"
+            integrity="sha384-10655075646a0b6d20004f8eb17451611b9556ef97686cf3ea925036f0fdca1dc9ef76e6065e39b9cc1bdfbc8ea7dc4d"
+            type="text/javascript"></script>
+    <script type="text/javascript">
+        (function (doc, win) {
+            setRem();
+            var resizeEvt = 'orientationchange' in window ? 'orientationchange' : 'resize',
+                recalc = function () {
+                    setRem();
+                };
+            if (!doc.addEventListener)
+                return;
+            win.addEventListener(resizeEvt, recalc, false);
+            doc.addEventListener('DOMContentLoaded', recalc, false);
+        })(document, window);
+
+        function setRem() {
+            let docEl = document.documentElement;
+            let clientWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+            if (!clientWidth) {
+                return;
+            }
+            docEl.style.fontSize = 10 * (clientWidth / 1080) + 'px';
+        }
+    </script>
+    <!-- <title><%= htmlWebpackPlugin.options.title %></title> -->
+    <title>Pixiu管理系统</title>
+</head>
+<body>
+<noscript>
+    <strong>We're sorry but my-project doesn't work properly without JavaScript enabled. Please enable it to
+        continue.</strong>
+</noscript>
+<div id="app"></div>
+<!-- built files will be auto injected -->
+</body>
+<style>
+    body {
+        background: #e5e5e5;
+    }
+
+    .layout{
+        max-width: 1560px;
+        margin: 0 auto;
+    }
+
+    @media screen and (max-width: 2059px) {
+        html {
+            font-size: 35px;
+
+        }
+
+        .etcModel .bt {
+            padding: 0.25rem 0.30rem;
+            font-size: 0.5rem
+
+        }
+
+        .etcModel .el-button + .el-button.noBt {
+
+            display: block;
+
+        }
+    }
+
+    @media screen and (max-width: 1809px) {
+        html {
+            font-size: 38px;
+        }
+
+        .etcModel .bt {
+            padding: 0.25rem 0.30rem;
+            font-size: 0.5rem
+
+        }
+
+        .etcModel .el-button + .el-button.noBt {
+
+            display: block;
+
+        }
+    }
+
+    @media screen and (max-width: 1559px) {
+        html {
+            font-size: 35px;
+        }
+
+        .etcModel .bt {
+            padding: 0.25rem 0.3rem;
+            font-size: 0.5rem
+
+        }
+
+        .etcModel .el-button + .el-button.noBt {
+
+            display: block;
+
+        }
+    }
+
+    @media screen and (max-width: 1309px) {
+        html {
+            font-size: 30px;
+        }
+
+        .etcModel .bt {
+            padding: 0.25rem 0.3rem;
+            font-size: 0.5rem
+
+        }
+
+        .etcModel .el-button + .el-button.noBt {
+
+            display: block;
+
+        }
+    }
+
+    @media screen and (max-width: 1059px) {
+        html {
+            font-size: 25px;
+        }
+
+        .etcModel .bt {
+            padding: 0.25rem 0.3rem;
+            font-size: 0.5rem
+
+        }
+
+        .etcModel .el-button + .el-button.noBt {
+
+            display: block;
+
+        }
+    }
+
+    @media screen and (max-width: 809px) {
+        html {
+            font-size: 20px;
+        }
+
+        .etcModel .bt {
+            padding: 0.25rem 0.30rem;
+            font-size: 0.5rem
+
+        }
+
+        .etcModel .el-button + .el-button.noBt {
+
+            display: block;
+
+        }
+    }
+</style>
+</html>

@@ -37,6 +37,17 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const (
+	inPath  = "path"
+	inQuery = "query"
+	inBody  = "body"
+
+	typeString  = "string"
+	typeInteger = "integer"
+	typeNumber  = "number"
+	typeBoolean = "boolean"
+)
+
 // handleInitialize handles the initialize method
 func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
 	// Build server capabilities using mcp-go structures
@@ -96,50 +107,13 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 
 		// Add parameter definitions using mcp-go APIs
 		for _, arg := range toolCfg.Args {
+			opts := f.buildToolParameterOptions(&arg)
 			switch arg.Type {
-			case "string":
-				opts := []mcp.PropertyOption{mcp.Description(arg.Description)}
-				if arg.Required {
-					opts = append(opts, mcp.Required())
-				}
-				if arg.Default != nil {
-					if defaultStr, ok := arg.Default.(string); ok {
-						opts = append(opts, mcp.DefaultString(defaultStr))
-					}
-				}
-				if len(arg.Enum) > 0 {
-					opts = append(opts, mcp.Enum(arg.Enum...))
-				}
+			case typeString:
 				toolOptions = append(toolOptions, mcp.WithString(arg.Name, opts...))
-
-			case "integer", "number":
-				opts := []mcp.PropertyOption{mcp.Description(arg.Description)}
-				if arg.Required {
-					opts = append(opts, mcp.Required())
-				}
-				if arg.Default != nil {
-					// Handle both int and float64 types from YAML parsing
-					switch defaultVal := arg.Default.(type) {
-					case float64:
-						opts = append(opts, mcp.DefaultNumber(defaultVal))
-					case int:
-						opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
-					case int64:
-						opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
-					}
-				}
+			case typeInteger, typeNumber:
 				toolOptions = append(toolOptions, mcp.WithNumber(arg.Name, opts...))
-
-			case "boolean":
-				opts := []mcp.PropertyOption{mcp.Description(arg.Description)}
-				if arg.Required {
-					opts = append(opts, mcp.Required())
-				}
-				if arg.Default != nil {
-					if defaultBool, ok := arg.Default.(bool); ok {
-						opts = append(opts, mcp.DefaultBool(defaultBool))
-					}
-				}
+			case typeBoolean:
 				toolOptions = append(toolOptions, mcp.WithBoolean(arg.Name, opts...))
 			}
 		}
@@ -154,6 +128,43 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 
 	response := f.responseBuilder.Success(req.ID, result)
 	return f.sendJSONResponse(ctx, response)
+}
+
+// buildToolParameterOptions builds the mcp.PropertyOption slice for a given tool argument
+func (f *MCPServerFilter) buildToolParameterOptions(arg *ArgConfig) []mcp.PropertyOption {
+	opts := []mcp.PropertyOption{mcp.Description(arg.Description)}
+
+	if arg.Required {
+		opts = append(opts, mcp.Required())
+	}
+
+	if arg.Default != nil {
+		switch arg.Type {
+		case typeString:
+			if defaultStr, ok := arg.Default.(string); ok {
+				opts = append(opts, mcp.DefaultString(defaultStr))
+			}
+		case typeInteger, typeNumber:
+			switch defaultVal := arg.Default.(type) {
+			case float64:
+				opts = append(opts, mcp.DefaultNumber(defaultVal))
+			case int:
+				opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
+			case int64:
+				opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
+			}
+		case typeBoolean:
+			if defaultBool, ok := arg.Default.(bool); ok {
+				opts = append(opts, mcp.DefaultBool(defaultBool))
+			}
+		}
+	}
+
+	if len(arg.Enum) > 0 && arg.Type == typeString {
+		opts = append(opts, mcp.Enum(arg.Enum...))
+	}
+
+	return opts
 }
 
 // handleResourcesList handles the resources/list method
@@ -433,17 +444,17 @@ func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolCo
 			}
 
 			switch argConfig.In {
-			case "path":
+			case inPath:
 				// Replace path parameters
 				placeholder := fmt.Sprintf("{%s}", argName)
 				replacement := fmt.Sprintf("%v", argValue)
 				path = strings.ReplaceAll(path, placeholder, replacement)
 
-			case "query":
+			case inQuery:
 				// Add to query parameters
 				queryParams[argName] = fmt.Sprintf("%v", argValue)
 
-			case "body":
+			case inBody:
 				// Add to request body
 				bodyParams[argName] = argValue
 			}
@@ -486,7 +497,7 @@ func (f *MCPServerFilter) handleToolCallResponse(ctx *MCPContext) filter.FilterS
 	logger.Debugf("[dubbo-go-pixiu] mcp server handling tool call response")
 
 	// Extract request information
-	requestID := ctx.GetMCPRequestID()
+	requestID := ctx.McpRequestID()
 	if requestID == nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server missing request ID for tool call response")
 		return filter.Continue

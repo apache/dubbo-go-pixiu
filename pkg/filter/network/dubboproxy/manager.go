@@ -27,9 +27,13 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
+
 	hessian "github.com/apache/dubbo-go-hessian2"
+
 	"github.com/dubbogo/grpc-go/metadata"
+
 	"github.com/go-errors/errors"
+
 	perrors "github.com/pkg/errors"
 )
 
@@ -177,7 +181,7 @@ func (dcm *DubboProxyConnectionManager) handleRpcInvocation(c *dubbo2.RpcContext
 	// recover any err when filterChain run
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Warnf("[dubbopixiu go] Occur An Unexpected Err: %+v", err)
+			logger.Warnf("[dubbo-go-pixiu] Occur An Unexpected Err: %+v", err)
 			c.SetError(errors.Errorf("Occur An Unexpected Err: %v", err))
 		}
 	}()

@@ -20,9 +20,10 @@ package mcpserver
 import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	h "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 const MCPDataKey = "mcp_data"
@@ -37,12 +38,12 @@ type MCPData struct {
 
 // MCPContext MCP context wrapper that composes HttpContext and provides MCP-specific operations
 type MCPContext struct {
-	*h.HttpContext
+	*contexthttp.HttpContext
 	mcpData *MCPData
 }
 
 // NewMCPContext creates a new MCP context
-func NewMCPContext(httpCtx *h.HttpContext) *MCPContext {
+func NewMCPContext(httpCtx *contexthttp.HttpContext) *MCPContext {
 	return &MCPContext{
 		HttpContext: httpCtx,
 		mcpData:     &MCPData{},
@@ -59,8 +60,8 @@ func (ctx *MCPContext) SetMCPMethod(method string) {
 	ctx.mcpData.Method = method
 }
 
-// GetMCPMethod gets MCP method name
-func (ctx *MCPContext) GetMCPMethod() string {
+// McpMethod gets MCP method name
+func (ctx *MCPContext) McpMethod() string {
 	return ctx.mcpData.Method
 }
 
@@ -69,8 +70,8 @@ func (ctx *MCPContext) SetMCPRequestID(id any) {
 	ctx.mcpData.RequestID = id
 }
 
-// GetMCPRequestID gets JSON-RPC request ID
-func (ctx *MCPContext) GetMCPRequestID() any {
+// McpRequestID gets JSON-RPC request ID
+func (ctx *MCPContext) McpRequestID() any {
 	return ctx.mcpData.RequestID
 }
 
@@ -98,7 +99,7 @@ func (ctx *MCPContext) LoadMCPDataFromParams() {
 }
 
 // NewMCPContextFromHttpContext creates MCPContext from existing HttpContext and tries to load stored MCP data
-func NewMCPContextFromHttpContext(httpCtx *h.HttpContext) *MCPContext {
+func NewMCPContextFromHttpContext(httpCtx *contexthttp.HttpContext) *MCPContext {
 	mcpCtx := NewMCPContext(httpCtx)
 	mcpCtx.LoadMCPDataFromParams()
 	return mcpCtx

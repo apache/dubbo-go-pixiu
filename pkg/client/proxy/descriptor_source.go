@@ -28,8 +28,11 @@ import (
 import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
+
 	"github.com/pkg/errors"
+
 	"google.golang.org/protobuf/proto"
+
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 

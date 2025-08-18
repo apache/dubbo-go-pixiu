@@ -1,0 +1,171 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "🐞 Bug Report"
+description: "Report a bug to help us improve"
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 👋 Thank you for your feedback!
+        
+        Please fill out the following information to help us understand and resolve the issue.
+
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: "✅ Verification Checklist"
+      description: "Please verify that you've completed the following:"
+      options:
+        - label: "🔍 I have searched the [existing issues](https://github.com/apache/dubbo-go-pixiu/issues) and confirmed this is not a duplicate"
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 🔧 Environment Information
+
+  - type: input
+    id: go-version
+    attributes:
+      label: "🚀 Go Version"
+      description: "The version of Go you're using"
+      placeholder: "e.g., 1.23.0"
+    validations:
+      required: true
+
+  - type: input
+    id: dubbo-go-pixiu-version
+    attributes:
+      label: "📦 Dubbo-go-pixiu Version"
+      description: "The version of dubbo-go-pixiu you're using"
+      placeholder: "e.g: v1.0.0-rc4"
+    validations:
+      required: true
+
+  - type: input
+    id: server-config
+    attributes:
+      label: "🖥️ Server Configuration"
+      description: "Server framework and version information"
+      placeholder: "e.g., Dubbo-go, v3.0.5"
+    validations:
+      required: false
+
+  - type: input
+    id: client-config
+    attributes:
+      label: "💻 Client Configuration"
+      description: "Client framework and version information"
+      placeholder: "e.g., Dubbo-go, v3.0.5"
+    validations:
+      required: false
+
+  - type: input
+    id: protocol-config
+    attributes:
+      label: "🌐 Protocol Configuration"
+      description: "Communication protocol used"
+      placeholder: "e.g., Triple, Dubbo, gRPC"
+    validations:
+      required: false
+
+  - type: input
+    id: registry-config
+    attributes:
+      label: "📋 Registry Configuration"
+      description: "Registry type and version information"
+      placeholder: "e.g., Nacos v2.0.0, Zookeeper v3.8.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: "💾 Operating System"
+      description: "What platform are you using?"
+      options:
+        - "🪟 Windows"
+        - "🍎 macOS"
+        - "🐧 Linux"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 🐛 Issue Details
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: "📝 Bug Description"
+      description: "A clear and concise description of what the bug is"
+      placeholder: |
+        Please describe the bug in detail, including:
+        • Specific problem symptoms
+        • Error messages (if any)
+        • Impact scope
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: "🔄 Steps to Reproduce"
+      description: "Please provide detailed steps to reproduce this issue"
+      placeholder: |
+        Please list the steps to reproduce:
+        1. First step...
+        2. Second step...
+        3. Third step...
+        4. See error
+
+        💡 If possible, please provide a GitHub repository link or minimal reproduction code
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "✅ Expected Behavior"
+      description: "What did you expect to happen?"
+      placeholder: "Describe in detail what the correct behavior should be..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: "❌ Actual Behavior"
+      description: "What actually happened?"
+      placeholder: |
+        Describe what actually happened, including:
+        • Error messages
+        • Exception stack traces
+        • Log output
+    validations:
+      required: true
+
+  - type: textarea
+    id: possible-solution
+    attributes:
+      label: "💡 Possible Solution"
+      description: "If you have ideas on how to fix this issue, please share them here"
+      placeholder: "Share your thoughts, suggestions, or attempted solutions..."
+    validations:
+      required: false

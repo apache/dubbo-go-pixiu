@@ -26,6 +26,7 @@ import (
 
 import (
 	"github.com/cch123/supermonkey"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -193,7 +194,7 @@ func Test_createDynamicResourceManger(t *testing.T) {
 					err, _ = panicInfo.(error)
 					if err != nil {
 						fmt.Println(err)
-						debug.PrintStack()
+						debug.PrintStack() // NOSONAR
 					}
 				}()
 				result = createDynamicResourceManger(tt.args.bs)

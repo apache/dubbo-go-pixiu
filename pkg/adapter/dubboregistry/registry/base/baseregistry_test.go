@@ -49,7 +49,7 @@ func CreateMockRegisteredAPI(urlPattern string) router.API {
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 		b := make([]rune, n)
 		for i := range b {
-			b[i] = letterRunes[rng.Intn(len(letterRunes))]
+			b[i] = letterRunes[rng.Intn(len(letterRunes))] // NOSONAR
 		}
 		return string(b)
 	}

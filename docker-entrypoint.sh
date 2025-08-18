@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -18,29 +18,35 @@
 # under the License.
 #
 
-CMD_PARAMS=""
-API_CONF="api_config.yaml"
-LOG="log.yml"
-CONF="conf.yaml"
+set -e
 
-cd /etc/pixiu/ &&  ls -al /etc/pixiu/
-echo "current path: $(pwd)"
+CONF_DIR="/etc/pixiu"
+APP_BIN="/app/dubbo-go-pixiu"
 
-if [ ! -f "$CONF" ]; then
-    echo "error: $CONF not exists!"
-    exit
-fi
-CMD_PARAMS="-c /etc/pixiu/${CONF}"
+API_CONF_FILE="$CONF_DIR/api_config.yaml"
+LOG_FILE="$CONF_DIR/log.yml"
+CONF_FILE="$CONF_DIR/conf.yaml"
 
-if [ -f "$API_CONF" ]; then
-    CMD_PARAMS="$CMD_PARAMS -a /etc/pixiu/${API_CONF}"
-fi
+echo "Checking configurations in $CONF_DIR..."
+ls -al "$CONF_DIR"
 
-if [ -f "$LOG" ]; then
-    CMD_PARAMS="$CMD_PARAMS -g /etc/pixiu/${LOG}"
+if [ ! -f "$CONF_FILE" ]; then
+    echo "Error: Main configuration file not found at $CONF_FILE"
+    exit 1
 fi
 
-cd / ls -al .
-echo "current path: $(pwd)"
-echo "CMD_PARAMS: $CMD_PARAMS"
-./dubbo-go-pixiu gateway start $CMD_PARAMS
+CMD_PARAMS="-c ${CONF_FILE}"
+
+if [ -f "$API_CONF_FILE" ]; then
+    CMD_PARAMS="$CMD_PARAMS -a ${API_CONF_FILE}"
+fi
+
+if [ -f "$LOG_FILE" ]; then
+    CMD_PARAMS="$CMD_PARAMS -g ${LOG_FILE}"
+fi
+
+echo "Starting Pixiu Gateway..."
+echo "Binary: $APP_BIN"
+echo "Parameters: $CMD_PARAMS"
+
+exec "$APP_BIN" gateway start $CMD_PARAMS

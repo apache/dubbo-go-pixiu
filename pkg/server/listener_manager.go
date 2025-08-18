@@ -28,6 +28,7 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -65,7 +66,7 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	for _, lsCof := range sl {
 		ls, err := listener.CreateListenerService(lsCof, bs)
 		if err != nil {
-			logger.Error("CreateDefaultListenerManager %s error: %v", lsCof.Name, err)
+			logger.Errorf("CreateDefaultListenerManager %s error: %v", lsCof.Name, err)
 		}
 		listeners[resolveListenerName(lsCof)] = &wrapListenerService{
 			config:          lsCof,
@@ -200,7 +201,7 @@ func (lm *ListenerManager) startListenerServiceAsync(s listener.ListenerService)
 			panicErr := recover()
 			if panicErr != nil {
 				logger.Errorf("recover from panic %v", panicErr)
-				debug.PrintStack()
+				debug.PrintStack() // NOSONAR
 			}
 			close(done)
 		}()

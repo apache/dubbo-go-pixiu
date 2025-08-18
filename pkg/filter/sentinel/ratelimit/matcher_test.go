@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/alibaba/sentinel-golang/core/flow"
+
 	"github.com/stretchr/testify/assert"
 )
 

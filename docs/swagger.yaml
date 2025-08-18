@@ -1,0 +1,27 @@
+info:
+  contact: {}
+paths:
+  /register:
+    post:
+      parameters:
+      - description: 用户名
+        in: formData
+        name: username
+        required: true
+        type: string
+      - description: 密码
+        in: formData
+        name: password
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{"success":true,"data":{},"msg":""}'
+          schema:
+            type: string
+      summary: 用户注册
+      tags:
+      - Register
+swagger: "2.0"
