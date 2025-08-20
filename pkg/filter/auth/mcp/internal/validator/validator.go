@@ -204,7 +204,7 @@ func (v *Validator) addProvider(provider Provider) error {
 // and returns the provider name configured for that issuer.
 func (v *Validator) ProviderByTokenIssuer(tokenString string) (string, error) {
 	// Parse token without validation to read claims
-	tok, err := jwt.Parse([]byte(tokenString), jwt.WithValidate(false))
+	tok, err := jwt.Parse([]byte(tokenString), jwt.WithValidate(false), jwt.WithVerify(false))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse token for issuer extraction: %w", err)
 	}

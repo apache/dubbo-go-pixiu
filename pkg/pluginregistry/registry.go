@@ -30,6 +30,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/retry/noretry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/jwt"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/mcp"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/cors"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/csrf"

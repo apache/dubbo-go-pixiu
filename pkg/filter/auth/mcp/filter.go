@@ -192,7 +192,7 @@ func (f *Filter) unauthorized(hc *contexthttp.HttpContext, code, desc string) {
 	metaURL := scheme + "://" + hc.Request.Host + f.state.metaPath
 	// Per RFC9728, include resource_metadata parameter; include OAuth error fields
 	header := fmt.Sprintf("Bearer resource_metadata=\"%s\", error=\"%s\", error_description=\"%s\"", metaURL, escapeParam(code), escapeParam(desc))
-	hc.AddHeader("WWW-Authenticate", header)
+	hc.AddHeader(constant.WWWAuthenticate, header)
 	writeOAuthError(hc, http.StatusUnauthorized, code, desc)
 }
 

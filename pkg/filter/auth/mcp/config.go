@@ -58,9 +58,6 @@ type Rule struct {
 	// Cluster is the route cluster name matched by the framework router.
 	// The MCP filter will protect routes that resolve to this cluster.
 	Cluster string `yaml:"cluster" json:"cluster" mapstructure:"cluster"`
-
-	// Provider is the name of the JWT provider to validate tokens with.
-	Provider string `yaml:"provider" json:"provider" mapstructure:"provider"`
 }
 
 // Validate performs basic semantic checks on the configuration.
@@ -82,11 +79,15 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("providers must not be empty")
 	}
 
-	// Index providers by name for rule validation
+	// Validate provider entries and index names to detect duplicates
 	providerNames := make(map[string]struct{}, len(c.Providers))
 	for _, p := range c.Providers {
 		if p.Name == "" {
 			return fmt.Errorf("provider name must not be empty")
+		}
+		if p.Audience == "" {
+			p.Audience = c.ResourceMetadata.Resource
+			logger.Warnf("[dubbo-go-pixiu] provider '%s' has no audience; defaulting to resource_metadata.resource '%s'  ", p.Name, c.ResourceMetadata.Resource)
 		}
 		if p.Issuer == "" {
 			return fmt.Errorf("provider '%s': issuer must not be empty", p.Name)
@@ -104,12 +105,6 @@ func (c *Config) Validate() error {
 	for idx, r := range c.Rules {
 		if r.Cluster == "" {
 			return fmt.Errorf("rules[%d].cluster must not be empty", idx)
-		}
-		if r.Provider == "" {
-			return fmt.Errorf("rules[%d].provider must not be empty", idx)
-		}
-		if _, ok := providerNames[r.Provider]; !ok {
-			return fmt.Errorf("rules[%d].provider '%s' not found in providers", idx, r.Provider)
 		}
 	}
 
