@@ -22,7 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+)
 
+import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 

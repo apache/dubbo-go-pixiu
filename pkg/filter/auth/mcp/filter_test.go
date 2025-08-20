@@ -27,20 +27,24 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+)
 
+import (
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jws"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	dgpfilter "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/auth/mcp/internal/validator"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/lestrrat-go/jwx/v3/jwa"
-	"github.com/lestrrat-go/jwx/v3/jws"
 )
 
 // =============================================================================
 // Test Helper Functions
 // =============================================================================
-
 // writeTempJWKS creates a temporary JWKS file with empty keys for testing
 func writeTempJWKS(t *testing.T) string {
 	t.Helper()

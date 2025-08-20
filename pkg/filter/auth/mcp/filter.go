@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/auth/mcp/internal/validator"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (

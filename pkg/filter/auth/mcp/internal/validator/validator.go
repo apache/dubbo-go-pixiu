@@ -26,12 +26,18 @@ import (
 	"sort"
 	"sync"
 	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+import (
 	"github.com/lestrrat-go/httprc/v3"
+
 	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // Error code constants to avoid magic strings in responses.
