@@ -89,7 +89,7 @@ func (c *Config) Validate() error {
 		}
 		if p.Audience == "" {
 			p.Audience = c.ResourceMetadata.Resource
-			logger.Warnf("[dubbo-go-pixiu] provider '%s' has no audience; defaulting to resource_metadata.resource '%s'  ", p.Name, c.ResourceMetadata.Resource)
+			logger.Warnf("[dubbo-go-pixiu] provider '%s' has no audience; defaulting to resource_metadata.resource '%s'", p.Name, c.ResourceMetadata.Resource)
 		}
 		if p.Issuer == "" {
 			return fmt.Errorf("provider '%s': issuer must not be empty", p.Name)
