@@ -225,7 +225,7 @@ type PushGateway struct {
 	PushGatewayURL        string
 	Job                   string
 	counter               int
-	mutex                 sync.RWMutex
+	mutex                 sync.Mutex
 }
 
 // NewPrometheus generates a new set of metrics with a certain subsystem name
