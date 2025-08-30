@@ -36,6 +36,8 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 )
 
@@ -100,7 +102,15 @@ func TestUnaryResponseWithEncodings(t *testing.T) {
 	// Run the tests for each case.
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			filter := &Filter{}
+
+			var (
+				filterFactory = FilterFactory{}
+				filterChain   = filter.NewDefaultFilterChain()
+			)
+
+			filterFactory.cfg = &Config{LogToConsole: true}
+			filterFactory.Apply()
+			filterFactory.PrepareFilterChain(&contexthttp.HttpContext{}, filterChain)
 
 			request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 			assert.NoError(t, err)
@@ -115,7 +125,7 @@ func TestUnaryResponseWithEncodings(t *testing.T) {
 			c.AddHeader(constant.HeaderKeyContentEncoding, tc.encoding)
 
 			// Call the filter's Encode method
-			filter.Encode(c)
+			filterChain.OnEncode(c)
 		})
 	}
 }
@@ -179,7 +189,14 @@ func TestStreamResponseWithEncodings(t *testing.T) {
 	// Run the tests for each case.
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			filter := &Filter{}
+			var (
+				filterFactory = FilterFactory{}
+				filterChain   = filter.NewDefaultFilterChain()
+			)
+
+			filterFactory.cfg = &Config{LogToConsole: true}
+			filterFactory.Apply()
+			filterFactory.PrepareFilterChain(&contexthttp.HttpContext{}, filterChain)
 
 			req, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 			assert.NoError(t, err)
@@ -196,7 +213,7 @@ func TestStreamResponseWithEncodings(t *testing.T) {
 			ctx.AddHeader(constant.HeaderKeyContentEncoding, tc.encoding)
 
 			// Call the filter's Encode method
-			filter.Encode(ctx)
+			filterChain.OnEncode(ctx)
 
 			// Give the goroutine a moment to process the data
 			buf := make([]byte, 1024)
