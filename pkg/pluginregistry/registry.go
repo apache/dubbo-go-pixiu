@@ -46,6 +46,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver/dubboresolver"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/llm/proxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/llm/tokenizer"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/metric"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/dubboproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/dubboproxy/filter/http"

@@ -201,7 +201,7 @@ func (lm *ListenerManager) startListenerServiceAsync(s listener.ListenerService)
 			panicErr := recover()
 			if panicErr != nil {
 				logger.Errorf("recover from panic %v", panicErr)
-				debug.PrintStack()
+				debug.PrintStack() // NOSONAR
 			}
 			close(done)
 		}()

@@ -42,7 +42,19 @@ import (
 
 const (
 	Kind = constant.LLMProxyFilter
+	// Context key to pass attempt data from proxy to downstream filters
+	LLMUpstreamAttemptsKey = "llm_upstream_attempts"
 )
+
+// UpstreamAttempt holds details for a single request attempt to an endpoint.
+type UpstreamAttempt struct {
+	EndpointID      string
+	EndpointAddress string
+	ClusterName     string
+	Success         bool
+	StatusCode      int
+	ErrorType       string // e.g., "network_error", "status_code_error"
+}
 
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
@@ -243,8 +255,9 @@ type Strategy struct{}
 // Execute orchestrates the request lifecycle using dynamic policies from endpoints.
 func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 	var (
-		resp *http.Response
-		err  error
+		resp     *http.Response
+		err      error
+		attempts []UpstreamAttempt
 	)
 
 	// 1. Pick initial endpoint from the cluster based on load balancing.
@@ -293,15 +306,31 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 			resp, err = executor.filter.client.Do(req)
 
-			if err != nil {
-				logger.Warnf("[dubbo-go-pixiu] request to endpoint [%s: %v] failed: %v", endpoint.ID, endpoint.Address.GetAddress(), err)
-				break // Exit the retry loop on any error
+			attempt := UpstreamAttempt{
+				EndpointID:      endpoint.ID,
+				EndpointAddress: endpoint.Address.GetAddress(),
+				ClusterName:     executor.clusterName,
 			}
 
-			// If success, we are done. Return immediately.
+			if err != nil {
+				logger.Warnf("[dubbo-go-pixiu] request to endpoint [%s: %v] failed: %v", endpoint.ID, endpoint.Address.GetAddress(), err)
+				attempt.Success = false
+				attempt.ErrorType = "network_error"
+				attempts = append(attempts, attempt)
+				break
+			}
+
+			attempt.StatusCode = resp.StatusCode
 			if util.IsHTTPRespSuccessful(resp.StatusCode) {
+				attempt.Success = true
+				attempts = append(attempts, attempt)
+				executor.hc.Params[LLMUpstreamAttemptsKey] = attempts
 				return resp, nil
 			}
+
+			attempt.Success = false
+			attempt.ErrorType = "status_code_error"
+			attempts = append(attempts, attempt)
 
 			logger.Debugf("[dubbo-go-pixiu] attempt failed for endpoint [%s: %v]. Error: %v, Status: %s trying to retry",
 				endpoint.ID, endpoint.Address.GetAddress(), err, resp.Status)
@@ -315,6 +344,8 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 	}
 
 	// 7. If we've exited the loop, all attempts and fallbacks have failed.
+	executor.hc.Params[LLMUpstreamAttemptsKey] = attempts
+
 	// Return the last known error and response.
 	if err == nil && resp != nil {
 		err = fmt.Errorf("request failed with status code %d after all retries and fallbacks", resp.StatusCode)

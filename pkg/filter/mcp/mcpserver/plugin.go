@@ -15,68 +15,36 @@
  * limitations under the License.
  */
 
-package loadbalancer
-
-import (
-	"math/rand"
-	"strings"
-)
+package mcpserver
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 const (
-	Kind = constant.HTTPLoadBalanceFilter
+	// Kind is the type identifier for MCP Server Filter
+	Kind = constant.MCPServerFilter
 )
 
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
 }
 
-type (
-	// Plugin is http filter plugin.
-	Plugin struct {
-	}
+// Plugin implements filter.HttpFilterPlugin interface
+type Plugin struct{}
 
-	// FilterFactory is http filter instance
-	FilterFactory struct {
-		cfg *Config
-	}
-	// Filter is http filter instance
-	Filter struct {
-		cfg *Config
-	}
-	Config struct{}
-)
-
+// Kind returns the plugin type
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
+// CreateFilterFactory creates FilterFactory
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-func (factory *FilterFactory) Config() any {
-	return factory.cfg
-}
-
-func (factory *FilterFactory) Apply() error {
-	return nil
-}
-
-func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg}
-	chain.AppendDecodeFilters(f)
-	return nil
-}
-
-func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-	allInstances := strings.Split(c.GetAPI().IntegrationRequest.HTTPBackendConfig.URL, ",")
-	idx := rand.Int31n(int32(len(allInstances))) // NOSONAR
-	c.Api.IntegrationRequest.HTTPBackendConfig.URL = strings.TrimSpace(allInstances[idx])
-	return filter.Continue
+// Config returns the configuration struct
+func (p *Plugin) Config() any {
+	return &Config{}
 }
