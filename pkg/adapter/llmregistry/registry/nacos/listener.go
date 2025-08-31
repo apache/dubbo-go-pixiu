@@ -204,7 +204,7 @@ func (l *listener) serviceCallback(services []nacosModel.SubscribeService, err e
 	}
 
 	// Check for removed instances.
-	oldInstanceMap.Range(func(key, value interface{}) bool {
+	oldInstanceMap.Range(func(key, value any) bool {
 		instanceKey := key.(string)
 		if _, ok := newEndpoints[instanceKey]; !ok {
 			instance := value.(nacosModel.Instance)
