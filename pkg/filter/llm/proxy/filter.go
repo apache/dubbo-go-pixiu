@@ -41,7 +41,10 @@ import (
 )
 
 const (
-	Kind = constant.LLMProxyFilter
+	Kind                = constant.LLMProxyFilter
+	APIKeyPrefix        = "Bearer"
+	LLMUnhealthyKey     = "LLMUnhealthy"
+	HealthyCheckTimeKey = "HealthyCheckTime"
 	// Context key to pass attempt data from proxy to downstream filters
 	LLMUpstreamAttemptsKey = "llm_upstream_attempts"
 )
@@ -94,10 +97,6 @@ type (
 		clusterName    string
 		clusterManager *server.ClusterManager
 	}
-)
-
-const (
-	APIKeyPrefix = "Bearer"
 )
 
 // Kind returns the unique name of this filter.
@@ -268,9 +267,9 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		logger.Debugf("[dubbo-go-pixiu] client attempting endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 
 		// 3. Check the health of current endpoint,
-		if unhealthy, ok := endpoint.Metadata["LLMUnhealthy"]; ok && unhealthy == "true" {
+		if unhealthy, ok := endpoint.Metadata[LLMUnhealthyKey]; ok && unhealthy == "true" {
 			// check the health cooldown time
-			if t, ok := endpoint.Metadata["HealthyCheckTime"]; ok {
+			if t, ok := endpoint.Metadata[HealthyCheckTimeKey]; ok {
 				lt, err := time.Parse(time.RFC3339, t)
 				if err == nil && time.Since(lt) < time.Millisecond*time.Duration(endpoint.LLMMeta.HealthCheckInterval) {
 					logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] is still in unhealthy cooldown period. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress())
@@ -278,8 +277,8 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 					continue
 				}
 				// The Cooldown period has passed, ready for a new attempt
-				delete(endpoint.Metadata, "LLMUnhealthy")
-				delete(endpoint.Metadata, "HealthyCheckTime")
+				delete(endpoint.Metadata, LLMUnhealthyKey)
+				delete(endpoint.Metadata, HealthyCheckTimeKey)
 				logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] cooldown period passed. Retrying this endpoint.", endpoint.ID, endpoint.Address.GetAddress())
 			}
 		}
@@ -338,8 +337,8 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 		// 6. If we are here, all retries for the current endpoint are exhausted.
 		// Get the next endpoint for fallback. The loop will terminate if it's nil.
-		endpoint.Metadata["LLMUnhealthy"] = "true"
-		endpoint.Metadata["HealthyCheckTime"] = time.Now().Format(time.RFC3339)
+		endpoint.Metadata[LLMUnhealthyKey] = "true"
+		endpoint.Metadata[HealthyCheckTimeKey] = time.Now().Format(time.RFC3339)
 		endpoint = getNextFallbackEndpoint(endpoint, executor)
 	}
 
