@@ -48,7 +48,7 @@ func GetRegistry(regConfig model.Registry, listener common.RegistryEventListener
 	if newRegFunc, ok := registryMap[regConfig.Protocol]; ok {
 		reg, err := newRegFunc(regConfig, listener)
 		if err != nil {
-			panic("Initialize Registry " + regConfig.Protocol + " failed due to: " + err.Error())
+			return nil, errors.New("Initialize Registry " + regConfig.Protocol + " failed due to: " + err.Error())
 		}
 		return reg, nil
 	}

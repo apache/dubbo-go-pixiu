@@ -172,7 +172,6 @@ func TestDiscoverAndSubscribe(t *testing.T) {
 	t.Run("Unsubscribe from a removed service", func(t *testing.T) {
 		// Ensure service-A is already subscribed for the test setup
 		l.subscribedServices.Store("service-A", true)
-		// CHANGE THIS LINE:
 		client.servicesToReturn = nacosModel.ServiceList{Doms: []string{}} // Nacos now returns an empty list
 
 		l.discoverAndSubscribe()
@@ -234,7 +233,7 @@ func TestServiceCallback(t *testing.T) {
 	t.Run("One instance is updated", func(t *testing.T) {
 		adapterListener.reset()
 		updatedInstance1 := instance1
-		updatedInstance1.Metadata = map[string]string{"id": "ep-1", "name": "inst-1-updated"} // 元数据变化
+		updatedInstance1.Metadata = map[string]string{"id": "ep-1", "name": "inst-1-updated"}
 
 		client.subscribeCallback([]nacosModel.SubscribeService{updatedInstance1}, nil)
 
@@ -254,17 +253,14 @@ func TestServiceCallback(t *testing.T) {
 		client.subscribeCallback([]nacosModel.SubscribeService{unhealthyInstance, disabledInstance}, nil)
 
 		assert.Empty(t, adapterListener.addedEndpoints, "Should not add unhealthy/disabled endpoints")
-		// 因为这些实例之前被认为是活跃的，现在它们消失了（被过滤掉了），所以会触发删除
 		assert.Len(t, adapterListener.removedEndpoints, 1, "Should remove the previously active endpoints")
 	})
 
 	t.Run("No changes in instances", func(t *testing.T) {
-		// 首先，用 instance1 设置缓存
 		client.subscribeCallback([]nacosModel.SubscribeService{instance1}, nil)
 
-		adapterListener.reset() // 重置监听器状态
+		adapterListener.reset()
 
-		// 再次用完全相同的数据调用
 		client.subscribeCallback([]nacosModel.SubscribeService{instance1}, nil)
 
 		assert.Empty(t, adapterListener.addedEndpoints, "Should not trigger add for unchanged instance")
@@ -277,10 +273,9 @@ func TestLifecycle(t *testing.T) {
 
 	l.WatchAndHandle()
 
-	// 等待一小段时间，确保至少一个 ticker 周期已经过去
 	time.Sleep(100 * time.Millisecond)
 
-	// 测试 Close 是否能正常工作且不阻塞
+	// test that Close works without panic
 	assert.NotPanics(t, func() {
 		l.Close()
 	})
