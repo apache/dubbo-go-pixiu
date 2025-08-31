@@ -119,6 +119,22 @@ You can configure retry behavior by using a combination of `llm-meta.retry_polic
 
 Detailed usage please refer to our [official samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm/nacos)。
 
+The configuration file of pixiu, need to enable the adapter of llmregistrycenter, as follows:
+
+```yaml
+  adapters:
+    - id: test
+      name: dgp.adapter.llmregistrycenter
+      config:
+        registries:
+          nacos:
+            protocol: nacos
+            address: "127.0.0.1:8848"
+            timeout: "5s"
+            group: test_llm_registry_group
+            namespace: public
+```
+
 This example demonstrates how to register a fully-featured LLM service instance using the Nacos Go SDK. The instance will be configured as the primary endpoint in the `deepseek_cluster`, using an exponential backoff retry policy, and will fall back to the next service in the cluster upon failure.
 
 ```go

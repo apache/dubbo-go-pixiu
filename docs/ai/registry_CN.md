@@ -119,6 +119,22 @@
 
 更详细的使用方法可以参考[官方示例](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm/nacos)。
 
+pixiu 配置文件，需要启用llmregistrycenter这个适配器，示例如下：
+
+```yaml
+  adapters:
+    - id: test
+      name: dgp.adapter.llmregistrycenter
+      config:
+        registries:
+          nacos:
+            protocol: nacos
+            address: "127.0.0.1:8848"
+            timeout: "5s"
+            group: test_llm_registry_group
+            namespace: public
+```
+
 此示例展示了如何使用 Nacos Go SDK 注册一个功能完整的 LLM 服务实例。该实例将被配置为 `deepseek_cluster` 中的主 endpoint，使用指数退避重试策略，并在失败时 fallback 到集群中的下一个服务。
 
 ```go
