@@ -19,7 +19,6 @@ package nacos
 
 import (
 	"encoding/json"
-	"github.com/creasty/defaults"
 	"reflect"
 	"strconv"
 	"strings"
@@ -29,6 +28,8 @@ import (
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/remoting"
+
+	"github.com/creasty/defaults"
 
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosModel "github.com/nacos-group/nacos-sdk-go/model"

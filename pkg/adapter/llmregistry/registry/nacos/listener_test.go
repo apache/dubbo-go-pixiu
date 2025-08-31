@@ -11,6 +11,7 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
+
 	"github.com/stretchr/testify/assert"
 )
 

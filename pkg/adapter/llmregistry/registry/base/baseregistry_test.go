@@ -19,14 +19,17 @@ package baseregistry
 
 import (
 	"errors"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"sync"
 	"testing"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/llmregistry/registry"
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/llmregistry/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // mockFacadeRegistry is a mock implementation of the FacadeRegistry interface for testing.
