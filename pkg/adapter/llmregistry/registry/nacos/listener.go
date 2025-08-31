@@ -132,7 +132,7 @@ func (l *listener) discoverAndSubscribe() {
 	}
 
 	// Unsubscribe from services that no longer exist.
-	l.subscribedServices.Range(func(key, value interface{}) bool {
+	l.subscribedServices.Range(func(key, value any) bool {
 		serviceName := key.(string)
 		if _, exists := currentServices[serviceName]; !exists {
 			err := l.client.Unsubscribe(&vo.SubscribeParam{
@@ -242,7 +242,7 @@ func (l *listener) Close() {
 }
 
 func (l *listener) unsubscribeAll() {
-	l.subscribedServices.Range(func(key, value interface{}) bool {
+	l.subscribedServices.Range(func(key, value any) bool {
 		serviceName := key.(string)
 		err := l.client.Unsubscribe(&vo.SubscribeParam{
 			ServiceName: serviceName,
