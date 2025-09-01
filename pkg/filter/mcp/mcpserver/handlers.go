@@ -23,18 +23,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
-)
 
-import (
-	"github.com/mark3labs/mcp-go/mcp"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/mark3labs/mcp-go/mcp"
 )
 
 const (
@@ -131,7 +126,7 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 }
 
 // buildToolParameterOptions builds the mcp.PropertyOption slice for a given tool argument
-func (f *MCPServerFilter) buildToolParameterOptions(arg *ArgConfig) []mcp.PropertyOption {
+func (f *MCPServerFilter) buildToolParameterOptions(arg *model.ArgConfig) []mcp.PropertyOption {
 	opts := []mcp.PropertyOption{mcp.Description(arg.Description)}
 
 	if arg.Required {
@@ -333,7 +328,7 @@ func (f *MCPServerFilter) handlePromptsGet(ctx *MCPContext, req mcp.JSONRPCReque
 }
 
 // buildPromptMessages builds prompt messages with parameter replacement support
-func (f *MCPServerFilter) buildPromptMessages(promptConfig PromptConfig, arguments map[string]any) ([]map[string]any, error) {
+func (f *MCPServerFilter) buildPromptMessages(promptConfig model.PromptConfig, arguments map[string]any) ([]map[string]any, error) {
 	messages := make([]map[string]any, 0, len(promptConfig.Messages))
 
 	for _, msg := range promptConfig.Messages {
@@ -418,7 +413,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 }
 
 // buildBackendRequest builds the complete backend request including path, body, and headers
-func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolConfig, arguments map[string]any) error {
+func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig model.ToolConfig, arguments map[string]any) error {
 	// Set HTTP method
 	ctx.Request.Method = toolConfig.Request.Method
 
@@ -431,7 +426,7 @@ func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolCo
 	if arguments != nil {
 		for argName, argValue := range arguments {
 			// Find argument configuration
-			var argConfig *ArgConfig
+			var argConfig *model.ArgConfig
 			for _, arg := range toolConfig.Args {
 				if arg.Name == argName {
 					argConfig = &arg

@@ -22,29 +22,26 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-)
 
-import (
-	"github.com/mark3labs/mcp-go/mcp"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/mark3labs/mcp-go/mcp"
+
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // FilterFactory and MCPServerFilter types
 type (
 	// FilterFactory is a factory to create MCP server filters.
 	FilterFactory struct {
-		cfg      *Config
+		cfg      *model.McpServerConfig
 		registry *ToolRegistry
 	}
 
 	// MCPServerFilter is a filter that handles MCP protocol.
 	MCPServerFilter struct {
-		cfg             *Config
+		cfg             *model.McpServerConfig
 		registry        *ToolRegistry
 		errorHandler    *ErrorHandler
 		responseBuilder *ResponseBuilder

@@ -18,28 +18,27 @@
 package nacos
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-)
 
-import (
 	"github.com/nacos-group/nacos-sdk-go/clients"
+	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/common/constant"
+
 	model2 "github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 
-	perrors "github.com/pkg/errors"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	perrors "github.com/pkg/errors"
 )
 
 type NacosClient struct {
 	namingClient naming_client.INamingClient
+	configClient config_client.IConfigClient
 }
 
 func (client *NacosClient) GetAllServicesInfo(param vo.GetAllServiceInfoParam) (model2.ServiceList, error) {
@@ -76,7 +75,7 @@ func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {
 	configMap["serverConfigs"] = serverConfigs
 
 	duration, _ := time.ParseDuration(config.Timeout)
-	client, err := clients.NewNamingClient(
+	naming, err := clients.NewNamingClient(
 		vo.NacosClientParam{
 			ClientConfig: constant.NewClientConfig(
 				constant.WithTimeoutMs(uint64(duration.Milliseconds())),
@@ -88,7 +87,56 @@ func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {
 	)
 
 	if err != nil {
-		return nil, perrors.WithMessagef(err, "nacos client create error")
+		return nil, perrors.WithMessagef(err, "nacos naming client create error")
 	}
-	return &NacosClient{client}, nil
+
+	cfgClient, err := clients.NewConfigClient(vo.NacosClientParam{
+		ClientConfig: constant.NewClientConfig(
+			constant.WithTimeoutMs(uint64(duration.Milliseconds())),
+			constant.WithNotLoadCacheAtStart(true),
+			constant.WithUpdateCacheWhenEmpty(true),
+		),
+		ServerConfigs: serverConfigs,
+	})
+	if err != nil {
+		return nil, perrors.WithMessagef(err, "nacos config client create error")
+	}
+
+	return &NacosClient{namingClient: naming, configClient: cfgClient}, nil
+}
+
+// Dynamic configuration APIs
+// GetConfig retrieves configuration content by dataId and group
+func (client *NacosClient) GetConfig(dataId, group string) (string, error) {
+	if client.configClient == nil {
+		return "", perrors.New("nacos config client not initialized")
+	}
+	return client.configClient.GetConfig(vo.ConfigParam{DataId: dataId, Group: group})
+}
+
+// ListenConfig listens for configuration changes; callback will be invoked with latest content
+func (client *NacosClient) ListenConfig(ctx context.Context, dataId, group string, callback func(string)) error {
+	if client.configClient == nil {
+		return perrors.New("nacos config client not initialized")
+	}
+	return client.configClient.ListenConfig(vo.ConfigParam{
+		DataId: dataId,
+		Group:  group,
+		OnChange: func(namespace, group, dataId, data string) {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			callback(data)
+		},
+	})
+}
+
+// CancelListenConfig stops listening for configuration changes
+func (client *NacosClient) CancelListenConfig(dataId, group string) error {
+	if client.configClient == nil {
+		return perrors.New("nacos config client not initialized")
+	}
+	return client.configClient.CancelListenConfig(vo.ConfigParam{DataId: dataId, Group: group})
 }
