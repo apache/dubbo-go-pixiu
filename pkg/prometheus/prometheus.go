@@ -326,8 +326,8 @@ func (p *Prometheus) sendMetricsToPushGateway(metrics []byte) {
 }
 
 func (p *Prometheus) getPushGatewayURL() string {
-	p.Ppg.mutex.RLock()
-	defer p.Ppg.mutex.RUnlock()
+	p.Ppg.mutex.Lock()
+	defer p.Ppg.mutex.Unlock()
 	h, _ := os.Hostname()
 	if p.Ppg.Job == "" {
 		p.Ppg.Job = "pixiu"
