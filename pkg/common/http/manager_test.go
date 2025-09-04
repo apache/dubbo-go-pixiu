@@ -238,7 +238,7 @@ func TestStreamingResponse(t *testing.T) {
 type StreamRecorder struct {
 	http.ResponseWriter
 	http.Flusher
-	mu          sync.RWMutex
+	mu          sync.Mutex
 	receivedBuf []string
 	headers     http.Header
 	status      int
@@ -268,9 +268,9 @@ func (r *StreamRecorder) Write(data []byte) (int, error) {
 }
 
 func (r *StreamRecorder) GetReceivedBuf() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
 	bufCopy := make([]string, len(r.receivedBuf))
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	copy(bufCopy, r.receivedBuf)
 	return bufCopy
 }
@@ -298,7 +298,7 @@ func NewTestServerWithURL(URL string, handler http.Handler) (*httptest.Server, e
 // StreamHTTPRecorder Used to capture and test streaming HTTP responses over channels
 type StreamHTTPRecorder struct {
 	http.ResponseWriter
-	mu          sync.RWMutex
+	mu          sync.Mutex
 	receivedBuf []string
 	headers     http.Header
 	status      int
@@ -334,9 +334,9 @@ func (r *StreamHTTPRecorder) Flush() {
 }
 
 func (r *StreamHTTPRecorder) GetReceivedBuf() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
 	bufCopy := make([]string, len(r.receivedBuf))
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	copy(bufCopy, r.receivedBuf)
 	return bufCopy
 }
