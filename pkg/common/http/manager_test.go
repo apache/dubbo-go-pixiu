@@ -103,7 +103,6 @@ func (f *DemoFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, cha
 	c := f.conf
 	str := fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
 	demoFilter := &DemoFilter{str: str}
-
 	chain.AppendDecodeFilters(demoFilter)
 	chain.AppendEncodeFilters(demoFilter)
 	return nil
