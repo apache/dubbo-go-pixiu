@@ -103,7 +103,6 @@ func (f *DemoFilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, cha
 	c := f.conf
 	str := fmt.Sprintf("%s is drinking in the %s", c.Foo, c.Bar)
 	demoFilter := &DemoFilter{str: str}
-
 	chain.AppendDecodeFilters(demoFilter)
 	chain.AppendEncodeFilters(demoFilter)
 	return nil
@@ -268,9 +267,9 @@ func (r *StreamRecorder) Write(data []byte) (int, error) {
 }
 
 func (r *StreamRecorder) GetReceivedBuf() []string {
+	bufCopy := make([]string, len(r.receivedBuf))
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	bufCopy := make([]string, len(r.receivedBuf))
 	copy(bufCopy, r.receivedBuf)
 	return bufCopy
 }
@@ -334,9 +333,9 @@ func (r *StreamHTTPRecorder) Flush() {
 }
 
 func (r *StreamHTTPRecorder) GetReceivedBuf() []string {
+	bufCopy := make([]string, len(r.receivedBuf))
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	bufCopy := make([]string, len(r.receivedBuf))
 	copy(bufCopy, r.receivedBuf)
 	return bufCopy
 }
