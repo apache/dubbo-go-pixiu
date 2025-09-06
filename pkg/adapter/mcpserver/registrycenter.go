@@ -18,18 +18,27 @@
 package mcpserver
 
 import (
+	"context"
 	"os"
+	"strconv"
 	"sync"
+	"time"
+)
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/common"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry/nacos"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/adapter"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 // TODO: Implement mcpserver/registry package
 // "github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry"
-
 func init() {
 	adapter.RegisterAdapterPlugin(&Plugin{})
 }
@@ -52,9 +61,11 @@ type (
 	Adapter struct {
 		id  string
 		cfg *AdapterConfig
-		// TODO: Use actual registry interface when implemented
-		// registries map[string]registry.Registry
-		mu sync.RWMutex
+		// single provider controller (provider-agnostic)
+		controller registry.Controller
+		ctx        context.Context
+		cancel     context.CancelFunc
+		mu         sync.RWMutex
 	}
 
 	// McpServerInfo represents an MCP server instance from service discovery
@@ -85,12 +96,23 @@ func (a *Adapter) Start() {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	// TODO: Start registries when implemented
-	// for _, reg := range a.registries {
-	//     if err := reg.Subscribe(); err != nil {
-	//         logger.Errorf("MCP registry %s subscribe failed: %v", reg, err)
-	//     }
-	// }
+	if a.controller == nil {
+		logger.Warnf("MCP server adapter %s start skipped: controller not initialized (call Apply first)", a.id)
+		return
+	}
+
+	if a.cancel != nil {
+		logger.Infof("MCP server adapter %s already running", a.id)
+		return
+	}
+
+	a.ctx, a.cancel = context.WithCancel(context.Background())
+	go func() {
+		if err := a.controller.Run(a.ctx, 30*time.Second); err != nil {
+			logger.Errorf("MCP server controller run error: %v", err)
+		}
+	}()
+
 	logger.Infof("MCP server adapter %s started successfully", a.id)
 }
 
@@ -99,12 +121,16 @@ func (a *Adapter) Stop() {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	// TODO: Stop registries when implemented
-	// for _, reg := range a.registries {
-	//     if err := reg.Unsubscribe(); err != nil {
-	//         logger.Errorf("MCP registry %s unsubscribe failed: %v", reg, err)
-	//     }
-	// }
+	if a.cancel != nil {
+		a.cancel()
+		a.cancel = nil
+	}
+
+	if a.controller != nil {
+		if err := a.controller.Close(); err != nil {
+			logger.Errorf("MCP server controller close error: %v", err)
+		}
+	}
 	logger.Infof("MCP server adapter %s stopped successfully", a.id)
 }
 
@@ -121,15 +147,51 @@ func (a *Adapter) Apply() error {
 			registryConfig.Address = nacosAddrFromEnv
 		}
 
-		// TODO: Create registry when implemented
-		// reg, err := registry.GetRegistry(k, registryConfig, a)
-		// if err != nil {
-		//     logger.Errorf("Create MCP registry %s failed: %v", k, err)
-		//     return err
-		// }
-		// a.registries[k] = reg
+		// only handle nacos for now
+		if registryConfig.Protocol != constant.Nacos {
+			logger.Infof("MCP registry %s skipped (protocol=%s)", k, registryConfig.Protocol)
+			continue
+		}
 
-		logger.Infof("MCP registry %s configured successfully", k)
+		onChange := func(cfg *model.McpServerConfig) {
+			if cfg == nil {
+				return
+			}
+			// 1) apply tools dynamically to registry for filter usage
+			if dc := mcpserver.GetOrInitDynamic(); dc != nil {
+				if err := dc.ApplyMcpServerConfig(cfg); err != nil {
+					logger.Errorf("[MCP Adapter] apply config error: %v", err)
+				}
+			} else {
+				logger.Infof("[MCP Adapter] update received: tools=%d", len(cfg.Tools))
+			}
+			// 2) register endpoint for each tool using BackendURL (host:port) into cluster named by tool.Name
+			for _, tool := range cfg.Tools {
+				if tool.BackendURL == "" {
+					continue
+				}
+				host, port := common.ParseHostPortFromURL(tool.BackendURL)
+				if host == "" || port <= 0 {
+					continue
+				}
+				endpointID := host + ":" + strconv.Itoa(port)
+				server.GetClusterManager().SetEndpoint(tool.Cluster, &model.Endpoint{
+					ID: endpointID,
+					Address: model.SocketAddress{
+						Address: host,
+						Port:    port,
+					},
+				})
+			}
+		}
+
+		// build controller via provider-agnostic factory
+		ctrl, err := registry.BuildController(registryConfig, onChange)
+		if err != nil {
+			return err
+		}
+		a.controller = ctrl
+		logger.Infof("MCP registry %s configured successfully (nacos)", k)
 	}
 
 	return nil

@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// McpController 是 MCP Server 在 Nacos 中的配置同步器。
-// 它负责发现、监听、转换和应用配置。
+// McpController is the MCP server's configuration synchronizer in Nacos.
+// It is responsible for discovering, watching, transforming, and applying configurations.
 type McpController struct {
 	client   *NacosRegistryClient
 	onChange func(cfg *McpServerConfig)
@@ -18,7 +20,7 @@ type McpController struct {
 	mu       sync.RWMutex
 }
 
-// NewMcpController 创建新的 MCP 控制器
+// NewMcpController creates a new MCP controller
 func NewMcpController(client *NacosRegistryClient, onChange func(cfg *McpServerConfig)) *McpController {
 	return &McpController{
 		client:   client,
@@ -27,14 +29,14 @@ func NewMcpController(client *NacosRegistryClient, onChange func(cfg *McpServerC
 	}
 }
 
-// Run 启动控制器，定期发现和监听 MCP 服务
+// Run starts the controller, periodically discovering and watching MCP services
 func (c *McpController) Run(ctx context.Context, interval time.Duration) error {
 	logger.Infof("Starting MCP controller with interval: %v", interval)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// 立即执行一次
+	// Run once immediately
 	if err := c.reconcile(); err != nil {
 		logger.Errorf("Initial reconcile failed: %v", err)
 	}
@@ -52,9 +54,12 @@ func (c *McpController) Run(ctx context.Context, interval time.Duration) error {
 	}
 }
 
-// reconcile 执行协调逻辑：发现服务、计算差异、绑定监听
+// reconcile coordinates logic: discover services, compute diffs, bind watchers
 func (c *McpController) reconcile() error {
-	// 获取所有 MCP 服务
+
+	logger.Infof("[dubbo-go-pixiu] nacos registry starting to list MCP servers")
+
+	// Retrieve all MCP services
 	servers, err := c.client.ListMcpServer()
 	if err != nil {
 		return fmt.Errorf("failed to list MCP servers: %w", err)
@@ -63,12 +68,12 @@ func (c *McpController) reconcile() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// 计算需要监听的服务
+	// Determine services to watch
 	currentWatched := make(map[string]bool)
 	for _, server := range servers {
 		currentWatched[server.Id] = true
 
-		// 如果还没有监听，则开始监听
+		// If not watching yet, start watching
 		if !c.watched[server.Id] {
 			logger.Infof("Starting to watch MCP server: %s (%s)", server.Name, server.Id)
 
@@ -82,7 +87,7 @@ func (c *McpController) reconcile() error {
 		}
 	}
 
-	// 取消不再存在的服务监听
+	// Cancel watchers for servers that no longer exist
 	for serverId := range c.watched {
 		if !currentWatched[serverId] {
 			logger.Infof("Stopping watch for MCP server: %s", serverId)
@@ -99,7 +104,7 @@ func (c *McpController) reconcile() error {
 	return nil
 }
 
-// wrapListener 包装监听器回调
+// wrapListener wraps a listener callback
 func (c *McpController) wrapListener(serverId string) McpServerListener {
 	return func(cfg *McpServerConfig) {
 		logger.Infof("Received config update for server: %s", serverId)
@@ -110,12 +115,12 @@ func (c *McpController) wrapListener(serverId string) McpServerListener {
 	}
 }
 
-// Close 关闭控制器
+// Close closes the controller
 func (c *McpController) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// 取消所有监听
+	// Cancel all watchers
 	for serverId := range c.watched {
 		err := c.client.CancelListenToServer(serverId)
 		if err != nil {
@@ -123,7 +128,7 @@ func (c *McpController) Close() error {
 		}
 	}
 
-	// 清空监听列表
+	// Clear the watch list
 	c.watched = make(map[string]bool)
 
 	return nil

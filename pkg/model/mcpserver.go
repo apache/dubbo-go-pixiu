@@ -28,6 +28,7 @@ type ToolConfig struct {
 	Name        string        `yaml:"name" json:"name"`
 	Description string        `yaml:"description" json:"description"`
 	Cluster     string        `yaml:"cluster" json:"cluster"`
+	BackendURL  string        `yaml:"backend_url,omitempty" json:"backend_url,omitempty"`
 	Request     RequestConfig `yaml:"request" json:"request"`
 	Args        []ArgConfig   `yaml:"args,omitempty" json:"args,omitempty"`
 }

@@ -23,13 +23,18 @@ import (
 	"io"
 	"net/http"
 	"strings"
+)
 
+import (
+	"github.com/mark3labs/mcp-go/mcp"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/mark3labs/mcp-go/mcp"
 )
 
 const (
@@ -50,11 +55,7 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 		Tools: &struct {
 			ListChanged bool `json:"listChanged,omitempty"`
 		}{
-			// TODO: Dynamic update capabilities - enable after Nacos integration
-			// Currently set to false, future Nacos integration will support:
-			// 1. Dynamic discovery and registration of new backend services
-			// 2. Automatic generation of corresponding MCP tools
-			// 3. Send notifications/tools/list_changed notifications
+			// disable listChanged notifications (not implemented)
 			ListChanged: false,
 		},
 		Resources: &struct {
@@ -91,10 +92,12 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 // handleToolsList handles the tools/list method using mcp-go APIs
 func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
-	tools := make([]mcp.Tool, 0, len(f.cfg.Tools))
+	// Read tools from registry to reflect dynamic updates
+	toolCfgs := f.registry.ListTools()
+	tools := make([]mcp.Tool, 0, len(toolCfgs))
 
 	// Build tools using mcp-go API for standard compliance
-	for _, toolCfg := range f.cfg.Tools {
+	for _, toolCfg := range toolCfgs {
 		// Start with basic tool options
 		toolOptions := []mcp.ToolOption{
 			mcp.WithDescription(toolCfg.Description),
@@ -190,7 +193,7 @@ func (f *MCPServerFilter) handlePing(ctx *MCPContext, req mcp.JSONRPCRequest) fi
 }
 
 // handleNotificationsInitialized handles notifications/initialized notification
-func (f *MCPServerFilter) handleNotificationsInitialized(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handleNotificationsInitialized(_ *MCPContext, _ mcp.JSONRPCRequest) filter.FilterStatus {
 	logger.Debugf("[dubbo-go-pixiu] mcp server received initialized notification from client")
 
 	// Store client initialization state
@@ -423,36 +426,34 @@ func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig model.
 	queryParams := make(map[string]string)
 
 	// Process arguments based on their location (path, query, body)
-	if arguments != nil {
-		for argName, argValue := range arguments {
-			// Find argument configuration
-			var argConfig *model.ArgConfig
-			for _, arg := range toolConfig.Args {
-				if arg.Name == argName {
-					argConfig = &arg
-					break
-				}
+	for argName, argValue := range arguments {
+		// Find argument configuration
+		var argConfig *model.ArgConfig
+		for _, arg := range toolConfig.Args {
+			if arg.Name == argName {
+				argConfig = &arg
+				break
 			}
+		}
 
-			if argConfig == nil {
-				continue // Skip unknown arguments
-			}
+		if argConfig == nil {
+			continue // Skip unknown arguments
+		}
 
-			switch argConfig.In {
-			case inPath:
-				// Replace path parameters
-				placeholder := fmt.Sprintf("{%s}", argName)
-				replacement := fmt.Sprintf("%v", argValue)
-				path = strings.ReplaceAll(path, placeholder, replacement)
+		switch argConfig.In {
+		case inPath:
+			// Replace path parameters
+			placeholder := fmt.Sprintf("{%s}", argName)
+			replacement := fmt.Sprintf("%v", argValue)
+			path = strings.ReplaceAll(path, placeholder, replacement)
 
-			case inQuery:
-				// Add to query parameters
-				queryParams[argName] = fmt.Sprintf("%v", argValue)
+		case inQuery:
+			// Add to query parameters
+			queryParams[argName] = fmt.Sprintf("%v", argValue)
 
-			case inBody:
-				// Add to request body
-				bodyParams[argName] = argValue
-			}
+		case inBody:
+			// Add to request body
+			bodyParams[argName] = argValue
 		}
 	}
 

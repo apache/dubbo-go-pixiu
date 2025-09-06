@@ -20,10 +20,15 @@ package mcpserver
 import (
 	"fmt"
 	"sync"
+)
 
+import (
+	"github.com/mark3labs/mcp-go/mcp"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/mark3labs/mcp-go/mcp"
 )
 
 // ToolRegistry tool registry, thread-safe (optimized with single indexing)
@@ -60,11 +65,19 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 	}
 
 	r.tools[tool.Name] = tool
-
-	// TODO: Dynamic update notification - enable when integrating with Nacos
-	// r.notifyToolsListChanged()
-
 	return nil
+}
+
+// ReplaceAllTools replaces the entire tools set with the provided slice (full sync)
+func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	newMap := make(map[string]model.ToolConfig, len(tools))
+	for _, t := range tools {
+		newMap[t.Name] = t
+	}
+	r.tools = newMap
 }
 
 // RegisterResource registers a resource (indexed by URI as per MCP specification)

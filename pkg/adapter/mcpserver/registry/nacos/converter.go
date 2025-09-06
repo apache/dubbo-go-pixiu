@@ -3,13 +3,17 @@ package nacos
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"regexp"
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// ConvertNacosToolsToToolConfig 转换 Nacos 工具格式为 Filter 的 ToolConfig
+// ConvertNacosToolsToToolConfig converts Nacos Tools to the Filter's ToolConfig
 func ConvertNacosToolsToToolConfig(toolsSpec *ToolsSpec) ([]model.ToolConfig, error) {
 	var toolConfigs []model.ToolConfig
 
@@ -19,7 +23,7 @@ func ConvertNacosToolsToToolConfig(toolsSpec *ToolsSpec) ([]model.ToolConfig, er
 			continue
 		}
 
-		// 提取 json-go-template
+		// Extract json-go-template
 		templateData, ok := meta.Templates["json-go-template"]
 		if !ok {
 			logger.Warnf("Tool %s has no json-go-template, skipping", nacosTool.Name)
@@ -38,7 +42,7 @@ func ConvertNacosToolsToToolConfig(toolsSpec *ToolsSpec) ([]model.ToolConfig, er
 }
 
 func convertSingleTool(nacosTool NacosTool, templateData interface{}) (model.ToolConfig, error) {
-	// 解析模板数据
+	// Parse template data
 	templateBytes, err := json.Marshal(templateData)
 	if err != nil {
 		return model.ToolConfig{}, err
@@ -52,7 +56,8 @@ func convertSingleTool(nacosTool NacosTool, templateData interface{}) (model.Too
 	toolConfig := model.ToolConfig{
 		Name:        nacosTool.Name,
 		Description: nacosTool.Description,
-		Cluster:     extractClusterFromURL(template.RequestTemplate.URL),
+		Cluster:     nacosTool.Name, // Directly use the tool name as the cluster name
+		BackendURL:  template.RequestTemplate.URL,
 		Request: model.RequestConfig{
 			Method:  template.RequestTemplate.Method,
 			Path:    extractPathFromURL(template.RequestTemplate.URL),
@@ -71,23 +76,56 @@ func convertSingleTool(nacosTool NacosTool, templateData interface{}) (model.Too
 	return toolConfig, nil
 }
 
-func extractClusterFromURL(url string) string {
-	// 从 URL 中提取集群名
-	if strings.HasPrefix(url, "http:/") {
-		return strings.TrimPrefix(url, "http:/")
+func extractPathFromURL(raw string) string {
+	if raw == "" {
+		return "/"
 	}
-	if strings.HasPrefix(url, "https:/") {
-		return strings.TrimPrefix(url, "https:/")
+	s := strings.TrimSpace(raw)
+
+	// Prefer url.Parse to extract the path
+	if i := strings.Index(s, "://"); i >= 0 {
+		if u, err := url.Parse(s); err == nil {
+			path := u.Path
+			if path == "" {
+				path = "/"
+			}
+			return replaceGoTemplateArgsInPath(path)
+		}
+		// Fallback: remove the scheme and process
+		s = s[i+3:]
 	}
-	return url
+
+	// Handle host[:port]/path form without a scheme
+	slash := strings.IndexByte(s, '/')
+	if slash >= 0 {
+		// If the colon appears before the first slash, treat the portion after the slash as the path
+		colon := strings.IndexByte(s, ':')
+		if colon >= 0 && colon < slash {
+			path := s[slash:]
+			if path == "" {
+				return "/"
+			}
+			return replaceGoTemplateArgsInPath(path)
+		}
+		// Otherwise, it is a path or relative path
+		if s[0] != '/' {
+			return replaceGoTemplateArgsInPath("/" + s[slash+1:])
+		}
+		return replaceGoTemplateArgsInPath(s[slash:])
+	}
+
+	// No slash found, return root path
+	return "/"
 }
 
-func extractPathFromURL(url string) string {
-	// 提取路径部分
-	if idx := strings.Index(url, "/"); idx != -1 {
-		return url[idx:]
+var goTmplArgRe = regexp.MustCompile(`\{\{\.args\.(?P<name>[a-zA-Z0-9_\-]+)\}\}`)
+
+// replaceGoTemplateArgsInPath converts {{.args.name}} to {name} in path-only strings.
+func replaceGoTemplateArgsInPath(path string) string {
+	if path == "" {
+		return "/"
 	}
-	return "/"
+	return goTmplArgRe.ReplaceAllString(path, `{$1}`)
 }
 
 func convertHeaders(headers []map[string]string) map[string]string {
@@ -142,7 +180,7 @@ func getString(m map[string]interface{}, key, defaultValue string) string {
 }
 
 func determineArgLocation(argName string, requestTemplate RequestTemplate) string {
-	// 根据模板配置确定参数位置
+	// Determine parameter location based on template configuration
 	if requestTemplate.ArgsToJsonBody {
 		return "body"
 	}
@@ -150,10 +188,10 @@ func determineArgLocation(argName string, requestTemplate RequestTemplate) strin
 		return "query"
 	}
 
-	// 检查 URL 中是否有路径参数
+	// Check if URL contains path parameters
 	if strings.Contains(requestTemplate.URL, "{{.args."+argName+"}}") {
 		return "path"
 	}
 
-	return "body" // 默认值
+	return "body" // default
 }
