@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Check License Header
-        uses: apache/skywalking-eyes/header@main # nolint
+        uses: apache/skywalking-eyes/header@main # NOSONAR
 
       - name: Check Import Formatting
         run: |
@@ -61,7 +61,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8 # nolint
+        uses: golangci/golangci-lint-action@v8 # NOSONAR
         with:
           version: v2.4.0
 
@@ -99,7 +99,7 @@ jobs:
           go test ./... -gcflags=-l -race -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4 # NOSONAR
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.txt
