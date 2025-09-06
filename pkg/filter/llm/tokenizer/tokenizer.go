@@ -101,6 +101,9 @@ var (
 	llmTotalDurationSum             syncfloat64.Counter
 	llmTimeToLastTokenSum           syncfloat64.Counter
 	llmStreamingRequestsTotal       syncint64.Counter
+
+	registerOnce sync.Once
+	registerErr  error
 )
 
 func init() {
@@ -381,76 +384,87 @@ func decompress(body io.Reader, encoding string) ([]byte, bool) {
 
 // registerLLMMetrics creates and registers all metrics for this plugin.
 func registerLLMMetrics() error {
-	meter := global.MeterProvider().Meter(meterName)
-	var err error
+	registerOnce.Do(func() {
+		meter := global.MeterProvider().Meter(meterName)
+		var err error
 
-	llmPromptTokens, err = meter.SyncInt64().Counter(metricPromptTokens,
-		instrument.WithDescription("Total prompt tokens."),
-		instrument.WithUnit("1"))
-	if err != nil {
-		return err
-	}
-	llmCompletionTokens, err = meter.SyncInt64().Counter(metricCompletionTokens,
-		instrument.WithDescription("Total completion tokens."),
-		instrument.WithUnit("1"))
-	if err != nil {
-		return err
-	}
-	llmTotalTokens, err = meter.SyncInt64().Counter(metricTotalTokens,
-		instrument.WithDescription("Total tokens."),
-		instrument.WithUnit("1"))
-	if err != nil {
-		return err
-	}
+		llmPromptTokens, err = meter.SyncInt64().Counter(metricPromptTokens,
+			instrument.WithDescription("Total prompt tokens."),
+			instrument.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
+		llmCompletionTokens, err = meter.SyncInt64().Counter(metricCompletionTokens,
+			instrument.WithDescription("Total completion tokens."),
+			instrument.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
+		llmTotalTokens, err = meter.SyncInt64().Counter(metricTotalTokens,
+			instrument.WithDescription("Total tokens."),
+			instrument.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
 
-	llmUpstreamRequestsTotal, err = meter.SyncInt64().Counter(metricUpstreamRequests,
-		instrument.WithDescription("Total requests to upstream endpoints."),
-		instrument.WithUnit("1"))
-	if err != nil {
-		return err
-	}
-	llmUpstreamRequestsSuccessTotal, err = meter.SyncInt64().Counter(metricUpstreamSuccess,
-		instrument.WithDescription("Total successful requests to upstream endpoints."),
-		instrument.WithUnit("1"))
-	if err != nil {
-		return err
-	}
-	llmUpstreamRequestsFailureTotal, err = meter.SyncInt64().Counter(metricUpstreamFailure,
-		instrument.WithDescription("Total failed requests to upstream endpoints."),
-		instrument.WithUnit("1"))
-	if err != nil {
-		return err
-	}
+		llmUpstreamRequestsTotal, err = meter.SyncInt64().Counter(metricUpstreamRequests,
+			instrument.WithDescription("Total requests to upstream endpoints."),
+			instrument.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
+		llmUpstreamRequestsSuccessTotal, err = meter.SyncInt64().Counter(metricUpstreamSuccess,
+			instrument.WithDescription("Total successful requests to upstream endpoints."),
+			instrument.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
+		llmUpstreamRequestsFailureTotal, err = meter.SyncInt64().Counter(metricUpstreamFailure,
+			instrument.WithDescription("Total failed requests to upstream endpoints."),
+			instrument.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
 
-	llmTotalDurationSum, err = meter.SyncFloat64().Counter(
-		metricTotalDurationSum,
-		instrument.WithDescription("Sum of total duration of LLM requests in microseconds."),
-		instrument.WithUnit(unit.Unit("µs")),
-	)
-	if err != nil {
-		return err
-	}
+		llmTotalDurationSum, err = meter.SyncFloat64().Counter(
+			metricTotalDurationSum,
+			instrument.WithDescription("Sum of total duration of LLM requests in microseconds."),
+			instrument.WithUnit(unit.Unit("µs")),
+		)
+		if err != nil {
+			registerErr = err
+			return
+		}
 
-	llmTimeToLastTokenSum, err = meter.SyncFloat64().Counter(
-		metricTTLTSum,
-		instrument.WithDescription("Sum of Time to Last Token for streaming responses in milliseconds."),
-		instrument.WithUnit("ms"),
-	)
-	if err != nil {
-		return err
-	}
+		llmTimeToLastTokenSum, err = meter.SyncFloat64().Counter(
+			metricTTLTSum,
+			instrument.WithDescription("Sum of Time to Last Token for streaming responses in milliseconds."),
+			instrument.WithUnit("ms"),
+		)
+		if err != nil {
+			registerErr = err
+			return
+		}
 
-	llmStreamingRequestsTotal, err = meter.SyncInt64().Counter(
-		metricStreamingRequests,
-		instrument.WithDescription("Total number of streaming LLM requests."),
-		instrument.WithUnit("1"),
-	)
-	if err != nil {
-		return err
-	}
+		llmStreamingRequestsTotal, err = meter.SyncInt64().Counter(
+			metricStreamingRequests,
+			instrument.WithDescription("Total number of streaming LLM requests."),
+			instrument.WithUnit("1"),
+		)
+		if err != nil {
+			registerErr = err
+			return
+		}
 
-	logger.Info("LLM metrics registered successfully.")
-	return nil
+		logger.Info("LLM metrics registered successfully.")
+	})
+	return registerErr
 }
 
 // --- TeeReadCloser Implementation ---
