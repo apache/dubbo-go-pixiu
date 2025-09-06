@@ -189,7 +189,7 @@ func (f *Filter) unauthorized(hc *contexthttp.HttpContext, code, desc string) {
 	if hc.Request.TLS != nil {
 		scheme = "https"
 	}
-	metaURL := scheme + "://" + hc.Request.Host + f.state.metaPath
+	metaURL := scheme + constant.ProtocolSlash + hc.Request.Host + f.state.metaPath
 	// Per RFC9728, include resource_metadata parameter; include OAuth error fields
 	header := fmt.Sprintf("Bearer resource_metadata=\"%s\", error=\"%s\", error_description=\"%s\"", metaURL, escapeParam(code), escapeParam(desc))
 	hc.AddHeader(constant.WWWAuthenticate, header)
