@@ -20,13 +20,8 @@ name: CI
 
 on:
   push:
-    branches:
-      - develop
-      - main
   pull_request:
-    branches:
-      - develop
-      - main
+  pull_request_target:
 
 # cancel in-progress runs for the same branch or PR
 concurrency:
