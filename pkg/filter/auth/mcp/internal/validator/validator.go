@@ -21,9 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 )
@@ -340,14 +341,10 @@ func (v *Validator) Provider(name string) (*Provider, bool) {
 func (v *Validator) Providers() []string {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
-	names := make([]string, 0, len(v.providers))
-	for name := range v.providers {
-		names = append(names, name)
-	}
-	// Keep return deterministic for callers that rely on stable order
-	if len(names) > 1 {
-		sort.Strings(names)
-	}
+
+	// Return sorted names for consistency, using maps.Keys + slices.Sorted
+	names := slices.Sorted(maps.Keys(v.providers))
+
 	return names
 }
 
