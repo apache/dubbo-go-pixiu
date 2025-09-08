@@ -1,6 +1,6 @@
 # OPA 过滤器 (dgp.filter.http.opa)
 
-[English](opa.md) · [中文](opa_CN.md)
+[English](opa.md) | 中文
 
 ---
 
@@ -42,6 +42,7 @@ filters:
         # HTTP proxy 过滤器应该在OPA 过滤器之后
         - name: dgp.filter.http.proxy
           config:
+          	# ... proxy config
 ```
 
 

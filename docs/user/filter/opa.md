@@ -1,47 +1,49 @@
-- # OPA Filter (dgp.filter.http.opa)
+# OPA Filter (dgp.filter.http.opa)
 
-  [English](opa.md) · [中文](opa_CN.md)
+English| [中文](opa_CN.md)
 
-  ---
+---
 
-  ## English
+## English
 
-  ### Overview
-  The `dgp.filter.http.opa` filter delegates authorization decisions to Open Policy Agent (OPA) via a Rego policy. This filter evaluates requests and determines whether to allow or deny based on the policy defined in Rego. The policy is provided as an inline Rego module and evaluated using OPA's built-in query engine.
+### Overview
+The `dgp.filter.http.opa` filter delegates authorization decisions to Open Policy Agent (OPA) via a Rego policy. This filter evaluates requests and determines whether to allow or deny based on the policy defined in Rego. The policy is provided as an inline Rego module and evaluated using OPA's built-in query engine.
 
-  ### What the filter does (current behavior)
-  - Loads a Rego **module string** from `config.policy`.
-  - Builds a Rego **query** from `config.entrypoint`.
-  - For each incoming request, constructs an `input` object and evaluates the query.
-  - If the query result is `true`, the request is allowed. Otherwise, the request is denied.
+### What the filter does (current behavior)
+- Loads a Rego **module string** from `config.policy`.
+- Builds a Rego **query** from `config.entrypoint`.
+- For each incoming request, constructs an `input` object and evaluates the query.
+- If the query result is `true`, the request is allowed. Otherwise, the request is denied.
 
-  > There is **no built-in support** for external policy files or URIs, custom HTTP status codes, or custom error bodies.
+> There is **no built-in support** for external policy files or URIs, custom HTTP status codes, or custom error bodies.
 
-  ### Configuration schema
-  Add the filter under your HTTP connection manager’s `http_filters` list.
+### Configuration schema
+Add the filter under your HTTP connection manager’s `http_filters` list.
 
-  ```yaml
-  filters:
-    - name: dgp.filter.httpconnectionmanager
-      config:
-        route_config:
-          # ... your routes
-        http_filters:
-          - name: dgp.filter.http.opa
-            config:
-              policy: |
-                package http.authz
-  
-                default allow = false
-  
-                allow {
-                  input.method == "GET"
-                  input.path == "/status"
-                }
-              entrypoint: "data.http.authz.allow"
-          # HTTP proxy filter should be after OPA filter
-          - name: dgp.filter.http.proxy
-            config:
+```yaml
+filters:
+  - name: dgp.filter.httpconnectionmanager
+    config:
+      route_config:
+        # ... your routes
+      http_filters:
+        - name: dgp.filter.http.opa
+          config:
+            policy: |
+              package http.authz
+
+              default allow = false
+
+              allow {
+                input.method == "GET"
+                input.path == "/status"
+              }
+            entrypoint: "data.http.authz.allow"
+        # HTTP proxy filter should be after OPA filter
+        - name: dgp.filter.http.proxy
+          config:
+          	# ... proxy config
+```
 
 #### Fields
 
