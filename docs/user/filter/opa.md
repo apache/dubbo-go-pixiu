@@ -1,6 +1,6 @@
 # OPA Filter (dgp.filter.http.opa)
 
-English| [中文](opa_CN.md)
+English | [中文](opa_CN.md)
 
 ---
 
