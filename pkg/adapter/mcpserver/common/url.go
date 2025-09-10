@@ -24,6 +24,10 @@ import (
 	"strings"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+)
+
 // ParseHostPortFromURL extracts host and port from a raw URL or host:port string.
 // It supports forms like:
 // - http://host:port/path?query
@@ -37,7 +41,7 @@ func ParseHostPortFromURL(raw string) (string, int) {
 
 	addr := strings.TrimSpace(raw)
 
-	if strings.Contains(addr, "://") {
+	if strings.Contains(addr, constant.ProtocolSlash) {
 		u, err := url.Parse(addr)
 		if err == nil && u.Host != "" {
 			return splitHostPort(u.Host)

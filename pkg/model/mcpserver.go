@@ -148,7 +148,7 @@ type PromptMessageConfig struct {
 	Content string `yaml:"content" json:"content"`
 }
 
-// RegistryConfig 注册表配置
+// RegistryConfig registry configuration
 type RegistryConfig struct {
 	ToolConfigs     map[string]ToolConfig     `yaml:"toolConfigs"`
 	ResourceConfigs map[string]ResourceConfig `yaml:"resourceConfigs"`
@@ -184,7 +184,6 @@ func (tc *ToolConfig) GetAllParameters() ([]ComputedParameter, error) {
 		if argConfig != nil {
 			computed.Type = argConfig.Type
 			computed.Description = argConfig.Description
-			// Simplified: removed Pattern and Format fields
 		}
 
 		allParams = append(allParams, computed)

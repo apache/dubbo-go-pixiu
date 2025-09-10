@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -100,11 +101,11 @@ func extractPathFromURL(raw string) string {
 	s := strings.TrimSpace(raw)
 
 	// Prefer url.Parse to extract the path
-	if i := strings.Index(s, "://"); i >= 0 {
+	if i := strings.Index(s, constant.ProtocolSlash); i >= 0 {
 		if u, err := url.Parse(s); err == nil {
 			path := u.Path
 			if path == "" {
-				path = "/"
+				path = constant.PathSlash
 			}
 			return replaceGoTemplateArgsInPath(path)
 		}
