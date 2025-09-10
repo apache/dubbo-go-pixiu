@@ -43,7 +43,7 @@ require (
 	github.com/smartystreets/goconvey v1.7.2
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/cobra v1.5.0
-	github.com/spf13/viper v1.7.1
+	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
@@ -100,6 +100,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
+	github.com/dubbogo/tools v1.0.10 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
@@ -189,7 +190,7 @@ require (
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
-	github.com/spf13/jwalterweatherman v1.0.0 // indirect
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
