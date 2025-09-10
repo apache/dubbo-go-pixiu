@@ -18,6 +18,8 @@
 package mcpserver
 
 import (
+	"sync"
+
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -25,21 +27,25 @@ import (
 var (
 	globalRegistry *ToolRegistry
 	globalDynamic  *DynamicConsumer
+
+	// sync.Once variables for thread-safe singleton initialization
+	registryOnce sync.Once
+	dynamicOnce  sync.Once
 )
 
 // GetOrInitRegistry returns a singleton ToolRegistry
 func GetOrInitRegistry() *ToolRegistry {
-	if globalRegistry == nil {
+	registryOnce.Do(func() {
 		globalRegistry = NewToolRegistry()
-	}
+	})
 	return globalRegistry
 }
 
 // GetOrInitDynamic returns a singleton DynamicConsumer
 func GetOrInitDynamic() *DynamicConsumer {
-	if globalDynamic == nil {
+	dynamicOnce.Do(func() {
 		globalDynamic = NewDynamicConsumer(GetOrInitRegistry())
-	}
+	})
 	return globalDynamic
 }
 
