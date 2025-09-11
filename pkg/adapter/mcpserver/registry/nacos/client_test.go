@@ -114,7 +114,7 @@ func createBrokenJSON() string {
 }
 
 type MockedNacosConfigClient struct {
-	configs           map[string]interface{}
+	configs           map[string]any
 	configListenerMap map[string][]func(string, string, string, string)
 }
 
@@ -280,7 +280,7 @@ func (m MockedNacosNamingClient) CloseClient() {
 
 func TestNacosRegistryClient_ListMcpServer(t *testing.T) {
 	// Test case 1: List multiple pages with valid MCP servers
-	mockedConfigs := map[string]interface{}{}
+	mockedConfigs := map[string]any{}
 	for i := 0; i < testServerCount; i++ {
 		configKey := fmt.Sprintf("%d-mcp-versions.json%smcp-server-versions", i, configKeySeparator)
 		configValue := createMcpServerVersionConfig(fmt.Sprintf("%d", i), "test", "http", "mcp-streamable", testVersionLatest)
@@ -335,7 +335,7 @@ func TestNacosRegistryClient_ListenToMcpServer(t *testing.T) {
 	toolsConfigKey113 := fmt.Sprintf("%s-%s-mcp-tools.json%smcp-tools", testMcpServerID, testVersion113, configKeySeparator)
 
 	configClient := MockedNacosConfigClient{
-		configs: map[string]interface{}{
+		configs: map[string]any{
 			versionConfigKey:   createExploreServerVersionConfig(testVersion112),
 			serverConfigKey112: createMcpServerConfig(testMcpServerID, testVersion112, testServiceName),
 			toolsConfigKey112:  createMcpToolsConfig(fmt.Sprintf("%s/%s", testConfigKey, testConfigKey)),
@@ -387,7 +387,7 @@ func TestNacosRegistryClient_ListenToMcpServer(t *testing.T) {
 	assert.Equal(t, expectedServerConfig, newConfig.ServerSpecConfig)
 	assert.Equal(t, expectedToolsConfig, newConfig.ToolsSpecConfig)
 	assert.Equal(t, 1, len(newConfig.Credentials))
-	assert.Equal(t, map[string]interface{}{"key": testSecretKey}, newConfig.Credentials[testCredentialKey])
+	assert.Equal(t, map[string]any{"key": testSecretKey}, newConfig.Credentials[testCredentialKey])
 
 	// Test case 1: Change tool nacos template reference
 	listener := configClient.configListenerMap[toolsConfigKey112][0]
@@ -406,7 +406,7 @@ func TestNacosRegistryClient_ListenToMcpServer(t *testing.T) {
 	expectedUpdatedToolsConfig := strings.ReplaceAll(updatedToolsConfig, fmt.Sprintf("${nacos.%s/%s}", testConfigKey1, testConfigKey1), fmt.Sprintf(".config.credentials.%s", testCredentialKey1))
 	assert.Equal(t, expectedUpdatedToolsConfig, newConfig.ToolsSpecConfig)
 	assert.Equal(t, 1, len(newConfig.Credentials))
-	assert.Equal(t, map[string]interface{}{"key": testSecretKey1}, newConfig.Credentials[testCredentialKey1])
+	assert.Equal(t, map[string]any{"key": testSecretKey1}, newConfig.Credentials[testCredentialKey1])
 
 	// Test case 2: Change backend service name
 	serviceListener := configClient.configListenerMap[serverConfigKey112][0]
@@ -449,5 +449,5 @@ func TestNacosRegistryClient_ListenToMcpServer(t *testing.T) {
 	assert.Equal(t, expectedFinalServerConfig, newConfig.ServerSpecConfig)
 	assert.Equal(t, expectedFinalToolsConfig, newConfig.ToolsSpecConfig)
 	assert.Equal(t, 1, len(newConfig.Credentials))
-	assert.Equal(t, map[string]interface{}{"key": testSecretKey3}, newConfig.Credentials[testCredentialKey3])
+	assert.Equal(t, map[string]any{"key": testSecretKey3}, newConfig.Credentials[testCredentialKey3])
 }

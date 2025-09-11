@@ -19,9 +19,9 @@ package nacos
 
 // NacosTool is the structure for defining a tool in Nacos
 type NacosTool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	InputSchema map[string]any `json:"inputSchema"`
 }
 
 type RequestTemplate struct {
@@ -42,8 +42,8 @@ type JsonGoTemplate struct {
 }
 
 type ToolMeta struct {
-	Enabled   bool                   `json:"enabled"`
-	Templates map[string]interface{} `json:"templates"`
+	Enabled   bool           `json:"enabled"`
+	Templates map[string]any `json:"templates"`
 }
 
 type ToolsSpec struct {
