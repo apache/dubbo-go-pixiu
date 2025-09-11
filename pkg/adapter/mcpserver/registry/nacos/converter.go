@@ -59,7 +59,7 @@ func ConvertNacosToolsToToolConfig(toolsSpec *ToolsSpec) ([]model.ToolConfig, er
 	return toolConfigs, nil
 }
 
-func convertSingleTool(nacosTool NacosTool, templateData interface{}) (model.ToolConfig, error) {
+func convertSingleTool(nacosTool NacosTool, templateData any) (model.ToolConfig, error) {
 	// Parse template data
 	templateBytes, err := json.Marshal(templateData)
 	if err != nil {
@@ -136,7 +136,7 @@ func extractPathFromURL(raw string) string {
 	return "/"
 }
 
-var goTmplArgRe = regexp.MustCompile(`\{\{\.args\.(?P<name>[a-zA-Z0-9_\-]+)\}\}`)
+var goTmplArgRe = regexp.MustCompile(`\{\{\.args\.(?P<name>[a-zA-Z0-9_\-]+)}}`)
 
 // replaceGoTemplateArgsInPath converts {{.args.name}} to {name} in path-only strings.
 func replaceGoTemplateArgsInPath(path string) string {

@@ -115,7 +115,7 @@ type McpServerConfig struct {
 	ServerSpecConfig string
 	ToolsSpecConfig  string
 	ServiceInfo      *nacosmodel.Service
-	Credentials      map[string]interface{}
+	Credentials      map[string]any
 	ToolConfigs      []model.ToolConfig // Converted tool configurations
 }
 
@@ -718,7 +718,7 @@ func (n *NacosRegistryClient) resetNacosTemplateConfigs(ctx *ServerContext, conf
 	}
 
 	// Update ctx.configsMap: cancel old ones, add new ones. Execute deletion and insertion within ctx.mu (cancel network operations outside)
-	// First find wraps that need to be cancelled
+	// First find wraps that need to be canceled
 	ctx.mu.Lock()
 	toRemove := make([]*ConfigListenerWrap, 0)
 	for key, wrap := range ctx.configsMap {
