@@ -614,7 +614,7 @@ func mapConfigMapToServerConfig(ctx *ServerContext) *McpServerConfig {
 	defer ctx.mu.Unlock()
 
 	result := &McpServerConfig{
-		Credentials: make(map[string]interface{}),
+		Credentials: make(map[string]any),
 	}
 
 	// Process system configurations
@@ -634,7 +634,7 @@ func mapConfigMapToServerConfig(ctx *ServerContext) *McpServerConfig {
 			_, _, group, dataId := parseConfigKey(key)
 			credentialId := group + "_" + dataId
 
-			var credData interface{}
+			var credData any
 			if err := json.Unmarshal([]byte(data.data), &credData); err != nil {
 				result.Credentials[credentialId] = data.data
 			} else {
@@ -697,8 +697,7 @@ func parseTemplatePlaceholders(content string) (string, [][2]string) {
 	return newContent, placeholders
 }
 
-// replaceTemplateAndExactConfigsItems has been split, old logic is called by resetNacosTemplateConfigs
-// resetNacosTemplateConfigs resets Nacos template configurations
+// resetNacosTemplateConfigs resets template configurations and their referenced credential configurations
 func (n *NacosRegistryClient) resetNacosTemplateConfigs(ctx *ServerContext, config *ConfigListenerWrap) {
 	// Parse out placeholders and replaced text
 	newContent, placeholders := parseTemplatePlaceholders(config.data)

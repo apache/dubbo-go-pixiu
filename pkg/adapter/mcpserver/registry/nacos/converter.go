@@ -158,15 +158,15 @@ func convertHeaders(headers []map[string]string) map[string]string {
 	return result
 }
 
-func convertInputSchemaToArgs(inputSchema map[string]interface{}, requestTemplate RequestTemplate) ([]model.ArgConfig, error) {
+func convertInputSchemaToArgs(inputSchema map[string]any, requestTemplate RequestTemplate) ([]model.ArgConfig, error) {
 	var args []model.ArgConfig
 
-	properties, ok := inputSchema["properties"].(map[string]interface{})
+	properties, ok := inputSchema["properties"].(map[string]any)
 	if !ok {
 		return args, nil
 	}
 
-	required, _ := inputSchema["required"].([]interface{})
+	required, _ := inputSchema["required"].([]any)
 	requiredMap := make(map[string]bool)
 	for _, req := range required {
 		if reqStr, ok := req.(string); ok {
@@ -175,7 +175,7 @@ func convertInputSchemaToArgs(inputSchema map[string]interface{}, requestTemplat
 	}
 
 	for name, prop := range properties {
-		if propMap, ok := prop.(map[string]interface{}); ok {
+		if propMap, ok := prop.(map[string]any); ok {
 			arg := model.ArgConfig{
 				Name:        name,
 				Type:        getString(propMap, "type", "string"),
@@ -190,7 +190,7 @@ func convertInputSchemaToArgs(inputSchema map[string]interface{}, requestTemplat
 	return args, nil
 }
 
-func getString(m map[string]interface{}, key, defaultValue string) string {
+func getString(m map[string]any, key, defaultValue string) string {
 	if val, ok := m[key].(string); ok {
 		return val
 	}

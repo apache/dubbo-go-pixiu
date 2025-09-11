@@ -17,7 +17,7 @@
 
 package nacos
 
-// Nacos configuration data structures
+// NacosTool is the structure for defining a tool in Nacos
 type NacosTool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
