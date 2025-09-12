@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -128,7 +128,7 @@ jobs:
       SAMPLES_CLONE_DIR: integrate_samples
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -143,7 +143,7 @@ jobs:
           set -euo pipefail
           head_sha="$(git ls-remote --heads "$SAMPLES_REPO_URL" "$SAMPLES_BRANCH" | awk '{print $1}')"
           if [ -z "$head_sha" ]; then
-            echo "Failed to resolve HEAD of SAMPLES_REPO_URL $SAMPLES_BRANCH" >&2
+            echo "Failed to resolve HEAD of $SAMPLES_REPO_URL $SAMPLES_BRANCH" >&2
             exit 1
           fi
           echo "sha=$head_sha" >> "$GITHUB_OUTPUT"
@@ -161,7 +161,7 @@ jobs:
         if: steps.cache_samples.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          git clone --depth 1 -b "$SAMPLES_BRANCH" "SAMPLES_REPO_URL" "SAMPLES_CLONE_DIR"
+          git clone --depth 1 -b "$SAMPLES_BRANCH" "$SAMPLES_REPO_URL" "$SAMPLES_CLONE_DIR"
 
       - name: Wire samples to local pixiu
         working-directory: ${{ env.SAMPLES_CLONE_DIR }}
