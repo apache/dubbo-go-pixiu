@@ -34,13 +34,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Cache imports-formatter
+        id: cache-go-bin
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-imports-formatter-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-imports-formatter-
+
+      - name: Download imports-formatter if not cached
+        if: steps.cache-go-bin.outputs.cache-hit != 'true'
+        run: |
+          go install github.com/dubbogo/tools/cmd/imports-formatter@latest
 
       - name: Check License Header
         uses: apache/skywalking-eyes/header@main # NOSONAR
 
       - name: Check Import Formatting
         run: |
-          go install github.com/dubbogo/tools/cmd/imports-formatter@latest
           imports-formatter
           gofmt -s -w .
           git diff --exit-code
@@ -104,6 +116,12 @@ jobs:
     needs: unit-test
     name: Integration Test
     runs-on: ubuntu-latest
+    outputs:
+      output1: ${{ steps.samples_head.outputs.sha }}
+    env:
+      SAMPLES_BRANCH: main
+      SAMPLES_REPO_URL: https://github.com/apache/dubbo-go-pixiu-samples.git
+      SAMPLES_CLONE_DIR: integrate_samples
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
@@ -113,6 +131,39 @@ jobs:
 
       - name: Download Go Modules
         run: go mod download
+
+      - name: Resolve samples HEAD
+        id: samples_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          head_sha="$(git ls-remote --heads "SAMPLES_REPO_URL" "$SAMPLES_BRANCH" | awk '{print $1}')"
+          if [ -z "$head_sha" ]; then
+            echo "Failed to resolve HEAD of SAMPLES_REPO_URL $SAMPLES_BRANCH" >&2
+            exit 1
+          fi
+          echo "sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dubbo-go-pixiu-samples
+        id: cache_samples
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SAMPLES_CLONE_DIR }}
+          key: ${{ runner.os }}-samples-${{ steps.samples_head.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-samples-
+
+      - name: Clone dubbo-go-pixiu-samples if not cached
+        if: steps.cache_samples.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          git clone --depth 1 -b "$SAMPLES_BRANCH" "SAMPLES_REPO_URL" "SAMPLES_CLONE_DIR"
+
+      - name: Wire samples to local pixiu
+        working-directory: ${{ env.SAMPLES_CLONE_DIR }}
+        run: |
+          go mod edit -replace=github.com/apache/dubbo-go-pixiu=${{ github.workspace }}
+          go mod tidy
 
       - name: Run Integration Tests
         run: |

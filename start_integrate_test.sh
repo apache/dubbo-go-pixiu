@@ -33,8 +33,10 @@ echo "PR Base Branch (GITHUB_BASE_REF): ${GITHUB_BASE_REF}"
 echo "PR Head Branch (GITHUB_HEAD_REF): ${GITHUB_HEAD_REF}"
 echo "::endgroup::"
 
-echo "> Cloning dubbo-go-samples (branch: ${SAMPLES_BRANCH})..."
-git clone --depth 1 -b "${SAMPLES_BRANCH}" "${SAMPLES_REPO_URL}" "${SAMPLES_CLONE_DIR}"
+if [ ! -d "SAMPLES_CLONE_DIR" ]; then
+  echo "> Cloning dubbo-go-samples (branch: ${SAMPLES_BRANCH})..."
+  git clone --depth 1 -b "${SAMPLES_BRANCH}" "${SAMPLES_REPO_URL}" "${SAMPLES_CLONE_DIR}"
+fi
 
 cd "${SAMPLES_CLONE_DIR}"
 
