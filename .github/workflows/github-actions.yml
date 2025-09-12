@@ -42,7 +42,7 @@ jobs:
         run: |
           go install github.com/dubbogo/tools/cmd/imports-formatter@latest
           imports-formatter
-          gofmt -l .
+          gofmt -s -w .
           git diff --exit-code
 
   golangci:
