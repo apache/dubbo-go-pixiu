@@ -51,10 +51,14 @@ jobs:
       - name: Check License Header
         uses: apache/skywalking-eyes/header@main # NOSONAR
 
+      - name: Check Golang fmt
+        run: |
+          gofmt -s -w .
+          git diff --exit-code
+
       - name: Check Import Formatting
         run: |
           imports-formatter
-          gofmt -s -w .
           git diff --exit-code
 
   golangci:
@@ -137,7 +141,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          head_sha="$(git ls-remote --heads "SAMPLES_REPO_URL" "$SAMPLES_BRANCH" | awk '{print $1}')"
+          head_sha="$(git ls-remote --heads "$SAMPLES_REPO_URL" "$SAMPLES_BRANCH" | awk '{print $1}')"
           if [ -z "$head_sha" ]; then
             echo "Failed to resolve HEAD of SAMPLES_REPO_URL $SAMPLES_BRANCH" >&2
             exit 1
