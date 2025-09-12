@@ -29,11 +29,9 @@ echo "Pixiu Root Directory:         ${PIXIU_ROOT_DIR}"
 echo "Commit SHA:                   ${GITHUB_SHA}"
 echo "Target Branch for Samples:    ${SAMPLES_BRANCH}"
 echo "Repository Slug:              ${GITHUB_REPOSITORY}"
-echo "PR Base Branch (GITHUB_BASE_REF): ${GITHUB_BASE_REF}"
-echo "PR Head Branch (GITHUB_HEAD_REF): ${GITHUB_HEAD_REF}"
 echo "::endgroup::"
 
-if [ ! -d "SAMPLES_CLONE_DIR" ]; then
+if [ ! -d "$SAMPLES_CLONE_DIR" ]; then
   echo "> Cloning dubbo-go-samples (branch: ${SAMPLES_BRANCH})..."
   git clone --depth 1 -b "${SAMPLES_BRANCH}" "${SAMPLES_REPO_URL}" "${SAMPLES_CLONE_DIR}"
 fi
