@@ -220,7 +220,7 @@ type Prometheus struct {
 // PushGateway contains the configuration for pushing to a Prometheus pushgateway (optional)
 type PushGateway struct {
 	CounterPush           bool
-	PushIntervalSeconds   time.Duration
+	PushInterval          time.Duration
 	PushIntervalThreshold int
 	PushGatewayURL        string
 	Job                   string
@@ -268,7 +268,8 @@ func (p *Prometheus) registerMetrics() {
 }
 
 func (p *Prometheus) SetPushGatewayUrl(pushGatewayURL, metricspath string) {
-
+	p.Ppg.mutex.Lock()
+	defer p.Ppg.mutex.Unlock()
 	p.Ppg.PushGatewayURL = pushGatewayURL
 	p.MetricsPath = metricspath
 }
@@ -279,6 +280,8 @@ func (p *Prometheus) SetPushIntervalThreshold(isTurn bool, pushIntervalThreshold
 }
 
 func (p *Prometheus) SetPushGatewayJob(j string) {
+	p.Ppg.mutex.Lock()
+	defer p.Ppg.mutex.Unlock()
 	p.Ppg.Job = j
 }
 
@@ -323,6 +326,8 @@ func (p *Prometheus) sendMetricsToPushGateway(metrics []byte) {
 }
 
 func (p *Prometheus) getPushGatewayURL() string {
+	p.Ppg.mutex.Lock()
+	defer p.Ppg.mutex.Unlock()
 	h, _ := os.Hostname()
 	if p.Ppg.Job == "" {
 		p.Ppg.Job = "pixiu"
