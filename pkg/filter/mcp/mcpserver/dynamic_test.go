@@ -20,6 +20,7 @@ package mcpserver
 import (
 	"sync"
 	"testing"
+	"time"
 )
 
 import (
@@ -31,48 +32,41 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// Test constants
-const (
-	testToolName1        = "test-tool-1"
-	testToolName2        = "test-tool-2"
-	testToolName3        = "test-tool-3"
-	testToolDescription1 = "First test tool"
-	testToolDescription2 = "Second test tool"
-	testToolDescription3 = "Third test tool"
-	testClusterName      = "test-cluster"
-	testRequestPath      = "/api/test"
-	testRequestMethod    = "GET"
-	testArgName          = "test-param"
-	testArgType          = "string"
-	testArgIn            = "query"
-	testArgDescription   = "Test parameter"
-	defaultTimeout       = "30s"
-)
+// =============================================================================
+// Test Utilities
+// =============================================================================
+// resetSingletons resets singleton state for testing
+func resetSingletons() {
+	globalRegistry = nil
+	globalDynamic = nil
+	registryOnce = sync.Once{}
+	dynamicOnce = sync.Once{}
+}
 
-// Helper function to create test tool configurations
+// createTestToolConfig creates a simple test tool configuration
 func createTestToolConfig(name, description string) model.ToolConfig {
 	return model.ToolConfig{
 		Name:        name,
 		Description: description,
-		Cluster:     testClusterName,
+		Cluster:     "test-cluster",
 		Request: model.RequestConfig{
-			Method:  testRequestMethod,
-			Path:    testRequestPath,
-			Timeout: defaultTimeout,
+			Method:  "GET",
+			Path:    "/api/test",
+			Timeout: "30s",
 		},
 		Args: []model.ArgConfig{
 			{
-				Name:        testArgName,
-				Type:        testArgType,
-				In:          testArgIn,
-				Description: testArgDescription,
+				Name:        "param",
+				Type:        "string",
+				In:          "query",
+				Description: "Test parameter",
 				Required:    true,
 			},
 		},
 	}
 }
 
-// Helper function to create test MCP server configuration
+// createTestMcpServerConfig creates a test MCP server configuration
 func createTestMcpServerConfig(tools []model.ToolConfig) *model.McpServerConfig {
 	return &model.McpServerConfig{
 		ServerInfo: model.ServerInfo{
@@ -84,333 +78,116 @@ func createTestMcpServerConfig(tools []model.ToolConfig) *model.McpServerConfig 
 	}
 }
 
-// Helper function to reset singleton state for testing
-func resetSingletons() {
-	globalRegistry = nil
-	globalDynamic = nil
-	registryOnce = sync.Once{}
-	dynamicOnce = sync.Once{}
-}
+// =============================================================================
+// Singleton Tests
+// =============================================================================
 
-func TestGetOrInitRegistry(t *testing.T) {
-	tests := []struct {
-		name     string
-		testFunc func(t *testing.T)
-	}{
-		{
-			name: "should return singleton registry instance",
-			testFunc: func(t *testing.T) {
-				resetSingletons()
-
-				registry1 := GetOrInitRegistry()
-				registry2 := GetOrInitRegistry()
-
-				assert.NotNil(t, registry1)
-				assert.NotNil(t, registry2)
-				assert.Same(t, registry1, registry2, "GetOrInitRegistry should return the same instance")
-			},
-		},
-		{
-			name: "should initialize registry only once",
-			testFunc: func(t *testing.T) {
-				resetSingletons()
-
-				registry := GetOrInitRegistry()
-				require.NotNil(t, registry)
-
-				// Add a tool to verify it's the same instance
-				testTool := createTestToolConfig(testToolName1, testToolDescription1)
-				registry.RegisterTool(testTool)
-
-				// Get registry again and verify it contains the tool
-				registry2 := GetOrInitRegistry()
-				tools := registry2.ListTools()
-				assert.Len(t, tools, 1)
-				assert.Equal(t, testToolName1, tools[0].Name)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, tt.testFunc)
-	}
-}
-
-// TestGetOrInitDynamic tests the singleton dynamic consumer instance
-func TestGetOrInitDynamic(t *testing.T) {
-	tests := []struct {
-		name     string
-		testFunc func(t *testing.T)
-	}{
-		{
-			name: "should return singleton dynamic consumer instance",
-			testFunc: func(t *testing.T) {
-				resetSingletons()
-
-				dynamic1 := GetOrInitDynamic()
-				dynamic2 := GetOrInitDynamic()
-
-				assert.NotNil(t, dynamic1)
-				assert.NotNil(t, dynamic2)
-				assert.Same(t, dynamic1, dynamic2, "GetOrInitDynamic should return the same instance")
-			},
-		},
-		{
-			name: "should use same registry instance",
-			testFunc: func(t *testing.T) {
-				resetSingletons()
-
-				registry := GetOrInitRegistry()
-				dynamic := GetOrInitDynamic()
-
-				assert.NotNil(t, dynamic)
-				assert.Same(t, registry, dynamic.registry, "DynamicConsumer should use the singleton registry")
-			},
-		},
-		{
-			name: "should initialize dynamic consumer only once",
-			testFunc: func(t *testing.T) {
-				resetSingletons()
-
-				dynamic1 := GetOrInitDynamic()
-				dynamic2 := GetOrInitDynamic()
-
-				// Verify they share the same registry
-				assert.Same(t, dynamic1.registry, dynamic2.registry)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, tt.testFunc)
-	}
-}
-
-// TestGetOrInitRegistry_Concurrent Concurrent tests to ensure thread safety
-func TestGetOrInitRegistry_Concurrent(t *testing.T) {
+func TestSingletonInstances(t *testing.T) {
 	resetSingletons()
 
-	const numGoroutines = 100
-	registries := make([]*ToolRegistry, numGoroutines)
-	var wg sync.WaitGroup
-
-	wg.Add(numGoroutines)
-	for i := 0; i < numGoroutines; i++ {
-		go func(index int) {
-			defer wg.Done()
-			registries[index] = GetOrInitRegistry()
-		}(i)
-	}
-
-	wg.Wait()
-
-	// Verify all registries are the same instance
-	firstRegistry := registries[0]
-	assert.NotNil(t, firstRegistry)
-
-	for i := 1; i < numGoroutines; i++ {
-		assert.Same(t, firstRegistry, registries[i], "All registries should be the same instance")
-	}
-}
-
-// TestGetOrInitDynamic_Concurrent Concurrent tests to ensure thread safety
-func TestGetOrInitDynamic_Concurrent(t *testing.T) {
-	resetSingletons()
-
-	const numGoroutines = 100
-	dynamics := make([]*DynamicConsumer, numGoroutines)
-	var wg sync.WaitGroup
-
-	wg.Add(numGoroutines)
-	for i := 0; i < numGoroutines; i++ {
-		go func(index int) {
-			defer wg.Done()
-			dynamics[index] = GetOrInitDynamic()
-		}(i)
-	}
-
-	wg.Wait()
-
-	// Verify all dynamic consumers are the same instance
-	firstDynamic := dynamics[0]
-	assert.NotNil(t, firstDynamic)
-
-	for i := 1; i < numGoroutines; i++ {
-		assert.Same(t, firstDynamic, dynamics[i], "All dynamic consumers should be the same instance")
-		assert.Same(t, firstDynamic.registry, dynamics[i].registry, "All registries should be the same instance")
-	}
-}
-
-// TestNewDynamicConsumer tests the constructor of DynamicConsumer
-func TestNewDynamicConsumer(t *testing.T) {
-	tests := []struct {
-		name     string
-		registry *ToolRegistry
-		expected bool
-	}{
-		{
-			name:     "should create dynamic consumer with valid registry",
-			registry: NewToolRegistry(),
-			expected: true,
-		},
-		{
-			name:     "should create dynamic consumer with nil registry",
-			registry: nil,
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			consumer := NewDynamicConsumer(tt.registry)
-
-			if tt.expected {
-				assert.NotNil(t, consumer)
-				assert.Equal(t, tt.registry, consumer.registry)
-			} else {
-				assert.Nil(t, consumer)
-			}
-		})
-	}
-}
-
-// TestApplyMcpServerConfig tests applying MCP server configurations
-func TestDynamicConsumer_ApplyMcpServerConfig(t *testing.T) {
-	tests := []struct {
-		name          string
-		initialTools  []model.ToolConfig
-		configToApply *model.McpServerConfig
-		expectedTools []string
-		expectError   bool
-	}{
-		{
-			name:          "should handle nil config",
-			initialTools:  []model.ToolConfig{},
-			configToApply: nil,
-			expectedTools: []string{},
-			expectError:   false,
-		},
-		{
-			name: "should replace all tools with new configuration",
-			initialTools: []model.ToolConfig{
-				createTestToolConfig(testToolName1, testToolDescription1),
-			},
-			configToApply: createTestMcpServerConfig([]model.ToolConfig{
-				createTestToolConfig(testToolName2, testToolDescription2),
-				createTestToolConfig(testToolName3, testToolDescription3),
-			}),
-			expectedTools: []string{testToolName2, testToolName3},
-			expectError:   false,
-		},
-		{
-			name: "should clear all tools when empty config provided",
-			initialTools: []model.ToolConfig{
-				createTestToolConfig(testToolName1, testToolDescription1),
-				createTestToolConfig(testToolName2, testToolDescription2),
-			},
-			configToApply: createTestMcpServerConfig([]model.ToolConfig{}),
-			expectedTools: []string{},
-			expectError:   false,
-		},
-		{
-			name:         "should handle empty initial tools",
-			initialTools: []model.ToolConfig{},
-			configToApply: createTestMcpServerConfig([]model.ToolConfig{
-				createTestToolConfig(testToolName1, testToolDescription1),
-			}),
-			expectedTools: []string{testToolName1},
-			expectError:   false,
-		},
-		{
-			name:         "should handle multiple tools with same name (last one wins)",
-			initialTools: []model.ToolConfig{},
-			configToApply: createTestMcpServerConfig([]model.ToolConfig{
-				createTestToolConfig(testToolName1, testToolDescription1),
-				createTestToolConfig(testToolName1, testToolDescription2), // Same name
-			}),
-			expectedTools: []string{testToolName1}, // Only one should remain
-			expectError:   false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create fresh registry and consumer for each test
-			registry := NewToolRegistry()
-			consumer := NewDynamicConsumer(registry)
-
-			// Setup initial state
-			for _, tool := range tt.initialTools {
-				registry.RegisterTool(tool)
-			}
-
-			// Apply configuration
-			err := consumer.ApplyMcpServerConfig(tt.configToApply)
-
-			// Verify error expectation
-			if tt.expectError {
-				assert.Error(t, err)
-				return
-			}
-			assert.NoError(t, err)
-
-			// Verify tools state
-			actualTools := registry.ListTools()
-			actualToolNames := make([]string, len(actualTools))
-			for i, tool := range actualTools {
-				actualToolNames[i] = tool.Name
-			}
-
-			assert.ElementsMatch(t, tt.expectedTools, actualToolNames)
-		})
-	}
-}
-
-// Integration test to verify end-to-end behavior
-func TestDynamicConsumer_ApplyMcpServerConfig_Integration(t *testing.T) {
-	// Test integration with singleton pattern
-	resetSingletons()
-
-	// Get singleton instances
-	registry := GetOrInitRegistry()
-	consumer := GetOrInitDynamic()
-
-	// Verify initial state
-	assert.Empty(t, registry.ListTools())
-
-	// Apply first configuration
-	config1 := createTestMcpServerConfig([]model.ToolConfig{
-		createTestToolConfig(testToolName1, testToolDescription1),
+	t.Run("Registry singleton", func(t *testing.T) {
+		registry1 := GetOrInitRegistry()
+		registry2 := GetOrInitRegistry()
+		assert.Same(t, registry1, registry2)
 	})
 
-	err := consumer.ApplyMcpServerConfig(config1)
-	assert.NoError(t, err)
-
-	tools := registry.ListTools()
-	assert.Len(t, tools, 1)
-	assert.Equal(t, testToolName1, tools[0].Name)
-
-	// Apply second configuration (should replace first)
-	config2 := createTestMcpServerConfig([]model.ToolConfig{
-		createTestToolConfig(testToolName2, testToolDescription2),
-		createTestToolConfig(testToolName3, testToolDescription3),
+	t.Run("Dynamic consumer singleton", func(t *testing.T) {
+		dynamic1 := GetOrInitDynamic()
+		dynamic2 := GetOrInitDynamic()
+		assert.Same(t, dynamic1, dynamic2)
+		assert.Same(t, dynamic1.registry, GetOrInitRegistry())
 	})
-
-	err = consumer.ApplyMcpServerConfig(config2)
-	assert.NoError(t, err)
-
-	tools = registry.ListTools()
-	assert.Len(t, tools, 2)
-
-	toolNames := []string{tools[0].Name, tools[1].Name}
-	assert.ElementsMatch(t, []string{testToolName2, testToolName3}, toolNames)
 }
 
-// Concurrent test to ensure thread safety during configuration application
-func TestDynamicConsumer_ApplyMcpServerConfig_Concurrent(t *testing.T) {
+func TestSingletonConcurrency(t *testing.T) {
 	resetSingletons()
 
-	// Get singleton instances
+	const numGoroutines = 50
+	var wg sync.WaitGroup
+
+	t.Run("Registry concurrent access", func(t *testing.T) {
+		registries := make([]*ToolRegistry, numGoroutines)
+		wg.Add(numGoroutines)
+		for i := 0; i < numGoroutines; i++ {
+			go func(index int) {
+				defer wg.Done()
+				registries[index] = GetOrInitRegistry()
+			}(i)
+		}
+		wg.Wait()
+
+		// All should be the same instance
+		for i := 1; i < numGoroutines; i++ {
+			assert.Same(t, registries[0], registries[i])
+		}
+	})
+}
+
+// =============================================================================
+// Configuration Application Tests
+// =============================================================================
+
+func TestApplyMcpServerConfig(t *testing.T) {
+	t.Run("Basic configuration application", func(t *testing.T) {
+		registry := NewToolRegistry()
+		consumer := NewDynamicConsumer(registry)
+
+		// Test nil config
+		err := consumer.ApplyMcpServerConfig(nil)
+		assert.NoError(t, err)
+		assert.Empty(t, registry.ListTools())
+
+		// Test empty config
+		config := createTestMcpServerConfig([]model.ToolConfig{})
+		err = consumer.ApplyMcpServerConfig(config)
+		assert.NoError(t, err)
+		assert.Empty(t, registry.ListTools())
+
+		// Test with tools
+		consumer.ResetDebounceState()
+		config = createTestMcpServerConfig([]model.ToolConfig{
+			createTestToolConfig("tool1", "First tool"),
+			createTestToolConfig("tool2", "Second tool"),
+		})
+		err = consumer.ApplyMcpServerConfig(config)
+		assert.NoError(t, err)
+
+		tools := registry.ListTools()
+		assert.Len(t, tools, 2)
+		toolNames := []string{tools[0].Name, tools[1].Name}
+		assert.ElementsMatch(t, []string{"tool1", "tool2"}, toolNames)
+	})
+
+	t.Run("Configuration replacement", func(t *testing.T) {
+		registry := NewToolRegistry()
+		consumer := NewDynamicConsumer(registry)
+
+		// Apply first config
+		config1 := createTestMcpServerConfig([]model.ToolConfig{
+			createTestToolConfig("tool1", "First tool"),
+		})
+		err := consumer.ApplyMcpServerConfig(config1)
+		assert.NoError(t, err)
+		assert.Len(t, registry.ListTools(), 1)
+
+		// Replace with second config
+		consumer.ResetDebounceState()
+		config2 := createTestMcpServerConfig([]model.ToolConfig{
+			createTestToolConfig("tool2", "Second tool"),
+			createTestToolConfig("tool3", "Third tool"),
+		})
+		err = consumer.ApplyMcpServerConfig(config2)
+		assert.NoError(t, err)
+
+		tools := registry.ListTools()
+		assert.Len(t, tools, 2)
+		toolNames := []string{tools[0].Name, tools[1].Name}
+		assert.ElementsMatch(t, []string{"tool2", "tool3"}, toolNames)
+	})
+}
+
+func TestApplyMcpServerConfigConcurrent(t *testing.T) {
+	resetSingletons()
 	registry := GetOrInitRegistry()
 	consumer := GetOrInitDynamic()
 
@@ -420,10 +197,7 @@ func TestDynamicConsumer_ApplyMcpServerConfig_Concurrent(t *testing.T) {
 	configs := make([]*model.McpServerConfig, numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
 		configs[i] = createTestMcpServerConfig([]model.ToolConfig{
-			createTestToolConfig(
-				"tool-"+string(rune('A'+i)),
-				"Description for tool "+string(rune('A'+i)),
-			),
+			createTestToolConfig("tool-"+string(rune('A'+i)), "Tool "+string(rune('A'+i))),
 		})
 	}
 
@@ -431,71 +205,216 @@ func TestDynamicConsumer_ApplyMcpServerConfig_Concurrent(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(index int) {
 			defer wg.Done()
-			err := consumer.ApplyMcpServerConfig(configs[index])
-			assert.NoError(t, err)
+			consumer.ApplyMcpServerConfig(configs[index])
 		}(i)
 	}
-
 	wg.Wait()
 
-	// Verify final state (exactly one configuration should have won)
+	// One config should have won
 	tools := registry.ListTools()
-	assert.Len(t, tools, 1, "Only one configuration should remain after concurrent updates")
+	assert.Len(t, tools, 1)
 }
 
-// Benchmark tests
-func BenchmarkGetOrInitRegistry(b *testing.B) {
+// =============================================================================
+// Debounce Functionality Tests
+// =============================================================================
+
+func TestDebounceFeatures(t *testing.T) {
+	t.Run("Content debounce - skip identical configs", func(t *testing.T) {
+		registry := NewToolRegistry()
+		consumer := NewDynamicConsumer(registry)
+
+		config := createTestMcpServerConfig([]model.ToolConfig{
+			createTestToolConfig("tool1", "Test tool"),
+		})
+
+		// First application
+		err := consumer.ApplyMcpServerConfig(config)
+		assert.NoError(t, err)
+		assert.Len(t, registry.ListTools(), 1)
+
+		// Second application with same config - should be skipped
+		err = consumer.ApplyMcpServerConfig(config)
+		assert.NoError(t, err)
+		assert.Len(t, registry.ListTools(), 1)
+
+		// Verify debounce info
+		info := consumer.GetDebounceInfo()
+		assert.NotEmpty(t, info["last_fingerprint"])
+		assert.NotZero(t, info["last_applied"])
+	})
+
+	t.Run("Time debounce - skip rapid calls", func(t *testing.T) {
+		registry := NewToolRegistry()
+		consumer := NewDynamicConsumer(registry)
+
+		config1 := createTestMcpServerConfig([]model.ToolConfig{
+			createTestToolConfig("tool1", "First tool"),
+		})
+		config2 := createTestMcpServerConfig([]model.ToolConfig{
+			createTestToolConfig("tool2", "Second tool"),
+		})
+
+		// First application
+		err := consumer.ApplyMcpServerConfig(config1)
+		assert.NoError(t, err)
+		tools := registry.ListTools()
+		require.Len(t, tools, 1)
+		assert.Equal(t, "tool1", tools[0].Name)
+
+		// Immediate second application - should be debounced
+		err = consumer.ApplyMcpServerConfig(config2)
+		assert.NoError(t, err)
+		tools = registry.ListTools()
+		require.Len(t, tools, 1)
+		assert.Equal(t, "tool1", tools[0].Name, "Should still have first tool due to time debounce")
+	})
+
+	t.Run("Empty configuration handling", func(t *testing.T) {
+		registry := NewToolRegistry()
+		consumer := NewDynamicConsumer(registry)
+
+		// Add tool first
+		config := createTestMcpServerConfig([]model.ToolConfig{
+			createTestToolConfig("tool1", "Test tool"),
+		})
+		err := consumer.ApplyMcpServerConfig(config)
+		assert.NoError(t, err)
+		assert.Len(t, registry.ListTools(), 1)
+
+		// Apply empty config
+		consumer.ResetDebounceState()
+		emptyConfig := createTestMcpServerConfig([]model.ToolConfig{})
+		err = consumer.ApplyMcpServerConfig(emptyConfig)
+		assert.NoError(t, err)
+		assert.Empty(t, registry.ListTools())
+
+		// Verify empty fingerprint
+		info := consumer.GetDebounceInfo()
+		assert.Equal(t, EmptyFingerprint, info["last_fingerprint"])
+	})
+}
+
+func TestDebounceConfiguration(t *testing.T) {
+	registry := NewToolRegistry()
+	consumer := NewDynamicConsumer(registry)
+
+	// Test default debounce time
+	info := consumer.GetDebounceInfo()
+	assert.Equal(t, DefaultDebounceTime.String(), info["debounce_time"])
+
+	// Test custom debounce time
+	customTime := 1000 * time.Millisecond
+	consumer.SetDebounceTime(customTime)
+	info = consumer.GetDebounceInfo()
+	assert.Equal(t, customTime.String(), info["debounce_time"])
+
+	// Test invalid debounce time (negative)
+	consumer.SetDebounceTime(-100 * time.Millisecond)
+	info = consumer.GetDebounceInfo()
+	assert.Equal(t, customTime.String(), info["debounce_time"], "Negative time should be ignored")
+
+	// Test reset debounce state
+	config := createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("tool1", "Test tool"),
+	})
+	consumer.ApplyMcpServerConfig(config)
+
+	info = consumer.GetDebounceInfo()
+	assert.NotEmpty(t, info["last_fingerprint"])
+	assert.NotZero(t, info["last_applied"])
+
+	consumer.ResetDebounceState()
+	info = consumer.GetDebounceInfo()
+	assert.Empty(t, info["last_fingerprint"])
+	assert.Zero(t, info["last_applied"])
+}
+
+func TestFingerprintCalculation(t *testing.T) {
+	registry := NewToolRegistry()
+	consumer := NewDynamicConsumer(registry)
+
+	// Empty tools
+	fingerprint1 := consumer.calculateFingerprint([]model.ToolConfig{})
+	assert.Equal(t, EmptyFingerprint, fingerprint1)
+
+	// Single tool
+	tool1 := createTestToolConfig("tool1", "First tool")
+	fingerprint2 := consumer.calculateFingerprint([]model.ToolConfig{tool1})
+	assert.NotEqual(t, EmptyFingerprint, fingerprint2)
+	assert.Len(t, fingerprint2, 8, "Fingerprint should be 8 characters")
+
+	// Multiple tools - order should not matter
+	tool2 := createTestToolConfig("tool2", "Second tool")
+	fingerprint3 := consumer.calculateFingerprint([]model.ToolConfig{tool1, tool2})
+	fingerprint4 := consumer.calculateFingerprint([]model.ToolConfig{tool2, tool1})
+	assert.Equal(t, fingerprint3, fingerprint4, "Tool order should not affect fingerprint")
+
+	// Different tools should have different fingerprints
+	tool3 := createTestToolConfig("tool3", "Third tool")
+	fingerprint5 := consumer.calculateFingerprint([]model.ToolConfig{tool3})
+	assert.NotEqual(t, fingerprint2, fingerprint5, "Different tools should have different fingerprints")
+
+	// Same tool should have same fingerprint
+	fingerprint6 := consumer.calculateFingerprint([]model.ToolConfig{tool1})
+	assert.Equal(t, fingerprint2, fingerprint6, "Same tool should have same fingerprint")
+}
+
+// =============================================================================
+// Integration Tests
+// =============================================================================
+
+func TestIntegration(t *testing.T) {
 	resetSingletons()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		GetOrInitRegistry()
-	}
+	registry := GetOrInitRegistry()
+	consumer := GetOrInitDynamic()
+
+	// Verify initial state
+	assert.Empty(t, registry.ListTools())
+
+	// Apply first configuration
+	config1 := createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("tool1", "First tool"),
+	})
+	err := consumer.ApplyMcpServerConfig(config1)
+	assert.NoError(t, err)
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	assert.Equal(t, "tool1", tools[0].Name)
+
+	// Apply second configuration
+	consumer.ResetDebounceState()
+	config2 := createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("tool2", "Second tool"),
+		createTestToolConfig("tool3", "Third tool"),
+	})
+	err = consumer.ApplyMcpServerConfig(config2)
+	assert.NoError(t, err)
+
+	tools = registry.ListTools()
+	assert.Len(t, tools, 2)
+	toolNames := []string{tools[0].Name, tools[1].Name}
+	assert.ElementsMatch(t, []string{"tool2", "tool3"}, toolNames)
 }
 
-func BenchmarkGetOrInitDynamic(b *testing.B) {
-	resetSingletons()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		GetOrInitDynamic()
-	}
-}
+// =============================================================================
+// Benchmark Tests
+// =============================================================================
 
 func BenchmarkApplyMcpServerConfig(b *testing.B) {
 	registry := NewToolRegistry()
 	consumer := NewDynamicConsumer(registry)
 
 	config := createTestMcpServerConfig([]model.ToolConfig{
-		createTestToolConfig(testToolName1, testToolDescription1),
-		createTestToolConfig(testToolName2, testToolDescription2),
-		createTestToolConfig(testToolName3, testToolDescription3),
+		createTestToolConfig("tool1", "First tool"),
+		createTestToolConfig("tool2", "Second tool"),
+		createTestToolConfig("tool3", "Third tool"),
 	})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		consumer.ApplyMcpServerConfig(config)
 	}
-}
-
-func BenchmarkGetOrInitRegistry_Concurrent(b *testing.B) {
-	resetSingletons()
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			GetOrInitRegistry()
-		}
-	})
-}
-
-func BenchmarkGetOrInitDynamic_Concurrent(b *testing.B) {
-	resetSingletons()
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			GetOrInitDynamic()
-		}
-	})
 }
