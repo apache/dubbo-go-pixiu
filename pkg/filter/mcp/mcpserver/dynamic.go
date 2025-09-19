@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -165,11 +163,11 @@ func (d *DynamicConsumer) SetDebounceTime(duration time.Duration) {
 }
 
 // GetDebounceInfo gets debounce information (for debugging)
-func (d *DynamicConsumer) GetDebounceInfo() map[string]interface{} {
+func (d *DynamicConsumer) GetDebounceInfo() map[string]any {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"last_fingerprint": d.lastFingerprint,
 		"last_applied":     d.lastApplied,
 		"debounce_time":    d.debounceTime.String(),
