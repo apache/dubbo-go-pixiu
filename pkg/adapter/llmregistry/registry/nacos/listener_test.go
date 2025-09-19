@@ -33,6 +33,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/llmregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -43,14 +44,14 @@ type mockNacosClient struct {
 	servicesToReturn     nacosModel.ServiceList
 	servicesToReturnErr  error
 	subscribeCallback    func(services []nacosModel.SubscribeService, err error)
-	subscribedServices   map[string]bool
-	unsubscribedServices map[string]bool
+	subscribedServices   map[string]struct{}
+	unsubscribedServices map[string]struct{}
 }
 
 func newMockNacosClient() *mockNacosClient {
 	return &mockNacosClient{
-		subscribedServices:   make(map[string]bool),
-		unsubscribedServices: make(map[string]bool),
+		subscribedServices:   make(map[string]struct{}),
+		unsubscribedServices: make(map[string]struct{}),
 	}
 }
 
@@ -63,7 +64,7 @@ func (m *mockNacosClient) GetAllServicesInfo(param vo.GetAllServiceInfoParam) (n
 func (m *mockNacosClient) Subscribe(param *vo.SubscribeParam) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.subscribedServices[param.ServiceName] = true
+	m.subscribedServices[param.ServiceName] = struct{}{}
 	m.subscribeCallback = param.SubscribeCallback
 	return nil
 }
@@ -71,7 +72,7 @@ func (m *mockNacosClient) Subscribe(param *vo.SubscribeParam) error {
 func (m *mockNacosClient) Unsubscribe(param *vo.SubscribeParam) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.unsubscribedServices[param.ServiceName] = true
+	m.unsubscribedServices[param.ServiceName] = struct{}{}
 	return nil
 }
 
@@ -80,6 +81,8 @@ type mockAdapterListener struct {
 	addedEndpoints   map[string]*model.Endpoint
 	removedEndpoints map[string]*model.Endpoint
 }
+
+var _ common.RegistryEventListener = (*mockAdapterListener)(nil)
 
 func newMockAdapterListener() *mockAdapterListener {
 	return &mockAdapterListener{
@@ -164,7 +167,7 @@ func TestDiscoverAndSubscribe(t *testing.T) {
 		client.servicesToReturn = nacosModel.ServiceList{Doms: []string{"service-A"}} // Was nacosModel.Service
 		l.discoverAndSubscribe()
 
-		assert.True(t, client.subscribedServices["service-A"], "Should subscribe to service-A")
+		assert.Equal(t, struct{}{}, client.subscribedServices["service-A"], "Should subscribe to service-A")
 		_, loaded := l.subscribedServices.Load("service-A")
 		assert.True(t, loaded, "service-A should be in the subscribedServices map")
 	})
@@ -176,13 +179,13 @@ func TestDiscoverAndSubscribe(t *testing.T) {
 
 		l.discoverAndSubscribe()
 
-		assert.True(t, client.unsubscribedServices["service-A"], "Should unsubscribe from service-A")
+		assert.Equal(t, struct{}{}, client.unsubscribedServices["service-A"], "Should unsubscribe from service-A")
 		_, loaded := l.subscribedServices.Load("service-A")
 		assert.False(t, loaded, "service-A should be removed from subscribedServices map")
 	})
 
 	t.Run("Handle Nacos API error", func(t *testing.T) {
-		client.subscribedServices = make(map[string]bool)
+		client.subscribedServices = make(map[string]struct{})
 		l.subscribedServices.Store("stale-service", true)
 
 		client.servicesToReturnErr = errors.New("Nacos unavailable")

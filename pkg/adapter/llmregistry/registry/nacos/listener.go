@@ -19,6 +19,7 @@ package nacos
 
 import (
 	"encoding/json"
+	"github.com/hashicorp/go-uuid"
 	"reflect"
 	"strconv"
 	"strings"
@@ -288,7 +289,10 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 
 	if id, ok := instance.Metadata["id"]; ok {
 		ret.ID = id
+	} else {
+		ret.ID, _ = uuid.GenerateUUID()
 	}
+
 	if name, ok := instance.Metadata["name"]; ok {
 		ret.Name = name
 	}

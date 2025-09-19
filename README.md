@@ -31,6 +31,7 @@ We are upgrading Pixiu into a **next-generation AI Gateway**, designed to be the
 * **Simplify Access**: Access various LLM services in a unified and secure manner.
 * **Enhance Capabilities**: Leverage the gateway's powerful plugin system to add features like authentication, observability, and traffic control to your AI applications.
 * **Cost-Effectiveness**: Optimize your AI service costs through fine-grained billing, auditing, and caching strategies.
+* **Service Discovery**：Integrate with the Nacos registry to automatically discover LLM services.
 
 **Try the AI Gateway features now**: Visit our [AI Gateway Samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm).
 
