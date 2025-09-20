@@ -20,13 +20,11 @@ package nacos
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"regexp"
 	"strings"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/common/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -78,7 +76,7 @@ func convertSingleTool(nacosTool NacosTool, templateData any) (model.ToolConfig,
 		BackendURL:  template.RequestTemplate.URL,
 		Request: model.RequestConfig{
 			Method:  template.RequestTemplate.Method,
-			Path:    extractPathFromURL(template.RequestTemplate.URL),
+			Path:    util.ExtractPathFromURL(template.RequestTemplate.URL),
 			Headers: convertHeaders(template.RequestTemplate.Headers),
 		},
 		Args: func() []model.ArgConfig {
@@ -92,58 +90,6 @@ func convertSingleTool(nacosTool NacosTool, templateData any) (model.ToolConfig,
 	}
 
 	return toolConfig, nil
-}
-
-func extractPathFromURL(raw string) string {
-	if raw == "" {
-		return "/"
-	}
-	s := strings.TrimSpace(raw)
-
-	// Prefer url.Parse to extract the path
-	if i := strings.Index(s, constant.ProtocolSlash); i >= 0 {
-		if u, err := url.Parse(s); err == nil {
-			path := u.Path
-			if path == "" {
-				path = constant.PathSlash
-			}
-			return replaceGoTemplateArgsInPath(path)
-		}
-		// Fallback: remove the scheme and process
-		s = s[i+3:]
-	}
-
-	// Handle host[:port]/path form without a scheme
-	slash := strings.IndexByte(s, '/')
-	if slash >= 0 {
-		// If the colon appears before the first slash, treat the portion after the slash as the path
-		colon := strings.IndexByte(s, ':')
-		if colon >= 0 && colon < slash {
-			path := s[slash:]
-			if path == "" {
-				return "/"
-			}
-			return replaceGoTemplateArgsInPath(path)
-		}
-		// Otherwise, it is a path or relative path
-		if s[0] != '/' {
-			return replaceGoTemplateArgsInPath("/" + s[slash+1:])
-		}
-		return replaceGoTemplateArgsInPath(s[slash:])
-	}
-
-	// No slash found, return root path
-	return "/"
-}
-
-var goTmplArgRe = regexp.MustCompile(`\{\{\.args\.(?P<name>[a-zA-Z0-9_\-]+)}}`)
-
-// replaceGoTemplateArgsInPath converts {{.args.name}} to {name} in path-only strings.
-func replaceGoTemplateArgsInPath(path string) string {
-	if path == "" {
-		return "/"
-	}
-	return goTmplArgRe.ReplaceAllString(path, `{$1}`)
 }
 
 func convertHeaders(headers []map[string]string) map[string]string {

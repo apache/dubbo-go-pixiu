@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/common"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/common/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -52,11 +52,15 @@ func BuildController(reg model.Registry, onChange func(*model.McpServerConfig)) 
 			if addr == "" {
 				continue
 			}
-			host, port := common.ParseHostPortFromURL(addr)
-			if host == "" || port == 0 {
+			result, err := util.ParseHostPortFromURL(addr)
+			if err != nil {
+				logger.Errorf("[dubbo-go-pixiu] nacos registry failed to parse address '%s': %v", addr, err)
 				continue
 			}
-			serverCfgs = append(serverCfgs, nacosconstant.ServerConfig{IpAddr: host, Port: uint64(port)})
+			if result.UsedFallback {
+				logger.Warnf("[dubbo-go-pixiu] nacos registry using fallback for address '%s': %s", addr, result.FallbackInfo)
+			}
+			serverCfgs = append(serverCfgs, nacosconstant.ServerConfig{IpAddr: result.Host, Port: uint64(result.Port)})
 		}
 	}
 

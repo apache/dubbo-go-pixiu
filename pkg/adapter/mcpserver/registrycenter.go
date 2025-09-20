@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/common"
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/common/util"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry/nacos"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
@@ -37,8 +37,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
-// TODO: Implement mcpserver/registry package
-// "github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry"
 func init() {
 	adapter.RegisterAdapterPlugin(&Plugin{})
 }
@@ -160,26 +158,32 @@ func (a *Adapter) Apply() error {
 			// 1) apply tools dynamically to registry for filter usage
 			if dc := mcpserver.GetOrInitDynamic(); dc != nil {
 				if err := dc.ApplyMcpServerConfig(cfg); err != nil {
-					logger.Errorf("[MCP Adapter] apply config error: %v", err)
+					logger.Errorf("[dubbo-go-pixiu] mcp adapter apply config error: %v", err)
 				}
 			} else {
-				logger.Infof("[MCP Adapter] update received: tools=%d", len(cfg.Tools))
+				logger.Infof("[dubbo-go-pixiu] mcp adapter update received: tools=%d", len(cfg.Tools))
 			}
 			// 2) register endpoint for each tool using BackendURL (host:port) into cluster named by tool.Name
 			for _, tool := range cfg.Tools {
 				if tool.BackendURL == "" {
 					continue
 				}
-				host, port := common.ParseHostPortFromURL(tool.BackendURL)
-				if host == "" || port <= 0 {
+				result, err := util.ParseHostPortFromURL(tool.BackendURL)
+				if err != nil {
+					logger.Errorf("[dubbo-go-pixiu] mcp adapter failed to parse BackendURL '%s' for tool '%s': %v",
+						tool.BackendURL, tool.Name, err)
 					continue
 				}
-				endpointID := host + ":" + strconv.Itoa(port)
+				if result.UsedFallback {
+					logger.Warnf("[dubbo-go-pixiu] mcp adapter using fallback for tool '%s' with BackendURL '%s': %s",
+						tool.Name, tool.BackendURL, result.FallbackInfo)
+				}
+				endpointID := result.Host + ":" + strconv.Itoa(result.Port)
 				server.GetClusterManager().SetEndpoint(tool.Cluster, &model.Endpoint{
 					ID: endpointID,
 					Address: model.SocketAddress{
-						Address: host,
-						Port:    port,
+						Address: result.Host,
+						Port:    result.Port,
 					},
 				})
 			}
