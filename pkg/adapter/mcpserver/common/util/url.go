@@ -135,7 +135,7 @@ var goTmplArgRe = regexp.MustCompile(`\{\{\.args\.(?P<name>[a-zA-Z0-9_\-]+)}}`)
 // Supports MCP template parameter conversion: {{.args.name}} -> {name}
 func ExtractPathFromURL(raw string) string {
 	if raw == "" {
-		return "/"
+		return constant.PathSlash
 	}
 	s := strings.TrimSpace(raw)
 
@@ -160,25 +160,25 @@ func ExtractPathFromURL(raw string) string {
 		if colon >= 0 && colon < slash {
 			path := s[slash:]
 			if path == "" {
-				return "/"
+				return constant.PathSlash
 			}
 			return ReplaceGoTemplateArgsInPath(path)
 		}
 		// Otherwise, it is a path or relative path
 		if s[0] != '/' {
-			return ReplaceGoTemplateArgsInPath("/" + s[slash+1:])
+			return ReplaceGoTemplateArgsInPath(constant.PathSlash + s[slash+1:])
 		}
 		return ReplaceGoTemplateArgsInPath(s[slash:])
 	}
 
 	// No slash found, return root path
-	return "/"
+	return constant.PathSlash
 }
 
 // ReplaceGoTemplateArgsInPath converts Go template args {{.args.name}} to standard format {name}
 func ReplaceGoTemplateArgsInPath(path string) string {
 	if path == "" {
-		return "/"
+		return constant.PathSlash
 	}
 	return goTmplArgRe.ReplaceAllString(path, `{$1}`)
 }
