@@ -56,8 +56,8 @@ func TestParseHostPortFromURL(t *testing.T) {
 		},
 		{
 			name:             "host:port format",
-			input:            "192.168.1.1:9090",
-			expectedHost:     "192.168.1.1",
+			input:            "example.com:9090",
+			expectedHost:     "example.com",
 			expectedPort:     9090,
 			expectedFallback: false,
 			expectError:      false,
