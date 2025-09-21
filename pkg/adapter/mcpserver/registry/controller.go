@@ -35,4 +35,4 @@ type Controller interface {
 
 // BuildFunc creates a Controller for a given registry configuration.
 // Implemented by each provider and registered via RegisterProvider.
-type BuildFunc func(reg model.Registry, onChange func(*model.McpServerConfig)) (Controller, error)
+type BuildFunc func(reg model.Registry, onChange func(serverId string, cfg *model.McpServerConfig)) (Controller, error)

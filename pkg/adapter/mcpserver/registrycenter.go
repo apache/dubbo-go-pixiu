@@ -76,7 +76,7 @@ type (
 )
 
 // Kind returns the identifier of the plugin
-func (p Plugin) Kind() string {
+func (p *Plugin) Kind() string {
 	return constant.McpServerAdapter
 }
 
@@ -85,7 +85,6 @@ func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
 	return &Adapter{
 		id:  a.ID,
 		cfg: &AdapterConfig{Registries: make(map[string]model.Registry)},
-		// TODO: Initialize registries when implemented
 	}, nil
 }
 
@@ -151,17 +150,23 @@ func (a *Adapter) Apply() error {
 			continue
 		}
 
-		onChange := func(cfg *model.McpServerConfig) {
+		onChange := func(serverId string, cfg *model.McpServerConfig) {
 			if cfg == nil {
 				return
 			}
+
+			// 直接使用传入的 serverId，无需从配置中提取
+			if serverId == "" {
+				serverId = "default"
+			}
+
 			// 1) apply tools dynamically to registry for filter usage
 			if dc := mcpserver.GetOrInitDynamic(); dc != nil {
-				if err := dc.ApplyMcpServerConfig(cfg); err != nil {
-					logger.Errorf("[dubbo-go-pixiu] mcp adapter apply config error: %v", err)
+				if err := dc.ApplyMcpServerConfigByServer(serverId, cfg); err != nil {
+					logger.Errorf("[dubbo-go-pixiu] mcp adapter apply server %s config error: %v", serverId, err)
 				}
 			} else {
-				logger.Infof("[dubbo-go-pixiu] mcp adapter update received: tools=%d", len(cfg.Tools))
+				logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s: tools=%d", serverId, len(cfg.Tools))
 			}
 			// 2) register endpoint for each tool using BackendURL (host:port) into cluster named by tool.Name
 			for _, tool := range cfg.Tools {

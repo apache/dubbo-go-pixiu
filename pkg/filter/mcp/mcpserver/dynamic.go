@@ -18,7 +18,10 @@
 package mcpserver
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -45,6 +48,13 @@ var (
 	dynamicOnce  sync.Once
 )
 
+// ServerToolConfig tool configuration for a single server
+type ServerToolConfig struct {
+	Tools       []model.ToolConfig
+	Fingerprint string
+	LastApplied time.Time
+}
+
 // GetOrInitRegistry returns a singleton ToolRegistry
 func GetOrInitRegistry() *ToolRegistry {
 	registryOnce.Do(func() {
@@ -65,92 +75,103 @@ func GetOrInitDynamic() *DynamicConsumer {
 type DynamicConsumer struct {
 	registry *ToolRegistry
 
-	// lightweight fingerprint debounce fields
-	mu              sync.Mutex
-	lastFingerprint string
-	lastApplied     time.Time
-	debounceTime    time.Duration
+	// Tool configuration management grouped by server
+	mu            sync.RWMutex
+	serverConfigs map[string]*ServerToolConfig // serverId -> server tool configuration
+	debounceTime  time.Duration
 }
 
 func NewDynamicConsumer(reg *ToolRegistry) *DynamicConsumer {
 	return &DynamicConsumer{
-		registry:     reg,
-		debounceTime: DefaultDebounceTime,
+		registry:      reg,
+		serverConfigs: make(map[string]*ServerToolConfig),
+		debounceTime:  DefaultDebounceTime,
 	}
 }
 
-// update tools from the remote config in nacos
-func (d *DynamicConsumer) ApplyMcpServerConfig(cfg *model.McpServerConfig) error {
+// ApplyMcpServerConfigByServer applies configuration by server ID
+func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *model.McpServerConfig) error {
 	if cfg == nil {
-		return nil
+		return d.removeServerConfig(serverId)
 	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// 1. calculate configuration fingerprint
+	// 1. Calculate new configuration fingerprint
 	fingerprint := d.calculateFingerprint(cfg.Tools)
 
-	// 2. skip if fingerprint is the same (idempotency check)
-	if d.lastFingerprint == fingerprint {
-		logger.Debugf("[dubbo-go-pixiu] mcp dynamic config unchanged (fp=%s), skipped", fingerprint)
-		return nil
+	// 2. Check if the server's configuration really needs to be updated
+	if existingConfig, exists := d.serverConfigs[serverId]; exists {
+		if existingConfig.Fingerprint == fingerprint {
+			logger.Debugf("[dubbo-go-pixiu] mcp server %s config unchanged (fp=%s), skipped", serverId, fingerprint)
+			return nil
+		}
 	}
 
-	// 3. time-based debounce check
+	// 3. Debounce check (based on this server's configuration change time)
 	now := time.Now()
-	if !d.lastApplied.IsZero() && now.Sub(d.lastApplied) < d.debounceTime {
-		logger.Debugf("[dubbo-go-pixiu] mcp dynamic debounce active (elapsed=%v), skipped", now.Sub(d.lastApplied))
-		return nil
+	if existingConfig, exists := d.serverConfigs[serverId]; exists {
+		// Skip only if this server is within debounce time
+		if !existingConfig.LastApplied.IsZero() && now.Sub(existingConfig.LastApplied) < d.debounceTime {
+			logger.Debugf("[dubbo-go-pixiu] mcp server %s debounce active (elapsed=%v), skipped", serverId, now.Sub(existingConfig.LastApplied))
+			return nil
+		}
 	}
 
-	// 4. apply configuration
-	d.registry.ReplaceAllTools(cfg.Tools)
+	// 4. Fully replace the server's tool configuration
+	oldConfig := d.serverConfigs[serverId]
+	serverConfig := &ServerToolConfig{
+		Tools:       make([]model.ToolConfig, len(cfg.Tools)),
+		Fingerprint: fingerprint,
+		LastApplied: now,
+	}
+	copy(serverConfig.Tools, cfg.Tools)
+	d.serverConfigs[serverId] = serverConfig
 
-	// 5. update debounce state
-	d.lastFingerprint = fingerprint
-	d.lastApplied = now
+	// 5. Recalculate merged tools from all servers and apply to registry
+	mergedTools := d.calculateCurrentMergedTools()
+	if err := d.applyMergedConfig(mergedTools); err != nil {
+		// Rollback
+		if oldConfig != nil {
+			d.serverConfigs[serverId] = oldConfig
+		} else {
+			delete(d.serverConfigs, serverId)
+		}
+		return err
+	}
 
-	logger.Infof("[dubbo-go-pixiu] mcp dynamic applied config: %d tools, fingerprint=%s",
-		len(cfg.Tools), fingerprint)
+	logger.Infof("[dubbo-go-pixiu] mcp server %s config applied: %d tools, total servers: %d, merged tools: %d",
+		serverId, len(cfg.Tools), len(d.serverConfigs), len(mergedTools))
+
 	return nil
 }
 
-// calculateFingerprint calculates a lightweight fingerprint for the configuration
+// calculateFingerprint calculates a robust fingerprint for the configuration using SHA256
 func (d *DynamicConsumer) calculateFingerprint(tools []model.ToolConfig) string {
 	if len(tools) == 0 {
 		return EmptyFingerprint
 	}
 
-	var sum uint32
-	count := uint32(len(tools))
+	// Create a sorted list of tools for consistent hashing
+	sortedTools := make([]model.ToolConfig, len(tools))
+	copy(sortedTools, tools)
+	sort.Slice(sortedTools, func(i, j int) bool {
+		if sortedTools[i].Name != sortedTools[j].Name {
+			return sortedTools[i].Name < sortedTools[j].Name
+		}
+		return sortedTools[i].Cluster < sortedTools[j].Cluster
+	})
 
-	for _, tool := range tools {
-		// tool name hash
-		nameHash := d.simpleStringHash(tool.Name)
-		// cluster hash
-		clusterHash := d.simpleStringHash(tool.Cluster)
-		// arguments count
-		argsCount := uint32(len(tool.Args))
-
-		// combine hashes
-		toolHash := nameHash ^ (clusterHash << 8) ^ (argsCount << 16)
-		sum ^= toolHash
+	// Build hash input string
+	hash := sha256.New()
+	for _, tool := range sortedTools {
+		hash.Write([]byte(fmt.Sprintf("name:%s;cluster:%s;args:%d;", tool.Name, tool.Cluster, len(tool.Args))))
 	}
 
-	// combine with tool count
-	fingerprint := sum ^ (count << 24)
-
-	return fmt.Sprintf("%08x", fingerprint)
-}
-
-// simpleStringHash simple and efficient string hash function
-func (d *DynamicConsumer) simpleStringHash(s string) uint32 {
-	var hash uint32 = 5381
-	for _, c := range s {
-		hash = ((hash << 5) + hash) + uint32(c)
-	}
-	return hash
+	// Return first 8 characters of hex encoded hash
+	fullHash := hex.EncodeToString(hash.Sum(nil))
+	return fullHash[:8]
 }
 
 // SetDebounceTime dynamically adjusts debounce time
@@ -164,15 +185,14 @@ func (d *DynamicConsumer) SetDebounceTime(duration time.Duration) {
 	}
 }
 
-// GetDebounceInfo gets debounce information (for debugging)
-func (d *DynamicConsumer) GetDebounceInfo() map[string]any {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+// GetDebounceInfo returns debounce state information (for debugging/monitoring)
+func (d *DynamicConsumer) GetDebounceInfo() map[string]interface{} {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-	return map[string]any{
-		"last_fingerprint": d.lastFingerprint,
-		"last_applied":     d.lastApplied,
-		"debounce_time":    d.debounceTime.String(),
+	return map[string]interface{}{
+		"debounce_time": d.debounceTime.String(),
+		"server_count":  len(d.serverConfigs),
 	}
 }
 
@@ -181,7 +201,48 @@ func (d *DynamicConsumer) ResetDebounceState() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.lastFingerprint = ""
-	d.lastApplied = time.Time{}
+	// Clear all server configurations
+	d.serverConfigs = make(map[string]*ServerToolConfig)
 	logger.Debugf("[dubbo-go-pixiu] mcp dynamic debounce state reset")
+}
+
+// applyMergedConfig applies merged configuration to the registry
+func (d *DynamicConsumer) applyMergedConfig(tools []model.ToolConfig) error {
+	d.registry.ReplaceAllTools(tools)
+	return nil
+}
+
+// removeServerConfig removes server configuration
+func (d *DynamicConsumer) removeServerConfig(serverId string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if _, exists := d.serverConfigs[serverId]; !exists {
+		return nil // Already does not exist
+	}
+
+	delete(d.serverConfigs, serverId)
+
+	// Recalculate and apply merged configuration
+	mergedTools := d.calculateCurrentMergedTools()
+	if err := d.applyMergedConfig(mergedTools); err != nil {
+		return err
+	}
+
+	logger.Infof("[dubbo-go-pixiu] mcp server %s config removed, remaining servers: %d",
+		serverId, len(d.serverConfigs))
+
+	return nil
+}
+
+// calculateCurrentMergedTools calculates merged tools from all current servers
+func (d *DynamicConsumer) calculateCurrentMergedTools() []model.ToolConfig {
+	var allTools []model.ToolConfig
+
+	// Simply accumulate tools from all servers
+	for _, config := range d.serverConfigs {
+		allTools = append(allTools, config.Tools...)
+	}
+
+	return allTools
 }

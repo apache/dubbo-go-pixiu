@@ -43,7 +43,7 @@ func init() {
 }
 
 // BuildController builds a Nacos MCP registry controller
-func BuildController(reg model.Registry, onChange func(*model.McpServerConfig)) (registry.Controller, error) {
+func BuildController(reg model.Registry, onChange func(serverId string, cfg *model.McpServerConfig)) (registry.Controller, error) {
 	// build server configs from comma-separated addresses
 	serverCfgs := []nacosconstant.ServerConfig{}
 	if reg.Address != "" {
@@ -77,15 +77,17 @@ func BuildController(reg model.Registry, onChange func(*model.McpServerConfig)) 
 		return nil, err
 	}
 
-	controller := NewMcpController(client, func(cfg *McpServerConfig) {
+	controller := NewMcpController(client, func(serverId string, cfg *McpServerConfig) {
 		if cfg == nil {
-			onChange(nil)
+			onChange(serverId, nil)
 			return
 		}
 
-		// Minimal mapping: only Tools for now
-		mc := &model.McpServerConfig{Tools: cfg.ToolConfigs}
-		onChange(mc)
+		// 直接转换配置，无需添加 ServerId 字段
+		mc := &model.McpServerConfig{
+			Tools: cfg.ToolConfigs,
+		}
+		onChange(serverId, mc)
 	})
 
 	return controller, nil

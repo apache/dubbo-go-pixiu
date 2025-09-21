@@ -32,13 +32,13 @@ import (
 // It is responsible for discovering, watching, transforming, and applying configurations.
 type McpController struct {
 	client   *NacosRegistryClient
-	onChange func(cfg *McpServerConfig)
+	onChange func(serverId string, cfg *McpServerConfig)
 	watched  map[string]bool
 	mu       sync.RWMutex
 }
 
 // NewMcpController creates a new MCP controller
-func NewMcpController(client *NacosRegistryClient, onChange func(cfg *McpServerConfig)) *McpController {
+func NewMcpController(client *NacosRegistryClient, onChange func(serverId string, cfg *McpServerConfig)) *McpController {
 	return &McpController{
 		client:   client,
 		onChange: onChange,
@@ -74,7 +74,7 @@ func (c *McpController) Run(ctx context.Context, interval time.Duration) error {
 // reconcile coordinates logic: discover services, compute diffs, bind watchers
 func (c *McpController) reconcile() error {
 
-	logger.Infof("[dubbo-go-pixiu] nacos registry starting to list MCP servers")
+	logger.Debugf("[dubbo-go-pixiu] nacos registry starting to list MCP servers")
 
 	// Retrieve all MCP services
 	servers, err := c.client.ListMcpServer()
@@ -127,7 +127,7 @@ func (c *McpController) wrapListener(serverId string) McpServerListener {
 		logger.Infof("Received config update for server: %s", serverId)
 
 		if c.onChange != nil {
-			c.onChange(cfg)
+			c.onChange(serverId, cfg)
 		}
 	}
 }

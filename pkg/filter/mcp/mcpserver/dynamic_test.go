@@ -133,13 +133,13 @@ func TestApplyMcpServerConfig(t *testing.T) {
 		consumer := NewDynamicConsumer(registry)
 
 		// Test nil config
-		err := consumer.ApplyMcpServerConfig(nil)
+		err := consumer.ApplyMcpServerConfigByServer("default", nil)
 		assert.NoError(t, err)
 		assert.Empty(t, registry.ListTools())
 
 		// Test empty config
 		config := createTestMcpServerConfig([]model.ToolConfig{})
-		err = consumer.ApplyMcpServerConfig(config)
+		err = consumer.ApplyMcpServerConfigByServer("default", config)
 		assert.NoError(t, err)
 		assert.Empty(t, registry.ListTools())
 
@@ -149,7 +149,7 @@ func TestApplyMcpServerConfig(t *testing.T) {
 			createTestToolConfig("tool1", "First tool"),
 			createTestToolConfig("tool2", "Second tool"),
 		})
-		err = consumer.ApplyMcpServerConfig(config)
+		err = consumer.ApplyMcpServerConfigByServer("default", config)
 		assert.NoError(t, err)
 
 		tools := registry.ListTools()
@@ -166,7 +166,7 @@ func TestApplyMcpServerConfig(t *testing.T) {
 		config1 := createTestMcpServerConfig([]model.ToolConfig{
 			createTestToolConfig("tool1", "First tool"),
 		})
-		err := consumer.ApplyMcpServerConfig(config1)
+		err := consumer.ApplyMcpServerConfigByServer("default", config1)
 		assert.NoError(t, err)
 		assert.Len(t, registry.ListTools(), 1)
 
@@ -176,7 +176,7 @@ func TestApplyMcpServerConfig(t *testing.T) {
 			createTestToolConfig("tool2", "Second tool"),
 			createTestToolConfig("tool3", "Third tool"),
 		})
-		err = consumer.ApplyMcpServerConfig(config2)
+		err = consumer.ApplyMcpServerConfigByServer("default", config2)
 		assert.NoError(t, err)
 
 		tools := registry.ListTools()
@@ -205,7 +205,7 @@ func TestApplyMcpServerConfigConcurrent(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(index int) {
 			defer wg.Done()
-			consumer.ApplyMcpServerConfig(configs[index])
+			consumer.ApplyMcpServerConfigByServer("default", configs[index])
 		}(i)
 	}
 	wg.Wait()
@@ -229,19 +229,18 @@ func TestDebounceFeatures(t *testing.T) {
 		})
 
 		// First application
-		err := consumer.ApplyMcpServerConfig(config)
+		err := consumer.ApplyMcpServerConfigByServer("default", config)
 		assert.NoError(t, err)
 		assert.Len(t, registry.ListTools(), 1)
 
 		// Second application with same config - should be skipped
-		err = consumer.ApplyMcpServerConfig(config)
+		err = consumer.ApplyMcpServerConfigByServer("default", config)
 		assert.NoError(t, err)
 		assert.Len(t, registry.ListTools(), 1)
 
 		// Verify debounce info
 		info := consumer.GetDebounceInfo()
-		assert.NotEmpty(t, info["last_fingerprint"])
-		assert.NotZero(t, info["last_applied"])
+		assert.Equal(t, 1, info["server_count"])
 	})
 
 	t.Run("Time debounce - skip rapid calls", func(t *testing.T) {
@@ -256,14 +255,14 @@ func TestDebounceFeatures(t *testing.T) {
 		})
 
 		// First application
-		err := consumer.ApplyMcpServerConfig(config1)
+		err := consumer.ApplyMcpServerConfigByServer("default", config1)
 		assert.NoError(t, err)
 		tools := registry.ListTools()
 		require.Len(t, tools, 1)
 		assert.Equal(t, "tool1", tools[0].Name)
 
 		// Immediate second application - should be debounced
-		err = consumer.ApplyMcpServerConfig(config2)
+		err = consumer.ApplyMcpServerConfigByServer("default", config2)
 		assert.NoError(t, err)
 		tools = registry.ListTools()
 		require.Len(t, tools, 1)
@@ -278,20 +277,20 @@ func TestDebounceFeatures(t *testing.T) {
 		config := createTestMcpServerConfig([]model.ToolConfig{
 			createTestToolConfig("tool1", "Test tool"),
 		})
-		err := consumer.ApplyMcpServerConfig(config)
+		err := consumer.ApplyMcpServerConfigByServer("default", config)
 		assert.NoError(t, err)
 		assert.Len(t, registry.ListTools(), 1)
 
 		// Apply empty config
 		consumer.ResetDebounceState()
 		emptyConfig := createTestMcpServerConfig([]model.ToolConfig{})
-		err = consumer.ApplyMcpServerConfig(emptyConfig)
+		err = consumer.ApplyMcpServerConfigByServer("default", emptyConfig)
 		assert.NoError(t, err)
 		assert.Empty(t, registry.ListTools())
 
-		// Verify empty fingerprint
+		// Verify empty configuration
 		info := consumer.GetDebounceInfo()
-		assert.Equal(t, EmptyFingerprint, info["last_fingerprint"])
+		assert.Equal(t, 1, info["server_count"])
 	})
 }
 
@@ -318,16 +317,14 @@ func TestDebounceConfiguration(t *testing.T) {
 	config := createTestMcpServerConfig([]model.ToolConfig{
 		createTestToolConfig("tool1", "Test tool"),
 	})
-	consumer.ApplyMcpServerConfig(config)
+	consumer.ApplyMcpServerConfigByServer("default", config)
 
 	info = consumer.GetDebounceInfo()
-	assert.NotEmpty(t, info["last_fingerprint"])
-	assert.NotZero(t, info["last_applied"])
+	assert.Equal(t, 1, info["server_count"])
 
 	consumer.ResetDebounceState()
 	info = consumer.GetDebounceInfo()
-	assert.Empty(t, info["last_fingerprint"])
-	assert.Zero(t, info["last_applied"])
+	assert.Equal(t, 0, info["server_count"])
 }
 
 func TestFingerprintCalculation(t *testing.T) {
@@ -377,7 +374,7 @@ func TestIntegration(t *testing.T) {
 	config1 := createTestMcpServerConfig([]model.ToolConfig{
 		createTestToolConfig("tool1", "First tool"),
 	})
-	err := consumer.ApplyMcpServerConfig(config1)
+	err := consumer.ApplyMcpServerConfigByServer("default", config1)
 	assert.NoError(t, err)
 
 	tools := registry.ListTools()
@@ -390,7 +387,7 @@ func TestIntegration(t *testing.T) {
 		createTestToolConfig("tool2", "Second tool"),
 		createTestToolConfig("tool3", "Third tool"),
 	})
-	err = consumer.ApplyMcpServerConfig(config2)
+	err = consumer.ApplyMcpServerConfigByServer("default", config2)
 	assert.NoError(t, err)
 
 	tools = registry.ListTools()
@@ -415,6 +412,6 @@ func BenchmarkApplyMcpServerConfig(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		consumer.ApplyMcpServerConfig(config)
+		consumer.ApplyMcpServerConfigByServer("default", config)
 	}
 }

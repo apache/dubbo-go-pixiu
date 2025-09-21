@@ -33,7 +33,7 @@ func RegisterProvider(protocol string, fn BuildFunc) {
 }
 
 // BuildController builds a provider controller based on registry protocol.
-func BuildController(reg model.Registry, onChange func(*model.McpServerConfig)) (Controller, error) {
+func BuildController(reg model.Registry, onChange func(serverId string, cfg *model.McpServerConfig)) (Controller, error) {
 	if fn, ok := providers[reg.Protocol]; ok {
 		return fn(reg, onChange)
 	}
