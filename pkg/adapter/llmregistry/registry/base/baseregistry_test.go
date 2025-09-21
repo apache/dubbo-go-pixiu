@@ -55,21 +55,21 @@ func (m *mockFacadeRegistry) DoUnsubscribe() error {
 type mockListener struct{}
 
 func (m *mockListener) WatchAndHandle() {
-	panic("implement me")
+	panic("implement me") // NOSONAR
 }
 
 // Close is a mock method.
-func (m *mockListener) Close() {}
+func (m *mockListener) Close() {} // NOSONAR
 
 // mockAdapterListener is a mock implementation of the common.RegistryEventListener interface.
 type mockAdapterListener struct{}
 
 func (m *mockAdapterListener) OnAddEndpoint(r *model.Endpoint) error {
-	panic("implement me")
+	panic("implement me") // NOSONAR
 }
 
 func (m *mockAdapterListener) OnRemoveEndpoint(r *model.Endpoint) error {
-	panic("implement me")
+	panic("implement me") // NOSONAR
 }
 
 func TestSvcListeners(t *testing.T) {
@@ -118,7 +118,7 @@ func TestSvcListeners(t *testing.T) {
 }
 
 // Test the concurrency safety of SvcListeners.
-func TestSvcListeners_Concurrency(t *testing.T) {
+func TestSvcListeners_concurrency(t *testing.T) {
 	svcListeners := &SvcListeners{
 		listeners: make(map[string]registry.Listener),
 	}
@@ -160,7 +160,7 @@ func TestNewBaseRegistry(t *testing.T) {
 }
 
 // Test the listener management methods of BaseRegistry.
-func TestBaseRegistry_ListenerMethods(t *testing.T) {
+func TestBaseRegistry_listenerMethods(t *testing.T) {
 	br := NewBaseRegistry(&mockFacadeRegistry{}, &mockAdapterListener{})
 	mockL := &mockListener{}
 	id := "test-service"
@@ -188,7 +188,7 @@ func TestBaseRegistry_ListenerMethods(t *testing.T) {
 }
 
 // Test the Subscribe and Unsubscribe methods.
-func TestBaseRegistry_SubscribeUnsubscribe(t *testing.T) {
+func TestBaseRegistry_subscribeUnsubscribe(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockFacade := &mockFacadeRegistry{}
 		br := NewBaseRegistry(mockFacade, &mockAdapterListener{})
