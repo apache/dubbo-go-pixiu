@@ -17,52 +17,61 @@
 # under the License.
 #
 
-PROJECT_NAME = $(shell basename "$(PWD)")
-PID = /tmp/.$(PROJECT_NAME).pid
-PROJECT_DIR=$(shell pwd)
-BASE_DIR := $(PROJECT_DIR)/dist
-PIXIU_DIR := $(PIXIU_DIR)
-PIXIU_PID = /tmp/.pixiu.pid
+PROJECT_NAME := $(notdir $(PWD))
+PROJECT_DIR  := $(shell pwd)
 
-SOURCES = $(wildcard $(PROJECT_DIR)/server/app/*.go)
-pixiuSources = $(wildcard $(PIXIU_DIR)/cmd/pixiu/*.go)
+PID          ?= /tmp/.${PROJECT_NAME}.pid
+PIXIU_PID    ?= /tmp/.pixiu.pid
+
+BASE_DIR     ?= $(PROJECT_DIR)/dist
+PIXIU_DIR    := $(PIXIU_DIR)
+
+SOURCES      := $(wildcard $(PROJECT_DIR)/server/app/*.go)
+pixiuSources := $(wildcard $(PIXIU_DIR)/cmd/pixiu/*.go)
 
 export GO111MODULE ?= on
-export GOPROXY ?= https://goproxy.io,direct
-export GOSUMDB ?= sum.golang.org
-export GOARCH ?= amd64
+export GOPROXY     ?= https://goproxy.io,direct
+export GOSUMDB     ?= sum.golang.org
+export GOARCH      ?= amd64
 
-export DOCKER_HOST_IP = $(shell hostname)
+export DOCKER_HOST_IP := $(shell hostname 2>/dev/null || echo localhost)
 
-OS := $(shell uname)
-ifeq ($(OS), Linux)
-	export GOOS ?= linux
-else ifeq ($(OS), Darwin)
-	export GOOS ?= darwin
+# OS/GOOS judge
+UNAME_S := $(shell uname -s 2>/dev/null || echo Unknown)
+ifeq ($(UNAME_S),Linux)
+  export GOOS ?= linux
+else ifeq ($(UNAME_S),Darwin)
+  export GOOS ?= darwin
 else
-	export GOOS ?= windows
+  export GOOS ?= windows
 endif
 
-ifeq ($(GOOS), windows)
-	export EXT_NAME ?= .exe
+# ext name
+ifeq ($(GOOS),windows)
+  export EXT_NAME := .exe
 else
-	export EXT_NAME ?=
+  export EXT_NAME :=
 endif
 
-CGO ?= 1
-ifeq ($(DEBUG), true)
-	BUILD_TYPE := debug
-	GCFLAGS := -gcflags="all=-N -l"
-	LCFLAGS :=
+# build mode
+CGO    ?= 1
+DEBUG  ?= false
+
+ifeq ($(DEBUG),true)
+  BUILD_TYPE := debug
+  GCFLAGS    := -gcflags="all=-N -l"
+  LDFLAGS    :=
 else
-	BUILD_TYPE := release
-	LDFLAGS := "-s -w"
+  BUILD_TYPE := release
+  GCFLAGS    :=
+  LDFLAGS    := -ldflags="-s -w"
 endif
 
-OUT_DIR := $(BASE_DIR)/$(GOOS)_$(GOARCH)
-LOG_FILE := $(OUT_DIR)/$(PROJECT_NAME).log
+# output dir and config path
+OUT_DIR         := $(BASE_DIR)/$(GOOS)_$(GOARCH)
+LOG_FILE        := $(OUT_DIR)/$(PROJECT_NAME).log
 API_CONFIG_PATH := $(OUT_DIR)/pixiuconf/api_config.yaml
-CONFIG_PATH := $(OUT_DIR)/pixiuconf/conf.yaml
+CONFIG_PATH     := $(OUT_DIR)/pixiuconf/conf.yaml
 
 export APP_LOG_CONF_FILE ?= $(OUT_DIR)/conf/log.yml
 
@@ -97,13 +106,13 @@ config:
 	@-test -f $(PROJECT_DIR)/pixiu/api_config.yaml && cat $(PROJECT_DIR)/pixiu/api_config.yaml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" > $(OUT_DIR)/pixiuconf/api_config.yaml && echo "  > $(OUT_DIR)/pixiuconf/api_config.yaml"
 	@-test -f $(PROJECT_DIR)/pixiu/conf.yaml && cat $(PROJECT_DIR)/pixiu/conf.yaml | sed "s#\$$HOST_IP#$(DOCKER_HOST_IP)#g" | sed "s#\$$PROJECT_DIR#$(PROJECT_DIR)#g" > $(OUT_DIR)/pixiuconf/conf.yaml && echo "  > $(OUT_DIR)/pixiuconf/conf.yaml"
 
-## docker-up: Shutdown dependency services on docker
+## docker-up: Startup the docker services
 .PHONY: docker-up
 docker-up:
 	$(info   >  Starting dependency services with $(PROJECT_DIR)/docker/docker-compose.yml)
 	@-test -f $(PROJECT_DIR)/docker/docker-compose.yml && docker-compose -f $(PROJECT_DIR)/docker/docker-compose.yml up -d
 
-## docker-health-check: check services health on docker
+## docker-health-check: Check services health on docker
 .PHONY: docker-health-check
 docker-health-check:
 	$(info   >  run docker health check with $(PROJECT_DIR)/docker/docker-health-check.sh)
@@ -132,7 +141,7 @@ start: build
 	@cat $(PID) | sed "/^/s/^/  \>  PID: /"
 
 
-## start: Start the application (for server) foreground
+## startServer: Start the application (for server) foreground
 .PHONY: startServer
 startServer: export DUBBO_GO_CONFIG_PATH ?= $(OUT_DIR)/server/server.yml
 startServer: build
@@ -144,7 +153,7 @@ startServer: build
 run: buildPixiu
 	$(info   >  Running application PIXIU, output is redirected to $(LOG_FILE))
 
-## buildPixiu: start pixiu
+## buildPixiu: Build  pixiu
 .PHONY: buildPixiu
 buildPixiu:
 	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
@@ -152,7 +161,7 @@ buildPixiu:
 	@cat $(PIXIU_PID) | sed "/^/s/^/  \> PIXIU_PID: /"
 
 
-## startPixiu: start pixiu foreground
+## startPixiu: Start pixiu foreground
 .PHONY: startPixiu
 startPixiu:
 	@CGO_ENABLED=$(CGO) GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GCFLAGS) -ldflags=$(LDFLAGS) -o $(OUT_DIR)/dubbo-go-pixiu$(EXT_NAME) $(pixiuSources)
