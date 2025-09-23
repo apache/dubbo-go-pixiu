@@ -64,7 +64,7 @@ func (opt *groupOpt) Action(target, val any) error {
 	if !ok {
 		return errors.New("Target is not *client.Request in value options")
 	}
-	r.API.IntegrationRequest.DubboBackendConfig.Group = v
+	r.API.Group = v
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (opt *versionOpt) Action(target, val any) error {
 	if !ok {
 		return errors.New("Target is not *client.Request in value options")
 	}
-	r.API.IntegrationRequest.DubboBackendConfig.Version = v
+	r.API.Version = v
 	return nil
 }
 
@@ -96,7 +96,7 @@ func (opt *methodOpt) Action(target, val any) error {
 	if !ok {
 		return errors.New("Target is not *client.Request in value options")
 	}
-	r.API.IntegrationRequest.DubboBackendConfig.Method = v
+	r.API.DubboBackendConfig.Method = v
 	return nil
 }
 
@@ -112,7 +112,7 @@ func (opt *applicationOpt) Action(target, val any) error {
 	if !ok {
 		return errors.New("Target is not *client.Request in value options")
 	}
-	r.API.IntegrationRequest.DubboBackendConfig.ApplicationName = v
+	r.API.ApplicationName = v
 	return nil
 }
 
@@ -128,7 +128,7 @@ func (opt *interfaceOpt) Action(target, val any) error {
 	if !ok {
 		return errors.New("Target is not *client.Request in value options")
 	}
-	r.API.IntegrationRequest.DubboBackendConfig.Interface = v
+	r.API.Interface = v
 	return nil
 }
 
@@ -158,7 +158,7 @@ func (opt *valuesOpt) Action(target, val any) error {
 	} else if val, ok := v[0].(string); !ok || val != "" {
 		toVals = []any{v[0]}
 	}
-	if !(len(toTypes) != 0 && len(toTypes) == len(toVals)) {
+	if len(toTypes) == 0 || len(toTypes) != len(toVals) {
 		dubboTarget.Types = toTypes
 		dubboTarget.Values = toVals
 		return nil

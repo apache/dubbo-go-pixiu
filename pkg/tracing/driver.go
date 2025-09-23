@@ -96,7 +96,7 @@ func newExporter(ctx context.Context, cfg *model.TracerConfig) (sdktrace.SpanExp
 	case JAEGER:
 		return jaeger.NewJaegerExporter(cfg)
 	default:
-		return nil, errors.New("no exporter error\n")
+		return nil, errors.New("no exporter error")
 	}
 }
 

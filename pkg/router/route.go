@@ -61,7 +61,7 @@ func (rt *Route) ClearAPI() error {
 
 func (rt *Route) RemoveAPI(api router.API) {
 	lowerCasePath := strings.ToLower(api.URLPattern)
-	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
+	key := getTrieKey(api.HTTPVerb, lowerCasePath, false)
 
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
@@ -82,7 +82,7 @@ func (rt *Route) RemoveAPI(api router.API) {
 				return
 			}
 			// avoid thread safe problem
-			clusters := strings.Split(bizInfo.method.HTTPBackendConfig.URL, ",")
+			clusters := strings.Split(bizInfo.method.URL, ",")
 			if len(clusters) > 1 {
 				var i int
 				for i = 0; i < len(clusters); i++ {
@@ -96,10 +96,10 @@ func (rt *Route) RemoveAPI(api router.API) {
 				}
 
 				// operate pointer has no necessary to call update api
-				bizInfo.method.HTTPBackendConfig.URL = strings.Join(append(clusters[:i], clusters[i+1:]...), ",")
+				bizInfo.method.URL = strings.Join(append(clusters[:i], clusters[i+1:]...), ",")
 			} else {
 				// double check, avoid removing api that does not exists
-				if !strings.Contains(bizInfo.method.HTTPBackendConfig.URL, api.URL) {
+				if !strings.Contains(bizInfo.method.URL, api.URL) {
 					return
 				}
 				// if backend has only one node, then just directly remove
@@ -122,7 +122,7 @@ func getTrieKey(method config.HTTPVerb, path string, isPrefix bool) string {
 // PutAPI puts an api into the resource
 func (rt *Route) PutAPI(api router.API) error {
 	lowerCasePath := strings.ToLower(api.URLPattern)
-	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
+	key := getTrieKey(api.HTTPVerb, lowerCasePath, false)
 	node, ok := rt.getNode(key)
 	if !ok {
 		rn := &Node{
@@ -137,14 +137,14 @@ func (rt *Route) PutAPI(api router.API) error {
 	}
 	return errors.Errorf(
 		"Method %s with address %s already exists in path %s",
-		api.Method.HTTPVerb, lowerCasePath, node.fullPath,
+		api.HTTPVerb, lowerCasePath, node.fullPath,
 	)
 }
 
 // PutOrUpdateAPI puts or updates an api into the resource
 func (rt *Route) PutOrUpdateAPI(api router.API) error {
 	lowerCasePath := strings.ToLower(api.URLPattern)
-	key := getTrieKey(api.Method.HTTPVerb, lowerCasePath, false)
+	key := getTrieKey(api.HTTPVerb, lowerCasePath, false)
 	rn := &Node{
 		fullPath: lowerCasePath,
 		method:   &api.Method,
@@ -166,9 +166,9 @@ func (rt *Route) PutOrUpdateAPI(api router.API) error {
 			if bizInfo == nil || !ok {
 				return errors.New("bizInfoInterface.(*Node) failed")
 			}
-			if !strings.Contains(bizInfo.method.HTTPBackendConfig.URL, api.URL) {
+			if !strings.Contains(bizInfo.method.URL, api.URL) {
 				// operate pointer has no necessary to call update api
-				bizInfo.method.HTTPBackendConfig.URL = bizInfo.method.HTTPBackendConfig.URL + "," + api.URL
+				bizInfo.method.URL = bizInfo.method.URL + "," + api.URL
 			}
 		}
 	} else {

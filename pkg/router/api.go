@@ -38,8 +38,8 @@ func GetURIParams(api *router.API, rawURL url.URL) url.Values {
 // IsWildCardBackendPath checks whether the configured path of
 // the upstream restful service contains parameters
 func IsWildCardBackendPath(api *router.API) bool {
-	if len(api.IntegrationRequest.Path) == 0 {
+	if len(api.Path) == 0 {
 		return false
 	}
-	return strings.Contains(api.IntegrationRequest.Path, constant.PathParamIdentifier)
+	return strings.Contains(api.Path, constant.PathParamIdentifier)
 }

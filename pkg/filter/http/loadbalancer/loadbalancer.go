@@ -75,8 +75,8 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 }
 
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
-	allInstances := strings.Split(c.GetAPI().IntegrationRequest.HTTPBackendConfig.URL, ",")
+	allInstances := strings.Split(c.GetAPI().URL, ",")
 	idx := rand.Int31n(int32(len(allInstances))) // NOSONAR
-	c.Api.IntegrationRequest.HTTPBackendConfig.URL = strings.TrimSpace(allInstances[idx])
+	c.Api.URL = strings.TrimSpace(allInstances[idx])
 	return filter.Continue
 }

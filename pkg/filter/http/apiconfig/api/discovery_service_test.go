@@ -168,8 +168,8 @@ func TestLoadAPIFromResource(t *testing.T) {
 func TestLoadAPIFromMethods(t *testing.T) {
 	mockPutAPIMethod := mock.GetMockAPI(fc.MethodPut, "").Method
 	mockPutAPIMethod2 := mock.GetMockAPI(fc.MethodPut, "").Method
-	mockPutAPIMethod.IntegrationRequest.URL = "localhost:8080"
-	mockPutAPIMethod2.IntegrationRequest.URL = "localhost:8081"
+	mockPutAPIMethod.URL = "localhost:8080"
+	mockPutAPIMethod2.URL = "localhost:8081"
 	tempMethods := []fc.Method{
 		mockPutAPIMethod,
 		mockPutAPIMethod2,

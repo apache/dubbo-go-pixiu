@@ -85,15 +85,15 @@ func getEncoderConfig() (config zapcore.EncoderConfig) {
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 		EncodeCaller:   zapcore.FullCallerEncoder,
 	}
-	switch {
-	case global.CONFIG.Zap.EncodeLevel == "LowercaseLevelEncoder": // lowercase encoder (default)
+	switch global.CONFIG.Zap.EncodeLevel {
+	case "LowercaseLevelEncoder": // lowercase encoder (default)
 		config.EncodeLevel = zapcore.LowercaseLevelEncoder
-	case global.CONFIG.Zap.EncodeLevel == "LowercaseColorLevelEncoder": // lowercase encoder with color
+	case "LowercaseColorLevelEncoder": // lowercase encoder with color
 		// Uppercase encoder
 		config.EncodeLevel = zapcore.LowercaseColorLevelEncoder
-	case global.CONFIG.Zap.EncodeLevel == "CapitalLevelEncoder": // uppercase encoder
+	case "CapitalLevelEncoder": // uppercase encoder
 		config.EncodeLevel = zapcore.CapitalLevelEncoder
-	case global.CONFIG.Zap.EncodeLevel == "CapitalColorLevelEncoder": // uppercase encoder with color
+	case "CapitalColorLevelEncoder": // uppercase encoder with color
 		config.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	default:
 		config.EncodeLevel = zapcore.LowercaseLevelEncoder
@@ -111,7 +111,7 @@ func getEncoder() zapcore.Encoder {
 func getEncoderCore() (core zapcore.Core) {
 	writer, err := utils.GetWriteSyncer()
 	if err != nil {
-		fmt.Printf("Get Write Syncer Failed err:%v", err.Error())
+		fmt.Printf("Get Write Syncer Failed err: %v", err.Error())
 		return
 	}
 	return zapcore.NewCore(getEncoder(), writer, level)

@@ -120,14 +120,14 @@ func (a *Adapter) Config() any {
 }
 
 func (a *Adapter) OnAddAPI(r router.API) error {
-	ipPort := strings.Split(r.IntegrationRequest.URL, ":")
+	ipPort := strings.Split(r.URL, ":")
 	port, err := strconv.Atoi(ipPort[1])
 	if err != nil {
 		return err
 	}
 	cluster := getClusterName(r)
 	server.GetClusterManager().SetEndpoint(cluster, &model.Endpoint{
-		ID: r.IntegrationRequest.URL,
+		ID: r.URL,
 		Address: model.SocketAddress{
 			Address: ipPort[0],
 			Port:    port,
@@ -151,7 +151,7 @@ func (a *Adapter) OnAddAPI(r router.API) error {
 
 func (a *Adapter) OnRemoveAPI(r router.API) error {
 	cluster := getClusterName(r)
-	server.GetClusterManager().DeleteEndpoint(cluster, r.IntegrationRequest.URL)
+	server.GetClusterManager().DeleteEndpoint(cluster, r.URL)
 	return server.GetApiConfigManager().RemoveAPI(a.id, r)
 }
 

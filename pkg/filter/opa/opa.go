@@ -91,7 +91,7 @@ func (factory *FilterFactory) Apply() error {
 // PrepareFilterChain prepares the filter chain for a new request by dynamically creating a Filter
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	if factory.rego == nil {
-		return fmt.Errorf("Rego instance not initialized in factory")
+		return fmt.Errorf("rego instance not initialized in factory")
 	}
 
 	preparedQuery, err := factory.rego.PrepareForEval(ctx.Ctx)

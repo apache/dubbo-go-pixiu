@@ -78,7 +78,7 @@ func (p *Proxy) Call(ctx context.Context, serviceName, methodName string, messag
 		return nil, errors.Wrap(err, stat.Message())
 	}
 
-	outputMessage := dynamic.NewMessage(invocation.MethodDescriptor.GetOutputType())
+	outputMessage := dynamic.NewMessage(invocation.GetOutputType())
 	err = outputMessage.ConvertFrom(output)
 	if err != nil {
 		return nil, errors.Wrap(err, "response from backend could not be converted internally")

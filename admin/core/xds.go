@@ -50,7 +50,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-	structpb2 "google.golang.org/protobuf/types/known/structpb"
 )
 
 import (
@@ -200,7 +199,7 @@ func makeHTTPFilter(listener fc.Listener) *pixiupb.FilterChain {
 				Name: constant.HTTPConnectManagerFilter,
 				Config: &pixiupb.NetworkFilter_Struct{
 					Struct: func() *structpb.Struct {
-						v, err := structpb2.NewStruct(map[string]any{
+						v, err := structpb.NewStruct(map[string]any{
 							"route_config": map[string]any{
 								"routes": routes,
 							},

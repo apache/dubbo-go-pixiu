@@ -142,7 +142,7 @@ func (trie Trie) Contains(withOutHost string) (bool, error) {
 	if e != nil {
 		return true, e
 	}
-	return !(ret == nil), nil
+	return ret != nil, nil
 }
 
 // Put node put

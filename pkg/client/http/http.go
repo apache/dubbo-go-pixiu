@@ -137,7 +137,7 @@ func (dc *Client) Call(req *client.Request) (resp any, err error) {
 
 // MapParams param mapping to api.
 func (dc *Client) MapParams(req *client.Request) (reqData any, err error) {
-	mp := req.API.IntegrationRequest.MappingParams
+	mp := req.API.MappingParams
 	r := newRequestParams()
 	if len(mp) == 0 {
 		r.Body = req.IngressRequest.Body
@@ -169,16 +169,16 @@ func (dc *Client) MapParams(req *client.Request) (reqData any, err error) {
 // ParseURL returns the actual target url. Supports wildcard target path value mapping.
 func (dc *Client) parseURL(req *client.Request, params requestParams) (string, error) {
 	var schema string
-	if len(req.API.IntegrationRequest.HTTPBackendConfig.Schema) == 0 {
+	if len(req.API.Schema) == 0 {
 		schema = "http"
 	} else {
-		schema = req.API.IntegrationRequest.HTTPBackendConfig.Schema
+		schema = req.API.Schema
 	}
 
-	rawPath := req.API.IntegrationRequest.HTTPBackendConfig.Path
+	rawPath := req.API.Path
 	if router.IsWildCardBackendPath(&req.API) {
 		paths := strings.Split(
-			strings.TrimLeft(req.API.IntegrationRequest.HTTPBackendConfig.Path, constant.PathSlash),
+			strings.TrimLeft(req.API.Path, constant.PathSlash),
 			constant.PathSlash)
 		for i := 0; i < len(paths); i++ {
 			if strings.HasPrefix(paths[i], constant.PathParamIdentifier) {
@@ -194,7 +194,7 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 	}
 
 	parsedURL := url.URL{
-		Host:     req.API.IntegrationRequest.HTTPBackendConfig.Host,
+		Host:     req.API.Host,
 		Scheme:   schema,
 		Path:     rawPath,
 		RawQuery: params.Query.Encode(),
