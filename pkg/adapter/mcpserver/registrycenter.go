@@ -155,7 +155,6 @@ func (a *Adapter) Apply() error {
 				return
 			}
 
-			// 直接使用传入的 serverId，无需从配置中提取
 			if serverId == "" {
 				serverId = "default"
 			}

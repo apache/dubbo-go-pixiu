@@ -28,6 +28,12 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
+const (
+	// Retry configuration constants
+	MaxRetryAttempts = 3
+	RetryDelayMs     = 500
+)
+
 // McpController is the MCP server's configuration synchronizer in Nacos.
 // It is responsible for discovering, watching, transforming, and applying configurations.
 type McpController struct {
@@ -35,14 +41,18 @@ type McpController struct {
 	onChange func(serverId string, cfg *McpServerConfig)
 	watched  map[string]bool
 	mu       sync.RWMutex
+
+	// Track the last known server count to detect suspicious empty lists
+	lastKnownServerCount int
 }
 
 // NewMcpController creates a new MCP controller
 func NewMcpController(client *NacosRegistryClient, onChange func(serverId string, cfg *McpServerConfig)) *McpController {
 	return &McpController{
-		client:   client,
-		onChange: onChange,
-		watched:  make(map[string]bool),
+		client:               client,
+		onChange:             onChange,
+		watched:              make(map[string]bool),
+		lastKnownServerCount: 0,
 	}
 }
 
@@ -73,13 +83,36 @@ func (c *McpController) Run(ctx context.Context, interval time.Duration) error {
 
 // reconcile coordinates logic: discover services, compute diffs, bind watchers
 func (c *McpController) reconcile() error {
-
 	logger.Debugf("[dubbo-go-pixiu] nacos registry starting to list MCP servers")
 
-	// Retrieve all MCP services
-	servers, err := c.client.ListMcpServer()
-	if err != nil {
-		return fmt.Errorf("failed to list MCP servers: %w", err)
+	// Retrieve all MCP services with retry mechanism
+	var servers []BasicMcpServerInfo
+	var err error
+
+	for attempt := 0; attempt < MaxRetryAttempts; attempt++ {
+		servers, err = c.client.ListMcpServer()
+		if err != nil {
+			if attempt < MaxRetryAttempts-1 {
+				logger.Warnf("Failed to list MCP servers (attempt %d/%d): %v, retrying...",
+					attempt+1, MaxRetryAttempts, err)
+				time.Sleep(time.Duration(RetryDelayMs*(attempt+1)) * time.Millisecond)
+				continue
+			}
+			return fmt.Errorf("failed to list MCP servers after %d attempts: %w", MaxRetryAttempts, err)
+		}
+		break
+	}
+
+	// Empty list protection: if we previously had servers but now suddenly have none, skip cleanup
+	if len(servers) == 0 && c.lastKnownServerCount > 0 {
+		logger.Warnf("Detected empty server list, but previously had %d servers. Skipping cleanup to avoid false positives.",
+			c.lastKnownServerCount)
+		return nil
+	}
+
+	// Update known server count
+	if len(servers) > 0 {
+		c.lastKnownServerCount = len(servers)
 	}
 
 	c.mu.Lock()
