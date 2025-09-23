@@ -1,0 +1,12 @@
+dubbo:
+  registries:
+    zk:
+      address: zookeeper://127.0.0.1:2181
+  consumer:
+    references:
+      GreeterClientImpl:
+        protocol: tri
+        interface: org.apache.dubbogo.samples.api.Greeter
+  logger:
+    zap-config:
+      level: panic

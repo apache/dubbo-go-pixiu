@@ -1,0 +1,15 @@
+dubbo:
+  registries:
+    zk:
+      address: zookeeper://127.0.0.1:2181
+  protocols:
+    triple:
+      name: tri
+      port: 20001
+  provider:
+    services:
+      GreeterProvider:
+        protocol-ids: triple # 使用上面定义的协议id
+        serialization: protobuf
+        # interface is for registry
+        interface: org.apache.dubbogo.samples.api.Greeter
