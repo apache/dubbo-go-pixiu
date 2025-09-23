@@ -200,9 +200,7 @@ func (gcm *GrpcProxyConnectionManager) extractServiceName(ctx context.Context, f
 
 	// Fallback to parsing from the full method string, e.g., "/package.Service/Method" -> "package.Service"
 	// Trim leading slash for consistency
-	if strings.HasPrefix(fullMethod, "/") {
-		fullMethod = fullMethod[1:]
-	}
+	fullMethod = strings.TrimPrefix(fullMethod, "/")
 
 	lastSlash := strings.LastIndex(fullMethod, "/")
 	if lastSlash > 0 {

@@ -157,7 +157,6 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 func (cm *ClusterManager) PickEndpoint(clusterName string, policy model.LbPolicy) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
-
 	c := cm.getCluster(clusterName)
 	if c == nil {
 		logger.Warnf("[dubbo-go-pixiu] cluster %s not found", clusterName)

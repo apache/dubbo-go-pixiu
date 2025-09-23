@@ -122,7 +122,7 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 		return filter.Stop
 	}
 
-	if !v.Method.Enable {
+	if !v.Enable {
 		ctx.SendLocalReply(http.StatusNotAcceptable, constant.Default406Body)
 		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)
 		logger.Debug(e.Error())

@@ -54,7 +54,7 @@ func TestMapParams(t *testing.T) {
 	assert.Equal(t, string(rawBody),
 		"{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")
 
-	api.IntegrationRequest.MappingParams = []config.MappingParam{
+	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "queryStrings.team",
 			MapTo: "queryStrings.team",
@@ -80,8 +80,8 @@ func TestMapParams(t *testing.T) {
 			MapTo: "requestBody.nickName",
 		},
 	}
-	api.IntegrationRequest.HTTPBackendConfig.Schema = "https"
-	api.IntegrationRequest.HTTPBackendConfig.Host = "localhost"
+	api.Schema = "https"
+	api.Host = "localhost"
 	r, _ = http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte(
 		"{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	r.Header.Set("Auth", "12345")
@@ -105,9 +105,9 @@ func TestParseURL(t *testing.T) {
 	r, _ := http.NewRequest("POST", "/mock/test/12345", bytes.NewReader([]byte("")))
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test/:id")
 	api.IntegrationRequest.RequestType = "http"
-	api.IntegrationRequest.HTTPBackendConfig.Schema = "http"
-	api.IntegrationRequest.HTTPBackendConfig.Host = "abc.com"
-	api.IntegrationRequest.HTTPBackendConfig.Path = "/:id"
+	api.Schema = "http"
+	api.Host = "abc.com"
+	api.Path = "/:id"
 	req := client.NewReq(context.TODO(), r, api)
 	parsedURL, err := hClient.parseURL(req, *requestParams)
 	assert.Equal(t, parsedURL, "http://abc.com/12345")
@@ -122,7 +122,7 @@ func TestParseURL(t *testing.T) {
 
 	requestParams = newRequestParams()
 	requestParams.URIParams.Set("id", "12345")
-	req.API.HTTPBackendConfig.Path = ""
+	req.API.Path = ""
 	parsedURL, err = hClient.parseURL(req, *requestParams)
 	assert.Equal(t, parsedURL, "http://abc.com")
 	assert.Nil(t, err)

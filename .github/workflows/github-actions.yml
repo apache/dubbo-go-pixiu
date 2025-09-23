@@ -23,241 +23,150 @@ on:
   pull_request:
   pull_request_target:
 
+# cancel in-progress runs for the same branch or PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-
-  license-check:
-    name: License Check - Go ${{ matrix.go_version }}
+  license-check-and-import-format:
+    name: License Check and Import Format
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go_version:
-          - 1.23
     steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - name: Cache imports-formatter
+        id: cache-go-bin
+        uses: actions/cache@v4
         with:
-          go-version: ${{ matrix.go_version }}
-        id: go
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-imports-formatter-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-imports-formatter-
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
+      - name: Download imports-formatter if not cached
+        if: steps.cache-go-bin.outputs.cache-hit != 'true'
+        run: |
+          go install github.com/dubbogo/tools/cmd/imports-formatter@latest
 
       - name: Check License Header
-        uses: apache/skywalking-eyes/header@501a28d2fb4a9b962661987e50cf0219631b32ff
+        uses: apache/skywalking-eyes/header@main # NOSONAR
 
+      - name: Check Golang fmt
+        run: |
+          gofmt -s -w .
+          git diff --exit-code
 
-  format:
-    name: Format Code ${{ matrix.os }} - Go ${{ matrix.go_version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      # If you want to matrix build , you can append the following list.
-      matrix:
-        go_version:
-          - 1.23
-        os:
-          - ubuntu-latest
+      - name: Check Import Formatting
+        run: |
+          imports-formatter
+          git diff --exit-code
+
+  golangci:
+    needs: license-check-and-import-format
+    name: Golang Lint
+    runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go_version }}
-        id: go
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-      - name: Cache dependencies
+          go-version-file: 'go.mod'
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8 # NOSONAR
+        with:
+          version: v2.4.0
+
+  unit-test:
+    needs: golangci
+    name: Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Cache Zookeeper JAR
+        id: cache-zk-jar
         uses: actions/cache@v4
         with:
-          # Cache
-          path: ~/go/pkg/mod
-          # Cache key
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Merge base
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          git fetch origin develop
-          git checkout -b develop origin/develop
-          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
-          git fetch devrepo ${{github.event.pull_request.head.sha}}
-          git config --global user.email "dubbo-go@github-ci.com"
-          git config --global user.name "robot"
-          git merge ${{github.event.pull_request.head.sha}}
-      - name: Get dependencies
-        run: |
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          else
-              go get -v -t -d ./...
-          fi
-          go install github.com/dubbogo/tools/cmd/imports-formatter@latest
-      - name: Format Code
-        run: |
-          go fmt ./... && GOROOT=$(go env GOROOT) imports-formatter && git status && [[ -z `git status -s` ]]
-          # diff -u <(echo -n) <(gofmt -d -s .)
+          path: pkg/registry/zookeeper-4unittest/contrib/fatjar
+          key: ${{ runner.os }}-zookeeper-jar-3.4.9
 
-  lint:
-    name: Lint ${{ matrix.os }} - Go ${{ matrix.go_version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      # If you want to matrix build , you can append the following list.
-      matrix:
-        go_version:
-          - 1.23
-        os:
-          - ubuntu-latest
+      - name: Download Zookeeper JAR if not cached
+        if: steps.cache-zk-jar.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss. Downloading Zookeeper JAR..."
+          zkJarName="zookeeper-3.4.9-fatjar.jar"
+          remoteJarUrl="https://github.com/dubbogo/resources/raw/master/zookeeper-4unitest/contrib/fatjar/${zkJarName}"
+          zkJarPath="pkg/registry/zookeeper-4unittest/contrib/fatjar"
+          mkdir -p ${zkJarPath}
+          wget -P "${zkJarPath}" ${remoteJarUrl}
 
-    steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+      - name: Run Tests and Generate Coverage
+        run: |
+          go mod download
+          go test ./... -gcflags=-l -race -coverprofile=coverage.txt -covermode=atomic
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4 # NOSONAR
         with:
-          go-version: ${{ matrix.go_version }}
-        id: go
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-      - name: Cache dependencies
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.txt
+          flags: unittests
+
+  integration-test:
+    needs: unit-test
+    name: Integration Test
+    runs-on: ubuntu-latest
+    outputs:
+      output1: ${{ steps.samples_head.outputs.sha }}
+    env:
+      SAMPLES_BRANCH: main
+      SAMPLES_REPO_URL: https://github.com/apache/dubbo-go-pixiu-samples.git
+      SAMPLES_CLONE_DIR: integrate_samples
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Resolve samples HEAD
+        id: samples_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          head_sha="$(git ls-remote --heads "$SAMPLES_REPO_URL" "$SAMPLES_BRANCH" | awk '{print $1}')"
+          if [ -z "$head_sha" ]; then
+            echo "Failed to resolve HEAD of $SAMPLES_REPO_URL $SAMPLES_BRANCH" >&2
+            exit 1
+          fi
+          echo "sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dubbo-go-pixiu-samples
+        id: cache_samples
         uses: actions/cache@v4
         with:
-          # Cache
-          path: ~/go/pkg/mod
-          # Cache key
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
+          path: ${{ env.SAMPLES_CLONE_DIR }}
+          key: ${{ runner.os }}-samples-${{ steps.samples_head.outputs.sha }}
           restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Merge base
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          git fetch origin develop
-          git checkout -b develop origin/develop
-          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
-          git fetch devrepo ${{github.event.pull_request.head.sha}}
-          git config --global user.email "dubbo-go@github-ci.com"
-          git config --global user.name "robot"
-          git merge ${{github.event.pull_request.head.sha}}
-      - name: Get dependencies
-        run: |
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          else
-              go get -v -t -d ./...
-          fi
-      - name: Install go ci lint
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.64.8
-      - name: Run Linter
-        run: GO111MODULE=on golangci-lint run --timeout=30m -v --disable-all --enable=govet --enable=staticcheck --enable=ineffassign --enable=misspell
+            ${{ runner.os }}-samples-
 
-  go-test:
-    name: Go Test ${{ matrix.os }} - Go ${{ matrix.go_version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      # If you want to matrix build , you can append the following list.
-      matrix:
-        go_version:
-          - 1.23
-        os:
-          - ubuntu-latest
-    steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go_version }}
-        id: go
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          # Cache
-          path: ~/go/pkg/mod
-          # Cache key
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Merge base
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Clone dubbo-go-pixiu-samples if not cached
+        if: steps.cache_samples.outputs.cache-hit != 'true'
+        shell: bash
         run: |
-          git fetch origin develop
-          git checkout -b develop origin/develop
-          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
-          git fetch devrepo ${{github.event.pull_request.head.sha}}
-          git config --global user.email "dubbo-go@github-ci.com"
-          git config --global user.name "robot"
-          git merge ${{github.event.pull_request.head.sha}}
-      - name: Get dependencies
-        run: |
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          else
-              go get -v -t -d ./...
-          fi
-      - name: Go Test
-        run: |
-          chmod u+x before_ut.sh && ./before_ut.sh
-          go mod vendor && go test ./... -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
-      - name: Coverage
-        run: bash <(curl -s https://codecov.io/bash)
+          git clone --depth 1 -b "$SAMPLES_BRANCH" "$SAMPLES_REPO_URL" "$SAMPLES_CLONE_DIR"
 
+      - name: Wire samples to local pixiu
+        working-directory: ${{ env.SAMPLES_CLONE_DIR }}
+        run: |
+          go mod edit -replace=github.com/apache/dubbo-go-pixiu=${{ github.workspace }}
+          go mod tidy
 
-  integrate-test:
-    name: Integrate Test - ${{ matrix.os }} - Go ${{ matrix.go_version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      # If you want to matrix build , you can append the following list.
-      matrix:
-        go_version:
-          - 1.23
-        os:
-          - ubuntu-latest
-    steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go_version }}
-        id: go
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          # Cache
-          path: ~/go/pkg/mod
-          # Cache key
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Merge base
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Run Integration Tests
         run: |
-          git fetch origin develop
-          git checkout -b develop origin/develop
-          git remote add devrepo https://github.com/${{github.event.pull_request.head.repo.full_name}}.git
-          git fetch devrepo ${{github.event.pull_request.head.sha}}
-          git config --global user.email "dubbo-go@github-ci.com"
-          git config --global user.name "robot"
-          git merge ${{github.event.pull_request.head.sha}}
-      - name: Get dependencies
-        run: |
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          else
-              go get -v -t -d ./...
-          fi
-      # integration test
-      # This step only runs when the event type is a pull_request
-      - name: Integrate Test
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          chmod +x start_integrate_test.sh && [[ -n "${{github.event.pull_request.head.repo.full_name}}" ]] && [[ -n "${{github.event.pull_request.head.sha}}" ]] && [[ -n "${{github.base_ref}}" ]] && ./start_integrate_test.sh ${{github.event.pull_request.head.repo.full_name}} ${{github.event.pull_request.head.sha}} ${{github.base_ref}}
-      # This step only runs when the event type is a push
-      - name: Integrate Test
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          chmod +x start_integrate_test.sh && ./start_integrate_test.sh $GITHUB_REPOSITORY $GITHUB_SHA $GITHUB_BASE_REF
+          chmod +x start_integrate_test.sh
+          ./start_integrate_test.sh

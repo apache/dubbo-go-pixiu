@@ -176,7 +176,7 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 		return nil, errors.New("map parameters failed")
 	}
 
-	dm := req.API.Method.IntegrationRequest
+	dm := req.API.IntegrationRequest
 	method := dm.Method
 	types := []string{}
 	vals := []hessian.Object{}
@@ -235,7 +235,7 @@ func (dc *Client) genericArgs(req *client.Request) (any, error) {
 
 // MapParams params mapping to api.
 func (dc *Client) MapParams(req *client.Request) (any, error) {
-	r := req.API.Method.IntegrationRequest
+	r := req.API.IntegrationRequest
 	values := newDubboTarget(r.MappingParams)
 	if dc.dubboProxyConfig != nil && dc.dubboProxyConfig.IsDefaultMap {
 		values = newDubboTarget(defaultMappingParams)
@@ -309,17 +309,17 @@ func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.Ge
 		RegistryIDs:   registerIds,
 		Protocol:      dubbo.DUBBO,
 		Generic:       "true",
-		Version:       irequest.DubboBackendConfig.Version,
+		Version:       irequest.Version,
 		Group:         irequest.Group,
 		Loadbalance:   dc.dubboProxyConfig.LoadBalance,
 		Retries:       dc.dubboProxyConfig.Retries,
 	}
 
 	if refConf.Retries == "" {
-		if len(irequest.DubboBackendConfig.Retries) == 0 {
+		if len(irequest.Retries) == 0 {
 			refConf.Retries = "3"
 		} else {
-			refConf.Retries = irequest.DubboBackendConfig.Retries
+			refConf.Retries = irequest.Retries
 		}
 	}
 

@@ -428,36 +428,35 @@ func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolCo
 	queryParams := make(map[string]string)
 
 	// Process arguments based on their location (path, query, body)
-	if arguments != nil {
-		for argName, argValue := range arguments {
-			// Find argument configuration
-			var argConfig *ArgConfig
-			for _, arg := range toolConfig.Args {
-				if arg.Name == argName {
-					argConfig = &arg
-					break
-				}
+
+	for argName, argValue := range arguments {
+		// Find argument configuration
+		var argConfig *ArgConfig
+		for _, arg := range toolConfig.Args {
+			if arg.Name == argName {
+				argConfig = &arg
+				break
 			}
+		}
 
-			if argConfig == nil {
-				continue // Skip unknown arguments
-			}
+		if argConfig == nil {
+			continue // Skip unknown arguments
+		}
 
-			switch argConfig.In {
-			case inPath:
-				// Replace path parameters
-				placeholder := fmt.Sprintf("{%s}", argName)
-				replacement := fmt.Sprintf("%v", argValue)
-				path = strings.ReplaceAll(path, placeholder, replacement)
+		switch argConfig.In {
+		case inPath:
+			// Replace path parameters
+			placeholder := fmt.Sprintf("{%s}", argName)
+			replacement := fmt.Sprintf("%v", argValue)
+			path = strings.ReplaceAll(path, placeholder, replacement)
 
-			case inQuery:
-				// Add to query parameters
-				queryParams[argName] = fmt.Sprintf("%v", argValue)
+		case inQuery:
+			// Add to query parameters
+			queryParams[argName] = fmt.Sprintf("%v", argValue)
 
-			case inBody:
-				// Add to request body
-				bodyParams[argName] = argValue
-			}
+		case inBody:
+			// Add to request body
+			bodyParams[argName] = argValue
 		}
 	}
 
