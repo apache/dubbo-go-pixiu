@@ -26,16 +26,14 @@ import (
 )
 
 import (
+	"dubbo-go-pixiu-benchmark/protocol/triple/pb/go-server/pkg"
+
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
 
 	"github.com/dubbogo/gost/log/logger"
 
 	_ "github.com/dubbogo/triple/pkg/triple"
-)
-
-import (
-	"dubbo-go-pixiu-benchmark/protocol/triple/pb/go-server/pkg"
 )
 
 var (

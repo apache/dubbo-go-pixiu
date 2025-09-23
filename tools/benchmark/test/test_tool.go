@@ -18,12 +18,15 @@
 package test
 
 import (
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/onsi/gomega/gmeasure"
 	"io/ioutil"
 	"os/exec"
 	"time"
+)
+
+import (
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/gmeasure"
 )
 
 var (

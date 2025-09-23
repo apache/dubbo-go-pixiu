@@ -19,11 +19,6 @@ package grpc_suite
 
 import (
 	"context"
-	"dubbo-go-pixiu-benchmark/test"
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gmeasure"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -31,11 +26,21 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
+
+import (
+	pb "dubbo-go-pixiu-benchmark/protocol/grpc/proto"
+
+	"dubbo-go-pixiu-benchmark/test"
 
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega/gexec"
 
-	pb "dubbo-go-pixiu-benchmark/protocol/grpc/proto"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/gmeasure"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (

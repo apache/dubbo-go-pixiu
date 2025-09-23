@@ -19,7 +19,6 @@ package dubbo_suite
 
 import (
 	"context"
-	"dubbo-go-pixiu-benchmark/test"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,13 +27,20 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"dubbo-go-pixiu-benchmark/protocol/dubbo/go-client/pkg"
+
+	"dubbo-go-pixiu-benchmark/test"
 
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+
 	hessian "github.com/apache/dubbo-go-hessian2"
+
 	. "github.com/onsi/ginkgo/v2"
+
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/gmeasure"

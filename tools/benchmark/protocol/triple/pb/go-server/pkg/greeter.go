@@ -22,11 +22,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/gost/log/logger"
-)
-
-import (
 	pb "dubbo-go-pixiu-benchmark/api"
+
+	"github.com/dubbogo/gost/log/logger"
 )
 
 type GreeterProvider struct {

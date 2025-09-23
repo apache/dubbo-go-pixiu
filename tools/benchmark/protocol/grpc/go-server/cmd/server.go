@@ -20,9 +20,6 @@ package main
 import (
 	"context"
 	"fmt"
-	perrors "github.com/pkg/errors"
-	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/reflection"
 	"net"
 	"os"
 	"os/signal"
@@ -31,11 +28,13 @@ import (
 )
 
 import (
-	"google.golang.org/grpc"
-)
-
-import (
 	"dubbo-go-pixiu-benchmark/protocol/grpc/proto"
+
+	perrors "github.com/pkg/errors"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/reflection"
 )
 
 const (

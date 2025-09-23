@@ -30,18 +30,20 @@ import (
 )
 
 import (
+	triplepb "dubbo-go-pixiu-benchmark/api"
+
+	"dubbo-go-pixiu-benchmark/test"
+
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+
 	tripleConstant "github.com/dubbogo/triple/pkg/common/constant"
+
 	. "github.com/onsi/ginkgo/v2"
+
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/gmeasure"
-)
-
-import (
-	triplepb "dubbo-go-pixiu-benchmark/api"
-	"dubbo-go-pixiu-benchmark/test"
 )
 
 var (

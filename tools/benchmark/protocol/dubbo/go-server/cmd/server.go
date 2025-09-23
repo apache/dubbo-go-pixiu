@@ -26,16 +26,14 @@ import (
 )
 
 import (
+	"dubbo-go-pixiu-benchmark/protocol/dubbo/go-server/pkg"
+
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
 	"github.com/dubbogo/gost/log/logger"
-)
-
-import (
-	"dubbo-go-pixiu-benchmark/protocol/dubbo/go-server/pkg"
 )
 
 func main() {
