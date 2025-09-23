@@ -19,7 +19,7 @@ package grpc_suite
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -136,7 +136,7 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 `
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				_, err = ioutil.ReadAll(resp.Body)
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status, 200)
 				//println(string(respBytes))
@@ -155,7 +155,7 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 `
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				_, err = ioutil.ReadAll(resp.Body)
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status, 200)
 				//println(string(respBytes))
@@ -174,7 +174,7 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 `
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				_, err = ioutil.ReadAll(resp.Body)
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status, 200)
 				//println(string(respBytes))
@@ -194,7 +194,7 @@ func prepareGRPCServer() *gexec.Session {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	command := exec.Command(serverProcess)
-	session, err := gexec.Start(command, ioutil.Discard, ioutil.Discard)
+	session, err := gexec.Start(command, io.Discard, io.Discard)
 	//session, err := gexec.Start(command, os.Stdout, os.Stderr)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 

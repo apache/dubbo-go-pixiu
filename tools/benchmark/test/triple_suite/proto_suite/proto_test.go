@@ -20,7 +20,7 @@ package proto_suite
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -112,7 +112,7 @@ var _ = Describe("triple protocol performance test", Ordered, func() {
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
-				reply, err := ioutil.ReadAll(resp.Body)
+				reply, err := io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(string(reply)).NotTo(gomega.MatchRegexp("client call err*"))
 				//fmt.Printf("consumer:%+v\n", string(reply))
@@ -131,7 +131,7 @@ func prepareTripleServer() *gexec.Session {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	command := exec.Command(serverProcess)
-	session, err := gexec.Start(command, ioutil.Discard, ioutil.Discard)
+	session, err := gexec.Start(command, io.Discard, io.Discard)
 	//session, err := gexec.Start(command, os.Stdout, os.Stderr)
 
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

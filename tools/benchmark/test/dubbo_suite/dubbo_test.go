@@ -20,7 +20,7 @@ package dubbo_suite
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -156,7 +156,7 @@ var _ = Describe("test", Ordered, func() {
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
-				_, err = ioutil.ReadAll(resp.Body)
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			})
 
@@ -174,7 +174,7 @@ var _ = Describe("test", Ordered, func() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
 
-				_, err = ioutil.ReadAll(resp.Body)
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			})
 
@@ -195,7 +195,7 @@ var _ = Describe("test", Ordered, func() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
 
-				_, err = ioutil.ReadAll(resp.Body)
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			})
 
@@ -216,7 +216,7 @@ var _ = Describe("test", Ordered, func() {
 `
 
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
-				_, err = ioutil.ReadAll(resp.Body)
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -237,7 +237,7 @@ func prepareDubboServer() *gexec.Session {
 	serverProcess, err := gexec.Build("dubbo-go-pixiu-benchmark/protocol/dubbo/go-server/cmd")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	command := exec.Command(serverProcess)
-	session, err := gexec.Start(command, ioutil.Discard, ioutil.Discard)
+	session, err := gexec.Start(command, io.Discard, io.Discard)
 	//session, err := gexec.Start(command, os.Stdout, os.Stderr)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
