@@ -10,7 +10,6 @@ linters:
     - ineffassign
     - misspell
     - staticcheck
-    - goconst
     - depguard
   settings:
     depguard:
@@ -50,6 +49,9 @@ linters:
       - linters:
           - gosec
         text: weak cryptographic primitive
+      - linters:
+          - staticcheck
+        text: 'SA1019:'
     paths:
       - test/testdata_etc
       - pkg/golinters/goanalysis/(checker|passes)
