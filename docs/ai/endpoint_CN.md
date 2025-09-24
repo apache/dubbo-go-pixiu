@@ -13,10 +13,16 @@ clusters:
   - name: "my_llm_cluster"
     endpoints:
       - id: "provider-1-main"
+        socket_address:
+           domains:
+              - api.deepseek.com
         llm_meta:
           provider: "deepseek"
           # ... 其他特定于 LLM 的配置在此处 ...
       - id: "provider-2-fallback"
+        socket_address:
+           domains:
+              - api.openai.com/v1
         llm_meta:
           provider: "openai"
           # ... 其他特定于 LLM 的配置在此处 ...
@@ -25,12 +31,6 @@ clusters:
 ### `llm_meta` 配置字段
 
 `llm_meta` 块包含所有与网关应如何处理此 LLM endpoint 相关的特定配置。
-
-`provider`
-
-- **类型**: `string`
-- **描述**: 用于识别 LLM 提供商的名称，请查看[此处]()了解所有支持的 LLM
-  提供商。这主要用于访问对应的 LLM 提供商。
 
 `fallback`
 
@@ -130,8 +130,10 @@ clusters:
     endpoints:
       # --- 主endpoint ---
       - id: deepseek-primary
+        socket_address:
+           domains:
+              - api.deepseek.com
         llm_meta:
-          provider: deepseek
           # 如果所有重试都失败，则移至下一个 endpoint。
           fallback: true
           # 为主 endpoint 使用稳健的重试策略。
@@ -144,7 +146,10 @@ clusters:
               multiplier: 2.5
 
       # --- fallback endpoint ---
-      - id: deepseek-fallback
+      - id: openai-fallback
+        socket_address:
+           domains:
+              - api.openai.com/v1
         llm_meta:
           provider: openai
           # 这是最后的选择；不要再进一步 fallback。
