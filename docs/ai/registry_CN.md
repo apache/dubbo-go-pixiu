@@ -53,13 +53,6 @@
 - **描述**: 一个人类可读的名称，用于标识此 endpoint。主要用于日志和监控。
 - **示例**: `"DeepSeek V2 Chat (Primary)"`
 
-`llm-meta.provider`
-
-- **类型**: `string`
-- **必需**: 是
-- **描述**: 用于识别 LLM 提供商的名称。网关使用此字段来适配特定提供商的 API 协议。
-- **示例**: `"deepseek"`
-
 `llm-meta.fallback`
 
 - **类型**: `string` ("true" 或 "false")
@@ -186,7 +179,6 @@ func main() {
 		"port": "9000",         // 网关将使用这个公网端口
 
 		// --- LLM 特定元数据 ---
-		"llm-meta.provider":    "deepseek",
 		"llm-meta.fallback":    "true",
 
 		// 使用 JSON 字符串格式的 API Keys

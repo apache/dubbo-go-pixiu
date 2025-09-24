@@ -53,13 +53,6 @@ All gateway-specific configurations are passed through the `metadata` field of t
 - **Description**: A human-readable name to identify this endpoint. Primarily used for logging and monitoring.
 - **Example**: `"DeepSeek V2 Chat (Primary)"`
 
-`llm-meta.provider`
-
-- **Type**: `string`
-- **Required**: Yes
-- **Description**: The name used to identify the LLM provider. The gateway uses this field to adapt to the specific provider's API protocol.
-- **Example**: `"deepseek"`
-
 `llm-meta.fallback`
 
 - **Type**: `string` ("true" or "false")
@@ -186,7 +179,6 @@ func main() {
 		"port": "9000",         // The gateway will use this public port
 
 		// --- LLM-Specific Metadata ---
-		"llm-meta.provider":    "deepseek",
 		"llm-meta.fallback":    "true",
 
 		// API Keys in JSON string format

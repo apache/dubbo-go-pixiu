@@ -19,9 +19,12 @@ package server
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 	"sync/atomic"
+)
+
+import (
+	"github.com/hashicorp/go-uuid"
 )
 
 import (
@@ -276,7 +279,7 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	for i, endpoint := range c.Endpoints {
 		// If the endpoint ID is not set, set it to the index + 1
 		if endpoint.ID == "" {
-			endpoint.ID = strconv.Itoa(i + 1)
+			endpoint.ID, _ = uuid.GenerateUUID()
 		}
 
 		// If the endpoint has no name, set a default name

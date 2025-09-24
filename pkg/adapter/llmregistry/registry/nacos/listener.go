@@ -43,7 +43,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 const (
@@ -300,9 +299,6 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 	if address, ok := instance.Metadata["address"]; ok {
 		ret.Address.Domains = strings.Split(address, ",")
 	}
-	if provider, ok := instance.Metadata["llm-meta.provider"]; ok {
-		ret.LLMMeta.Provider = provider
-	}
 	if apiKeys, ok := instance.Metadata["llm-meta.api_keys"]; ok {
 		err := json.Unmarshal([]byte(apiKeys), &ret.LLMMeta.APIKeys)
 		if err != nil {
@@ -321,8 +317,6 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 	if fallback, ok := instance.Metadata["llm-meta.fallback"]; ok {
 		ret.LLMMeta.Fallback = strings.ToLower(strings.TrimSpace(fallback)) == "true"
 	}
-
-	ret = server.AssembleLLMProviderDomains(ret)
 
 	ret.Metadata = instance.Metadata
 
