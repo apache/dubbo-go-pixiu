@@ -18,7 +18,6 @@
 package registry
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"strings"
 	"time"
 )
@@ -35,6 +34,7 @@ import (
 import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
