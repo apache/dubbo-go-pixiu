@@ -128,7 +128,7 @@ func TestGenerateEndpoint(t *testing.T) {
 				"name":                       "my-llm",
 				"ip":                         "127.0.0.1",
 				"port":                       "8080",
-				"llm-meta.provider":          "openai",
+				"address":                    "openai.com",
 				"llm-meta.retry_policy.name": "ExponentialBackoff",
 				"llm-meta.fallback":          "true",
 			},
@@ -140,7 +140,7 @@ func TestGenerateEndpoint(t *testing.T) {
 		assert.Equal(t, "my-llm", endpoint.Name)
 		assert.Equal(t, "127.0.0.1", endpoint.Address.Address)
 		assert.Equal(t, 8080, endpoint.Address.Port)
-		assert.Equal(t, "openai", endpoint.LLMMeta.Provider)
+		assert.Equal(t, "openai.com", endpoint.Address.Domains[0])
 		assert.Equal(t, model.RetryerExponentialBackoff, endpoint.LLMMeta.RetryPolicy.Name)
 		assert.True(t, endpoint.LLMMeta.Fallback)
 	})
