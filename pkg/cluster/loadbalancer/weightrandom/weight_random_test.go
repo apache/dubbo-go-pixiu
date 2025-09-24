@@ -212,6 +212,9 @@ func TestWeightRandom_Handler_Probabilistic(t *testing.T) {
 					t.Errorf("Endpoint %s: expected probability %f, got %f (difference %f > tolerance %f)",
 						id, expectedProb, actualProb, diff, tt.tolerance)
 				}
+				if expectedProb == 0 && counts[id] != 0 {
+					t.Errorf("Endpoint %s: expected 0 selections (weight=0), got %d", id, counts[id])
+				}
 			}
 		})
 	}
