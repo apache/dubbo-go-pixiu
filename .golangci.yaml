@@ -50,8 +50,6 @@ linters:
       - linters:
           - gosec
         text: weak cryptographic primitive
-      - linters:
-          - staticcheck
     paths:
       - test/testdata_etc
       - pkg/golinters/goanalysis/(checker|passes)
