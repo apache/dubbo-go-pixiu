@@ -19,7 +19,7 @@ func TestParseLevelAndSet(t *testing.T) {
 		{"error", true, "error"},
 		{"panic", true, "panic"},
 		{"fatal", true, "fatal"},
-		{"unknown", false, "info"}, // parseLevel 默认回退到 info（并返回 false）
+		{"unknown", false, "info"}, // parseLevel default fallback to info
 	}
 
 	for _, tt := range tests {
