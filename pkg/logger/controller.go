@@ -23,33 +23,31 @@ import (
 )
 
 import (
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 // logController governs the logging output or configuration changes throughout the entire project.
 type logController struct {
-	mu sync.RWMutex
-
+	mu     sync.RWMutex
 	logger *pixiuLogger
 }
 
-// setLoggerLevel safely changes the log level in a concurrent manner.
+// setLoggerLevel changes the level at runtime without rebuilding the logger.
 func (c *logController) setLoggerLevel(level string) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	lvl := c.parseLevel(level)
-	if lvl == nil {
+	lvl, ok := c.parseLevel(level)
+	if !ok {
 		return false
 	}
-
-	c.logger.config.Level = *lvl
-	l, _ := c.logger.config.Build(zap.AddCallerSkip(2))
-	c.logger = &pixiuLogger{SugaredLogger: l.Sugar(), config: c.logger.config}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.logger == nil || c.logger.config == nil {
+		return false
+	}
+	c.logger.config.Level.SetLevel(lvl)
 	return true
 }
 
-// updateLogger safely modifies the log object in a concurrent manner.
+// updateLogger swaps the underlying logger atomically.
 func (c *logController) updateLogger(l *pixiuLogger) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -104,26 +102,24 @@ func (c *logController) errorf(fmt string, args ...any) {
 	c.logger.Errorf(fmt, args...)
 }
 
-// parseLevel is used to parse the level of the log.
-func (c *logController) parseLevel(level string) *zap.AtomicLevel {
-	var lvl zapcore.Level
+// parseLevel parses textual level to zapcore.Level.
+func (c *logController) parseLevel(level string) (zapcore.Level, bool) {
 	switch strings.ToLower(level) {
 	case "debug":
-		lvl = zapcore.DebugLevel
+		return zapcore.DebugLevel, true
 	case "info":
-		lvl = zapcore.InfoLevel
-	case "warn":
-		lvl = zapcore.WarnLevel
+		return zapcore.InfoLevel, true
+	case "warn", "warning":
+		return zapcore.WarnLevel, true
 	case "error":
-		lvl = zapcore.ErrorLevel
+		return zapcore.ErrorLevel, true
+	case "dpanic":
+		return zapcore.DPanicLevel, true
 	case "panic":
-		lvl = zapcore.PanicLevel
+		return zapcore.PanicLevel, true
 	case "fatal":
-		lvl = zapcore.FatalLevel
+		return zapcore.FatalLevel, true
 	default:
-		return nil
+		return zapcore.InfoLevel, false
 	}
-
-	al := zap.NewAtomicLevelAt(lvl)
-	return &al
 }

@@ -26,7 +26,6 @@ import (
 
 import (
 	perrors "github.com/pkg/errors"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -43,14 +42,14 @@ type pixiuLogger struct {
 }
 
 func init() {
-	// only use in test case, so just load default config
+	// only used in test/bootstrap; keep a sane default
 	if control == nil {
 		control = new(logController)
 		InitLogger(nil)
 	}
 }
 
-// PaddedCallerEncoder is a custom caller encoder that ensures that all file paths are displayed at the same length
+// PaddedCallerEncoder aligns caller path to a fixed width for prettier console output.
 func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 
 	callerPath := caller.TrimmedPath()
@@ -65,7 +64,21 @@ func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayE
 	enc.AppendString(callerPath)
 }
 
-// InitLog load from config path
+// helper: build with unified pixiu options.
+// - always AddCaller + AddCallerSkip(2)
+// - AddStacktrace(Error+) only when stacktrace is not disabled in cfg
+func buildWithPixiuOptions(cfg *zap.Config) (*zap.Logger, error) {
+	opts := []zap.Option{
+		zap.AddCaller(),
+		zap.AddCallerSkip(2),
+	}
+	if !cfg.DisableStacktrace {
+		opts = append(opts, zap.AddStacktrace(zapcore.ErrorLevel))
+	}
+	return cfg.Build(opts...)
+}
+
+// InitLog loads from YAML file; falls back to development defaults when file is absent/invalid.
 func InitLog(logConfFile string) error {
 	if logConfFile == "" {
 		InitLogger(nil)
@@ -83,8 +96,7 @@ func InitLog(logConfFile string) error {
 	}
 
 	conf := &zap.Config{}
-	err = yaml.UnmarshalYML(confFileStream, conf)
-	if err != nil {
+	if err := yaml.UnmarshalYML(confFileStream, conf); err != nil {
 		InitLogger(nil)
 		return perrors.New(fmt.Sprintf("[Unmarshal]init pixiuLogger error: %v", err))
 	}
@@ -94,45 +106,56 @@ func InitLog(logConfFile string) error {
 	return nil
 }
 
+// InitLogger initializes logger. Default is development-style (console, debug),
+// but we force stacktrace to Error+ only, and enable caller with our custom encoder.
+// If a config is supplied, we respect it and only normalize caller encoder and stacktrace threshold.
 func InitLogger(conf *zap.Config) {
-	var zapLoggerConfig zap.Config
-	if conf == nil {
-		zapLoggerConfig = zap.NewDevelopmentConfig()
-		zapLoggerEncoderConfig := zapcore.EncoderConfig{
-			TimeKey:        "time",
-			LevelKey:       "level",
-			NameKey:        "pixiuLogger",
-			CallerKey:      "caller",
-			MessageKey:     "message",
-			StacktraceKey:  "stacktrace",
-			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
-			EncodeDuration: zapcore.SecondsDurationEncoder,
-			EncodeCaller:   PaddedCallerEncoder,
-			// EncodeCaller:   zapcore.ShortCallerEncoder,
-		}
-		zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
-	} else {
-		zapLoggerConfig = *conf
-		// Set up a custom encoder directly without checking the original value
-		zapLoggerConfig.EncoderConfig.EncodeCaller = PaddedCallerEncoder
-	}
-	zapLogger, _ := zapLoggerConfig.Build(zap.AddCallerSkip(2))
-	l := &pixiuLogger{zapLogger.Sugar(), &zapLoggerConfig}
+	var cfg zap.Config
 
+	if conf == nil {
+		// Default: development style
+		cfg = zap.NewDevelopmentConfig()
+
+		// Normalize/override keys & encoders for consistent console output
+		cfg.EncoderConfig.TimeKey = "time"
+		cfg.EncoderConfig.LevelKey = "level"
+		cfg.EncoderConfig.NameKey = "pixiuLogger"
+		cfg.EncoderConfig.CallerKey = "caller"
+		cfg.EncoderConfig.MessageKey = "message"
+		cfg.EncoderConfig.StacktraceKey = "stacktrace"
+
+		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg.EncoderConfig.EncodeCaller = PaddedCallerEncoder
+
+		// Keep console encoding & debug level as dev style implies.
+		// cfg.Encoding = "console" // dev config already does this
+	} else {
+		cfg = *conf
+		// Unify caller encoder regardless of YAML to keep alignment style
+		cfg.EncoderConfig.EncodeCaller = PaddedCallerEncoder
+	}
+
+	z, err := buildWithPixiuOptions(&cfg)
+	if err != nil {
+		z = zap.NewNop()
+	}
+	l := &pixiuLogger{z.Sugar(), &cfg}
 	control.updateLogger(l)
 }
 
-// SetLoggerLevel safely changes the log level in a concurrent manner.
+// SetLoggerLevel changes the level at runtime without rebuilding logger.
 func SetLoggerLevel(level string) bool {
 	return control.setLoggerLevel(level)
 }
 
+// HotReload rebuilds from a new zap.Config (e.g., re-read YAML).
 func HotReload(conf *zap.Config) error {
 	InitLogger(conf)
 	return nil
 }
 
+// GetLogger exposes the current sugared logger.
 func GetLogger() *pixiuLogger {
 	return control.logger
 }
