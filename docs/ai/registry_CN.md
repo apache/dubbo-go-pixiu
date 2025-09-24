@@ -53,6 +53,13 @@
 - **描述**: 一个人类可读的名称，用于标识此 endpoint。主要用于日志和监控。
 - **示例**: `"DeepSeek V2 Chat (Primary)"`
 
+`address`
+
+- **类型**: `string`
+- **必需**: 否
+- **描述**: 以逗号分隔的字符串，每一个字符串代表了一个 address
+- **示例**: `"api.deepseek.com"`
+
 `llm-meta.fallback`
 
 - **类型**: `string` ("true" 或 "false")

@@ -53,6 +53,13 @@ All gateway-specific configurations are passed through the `metadata` field of t
 - **Description**: A human-readable name to identify this endpoint. Primarily used for logging and monitoring.
 - **Example**: `"DeepSeek V2 Chat (Primary)"`
 
+`address`
+
+- **Type**: `string`
+- **Required**: No
+- **Description**: A string split by comma, each string stands for a address 
+- **Example**: `"api.deepseek.com"`
+
 `llm-meta.fallback`
 
 - **Type**: `string` ("true" or "false")
