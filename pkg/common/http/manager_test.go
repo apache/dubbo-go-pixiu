@@ -173,7 +173,7 @@ func TestStreamingResponse(t *testing.T) {
 
 	// mock server
 	upstreamServer, _ := NewTestServerWithURL("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueTextEventStream)
+		w.Header().Set(constant.HeaderKeyContentType, constant.HeaderValueTextEventStream)
 		w.Header().Set(constant.HeaderKeyCacheControl, constant.HeaderValueNoCache)
 		flusher := w.(http.Flusher)
 
@@ -381,7 +381,7 @@ func testStreamableResponse(t *testing.T, contentType string) {
 
 	// mock server
 	upstreamServer, _ := NewTestServerWithURL("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(constant.HeaderKeyContextType, contentType)
+		w.Header().Set(constant.HeaderKeyContentType, contentType)
 		flusher := w.(http.Flusher)
 
 		// Generate appropriate test data based on content type
@@ -465,14 +465,14 @@ func TestIsStreamableResponse(t *testing.T) {
 		{
 			name: "sseResponse",
 			headers: map[string]string{
-				constant.HeaderKeyContextType: constant.HeaderValueTextEventStream,
+				constant.HeaderKeyContentType: constant.HeaderValueTextEventStream,
 			},
 			expected: true,
 		},
 		{
 			name: "chunkedEncodingResponses",
 			headers: map[string]string{
-				constant.HeaderKeyContextType:      constant.HeaderValueApplicationJson,
+				constant.HeaderKeyContentType:      constant.HeaderValueApplicationJson,
 				constant.HeaderKeyTransferEncoding: constant.HeaderValueChunked,
 			},
 			expected: true,
@@ -480,14 +480,14 @@ func TestIsStreamableResponse(t *testing.T) {
 		{
 			name: "JsonResponseWithoutContent-Length",
 			headers: map[string]string{
-				constant.HeaderKeyContextType: constant.HeaderValueApplicationJson,
+				constant.HeaderKeyContentType: constant.HeaderValueApplicationJson,
 			},
 			expected: true,
 		},
 		{
 			name: "The text response is large Content-Length",
 			headers: map[string]string{
-				constant.HeaderKeyContextType:   constant.HeaderValueTextPlain,
+				constant.HeaderKeyContentType:   constant.HeaderValueTextPlain,
 				constant.HeaderKeyContentLength: "2097152", // 2MB
 			},
 			expected: true,
@@ -495,7 +495,7 @@ func TestIsStreamableResponse(t *testing.T) {
 		{
 			name: "JSON response Content-Length",
 			headers: map[string]string{
-				constant.HeaderKeyContextType:   constant.HeaderValueApplicationJson,
+				constant.HeaderKeyContentType:   constant.HeaderValueApplicationJson,
 				constant.HeaderKeyContentLength: "1024", // 1KB
 			},
 			expected: false,
@@ -503,7 +503,7 @@ func TestIsStreamableResponse(t *testing.T) {
 		{
 			name: "no stream Content-Type",
 			headers: map[string]string{
-				constant.HeaderKeyContextType: constant.HeaderValueImageJpeg,
+				constant.HeaderKeyContentType: constant.HeaderValueImageJpeg,
 			},
 			expected: false,
 		},

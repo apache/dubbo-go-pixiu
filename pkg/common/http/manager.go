@@ -228,16 +228,16 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 	case []byte:
 		c.StatusCode(stdHttp.StatusOK)
 		if json.Valid(res) {
-			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
+			c.AddHeader(constant.HeaderKeyContentType, constant.HeaderValueApplicationJson)
 		} else {
-			c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
+			c.AddHeader(constant.HeaderKeyContentType, constant.HeaderValueTextPlain)
 		}
 		c.TargetResp = client.NewUnaryResponse(res)
 	default:
 		//dubbo go generic invoke
 		response := util.NewDubboResponse(res, false)
 		c.StatusCode(stdHttp.StatusOK)
-		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)
+		c.AddHeader(constant.HeaderKeyContentType, constant.HeaderValueJsonUtf8)
 		c.TargetResp = response
 	}
 }

@@ -483,7 +483,7 @@ func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolCo
 		ctx.Request.Body = io.NopCloser(strings.NewReader(string(bodyJSON)))
 
 		// Set Content-Type header
-		ctx.Request.Header.Set(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
+		ctx.Request.Header.Set(constant.HeaderKeyContentType, constant.HeaderValueApplicationJson)
 
 		logger.Debugf("[dubbo-go-pixiu] mcp server built request body: %s", string(bodyJSON))
 	}
@@ -560,7 +560,7 @@ func (f *MCPServerFilter) sendMCPResponse(ctx *MCPContext, response mcp.JSONRPCR
 	// Override TargetResp to ensure MCP format response is sent
 	ctx.TargetResp = &client.UnaryResponse{Data: mcpResponseBody}
 	ctx.StatusCode(http.StatusOK)
-	ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
+	ctx.AddHeader(constant.HeaderKeyContentType, constant.HeaderValueApplicationJson)
 
 	// Critical: Clear Content-Length header to prevent mismatch errors
 	ctx.ClearContentLengthHeader()
