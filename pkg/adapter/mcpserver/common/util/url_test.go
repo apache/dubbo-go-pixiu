@@ -18,6 +18,7 @@
 package util
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -193,6 +194,78 @@ func TestReplaceGoTemplateArgsInPath(t *testing.T) {
 			result := ReplaceGoTemplateArgsInPath(tt.input)
 			if result != tt.expected {
 				t.Errorf("expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestValidateNacosAddresses(t *testing.T) {
+	tests := []struct {
+		name        string
+		addresses   string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid single address",
+			addresses:   "localhost:8848",
+			expectError: false,
+		},
+		{
+			name:        "valid multiple addresses",
+			addresses:   "nacos1:8848,nacos2:8848,nacos3:8848",
+			expectError: false,
+		},
+		{
+			name:        "empty string",
+			addresses:   "",
+			expectError: true,
+			errorMsg:    "nacos addresses cannot be empty",
+		},
+		{
+			name:        "all invalid addresses",
+			addresses:   "invalid1:abc,invalid2:,invalid3:invalid",
+			expectError: true,
+			errorMsg:    "no valid nacos addresses found",
+		},
+		{
+			name:        "mixed valid and invalid",
+			addresses:   "valid:8848,invalid:abc,another:8849",
+			expectError: false, // Should succeed with warnings
+		},
+		{
+			name:        "whitespace only",
+			addresses:   "   ",
+			expectError: true,
+		},
+		{
+			name:        "valid address with URL format",
+			addresses:   "http://nacos:8848",
+			expectError: false,
+		},
+		{
+			name:        "invalid port number",
+			addresses:   "nacos:invalid_port",
+			expectError: true,
+			errorMsg:    "no valid nacos addresses found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateNacosAddresses(tt.addresses)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error message to contain '%s', got '%s'", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
 			}
 		})
 	}

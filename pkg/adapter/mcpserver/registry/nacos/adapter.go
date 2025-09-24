@@ -18,6 +18,7 @@
 package nacos
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -44,8 +45,16 @@ func init() {
 
 // BuildController builds a Nacos MCP registry controller
 func BuildController(reg model.Registry, onChange func(serverId string, cfg *model.McpServerConfig)) (registry.Controller, error) {
+	// Pre-validate addresses using util function
+	if reg.Address != "" {
+		if err := util.ValidateNacosAddresses(reg.Address); err != nil {
+			return nil, fmt.Errorf("[dubbo-go-pixiu] nacos registry address validation failed: %v", err)
+		}
+	}
+
 	// build server configs from comma-separated addresses
 	serverCfgs := []nacosconstant.ServerConfig{}
+
 	if reg.Address != "" {
 		for _, part := range strings.Split(reg.Address, ",") {
 			addr := strings.TrimSpace(part)
@@ -54,7 +63,8 @@ func BuildController(reg model.Registry, onChange func(serverId string, cfg *mod
 			}
 			result, err := util.ParseHostPortFromURL(addr)
 			if err != nil {
-				logger.Errorf("[dubbo-go-pixiu] nacos registry failed to parse address '%s': %v", addr, err)
+				// This should not happen after validation, but keep for safety
+				logger.Errorf("[dubbo-go-pixiu] nacos registry unexpected parse error for address '%s': %v", addr, err)
 				continue
 			}
 			if result.UsedFallback {
@@ -63,6 +73,8 @@ func BuildController(reg model.Registry, onChange func(serverId string, cfg *mod
 			serverCfgs = append(serverCfgs, nacosconstant.ServerConfig{IpAddr: result.Host, Port: uint64(result.Port)})
 		}
 	}
+
+	logger.Infof("[dubbo-go-pixiu] nacos registry initialized with %d server(s)", len(serverCfgs))
 
 	clientCfg := nacosconstant.ClientConfig{
 		TimeoutMs:   defaultNacosTimeoutMs,

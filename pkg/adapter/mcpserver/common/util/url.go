@@ -28,6 +28,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // ParseResult holds the result of URL parsing
@@ -181,4 +182,37 @@ func ReplaceGoTemplateArgsInPath(path string) string {
 		return constant.PathSlash
 	}
 	return goTmplArgRe.ReplaceAllString(path, `{$1}`)
+}
+
+// ValidateNacosAddresses validates comma-separated Nacos addresses
+func ValidateNacosAddresses(addresses string) error {
+	if strings.TrimSpace(addresses) == "" {
+		return fmt.Errorf("nacos addresses cannot be empty")
+	}
+
+	var validCount int
+	var errors []string
+
+	for _, part := range strings.Split(addresses, ",") {
+		addr := strings.TrimSpace(part)
+		if addr == "" {
+			continue
+		}
+
+		if _, err := ParseHostPortFromURL(addr); err != nil {
+			errors = append(errors, fmt.Sprintf("invalid address '%s': %v", addr, err))
+		} else {
+			validCount++
+		}
+	}
+
+	if validCount == 0 {
+		return fmt.Errorf("no valid nacos addresses found: %s", strings.Join(errors, "; "))
+	}
+
+	if len(errors) > 0 {
+		logger.Warnf("[dubbo-go-pixiu] some nacos addresses are invalid but continuing with valid ones: %s", strings.Join(errors, "; "))
+	}
+
+	return nil
 }

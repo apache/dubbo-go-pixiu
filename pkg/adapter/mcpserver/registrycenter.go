@@ -141,7 +141,14 @@ func (a *Adapter) Apply() error {
 
 	for k, registryConfig := range a.cfg.Registries {
 		if nacosAddrFromEnv != "" && registryConfig.Protocol == constant.Nacos {
-			registryConfig.Address = nacosAddrFromEnv
+			// Validate environment variable address before overriding
+			if err := util.ValidateNacosAddresses(nacosAddrFromEnv); err != nil {
+				logger.Errorf("[dubbo-go-pixiu] mcp adapter invalid NACOS_ADDRESS environment variable: %v, keeping original config", err)
+				// Continue with original configuration instead of failing
+			} else {
+				logger.Infof("[dubbo-go-pixiu] mcp adapter overriding nacos address with environment variable: %s", nacosAddrFromEnv)
+				registryConfig.Address = nacosAddrFromEnv
+			}
 		}
 
 		// only handle nacos for now
