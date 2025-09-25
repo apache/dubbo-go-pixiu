@@ -76,7 +76,7 @@ func TestLoggerBasicUsage(t *testing.T) {
 	InitLogger(cfg)
 
 	log := GetLogger()
-	log = &pixiuLogger{SugaredLogger: log.SugaredLogger.With("k", "v"), config: log.config}
+	log = &pixiuLogger{SugaredLogger: log.With("k", "v"), config: log.config}
 	log.Infow("with fields", "a", 1)
 
 	_ = log.Sync()
