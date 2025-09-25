@@ -17,14 +17,12 @@ clusters:
            domains:
               - api.deepseek.com
         llm_meta:
-          provider: "deepseek"
           # ... 其他特定于 LLM 的配置在此处 ...
       - id: "provider-2-fallback"
         socket_address:
            domains:
               - api.openai.com/v1
         llm_meta:
-          provider: "openai"
           # ... 其他特定于 LLM 的配置在此处 ...
 ```
 
@@ -151,7 +149,6 @@ clusters:
            domains:
               - api.openai.com/v1
         llm_meta:
-          provider: openai
           # 这是最后的选择；不要再进一步 fallback。
           fallback: false
           # 为 fallback endpoint 使用更简单、更快速的重试。

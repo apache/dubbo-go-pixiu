@@ -18,14 +18,12 @@ clusters:
            domains:
               - api.deepseek.com
         llm_meta:
-          provider: "deepseek"
           # ... other LLM-specific configuration goes here ...
       - id: "provider-2-fallback"
         socket_address:
            domains:
               - api.openai.com/v1
         llm_meta:
-          provider: "openai"
           # ... other LLM-specific configuration goes here ...
 ```
 
@@ -131,7 +129,6 @@ clusters:
            domains:
               - api.deepseek.com
         llm_meta:
-          provider: deepseek
           # If all retries fail, move to the next endpoint.
           fallback: true
           # Use a robust retry strategy for the primary endpoint.
@@ -149,7 +146,6 @@ clusters:
            domains:
               - api.openai.com/v1
         llm_meta:
-          provider: deepseek
           # This is the last resort; do not fall back further.
           fallback: false
           # Use a simpler, faster retry for the fallback.
