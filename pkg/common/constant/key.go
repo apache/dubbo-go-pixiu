@@ -60,6 +60,9 @@ const (
 	LLMTokenizerFilter = "dgp.filter.llm.tokenizer"
 
 	MCPServerFilter = "dgp.filter.mcp.mcpserver"
+
+	// A2A Filters
+	A2AServerFilter = "dgp.filter.a2a.server"
 )
 
 const (

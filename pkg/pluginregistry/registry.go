@@ -28,6 +28,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/retry/countbased"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/retry/exponentialbackoff"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/retry/noretry"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/a2a"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/accesslog"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/jwt"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
