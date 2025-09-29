@@ -82,7 +82,7 @@ func TestNacosConfig_onChange(t *testing.T) {
 		So(paths[len(paths)-1], ShouldEqual, "configcenter")
 
 		// Open the configuration file for testing.
-		file, err := os.Open(fmt.Sprintf("/%s/configs/conf.yaml", path.Join(paths[:len(paths)-1]...)))
+		file, err := os.Open(fmt.Sprintf("/%s/configs/conf.yaml", path.Join(paths[:len(paths)-2]...)))
 		So(err, ShouldBeNil)
 		defer func() { So(file.Close(), ShouldBeNil) }()
 

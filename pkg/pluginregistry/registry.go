@@ -55,6 +55,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/grpcproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/grpcproxy/filter/proxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/network/httpconnectionmanager"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/opa"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/prometheus"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel/ratelimit"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/tracing"

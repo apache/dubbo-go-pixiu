@@ -106,7 +106,7 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		for _, listener := range lm.activeListenerService {
 			lm.shutdownWG.Add(1)
 			go func(listener *wrapListenerService) {
-				err := listener.ListenerService.ShutDown(lm.shutdownWG)
+				err := listener.ShutDown(lm.shutdownWG)
 				if err != nil {
 					logger.Errorf("Shutdown Error: %+v", err)
 					os.Exit(0)

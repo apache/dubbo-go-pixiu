@@ -29,12 +29,8 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cmd"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/pluginregistry"
-)
-
-const (
-	// Version pixiu version
-	Version = "1.0.0"
 )
 
 // main pixiu run method
@@ -53,7 +49,7 @@ func getRootCmd() *cobra.Command {
 			"services. It supports HTTP-to-Dubbo and HTTP-to-HTTP proxy and more protocols will be supported in the near \n" +
 			"future. \n" +
 			"(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo",
-		Version: Version,
+		Version: constant.Version,
 	}
 
 	rootCmd.AddCommand(cmd.GatewayCmd)

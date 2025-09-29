@@ -166,7 +166,7 @@ func (zkl *serviceListener) handleEvent() {
 	defer zkl.mutex.Unlock()
 	for i := range methods {
 		api := registry.CreateAPIConfig(apiPattern, location, bkConfig, methods[i], mappingParams)
-		key := api.URLPattern + ":" + string(api.Method.HTTPVerb)
+		key := api.URLPattern + ":" + string(api.HTTPVerb)
 		if _, ok := zkl.registryMethod[key]; ok {
 			return
 		}

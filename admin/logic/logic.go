@@ -570,8 +570,7 @@ func getMethodId() int {
 }
 
 func loopGetId(k string) int {
-
-	for true {
+	for {
 
 		rawClient := config.Client.GetRawClient()
 		if rawClient == nil {
@@ -617,7 +616,6 @@ func loopGetId(k string) int {
 			return id
 		}
 	}
-	return ErrID
 }
 
 func getRootPath(key string) string {

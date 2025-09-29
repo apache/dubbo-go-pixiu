@@ -124,7 +124,7 @@ func (factory *FilterFactory) Apply() error {
 		}
 		if cluster.CanaryWeight > 0 && cluster.CanaryWeight <= 100 {
 			if up+cluster.CanaryWeight > 100 {
-				return fmt.Errorf("[dubbo-go-pixiu] clusters' weight sum more than 100 in %v service!", cluster.Router)
+				return fmt.Errorf("[dubbo-go-pixiu] clusters' weight sum more than 100 in %v service", cluster.Router)
 			} else {
 				wp.weightFloor = up
 				up += cluster.CanaryWeight

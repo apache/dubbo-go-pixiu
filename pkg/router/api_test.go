@@ -69,12 +69,12 @@ func TestIsWildCardBackendPath(t *testing.T) {
 		URLPattern: "/mock/:id/:name",
 		Method:     getMockMethod(config.MethodGet),
 	}
-	mockAPI.IntegrationRequest.Path = "/mock/:id"
+	mockAPI.Path = "/mock/:id"
 	assert.True(t, IsWildCardBackendPath(mockAPI))
 
-	mockAPI.IntegrationRequest.Path = "/mock/test"
+	mockAPI.Path = "/mock/test"
 	assert.False(t, IsWildCardBackendPath(mockAPI))
 
-	mockAPI.IntegrationRequest.Path = ""
+	mockAPI.Path = ""
 	assert.False(t, IsWildCardBackendPath(mockAPI))
 }

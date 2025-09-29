@@ -41,7 +41,7 @@ func TestQueryMapper(t *testing.T) {
 	qs := queryStringsMapper{}
 	r, _ := http.NewRequest("GET", "/mock/test?id=12345&age=19&name=joe&nickName=trump", bytes.NewReader([]byte("")))
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
-	api.IntegrationRequest.MappingParams = []config.MappingParam{
+	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "queryStrings.id",
 			MapTo: "headers.Id",
@@ -62,17 +62,17 @@ func TestQueryMapper(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := newRequestParams()
-	err := qs.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
+	err := qs.Map(api.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Id"), "12345")
 
-	err = qs.Map(api.IntegrationRequest.MappingParams[1], req, target, nil)
+	err = qs.Map(api.MappingParams[1], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Query.Get("name"), "joe")
 
-	err = qs.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
+	err = qs.Map(api.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
-	err = qs.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
+	err = qs.Map(api.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
 	rawBody, _ := io.ReadAll(target.Body)
 	assert.Equal(t, string(rawBody), "{\"age\":\"19\",\"nickName\":\"trump\"}")
@@ -89,7 +89,7 @@ func TestHeaderMapper(t *testing.T) {
 	r.Header.Set("Origin-Passcode", "whoseyourdaddy")
 	r.Header.Set("Pokemon-Name", "Pika")
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
-	api.IntegrationRequest.MappingParams = []config.MappingParam{
+	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "headers.Auth",
 			MapTo: "headers.Auth",
@@ -110,18 +110,18 @@ func TestHeaderMapper(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := newRequestParams()
-	err := hm.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
+	err := hm.Map(api.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Auth"), "xxxx12345xxx")
-	err = hm.Map(api.IntegrationRequest.MappingParams[1], req, target, nil)
+	err = hm.Map(api.MappingParams[1], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Token"), "ttttt12345ttt")
 
-	err = hm.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
+	err = hm.Map(api.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Query.Get("originPasscode"), "whoseyourdaddy")
 
-	err = hm.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
+	err = hm.Map(api.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
 	rawBody, err := io.ReadAll(target.Body)
 	assert.Nil(t, err)
@@ -135,7 +135,7 @@ func TestBodyMapper(t *testing.T) {
 	bm := bodyMapper{}
 	r, _ := http.NewRequest("POST", "/mock/test", bytes.NewReader([]byte("{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
-	api.IntegrationRequest.MappingParams = []config.MappingParam{
+	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "requestBody.id",
 			MapTo: "headers.Id",
@@ -156,18 +156,18 @@ func TestBodyMapper(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := newRequestParams()
-	err := bm.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
+	err := bm.Map(api.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Id"), "12345")
 
 	target = newRequestParams()
-	err = bm.Map(api.IntegrationRequest.MappingParams[1], req, target, nil)
+	err = bm.Map(api.MappingParams[1], req, target, nil)
 	assert.Nil(t, err)
 
-	err = bm.Map(api.IntegrationRequest.MappingParams[2], req, target, nil)
+	err = bm.Map(api.MappingParams[2], req, target, nil)
 	assert.Nil(t, err)
 
-	err = bm.Map(api.IntegrationRequest.MappingParams[3], req, target, nil)
+	err = bm.Map(api.MappingParams[3], req, target, nil)
 	assert.Nil(t, err)
 	rawBody, err := io.ReadAll(target.Body)
 	assert.Nil(t, err)
@@ -178,7 +178,7 @@ func TestURIMap(t *testing.T) {
 	um := uriMapper{}
 	r, _ := http.NewRequest("POST", "/mock/test/12345", bytes.NewReader([]byte("{\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	api := mock.GetMockAPI(config.MethodGet, "/mock/test/:id")
-	api.IntegrationRequest.MappingParams = []config.MappingParam{
+	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "uri.id",
 			MapTo: "headers.id",
@@ -187,7 +187,7 @@ func TestURIMap(t *testing.T) {
 	req := client.NewReq(context.TODO(), r, api)
 
 	target := newRequestParams()
-	err := um.Map(api.IntegrationRequest.MappingParams[0], req, target, nil)
+	err := um.Map(api.MappingParams[0], req, target, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, target.Header.Get("Id"), "12345")
 

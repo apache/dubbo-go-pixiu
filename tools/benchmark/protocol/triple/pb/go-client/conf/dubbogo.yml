@@ -16,20 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-name: reviewdog
-on: [ pull_request ]
-jobs:
-  golangci-lint:
-    name: review
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          submodules: true
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          args: --timeout=10m
+dubbo:
+  registries:
+    zk:
+      address: zookeeper://127.0.0.1:2181
+  consumer:
+    references:
+      GreeterClientImpl:
+        protocol: tri
+        interface: org.apache.dubbogo.samples.api.Greeter
+  logger:
+    zap-config:
+      level: panic

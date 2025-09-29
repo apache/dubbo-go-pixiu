@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
@@ -13,38 +15,36 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-#!/bin/bash
+#
 
 set -e
-set -x
 
-echo 'start integrate-test'
+readonly PIXIU_ROOT_DIR=$(pwd)
+readonly SAMPLES_BRANCH="main"
+readonly SAMPLES_REPO_URL="https://github.com/apache/dubbo-go-pixiu-samples.git"
+readonly SAMPLES_CLONE_DIR="integrate_samples"
 
-# set root workspace
-ROOT_DIR=$(pwd)
-echo "integrate-test root work-space -> ${ROOT_DIR}"
+echo "::group::Integration Test Environment Details"
+echo "Pixiu Root Directory:         ${PIXIU_ROOT_DIR}"
+echo "Commit SHA:                   ${GITHUB_SHA}"
+echo "Target Branch for Samples:    ${SAMPLES_BRANCH}"
+echo "Repository Slug:              ${GITHUB_REPOSITORY}"
+echo "::endgroup::"
 
-# show all github-env
-echo "github current commit id  -> $2"
-echo "github pull request branch -> ${GITHUB_REF}"
-echo "github pull request slug -> ${GITHUB_REPOSITORY}"
-echo "github pull request repo slug -> ${GITHUB_REPOSITORY}"
-echo "github pull request actor -> ${GITHUB_ACTOR}"
-echo "github pull request repo param -> $1"
-echo "github pull request base branch -> $3"
-echo "github pull request head branch -> ${GITHUB_HEAD_REF}"
+if [ ! -d "$SAMPLES_CLONE_DIR" ]; then
+  echo "> Cloning dubbo-go-samples (branch: ${SAMPLES_BRANCH})..."
+  git clone --depth 1 -b "${SAMPLES_BRANCH}" "${SAMPLES_REPO_URL}" "${SAMPLES_CLONE_DIR}"
+fi
 
-echo "use dubbo-go-samples $3 branch for integration testing"
-git clone -b main https://github.com/apache/dubbo-go-pixiu-samples.git integrate_samples && cd integrate_samples
+cd "${SAMPLES_CLONE_DIR}"
 
-# update dubbo-go to current commit id
-go mod edit -replace=github.com/apache/dubbo-go-pixiu=github.com/"$1"@"$2"
+echo "> Configuring Go modules to use local pixiu code..."
+go mod edit -replace="github.com/apache/dubbo-go-pixiu=${PIXIU_ROOT_DIR}"
 
-#grep -rl "github.com/apache/dubbo-go-pixiu/pkg" | xargs sed -i 's/github.com\/apache\/dubbo-go-pixiu\/pkg\//github.com\/apache\/dubbo-go-pixiu\/pixiu\/pkg\//g'
-
-# prepare dependency
+echo "> Preparing dependencies..."
 go mod tidy
 
-# start integrate test
-./start_integrate_test.sh
+echo "> Handing off to the integration test runner..."
+bash ./start_integrate_test.sh
+
+echo "Integration tests completed successfully."

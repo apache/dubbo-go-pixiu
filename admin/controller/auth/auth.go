@@ -148,7 +148,7 @@ func (j *JWT) RefreshToken(tokenString string) (string, error) {
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		jwt.TimeFunc = time.Now
 		// Set token expiration time
-		claims.StandardClaims.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
+		claims.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
 		return j.CreateToken(*claims)
 	}
 	return "", TokenInvalid

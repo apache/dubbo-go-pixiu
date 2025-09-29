@@ -49,8 +49,8 @@ func NewReq(ctx context.Context, request *http.Request, api router.API) *Request
 func (r *Request) GetURL() string {
 	ir := r.API.IntegrationRequest
 	if ir.RequestType == config.HTTPRequest {
-		if len(ir.HTTPBackendConfig.URL) != 0 {
-			return ir.HTTPBackendConfig.URL
+		if len(ir.URL) != 0 {
+			return ir.URL
 		}
 
 		// now only support http.

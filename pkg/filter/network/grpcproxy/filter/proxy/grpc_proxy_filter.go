@@ -396,24 +396,21 @@ func (f *Filter) monitorConnection(cacheKey string, conn *grpc.ClientConn) {
 	ticker := time.NewTicker(defaultHealthCheckInterval)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			state := conn.GetState()
-			if state == connectivity.Shutdown || state == connectivity.TransientFailure {
-				logger.Warnf("Connection to %s is in bad state (%s), removing from pool",
-					cacheKey, state.String())
+	for range ticker.C {
+		state := conn.GetState()
+		if state == connectivity.Shutdown || state == connectivity.TransientFailure {
+			logger.Warnf("Connection to %s is in bad state (%s), removing from pool",
+				cacheKey, state.String())
 
-				f.mu.Lock()
-				if currentConn, ok := f.clientConnPool.Load(cacheKey); ok {
-					if currentConn == conn {
-						f.clientConnPool.Delete(cacheKey)
-					}
+			f.mu.Lock()
+			if currentConn, ok := f.clientConnPool.Load(cacheKey); ok {
+				if currentConn == conn {
+					f.clientConnPool.Delete(cacheKey)
 				}
-				f.mu.Unlock()
-
-				return
 			}
+			f.mu.Unlock()
+
+			return
 		}
 	}
 }

@@ -16,10 +16,15 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
 name: Release
 on:
   release:
-    types: [created]
+    types: [ created ]
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
   releases-matrix:
@@ -27,20 +32,23 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # build and publish in parallel: linux/386, linux/amd64, windows/386, windows/amd64, darwin/amd64
-        goos: [linux, windows]
-        goarch: ["386", amd64, arm]
-        exclude:  
-          - goarch: "arm"
+        # build and publish in parallel: linux/386, linux/amd64, linux/arm64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
+        goos: [ linux, windows, darwin ]
+        goarch: [ "386", amd64, arm64 ]
+        exclude:
+          - goarch: "386"
+            goos: darwin
+          - goarch: arm64
             goos: windows
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: wangyoucao577/go-release-action@v1
+      - uses: actions/checkout@v5
+      - uses: wangyoucao577/go-release-action@v1 # NOSONAR
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://golang.org/dl/go1.23.4.linux-amd64.tar.gz"
+          goversion: "https://golang.org/dl/go1.25.0.linux-amd64.tar.gz"
           project_path: "./cmd/pixiu"
           binary_name: "dubbo-go-pixiu"
+          extra_files: LICENSE README.md

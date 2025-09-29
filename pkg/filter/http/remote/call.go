@@ -146,7 +146,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 		return filter.Continue
 	}
 
-	typ := api.Method.IntegrationRequest.RequestType
+	typ := api.IntegrationRequest.RequestType
 
 	cli, err := f.matchClient(typ)
 	if err != nil {
