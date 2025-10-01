@@ -71,7 +71,7 @@ func (f *FilterFactory) Apply() error {
 }
 
 // PrepareFilterChain prepares the filter chain for a new request
-func (f *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain filter.FilterChain) error {
 	a2aFilter := &A2AFilter{
 		cfg:         f.cfg,
 		agentMap:    f.agentMap,
