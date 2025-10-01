@@ -101,13 +101,14 @@ const (
 
 // MCP (Model Context Protocol) specific headers
 const (
-	HeaderKeyMCPProtocolVersion = "MCP-Protocol-Version"
+	HeaderKeyMCPProtocolVersion = "Mcp-Protocol-Version"
 	HeaderKeyMCPSessionId       = "Mcp-Session-Id"
 )
 
 // MCP protocol versions
 const (
-	MCPProtocolVersion2025 = "2025-06-18"
+	MCPProtocolVersion20250618 = "2025-06-18"
+	MCPProtocolVersion20250326 = "2025-03-26"
 )
 
 // SSE response prefixes

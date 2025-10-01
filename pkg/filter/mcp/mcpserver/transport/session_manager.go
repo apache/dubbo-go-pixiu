@@ -20,16 +20,19 @@ package transport
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"net/http"
+	"io"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
-	SessionTimeout  = 30 * time.Minute
-	CleanupInterval = 5 * time.Minute
+	SessionTimeout    = 30 * time.Minute
+	CleanupInterval   = 5 * time.Minute
+	KeepaliveInterval = 30 * time.Second
 )
 
 // MCPSession represents an active MCP session
@@ -37,8 +40,7 @@ type MCPSession struct {
 	ID           string
 	CreatedAt    time.Time
 	LastActivity time.Time
-	SSEWriter    http.ResponseWriter
-	SSEFlusher   http.Flusher
+	PipeWriter   *io.PipeWriter // Pipe writer for sending SSE messages
 	Done         chan struct{}
 }
 
@@ -99,13 +101,20 @@ func (sm *SessionManager) Session(sessionID string) (*MCPSession, bool) {
 	return session, exists
 }
 
-// RemoveSession removes a session
+// RemoveSession removes a session and cleans up resources
 func (sm *SessionManager) RemoveSession(sessionID string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	if session, exists := sm.sessions[sessionID]; exists {
+		// Close Done channel to signal goroutines
 		close(session.Done)
+
+		// Close PipeWriter to end the SSE stream
+		if session.PipeWriter != nil {
+			session.PipeWriter.Close()
+		}
+
 		delete(sm.sessions, sessionID)
 		logger.Infof("[dubbo-go-pixiu] mcp server removed session: %s", sessionID)
 	}
@@ -175,4 +184,23 @@ func (sm *SessionManager) cleanupExpiredSessions() {
 	if len(toRemove) > 0 {
 		logger.Debugf("[dubbo-go-pixiu] mcp server cleaned up %d expired sessions", len(toRemove))
 	}
+}
+
+// AllSessionIDs returns all active session IDs
+func (sm *SessionManager) AllSessionIDs() []string {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	ids := make([]string, 0, len(sm.sessions))
+	for id := range sm.sessions {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// ActiveSessionCount returns the number of active sessions
+func (sm *SessionManager) ActiveSessionCount() int {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return len(sm.sessions)
 }

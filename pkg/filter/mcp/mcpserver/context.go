@@ -18,9 +18,11 @@
 package mcpserver
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/mark3labs/mcp-go/mcp"
+)
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 

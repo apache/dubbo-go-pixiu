@@ -19,9 +19,14 @@ package transport
 
 import (
 	"strings"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+import (
 	"github.com/mark3labs/mcp-go/mcp"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // ResponseFormat represents the response format type
