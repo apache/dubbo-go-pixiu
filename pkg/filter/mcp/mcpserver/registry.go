@@ -28,15 +28,16 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // ToolRegistry tool registry, thread-safe (optimized with single indexing)
 type ToolRegistry struct {
 	mu                sync.RWMutex
-	tools             map[string]ToolConfig
-	resources         map[string]ResourceConfig         // indexed by URI
-	resourceTemplates map[string]ResourceTemplateConfig // indexed by name
-	prompts           map[string]PromptConfig
+	tools             map[string]model.ToolConfig
+	resources         map[string]model.ResourceConfig         // indexed by URI
+	resourceTemplates map[string]model.ResourceTemplateConfig // indexed by name
+	prompts           map[string]model.PromptConfig
 
 	// TODO: Dynamic update support - add when integrating with Nacos
 	// changeListeners   []ChangeListener              // change listeners
@@ -47,15 +48,15 @@ type ToolRegistry struct {
 // NewToolRegistry creates a new tool registry
 func NewToolRegistry() *ToolRegistry {
 	return &ToolRegistry{
-		tools:             make(map[string]ToolConfig),
-		resources:         make(map[string]ResourceConfig),
-		resourceTemplates: make(map[string]ResourceTemplateConfig),
-		prompts:           make(map[string]PromptConfig),
+		tools:             make(map[string]model.ToolConfig),
+		resources:         make(map[string]model.ResourceConfig),
+		resourceTemplates: make(map[string]model.ResourceTemplateConfig),
+		prompts:           make(map[string]model.PromptConfig),
 	}
 }
 
 // RegisterTool registers a tool
-func (r *ToolRegistry) RegisterTool(tool ToolConfig) error {
+func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -64,15 +65,23 @@ func (r *ToolRegistry) RegisterTool(tool ToolConfig) error {
 	}
 
 	r.tools[tool.Name] = tool
-
-	// TODO: Dynamic update notification - enable when integrating with Nacos
-	// r.notifyToolsListChanged()
-
 	return nil
 }
 
+// ReplaceAllTools replaces the entire tools set with the provided slice (full sync)
+func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	newMap := make(map[string]model.ToolConfig, len(tools))
+	for _, t := range tools {
+		newMap[t.Name] = t
+	}
+	r.tools = newMap
+}
+
 // RegisterResource registers a resource (indexed by URI as per MCP specification)
-func (r *ToolRegistry) RegisterResource(resource ResourceConfig) error {
+func (r *ToolRegistry) RegisterResource(resource model.ResourceConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -86,7 +95,7 @@ func (r *ToolRegistry) RegisterResource(resource ResourceConfig) error {
 }
 
 // GetTool gets tool configuration
-func (r *ToolRegistry) GetTool(name string) (ToolConfig, bool) {
+func (r *ToolRegistry) GetTool(name string) (model.ToolConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -95,7 +104,7 @@ func (r *ToolRegistry) GetTool(name string) (ToolConfig, bool) {
 }
 
 // GetResourceByURI gets resource configuration (by URI, O(1) lookup)
-func (r *ToolRegistry) GetResourceByURI(uri string) (ResourceConfig, bool) {
+func (r *ToolRegistry) GetResourceByURI(uri string) (model.ResourceConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -105,7 +114,7 @@ func (r *ToolRegistry) GetResourceByURI(uri string) (ResourceConfig, bool) {
 }
 
 // RegisterResourceTemplate registers a resource template
-func (r *ToolRegistry) RegisterResourceTemplate(template ResourceTemplateConfig) error {
+func (r *ToolRegistry) RegisterResourceTemplate(template model.ResourceTemplateConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -118,7 +127,7 @@ func (r *ToolRegistry) RegisterResourceTemplate(template ResourceTemplateConfig)
 }
 
 // GetResourceTemplate gets resource template configuration
-func (r *ToolRegistry) GetResourceTemplate(name string) (ResourceTemplateConfig, bool) {
+func (r *ToolRegistry) GetResourceTemplate(name string) (model.ResourceTemplateConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -127,11 +136,11 @@ func (r *ToolRegistry) GetResourceTemplate(name string) (ResourceTemplateConfig,
 }
 
 // ListResourceTemplates lists all resource templates
-func (r *ToolRegistry) ListResourceTemplates() []ResourceTemplateConfig {
+func (r *ToolRegistry) ListResourceTemplates() []model.ResourceTemplateConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	templates := make([]ResourceTemplateConfig, 0, len(r.resourceTemplates))
+	templates := make([]model.ResourceTemplateConfig, 0, len(r.resourceTemplates))
 	for _, template := range r.resourceTemplates {
 		templates = append(templates, template)
 	}
@@ -139,11 +148,11 @@ func (r *ToolRegistry) ListResourceTemplates() []ResourceTemplateConfig {
 }
 
 // ListTools lists all tools
-func (r *ToolRegistry) ListTools() []ToolConfig {
+func (r *ToolRegistry) ListTools() []model.ToolConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	tools := make([]ToolConfig, 0, len(r.tools))
+	tools := make([]model.ToolConfig, 0, len(r.tools))
 	for _, tool := range r.tools {
 		tools = append(tools, tool)
 	}
@@ -151,11 +160,11 @@ func (r *ToolRegistry) ListTools() []ToolConfig {
 }
 
 // ListResources lists all resources
-func (r *ToolRegistry) ListResources() []ResourceConfig {
+func (r *ToolRegistry) ListResources() []model.ResourceConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	resources := make([]ResourceConfig, 0, len(r.resources))
+	resources := make([]model.ResourceConfig, 0, len(r.resources))
 	for _, resource := range r.resources {
 		resources = append(resources, resource)
 	}
@@ -181,7 +190,7 @@ func (r *ToolRegistry) ToMCPTools() ([]map[string]any, error) {
 }
 
 // convertToInputSchema converts tool parameters to MCP inputSchema format
-func (r *ToolRegistry) convertToInputSchema(tool ToolConfig) map[string]any {
+func (r *ToolRegistry) convertToInputSchema(tool model.ToolConfig) map[string]any {
 	allParams, err := tool.GetAllParameters()
 	if err != nil {
 		logger.Errorf("failed to get parameters for tool %s: %v", tool.Name, err)
@@ -288,7 +297,7 @@ func (r *ToolRegistry) ToMCPResourceTemplates() ([]map[string]any, error) {
 }
 
 // RegisterPrompt registers a prompt
-func (r *ToolRegistry) RegisterPrompt(prompt PromptConfig) error {
+func (r *ToolRegistry) RegisterPrompt(prompt model.PromptConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -301,7 +310,7 @@ func (r *ToolRegistry) RegisterPrompt(prompt PromptConfig) error {
 }
 
 // GetPrompt gets a prompt
-func (r *ToolRegistry) GetPrompt(name string) (PromptConfig, bool) {
+func (r *ToolRegistry) GetPrompt(name string) (model.PromptConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -310,11 +319,11 @@ func (r *ToolRegistry) GetPrompt(name string) (PromptConfig, bool) {
 }
 
 // ListPrompts lists all prompts
-func (r *ToolRegistry) ListPrompts() []PromptConfig {
+func (r *ToolRegistry) ListPrompts() []model.PromptConfig {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	prompts := make([]PromptConfig, 0, len(r.prompts))
+	prompts := make([]model.PromptConfig, 0, len(r.prompts))
 	for _, prompt := range r.prompts {
 		prompts = append(prompts, prompt)
 	}

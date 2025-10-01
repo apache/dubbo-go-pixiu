@@ -55,11 +55,7 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 		Tools: &struct {
 			ListChanged bool `json:"listChanged,omitempty"`
 		}{
-			// TODO: Dynamic update capabilities - enable after Nacos integration
-			// Currently set to false, future Nacos integration will support:
-			// 1. Dynamic discovery and registration of new backend services
-			// 2. Automatic generation of corresponding MCP tools
-			// 3. Send notifications/tools/list_changed notifications
+			// disable listChanged notifications (not implemented)
 			ListChanged: false,
 		},
 		Resources: &struct {
@@ -96,10 +92,12 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 // handleToolsList handles the tools/list method using mcp-go APIs
 func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
-	tools := make([]mcp.Tool, 0, len(f.cfg.Tools))
+	// Read tools from registry to reflect dynamic updates
+	toolCfgs := f.registry.ListTools()
+	tools := make([]mcp.Tool, 0, len(toolCfgs))
 
 	// Build tools using mcp-go API for standard compliance
-	for _, toolCfg := range f.cfg.Tools {
+	for _, toolCfg := range toolCfgs {
 		// Start with basic tool options
 		toolOptions := []mcp.ToolOption{
 			mcp.WithDescription(toolCfg.Description),
@@ -131,7 +129,7 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 }
 
 // buildToolParameterOptions builds the mcp.PropertyOption slice for a given tool argument
-func (f *MCPServerFilter) buildToolParameterOptions(arg *ArgConfig) []mcp.PropertyOption {
+func (f *MCPServerFilter) buildToolParameterOptions(arg *model.ArgConfig) []mcp.PropertyOption {
 	opts := []mcp.PropertyOption{mcp.Description(arg.Description)}
 
 	if arg.Required {
@@ -195,7 +193,7 @@ func (f *MCPServerFilter) handlePing(ctx *MCPContext, req mcp.JSONRPCRequest) fi
 }
 
 // handleNotificationsInitialized handles notifications/initialized notification
-func (f *MCPServerFilter) handleNotificationsInitialized(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handleNotificationsInitialized(_ *MCPContext, _ mcp.JSONRPCRequest) filter.FilterStatus {
 	logger.Debugf("[dubbo-go-pixiu] mcp server received initialized notification from client")
 
 	// Store client initialization state
@@ -333,7 +331,7 @@ func (f *MCPServerFilter) handlePromptsGet(ctx *MCPContext, req mcp.JSONRPCReque
 }
 
 // buildPromptMessages builds prompt messages with parameter replacement support
-func (f *MCPServerFilter) buildPromptMessages(promptConfig PromptConfig, arguments map[string]any) ([]map[string]any, error) {
+func (f *MCPServerFilter) buildPromptMessages(promptConfig model.PromptConfig, arguments map[string]any) ([]map[string]any, error) {
 	messages := make([]map[string]any, 0, len(promptConfig.Messages))
 
 	for _, msg := range promptConfig.Messages {
@@ -418,7 +416,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 }
 
 // buildBackendRequest builds the complete backend request including path, body, and headers
-func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolConfig, arguments map[string]any) error {
+func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig model.ToolConfig, arguments map[string]any) error {
 	// Set HTTP method
 	ctx.Request.Method = toolConfig.Request.Method
 
@@ -428,10 +426,9 @@ func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig ToolCo
 	queryParams := make(map[string]string)
 
 	// Process arguments based on their location (path, query, body)
-
 	for argName, argValue := range arguments {
 		// Find argument configuration
-		var argConfig *ArgConfig
+		var argConfig *model.ArgConfig
 		for _, arg := range toolConfig.Args {
 			if arg.Name == argName {
 				argConfig = &arg
