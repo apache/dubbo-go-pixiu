@@ -23,15 +23,11 @@ import (
 	"io"
 	"net/http"
 	"time"
-)
 
-import (
-	"github.com/mark3labs/mcp-go/mcp"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/mark3labs/mcp-go/mcp"
+
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -132,13 +128,12 @@ func (f *MCPServerFilter) Decode(ctx *contexthttp.HttpContext) filter.FilterStat
 	// Create MCP context wrapper
 	mcpCtx := NewMCPContext(ctx)
 
+	// Parse HTTP headers
 	mcpCtx.ParseAndSetProtocolVersionHeader()
 	mcpCtx.ParseAndSetSessionHeader()
 	mcpCtx.ParseAndSetAcceptHeader()
 
-	logger.Debugf("[dubbo-go-pixiu] mcp server incoming request headers: %v", ctx.Request.Header)
-
-	// Version negotiation happens during initialize request/response per MCP spec
+	// Protocol version is logged for debugging
 	version := mcpCtx.ProtocolVersion()
 	if version != "" {
 		logger.Debugf("[dubbo-go-pixiu] mcp server client protocol version: %s", version)
@@ -180,7 +175,7 @@ func (f *MCPServerFilter) Encode(ctx *contexthttp.HttpContext) filter.FilterStat
 
 	// For regular MCP requests, no special processing needed
 	if mcpCtx.IsMCPRequest() {
-		logger.Debugf("[dubbo-go-pixiu] mcp server MCP request, no special processing needed")
+		logger.Debugf("[dubbo-go-pixiu] mcp server regular MCP request, no special processing needed")
 	}
 
 	return filter.Continue
@@ -289,7 +284,7 @@ func (f *MCPServerFilter) handlePostRequest(ctx *MCPContext) filter.FilterStatus
 	sessionID := ctx.SessionID()
 	hasSession := sessionID != "" && f.sessionExists(sessionID)
 	responseFormat := f.contentNegotiator.NegotiateResponse(
-		ctx.Request.Header.Get(constant.HeaderKeyAccept), jsonrpcReq, hasSession)
+		ctx.Request.Header.Get(constant.HeaderKeyAccept), hasSession)
 
 	// Store response format decision in context for later use
 	ctx.StoreMCPDataInParams()
@@ -308,32 +303,38 @@ func (f *MCPServerFilter) handlePostRequest(ctx *MCPContext) filter.FilterStatus
 
 // handleTerminalMethodWithNegotiation handles terminal methods with response format negotiation
 func (f *MCPServerFilter) handleTerminalMethodWithNegotiation(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
-	// Special cases that always use direct response
-	if req.Method == "notifications/initialized" || req.Method == string(mcp.MethodInitialize) {
-		return f.processTerminalMethod(ctx, req)
+	// Special case 1: initialize always returns JSON immediately (no SSE option per MCP spec)
+	if req.Method == string(mcp.MethodInitialize) {
+		return f.handleInitialize(ctx, req)
 	}
 
-	// For SSE mode: build response and send via SSE, then return 202 Accepted
-	if responseFormat == transport.ResponseFormatSSE {
-		response := f.buildTerminalMethodResponse(ctx, req)
-		if response == nil {
-			return filter.Stop
-		}
-
-		// Send response via SSE stream
-		if err := f.sendToSSEStream(ctx, response); err != nil {
-			logger.Errorf("[dubbo-go-pixiu] mcp server failed to send via SSE: %v", err)
-			return f.errorHandler.SendInternalError(ctx, req.ID, "SSE send failed")
-		}
-
-		// Per MCP spec: return 202 Accepted to the POST request
-		logger.Debugf("[dubbo-go-pixiu] mcp server sent %s via SSE, returning 202", req.Method)
+	// Special case 2: notifications/initialized always returns 202 Accepted with no body
+	if req.Method == "notifications/initialized" {
+		logger.Infof("[dubbo-go-pixiu] mcp server received initialized notification, returning 202 Accepted")
 		ctx.SendLocalReply(http.StatusAccepted, nil)
 		return filter.Stop
 	}
 
-	// For JSON format: use normal processing
-	return f.processTerminalMethod(ctx, req)
+	// For other terminal methods, dispatch to specific handlers with response format
+	switch req.Method {
+	case string(mcp.MethodToolsList):
+		return f.handleToolsList(ctx, req, responseFormat)
+	case string(mcp.MethodResourcesList):
+		return f.handleResourcesList(ctx, req, responseFormat)
+	case string(mcp.MethodResourcesRead):
+		return f.handleResourceRead(ctx, req, responseFormat)
+	case "resources/templates/list":
+		return f.handleResourceTemplatesList(ctx, req, responseFormat)
+	case string(mcp.MethodPromptsList):
+		return f.handlePromptsList(ctx, req, responseFormat)
+	case string(mcp.MethodPromptsGet):
+		return f.handlePromptsGet(ctx, req, responseFormat)
+	case string(mcp.MethodPing):
+		return f.handlePing(ctx, req, responseFormat)
+	default:
+		logger.Warnf("[dubbo-go-pixiu] mcp server unsupported terminal method: %s", req.Method)
+		return f.errorHandler.SendMethodNotFound(ctx, req.ID)
+	}
 }
 
 // handleToolCallWithNegotiation handles tool calls with response format negotiation
@@ -347,67 +348,6 @@ func (f *MCPServerFilter) handleToolCallWithNegotiation(ctx *MCPContext, req mcp
 	// For tool calls, we need to forward to backend, so continue with existing logic
 	// but store the response format for use in Encode stage
 	return f.handleToolCall(ctx, req)
-}
-
-// processTerminalMethod processes a terminal method and returns the filter status
-func (f *MCPServerFilter) processTerminalMethod(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
-	switch req.Method {
-	case string(mcp.MethodInitialize):
-		return f.handleInitialize(ctx, req)
-	case string(mcp.MethodToolsList):
-		return f.handleToolsList(ctx, req)
-	case string(mcp.MethodResourcesList):
-		return f.handleResourcesList(ctx, req)
-	case string(mcp.MethodResourcesRead):
-		return f.handleResourceRead(ctx, req)
-	case "resources/templates/list":
-		return f.handleResourceTemplatesList(ctx, req)
-	case string(mcp.MethodPromptsList):
-		return f.handlePromptsList(ctx, req)
-	case string(mcp.MethodPromptsGet):
-		return f.handlePromptsGet(ctx, req)
-	case "notifications/initialized":
-		return f.handleNotificationsInitialized(ctx, req)
-	case string(mcp.MethodPing):
-		return f.handlePing(ctx, req)
-	default:
-		logger.Warnf("[dubbo-go-pixiu] mcp server unsupported terminal method: %s", req.Method)
-		return f.errorHandler.SendMethodNotFound(ctx, req.ID)
-	}
-}
-
-// buildTerminalMethodResponse builds response object for terminal methods (for SSE)
-func (f *MCPServerFilter) buildTerminalMethodResponse(ctx *MCPContext, req mcp.JSONRPCRequest) any {
-	switch req.Method {
-	case string(mcp.MethodToolsList):
-		return f.buildToolsListResponseObject(req)
-	case string(mcp.MethodPing):
-		return f.buildPingResponseObject(req)
-	// TODO: Add more methods as needed
-	default:
-		logger.Warnf("[dubbo-go-pixiu] mcp server unsupported terminal method for SSE: %s", req.Method)
-		return nil
-	}
-}
-
-// sendToSSEStream sends a response object to the SSE stream
-func (f *MCPServerFilter) sendToSSEStream(ctx *MCPContext, response any) error {
-	sessionID := ctx.SessionID()
-	if sessionID == "" {
-		return fmt.Errorf("no session ID")
-	}
-
-	session, exists := f.sessionManager.Session(sessionID)
-	if !exists {
-		return fmt.Errorf("session not found: %s", sessionID)
-	}
-
-	if session.PipeWriter == nil {
-		return fmt.Errorf("SSE pipe not established for session: %s", sessionID)
-	}
-
-	// Use existing SSE handler to send the message
-	return f.sseHandler.SendSSEMessage(session, response)
 }
 
 // sendResponseWithFormat sends response in the negotiated format
@@ -447,8 +387,9 @@ func (f *MCPServerFilter) sendSSEResponse(ctx *MCPContext, response any) filter.
 		return f.sendJSONResponse(ctx, response)
 	}
 
-	// SSE message sent successfully
+	// SSE message sent successfully, return 202 Accepted per MCP spec
 	logger.Debugf("[dubbo-go-pixiu] mcp server sent response via SSE for session: %s", sessionID)
+	ctx.SendLocalReply(http.StatusAccepted, nil)
 	return filter.Stop
 }
 
@@ -497,14 +438,6 @@ func (f *MCPServerFilter) maintainSSEPipe(ctx *MCPContext, session *transport.MC
 		f.sessionManager.RemoveSession(session.ID)
 		logger.Debugf("[dubbo-go-pixiu] mcp server SSE pipe maintenance ended for session: %s", session.ID)
 	}()
-
-	// Send initial keepalive to establish the SSE stream immediately
-	initialKeepalive := f.sseHandler.FormatSSEKeepalive(time.Now().Unix())
-	if _, err := session.PipeWriter.Write([]byte(initialKeepalive)); err != nil {
-		logger.Warnf("[dubbo-go-pixiu] mcp server initial keepalive write failed for session %s: %v", session.ID, err)
-		return
-	}
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent initial keepalive for session: %s", session.ID)
 
 	ticker := time.NewTicker(transport.KeepaliveInterval)
 	defer ticker.Stop()

@@ -19,9 +19,7 @@ package transport
 
 import (
 	"testing"
-)
 
-import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -194,83 +192,19 @@ func TestNegotiateResponse(t *testing.T) {
 			want:         ResponseFormatJSON,
 		},
 		{
-			name:         "initialize with both prefers JSON",
+			name:         "any method with both and session prefers SSE",
 			acceptHeader: "application/json, text/event-stream",
-			method:       string(mcp.MethodInitialize),
+			method:       string(mcp.MethodToolsList),
 			hasSession:   true,
-			want:         ResponseFormatJSON,
+			want:         ResponseFormatSSE,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := mcp.JSONRPCRequest{
-				Request: mcp.Request{
-					Method: tt.method,
-				},
-				ID: mcp.NewRequestId(1),
-			}
-
-			got := cn.NegotiateResponse(tt.acceptHeader, req, tt.hasSession)
+			got := cn.NegotiateResponse(tt.acceptHeader, tt.hasSession)
 			if got != tt.want {
 				t.Errorf("NegotiateResponse() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestShouldPreferSSE(t *testing.T) {
-	cn := NewContentNegotiator()
-
-	tests := []struct {
-		name       string
-		method     string
-		hasSession bool
-		want       bool
-	}{
-		{
-			name:       "tool call with session",
-			method:     string(mcp.MethodToolsCall),
-			hasSession: true,
-			want:       true,
-		},
-		{
-			name:       "tool call without session",
-			method:     string(mcp.MethodToolsCall),
-			hasSession: false,
-			want:       false,
-		},
-		{
-			name:       "resource read with session",
-			method:     string(mcp.MethodResourcesRead),
-			hasSession: true,
-			want:       true,
-		},
-		{
-			name:       "initialize method",
-			method:     string(mcp.MethodInitialize),
-			hasSession: true,
-			want:       false,
-		},
-		{
-			name:       "resources/subscribe with session",
-			method:     "resources/subscribe",
-			hasSession: true,
-			want:       true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := mcp.JSONRPCRequest{
-				Request: mcp.Request{
-					Method: tt.method,
-				},
-			}
-
-			got := cn.shouldPreferSSE(req, tt.hasSession)
-			if got != tt.want {
-				t.Errorf("shouldPreferSSE() = %v, want %v", got, tt.want)
 			}
 		})
 	}

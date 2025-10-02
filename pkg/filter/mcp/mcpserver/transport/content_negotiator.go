@@ -19,13 +19,7 @@ package transport
 
 import (
 	"strings"
-)
 
-import (
-	"github.com/mark3labs/mcp-go/mcp"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
@@ -38,14 +32,6 @@ const (
 	ResponseFormatAccepted                       // 202 Accepted (no immediate response)
 )
 
-// MCP methods that prefer streaming responses
-var streamingMethods = []string{
-	string(mcp.MethodResourcesRead),
-	"resources/subscribe",
-	"tools/stream",
-	"notifications/subscribe",
-}
-
 // ContentNegotiator handles HTTP content negotiation for MCP responses
 type ContentNegotiator struct{}
 
@@ -54,40 +40,17 @@ func NewContentNegotiator() *ContentNegotiator {
 	return &ContentNegotiator{}
 }
 
-// NegotiateResponse determines the appropriate response format based on request and Accept header
-func (cn *ContentNegotiator) NegotiateResponse(acceptHeader string, jsonrpcReq mcp.JSONRPCRequest, hasSession bool) ResponseFormat {
-	supportsJSON, supportsSSE := cn.parseAcceptHeader(acceptHeader)
+// NegotiateResponse determines the appropriate response format based on Accept header and session state
+func (cn *ContentNegotiator) NegotiateResponse(acceptHeader string, hasSession bool) ResponseFormat {
+	_, supportsSSE := cn.parseAcceptHeader(acceptHeader)
 
-	// If no Accept header specified, default to JSON for backward compatibility
-	if acceptHeader == "" || (!supportsJSON && !supportsSSE) {
-		return ResponseFormatJSON
+	// Per MCP spec: when a session exists and client accepts SSE, use SSE for consistent streaming
+	// Otherwise, default to JSON (for backward compatibility and when no session available)
+	if supportsSSE && hasSession {
+		return ResponseFormatSSE
 	}
 
-	// Note: For true JSON-RPC notifications, we would check if ID is nil,
-	// but mcp.RequestId type doesn't support direct nil comparison.
-	// In MCP context, method type usually determines response handling.
-
-	switch {
-	case supportsJSON && !supportsSSE:
-		// Only JSON is supported
-		return ResponseFormatJSON
-	case !supportsJSON && supportsSSE:
-		// Only SSE is supported
-		if hasSession {
-			return ResponseFormatSSE
-		}
-		// Fall back to JSON if no session available
-		return ResponseFormatJSON
-	case supportsJSON && supportsSSE:
-		// Both are supported, make intelligent choice based on request type
-		if cn.shouldPreferSSE(jsonrpcReq, hasSession) {
-			return ResponseFormatSSE
-		}
-		return ResponseFormatJSON
-	default:
-		// Should never reach here due to early return at line 57
-		return ResponseFormatJSON
-	}
+	return ResponseFormatJSON
 }
 
 // SupportsSSE checks if the Accept header includes text/event-stream
@@ -126,29 +89,6 @@ func (cn *ContentNegotiator) parseAcceptHeader(acceptHeader string) (supportsJSO
 	}
 
 	return supportsJSON, supportsSSE
-}
-
-// shouldPreferSSE determines if SSE should be preferred over JSON for a given request
-func (cn *ContentNegotiator) shouldPreferSSE(jsonrpcReq mcp.JSONRPCRequest, hasSession bool) bool {
-	// Only prefer SSE if we have an active session
-	if !hasSession {
-		return false
-	}
-
-	// Prefer SSE for tool calls as they may involve long-running operations
-	if jsonrpcReq.Method == string(mcp.MethodToolsCall) {
-		return true
-	}
-
-	// Prefer SSE for methods that might generate server-to-client notifications
-	for _, method := range streamingMethods {
-		if jsonrpcReq.Method == method {
-			return true
-		}
-	}
-
-	// Default to JSON for other methods
-	return false
 }
 
 // GetPreferredContentType returns the Content-Type header value for the given format
