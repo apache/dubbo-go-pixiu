@@ -189,7 +189,12 @@ jobs:
             echo "Thank you for your contribution! 🎉"
           } > comment_body.md
           
-          gh pr comment "$PR_NUMBER" --body-file comment_body.md
+          # Post comment to the PR in the base repository
+          gh pr comment "$PR_NUMBER" --repo dubbo-go-pixiu/dubbo-go-pixiu --body-file comment_body.md || {
+            echo "⚠️  Failed to comment on PR #${PR_NUMBER}, but upstream sync succeeded"
+            echo "Upstream PR: $UPSTREAM_PR_URL"
+            exit 0
+          }
       
       # Step 10-11: Error handling for rebase conflicts
       - name: Handle rebase failure
