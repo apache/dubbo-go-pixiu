@@ -28,7 +28,7 @@ name: Sync to Apache Upstream
 # - Recommended: use a dedicated bot account for the token
 
 on:
-  pull_request:
+  pull_request_target:
     types: [closed]
     branches:
       - develop
