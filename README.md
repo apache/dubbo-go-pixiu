@@ -157,6 +157,12 @@ After starting, you can access the management plane by opening `http://localhost
 
 ![pixiu-admin.png](./docs/images/pixiu-admin.png)
 
+## Tools
+
+* **[Benchmark](./tools/benchmark)**: The benchmark of dubbo-fo-pixiu, currently outdated, we are working on updating it.
+
+
+
 ## Community & Contribution
 
 We warmly welcome all forms of contributions\! Whether it's submitting an issue, proposing a new feature, or contributing code, your participation is vital to the project.
