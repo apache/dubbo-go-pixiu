@@ -19,7 +19,6 @@ package configcenter
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"io"
 	"os"
 	"path"
@@ -29,6 +28,7 @@ import (
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"go.uber.org/zap/zapcore"
 )
 
 import (
