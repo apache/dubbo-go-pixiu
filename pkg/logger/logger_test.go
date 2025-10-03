@@ -56,7 +56,7 @@ func readAll(t *testing.T, path string) string {
 
 func TestDisableStacktraceTrueNoStackEvenOnError(t *testing.T) {
 	cfg, out := newDevConfigToFile(t)
-	cfg.DisableStacktrace = true // YAML equals to：disableStacktrace: true
+	cfg.DisableStacktrace = true // YAML equivalent: disableStacktrace: true
 	InitLogger(cfg)
 
 	log := GetLogger()
@@ -86,7 +86,7 @@ func TestSetLoggerLevelDoesNotRebuildAndTakesEffect(t *testing.T) {
 	before := GetLogger().SugaredLogger
 
 	// dynamic set to error
-	ok := SetLoggerLevel("error")
+	ok := SetLoggerLevel(zapcore.ErrorLevel)
 	if !ok {
 		t.Fatalf("SetLoggerLevel returned false")
 	}
@@ -96,7 +96,7 @@ func TestSetLoggerLevelDoesNotRebuildAndTakesEffect(t *testing.T) {
 		t.Fatalf("SetLoggerLevel should NOT rebuild logger; pointer changed: %p -> %p", before, after)
 	}
 
-	// write new：info should not appear，error should appear
+	// write new: info should not appear, error should appear
 	log := GetLogger()
 	log.Info("info should be filtered")
 	log.Error("error should appear")
@@ -127,7 +127,7 @@ func TestHotReloadRebuildsAndSwitchesSink(t *testing.T) {
 
 	// cfg2 -> out2（new sink）
 	cfg2, out2 := newDevConfigToFile(t)
-	// to split it，set lever to info
+	// to split it, set level to info
 	HotReload(cfg2)
 	l2 := GetLogger().SugaredLogger
 

@@ -40,7 +40,7 @@ func TestParseLevelAndSet(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ok := SetLoggerLevel(tt.in)
+		_, ok := ParseLogLevel(tt.in)
 		if ok != tt.ok {
 			t.Fatalf("SetLoggerLevel(%q) ok=%v, want %v", tt.in, ok, tt.ok)
 		}
@@ -76,7 +76,7 @@ func TestLoggerBasicUsage(t *testing.T) {
 	InitLogger(cfg)
 
 	log := GetLogger()
-	log = &pixiuLogger{SugaredLogger: log.With("k", "v"), config: log.config}
+	log = &PixiuLogger{SugaredLogger: log.With("k", "v"), config: log.config}
 	log.Infow("with fields", "a", 1)
 
 	_ = log.Sync()

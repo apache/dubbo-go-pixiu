@@ -19,6 +19,7 @@ package configcenter
 
 import (
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"io"
 	"os"
 	"path"
@@ -97,14 +98,14 @@ func TestNacosConfig_onChange(t *testing.T) {
 
 		Convey("Test onChange with empty input", func() {
 			// Suppress logs during this test.
-			logger.SetLoggerLevel("fatal")
+			logger.SetLoggerLevel(zapcore.FatalLevel)
 
 			client.remoteConfig = nil
 			client.onChange(Namespace, Group, DataId, "")
 			So(client.remoteConfig, ShouldBeNil)
 
 			// Restore the logger level.
-			logger.SetLoggerLevel("info")
+			logger.SetLoggerLevel(zapcore.InfoLevel)
 		})
 	})
 }

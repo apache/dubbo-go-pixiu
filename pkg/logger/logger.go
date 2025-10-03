@@ -37,7 +37,7 @@ import (
 
 var control *logController
 
-type pixiuLogger struct {
+type PixiuLogger struct {
 	*zap.SugaredLogger
 	config *zap.Config
 }
@@ -111,26 +111,29 @@ func InitLog(logConfFile string) error {
 // but we force stacktrace to Error+ only, and enable caller with our custom encoder.
 // If a config is supplied, we respect it and only normalize caller encoder and stacktrace threshold.
 func InitLogger(conf *zap.Config) {
-	var cfg zap.Config
+	var (
+		cfg zap.Config
+	)
 
 	if conf == nil {
 		// Default: development style
 		cfg = zap.NewDevelopmentConfig()
 
-		// Normalize/override keys & encoders for consistent console output
-		cfg.EncoderConfig.TimeKey = "time"
-		cfg.EncoderConfig.LevelKey = "level"
-		cfg.EncoderConfig.NameKey = "pixiuLogger"
-		cfg.EncoderConfig.CallerKey = "caller"
-		cfg.EncoderConfig.MessageKey = "message"
-		cfg.EncoderConfig.StacktraceKey = "stacktrace"
+		zapLoggerEncoderConfig := zapcore.EncoderConfig{
+			TimeKey:        "time",
+			LevelKey:       "level",
+			NameKey:        "pixiuLogger",
+			CallerKey:      "caller",
+			MessageKey:     "message",
+			StacktraceKey:  "stacktrace",
+			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.SecondsDurationEncoder,
+			EncodeCaller:   PaddedCallerEncoder,
+			// EncodeCaller:   zapcore.ShortCallerEncoder,
+		}
 
-		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		cfg.EncoderConfig.EncodeCaller = PaddedCallerEncoder
-
-		// Keep console encoding & debug level as dev style implies.
-		// cfg.Encoding = "console" // dev config already does this
+		cfg.EncoderConfig = zapLoggerEncoderConfig
 	} else {
 		cfg = *conf
 		// Unify caller encoder regardless of YAML to keep alignment style
@@ -141,12 +144,12 @@ func InitLogger(conf *zap.Config) {
 	if err != nil {
 		z = zap.NewNop()
 	}
-	l := &pixiuLogger{z.Sugar(), &cfg}
+	l := &PixiuLogger{z.Sugar(), &cfg}
 	control.updateLogger(l)
 }
 
 // SetLoggerLevel changes the level at runtime without rebuilding logger.
-func SetLoggerLevel(level string) bool {
+func SetLoggerLevel(level zapcore.Level) bool {
 	return control.setLoggerLevel(level)
 }
 
@@ -157,6 +160,28 @@ func HotReload(conf *zap.Config) error {
 }
 
 // GetLogger exposes the current sugared logger.
-func GetLogger() *pixiuLogger {
+func GetLogger() *PixiuLogger {
 	return control.logger
+}
+
+// ParseLogLevel parses textual level to zapcore.Level.
+func ParseLogLevel(level string) (zapcore.Level, bool) {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "debug", "trace":
+		return zapcore.DebugLevel, true
+	case "info":
+		return zapcore.InfoLevel, true
+	case "warn", "warning":
+		return zapcore.WarnLevel, true
+	case "error":
+		return zapcore.ErrorLevel, true
+	case "dpanic":
+		return zapcore.DPanicLevel, true
+	case "panic":
+		return zapcore.PanicLevel, true
+	case "fatal", "critical":
+		return zapcore.FatalLevel, true
+	default:
+		return zapcore.InfoLevel, false
+	}
 }

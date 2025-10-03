@@ -18,7 +18,6 @@
 package logger
 
 import (
-	"strings"
 	"sync"
 )
 
@@ -29,26 +28,22 @@ import (
 // logController governs the logging output or configuration changes throughout the entire project.
 type logController struct {
 	mu     sync.RWMutex
-	logger *pixiuLogger
+	logger *PixiuLogger
 }
 
 // setLoggerLevel changes the level at runtime without rebuilding the logger.
-func (c *logController) setLoggerLevel(level string) bool {
-	lvl, ok := c.parseLevel(level)
-	if !ok {
-		return false
-	}
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+func (c *logController) setLoggerLevel(level zapcore.Level) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.logger == nil || c.logger.config == nil {
 		return false
 	}
-	c.logger.config.Level.SetLevel(lvl)
+	c.logger.config.Level.SetLevel(level)
 	return true
 }
 
 // updateLogger swaps the underlying logger atomically.
-func (c *logController) updateLogger(l *pixiuLogger) {
+func (c *logController) updateLogger(l *PixiuLogger) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.logger = l
@@ -100,26 +95,4 @@ func (c *logController) errorf(fmt string, args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Errorf(fmt, args...)
-}
-
-// parseLevel parses textual level to zapcore.Level.
-func (c *logController) parseLevel(level string) (zapcore.Level, bool) {
-	switch strings.ToLower(level) {
-	case "debug":
-		return zapcore.DebugLevel, true
-	case "info":
-		return zapcore.InfoLevel, true
-	case "warn", "warning":
-		return zapcore.WarnLevel, true
-	case "error":
-		return zapcore.ErrorLevel, true
-	case "dpanic":
-		return zapcore.DPanicLevel, true
-	case "panic":
-		return zapcore.PanicLevel, true
-	case "fatal":
-		return zapcore.FatalLevel, true
-	default:
-		return zapcore.InfoLevel, false
-	}
 }
