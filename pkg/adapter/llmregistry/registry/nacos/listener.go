@@ -299,11 +299,8 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 	if address, ok := instance.Metadata["address"]; ok {
 		ret.Address.Domains = strings.Split(address, ",")
 	}
-	if apiKeys, ok := instance.Metadata["llm-meta.api_keys"]; ok {
-		err := json.Unmarshal([]byte(apiKeys), &ret.LLMMeta.APIKeys)
-		if err != nil {
-			logger.Warnf("Failed to parse API keys JSON: %s, error: %v", apiKeys, err)
-		}
+	if apiKey, ok := instance.Metadata["llm-meta.api_key"]; ok {
+		ret.LLMMeta.APIKey = apiKey
 	}
 	if retryPolicy, ok := instance.Metadata["llm-meta.retry_policy.name"]; ok {
 		ret.LLMMeta.RetryPolicy.Name = model.RetryTypeValue[retryPolicy]

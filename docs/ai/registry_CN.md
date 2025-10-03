@@ -66,12 +66,11 @@
 - **必需**: 否, 默认为 `"false"`
 - **描述**: 决定如果在此 endpoint 上的所有重试尝试都失败后，网关是否应继续处理集群中的下一个 endpoint。
 
-`llm-meta.api_keys`
+`llm-meta.api_key`
 
-- **类型**: `string` (JSON 数组格式)
+- **类型**: `string`
 - **必需**: 否
-- **描述**: **(更新)** 配置此 endpoint 使用的 API 密钥。**此字段必须是一个 JSON 格式的字符串**，代表一个对象数组，每个对象包含 `name` 和 `key` 两个字段。
-- **示例**: `'[{"name":"default","key":"sk-key1"},{"name":"backup","key":"sk-key2"}]'`
+- **描述**: 此 endpoint 使用的 API 密钥。
 
 `llm-meta.retry_policy.name`
 
@@ -144,15 +143,8 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
-
-// 定义 APIKey 结构以方便 JSON 序列化
-type APIKey struct {
-	Name string `json:"name"`
-	Key  string `json:"key"`
-}
 
 func main() {
 	// ... (此处省略了创建 Nacos 客户端的代码)
@@ -167,36 +159,32 @@ func main() {
 	}
 	retryConfigJSON, _ := json.Marshal(retryConfig)
 
-	// 2. 准备 API Keys 的 JSON 配置
-	apiKeys := []APIKey{
-		{Name: "default", Key: "key-xxxxxxxx"},
-		{Name: "admin", Key: "key-yyyyyyyy"},
-	}
-	apiKeysJSON, _ := json.Marshal(apiKeys)
-
-	// 3. 构造包含所有网关配置的 metadata
+	// 2. 构造包含所有网关配置的 metadata
 	metadata := map[string]string{
 		// --- 核心 Endpoint 配置 ---
 		"cluster": "deepseek_cluster",
 		"id":      "deepseek-primary",
 		"name":    "DeepSeek V2 Chat (Primary)",
 
-		// 实例的 IP 和 Port
-		"ip":   "203.0.113.55", // 网关将使用这个公网 IP
-		"port": "9000",         // 网关将使用这个公网端口
+		// 可选: (使用ip+port或者address): 实例的 IP 和 Port
+		"ip":   "203.0.113.55",
+		"port": "9000",
+
+		// 可选: (使用ip+port或者address): address 列表
+		"address": "api.deepseek.com",
 
 		// --- LLM 特定元数据 ---
-		"llm-meta.fallback":    "true",
+		"llm-meta.fallback": "true",
 
 		// 使用 JSON 字符串格式的 API Keys
-		"llm-meta.api_keys":    string(apiKeysJSON),
+		"llm-meta.api_key": "key-xxxxxxxx",
 
 		// --- 重试策略配置 ---
 		"llm-meta.retry_policy.name":   "ExponentialBackoff",
 		"llm-meta.retry_policy.config": string(retryConfigJSON),
 	}
 
-	// 4. 注册 Nacos 实例
+	// 3. 注册 Nacos 实例
 	// 注意：这里的 Ip 和 Port 是服务实例的实际监听地址，
 	// 而 metadata 中的 ip 和 port 是希望网关访问的地址。
 	_, err := client.RegisterInstance(vo.RegisterInstanceParam{
@@ -217,4 +205,5 @@ func main() {
 	log.Println("服务实例注册成功！")
 	// ...
 }
+
 ```

@@ -66,12 +66,11 @@ All gateway-specific configurations are passed through the `metadata` field of t
 - **Required**: No, defaults to `"false"`
 - **Description**: Determines whether the gateway should proceed to the next endpoint in the cluster if all retry attempts on this endpoint fail.
 
-`llm-meta.api_keys`
+`llm-meta.api_key`
 
-- **Type**: `string` (JSON array format)
+- **Type**: `string` 
 - **Required**: No
-- **Description**: **(Updated)** Configures the API keys to be used by this endpoint. **This field must be a JSON-formatted string** representing an array of objects, where each object contains `name` and `key` fields.
-- **Example**: `'[{"name":"default","key":"sk-key1"},{"name":"backup","key":"sk-key2"}]'`
+- **Description**: The API key to be used by this endpoint.
 
 `llm-meta.retry_policy.name`
 
@@ -144,15 +143,8 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
-
-// Define an APIKey struct for easy JSON serialization
-type APIKey struct {
-	Name string `json:"name"`
-	Key  string `json:"key"`
-}
 
 func main() {
 	// ... (Code for creating the Nacos client is omitted here)
@@ -167,36 +159,32 @@ func main() {
 	}
 	retryConfigJSON, _ := json.Marshal(retryConfig)
 
-	// 2. Prepare the JSON configuration for the API Keys
-	apiKeys := []APIKey{
-		{Name: "default", Key: "key-xxxxxxxx"},
-		{Name: "admin", Key: "key-yyyyyyyy"},
-	}
-	apiKeysJSON, _ := json.Marshal(apiKeys)
-
-	// 3. Construct the metadata containing all gateway configurations
+	// 2. Construct the metadata containing all gateway configurations
 	metadata := map[string]string{
 		// --- Core Endpoint Configuration ---
 		"cluster": "deepseek_cluster",
 		"id":      "deepseek-primary",
 		"name":    "DeepSeek V2 Chat (Primary)",
 
-		// The instance's IP and Port
-		"ip":   "203.0.113.55", // The gateway will use this public IP
-		"port": "9000",         // The gateway will use this public port
+		// Optional (use ip+port or address): The instance's IP and Port
+		"ip":   "203.0.113.55",
+		"port": "9000",
+
+		// Optional (use ip+port or address): address field
+		"address": "api.deepseek.com",
 
 		// --- LLM-Specific Metadata ---
-		"llm-meta.fallback":    "true",
+		"llm-meta.fallback": "true",
 
 		// API Keys in JSON string format
-		"llm-meta.api_keys":    string(apiKeysJSON),
+		"llm-meta.api_keys": "key-xxxxxxxx",
 
 		// --- Retry Policy Configuration ---
 		"llm-meta.retry_policy.name":   "ExponentialBackoff",
 		"llm-meta.retry_policy.config": string(retryConfigJSON),
 	}
 
-	// 4. Register the Nacos instance
+	// 3. Register the Nacos instance
 	// Note: The Ip and Port here are the actual listening addresses of the service instance,
 	// while the ip and port in the metadata are the addresses you want the gateway to access.
 	_, err := client.RegisterInstance(vo.RegisterInstanceParam{
@@ -217,4 +205,5 @@ func main() {
 	log.Println("Service instance registered successfully!")
 	// ...
 }
+
 ```
