@@ -179,9 +179,9 @@ func (hc *HttpContext) SendLocalReply(status int, body []byte) {
 	hc.localReplyBody = body
 	hc.TargetResp = &client.UnaryResponse{Data: body}
 	if json.Valid(body) {
-		hc.AddHeader(constant.HeaderKeyContentType, constant.HeaderValueApplicationJson)
+		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
 	} else {
-		hc.AddHeader(constant.HeaderKeyContentType, constant.HeaderValueTextPlain)
+		hc.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueTextPlain)
 	}
 	writer := hc.Writer
 	writer.WriteHeader(status)

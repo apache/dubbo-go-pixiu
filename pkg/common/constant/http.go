@@ -18,7 +18,7 @@
 package constant
 
 const (
-	HeaderKeyContentType      = "Content-Type"
+	HeaderKeyContextType      = "Content-Type"
 	HeaderKeyCacheControl     = "Cache-Control"
 	HeaderKeyConnection       = "Connection"
 	HeaderKeyTransferEncoding = "Transfer-Encoding"

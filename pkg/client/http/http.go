@@ -204,7 +204,7 @@ func (dc *Client) parseURL(req *client.Request, params requestParams) (string, e
 
 // IsSSEStream check if the response is a SSE stream
 func IsSSEStream(resp *http.Response) bool {
-	contentType := resp.Header.Get(constant.HeaderKeyContentType)
+	contentType := resp.Header.Get(constant.HeaderKeyContextType)
 	return strings.Contains(contentType, constant.HeaderValueTextEventStream)
 }
 
@@ -224,7 +224,7 @@ func IsStreamableResponse(resp *http.Response) bool {
 	}
 
 	// check the content type
-	contentType := resp.Header.Get(constant.HeaderKeyContentType)
+	contentType := resp.Header.Get(constant.HeaderKeyContextType)
 
 	// check if it s a streamable content type
 	streamableTypes := []string{
