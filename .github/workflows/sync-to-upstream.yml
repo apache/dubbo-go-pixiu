@@ -19,19 +19,47 @@
 
 name: Sync to Apache Upstream
 
-# This workflow automatically creates a PR to apache/dubbo-go-pixiu
-# when a PR is merged into the develop branch of this repository.
+# This workflow automatically creates a PR to the upstream repository
+# when a PR is merged into the base branch of this repository.
 # 
 # Prerequisites:
 # - Configure the UPSTREAM_GITHUB_TOKEN secret in repository settings
 # - Token should have 'public_repo' permission
 # - Recommended: use a dedicated bot account for the token
+# 
+# Configuration:
+# - Modify the env section below to match your project's repository structure
+
+# ============================================================================
+# Configuration Section - Modify these values for your project
+# ============================================================================
+env:
+  # Upstream repository (A repository - the original/official repo)
+  UPSTREAM_ORG: apache
+  UPSTREAM_REPO: dubbo-go-pixiu
+  
+  # Fork repository (B repository - the organization/team fork)
+  FORK_ORG: dubbo-go-pixiu
+  FORK_REPO: dubbo-go-pixiu
+  
+  # Branch name (main/master/develop)
+  BASE_BRANCH: develop
+  
+  # Git bot configuration (for commits)
+  BOT_NAME: "Pixiu Bot"
+  BOT_EMAIL: "bot@dubbo-go-pixiu.github.io"
+  
+  # Workflow files to exclude when syncing to upstream
+  # Add any fork-specific files that should not be synced
+  EXCLUDE_FILES: |
+    .github/workflows/sync-to-upstream.yml
+
+# ============================================================================
 
 on:
   pull_request_target:
     types: [closed]
-    branches:
-      - develop
+    # No branches filter here - we check the branch in the job condition below
 
 # Explicit permissions required for gh pr comment and gh issue create
 permissions:
@@ -45,36 +73,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  sync-to-apache:
-    name: Sync to Apache Repository
+  sync-to-upstream:
+    name: Sync to Upstream Repository
     runs-on: ubuntu-latest
     
     # Only run when PR is actually merged (not just closed)
+    # Branch check is done at step level where env is available
     if: github.event.pull_request.merged == true
     
     steps:
+      # Step 0: Check if PR targets the correct base branch
+      - name: Check target branch
+        id: check_branch
+        run: |
+          if [ "${{ github.event.pull_request.base.ref }}" != "${{ env.BASE_BRANCH }}" ]; then
+            echo "⚠️  PR targets branch '${{ github.event.pull_request.base.ref }}', but BASE_BRANCH is configured as '${{ env.BASE_BRANCH }}'"
+            echo "Skipping sync as this PR does not target the configured base branch."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ PR targets the correct base branch: ${{ env.BASE_BRANCH }}"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      
       # Step 1: Checkout code with full history
       - name: Checkout repository
+        if: steps.check_branch.outputs.skip != 'true'
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: develop
+          ref: ${{ env.BASE_BRANCH }}
           token: ${{ secrets.UPSTREAM_GITHUB_TOKEN }}
       
       # Step 2: Configure Git user
       - name: Configure Git user
+        if: steps.check_branch.outputs.skip != 'true'
         run: |
-          git config user.name "Pixiu Bot"
-          git config user.email "bot@dubbo-go-pixiu.github.io"
+          git config user.name "${{ env.BOT_NAME }}"
+          git config user.email "${{ env.BOT_EMAIL }}"
       
       # Step 3: Add upstream remote and fetch
       - name: Add upstream remote
+        if: steps.check_branch.outputs.skip != 'true'
         run: |
-          git remote add upstream https://github.com/apache/dubbo-go-pixiu.git
-          git fetch upstream develop
+          git remote add upstream https://github.com/${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}.git
+          git fetch upstream ${{ env.BASE_BRANCH }}
       
       # Step 4: Create sync branch with timestamp
       - name: Create sync branch
+        if: steps.check_branch.outputs.skip != 'true'
         id: create_branch
         run: |
           SYNC_BRANCH="auto-sync-$(date +%Y%m%d-%H%M%S)"
@@ -82,39 +128,40 @@ jobs:
           git checkout -b ${SYNC_BRANCH}
           echo "branch=${SYNC_BRANCH}" >> $GITHUB_OUTPUT
       
-      # Step 5: Rebase onto upstream develop
+      # Step 5: Rebase onto upstream base branch
       - name: Rebase onto upstream
+        if: steps.check_branch.outputs.skip != 'true'
         id: rebase
         run: |
-          git rebase upstream/develop
+          git rebase upstream/${{ env.BASE_BRANCH }}
       
-      # Step 5.5: Remove B-repo specific files
+      # Step 5.5: Remove fork-specific files
       - name: Remove fork-specific workflow files
+        if: steps.check_branch.outputs.skip != 'true'
         run: |
-          # Remove sync workflow files that are specific to B-repo
-          # These should not be synced to Apache upstream
-          git rm -f .github/workflows/sync-to-upstream.yml || true
-          git rm -f .github/workflows/SYNC_WORKFLOW_GUIDE.md || true
+          # Remove files that are specific to the fork and should not be synced to upstream
+          echo "${{ env.EXCLUDE_FILES }}" | xargs git rm -f --ignore-unmatch
           
           # Commit the removal if there are changes
           if ! git diff --cached --quiet; then
             git commit -m "chore: remove fork-specific workflow files
             
-            These files are specific to dubbo-go-pixiu/dubbo-go-pixiu organization fork
-            and are not needed in the upstream Apache repository.
+            These files are specific to ${{ env.FORK_ORG }}/${{ env.FORK_REPO }} organization fork
+            and are not needed in the upstream repository.
             
             Files removed:
-            - .github/workflows/sync-to-upstream.yml
-            - .github/workflows/SYNC_WORKFLOW_GUIDE.md"
+            ${{ env.EXCLUDE_FILES }}"
           fi
       
       # Step 6: Push sync branch to origin
       - name: Push sync branch
+        if: steps.check_branch.outputs.skip != 'true'
         run: |
           git push origin ${SYNC_BRANCH} --force-with-lease
       
       # Step 7: Generate PR body with attribution
       - name: Generate PR description
+        if: steps.check_branch.outputs.skip != 'true'
         id: pr_body
         env:
           ORIGINAL_BODY: ${{ github.event.pull_request.body }}
@@ -147,24 +194,25 @@ jobs:
             echo ""
             echo "All commits in this PR preserve the original authorship. You can verify this by checking the commit history."
             echo ""
-            echo "**Note**: This PR was automatically created by GitHub Actions when PR #${ORIGINAL_PR} was merged into \`dubbo-go-pixiu/dubbo-go-pixiu:develop\`."
+            echo "**Note**: This PR was automatically created by GitHub Actions when PR #${ORIGINAL_PR} was merged into \`${{ env.FORK_ORG }}/${{ env.FORK_REPO }}:${{ env.BASE_BRANCH }}\`."
             echo ""
             echo "cc @${ORIGINAL_AUTHOR}"
           } > pr_body.md
           
           echo "Generated PR body"
       
-      # Step 8: Create PR to Apache upstream
-      - name: Create PR to apache/dubbo-go-pixiu
+      # Step 8: Create PR to upstream repository
+      - name: Create PR to ${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}
+        if: steps.check_branch.outputs.skip != 'true'
         id: create_pr
         env:
           GH_TOKEN: ${{ secrets.UPSTREAM_GITHUB_TOKEN }}
           SYNC_PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           PR_URL=$(gh pr create \
-            --repo apache/dubbo-go-pixiu \
-            --base develop \
-            --head dubbo-go-pixiu:${SYNC_BRANCH} \
+            --repo ${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }} \
+            --base ${{ env.BASE_BRANCH }} \
+            --head ${{ env.FORK_ORG }}:${SYNC_BRANCH} \
             --title "$SYNC_PR_TITLE" \
             --body-file pr_body.md)
           
@@ -173,7 +221,7 @@ jobs:
       
       # Step 9: Comment on original PR with upstream PR link
       - name: Notify original PR
-        if: success()
+        if: success() && steps.check_branch.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -190,7 +238,7 @@ jobs:
           } > comment_body.md
           
           # Post comment to the PR in the base repository
-          gh pr comment "$PR_NUMBER" --repo dubbo-go-pixiu/dubbo-go-pixiu --body-file comment_body.md || {
+          gh pr comment "$PR_NUMBER" --repo ${{ env.FORK_ORG }}/${{ env.FORK_REPO }} --body-file comment_body.md || {
             echo "⚠️  Failed to comment on PR #${PR_NUMBER}, but upstream sync succeeded"
             echo "Upstream PR: $UPSTREAM_PR_URL"
             exit 0
@@ -207,13 +255,13 @@ jobs:
           git rebase --abort || true
           
           gh issue create \
-            --repo dubbo-go-pixiu/dubbo-go-pixiu \
+            --repo ${{ env.FORK_ORG }}/${{ env.FORK_REPO }} \
             --title "⚠️ Failed to auto-sync PR #${PR_NUMBER} to upstream" \
             --body "## Sync Failure Report
             
             **Original PR**: #${PR_NUMBER}
             **Author**: @${PR_AUTHOR}
-            **Error**: Rebase conflicts detected when syncing to apache/dubbo-go-pixiu
+            **Error**: Rebase conflicts detected when syncing to ${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}
             
             ### Action Required
             
@@ -221,13 +269,13 @@ jobs:
             
             ### Steps to resolve:
             
-            1. Checkout the develop branch
+            1. Checkout the ${{ env.BASE_BRANCH }} branch
             2. Create a new branch: \`git checkout -b manual-sync-${PR_NUMBER}\`
-            3. Add upstream: \`git remote add upstream https://github.com/apache/dubbo-go-pixiu.git\`
-            4. Fetch upstream: \`git fetch upstream develop\`
-            5. Rebase: \`git rebase upstream/develop\`
+            3. Add upstream: \`git remote add upstream https://github.com/${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}.git\`
+            4. Fetch upstream: \`git fetch upstream ${{ env.BASE_BRANCH }}\`
+            5. Rebase: \`git rebase upstream/${{ env.BASE_BRANCH }}\`
             6. Resolve conflicts manually
-            7. Push and create PR to apache/dubbo-go-pixiu
+            7. Push and create PR to ${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}
             
             cc @${PR_AUTHOR}" \
             --label "sync-failure,needs-attention"
