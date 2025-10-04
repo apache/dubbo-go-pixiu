@@ -19,7 +19,6 @@ package cmd
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"runtime"
 	"strconv"
@@ -165,11 +164,7 @@ func initLog() error {
 		return err
 	}
 
-	var lvl zapcore.Level
-	lvl, ok := logger.ParseLogLevel(logLevel)
-	if !ok {
-		err = fmt.Errorf("parse logLevel failed, unknown logLevel %s, fallback to default level INFO", logLevel)
-	}
+	lvl := logger.ParseLogLevel(logLevel)
 	if ok := logger.SetLoggerLevel(lvl); !ok {
 		err = fmt.Errorf("set logLevel failed")
 	}

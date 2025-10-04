@@ -165,23 +165,24 @@ func GetLogger() *PixiuLogger {
 }
 
 // ParseLogLevel parses textual level to zapcore.Level.
-func ParseLogLevel(level string) (zapcore.Level, bool) {
+func ParseLogLevel(level string) zapcore.Level {
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug", "trace":
-		return zapcore.DebugLevel, true
+		return zapcore.DebugLevel
 	case "info":
-		return zapcore.InfoLevel, true
+		return zapcore.InfoLevel
 	case "warn", "warning":
-		return zapcore.WarnLevel, true
+		return zapcore.WarnLevel
 	case "error":
-		return zapcore.ErrorLevel, true
+		return zapcore.ErrorLevel
 	case "dpanic":
-		return zapcore.DPanicLevel, true
+		return zapcore.DPanicLevel
 	case "panic":
-		return zapcore.PanicLevel, true
+		return zapcore.PanicLevel
 	case "fatal", "critical":
-		return zapcore.FatalLevel, true
+		return zapcore.FatalLevel
 	default:
-		return zapcore.InfoLevel, false
+		Warnf("unknown log level %q, defaulting to info", level)
+		return zapcore.InfoLevel
 	}
 }
