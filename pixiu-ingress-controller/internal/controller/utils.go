@@ -399,7 +399,7 @@ func setGatewayCondition(gw *gatewayv1.Gateway, newCondition metav1.Condition) {
 }
 
 func acceptedMessage(kind string) string {
-	return fmt.Sprintf("the %s has been accepted by the apisix-ingress-controller", kind)
+	return fmt.Sprintf("the %s has been accepted by the pixiu-ingress-controller", kind)
 }
 
 func referenceGrantPredicates(kind gatewayv1.Kind) predicate.Funcs {
