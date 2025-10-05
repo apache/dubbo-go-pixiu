@@ -157,6 +157,10 @@ docker-compose up -d
 
 ![](./docs/images/pixiu-admin.png)
 
+## Tools
+
+* **[Benchmark](./tools/benchmark)**: dubbo-fo-pixiu 的 benchmark 代码, 目前处于过时状态, 我们正在更新该项目.
+
 ## 社区与贡献
 
 我们热烈欢迎任何形式的贡献！无论是提交 Issue、提出新功能建议还是贡献代码，您的参与对项目都至关重要。
