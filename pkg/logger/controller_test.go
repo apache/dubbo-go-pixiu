@@ -21,6 +21,10 @@ import (
 	"testing"
 )
 
+import (
+	"go.uber.org/zap/zapcore"
+)
+
 func TestParseLevelAndSet(t *testing.T) {
 	cfg, _ := newDevConfigToFile(t)
 	InitLogger(cfg)
@@ -28,21 +32,25 @@ func TestParseLevelAndSet(t *testing.T) {
 	tests := []struct {
 		in       string
 		ok       bool
-		zapLevel string
+		zapLevel zapcore.Level
 	}{
-		{"debug", true, "debug"},
-		{"INFO", true, "info"},
-		{"Warn", true, "warn"},
-		{"error", true, "error"},
-		{"panic", true, "panic"},
-		{"fatal", true, "fatal"},
-		{"unknown", false, "info"}, // parseLevel default fallback to info
+		{"debug", true, zapcore.DebugLevel},
+		{"trace", true, zapcore.DebugLevel},
+		{"INFO", true, zapcore.InfoLevel},
+		{"Warn", true, zapcore.WarnLevel},
+		{"Warning", true, zapcore.WarnLevel},
+		{"error", true, zapcore.ErrorLevel},
+		{"panic", true, zapcore.PanicLevel},
+		{"dpanic", true, zapcore.DPanicLevel},
+		{"fatal", true, zapcore.FatalLevel},
+		{"critical", true, zapcore.FatalLevel},
+		{"unknown", false, zapcore.InfoLevel}, // parseLevel default fallback to info
 	}
 
 	for _, tt := range tests {
-		_, ok := ParseLogLevel(tt.in)
-		if ok != tt.ok {
-			t.Fatalf("SetLoggerLevel(%q) ok=%v, want %v", tt.in, ok, tt.ok)
+		lvl := ParseLogLevel(tt.in)
+		if lvl != tt.zapLevel {
+			t.Fatalf("SetLoggerLevel(%q) want %v", tt.in, tt.ok)
 		}
 	}
 
