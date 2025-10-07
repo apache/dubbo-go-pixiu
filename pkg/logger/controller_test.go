@@ -18,11 +18,12 @@
 package logger
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+
 	"go.uber.org/zap/zapcore"
 )
 
