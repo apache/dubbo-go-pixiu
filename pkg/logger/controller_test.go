@@ -18,6 +18,7 @@
 package logger
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -35,16 +36,16 @@ func TestParseLevelAndSet(t *testing.T) {
 		zapLevel zapcore.Level
 	}{
 		{"debug", true, zapcore.DebugLevel},
-		{"trace", true, zapcore.DebugLevel},
 		{"INFO", true, zapcore.InfoLevel},
 		{"Warn", true, zapcore.WarnLevel},
-		{"Warning", true, zapcore.WarnLevel},
 		{"error", true, zapcore.ErrorLevel},
 		{"panic", true, zapcore.PanicLevel},
 		{"dpanic", true, zapcore.DPanicLevel},
 		{"fatal", true, zapcore.FatalLevel},
 		{"critical", true, zapcore.FatalLevel},
 		{"unknown", false, zapcore.InfoLevel}, // parseLevel default fallback to info
+		{"trace", true, zapcore.DebugLevel},
+		{"Warning", true, zapcore.WarnLevel},
 	}
 
 	for _, tt := range tests {
@@ -52,6 +53,30 @@ func TestParseLevelAndSet(t *testing.T) {
 		if lvl != tt.zapLevel {
 			t.Fatalf("SetLoggerLevel(%q) want %v", tt.in, tt.ok)
 		}
+		control.setLoggerLevel(lvl)
+
+		// assert the level is set
+		assert.Equal(t, tt.zapLevel, control.logger.config.Level.Level())
+
+		// assert the cfg is not changed
+		assert.Equal(t, cfg.Development, control.logger.config.Development)
+		assert.Equal(t, cfg.DisableCaller, control.logger.config.DisableCaller)
+		assert.Equal(t, cfg.DisableStacktrace, control.logger.config.DisableStacktrace)
+		assert.Equal(t, cfg.Sampling, control.logger.config.Sampling)
+		assert.Equal(t, cfg.Encoding, control.logger.config.Encoding)
+		assert.Equal(t, cfg.EncoderConfig.MessageKey, control.logger.config.EncoderConfig.MessageKey)
+		assert.Equal(t, cfg.EncoderConfig.LevelKey, control.logger.config.EncoderConfig.LevelKey)
+		assert.Equal(t, cfg.EncoderConfig.TimeKey, control.logger.config.EncoderConfig.TimeKey)
+		assert.Equal(t, cfg.EncoderConfig.NameKey, control.logger.config.EncoderConfig.NameKey)
+		assert.Equal(t, cfg.EncoderConfig.CallerKey, control.logger.config.EncoderConfig.CallerKey)
+		assert.Equal(t, cfg.EncoderConfig.FunctionKey, control.logger.config.EncoderConfig.FunctionKey)
+		assert.Equal(t, cfg.EncoderConfig.StacktraceKey, control.logger.config.EncoderConfig.StacktraceKey)
+		assert.Equal(t, cfg.EncoderConfig.SkipLineEnding, control.logger.config.EncoderConfig.SkipLineEnding)
+		assert.Equal(t, cfg.EncoderConfig.LineEnding, control.logger.config.EncoderConfig.LineEnding)
+		assert.Equal(t, cfg.EncoderConfig.ConsoleSeparator, control.logger.config.EncoderConfig.ConsoleSeparator)
+		assert.Equal(t, cfg.OutputPaths, control.logger.config.OutputPaths)
+		assert.Equal(t, cfg.ErrorOutputPaths, control.logger.config.ErrorOutputPaths)
+		assert.Equal(t, cfg.InitialFields, control.logger.config.InitialFields)
 	}
 
 	// make sure able to write
