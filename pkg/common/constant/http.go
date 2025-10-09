@@ -51,7 +51,8 @@ const (
 
 	HeaderValueAuthorization = "Authorization"
 
-	HeaderValueAll = "*"
+	HeaderValueAll       = "*"
+	HeaderValueAllLevels = "**"
 
 	PathSlash           = "/"
 	ProtocolSlash       = "://"
