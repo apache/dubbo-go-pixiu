@@ -624,7 +624,7 @@ func genRandomRequests(n int, seed int64) []*stdHttp.Request {
 		case 0:
 			req.Header.Set("X-Env", "prod")
 		case 1:
-			req.Header.Set("X-Trace", "pixiu-"+strconv.FormatInt(rnd.Int63()&0xffffffff, 16))
+			req.Header.Set("X-Trace", "pixiu-"+strconv.FormatInt(rnd.Int63()&0xffffffff, 16)) // NOSONAR
 		}
 		reqs = append(reqs, req)
 	}

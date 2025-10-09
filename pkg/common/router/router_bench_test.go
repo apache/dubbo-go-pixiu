@@ -295,7 +295,7 @@ func BenchmarkRoute_ReadParallel(b *testing.B) {
 		b.SetParallelism(40)
 		b.ResetTimer()
 		b.RunParallel(func(pb *testing.PB) {
-			i := rand.Int()
+			i := rand.Int() // NOSONAR
 			for pb.Next() {
 				r := reqs[i%len(reqs)]
 				httpContext := http.HttpContext{
@@ -312,7 +312,7 @@ func BenchmarkRoute_ReadParallel(b *testing.B) {
 		b.SetParallelism(40)
 		b.ResetTimer()
 		b.RunParallel(func(pb *testing.PB) {
-			i := rand.Int()
+			i := rand.Int() // NOSONAR
 			for pb.Next() {
 				r := reqs[i%len(reqs)]
 				httpContext := http.HttpContext{
