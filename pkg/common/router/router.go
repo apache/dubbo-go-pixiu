@@ -160,9 +160,7 @@ func buildConfig(routes []*model.Router) *model.RouteConfiguration {
 		Routes:    make([]*model.Router, 0, len(routes)),
 		Dynamic:   false,
 	}
-	for _, r := range routes {
-		cfg.Routes = append(cfg.Routes, r)
-	}
+	cfg.Routes = append(cfg.Routes, routes...)
 	initRegex(cfg)
 	fillTrieFromRoutes(cfg)
 	return cfg
