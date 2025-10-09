@@ -45,61 +45,6 @@ type benchShape struct {
 	Methods         []string
 }
 
-func genRoutesOld(sh benchShape) []*model.Router {
-	routes := make([]*model.Router, 0, sh.NRoutes)
-	if len(sh.Methods) == 0 {
-		sh.Methods = []string{"GET", "POST"}
-	}
-	nHeader := int(float64(sh.NRoutes) * sh.HeaderOnlyRatio)
-	nPrefix := int(float64(sh.NRoutes-nHeader) * sh.PrefixRatio)
-	nPath := sh.NRoutes - nHeader - nPrefix
-
-	// 1) Header-only
-	for i := 0; i < nHeader; i++ {
-		id := "hdr-" + strconv.Itoa(i)
-		r := &model.Router{
-			ID: id,
-			Match: model.RouterMatch{
-				Methods: sh.Methods,
-				Headers: []model.HeaderMatcher{
-					{Name: "X-Env", Values: []string{"prod"}, Regex: false},
-				},
-			},
-			Route: model.RouteAction{Cluster: "c-h-" + id},
-		}
-		routes = append(routes, r)
-	}
-	// 2) Prefix routes
-	for i := 0; i < nPrefix; i++ {
-		id := "pre-" + strconv.Itoa(i)
-		p := "/api/v1/service" + strconv.Itoa(i%50) + "/"
-		r := &model.Router{
-			ID: id,
-			Match: model.RouterMatch{
-				Methods: sh.Methods,
-				Prefix:  p,
-			},
-			Route: model.RouteAction{Cluster: "c-p-" + id},
-		}
-		routes = append(routes, r)
-	}
-	// 3) Exact path
-	for i := 0; i < nPath; i++ {
-		id := "pth-" + strconv.Itoa(i)
-		pp := "/api/v1/item/" + strconv.Itoa(i)
-		r := &model.Router{
-			ID: id,
-			Match: model.RouterMatch{
-				Methods: sh.Methods,
-				Path:    pp,
-			},
-			Route: model.RouteAction{Cluster: "c-x-" + id},
-		}
-		routes = append(routes, r)
-	}
-	return routes
-}
-
 func buildOldCoordinator(routes []*model.Router) *oldrouter.RouterCoordinator {
 	cfg := &model.RouteConfiguration{
 		Routes:  routes,
@@ -108,31 +53,7 @@ func buildOldCoordinator(routes []*model.Router) *oldrouter.RouterCoordinator {
 	return oldrouter.CreateRouterCoordinator(cfg)
 }
 
-func buildDeltaOld(base []*model.Router, seed int64) []*model.Router {
-	cp := make([]*model.Router, len(base))
-	copy(cp, base)
-	rnd := rand.New(rand.NewSource(seed))
-	k := len(cp) / 100 // 1%
-	out := make([]*model.Router, 0, k)
-	for i := 0; i < k; i++ {
-		idx := rnd.Intn(len(cp)) // NOSONAR
-		old := cp[idx]
-		newPath := "/api/v1/item/" + strconv.Itoa(rnd.Intn(100000)) // NOSONAR
-		nr := &model.Router{
-			ID: old.ID,
-			Match: model.RouterMatch{
-				Methods: old.Match.Methods,
-				Path:    newPath,
-				Headers: old.Match.Headers,
-			},
-			Route: old.Route,
-		}
-		out = append(out, nr)
-	}
-	return out
-}
-
-func genRoutesNew(sh benchShape) []*model.Router {
+func genRoutes(sh benchShape) []*model.Router {
 	routes := make([]*model.Router, 0, sh.NRoutes)
 	if len(sh.Methods) == 0 {
 		sh.Methods = []string{"GET", "POST"}
@@ -195,7 +116,7 @@ func buildNewCoordinator(routes []*model.Router) *RouterCoordinator {
 	return CreateRouterCoordinator(cfg)
 }
 
-func buildDeltaNew(base []*model.Router, seed int64) []*model.Router {
+func buildDelta(base []*model.Router, seed int64) []*model.Router {
 	cp := make([]*model.Router, len(base))
 	copy(cp, base)
 	rnd := rand.New(rand.NewSource(seed))
@@ -243,11 +164,11 @@ func genRequests(n int) []*stdHttp.Request {
 
 // ============= Bench 1：read throughput (one goroutine) =============
 
-func BenchmarkRoute_ReadThroughput(b *testing.B) {
+func BenchmarkRouteReadThroughput(b *testing.B) {
 	shape := benchShape{NRoutes: 30000, PrefixRatio: 0.4, HeaderOnlyRatio: 0.1, Methods: []string{"GET", "POST"}}
 
-	oldRoutes := genRoutesOld(shape)
-	newRoutes := genRoutesNew(shape)
+	oldRoutes := genRoutes(shape)
+	newRoutes := genRoutes(shape)
 	reqs := genRequests(4096)
 
 	oldc := buildOldCoordinator(oldRoutes)
@@ -280,11 +201,11 @@ func BenchmarkRoute_ReadThroughput(b *testing.B) {
 
 // ============= Bench 2：read throughput (parallel) =============
 
-func BenchmarkRoute_ReadParallel(b *testing.B) {
+func BenchmarkRouteReadParallel(b *testing.B) {
 	shape := benchShape{NRoutes: 30000, PrefixRatio: 0.4, HeaderOnlyRatio: 0.1, Methods: []string{"GET", "POST"}}
 
-	oldRoutes := genRoutesOld(shape)
-	newRoutes := genRoutesNew(shape)
+	oldRoutes := genRoutes(shape)
+	newRoutes := genRoutes(shape)
 	reqs := genRequests(8192)
 
 	oldc := buildOldCoordinator(oldRoutes)
@@ -327,10 +248,10 @@ func BenchmarkRoute_ReadParallel(b *testing.B) {
 
 // ============= Bench 3：read and write（1% write） =============
 
-func BenchmarkReload_Latency(b *testing.B) {
+func BenchmarkReloadLatency(b *testing.B) {
 	shape := benchShape{NRoutes: 30000, PrefixRatio: 0.4, HeaderOnlyRatio: 0.1, Methods: []string{"GET", "POST"}}
-	oldBase := genRoutesOld(shape)
-	newBase := genRoutesNew(shape)
+	oldBase := genRoutes(shape)
+	newBase := genRoutes(shape)
 
 	oldc := buildOldCoordinator(oldBase)
 	newc := buildNewCoordinator(newBase)
@@ -339,7 +260,7 @@ func BenchmarkReload_Latency(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDeltaOld(oldBase, int64(i)) {
+			for _, r := range buildDelta(oldBase, int64(i)) {
 				oldc.OnAddRouter(r)
 			}
 		}
@@ -349,14 +270,14 @@ func BenchmarkReload_Latency(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDeltaNew(newBase, int64(i)) {
+			for _, r := range buildDelta(newBase, int64(i)) {
 				newc.OnAddRouter(r)
 			}
 		}
 	})
 }
 
-func BenchmarkRoute_100k_ReadThroughput(b *testing.B) {
+func BenchmarkRoute100kReadThroughput(b *testing.B) {
 	shape := benchShape{
 		NRoutes:         100_000,
 		PrefixRatio:     0.4,
@@ -365,8 +286,8 @@ func BenchmarkRoute_100k_ReadThroughput(b *testing.B) {
 	}
 	reqs := genRequests(16_384)
 
-	oldc := buildOldCoordinator(genRoutesOld(shape))
-	newc := buildNewCoordinator(genRoutesNew(shape))
+	oldc := buildOldCoordinator(genRoutes(shape))
+	newc := buildNewCoordinator(genRoutes(shape))
 
 	b.Run("old/locked-read-100k", func(b *testing.B) {
 		b.ReportAllocs()
@@ -390,7 +311,7 @@ func BenchmarkRoute_100k_ReadThroughput(b *testing.B) {
 	})
 }
 
-func BenchmarkRoute_100k_ReadParallel(b *testing.B) {
+func BenchmarkRoute100kReadParallel(b *testing.B) {
 	shape := benchShape{
 		NRoutes:         100_000,
 		PrefixRatio:     0.4,
@@ -399,8 +320,8 @@ func BenchmarkRoute_100k_ReadParallel(b *testing.B) {
 	}
 	reqs := genRequests(32_768)
 
-	oldc := buildOldCoordinator(genRoutesOld(shape))
-	newc := buildNewCoordinator(genRoutesNew(shape))
+	oldc := buildOldCoordinator(genRoutes(shape))
+	newc := buildNewCoordinator(genRoutes(shape))
 
 	b.Run("old/parallel-100k", func(b *testing.B) {
 		b.ReportAllocs()
@@ -434,24 +355,24 @@ func BenchmarkRoute_100k_ReadParallel(b *testing.B) {
 	})
 }
 
-func BenchmarkReload_100k_Latency_1Percent(b *testing.B) {
+func BenchmarkReload100kLatency1Percent(b *testing.B) {
 	shape := benchShape{
 		NRoutes:         100_000,
 		PrefixRatio:     0.4,
 		HeaderOnlyRatio: 0.1,
 		Methods:         []string{"GET", "POST"},
 	}
-	oldBase := genRoutesOld(shape)
-	newBase := genRoutesNew(shape)
+	oldBase := genRoutes(shape)
+	newBase := genRoutes(shape)
 
-	oldc := buildOldCoordinator(genRoutesOld(shape))
-	newc := buildNewCoordinator(genRoutesNew(shape))
+	oldc := buildOldCoordinator(genRoutes(shape))
+	newc := buildNewCoordinator(genRoutes(shape))
 
 	b.Run("old/reload-1percent-100k", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDeltaOld(oldBase, int64(i)) {
+			for _, r := range buildDelta(oldBase, int64(i)) {
 				oldc.OnAddRouter(r)
 			}
 		}
@@ -461,7 +382,7 @@ func BenchmarkReload_100k_Latency_1Percent(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDeltaNew(newBase, int64(i)) {
+			for _, r := range buildDelta(newBase, int64(i)) {
 				newc.OnAddRouter(r)
 			}
 		}
@@ -478,8 +399,8 @@ func BenchmarkRouteByPathAndName(b *testing.B) {
 		Methods:         []string{"GET"},
 	}
 
-	oldc := buildOldCoordinator(genRoutesOld(shape))
-	newc := buildNewCoordinator(genRoutesNew(shape))
+	oldc := buildOldCoordinator(genRoutes(shape))
+	newc := buildNewCoordinator(genRoutes(shape))
 
 	paths := []string{
 		"/api/v1/item/12345",

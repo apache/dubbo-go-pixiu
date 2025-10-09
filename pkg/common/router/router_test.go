@@ -234,24 +234,7 @@ type RouteSpec struct {
 	Cluster string
 }
 
-func (s RouteSpec) toOld() *model.Router {
-	h := make([]model.HeaderMatcher, 0, len(s.Headers))
-	for _, x := range s.Headers {
-		h = append(h, model.HeaderMatcher{Name: x.Name, Values: append([]string(nil), x.Values...), Regex: x.Regex})
-	}
-	return &model.Router{
-		ID: s.ID,
-		Match: model.RouterMatch{
-			Methods: append([]string(nil), s.Methods...),
-			Path:    s.Path,
-			Prefix:  s.Prefix,
-			Headers: h,
-		},
-		Route: model.RouteAction{Cluster: s.Cluster},
-	}
-}
-
-func (s RouteSpec) toNew() *model.Router {
+func (s RouteSpec) toRouter() *model.Router {
 	h := make([]model.HeaderMatcher, 0, len(s.Headers))
 	for _, x := range s.Headers {
 		h = append(h, model.HeaderMatcher{Name: x.Name, Values: append([]string(nil), x.Values...), Regex: x.Regex})
@@ -271,7 +254,7 @@ func (s RouteSpec) toNew() *model.Router {
 func buildOld(specs []RouteSpec) *oldrouter.RouterCoordinator {
 	rs := make([]*model.Router, 0, len(specs))
 	for _, s := range specs {
-		rs = append(rs, s.toOld())
+		rs = append(rs, s.toRouter())
 	}
 	cfg := &model.RouteConfiguration{Routes: rs, Dynamic: false}
 	return oldrouter.CreateRouterCoordinator(cfg)
@@ -280,7 +263,7 @@ func buildOld(specs []RouteSpec) *oldrouter.RouterCoordinator {
 func BuildNew(specs []RouteSpec) *RouterCoordinator {
 	rs := make([]*model.Router, 0, len(specs))
 	for _, s := range specs {
-		rs = append(rs, s.toNew())
+		rs = append(rs, s.toRouter())
 	}
 	cfg := &model.RouteConfiguration{Routes: rs, Dynamic: false}
 	return CreateRouterCoordinator(cfg)
@@ -365,7 +348,7 @@ func colonSyntax() varSyntax {
    test cases (var/regex/priority/header/)
    ============================== */
 
-func TestParity_SimpleCases(t *testing.T) {
+func TestParitySimpleCases(t *testing.T) {
 	syntax = colonSyntax()
 
 	specs := []RouteSpec{
@@ -409,7 +392,7 @@ func TestParity_SimpleCases(t *testing.T) {
 	}
 }
 
-func TestPriority_SpecificOverWildcard(t *testing.T) {
+func TestPrioritySpecificOverWildcard(t *testing.T) {
 	syntax = colonSyntax()
 
 	specs := []RouteSpec{
@@ -424,7 +407,7 @@ func TestPriority_SpecificOverWildcard(t *testing.T) {
 		"/api/v1/test-dubbo/user/name/yqxu", nil, true, "c-spec")
 }
 
-func TestPriority_DeeperWins(t *testing.T) {
+func TestPriorityDeeperWins(t *testing.T) {
 	specs := []RouteSpec{
 		{ID: "shallow", Methods: []string{"GET"}, Prefix: "/api/v1/", Cluster: "c-shallow"},
 		{ID: "deeper", Methods: []string{"GET"}, Prefix: "/api/v1/test-dubbo/", Cluster: "c-deeper"},
@@ -436,7 +419,7 @@ func TestPriority_DeeperWins(t *testing.T) {
 		"/api/v1/test-dubbo/user/name/abc", nil, true, "c-deeper")
 }
 
-func TestPriority_SingleStarOverDoubleStar(t *testing.T) {
+func TestPrioritySingleStarOverDoubleStar(t *testing.T) {
 	// use var to express "/*"
 	syntax = colonSyntax()
 	specs := []RouteSpec{
@@ -451,7 +434,7 @@ func TestPriority_SingleStarOverDoubleStar(t *testing.T) {
 	assertSame(t, oldc, newc, "GET", "/api/v1/x/users", nil, true, "c-**")
 }
 
-func TestVariables_SingleAndMulti(t *testing.T) {
+func TestVariablesSingleAndMulti(t *testing.T) {
 	syntax = colonSyntax()
 	specs := []RouteSpec{
 		{ID: "one", Methods: []string{"GET"}, Path: syntax.simplePattern("id"), Cluster: "c-one"},
@@ -466,7 +449,7 @@ func TestVariables_SingleAndMulti(t *testing.T) {
 	assertSame(t, oldc, newc, "GET", syntax.multiPattern("12", "34")+"/extra", nil, true, "c-pre")
 }
 
-func TestHeaderRegex_WithRoutes(t *testing.T) {
+func TestHeaderRegexWithRoutes(t *testing.T) {
 	specs := []RouteSpec{
 		{ID: "hdr", Methods: []string{"GET"}, Headers: []HeaderSpec{{Name: "X-Env", Values: []string{"^prod|staging$"}, Regex: true}}, Cluster: "c-hdr"},
 		{ID: "pre", Methods: []string{"GET"}, Prefix: "/api/", Cluster: "c-pre"},
@@ -482,7 +465,7 @@ func TestHeaderRegex_WithRoutes(t *testing.T) {
    random data fuzz test
    ============================== */
 
-func TestParity_Randomized(t *testing.T) {
+func TestParityRandomized(t *testing.T) {
 	syntax = colonSyntax()
 	const (
 		nRoutes           = 20000
