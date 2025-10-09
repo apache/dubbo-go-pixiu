@@ -30,12 +30,14 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-/* ==============================
-   this is the benchmark for router
-   oldrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router/mock"
-   newrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router"
-   ============================== */
-
+/*
+	    ==============================
+		this is the benchmark for router
+		contrast oldrouter and newrouter
+		oldrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router/mock"
+		newrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router"
+		==============================
+*/
 type benchShape struct {
 	NRoutes         int     // router number
 	PrefixRatio     float64 // prefix router ratio（others are accurate path）
