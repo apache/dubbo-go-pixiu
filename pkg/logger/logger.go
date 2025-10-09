@@ -37,20 +37,20 @@ import (
 
 var control *logController
 
-type pixiuLogger struct {
+type PixiuLogger struct {
 	*zap.SugaredLogger
 	config *zap.Config
 }
 
 func init() {
-	// only use in test case, so just load default config
+	// only used in test/bootstrap; keep a sane default
 	if control == nil {
 		control = new(logController)
 		InitLogger(nil)
 	}
 }
 
-// PaddedCallerEncoder is a custom caller encoder that ensures that all file paths are displayed at the same length
+// PaddedCallerEncoder aligns caller path to a fixed width for prettier console output.
 func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 
 	callerPath := caller.TrimmedPath()
@@ -65,7 +65,21 @@ func PaddedCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayE
 	enc.AppendString(callerPath)
 }
 
-// InitLog load from config path
+// helper: build with unified pixiu options.
+// - always AddCaller + AddCallerSkip(2)
+// - AddStacktrace(Error+) only when stacktrace is not disabled in cfg
+func buildWithPixiuOptions(cfg *zap.Config) (*zap.Logger, error) {
+	opts := []zap.Option{
+		zap.AddCaller(),
+		zap.AddCallerSkip(2),
+	}
+	if !cfg.DisableStacktrace {
+		opts = append(opts, zap.AddStacktrace(zapcore.ErrorLevel))
+	}
+	return cfg.Build(opts...)
+}
+
+// InitLog loads from YAML file; falls back to development defaults when file is absent/invalid.
 func InitLog(logConfFile string) error {
 	if logConfFile == "" {
 		InitLogger(nil)
@@ -83,8 +97,7 @@ func InitLog(logConfFile string) error {
 	}
 
 	conf := &zap.Config{}
-	err = yaml.UnmarshalYML(confFileStream, conf)
-	if err != nil {
+	if err := yaml.UnmarshalYML(confFileStream, conf); err != nil {
 		InitLogger(nil)
 		return perrors.New(fmt.Sprintf("[Unmarshal]init pixiuLogger error: %v", err))
 	}
@@ -94,10 +107,18 @@ func InitLog(logConfFile string) error {
 	return nil
 }
 
+// InitLogger initializes logger. Default is development-style (console, debug),
+// but we force stacktrace to Error+ only, and enable caller with our custom encoder.
+// If a config is supplied, we respect it and only normalize caller encoder and stacktrace threshold.
 func InitLogger(conf *zap.Config) {
-	var zapLoggerConfig zap.Config
+	var (
+		cfg zap.Config
+	)
+
 	if conf == nil {
-		zapLoggerConfig = zap.NewDevelopmentConfig()
+		// Default: development style
+		cfg = zap.NewDevelopmentConfig()
+
 		zapLoggerEncoderConfig := zapcore.EncoderConfig{
 			TimeKey:        "time",
 			LevelKey:       "level",
@@ -111,28 +132,57 @@ func InitLogger(conf *zap.Config) {
 			EncodeCaller:   PaddedCallerEncoder,
 			// EncodeCaller:   zapcore.ShortCallerEncoder,
 		}
-		zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
-	} else {
-		zapLoggerConfig = *conf
-		// Set up a custom encoder directly without checking the original value
-		zapLoggerConfig.EncoderConfig.EncodeCaller = PaddedCallerEncoder
-	}
-	zapLogger, _ := zapLoggerConfig.Build(zap.AddCallerSkip(2))
-	l := &pixiuLogger{zapLogger.Sugar(), &zapLoggerConfig}
 
+		cfg.EncoderConfig = zapLoggerEncoderConfig
+	} else {
+		cfg = *conf
+		// Unify caller encoder regardless of YAML to keep alignment style
+		cfg.EncoderConfig.EncodeCaller = PaddedCallerEncoder
+	}
+
+	z, err := buildWithPixiuOptions(&cfg)
+	if err != nil {
+		z = zap.NewNop()
+	}
+	l := &PixiuLogger{z.Sugar(), &cfg}
 	control.updateLogger(l)
 }
 
-// SetLoggerLevel safely changes the log level in a concurrent manner.
-func SetLoggerLevel(level string) bool {
+// SetLoggerLevel changes the level at runtime without rebuilding logger.
+func SetLoggerLevel(level zapcore.Level) bool {
 	return control.setLoggerLevel(level)
 }
 
+// HotReload rebuilds from a new zap.Config (e.g., re-read YAML).
 func HotReload(conf *zap.Config) error {
 	InitLogger(conf)
 	return nil
 }
 
-func GetLogger() *pixiuLogger {
+// GetLogger exposes the current sugared logger.
+func GetLogger() *PixiuLogger {
 	return control.logger
+}
+
+// ParseLogLevel parses textual level to zapcore.Level.
+func ParseLogLevel(level string) zapcore.Level {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "debug", "trace":
+		return zapcore.DebugLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "warn", "warning":
+		return zapcore.WarnLevel
+	case "error":
+		return zapcore.ErrorLevel
+	case "dpanic":
+		return zapcore.DPanicLevel
+	case "panic":
+		return zapcore.PanicLevel
+	case "fatal", "critical":
+		return zapcore.FatalLevel
+	default:
+		Warnf("unknown log level %q, defaulting to info", level)
+		return zapcore.InfoLevel
+	}
 }

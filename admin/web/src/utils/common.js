@@ -109,7 +109,7 @@ export function getDistance (lat1, lng1, lat2, lng2) {
  * @return 返回已拼接的数值
 */
 export function numJoint (val) {
-  if (val) {
+  if (val !== undefined && val !== null && val !== '') {
     val = val.toString()
     // 是否包含小数
     let idx = val.indexOf('.')

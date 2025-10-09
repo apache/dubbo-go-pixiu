@@ -158,6 +158,9 @@ jobs:
         if: steps.cache_samples.outputs.cache-hit != 'true'
         shell: bash
         run: |
+          if [ -d "$SAMPLES_CLONE_DIR" ]; then
+            rm -rf "$SAMPLES_CLONE_DIR"
+          fi
           git clone --depth 1 -b "$SAMPLES_BRANCH" "$SAMPLES_REPO_URL" "$SAMPLES_CLONE_DIR"
 
       - name: Wire samples to local pixiu

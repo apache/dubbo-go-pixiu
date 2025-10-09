@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 )
 
 import (
@@ -67,7 +68,7 @@ func (r *Reflector) CreateInvocation(ctx context.Context, serviceName, methodNam
 
 	methodDesc := serviceDesc.FindMethodByName(methodName)
 	if methodDesc == nil {
-		return nil, errors.New("method not found upstream")
+		return nil, fmt.Errorf("method %s not found in service %s upstream", methodName, serviceName)
 	}
 	inputMessage := dynamic.NewMessage(methodDesc.GetInputType())
 	err = inputMessage.UnmarshalJSON(input)

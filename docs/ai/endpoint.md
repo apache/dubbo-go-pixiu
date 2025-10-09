@@ -14,23 +14,22 @@ clusters:
   - name: "my_llm_cluster"
     endpoints:
       - id: "provider-1-main"
+        socket_address:
+           domains:
+              - api.deepseek.com
         llm_meta:
-          provider: "deepseek"
           # ... other LLM-specific configuration goes here ...
       - id: "provider-2-fallback"
+        socket_address:
+           domains:
+              - api.openai.com/v1
         llm_meta:
-          provider: "openai"
           # ... other LLM-specific configuration goes here ...
 ```
 
 ### `llm_meta` Configuration Fields
 
 The llm_meta block holds all the configuration specific to how the gateway should treat this LLM endpoint.
-
-`provider`
-
-- Type: `string`
-- Description: A name to identify the LLM provider check [here]() for all supported llm providers. This is primarily for routing for specific llm provider.
 
 `fallback`
 
@@ -126,8 +125,10 @@ clusters:
     endpoints:
       # --- Primary Endpoint ---
       - id: deepseek-primary
+        socket_address:
+           domains:
+              - api.deepseek.com
         llm_meta:
-          provider: deepseek
           # If all retries fail, move to the next endpoint.
           fallback: true
           # Use a robust retry strategy for the primary endpoint.
@@ -140,9 +141,11 @@ clusters:
               multiplier: 2.5
 
       # --- Fallback Endpoint ---
-      - id: deepseek-fallback
+      - id: openai-fallback
+        socket_address:
+           domains:
+              - api.openai.com/v1
         llm_meta:
-          provider: deepseek
           # This is the last resort; do not fall back further.
           fallback: false
           # Use a simpler, faster retry for the fallback.
