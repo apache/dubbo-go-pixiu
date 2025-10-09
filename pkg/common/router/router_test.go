@@ -559,7 +559,7 @@ func genRandomSpecsWithVars(s varSyntax, n int, prefixRatio, headerOnlyRatio flo
 
 	// Prefix
 	for i := 0; i < nPrefix; i++ {
-		base := "/api/v" + strconv.Itoa(1+rnd.Intn(3)) + "/svc" + strconv.Itoa(rnd.Intn(50)) + "/"
+		base := "/api/v" + strconv.Itoa(1+rnd.Intn(3)) + "/svc" + strconv.Itoa(rnd.Intn(50)) + "/" // NOSONAR
 		out = append(out, RouteSpec{
 			ID:      "pre-" + strconv.Itoa(i),
 			Methods: []string{"GET", "POST"},
@@ -606,21 +606,21 @@ func genRandomRequests(n int, seed int64) []*stdHttp.Request {
 
 	for i := 0; i < n; i++ {
 		var path string
-		switch rnd.Intn(5) {
+		switch rnd.Intn(5) { // NOSONAR
 		case 0: // exact style
-			path = "/api/v1/item/" + strconv.Itoa(rnd.Intn(50000))
+			path = "/api/v1/item/" + strconv.Itoa(rnd.Intn(50000)) // NOSONAR
 		case 1: // prefix style
-			path = "/api/v" + strconv.Itoa(1+rnd.Intn(3)) + "/svc" + strconv.Itoa(rnd.Intn(50)) + "/foo/bar"
+			path = "/api/v" + strconv.Itoa(1+rnd.Intn(3)) + "/svc" + strconv.Itoa(rnd.Intn(50)) + "/foo/bar" // NOSONAR
 		case 2: // var
-			path = "/users/" + strconv.Itoa(1000+rnd.Intn(9000))
+			path = "/users/" + strconv.Itoa(1000+rnd.Intn(9000)) // NOSONAR
 		case 3: // var
-			path = "/shops/" + strconv.Itoa(rnd.Intn(100)) + "/orders/" + strconv.Itoa(rnd.Intn(1000))
+			path = "/shops/" + strconv.Itoa(rnd.Intn(100)) + "/orders/" + strconv.Itoa(rnd.Intn(1000)) // NOSONAR
 		default:
-			path = "/unknown/" + strconv.Itoa(rnd.Intn(100000))
+			path = "/unknown/" + strconv.Itoa(rnd.Intn(100000)) // NOSONAR
 		}
-		req, _ := stdHttp.NewRequest(methods[rnd.Intn(len(methods))], path, nil)
+		req, _ := stdHttp.NewRequest(methods[rnd.Intn(len(methods))], path, nil) // NOSONAR
 		// header-only
-		switch rnd.Intn(7) {
+		switch rnd.Intn(7) { // NOSONAR
 		case 0:
 			req.Header.Set("X-Env", "prod")
 		case 1:

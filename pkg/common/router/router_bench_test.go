@@ -115,9 +115,9 @@ func buildDeltaOld(base []*model.Router, seed int64) []*model.Router {
 	k := len(cp) / 100 // 1%
 	out := make([]*model.Router, 0, k)
 	for i := 0; i < k; i++ {
-		idx := rnd.Intn(len(cp))
+		idx := rnd.Intn(len(cp)) // NOSONAR
 		old := cp[idx]
-		newPath := "/api/v1/item/" + strconv.Itoa(rnd.Intn(100000))
+		newPath := "/api/v1/item/" + strconv.Itoa(rnd.Intn(100000)) // NOSONAR
 		nr := &model.Router{
 			ID: old.ID,
 			Match: model.RouterMatch{
@@ -202,9 +202,9 @@ func buildDeltaNew(base []*model.Router, seed int64) []*model.Router {
 	k := len(cp) / 100 // 1%
 	out := make([]*model.Router, 0, k)
 	for i := 0; i < k; i++ {
-		idx := rnd.Intn(len(cp))
+		idx := rnd.Intn(len(cp)) // NOSONAR
 		old := cp[idx]
-		newPath := "/api/v1/item/" + strconv.Itoa(rnd.Intn(100000))
+		newPath := "/api/v1/item/" + strconv.Itoa(rnd.Intn(100000)) // NOSONAR
 		nr := &model.Router{
 			ID: old.ID,
 			Match: model.RouterMatch{
