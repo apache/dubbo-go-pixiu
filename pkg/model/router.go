@@ -97,7 +97,7 @@ func (rc *RouteConfiguration) Route(req *stdHttp.Request) (*RouteAction, error) 
 	return rc.RouteByPathAndMethod(req.URL.Path, req.Method)
 }
 
-// MatchHeader used when there's only headers to match
+// MatchHeader used when there are only headers to match
 func (rm *RouterMatch) MatchHeader(req *stdHttp.Request) bool {
 	if len(rm.Methods) > 0 {
 		for _, method := range rm.Methods {
@@ -146,7 +146,12 @@ func (hm *HeaderMatcher) SetValueRegex(regex string) error {
 func (r *Router) String() string {
 	var builder strings.Builder
 	builder.WriteString("[" + strings.Join(r.Match.Methods, ",") + "] ")
-	if r.Match.Prefix != "" {
+	if r.Match.Path == "" && r.Match.Prefix == "" && len(r.Match.Headers) > 0 {
+		builder.WriteString("headers ")
+		for _, h := range r.Match.Headers {
+			builder.WriteString(h.Name + "=" + strings.Join(h.Values, "|"))
+		}
+	} else if r.Match.Prefix != "" {
 		builder.WriteString("prefix " + r.Match.Prefix)
 	} else {
 		builder.WriteString("path " + r.Match.Path)

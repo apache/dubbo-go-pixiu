@@ -39,7 +39,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	commonmock "github.com/apache/dubbo-go-pixiu/pkg/common/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -121,10 +120,19 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 
 	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			RouteTrie: trie.NewTrieWithDefault("POST/api/v1/**", model.RouteAction{
-				Cluster:                     "test_dubbo",
-				ClusterNotFoundResponseCode: 505,
-			}),
+			Routes: []*model.Router{
+				{
+					ID: "1",
+					Match: model.RouterMatch{
+						Path:    "/api/v1/**",
+						Methods: []string{"POST"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     "test_dubbo",
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+			},
 			Dynamic: false,
 		},
 		HTTPFilters: []*model.HTTPFilter{
@@ -157,9 +165,20 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 func TestStreamingResponse(t *testing.T) {
 	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			RouteTrie: trie.NewTrieWithDefault("GET/api/sse", model.RouteAction{
-				Cluster: "mock_stream_cluster",
-			}),
+			Routes: []*model.Router{
+				{
+					ID: "1",
+					Match: model.RouterMatch{
+						Path:    "/api/sse",
+						Methods: []string{"GET"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     "mock_stream_cluster",
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+			},
+			Dynamic: false,
 		},
 		HTTPFilters: []*model.HTTPFilter{
 			{
@@ -360,9 +379,20 @@ func TestStreamableHTTPResponse(t *testing.T) {
 func testStreamableResponse(t *testing.T, contentType string) {
 	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
-			RouteTrie: trie.NewTrieWithDefault("GET/api/stream", model.RouteAction{
-				Cluster: "mock_stream_cluster",
-			}),
+			Routes: []*model.Router{
+				{
+					ID: "1",
+					Match: model.RouterMatch{
+						Path:    "/api/stream",
+						Methods: []string{"GET"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     "mock_stream_cluster",
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+			},
+			Dynamic: false,
 		},
 		HTTPFilters: []*model.HTTPFilter{
 			{

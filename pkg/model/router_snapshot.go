@@ -75,7 +75,7 @@ func getCachedRegexp(pat string) *regexp.Regexp {
 	if v, ok := regexCache.Load(pat); ok {
 		return v.(*regexp.Regexp)
 	}
-	// Compile 失败就返回 nil（调用方会忽略该正则）
+	// Compile fail return nil (caller will ignore this regex)
 	re, err := regexp.Compile(pat)
 	if err != nil {
 		return nil

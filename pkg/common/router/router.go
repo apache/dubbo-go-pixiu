@@ -34,15 +34,16 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 // RouterCoordinator the router coordinator for http connection manager
 type RouterCoordinator struct {
 	active   snapshotHolder // atomic snapshot
 	mu       sync.Mutex
-	store    map[string]*model.Router
-	timer    *time.Timer   // debounce timer
-	debounce time.Duration // merge window, default 50ms
+	store    map[string]*model.Router // temp store for dynamic update, DO NOT read directly
+	timer    *time.Timer              // debounce timer
+	debounce time.Duration            // merge window, default 50ms
 }
 
 // CreateRouterCoordinator create coordinator for http connection manager
@@ -50,6 +51,9 @@ func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoord
 	rc := &RouterCoordinator{
 		store:    make(map[string]*model.Router),
 		debounce: 50 * time.Millisecond, // merge window
+	}
+	if routeConfig.Dynamic {
+		server.GetRouterManager().AddRouterListener(rc)
 	}
 	// build initial config and store snapshot
 	first := buildConfig(routeConfig.Routes)
@@ -72,11 +76,11 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 	}
 	t := s.MethodTries[method]
 	if t == nil {
-		return nil, errors.New("no route matched")
+		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(method, path))
 	}
 	node, _, ok := t.Match(stringutil.GetTrieKey(method, path))
 	if !ok || node == nil || node.GetBizInfo() == nil {
-		return nil, errors.New("no route matched")
+		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(method, path))
 	}
 	act := node.GetBizInfo().(model.RouteAction)
 	return &act, nil
@@ -87,6 +91,7 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 	if s == nil {
 		return nil, errors.New("router configuration is empty")
 	}
+
 	// header-only first
 	for _, hr := range s.HeaderOnly {
 		if !model.MethodAllowed(hr.Methods, req.Method) {
@@ -99,12 +104,13 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 	// Trie
 	t := s.MethodTries[req.Method]
 	if t == nil {
-		return nil, errors.New("no route matched")
+		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(req.Method, req.URL.Path))
+
 	}
 
 	node, _, ok := t.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
 	if !ok || node == nil || node.GetBizInfo() == nil {
-		return nil, errors.New("no route matched")
+		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(req.Method, req.URL.Path))
 	}
 	act := node.GetBizInfo().(model.RouteAction)
 	return &act, nil
@@ -218,26 +224,17 @@ func (h *snapshotHolder) store(s *model.RouteSnapshot) { h.ptr.Store(s) }
 
 func matchHeaders(chs []model.CompiledHeader, r *stdHttp.Request) bool {
 	for _, ch := range chs {
-		val := r.Header.Get(ch.Name)
-		if val == "" {
-			return false
-		}
-		if ch.Regex != nil {
-			if !ch.Regex.MatchString(val) {
-				return false
+		if val := r.Header.Get(ch.Name); len(val) > 0 {
+			if ch.Regex != nil {
+				return ch.Regex.MatchString(val)
 			}
-		} else if len(ch.Values) > 0 {
-			ok := false
-			for _, v := range ch.Values {
-				if v == val {
-					ok = true
-					break
+
+			for _, src := range ch.Values {
+				if src == val {
+					return true
 				}
-			}
-			if !ok {
-				return false
 			}
 		}
 	}
-	return true
+	return false
 }

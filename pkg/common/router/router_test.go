@@ -31,37 +31,23 @@ import (
 
 import (
 	oldrouter "github.com/apache/dubbo-go-pixiu/pkg/common/router/mock"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func TestCreateRouterCoordinator(t *testing.T) {
-	hcmc := model.HttpConnectionManagerConfig{
-		RouteConfig: model.RouteConfiguration{
-			RouteTrie: trie.NewTrieWithDefault("POST/api/v1/**", model.RouteAction{
-				Cluster:                     "test_dubbo",
-				ClusterNotFoundResponseCode: 505,
-			}),
-			Dynamic: false,
-		},
-		HTTPFilters: []*model.HTTPFilter{
-			{
-				Name:   "test",
-				Config: nil,
-			},
-		},
-		ServerName:        "test_http_dubbo",
-		GenerateRequestID: false,
-		IdleTimeoutStr:    "100",
+	specs := []RouteSpec{
+		// exact
+		{ID: "test", Methods: []string{"POST"}, Path: "/api/v1/**", Cluster: "test_dubbo"},
 	}
 
-	r := CreateRouterCoordinator(&hcmc.RouteConfig)
+	coordinator := BuildNew(specs)
+
 	request, err := stdHttp.NewRequest("POST", "http://www.dubbogopixiu.com/api/v1?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
 	c := mock.GetMockHTTPContext(request)
-	a, err := r.Route(c)
+	a, err := coordinator.Route(c)
 	assert.NoError(t, err)
 	assert.Equal(t, a.Cluster, "test_dubbo")
 
@@ -75,8 +61,8 @@ func TestCreateRouterCoordinator(t *testing.T) {
 		},
 	}
 
-	r.OnAddRouter(router)
-	r.OnDeleteRouter(router)
+	coordinator.OnAddRouter(router)
+	coordinator.OnDeleteRouter(router)
 }
 
 func TestRoute(t *testing.T) {
@@ -148,7 +134,7 @@ func TestRoute(t *testing.T) {
 			Header: map[string]string{
 				"A": "1",
 			},
-			Expect: "test-cluster-1",
+			Expect: Cluster1,
 		},
 		{
 			Name: "one header matched",
@@ -291,7 +277,7 @@ func buildOld(specs []RouteSpec) *oldrouter.RouterCoordinator {
 	return oldrouter.CreateRouterCoordinator(cfg)
 }
 
-func buildNew(specs []RouteSpec) *RouterCoordinator {
+func BuildNew(specs []RouteSpec) *RouterCoordinator {
 	rs := make([]*model.Router, 0, len(specs))
 	for _, s := range specs {
 		rs = append(rs, s.toNew())
@@ -396,7 +382,7 @@ func TestParity_SimpleCases(t *testing.T) {
 	}
 
 	oldc := buildOld(specs)
-	newc := buildNew(specs)
+	newc := BuildNew(specs)
 
 	cases := []struct {
 		name    string
@@ -432,7 +418,7 @@ func TestPriority_SpecificOverWildcard(t *testing.T) {
 		// equals to /api/v1/test-dubbo/user/name/:name
 	}
 	oldc := buildOld(specs)
-	newc := buildNew(specs)
+	newc := BuildNew(specs)
 
 	assertSame(t, oldc, newc, "GET",
 		"/api/v1/test-dubbo/user/name/yqxu", nil, true, "c-spec")
@@ -444,7 +430,7 @@ func TestPriority_DeeperWins(t *testing.T) {
 		{ID: "deeper", Methods: []string{"GET"}, Prefix: "/api/v1/test-dubbo/", Cluster: "c-deeper"},
 	}
 	oldc := buildOld(specs)
-	newc := buildNew(specs)
+	newc := BuildNew(specs)
 
 	assertSame(t, oldc, newc, "GET",
 		"/api/v1/test-dubbo/user/name/abc", nil, true, "c-deeper")
@@ -459,7 +445,7 @@ func TestPriority_SingleStarOverDoubleStar(t *testing.T) {
 		// equals to /api/:seg/users
 	}
 	oldc := buildOld(specs)
-	newc := buildNew(specs)
+	newc := BuildNew(specs)
 
 	assertSame(t, oldc, newc, "GET", "/api/v1/users", nil, true, "c-*")
 	assertSame(t, oldc, newc, "GET", "/api/v1/x/users", nil, true, "c-**")
@@ -473,7 +459,7 @@ func TestVariables_SingleAndMulti(t *testing.T) {
 		{ID: "pre", Methods: []string{"GET"}, Prefix: "/shops/", Cluster: "c-pre"},
 	}
 	oldc := buildOld(specs)
-	newc := buildNew(specs)
+	newc := BuildNew(specs)
 
 	assertSame(t, oldc, newc, "GET", "/users/777", nil, true, "c-one")
 	assertSame(t, oldc, newc, "GET", syntax.multiPattern("12", "34"), nil, true, "c-two")
@@ -486,7 +472,7 @@ func TestHeaderRegex_WithRoutes(t *testing.T) {
 		{ID: "pre", Methods: []string{"GET"}, Prefix: "/api/", Cluster: "c-pre"},
 	}
 	oldc := buildOld(specs)
-	newc := buildNew(specs)
+	newc := BuildNew(specs)
 
 	assertSame(t, oldc, newc, "GET", "/whatever", map[string]string{"X-Env": "prod"}, true, "c-hdr")
 	assertSame(t, oldc, newc, "GET", "/api/foo", map[string]string{"X-Env": "dev"}, true, "c-pre")
@@ -508,7 +494,7 @@ func TestParity_Randomized(t *testing.T) {
 
 	specs := genRandomSpecsWithVars(syntax, nRoutes, prefixRatio, headerRatio, seed)
 	oldc := buildOld(specs)
-	newc := buildNew(specs)
+	newc := BuildNew(specs)
 
 	reqs := genRandomRequests(nRequests, seed+1)
 	for i, req := range reqs {
