@@ -26,7 +26,7 @@ name: Sync to Apache Upstream
 # - Configure the UPSTREAM_GITHUB_TOKEN secret in repository settings
 # - Token should have 'public_repo' permission
 # - Recommended: use a dedicated bot account for the token
-# 
+#
 # Configuration:
 # - Modify the env section below to match your project's repository structure
 
@@ -37,22 +37,23 @@ env:
   # Upstream repository (A repository - the original/official repo)
   UPSTREAM_ORG: apache
   UPSTREAM_REPO: dubbo-go-pixiu
-  
+
   # Fork repository (B repository - the organization/team fork)
   FORK_ORG: dubbo-go-pixiu
   FORK_REPO: dubbo-go-pixiu
-  
+
   # Branch name (main/master/develop)
   BASE_BRANCH: develop
-  
+
   # Git bot configuration (for commits)
   BOT_NAME: "Pixiu Bot"
   BOT_EMAIL: "bot@dubbo-go-pixiu.github.io"
-  
+
   # Workflow files to exclude when syncing to upstream
   # Add any fork-specific files that should not be synced
   EXCLUDE_FILES: |
     .github/workflows/sync-to-upstream.yml
+    .github/pull.yml
 
 # ============================================================================
 
@@ -94,7 +95,7 @@ jobs:
             echo "✅ PR targets the correct base branch: ${{ env.BASE_BRANCH }}"
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
-      
+
       # Step 1: Checkout code with full history
       - name: Checkout repository
         if: steps.check_branch.outputs.skip != 'true'
@@ -140,7 +141,8 @@ jobs:
         if: steps.check_branch.outputs.skip != 'true'
         run: |
           # Remove files that are specific to the fork and should not be synced to upstream
-          echo "${{ env.EXCLUDE_FILES }}" | xargs git rm -f --ignore-unmatch
+          # Filter out empty lines to prevent xargs errors
+          echo "${{ env.EXCLUDE_FILES }}" | grep -v '^\s*$' | xargs git rm -f --ignore-unmatch
           
           # Commit the removal if there are changes
           if ! git diff --cached --quiet; then
