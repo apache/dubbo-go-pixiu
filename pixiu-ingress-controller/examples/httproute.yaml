@@ -1,0 +1,47 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: pixiu
+spec:
+  controllerName: "pixiu.apache.org/pixiu-ingress-controller"
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: GatewayProxy
+metadata:
+  name: pixiu-proxy-config
+spec:
+  # TODO Dynamic API
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: pixiu
+spec:
+  gatewayClassName: pixiu
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+  infrastructure:
+    parametersRef:
+      group: pixiu.apache.org
+      kind: GatewayProxy
+      name: pixiu-proxy-config
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httpbin
+spec:
+  parentRefs:
+    - name: pixiu
+  hostnames:
+    - httpbin.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /*
+      backendRefs:
+        - name: httpbin
+          port: 80

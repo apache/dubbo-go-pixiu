@@ -1,0 +1,38 @@
+apiVersion: pixiu.apache.org/v1alpha1
+kind: GatewayProxy
+metadata:
+  name: pixiu-proxy-config
+  namespace: default
+spec:
+  # TODO Dynamic API
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: pixiu
+spec:
+  controller: "pixiu.apache.org/pixiu-ingress-controller"
+  parameters:
+    apiGroup: "pixiu.apache.org"
+    kind: "GatewayProxy"
+    name: "pixiu-proxy-config"
+    namespace: "default"
+    scope: "Namespace"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pixiu-ingress
+spec:
+  ingressClassName: pixiu
+  rules:
+    - host: httpbin.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: httpbin
+                port:
+                  number: 80
