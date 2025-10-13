@@ -72,10 +72,6 @@ type HttpContext struct {
 }
 
 type (
-	// ErrResponse err response.
-	ErrResponse struct {
-		Message string `json:"message"`
-	}
 
 	// FilterFunc filter func, filter
 	FilterFunc func(c *HttpContext)

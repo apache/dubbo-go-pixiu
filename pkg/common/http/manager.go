@@ -101,7 +101,8 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Warnf("[dubbo-go-pixiu] Occur An Unexpected Err: %+v", err)
-			c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("Occur An Unexpected Err: %v", err)))
+			errResp := pch.InternalError.WithError(fmt.Errorf("panic recovered: %v", err))
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		}
 	}()
 
@@ -245,12 +246,12 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 func (hcm *HttpConnectionManager) findRoute(hc *pch.HttpContext) error {
 	ra, err := hcm.routerCoordinator.Route(hc)
 	if err != nil {
-		hc.SendLocalReply(stdHttp.StatusNotFound, constant.Default404Body)
+		errResp := pch.RouteNotFound.New()
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 
 		e := errors.Errorf("Requested URL %s not found", hc.GetUrl())
 		logger.Debug(e.Error())
 		return e
-		// return 404
 	}
 	hc.RouteEntry(ra)
 	return nil

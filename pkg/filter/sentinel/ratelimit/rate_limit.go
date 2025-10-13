@@ -18,11 +18,6 @@
 package ratelimit
 
 import (
-	"encoding/json"
-	"net/http"
-)
-
-import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
 	sc "github.com/alibaba/sentinel-golang/core/config"
@@ -91,8 +86,8 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	//if blockErr not nil, indicates the request was blocked by Sentinel
 	if blockErr != nil {
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "blocked by rate limit"})
-		hc.SendLocalReply(http.StatusTooManyRequests, bt)
+		errResp := contexthttp.RateLimited.New()
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	defer entry.Exit()

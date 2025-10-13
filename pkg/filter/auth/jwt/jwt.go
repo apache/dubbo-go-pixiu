@@ -190,8 +190,8 @@ func (factory *FilterFactory) Apply() error {
 		factory.cfg.ErrMsg = "token invalid"
 	}
 
-	errMsg, _ := json.Marshal(http.ErrResponse{Message: factory.cfg.ErrMsg})
-	factory.errMsg = errMsg
+	errResp := http.Unauthorized.WithError(fmt.Errorf(factory.cfg.ErrMsg))
+	factory.errMsg = errResp.ToJSON()
 
 	return nil
 }
