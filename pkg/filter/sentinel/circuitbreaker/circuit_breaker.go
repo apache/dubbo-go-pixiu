@@ -19,7 +19,6 @@ package circuitbreaker
 
 import (
 	"fmt"
-	stdHttp "net/http"
 	"strings"
 )
 
@@ -97,7 +96,8 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 
 	// if blockErr not nil, indicates the request was blocked by Sentinel
 	if blockErr != nil {
-		ctx.SendLocalReply(stdHttp.StatusServiceUnavailable, constant.Default503Body)
+		errResp := http.ServiceUnavailable.New()
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	defer entry.Exit()

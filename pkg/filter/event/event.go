@@ -19,7 +19,6 @@ package event
 
 import (
 	"fmt"
-	sdkhttp "net/http"
 )
 
 import (
@@ -77,7 +76,8 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	resp, err := mqClient.Call(req)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] event client call err:%v!", err)
-		ctx.SendLocalReply(sdkhttp.StatusInternalServerError, []byte(fmt.Sprintf("event client call err:%v", err)))
+		errResp := http.InternalError.WithError(fmt.Errorf("event client call error: %w", err))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] event client call resp:%v", resp)

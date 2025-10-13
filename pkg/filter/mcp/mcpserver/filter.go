@@ -220,7 +220,8 @@ func (f *MCPServerFilter) sendJSONResponse(ctx *MCPContext, response any) filter
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal response: %v", err)
-		ctx.SendLocalReply(http.StatusInternalServerError, []byte("internal server error"))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("marshal response failed: %w", err))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

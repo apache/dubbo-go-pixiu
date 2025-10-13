@@ -18,10 +18,6 @@
 package authority
 
 import (
-	nh "net/http"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -79,7 +75,8 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 
 		result := passCheck(item, r)
 		if !result {
-			c.SendLocalReply(nh.StatusForbidden, constant.Default403Body)
+			errResp := http.Forbidden.New()
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
 	}

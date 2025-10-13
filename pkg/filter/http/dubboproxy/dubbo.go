@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"reflect"
 	"strings"
 )
@@ -102,8 +101,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
 		logger.Info("[dubbo-go-pixiu] http not match route")
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "not match route"})
-		hc.SendLocalReply(http.StatusNotFound, bt)
+		errResp := pixiuHttp.RouteNotFound.New()
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster :%v", rEntry.Cluster)
@@ -113,8 +112,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	endpoint := clusterManager.PickEndpoint(clusterName, hc)
 	if endpoint == nil {
 		logger.Info("[dubbo-go-pixiu] cluster not found endpoint")
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "cluster not found endpoint"})
-		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
+		errResp := pixiuHttp.ServiceUnavailable.WithError(fmt.Errorf("endpoint not found"))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -125,8 +124,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 
 	if len(splits) != 3 {
 		logger.Info("[dubbo-go-pixiu] http path pattern error. path pattern should be http://127.0.0.1/{application}/{service}/{method}")
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "http path pattern error"})
-		hc.SendLocalReply(http.StatusBadRequest, bt)
+		errResp := pixiuHttp.BadRequest.WithError(fmt.Errorf("http path pattern error"))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -141,16 +140,16 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	rawBody, err := io.ReadAll(hc.Request.Body)
 	if err != nil {
 		logger.Infof("[dubbo-go-pixiu] read request body error %v", err)
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("read request body error %v", err)})
-		hc.SendLocalReply(http.StatusBadRequest, bt)
+		errResp := pixiuHttp.BadRequest.WithError(fmt.Errorf("read request body: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
 	var body any
 	if err := json.Unmarshal(rawBody, &body); err != nil {
 		logger.Infof("[dubbo-go-pixiu] unmarshal request body error %v", err)
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("unmarshal request body error %v", err)})
-		hc.SendLocalReply(http.StatusBadRequest, bt)
+		errResp := pixiuHttp.BadRequest.WithError(fmt.Errorf("unmarshal request body: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -199,8 +198,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	)
 	if err != nil {
 		logger.Infof("[dubbo-go-pixiu] newURL error %v", err)
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("newURL error %v", err)})
-		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
+		errResp := pixiuHttp.BadGateway.WithError(fmt.Errorf("newURL error: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -210,8 +209,8 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	invoker := dubboProtocol.Refer(url)
 	if invoker == nil {
 		logger.Info("[dubbo-go-pixiu] dubbo protocol refer error")
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: "dubbo protocol refer error"})
-		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
+		errResp := pixiuHttp.BadGateway.WithError(fmt.Errorf("upstream service error"))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -225,12 +224,14 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 
 	if result.Error() != nil {
 		logger.Debugf("[dubbo-go-pixiu] invoke result error %v", result.Error())
-		bt, _ := json.Marshal(pixiuHttp.ErrResponse{Message: fmt.Sprintf("invoke result error %v", result.Error())})
 		// TODO statusCode I don't know what dubbo returns when it times out, first use the string to judge
 		if strings.Contains(result.Error().Error(), "timeout") {
-			hc.SendLocalReply(http.StatusGatewayTimeout, bt)
+			errResp := pixiuHttp.GatewayTimeout.WithError(fmt.Errorf("upstream timeout"))
+			hc.SendLocalReply(errResp.Status, errResp.ToJSON())
+			return filter.Stop
 		}
-		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
+		errResp := pixiuHttp.BadGateway.WithError(fmt.Errorf("invoke error: %w", result.Error()))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
