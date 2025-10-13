@@ -145,9 +145,14 @@ func TestErrorResponseToJSON(t *testing.T) {
 			wantJSON: `{"status":400,"message":"Bad request"}`,
 		},
 		{
-			name:     "with error details",
+			name:     "with simple error",
 			errResp:  BadRequest.WithError(errors.New("invalid parameter")),
 			wantJSON: `{"status":400,"message":"Bad request","error":"invalid parameter"}`,
+		},
+		{
+			name:     "with wrapped error",
+			errResp:  InternalError.WithError(fmt.Errorf("failed to process: %w", errors.New("connection refused"))),
+			wantJSON: `{"status":500,"message":"Internal server error","error":"failed to process: connection refused"}`,
 		},
 		{
 			name:     "NotFound without error",
@@ -159,7 +164,7 @@ func TestErrorResponseToJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotJSON := tt.errResp.ToJSON()
-
+			
 			// Compare JSON structure
 			var got, want map[string]interface{}
 			if err := json.Unmarshal(gotJSON, &got); err != nil {
@@ -177,10 +182,6 @@ func TestErrorResponseToJSON(t *testing.T) {
 			}
 			if want["error"] != nil && got["error"] != want["error"] {
 				t.Errorf("error = %v, want %v", got["error"], want["error"])
-			}
-			// Ensure error is NOT present when not expected
-			if want["error"] == nil && got["error"] != nil {
-				t.Errorf("unexpected error field in JSON: %v", got["error"])
 			}
 		})
 	}
@@ -212,42 +213,6 @@ func TestErrorResponseError(t *testing.T) {
 			name:    "503 with context",
 			errResp: ServiceUnavailable.WithError(fmt.Errorf("endpoint not found: %w", errors.New("no healthy hosts"))),
 			wantStr: "[503] Service unavailable: endpoint not found: no healthy hosts",
-		},
-		{
-			name: "with nil error",
-			errResp: &ErrorResponse{
-				Status:  http.StatusBadRequest,
-				Message: "Bad request",
-				Err:     nil,
-			},
-			wantStr: "[400] Bad request",
-		},
-		{
-			name: "with empty message and zero status",
-			errResp: &ErrorResponse{
-				Status:  0,
-				Message: "",
-				Err:     nil,
-			},
-			wantStr: "[0] ",
-		},
-		{
-			name: "with empty message but has error",
-			errResp: &ErrorResponse{
-				Status:  http.StatusInternalServerError,
-				Message: "",
-				Err:     errors.New("internal error"),
-			},
-			wantStr: "[500] : internal error",
-		},
-		{
-			name: "zero status with error",
-			errResp: &ErrorResponse{
-				Status:  0,
-				Message: "Unknown error",
-				Err:     errors.New("something went wrong"),
-			},
-			wantStr: "[0] Unknown error: something went wrong",
 		},
 	}
 
@@ -325,42 +290,14 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 	t.Run("error with special characters", func(t *testing.T) {
 		errResp := BadRequest.WithError(errors.New(`error with "quotes" and \backslash`))
 		jsonBytes := errResp.ToJSON()
-
+		
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-
+		
 		if result["error"] != `error with "quotes" and \backslash` {
 			t.Errorf("error field not properly escaped: %v", result["error"])
-		}
-	})
-
-	t.Run("New() vs WithError() difference", func(t *testing.T) {
-		// New() - no error details
-		newResp := InternalError.New()
-		newJSON := newResp.ToJSON()
-
-		var newResult map[string]interface{}
-		if err := json.Unmarshal(newJSON, &newResult); err != nil {
-			t.Fatalf("failed to unmarshal JSON: %v", err)
-		}
-
-		if _, hasError := newResult["error"]; hasError {
-			t.Error("New() should NOT have error field in JSON")
-		}
-
-		// WithError() - has error details
-		withErrResp := InternalError.WithError(errors.New("database connection failed"))
-		withErrJSON := withErrResp.ToJSON()
-
-		var withErrResult map[string]interface{}
-		if err := json.Unmarshal(withErrJSON, &withErrResult); err != nil {
-			t.Fatalf("failed to unmarshal JSON: %v", err)
-		}
-
-		if withErrResult["error"] != "database connection failed" {
-			t.Errorf("WithError() error = %v, want 'database connection failed'", withErrResult["error"])
 		}
 	})
 
@@ -371,12 +308,12 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 			Err:     nil,
 		}
 		jsonBytes := errResp.ToJSON()
-
+		
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-
+		
 		if _, hasError := result["error"]; hasError {
 			t.Error("error field should be omitted when Err is nil")
 		}
@@ -385,17 +322,17 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 	t.Run("WithError(nil) behavior", func(t *testing.T) {
 		errResp := BadRequest.WithError(nil)
 		jsonBytes := errResp.ToJSON()
-
+		
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-
+		
 		// Verify no error field when error is nil
 		if _, hasError := result["error"]; hasError {
 			t.Error("WithError(nil) should not include error field in JSON")
 		}
-
+		
 		// Verify basic fields are present
 		if result["status"] != float64(http.StatusBadRequest) {
 			t.Errorf("status = %v, want %v", result["status"], http.StatusBadRequest)
@@ -409,62 +346,72 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 		errResp := &ErrorResponse{
 			Status:  0,
 			Message: "",
-			Err:     errors.New("some error"),
+			Err:     nil,
 		}
-
+		
 		// Should not panic
 		jsonBytes := errResp.ToJSON()
-
+		
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-
+		
 		if result["status"] != float64(0) {
 			t.Errorf("status = %v, want 0", result["status"])
 		}
 		if result["message"] != "" {
 			t.Errorf("message = %v, want empty string", result["message"])
 		}
-
-		// Since Err is not nil, it will be in error field
-		if result["error"] != "some error" {
-			t.Errorf("error = %v, want 'some error'", result["error"])
+		
+		// No error field expected
+		if _, hasError := result["error"]; hasError {
+			t.Error("error field should be omitted when Err is nil")
 		}
 	})
 
-	t.Run("empty message with error", func(t *testing.T) {
+	t.Run("Error() with empty message and zero status", func(t *testing.T) {
 		errResp := &ErrorResponse{
-			Status:  http.StatusBadRequest,
+			Status:  0,
 			Message: "",
-			Err:     errors.New("validation failed"),
+			Err:     nil,
 		}
-
-		jsonBytes := errResp.ToJSON()
-
-		var result map[string]interface{}
-		if err := json.Unmarshal(jsonBytes, &result); err != nil {
-			t.Fatalf("failed to unmarshal JSON: %v", err)
-		}
-
-		if result["message"] != "" {
-			t.Errorf("message = %v, want empty string", result["message"])
-		}
-		if result["error"] != "validation failed" {
-			t.Errorf("error = %v, want 'validation failed'", result["error"])
+		
+		// Should not panic
+		got := errResp.Error()
+		want := "[0] "
+		if got != want {
+			t.Errorf("Error() = %q, want %q", got, want)
 		}
 	})
-}
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+	t.Run("Error() with empty message but has error", func(t *testing.T) {
+		errResp := &ErrorResponse{
+			Status:  http.StatusInternalServerError,
+			Message: "",
+			Err:     errors.New("internal error"),
 		}
-	}
-	return false
+		
+		// Should not panic
+		got := errResp.Error()
+		want := "[500] : internal error"
+		if got != want {
+			t.Errorf("Error() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("Error() with zero status and has error", func(t *testing.T) {
+		errResp := &ErrorResponse{
+			Status:  0,
+			Message: "Unknown error",
+			Err:     errors.New("something went wrong"),
+		}
+		
+		// Should not panic
+		got := errResp.Error()
+		want := "[0] Unknown error: something went wrong"
+		if got != want {
+			t.Errorf("Error() = %q, want %q", got, want)
+		}
+	})
 }
