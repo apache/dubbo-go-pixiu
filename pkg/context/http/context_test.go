@@ -166,7 +166,7 @@ func TestErrorResponseToJSON(t *testing.T) {
 			gotJSON := tt.errResp.ToJSON()
 
 			// Compare JSON structure
-			var got, want map[string]interface{}
+			var got, want map[string]any
 			if err := json.Unmarshal(gotJSON, &got); err != nil {
 				t.Fatalf("failed to unmarshal got JSON: %v", err)
 			}
