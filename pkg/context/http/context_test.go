@@ -291,7 +291,7 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 		errResp := BadRequest.WithError(errors.New(`error with "quotes" and \backslash`))
 		jsonBytes := errResp.ToJSON()
 
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
@@ -309,7 +309,7 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 		}
 		jsonBytes := errResp.ToJSON()
 
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
@@ -323,7 +323,7 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 		errResp := BadRequest.WithError(nil)
 		jsonBytes := errResp.ToJSON()
 
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
@@ -352,7 +352,7 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 		// Should not panic
 		jsonBytes := errResp.ToJSON()
 
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
