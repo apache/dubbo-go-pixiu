@@ -18,10 +18,6 @@
 package apiconfig
 
 import (
-	"fmt"
-)
-
-import (
 	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
 
@@ -124,7 +120,7 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	if !v.Enable {
-		errResp := contexthttp.NotAcceptable.WithError(fmt.Errorf("API not online"))
+		errResp := contexthttp.NotAcceptable.WithError(errors.New("API not online"))
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		e := errors.Errorf("Requested API %s %s does not online", req.Method, req.URL.Path)
 		logger.Debug(e.Error())
