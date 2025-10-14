@@ -149,7 +149,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
-		contexthttp.BadRequest.SendError(hc, fmt.Errorf("no route entry found for request"))
+		contexthttp.BadRequest.SendError(hc, errors.New("no route entry found for request"))
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster: %v", rEntry.Cluster)
@@ -369,6 +369,3 @@ func getNextFallbackEndpoint(currentEndpoint *model.Endpoint, executor *RequestE
 
 	return nextEndpoint
 }
-
-// Deprecated: sendJSONError is replaced by ErrorBuilder.SendError
-// Use contexthttp.<ErrorType>.SendError(hc, err) instead

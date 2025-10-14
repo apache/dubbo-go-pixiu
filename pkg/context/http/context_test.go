@@ -164,7 +164,7 @@ func TestErrorResponseToJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotJSON := tt.errResp.ToJSON()
-			
+
 			// Compare JSON structure
 			var got, want map[string]interface{}
 			if err := json.Unmarshal(gotJSON, &got); err != nil {
@@ -290,12 +290,12 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 	t.Run("error with special characters", func(t *testing.T) {
 		errResp := BadRequest.WithError(errors.New(`error with "quotes" and \backslash`))
 		jsonBytes := errResp.ToJSON()
-		
+
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-		
+
 		if result["error"] != `error with "quotes" and \backslash` {
 			t.Errorf("error field not properly escaped: %v", result["error"])
 		}
@@ -308,12 +308,12 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 			Err:     nil,
 		}
 		jsonBytes := errResp.ToJSON()
-		
+
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-		
+
 		if _, hasError := result["error"]; hasError {
 			t.Error("error field should be omitted when Err is nil")
 		}
@@ -322,17 +322,17 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 	t.Run("WithError(nil) behavior", func(t *testing.T) {
 		errResp := BadRequest.WithError(nil)
 		jsonBytes := errResp.ToJSON()
-		
+
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-		
+
 		// Verify no error field when error is nil
 		if _, hasError := result["error"]; hasError {
 			t.Error("WithError(nil) should not include error field in JSON")
 		}
-		
+
 		// Verify basic fields are present
 		if result["status"] != float64(http.StatusBadRequest) {
 			t.Errorf("status = %v, want %v", result["status"], http.StatusBadRequest)
@@ -348,22 +348,22 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 			Message: "",
 			Err:     nil,
 		}
-		
+
 		// Should not panic
 		jsonBytes := errResp.ToJSON()
-		
+
 		var result map[string]interface{}
 		if err := json.Unmarshal(jsonBytes, &result); err != nil {
 			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
-		
+
 		if result["status"] != float64(0) {
 			t.Errorf("status = %v, want 0", result["status"])
 		}
 		if result["message"] != "" {
 			t.Errorf("message = %v, want empty string", result["message"])
 		}
-		
+
 		// No error field expected
 		if _, hasError := result["error"]; hasError {
 			t.Error("error field should be omitted when Err is nil")
@@ -376,7 +376,7 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 			Message: "",
 			Err:     nil,
 		}
-		
+
 		// Should not panic
 		got := errResp.Error()
 		want := "[0] "
@@ -391,7 +391,7 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 			Message: "",
 			Err:     errors.New("internal error"),
 		}
-		
+
 		// Should not panic
 		got := errResp.Error()
 		want := "[500] : internal error"
@@ -406,7 +406,7 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 			Message: "Unknown error",
 			Err:     errors.New("something went wrong"),
 		}
-		
+
 		// Should not panic
 		got := errResp.Error()
 		want := "[0] Unknown error: something went wrong"

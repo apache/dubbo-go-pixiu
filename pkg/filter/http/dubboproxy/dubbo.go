@@ -20,6 +20,7 @@ package dubboproxy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -112,7 +113,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	endpoint := clusterManager.PickEndpoint(clusterName, hc)
 	if endpoint == nil {
 		logger.Info("[dubbo-go-pixiu] cluster not found endpoint")
-		errResp := pixiuHttp.ServiceUnavailable.WithError(fmt.Errorf("endpoint not found"))
+		errResp := pixiuHttp.ServiceUnavailable.WithError(errors.New("endpoint not found"))
 		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
@@ -124,7 +125,7 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 
 	if len(splits) != 3 {
 		logger.Info("[dubbo-go-pixiu] http path pattern error. path pattern should be http://127.0.0.1/{application}/{service}/{method}")
-		errResp := pixiuHttp.BadRequest.WithError(fmt.Errorf("http path pattern error"))
+		errResp := pixiuHttp.BadRequest.WithError(errors.New("http path pattern error"))
 		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}

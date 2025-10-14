@@ -126,7 +126,6 @@ func (e *ErrorResponse) ToJSON() []byte {
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		// 避免二次序列化风险，返回静态错误
 		return []byte(`{"status":500,"message":"Internal server error"}`)
 	}
 	return data

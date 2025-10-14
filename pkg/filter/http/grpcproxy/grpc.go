@@ -189,7 +189,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	e := server.GetClusterManager().PickEndpoint(re.Cluster, c)
 	if e == nil {
 		logger.Errorf("%s err {cluster not exists}", loggerHeader)
-		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("cluster not exists"))
+		errResp := http.ServiceUnavailable.WithError(errors.New("cluster not exists"))
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
