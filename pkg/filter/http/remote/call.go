@@ -76,6 +76,10 @@ type (
 		// Resolver is the Resolver to resolve HTTP requests to Dubbo services.
 		Resolver string `yaml:"resolver,omitempty" json:"resolver,omitempty" default:"StandardDubboResolver"`
 	}
+
+	mockResponse struct {
+		Message string `json:"message"`
+	}
 )
 
 func (p *Plugin) Kind() string {
@@ -140,9 +144,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	api := c.GetAPI()
 
 	if (f.conf.Level == OPEN && api.Mock) || (f.conf.Level == ALL) {
-		c.SourceResp = &contexthttp.ErrResponse{
-			Message: "mock success",
-		}
+		c.SourceResp = &mockResponse{Message: "mock success"}
 		return filter.Continue
 	}
 
