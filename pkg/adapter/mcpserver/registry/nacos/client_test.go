@@ -159,8 +159,8 @@ func (m MockedNacosConfigClient) CancelListenConfig(params vo.ConfigParam) (err 
 }
 
 func (m MockedNacosConfigClient) SearchConfig(param vo.SearchConfigParam) (*model.ConfigPage, error) {
-	dataIdRegex := strings.Replace(param.DataId, "*", ".*", -1)
-	groupRegex := strings.Replace(param.Group, "*", ".*", -1)
+	dataIdRegex := strings.ReplaceAll(param.DataId, "*", ".*")
+	groupRegex := strings.ReplaceAll(param.Group, "*", ".*")
 	result := []model.ConfigItem{}
 
 	for key, value := range m.configs {
