@@ -28,6 +28,8 @@ import (
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+
+	"go.uber.org/zap/zapcore"
 )
 
 import (
@@ -82,7 +84,7 @@ func TestNacosConfig_onChange(t *testing.T) {
 		So(paths[len(paths)-1], ShouldEqual, "configcenter")
 
 		// Open the configuration file for testing.
-		file, err := os.Open(fmt.Sprintf("/%s/configs/conf.yaml", path.Join(paths[:len(paths)-1]...)))
+		file, err := os.Open(fmt.Sprintf("/%s/configs/conf.yaml", path.Join(paths[:len(paths)-2]...)))
 		So(err, ShouldBeNil)
 		defer func() { So(file.Close(), ShouldBeNil) }()
 
@@ -97,14 +99,14 @@ func TestNacosConfig_onChange(t *testing.T) {
 
 		Convey("Test onChange with empty input", func() {
 			// Suppress logs during this test.
-			logger.SetLoggerLevel("fatal")
+			logger.SetLoggerLevel(zapcore.FatalLevel)
 
 			client.remoteConfig = nil
 			client.onChange(Namespace, Group, DataId, "")
 			So(client.remoteConfig, ShouldBeNil)
 
 			// Restore the logger level.
-			logger.SetLoggerLevel("info")
+			logger.SetLoggerLevel(zapcore.InfoLevel)
 		})
 	})
 }

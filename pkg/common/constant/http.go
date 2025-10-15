@@ -87,6 +87,7 @@ const (
 const (
 	Host                       = "Host"
 	Authorization              = "Authorization"
+	WWWAuthenticate            = "WWW-Authenticate"
 	XForwardedFor              = "X-Forwarded-For"
 	AccessControlRequestMethod = "Access-Control-Request-Method"
 	Origin                     = "Origin"

@@ -117,16 +117,16 @@ func (f Filter) match(rule *Rule) (matched bool) {
 	if rule == nil {
 		return false
 	}
-	if rule.TriggerType == TriggerTypeAlways {
+	switch rule.TriggerType {
+	case TriggerTypeAlways:
 		return true
-	}
-	if rule.TriggerType == TriggerTypePercentage {
+	case TriggerTypePercentage:
 		return percentage(rule.Odds)
-	}
-	if rule.TriggerType == TriggerTypeRandom {
+	case TriggerTypeRandom:
 		return random()
+	default:
+		return false
 	}
-	return false
 }
 
 // random if the current request is matched

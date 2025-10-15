@@ -18,39 +18,32 @@
 package logger
 
 import (
-	"strings"
 	"sync"
 )
 
 import (
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 // logController governs the logging output or configuration changes throughout the entire project.
 type logController struct {
-	mu sync.RWMutex
-
-	logger *pixiuLogger
+	mu     sync.RWMutex
+	logger *PixiuLogger
 }
 
-// setLoggerLevel safely changes the log level in a concurrent manner.
-func (c *logController) setLoggerLevel(level string) bool {
+// setLoggerLevel changes the level at runtime without rebuilding the logger.
+func (c *logController) setLoggerLevel(level zapcore.Level) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	lvl := c.parseLevel(level)
-	if lvl == nil {
+	if c.logger == nil || c.logger.config == nil {
 		return false
 	}
-
-	c.logger.config.Level = *lvl
-	l, _ := c.logger.config.Build(zap.AddCallerSkip(2))
-	c.logger = &pixiuLogger{SugaredLogger: l.Sugar(), config: c.logger.config}
+	c.logger.config.Level.SetLevel(level)
 	return true
 }
 
-// updateLogger safely modifies the log object in a concurrent manner.
-func (c *logController) updateLogger(l *pixiuLogger) {
+// updateLogger swaps the underlying logger atomically.
+func (c *logController) updateLogger(l *PixiuLogger) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.logger = l
@@ -102,28 +95,4 @@ func (c *logController) errorf(fmt string, args ...any) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	c.logger.Errorf(fmt, args...)
-}
-
-// parseLevel is used to parse the level of the log.
-func (c *logController) parseLevel(level string) *zap.AtomicLevel {
-	var lvl zapcore.Level
-	switch strings.ToLower(level) {
-	case "debug":
-		lvl = zapcore.DebugLevel
-	case "info":
-		lvl = zapcore.InfoLevel
-	case "warn":
-		lvl = zapcore.WarnLevel
-	case "error":
-		lvl = zapcore.ErrorLevel
-	case "panic":
-		lvl = zapcore.PanicLevel
-	case "fatal":
-		lvl = zapcore.FatalLevel
-	default:
-		return nil
-	}
-
-	al := zap.NewAtomicLevelAt(lvl)
-	return &al
 }

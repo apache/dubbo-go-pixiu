@@ -39,15 +39,6 @@ import (
 )
 
 var (
-	flagToLogLevel = map[string]string{
-		"trace":    "TRACE",
-		"debug":    "DEBUG",
-		"info":     "INFO",
-		"warning":  "WARN",
-		"error":    "ERROR",
-		"critical": "FATAL",
-	}
-
 	configPath    string
 	apiConfigPath string
 	logConfigPath string
@@ -165,7 +156,7 @@ func initDefaultValue() {
 	}
 }
 
-// initLog
+// initLog initializes logger according to log config file and log level
 func initLog() error {
 	err := logger.InitLog(logConfigPath)
 	if err != nil {
@@ -173,13 +164,11 @@ func initLog() error {
 		return err
 	}
 
-	if level, ok := flagToLogLevel[logLevel]; ok {
-		logger.SetLoggerLevel(level)
-	} else {
-		logger.SetLoggerLevel(flagToLogLevel[constant.DefaultLogLevel])
-		return fmt.Errorf("logLevel is invalid, set log level to default: %s", constant.DefaultLogLevel)
+	lvl := logger.ParseLogLevel(logLevel)
+	if ok := logger.SetLoggerLevel(lvl); !ok {
+		err = fmt.Errorf("set logLevel failed")
 	}
-	return nil
+	return err
 }
 
 func initLogWithConfig(boot *model.Bootstrap) {
@@ -189,7 +178,7 @@ func initLogWithConfig(boot *model.Bootstrap) {
 }
 
 // nolint
-// initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
+// initApiConfig return value of the bool is for the judgment of whether is an api metadata error or a kind of silly (?)
 func initApiConfig() (*model.Bootstrap, error) {
 	bootstrap := config.Load(configPath)
 	return bootstrap, nil

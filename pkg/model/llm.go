@@ -17,18 +17,6 @@
 
 package model
 
-import (
-	"sync"
-)
-
-import (
-	perrors "github.com/pkg/errors"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-)
-
 type (
 	// LLMMeta LLM metadata for llm call
 	LLMMeta struct {
@@ -38,37 +26,4 @@ type (
 		Fallback            bool        `yaml:"fallback" json:"fallback" mapstructure:"fallback"`                                                       // Fallback to the next provider if failed
 		HealthCheckInterval int64       `yaml:"health_check_interval" json:"health_check_interval" mapstructure:"health_check_interval" default:"5000"` // HealthCheckInterval the interval for health check
 	}
-
-	LLMProviderDomains struct {
-		Providers map[string]LLMProvider `yaml:"providers" mapstructure:"providers"`
-	}
-
-	LLMProvider struct {
-		Name        string            `yaml:"name" json:"name"` // provider' name
-		Description string            `yaml:"description" json:"description"`
-		BaseUrl     string            `yaml:"base_url" json:"base_url"`                            // Target domain
-		Endpoints   map[string]string `yaml:"endpoints" json:"endpoints" mapstructure:"endpoints"` // Endpoints for the provider
-	}
 )
-
-var (
-	loadLLMProviderDomains sync.Once
-	domains                *LLMProviderDomains
-	err                    error
-)
-
-// GetLLMProviderDomains get llm provider domains
-func GetLLMProviderDomains(id string) (*LLMProvider, error) {
-	loadLLMProviderDomains.Do(func() {
-		domains = &LLMProviderDomains{}
-		err = yaml.UnmarshalYMLConfig("pkg/model/llmprovider.yaml", domains)
-	})
-	if err != nil {
-		return nil, perrors.Wrap(err, "failed to load llm provider domains")
-	}
-
-	if p, ok := domains.Providers[id]; ok {
-		return &p, nil
-	}
-	return nil, perrors.Errorf("provider %s not found", id)
-}

@@ -27,7 +27,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -285,17 +284,6 @@ func (s *ClusterStore) AssembleClusterEndpoints(c *model.ClusterConfig) {
 			endpoint.Name = fmt.Sprintf("endpoint-%d#%s", i+1, endpoint.LLMMeta.Provider)
 		} else if endpoint.Name == "" && endpoint.LLMMeta == nil {
 			endpoint.Name = fmt.Sprintf("endpoint-%d", i+1)
-		}
-
-		// If the endpoint address and domain are not set, set them based on the LLM provider.
-		// If the endpoint address or domain is set, do not modify them.
-		if endpoint.LLMMeta != nil && endpoint.Address.Address == constant.PprofDefaultAddress && endpoint.Address.Domains == nil {
-			domain, err := model.GetLLMProviderDomains(endpoint.LLMMeta.Provider)
-			if err != nil {
-				logger.Errorf("failed to get llm provider domains, err: %v", err)
-				continue
-			}
-			endpoint.Address.Domains = []string{domain.BaseUrl}
 		}
 	}
 }
