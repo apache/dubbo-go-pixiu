@@ -274,13 +274,29 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq, grpc.Header(&md), grpc.Trailer(&t))
 	// judge err is server side error or not
-	if st, ok := status.FromError(err); !ok || isServerError(st) {
-		if isServerTimeout(st) {
-			logger.Errorf("%s err {failed to invoke grpc service provider because timeout, err:%s}", loggerHeader, err.Error())
-			errResp := http.GatewayTimeout.WithError(fmt.Errorf("upstream timeout: %w", err))
+	if st, ok := status.FromError(err); ok {
+		// Handle client-side gRPC errors (e.g., InvalidArgument)
+		if st.Code() != codes.OK && !isServerError(st) {
+			logger.Errorf("%s err {gRPC client error, code: %s, msg: %s}", loggerHeader, st.Code(), st.Message())
+			errResp := http.BadGateway.WithError(fmt.Errorf("gRPC client error: %w", err))
 			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
+		// Handle server-side gRPC errors
+		if isServerError(st) {
+			if isServerTimeout(st) {
+				logger.Errorf("%s err {failed to invoke grpc service provider because timeout, err:%s}", loggerHeader, err.Error())
+				errResp := http.GatewayTimeout.WithError(fmt.Errorf("upstream timeout: %w", err))
+				c.SendLocalReply(errResp.Status, errResp.ToJSON())
+				return filter.Stop
+			}
+			logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
+			errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
+			return filter.Stop
+		}
+	} else if err != nil {
+		// Handle non-gRPC errors
 		logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
