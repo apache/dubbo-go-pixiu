@@ -89,18 +89,18 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 		logger.Errorf("Message:Filter Metric Collect Configuration is null")
 		errResp := contextHttp.Forbidden.New()
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
-		return filter.Continue
+		return filter.Stop
 	}
 	if f.Prom == nil {
 		logger.Errorf("Message:Prometheus Collector is not initialized")
 		errResp := contextHttp.Forbidden.New()
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
-		return filter.Continue
+		return filter.Stop
 	}
 	if f.Cfg.Rules.CounterPush && f.Cfg.Rules.PushIntervalThreshold == 0 {
 		errResp := contextHttp.Forbidden.New()
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
-		return filter.Continue
+		return filter.Stop
 	}
 	start := f.Prom.HandlerFunc()
 	err := start(ctx)
@@ -108,6 +108,7 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 		logger.Errorf("Message:Context HandlerFunc error")
 		errResp := contextHttp.Forbidden.New()
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
 	}
 	return filter.Continue
 }
