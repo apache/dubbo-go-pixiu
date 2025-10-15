@@ -18,12 +18,44 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"testing"
 )
+
+// mockResponseWriter is a test implementation of http.ResponseWriter
+type mockResponseWriter struct {
+	header http.Header
+}
+
+func (w *mockResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *mockResponseWriter) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
+func (w *mockResponseWriter) WriteHeader(statusCode int) {
+}
+
+// newTestHTTPContext creates a mock HttpContext for testing
+func newTestHTTPContext(r *http.Request) *HttpContext {
+	ctx := &HttpContext{
+		Index:   -1,
+		Request: r,
+		Writer:  &mockResponseWriter{},
+		Ctx:     context.Background(),
+	}
+	ctx.Reset()
+	return ctx
+}
 
 // TestErrorBuilder tests the ErrorBuilder methods
 func TestErrorBuilder(t *testing.T) {
@@ -414,4 +446,190 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 			t.Errorf("Error() = %q, want %q", got, want)
 		}
 	})
+}
+
+// TestErrorBuilderSend tests the Send method integration
+func TestErrorBuilderSend(t *testing.T) {
+	tests := []struct {
+		name           string
+		builder        *ErrorBuilder
+		expectedStatus int
+		expectedJSON   string
+	}{
+		{
+			name:           "Send BadRequest",
+			builder:        BadRequest,
+			expectedStatus: http.StatusBadRequest,
+			expectedJSON:   `{"status":400,"message":"Bad request"}`,
+		},
+		{
+			name:           "Send NotFound",
+			builder:        RouteNotFound,
+			expectedStatus: http.StatusNotFound,
+			expectedJSON:   `{"status":404,"message":"Route not found"}`,
+		},
+		{
+			name:           "Send InternalError",
+			builder:        InternalError,
+			expectedStatus: http.StatusInternalServerError,
+			expectedJSON:   `{"status":500,"message":"Internal server error"}`,
+		},
+		{
+			name:           "Send GatewayTimeout",
+			builder:        GatewayTimeout,
+			expectedStatus: http.StatusGatewayTimeout,
+			expectedJSON:   `{"status":504,"message":"Gateway timeout"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test HTTP context
+			req, _ := http.NewRequest("GET", "/test", nil)
+			ctx := newTestHTTPContext(req)
+
+			// Call Send
+			tt.builder.Send(ctx)
+
+			// Verify status code
+			if ctx.GetStatusCode() != tt.expectedStatus {
+				t.Errorf("status code = %d, want %d", ctx.GetStatusCode(), tt.expectedStatus)
+			}
+
+			// Verify response body
+			gotBody := ctx.GetLocalReplyBody()
+			var got, want map[string]any
+			if err := json.Unmarshal(gotBody, &got); err != nil {
+				t.Fatalf("failed to unmarshal got JSON: %v", err)
+			}
+			if err := json.Unmarshal([]byte(tt.expectedJSON), &want); err != nil {
+				t.Fatalf("failed to unmarshal want JSON: %v", err)
+			}
+
+			if got["status"] != want["status"] {
+				t.Errorf("JSON status = %v, want %v", got["status"], want["status"])
+			}
+			if got["message"] != want["message"] {
+				t.Errorf("JSON message = %v, want %v", got["message"], want["message"])
+			}
+
+			// Verify no error field in JSON
+			if _, hasError := got["error"]; hasError {
+				t.Error("Send() should not include error field in JSON")
+			}
+		})
+	}
+}
+
+// TestErrorBuilderSendError tests the SendError method integration
+func TestErrorBuilderSendError(t *testing.T) {
+	tests := []struct {
+		name         string
+		builder      *ErrorBuilder
+		err          error
+		wantStatus   int
+		wantMessage  string
+		wantErrorMsg string
+	}{
+		{
+			name:         "SendError BadRequest with simple error",
+			builder:      BadRequest,
+			err:          errors.New("invalid parameter"),
+			wantStatus:   http.StatusBadRequest,
+			wantMessage:  "Bad request",
+			wantErrorMsg: "invalid parameter",
+		},
+		{
+			name:         "SendError InternalError with wrapped error",
+			builder:      InternalError,
+			err:          fmt.Errorf("failed to process: %w", errors.New("connection refused")),
+			wantStatus:   http.StatusInternalServerError,
+			wantMessage:  "Internal server error",
+			wantErrorMsg: "failed to process: connection refused",
+		},
+		{
+			name:         "SendError GatewayTimeout",
+			builder:      GatewayTimeout,
+			err:          fmt.Errorf("upstream timeout: %w", errors.New("deadline exceeded")),
+			wantStatus:   http.StatusGatewayTimeout,
+			wantMessage:  "Gateway timeout",
+			wantErrorMsg: "upstream timeout: deadline exceeded",
+		},
+		{
+			name:         "SendError ServiceUnavailable",
+			builder:      ServiceUnavailable,
+			err:          errors.New("no healthy hosts"),
+			wantStatus:   http.StatusServiceUnavailable,
+			wantMessage:  "Service unavailable",
+			wantErrorMsg: "no healthy hosts",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test HTTP context
+			req, _ := http.NewRequest("GET", "/test", nil)
+			ctx := newTestHTTPContext(req)
+
+			// Call SendError
+			tt.builder.SendError(ctx, tt.err)
+
+			// Verify status code
+			if ctx.GetStatusCode() != tt.wantStatus {
+				t.Errorf("status code = %d, want %d", ctx.GetStatusCode(), tt.wantStatus)
+			}
+
+			// Verify response body JSON structure
+			gotBody := ctx.GetLocalReplyBody()
+			var result map[string]any
+			if err := json.Unmarshal(gotBody, &result); err != nil {
+				t.Fatalf("failed to unmarshal JSON: %v", err)
+			}
+
+			// Check status field
+			if result["status"] != float64(tt.wantStatus) {
+				t.Errorf("JSON status = %v, want %v", result["status"], tt.wantStatus)
+			}
+
+			// Check message field
+			if result["message"] != tt.wantMessage {
+				t.Errorf("JSON message = %v, want %v", result["message"], tt.wantMessage)
+			}
+
+			// Check error field
+			if result["error"] != tt.wantErrorMsg {
+				t.Errorf("JSON error = %v, want %v", result["error"], tt.wantErrorMsg)
+			}
+		})
+	}
+}
+
+// TestErrorBuilderSendErrorWithNil tests SendError with nil error
+func TestErrorBuilderSendErrorWithNil(t *testing.T) {
+	req, _ := http.NewRequest("GET", "/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Call SendError with nil error
+	BadRequest.SendError(ctx, nil)
+
+	// Verify status code
+	if ctx.GetStatusCode() != http.StatusBadRequest {
+		t.Errorf("status code = %d, want %d", ctx.GetStatusCode(), http.StatusBadRequest)
+	}
+
+	// Verify response body
+	gotBody := ctx.GetLocalReplyBody()
+	var result map[string]any
+	if err := json.Unmarshal(gotBody, &result); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	// Verify no error field when error is nil
+	if _, hasError := result["error"]; hasError {
+		t.Error("SendError(nil) should not include error field in JSON")
+	}
+
+	if result["message"] != "Bad request" {
+		t.Errorf("message = %v, want 'Bad request'", result["message"])
+	}
 }
