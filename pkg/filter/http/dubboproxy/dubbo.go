@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strings"
 )
@@ -224,14 +225,15 @@ func (f *Filter) Decode(hc *pixiuHttp.HttpContext) filter.FilterStatus {
 	result.SetAttachments(invoc.Attachments())
 
 	if result.Error() != nil {
-		logger.Debugf("[dubbo-go-pixiu] invoke result error %v", result.Error())
-		// TODO statusCode I don't know what dubbo returns when it times out, first use the string to judge
-		if strings.Contains(result.Error().Error(), "timeout") {
-			errResp := pixiuHttp.GatewayTimeout.WithError(fmt.Errorf("upstream timeout"))
+		err := result.Error()
+		logger.Debugf("[dubbo-go-pixiu] invoke result error %v", err)
+		// Prefer reliable timeout detection over substring matching
+		if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
+			errResp := pixiuHttp.GatewayTimeout.WithError(fmt.Errorf("upstream timeout: %w", err))
 			hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
-		errResp := pixiuHttp.BadGateway.WithError(fmt.Errorf("invoke error: %w", result.Error()))
+		errResp := pixiuHttp.BadGateway.WithError(fmt.Errorf("invoke error: %w", err))
 		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
