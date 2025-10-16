@@ -149,14 +149,16 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
-		contexthttp.BadRequest.SendError(hc, errors.New("no route entry found for request"))
+		errResp := contexthttp.BadRequest.WithError(errors.New("no route entry found for request"))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster: %v", rEntry.Cluster)
 
 	// Ensure the request body can be re-read for retries
 	if err := f.prepareRequestBody(hc); err != nil {
-		contexthttp.InternalError.SendError(hc, fmt.Errorf("failed to read request body: %w", err))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("failed to read request body: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	defer hc.Request.Body.Close()
@@ -177,10 +179,12 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		logger.Infof("[dubbo-go-pixiu] request execution failed after all attempts: %v", err)
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) && urlErr.Timeout() {
-			contexthttp.GatewayTimeout.SendError(hc, err)
+			errResp := contexthttp.GatewayTimeout.WithError(err)
+			hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		} else if resp == nil {
 			// This handles errors where no response was ever received (e.g., DNS error, connection refused)
-			contexthttp.ServiceUnavailable.SendError(hc, err)
+			errResp := contexthttp.ServiceUnavailable.WithError(err)
+			hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		} else {
 			// A response was received, but it was a failure. Pass it along.
 			hc.SourceResp = resp

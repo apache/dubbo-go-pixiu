@@ -102,18 +102,6 @@ func (eb *ErrorBuilder) GetStatus() int {
 	return eb.status
 }
 
-// SendError is a convenience method to send error response directly
-func (eb *ErrorBuilder) SendError(ctx *HttpContext, err error) {
-	errResp := eb.WithError(err)
-	ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
-}
-
-// Send is a convenience method to send error response without error detail
-func (eb *ErrorBuilder) Send(ctx *HttpContext) {
-	errResp := eb.New()
-	ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
-}
-
 func (e *ErrorResponse) ToJSON() []byte {
 	type alias struct {
 		Status  int    `json:"status"`
