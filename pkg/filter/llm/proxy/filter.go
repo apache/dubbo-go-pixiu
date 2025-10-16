@@ -135,7 +135,7 @@ func (factory *FilterFactory) Apply() error {
 }
 
 // PrepareFilterChain creates a new Filter instance for a request chain.
-func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{
 		client:         factory.client,
 		scheme:         factory.cfg.Scheme,
