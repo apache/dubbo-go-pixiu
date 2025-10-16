@@ -257,6 +257,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		resp     *http.Response
 		err      error
 		attempts []UpstreamAttempt
+		problems []error
 	)
 
 	// 1. Pick initial endpoint from the cluster based on load balancing.
@@ -264,6 +265,13 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 	// 2. The main fallback loop. It continues as long as we have a valid endpoint to try.
 	for endpoint != nil {
+		if endpoint.Metadata == nil {
+			endpoint.Metadata = make(map[string]string)
+		}
+		if executor.hc.Params == nil {
+			executor.hc.Params = make(map[string]any)
+		}
+
 		logger.Debugf("[dubbo-go-pixiu] client attempting endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 
 		// 3. Check the health of current endpoint,
@@ -288,6 +296,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		retryPolicy, err = retry.GetRetryPolicy(endpoint)
 		if err != nil {
 			logger.Errorf("could not load retry policy for endpoint [%s: %v]. Skipping to next endpoint.", endpoint.ID, err)
+			problems = append(problems, fmt.Errorf("endpoint [%s: %v] retry policy error: %w", endpoint.ID, endpoint.Address.GetAddress(), err))
 			endpoint = getNextFallbackEndpoint(endpoint, executor)
 			continue
 		}
@@ -300,6 +309,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 			if err != nil {
 				// Request assembly error is fatal for this endpoint, break retry loop to go to fallback
 				logger.Warnf("[dubbo-go-pixiu] failed to assemble request for endpoint [%s: %v]: %v. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress(), err)
+				problems = append(problems, fmt.Errorf("endpoint [%s: %v] retry: request assembly error: %w", endpoint.ID, endpoint.Address.GetAddress(), err))
 				break
 			}
 
@@ -313,6 +323,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 			if err != nil {
 				logger.Warnf("[dubbo-go-pixiu] request to endpoint [%s: %v] failed: %v", endpoint.ID, endpoint.Address.GetAddress(), err)
+				problems = append(problems, fmt.Errorf("endpoint [%s: %v] retry: request error: %w", endpoint.ID, endpoint.Address.GetAddress(), err))
 				attempt.Success = false
 				attempt.ErrorType = "network_error"
 				attempts = append(attempts, attempt)
@@ -329,6 +340,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 			attempt.Success = false
 			attempt.ErrorType = "status_code_error"
+			problems = append(problems, fmt.Errorf("endpoint [%s: %v] retry: returned status code %d", endpoint.ID, endpoint.Address.GetAddress(), resp.StatusCode))
 			attempts = append(attempts, attempt)
 
 			logger.Debugf("[dubbo-go-pixiu] attempt failed for endpoint [%s: %v]. Error: %v, Status: %s trying to retry",
@@ -347,11 +359,11 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 	// Return the last known error and response.
 	if err == nil && resp != nil {
-		err = fmt.Errorf("request failed with status code %d after all retries and fallbacks", resp.StatusCode)
+		problems = append(problems, fmt.Errorf("request failed with status code %d after all retries and fallbacks", resp.StatusCode))
 	} else if err == nil {
-		err = errors.New("all retries and fallbacks failed without a definitive error or response")
+		problems = append(problems, errors.New("all retries and fallbacks failed without a definitive error or response"))
 	}
-	return resp, err
+	return resp, errors.Join(problems...)
 }
 
 // getNextFallbackEndpoint checks if fallback is enabled and returns the next endpoint.
