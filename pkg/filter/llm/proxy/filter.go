@@ -19,7 +19,6 @@ package proxy
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -150,14 +149,16 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	rEntry := hc.GetRouteEntry()
 	if rEntry == nil {
-		sendJSONError(hc, http.StatusBadRequest, "no route entry found for request")
+		errResp := contexthttp.BadRequest.WithError(errors.New("no route entry found for request"))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client choose endpoint from cluster: %v", rEntry.Cluster)
 
 	// Ensure the request body can be re-read for retries
 	if err := f.prepareRequestBody(hc); err != nil {
-		sendJSONError(hc, http.StatusInternalServerError, fmt.Sprintf("failed to read request body: %v", err))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("failed to read request body: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	defer hc.Request.Body.Close()
@@ -178,10 +179,12 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		logger.Infof("[dubbo-go-pixiu] request execution failed after all attempts: %v", err)
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) && urlErr.Timeout() {
-			sendJSONError(hc, http.StatusGatewayTimeout, err.Error())
+			errResp := contexthttp.GatewayTimeout.WithError(err)
+			hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		} else if resp == nil {
 			// This handles errors where no response was ever received (e.g., DNS error, connection refused)
-			sendJSONError(hc, http.StatusServiceUnavailable, err.Error())
+			errResp := contexthttp.ServiceUnavailable.WithError(err)
+			hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		} else {
 			// A response was received, but it was a failure. Pass it along.
 			hc.SourceResp = resp
@@ -369,10 +372,4 @@ func getNextFallbackEndpoint(currentEndpoint *model.Endpoint, executor *RequestE
 	}
 
 	return nextEndpoint
-}
-
-// sendJSONError is a helper to send a structured JSON error message.
-func sendJSONError(hc *contexthttp.HttpContext, code int, message string) {
-	bt, _ := json.Marshal(contexthttp.ErrResponse{Message: message})
-	hc.SendLocalReply(code, bt)
 }
