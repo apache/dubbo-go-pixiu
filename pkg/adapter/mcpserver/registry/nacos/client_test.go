@@ -139,12 +139,12 @@ func (m *MockedNacosConfigClient) GetConfig(param vo.ConfigParam) (string, error
 	return "", nil
 }
 
-func (m MockedNacosConfigClient) PublishConfig(param vo.ConfigParam) (bool, error) {
+func (m *MockedNacosConfigClient) PublishConfig(param vo.ConfigParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m MockedNacosConfigClient) DeleteConfig(param vo.ConfigParam) (bool, error) {
+func (m *MockedNacosConfigClient) DeleteConfig(param vo.ConfigParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -213,7 +213,7 @@ func (m *MockedNacosConfigClient) SearchConfig(param vo.SearchConfigParam) (*mod
 	}, nil
 }
 
-func (m MockedNacosConfigClient) CloseClient() {
+func (m *MockedNacosConfigClient) CloseClient() {
 	//TODO implement me
 	panic("implement me")
 }
