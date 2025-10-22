@@ -95,7 +95,6 @@ func BuildController(reg model.Registry, onChange func(serverId string, cfg *mod
 			return
 		}
 
-		// 直接转换配置，无需添加 ServerId 字段
 		mc := &model.McpServerConfig{
 			Tools: cfg.ToolConfigs,
 		}
