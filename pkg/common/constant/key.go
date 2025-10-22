@@ -52,6 +52,7 @@ const (
 	HTTPPrometheusMetricFilter = "dgp.filter.http.prometheusmetric"
 	HTTPFailInjectFilter       = "dgp.filter.http.faultinjection"
 	HTTPAuthOPAFilter          = "dgp.filter.http.opa"
+	HTTPMetricReporterFilter   = "dgp.filter.http.metricreporter"
 
 	DubboHttpFilter  = "dgp.filter.dubbo.http"
 	DubboProxyFilter = "dgp.filter.dubbo.proxy"
