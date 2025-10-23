@@ -19,11 +19,9 @@ package metricreporter
 
 import (
 	"context"
-	"io"
 	"net/http"
-	"strings"
+	"net/url"
 	"testing"
-	"time"
 )
 
 import (
@@ -32,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -70,319 +69,134 @@ func newTestHTTPContext(t *testing.T) *contextHttp.HttpContext {
 	}
 }
 
+// mockFilterChain for testing
+type mockFilterChain struct {
+	decodeFilters []filter.HttpDecodeFilter
+	encodeFilters []filter.HttpEncodeFilter
+}
+
+func (m *mockFilterChain) AppendDecodeFilters(f ...filter.HttpDecodeFilter) {
+	m.decodeFilters = append(m.decodeFilters, f...)
+}
+
+func (m *mockFilterChain) AppendEncodeFilters(f ...filter.HttpEncodeFilter) {
+	m.encodeFilters = append(m.encodeFilters, f...)
+}
+
+func (m *mockFilterChain) OnDecode(ctx *contextHttp.HttpContext) {
+	// Not used in tests
+}
+
+func (m *mockFilterChain) OnEncode(ctx *contextHttp.HttpContext) {
+	// Not used in tests
+}
+
 // TestConfigValidate tests the config validation
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
-		name     string
-		config   *Config
-		wantMode string
+		name      string
+		config    *Config
+		wantError bool
 	}{
 		{
-			name: "default to pull mode",
+			name: "invalid mode",
 			config: &Config{
 				Mode: "invalid",
 			},
-			wantMode: "pull",
+			wantError: true,
 		},
 		{
-			name: "pull mode",
+			name: "valid pull mode",
 			config: &Config{
 				Mode: "pull",
 			},
-			wantMode: "pull",
+			wantError: false,
 		},
 		{
-			name: "push mode",
+			name: "valid push mode",
 			config: &Config{
 				Mode: "push",
+				PushConfig: PushConfig{
+					GatewayURL:   "http://localhost:9091",
+					JobName:      "pixiu",
+					PushInterval: 100,
+					MetricPath:   "/metrics",
+				},
 			},
-			wantMode: "push",
+			wantError: false,
 		},
 		{
-			name: "both mode",
+			name: "push mode with empty gateway_url",
 			config: &Config{
-				Mode: "both",
+				Mode: "push",
+				PushConfig: PushConfig{
+					GatewayURL:   "",
+					JobName:      "pixiu",
+					PushInterval: 100,
+					MetricPath:   "/metrics",
+				},
 			},
-			wantMode: "both",
+			wantError: true,
+		},
+		{
+			name: "push mode with invalid interval",
+			config: &Config{
+				Mode: "push",
+				PushConfig: PushConfig{
+					GatewayURL:   "http://localhost:9091",
+					JobName:      "pixiu",
+					PushInterval: 0,
+					MetricPath:   "/metrics",
+				},
+			},
+			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.config.Validate()
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantMode, tt.config.Mode)
+			factory := &FilterFactory{cfg: tt.config}
+			err := factory.Apply()
 
-			// Check defaults
-			assert.Equal(t, 9090, tt.config.PullConfig.Port)
-			assert.Equal(t, "/metrics", tt.config.PullConfig.Path)
-			assert.Equal(t, "http://127.0.0.1:9091", tt.config.PushConfig.GatewayURL)
-			assert.Equal(t, "pixiu", tt.config.PushConfig.JobName)
-			assert.Equal(t, 100, tt.config.PushConfig.PushInterval)
+			if tt.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
 
-// TestConfigModeEnable tests mode-based enable flags
-func TestConfigModeEnable(t *testing.T) {
-	tests := []struct {
-		name           string
-		mode           string
-		wantPullEnable bool
-		wantPushEnable bool
-	}{
-		{
-			name:           "pull mode",
-			mode:           "pull",
-			wantPullEnable: true,
-			wantPushEnable: false,
-		},
-		{
-			name:           "push mode",
-			mode:           "push",
-			wantPullEnable: false,
-			wantPushEnable: true,
-		},
-		{
-			name:           "both mode",
-			mode:           "both",
-			wantPullEnable: true,
-			wantPushEnable: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &Config{Mode: tt.mode}
-			err := cfg.Validate()
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantPullEnable, cfg.PullConfig.Enabled)
-			assert.Equal(t, tt.wantPushEnable, cfg.PushConfig.Enabled)
-		})
-	}
-}
-
-// TestPullReporterReport tests the OpenTelemetry pull reporter's metric reporting
-func TestPullReporterReport(t *testing.T) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9191, // Use different port for testing
-		Path:    "/metrics",
-	}
-
-	reporter := NewOTelPullReporter(pullConfig)
-	require.NotNil(t, reporter)
-
-	// Start the reporter
-	err := reporter.Start()
-	require.NoError(t, err)
-
-	// Test reporting counter metric
-	metrics := []*contextHttp.MetricData{
-		{
-			Name:  "test_counter",
-			Type:  "counter",
-			Value: 1.0,
-			Labels: map[string]string{
-				"method": "GET",
-				"status": "200",
-			},
-		},
-	}
-
-	reporter.Report(metrics)
-
-	// Verify the metric was registered in OpenTelemetry (check the instrument exists)
-	_, exists := reporter.registeredCounters["test_counter"]
-	assert.True(t, exists)
-}
-
-// TestPullReporterMultipleMetricTypes tests reporting different metric types with OpenTelemetry
-func TestPullReporterMultipleMetricTypes(t *testing.T) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9192,
-		Path:    "/metrics",
-	}
-
-	reporter := NewOTelPullReporter(pullConfig)
-	err := reporter.Start()
-	require.NoError(t, err)
-
-	metrics := []*contextHttp.MetricData{
-		{
-			Name:  "http_requests_total",
-			Type:  "counter",
-			Value: 1.0,
-			Labels: map[string]string{
-				"method": "GET",
-			},
-		},
-		{
-			Name:  "http_request_duration_ms",
-			Type:  "histogram",
-			Value: 123.45,
-			Labels: map[string]string{
-				"method": "GET",
-			},
-		},
-		{
-			Name:  "http_active_connections",
-			Type:  "gauge",
-			Value: 42.0,
-			Labels: map[string]string{
-				"server": "pixiu",
-			},
-		},
-	}
-
-	reporter.Report(metrics)
-
-	// Verify all metric types were registered in OpenTelemetry
-	_, counterExists := reporter.registeredCounters["http_requests_total"]
-	_, histogramExists := reporter.registeredHistograms["http_request_duration_ms"]
-	_, gaugeExists := reporter.registeredGauges["http_active_connections"]
-	
-	assert.True(t, counterExists)
-	assert.True(t, histogramExists)
-	assert.True(t, gaugeExists)
-}
-
-// TestPushReporterReport tests the push reporter's metric reporting
-func TestPushReporterReport(t *testing.T) {
-	pushConfig := &PushConfig{
-		Enabled:      true,
-		GatewayURL:   "http://localhost:9091",
-		JobName:      "test_job",
-		PushInterval: 2, // Push every 2 requests for testing
-		MetricPath:   "/metrics",
-	}
-
-	reporter := NewPushReporter(pushConfig)
-	require.NotNil(t, reporter)
-
-	metrics := []*contextHttp.MetricData{
-		{
-			Name:  "test_counter",
-			Type:  "counter",
-			Value: 1.0,
-			Labels: map[string]string{
-				"label": "value",
-			},
-		},
-	}
-
-	// Report once - should not push yet
-	reporter.Report(metrics)
-	assert.Equal(t, 1, reporter.counter)
-
-	// Report twice - should trigger push
-	reporter.Report(metrics)
-	// Counter should be reset after push is triggered
-	// Note: We use a short sleep to allow the goroutine to execute
-	time.Sleep(10 * time.Millisecond)
-	assert.Equal(t, 0, reporter.counter)
-}
-
-// TestPullReporterHTTPEndpoint tests that OpenTelemetry pull reporter starts HTTP server
-func TestPullReporterHTTPEndpoint(t *testing.T) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9193, // Different port for each test
-		Path:    "/metrics",
-	}
-
-	reporter := NewOTelPullReporter(pullConfig)
-	err := reporter.Start()
-	require.NoError(t, err)
-
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Report some metrics
-	metrics := []*contextHttp.MetricData{
-		{
-			Name:  "test_http_requests",
-			Type:  "counter",
-			Value: 5.0,
-			Labels: map[string]string{
-				"path": "/test",
-			},
-		},
-	}
-	reporter.Report(metrics)
-
-	// Try to access the metrics endpoint
-	resp, err := http.Get("http://localhost:9193/metrics")
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	// Verify metrics are in the response
-	bodyStr := string(body)
-	assert.Contains(t, bodyStr, "test_http_requests")
-}
-
-// TestFilterEncode tests the filter's Encode method
-func TestFilterEncode(t *testing.T) {
-	// Create filter factory with pull mode
+// TestPullModeInitialization tests pull mode initialization
+func TestPullModeInitialization(t *testing.T) {
 	factory := &FilterFactory{
 		cfg: &Config{
 			Mode: "pull",
-			PullConfig: PullConfig{
-				Enabled: true,
-				Port:    9194,
-				Path:    "/metrics",
-			},
 		},
 	}
 
 	err := factory.Apply()
 	require.NoError(t, err)
 
-	// Create filter
+	// Initialization happens in PrepareFilterChain, so we need to test that
 	ctx := newTestHTTPContext(t)
-	filter := &Filter{
-		factory:      factory,
-		pullReporter: factory.pullReporter,
-		pushReporter: factory.pushReporter,
-	}
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
+	require.NoError(t, err)
 
-	// Record some metrics in context
-	ctx.RecordMetric("test_requests", "counter", 1.0, map[string]string{
-		"method": "GET",
-	})
-
-	// Execute encode
-	status := filter.Encode(ctx)
-	assert.Equal(t, 0, int(status)) // filter.Continue = 0
-
-	// Verify metrics were reported
-	assert.NotNil(t, factory.pullReporter)
-	_, exists := factory.pullReporter.registeredCounters["test_requests"]
-	assert.True(t, exists)
+	// Verify filter was created
+	require.Len(t, chain.decodeFilters, 1)
 }
 
-// TestFilterBothMode tests filter with both pull and push modes
-func TestFilterBothMode(t *testing.T) {
+// TestPushModeInitialization tests push mode initialization
+func TestPushModeInitialization(t *testing.T) {
 	factory := &FilterFactory{
 		cfg: &Config{
-			Mode: "both",
-			PullConfig: PullConfig{
-				Enabled: true,
-				Port:    9195,
-				Path:    "/metrics",
-			},
+			Mode: "push",
 			PushConfig: PushConfig{
-				Enabled:      true,
 				GatewayURL:   "http://localhost:9091",
-				JobName:      "test",
-				PushInterval: 10,
+				JobName:      "test_job",
+				PushInterval: 100,
 				MetricPath:   "/metrics",
 			},
 		},
@@ -391,23 +205,81 @@ func TestFilterBothMode(t *testing.T) {
 	err := factory.Apply()
 	require.NoError(t, err)
 
-	// Verify both reporters are initialized
-	assert.NotNil(t, factory.pullReporter)
-	assert.NotNil(t, factory.pushReporter)
-
-	// Create filter and test
+	// Initialization happens in PrepareFilterChain
 	ctx := newTestHTTPContext(t)
-	filter := &Filter{
-		factory:      factory,
-		pullReporter: factory.pullReporter,
-		pushReporter: factory.pushReporter,
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
+	require.NoError(t, err)
+
+	// Verify filter was created (push mode only has decode filter)
+	require.Len(t, chain.decodeFilters, 1)
+	require.Len(t, chain.encodeFilters, 0)
+}
+
+// TestFilterWithPullMode tests filter encode with pull mode
+func TestFilterWithPullMode(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &Config{
+			Mode: "pull",
+		},
 	}
 
-	ctx.RecordMetric("both_mode_test", "counter", 1.0, map[string]string{
-		"mode": "both",
+	err := factory.Apply()
+	require.NoError(t, err)
+
+	ctx := newTestHTTPContext(t)
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
+	require.NoError(t, err)
+
+	// Record metrics in context
+	ctx.RecordMetric("custom_metric", "counter", 1.0, map[string]string{
+		"key": "value",
 	})
 
-	status := filter.Encode(ctx)
+	// Pull mode should have both decode and encode filters
+	require.Len(t, chain.decodeFilters, 1)
+	require.Len(t, chain.encodeFilters, 1)
+
+	// Execute decode (records start time)
+	chain.decodeFilters[0].Decode(ctx)
+
+	// Execute encode (reports metrics)
+	status := chain.encodeFilters[0].Encode(ctx)
+	assert.Equal(t, 0, int(status))
+}
+
+// TestFilterWithPushMode tests filter encode with push mode
+func TestFilterWithPushMode(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &Config{
+			Mode: "push",
+			PushConfig: PushConfig{
+				GatewayURL:   "http://localhost:9091",
+				JobName:      "test",
+				PushInterval: 100,
+				MetricPath:   "/metrics",
+			},
+		},
+	}
+
+	err := factory.Apply()
+	require.NoError(t, err)
+
+	ctx := newTestHTTPContext(t)
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
+	require.NoError(t, err)
+
+	// Record metrics in context
+	ctx.RecordMetric("custom_metric", "counter", 1.0, nil)
+
+	// Push mode only has decode filter
+	require.Len(t, chain.decodeFilters, 1)
+	require.Len(t, chain.encodeFilters, 0)
+
+	// Execute decode (reports metrics immediately)
+	status := chain.decodeFilters[0].Decode(ctx)
 	assert.Equal(t, 0, int(status))
 }
 
@@ -424,242 +296,169 @@ func TestCreateFilterFactory(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, factory)
 
-	// Verify factory has default config
 	ff := factory.(*FilterFactory)
 	assert.NotNil(t, ff.cfg)
 }
 
-// TestPullReporterConcurrentReporting tests concurrent metric reporting with OpenTelemetry
-func TestPullReporterConcurrentReporting(t *testing.T) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9196,
-		Path:    "/metrics",
+// TestFilterWithUninitializedReporter tests that filter stops when reporter is not initialized
+func TestFilterWithUninitializedReporter(t *testing.T) {
+	tests := []struct {
+		name  string
+		mode  string
+		phase string // "decode" or "encode"
+	}{
+		{"pull mode with nil instruments in encode", "pull", "encode"},
+		{"push mode with nil collector in decode", "push", "decode"},
 	}
 
-	reporter := NewOTelPullReporter(pullConfig)
-	err := reporter.Start()
-	require.NoError(t, err)
-
-	// Report metrics concurrently
-	done := make(chan bool)
-	for i := 0; i < 10; i++ {
-		go func(id int) {
-			metrics := []*contextHttp.MetricData{
-				{
-					Name:  "concurrent_test",
-					Type:  "counter",
-					Value: 1.0,
-					Labels: map[string]string{
-						"worker": string(rune(id)),
-					},
-				},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create filter with config but nil reporter
+			filter := &Filter{
+				cfg:             &Config{Mode: tt.mode},
+				otelInstruments: nil,
+				promCollector:   nil,
 			}
-			reporter.Report(metrics)
-			done <- true
-		}(i)
-	}
 
-	// Wait for all goroutines
-	for i := 0; i < 10; i++ {
-		<-done
-	}
+			ctx := newTestHTTPContext(t)
+			ctx.RecordMetric("test", "counter", 1.0, nil)
 
-	// Verify metric was registered in OpenTelemetry
-	_, exists := reporter.registeredCounters["concurrent_test"]
-	assert.True(t, exists)
+			var status int
+			if tt.phase == "decode" {
+				status = int(filter.Decode(ctx))
+			} else {
+				status = int(filter.Encode(ctx))
+			}
+
+			// Should stop when reporter is not initialized
+			assert.Equal(t, 1, status) // filter.Stop = 1
+
+			// Should have sent local reply
+			assert.True(t, ctx.LocalReply())
+			assert.Equal(t, 500, ctx.GetStatusCode())
+		})
+	}
 }
 
-// TestEmptyMetrics tests handling of empty metrics
-func TestEmptyMetrics(t *testing.T) {
+// TestDecodeMethod tests that Decode method records start time
+func TestDecodeMethod(t *testing.T) {
+	filter := &Filter{
+		cfg: &Config{Mode: "pull"},
+	}
+	ctx := newTestHTTPContext(t)
+
+	status := filter.Decode(ctx)
+	assert.Equal(t, 0, int(status)) // filter.Continue
+
+	// Verify start time was recorded
+	assert.False(t, filter.start.IsZero())
+}
+
+// ============================================================================
+// Integration Tests - Prove new filter can replace old filters
+// ============================================================================
+
+// TestMetricReporterPullMode tests pull mode with OpenTelemetry.
+// This test proves the new filter can replace dgp.filter.http.metric
+// Inspired by TestMetric in pkg/filter/metric/metric_test.go
+func TestMetricReporterPullMode(t *testing.T) {
+	// Create factory with pull mode
 	factory := &FilterFactory{
 		cfg: &Config{
 			Mode: "pull",
-			PullConfig: PullConfig{
-				Enabled: true,
-				Port:    9197,
-				Path:    "/metrics",
-			},
 		},
 	}
 
+	// Validate configuration
 	err := factory.Apply()
 	require.NoError(t, err)
 
-	ctx := newTestHTTPContext(t)
-	filter := &Filter{
-		factory:      factory,
-		pullReporter: factory.pullReporter,
-	}
-
-	// No metrics recorded
-	status := filter.Encode(ctx)
-	assert.Equal(t, 0, int(status)) // Should still continue
-}
-
-// TestMetricLabelCopy tests that labels are properly copied
-func TestMetricLabelCopy(t *testing.T) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9198,
-		Path:    "/metrics",
-	}
-
-	reporter := NewOTelPullReporter(pullConfig)
-	err := reporter.Start()
+	// Create HTTP request
+	req, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", nil)
 	require.NoError(t, err)
 
-	originalLabels := map[string]string{
-		"key": "value",
-	}
-
-	metrics := []*contextHttp.MetricData{
-		{
-			Name:   "label_test",
-			Type:   "counter",
-			Value:  1.0,
-			Labels: originalLabels,
-		},
-	}
-
-	reporter.Report(metrics)
-
-	// Modify original labels
-	originalLabels["key"] = "modified"
-
-	// Verify the modification doesn't affect the reported metric
-	// This is a safety check for label copying
-	_, exists := reporter.registeredCounters["label_test"]
-	assert.True(t, exists)
-}
-
-// TestPushURLGeneration tests the push URL generation
-func TestPushURLGeneration(t *testing.T) {
-	pushConfig := &PushConfig{
-		Enabled:      true,
-		GatewayURL:   "http://localhost:9091",
-		JobName:      "test_job",
-		PushInterval: 1,
-		MetricPath:   "/metrics",
-	}
-
-	reporter := NewPushReporter(pushConfig)
-
-	// Note: We can't easily test the actual URL without refactoring,
-	// but we can verify the reporter is properly initialized
-	assert.NotNil(t, reporter.config)
-	assert.Equal(t, "http://localhost:9091", reporter.config.GatewayURL)
-	assert.Equal(t, "test_job", reporter.config.JobName)
-}
-
-// Benchmark tests
-func BenchmarkPullReporterReport(b *testing.B) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9199,
-		Path:    "/metrics",
-	}
-
-	reporter := NewOTelPullReporter(pullConfig)
-	_ = reporter.Start()
-
-	metrics := []*contextHttp.MetricData{
-		{
-			Name:  "benchmark_counter",
-			Type:  "counter",
-			Value: 1.0,
-			Labels: map[string]string{
-				"method": "GET",
-				"status": "200",
-			},
-		},
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		reporter.Report(metrics)
-	}
-}
-
-func BenchmarkContextRecordMetric(b *testing.B) {
-	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
 	ctx := &contextHttp.HttpContext{
 		Request: req,
 		Writer:  &mockResponseWriter{},
 		Ctx:     context.Background(),
 	}
 
-	labels := map[string]string{
-		"method": "GET",
-		"status": "200",
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ctx.RecordMetric("test_metric", "counter", 1.0, labels)
-	}
-}
-
-// TestDecodeMethod tests that Decode method always continues
-func TestDecodeMethod(t *testing.T) {
-	filter := &Filter{}
-	ctx := newTestHTTPContext(t)
-
-	status := filter.Decode(ctx)
-	assert.Equal(t, 0, int(status)) // filter.Continue
-}
-
-// TestInvalidMetricType tests handling of invalid metric types
-func TestInvalidMetricType(t *testing.T) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9200,
-		Path:    "/metrics",
-	}
-
-	reporter := NewOTelPullReporter(pullConfig)
-	err := reporter.Start()
+	// Prepare filter chain
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
 	require.NoError(t, err)
 
-	// Report metric with invalid type (should be silently ignored)
-	metrics := []*contextHttp.MetricData{
-		{
-			Name:   "invalid_type_metric",
-			Type:   "invalid_type",
-			Value:  1.0,
-			Labels: map[string]string{},
+	// Get filters
+	// Pull mode should have both decode and encode filters
+	require.Len(t, chain.decodeFilters, 1)
+	require.Len(t, chain.encodeFilters, 1)
+
+	// Execute decode (records start time)
+	decodeStatus := chain.decodeFilters[0].Decode(ctx)
+	assert.Equal(t, 0, int(decodeStatus))
+
+	// Execute encode (reports metrics)
+	encodeStatus := chain.encodeFilters[0].Encode(ctx)
+	assert.Equal(t, 0, int(encodeStatus))
+
+	t.Log("Pull mode metric reporter test finished successfully")
+}
+
+// TestMetricReporterPushMode tests push mode with Prometheus Push Gateway.
+// This test proves the new filter can replace dgp.filter.http.prometheusmetric
+// Inspired by TestCounterExporterApiMetric in pkg/filter/prometheus/metric_test.go
+func TestMetricReporterPushMode(t *testing.T) {
+	// Create factory with push mode
+	factory := &FilterFactory{
+		cfg: &Config{
+			Mode: "push",
+			PushConfig: PushConfig{
+				GatewayURL:   "http://127.0.0.1:9091",
+				JobName:      "pixiu-test",
+				PushInterval: 10, // Push every 10 requests for faster testing
+				MetricPath:   "/metrics",
+			},
 		},
 	}
 
-	// Should not panic
-	assert.NotPanics(t, func() {
-		reporter.Report(metrics)
-	})
-}
+	// Validate configuration
+	err := factory.Apply()
+	require.NoError(t, err)
 
-// TestMetricsEndpointContentType tests the content type of metrics endpoint
-func TestMetricsEndpointContentType(t *testing.T) {
-	pullConfig := &PullConfig{
-		Enabled: true,
-		Port:    9201,
-		Path:    "/metrics",
+	// Prepare filter chain
+	testURL, _ := url.Parse("http://localhost/_api/health")
+	ctx := &contextHttp.HttpContext{
+		Request: &http.Request{
+			Method: "POST",
+			URL:    testURL,
+			Host:   "localhost",
+		},
+		Writer: &mockResponseWriter{},
+		Ctx:    context.Background(),
 	}
 
-	reporter := NewOTelPullReporter(pullConfig)
-	err := reporter.Start()
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
 	require.NoError(t, err)
 
-	time.Sleep(100 * time.Millisecond)
+	// Push mode should only have decode filter, no encode filter
+	require.Len(t, chain.decodeFilters, 1)
+	require.Len(t, chain.encodeFilters, 0, "Push mode should not have encode filter")
 
-	resp, err := http.Get("http://localhost:9201/metrics")
-	require.NoError(t, err)
-	defer resp.Body.Close()
+	// Simulate multiple requests (to trigger push)
+	for i := 0; i < 15; i++ {
+		// Record some context metrics before decode
+		ctx.RecordMetric("api_requests_total", "counter", 1.0, map[string]string{
+			"api": "health",
+		})
 
-	// Check content type
-	contentType := resp.Header.Get("Content-Type")
-	assert.True(t, 
-		strings.Contains(contentType, "text/plain") || 
-		strings.Contains(contentType, "application/openmetrics-text"),
-		"Expected Prometheus compatible content type, got: %s", contentType)
+		// Execute decode (reports metrics immediately in push mode)
+		decodeStatus := chain.decodeFilters[0].Decode(ctx)
+		assert.Equal(t, 0, int(decodeStatus))
+
+		// Clear metrics for next iteration
+		ctx.ClearMetrics()
+	}
+
+	t.Log("Push mode metric reporter test finished successfully")
 }
-

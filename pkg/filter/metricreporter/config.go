@@ -17,90 +17,82 @@
 
 package metricreporter
 
+import (
+	"errors"
+	"fmt"
+)
+
+import (
+	"go.opentelemetry.io/otel/metric/instrument/syncint64"
+)
+
 // Config defines the configuration for the unified metric reporter filter.
 type Config struct {
-	// Mode defines the metric reporting mode: "pull", "push", or "both"
-	Mode string `yaml:"mode" json:"mode" default:"pull"`
-
-	// PullConfig configuration for pull mode (Prometheus scraping)
-	PullConfig PullConfig `yaml:"pull_config" json:"pull_config"`
+	// Mode defines the metric reporting mode: "pull" or "push"
+	Mode string `yaml:"mode" json:"mode"`
 
 	// PushConfig configuration for push mode (Push Gateway)
+	// Note: Pull mode uses global metric configuration (metric.enable, metric.prometheus_port)
 	PushConfig PushConfig `yaml:"push_config" json:"push_config"`
-}
-
-// PullConfig defines the configuration for pull mode.
-type PullConfig struct {
-	// Enabled enables pull mode
-	Enabled bool `yaml:"enabled" json:"enabled" default:"true"`
-
-	// Port is the port to expose metrics endpoint
-	Port int `yaml:"port" json:"port" default:"9090"`
-
-	// Path is the HTTP path for metrics endpoint
-	Path string `yaml:"path" json:"path" default:"/metrics"`
 }
 
 // PushConfig defines the configuration for push mode.
 type PushConfig struct {
-	// Enabled enables push mode
-	Enabled bool `yaml:"enabled" json:"enabled" default:"false"`
-
 	// GatewayURL is the Push Gateway URL (e.g., http://localhost:9091)
-	GatewayURL string `yaml:"gateway_url" json:"gateway_url" default:"http://127.0.0.1:9091"`
+	GatewayURL string `yaml:"gateway_url" json:"gateway_url"`
 
 	// JobName is the job name for Push Gateway
-	JobName string `yaml:"job_name" json:"job_name" default:"pixiu"`
+	JobName string `yaml:"job_name" json:"job_name"`
 
 	// PushInterval defines how many requests to process before pushing metrics
-	// If set to 100, metrics will be pushed every 100 requests
-	PushInterval int `yaml:"push_interval" json:"push_interval" default:"100"`
+	PushInterval int `yaml:"push_interval" json:"push_interval"`
 
 	// MetricPath is the path to push metrics to Push Gateway
-	MetricPath string `yaml:"metric_path" json:"metric_path" default:"/metrics"`
+	MetricPath string `yaml:"metric_path" json:"metric_path"`
 }
 
-// Validate validates the configuration.
+type OTelInstruments struct {
+	totalElapsed syncint64.Counter
+	totalCount   syncint64.Counter
+	totalError   syncint64.Counter
+	sizeRequest  syncint64.Counter
+	sizeResponse syncint64.Counter
+	durationHist syncint64.Histogram
+}
+
+// Validate validates the configuration based on mode.
 func (c *Config) Validate() error {
-	if c.Mode != "pull" && c.Mode != "push" && c.Mode != "both" {
-		c.Mode = "pull" // default to pull mode
+	// Validate mode
+	if c.Mode != "pull" && c.Mode != "push" {
+		return fmt.Errorf("invalid mode '%s', must be 'pull' or 'push'", c.Mode)
 	}
 
-	// Set defaults for pull config
-	if c.PullConfig.Port == 0 {
-		c.PullConfig.Port = 9090
-	}
-	if c.PullConfig.Path == "" {
-		c.PullConfig.Path = "/metrics"
-	}
-
-	// Set defaults for push config
-	if c.PushConfig.GatewayURL == "" {
-		c.PushConfig.GatewayURL = "http://127.0.0.1:9091"
-	}
-	if c.PushConfig.JobName == "" {
-		c.PushConfig.JobName = "pixiu"
-	}
-	if c.PushConfig.PushInterval <= 0 {
-		c.PushConfig.PushInterval = 100
-	}
-	if c.PushConfig.MetricPath == "" {
-		c.PushConfig.MetricPath = "/metrics"
-	}
-
-	// Enable based on mode
-	switch c.Mode {
-	case "pull":
-		c.PullConfig.Enabled = true
-		c.PushConfig.Enabled = false
-	case "push":
-		c.PullConfig.Enabled = false
-		c.PushConfig.Enabled = true
-	case "both":
-		c.PullConfig.Enabled = true
-		c.PushConfig.Enabled = true
+	// Validate push config if in push mode
+	// Pull mode has no filter-level configuration (uses global metric config)
+	if c.Mode == "push" {
+		return c.PushConfig.Validate()
 	}
 
 	return nil
 }
 
+// Validate validates push mode configuration.
+func (c *PushConfig) Validate() error {
+	if c.GatewayURL == "" {
+		return errors.New("push gateway_url cannot be empty")
+	}
+
+	if c.JobName == "" {
+		return errors.New("push job_name cannot be empty")
+	}
+
+	if c.PushInterval <= 0 {
+		return fmt.Errorf("push interval %d must be greater than 0", c.PushInterval)
+	}
+
+	if c.MetricPath == "" {
+		return errors.New("push metric_path cannot be empty")
+	}
+
+	return nil
+}
