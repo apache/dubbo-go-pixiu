@@ -1,0 +1,343 @@
+# 指标上报过滤器 (dgp.filter.http.metricreporter)
+
+[English](metricreporter.md) | 中文
+
+---
+
+## 概述
+
+`dgp.filter.http.metricreporter` 过滤器为 Pixiu 网关提供统一的指标上报功能。它整合了之前的两个过滤器（`dgp.filter.http.metric` 和 `dgp.filter.http.prometheusmetric`）的功能，并支持 **Pull** 和 **Push** 两种模式，集成了 OpenTelemetry。
+
+### 核心特性
+
+- **统一入口**：单个过滤器支持 Pull 和 Push 两种模式
+- **OpenTelemetry 集成**：Pull 模式使用 OpenTelemetry（与 Pixiu Tracing 保持一致）
+- **Context 扩展**：其他过滤器可通过 `HttpContext.RecordMetric()` 记录自定义指标
+- **向后兼容**：复用原有过滤器的逻辑
+
+---
+
+## 模式说明
+
+### Pull 模式（推荐）
+
+指标通过 HTTP 端点暴露，供 Prometheus 抓取。
+
+**特点：**
+- 使用 OpenTelemetry SDK
+- 指标通过全局 HTTP 端点暴露
+- Prometheus 标准拉取模型
+- 支持来自 Context 的动态自定义指标
+
+**适用场景：**
+- 长期运行的服务
+- Kubernetes 环境
+- 开发和测试环境
+
+### Push 模式
+
+指标主动推送到 Prometheus Push Gateway。
+
+**特点：**
+- 使用 Prometheus 原生 SDK
+- 每 N 个请求推送一次指标
+- 批量推送减少网络开销
+
+**适用场景：**
+- 防火墙后的服务
+- 短生命周期批处理任务
+- 无法暴露入站端口的环境
+
+---
+
+## 配置说明
+
+### Pull 模式
+
+```yaml
+static_resources:
+  listeners:
+    - name: "net/http"
+      protocol_type: "HTTP"
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 8888
+      filter_chains:
+        filters:
+          - name: dgp.filter.httpconnectionmanager
+            config:
+              route_config:
+                routes:
+                  - match:
+                      prefix: /
+                    route:
+                      cluster: backend
+              http_filters:
+                # 其他过滤器...
+                - name: dgp.filter.http.httpproxy
+                  config: {}
+                
+                # MetricReporter 必须放在最后
+                - name: dgp.filter.http.metricreporter
+                  config:
+                    mode: "pull"
+
+# 全局指标配置（控制 HTTP 端点）
+metric:
+  enable: true
+  prometheus_port: 2222  # 访问地址：http://localhost:2222/metrics
+```
+
+### Push 模式
+
+```yaml
+http_filters:
+  - name: dgp.filter.http.metricreporter
+    config:
+      mode: "push"
+      push_config:
+        gateway_url: "http://push-gateway:9091"  # Push Gateway 地址
+        job_name: "pixiu"                        # 任务名称
+        push_interval: 100                       # 每 100 个请求推送一次
+        metric_path: "/metrics"                  # 推送路径
+```
+
+---
+
+## 内置指标
+
+### Pull 模式指标
+
+| 指标名称 | 类型 | 描述 |
+|---------|------|------|
+| `pixiu_request_count` | Counter | 请求总数 |
+| `pixiu_request_elapsed` | Counter | 请求总耗时（毫秒）|
+| `pixiu_request_error_count` | Counter | 错误总数 |
+| `pixiu_request_content_length` | Counter | 请求大小（字节）|
+| `pixiu_response_content_length` | Counter | 响应大小（字节）|
+| `pixiu_process_time_millicec` | Histogram | 请求处理时长分布（毫秒）|
+
+**标签**：`code`, `method`, `url`, `host`
+
+### Push 模式指标
+
+| 指标名称 | 类型 | 描述 |
+|---------|------|------|
+| `requests_total` | Counter | HTTP 请求总数 |
+| `request_duration_seconds` | Histogram | 请求延迟 |
+| `request_size_bytes` | Histogram | 请求大小 |
+| `response_size_bytes` | Histogram | 响应大小 |
+
+**标签**：`code`, `method`, `url`, `host`
+
+---
+
+## 自定义指标（扩展功能）
+
+其他过滤器可以记录自定义指标，由 MetricReporter 统一上报。
+
+### 在自定义过滤器中使用
+
+```go
+package myfilter
+
+import (
+    "fmt"
+    "time"
+    "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+    "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+)
+
+type Filter struct {
+    startTime time.Time
+}
+
+func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
+    f.startTime = time.Now()
+    return filter.Continue
+}
+
+func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus {
+    // 记录 Counter 指标
+    ctx.RecordMetric("my_requests_total", "counter", 1.0, map[string]string{
+        "method": ctx.GetMethod(),
+        "status": fmt.Sprintf("%d", ctx.GetStatusCode()),
+    })
+    
+    // 记录 Histogram 指标
+    latency := time.Since(f.startTime).Milliseconds()
+    ctx.RecordMetric("my_request_duration_ms", "histogram", float64(latency), map[string]string{
+        "endpoint": ctx.GetUrl(),
+    })
+    
+    // 记录 Gauge 指标
+    ctx.RecordMetric("my_active_connections", "gauge", float64(42), nil)
+    
+    return filter.Continue
+}
+```
+
+### 支持的指标类型
+
+| 类型 | 描述 | 示例 |
+|------|------|------|
+| `counter` | 单调递增的值 | 请求数、错误数 |
+| `histogram` | 值的分布统计 | 延迟、请求大小 |
+| `gauge` | 可增可减的值 | 活跃连接数、内存使用 |
+
+---
+
+## 使用指南
+
+### Pull 模式配置
+
+**步骤 1：配置全局指标端点**
+
+```yaml
+# conf.yaml
+metric:
+  enable: true
+  prometheus_port: 2222
+```
+
+**步骤 2：添加 MetricReporter 过滤器**
+
+```yaml
+http_filters:
+  - name: dgp.filter.http.metricreporter
+    config:
+      mode: "pull"
+```
+
+**步骤 3：配置 Prometheus**
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'pixiu'
+    static_configs:
+      - targets: ['localhost:2222']
+    scrape_interval: 15s
+```
+
+**步骤 4：访问指标**
+
+```bash
+curl http://localhost:2222/metrics
+```
+
+### Push 模式配置
+
+**步骤 1：启动 Push Gateway**
+
+```bash
+docker run -d -p 9091:9091 prom/pushgateway
+```
+
+**步骤 2：配置 MetricReporter**
+
+```yaml
+http_filters:
+  - name: dgp.filter.http.metricreporter
+    config:
+      mode: "push"
+      push_config:
+        gateway_url: "http://localhost:9091"
+        job_name: "pixiu"
+        push_interval: 100
+        metric_path: "/metrics"
+```
+
+**步骤 3：验证指标**
+
+```bash
+# 查看 Push Gateway 中的指标
+curl http://localhost:9091/metrics
+```
+
+---
+
+## 与旧版过滤器的区别
+
+### 替代 dgp.filter.http.metric (Pull)
+
+**旧配置：**
+```yaml
+- name: dgp.filter.http.metric
+  config: {}
+```
+
+**新配置：**
+```yaml
+- name: dgp.filter.http.metricreporter
+  config:
+    mode: "pull"
+```
+
+### 替代 dgp.filter.http.prometheusmetric (Push)
+
+**旧配置：**
+```yaml
+- name: dgp.filter.http.prometheusmetric
+  config:
+    metric_collect_rules:
+      push_gateway_url: "http://localhost:9091"
+      counter_push: true
+      push_interval_threshold: 100
+      push_job_name: "pixiu"
+```
+
+**新配置：**
+```yaml
+- name: dgp.filter.http.metricreporter
+  config:
+    mode: "push"
+    push_config:
+      gateway_url: "http://localhost:9091"
+      job_name: "pixiu"
+      push_interval: 100
+      metric_path: "/metrics"
+```
+
+---
+
+## 故障排查
+
+### Pull 模式
+
+**问题**：无法访问指标端点
+
+**解决**：确保全局指标配置已启用：
+```yaml
+metric:
+  enable: true
+  prometheus_port: 2222
+```
+
+**问题**：指标未显示
+
+**解决**：检查过滤器是否放在 http_filters 列表的最后
+
+### Push 模式
+
+**问题**：指标未推送到 Gateway
+
+**解决**：
+1. 验证 Push Gateway 正在运行：`curl http://push-gateway:9091`
+2. 检查推送间隔阈值是否达到（发送 N 个请求）
+3. 查看日志中的推送错误
+
+**问题**：重复指标警告
+
+**解决**：这在运行多个测试时是正常的；指标会被正确聚合
+
+---
+
+## 注意事项
+
+- **过滤器顺序**：MetricReporter 应放在 http_filters 列表的**最后**
+- **Pull 端点**：由全局 `metric.prometheus_port` 控制，而非过滤器配置
+- **自定义指标**：Pull 模式完全支持动态指标；Push 模式记录日志（可扩展）
+- **OpenTelemetry**：Pull 模式与 Pixiu Tracing 技术栈保持一致
+
