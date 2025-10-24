@@ -354,13 +354,7 @@ func TestDecodeMethod(t *testing.T) {
 	assert.False(t, filter.start.IsZero())
 }
 
-// ============================================================================
-// Integration Tests - Prove new filter can replace old filters
-// ============================================================================
-
 // TestMetricReporterPullMode tests pull mode with OpenTelemetry.
-// This test proves the new filter can replace dgp.filter.http.metric
-// Inspired by TestMetric in pkg/filter/metric/metric_test.go
 func TestMetricReporterPullMode(t *testing.T) {
 	// Create factory with pull mode
 	factory := &FilterFactory{
@@ -405,8 +399,6 @@ func TestMetricReporterPullMode(t *testing.T) {
 }
 
 // TestMetricReporterPushMode tests push mode with Prometheus Push Gateway.
-// This test proves the new filter can replace dgp.filter.http.prometheusmetric
-// Inspired by TestCounterExporterApiMetric in pkg/filter/prometheus/metric_test.go
 func TestMetricReporterPushMode(t *testing.T) {
 	// Create factory with push mode
 	factory := &FilterFactory{
