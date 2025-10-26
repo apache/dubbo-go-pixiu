@@ -1,12 +1,12 @@
-## MCP (Meta Channel Protocol) 网关配置
+## MCP (Model Context Protocol) 网关配置
 
 [English](./mcp.md) | 中文
 
-本文档解释了如何在您的网关中配置 MCP (Meta Channel Protocol) 过滤器，使您能够安全地将后端 HTTP API 暴露为可供 AI Agent 调用的“工具”。
+本文档解释了如何在您的网关中配置 MCP (Model Context Protocol) 过滤器，使您能够安全地将后端 HTTP API 暴露为可供 AI Agent 调用的"工具"。
 
 ### 简介
 
-MCP (Meta Channel Protocol) 是一个智能桥梁，连接 AI Agent 与您现有的后端服务。它将一个简单、统一的协议动态转换为标准的 HTTP 请求，允许 Agent 与您的 API 进行交互，就好像它们是本地函数或工具一样。这种方法简化了 Agent 的开发，并为安全性、控制和可观察性提供了一个中心化的管理点。
+MCP (Model Context Protocol) 是一个智能桥梁，连接 AI Agent 与您现有的后端服务。它将一个简单、统一的协议动态转换为标准的 HTTP 请求，允许 Agent 与您的 API 进行交互，就好像它们是本地函数或工具一样。这种方法简化了 Agent 的开发，并为安全性、控制和可观察性提供了一个中心化的管理点。
 
 设置 MCP 端点主要涉及两个过滤器：
 

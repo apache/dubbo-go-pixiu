@@ -1,12 +1,12 @@
-## MCP (Meta Channel Protocol) Gateway Configuration
+## MCP (Model Context Protocol) Gateway Configuration
 
 English | [中文](./mcp_CN.md)
 
-This document explains how to configure the MCP (Meta Channel Protocol) filters within your gateway, enabling you to securely expose backend HTTP APIs as callable "tools" for AI Agents.
+This document explains how to configure the MCP (Model Context Protocol) filters within your gateway, enabling you to securely expose backend HTTP APIs as callable "tools" for AI Agents.
 
 ### Introduction
 
-The Meta Channel Protocol (MCP) serves as an intelligent bridge between AI Agents and your existing backend services. It dynamically translates a simple, unified protocol into standard HTTP requests, allowing agents to interact with your APIs as if they were native functions or tools. This approach simplifies agent development and provides a centralized point for security, control, and observability.
+The Model Context Protocol (MCP) serves as an intelligent bridge between AI Agents and your existing backend services. It dynamically translates a simple, unified protocol into standard HTTP requests, allowing agents to interact with your APIs as if they were native functions or tools. This approach simplifies agent development and provides a centralized point for security, control, and observability.
 
 There are two primary filters for setting up an MCP endpoint:
 
