@@ -359,5 +359,3 @@ func (r *ToolRegistry) ToMCPPrompts() ([]map[string]any, error) {
 
 	return mcpPrompts, nil
 }
-
-// TODO: Dynamic update functionality - implement when integrating with Nacos

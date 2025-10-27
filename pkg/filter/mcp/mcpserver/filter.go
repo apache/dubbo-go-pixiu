@@ -22,12 +22,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+import (
 	"github.com/mark3labs/mcp-go/mcp"
+)
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -191,7 +193,8 @@ func (f *MCPServerFilter) sendJSONResponse(ctx *MCPContext, response any) filter
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal response: %v", err)
-		ctx.SendLocalReply(http.StatusInternalServerError, []byte("internal server error"))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("marshal response failed: %w", err))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

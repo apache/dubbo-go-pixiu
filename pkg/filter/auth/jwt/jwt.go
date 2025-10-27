@@ -19,6 +19,7 @@ package jwt
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	stdHttp "net/http"
 	"strings"
@@ -190,8 +191,8 @@ func (factory *FilterFactory) Apply() error {
 		factory.cfg.ErrMsg = "token invalid"
 	}
 
-	errMsg, _ := json.Marshal(http.ErrResponse{Message: factory.cfg.ErrMsg})
-	factory.errMsg = errMsg
+	errResp := http.Unauthorized.WithError(errors.New(factory.cfg.ErrMsg))
+	factory.errMsg = errResp.ToJSON()
 
 	return nil
 }

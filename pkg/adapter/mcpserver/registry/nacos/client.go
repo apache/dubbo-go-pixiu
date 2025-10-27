@@ -539,9 +539,10 @@ func (n *NacosRegistryClient) ListenToConfig(ctx *ServerContext, dataId string, 
 		}
 
 		// Execute time-consuming or network-related logic outside lock
-		if group == McpToolSpecGroup {
+		switch group {
+		case McpToolSpecGroup:
 			n.resetNacosTemplateConfigs(ctx, wrap)
-		} else if group == McpServerSpecGroup {
+		case McpServerSpecGroup:
 			n.refreshServiceListenerIfNeeded(ctx, data)
 		}
 
@@ -563,9 +564,10 @@ func (n *NacosRegistryClient) ListenToConfig(ctx *ServerContext, dataId string, 
 	wrap.data = config
 
 	// Process initial configuration (placed outside lock, as these operations may perform network calls)
-	if group == McpToolSpecGroup {
+	switch group {
+	case McpToolSpecGroup:
 		n.resetNacosTemplateConfigs(ctx, wrap)
-	} else if group == McpServerSpecGroup {
+	case McpServerSpecGroup:
 		n.refreshServiceListenerIfNeeded(ctx, config)
 	}
 
@@ -625,9 +627,10 @@ func mapConfigMapToServerConfig(ctx *ServerContext) *McpServerConfig {
 
 		if isSystemConfigKey(key) {
 			_, _, group, _ := parseConfigKey(key)
-			if group == McpServerSpecGroup {
+			switch group {
+			case McpServerSpecGroup:
 				result.ServerSpecConfig = data.data
-			} else if group == McpToolSpecGroup {
+			case McpToolSpecGroup:
 				result.ToolsSpecConfig = data.data
 			}
 		} else if isCredentialConfigKey(key) {

@@ -189,7 +189,8 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	e := server.GetClusterManager().PickEndpoint(re.Cluster, c)
 	if e == nil {
 		logger.Errorf("%s err {cluster not exists}", loggerHeader)
-		c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte("cluster not exists"))
+		errResp := http.ServiceUnavailable.WithError(errors.New("cluster not exists"))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	// timeout for Dial and Invoke
@@ -208,7 +209,8 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		clientConn, err = grpc.DialContext(ctx, ep, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil || clientConn == nil {
 			logger.Errorf("%s err {failed to connect to grpc service provider}", loggerHeader)
-			c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte((fmt.Sprintf("%s", err))))
+			errResp := http.ServiceUnavailable.WithError(fmt.Errorf("endpoint not found: %w", err))
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
 	}
@@ -217,7 +219,8 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	source, err := f.descriptor.getDescriptorSource(context.WithValue(ctx, ct.ContextKey(GrpcClientConnKey), clientConn), f.cfg)
 	if err != nil {
 		logger.Errorf("%s err %s : %s ", loggerHeader, "get desc source fail", err)
-		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte("service not config proto file or the server not support reflection API"))
+		errResp := http.ConfigurationError.WithError(fmt.Errorf("service not config proto file or the server not support reflection API"))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	//put DescriptorSource concurrent, del if no need
@@ -226,14 +229,16 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	dscp, err := source.FindSymbol(svc)
 	if err != nil {
 		logger.Errorf("%s err {%s}", loggerHeader, "request path invalid")
-		c.SendLocalReply(stdHttp.StatusBadRequest, []byte("method not allow"))
+		errResp := http.MethodNotAllowed.New()
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
 	svcDesc, ok := dscp.(*desc.ServiceDescriptor)
 	if !ok {
 		logger.Errorf("%s err {service not expose, %s}", loggerHeader, svc)
-		c.SendLocalReply(stdHttp.StatusBadRequest, []byte(fmt.Sprintf("service not expose, %s", svc)))
+		errResp := http.BadRequest.WithError(fmt.Errorf("service not exposed: %s", svc))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -242,7 +247,8 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	err = f.registerExtension(source, mthDesc)
 	if err != nil {
 		logger.Errorf("%s err {%s}", loggerHeader, "register extension failed")
-		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("%s", err)))
+		errResp := http.ConfigurationError.WithError(fmt.Errorf("register extension failed: %w", err))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -252,7 +258,8 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	err = jsonToProtoMsg(c.Request.Body, grpcReq)
 	if err != nil && !errors.Is(err, io.EOF) {
 		logger.Errorf("%s err {failed to convert json to proto msg, %s}", loggerHeader, err.Error())
-		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("%s", err)))
+		errResp := http.BadGateway.WithError(fmt.Errorf("protocol conversion error: %w", err))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -267,21 +274,40 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq, grpc.Header(&md), grpc.Trailer(&t))
 	// judge err is server side error or not
-	if st, ok := status.FromError(err); !ok || isServerError(st) {
-		if isServerTimeout(st) {
-			logger.Errorf("%s err {failed to invoke grpc service provider because timeout, err:%s}", loggerHeader, err.Error())
-			c.SendLocalReply(stdHttp.StatusGatewayTimeout, []byte(fmt.Sprintf("%s", err)))
+	if st, ok := status.FromError(err); ok {
+		// Handle client-side gRPC errors (e.g., InvalidArgument)
+		if st.Code() != codes.OK && !isServerError(st) {
+			logger.Errorf("%s err {gRPC client error, code: %s, msg: %s}", loggerHeader, st.Code(), st.Message())
+			errResp := http.BadGateway.WithError(fmt.Errorf("gRPC client error: %w", err))
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
+		// Handle server-side gRPC errors
+		if isServerError(st) {
+			if isServerTimeout(st) {
+				logger.Errorf("%s err {failed to invoke grpc service provider because timeout, err:%s}", loggerHeader, err.Error())
+				errResp := http.GatewayTimeout.WithError(fmt.Errorf("upstream timeout: %w", err))
+				c.SendLocalReply(errResp.Status, errResp.ToJSON())
+				return filter.Stop
+			}
+			logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
+			errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
+			return filter.Stop
+		}
+	} else if err != nil {
+		// Handle non-gRPC errors
 		logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
-		c.SendLocalReply(stdHttp.StatusServiceUnavailable, []byte(fmt.Sprintf("%s", err)))
+		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
 	res, err := protoMsgToJson(resp)
 	if err != nil {
 		logger.Errorf("%s err {failed to convert proto msg to json, %s}", loggerHeader, err.Error())
-		c.SendLocalReply(stdHttp.StatusInternalServerError, []byte(fmt.Sprintf("%s", err)))
+		errResp := http.BadGateway.WithError(fmt.Errorf("protocol conversion error: %w", err))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

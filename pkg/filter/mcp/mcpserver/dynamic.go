@@ -41,11 +41,36 @@ const (
 	EmptyFingerprint = "00000000"
 )
 
+var (
+	globalRegistry *ToolRegistry
+	globalDynamic  *DynamicConsumer
+
+	// sync.Once variables for thread-safe singleton initialization
+	registryOnce sync.Once
+	dynamicOnce  sync.Once
+)
+
 // ServerToolConfig tool configuration for a single server
 type ServerToolConfig struct {
 	Tools       []model.ToolConfig
 	Fingerprint string
 	LastApplied time.Time
+}
+
+// GetOrInitRegistry returns a singleton ToolRegistry
+func GetOrInitRegistry() *ToolRegistry {
+	registryOnce.Do(func() {
+		globalRegistry = NewToolRegistry()
+	})
+	return globalRegistry
+}
+
+// GetOrInitDynamic returns a singleton DynamicConsumer
+func GetOrInitDynamic() *DynamicConsumer {
+	dynamicOnce.Do(func() {
+		globalDynamic = NewDynamicConsumer(GetOrInitRegistry())
+	})
+	return globalDynamic
 }
 
 // DynamicConsumer applies dynamic MCP configurations into the registry
@@ -148,7 +173,7 @@ func (d *DynamicConsumer) calculateFingerprint(tools []model.ToolConfig) string 
 	// Build hash input string
 	hash := sha256.New()
 	for _, tool := range sortedTools {
-		hash.Write([]byte(fmt.Sprintf("name:%s;cluster:%s;args:%d;", tool.Name, tool.Cluster, len(tool.Args))))
+		fmt.Fprintf(hash, "name:%s;cluster:%s;args:%d;", tool.Name, tool.Cluster, len(tool.Args))
 	}
 
 	// Return first 8 characters of hex encoded hash
@@ -168,11 +193,11 @@ func (d *DynamicConsumer) SetDebounceTime(duration time.Duration) {
 }
 
 // GetDebounceInfo returns debounce state information (for debugging/monitoring)
-func (d *DynamicConsumer) GetDebounceInfo() map[string]interface{} {
+func (d *DynamicConsumer) GetDebounceInfo() map[string]any {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"debounce_time": d.debounceTime.String(),
 		"server_count":  len(d.serverConfigs),
 	}

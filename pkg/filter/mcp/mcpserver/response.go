@@ -30,6 +30,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -140,7 +141,8 @@ func (eh *ErrorHandler) sendResponse(ctx *MCPContext, response any) filter.Filte
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal response: %v", err)
-		ctx.SendLocalReply(http.StatusInternalServerError, []byte("internal server error"))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("marshal response failed: %w", err))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

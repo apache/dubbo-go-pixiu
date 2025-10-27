@@ -18,10 +18,6 @@
 package prometheus
 
 import (
-	stdHttp "net/http"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -91,23 +87,28 @@ func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
 
 	if f.Cfg == nil {
 		logger.Errorf("Message:Filter Metric Collect Configuration is null")
-		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
-		return filter.Continue
+		errResp := contextHttp.Forbidden.New()
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
 	}
 	if f.Prom == nil {
 		logger.Errorf("Message:Prometheus Collector is not initialized")
-		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
-		return filter.Continue
+		errResp := contextHttp.Forbidden.New()
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
 	}
 	if f.Cfg.Rules.CounterPush && f.Cfg.Rules.PushIntervalThreshold == 0 {
-		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
-		return filter.Continue
+		errResp := contextHttp.Forbidden.New()
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
 	}
 	start := f.Prom.HandlerFunc()
 	err := start(ctx)
 	if err != nil {
 		logger.Errorf("Message:Context HandlerFunc error")
-		ctx.SendLocalReply(stdHttp.StatusForbidden, constant.Default403Body)
+		errResp := contextHttp.Forbidden.New()
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
 	}
 	return filter.Continue
 }

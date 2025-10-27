@@ -233,7 +233,7 @@ func (f *MCPServerFilter) buildPingResponseObject(req mcp.JSONRPCRequest) mcp.JS
 
 // handleNotificationsInitialized handles notifications/initialized notification
 func (f *MCPServerFilter) handleNotificationsInitialized(ctx *MCPContext, _ mcp.JSONRPCRequest) filter.FilterStatus {
-	logger.Infof("[dubbo-go-pixiu] mcp server received initialized notification, returning 202 Accepted")
+	logger.Debugf("[dubbo-go-pixiu] mcp server received initialized notification from client")
 
 	// Per MCP spec, notifications MUST return 202 Accepted with no body
 	ctx.SendLocalReply(http.StatusAccepted, nil)
