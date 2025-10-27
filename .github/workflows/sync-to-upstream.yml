@@ -96,7 +96,7 @@ jobs:
       # Step 1: Checkout code with full history
       - name: Checkout repository
         if: steps.check_branch.outputs.skip != 'true'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v5 # NOSONAR
         with:
           fetch-depth: 0
           ref: ${{ env.BASE_BRANCH }}
