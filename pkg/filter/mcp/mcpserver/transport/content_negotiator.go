@@ -19,7 +19,9 @@ package transport
 
 import (
 	"strings"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
