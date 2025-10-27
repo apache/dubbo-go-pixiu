@@ -77,7 +77,7 @@ jobs:
           # Check if PR is created by Pull bot to avoid circular sync
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
           
-          if [ "${PR_AUTHOR}" = "pull" ]; then
+          if [ "${PR_AUTHOR}" = "pull[bot]" ]; then
             echo "🤖 Detected Pull bot sync PR from user '${PR_AUTHOR}'. Skipping upstream sync to avoid circular updates."
             echo "skip=true" >> $GITHUB_OUTPUT
             exit 0
