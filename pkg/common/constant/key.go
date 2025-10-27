@@ -42,6 +42,7 @@ const (
 	HTTPWasmFilter             = "dgp.filter.http.webassembly"
 	HTTPCircuitBreakerFilter   = "dgp.filter.http.circuitbreaker"
 	HTTPAuthJwtFilter          = "dgp.filter.http.auth.jwt"
+	HTTPMCPAuthFilter          = "dgp.filter.http.auth.mcp"
 	HTTPCorsFilter             = "dgp.filter.http.cors"
 	HTTPCsrfFilter             = "dgp.filter.http.csrf"
 	HTTPProxyRewriteFilter     = "dgp.filter.http.proxyrewrite"
@@ -66,6 +67,7 @@ const (
 	SpringCloudAdapter         = "dgp.adapter.springcloud"
 	DubboRegistryCenterAdapter = "dgp.adapter.dubboregistrycenter"
 	LLMRegistryCenterAdapter   = "dgp.adapter.llmregistrycenter"
+	McpServerAdapter           = "dgp.adapter.mcpserver"
 )
 
 const (

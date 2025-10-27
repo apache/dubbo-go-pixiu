@@ -20,7 +20,6 @@ package remote
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -77,6 +76,10 @@ type (
 		// Resolver is the Resolver to resolve HTTP requests to Dubbo services.
 		Resolver string `yaml:"resolver,omitempty" json:"resolver,omitempty" default:"StandardDubboResolver"`
 	}
+
+	mockResponse struct {
+		Message string `json:"message"`
+	}
 )
 
 func (p *Plugin) Kind() string {
@@ -132,7 +135,8 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	if f.conf.DubboProxyConfig != nil && f.conf.DubboProxyConfig.AutoResolve {
 		if err := f.resolve(c); err != nil {
-			c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("auto resolve err: %s", err)))
+			errResp := contexthttp.ConfigurationError.WithError(fmt.Errorf("auto resolve error: %w", err))
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
 	}
@@ -140,9 +144,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	api := c.GetAPI()
 
 	if (f.conf.Level == OPEN && api.Mock) || (f.conf.Level == ALL) {
-		c.SourceResp = &contexthttp.ErrResponse{
-			Message: "mock success",
-		}
+		c.SourceResp = &mockResponse{Message: "mock success"}
 		return filter.Continue
 	}
 
@@ -159,10 +161,12 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] client call err: %v!", err)
 		if strings.Contains(strings.ToLower(err.Error()), "timeout") {
-			c.SendLocalReply(http.StatusGatewayTimeout, []byte(fmt.Sprintf("client call timeout err: %s", err)))
+			errResp := contexthttp.GatewayTimeout.WithError(fmt.Errorf("client timeout: %w", err))
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
-		c.SendLocalReply(http.StatusInternalServerError, []byte(fmt.Sprintf("client call err: %s", err)))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("client call error: %w", err))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

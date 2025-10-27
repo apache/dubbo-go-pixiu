@@ -224,10 +224,10 @@ func TestValidateTarget(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, val)
 	_, err = validateTarget(*target)
-	assert.EqualError(t, err, "Target params for dubbo backend must be *dubbogoTarget")
+	assert.EqualError(t, err, "Target params for dubbo backend must be *dubboTarget")
 	target2 := ""
 	_, err = validateTarget(target2)
-	assert.EqualError(t, err, "Target params for dubbo backend must be *dubbogoTarget")
+	assert.EqualError(t, err, "Target params for dubbo backend must be *dubboTarget")
 }
 
 func TestMapType(t *testing.T) {

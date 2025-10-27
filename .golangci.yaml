@@ -10,6 +10,7 @@ linters:
     - ineffassign
     - misspell
     - staticcheck
+    - depguard
   settings:
     depguard:
       rules:
@@ -51,6 +52,9 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019:'
+      - linters:
+          - staticcheck
+        text: 'QF1008:'
     paths:
       - test/testdata_etc
       - pkg/golinters/goanalysis/(checker|passes)

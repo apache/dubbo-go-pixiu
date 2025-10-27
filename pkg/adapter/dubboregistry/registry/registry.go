@@ -34,6 +34,7 @@ import (
 import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -85,7 +86,7 @@ func GetRegistry(name string, regConfig model.Registry, listener common2.Registr
 	if registry, ok := registryMap[regConfig.Protocol]; ok {
 		reg, err := registry(regConfig, listener)
 		if err != nil {
-			panic("Initialize Registry" + name + "failed due to: " + err.Error())
+			logger.Warnf("Initialize Registry %s failed due to: %s", name, err.Error())
 		}
 		return reg, nil
 	}

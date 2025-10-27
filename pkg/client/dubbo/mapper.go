@@ -189,7 +189,7 @@ func (um uriMapper) Map(mp config.MappingParam, c *client.Request, target any, o
 func validateTarget(target any) (*dubboTarget, error) {
 	val, ok := target.(*dubboTarget)
 	if !ok {
-		return nil, errors.New("Target params for dubbo backend must be *dubbogoTarget")
+		return nil, errors.New("Target params for dubbo backend must be *dubboTarget")
 	}
 	return val, nil
 }

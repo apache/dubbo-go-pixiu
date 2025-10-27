@@ -176,14 +176,14 @@ func TestWeightRandom_Handler_Probabilistic(t *testing.T) {
 			iterations:       20000,
 		},
 		{
-			name:             "some endpoints with default weight",
+			name:             "some endpoints with default weight (y = 1)",
 			endpointsWeights: map[string]int{"x": 2, "y": 1, "z": 3}, // 'y' will get weight 1
 			expectedProbs:    map[string]float64{"x": 0.33, "y": 0.17, "z": 0.5},
 			tolerance:        0.04,
 			iterations:       15000,
 		},
 		{
-			name:             "some endpoints with default weight",
+			name:             "some endpoints with zero weight (y = 0)",
 			endpointsWeights: map[string]int{"x": 2, "y": 0, "z": 3}, // 'y' will get weight 0
 			expectedProbs:    map[string]float64{"x": 0.4, "y": 0, "z": 0.6},
 			tolerance:        0.04,
@@ -211,6 +211,9 @@ func TestWeightRandom_Handler_Probabilistic(t *testing.T) {
 				if diff := abs(actualProb - expectedProb); diff > tt.tolerance {
 					t.Errorf("Endpoint %s: expected probability %f, got %f (difference %f > tolerance %f)",
 						id, expectedProb, actualProb, diff, tt.tolerance)
+				}
+				if expectedProb == 0 && counts[id] != 0 {
+					t.Errorf("Endpoint %s: expected 0 selections (weight=0), got %d", id, counts[id])
 				}
 			}
 		})

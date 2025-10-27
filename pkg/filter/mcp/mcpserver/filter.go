@@ -32,19 +32,20 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // FilterFactory and MCPServerFilter types
 type (
 	// FilterFactory is a factory to create MCP server filters.
 	FilterFactory struct {
-		cfg      *Config
+		cfg      *model.McpServerConfig
 		registry *ToolRegistry
 	}
 
 	// MCPServerFilter is a filter that handles MCP protocol.
 	MCPServerFilter struct {
-		cfg             *Config
+		cfg             *model.McpServerConfig
 		registry        *ToolRegistry
 		errorHandler    *ErrorHandler
 		responseBuilder *ResponseBuilder
@@ -53,14 +54,12 @@ type (
 
 // Apply prepares the MCP server and tool registry.
 func (f *FilterFactory) Apply() error {
-	// Initialize tool registry
-	f.registry = NewToolRegistry()
+	// Initialize tool registry (singleton)
+	f.registry = GetOrInitRegistry()
 
-	// Register statically configured tools
+	// Sync statically configured tools into registry (full replace)
+	f.registry.ReplaceAllTools(f.cfg.Tools)
 	for _, tool := range f.cfg.Tools {
-		if err := f.registry.RegisterTool(tool); err != nil {
-			return fmt.Errorf("failed to register tool %s: %v", tool.Name, err)
-		}
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered tool '%s' -> cluster:%s", tool.Name, tool.Cluster)
 	}
 
@@ -97,7 +96,7 @@ func (f *FilterFactory) Config() any {
 }
 
 // PrepareFilterChain prepares the filter chain
-func (f *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
+func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain filter.FilterChain) error {
 	mcpFilter := &MCPServerFilter{
 		cfg:             f.cfg,
 		registry:        f.registry,
@@ -220,7 +219,8 @@ func (f *MCPServerFilter) sendJSONResponse(ctx *MCPContext, response any) filter
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal response: %v", err)
-		ctx.SendLocalReply(http.StatusInternalServerError, []byte("internal server error"))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("marshal response failed: %w", err))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

@@ -111,7 +111,7 @@ class socket {
 
     // 发送消息
     send(text) {
-        if (text === 'undefined') return
+        if (text === undefined || text === 'undefined') return;
         if (this._alive === true) {
             text = typeof text === 'string' ? text : JSON.stringify(text)
             this._ws.send(text)
