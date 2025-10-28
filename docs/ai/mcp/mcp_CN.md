@@ -255,3 +255,214 @@ static_resources:
             address: "127.0.0.1"
             port: 8081
 ```
+
+---
+
+### 使用 Nacos 作为 MCP 服务器注册中心
+
+Pixiu 支持通过 Nacos 3.0+ 动态发现和管理 MCP 工具配置。通过使用 Nacos 作为注册中心，您可以集中管理 MCP 工具定义，并实现动态配置更新，而无需重启网关。
+
+#### Adapter 配置 (`adapters`)
+
+要启用 Nacos 集成，您需要在配置文件中添加 `adapters` 部分。适配器负责连接到 Nacos 注册中心并订阅 MCP 服务配置。
+
+```yaml
+adapters:
+  - id: "mcp-nacos-adapter"
+    name: "dgp.adapter.mcpserver"
+    config:
+      registries:
+        nacos:
+          protocol: "nacos"
+          address: "127.0.0.1:8848"
+          timeout: "5s"
+          username: "nacos"
+          password: "nacos"
+```
+
+#### Adapter 配置字段说明
+
+`id`
+
+- **类型**: `string`
+- **描述**: 适配器的唯一标识符。用于在日志和监控中识别此适配器实例。
+
+`name`
+
+- **类型**: `string`
+- **描述**: 适配器类型名称。对于 MCP 服务器的 Nacos 集成，必须使用 `dgp.adapter.mcpserver`。
+
+`config`
+
+- **类型**: `object`
+- **描述**: 适配器的具体配置，包含注册中心连接信息。
+
+##### 注册中心配置 (`registries`)
+
+`registries` 是一个键值对映射，其中键是注册中心的名称（如 `nacos`），值是该注册中心的配置对象。
+
+`protocol`
+
+- **类型**: `string`
+- **描述**: 注册中心协议类型。目前支持 `nacos`。
+
+`address`
+
+- **类型**: `string`
+- **描述**: Nacos 服务器地址，格式为 `host:port`。例如 `127.0.0.1:8848`。
+
+`timeout`
+
+- **类型**: `string`
+- **描述**: 连接超时时间。支持的时间单位包括 `s`（秒）、`ms`（毫秒）等。例如 `5s` 表示 5 秒。
+
+`username`
+
+- **类型**: `string`
+- **描述**: Nacos 认证用户名。如果 Nacos 服务器启用了认证，此字段为必填。
+
+`password`
+
+- **类型**: `string`
+- **描述**: Nacos 认证密码。如果 Nacos 服务器启用了认证，此字段为必填。
+
+`namespace` (可选)
+
+- **类型**: `string`
+- **描述**: Nacos 命名空间 ID。用于环境隔离。如果不指定，则使用默认命名空间。
+
+`group` (可选)
+
+- **类型**: `string`
+- **描述**: Nacos 服务分组。用于服务分组管理。如果不指定，则使用默认分组。
+
+---
+
+### 完整的 Nacos 集成配置示例
+
+以下示例展示了一个使用 Nacos 作为 MCP 服务器配置源的完整配置。网关会自动从 Nacos 获取工具定义，并根据配置动态路由请求。
+
+```yaml
+static_resources:
+  listeners:
+    - name: "net/http"
+      protocol_type: "HTTP"
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 8888
+      filter_chains:
+        filters:
+          - name: "dgp.filter.httpconnectionmanager"
+            config:
+              route_config:
+                routes:
+                  # 所有 MCP 请求路由到受保护的集群
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: "mcp-protected"
+                      cluster_not_found_response_code: 505
+              http_filters:
+                # MCP 服务器过滤器
+                - name: "dgp.filter.mcp.mcpserver"
+                  config:
+                    server_info:
+                      name: "MCP Nacos 示例服务器"
+                      version: "1.0.0"
+                      description: "从 Nacos 动态加载工具的 MCP 服务器"
+                      instructions: "此服务器的工具配置由 Nacos 集中管理"
+
+                # 下游 HTTP 代理
+                - name: "dgp.filter.http.httpproxy"
+
+  clusters:
+    # 虚拟集群，用于路由规则
+    - name: "mcp-protected"
+      type: "STATIC"
+      lb_policy: "ROUND_ROBIN"
+      endpoints:
+        - socket_address:
+            address: "127.0.0.1"
+            port: 8081
+
+# Nacos 适配器配置
+adapters:
+  - id: "mcp-nacos-adapter"
+    name: "dgp.adapter.mcpserver"
+    config:
+      registries:
+        nacos:
+          protocol: "nacos"
+          address: "127.0.0.1:8848"
+          timeout: "5s"
+          username: "nacos"
+          password: "nacos"
+          namespace: ""  # 可选：使用默认命名空间
+          group: "DEFAULT_GROUP"  # 可选：使用默认分组
+```
+
+---
+
+### 使用步骤
+
+#### 1. 准备 Nacos 环境
+
+确保您已安装并启动 Nacos 3.0 或更高版本。您可以通过访问 `http://<nacos-server-ip>:8848/nacos` 来访问 Nacos 控制台。
+
+#### 2. 在 Nacos 中配置 MCP 服务
+
+1. **登录 Nacos 控制台**
+2. **进入 MCP 管理**：在左侧菜单栏找到并点击 "MCP管理"
+3. **创建 MCP Server**：
+   - 点击 "MCP列表" → "创建MCP Server"
+   - **类型**：选择 `streamable`
+   - **工具(Tools)**：选择 "从OpenAPI导入"，然后上传您的 OpenAPI 规范文件
+
+4. **验证并修正配置**：
+   - 上传成功后，Nacos 会自动解析 OpenAPI 文件并生成工具列表
+   - **重要**：检查所有工具的后端地址是否正确（Nacos 3.0 版本可能存在路径解析问题）
+   - 确保后端地址格式为 `http://host:port`，而不是 `http:/host:port`
+
+5. **发布服务**：确认所有配置无误后，点击 "发布"
+
+> **注意**：当前版本的 Pixiu 仅支持连接到单个 MCP Server 实例。
+
+#### 3. 启动 Pixiu 网关
+
+使用包含 Nacos 适配器配置的配置文件启动 Pixiu：
+
+```bash
+cd /path/to/dubbo-go-pixiu
+go run cmd/pixiu/*.go gateway start -c /path/to/your/config.yaml
+```
+
+启动后，Pixiu 会：
+
+- 连接到 Nacos 注册中心
+- 订阅 MCP 服务配置
+- 动态加载工具定义
+- 自动处理配置更新（无需重启）
+
+#### 4. 验证集成
+
+您可以通过以下方式验证 Nacos 集成是否正常工作：
+
+1. **检查日志**：查看 Pixiu 启动日志，确认已成功连接到 Nacos
+2. **测试工具调用**：使用 MCP 客户端（如 MCP Inspector）连接到 `http://localhost:8888/mcp` 并测试工具调用
+3. **动态更新测试**：在 Nacos 控制台中修改工具配置，验证更改是否自动生效
+
+---
+
+### 最佳实践
+
+1. **环境隔离**：使用 Nacos 的命名空间功能来隔离不同环境（开发、测试、生产）的配置
+2. **配置备份**：定期备份 Nacos 中的 MCP 配置，防止意外丢失
+3. **监控与告警**：配置 Nacos 连接状态监控，及时发现连接问题
+4. **灰度发布**：利用 Nacos 的配置管理能力，实现工具配置的灰度发布
+
+---
+
+### 示例参考
+
+完整的使用示例和配置文件可以在 [dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples) 项目的 `mcp/nacos` 目录中找到。

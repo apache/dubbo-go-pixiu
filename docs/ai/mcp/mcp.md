@@ -255,3 +255,214 @@ static_resources:
             address: "127.0.0.1"
             port: 8081
 ```
+
+---
+
+### Using Nacos as MCP Server Registry
+
+Pixiu supports dynamic discovery and management of MCP tool configurations through Nacos 3.0+. By using Nacos as a registry center, you can centrally manage MCP tool definitions and achieve dynamic configuration updates without restarting the gateway.
+
+#### Adapter Configuration (`adapters`)
+
+To enable Nacos integration, you need to add an `adapters` section to your configuration file. The adapter is responsible for connecting to the Nacos registry and subscribing to MCP service configurations.
+
+```yaml
+adapters:
+  - id: "mcp-nacos-adapter"
+    name: "dgp.adapter.mcpserver"
+    config:
+      registries:
+        nacos:
+          protocol: "nacos"
+          address: "127.0.0.1:8848"
+          timeout: "5s"
+          username: "nacos"
+          password: "nacos"
+```
+
+#### Adapter Configuration Fields
+
+`id`
+
+- **Type**: `string`
+- **Description**: A unique identifier for the adapter. Used to identify this adapter instance in logs and monitoring.
+
+`name`
+
+- **Type**: `string`
+- **Description**: The adapter type name. For MCP server Nacos integration, must be `dgp.adapter.mcpserver`.
+
+`config`
+
+- **Type**: `object`
+- **Description**: The specific configuration for the adapter, including registry connection information.
+
+##### Registry Configuration (`registries`)
+
+`registries` is a key-value mapping where the key is the registry name (e.g., `nacos`) and the value is the configuration object for that registry.
+
+`protocol`
+
+- **Type**: `string`
+- **Description**: The registry protocol type. Currently supports `nacos`.
+
+`address`
+
+- **Type**: `string`
+- **Description**: The Nacos server address in the format `host:port`. For example, `127.0.0.1:8848`.
+
+`timeout`
+
+- **Type**: `string`
+- **Description**: Connection timeout duration. Supported time units include `s` (seconds), `ms` (milliseconds), etc. For example, `5s` means 5 seconds.
+
+`username`
+
+- **Type**: `string`
+- **Description**: Nacos authentication username. Required if the Nacos server has authentication enabled.
+
+`password`
+
+- **Type**: `string`
+- **Description**: Nacos authentication password. Required if the Nacos server has authentication enabled.
+
+`namespace` (optional)
+
+- **Type**: `string`
+- **Description**: Nacos namespace ID. Used for environment isolation. If not specified, the default namespace is used.
+
+`group` (optional)
+
+- **Type**: `string`
+- **Description**: Nacos service group. Used for service group management. If not specified, the default group is used.
+
+---
+
+### Complete Nacos Integration Configuration Example
+
+The following example demonstrates a complete configuration using Nacos as the MCP server configuration source. The gateway automatically retrieves tool definitions from Nacos and routes requests based on the configuration.
+
+```yaml
+static_resources:
+  listeners:
+    - name: "net/http"
+      protocol_type: "HTTP"
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 8888
+      filter_chains:
+        filters:
+          - name: "dgp.filter.httpconnectionmanager"
+            config:
+              route_config:
+                routes:
+                  # All MCP requests route to the protected cluster
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: "mcp-protected"
+                      cluster_not_found_response_code: 505
+              http_filters:
+                # MCP Server Filter
+                - name: "dgp.filter.mcp.mcpserver"
+                  config:
+                    server_info:
+                      name: "MCP Nacos Example Server"
+                      version: "1.0.0"
+                      description: "MCP Server with tools dynamically loaded from Nacos"
+                      instructions: "Tool configurations for this server are centrally managed by Nacos"
+
+                # Downstream HTTP Proxy
+                - name: "dgp.filter.http.httpproxy"
+
+  clusters:
+    # Virtual cluster for routing rules
+    - name: "mcp-protected"
+      type: "STATIC"
+      lb_policy: "ROUND_ROBIN"
+      endpoints:
+        - socket_address:
+            address: "127.0.0.1"
+            port: 8081
+
+# Nacos Adapter Configuration
+adapters:
+  - id: "mcp-nacos-adapter"
+    name: "dgp.adapter.mcpserver"
+    config:
+      registries:
+        nacos:
+          protocol: "nacos"
+          address: "127.0.0.1:8848"
+          timeout: "5s"
+          username: "nacos"
+          password: "nacos"
+          namespace: ""  # Optional: use default namespace
+          group: "DEFAULT_GROUP"  # Optional: use default group
+```
+
+---
+
+### Usage Steps
+
+#### 1. Prepare Nacos Environment
+
+Ensure you have Nacos 3.0 or higher installed and running. You can access the Nacos console at `http://<nacos-server-ip>:8848/nacos`.
+
+#### 2. Configure MCP Service in Nacos
+
+1. **Login to Nacos Console**
+2. **Navigate to MCP Management**: Find and click "MCP Management" in the left sidebar
+3. **Create MCP Server**:
+   - Click "MCP List" → "Create MCP Server"
+   - **Type**: Select `streamable`
+   - **Tools**: Select "Import from OpenAPI" and upload your OpenAPI specification file
+
+4. **Verify and Correct Configuration**:
+   - After uploading successfully, Nacos will automatically parse the OpenAPI file and generate the tool list
+   - **Important**: Check that all tool backend addresses are correct (Nacos 3.0 may have path parsing issues)
+   - Ensure backend addresses are in the format `http://host:port`, not `http:/host:port`
+
+5. **Publish Service**: After confirming all configurations are correct, click "Publish"
+
+> **Note**: The current version of Pixiu only supports connecting to a single MCP Server instance.
+
+#### 3. Start Pixiu Gateway
+
+Start Pixiu using the configuration file containing the Nacos adapter configuration:
+
+```bash
+cd /path/to/dubbo-go-pixiu
+go run cmd/pixiu/*.go gateway start -c /path/to/your/config.yaml
+```
+
+After starting, Pixiu will:
+
+- Connect to the Nacos registry
+- Subscribe to MCP service configurations
+- Dynamically load tool definitions
+- Automatically handle configuration updates (without restart)
+
+#### 4. Verify Integration
+
+You can verify that the Nacos integration is working correctly through:
+
+1. **Check Logs**: Review Pixiu startup logs to confirm successful connection to Nacos
+2. **Test Tool Calls**: Use an MCP client (such as MCP Inspector) to connect to `http://localhost:8888/mcp` and test tool invocations
+3. **Dynamic Update Test**: Modify tool configurations in the Nacos console and verify that changes take effect automatically
+
+---
+
+### Best Practices
+
+1. **Environment Isolation**: Use Nacos namespace features to isolate configurations for different environments (development, testing, production)
+2. **Configuration Backup**: Regularly back up MCP configurations in Nacos to prevent accidental loss
+3. **Monitoring and Alerting**: Configure Nacos connection status monitoring to detect connection issues promptly
+4. **Canary Releases**: Leverage Nacos configuration management capabilities to implement canary releases of tool configurations
+
+---
+
+### Example Reference
+
+Complete usage examples and configuration files can be found in the `mcp/nacos` directory of the [dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples) project.
