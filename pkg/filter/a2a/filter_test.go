@@ -81,7 +81,7 @@ func createTestFilterFactory() *FilterFactory {
 }
 
 // buildJSONRPCRequest builds a JSON-RPC request body
-func buildJSONRPCRequest(method string, params interface{}) []byte {
+func buildJSONRPCRequest(method string, params any) []byte {
 	req := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
 		Method:  method,
@@ -174,7 +174,7 @@ func TestA2AFilter_HandleCreateTask(t *testing.T) {
 	params := CreateTaskRequest{
 		To:   "agent-1",
 		Type: "test_task",
-		Content: map[string]interface{}{
+		Content: map[string]any{
 			"message": "test",
 		},
 		Timeout: 3000,
@@ -248,7 +248,7 @@ func TestA2AFilter_HandleSendMessage(t *testing.T) {
 	params := SendMessageRequest{
 		To:   "agent-1",
 		Type: "test_message",
-		Content: map[string]interface{}{
+		Content: map[string]any{
 			"text": "Hello, agent!",
 		},
 	}
@@ -277,7 +277,7 @@ func TestA2AFilter_HandleSendMessage_AgentNotFound(t *testing.T) {
 	params := SendMessageRequest{
 		To:   "non-existent-agent",
 		Type: "test_message",
-		Content: map[string]interface{}{
+		Content: map[string]any{
 			"text": "Hello",
 		},
 	}

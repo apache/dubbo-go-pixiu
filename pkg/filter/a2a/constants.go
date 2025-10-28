@@ -61,7 +61,7 @@ const (
 	TaskStatusRunning   = "running"
 	TaskStatusCompleted = "completed"
 	TaskStatusFailed    = "failed"
-	TaskStatusCancelled = "cancelled"
+	TaskStatusCancelled = "canceled"
 
 	// Error codes for JSON-RPC errors
 	ErrorCodeParseError     = -32700

@@ -38,7 +38,7 @@ func TestTaskManager_CreateAndGet(t *testing.T) {
 	defer tm.Stop()
 
 	// Create a task
-	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]interface{}{
+	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]any{
 		"message": "test",
 	}, 3000)
 
@@ -68,13 +68,13 @@ func TestTaskManager_UpdateTask(t *testing.T) {
 	defer tm.Stop()
 
 	// Create a task
-	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]interface{}{
+	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]any{
 		"data": "test",
 	}, 0)
 	assert.NoError(t, err)
 
 	// Update the task
-	result := map[string]interface{}{
+	result := map[string]any{
 		"output": "success",
 	}
 	err = tm.UpdateTask(task.TaskID, TaskCompleted, result, "")
@@ -100,7 +100,7 @@ func TestTaskManager_CancelTask(t *testing.T) {
 	defer tm.Stop()
 
 	// Create a task
-	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]interface{}{}, 0)
+	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]any{}, 0)
 	assert.NoError(t, err)
 
 	// Cancel the task
@@ -126,12 +126,12 @@ func TestTaskManager_ConcurrentLimit(t *testing.T) {
 
 	// Create tasks up to the limit
 	for i := 0; i < 3; i++ {
-		_, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]interface{}{}, 0)
+		_, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]any{}, 0)
 		assert.NoError(t, err)
 	}
 
 	// Try to create one more task (should fail)
-	_, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]interface{}{}, 0)
+	_, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]any{}, 0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "maximum concurrent tasks limit reached")
 }
@@ -165,8 +165,8 @@ func TestTaskManager_ListTasks(t *testing.T) {
 	defer tm.Stop()
 
 	// Create multiple tasks
-	task1, _ := tm.CreateTask("agent-1", "agent-2", "task1", map[string]interface{}{}, 0)
-	task2, _ := tm.CreateTask("agent-1", "agent-3", "task2", map[string]interface{}{}, 0)
+	task1, _ := tm.CreateTask("agent-1", "agent-2", "task1", map[string]any{}, 0)
+	task2, _ := tm.CreateTask("agent-1", "agent-3", "task2", map[string]any{}, 0)
 
 	// List all tasks
 	tasks := tm.ListTasks()
@@ -188,7 +188,7 @@ func TestTaskManager_Cleanup(t *testing.T) {
 	defer tm.Stop()
 
 	// Create a task
-	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]interface{}{}, 100)
+	task, err := tm.CreateTask("agent-1", "agent-2", "test_task", map[string]any{}, 100)
 	assert.NoError(t, err)
 
 	// Wait for timeout
@@ -218,9 +218,9 @@ func TestTaskManager_GetTaskCount(t *testing.T) {
 	assert.Equal(t, 0, tm.GetTaskCount())
 
 	// Create tasks
-	tm.CreateTask("agent-1", "agent-2", "task1", map[string]interface{}{}, 0)
+	tm.CreateTask("agent-1", "agent-2", "task1", map[string]any{}, 0)
 	assert.Equal(t, 1, tm.GetTaskCount())
 
-	tm.CreateTask("agent-1", "agent-3", "task2", map[string]interface{}{}, 0)
+	tm.CreateTask("agent-1", "agent-3", "task2", map[string]any{}, 0)
 	assert.Equal(t, 2, tm.GetTaskCount())
 }

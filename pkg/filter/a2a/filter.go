@@ -515,12 +515,12 @@ func (f *A2AFilter) handleCancelTask(req *JSONRPCRequest) *JSONRPCResponse {
 		}
 	}
 
-	logger.Infof("[dubbo-go-pixiu] A2A Server cancelled task %s", params.TaskID)
+	logger.Infof("[dubbo-go-pixiu] A2A Server canceled task %s", params.TaskID)
 
 	// Build response
 	response := UpdateTaskResponse{
 		Success: true,
-		Message: "Task cancelled successfully",
+		Message: "Task canceled successfully",
 	}
 
 	return &JSONRPCResponse{
