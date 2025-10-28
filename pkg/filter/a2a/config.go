@@ -56,7 +56,7 @@ type AgentConfig struct {
 	Capabilities []CapabilityConfig `yaml:"capabilities" json:"capabilities,omitempty"`
 
 	// Metadata contains additional metadata about the agent
-	Metadata map[string]interface{} `yaml:"metadata" json:"metadata,omitempty"`
+	Metadata map[string]any `yaml:"metadata" json:"metadata,omitempty"`
 }
 
 // CapabilityConfig represents configuration for an agent capability
@@ -95,10 +95,10 @@ type ParameterConfig struct {
 	Required bool `yaml:"required" json:"required" default:"false"`
 
 	// Default is the default value for the parameter
-	Default interface{} `yaml:"default" json:"default,omitempty"`
+	Default any `yaml:"default" json:"default,omitempty"`
 
 	// Enum lists the allowed values for the parameter (if applicable)
-	Enum []interface{} `yaml:"enum" json:"enum,omitempty"`
+	Enum []any `yaml:"enum" json:"enum,omitempty"`
 }
 
 // TaskConfig represents configuration for task management
@@ -127,7 +127,7 @@ func (c *Config) GetDefaultAgentInfo() *AgentInfo {
 			Endpoint:     c.Endpoint,
 			Status:       StatusOnline,
 			Capabilities: []Capability{},
-			Metadata:     make(map[string]interface{}),
+			Metadata:     make(map[string]any),
 		}
 	}
 

@@ -57,7 +57,7 @@ func NewTaskManager(config *TaskConfig) *TaskManager {
 }
 
 // CreateTask creates a new task
-func (tm *TaskManager) CreateTask(from, to, taskType string, content map[string]interface{}, timeout int64) (*Task, error) {
+func (tm *TaskManager) CreateTask(from, to, taskType string, content map[string]any, timeout int64) (*Task, error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 
@@ -110,7 +110,7 @@ func (tm *TaskManager) GetTask(taskID string) (*Task, error) {
 }
 
 // UpdateTask updates task status and result
-func (tm *TaskManager) UpdateTask(taskID string, status TaskStatus, result map[string]interface{}, errorMsg string) error {
+func (tm *TaskManager) UpdateTask(taskID string, status TaskStatus, result map[string]any, errorMsg string) error {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 

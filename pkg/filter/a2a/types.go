@@ -19,25 +19,25 @@ package a2a
 
 // JSONRPCRequest represents a JSON-RPC 2.0 request
 type JSONRPCRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params,omitempty"`
-	ID      interface{} `json:"id"`
+	JSONRPC string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  any    `json:"params,omitempty"`
+	ID      any    `json:"id"`
 }
 
 // JSONRPCResponse represents a JSON-RPC 2.0 response
 type JSONRPCResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *RPCError   `json:"error,omitempty"`
-	ID      interface{} `json:"id"`
+	JSONRPC string    `json:"jsonrpc"`
+	Result  any       `json:"result,omitempty"`
+	Error   *RPCError `json:"error,omitempty"`
+	ID      any       `json:"id"`
 }
 
 // RPCError represents a JSON-RPC error object
 type RPCError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // AgentStatus represents the status of an agent
@@ -62,14 +62,14 @@ const (
 
 // AgentInfo represents information about an agent
 type AgentInfo struct {
-	AgentID      string                 `json:"agent_id"`
-	Name         string                 `json:"name"`
-	Version      string                 `json:"version"`
-	Description  string                 `json:"description,omitempty"`
-	Endpoint     string                 `json:"endpoint"`
-	Status       AgentStatus            `json:"status"`
-	Capabilities []Capability           `json:"capabilities,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	AgentID      string         `json:"agent_id"`
+	Name         string         `json:"name"`
+	Version      string         `json:"version"`
+	Description  string         `json:"description,omitempty"`
+	Endpoint     string         `json:"endpoint"`
+	Status       AgentStatus    `json:"status"`
+	Capabilities []Capability   `json:"capabilities,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // Capability represents a capability that an agent provides
@@ -84,36 +84,36 @@ type Capability struct {
 
 // Parameter represents a capability parameter
 type Parameter struct {
-	Name        string      `json:"name"`
-	Type        string      `json:"type"`
-	Description string      `json:"description,omitempty"`
-	Required    bool        `json:"required"`
-	Default     interface{} `json:"default,omitempty"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required"`
+	Default     any    `json:"default,omitempty"`
 }
 
 // Task represents a task that can be executed by an agent
 type Task struct {
-	TaskID    string                 `json:"task_id"`
-	From      string                 `json:"from"`
-	To        string                 `json:"to"`
-	Type      string                 `json:"type"`
-	Content   map[string]interface{} `json:"content"`
-	Status    TaskStatus             `json:"status"`
-	Result    map[string]interface{} `json:"result,omitempty"`
-	Error     string                 `json:"error,omitempty"`
-	CreatedAt int64                  `json:"created_at"`
-	UpdatedAt int64                  `json:"updated_at"`
-	Timeout   int64                  `json:"timeout,omitempty"`
+	TaskID    string         `json:"task_id"`
+	From      string         `json:"from"`
+	To        string         `json:"to"`
+	Type      string         `json:"type"`
+	Content   map[string]any `json:"content"`
+	Status    TaskStatus     `json:"status"`
+	Result    map[string]any `json:"result,omitempty"`
+	Error     string         `json:"error,omitempty"`
+	CreatedAt int64          `json:"created_at"`
+	UpdatedAt int64          `json:"updated_at"`
+	Timeout   int64          `json:"timeout,omitempty"`
 }
 
 // Message represents a message sent between agents
 type Message struct {
-	MessageID string                 `json:"message_id"`
-	From      string                 `json:"from"`
-	To        string                 `json:"to"`
-	Type      string                 `json:"type"`
-	Content   map[string]interface{} `json:"content"`
-	Timestamp int64                  `json:"timestamp"`
+	MessageID string         `json:"message_id"`
+	From      string         `json:"from"`
+	To        string         `json:"to"`
+	Type      string         `json:"type"`
+	Content   map[string]any `json:"content"`
+	Timestamp int64          `json:"timestamp"`
 }
 
 // PingRequest represents a ping request
@@ -143,10 +143,10 @@ type DiscoverAgentsResponse struct {
 
 // CreateTaskRequest represents a request to create a task
 type CreateTaskRequest struct {
-	To      string                 `json:"to"`
-	Type    string                 `json:"type"`
-	Content map[string]interface{} `json:"content"`
-	Timeout int64                  `json:"timeout,omitempty"`
+	To      string         `json:"to"`
+	Type    string         `json:"type"`
+	Content map[string]any `json:"content"`
+	Timeout int64          `json:"timeout,omitempty"`
 }
 
 // CreateTaskResponse represents the response to a create task request
@@ -167,10 +167,10 @@ type GetTaskStatusResponse struct {
 
 // UpdateTaskRequest represents a request to update a task
 type UpdateTaskRequest struct {
-	TaskID string                 `json:"task_id"`
-	Status TaskStatus             `json:"status,omitempty"`
-	Result map[string]interface{} `json:"result,omitempty"`
-	Error  string                 `json:"error,omitempty"`
+	TaskID string         `json:"task_id"`
+	Status TaskStatus     `json:"status,omitempty"`
+	Result map[string]any `json:"result,omitempty"`
+	Error  string         `json:"error,omitempty"`
 }
 
 // UpdateTaskResponse represents the response to an update task request
@@ -181,9 +181,9 @@ type UpdateTaskResponse struct {
 
 // SendMessageRequest represents a request to send a message
 type SendMessageRequest struct {
-	To      string                 `json:"to"`
-	Type    string                 `json:"type"`
-	Content map[string]interface{} `json:"content"`
+	To      string         `json:"to"`
+	Type    string         `json:"type"`
+	Content map[string]any `json:"content"`
 }
 
 // SendMessageResponse represents the response to a send message request
@@ -191,4 +191,12 @@ type SendMessageResponse struct {
 	MessageID string `json:"message_id"`
 	Success   bool   `json:"success"`
 	Message   string `json:"message,omitempty"`
+}
+
+// BroadcastMessageResponse represents the response to a broadcast message request
+type BroadcastMessageResponse struct {
+	TotalAgents  int      `json:"total_agents"`
+	SuccessCount int      `json:"success_count"`
+	FailedAgents []string `json:"failed_agents,omitempty"`
+	MessageIDs   []string `json:"message_ids"`
 }
