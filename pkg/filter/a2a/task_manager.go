@@ -137,7 +137,7 @@ func (tm *TaskManager) UpdateTask(taskID string, status TaskStatus, result map[s
 
 // CancelTask cancels a task
 func (tm *TaskManager) CancelTask(taskID string) error {
-	return tm.UpdateTask(taskID, TaskCancelled, nil, "Task cancelled")
+	return tm.UpdateTask(taskID, TaskCancelled, nil, "Task canceled")
 }
 
 // ListTasks returns all tasks (for debugging purposes)
