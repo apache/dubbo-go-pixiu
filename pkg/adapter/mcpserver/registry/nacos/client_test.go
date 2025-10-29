@@ -24,9 +24,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/nacos-group/nacos-sdk-go/v2/model"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+
 	"github.com/stretchr/testify/assert"
 )
 
