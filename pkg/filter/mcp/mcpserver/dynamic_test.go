@@ -21,11 +21,16 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
-	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // =============================================================================
