@@ -25,9 +25,7 @@ import (
 	"sort"
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -52,6 +50,7 @@ type ServerToolConfig struct {
 type DynamicConsumer struct {
 	registry       *ToolRegistry
 	sessionManager *transport.SessionManager
+	sseHandler     *transport.SSEHandler
 
 	// Tool configuration management grouped by server
 	mu            sync.RWMutex
@@ -59,10 +58,11 @@ type DynamicConsumer struct {
 	debounceTime  time.Duration
 }
 
-func NewDynamicConsumer(reg *ToolRegistry, sm *transport.SessionManager) *DynamicConsumer {
+func NewDynamicConsumer(reg *ToolRegistry, sm *transport.SessionManager, sseHandler *transport.SSEHandler) *DynamicConsumer {
 	return &DynamicConsumer{
 		registry:       reg,
 		sessionManager: sm,
+		sseHandler:     sseHandler,
 		serverConfigs:  make(map[string]*ServerToolConfig),
 		debounceTime:   DefaultDebounceTime,
 	}
@@ -279,7 +279,7 @@ func (d *DynamicConsumer) sendToolsListChangedNotification(sessionID string) err
 		return fmt.Errorf("failed to marshal notification: %w", err)
 	}
 
-	sseData := fmt.Sprintf("data: %s\n\n", string(messageJSON))
+	sseData := d.sseHandler.FormatSSEMessage(string(messageJSON))
 
 	if _, err := session.PipeWriter.Write([]byte(sseData)); err != nil {
 		return fmt.Errorf("failed to write to SSE pipe: %w", err)

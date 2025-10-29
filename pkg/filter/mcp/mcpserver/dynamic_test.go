@@ -21,16 +21,11 @@ import (
 	"sync"
 	"testing"
 	"time"
-)
 
-import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
@@ -125,7 +120,8 @@ func TestApplyMcpServerConfig(t *testing.T) {
 		registry := NewToolRegistry()
 		sm := transport.NewSessionManager()
 		defer sm.Stop()
-		consumer := NewDynamicConsumer(registry, sm)
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		// Test nil config
 		err := consumer.ApplyMcpServerConfigByServer("default", nil)
@@ -157,7 +153,8 @@ func TestApplyMcpServerConfig(t *testing.T) {
 		registry := NewToolRegistry()
 		sm := transport.NewSessionManager()
 		defer sm.Stop()
-		consumer := NewDynamicConsumer(registry, sm)
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		// Apply first config
 		config1 := createTestMcpServerConfig([]model.ToolConfig{
@@ -221,7 +218,8 @@ func TestDebounceFeatures(t *testing.T) {
 		registry := NewToolRegistry()
 		sm := transport.NewSessionManager()
 		defer sm.Stop()
-		consumer := NewDynamicConsumer(registry, sm)
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		config := createTestMcpServerConfig([]model.ToolConfig{
 			createTestToolConfig("tool1", "Test tool"),
@@ -246,7 +244,8 @@ func TestDebounceFeatures(t *testing.T) {
 		registry := NewToolRegistry()
 		sm := transport.NewSessionManager()
 		defer sm.Stop()
-		consumer := NewDynamicConsumer(registry, sm)
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		config1 := createTestMcpServerConfig([]model.ToolConfig{
 			createTestToolConfig("tool1", "First tool"),
@@ -274,7 +273,8 @@ func TestDebounceFeatures(t *testing.T) {
 		registry := NewToolRegistry()
 		sm := transport.NewSessionManager()
 		defer sm.Stop()
-		consumer := NewDynamicConsumer(registry, sm)
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		// Add tool first
 		config := createTestMcpServerConfig([]model.ToolConfig{
@@ -301,7 +301,8 @@ func TestDebounceConfiguration(t *testing.T) {
 	registry := NewToolRegistry()
 	sm := transport.NewSessionManager()
 	defer sm.Stop()
-	consumer := NewDynamicConsumer(registry, sm)
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 	// Test default debounce time
 	info := consumer.GetDebounceInfo()
@@ -336,7 +337,8 @@ func TestFingerprintCalculation(t *testing.T) {
 	registry := NewToolRegistry()
 	sm := transport.NewSessionManager()
 	defer sm.Stop()
-	consumer := NewDynamicConsumer(registry, sm)
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 	// Empty tools
 	fingerprint1 := consumer.calculateFingerprint([]model.ToolConfig{})
@@ -411,7 +413,8 @@ func BenchmarkApplyMcpServerConfig(b *testing.B) {
 	registry := NewToolRegistry()
 	sm := transport.NewSessionManager()
 	defer sm.Stop()
-	consumer := NewDynamicConsumer(registry, sm)
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 	config := createTestMcpServerConfig([]model.ToolConfig{
 		createTestToolConfig("tool1", "First tool"),

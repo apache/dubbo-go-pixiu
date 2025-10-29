@@ -19,9 +19,7 @@ package mcpserver
 
 import (
 	"sync"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -52,7 +50,8 @@ func GetOrInitDynamicConsumer() *DynamicConsumer {
 	dynamicOnce.Do(func() {
 		reg := GetOrInitRegistry()
 		sm := GetOrInitSessionManager()
-		globalDynamic = NewDynamicConsumer(reg, sm)
+		sseHandler := transport.NewSSEHandler(sm)
+		globalDynamic = NewDynamicConsumer(reg, sm, sseHandler)
 		logger.Infof("[dubbo-go-pixiu] mcp server initialized global dynamic consumer")
 	})
 	return globalDynamic
