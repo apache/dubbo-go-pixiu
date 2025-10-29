@@ -24,12 +24,9 @@ import (
 	"strings"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/nacos-group/nacos-sdk-go/v2/model"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -135,12 +132,12 @@ func (m MockedNacosConfigClient) GetConfig(param vo.ConfigParam) (string, error)
 	return "", nil
 }
 
-func (m MockedNacosConfigClient) PublishConfig(param vo.ConfigParam) (bool, error) {
+func (m MockedNacosConfigClient) PublishConfig(_ vo.ConfigParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m MockedNacosConfigClient) DeleteConfig(param vo.ConfigParam) (bool, error) {
+func (m MockedNacosConfigClient) DeleteConfig(_ vo.ConfigParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -159,8 +156,8 @@ func (m MockedNacosConfigClient) CancelListenConfig(params vo.ConfigParam) (err 
 }
 
 func (m MockedNacosConfigClient) SearchConfig(param vo.SearchConfigParam) (*model.ConfigPage, error) {
-	dataIdRegex := strings.Replace(param.DataId, "*", ".*", -1)
-	groupRegex := strings.Replace(param.Group, "*", ".*", -1)
+	dataIdRegex := strings.ReplaceAll(param.DataId, "*", ".*")
+	groupRegex := strings.ReplaceAll(param.Group, "*", ".*")
 	result := []model.ConfigItem{}
 
 	for key, value := range m.configs {
@@ -203,22 +200,22 @@ type MockedNacosNamingClient struct {
 	listenerMap map[string][]func(services []model.Instance, err error)
 }
 
-func (m MockedNacosNamingClient) RegisterInstance(param vo.RegisterInstanceParam) (bool, error) {
+func (m MockedNacosNamingClient) RegisterInstance(_ vo.RegisterInstanceParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m MockedNacosNamingClient) BatchRegisterInstance(param vo.BatchRegisterInstanceParam) (bool, error) {
+func (m MockedNacosNamingClient) BatchRegisterInstance(_ vo.BatchRegisterInstanceParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m MockedNacosNamingClient) DeregisterInstance(param vo.DeregisterInstanceParam) (bool, error) {
+func (m MockedNacosNamingClient) DeregisterInstance(_ vo.DeregisterInstanceParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m MockedNacosNamingClient) UpdateInstance(param vo.UpdateInstanceParam) (bool, error) {
+func (m MockedNacosNamingClient) UpdateInstance(_ vo.UpdateInstanceParam) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -236,17 +233,17 @@ func (m MockedNacosNamingClient) GetService(param vo.GetServiceParam) (model.Ser
 	}, nil
 }
 
-func (m MockedNacosNamingClient) SelectAllInstances(param vo.SelectAllInstancesParam) ([]model.Instance, error) {
+func (m MockedNacosNamingClient) SelectAllInstances(_ vo.SelectAllInstancesParam) ([]model.Instance, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m MockedNacosNamingClient) SelectInstances(param vo.SelectInstancesParam) ([]model.Instance, error) {
+func (m MockedNacosNamingClient) SelectInstances(_ vo.SelectInstancesParam) ([]model.Instance, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m MockedNacosNamingClient) SelectOneHealthyInstance(param vo.SelectOneHealthInstanceParam) (*model.Instance, error) {
+func (m MockedNacosNamingClient) SelectOneHealthyInstance(_ vo.SelectOneHealthInstanceParam) (*model.Instance, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -259,11 +256,11 @@ func (m MockedNacosNamingClient) Subscribe(param *vo.SubscribeParam) error {
 	return nil
 }
 
-func (m MockedNacosNamingClient) Unsubscribe(param *vo.SubscribeParam) error {
+func (m MockedNacosNamingClient) Unsubscribe(_ *vo.SubscribeParam) error {
 	return nil
 }
 
-func (m MockedNacosNamingClient) GetAllServicesInfo(param vo.GetAllServiceInfoParam) (model.ServiceList, error) {
+func (m MockedNacosNamingClient) GetAllServicesInfo(_ vo.GetAllServiceInfoParam) (model.ServiceList, error) {
 	//TODO implement me
 	panic("implement me")
 }
