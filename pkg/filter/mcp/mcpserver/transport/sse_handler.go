@@ -60,7 +60,11 @@ func (h *SSEHandler) SendSSEMessage(session *MCPSession, message any) error {
 		return fmt.Errorf("failed to write to SSE pipe: %w", err)
 	}
 
+	// Update LastActivity using session's mutex
+	session.mu.Lock()
 	session.LastActivity = time.Now()
+	session.mu.Unlock()
+
 	logger.Debugf("[dubbo-go-pixiu] mcp server sent SSE message to session: %s", session.ID)
 	return nil
 }

@@ -42,6 +42,7 @@ type MCPSession struct {
 	LastActivity time.Time
 	PipeWriter   *io.PipeWriter // Pipe writer for sending SSE messages
 	Done         chan struct{}
+	mu           sync.RWMutex // Protects LastActivity field
 }
 
 // SessionManager manages MCP sessions for SSE connections
@@ -70,7 +71,10 @@ func (sm *SessionManager) EnsureSession(sessionIDHeader string) (*MCPSession, bo
 	// Try to get existing session
 	if sessionIDHeader != "" {
 		if session, exists := sm.sessions[sessionIDHeader]; exists {
+			// Update LastActivity using session's own mutex
+			session.mu.Lock()
 			session.LastActivity = time.Now()
+			session.mu.Unlock()
 			return session, false // existing session
 		}
 	}
@@ -92,11 +96,13 @@ func (sm *SessionManager) EnsureSession(sessionIDHeader string) (*MCPSession, bo
 // Session retrieves a session by ID
 func (sm *SessionManager) Session(sessionID string) (*MCPSession, bool) {
 	sm.mu.RLock()
-	defer sm.mu.RUnlock()
-
 	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
 	if exists {
+		session.mu.Lock()
 		session.LastActivity = time.Now()
+		session.mu.Unlock()
 	}
 	return session, exists
 }
@@ -168,7 +174,11 @@ func (sm *SessionManager) cleanupExpiredSessions() {
 	var toRemove []string
 
 	for sessionID, session := range sm.sessions {
-		if now.Sub(session.LastActivity) > SessionTimeout {
+		session.mu.RLock()
+		lastActivity := session.LastActivity
+		session.mu.RUnlock()
+
+		if now.Sub(lastActivity) > SessionTimeout {
 			toRemove = append(toRemove, sessionID)
 		}
 	}

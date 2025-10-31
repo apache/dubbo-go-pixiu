@@ -79,7 +79,15 @@ func TestEnsureSession_ReuseExisting(t *testing.T) {
 	}
 
 	// Verify last activity was updated
-	if session2.LastActivity.Before(session1.LastActivity) {
+	session1.mu.RLock()
+	lastActivity1 := session1.LastActivity
+	session1.mu.RUnlock()
+
+	session2.mu.RLock()
+	lastActivity2 := session2.LastActivity
+	session2.mu.RUnlock()
+
+	if lastActivity2.Before(lastActivity1) {
 		t.Error("LastActivity should be updated")
 	}
 }
@@ -152,9 +160,9 @@ func TestSessionCleanup(t *testing.T) {
 	sessionID := session.ID
 
 	// Manually set old LastActivity to simulate timeout
-	sm.mu.Lock()
+	session.mu.Lock()
 	session.LastActivity = time.Now().Add(-SessionTimeout - 1*time.Minute)
-	sm.mu.Unlock()
+	session.mu.Unlock()
 
 	// Trigger cleanup
 	sm.cleanupExpiredSessions()
