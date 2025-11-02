@@ -21,11 +21,11 @@ name: Sync to Upstream
 
 # Automatically creates a PR to upstream when a PR is merged to fork.
 # Only executes in fork repositories (checked by github.repository).
-#
+# 
 # Prerequisites:
 # - UPSTREAM_GITHUB_TOKEN secret with 'public_repo' permission
 # - Bot account with Write access to fork repository
-#
+# 
 # Configuration: Modify the env section below for your project
 
 # ============================================================================
@@ -35,14 +35,14 @@ env:
   # Upstream repository
   UPSTREAM_ORG: apache
   UPSTREAM_REPO: dubbo-go-pixiu
-
+  
   # Fork repository
   FORK_ORG: dubbo-go-pixiu
   FORK_REPO: dubbo-go-pixiu
-
+  
   # Branch name
   BASE_BRANCH: develop
-
+  
   # Git bot info
   BOT_NAME: "Pixiu Bot"
   BOT_EMAIL: "bot@dubbo-go-pixiu.github.io"
@@ -66,14 +66,23 @@ jobs:
   sync-to-upstream:
     name: Sync to Upstream Repository
     runs-on: ubuntu-latest
-
+    
     # Only run when PR is merged; repository check happens inside steps where env is available
     if: github.event.pull_request.merged == true
-
+    
     steps:
       - name: Check repository and target branch
         id: check_branch
         run: |
+          # Check if PR is created by Pull bot to avoid circular sync
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          
+          if [ "${PR_AUTHOR}" = "pull[bot]" ]; then
+            echo "🤖 Detected Pull bot sync PR from user '${PR_AUTHOR}'. Skipping upstream sync to avoid circular updates."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           EXPECTED_REPO="${{ env.FORK_ORG }}/${{ env.FORK_REPO }}"
           CURRENT_REPO="${GITHUB_REPOSITORY}"
 
@@ -94,9 +103,10 @@ jobs:
           echo "skip=false" >> $GITHUB_OUTPUT
 
       # Step 1: Checkout code with full history
+      # SECURITY: Safe for pull_request_target - explicitly checks out BASE_BRANCH, not PR head
       - name: Checkout repository
         if: steps.check_branch.outputs.skip != 'true'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v5  # NOSONAR
         with:
           fetch-depth: 0
           ref: ${{ env.BASE_BRANCH }}
@@ -151,31 +161,31 @@ jobs:
           ORIGINAL_URL="${{ github.event.pull_request.html_url }}"
           MERGED_AT="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
           
-          {
-            echo "## 🔄 Upstream Sync from Community Fork"
-            echo ""
-            echo "This PR automatically syncs changes from the community fork to the upstream repository."
-            echo ""
-            echo "### Original Contribution"
-            echo ""
-            echo "- **Author**: @${ORIGINAL_AUTHOR}"
-            echo "- **Original PR**: ${ORIGINAL_URL}"
-            echo "- **Merged at**: ${MERGED_AT}"
-            echo ""
-            echo "### Original PR Description"
-            echo ""
-            echo "---"
-            echo ""
-            echo "${ORIGINAL_BODY}"
-            echo ""
-            echo "---"
-            echo ""
-            echo "All commits preserve original authorship."
-            echo ""
-            echo "**Note**: Auto-created when PR #${ORIGINAL_PR} was merged into \`${{ env.FORK_ORG }}/${{ env.FORK_REPO }}:${{ env.BASE_BRANCH }}\`."
-            echo ""
-            echo "cc @${ORIGINAL_AUTHOR}"
-          } > pr_body.md
+          cat > pr_body.md <<EOF
+          ## 🔄 Upstream Sync from Community Fork
+          
+          This PR automatically syncs changes from the community fork to the upstream repository.
+          
+          ### Original Contribution
+          
+          - **Author**: @${ORIGINAL_AUTHOR}
+          - **Original PR**: ${ORIGINAL_URL}
+          - **Merged at**: ${MERGED_AT}
+          
+          ### Original PR Description
+          
+          ---
+          
+          ${ORIGINAL_BODY}
+          
+          ---
+          
+          All commits preserve original authorship.
+          
+          **Note**: Auto-created when PR #${ORIGINAL_PR} was merged into \`${{ env.FORK_ORG }}/${{ env.FORK_REPO }}:${{ env.BASE_BRANCH }}\`.
+          
+          cc @${ORIGINAL_AUTHOR}
+          EOF
 
       - name: Create PR to ${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}
         if: steps.check_branch.outputs.skip != 'true'
@@ -201,14 +211,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           UPSTREAM_PR_URL: ${{ steps.create_pr.outputs.pr_url }}
         run: |
-          {
-            echo "🤖 **Automated Upstream Sync**"
-            echo ""
-            echo "Your PR has been synced to upstream:"
-            echo "$UPSTREAM_PR_URL"
-            echo ""
-            echo "Thank you for your contribution! 🎉"
-          } > comment_body.md
+          cat > comment_body.md <<EOF
+          🤖 **Automated Upstream Sync**
+          
+          Your PR has been synced to upstream:
+          $UPSTREAM_PR_URL
+          
+          Thank you for your contribution! 🎉
+          EOF
           
           gh pr comment "$PR_NUMBER" --repo ${{ env.FORK_ORG }}/${{ env.FORK_REPO }} --body-file comment_body.md || {
             echo "⚠️  Comment failed but sync succeeded: $UPSTREAM_PR_URL"
@@ -224,29 +234,37 @@ jobs:
         run: |
           git rebase --abort || true
           
-          gh issue create \
+          cat > issue_body.md <<EOF
+          ## Sync Failure Report
+          
+          **Original PR**: #${PR_NUMBER}
+          **Author**: @${PR_AUTHOR}
+          **Error**: Rebase conflicts detected
+          
+          ### Manual Resolution Required
+          
+          \`\`\`bash
+          git checkout ${{ env.BASE_BRANCH }}
+          git checkout -b manual-sync-${PR_NUMBER}
+          git remote add upstream https://github.com/${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}.git
+          git fetch upstream ${{ env.BASE_BRANCH }}
+          git rebase upstream/${{ env.BASE_BRANCH }}
+          # Resolve conflicts
+          git push origin manual-sync-${PR_NUMBER}
+          # Create PR to ${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}
+          \`\`\`
+          
+          cc @${PR_AUTHOR}
+          EOF
+          
+          if gh issue create \
             --repo ${{ env.FORK_ORG }}/${{ env.FORK_REPO }} \
             --title "⚠️ Failed to auto-sync PR #${PR_NUMBER} to upstream" \
-            --body "## Sync Failure Report
-          
-            **Original PR**: #${PR_NUMBER}
-            **Author**: @${PR_AUTHOR}
-            **Error**: Rebase conflicts detected
-          
-            ### Manual Resolution Required
-          
-            \`\`\`bash
-            git checkout ${{ env.BASE_BRANCH }}
-            git checkout -b manual-sync-${PR_NUMBER}
-            git remote add upstream https://github.com/${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}.git
-            git fetch upstream ${{ env.BASE_BRANCH }}
-            git rebase upstream/${{ env.BASE_BRANCH }}
-            # Resolve conflicts
-            git push origin manual-sync-${PR_NUMBER}
-            # Create PR to ${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}
-            \`\`\`
-          
-            cc @${PR_AUTHOR}" \
-            --label "sync-failure,needs-attention"
-          
-          echo "❌ Rebase failed. Issue created for manual resolution."
+            --body-file issue_body.md \
+            --label sync-failure \
+            --label needs-attention; then
+            echo "❌ Rebase failed. Issue created for manual resolution."
+          else
+            echo "❌ Rebase failed. Failed to create issue - please check manually!"
+            exit 1
+          fi
