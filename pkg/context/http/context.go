@@ -248,10 +248,7 @@ type MetricData struct {
 
 // RecordMetric records a metric to the context.
 func (hc *HttpContext) RecordMetric(name string, metricType string, value float64, labels map[string]string) {
-	hc.metricsMu.Lock()
-	defer hc.metricsMu.Unlock()
-
-	// Create a copy of labels to avoid mutations
+	// Create a copy of labels to avoid mutations (outside lock)
 	labelsCopy := make(map[string]string, len(labels))
 	for k, v := range labels {
 		labelsCopy[k] = v
@@ -264,17 +261,20 @@ func (hc *HttpContext) RecordMetric(name string, metricType string, value float6
 		Labels: labelsCopy,
 	}
 
+	// Only lock for the append operation
+	hc.metricsMu.Lock()
 	hc.metrics = append(hc.metrics, metric)
+	hc.metricsMu.Unlock()
 }
 
 // GetAllMetrics returns all recorded metrics.
 func (hc *HttpContext) GetAllMetrics() []*MetricData {
+	// Allocate result slice outside lock
 	hc.metricsMu.RLock()
-	defer hc.metricsMu.RUnlock()
-
-	// Return a copy to avoid race conditions
 	result := make([]*MetricData, len(hc.metrics))
 	copy(result, hc.metrics)
+	hc.metricsMu.RUnlock()
+
 	return result
 }
 

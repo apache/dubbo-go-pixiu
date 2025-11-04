@@ -183,32 +183,28 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, c
 			factory.cfg.PushConfig.GatewayURL, factory.cfg.PushConfig.PushInterval)
 	}
 
+	// Both modes need decode and encode filters
 	chain.AppendDecodeFilters(f)
-	if factory.cfg.Mode == "pull" {
-		chain.AppendEncodeFilters(f)
-	}
+	chain.AppendEncodeFilters(f)
 
 	return nil
 }
 
-// Decode handles the decode phase based on mode.
+// Decode handles the decode phase - records start time for both modes.
 func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
-	switch f.cfg.Mode {
-	case "pull":
-		f.start = time.Now()
-		return filter.Continue
-
-	case "push":
-		return f.reportWithPrometheus(ctx)
-	}
-
+	// Record start time for latency calculation
+	// Both pull and push modes report metrics in Encode phase
+	f.start = time.Now()
 	return filter.Continue
 }
 
-// Encode reports metrics for pull mode.
+// Encode reports metrics for both modes.
 func (f *Filter) Encode(ctx *contextHttp.HttpContext) filter.FilterStatus {
-	if f.cfg.Mode == "pull" {
+	switch f.cfg.Mode {
+	case "pull":
 		return f.reportWithOTel(ctx)
+	case "push":
+		return f.reportWithPrometheus(ctx)
 	}
 
 	return filter.Continue
@@ -310,11 +306,15 @@ func (f *Filter) reportWithPrometheus(ctx *contextHttp.HttpContext) filter.Filte
 		return filter.Stop
 	}
 
-	// Log context metrics
+	// Process and report custom context metrics
 	contextMetrics := ctx.GetAllMetrics()
 	for _, m := range contextMetrics {
-		logger.Debugf("[MetricReporter] Context metric: %s=%f (type: %s, labels: %v)",
-			m.Name, m.Value, m.Type, m.Labels)
+		if err := f.promCollector.RecordDynamicMetric(m.Name, m.Type, m.Value, m.Labels); err != nil {
+			logger.Warnf("[MetricReporter] Failed to record dynamic metric %s: %v", m.Name, err)
+		} else {
+			logger.Debugf("[MetricReporter] Recorded custom metric: %s=%f (type: %s, labels: %v)",
+				m.Name, m.Value, m.Type, m.Labels)
+		}
 	}
 
 	// Report built-in Prometheus metrics

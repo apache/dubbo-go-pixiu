@@ -126,30 +126,17 @@ func TestConfigValidate(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "push mode with empty gateway_url",
+			name: "push mode with empty fields applies defaults",
 			config: &Config{
 				Mode: "push",
 				PushConfig: PushConfig{
 					GatewayURL:   "",
-					JobName:      "pixiu",
-					PushInterval: 100,
-					MetricPath:   "/metrics",
-				},
-			},
-			wantError: true,
-		},
-		{
-			name: "push mode with invalid interval",
-			config: &Config{
-				Mode: "push",
-				PushConfig: PushConfig{
-					GatewayURL:   "http://localhost:9091",
-					JobName:      "pixiu",
+					JobName:      "",
 					PushInterval: 0,
-					MetricPath:   "/metrics",
+					MetricPath:   "",
 				},
 			},
-			wantError: true,
+			wantError: false,
 		},
 	}
 
@@ -211,9 +198,9 @@ func TestPushModeInitialization(t *testing.T) {
 	err = factory.PrepareFilterChain(ctx, chain)
 	require.NoError(t, err)
 
-	// Verify filter was created (push mode only has decode filter)
+	// Verify filter was created - push mode now has both decode and encode filters
 	require.Len(t, chain.decodeFilters, 1)
-	require.Len(t, chain.encodeFilters, 0)
+	require.Len(t, chain.encodeFilters, 1, "Push mode should have both decode and encode filters")
 }
 
 // TestFilterWithPullMode tests filter encode with pull mode
@@ -274,12 +261,16 @@ func TestFilterWithPushMode(t *testing.T) {
 	// Record metrics in context
 	ctx.RecordMetric("custom_metric", "counter", 1.0, nil)
 
-	// Push mode only has decode filter
+	// Push mode now has both decode and encode filters
 	require.Len(t, chain.decodeFilters, 1)
-	require.Len(t, chain.encodeFilters, 0)
+	require.Len(t, chain.encodeFilters, 1)
 
-	// Execute decode (reports metrics immediately)
+	// Execute decode (only records start time)
 	status := chain.decodeFilters[0].Decode(ctx)
+	assert.Equal(t, 0, int(status))
+
+	// Execute encode (reports metrics)
+	status = chain.encodeFilters[0].Encode(ctx)
 	assert.Equal(t, 0, int(status))
 }
 
@@ -303,12 +294,11 @@ func TestCreateFilterFactory(t *testing.T) {
 // TestFilterWithUninitializedReporter tests that filter stops when reporter is not initialized
 func TestFilterWithUninitializedReporter(t *testing.T) {
 	tests := []struct {
-		name  string
-		mode  string
-		phase string // "decode" or "encode"
+		name string
+		mode string
 	}{
-		{"pull mode with nil instruments in encode", "pull", "encode"},
-		{"push mode with nil collector in decode", "push", "decode"},
+		{"pull mode with nil instruments in encode", "pull"},
+		{"push mode with nil collector in encode", "push"},
 	}
 
 	for _, tt := range tests {
@@ -323,15 +313,13 @@ func TestFilterWithUninitializedReporter(t *testing.T) {
 			ctx := newTestHTTPContext(t)
 			ctx.RecordMetric("test", "counter", 1.0, nil)
 
-			var status int
-			if tt.phase == "decode" {
-				status = int(filter.Decode(ctx))
-			} else {
-				status = int(filter.Encode(ctx))
-			}
+			// Decode should always succeed (just records time)
+			decodeStatus := int(filter.Decode(ctx))
+			assert.Equal(t, 0, decodeStatus) // filter.Continue = 0
 
-			// Should stop when reporter is not initialized
-			assert.Equal(t, 1, status) // filter.Stop = 1
+			// Encode should fail when reporter is not initialized
+			encodeStatus := int(filter.Encode(ctx))
+			assert.Equal(t, 1, encodeStatus) // filter.Stop = 1
 
 			// Should have sent local reply
 			assert.True(t, ctx.LocalReply())
@@ -433,9 +421,9 @@ func TestMetricReporterPushMode(t *testing.T) {
 	err = factory.PrepareFilterChain(ctx, chain)
 	require.NoError(t, err)
 
-	// Push mode should only have decode filter, no encode filter
+	// Push mode now has both decode and encode filters
 	require.Len(t, chain.decodeFilters, 1)
-	require.Len(t, chain.encodeFilters, 0, "Push mode should not have encode filter")
+	require.Len(t, chain.encodeFilters, 1, "Push mode should have both decode and encode filters")
 
 	// Simulate multiple requests (to trigger push)
 	for i := 0; i < 15; i++ {
@@ -444,9 +432,13 @@ func TestMetricReporterPushMode(t *testing.T) {
 			"api": "health",
 		})
 
-		// Execute decode (reports metrics immediately in push mode)
+		// Execute decode (only records start time)
 		decodeStatus := chain.decodeFilters[0].Decode(ctx)
 		assert.Equal(t, 0, int(decodeStatus))
+
+		// Execute encode (reports metrics in push mode)
+		encodeStatus := chain.encodeFilters[0].Encode(ctx)
+		assert.Equal(t, 0, int(encodeStatus))
 
 		// Clear metrics for next iteration
 		ctx.ClearMetrics()

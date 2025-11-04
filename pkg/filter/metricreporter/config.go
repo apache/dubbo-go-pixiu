@@ -18,7 +18,6 @@
 package metricreporter
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -67,23 +66,43 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid mode '%s', must be 'pull' or 'push'", c.Mode)
 	}
 
-	// Validate push config if in push mode
+	// Apply defaults and validate push config if in push mode
 	// Pull mode has no filter-level configuration (uses global metric config)
 	if c.Mode == "push" {
+		c.PushConfig.ApplyDefaults()
 		return c.PushConfig.Validate()
 	}
 
 	return nil
 }
 
-// Validate validates push mode configuration.
-func (c *PushConfig) Validate() error {
+// ApplyDefaults applies default values to empty fields.
+func (c *PushConfig) ApplyDefaults() {
 	if c.GatewayURL == "" {
-		return errors.New("push gateway_url cannot be empty")
+		c.GatewayURL = "http://localhost:9091"
 	}
 
 	if c.JobName == "" {
-		return errors.New("push job_name cannot be empty")
+		c.JobName = "pixiu"
+	}
+
+	if c.PushInterval <= 0 {
+		c.PushInterval = 100
+	}
+
+	if c.MetricPath == "" {
+		c.MetricPath = "/metrics"
+	}
+}
+
+// Validate validates push mode configuration.
+func (c *PushConfig) Validate() error {
+	if c.GatewayURL == "" {
+		return fmt.Errorf("push gateway_url cannot be empty")
+	}
+
+	if c.JobName == "" {
+		return fmt.Errorf("push job_name cannot be empty")
 	}
 
 	if c.PushInterval <= 0 {
@@ -91,7 +110,7 @@ func (c *PushConfig) Validate() error {
 	}
 
 	if c.MetricPath == "" {
-		return errors.New("push metric_path cannot be empty")
+		return fmt.Errorf("push metric_path cannot be empty")
 	}
 
 	return nil
