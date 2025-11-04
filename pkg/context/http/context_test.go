@@ -676,6 +676,34 @@ func TestConcurrentMetricRecording(t *testing.T) {
 	}
 }
 
+// TestConcurrentGetAllMetrics tests concurrent calls to GetAllMetrics
+func TestConcurrentGetAllMetrics(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Pre-populate with metrics
+	for i := 0; i < 50; i++ {
+		ctx.RecordMetric(fmt.Sprintf("metric_%d", i), "counter", float64(i), nil)
+	}
+
+	// Concurrently call GetAllMetrics
+	done := make(chan bool)
+	for i := 0; i < 100; i++ {
+		go func() {
+			metrics := ctx.GetAllMetrics()
+			if len(metrics) != 50 {
+				t.Errorf("expected 50 metrics, got %d", len(metrics))
+			}
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 100; i++ {
+		<-done
+	}
+}
+
 // TestMetricDataTypes tests different metric types
 func TestMetricDataTypes(t *testing.T) {
 	req, _ := http.NewRequest("GET", "http://example.com/test", nil)

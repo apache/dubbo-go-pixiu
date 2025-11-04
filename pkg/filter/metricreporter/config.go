@@ -37,16 +37,16 @@ type Config struct {
 
 // PushConfig defines the configuration for push mode.
 type PushConfig struct {
-	// GatewayURL is the Push Gateway URL (e.g., http://localhost:9091)
+	// GatewayURL is the Push Gateway URL (default: http://localhost:9091)
 	GatewayURL string `yaml:"gateway_url" json:"gateway_url"`
 
-	// JobName is the job name for Push Gateway
+	// JobName is the job name for Push Gateway (default: pixiu)
 	JobName string `yaml:"job_name" json:"job_name"`
 
-	// PushInterval defines how many requests to process before pushing metrics
+	// PushInterval defines how many requests to process before pushing metrics (default: 100)
 	PushInterval int `yaml:"push_interval" json:"push_interval"`
 
-	// MetricPath is the path to push metrics to Push Gateway
+	// MetricPath is the path to push metrics to Push Gateway (default: /metrics)
 	MetricPath string `yaml:"metric_path" json:"metric_path"`
 }
 
