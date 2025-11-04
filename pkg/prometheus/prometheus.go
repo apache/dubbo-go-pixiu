@@ -79,8 +79,17 @@ var resSzBuckets = []float64{1.0 * KB, 2.0 * KB, 5.0 * KB, 10.0 * KB, 100 * KB, 
 //	counter, counter_vec, gauge, gauge_vec,
 //	histogram, histogram_vec, summary, summary_vec
 
+// Deprecated: Use reqCntNew instead. This will be removed in future versions.
 var reqCnt = &Metric{
 	ID:          "reqCnt",
+	Name:        "requests_total",
+	Description: "How many HTTP requests processed, partitioned by status code and HTTP method.",
+	Type:        "counter_vec",
+	Args:        []string{"code", "method", "host", "url"},
+}
+
+var reqCntNew = &Metric{
+	ID:          "reqCntNew",
 	Name:        "request_count",
 	Description: "request total count in pixiu",
 	Type:        "counter_vec",
@@ -129,7 +138,8 @@ var reqSz = &Metric{
 }
 
 var standardMetrics = []*Metric{
-	reqCnt,
+	reqCnt,    // Deprecated: for backward compatibility
+	reqCntNew, // New unified metric name
 	reqElapsed,
 	reqErrorCnt,
 	reqDur,
@@ -218,7 +228,8 @@ func NewMetric(m *Metric, subsystem string) prometheus.Collector {
 type RequestCounterLabelMappingFunc func(c *contextHttp.HttpContext) string
 
 type Prometheus struct {
-	reqCnt       *prometheus.CounterVec
+	reqCnt       *prometheus.CounterVec // Deprecated
+	reqCntNew    *prometheus.CounterVec // New unified name
 	reqElapsed   *prometheus.CounterVec
 	reqErrorCnt  *prometheus.CounterVec
 	reqDur       *prometheus.HistogramVec
@@ -280,6 +291,8 @@ func (p *Prometheus) registerMetrics() {
 
 		case reqCnt:
 			p.reqCnt = metric.(*prometheus.CounterVec)
+		case reqCntNew:
+			p.reqCntNew = metric.(*prometheus.CounterVec)
 		case reqElapsed:
 			p.reqElapsed = metric.(*prometheus.CounterVec)
 		case reqErrorCnt:
@@ -380,7 +393,9 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		host := p.RequestCounterHostLabelMappingFunc(c)
 
 		// Record metrics aligned with Pull mode
-		p.reqCnt.WithLabelValues(statusStr, method, host, url).Inc()
+		// Update both old (deprecated) and new metric names for backward compatibility
+		p.reqCnt.WithLabelValues(statusStr, method, host, url).Inc()    // Deprecated: will be removed
+		p.reqCntNew.WithLabelValues(statusStr, method, host, url).Inc() // New unified name
 		p.reqElapsed.WithLabelValues(statusStr, method, host, url).Add(elapsed)
 		p.reqDur.WithLabelValues(statusStr, method, url).Observe(elapsed)
 

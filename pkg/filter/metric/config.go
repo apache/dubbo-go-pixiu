@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package metricreporter
+package metric
 
 import (
 	"fmt"

@@ -1,6 +1,6 @@
 # 指标上报过滤器 (dgp.filter.http.metricreporter)
 
-[English](metricreporter.md) | 中文
+[English](metric.md) | 中文
 
 ---
 
@@ -127,20 +127,21 @@ http_filters:
 
 **Pull 和 Push 模式现在使用统一的指标名称和类型：**
 
-| 指标名称 | 类型 | 描述 | 标签 |
-|---------|------|------|------|
-| `pixiu_request_count` | Counter | 请求总数 | code, method, host, url |
-| `pixiu_request_elapsed` | Counter | 请求总耗时（毫秒）| code, method, host, url |
-| `pixiu_request_error_count` | Counter | 错误总数 | code, method, host, url |
-| `pixiu_request_content_length` | Counter | 请求大小（字节）| code, method, url |
-| `pixiu_response_content_length` | Counter | 响应大小（字节）| code, method, url |
-| `pixiu_process_time_millisec` | Histogram | 请求处理时长分布（毫秒）| code, method, url |
+| 指标名称 | 类型 | 描述 | 标签 | 状态 |
+|---------|------|------|------|------|
+| `pixiu_requests_total` | Counter | 请求总数 | code, method, host, url | ⚠️ 已弃用 |
+| `pixiu_request_count` | Counter | 请求总数 | code, method, host, url | ✅ 推荐 |
+| `pixiu_request_elapsed` | Counter | 请求总耗时（毫秒）| code, method, host, url | ✅ |
+| `pixiu_request_error_count` | Counter | 错误总数 | code, method, host, url | ✅ |
+| `pixiu_request_content_length` | Counter | 请求大小（字节）| code, method, url | ✅ |
+| `pixiu_response_content_length` | Counter | 响应大小（字节）| code, method, url | ✅ |
+| `pixiu_process_time_millisec` | Histogram | 请求处理时长分布（毫秒）| code, method, url | ✅ |
 
-**说明**：
-- 两种模式现在使用相同的指标名称，便于在不同模式间切换
-- 所有指标名称都有 `pixiu_` 前缀，便于识别
-- 时间单位统一为毫秒（milliseconds）
-- 大小单位统一为字节（bytes）
+**向后兼容说明**：
+- 为保持向后兼容，目前**同时导出**两个指标：`pixiu_requests_total`（旧）和 `pixiu_request_count`（新）
+- 推荐使用新的指标名称 `pixiu_request_count`
+- `pixiu_requests_total` 将在未来版本中移除
+- 两种模式使用相同的指标名称，便于在不同模式间切换
 
 ---
 

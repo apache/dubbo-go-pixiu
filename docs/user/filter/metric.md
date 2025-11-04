@@ -1,6 +1,6 @@
 # Metric Reporter Filter (dgp.filter.http.metricreporter)
 
-English | [中文](metricreporter_CN.md)
+English | [中文](metric_CN.md)
 
 ---
 
@@ -127,20 +127,21 @@ http_filters:
 
 **Pull and Push modes now use unified metric names and types:**
 
-| Metric Name | Type | Description | Labels |
-|-------------|------|-------------|--------|
-| `pixiu_request_count` | Counter | Total number of requests | code, method, host, url |
-| `pixiu_request_elapsed` | Counter | Total request elapsed time (milliseconds) | code, method, host, url |
-| `pixiu_request_error_count` | Counter | Total error count | code, method, host, url |
-| `pixiu_request_content_length` | Counter | Request size (bytes) | code, method, url |
-| `pixiu_response_content_length` | Counter | Response size (bytes) | code, method, url |
-| `pixiu_process_time_millisec` | Histogram | Request processing time distribution (milliseconds) | code, method, url |
+| Metric Name | Type | Description | Labels | Status |
+|-------------|------|-------------|--------|--------|
+| `pixiu_requests_total` | Counter | Total number of requests | code, method, host, url | ⚠️ Deprecated |
+| `pixiu_request_count` | Counter | Total number of requests | code, method, host, url | ✅ Recommended |
+| `pixiu_request_elapsed` | Counter | Total request elapsed time (milliseconds) | code, method, host, url | ✅ |
+| `pixiu_request_error_count` | Counter | Total error count | code, method, host, url | ✅ |
+| `pixiu_request_content_length` | Counter | Request size (bytes) | code, method, url | ✅ |
+| `pixiu_response_content_length` | Counter | Response size (bytes) | code, method, url | ✅ |
+| `pixiu_process_time_millisec` | Histogram | Request processing time distribution (milliseconds) | code, method, url | ✅ |
 
-**Notes**:
-- Both modes now use identical metric names for easy switching between modes
-- All metric names have the `pixiu_` prefix for easy identification
-- Time unit is standardized to milliseconds
-- Size unit is standardized to bytes
+**Backward Compatibility**:
+- For backward compatibility, both metrics are currently exported: `pixiu_requests_total` (old) and `pixiu_request_count` (new)
+- Use the new metric name `pixiu_request_count` for new deployments
+- `pixiu_requests_total` will be removed in future versions
+- Both modes use identical metric names for easy switching
 
 ---
 
