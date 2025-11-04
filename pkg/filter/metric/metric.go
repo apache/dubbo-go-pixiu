@@ -160,8 +160,9 @@ func doInitOTelInstruments() error {
 
 // PrepareFilterChain prepares the filter chain.
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
-	// Create filter with config
-	f := &Filter{cfg: factory.cfg}
+	// Copy config to avoid sharing factory's pointer
+	cfgCopy := *factory.cfg
+	f := &Filter{cfg: &cfgCopy}
 
 	// Initialize based on mode
 	switch factory.cfg.Mode {
