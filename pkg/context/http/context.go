@@ -274,7 +274,6 @@ func (hc *HttpContext) GetAllMetrics() []*MetricData {
 	result := make([]*MetricData, len(hc.metrics))
 	copy(result, hc.metrics)
 	hc.metricsMu.RUnlock()
-	
 	return result
 }
 
