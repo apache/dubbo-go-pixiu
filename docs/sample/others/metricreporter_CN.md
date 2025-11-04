@@ -125,29 +125,22 @@ http_filters:
 
 ## 内置指标
 
-### Pull 模式指标
+**Pull 和 Push 模式现在使用统一的指标名称和类型：**
 
-| 指标名称 | 类型 | 描述 |
-|---------|------|------|
-| `pixiu_request_count` | Counter | 请求总数 |
-| `pixiu_request_elapsed` | Counter | 请求总耗时（毫秒）|
-| `pixiu_request_error_count` | Counter | 错误总数 |
-| `pixiu_request_content_length` | Counter | 请求大小（字节）|
-| `pixiu_response_content_length` | Counter | 响应大小（字节）|
-| `pixiu_process_time_millicec` | Histogram | 请求处理时长分布（毫秒）|
+| 指标名称 | 类型 | 描述 | 标签 |
+|---------|------|------|------|
+| `pixiu_request_count` | Counter | 请求总数 | code, method, host, url |
+| `pixiu_request_elapsed` | Counter | 请求总耗时（毫秒）| code, method, host, url |
+| `pixiu_request_error_count` | Counter | 错误总数 | code, method, host, url |
+| `pixiu_request_content_length` | Counter | 请求大小（字节）| code, method, url |
+| `pixiu_response_content_length` | Counter | 响应大小（字节）| code, method, url |
+| `pixiu_process_time_millisec` | Histogram | 请求处理时长分布（毫秒）| code, method, url |
 
-**标签**：`code`, `method`, `url`, `host`
-
-### Push 模式指标
-
-| 指标名称 | 类型 | 描述 |
-|---------|------|------|
-| `requests_total` | Counter | HTTP 请求总数 |
-| `request_duration_seconds` | Histogram | 请求延迟 |
-| `request_size_bytes` | Histogram | 请求大小 |
-| `response_size_bytes` | Histogram | 响应大小 |
-
-**标签**：`code`, `method`, `url`, `host`
+**说明**：
+- 两种模式现在使用相同的指标名称，便于在不同模式间切换
+- 所有指标名称都有 `pixiu_` 前缀，便于识别
+- 时间单位统一为毫秒（milliseconds）
+- 大小单位统一为字节（bytes）
 
 ---
 
@@ -356,11 +349,9 @@ metric:
 
 ## 注意事项
 
-- **过滤器顺序**：MetricReporter 应放在 http_filters 列表的**最后**，以便收集所有其他过滤器的自定义指标
-- **执行阶段**：Pull 和 Push 模式都在 **Encode 阶段**上报指标（所有过滤器和后端处理完成后）
+- **过滤器顺序**：MetricReporter 应放在 http_filters 列表的**最后**
 - **Pull 端点**：由全局 `metric.prometheus_port` 控制，而非过滤器配置
-- **自定义指标**：Pull 和 Push 模式都完全支持通过 `HttpContext.RecordMetric()` 记录的动态指标
-- **OpenTelemetry**：Pull 模式与 Pixiu Tracing 技术栈保持一致
-- **配置默认值**：Push 模式为所有配置字段提供合理的默认值
-- **线程安全**：过滤器是线程安全的，因为每个请求获得新实例；无数据竞争
+- **指标统一**：Pull 和 Push 模式使用相同的指标名称和类型
+- **配置默认值**：Push 模式的所有配置字段都可以省略，会自动应用默认值
+- **线程安全**：过滤器是线程安全的，支持高并发场景
 

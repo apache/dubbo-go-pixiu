@@ -125,29 +125,22 @@ http_filters:
 
 ## Built-in Metrics
 
-### Pull Mode Metrics
+**Pull and Push modes now use unified metric names and types:**
 
-| Metric Name | Type | Description |
-|-------------|------|-------------|
-| `pixiu_request_count` | Counter | Total number of requests |
-| `pixiu_request_elapsed` | Counter | Total request elapsed time (ms) |
-| `pixiu_request_error_count` | Counter | Total error count |
-| `pixiu_request_content_length` | Counter | Request size (bytes) |
-| `pixiu_response_content_length` | Counter | Response size (bytes) |
-| `pixiu_process_time_millicec` | Histogram | Request processing time distribution (ms) |
+| Metric Name | Type | Description | Labels |
+|-------------|------|-------------|--------|
+| `pixiu_request_count` | Counter | Total number of requests | code, method, host, url |
+| `pixiu_request_elapsed` | Counter | Total request elapsed time (milliseconds) | code, method, host, url |
+| `pixiu_request_error_count` | Counter | Total error count | code, method, host, url |
+| `pixiu_request_content_length` | Counter | Request size (bytes) | code, method, url |
+| `pixiu_response_content_length` | Counter | Response size (bytes) | code, method, url |
+| `pixiu_process_time_millisec` | Histogram | Request processing time distribution (milliseconds) | code, method, url |
 
-**Labels**: `code`, `method`, `url`, `host`
-
-### Push Mode Metrics
-
-| Metric Name | Type | Description |
-|-------------|------|-------------|
-| `requests_total` | Counter | Total HTTP requests |
-| `request_duration_seconds` | Histogram | Request latency |
-| `request_size_bytes` | Histogram | Request size |
-| `response_size_bytes` | Histogram | Response size |
-
-**Labels**: `code`, `method`, `url`, `host`
+**Notes**:
+- Both modes now use identical metric names for easy switching between modes
+- All metric names have the `pixiu_` prefix for easy identification
+- Time unit is standardized to milliseconds
+- Size unit is standardized to bytes
 
 ---
 
@@ -356,11 +349,9 @@ metric:
 
 ## Notes
 
-- **Filter Order**: MetricReporter should be placed **last** in the http_filters list to collect all custom metrics from other filters
-- **Execution Phase**: Both Pull and Push modes report metrics in the **Encode phase** (after all filters and backend processing complete)
+- **Filter Order**: MetricReporter should be placed **last** in the http_filters list
 - **Pull Endpoint**: Controlled by global `metric.prometheus_port`, not filter config
-- **Custom Metrics**: Both Pull and Push modes fully support dynamic metrics from `HttpContext.RecordMetric()`
-- **OpenTelemetry**: Pull mode is consistent with Pixiu Tracing technology stack
-- **Configuration Defaults**: Push mode applies sensible defaults for all configuration fields
-- **Thread Safety**: Filter is thread-safe as each request gets a new instance; no data races
+- **Unified Metrics**: Pull and Push modes use identical metric names and types
+- **Configuration Defaults**: All Push mode configuration fields can be omitted with automatic defaults
+- **Thread Safety**: Filter is thread-safe and supports high-concurrency scenarios
 

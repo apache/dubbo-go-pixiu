@@ -146,7 +146,7 @@ func doInitOTelInstruments() error {
 	}
 	instruments.sizeResponse = sizeResponse
 
-	durationHist, err := meter.SyncInt64().Histogram("pixiu_process_time_millicec",
+	durationHist, err := meter.SyncInt64().Histogram("pixiu_process_time_millisec",
 		instrument.WithDescription("request process time response in pixiu"))
 	if err != nil {
 		return fmt.Errorf("register pixiu_process_time_millisec metric failed: %w", err)
@@ -175,12 +175,12 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, c
 
 	case "push":
 		p := prom.NewPrometheus()
-		p.SetPushGatewayUrl(factory.cfg.PushConfig.GatewayURL, factory.cfg.PushConfig.MetricPath)
-		p.SetPushIntervalThreshold(true, factory.cfg.PushConfig.PushInterval)
-		p.SetPushGatewayJob(factory.cfg.PushConfig.JobName)
+		p.SetPushGatewayUrl(factory.cfg.Push.GatewayURL, factory.cfg.Push.MetricPath)
+		p.SetPushIntervalThreshold(true, factory.cfg.Push.PushInterval)
+		p.SetPushGatewayJob(factory.cfg.Push.JobName)
 		f.promCollector = p
 		logger.Infof("[MetricReporter] Push mode enabled (gateway: %s, interval: %d)",
-			factory.cfg.PushConfig.GatewayURL, factory.cfg.PushConfig.PushInterval)
+			factory.cfg.Push.GatewayURL, factory.cfg.Push.PushInterval)
 	}
 
 	// Both modes need decode and encode filters

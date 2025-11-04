@@ -81,16 +81,32 @@ var resSzBuckets = []float64{1.0 * KB, 2.0 * KB, 5.0 * KB, 10.0 * KB, 100 * KB, 
 
 var reqCnt = &Metric{
 	ID:          "reqCnt",
-	Name:        "requests_total",
-	Description: "How many HTTP requests processed, partitioned by status code and HTTP method.",
+	Name:        "pixiu_request_count",
+	Description: "request total count in pixiu",
+	Type:        "counter_vec",
+	Args:        []string{"code", "method", "host", "url"},
+}
+
+var reqElapsed = &Metric{
+	ID:          "reqElapsed",
+	Name:        "pixiu_request_elapsed",
+	Description: "request total elapsed in pixiu (milliseconds)",
+	Type:        "counter_vec",
+	Args:        []string{"code", "method", "host", "url"},
+}
+
+var reqErrorCnt = &Metric{
+	ID:          "reqErrorCnt",
+	Name:        "pixiu_request_error_count",
+	Description: "request error total count in pixiu",
 	Type:        "counter_vec",
 	Args:        []string{"code", "method", "host", "url"},
 }
 
 var reqDur = &Metric{
 	ID:          "reqDur",
-	Name:        "request_duration_seconds",
-	Description: "The HTTP request latencies in seconds.",
+	Name:        "pixiu_process_time_millisec",
+	Description: "request process time response in pixiu (milliseconds)",
 	Args:        []string{"code", "method", "url"},
 	Type:        "histogram_vec",
 	Buckets:     reqDurBuckets,
@@ -98,24 +114,24 @@ var reqDur = &Metric{
 
 var resSz = &Metric{
 	ID:          "resSz",
-	Name:        "response_size_bytes",
-	Description: "The HTTP response sizes in bytes.",
+	Name:        "pixiu_response_content_length",
+	Description: "request total content length response in pixiu (bytes)",
 	Args:        []string{"code", "method", "url"},
-	Type:        "histogram_vec",
-	Buckets:     resSzBuckets,
+	Type:        "counter_vec",
 }
 
 var reqSz = &Metric{
 	ID:          "reqSz",
-	Name:        "request_size_bytes",
-	Description: "The HTTP request sizes in bytes.",
+	Name:        "pixiu_request_content_length",
+	Description: "request total content length in pixiu (bytes)",
 	Args:        []string{"code", "method", "url"},
-	Type:        "histogram_vec",
-	Buckets:     reqSzBuckets,
+	Type:        "counter_vec",
 }
 
 var standardMetrics = []*Metric{
 	reqCnt,
+	reqElapsed,
+	reqErrorCnt,
 	reqDur,
 	resSz,
 	reqSz,
@@ -202,9 +218,12 @@ func NewMetric(m *Metric, subsystem string) prometheus.Collector {
 type RequestCounterLabelMappingFunc func(c *contextHttp.HttpContext) string
 
 type Prometheus struct {
-	reqCnt               *prometheus.CounterVec
-	reqDur, reqSz, resSz *prometheus.HistogramVec
-	Ppg                  PushGateway
+	reqCnt       *prometheus.CounterVec
+	reqElapsed   *prometheus.CounterVec
+	reqErrorCnt  *prometheus.CounterVec
+	reqDur       *prometheus.HistogramVec
+	reqSz, resSz *prometheus.CounterVec
+	Ppg          PushGateway
 
 	MetricsList []*Metric
 	MetricsPath string
@@ -261,12 +280,16 @@ func (p *Prometheus) registerMetrics() {
 
 		case reqCnt:
 			p.reqCnt = metric.(*prometheus.CounterVec)
+		case reqElapsed:
+			p.reqElapsed = metric.(*prometheus.CounterVec)
+		case reqErrorCnt:
+			p.reqErrorCnt = metric.(*prometheus.CounterVec)
 		case reqDur:
 			p.reqDur = metric.(*prometheus.HistogramVec)
 		case resSz:
-			p.resSz = metric.(*prometheus.HistogramVec)
+			p.resSz = metric.(*prometheus.CounterVec)
 		case reqSz:
-			p.reqSz = metric.(*prometheus.HistogramVec)
+			p.reqSz = metric.(*prometheus.CounterVec)
 		}
 		metricDef.MetricCollector = metric
 	}
@@ -346,7 +369,7 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		start := time.Now()
 		reqSz, err1 := computeApproximateRequestSize(c.Request)
 		//fmt.Println("reqSz", reqSz)
-		elapsed := float64(time.Since(start)) / float64(time.Second)
+		elapsed := float64(time.Since(start).Milliseconds())
 		//fmt.Println("elapsed ", elapsed)
 		url := p.RequestCounterURLLabelMappingFunc(c)
 		//fmt.Println("url ", url)
@@ -354,15 +377,26 @@ func (p *Prometheus) HandlerFunc() ContextHandlerFunc {
 		//fmt.Println("statusStr", statusStr)
 		method := c.GetMethod()
 		//fmt.Println("method ", method)
+		host := p.RequestCounterHostLabelMappingFunc(c)
+
+		// Record metrics aligned with Pull mode
+		p.reqCnt.WithLabelValues(statusStr, method, host, url).Inc()
+		p.reqElapsed.WithLabelValues(statusStr, method, host, url).Add(elapsed)
 		p.reqDur.WithLabelValues(statusStr, method, url).Observe(elapsed)
-		p.reqCnt.WithLabelValues(statusStr, method, p.RequestCounterHostLabelMappingFunc(c), url).Inc()
+
 		if err1 == nil {
-			p.reqSz.WithLabelValues(statusStr, method, url).Observe(float64(reqSz))
+			p.reqSz.WithLabelValues(statusStr, method, url).Add(float64(reqSz))
 		}
 		resSz, err2 := computeApproximateResponseSize(c.TargetResp)
 		if err2 == nil {
-			p.resSz.WithLabelValues(statusStr, method, url).Observe(float64(resSz))
+			p.resSz.WithLabelValues(statusStr, method, url).Add(float64(resSz))
 		}
+
+		// Record errors
+		if c.LocalReply() {
+			p.reqErrorCnt.WithLabelValues(statusStr, method, host, url).Inc()
+		}
+
 		p.Ppg.mutex.Lock()
 		p.Ppg.counter = p.Ppg.counter + 1
 		defer p.Ppg.mutex.Unlock()

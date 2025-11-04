@@ -25,14 +25,22 @@ import (
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
+// Default values for push mode configuration
+const (
+	DefaultPushGatewayURL = "http://localhost:9091"
+	DefaultPushJobName    = "pixiu"
+	DefaultPushInterval   = 100
+	DefaultPushMetricPath = "/metrics"
+)
+
 // Config defines the configuration for the unified metric reporter filter.
 type Config struct {
 	// Mode defines the metric reporting mode: "pull" or "push"
 	Mode string `yaml:"mode" json:"mode"`
 
-	// PushConfig configuration for push mode (Push Gateway)
+	// Push configuration for push mode (Push Gateway)
 	// Note: Pull mode uses global metric configuration (metric.enable, metric.prometheus_port)
-	PushConfig PushConfig `yaml:"push_config" json:"push_config"`
+	Push PushConfig `yaml:"push_config" json:"push_config"`
 }
 
 // PushConfig defines the configuration for push mode.
@@ -66,52 +74,34 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid mode '%s', must be 'pull' or 'push'", c.Mode)
 	}
 
-	// Apply defaults and validate push config if in push mode
+	// Validate push config if in push mode
 	// Pull mode has no filter-level configuration (uses global metric config)
 	if c.Mode == "push" {
-		c.PushConfig.ApplyDefaults()
-		return c.PushConfig.Validate()
+		return c.Push.Validate()
 	}
 
 	return nil
 }
 
-// ApplyDefaults applies default values to empty fields.
-func (c *PushConfig) ApplyDefaults() {
-	if c.GatewayURL == "" {
-		c.GatewayURL = "http://localhost:9091"
-	}
-
-	if c.JobName == "" {
-		c.JobName = "pixiu"
-	}
-
-	if c.PushInterval <= 0 {
-		c.PushInterval = 100
-	}
-
-	if c.MetricPath == "" {
-		c.MetricPath = "/metrics"
-	}
-}
-
-// Validate validates push mode configuration.
+// Validate validates push mode configuration and applies defaults for empty fields.
 func (c *PushConfig) Validate() error {
+	// Apply defaults for empty fields
 	if c.GatewayURL == "" {
-		return fmt.Errorf("push gateway_url cannot be empty")
+		c.GatewayURL = DefaultPushGatewayURL
 	}
 
 	if c.JobName == "" {
-		return fmt.Errorf("push job_name cannot be empty")
+		c.JobName = DefaultPushJobName
 	}
 
 	if c.PushInterval <= 0 {
-		return fmt.Errorf("push interval %d must be greater than 0", c.PushInterval)
+		c.PushInterval = DefaultPushInterval
 	}
 
 	if c.MetricPath == "" {
-		return fmt.Errorf("push metric_path cannot be empty")
+		c.MetricPath = DefaultPushMetricPath
 	}
 
+	// All fields now have values (either user-provided or defaults)
 	return nil
 }

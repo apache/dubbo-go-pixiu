@@ -19,6 +19,7 @@ package metricreporter
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -27,6 +28,11 @@ import (
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
+
+	"go.opentelemetry.io/otel/sdk/metric"
 )
 
 import (
@@ -116,7 +122,7 @@ func TestConfigValidate(t *testing.T) {
 			name: "valid push mode",
 			config: &Config{
 				Mode: "push",
-				PushConfig: PushConfig{
+				Push: PushConfig{
 					GatewayURL:   "http://localhost:9091",
 					JobName:      "pixiu",
 					PushInterval: 100,
@@ -129,7 +135,7 @@ func TestConfigValidate(t *testing.T) {
 			name: "push mode with empty fields applies defaults",
 			config: &Config{
 				Mode: "push",
-				PushConfig: PushConfig{
+				Push: PushConfig{
 					GatewayURL:   "",
 					JobName:      "",
 					PushInterval: 0,
@@ -180,7 +186,7 @@ func TestPushModeInitialization(t *testing.T) {
 	factory := &FilterFactory{
 		cfg: &Config{
 			Mode: "push",
-			PushConfig: PushConfig{
+			Push: PushConfig{
 				GatewayURL:   "http://localhost:9091",
 				JobName:      "test_job",
 				PushInterval: 100,
@@ -241,7 +247,7 @@ func TestFilterWithPushMode(t *testing.T) {
 	factory := &FilterFactory{
 		cfg: &Config{
 			Mode: "push",
-			PushConfig: PushConfig{
+			Push: PushConfig{
 				GatewayURL:   "http://localhost:9091",
 				JobName:      "test",
 				PushInterval: 100,
@@ -392,7 +398,7 @@ func TestMetricReporterPushMode(t *testing.T) {
 	factory := &FilterFactory{
 		cfg: &Config{
 			Mode: "push",
-			PushConfig: PushConfig{
+			Push: PushConfig{
 				GatewayURL:   "http://127.0.0.1:9091",
 				JobName:      "pixiu-test",
 				PushInterval: 10, // Push every 10 requests for faster testing
@@ -445,4 +451,172 @@ func TestMetricReporterPushMode(t *testing.T) {
 	}
 
 	t.Log("Push mode metric reporter test finished successfully")
+}
+
+// TestOTelInstrumentNoErrorOnDuplicateName tests that OpenTelemetry SDK
+// allows creating instruments with the same name without errors.
+// Although it returns different wrapper objects, it doesn't cause duplicate registration issues.
+func TestOTelInstrumentNoErrorOnDuplicateName(t *testing.T) {
+	// Initialize OTel instruments first
+	factory := &FilterFactory{
+		cfg: &Config{
+			Mode: "pull",
+		},
+	}
+
+	err := factory.Apply()
+	require.NoError(t, err)
+
+	ctx := newTestHTTPContext(t)
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
+	require.NoError(t, err)
+
+	// Get the meter
+	meter := global.MeterProvider().Meter("pixiu")
+
+	// Create the same counter multiple times with the same name
+	// This should NOT cause errors even though it's the same name
+	counter1, err1 := meter.SyncInt64().Counter("test_duplicate_counter",
+		instrument.WithDescription("First call"))
+	require.NoError(t, err1)
+	require.NotNil(t, counter1)
+
+	counter2, err2 := meter.SyncInt64().Counter("test_duplicate_counter",
+		instrument.WithDescription("Second call"))
+	require.NoError(t, err2)
+	require.NotNil(t, counter2)
+
+	counter3, err3 := meter.SyncInt64().Counter("test_duplicate_counter",
+		instrument.WithDescription("Third call"))
+	require.NoError(t, err3)
+	require.NotNil(t, counter3)
+
+	// Test with histogram
+	hist1, err4 := meter.SyncFloat64().Histogram("test_duplicate_histogram",
+		instrument.WithDescription("First histogram"))
+	require.NoError(t, err4)
+	require.NotNil(t, hist1)
+
+	hist2, err5 := meter.SyncFloat64().Histogram("test_duplicate_histogram",
+		instrument.WithDescription("Second histogram"))
+	require.NoError(t, err5)
+	require.NotNil(t, hist2)
+
+	// Test with gauge (UpDownCounter)
+	gauge1, err6 := meter.SyncInt64().UpDownCounter("test_duplicate_gauge",
+		instrument.WithDescription("First gauge"))
+	require.NoError(t, err6)
+	require.NotNil(t, gauge1)
+
+	gauge2, err7 := meter.SyncInt64().UpDownCounter("test_duplicate_gauge",
+		instrument.WithDescription("Second gauge"))
+	require.NoError(t, err7)
+	require.NotNil(t, gauge2)
+
+	// All instruments can be used without errors
+	counter1.Add(ctx.Ctx, 1)
+	counter2.Add(ctx.Ctx, 1)
+	counter3.Add(ctx.Ctx, 1)
+
+	hist1.Record(ctx.Ctx, 10.5)
+	hist2.Record(ctx.Ctx, 20.5)
+
+	gauge1.Add(ctx.Ctx, 1)
+	gauge2.Add(ctx.Ctx, -1)
+
+	t.Log("OpenTelemetry SDK allows same metric name without errors - no duplicate registration issues")
+}
+
+// TestDynamicMetricsMultipleRequests tests that dynamic metrics from context
+// can be reported multiple times without issues (simulates real scenario).
+func TestDynamicMetricsMultipleRequests(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &Config{
+			Mode: "pull",
+		},
+	}
+
+	err := factory.Apply()
+	require.NoError(t, err)
+
+	// Simulate 100 requests with the same custom metric
+	for i := 0; i < 100; i++ {
+		ctx := newTestHTTPContext(t)
+
+		// Record the same metric name in every request
+		ctx.RecordMetric("api_requests", "counter", 1.0, map[string]string{
+			"endpoint": "/test",
+			"method":   "GET",
+		})
+		ctx.RecordMetric("api_latency", "histogram", float64(i*10), map[string]string{
+			"endpoint": "/test",
+		})
+
+		// Create a new chain for each request
+		chain := &mockFilterChain{}
+		err = factory.PrepareFilterChain(ctx, chain)
+		require.NoError(t, err)
+
+		// Execute decode and encode
+		require.Len(t, chain.decodeFilters, 1)
+		require.Len(t, chain.encodeFilters, 1)
+
+		decodeStatus := chain.decodeFilters[0].Decode(ctx)
+		assert.Equal(t, 0, int(decodeStatus))
+
+		encodeStatus := chain.encodeFilters[0].Encode(ctx)
+		assert.Equal(t, 0, int(encodeStatus), "Request #%d: should handle repeated metric names without error", i)
+	}
+
+	t.Log("Successfully processed 100 requests with same metric names - no duplicate registration issues")
+}
+
+// TestSDKProviderRejectsRepeatedRegistration tests that when using SDK MeterProvider directly,
+// repeated registration of the same metric name WILL cause an error.
+// This is different from using global.MeterProvider().
+func TestSDKProviderRejectsRepeatedRegistration(t *testing.T) {
+	reader := metric.NewManualReader()
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+	meter := provider.Meter("pixiu")
+
+	// First registration - should succeed
+	counter1, err1 := meter.SyncInt64().Counter("test_counter",
+		instrument.WithDescription("First"))
+	require.NoError(t, err1)
+	require.NotNil(t, counter1)
+
+	// Second registration with SAME NAME - should FAIL with SDK provider
+	_, err2 := meter.SyncInt64().Counter("test_counter",
+		instrument.WithDescription("Second"))
+
+	// SDK MeterProvider DOES reject duplicate registration
+	assert.Error(t, err2, "SDK MeterProvider should reject duplicate instrument registration")
+	assert.Contains(t, err2.Error(), "instrument already registered",
+		"Error should indicate duplicate registration")
+
+	t.Log("✓ Confirmed: SDK MeterProvider rejects duplicate instrument registration")
+}
+
+// TestGlobalProviderHandlesRepeatedCalls tests that when using global.MeterProvider(),
+// which is what the actual code uses, repeated calls do NOT cause errors.
+func TestGlobalProviderHandlesRepeatedCalls(t *testing.T) {
+	// Use global meter provider (default noop or whatever is set)
+	meter := global.MeterProvider().Meter("pixiu")
+
+	// Create the same counter multiple times - this is what happens in actual code
+	for i := 0; i < 10; i++ {
+		counter, err := meter.SyncInt64().Counter("global_test_counter",
+			instrument.WithDescription(fmt.Sprintf("Iteration %d", i)))
+
+		// With global provider, this should NOT error
+		assert.NoError(t, err, "global.MeterProvider() should handle repeated instrument creation")
+		assert.NotNil(t, counter)
+
+		// Use the counter
+		counter.Add(context.Background(), int64(i+1))
+	}
+
+	t.Log("✓ Confirmed: global.MeterProvider() handles repeated instrument creation without errors")
+	t.Log("✓ This explains why the actual code (which uses global.MeterProvider) works fine")
 }
