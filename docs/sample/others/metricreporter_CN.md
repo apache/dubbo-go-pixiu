@@ -42,6 +42,7 @@
 - 使用 Prometheus 原生 SDK
 - 每 N 个请求推送一次指标
 - 批量推送减少网络开销
+- 支持来自 Context 的动态自定义指标（与 Pull 模式相同）
 
 **适用场景：**
 - 防火墙后的服务
@@ -97,11 +98,28 @@ http_filters:
     config:
       mode: "push"
       push_config:
-        gateway_url: "http://push-gateway:9091"  # Push Gateway 地址
-        job_name: "pixiu"                        # 任务名称
-        push_interval: 100                       # 每 100 个请求推送一次
-        metric_path: "/metrics"                  # 推送路径
+        gateway_url: "http://push-gateway:9091"  # Push Gateway 地址（默认：http://localhost:9091）
+        job_name: "pixiu"                        # 任务名称（默认：pixiu）
+        push_interval: 100                       # 每 100 个请求推送一次（默认：100）
+        metric_path: "/metrics"                  # 推送路径（默认：/metrics）
 ```
+
+**注意**：`push_config` 中的所有字段都有默认值。如果省略，将自动应用默认值。
+
+**最小化配置（使用所有默认值）**：
+```yaml
+http_filters:
+  - name: dgp.filter.http.metricreporter
+    config:
+      mode: "push"
+      # push_config 可以省略或为空，将使用所有默认值
+```
+
+**默认值**：
+- `gateway_url`: `http://localhost:9091`
+- `job_name`: `pixiu`
+- `push_interval`: `100`
+- `metric_path`: `/metrics`
 
 ---
 
@@ -135,7 +153,9 @@ http_filters:
 
 ## 自定义指标（扩展功能）
 
-其他过滤器可以记录自定义指标，由 MetricReporter 统一上报。
+其他过滤器可以记录自定义指标，由 MetricReporter 自动收集并上报。
+
+**Pull 和 Push 模式都支持**：通过 `HttpContext.RecordMetric()` 记录的自定义指标在两种模式下都能完整导出。
 
 ### 在自定义过滤器中使用
 
@@ -336,8 +356,11 @@ metric:
 
 ## 注意事项
 
-- **过滤器顺序**：MetricReporter 应放在 http_filters 列表的**最后**
+- **过滤器顺序**：MetricReporter 应放在 http_filters 列表的**最后**，以便收集所有其他过滤器的自定义指标
+- **执行阶段**：Pull 和 Push 模式都在 **Encode 阶段**上报指标（所有过滤器和后端处理完成后）
 - **Pull 端点**：由全局 `metric.prometheus_port` 控制，而非过滤器配置
-- **自定义指标**：Pull 模式完全支持动态指标；Push 模式记录日志（可扩展）
+- **自定义指标**：Pull 和 Push 模式都完全支持通过 `HttpContext.RecordMetric()` 记录的动态指标
 - **OpenTelemetry**：Pull 模式与 Pixiu Tracing 技术栈保持一致
+- **配置默认值**：Push 模式为所有配置字段提供合理的默认值
+- **线程安全**：过滤器是线程安全的，因为每个请求获得新实例；无数据竞争
 

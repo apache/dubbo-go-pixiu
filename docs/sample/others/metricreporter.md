@@ -42,6 +42,7 @@ Metrics are actively pushed to Prometheus Push Gateway.
 - Uses Prometheus native SDK
 - Metrics pushed every N requests
 - Batch push reduces network overhead
+- Supports dynamic custom metrics from context (same as Pull mode)
 
 **Use Cases:**
 - Services behind firewalls
@@ -97,11 +98,28 @@ http_filters:
     config:
       mode: "push"
       push_config:
-        gateway_url: "http://push-gateway:9091"  # Push Gateway URL
-        job_name: "pixiu"                        # Job name
-        push_interval: 100                       # Push every 100 requests
-        metric_path: "/metrics"                  # Push path
+        gateway_url: "http://push-gateway:9091"  # Push Gateway URL (default: http://localhost:9091)
+        job_name: "pixiu"                        # Job name (default: pixiu)
+        push_interval: 100                       # Push every 100 requests (default: 100)
+        metric_path: "/metrics"                  # Push path (default: /metrics)
 ```
+
+**Note**: All fields in `push_config` have default values. If omitted, defaults will be applied automatically.
+
+**Minimal Configuration (uses all defaults)**:
+```yaml
+http_filters:
+  - name: dgp.filter.http.metricreporter
+    config:
+      mode: "push"
+      # push_config can be omitted or empty to use all defaults
+```
+
+**Default Values**:
+- `gateway_url`: `http://localhost:9091`
+- `job_name`: `pixiu`
+- `push_interval`: `100`
+- `metric_path`: `/metrics`
 
 ---
 
@@ -135,7 +153,9 @@ http_filters:
 
 ## Custom Metrics (Extension Feature)
 
-Other filters can record custom metrics that will be reported by MetricReporter.
+Other filters can record custom metrics that will be automatically collected and reported by MetricReporter.
+
+**Supported in both Pull and Push modes**: Custom metrics recorded via `HttpContext.RecordMetric()` are fully exported in both modes.
 
 ### Usage in Custom Filters
 
@@ -336,8 +356,11 @@ metric:
 
 ## Notes
 
-- **Filter Order**: MetricReporter should be placed **last** in the http_filters list
+- **Filter Order**: MetricReporter should be placed **last** in the http_filters list to collect all custom metrics from other filters
+- **Execution Phase**: Both Pull and Push modes report metrics in the **Encode phase** (after all filters and backend processing complete)
 - **Pull Endpoint**: Controlled by global `metric.prometheus_port`, not filter config
-- **Custom Metrics**: Pull mode fully supports dynamic metrics; Push mode logs them (can be extended)
+- **Custom Metrics**: Both Pull and Push modes fully support dynamic metrics from `HttpContext.RecordMetric()`
 - **OpenTelemetry**: Pull mode is consistent with Pixiu Tracing technology stack
+- **Configuration Defaults**: Push mode applies sensible defaults for all configuration fields
+- **Thread Safety**: Filter is thread-safe as each request gets a new instance; no data races
 
