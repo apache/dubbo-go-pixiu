@@ -25,8 +25,9 @@ import (
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
-// Default values for push mode configuration
+// Default values for metric reporter configuration
 const (
+	DefaultMode           = "push" // Default mode is push
 	DefaultPushGatewayURL = "http://localhost:9091"
 	DefaultPushJobName    = "pixiu"
 	DefaultPushInterval   = 100
@@ -69,6 +70,11 @@ type OTelInstruments struct {
 
 // Validate validates the configuration based on mode.
 func (c *Config) Validate() error {
+	// Apply default mode if not specified
+	if c.Mode == "" {
+		c.Mode = DefaultMode
+	}
+
 	// Validate mode
 	if c.Mode != "pull" && c.Mode != "push" {
 		return fmt.Errorf("invalid mode '%s', must be 'pull' or 'push'", c.Mode)

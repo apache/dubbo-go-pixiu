@@ -81,7 +81,7 @@ var resSzBuckets = []float64{1.0 * KB, 2.0 * KB, 5.0 * KB, 10.0 * KB, 100 * KB, 
 
 var reqCnt = &Metric{
 	ID:          "reqCnt",
-	Name:        "pixiu_request_count",
+	Name:        "request_count",
 	Description: "request total count in pixiu",
 	Type:        "counter_vec",
 	Args:        []string{"code", "method", "host", "url"},
@@ -89,7 +89,7 @@ var reqCnt = &Metric{
 
 var reqElapsed = &Metric{
 	ID:          "reqElapsed",
-	Name:        "pixiu_request_elapsed",
+	Name:        "request_elapsed",
 	Description: "request total elapsed in pixiu (milliseconds)",
 	Type:        "counter_vec",
 	Args:        []string{"code", "method", "host", "url"},
@@ -97,7 +97,7 @@ var reqElapsed = &Metric{
 
 var reqErrorCnt = &Metric{
 	ID:          "reqErrorCnt",
-	Name:        "pixiu_request_error_count",
+	Name:        "request_error_count",
 	Description: "request error total count in pixiu",
 	Type:        "counter_vec",
 	Args:        []string{"code", "method", "host", "url"},
@@ -105,7 +105,7 @@ var reqErrorCnt = &Metric{
 
 var reqDur = &Metric{
 	ID:          "reqDur",
-	Name:        "pixiu_process_time_millisec",
+	Name:        "process_time_millisec",
 	Description: "request process time response in pixiu (milliseconds)",
 	Args:        []string{"code", "method", "url"},
 	Type:        "histogram_vec",
@@ -114,7 +114,7 @@ var reqDur = &Metric{
 
 var resSz = &Metric{
 	ID:          "resSz",
-	Name:        "pixiu_response_content_length",
+	Name:        "response_content_length",
 	Description: "request total content length response in pixiu (bytes)",
 	Args:        []string{"code", "method", "url"},
 	Type:        "counter_vec",
@@ -122,7 +122,7 @@ var resSz = &Metric{
 
 var reqSz = &Metric{
 	ID:          "reqSz",
-	Name:        "pixiu_request_content_length",
+	Name:        "request_content_length",
 	Description: "request total content length in pixiu (bytes)",
 	Args:        []string{"code", "method", "url"},
 	Type:        "counter_vec",

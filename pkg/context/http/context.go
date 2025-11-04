@@ -270,10 +270,10 @@ func (hc *HttpContext) RecordMetric(name string, metricType string, value float6
 // GetAllMetrics returns all recorded metrics.
 func (hc *HttpContext) GetAllMetrics() []*MetricData {
 	// Return a copy to avoid race conditions
-	result := make([]*MetricData, len(hc.metrics))
 	hc.metricsMu.RLock()
-	defer hc.metricsMu.RUnlock()
+	result := make([]*MetricData, len(hc.metrics))
 	copy(result, hc.metrics)
+	hc.metricsMu.RUnlock()
 	return result
 }
 

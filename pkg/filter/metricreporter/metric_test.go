@@ -103,7 +103,16 @@ func TestConfigValidate(t *testing.T) {
 		name      string
 		config    *Config
 		wantError bool
+		wantMode  string
 	}{
+		{
+			name: "empty mode defaults to push",
+			config: &Config{
+				Mode: "",
+			},
+			wantError: false,
+			wantMode:  "push",
+		},
 		{
 			name: "invalid mode",
 			config: &Config{
@@ -117,6 +126,7 @@ func TestConfigValidate(t *testing.T) {
 				Mode: "pull",
 			},
 			wantError: false,
+			wantMode:  "pull",
 		},
 		{
 			name: "valid push mode",
@@ -130,6 +140,7 @@ func TestConfigValidate(t *testing.T) {
 				},
 			},
 			wantError: false,
+			wantMode:  "push",
 		},
 		{
 			name: "push mode with empty fields applies defaults",
@@ -143,6 +154,7 @@ func TestConfigValidate(t *testing.T) {
 				},
 			},
 			wantError: false,
+			wantMode:  "push",
 		},
 	}
 
@@ -155,6 +167,9 @@ func TestConfigValidate(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+				if tt.wantMode != "" {
+					assert.Equal(t, tt.wantMode, factory.cfg.Mode, "Mode should be set to %s", tt.wantMode)
+				}
 			}
 		})
 	}
