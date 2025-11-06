@@ -1,4 +1,4 @@
-# Metric Reporter Filter (dgp.filter.http.metricreporter)
+# Metric Reporter Filter (dgp.filter.http.metric)
 
 English | [中文](metric_CN.md)
 
@@ -6,7 +6,9 @@ English | [中文](metric_CN.md)
 
 ## Overview
 
-The `dgp.filter.http.metricreporter` filter provides unified metric reporting for Pixiu gateway. It consolidates the functionality of two previous filters (`dgp.filter.http.metric` and `dgp.filter.http.prometheusmetric`) and supports both **Pull** and **Push** modes with OpenTelemetry integration.
+The `dgp.filter.http.metric` filter provides unified metric reporting for Pixiu gateway. It consolidates the functionality of two previous filters (`dgp.filter.http.metric` and `dgp.filter.http.prometheusmetric`) and supports both **Pull** and **Push** modes with OpenTelemetry integration.
+
+> **Note**: This filter defaults to **Push** mode. To use Pull mode, explicitly specify `mode: "pull"` in the configuration.
 
 ### Key Features
 
@@ -80,7 +82,7 @@ static_resources:
                   config: {}
                 
                 # MetricReporter must be placed last
-                - name: dgp.filter.http.metricreporter
+                - name: dgp.filter.http.metric
                   config:
                     mode: "pull"
 
@@ -94,7 +96,7 @@ metric:
 
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "push"
       push_config:
@@ -109,10 +111,18 @@ http_filters:
 **Minimal Configuration (uses all defaults)**:
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "push"
       # push_config can be omitted or empty to use all defaults
+```
+
+**Ultra-minimal Configuration (defaults to Push mode)**:
+```yaml
+http_filters:
+  - name: dgp.filter.http.metric
+    config: {}
+    # Defaults to push mode with all default settings
 ```
 
 **Default Values**:
@@ -219,7 +229,7 @@ metric:
 
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "pull"
 ```
@@ -253,7 +263,7 @@ docker run -d -p 9091:9091 prom/pushgateway
 
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "push"
       push_config:
@@ -274,24 +284,11 @@ curl http://localhost:9091/metrics
 
 ## Differences from Previous Filters
 
-### Replaces dgp.filter.http.metric (Pull)
+### Replaces Legacy dgp.filter.http.prometheusmetric (Push)
 
-**Old Configuration:**
-```yaml
-- name: dgp.filter.http.metric
-  config: {}
-```
+> **Important**: The `dgp.filter.http.metric` filter now supports both Pull and Push modes, with Push as the default. The legacy `dgp.filter.http.prometheusmetric` filter has been marked as deprecated.
 
-**New Configuration:**
-```yaml
-- name: dgp.filter.http.metricreporter
-  config:
-    mode: "pull"
-```
-
-### Replaces dgp.filter.http.prometheusmetric (Push)
-
-**Old Configuration:**
+**Old Configuration (Deprecated):**
 ```yaml
 - name: dgp.filter.http.prometheusmetric
   config:
@@ -302,9 +299,9 @@ curl http://localhost:9091/metrics
       push_job_name: "pixiu"
 ```
 
-**New Configuration:**
+**New Configuration (Recommended):**
 ```yaml
-- name: dgp.filter.http.metricreporter
+- name: dgp.filter.http.metric
   config:
     mode: "push"
     push_config:
@@ -312,6 +309,13 @@ curl http://localhost:9091/metrics
       job_name: "pixiu"
       push_interval: 100
       metric_path: "/metrics"
+```
+
+**With Default Configuration (Simpler):**
+```yaml
+- name: dgp.filter.http.metric
+  config: {}
+  # Defaults to push mode with gateway_url=http://localhost:9091, job_name=pixiu, push_interval=100
 ```
 
 ---

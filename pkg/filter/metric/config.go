@@ -25,13 +25,8 @@ import (
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
-// Default values for metric reporter configuration
-const (
-	DefaultMode           = "push" // Default mode is push
-	DefaultPushGatewayURL = "http://localhost:9091"
-	DefaultPushJobName    = "pixiu"
-	DefaultPushInterval   = 100
-	DefaultPushMetricPath = "/metrics"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // Config defines the configuration for the unified metric reporter filter.
@@ -72,7 +67,7 @@ type OTelInstruments struct {
 func (c *Config) Validate() error {
 	// Apply default mode if not specified
 	if c.Mode == "" {
-		c.Mode = DefaultMode
+		c.Mode = constant.DefaultMode
 	}
 
 	// Validate mode
@@ -93,19 +88,19 @@ func (c *Config) Validate() error {
 func (c *PushConfig) Validate() error {
 	// Apply defaults for empty fields
 	if c.GatewayURL == "" {
-		c.GatewayURL = DefaultPushGatewayURL
+		c.GatewayURL = constant.DefaultPushGatewayURL
 	}
 
 	if c.JobName == "" {
-		c.JobName = DefaultPushJobName
+		c.JobName = constant.DefaultPushJobName
 	}
 
 	if c.PushInterval <= 0 {
-		c.PushInterval = DefaultPushInterval
+		c.PushInterval = constant.DefaultPushInterval
 	}
 
 	if c.MetricPath == "" {
-		c.MetricPath = DefaultPushMetricPath
+		c.MetricPath = constant.DefaultPushMetricPath
 	}
 
 	// All fields now have values (either user-provided or defaults)

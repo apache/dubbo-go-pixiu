@@ -1,4 +1,4 @@
-# 指标上报过滤器 (dgp.filter.http.metricreporter)
+# 指标上报过滤器 (dgp.filter.http.metric)
 
 [English](metric.md) | 中文
 
@@ -6,7 +6,9 @@
 
 ## 概述
 
-`dgp.filter.http.metricreporter` 过滤器为 Pixiu 网关提供统一的指标上报功能。它整合了之前的两个过滤器（`dgp.filter.http.metric` 和 `dgp.filter.http.prometheusmetric`）的功能，并支持 **Pull** 和 **Push** 两种模式，集成了 OpenTelemetry。
+`dgp.filter.http.metric` 过滤器为 Pixiu 网关提供统一的指标上报功能。它整合了之前的两个过滤器（`dgp.filter.http.metric` 和 `dgp.filter.http.prometheusmetric`）的功能，并支持 **Pull** 和 **Push** 两种模式，集成了 OpenTelemetry。
+
+> **注意**：此过滤器默认使用 **Push** 模式。如需使用 Pull 模式，请在配置中显式指定 `mode: "pull"`。
 
 ### 核心特性
 
@@ -80,7 +82,7 @@ static_resources:
                   config: {}
                 
                 # MetricReporter 必须放在最后
-                - name: dgp.filter.http.metricreporter
+                - name: dgp.filter.http.metric
                   config:
                     mode: "pull"
 
@@ -94,7 +96,7 @@ metric:
 
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "push"
       push_config:
@@ -109,10 +111,18 @@ http_filters:
 **最小化配置（使用所有默认值）**：
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "push"
       # push_config 可以省略或为空，将使用所有默认值
+```
+
+**极简配置（默认使用 Push 模式）**：
+```yaml
+http_filters:
+  - name: dgp.filter.http.metric
+    config: {}
+    # 默认使用 push 模式和所有默认配置
 ```
 
 **默认值**：
@@ -219,7 +229,7 @@ metric:
 
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "pull"
 ```
@@ -253,7 +263,7 @@ docker run -d -p 9091:9091 prom/pushgateway
 
 ```yaml
 http_filters:
-  - name: dgp.filter.http.metricreporter
+  - name: dgp.filter.http.metric
     config:
       mode: "push"
       push_config:
@@ -274,24 +284,11 @@ curl http://localhost:9091/metrics
 
 ## 与旧版过滤器的区别
 
-### 替代 dgp.filter.http.metric (Pull)
+### 替代旧版 dgp.filter.http.prometheusmetric (Push)
 
-**旧配置：**
-```yaml
-- name: dgp.filter.http.metric
-  config: {}
-```
+> **重要说明**：`dgp.filter.http.metric` 过滤器现在统一支持 Pull 和 Push 两种模式，默认为 Push 模式。旧版的 `dgp.filter.http.prometheusmetric` 过滤器已被标记为废弃。
 
-**新配置：**
-```yaml
-- name: dgp.filter.http.metricreporter
-  config:
-    mode: "pull"
-```
-
-### 替代 dgp.filter.http.prometheusmetric (Push)
-
-**旧配置：**
+**旧配置（已废弃）：**
 ```yaml
 - name: dgp.filter.http.prometheusmetric
   config:
@@ -302,9 +299,9 @@ curl http://localhost:9091/metrics
       push_job_name: "pixiu"
 ```
 
-**新配置：**
+**新配置（推荐）：**
 ```yaml
-- name: dgp.filter.http.metricreporter
+- name: dgp.filter.http.metric
   config:
     mode: "push"
     push_config:
@@ -312,6 +309,13 @@ curl http://localhost:9091/metrics
       job_name: "pixiu"
       push_interval: 100
       metric_path: "/metrics"
+```
+
+**使用默认配置（更简单）：**
+```yaml
+- name: dgp.filter.http.metric
+  config: {}
+  # 默认使用 push 模式，gateway_url=http://localhost:9091, job_name=pixiu, push_interval=100
 ```
 
 ---

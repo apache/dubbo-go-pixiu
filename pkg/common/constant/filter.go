@@ -39,3 +39,15 @@ const (
 
 	DefaultReqTimeout = 10 * time.Second
 )
+
+const (
+	DefaultMode = "push" // Default mode is push
+
+	DefaultPushGatewayURL = "http://localhost:9091"
+
+	DefaultPushJobName = "pixiu"
+
+	DefaultPushInterval = 100
+
+	DefaultPushMetricPath = "/metrics"
+)
