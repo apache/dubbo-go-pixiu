@@ -447,3 +447,337 @@ func TestErrorResponseJSONMarshaling(t *testing.T) {
 		}
 	})
 }
+
+// TestRecordMetric tests recording metrics to context
+func TestRecordMetric(t *testing.T) {
+	req, err := http.NewRequest("GET", "http://example.com/test", nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	ctx := newTestHTTPContext(req)
+
+	// Record a metric
+	ctx.RecordMetric("test_metric", "counter", 1.0, map[string]string{
+		"label1": "value1",
+		"label2": "value2",
+	})
+
+	// Get all metrics
+	metrics := ctx.GetAllMetrics()
+
+	// Verify
+	if len(metrics) != 1 {
+		t.Errorf("expected 1 metric, got %d", len(metrics))
+	}
+
+	metric := metrics[0]
+	if metric.Name != "test_metric" {
+		t.Errorf("expected metric name 'test_metric', got %s", metric.Name)
+	}
+	if metric.Type != "counter" {
+		t.Errorf("expected metric type 'counter', got %s", metric.Type)
+	}
+	if metric.Value != 1.0 {
+		t.Errorf("expected metric value 1.0, got %f", metric.Value)
+	}
+	if len(metric.Labels) != 2 {
+		t.Errorf("expected 2 labels, got %d", len(metric.Labels))
+	}
+	if metric.Labels["label1"] != "value1" {
+		t.Errorf("expected label1=value1, got %s", metric.Labels["label1"])
+	}
+}
+
+// TestRecordMultipleMetrics tests recording multiple metrics
+func TestRecordMultipleMetrics(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Record multiple metrics
+	ctx.RecordMetric("metric1", "counter", 1.0, map[string]string{"type": "counter"})
+	ctx.RecordMetric("metric2", "histogram", 123.45, map[string]string{"type": "histogram"})
+	ctx.RecordMetric("metric3", "gauge", 42.0, map[string]string{"type": "gauge"})
+
+	// Get all metrics
+	metrics := ctx.GetAllMetrics()
+
+	// Verify
+	if len(metrics) != 3 {
+		t.Errorf("expected 3 metrics, got %d", len(metrics))
+	}
+
+	// Verify each metric
+	metricNames := make(map[string]bool)
+	for _, m := range metrics {
+		metricNames[m.Name] = true
+	}
+
+	if !metricNames["metric1"] || !metricNames["metric2"] || !metricNames["metric3"] {
+		t.Error("not all metrics were recorded")
+	}
+}
+
+// TestClearMetrics tests clearing metrics
+func TestClearMetrics(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Record metrics
+	ctx.RecordMetric("test1", "counter", 1.0, nil)
+	ctx.RecordMetric("test2", "counter", 2.0, nil)
+
+	// Verify metrics exist
+	metrics := ctx.GetAllMetrics()
+	if len(metrics) != 2 {
+		t.Errorf("expected 2 metrics before clear, got %d", len(metrics))
+	}
+
+	// Clear metrics
+	ctx.ClearMetrics()
+
+	// Verify metrics are cleared
+	metrics = ctx.GetAllMetrics()
+	if len(metrics) != 0 {
+		t.Errorf("expected 0 metrics after clear, got %d", len(metrics))
+	}
+}
+
+// TestMetricLabelIsolation tests that modifying labels doesn't affect stored metrics
+func TestMetricLabelIsolation(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Create labels
+	labels := map[string]string{
+		"key": "original",
+	}
+
+	// Record metric
+	ctx.RecordMetric("test_metric", "counter", 1.0, labels)
+
+	// Modify original labels
+	labels["key"] = "modified"
+	labels["new_key"] = "new_value"
+
+	// Get metrics
+	metrics := ctx.GetAllMetrics()
+
+	// Verify the stored metric labels are not affected
+	if len(metrics) != 1 {
+		t.Fatalf("expected 1 metric, got %d", len(metrics))
+	}
+
+	storedLabels := metrics[0].Labels
+	if storedLabels["key"] != "original" {
+		t.Errorf("expected label to be 'original', got %s", storedLabels["key"])
+	}
+	if _, exists := storedLabels["new_key"]; exists {
+		t.Error("new_key should not exist in stored labels")
+	}
+}
+
+// TestRecordMetricWithNilLabels tests recording metrics with nil labels
+func TestRecordMetricWithNilLabels(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Record metric with nil labels
+	ctx.RecordMetric("test_metric", "counter", 1.0, nil)
+
+	// Get metrics
+	metrics := ctx.GetAllMetrics()
+
+	// Verify
+	if len(metrics) != 1 {
+		t.Fatalf("expected 1 metric, got %d", len(metrics))
+	}
+
+	if metrics[0].Labels == nil {
+		t.Error("labels should not be nil, should be empty map")
+	}
+	if len(metrics[0].Labels) != 0 {
+		t.Errorf("expected 0 labels, got %d", len(metrics[0].Labels))
+	}
+}
+
+// TestRecordMetricWithEmptyLabels tests recording metrics with empty labels
+func TestRecordMetricWithEmptyLabels(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Record metric with empty labels
+	ctx.RecordMetric("test_metric", "counter", 1.0, map[string]string{})
+
+	// Get metrics
+	metrics := ctx.GetAllMetrics()
+
+	// Verify
+	if len(metrics) != 1 {
+		t.Fatalf("expected 1 metric, got %d", len(metrics))
+	}
+
+	if len(metrics[0].Labels) != 0 {
+		t.Errorf("expected 0 labels, got %d", len(metrics[0].Labels))
+	}
+}
+
+// TestGetAllMetricsReturnsCopy tests that GetAllMetrics returns a copy
+func TestGetAllMetricsReturnsCopy(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Record a metric
+	ctx.RecordMetric("test1", "counter", 1.0, map[string]string{"key": "value"})
+
+	// Get metrics twice
+	metrics1 := ctx.GetAllMetrics()
+	metrics2 := ctx.GetAllMetrics()
+
+	// Verify they are different slices (not the same reference)
+	if &metrics1[0] == &metrics2[0] {
+		t.Error("GetAllMetrics should return a copy, not the same reference")
+	}
+
+	// Verify contents are the same
+	if metrics1[0].Name != metrics2[0].Name {
+		t.Error("metric contents should be the same")
+	}
+}
+
+// TestConcurrentMetricRecording tests concurrent metric recording
+func TestConcurrentMetricRecording(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Record metrics concurrently
+	done := make(chan bool)
+	for i := 0; i < 100; i++ {
+		go func(id int) {
+			ctx.RecordMetric(
+				fmt.Sprintf("metric_%d", id),
+				"counter",
+				float64(id),
+				map[string]string{"id": fmt.Sprintf("%d", id)},
+			)
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 100; i++ {
+		<-done
+	}
+
+	// Verify all metrics were recorded
+	metrics := ctx.GetAllMetrics()
+	if len(metrics) != 100 {
+		t.Errorf("expected 100 metrics, got %d", len(metrics))
+	}
+}
+
+// TestConcurrentGetAllMetrics tests concurrent calls to GetAllMetrics
+func TestConcurrentGetAllMetrics(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Pre-populate with metrics
+	for i := 0; i < 50; i++ {
+		ctx.RecordMetric(fmt.Sprintf("metric_%d", i), "counter", float64(i), nil)
+	}
+
+	// Concurrently call GetAllMetrics
+	done := make(chan bool)
+	for i := 0; i < 100; i++ {
+		go func() {
+			metrics := ctx.GetAllMetrics()
+			if len(metrics) != 50 {
+				t.Errorf("expected 50 metrics, got %d", len(metrics))
+			}
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 100; i++ {
+		<-done
+	}
+}
+
+// TestMetricDataTypes tests different metric types
+func TestMetricDataTypes(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	tests := []struct {
+		name       string
+		metricName string
+		metricType string
+		value      float64
+	}{
+		{"counter", "test_counter", "counter", 1.0},
+		{"histogram", "test_histogram", "histogram", 123.45},
+		{"gauge", "test_gauge", "gauge", 42.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx.ClearMetrics() // Clear before each test
+
+			ctx.RecordMetric(tt.metricName, tt.metricType, tt.value, nil)
+
+			metrics := ctx.GetAllMetrics()
+			if len(metrics) != 1 {
+				t.Fatalf("expected 1 metric, got %d", len(metrics))
+			}
+
+			if metrics[0].Name != tt.metricName {
+				t.Errorf("expected name %s, got %s", tt.metricName, metrics[0].Name)
+			}
+			if metrics[0].Type != tt.metricType {
+				t.Errorf("expected type %s, got %s", tt.metricType, metrics[0].Type)
+			}
+			if metrics[0].Value != tt.value {
+				t.Errorf("expected value %f, got %f", tt.value, metrics[0].Value)
+			}
+		})
+	}
+}
+
+// BenchmarkRecordMetric benchmarks recording metrics
+func BenchmarkRecordMetric(b *testing.B) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	labels := map[string]string{
+		"method": "GET",
+		"status": "200",
+		"path":   "/api/test",
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ctx.RecordMetric("benchmark_metric", "counter", 1.0, labels)
+	}
+}
+
+// BenchmarkGetAllMetrics benchmarks getting all metrics
+func BenchmarkGetAllMetrics(b *testing.B) {
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+	ctx := newTestHTTPContext(req)
+
+	// Pre-populate with metrics
+	for i := 0; i < 10; i++ {
+		ctx.RecordMetric(
+			fmt.Sprintf("metric_%d", i),
+			"counter",
+			float64(i),
+			map[string]string{"id": fmt.Sprintf("%d", i)},
+		)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ctx.GetAllMetrics()
+	}
+}

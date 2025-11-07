@@ -18,10 +18,14 @@
 package prometheus
 
 type (
+	// MetricCollectConfiguration is the configuration for the legacy Prometheus filter.
+	// Deprecated: Use dgp.filter.http.metric instead.
 	MetricCollectConfiguration struct {
 		Rules MetricCollectRule `yaml:"metric_collect_rules" json:"metric_collect_rules"`
 	}
 
+	// MetricCollectRule defines the metric collection rules.
+	// Deprecated: Use dgp.filter.http.metric instead.
 	MetricCollectRule struct {
 		MetricPath string `json:"metric_path,omitempty" yaml:"metric_path,omitempty"`
 		// Push Gateway URL in format http://domain:port
