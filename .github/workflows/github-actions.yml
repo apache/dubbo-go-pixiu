@@ -21,7 +21,6 @@ name: CI
 on:
   push:
   pull_request:
-  pull_request_target:
 
 # cancel in-progress runs for the same branch or PR
 concurrency:
