@@ -41,13 +41,10 @@ const (
 )
 
 const (
-	DefaultMode = "push" // Default mode is push
-
-	DefaultPushGatewayURL = "http://localhost:9091"
-
-	DefaultPushJobName = "pixiu"
-
-	DefaultPushInterval = 100
-
-	DefaultPushMetricPath = "/metrics"
+        // dgp.filter.http.metric
+	DefaultMetricMode = "push" // Default mode is push
+	DefaultMetricPushGatewayURL = "http://localhost:9091"
+	DefaultMetricPushJobName = "pixiu"
+	DefaultMetricPushInterval = 100
+	DefaultMetricPushPath = "/metrics"
 )
