@@ -15,37 +15,27 @@
  * limitations under the License.
  */
 
-package mcpserver
+package registry
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"fmt"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-const (
-	// Kind is the type identifier for MCP Server Filter
-	Kind = constant.MCPServerFilter
-)
+var providers = map[string]BuildFunc{}
 
-func init() {
-	filter.RegisterHttpFilter(&Plugin{})
+// RegisterProvider registers a provider-specific controller builder.
+func RegisterProvider(protocol string, fn BuildFunc) {
+	providers[protocol] = fn
 }
 
-// Plugin implements filter.HttpFilterPlugin interface
-type Plugin struct{}
-
-// Kind returns the plugin type
-func (p *Plugin) Kind() string {
-	return Kind
-}
-
-// CreateFilterFactory creates FilterFactory
-func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &model.McpServerConfig{}}, nil
-}
-
-// Config returns the configuration struct
-func (p *Plugin) Config() any {
-	return &model.McpServerConfig{}
+// BuildController builds a provider controller based on registry protocol.
+func BuildController(reg model.Registry, onChange func(serverId string, cfg *model.McpServerConfig)) (Controller, error) {
+	if fn, ok := providers[reg.Protocol]; ok {
+		return fn(reg, onChange)
+	}
+	return nil, fmt.Errorf("no provider for protocol: %s", reg.Protocol)
 }

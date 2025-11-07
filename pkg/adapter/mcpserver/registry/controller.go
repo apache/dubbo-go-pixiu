@@ -15,37 +15,24 @@
  * limitations under the License.
  */
 
-package mcpserver
+package registry
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"context"
+	"time"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-const (
-	// Kind is the type identifier for MCP Server Filter
-	Kind = constant.MCPServerFilter
-)
-
-func init() {
-	filter.RegisterHttpFilter(&Plugin{})
+// Controller is a provider-agnostic control-plane interface for MCP registries.
+// It discovers, watches and forwards changes via an onChange callback.
+type Controller interface {
+	Run(ctx context.Context, interval time.Duration) error
+	Close() error
 }
 
-// Plugin implements filter.HttpFilterPlugin interface
-type Plugin struct{}
-
-// Kind returns the plugin type
-func (p *Plugin) Kind() string {
-	return Kind
-}
-
-// CreateFilterFactory creates FilterFactory
-func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &model.McpServerConfig{}}, nil
-}
-
-// Config returns the configuration struct
-func (p *Plugin) Config() any {
-	return &model.McpServerConfig{}
-}
+// BuildFunc creates a Controller for a given registry configuration.
+// Implemented by each provider and registered via RegisterProvider.
+type BuildFunc func(reg model.Registry, onChange func(serverId string, cfg *model.McpServerConfig)) (Controller, error)
