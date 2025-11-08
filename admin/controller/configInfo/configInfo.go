@@ -455,8 +455,8 @@ func ModifyMethodInfo(c *gin.Context) {
 
 // @Tags Config
 // @Summary determine the configuration type of the current operation
-// @Description chnternal function, no external documentation required
-// getUnpublishedVal Determine the configuration type of the current operation
+// @Description internal function, no external documentation required
+getUnpublishedVal Determine the configuration type of the current operation
 func getUnpublishedVal(c *gin.Context) bool {
 	// The front-end request carries the unpublished field to determine which configuration is currently operating
 	// 1 represent true (unpublished, delay publish), 0 represent false (published, direct publish)
