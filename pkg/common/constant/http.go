@@ -25,6 +25,7 @@ const (
 	HeaderKeyContentLength    = "Content-Length"
 	HeaderKeyContentEncoding  = "Content-Encoding"
 	HeaderKeyUserAgent        = "User-Agent"
+	HeaderKeyAccept           = "Accept"
 
 	HeaderKeyAccessControlAllowOrigin      = "Access-Control-Allow-Origin"
 	HeaderKeyAccessControlAllowHeaders     = "Access-Control-Allow-Headers"
@@ -42,6 +43,11 @@ const (
 	HeaderValueImageJpeg              = "image/jpeg"
 	HeaderValueChunked                = "chunked"
 	HeaderValueTextPrefix             = "text/"
+
+	// Media type wildcards for Accept header negotiation
+	MediaTypeWildcard        = "*/*"
+	MediaTypeApplicationWild = "application/*"
+	MediaTypeTextWild        = "text/*"
 
 	HeaderValueGzip    = "gzip"
 	HeaderValueDeflate = "deflate"
@@ -92,6 +98,18 @@ const (
 	AccessControlRequestMethod = "Access-Control-Request-Method"
 	Origin                     = "Origin"
 	XForwardedProto            = "X-Forwarded-Proto"
+)
+
+// MCP (Model Context Protocol) specific headers
+const (
+	HeaderKeyMCPProtocolVersion = "Mcp-Protocol-Version"
+	HeaderKeyMCPSessionId       = "Mcp-Session-Id"
+)
+
+// MCP protocol versions
+const (
+	MCPProtocolVersion20250618 = "2025-06-18"
+	MCPProtocolVersion20250326 = "2025-03-26"
 )
 
 // SSE response prefixes

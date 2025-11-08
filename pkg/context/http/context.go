@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -69,6 +70,10 @@ type HttpContext struct {
 
 	Request *http.Request
 	Writer  http.ResponseWriter
+
+	// Metrics storage for unified metric reporting
+	metrics   []*MetricData
+	metricsMu sync.RWMutex
 }
 
 type (
@@ -231,4 +236,51 @@ func (hc *HttpContext) AppendFilterFunc(ff ...FilterFunc) {
 func (hc *HttpContext) GenerateHash() string {
 	req := hc.Request
 	return req.Method + "." + req.RequestURI
+}
+
+// MetricData represents a single metric data point.
+type MetricData struct {
+	Name   string            // Metric name
+	Type   string            // Metric type: "counter", "histogram", "gauge"
+	Value  float64           // Metric value
+	Labels map[string]string // Metric labels
+}
+
+// RecordMetric records a metric to the context.
+func (hc *HttpContext) RecordMetric(name string, metricType string, value float64, labels map[string]string) {
+	// Create a copy of labels to avoid mutations (outside lock)
+	labelsCopy := make(map[string]string, len(labels))
+	for k, v := range labels {
+		labelsCopy[k] = v
+	}
+
+	metric := &MetricData{
+		Name:   name,
+		Type:   metricType,
+		Value:  value,
+		Labels: labelsCopy,
+	}
+
+	// Only lock for the append operation
+	hc.metricsMu.Lock()
+	defer hc.metricsMu.Unlock()
+	hc.metrics = append(hc.metrics, metric)
+}
+
+// GetAllMetrics returns all recorded metrics.
+func (hc *HttpContext) GetAllMetrics() []*MetricData {
+	// Return a copy to avoid race conditions
+	hc.metricsMu.RLock()
+	defer hc.metricsMu.RUnlock()
+	result := make([]*MetricData, len(hc.metrics))
+	copy(result, hc.metrics)
+	return result
+}
+
+// ClearMetrics clears all recorded metrics.
+func (hc *HttpContext) ClearMetrics() {
+	hc.metricsMu.Lock()
+	defer hc.metricsMu.Unlock()
+
+	hc.metrics = nil
 }

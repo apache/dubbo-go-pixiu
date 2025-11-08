@@ -29,20 +29,13 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // =============================================================================
 // Test Utilities
 // =============================================================================
-// resetSingletons resets singleton state for testing
-func resetSingletons() {
-	globalRegistry = nil
-	globalDynamic = nil
-	registryOnce = sync.Once{}
-	dynamicOnce = sync.Once{}
-}
-
 // createTestToolConfig creates a simple test tool configuration
 func createTestToolConfig(name, description string) model.ToolConfig {
 	return model.ToolConfig{
@@ -83,7 +76,7 @@ func createTestMcpServerConfig(tools []model.ToolConfig) *model.McpServerConfig 
 // =============================================================================
 
 func TestSingletonInstances(t *testing.T) {
-	resetSingletons()
+	ResetGlobalState()
 
 	t.Run("Registry singleton", func(t *testing.T) {
 		registry1 := GetOrInitRegistry()
@@ -92,15 +85,15 @@ func TestSingletonInstances(t *testing.T) {
 	})
 
 	t.Run("Dynamic consumer singleton", func(t *testing.T) {
-		dynamic1 := GetOrInitDynamic()
-		dynamic2 := GetOrInitDynamic()
+		dynamic1 := GetOrInitDynamicConsumer()
+		dynamic2 := GetOrInitDynamicConsumer()
 		assert.Same(t, dynamic1, dynamic2)
 		assert.Same(t, dynamic1.registry, GetOrInitRegistry())
 	})
 }
 
 func TestSingletonConcurrency(t *testing.T) {
-	resetSingletons()
+	ResetGlobalState()
 
 	const numGoroutines = 50
 	var wg sync.WaitGroup
@@ -130,7 +123,10 @@ func TestSingletonConcurrency(t *testing.T) {
 func TestApplyMcpServerConfig(t *testing.T) {
 	t.Run("Basic configuration application", func(t *testing.T) {
 		registry := NewToolRegistry()
-		consumer := NewDynamicConsumer(registry)
+		sm := transport.NewSessionManager()
+		defer sm.Stop()
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		// Test nil config
 		err := consumer.ApplyMcpServerConfigByServer("default", nil)
@@ -160,7 +156,10 @@ func TestApplyMcpServerConfig(t *testing.T) {
 
 	t.Run("Configuration replacement", func(t *testing.T) {
 		registry := NewToolRegistry()
-		consumer := NewDynamicConsumer(registry)
+		sm := transport.NewSessionManager()
+		defer sm.Stop()
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		// Apply first config
 		config1 := createTestMcpServerConfig([]model.ToolConfig{
@@ -187,9 +186,9 @@ func TestApplyMcpServerConfig(t *testing.T) {
 }
 
 func TestApplyMcpServerConfigConcurrent(t *testing.T) {
-	resetSingletons()
+	ResetGlobalState()
 	registry := GetOrInitRegistry()
-	consumer := GetOrInitDynamic()
+	consumer := GetOrInitDynamicConsumer()
 
 	const numGoroutines = 10
 	var wg sync.WaitGroup
@@ -222,7 +221,10 @@ func TestApplyMcpServerConfigConcurrent(t *testing.T) {
 func TestDebounceFeatures(t *testing.T) {
 	t.Run("Content debounce - skip identical configs", func(t *testing.T) {
 		registry := NewToolRegistry()
-		consumer := NewDynamicConsumer(registry)
+		sm := transport.NewSessionManager()
+		defer sm.Stop()
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		config := createTestMcpServerConfig([]model.ToolConfig{
 			createTestToolConfig("tool1", "Test tool"),
@@ -245,7 +247,10 @@ func TestDebounceFeatures(t *testing.T) {
 
 	t.Run("Time debounce - skip rapid calls", func(t *testing.T) {
 		registry := NewToolRegistry()
-		consumer := NewDynamicConsumer(registry)
+		sm := transport.NewSessionManager()
+		defer sm.Stop()
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		config1 := createTestMcpServerConfig([]model.ToolConfig{
 			createTestToolConfig("tool1", "First tool"),
@@ -271,7 +276,10 @@ func TestDebounceFeatures(t *testing.T) {
 
 	t.Run("Empty configuration handling", func(t *testing.T) {
 		registry := NewToolRegistry()
-		consumer := NewDynamicConsumer(registry)
+		sm := transport.NewSessionManager()
+		defer sm.Stop()
+		sseHandler := transport.NewSSEHandler(sm)
+		consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 		// Add tool first
 		config := createTestMcpServerConfig([]model.ToolConfig{
@@ -296,7 +304,10 @@ func TestDebounceFeatures(t *testing.T) {
 
 func TestDebounceConfiguration(t *testing.T) {
 	registry := NewToolRegistry()
-	consumer := NewDynamicConsumer(registry)
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 	// Test default debounce time
 	info := consumer.GetDebounceInfo()
@@ -329,7 +340,10 @@ func TestDebounceConfiguration(t *testing.T) {
 
 func TestFingerprintCalculation(t *testing.T) {
 	registry := NewToolRegistry()
-	consumer := NewDynamicConsumer(registry)
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 	// Empty tools
 	fingerprint1 := consumer.calculateFingerprint([]model.ToolConfig{})
@@ -362,10 +376,10 @@ func TestFingerprintCalculation(t *testing.T) {
 // =============================================================================
 
 func TestIntegration(t *testing.T) {
-	resetSingletons()
+	ResetGlobalState()
 
 	registry := GetOrInitRegistry()
-	consumer := GetOrInitDynamic()
+	consumer := GetOrInitDynamicConsumer()
 
 	// Verify initial state
 	assert.Empty(t, registry.ListTools())
@@ -402,7 +416,10 @@ func TestIntegration(t *testing.T) {
 
 func BenchmarkApplyMcpServerConfig(b *testing.B) {
 	registry := NewToolRegistry()
-	consumer := NewDynamicConsumer(registry)
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
 
 	config := createTestMcpServerConfig([]model.ToolConfig{
 		createTestToolConfig("tool1", "First tool"),

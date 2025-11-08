@@ -20,6 +20,7 @@ package mcpserver
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"sync"
@@ -27,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -39,15 +41,6 @@ const (
 	EmptyFingerprint = "00000000"
 )
 
-var (
-	globalRegistry *ToolRegistry
-	globalDynamic  *DynamicConsumer
-
-	// sync.Once variables for thread-safe singleton initialization
-	registryOnce sync.Once
-	dynamicOnce  sync.Once
-)
-
 // ServerToolConfig tool configuration for a single server
 type ServerToolConfig struct {
 	Tools       []model.ToolConfig
@@ -55,25 +48,11 @@ type ServerToolConfig struct {
 	LastApplied time.Time
 }
 
-// GetOrInitRegistry returns a singleton ToolRegistry
-func GetOrInitRegistry() *ToolRegistry {
-	registryOnce.Do(func() {
-		globalRegistry = NewToolRegistry()
-	})
-	return globalRegistry
-}
-
-// GetOrInitDynamic returns a singleton DynamicConsumer
-func GetOrInitDynamic() *DynamicConsumer {
-	dynamicOnce.Do(func() {
-		globalDynamic = NewDynamicConsumer(GetOrInitRegistry())
-	})
-	return globalDynamic
-}
-
 // DynamicConsumer applies dynamic MCP configurations into the registry
 type DynamicConsumer struct {
-	registry *ToolRegistry
+	registry       *ToolRegistry
+	sessionManager *transport.SessionManager
+	sseHandler     *transport.SSEHandler
 
 	// Tool configuration management grouped by server
 	mu            sync.RWMutex
@@ -81,11 +60,13 @@ type DynamicConsumer struct {
 	debounceTime  time.Duration
 }
 
-func NewDynamicConsumer(reg *ToolRegistry) *DynamicConsumer {
+func NewDynamicConsumer(reg *ToolRegistry, sm *transport.SessionManager, sseHandler *transport.SSEHandler) *DynamicConsumer {
 	return &DynamicConsumer{
-		registry:      reg,
-		serverConfigs: make(map[string]*ServerToolConfig),
-		debounceTime:  DefaultDebounceTime,
+		registry:       reg,
+		sessionManager: sm,
+		sseHandler:     sseHandler,
+		serverConfigs:  make(map[string]*ServerToolConfig),
+		debounceTime:   DefaultDebounceTime,
 	}
 }
 
@@ -144,6 +125,9 @@ func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *mod
 	logger.Infof("[dubbo-go-pixiu] mcp server %s config applied: %d tools, total servers: %d, merged tools: %d",
 		serverId, len(cfg.Tools), len(d.serverConfigs), len(mergedTools))
 
+	// Notify all connected clients about tools list change
+	d.notifyToolsListChanged()
+
 	return nil
 }
 
@@ -166,7 +150,8 @@ func (d *DynamicConsumer) calculateFingerprint(tools []model.ToolConfig) string 
 	// Build hash input string
 	hash := sha256.New()
 	for _, tool := range sortedTools {
-		fmt.Fprintf(hash, "name:%s;cluster:%s;args:%d;", tool.Name, tool.Cluster, len(tool.Args))
+		_, _ = fmt.Fprintf(hash, "name:%s;cluster:%s;args:%d;", tool.Name, tool.Cluster, len(tool.Args))
+
 	}
 
 	// Return first 8 characters of hex encoded hash
@@ -245,4 +230,64 @@ func (d *DynamicConsumer) calculateCurrentMergedTools() []model.ToolConfig {
 	}
 
 	return allTools
+}
+
+// notifyToolsListChanged sends notifications/tools/list_changed to all connected clients
+func (d *DynamicConsumer) notifyToolsListChanged() {
+	if d.sessionManager == nil {
+		logger.Debugf("[dubbo-go-pixiu] mcp server session manager not available, skip tools list_changed notification")
+		return
+	}
+
+	// Get all active sessions
+	sessionIDs := d.sessionManager.AllSessionIDs()
+	if len(sessionIDs) == 0 {
+		logger.Debugf("[dubbo-go-pixiu] mcp server no active sessions, skip tools list_changed notification")
+		return
+	}
+
+	// Send notification to each session
+	successCount := 0
+	for _, sessionID := range sessionIDs {
+		if err := d.sendToolsListChangedNotification(sessionID); err != nil {
+			logger.Warnf("[dubbo-go-pixiu] mcp server failed to send tools list_changed to session %s: %v", sessionID, err)
+		} else {
+			successCount++
+		}
+	}
+
+	logger.Infof("[dubbo-go-pixiu] mcp server sent tools/list_changed notification to %d/%d sessions", successCount, len(sessionIDs))
+}
+
+// sendToolsListChangedNotification sends notification to a specific session
+func (d *DynamicConsumer) sendToolsListChangedNotification(sessionID string) error {
+	session, exists := d.sessionManager.Session(sessionID)
+	if !exists {
+		return fmt.Errorf("session not found")
+	}
+
+	if session.PipeWriter == nil {
+		return fmt.Errorf("SSE pipe not established")
+	}
+
+	// Build tools/list_changed notification (no params needed)
+	notification := map[string]any{
+		"jsonrpc": "2.0",
+		"method":  "notifications/tools/list_changed",
+	}
+
+	messageJSON, err := json.Marshal(notification)
+	if err != nil {
+		return fmt.Errorf("failed to marshal notification: %w", err)
+	}
+
+	sseData := d.sseHandler.FormatSSEMessage(string(messageJSON))
+
+	if _, err := session.PipeWriter.Write([]byte(sseData)); err != nil {
+		return fmt.Errorf("failed to write to SSE pipe: %w", err)
+	}
+
+	session.LastActivity = time.Now()
+	logger.Debugf("[dubbo-go-pixiu] mcp server sent tools/list_changed to session: %s", sessionID)
+	return nil
 }

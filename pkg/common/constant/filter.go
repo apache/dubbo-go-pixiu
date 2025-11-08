@@ -39,3 +39,12 @@ const (
 
 	DefaultReqTimeout = 10 * time.Second
 )
+
+const (
+	// dgp.filter.http.metric
+	DefaultMetricMode           = "push" // Default mode is push
+	DefaultMetricPushGatewayURL = "http://localhost:9091"
+	DefaultMetricPushJobName    = "pixiu"
+	DefaultMetricPushInterval   = 100
+	DefaultMetricPushPath       = "/metrics"
+)

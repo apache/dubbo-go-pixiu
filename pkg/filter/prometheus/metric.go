@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+// Package prometheus provides the legacy Prometheus metric filter.
+//
+// Deprecated: This filter is deprecated and will be removed in a future version.
+// Use dgp.filter.http.metric instead
 package prometheus
 
 import (

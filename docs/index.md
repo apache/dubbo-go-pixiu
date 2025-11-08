@@ -22,6 +22,9 @@
 * [Filter](developer/filter.md)
 * [Log](developer/log.md)
 
+## [AI Gateway](ai/README.md)
+* [MCP](ai/mcp/mcp.md)
+
 ## [Common](common/README.md)
 
 * [FAQ](common/faq.md)

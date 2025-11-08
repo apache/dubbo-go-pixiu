@@ -20,6 +20,7 @@ package metric
 import (
 	"fmt"
 	stdhttp "net/http"
+	"sync"
 	"time"
 )
 
@@ -30,29 +31,20 @@ import (
 
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	contextHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	prom "github.com/apache/dubbo-go-pixiu/pkg/prometheus"
 )
 
 const (
+	// Kind defines the filter kind
 	Kind = constant.HTTPMetricFilter
-)
-
-var (
-	totalElapsed syncint64.Counter
-	totalCount   syncint64.Counter
-	totalError   syncint64.Counter
-
-	sizeRequest  syncint64.Counter
-	sizeResponse syncint64.Counter
-	durationHist syncint64.Histogram
 )
 
 func init() {
@@ -61,97 +53,296 @@ func init() {
 
 type (
 	// Plugin is http filter plugin.
-	Plugin struct {
-	}
+	Plugin struct{}
+
 	// FilterFactory is http filter instance
 	FilterFactory struct {
+		cfg *Config
 	}
+
+	// Filter instance
 	Filter struct {
-		start time.Time
+		cfg *Config
+
+		otelInstruments *OTelInstruments
+		promCollector   *prom.Prometheus
+		start           time.Time
 	}
-	// Config describe the config of FilterFactory
-	Config struct{}
 )
 
+// Kind returns the filter kind.
 func (p *Plugin) Kind() string {
 	return Kind
 }
 
+// CreateFilterFactory creates a new filter factory.
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{}, nil
+	return &FilterFactory{
+		cfg: &Config{},
+	}, nil
 }
 
+// Config returns the configuration.
 func (factory *FilterFactory) Config() any {
-	return &struct{}{}
+	return factory.cfg
 }
 
+// Apply validates the configuration.
 func (factory *FilterFactory) Apply() error {
-	// init
-	err := registerOtelMetric()
-	return err
+	return factory.cfg.Validate()
 }
 
-func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{}
-	chain.AppendDecodeFilters(f)
-	chain.AppendEncodeFilters(f)
+var (
+	globalOTelInstruments *OTelInstruments
+	otelInitOnce          sync.Once
+	otelInitErr           error
+)
+
+// initOTelInstruments initializes OpenTelemetry instruments (singleton).
+func initOTelInstruments() (*OTelInstruments, error) {
+	otelInitOnce.Do(func() {
+		otelInitErr = doInitOTelInstruments()
+	})
+	return globalOTelInstruments, otelInitErr
+}
+
+func doInitOTelInstruments() error {
+	meter := global.MeterProvider().Meter("pixiu")
+
+	instruments := &OTelInstruments{}
+
+	elapsedCounter, err := meter.SyncInt64().Counter("pixiu_request_elapsed",
+		instrument.WithDescription("request total elapsed in pixiu"))
+	if err != nil {
+		return fmt.Errorf("register pixiu_request_elapsed metric failed: %w", err)
+	}
+	instruments.totalElapsed = elapsedCounter
+
+	count, err := meter.SyncInt64().Counter("pixiu_request_count",
+		instrument.WithDescription("request total count in pixiu"))
+	if err != nil {
+		return fmt.Errorf("register pixiu_request_count metric failed: %w", err)
+	}
+	instruments.totalCount = count
+
+	errorCounter, err := meter.SyncInt64().Counter("pixiu_request_error_count",
+		instrument.WithDescription("request error total count in pixiu"))
+	if err != nil {
+		return fmt.Errorf("register pixiu_request_error_count metric failed: %w", err)
+	}
+	instruments.totalError = errorCounter
+
+	sizeRequest, err := meter.SyncInt64().Counter("pixiu_request_content_length",
+		instrument.WithDescription("request total content length in pixiu"))
+	if err != nil {
+		return fmt.Errorf("register pixiu_request_content_length metric failed: %w", err)
+	}
+	instruments.sizeRequest = sizeRequest
+
+	sizeResponse, err := meter.SyncInt64().Counter("pixiu_response_content_length",
+		instrument.WithDescription("request total content length response in pixiu"))
+	if err != nil {
+		return fmt.Errorf("register pixiu_response_content_length metric failed: %w", err)
+	}
+	instruments.sizeResponse = sizeResponse
+
+	durationHist, err := meter.SyncInt64().Histogram("pixiu_process_time_millisec",
+		instrument.WithDescription("request process time response in pixiu"))
+	if err != nil {
+		return fmt.Errorf("register pixiu_process_time_millisec metric failed: %w", err)
+	}
+	instruments.durationHist = durationHist
+
+	globalOTelInstruments = instruments
+	logger.Infof("[MetricReporter] OpenTelemetry instruments registered")
 	return nil
 }
 
-func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
+// PrepareFilterChain prepares the filter chain.
+func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
+	// Copy config to avoid sharing factory's pointer
+	cfgCopy := *factory.cfg
+	f := &Filter{cfg: &cfgCopy}
+
+	// Initialize based on mode
+	switch factory.cfg.Mode {
+	case "pull":
+		instruments, err := initOTelInstruments()
+		if err != nil {
+			return err
+		}
+		f.otelInstruments = instruments
+		logger.Infof("[MetricReporter] Pull mode enabled")
+
+	case "push":
+		p := prom.NewPrometheus()
+		p.SetPushGatewayUrl(factory.cfg.Push.GatewayURL, factory.cfg.Push.MetricPath)
+		p.SetPushIntervalThreshold(true, factory.cfg.Push.PushInterval)
+		p.SetPushGatewayJob(factory.cfg.Push.JobName)
+		f.promCollector = p
+		logger.Infof("[MetricReporter] Push mode enabled (gateway: %s, interval: %d)",
+			factory.cfg.Push.GatewayURL, factory.cfg.Push.PushInterval)
+	}
+
+	// Both modes need decode and encode filters
+	chain.AppendDecodeFilters(f)
+	chain.AppendEncodeFilters(f)
+
+	return nil
+}
+
+// Decode handles the decode phase - records start time for both modes.
+func (f *Filter) Decode(ctx *contextHttp.HttpContext) filter.FilterStatus {
+	// Record start time for latency calculation
+	// Both pull and push modes report metrics in Encode phase
 	f.start = time.Now()
 	return filter.Continue
 }
 
-func (f *Filter) Encode(c *http.HttpContext) filter.FilterStatus {
-
-	commonAttrs := []attribute.KeyValue{
-		attribute.String("code", fmt.Sprintf("%d", c.GetStatusCode())),
-		attribute.String("method", c.Request.Method),
-		attribute.String("url", c.GetUrl()),
-		attribute.String("host", c.Request.Host),
+// Encode reports metrics for both modes.
+func (f *Filter) Encode(ctx *contextHttp.HttpContext) filter.FilterStatus {
+	switch f.cfg.Mode {
+	case "pull":
+		return f.reportWithOTel(ctx)
+	case "push":
+		return f.reportWithPrometheus(ctx)
 	}
 
-	latency := time.Since(f.start)
-	totalCount.Add(c.Ctx, 1, commonAttrs...)
-	latencyMilli := latency.Milliseconds()
-	totalElapsed.Add(c.Ctx, latencyMilli, commonAttrs...)
-	if c.LocalReply() {
-		totalError.Add(c.Ctx, 1)
-	}
-
-	durationHist.Record(c.Ctx, latencyMilli, commonAttrs...)
-	size, err := computeApproximateRequestSize(c.Request)
-	if err != nil {
-		logger.Warn("can not compute request size", err)
-	} else {
-		sizeRequest.Add(c.Ctx, int64(size), commonAttrs...)
-	}
-
-	size, err = computeApproximateResponseSize(c.TargetResp)
-	if err != nil {
-		logger.Warn("can not compute response size", err)
-	} else {
-		sizeResponse.Add(c.Ctx, int64(size), commonAttrs...)
-	}
-
-	logger.Debugf("[Metric] [UPSTREAM] receive request | %d | %s | %s | %s | ", c.GetStatusCode(), latency, c.GetMethod(), c.GetUrl())
 	return filter.Continue
 }
 
-func computeApproximateResponseSize(res any) (int, error) {
-	if res == nil {
-		return 0, errors.New("client response is nil")
+// reportWithOTel reports metrics using OpenTelemetry.
+func (f *Filter) reportWithOTel(ctx *contextHttp.HttpContext) filter.FilterStatus {
+	if f.otelInstruments == nil {
+		logger.Errorf("[MetricReporter] OpenTelemetry instruments not initialized")
+		errResp := contextHttp.InternalError.New()
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
 	}
-	if unaryResponse, ok := res.(*client.UnaryResponse); ok {
-		return len(unaryResponse.Data), nil
+
+	// Report context metrics dynamically
+	contextMetrics := ctx.GetAllMetrics()
+	if len(contextMetrics) > 0 {
+		meter := global.MeterProvider().Meter("pixiu")
+
+		for _, m := range contextMetrics {
+			attrs := toOTelAttributes(m.Labels)
+
+			switch m.Type {
+			case "counter":
+				counter, err := meter.SyncInt64().Counter(m.Name,
+					instrument.WithDescription(fmt.Sprintf("Context counter: %s", m.Name)))
+				if err != nil {
+					logger.Warnf("[MetricReporter] Failed to create counter %s: %v", m.Name, err)
+					continue
+				}
+				counter.Add(ctx.Ctx, int64(m.Value), attrs...)
+
+			case "histogram":
+				histogram, err := meter.SyncFloat64().Histogram(m.Name,
+					instrument.WithDescription(fmt.Sprintf("Context histogram: %s", m.Name)))
+				if err != nil {
+					logger.Warnf("[MetricReporter] Failed to create histogram %s: %v", m.Name, err)
+					continue
+				}
+				histogram.Record(ctx.Ctx, m.Value, attrs...)
+
+			case "gauge":
+				gauge, err := meter.SyncInt64().UpDownCounter(m.Name,
+					instrument.WithDescription(fmt.Sprintf("Context gauge: %s", m.Name)))
+				if err != nil {
+					logger.Warnf("[MetricReporter] Failed to create gauge %s: %v", m.Name, err)
+					continue
+				}
+				gauge.Add(ctx.Ctx, int64(m.Value), attrs...)
+			}
+		}
 	}
-	return 0, errors.New("response is not of type client.UnaryResponse")
+
+	// Report built-in metrics
+	commonAttrs := []attribute.KeyValue{
+		attribute.String("code", fmt.Sprintf("%d", ctx.GetStatusCode())),
+		attribute.String("method", ctx.Request.Method),
+		attribute.String("url", ctx.GetUrl()),
+		attribute.String("host", ctx.Request.Host),
+	}
+
+	latency := time.Since(f.start)
+	f.otelInstruments.totalCount.Add(ctx.Ctx, 1, commonAttrs...)
+	latencyMilli := latency.Milliseconds()
+	f.otelInstruments.totalElapsed.Add(ctx.Ctx, latencyMilli, commonAttrs...)
+
+	if ctx.LocalReply() {
+		f.otelInstruments.totalError.Add(ctx.Ctx, 1)
+	}
+
+	f.otelInstruments.durationHist.Record(ctx.Ctx, latencyMilli, commonAttrs...)
+
+	size, err := computeApproximateRequestSize(ctx.Request)
+	if err != nil {
+		logger.Warnf("[MetricReporter] Cannot compute request size: %v", err)
+	} else {
+		f.otelInstruments.sizeRequest.Add(ctx.Ctx, int64(size), commonAttrs...)
+	}
+
+	size, err = computeApproximateResponseSize(ctx.TargetResp)
+	if err != nil {
+		logger.Warnf("[MetricReporter] Cannot compute response size: %v", err)
+	} else {
+		f.otelInstruments.sizeResponse.Add(ctx.Ctx, int64(size), commonAttrs...)
+	}
+
+	logger.Debugf("[MetricReporter] [PULL] request | %d | %s | %s | %s |",
+		ctx.GetStatusCode(), latency, ctx.GetMethod(), ctx.GetUrl())
+
+	return filter.Continue
 }
 
+// reportWithPrometheus reports metrics using Prometheus.
+func (f *Filter) reportWithPrometheus(ctx *contextHttp.HttpContext) filter.FilterStatus {
+	if f.promCollector == nil {
+		logger.Errorf("[MetricReporter] Prometheus collector not initialized")
+		errResp := contextHttp.InternalError.New()
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
+	}
+
+	// Process and report custom context metrics
+	contextMetrics := ctx.GetAllMetrics()
+	for _, m := range contextMetrics {
+		if err := f.promCollector.RecordDynamicMetric(m.Name, m.Type, m.Value, m.Labels); err != nil {
+			logger.Warnf("[MetricReporter] Failed to record dynamic metric %s: %v", m.Name, err)
+		} else {
+			logger.Debugf("[MetricReporter] Recorded custom metric: %s=%f (type: %s, labels: %v)",
+				m.Name, m.Value, m.Type, m.Labels)
+		}
+	}
+
+	// Report built-in Prometheus metrics
+	handlerFunc := f.promCollector.HandlerFunc()
+	if err := handlerFunc(ctx); err != nil {
+		logger.Errorf("[MetricReporter] Prometheus handler error: %v", err)
+	}
+
+	logger.Debugf("[MetricReporter] [PUSH] request | %d | %s | %s |",
+		ctx.GetStatusCode(), ctx.GetMethod(), ctx.GetUrl())
+
+	return filter.Continue
+}
+
+// toOTelAttributes converts map[string]string to OpenTelemetry attributes.
+func toOTelAttributes(labels map[string]string) []attribute.KeyValue {
+	attrs := make([]attribute.KeyValue, 0, len(labels))
+	for k, v := range labels {
+		attrs = append(attrs, attribute.String(k, v))
+	}
+	return attrs
+}
+
+// computeApproximateRequestSize computes the approximate size of an HTTP request.
 func computeApproximateRequestSize(r *stdhttp.Request) (int, error) {
 	if r == nil {
-		return 0, errors.New("http.Request is null pointer ")
+		return 0, errors.New("http.Request is null pointer")
 	}
 	s := 0
 	if r.URL != nil {
@@ -172,50 +363,13 @@ func computeApproximateRequestSize(r *stdhttp.Request) (int, error) {
 	return s, nil
 }
 
-func registerOtelMetric() error {
-	meter := global.MeterProvider().Meter("pixiu")
-
-	elapsedCounter, err := meter.SyncInt64().Counter("pixiu_request_elapsed", instrument.WithDescription("request total elapsed in pixiu"))
-	if err != nil {
-		logger.Errorf("register pixiu_request_elapsed metric failed, err: %v", err)
-		return err
+// computeApproximateResponseSize computes the approximate size of an HTTP response.
+func computeApproximateResponseSize(res any) (int, error) {
+	if res == nil {
+		return 0, errors.New("client response is nil")
 	}
-	totalElapsed = elapsedCounter
-
-	count, err := meter.SyncInt64().Counter("pixiu_request_count", instrument.WithDescription("request total count in pixiu"))
-	if err != nil {
-		logger.Errorf("register pixiu_request_count metric failed, err: %v", err)
-		return err
+	if unaryResponse, ok := res.(*client.UnaryResponse); ok {
+		return len(unaryResponse.Data), nil
 	}
-	totalCount = count
-
-	errorCounter, err := meter.SyncInt64().Counter("pixiu_request_error_count", instrument.WithDescription("request error total count in pixiu"))
-	if err != nil {
-		logger.Errorf("register pixiu_request_error_count metric failed, err: %v", err)
-		return err
-	}
-	totalError = errorCounter
-
-	sizeRequest, err = meter.SyncInt64().Counter("pixiu_request_content_length", instrument.WithDescription("request total content length in pixiu"))
-	if err != nil {
-		logger.Errorf("register pixiu_request_content_length metric failed, err: %v", err)
-		return err
-	}
-
-	sizeResponse, err = meter.SyncInt64().Counter("pixiu_response_content_length", instrument.WithDescription("request total content length response in pixiu"))
-	if err != nil {
-		logger.Errorf("register pixiu_response_content_length metric failed, err: %v", err)
-		return err
-	}
-
-	durationHist, err = meter.SyncInt64().Histogram(
-		"pixiu_process_time_millicec",
-		instrument.WithDescription("request process time response in pixiu"),
-	)
-	if err != nil {
-		logger.Errorf("register pixiu_process_time_millisec metric failed, err: %v", err)
-		return err
-	}
-
-	return nil
+	return 0, errors.New("response is not of type client.UnaryResponse")
 }
