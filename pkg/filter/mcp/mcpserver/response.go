@@ -151,3 +151,30 @@ func (eh *ErrorHandler) sendResponse(ctx *MCPContext, response any) filter.Filte
 	ctx.SendLocalReply(http.StatusOK, responseBody)
 	return filter.Stop
 }
+
+// ServerNotification creates a JSON-RPC notification from server
+func (rb *ResponseBuilder) ServerNotification(method string, params map[string]any) mcp.JSONRPCNotification {
+	notificationParams := mcp.NotificationParams{
+		AdditionalFields: params,
+	}
+
+	return mcp.JSONRPCNotification{
+		JSONRPC: mcp.JSONRPC_VERSION,
+		Notification: mcp.Notification{
+			Method: method,
+			Params: notificationParams,
+		},
+	}
+}
+
+// ServerRequest creates a JSON-RPC request from server
+func (rb *ResponseBuilder) ServerRequest(id any, method string, params any) mcp.JSONRPCRequest {
+	return mcp.JSONRPCRequest{
+		JSONRPC: mcp.JSONRPC_VERSION,
+		ID:      mcp.NewRequestId(id),
+		Params:  params,
+		Request: mcp.Request{
+			Method: method,
+		},
+	}
+}

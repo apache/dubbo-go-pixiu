@@ -19,6 +19,7 @@ package pluginregistry
 
 import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/llmregistry"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"

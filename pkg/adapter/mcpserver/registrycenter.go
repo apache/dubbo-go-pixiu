@@ -167,7 +167,7 @@ func (a *Adapter) Apply() error {
 			}
 
 			// 1) apply tools dynamically to registry for filter usage
-			if dc := mcpserver.GetOrInitDynamic(); dc != nil {
+			if dc := mcpserver.GetOrInitDynamicConsumer(); dc != nil {
 				if err := dc.ApplyMcpServerConfigByServer(serverId, cfg); err != nil {
 					logger.Errorf("[dubbo-go-pixiu] mcp adapter apply server %s config error: %v", serverId, err)
 				}

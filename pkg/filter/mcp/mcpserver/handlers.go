@@ -33,6 +33,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -50,13 +51,34 @@ const (
 
 // handleInitialize handles the initialize method
 func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
-	// Build server capabilities using mcp-go structures
+	// Parse client's protocol version from request params
+	var initParams struct {
+		ProtocolVersion string `json:"protocolVersion"`
+		ClientInfo      struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		} `json:"clientInfo"`
+	}
+
+	if req.Params != nil {
+		if paramsBytes, err := json.Marshal(req.Params); err == nil {
+			json.Unmarshal(paramsBytes, &initParams)
+		}
+	}
+
+	clientVersion := initParams.ProtocolVersion
+	if clientVersion == "" {
+		clientVersion = ctx.ProtocolVersion()
+	}
+
+	logger.Infof("[dubbo-go-pixiu] mcp server initialize: client=%s version=%s, server will respond with=%s",
+		initParams.ClientInfo.Name, clientVersion, constant.MCPProtocolVersion20250618)
+
 	capabilities := mcp.ServerCapabilities{
 		Tools: &struct {
 			ListChanged bool `json:"listChanged,omitempty"`
 		}{
-			// disable listChanged notifications (not implemented)
-			ListChanged: false,
+			ListChanged: true,
 		},
 		Resources: &struct {
 			Subscribe   bool `json:"subscribe,omitempty"`
@@ -72,26 +94,40 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 		},
 	}
 
-	// Build server info using mcp-go structures
 	serverInfo := mcp.Implementation{
 		Name:    f.cfg.ServerInfo.Name,
 		Version: f.cfg.ServerInfo.Version,
 	}
 
-	// Create initialization result using mcp-go API
 	instructions := f.cfg.ServerInfo.Instructions
 	if instructions == "" {
 		instructions = "This MCP server provides API access through tools, documentation through resources, and AI assistance through prompts."
 	}
-	result := mcp.NewInitializeResult(mcp.LATEST_PROTOCOL_VERSION, capabilities, serverInfo, instructions)
+	result := mcp.NewInitializeResult(constant.MCPProtocolVersion20250618, capabilities, serverInfo, instructions)
 
-	// Create JSON-RPC response
 	response := f.responseBuilder.Success(req.ID, result)
+
+	// Per MCP spec: assign a session ID at initialization time for Streamable HTTP transport
+	// This enables clients to use the session for SSE-based responses
+	sessionIDHeader := ctx.SessionID()
+	session, _ := f.sessionManager.EnsureSession(sessionIDHeader)
+
+	// Add Mcp-Session-Id header to the response
+	ctx.AddHeader(constant.HeaderKeyMCPSessionId, session.ID)
+
+	logger.Infof("[dubbo-go-pixiu] mcp server created session for client: %s", session.ID)
+
 	return f.sendJSONResponse(ctx, response)
 }
 
 // handleToolsList handles the tools/list method using mcp-go APIs
-func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
+	response := f.buildToolsListResponseObject(req)
+	return f.sendResponseWithFormat(ctx, response, responseFormat)
+}
+
+// buildToolsListResponseObject builds the tools/list response object (for SSE)
+func (f *MCPServerFilter) buildToolsListResponseObject(req mcp.JSONRPCRequest) mcp.JSONRPCResponse {
 	// Read tools from registry to reflect dynamic updates
 	toolCfgs := f.registry.ListTools()
 	tools := make([]mcp.Tool, 0, len(toolCfgs))
@@ -122,10 +158,9 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 	}
 
 	// Build standard MCP tools list response using mcp-go structures
-	result := mcp.NewListToolsResult(tools, "") // empty cursor for no pagination
+	result := mcp.NewListToolsResult(tools, "")
 
-	response := f.responseBuilder.Success(req.ID, result)
-	return f.sendJSONResponse(ctx, response)
+	return f.responseBuilder.Success(req.ID, result)
 }
 
 // buildToolParameterOptions builds the mcp.PropertyOption slice for a given tool argument
@@ -166,46 +201,47 @@ func (f *MCPServerFilter) buildToolParameterOptions(arg *model.ArgConfig) []mcp.
 }
 
 // handleResourcesList handles the resources/list method
-func (f *MCPServerFilter) handleResourcesList(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
-	// Get all resources
+func (f *MCPServerFilter) handleResourcesList(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
 	mcpResources, err := f.registry.ToMCPResources()
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to get MCP resources: %v", err)
 		return f.errorHandler.SendInternalError(ctx, req.ID, "failed to get resources")
 	}
 
-	// Build resources list response using mcp-go structures
-	result := mcp.NewListResourcesResult(mcpResources, "") // empty cursor for no pagination
+	response := f.buildResourcesListResponseObject(req, mcpResources)
+	return f.sendResponseWithFormat(ctx, response, responseFormat)
+}
 
-	response := f.responseBuilder.Success(req.ID, result)
-	return f.sendJSONResponse(ctx, response)
+// buildResourcesListResponseObject builds the resources/list response object (for SSE)
+func (f *MCPServerFilter) buildResourcesListResponseObject(req mcp.JSONRPCRequest, mcpResources []mcp.Resource) mcp.JSONRPCResponse {
+	// Build resources list response using mcp-go structures
+	result := mcp.NewListResourcesResult(mcpResources, "")
+	return f.responseBuilder.Success(req.ID, result)
 }
 
 // handlePing handles the ping method
-func (f *MCPServerFilter) handlePing(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handlePing(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
+	response := f.buildPingResponseObject(req)
+	return f.sendResponseWithFormat(ctx, response, responseFormat)
+}
+
+// buildPingResponseObject builds the ping response object (for SSE)
+func (f *MCPServerFilter) buildPingResponseObject(req mcp.JSONRPCRequest) mcp.JSONRPCResponse {
 	logger.Debugf("[dubbo-go-pixiu] mcp server handling ping request")
-
-	// Simple ping response
-	result := map[string]any{}
-
-	response := f.responseBuilder.Success(req.ID, result)
-	return f.sendJSONResponse(ctx, response)
+	return f.responseBuilder.Success(req.ID, map[string]any{})
 }
 
 // handleNotificationsInitialized handles notifications/initialized notification
-func (f *MCPServerFilter) handleNotificationsInitialized(_ *MCPContext, _ mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handleNotificationsInitialized(ctx *MCPContext, _ mcp.JSONRPCRequest) filter.FilterStatus {
 	logger.Debugf("[dubbo-go-pixiu] mcp server received initialized notification from client")
 
-	// Store client initialization state
-	// This notification indicates that the client has completed initialization
-	// and is ready to receive requests
-
-	// For notifications, we don't send a response, just return Stop
+	// Per MCP spec, notifications MUST return 202 Accepted with no body
+	ctx.SendLocalReply(http.StatusAccepted, nil)
 	return filter.Stop
 }
 
 // handleResourceRead handles the resources/read method
-func (f *MCPServerFilter) handleResourceRead(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handleResourceRead(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
 	logger.Debugf("[dubbo-go-pixiu] mcp server handling resources/read")
 
 	// Parse request parameters
@@ -245,11 +281,11 @@ func (f *MCPServerFilter) handleResourceRead(ctx *MCPContext, req mcp.JSONRPCReq
 	}
 
 	response := f.responseBuilder.Success(req.ID, result)
-	return f.sendJSONResponse(ctx, response)
+	return f.sendResponseWithFormat(ctx, response, responseFormat)
 }
 
 // handleResourceTemplatesList handles the resources/templates/list method
-func (f *MCPServerFilter) handleResourceTemplatesList(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handleResourceTemplatesList(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
 	// Get all resource templates (parameterized resource patterns)
 	mcpResourceTemplates, err := f.registry.ToMCPResourceTemplates()
 	if err != nil {
@@ -263,11 +299,11 @@ func (f *MCPServerFilter) handleResourceTemplatesList(ctx *MCPContext, req mcp.J
 	}
 
 	response := f.responseBuilder.Success(req.ID, result)
-	return f.sendJSONResponse(ctx, response)
+	return f.sendResponseWithFormat(ctx, response, responseFormat)
 }
 
 // handlePromptsList handles the prompts/list method
-func (f *MCPServerFilter) handlePromptsList(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handlePromptsList(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
 	logger.Debugf("[dubbo-go-pixiu] mcp server handling prompts/list request")
 
 	// Get all prompts
@@ -283,11 +319,11 @@ func (f *MCPServerFilter) handlePromptsList(ctx *MCPContext, req mcp.JSONRPCRequ
 	}
 
 	response := f.responseBuilder.Success(req.ID, result)
-	return f.sendJSONResponse(ctx, response)
+	return f.sendResponseWithFormat(ctx, response, responseFormat)
 }
 
 // handlePromptsGet handles the prompts/get method
-func (f *MCPServerFilter) handlePromptsGet(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+func (f *MCPServerFilter) handlePromptsGet(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
 	logger.Debugf("[dubbo-go-pixiu] mcp server handling prompts/get request")
 
 	// Parse request parameters
@@ -327,7 +363,7 @@ func (f *MCPServerFilter) handlePromptsGet(ctx *MCPContext, req mcp.JSONRPCReque
 	}
 
 	response := f.responseBuilder.Success(req.ID, result)
-	return f.sendJSONResponse(ctx, response)
+	return f.sendResponseWithFormat(ctx, response, responseFormat)
 }
 
 // buildPromptMessages builds prompt messages with parameter replacement support
@@ -548,6 +584,25 @@ func (f *MCPServerFilter) processToolCallResponse(ctx *MCPContext, requestID any
 
 // sendMCPResponse sends an MCP response and updates the target response
 func (f *MCPServerFilter) sendMCPResponse(ctx *MCPContext, response mcp.JSONRPCResponse) filter.FilterStatus {
+	// Check if we should send via SSE (when session exists with active SSE stream)
+	sessionID := ctx.SessionID()
+	if sessionID != "" {
+		session, exists := f.sessionManager.Session(sessionID)
+		if exists && session.PipeWriter != nil {
+			// Send via SSE stream
+			if sseErr := f.sseHandler.SendSSEMessage(session, response); sseErr == nil {
+				logger.Debugf("[dubbo-go-pixiu] mcp server sent tool call response via SSE for session: %s", sessionID)
+				// Return 202 Accepted without body per MCP spec
+				ctx.SendLocalReply(http.StatusAccepted, nil)
+				return filter.Stop
+			} else {
+				// If SSE send failed, fall through to JSON response
+				logger.Warnf("[dubbo-go-pixiu] mcp server SSE send failed, falling back to JSON: %v", sseErr)
+			}
+		}
+	}
+
+	// Default: send as JSON response (no SSE stream available)
 	mcpResponseBody, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal MCP response: %v", err)
@@ -558,9 +613,6 @@ func (f *MCPServerFilter) sendMCPResponse(ctx *MCPContext, response mcp.JSONRPCR
 	ctx.TargetResp = &client.UnaryResponse{Data: mcpResponseBody}
 	ctx.StatusCode(http.StatusOK)
 	ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
-
-	// Critical: Clear Content-Length header to prevent mismatch errors
-	ctx.ClearContentLengthHeader()
 
 	logger.Debugf("[dubbo-go-pixiu] mcp server successfully wrapped backend response in MCP format")
 	return filter.Continue

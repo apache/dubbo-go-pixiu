@@ -38,11 +38,6 @@ type ToolRegistry struct {
 	resources         map[string]model.ResourceConfig         // indexed by URI
 	resourceTemplates map[string]model.ResourceTemplateConfig // indexed by name
 	prompts           map[string]model.PromptConfig
-
-	// TODO: Dynamic update support - add when integrating with Nacos
-	// changeListeners   []ChangeListener              // change listeners
-	// nacosClient      nacos.ConfigClient            // Nacos config client
-	// serviceDiscovery nacos.NamingClient            // Nacos service discovery client
 }
 
 // NewToolRegistry creates a new tool registry
@@ -364,5 +359,3 @@ func (r *ToolRegistry) ToMCPPrompts() ([]map[string]any, error) {
 
 	return mcpPrompts, nil
 }
-
-// TODO: Dynamic update functionality - implement when integrating with Nacos

@@ -34,6 +34,14 @@ type MCPData struct {
 	Method string
 	// RequestID stores JSON-RPC request ID
 	RequestID any
+	// SessionID stores MCP session ID for SSE connections
+	SessionID string
+	// AcceptSSE indicates if client accepts text/event-stream
+	AcceptSSE bool
+	// AcceptJSON indicates if client accepts application/json
+	AcceptJSON bool
+	// ProtocolVersion stores MCP protocol version from header
+	ProtocolVersion string
 }
 
 // MCPContext MCP context wrapper that composes HttpContext and provides MCP-specific operations
@@ -108,4 +116,102 @@ func NewMCPContextFromHttpContext(httpCtx *contexthttp.HttpContext) *MCPContext 
 // ClearContentLengthHeader removes the Content-Length header to prevent conflicts with chunked transfer encoding.
 func (ctx *MCPContext) ClearContentLengthHeader() {
 	ctx.Writer.Header().Del(constant.HeaderKeyContentLength)
+}
+
+// SessionID management methods
+
+// SetSessionID sets MCP session ID
+func (ctx *MCPContext) SetSessionID(sessionID string) {
+	ctx.mcpData.SessionID = sessionID
+}
+
+// SessionID gets MCP session ID
+func (ctx *MCPContext) SessionID() string {
+	return ctx.mcpData.SessionID
+}
+
+// HasSession checks if context has a session ID
+func (ctx *MCPContext) HasSession() bool {
+	return ctx.mcpData.SessionID != ""
+}
+
+// Accept header management methods
+
+// SetAcceptSSE sets if client accepts text/event-stream
+func (ctx *MCPContext) SetAcceptSSE(acceptSSE bool) {
+	ctx.mcpData.AcceptSSE = acceptSSE
+}
+
+// AcceptSSE gets if client accepts text/event-stream
+func (ctx *MCPContext) AcceptSSE() bool {
+	return ctx.mcpData.AcceptSSE
+}
+
+// SetAcceptJSON sets if client accepts application/json
+func (ctx *MCPContext) SetAcceptJSON(acceptJSON bool) {
+	ctx.mcpData.AcceptJSON = acceptJSON
+}
+
+// AcceptJSON gets if client accepts application/json
+func (ctx *MCPContext) AcceptJSON() bool {
+	return ctx.mcpData.AcceptJSON
+}
+
+// Protocol version management methods
+
+// SetProtocolVersion sets MCP protocol version
+func (ctx *MCPContext) SetProtocolVersion(version string) {
+	ctx.mcpData.ProtocolVersion = version
+}
+
+// ProtocolVersion gets MCP protocol version
+func (ctx *MCPContext) ProtocolVersion() string {
+	return ctx.mcpData.ProtocolVersion
+}
+
+// ParseAndSetAcceptHeader parses Accept header and sets AcceptSSE/AcceptJSON flags
+func (ctx *MCPContext) ParseAndSetAcceptHeader() {
+	acceptHeader := ctx.Request.Header.Get(constant.HeaderKeyAccept)
+	ctx.mcpData.AcceptJSON = acceptHeader == "" || // Default to JSON for backward compatibility
+		containsMediaType(acceptHeader, constant.HeaderValueApplicationJson) ||
+		containsMediaType(acceptHeader, constant.MediaTypeApplicationWild) ||
+		containsMediaType(acceptHeader, constant.MediaTypeWildcard)
+
+	ctx.mcpData.AcceptSSE = containsMediaType(acceptHeader, constant.HeaderValueTextEventStream) ||
+		containsMediaType(acceptHeader, constant.MediaTypeTextWild) ||
+		containsMediaType(acceptHeader, constant.MediaTypeWildcard)
+}
+
+// ParseAndSetSessionHeader parses Mcp-Session-Id header and sets session ID
+func (ctx *MCPContext) ParseAndSetSessionHeader() {
+	sessionID := ctx.Request.Header.Get(constant.HeaderKeyMCPSessionId)
+	ctx.mcpData.SessionID = sessionID
+}
+
+// ParseAndSetProtocolVersionHeader parses MCP-Protocol-Version header
+func (ctx *MCPContext) ParseAndSetProtocolVersionHeader() {
+	version := ctx.Request.Header.Get(constant.HeaderKeyMCPProtocolVersion)
+	ctx.mcpData.ProtocolVersion = version
+}
+
+// containsMediaType checks if the Accept header contains the specified media type
+func containsMediaType(acceptHeader, mediaType string) bool {
+	if acceptHeader == "" {
+		return false
+	}
+	// Simple contains check - could be enhanced with proper media type parsing
+	return len(acceptHeader) > 0 && (acceptHeader == mediaType ||
+		len(acceptHeader) >= len(mediaType) && (acceptHeader[:len(mediaType)] == mediaType ||
+			acceptHeader[len(acceptHeader)-len(mediaType):] == mediaType ||
+			containsSubstring(acceptHeader, mediaType)))
+}
+
+// containsSubstring is a helper function for media type checking
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
