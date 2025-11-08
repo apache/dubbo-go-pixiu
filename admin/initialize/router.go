@@ -26,10 +26,10 @@ import (
 )
 
 import (
-	account2 "github.com/apache/dubbo-go-pixiu/admin/controller/account"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/account"
 	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
-	configInfo2 "github.com/apache/dubbo-go-pixiu/admin/controller/configInfo"
-	_ "github.com/apache/dubbo-go-pixiu/docs"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/configInfo"
+	_ "github.com/apache/dubbo-go-pixiu/admin/doc"
 )
 
 // Routers init router
@@ -39,8 +39,8 @@ func Routers() *gin.Engine {
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Guest router
-	router.POST("/login", account2.Login)
-	router.POST("/register", account2.Register)
+	router.POST("/login", account.Login)
+	router.POST("/register", account.Register)
 
 	// auth router
 	taR := router.Group("/", auth.JWTAuth())
@@ -48,44 +48,44 @@ func Routers() *gin.Engine {
 	// The following router needs to check the token
 	{
 		// user router
-		taR.POST("/user/logout", account2.Logout)
-		taR.POST("/user/password/edit", account2.EditPassword)
-		taR.POST("/user/getInfo", account2.GetUserInfo)
-		taR.POST("/user/getUserRole", account2.GetUserRole)
-		taR.POST("/user/checkIsAdmin", account2.CheckUserIsAdmin)
+		taR.POST("/user/logout", account.Logout)
+		taR.POST("/user/password/edit", account.EditPassword)
+		taR.POST("/user/getInfo", account.GetUserInfo)
+		taR.POST("/user/getUserRole", account.GetUserRole)
+		taR.POST("/user/checkIsAdmin", account.CheckUserIsAdmin)
 
-		taR.GET("/config/api/base", configInfo2.GetBaseInfo)
-		taR.POST("/config/api/base/", configInfo2.SetBaseInfo)
-		taR.PUT("/config/api/base/", configInfo2.SetBaseInfo)
+		taR.GET("/config/api/base", configInfo.GetBaseInfo)
+		taR.POST("/config/api/base/", configInfo.SetBaseInfo)
+		taR.PUT("/config/api/base/", configInfo.SetBaseInfo)
 
-		taR.GET("/config/api/resource/list", configInfo2.GetResourceList)
-		taR.GET("/config/api/resource/detail", configInfo2.GetResourceDetail)
-		taR.POST("/config/api/resource", configInfo2.CreateResourceInfo)
-		taR.PUT("/config/api/resource", configInfo2.ModifyResourceInfo)
-		taR.DELETE("/config/api/resource", configInfo2.DeleteResourceInfo)
+		taR.GET("/config/api/resource/list", configInfo.GetResourceList)
+		taR.GET("/config/api/resource/detail", configInfo.GetResourceDetail)
+		taR.POST("/config/api/resource", configInfo.CreateResourceInfo)
+		taR.PUT("/config/api/resource", configInfo.ModifyResourceInfo)
+		taR.DELETE("/config/api/resource", configInfo.DeleteResourceInfo)
 
-		taR.GET("/config/api/cluster/list", configInfo2.GetClusterList)
-		taR.GET("/config/api/cluster/detail", configInfo2.DetailCluster)
-		taR.POST("/config/api/cluster", configInfo2.UpdateCluster)
-		taR.PUT("/config/api/cluster", configInfo2.CreateCluster)
-		taR.DELETE("/config/api/cluster", configInfo2.DeleteCluster)
+		taR.GET("/config/api/cluster/list", configInfo.GetClusterList)
+		taR.GET("/config/api/cluster/detail", configInfo.DetailCluster)
+		taR.POST("/config/api/cluster", configInfo.UpdateCluster)
+		taR.PUT("/config/api/cluster", configInfo.CreateCluster)
+		taR.DELETE("/config/api/cluster", configInfo.DeleteCluster)
 
-		taR.GET("/config/api/listener/list", configInfo2.GetListenerList)
-		taR.GET("/config/api/listener/detail", configInfo2.DetailListener)
-		taR.POST("/config/api/listener", configInfo2.UpdateListener)
-		taR.PUT("/config/api/listener", configInfo2.CreateListener)
-		taR.DELETE("/config/api/listener", configInfo2.DeleteListener)
+		taR.GET("/config/api/listener/list", configInfo.GetListenerList)
+		taR.GET("/config/api/listener/detail", configInfo.DetailListener)
+		taR.POST("/config/api/listener", configInfo.UpdateListener)
+		taR.PUT("/config/api/listener", configInfo.CreateListener)
+		taR.DELETE("/config/api/listener", configInfo.DeleteListener)
 
-		taR.GET("/config/api/resource/method/list", configInfo2.GetMethodList)
-		taR.GET("/config/api/resource/method/detail", configInfo2.GetMethodDetail)
-		taR.POST("/config/api/resource/method", configInfo2.CreateMethodInfo)
-		taR.PUT("/config/api/resource/method", configInfo2.ModifyMethodInfo)
-		taR.DELETE("/config/api/resource/method", configInfo2.DeleteMethodInfo)
+		taR.GET("/config/api/resource/method/list", configInfo.GetMethodList)
+		taR.GET("/config/api/resource/method/detail", configInfo.GetMethodDetail)
+		taR.POST("/config/api/resource/method", configInfo.CreateMethodInfo)
+		taR.PUT("/config/api/resource/method", configInfo.ModifyMethodInfo)
+		taR.DELETE("/config/api/resource/method", configInfo.DeleteMethodInfo)
 
 		// Which request method to choose, Temporarily choose put method
-		taR.PUT("/config/api/resource/publish", configInfo2.BatchReleaseResource)
-		taR.PUT("/config/api/resource/method/publish", configInfo2.BatchReleaseMethod)
-		taR.PUT("/config/api/plugin_group/publish", configInfo2.BatchReleasePluginGroup)
+		taR.PUT("/config/api/resource/publish", configInfo.BatchReleaseResource)
+		taR.PUT("/config/api/resource/method/publish", configInfo.BatchReleaseMethod)
+		taR.PUT("/config/api/plugin_group/publish", configInfo.BatchReleasePluginGroup)
 	}
 
 	return router
