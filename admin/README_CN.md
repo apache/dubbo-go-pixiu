@@ -11,40 +11,11 @@
 
 ### 使用 Docker 启动
 
-#### 构建 Docker 镜像
-
-首先，确保您在项目的根目录（包含 Dockerfile 的目录）下，然后运行以下命令来构建 Docker 镜像：
+首先，确保您在项目的根目录（包含 Dockerfile 的目录）下，使用以下命令启动 Pixiu-Admin：
 
 ```bash
-docker build -t dubbo-go-pixiu:local .
+docker-compose up -d
 ```
-
-此操作可能需要几分钟，构建完成后，您将拥有名为 `dubbo-go-pixiu:local` 的本地镜像。
-
-#### 使用默认配置运行 Pixiu
-
-使用刚才构建的 Docker 镜像启动 Pixiu：
-
-```bash
-docker run --name pixiu-gateway -p 8888:8888 -d dubbo-go-pixiu:local
-```
-
-该命令会启动一个容器，并将 Pixiu 网关绑定到本地的 8888 端口。
-
-#### 使用自定义配置文件运行 Pixiu
-
-如果您需要使用自己的配置文件，可以将本地文件挂载到容器的 `/etc/pixiu/` 目录：
-
-```bash
-docker run --name pixiu-gateway -p 8888:8888 -d \
-    -v /your/local/path/conf.yaml:/etc/pixiu/conf.yaml \
-    -v /your/local/path/log.yml:/etc/pixiu/log.yml \
-    dubbo-go-pixiu:local
-```
-
-其中，`/your/local/path/conf.yaml` 和 `/your/local/path/log.yml` 需要替换为您的本地配置文件路径。
-
-更多信息，请访问 [Pixiu Docker Hub](https://hub.docker.com)。
 
 ### 使用源码部署
 

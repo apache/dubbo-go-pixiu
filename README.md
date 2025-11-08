@@ -117,6 +117,8 @@ After starting, you can access the management plane by opening `http://localhost
 
 ![pixiu-admin.png](./docs/images/pixiu-admin.png)
 
+👉 **More Details：** please visit [pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)
+
 ## Other Projects in the Dubbo-Go-Pixiu Ecosystem
 
 * **[pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)**

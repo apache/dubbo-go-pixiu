@@ -51,7 +51,7 @@ services:
 
   # backend service(GO)
   backend:
-    image: golang:1.23
+    image: golang:1.25
     container_name: go_backend
     working_dir: /app
     volumes:

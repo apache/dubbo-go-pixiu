@@ -10,40 +10,11 @@ For backend API documentation, please refer to [API.md](../admin/API.md).
 
 ### Start Using Docker
 
-#### Build Docker Image
-
-First, ensure you are in the root directory of the project (the directory containing the Dockerfile). Then, run the following command to build the Docker image:
+First, ensure you are in the root directory of the project (the directory containing the Dockerfile). Then, start instantly with Docker Compose:
 
 ```bash
-docker build -t dubbo-go-pixiu:local .
+docker-compose up -d
 ```
-
-This may take a few minutes, and once completed, you will have a local image named `dubbo-go-pixiu:local`.
-
-#### Run Pixiu with Default Configuration
-
-To start Pixiu using the Docker image you just built, run:
-
-```bash
-docker run --name pixiu-gateway -p 8888:8888 -d dubbo-go-pixiu:local
-```
-
-This command starts a container and binds the Pixiu gateway to your local port 8888.
-
-#### Run Pixiu with Custom Configuration
-
-If you want to use your own configuration files, you can mount local files to the container's `/etc/pixiu/` directory:
-
-```bash
-docker run --name pixiu-gateway -p 8888:8888 -d \
-    -v /your/local/path/conf.yaml:/etc/pixiu/conf.yaml \
-    -v /your/local/path/log.yml:/etc/pixiu/log.yml \
-    dubbo-go-pixiu:local
-```
-
-Replace `/your/local/path/conf.yaml` and `/your/local/path/log.yml` with the actual paths to your local configuration files.
-
-For more information, visit the [Pixiu Docker Hub](https://hub.docker.com).
 
 ### Deploy from Source Code
 
