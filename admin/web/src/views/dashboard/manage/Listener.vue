@@ -59,7 +59,6 @@
             label="端口"
           >
           </el-table-column>
-          </el-table-column>
           <el-table-column
             class-name="custom-popper--overflow"
             label="路由匹配"

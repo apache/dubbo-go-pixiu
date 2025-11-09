@@ -18,7 +18,6 @@
 package auth
 
 import (
-	"log"
 	"net/http"
 	"time"
 )
@@ -50,7 +49,7 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		log.Print("get token: ", token)
+		//log.Print("get token: ", token)
 		j := NewJWT()
 		// Parse the information contained in the token
 		claims, err := j.ParseToken(token)

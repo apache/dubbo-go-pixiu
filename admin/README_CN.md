@@ -53,16 +53,12 @@ go run ./cmd/admin/admin.go -c /your/local/path/conf.yaml
 nohup go run ./cmd/admin/admin.go -c /your/local/path/conf.yaml &
 ```
 
-#### 配置 admin_config.yaml
+#### 运行 Pixiu
 
-默认配置如下：
+默认配置见 [pixiu_with_admin_config.yaml](../configs/pixiu_with_admin_config.yaml)
 
-```yaml
-server:
-  address: 127.0.0.1:8081  # 服务地址
-etcd:
-  address: 127.0.0.1:2379  # etcd 地址
-  path: /pixiu/config/api  # etcd 键值路径，需与 pixiu 配置对应
+```bash
+go run ./cmd/pixiu/pixiu.go gateway start -c ./configs/pixiu_with_admin_config.yaml
 ```
 
 ### 测试运行 admin-web
@@ -79,43 +75,22 @@ yarn run serve  # 测试运行
 
 编辑 `web` 目录下的 `vue.config.js`，配置后端服务地址：
 
-```js
+```
 devServer: {
     host: '0.0.0.0',
-        port
-:
-    8080,  // web 应用地址
-        hot
-:
-    true,
-        https
-:
-    false,
-        open
-:
-    false,
-        disableHostCheck
-:
-    true,
-        proxy
-:
-    {
-        "/config"
-    :
-        {
-            target: "http://127.0.0.1:8081",  // 后端服务地址
-                ws
-        :
-            true,  // 启用 websockets
-                changeOrigin
-        :
-            true,  // 开启代理
+        port: 8080,  // Web app address
+        hot: true,
+        https: false,
+        open: false,
+        disableHostCheck: true,
+        proxy: {
+        "/config": {
+            target: "http://127.0.0.1:8081",  // Backend service address
+                ws: true,  // Enable websockets
+                changeOrigin: true,  // Enable proxy
         }
-    ,
     }
-,
 }
-,
 ```
 
 运行成功后，可以在浏览器访问 [http://127.0.0.1:8081/login.html#/Overview](http://127.0.0.1:8081/login.html#/Overview)。
@@ -328,5 +303,5 @@ curl -X POST "http://127.0.0.1:8888/api/v1/test-dubbo/user?name=tc"
 
 ## 许可证
 
-本项目采用 [Apache License 2.0](LICENSE) 开源许可。
+本项目采用 Apache License 2.0 开源许可。
 

@@ -52,16 +52,12 @@ go run ./cmd/admin/admin.go -c /your/local/path/conf.yaml
 nohup go run ./cmd/admin/admin.go -c /your/local/path/conf.yaml &
 ```
 
-#### Configure admin_config.yaml
+#### Run Pixiu
 
-The default configuration is as follows:
+Default config can refer to [pixiu_with_admin_config.yaml](../configs/pixiu_with_admin_config.yaml)
 
-```yaml
-server:
-  address: 127.0.0.1:8081  # Service address
-etcd:
-  address: 127.0.0.1:2379  # etcd address
-  path: /pixiu/config/api  # etcd key path, must match Pixiu configuration
+```bash
+go run ./cmd/pixiu/pixiu.go gateway start -c ./configs/pixiu_with_admin_config.yaml
 ```
 
 ### Test Running Admin Web
@@ -78,7 +74,7 @@ yarn run serve  # Test run
 
 Edit the `vue.config.js` file in the `web` directory to configure the backend service address:
 
-```js
+```
 devServer: {
     host: '0.0.0.0',
     port: 8080,  // Web app address
@@ -306,4 +302,4 @@ If no matching service is found, an error message will be returned; if the confi
 
 ## License
 
-This project is licensed under the [Apache License 2.0](LICENSE).
+This project is licensed under the Apache License 2.0.
