@@ -65,8 +65,8 @@ func Logout(c *gin.Context) {
 // @Description to modify the current user's password, the username must be included in the header.
 // @Accept application/x-www-form-urlencoded
 // @Produce application/json
-// @Param oldPassword formData string true "旧密码"
-// @Param newPassword formData string true "新密码"
+// @Param oldPassword formData string true "old password"
+// @Param newPassword formData string true "new password"
 // @Success 200 {object} string
 // @Failure 200 {object} string
 // @Router /user/password/edit [post]

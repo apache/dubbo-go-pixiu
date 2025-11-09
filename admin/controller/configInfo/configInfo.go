@@ -174,7 +174,7 @@ func CreateResourceInfo(c *gin.Context) {
 // @Description modify resource content, where content is the YAML of the Resource. Use resourceId to specify the resource to be modified.
 // @Accept application/x-www-form-urlencoded
 // @Produce application/json
-// @Param resourceId query int false "资源 ID"
+// @Param resourceId query int false "resource ID"
 // @Param content formData string true "Resource YAML"
 // @Param unpublished formData string false "1: unpublished; 0 or empty: published"
 // @Success 200 {object} string
@@ -239,7 +239,7 @@ func afterResourcePathChange(resourceId, path string, unpublished bool) {
 // @Summary delete resource
 // @Description delete resources by ID. When unpublished is 1, this indicates deleting configurations for unpublished spaces (requires checking published spaces).
 // @Produce application/json
-// @Param resourceId query int true "资源 ID"
+// @Param resourceId query int true "resource ID"
 // @Param unpublished formData string false "1: unpublished; 0 or empty: published"
 // @Success 200 {object} string
 // @Router /config/api/resource [delete]
@@ -272,7 +272,7 @@ func DeleteResourceInfo(c *gin.Context) {
 // @Summary get all method list below one resource
 // @Description get the list of methods under the specified resource
 // @Produce application/json
-// @Param resourceId query int true "资源 ID"
+// @Param resourceId query int true "resource ID"
 // @Param unpublished formData string false "1: unpublished; 0 or empty: published"
 // @Success 200 {string} string "JSON array"
 // @Router /config/api/resource/method/list [get]
@@ -294,8 +294,8 @@ func GetMethodList(c *gin.Context) {
 // @Summary get method detail with yml
 // @Description get method details based on resourceId and methodId, returning YAML.
 // @Produce application/json
-// @Param resourceId query int true "资源 ID"
-// @Param methodId query int true "方法 ID"
+// @Param resourceId query int true "resource ID"
+// @Param methodId query int true "method ID"
 // @Param unpublished formData string false "1: unpublished; 0 or empty: published"
 // @Success 200 {string} string "YAML content"
 // @Router /config/api/resource/method/detail [get]
@@ -456,7 +456,7 @@ func ModifyMethodInfo(c *gin.Context) {
 // @Tags Config
 // @Summary determine the configuration type of the current operation
 // @Description internal function, no external documentation required
-getUnpublishedVal Determine the configuration type of the current operation
+// getUnpublishedVal Determine the configuration type of the current operation
 func getUnpublishedVal(c *gin.Context) bool {
 	// The front-end request carries the unpublished field to determine which configuration is currently operating
 	// 1 represent true (unpublished, delay publish), 0 represent false (published, direct publish)

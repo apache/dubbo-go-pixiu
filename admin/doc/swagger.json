@@ -398,7 +398,7 @@
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "资源 ID",
+                        "description": "resource ID",
                         "name": "resourceId",
                         "in": "query"
                     },
@@ -473,7 +473,7 @@
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "资源 ID",
+                        "description": "resource ID",
                         "name": "resourceId",
                         "in": "query",
                         "required": true
@@ -705,14 +705,14 @@
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "资源 ID",
+                        "description": "resource ID",
                         "name": "resourceId",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "方法 ID",
+                        "description": "method ID",
                         "name": "methodId",
                         "in": "query",
                         "required": true
@@ -747,7 +747,7 @@
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "资源 ID",
+                        "description": "resource ID",
                         "name": "resourceId",
                         "in": "query",
                         "required": true
@@ -940,14 +940,14 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "旧密码",
+                        "description": "old password",
                         "name": "oldPassword",
                         "in": "formData",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "新密码",
+                        "description": "new password",
                         "name": "newPassword",
                         "in": "formData",
                         "required": true

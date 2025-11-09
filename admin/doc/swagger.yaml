@@ -262,7 +262,7 @@ paths:
       description: delete resources by ID. When unpublished is 1, this indicates deleting
         configurations for unpublished spaces (requires checking published spaces).
       parameters:
-      - description: 资源 ID
+      - description: resource ID
         in: query
         name: resourceId
         required: true
@@ -312,7 +312,7 @@ paths:
       description: modify resource content, where content is the YAML of the Resource.
         Use resourceId to specify the resource to be modified.
       parameters:
-      - description: 资源 ID
+      - description: resource ID
         in: query
         name: resourceId
         type: integer
@@ -475,12 +475,12 @@ paths:
       description: get method details based on resourceId and methodId, returning
         YAML.
       parameters:
-      - description: 资源 ID
+      - description: resource ID
         in: query
         name: resourceId
         required: true
         type: integer
-      - description: 方法 ID
+      - description: method ID
         in: query
         name: methodId
         required: true
@@ -503,7 +503,7 @@ paths:
     get:
       description: get the list of methods under the specified resource
       parameters:
-      - description: 资源 ID
+      - description: resource ID
         in: query
         name: resourceId
         required: true
@@ -633,12 +633,12 @@ paths:
       description: to modify the current user's password, the username must be included
         in the header.
       parameters:
-      - description: 旧密码
+      - description: old password
         in: formData
         name: oldPassword
         required: true
         type: string
-      - description: 新密码
+      - description: new password
         in: formData
         name: newPassword
         required: true
