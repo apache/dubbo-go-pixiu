@@ -30,7 +30,7 @@ Postman 进行接口测试。
 GET /config/api/base HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: deb6b451-f211-41fd-8cdb-0801b13bab69
+Postman-Token: xxxxxx
 ```
 
 **返回值**：
@@ -51,7 +51,7 @@ POST /config/api/base HTTP/1.1
 Host: 127.0.0.1:8080
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 cache-control: no-cache
-Postman-Token: a5867037-5bc0-4b9f-aef2-57980ddc9dbf
+Postman-Token: xxxxxx
 ```
 
 **表单数据**：
@@ -72,7 +72,7 @@ description: pixiu111 sample
 GET /config/api/resource/list HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 19ffe51c-8193-4722-b94b-88d2502e3046
+Postman-Token: xxxxxx
 ```
 
 ### 2.2 获取 Resource 详情
@@ -83,7 +83,7 @@ Postman-Token: 19ffe51c-8193-4722-b94b-88d2502e3046
 GET /config/api/resource/detail?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 6b97b70d-70fc-4633-9ba7-dee3e08d7468
+Postman-Token: xxxxxx
 ```
 
 ### 2.3 创建 Resource
@@ -95,7 +95,7 @@ POST /config/api/resource/ HTTP/1.1
 Host: 127.0.0.1:8080
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 cache-control: no-cache
-Postman-Token: 4e7b85b1-a969-46a4-b3d2-3df5d2f2073e
+Postman-Token: xxxxxx
 ```
 
 **表单数据**：
@@ -143,7 +143,7 @@ methods:
 PUT /config/api/resource? HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 67d3fb19-bb66-4e92-be1b-419fdd3bcb28
+Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -192,7 +192,7 @@ methods:
 DELETE /config/api/resource/?resourceId=2 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: faed927d-2857-40a2-9cfb-1a3ce2f704e4
+Postman-Token: xxxxxx
 ```
 
 ## 三、Method 相关
@@ -205,7 +205,7 @@ Postman-Token: faed927d-2857-40a2-9cfb-1a3ce2f704e4
 GET /config/api/resource/method/list?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 90c3df1d-02b4-42af-8846-f4c74a36fdae
+Postman-Token: xxxxxx
 ```
 
 ### 3.2 查询 Method 详情
@@ -216,7 +216,7 @@ Postman-Token: 90c3df1d-02b4-42af-8846-f4c74a36fdae
 GET /config/api/resource/method/detail?resourceId=1&methodId=2 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 6d0909cc-1585-46c5-975f-e4a0d0b2f490
+Postman-Token: xxxxxx
 ```
 
 ### 3.3 创建 Method
@@ -227,7 +227,7 @@ Postman-Token: 6d0909cc-1585-46c5-975f-e4a0d0b2f490
 POST /config/api/resource/method/?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 0d5e2885-67e6-41cb-84e8-777a8d077384
+Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -263,7 +263,7 @@ integrationRequest:
 PUT /config/api/resource/method/?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 9a635d6d-b52a-4cf5-8f1a-a7d450cc3552
+Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -300,7 +300,7 @@ integrationRequest:
 DELETE /config/api/resource/method/?resourceId=1&methodId=2 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 83930da3-7ab5-47b4-a47e-ef0ceeb6e9af
+Postman-Token: xxxxxx
 ```
 
 ## 四、PluginGroup 和 Plugin 相关
@@ -313,7 +313,7 @@ Postman-Token: 83930da3-7ab5-47b4-a47e-ef0ceeb6e9af
 GET /config/api/plugin_group/list HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: f48aa74f-38c9-4ee9-87a3-c4a35a2350f9
+Postman-Token: xxxxxx
 ```
 
 ### 4.2 查看 PluginGroup 详情
@@ -324,7 +324,7 @@ Postman-Token: f48aa74f-38c9-4ee9-87a3-c4a35a2350f9
 GET /config/api/plugin_group/list HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 739ee1d2-7801-4005-90a3-cc2dfb03b5e7
+Postman-Token: xxxxxx
 ```
 
 ### 4.3 创建 PluginGroup
@@ -335,7 +335,7 @@ Postman-Token: 739ee1d2-7801-4005-90a3-cc2dfb03b5e7
 POST /config/api/plugin_group/ HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 1e41964b-989b-4f03-8512-9dc7e9b7635d
+Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -363,7 +363,7 @@ plugins:
 PUT /config/api/plugin_group/ HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: 5166a7df-b838-4941-add3-5073a6e430f0
+Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -391,5 +391,5 @@ plugins:
 DELETE /config/api/plugin_group/?name=group1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: d761e1fa-02c4-4693-b765-b16ce389c9b2
+Postman-Token: xxxxxx
 ```
