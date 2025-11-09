@@ -1,6 +1,6 @@
 # Backend API Documentation
 
-**English** | [中文](README_CN.md)
+**English** | [中文](API_CN.md)
 
 This API documentation describes the backend operations of the Pixiu management platform, including the APIs for retrieving, creating, modifying, and deleting resources (Resource), methods (Method), and plugin groups (PluginGroup). Pixiu provides a complete set of APIs to help users manage API gateway resource mappings, plugin configurations, and request handling. The examples in this document cover common request and response formats and show how to test the APIs using Postman.
 
