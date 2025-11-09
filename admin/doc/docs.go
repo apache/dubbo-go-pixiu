@@ -68,7 +68,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "YAML 内容",
+                        "description": "YAML content",
                         "name": "content",
                         "in": "formData",
                         "required": true
@@ -98,7 +98,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "YAML 内容",
+                        "description": "YAML content",
                         "name": "content",
                         "in": "formData",
                         "required": true
@@ -160,7 +160,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Cluster 内容",
+                        "description": "Cluster content",
                         "name": "content",
                         "in": "formData",
                         "required": true
@@ -268,7 +268,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Listener 内容",
+                        "description": "Listener content",
                         "name": "content",
                         "in": "formData",
                         "required": true

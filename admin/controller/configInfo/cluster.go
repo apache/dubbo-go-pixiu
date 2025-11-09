@@ -118,7 +118,7 @@ func DetailCluster(c *gin.Context) {
 // @Description pass the Cluster's YAML/JSON via the form's content field to update the cluster.
 // @Accept application/x-www-form-urlencoded
 // @Produce application/json
-// @Param content formData string true "Cluster 内容"
+// @Param content formData string true "Cluster content"
 // @Success 200 {object} string
 // @Failure 200 {object} string
 // @Router /config/api/cluster [post]

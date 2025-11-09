@@ -61,7 +61,7 @@ func GetBaseInfo(c *gin.Context) {
 // @Description Pass YAML content through the form's content field to set basic information.
 // @Accept application/x-www-form-urlencoded
 // @Produce application/json
-// @Param content formData string true "YAML 内容"
+// @Param content formData string true "YAML content"
 // @Success 200 {object} string
 // @Failure 200 {object} string
 // @Router /config/api/base/ [post]

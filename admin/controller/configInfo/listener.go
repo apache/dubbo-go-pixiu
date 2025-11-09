@@ -55,7 +55,7 @@ func GetListenerList(c *gin.Context) {
 // @Description pass the YAML/JSON for the Listener through the form's content field to create the Listener.
 // @Accept application/x-www-form-urlencoded
 // @Produce application/json
-// @Param content formData string true "Listener 内容"
+// @Param content formData string true "Listener content"
 // @Success 200 {object} string
 // @Failure 200 {object} string
 // @Router /config/api/listener [put]

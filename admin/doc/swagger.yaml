@@ -21,7 +21,7 @@ paths:
       description: Pass YAML content through the form's content field to set basic
         information.
       parameters:
-      - description: YAML 内容
+      - description: YAML content
         in: formData
         name: content
         required: true
@@ -42,7 +42,7 @@ paths:
       description: Pass YAML content through the form's content field to set basic
         information.
       parameters:
-      - description: YAML 内容
+      - description: YAML content
         in: formData
         name: content
         required: true
@@ -82,7 +82,7 @@ paths:
       description: pass the Cluster's YAML/JSON via the form's content field to update
         the cluster.
       parameters:
-      - description: Cluster 内容
+      - description: Cluster content
         in: formData
         name: content
         required: true
@@ -196,7 +196,7 @@ paths:
       description: pass the YAML/JSON for the Listener through the form's content
         field to create the Listener.
       parameters:
-      - description: Listener 内容
+      - description: Listener content
         in: formData
         name: content
         required: true
