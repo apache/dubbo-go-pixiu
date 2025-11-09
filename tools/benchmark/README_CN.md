@@ -1,4 +1,4 @@
-# Benchmark Results
+# Benchmark 结果
 
 * grpc:
 
@@ -22,39 +22,38 @@ pixiu to grpc protocol performance test
       GetUserByName [duration] | 500 | 800µs | 1.9ms  | 2.7ms | 3.8ms  | 33.4ms
 ```
 
-# How to Run
+# 运行方法
 
-1. Build the Pixiu executable
+1. 构建 pixiu 可执行文件
 
-Change the working directory to the root of **dubbo-go-pixiu** and build the Pixiu executable.
+将工作路径修改至 **dubbo-go-pixiu** 根目录，编译 pixiu 可执行文件
 
 ```
 go build -o tools/benchmark/dist/pixiu cmd/pixiu/pixiu.go
 ```
 
-The final executable will be located at `tools/benchmark/dist/pixiu`, which will be used in subsequent tests.
+最终可执行文件路径为 `tools/benchmark/dist/pixiu`，后续测试会依赖此路径。
 
-2. Start the Zookeeper service
+2. 运行 zookeeper 服务
 
 ```
 docker run -d --name zk -p 2181:2181 zookeeper:latest 
 ```
 
-3. Run the test code
+3. 运行测试代码
 
-Change the working directory to `dubbo-go-pixiu/tools/benchmark/test`.
-
+将工作路径修改至 `dubbo-go-pixiu/tools/benchmark/test`
 
 ```
-# Run All Tests
+# 运行所有测试
 go test -v ./...
 
-# Run Dubbo Tests
+# 运行 dubbo 测试
 go test -v dubbo_suite/dubbo_test.go 
 
-# Run gRPC Tests
+# 运行 gRPC 测试
 go test -v grpc_suite/grpc_test.go
 
-# Run Triple Tests
+# 运行 triple 测试
 go test -v triple_suite/proto_suite/proto_test.go 
 ```
