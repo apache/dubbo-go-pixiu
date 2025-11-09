@@ -30,7 +30,6 @@ Postman 进行接口测试。
 GET /config/api/base HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 **返回值**：
@@ -51,7 +50,6 @@ POST /config/api/base HTTP/1.1
 Host: 127.0.0.1:8080
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 **表单数据**：
@@ -72,7 +70,6 @@ description: pixiu111 sample
 GET /config/api/resource/list HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ### 2.2 获取 Resource 详情
@@ -83,7 +80,6 @@ Postman-Token: xxxxxx
 GET /config/api/resource/detail?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ### 2.3 创建 Resource
@@ -95,7 +91,6 @@ POST /config/api/resource/ HTTP/1.1
 Host: 127.0.0.1:8080
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 **表单数据**：
@@ -143,7 +138,6 @@ methods:
 PUT /config/api/resource? HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -192,7 +186,6 @@ methods:
 DELETE /config/api/resource/?resourceId=2 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ## 三、Method 相关
@@ -205,7 +198,6 @@ Postman-Token: xxxxxx
 GET /config/api/resource/method/list?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ### 3.2 查询 Method 详情
@@ -216,7 +208,6 @@ Postman-Token: xxxxxx
 GET /config/api/resource/method/detail?resourceId=1&methodId=2 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ### 3.3 创建 Method
@@ -227,7 +218,6 @@ Postman-Token: xxxxxx
 POST /config/api/resource/method/?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -263,7 +253,6 @@ integrationRequest:
 PUT /config/api/resource/method/?resourceId=1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -300,7 +289,6 @@ integrationRequest:
 DELETE /config/api/resource/method/?resourceId=1&methodId=2 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ## 四、PluginGroup 和 Plugin 相关
@@ -313,7 +301,6 @@ Postman-Token: xxxxxx
 GET /config/api/plugin_group/list HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ### 4.2 查看 PluginGroup 详情
@@ -324,7 +311,6 @@ Postman-Token: xxxxxx
 GET /config/api/plugin_group/list HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
 
 ### 4.3 创建 PluginGroup
@@ -335,7 +321,6 @@ Postman-Token: xxxxxx
 POST /config/api/plugin_group/ HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -363,7 +348,6 @@ plugins:
 PUT /config/api/plugin_group/ HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
@@ -391,5 +375,4 @@ plugins:
 DELETE /config/api/plugin_group/?name=group1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Postman-Token: xxxxxx
 ```
