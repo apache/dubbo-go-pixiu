@@ -1,6 +1,6 @@
 # 后端API接口文档
 
-[English](README.md) | **中文**
+[English](API.md) | **中文**
 
 本接口文档详细描述了 Pixiu 管理平台的后端 API 操作，包括获取、创建、修改、删除资源（Resource）、方法（Method）及插件组（PluginGroup）的接口。Pixiu
 平台提供了一整套 API 来帮助用户管理 API 网关的资源映射、插件配置以及请求处理。文档中的示例涵盖了常见的请求与响应格式，并介绍了如何使用
