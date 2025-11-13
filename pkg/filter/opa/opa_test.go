@@ -182,7 +182,7 @@ func TestServerModeDenied(t *testing.T) {
 		var reqBody map[string]any
 		json.NewDecoder(r.Body).Decode(&reqBody)
 		input := reqBody["input"].(map[string]any)
-		
+
 		// After JSON unmarshaling, headers is map[string][]string
 		// Note: HTTP header keys are canonicalized
 		allow := false
@@ -344,10 +344,10 @@ func TestServerModeTimeout(t *testing.T) {
 	chain := &mockFilterChain{}
 	factory.PrepareFilterChain(ctx, chain)
 	result := chain.filters[0].Decode(ctx)
-	
+
 	// Should return Stop on timeout
 	assert.Equal(t, filter.Stop, result)
-	
+
 	// Check that the response contains timeout error (504)
 	assert.Equal(t, 504, ctx.GetStatusCode())
 }
@@ -359,7 +359,7 @@ func TestServerModeObjectResponse(t *testing.T) {
 		var reqBody map[string]any
 		json.NewDecoder(r.Body).Decode(&reqBody)
 		input := reqBody["input"].(map[string]any)
-		
+
 		headersMap := input["headers"].(map[string]any)
 		testHeaderValue := ""
 		if testHeader, ok := headersMap["Test_header"]; ok {

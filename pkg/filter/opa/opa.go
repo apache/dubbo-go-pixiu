@@ -51,23 +51,23 @@ type (
 
 	FilterFactory struct {
 		cfg           *Config
-		rego          *rego.Rego                  // For embedded mode (deprecated, kept for backward compat)
-		preparedQuery *rego.PreparedEvalQuery     // Pre-compiled query for embedded mode
-		httpClient    *http.Client                // For server mode
+		rego          *rego.Rego              // For embedded mode (deprecated, kept for backward compat)
+		preparedQuery *rego.PreparedEvalQuery // Pre-compiled query for embedded mode
+		httpClient    *http.Client            // For server mode
 	}
 
 	Filter struct {
 		cfg           *Config
-		preparedQuery *rego.PreparedEvalQuery  // For embedded mode
-		httpClient    *http.Client              // For server mode
+		preparedQuery *rego.PreparedEvalQuery // For embedded mode
+		httpClient    *http.Client            // For server mode
 	}
 
 	Config struct {
 		// Server mode configuration (recommended for production)
-		ServerURL    string `yaml:"server_url" json:"server_url" mapstructure:"server_url"`             // OPA Server address, e.g., http://opa-server:8181
-		DecisionPath string `yaml:"decision_path" json:"decision_path" mapstructure:"decision_path"`   // Decision path, e.g., /v1/data/http/authz/allow
-		TimeoutMs    int    `yaml:"timeout_ms" json:"timeout_ms" mapstructure:"timeout_ms"`             // Request timeout in milliseconds, default 100
-		BearerToken  string `yaml:"bearer_token" json:"bearer_token" mapstructure:"bearer_token"`       // Optional authentication token
+		ServerURL    string `yaml:"server_url" json:"server_url" mapstructure:"server_url"`          // OPA Server address, e.g., http://opa-server:8181
+		DecisionPath string `yaml:"decision_path" json:"decision_path" mapstructure:"decision_path"` // Decision path, e.g., /v1/data/http/authz/allow
+		TimeoutMs    int    `yaml:"timeout_ms" json:"timeout_ms" mapstructure:"timeout_ms"`          // Request timeout in milliseconds, default 100
+		BearerToken  string `yaml:"bearer_token" json:"bearer_token" mapstructure:"bearer_token"`    // Optional authentication token
 
 		// Embedded mode configuration (for backward compatibility)
 		Policy     string `yaml:"policy" json:"policy" mapstructure:"policy"`             // Policy content
@@ -146,18 +146,20 @@ func (factory *FilterFactory) Apply() error {
 
 // PrepareFilterChain prepares the filter chain for a new request by dynamically creating a Filter
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
+	// Shallow copy cfg (copy the struct value; inner reference fields remain shared)
+	cfgCopy := *factory.cfg	
 	var f *Filter
 
 	// Server mode (priority)
 	if factory.httpClient != nil {
 		f = &Filter{
-			cfg:        factory.cfg,
+			cfg:        &cfgCopy,
 			httpClient: factory.httpClient,
 		}
 	} else if factory.preparedQuery != nil {
 		// Embedded mode (backward compatibility) - reuse pre-compiled query
 		f = &Filter{
-			cfg:           factory.cfg,
+			cfg:           &cfgCopy,
 			preparedQuery: factory.preparedQuery,
 		}
 	} else {
