@@ -147,7 +147,7 @@ func (factory *FilterFactory) Apply() error {
 // PrepareFilterChain prepares the filter chain for a new request by dynamically creating a Filter
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
 	// Shallow copy cfg (copy the struct value; inner reference fields remain shared)
-	cfgCopy := *factory.cfg	
+	cfgCopy := *factory.cfg
 	var f *Filter
 
 	// Server mode (priority)
