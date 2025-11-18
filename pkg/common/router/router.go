@@ -19,6 +19,7 @@ package router
 
 import (
 	stdHttp "net/http"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,28 +47,29 @@ func (h *snapshotHolder) store(s *model.RouteSnapshot) { h.ptr.Store(s) }
 
 // RouterCoordinator the router coordinator for http connection manager
 type RouterCoordinator struct {
-	active   snapshotHolder // atomic snapshot
-	mu       sync.Mutex
-	store    map[string]*model.Router // temp store for dynamic update, DO NOT read directly
-	timer    *time.Timer              // debounce timer
-	debounce time.Duration            // merge window, default 50ms
+	mainSnapshot snapshotHolder // atomic snapshot
+	mu           sync.Mutex
+
+	nextSnapshot map[string]*model.Router // temp store for dynamic update, DO NOT read directly
+
+	timer    *time.Timer   // debounce timer
+	debounce time.Duration // merge window, default 50ms
 }
 
 // CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoordinator {
 	rc := &RouterCoordinator{
-		store:    make(map[string]*model.Router),
-		debounce: 50 * time.Millisecond, // merge window
+		nextSnapshot: make(map[string]*model.Router),
+		debounce:     50 * time.Millisecond, // merge window
 	}
 	if routeConfig.Dynamic {
 		server.GetRouterManager().AddRouterListener(rc)
 	}
 	// build initial config and store snapshot
-	first := buildConfig(routeConfig.Routes)
-	rc.active.store(model.ToSnapshot(first))
+	rc.mainSnapshot.store(model.ToSnapshot(buildConfig(routeConfig.Routes)))
 	// copy initial routes to store
 	for _, r := range routeConfig.Routes {
-		rc.store[r.ID] = r
+		rc.nextSnapshot[r.ID] = r
 	}
 	return rc
 }
@@ -77,7 +79,7 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 }
 
 func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.RouteAction, error) {
-	s := rm.active.load()
+	s := rm.mainSnapshot.load()
 	if s == nil {
 		return nil, errors.New("router configuration is empty")
 	}
@@ -94,7 +96,7 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 }
 
 func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, error) {
-	s := rm.active.load()
+	s := rm.mainSnapshot.load()
 	if s == nil {
 		return nil, errors.New("router configuration is empty")
 	}
@@ -157,14 +159,14 @@ func (rm *RouterCoordinator) awaitAndPublish() {
 // publish: clone from store -> build new config -> atomic switch
 func (rm *RouterCoordinator) publishLocked() {
 	// 1) clone routes
-	next := make([]*model.Router, 0, len(rm.store))
-	for _, r := range rm.store {
+	next := make([]*model.Router, 0, len(rm.nextSnapshot))
+	for _, r := range rm.nextSnapshot {
 		next = append(next, r)
 	}
 	// 2) build new config
 	cfg := buildConfig(next)
 	// 3) atomic switch
-	rm.active.store(model.ToSnapshot(cfg))
+	rm.mainSnapshot.store(model.ToSnapshot(cfg))
 }
 
 func buildConfig(routes []*model.Router) *model.RouteConfiguration {
@@ -196,7 +198,7 @@ func initRegex(cfg *model.RouteConfiguration) {
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	rm.store[r.ID] = r
+	rm.nextSnapshot[r.ID] = r
 	rm.schedulePublishLocked()
 }
 
@@ -217,7 +219,7 @@ func fillTrieFromRoutes(cfg *model.RouteConfiguration) {
 func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	delete(rm.store, r.ID)
+	delete(rm.nextSnapshot, r.ID)
 	rm.schedulePublishLocked()
 }
 
@@ -228,10 +230,8 @@ func matchHeaders(chs []model.CompiledHeader, r *stdHttp.Request) bool {
 				return ch.Regex.MatchString(val)
 			}
 
-			for _, src := range ch.Values {
-				if src == val {
-					return true
-				}
+			if slices.Contains(ch.Values, val) {
+				return true
 			}
 		}
 	}
