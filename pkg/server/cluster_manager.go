@@ -19,9 +19,12 @@ package server
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 	"sync/atomic"
+)
+
+import (
+	"github.com/hashicorp/go-uuid"
 )
 
 import (
@@ -257,18 +260,18 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 		atomic.AddInt32(&clusterIndex, 1)
 	}
 
-	s.AssembleClusterEndpoints(c)
+	s.assembleClusterEndpoints(c)
 
 	s.Config = append(s.Config, c)
 	s.clustersMap[c.Name] = cluster.NewCluster(c)
 	c.CreateConsistentHash()
 }
 
-// AssembleClusterEndpoints assembles the cluster endpoints
+// assembleClusterEndpoints assembles the cluster endpoints
 // by formatting the ID, name and domains for each endpoint
 // If endpoint.LLMMeta is not nil, the assimilation of name and domain is based on
 // the LLM provider denoted in the endpoint LLMMeta.
-func (s *ClusterStore) AssembleClusterEndpoints(c *model.ClusterConfig) {
+func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
 	}
@@ -276,7 +279,7 @@ func (s *ClusterStore) AssembleClusterEndpoints(c *model.ClusterConfig) {
 	for i, endpoint := range c.Endpoints {
 		// If the endpoint ID is not set, set it to the index + 1
 		if endpoint.ID == "" {
-			endpoint.ID = strconv.Itoa(i + 1)
+			endpoint.ID, _ = uuid.GenerateUUID()
 		}
 
 		// If the endpoint has no name, set a default name

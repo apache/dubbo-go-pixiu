@@ -30,6 +30,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -140,7 +141,8 @@ func (eh *ErrorHandler) sendResponse(ctx *MCPContext, response any) filter.Filte
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to marshal response: %v", err)
-		ctx.SendLocalReply(http.StatusInternalServerError, []byte("internal server error"))
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("marshal response failed: %w", err))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -148,4 +150,31 @@ func (eh *ErrorHandler) sendResponse(ctx *MCPContext, response any) filter.Filte
 	ctx.ClearContentLengthHeader()
 	ctx.SendLocalReply(http.StatusOK, responseBody)
 	return filter.Stop
+}
+
+// ServerNotification creates a JSON-RPC notification from server
+func (rb *ResponseBuilder) ServerNotification(method string, params map[string]any) mcp.JSONRPCNotification {
+	notificationParams := mcp.NotificationParams{
+		AdditionalFields: params,
+	}
+
+	return mcp.JSONRPCNotification{
+		JSONRPC: mcp.JSONRPC_VERSION,
+		Notification: mcp.Notification{
+			Method: method,
+			Params: notificationParams,
+		},
+	}
+}
+
+// ServerRequest creates a JSON-RPC request from server
+func (rb *ResponseBuilder) ServerRequest(id any, method string, params any) mcp.JSONRPCRequest {
+	return mcp.JSONRPCRequest{
+		JSONRPC: mcp.JSONRPC_VERSION,
+		ID:      mcp.NewRequestId(id),
+		Params:  params,
+		Request: mcp.Request{
+			Method: method,
+		},
+	}
 }

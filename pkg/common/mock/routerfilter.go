@@ -18,7 +18,6 @@
 package mock
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -104,8 +103,8 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	req, err = http.NewRequest(r.Method, r.URL.String(), r.Body)
 	if err != nil {
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
-		hc.SendLocalReply(http.StatusInternalServerError, bt)
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("new request failed: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	req.Header = r.Header
@@ -113,7 +112,8 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	resp, err := f.client.Do(req)
 
 	if err != nil {
-		hc.SendLocalReply(http.StatusServiceUnavailable, []byte(err.Error()))
+		errResp := contexthttp.ServiceUnavailable.WithError(err)
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

@@ -29,4 +29,5 @@ const (
 	// Dot defines the . which will be used to present the path to specific field in the body
 	Dot      = "."
 	AnyValue = "*"
+	At       = "@"
 )

@@ -1,179 +1,144 @@
 [![Pixiu Logo](docs/images/pixiu-logo-v4.png)](http://alexstocks.github.io/html/dubbogo.html)
 
-# Dubbo-Go-Pixiu：新一代高性能 API 网关
+# Dubbo-Go-Pixiu：新一代高性能 AI / API 网关
 
-[![Build Status](https://github.com/apache/dubbo-go-pixiu/workflows/CI/badge.svg)](https://travis-ci.org/apache/dubbo-go-pixiu)
-[![codecov](https://codecov.io/gh/apache/dubbo-go-pixiu/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/dubbo-go-pixiu)
-[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/apache/dubbo-go-pixiu?tab=doc)
-[![Go Report Card](https://goreportcard.com/badge/github.com/apache/dubbo-go-pixiu)](https://goreportcard.com/report/github.com/apache/dubbo-go-pixiu)
-![license](https://img.shields.io/badge/license-Apache--2.0-green.svg)
+[![构建状态](https://github.com/apache/dubbo-go-pixiu/workflows/CI/badge.svg)](https://travis-ci.org/apache/dubbo-go-pixiu)
+[![代码覆盖率](https://codecov.io/gh/apache/dubbo-go-pixiu/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/dubbo-go-pixiu)
+[![go.dev 参考](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go\&logoColor=white\&style=flat-square)](https://pkg.go.dev/github.com/apache/dubbo-go-pixiu?tab=doc)
+[![Go 报告卡](https://goreportcard.com/badge/github.com/apache/dubbo-go-pixiu)](https://goreportcard.com/report/github.com/apache/dubbo-go-pixiu)
+![许可证](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 
 [English](README.md) | **中文**
 
------
+---
 
-**Dubbo-Go-Pixiu** 是一款基于 Go 语言构建的高性能 API 网关。作为 [Apache Dubbo](https://dubbo.apache.org/) 生态系统的关键组件，它提供了丰富的流量管理、协议转换和安全防护等能力。
+**Dubbo-Go-Pixiu** 是一个基于 **Dubbo-go** 构建的新一代 **AI / API 网关**，能够无缝连接 **LLM** 与 **MCP**，提供统一接入、智能扩展与高效的成本管理。同时，Pixiu 还可桥接外部协议与内部 Dubbo 集群，支持 **HTTP**、**gRPC**、**Dubbo2** 与 **Triple**，实现高性能、可扩展的集成能力。
 
+👉 **立即体验：** 访问我们的官方 [示例项目](https://github.com/apache/dubbo-go-pixiu-samples)
 
-## 🚀 为什么选择 Dubbo-Go-Pixiu？
+## 我们已进化为「下一代 AI 网关」
 
-* **高性能**：基于 Go 语言构建，提供低延迟、高吞吐的网关能力。
-* **无缝集成 Dubbo**：作为官方 Sidecar 方案，帮助非 Java 应用（Go、Python、Node.js 等）轻松调用 Dubbo 服务。
-* **云原生设计**：为现代微服务和云原生架构而生，全面支持容器化部署。
-* **高可扩展性**：灵活的过滤器和插件机制，让您轻松定制功能。
+Pixiu 现已演进为通用型 **AI 网关**，旨在简化并统一访问各种 **LLM 与 AI 服务提供商**——无论是公共云厂商还是自建模型。
 
-**即刻体验 Pixiu 网关功能**：请访问我们的 [使用示例](https://github.com/apache/dubbo-go-pixiu-samples)。
+通过 Pixiu，你可以：
 
-## ✨ 我们正在演进为 AI 网关 [开发中]
+* **统一访问 AI 模型：**
+  通过单一一致的 API 网关层，轻松接入 OpenAI、Anthropic 或任何自定义 / 私有部署的 LLM 或 MCP 服务。
 
-我们正在将 Pixiu 升级为**新一代 AI 网关**，旨在成为连接用户与大语言模型（LLMs）的桥梁。通过 Pixiu，您可以：
+* **MCP 服务暴露：**
+  通过 Pixiu 将现有的 HTTP API 等后端服务封装并暴露为 MCP Server，让 AI 应用能够直接调用你的业务逻辑。
 
-* **简化访问**：以统一、安全的方式接入各类 LLM 服务。
-* **增强能力**：利用网关强大的插件体系，为您的 AI 应用增加认证、可观测性和流量控制等功能。
-* **成本效益**：通过精细化的计费、审计和缓存策略，优化您的 AI 服务成本。
+* **灵活扩展 AI 工作负载：**
+  通过 Pixiu 的插件系统，为请求添加认证、缓存、限流、重试、可观测性，甚至模型编排等功能。
 
-**即刻体验 AI 网关功能**：请访问我们的 [AI 网关示例](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm)。
+* **多租户与成本高效：**
+  实现细粒度的成本控制、审计与 Token 计费，适用于大规模 AI 部署。
 
-## 核心功能
+* **面向未来的架构：**
+  为「API + AI 混合流量」时代而设计，轻松衔接传统微服务与 AI 优先架构。
 
-| 功能类别 | 描述 |
-| :--- | :--- |
-| 🚀 **协议处理** | 支持 HTTP、gRPC、Dubbo2、Triple 协议的代理和相互转换，提供强大的协议网关能力。 |
-| 🛡️ **安全防护** | 提供 HTTPS、JWT 令牌验证、OAuth2 等多种安全机制，为您的服务保驾护航。 |
-| 🔗 **服务发现** | 无缝集成 Zookeeper、Nacos 等注册中心，自动发现 Dubbo 和 Spring Cloud 集群中的服务。 |
-| ⚖️ **流量治理** | 集成 Sentinel，提供精细化的多协议限流、熔断和服务降级能力。 |
-| 📈 **可观测性** | 集成 OpenTelemetry 和 Jaeger，提供分布式追踪、指标和日志功能。 |
-| 🎨 **可视化管理** | 配套的 **Pixiu-Admin** 控制台提供友好的 Web UI，支持远程服务管理和可视化配置。 |
+👉 **立即尝试：** 查看我们的 AI 网关示例：[LLM 示例](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm) 与 [MCP 示例](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/mcp)
 
-## 快速开始
+## 为什么选择 Dubbo-Go-Pixiu？
 
-本指南将引导您，基于我们的[使用示例](https://github.com/apache/dubbo-go-pixiu-samples)启动一个 Pixiu 网关，并通过 HTTP 协议访问一个后端服务。
+* **⚡ 高性能：**
+  使用 Go 语言构建，具备极低延迟与高吞吐量，专为大规模 API 流量与 LLM 工作负载优化。
 
-### 前置条件
+* **🧩 高可扩展性：**
+  强大的 **插件与过滤器框架**，可轻松扩展或定制网关行为——从路由、认证到可观测性与 AI 场景支持。
 
-* Go 1.17 或更高版本。
-* 两个独立的终端窗口。
+* **🎯 开发者友好：**
+  简洁配置、统一管理平面与清晰的可观测性，使其成为开发者与平台工程师的理想选择。
 
-### 第一步：获取 Pixiu 源码
+* **🌩️ 原生云设计：**
+  完全兼容 Kubernetes，支持声明式配置，轻松集成 Dubbo、Spring Cloud 或自定义后端。
 
-在**终端 1** 中执行：
+* **🔗 无缝 Dubbo 集成：**
+  官方推荐的 Sidecar 解决方案，用于将非 Java 应用（如 Go、Python、Node.js 等）连接至 Dubbo 服务。
 
-```shell
-git clone https://github.com/apache/dubbo-go-pixiu.git
-cd dubbo-go-pixiu
-```
+### 核心特性
 
-### 第二步：启动后端示例服务
-
-在**终端 2** 中执行：
-
-```shell
-git clone https://github.com/apache/dubbo-go-pixiu-samples.git
-cd dubbo-go-pixiu-samples/http/simple
-# 这将启动一个简单的 HTTP 服务器作为后端服务
-go run http/simple/server/app/*
-```
-
-### 第三步：启动 Pixiu 网关
-
-回到**终端 1** 并使用以下命令启动 Pixiu。请将 `[absolute-path]` 替换为您本地 `dubbo-go-pixiu-samples` 目录的绝对路径。
-
-```shell
-go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu-samples/http/simple/pixiu/conf.yaml
-```
-
-当您看到类似以下的日志时，表示 Pixiu 已成功启动并正在监听 `8888` 端口：
-
-```log
-2025-05-19T12:46:00.104+0800    INFO   server/pixiu_start.go:127  [dubbo-go-pixiu] start by config : &{StaticResources:{Listeners:[0xc0007b7a20] Clusters:[0xc0007cc5a0] Adapters:[] ShutdownConfig:0xc00067fb30 PprofConf:{Enable:false Address:{SocketAddress:{Address:0.0.0.0 Port:8881 ResolverName: Domains:[] CertsDir:} Name:}}} DynamicResources:<nil> Metric:{Enable:false PrometheusPort:0} Node:<nil> Trace:<nil> Wasm:<nil> Config:<nil> Nacos:<nil> Log:<nil>}
-2025-05-19T12:46:00.104+0800    INFO   healthcheck/healthcheck.go:157 [health check] create a health check session for 127.0.0.1:1314
-2025-05-19T12:46:00.105+0800    INFO   tracing/driver.go:76   [dubbo-go-pixiu] no trace configuration in conf.yaml
-2025-05-19T12:46:00.105+0800    INFO   http/http_listener.go:157  [dubbo-go-server] httpListener start at : 0.0.0.0:8888
-```
-
-### 第四步：发送测试请求
-
-使用 `curl` 或提供的测试代码来测试网关：
-
-```shell
-# 方式一：运行测试用例
-go test -v ./http/simple/test/
-
-# 方式二：运行基于curl的测试脚本
-./http/simple/request.sh
-```
-
-更多使用示例见[dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)。
+| 分类            | 描述                                                     |
+| ------------- | ------------------------------------------------------ |
+| 🚀 **协议处理**   | 支持 HTTP、gRPC、Dubbo2、Triple 之间的代理与转换，提供丰富的协议网关能力。       |
+| 🛡️ **安全与认证** | 支持 HTTPS、JWT、OAuth2 等多种安全机制，保护你的 API 与 AI 端点。          |
+| 🔍 **服务发现**   | 集成 Zookeeper、Nacos 等注册中心，自动发现 Dubbo 与 Spring Cloud 服务。 |
+| ⚖️ **流量治理**   | 集成 Sentinel，支持限流、熔断与流量整形等精细化治理。                        |
+| 📈 **可观测性**   | 内置 OpenTelemetry 与 Jaeger 支持，实现全链路追踪、指标与日志可视化。         |
+| 🎨 **可视化管理**  | 提供 **Pixiu-Admin** UI，实现网关规则与策略的实时可视化配置。               |
 
 ## 使用 Docker 部署
 
-我们也提供 Docker 镜像，以便快速、轻松地进行部署。
+Pixiu 提供官方 Docker 镜像，便于快速部署。
 
-**1. 从源代码构建 Docker 镜像**
+**1. 从源码构建 Docker 镜像**
 
-首先，请确保您的机器上已经安装了 Docker。然后，在项目根目录下（即 `Dockerfile` 所在的目录），运行以下命令来构建镜像：
+请确保当前目录为项目根目录（包含 `Dockerfile` 文件），执行以下命令：
 
-```shell
-# 您可以自定义镜像的名称和标签，这里我们使用 dubbo-go-pixiu:local
+```bash
+# 可自定义镜像名称与标签，这里使用 dubbo-go-pixiu:local
 docker build -t dubbo-go-pixiu:local .
-````
+```
 
-构建过程可能需要几分钟时间。成功后，您就可以在本地使用这个名为 `dubbo-go-pixiu:local` 的镜像了。
+构建过程可能需要几分钟。成功后，本地将生成名为 `dubbo-go-pixiu:local` 的镜像。
 
 **2. 使用默认配置运行 Pixiu**
 
-使用您刚刚构建的本地镜像来启动一个容器。
-
-```shell
+```bash
 docker run --name pixiu-gateway -p 8888:8888 -d dubbo-go-pixiu:local
 ```
 
-**3. 挂载自定义配置文件运行**
+**3. 使用自定义配置文件运行**
 
-如果您需要使用自己的配置文件，可以将本地文件挂载到容器的 `/etc/pixiu/` 目录下。
+如需使用自定义配置文件，可将本地文件挂载至容器的 `/etc/pixiu/` 目录：
 
-```shell
-# 确保使用您本地构建的镜像名称，例如 dubbo-go-pixiu:local
+```bash
 docker run --name pixiu-gateway -p 8888:8888 -d \
     -v /your/local/path/conf.yaml:/etc/pixiu/conf.yaml \
     -v /your/local/path/log.yml:/etc/pixiu/log.yml \
     dubbo-go-pixiu:local
 ```
 
-更多信息，请访问 [Pixiu Docker Hub](https://hub.docker.com/r/dubbogopixiu/dubbo-go-pixiu)。
+更多信息请访问 [Pixiu Docker Hub](https://hub.docker.com/r/dubbogopixiu/dubbo-go-pixiu)。
 
-## 可视化控制面：Pixiu Admin
+## Pixiu Admin – 可视化控制平面
 
-强大的 Pixiu 管理控制台 `pixiu-admin`，已被[合并](https://github.com/dubbo-go-pixiu/pixiu-admin)至本仓库，可以用于可视化配置服务发现、流量管理和安全策略。
+通过 `pixiu-admin` 可视化管理流量、路由与 AI 模型接入。
 
-**使用 Docker Compose 快速启动：**
+使用 Docker Compose 一键启动：
 
-```shell
-cd /[absolute-path]/dubbo-go-pixiu
+```bash
 docker-compose up -d
 ```
 
-启动后，在浏览器中访问 `http://localhost:8080` 即可进入管理界面。
+启动后，在浏览器中访问 `http://localhost:8080` 即可打开管理面板。
 
-![](./docs/images/pixiu-admin.png)
+![pixiu-admin.png](./docs/images/pixiu-admin.png)
 
-## Tools
+## Dubbo-go-pixiu 生态系统的其他项目
 
-* **[Benchmark](./tools/benchmark)**: dubbo-fo-pixiu 的 benchmark 代码, 目前处于过时状态, 我们正在更新该项目.
+-   **[pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)**
+Pixiu-samples 提供了多个使用 dubbo-go-pixiu 的示例项目，涵盖了从基本的 API 网关功能到复杂的 AI 网关场景，帮助用户快速上手和理解 pixiu 的各种功能。
+-   **[pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)** Dubbo-go-pixiu Admin 是 dubbo-go-pixiu 网关的综合管理平台。它提供了一个集中的控制面板，用于通过基于 Web 的用户界面和 RESTful API 来配置、监控和管理网关资源。
+-   **[pixiu-api](https://github.com/dubbo-go-pixiu/pixiu-api)** Dubbo-go-pixiu API 是 dubbo-go-pixiu 生态系统的 API 模型。用于与 pixiu-admin 的集成。
+-   **[benchmark](https://github.com/apache/dubbo-go-pixiu/tree/develop/tools/benchmark)** 该基准测试系统允许用户在各种负载条件下测量和分析关键性能指标，如延迟、吞吐量和每秒查询数 (QPS)，以评估协议转换过程的效率。
 
 ## 社区与贡献
 
-我们热烈欢迎任何形式的贡献！无论是提交 Issue、提出新功能建议还是贡献代码，您的参与对项目都至关重要。
+我们欢迎任何形式的贡献！
+无论是提交 Issue、提议新特性，还是贡献代码，你的参与对项目至关重要。
 
-* **加入我们的社区**：
+* **代码贡献流程：**
+  如果您希望提交 Pull Request，请将 Pull Request 提交至 [dubbo-go-pixiu/dubbo-go-pixiu](https://github.com/dubbo-go-pixiu/dubbo-go-pixiu/) 仓库。代码将经过自动化审查和项目维护者的人工复核，审核通过后自动同步至 Apache 官方仓库。
 
-通过钉钉、微信或 Discord 加入我们的讨论组。
+* **加入社区：**
+  可通过钉钉、微信或 Discord 加入我们的讨论群组。
 
-discord https://discord.gg/C5ywvytg
+Discord: [https://discord.gg/C5ywvytg](https://discord.gg/C5ywvytg)
 ![invite.png](./docs/images/invite.png)
 
-如果您喜欢 Dubbo-Go-Pixiu，请在 GitHub 上给我们一个 ⭐！
+如果你喜欢 Dubbo-Go-Pixiu，请在 GitHub 上给我们点个 ⭐！
 
 ## 许可证
 
-本项目基于 [Apache License, Version 2.0](LICENSE) 许可证。
+本项目采用 [Apache License 2.0](LICENSE) 开源许可。

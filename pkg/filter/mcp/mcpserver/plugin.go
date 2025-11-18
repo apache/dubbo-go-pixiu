@@ -20,6 +20,7 @@ package mcpserver
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 const (
@@ -41,10 +42,10 @@ func (p *Plugin) Kind() string {
 
 // CreateFilterFactory creates FilterFactory
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &Config{}}, nil
+	return &FilterFactory{cfg: &model.McpServerConfig{}}, nil
 }
 
 // Config returns the configuration struct
 func (p *Plugin) Config() any {
-	return &Config{}
+	return &model.McpServerConfig{}
 }

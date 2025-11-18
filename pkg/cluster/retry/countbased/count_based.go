@@ -19,6 +19,7 @@ package countbased
 
 import (
 	"fmt"
+	"strconv"
 )
 
 import (
@@ -58,11 +59,31 @@ func newCountBasedRetry(config map[string]any) (retry.RetryPolicy, error) {
 		timesValue = defaultRetryTimes
 	}
 
-	timesUint, ok := timesValue.(int)
-	if !ok {
-		return nil, fmt.Errorf("invalid type for 'retry.count_based.times', expected int but got %T", timesValue)
+	var times int
+
+	switch v := timesValue.(type) {
+	case int:
+		times = v
+	case float64:
+		if v != float64(int(v)) {
+			return nil, fmt.Errorf("invalid float value for '%s', must be a whole number, but got %f", retryTimesKey, v)
+		}
+		times = int(v)
+	case string:
+		parsedTimes, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse string value for '%s': %w", retryTimesKey, err)
+		}
+		times = parsedTimes
+	default:
+		return nil, fmt.Errorf("invalid type for '%s', expected a number or a numeric string, but got %T", retryTimesKey, timesValue)
+	}
+
+	// must be non-negative
+	if times < 0 {
+		return nil, fmt.Errorf("value for '%s' cannot be negative, but got %d", retryTimesKey, times)
 	}
 
 	// Total attempts = 1 initial try plus number of retries.
-	return &CountBasedRetry{MaxAttempts: uint(timesUint) + 1}, nil
+	return &CountBasedRetry{MaxAttempts: uint(times) + 1}, nil
 }

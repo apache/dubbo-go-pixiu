@@ -19,9 +19,8 @@ package csrf
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"fmt"
-	stdHttp "net/http"
 )
 
 import (
@@ -90,16 +89,16 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	salt := ctx.Request.Header.Get(csrfSalt)
 
 	if salt == "" {
-		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.SendLocalReply(stdHttp.StatusForbidden, bt)
+		errResp := http.Forbidden.WithError(errors.New(f.cfg.ErrorMsg))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
 	token := tokenize(f.cfg.Secret, salt)
 
 	if token != tokenGetter(ctx, f.cfg.Key) {
-		bt, _ := json.Marshal(http.ErrResponse{Message: f.cfg.ErrorMsg})
-		ctx.SendLocalReply(stdHttp.StatusForbidden, bt)
+		errResp := http.Forbidden.WithError(errors.New(f.cfg.ErrorMsg))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 

@@ -21,14 +21,6 @@ import (
 	"time"
 )
 
-var (
-	Default403Body = []byte("403 for bidden")
-	Default404Body = []byte("404 page not found")
-	Default405Body = []byte("405 method not allowed")
-	Default406Body = []byte("406 api not up")
-	Default503Body = []byte("503 service unavailable")
-)
-
 const (
 	// nolint
 	// FileDateFormat
@@ -46,4 +38,13 @@ const (
 	Console = "console"
 
 	DefaultReqTimeout = 10 * time.Second
+)
+
+const (
+	// dgp.filter.http.metric
+	DefaultMetricMode           = "push" // Default mode is push
+	DefaultMetricPushGatewayURL = "http://localhost:9091"
+	DefaultMetricPushJobName    = "pixiu"
+	DefaultMetricPushInterval   = 100
+	DefaultMetricPushPath       = "/metrics"
 )

@@ -18,7 +18,6 @@
 package httpproxy
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -119,8 +118,8 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	endpoint := clusterManager.PickEndpoint(clusterName, hc)
 	if endpoint == nil {
 		logger.Debugf("[dubbo-go-pixiu] cluster not found endpoint")
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: "cluster not found endpoint"})
-		hc.SendLocalReply(http.StatusServiceUnavailable, bt)
+		errResp := contexthttp.ServiceUnavailable.WithError(errors.New("endpoint not found"))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 
@@ -141,8 +140,8 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	req, err = http.NewRequest(r.Method, parsedURL.String(), r.Body)
 	if err != nil {
-		bt, _ := json.Marshal(contexthttp.ErrResponse{Message: fmt.Sprintf("BUG: new request failed: %v", err)})
-		hc.SendLocalReply(http.StatusInternalServerError, bt)
+		errResp := contexthttp.InternalError.WithError(fmt.Errorf("new request failed: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	req.Header = r.Header
@@ -152,10 +151,12 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		var urlErr *url.Error
 		ok := errors.As(err, &urlErr)
 		if ok && urlErr.Timeout() {
-			hc.SendLocalReply(http.StatusGatewayTimeout, []byte(err.Error()))
+			errResp := contexthttp.GatewayTimeout.WithError(fmt.Errorf("upstream timeout: %w", err))
+			hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 			return filter.Stop
 		}
-		hc.SendLocalReply(http.StatusServiceUnavailable, []byte(err.Error()))
+		errResp := contexthttp.BadGateway.WithError(fmt.Errorf("upstream service error: %w", err))
+		hc.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
 	logger.Debugf("[dubbo-go-pixiu] client call resp:%v", resp)

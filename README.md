@@ -1,6 +1,6 @@
 [![Pixiu Logo](docs/images/pixiu-logo-v4.png)](http://alexstocks.github.io/html/dubbogo.html)
 
-# Dubbo-Go-Pixiu: A Next-Generation, High-Performance API Gateway
+# Dubbo-Go-Pixiu: A Next-Generation, High-Performance AI / API Gateway
 
 [![Build Status](https://github.com/apache/dubbo-go-pixiu/workflows/CI/badge.svg)](https://travis-ci.org/apache/dubbo-go-pixiu)
 [![codecov](https://codecov.io/gh/apache/dubbo-go-pixiu/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/dubbo-go-pixiu)
@@ -12,98 +12,60 @@
 
 -----
 
-**Dubbo-Go-Pixiu** is a high-performance API Gateway built with Go. As a key component of the [Apache Dubbo](https://dubbo.apache.org/) ecosystem, it provides rich traffic management, protocol conversion, and security protection capabilities.
+**Dubbo-Go-Pixiu** is a next-generation **AI / API Gateway** built on **Dubbo-go**, empowering seamless connections to **LLMs** and **MCPs** with unified access, intelligent extensions, and cost-efficient management. At the same time, Pixiu bridges external protocols with internal Dubbo clusters, supporting **HTTP**, **gRPC**, **Dubbo2**, and **Triple** for high-performance, scalable integration.
+
+👉 **Try it now:** Explore our official [samples](https://github.com/apache/dubbo-go-pixiu-samples)
+
+## We've evolved into the **Next-Generation AI Gateway**
+
+Pixiu has evolved into a **universal AI Gateway**, designed to simplify and unify access to **LLMs and AI service providers** — whether from public vendors or self-hosted models.
+With Pixiu, you can:
+
+* **Unified Access to AI Models:**
+  Connect effortlessly to OpenAI, Anthropic, or any **custom / on-prem LLM or MCP** service through a single, consistent API gateway layer.
+
+* **MCP Server Exposure:**
+  Expose your existing HTTP APIs and backend services as MCP Servers through Pixiu, enabling AI applications to directly invoke your business logic.
+
+* **Flexible Extension for AI Workloads:**
+  Apply authentication, caching, rate-limiting, retry policy, observability, or even model orchestration — all through Pixiu's plugin system.
+
+* **Multi-Tenant & Cost-Efficient:**
+  Implement fine-grained cost control, auditing, and token accounting for large-scale AI deployments.
+
+* **Future-Proof Architecture:**
+  Designed for the hybrid world of API + AI traffic — bridging traditional microservices with the AI-first era.
+
+👉 **Try it now:** Explore our AI Gateway Samples: [LLM](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm) and [MCP](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/mcp)
 
 
-## 🚀 Why Choose Dubbo-Go-Pixiu?
+## Why Choose Dubbo-Go-Pixiu?
 
-* **High Performance**: Built with Go for low-latency, high-throughput gateway capabilities.
-* **Seamless Dubbo Integration**: As the official Sidecar solution, it allows non-Java applications (Go, Python, Node.js, etc.) to easily call Dubbo services.
-* **Cloud-Native by Design**: Built for modern microservices and cloud-native architectures, with full support for containerized deployment.
-* **Highly Extensible**: A flexible filter and plugin mechanism allows you to easily customize its functionality.
+* **⚡ High Performance:**
+  Built with Go for ultra-low latency and high throughput, Pixiu is optimized for large-scale API traffic and LLM workloads.
 
-**Try Pixiu Gateway features now**: Visit our [Samples](https://github.com/apache/dubbo-go-pixiu-samples).
+* **🧩 Highly Extensible:**
+  A powerful **plugin and filter framework** makes it easy to extend or customize gateway behavior — from routing and authentication to observability and AI-specific use cases.
 
-## ✨ We are Evolving into an AI Gateway [WIP]
+* **🎯 Developer Friendly:**
+  Simple configuration, unified management plane, and clear observability make Pixiu ideal for both developers and platform engineers.
 
-We are upgrading Pixiu into a **next-generation AI Gateway**, designed to be the bridge connecting users to Large Language Models (LLMs). With Pixiu, you can:
+* **🌩️ Cloud-Native by Design:**
+  Works seamlessly in Kubernetes, supports declarative configuration, and integrates easily with Dubbo, Spring Cloud, or custom backends.
 
-* **Simplify Access**: Access various LLM services in a unified and secure manner.
-* **Enhance Capabilities**: Leverage the gateway's powerful plugin system to add features like authentication, observability, and traffic control to your AI applications.
-* **Cost-Effectiveness**: Optimize your AI service costs through fine-grained billing, auditing, and caching strategies.
+* **🔗 Seamless Dubbo Integration:**
+  The official sidecar solution for connecting non-Java applications (Go, Python, Node.js, etc.) to Dubbo services.
 
-**Try the AI Gateway features now**: Visit our [AI Gateway Samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm).
+### Core Features
 
-## Core Features
-
-| Feature Category      | Description                                                                                                                                              |
-| :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🚀 **Protocol Processing** | Supports proxying and mutual conversion between HTTP, gRPC, Dubbo2, and Triple protocols, offering powerful protocol gateway capabilities.        |
-| 🛡️ **Security Protection** | Provides multiple security mechanisms like HTTPS, JWT token validation, and OAuth2 to safeguard your services.                                     |
-| 🔗 **Service Discovery** | Seamlessly integrates with registries like Zookeeper and Nacos to automatically discover services from Dubbo and Spring Cloud clusters.          |
-| ⚖️ **Traffic Governance** | Integrates with Sentinel to provide fine-grained, multi-protocol rate limiting, circuit breaking, and service degradation.                            |
-| 📈 **Observability** | Integrates with OpenTelemetry and Jaeger to provide distributed tracing, metrics, and logging.                                                           |
-| 🎨 **Visual Management** | The accompanying **Pixiu-Admin** console provides a friendly web UI for remote service management and visual configuration.                              |
-
-## Quick Start
-
-This guide will walk you through starting a Pixiu gateway based on our [samples](https://github.com/apache/dubbo-go-pixiu-samples) and accessing a backend Dubbo service via the HTTP protocol.
-
-### Prerequisites
-
-* Go 1.17 or higher.
-* Two separate terminal windows.
-
-### Step 1: Get the Pixiu Source Code
-
-In **Terminal 1**, execute:
-
-```shell
-git clone https://github.com/apache/dubbo-go-pixiu.git
-cd dubbo-go-pixiu
-```
-
-### Step 2: Start the Backend Sample Service
-
-In **Terminal 2**, execute:
-
-```shell
-git clone https://github.com/apache/dubbo-go-pixiu-samples.git
-cd dubbo-go-pixiu-samples/http/simple
-# This will start a simple HTTP server as the backend
-go run http/simple/server/app/*
-```
-
-### Step 3: Start the Pixiu Gateway
-
-Return to **Terminal 1** and start Pixiu with the following command. Please replace `[absolute-path]` with the absolute path to your local `dubbo-go-pixiu-samples` directory.
-
-```shell
-go run cmd/pixiu/*.go gateway start -c /[absolute-path]/dubbo-go-pixiu-samples/http/simple/pixiu/conf.yaml
-```
-
-When you see logs similar to the following, Pixiu has started successfully and is listening on port `8888`:
-
-```log
-2025-05-19T12:46:00.104+0800	INFO	server/pixiu_start.go:127	[dubbo-go-pixiu] start by config : &{StaticResources:{Listeners:[0xc0007b7a20] Clusters:[0xc0007cc5a0] Adapters:[] ShutdownConfig:0xc00067fb30 PprofConf:{Enable:false Address:{SocketAddress:{Address:0.0.0.0 Port:8881 ResolverName: Domains:[] CertsDir:} Name:}}} DynamicResources:<nil> Metric:{Enable:false PrometheusPort:0} Node:<nil> Trace:<nil> Wasm:<nil> Config:<nil> Nacos:<nil> Log:<nil>}
-2025-05-19T12:46:00.104+0800	INFO	healthcheck/healthcheck.go:157	[health check] create a health check session for 127.0.0.1:1314
-2025-05-19T12:46:00.105+0800	INFO	tracing/driver.go:76	[dubbo-go-pixiu] no trace configuration in conf.yaml
-2025-05-19T12:46:00.105+0800	INFO	http/http_listener.go:157	[dubbo-go-server] httpListener start at : 0.0.0.0:8888
-```
-
-### Step 4: Send a Test Request
-
-Test the gateway using `curl` or the provided test files:
-
-```shell
-# Option 1: Run test files
-go test -v ./http/simple/test/
-
-# Option 2: Run the test script using curl
-./http/simple/request.sh
-```
-
-More usage examples can be found in the [dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples).
+| Category                   | Description                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 🚀 **Protocol Processing** | Supports proxying and translation between HTTP, gRPC, Dubbo2, and Triple protocols, delivering rich protocol gateway features. |
+| 🛡️ **Security & Auth**    | HTTPS, JWT, OAuth2, and other security mechanisms to safeguard your APIs and AI endpoints.                                     |
+| 🔍 **Service Discovery**   | Integrates with Zookeeper, Nacos, or any service registry to discover Dubbo and Spring Cloud services automatically.           |
+| ⚖️ **Traffic Governance**  | Integrates with Sentinel for fine-grained rate limiting, circuit breaking, and traffic shaping.                                |
+| 📈 **Observability**       | OpenTelemetry and Jaeger support for full tracing, metrics, and logging visibility.                                            |
+| 🎨 **Visual Management**   | The **Pixiu-Admin** UI offers real-time visual configuration for gateway rules and policies.                                   |
 
 ## Deploying with Docker
 
@@ -142,14 +104,12 @@ docker run --name pixiu-gateway -p 8888:8888 -d \
 
 For more information, visit the [Pixiu Docker Hub](https://hub.docker.com/r/dubbogopixiu/dubbo-go-pixiu).
 
-## Visual Control Plane: Pixiu Admin
+## Pixiu Admin – Visual Control Plane
 
-The powerful Pixiu management plane `pixiu-admin` has been [migrated](https://github.com/dubbo-go-pixiu/pixiu-admin) to this repository and can be used for visual configuration of service discovery, traffic management, and security policies.
+Manage traffic, routing, and AI model access visually via `pixiu-admin`.
+Start instantly with Docker Compose:
 
-**Quick Start with Docker Compose:**
-
-```shell
-cd /[absolute-path]/dubbo-go-pixiu
+```bash
 docker-compose up -d
 ```
 
@@ -157,15 +117,23 @@ After starting, you can access the management plane by opening `http://localhost
 
 ![pixiu-admin.png](./docs/images/pixiu-admin.png)
 
-## Tools
+## Other Projects in the Dubbo-Go-Pixiu Ecosystem
 
-* **[Benchmark](./tools/benchmark)**: The benchmark of dubbo-fo-pixiu, currently outdated, we are working on updating it.
-
-
+* **[pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)**
+  The official sample repository for Dubbo-Go-Pixiu, demonstrating various use cases and configurations.
+* **[pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)**
+  Dubbo-Go-Pixiu Admin is a comprehensive management platform for the Dubbo-Go-Pixiu gateway. It provides a centralized control plane for configuring, monitoring, and managing gateway resources via a web-based UI and RESTful APIs.
+* **[pixiu-api](https://github.com/dubbo-go-pixiu/pixiu-api)**
+  Dubbo-Go-Pixiu API provides the API models for the ecosystem and integrates with Pixiu Admin.
+* **[benchmark](https://github.com/apache/dubbo-go-pixiu/tree/develop/tools/benchmark)**
+  The benchmarking system allows users to measure and analyze key performance metrics—such as latency, throughput, and QPS—under various load conditions to evaluate protocol conversion efficiency.
 
 ## Community & Contribution
 
 We warmly welcome all forms of contributions\! Whether it's submitting an issue, proposing a new feature, or contributing code, your participation is vital to the project.
+
+* **Contribution Workflow:**
+  To submit a Pull Request, please submit it to the [dubbo-go-pixiu/dubbo-go-pixiu](https://github.com/dubbo-go-pixiu/dubbo-go-pixiu/) repository. Your code will undergo automated review and manual verification by project maintainers, and will be automatically synchronized to the Apache official repository upon approval.
 
 * **Join Our Community**:
 
@@ -175,7 +143,7 @@ discord https://discord.gg/C5ywvytg
 ![invite.png](./docs/images/invite.png)
 
 
-If you like Dubbo-Go-Pixiu, please give us a ⭐ on GitHub\!
+If you like Dubbo-Go-Pixiu, please ⭐ star us on GitHub!
 
 ## License
 
