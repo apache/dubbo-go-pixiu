@@ -38,16 +38,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
-type snapshotHolder struct {
-	ptr atomic.Pointer[model.RouteSnapshot]
-}
-
-func (h *snapshotHolder) load() *model.RouteSnapshot   { return h.ptr.Load() }
-func (h *snapshotHolder) store(s *model.RouteSnapshot) { h.ptr.Store(s) }
-
 // RouterCoordinator the router coordinator for http connection manager
 type RouterCoordinator struct {
-	mainSnapshot snapshotHolder // atomic snapshot
+	mainSnapshot atomic.Pointer[model.RouteSnapshot] // atomic snapshot
 	mu           sync.Mutex
 
 	nextSnapshot map[string]*model.Router // temp store for dynamic update, DO NOT read directly
@@ -66,7 +59,7 @@ func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoord
 		server.GetRouterManager().AddRouterListener(rc)
 	}
 	// build initial config and store snapshot
-	rc.mainSnapshot.store(model.ToSnapshot(buildConfig(routeConfig.Routes)))
+	rc.mainSnapshot.Store(model.ToSnapshot(buildRouteConfiguration(routeConfig.Routes)))
 	// copy initial routes to store
 	for _, r := range routeConfig.Routes {
 		rc.nextSnapshot[r.ID] = r
@@ -79,7 +72,7 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 }
 
 func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.RouteAction, error) {
-	s := rm.mainSnapshot.load()
+	s := rm.mainSnapshot.Load()
 	if s == nil {
 		return nil, errors.New("router configuration is empty")
 	}
@@ -96,7 +89,7 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 }
 
 func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, error) {
-	s := rm.mainSnapshot.load()
+	s := rm.mainSnapshot.Load()
 	if s == nil {
 		return nil, errors.New("router configuration is empty")
 	}
@@ -164,12 +157,12 @@ func (rm *RouterCoordinator) publishLocked() {
 		next = append(next, r)
 	}
 	// 2) build new config
-	cfg := buildConfig(next)
+	cfg := buildRouteConfiguration(next)
 	// 3) atomic switch
-	rm.mainSnapshot.store(model.ToSnapshot(cfg))
+	rm.mainSnapshot.Store(model.ToSnapshot(cfg))
 }
 
-func buildConfig(routes []*model.Router) *model.RouteConfiguration {
+func buildRouteConfiguration(routes []*model.Router) *model.RouteConfiguration {
 	cfg := &model.RouteConfiguration{
 		RouteTrie: trie.NewTrie(),
 		Routes:    make([]*model.Router, 0, len(routes)),

@@ -91,6 +91,7 @@ func GetTrieKey(method string, path string) string {
 
 	ret = strings.Split(ret, "?")[0]
 	// "METHOD/api/v1/test-dubbo/user"
+
 	return ret
 }
 

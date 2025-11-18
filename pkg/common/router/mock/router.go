@@ -37,10 +37,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
-//* =================================
+// * =================================
 // This is a old implementation before updating to the new router framework (#777)
 // It is a reserved for function verification only
-//* =================================
+// DO NOT USE IT IN ANY WHERE BUT TESTING
+// * =================================
 type (
 	// RouterCoordinator the router coordinator for http connection manager
 	RouterCoordinator struct {
