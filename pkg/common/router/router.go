@@ -37,6 +37,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
+type snapshotHolder struct {
+	ptr atomic.Pointer[model.RouteSnapshot]
+}
+
+func (h *snapshotHolder) load() *model.RouteSnapshot   { return h.ptr.Load() }
+func (h *snapshotHolder) store(s *model.RouteSnapshot) { h.ptr.Store(s) }
+
 // RouterCoordinator the router coordinator for http connection manager
 type RouterCoordinator struct {
 	active   snapshotHolder // atomic snapshot
@@ -199,9 +206,8 @@ func fillTrieFromRoutes(cfg *model.RouteConfiguration) {
 		if len(methods) == 0 {
 			methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 		}
-		isPrefix := r.Match.Prefix != ""
 		for _, m := range methods {
-			key := stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, isPrefix)
+			key := stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, r.Match.Prefix != "")
 			_, _ = cfg.RouteTrie.Put(key, r.Route)
 		}
 	}
@@ -214,13 +220,6 @@ func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 	delete(rm.store, r.ID)
 	rm.schedulePublishLocked()
 }
-
-type snapshotHolder struct {
-	ptr atomic.Pointer[model.RouteSnapshot]
-}
-
-func (h *snapshotHolder) load() *model.RouteSnapshot   { return h.ptr.Load() }
-func (h *snapshotHolder) store(s *model.RouteSnapshot) { h.ptr.Store(s) }
 
 func matchHeaders(chs []model.CompiledHeader, r *stdHttp.Request) bool {
 	for _, ch := range chs {

@@ -25,6 +25,11 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+)
+
+var (
+	constMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 )
 
 // RouteSnapshot Read-only snapshot for routing
@@ -62,7 +67,7 @@ func MethodAllowed(methods []string, m string) bool {
 
 var regexCache sync.Map // map[string]*regexp.Regexp
 
-func getCachedRegexp(pat string) *regexp.Regexp {
+func getRegexpWithCache(pat string) *regexp.Regexp {
 	if v, ok := regexCache.Load(pat); ok {
 		return v.(*regexp.Regexp)
 	}
@@ -86,6 +91,10 @@ var compiledHeaderSlicePool = sync.Pool{
 }
 
 func ToSnapshot(cfg *RouteConfiguration) *RouteSnapshot {
+	s := &RouteSnapshot{
+		MethodTries: make(map[string]*trie.Trie, 8),
+	}
+
 	// pre-scan header-only routes count
 	headerOnlyCount := 0
 	for _, r := range cfg.Routes {
@@ -94,14 +103,9 @@ func ToSnapshot(cfg *RouteConfiguration) *RouteSnapshot {
 		}
 	}
 
-	s := &RouteSnapshot{
-		MethodTries: make(map[string]*trie.Trie, 8),
-	}
 	if headerOnlyCount > 0 {
 		s.HeaderOnly = make([]HeaderRoute, 0, headerOnlyCount)
 	}
-
-	constMethods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 
 	// part to get or create trie for a method
 	getTrie := func(m string) *trie.Trie {
@@ -133,8 +137,12 @@ func ToSnapshot(cfg *RouteConfiguration) *RouteSnapshot {
 						c.Regex = h.valueRE
 					} else if len(h.Values) > 0 && h.Values[0] != "" {
 						// 2) else use global cache/compile (cross-snapshot reuse)
-						if re := getCachedRegexp(h.Values[0]); re != nil {
+						if re := getRegexpWithCache(h.Values[0]); re != nil {
 							c.Regex = re
+						} else {
+							// invalid regex → skip this header matcher
+							logger.Errorf("Header regex compiled fail for %v", h.Values[0])
+							continue
 						}
 					}
 				} else {
@@ -160,15 +168,13 @@ func ToSnapshot(cfg *RouteConfiguration) *RouteSnapshot {
 		}
 
 		// B) Trie
-		isPrefix := r.Match.Prefix != ""
 		methods := r.Match.Methods
 		if len(methods) == 0 {
-			methods = constMethods // use constant slice to avoid allocation
+			methods = constMethods
 		}
 		for _, m := range methods {
 			t := getTrie(m)
-			key := stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, isPrefix)
-			_, _ = t.Put(key, r.Route)
+			t.Put(stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, r.Match.Prefix != ""), r.Route)
 		}
 	}
 	return s

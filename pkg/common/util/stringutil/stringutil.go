@@ -59,11 +59,12 @@ func IsPathVariableOrWildcard(key string) bool {
 
 // IsWildcard return if is *
 func IsWildcard(key string) bool {
-	return key == "*"
+	return key == constant.HeaderValueAll
 }
 
+// IsMatchAll return if is **
 func IsMatchAll(key string) bool {
-	return key == "**"
+	return key == constant.HeaderValueAllLevels
 }
 
 func GetTrieKey(method string, path string) string {
