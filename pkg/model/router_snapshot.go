@@ -20,7 +20,6 @@ package model
 import (
 	"regexp"
 	"sync"
-	"sync/atomic"
 )
 
 import (
@@ -48,14 +47,6 @@ type CompiledHeader struct {
 	Regex  *regexp.Regexp
 	Values []string
 }
-
-// SnapshotHolder holds current active snapshot
-type SnapshotHolder struct {
-	ptr atomic.Pointer[RouteSnapshot]
-}
-
-func (h *SnapshotHolder) Load() *RouteSnapshot   { return h.ptr.Load() }
-func (h *SnapshotHolder) Store(s *RouteSnapshot) { h.ptr.Store(s) }
 
 func MethodAllowed(methods []string, m string) bool {
 	if len(methods) == 0 {
