@@ -78,7 +78,7 @@ func (am *AdapterManager) initAdapters() {
 
 		err = hf.Apply()
 		if err != nil {
-			logger.Error("initFilterIfNeed apply adapter error %s", err)
+			logger.Errorf("initFilterIfNeed apply adapter error %s", err)
 		}
 		ads = append(ads, hf)
 	}

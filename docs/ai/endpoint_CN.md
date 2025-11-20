@@ -37,22 +37,26 @@ clusters:
     - `true`: 如果此endpoint失败，网关将尝试下一个可用的 endpoint。
     - `false`: 如果此endpoint失败，则处理停止，并将最后一个错误返回给客户端。对于 fallback 链中的最后一个 endpoint ，此值应设置为 `false`。
 
+`api_key`
+- **类型**: `string`
+- **描述**: 此 endpoint 使用的 API 密钥。当将请求转发到 LLM 服务时，此密钥将包含在请求头中。
+
 `retry_policy`
 
 - **类型**: `object`
 - **描述**: 一个定义了当对此endpoint的请求失败时要使用的重试策略的对象。
 
-`retry_policy` 对象包含以下字段：
+   `retry_policy` 对象包含以下字段：
 
-`name`
+   `name`
 
-- **类型**: `string`
-- **描述**: 要使用的已注册重试策略的名称。名称不区分大小写。
+  - **类型**: `string`
+  - **描述**: 要使用的已注册重试策略的名称。名称不区分大小写。
 
-`config`
+   `config`
 
-- **类型**: `object`
-- **描述**: 一个键值对的映射，特定于所选的重试策略名称。
+  - **类型**: `object`
+  - **描述**: 一个键值对的映射，特定于所选的重试策略名称。
 
 ### 可用的重试策略
 
@@ -129,11 +133,13 @@ clusters:
       # --- 主endpoint ---
       - id: deepseek-primary
         socket_address:
-           domains:
-              - api.deepseek.com
+          domains:
+            - api.deepseek.com
         llm_meta:
           # 如果所有重试都失败，则移至下一个 endpoint。
           fallback: true
+          # 此 endpoint 使用的 API 密钥。
+          api_key: "your_deepseek_api_key_here"
           # 为主 endpoint 使用稳健的重试策略。
           retry_policy:
             name: ExponentialBackoff
@@ -146,11 +152,13 @@ clusters:
       # --- fallback endpoint ---
       - id: openai-fallback
         socket_address:
-           domains:
-              - api.openai.com/v1
+          domains:
+            - api.openai.com/v1
         llm_meta:
           # 这是最后的选择；不要再进一步 fallback。
           fallback: false
+          # 此 endpoint 使用的 API 密钥。
+          api_key: "your_openai_api_key_here"
           # 为 fallback endpoint 使用更简单、更快速的重试。
           retry_policy:
             name: CountBased

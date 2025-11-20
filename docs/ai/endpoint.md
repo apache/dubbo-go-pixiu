@@ -36,22 +36,26 @@ The llm_meta block holds all the configuration specific to how the gateway shoul
 - Type: `boolean`
 - Description: Determines if the gateway should proceed to the next endpoint in the cluster if all retry attempts on this endpoint fail. When the value is `true`, and if this endpoint fails, the gateway will attempt the next available endpoint. When the value is `false`, and if this endpoint fails, the process stops, and the last error is returned to the client.
 
+`api_key`
+- Type: `string`
+- Description: The API key to be used by this endpoint. This key will be included in the request headers when forwarding requests to the LLM service.
+
 `retry_policy`
 
 - Type: `object`
 - Description: An object that defines the retry strategy to use if a request to this endpoint fails.
 
-The `retry_policy` object contains the following fields:
+   The `retry_policy` object contains the following fields:
 
-`name`
+   `name`
 
-- Type: `string`
-- Description: The name of the registered retry policy to use. The name is case-insensitive.
+  - Type: `string`
+  - Description: The name of the registered retry policy to use. The name is case-insensitive.
 
-`config`
+   `config`
 
-- Type: `object`
-- Description: A map of key-value pairs specific to the chosen retry policy name.
+  - Type: `object`
+  - Description: A map of key-value pairs specific to the chosen retry policy name.
 
 ### Available Retry Policies
 
@@ -126,11 +130,13 @@ clusters:
       # --- Primary Endpoint ---
       - id: deepseek-primary
         socket_address:
-           domains:
-              - api.deepseek.com
+          domains:
+            - api.deepseek.com
         llm_meta:
           # If all retries fail, move to the next endpoint.
           fallback: true
+          # Your API key for this endpoint.
+          api_key: "your_deepseek_api_key_here"
           # Use a robust retry strategy for the primary endpoint.
           retry_policy:
             name: ExponentialBackoff
@@ -143,11 +149,13 @@ clusters:
       # --- Fallback Endpoint ---
       - id: openai-fallback
         socket_address:
-           domains:
-              - api.openai.com/v1
+          domains:
+            - api.openai.com/v1
         llm_meta:
           # This is the last resort; do not fall back further.
           fallback: false
+          # Your API key for this endpoint.
+          api_key: "your_openai_api_key_here"
           # Use a simpler, faster retry for the fallback.
           retry_policy:
             name: CountBased
