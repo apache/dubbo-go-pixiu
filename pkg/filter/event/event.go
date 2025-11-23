@@ -63,7 +63,9 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg}
+	// Make a shallow copy of the factory config to avoid sharing the factory's pointer
+	cfgCopy := *factory.cfg
+	f := &Filter{cfg: &cfgCopy}
 	chain.AppendDecodeFilters(f)
 	return nil
 }

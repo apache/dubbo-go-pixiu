@@ -108,8 +108,9 @@ func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain fil
 	sseHandler := transport.NewSSEHandler(sessionManager)
 	contentNegotiator := transport.NewContentNegotiator()
 
+	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
 	mcpFilter := &MCPServerFilter{
-		cfg:               f.cfg,
+		cfg:               f.cfg.DeepCopy(),
 		registry:          f.registry,
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),

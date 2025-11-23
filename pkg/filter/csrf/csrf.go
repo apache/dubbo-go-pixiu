@@ -74,7 +74,8 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg}
+	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
+	f := &Filter{cfg: factory.cfg.DeepCopy()}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -136,4 +137,23 @@ func (factory *FilterFactory) Apply() error {
 
 func (factory *FilterFactory) Config() any {
 	return factory.cfg
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *Config) DeepCopy() *Config {
+	if config == nil {
+		return nil
+	}
+
+	cp := *config
+
+	if config.IgnoreMethods != nil {
+		cp.IgnoreMethods = make([]string, len(config.IgnoreMethods))
+		copy(cp.IgnoreMethods, config.IgnoreMethods)
+	} else {
+		cp.IgnoreMethods = nil
+	}
+
+	return &cp
 }

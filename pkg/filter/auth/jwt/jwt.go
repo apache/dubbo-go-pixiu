@@ -82,7 +82,8 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg, errMsg: factory.errMsg, providerJwks: factory.providerJwks}
+	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
+	f := &Filter{cfg: factory.cfg.DeepCopy(), errMsg: factory.errMsg, providerJwks: factory.providerJwks}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -224,4 +225,67 @@ func checkToken(value, prefix, providerName string, provider Provider) bool {
 
 func (factory *FilterFactory) Config() any {
 	return factory.cfg
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *Config) DeepCopy() *Config {
+	if config == nil {
+		return nil
+	}
+	cpConfig := *config
+
+	if config.Rules != nil {
+		cpConfig.Rules = make([]Rules, 0, len(config.Rules))
+		for _, rules := range config.Rules {
+			cpRules := *rules.DeepCopy()
+			cpConfig.Rules = append(cpConfig.Rules, cpRules)
+		}
+	}
+
+	if config.Providers != nil {
+		cpConfig.Providers = make([]Providers, 0, len(config.Providers))
+		for _, providers := range config.Providers {
+			cpProviders := *providers.DeepCopy()
+			cpConfig.Providers = append(cpConfig.Providers, cpProviders)
+		}
+	}
+
+	return &cpConfig
+}
+
+func (rules *Rules) DeepCopy() *Rules {
+	if rules == nil {
+		return nil
+	}
+	cpRules := *rules
+	cpRules.Requires = *rules.Requires.DeepCopy()
+	return &cpRules
+}
+
+func (providers *Providers) DeepCopy() *Providers {
+	if providers == nil {
+		return nil
+	}
+	cpProviders := *providers
+
+	if providers.Local != nil {
+		cpLocal := *providers.Local
+		cpProviders.Local = &cpLocal
+	}
+	if providers.Remote != nil {
+		cpRemote := *providers.Remote
+		cpProviders.Remote = &cpRemote
+	}
+	return &cpProviders
+}
+
+func (requires *Requires) DeepCopy() *Requires {
+	if requires == nil {
+		return nil
+	}
+	cpRequires := *requires
+	cpRequires.RequiresAll = make([]Requirement, len(requires.RequiresAll))
+	copy(cpRequires.RequiresAll, requires.RequiresAll)
+	return &cpRequires
 }

@@ -222,3 +222,187 @@ func GetPathParameterNames(pathTemplate string) []string {
 
 	return names
 }
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *McpServerConfig) DeepCopy() *McpServerConfig {
+	if config == nil {
+		return nil
+	}
+
+	cpConfig := *config
+
+	// Deep copy Tools
+	if config.Tools != nil {
+		cpConfig.Tools = make([]ToolConfig, len(config.Tools))
+		for i := range config.Tools {
+			cpConfig.Tools[i] = *config.Tools[i].DeepCopy()
+		}
+	}
+
+	// Deep copy Resources
+	if config.Resources != nil {
+		cpConfig.Resources = make([]ResourceConfig, len(config.Resources))
+		copy(cpConfig.Resources, config.Resources)
+	}
+
+	// Deep copy ResourceTemplates
+	if config.ResourceTemplates != nil {
+		cpConfig.ResourceTemplates = make([]ResourceTemplateConfig, len(config.ResourceTemplates))
+		for i := range config.ResourceTemplates {
+			cpConfig.ResourceTemplates[i] = *config.ResourceTemplates[i].DeepCopy()
+		}
+	}
+
+	// Deep copy Prompts
+	if config.Prompts != nil {
+		cpConfig.Prompts = make([]PromptConfig, len(config.Prompts))
+		for i := range config.Prompts {
+			cpConfig.Prompts[i] = *config.Prompts[i].DeepCopy()
+		}
+	}
+
+	return &cpConfig
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (toolConfig *ToolConfig) DeepCopy() *ToolConfig {
+	if toolConfig == nil {
+		return nil
+	}
+	cpConfig := *toolConfig
+	cpConfig.Request = *toolConfig.Request.DeepCopy()
+
+	if toolConfig.Args != nil {
+		cpConfig.Args = make([]ArgConfig, len(toolConfig.Args))
+		for index := range toolConfig.Args {
+			argPtr := &toolConfig.Args[index]
+			cpConfig.Args[index] = *argPtr.DeepCopy()
+		}
+	}
+
+	return &cpConfig
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *RequestConfig) DeepCopy() *RequestConfig {
+	if config == nil {
+		return nil
+	}
+	cpConfig := *config
+	if config.Headers != nil {
+		cpConfig.Headers = make(map[string]string, len(config.Headers))
+		for k, v := range config.Headers {
+			cpConfig.Headers[k] = v
+		}
+	}
+
+	return &cpConfig
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *ArgConfig) DeepCopy() *ArgConfig {
+	if config == nil {
+		return nil
+	}
+	cpConfig := *config
+	if config.Enum != nil {
+		cpConfig.Enum = make([]string, len(config.Enum))
+		copy(cpConfig.Enum, config.Enum)
+	}
+	return &cpConfig
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (param *ResourceTemplateParameter) DeepCopy() *ResourceTemplateParameter {
+	if param == nil {
+		return nil
+	}
+
+	cpParam := *param
+
+	if param.Enum != nil {
+		cpParam.Enum = make([]string, len(param.Enum))
+		copy(cpParam.Enum, param.Enum)
+	}
+
+	return &cpParam
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (ann *ResourceTemplateAnnotations) DeepCopy() *ResourceTemplateAnnotations {
+	if ann == nil {
+		return nil
+	}
+
+	cpAnn := *ann
+
+	// Deep copy Audience slice
+	if ann.Audience != nil {
+		cpAnn.Audience = make([]string, len(ann.Audience))
+		copy(cpAnn.Audience, ann.Audience)
+	}
+
+	// Deep copy Priority pointer
+	if ann.Priority != nil {
+		p := *ann.Priority
+		cpAnn.Priority = &p
+	}
+
+	return &cpAnn
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *ResourceTemplateConfig) DeepCopy() *ResourceTemplateConfig {
+	if config == nil {
+		return nil
+	}
+
+	cpConfig := *config
+
+	// Deep copy Parameters slice
+	if config.Parameters != nil {
+		cpConfig.Parameters = make([]ResourceTemplateParameter, len(config.Parameters))
+		for i := range config.Parameters {
+			paramPtr := &config.Parameters[i]
+			cpConfig.Parameters[i] = *paramPtr.DeepCopy()
+		}
+	}
+
+	// Deep copy Annotations pointer
+	if config.Annotations != nil {
+		cpConfig.Annotations = config.Annotations.DeepCopy()
+	}
+
+	return &cpConfig
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *PromptConfig) DeepCopy() *PromptConfig {
+	if config == nil {
+		return nil
+	}
+
+	cp := *config
+
+	// Deep copy Arguments slice
+	if config.Arguments != nil {
+		cp.Arguments = make([]PromptArgumentConfig, len(config.Arguments))
+		copy(cp.Arguments, config.Arguments)
+	}
+
+	// Deep copy Messages slice
+	if config.Messages != nil {
+		cp.Messages = make([]PromptMessageConfig, len(config.Messages))
+		copy(cp.Messages, config.Messages)
+	}
+
+	return &cp
+}

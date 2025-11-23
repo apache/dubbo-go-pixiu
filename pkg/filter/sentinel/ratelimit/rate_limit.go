@@ -68,7 +68,8 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{conf: factory.conf, matcher: factory.matcher}
+	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
+	f := &Filter{conf: factory.conf.DeepCopy(), matcher: factory.matcher}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -130,4 +131,33 @@ func OnRulesUpdate(rules []*Rule) {
 	if _, err := flow.LoadRules(enableRules); err != nil {
 		logger.Warnf("rate limit load rules err: %v", err)
 	}
+}
+
+// DeepCopy returns a new independent copy of Config
+// // Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *Config) DeepCopy() *Config {
+	if config == nil {
+		return nil
+	}
+	cpConfig := *config
+	if config.Resources != nil {
+		cpConfig.Resources = make([]*pkgs.Resource, len(config.Resources))
+		for index, resource := range config.Resources {
+			if resource != nil {
+				cpConfig.Resources[index] = resource.DeepCopy()
+			}
+		}
+	}
+
+	if config.Rules != nil {
+		cpConfig.Rules = make([]*Rule, len(config.Rules))
+		for index, rule := range config.Rules {
+			if rule != nil {
+				cpRule := *rule
+				cpConfig.Rules[index] = &cpRule
+			}
+		}
+	}
+
+	return &cpConfig
 }
