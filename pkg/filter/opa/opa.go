@@ -99,7 +99,9 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 		return fmt.Errorf("failed to prepare OPA query: %w", err)
 	}
 
-	f := &Filter{cfg: factory.cfg, preparedQuery: &preparedQuery}
+	// Make a shallow copy of the factory config to avoid sharing the factory's pointer.
+	cfgCopy := *factory.cfg
+	f := &Filter{cfg: &cfgCopy, preparedQuery: &preparedQuery}
 	chain.AppendDecodeFilters(f)
 	return nil
 }

@@ -134,7 +134,9 @@ func (factory *FilterFactory) Config() any { return factory.cfg }
 func (factory *FilterFactory) Apply() error { return registerLLMMetrics() }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg}
+	// Make a shallow copy of the factory config to avoid sharing the factory's pointer
+	cfgCopy := *factory.cfg
+	f := &Filter{cfg: &cfgCopy}
 	chain.AppendDecodeFilters(f)
 	chain.AppendEncodeFilters(f)
 	return nil

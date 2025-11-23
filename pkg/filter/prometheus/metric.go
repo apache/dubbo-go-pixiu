@@ -76,8 +76,10 @@ func (factory *FilterFactory) Apply() error {
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
 
+	// Shallow copy config to avoid pointer sharing (factory.cfg may change at runtime)
+	cpConfig := *factory.Cfg
 	f := &Filter{
-		Cfg:  factory.Cfg,
+		Cfg:  &cpConfig,
 		Prom: factory.Prom,
 	}
 	f.Prom.SetPushGatewayUrl(f.Cfg.Rules.PushGatewayURL, f.Cfg.Rules.MetricPath)

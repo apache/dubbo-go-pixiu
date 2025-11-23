@@ -76,8 +76,10 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 
 // PrepareFilterChain prepare chain when http context init
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
+	// Make a shallow copy of the factory config to avoid sharing the factory's pointer.
+	cpConf := *factory.conf
 	f := &Filter{
-		conf: factory.conf,
+		conf: &cpConf,
 		alw:  factory.alw,
 	}
 	chain.AppendDecodeFilters(f)
