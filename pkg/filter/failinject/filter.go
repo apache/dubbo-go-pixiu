@@ -57,8 +57,9 @@ func (factory *FilterFactory) Config() any {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contextHttp.HttpContext, chain filter.FilterChain) error {
+	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
 	f := Filter{
-		cfg: factory.cfg,
+		cfg: factory.cfg.DeepCopy(),
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
@@ -150,4 +151,30 @@ func percentage(odds int) bool {
 	// generate rand number in 1-100
 	num := rand.Intn(100) + 1 // NOSONAR
 	return num <= odds
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *Config) DeepCopy() *Config {
+	if config == nil {
+		return nil
+	}
+
+	cp := &Config{}
+
+	if config.Rules != nil {
+		cp.Rules = make(map[URI]*Rule, len(config.Rules))
+		for k, r := range config.Rules {
+			if r == nil {
+				cp.Rules[k] = nil
+			} else {
+				rr := *r
+				cp.Rules[k] = &rr
+			}
+		}
+	} else {
+		cp.Rules = nil
+	}
+
+	return cp
 }

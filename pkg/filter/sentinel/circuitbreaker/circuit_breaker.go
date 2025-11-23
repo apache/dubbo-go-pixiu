@@ -77,8 +77,9 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
+// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	chain.AppendDecodeFilters(&Filter{cfg: factory.cfg, matcher: factory.matcher})
+	chain.AppendDecodeFilters(&Filter{cfg: factory.cfg.DeepCopy(), matcher: factory.matcher})
 	return nil
 }
 
@@ -164,4 +165,34 @@ func loadRules(rules []*circuitbreaker.Rule) error {
 		return err
 	}
 	return nil
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *Config) DeepCopy() *Config {
+	if config == nil {
+		return nil
+	}
+	cpConfig := *config
+
+	if config.Resources != nil {
+		cpConfig.Resources = make([]*pkgs.Resource, len(config.Resources))
+		for index, resource := range config.Resources {
+			if resource != nil {
+				cpConfig.Resources[index] = resource.DeepCopy()
+			}
+		}
+	}
+
+	if config.Rules != nil {
+		cpConfig.Rules = make([]*circuitbreaker.Rule, len(config.Rules))
+		for index, rule := range config.Rules {
+			if rule != nil {
+				cpRule := *rule
+				cpConfig.Rules[index] = &cpRule
+			}
+		}
+	}
+
+	return &cpConfig
 }

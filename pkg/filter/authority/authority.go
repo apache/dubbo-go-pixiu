@@ -61,7 +61,8 @@ func (factory *FilterFactory) Apply() error {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg}
+	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
+	f := &Filter{cfg: factory.cfg.DeepCopy()}
 	chain.AppendDecodeFilters(f)
 	return nil
 }

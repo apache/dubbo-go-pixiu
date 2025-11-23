@@ -152,7 +152,8 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	f := &Filter{cfg: factory.cfg, descriptor: factory.descriptor, pools: factory.pools, extReg: factory.extReg, registered: factory.registered}
+	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
+	f := &Filter{cfg: factory.cfg.DeepCopy(), descriptor: factory.descriptor, pools: factory.pools, extReg: factory.extReg, registered: factory.registered}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -430,4 +431,35 @@ func configCheck(cfg *Config) error {
 		return perrors.Errorf("grpc descriptor source config `descriptor_source_strategy` is `%s`, maybe set it `%s`", cfg.DescriptorSourceStrategy.String(), AUTO)
 	}
 	return nil
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (config *Config) DeepCopy() *Config {
+	if config == nil {
+		return nil
+	}
+
+	cp := *config
+
+	if config.Rules != nil {
+		cp.Rules = make([]*Rule, len(config.Rules))
+		for i, r := range config.Rules {
+			if r == nil {
+				cp.Rules[i] = nil
+				continue
+			}
+			nr := &Rule{
+				Selector: r.Selector,
+				Match: Match{
+					Method: r.Match.Method,
+				},
+			}
+			cp.Rules[i] = nr
+		}
+	} else {
+		cp.Rules = nil
+	}
+
+	return &cp
 }

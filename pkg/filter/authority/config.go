@@ -73,3 +73,43 @@ type (
 	// LimitType the authority rule limit enum
 	LimitType int32
 )
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (rule *AuthorityRule) DeepCopy() *AuthorityRule {
+	if rule == nil {
+		return nil
+	}
+
+	cp := *rule
+
+	if rule.Items != nil {
+		cp.Items = make([]string, len(rule.Items))
+		copy(cp.Items, rule.Items)
+	} else {
+		cp.Items = nil
+	}
+
+	return &cp
+}
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (ac *AuthorityConfiguration) DeepCopy() *AuthorityConfiguration {
+	if ac == nil {
+		return nil
+	}
+
+	cp := *ac
+
+	if ac.Rules != nil {
+		cp.Rules = make([]AuthorityRule, len(ac.Rules))
+		for i := range ac.Rules {
+			cp.Rules[i] = *ac.Rules[i].DeepCopy()
+		}
+	} else {
+		cp.Rules = nil
+	}
+
+	return &cp
+}

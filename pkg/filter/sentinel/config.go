@@ -40,3 +40,22 @@ type (
 	// MatchStrategy API match strategy
 	MatchStrategy int32
 )
+
+// DeepCopy returns a new independent copy of Config
+// Deep copy slices/maps to avoid sharing pointers with the factory
+func (resource *Resource) DeepCopy() *Resource {
+	if resource == nil {
+		return nil
+	}
+	cpResource := *resource
+	if resource.Items != nil {
+		cpResource.Items = make([]*Item, len(resource.Items))
+		for index, orig := range resource.Items {
+			if orig != nil {
+				cp := *orig
+				cpResource.Items[index] = &cp
+			}
+		}
+	}
+	return &cpResource
+}
