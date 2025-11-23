@@ -90,14 +90,14 @@ var compiledHeaderSlicePool = sync.Pool{
 	},
 }
 
-func ToSnapshot(cfg *RouteConfiguration) *RouteSnapshot {
+func ToSnapshot(routes []*Router) *RouteSnapshot {
 	s := &RouteSnapshot{
 		MethodTries: make(map[string]*trie.Trie, 8),
 	}
 
 	// pre-scan header-only routes count
 	headerOnlyCount := 0
-	for _, r := range cfg.Routes {
+	for _, r := range routes {
 		if r.Match.Path == "" && r.Match.Prefix == "" && len(r.Match.Headers) > 0 {
 			headerOnlyCount++
 		}
@@ -117,7 +117,7 @@ func ToSnapshot(cfg *RouteConfiguration) *RouteSnapshot {
 		return &nt
 	}
 
-	for _, r := range cfg.Routes {
+	for _, r := range routes {
 		// A) header-only：with Headers, without Path / Prefix
 		if r.Match.Path == "" && r.Match.Prefix == "" && len(r.Match.Headers) > 0 {
 			hr := HeaderRoute{

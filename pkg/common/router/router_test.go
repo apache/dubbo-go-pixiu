@@ -160,7 +160,7 @@ func TestRoute(t *testing.T) {
 			Header: map[string]string{
 				"A": "3",
 			},
-			Expect: "route failed for PUT/user, no rules matched.",
+			Expect: "route failed for PUT/user, no rules matched",
 		},
 		{
 			Name: "one broken regex header",
@@ -168,7 +168,7 @@ func TestRoute(t *testing.T) {
 			Header: map[string]string{
 				"broken-regex": "tt",
 			},
-			Expect: "route failed for GET/user, no rules matched.",
+			Expect: "route failed for GET/user, no rules matched",
 		},
 		{
 			Name: "one matched header 2",
@@ -183,7 +183,7 @@ func TestRoute(t *testing.T) {
 			Header: map[string]string{
 				"B": "1",
 			},
-			Expect: "route failed for DELETE, no rules matched.",
+			Expect: "route failed for DELETE, no rules matched",
 		},
 	}
 

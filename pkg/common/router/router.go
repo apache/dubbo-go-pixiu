@@ -59,7 +59,7 @@ func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoord
 		server.GetRouterManager().AddRouterListener(rc)
 	}
 	// build initial config and store snapshot
-	rc.mainSnapshot.Store(model.ToSnapshot(buildRouteConfiguration(routeConfig.Routes)))
+	rc.mainSnapshot.Store(model.ToSnapshot(buildRouteConfiguration(routeConfig.Routes).Routes))
 	// copy initial routes to store
 	for _, r := range routeConfig.Routes {
 		rc.nextSnapshot[r.ID] = r
@@ -78,13 +78,16 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 	}
 	t := s.MethodTries[method]
 	if t == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(method, path))
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(method, path))
 	}
 	node, _, ok := t.Match(stringutil.GetTrieKey(method, path))
 	if !ok || node == nil || node.GetBizInfo() == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(method, path))
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(method, path))
 	}
-	act := node.GetBizInfo().(model.RouteAction)
+	act, ok := node.GetBizInfo().(model.RouteAction)
+	if !ok {
+		return nil, errors.Errorf("route failed for %s, invalid route action type", stringutil.GetTrieKey(method, path))
+	}
 	return &act, nil
 }
 
@@ -106,15 +109,18 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 	// Trie
 	t := s.MethodTries[req.Method]
 	if t == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(req.Method, req.URL.Path))
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(req.Method, req.URL.Path))
 
 	}
 
 	node, _, ok := t.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
 	if !ok || node == nil || node.GetBizInfo() == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched.", stringutil.GetTrieKey(req.Method, req.URL.Path))
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(req.Method, req.URL.Path))
 	}
-	act := node.GetBizInfo().(model.RouteAction)
+	act, ok := node.GetBizInfo().(model.RouteAction)
+	if !ok {
+		return nil, errors.Errorf("route failed for %s, invalid route action type", stringutil.GetTrieKey(req.Method, req.URL.Path))
+	}
 	return &act, nil
 }
 
@@ -159,7 +165,7 @@ func (rm *RouterCoordinator) publishLocked() {
 	// 2) build new config
 	cfg := buildRouteConfiguration(next)
 	// 3) atomic switch
-	rm.mainSnapshot.Store(model.ToSnapshot(cfg))
+	rm.mainSnapshot.Store(model.ToSnapshot(cfg.Routes))
 }
 
 func buildRouteConfiguration(routes []*model.Router) *model.RouteConfiguration {

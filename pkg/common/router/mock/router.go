@@ -40,7 +40,7 @@ import (
 // * =================================
 // This is a old implementation before updating to the new router framework (#777)
 // It is a reserved for function verification only
-// DO NOT USE IT IN ANY WHERE BUT TESTING
+// DO NOT USE IT IN ANYWHERE BUT TEST IN pkg/common/router/router_test.go
 // * =================================
 type (
 	// RouterCoordinator the router coordinator for http connection manager
