@@ -33,12 +33,12 @@ import (
 )
 
 /*
-	    ==============================
-		this is the benchmark for router
-		contrast oldrouter and newrouter
-		oldrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router/mock"
-		newrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router"
-		==============================
+==============================
+this is the benchmark for router
+contrast oldrouter and newrouter
+oldrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router/mock"
+newrouter: "github.com/apache/dubbo-go-pixiu/pkg/common/router"
+==============================
 */
 type benchShape struct {
 	NRoutes         int     // router number
@@ -193,8 +193,8 @@ func assertRouteByPathAndNameSame(b testing.TB, oldc *oldrouter.RouterCoordinato
 		newRes, newErr := newc.RouteByPathAndName(p, method)
 
 		if (oldErr != nil && newErr == nil) || (oldErr == nil && newErr != nil) {
-			b.Fatalf("RouteByPathAndName mismatch on #%d path=%s method=%s: oldErr=%v newErr=%v",
-				i, p, method, oldErr, newErr)
+			b.Fatalf("route error text mismatch on #%d path=%s method=%s: oldRes=%v oldErr=%v  newRes=%v newErr=%v",
+				i, p, method, oldRes, oldErr, newRes, newErr)
 		}
 		if !reflect.DeepEqual(oldRes, newRes) {
 			b.Fatalf("RouteByPathAndName result mismatch on #%d path=%s method=%s: old=%#v new=%#v",
@@ -295,23 +295,21 @@ func BenchmarkRouteReadParallel(b *testing.B) {
 
 func BenchmarkReloadLatency(b *testing.B) {
 	shape := benchShape{NRoutes: 30000, PrefixRatio: 0.4, HeaderOnlyRatio: 0.1, Methods: []string{"GET", "POST"}}
-	oldBase := genRoutes(shape)
-	newBase := genRoutes(shape)
+	base := genRoutes(shape)
 
-	oldc := buildOldCoordinator(oldBase)
-	newc := buildNewCoordinator(newBase)
+	oldc := buildOldCoordinator(base)
+	newc := buildNewCoordinator(base)
 
 	{
-		checkOld := buildOldCoordinator(oldBase)
-		checkNew := buildNewCoordinator(newBase)
-		deltaOld := buildDelta(oldBase, 1)
-		deltaNew := buildDelta(newBase, 1)
+		checkOld := buildOldCoordinator(base)
+		checkNew := buildNewCoordinator(base)
+		deltaOld := buildDelta(base, 1)
 		for i := range deltaOld {
 			checkOld.OnAddRouter(deltaOld[i])
-			checkNew.OnAddRouter(deltaNew[i])
+			checkNew.OnAddRouter(deltaOld[i])
 		}
 		reqs := genRequests(1024)
-		time.Sleep(55 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		assertRouteSame(b, checkOld, checkNew, reqs)
 	}
 
@@ -319,7 +317,7 @@ func BenchmarkReloadLatency(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDelta(oldBase, int64(i)) {
+			for _, r := range buildDelta(base, int64(i)) {
 				oldc.OnAddRouter(r)
 			}
 		}
@@ -329,7 +327,7 @@ func BenchmarkReloadLatency(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDelta(newBase, int64(i)) {
+			for _, r := range buildDelta(base, int64(i)) {
 				newc.OnAddRouter(r)
 			}
 		}
@@ -425,23 +423,21 @@ func BenchmarkReload100kLatency1Percent(b *testing.B) {
 		HeaderOnlyRatio: 0.1,
 		Methods:         []string{"GET", "POST"},
 	}
-	oldBase := genRoutes(shape)
-	newBase := genRoutes(shape)
+	base := genRoutes(shape)
 
 	oldc := buildOldCoordinator(genRoutes(shape))
 	newc := buildNewCoordinator(genRoutes(shape))
 
 	{
-		checkOld := buildOldCoordinator(oldBase)
-		checkNew := buildNewCoordinator(newBase)
-		deltaOld := buildDelta(oldBase, 1)
-		deltaNew := buildDelta(newBase, 1)
+		checkOld := buildOldCoordinator(base)
+		checkNew := buildNewCoordinator(base)
+		deltaOld := buildDelta(base, 1)
 		for i := range deltaOld {
 			checkOld.OnAddRouter(deltaOld[i])
-			checkNew.OnAddRouter(deltaNew[i])
+			checkNew.OnAddRouter(deltaOld[i])
 		}
 		reqs := genRequests(2048)
-		time.Sleep(55 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		assertRouteSame(b, checkOld, checkNew, reqs)
 	}
 
@@ -449,7 +445,7 @@ func BenchmarkReload100kLatency1Percent(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDelta(oldBase, int64(i)) {
+			for _, r := range buildDelta(base, int64(i)) {
 				oldc.OnAddRouter(r)
 			}
 		}
@@ -459,7 +455,7 @@ func BenchmarkReload100kLatency1Percent(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for _, r := range buildDelta(newBase, int64(i)) {
+			for _, r := range buildDelta(base, int64(i)) {
 				newc.OnAddRouter(r)
 			}
 		}

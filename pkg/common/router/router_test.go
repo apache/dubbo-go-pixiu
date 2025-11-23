@@ -68,6 +68,12 @@ func TestCreateRouterCoordinator(t *testing.T) {
 func TestRoute(t *testing.T) {
 	const (
 		Cluster1 = "test-cluster-1"
+		Cluster2 = "test-cluster-2"
+		Cluster3 = "test-cluster-3"
+		Cluster4 = "test-cluster-4"
+		Cluster5 = "test-cluster-5"
+		Cluster6 = "test-cluster-6"
+		Cluster7 = "test-cluster-7"
 	)
 
 	hcmc := model.HttpConnectionManagerConfig{
@@ -79,16 +85,52 @@ func TestRoute(t *testing.T) {
 						Headers: []model.HeaderMatcher{
 							{
 								Name:   "A",
-								Values: []string{"1", "2", "3"},
+								Values: []string{"1", "2", "0"},
 							},
+						},
+						Methods: []string{"GET", "POST"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     Cluster1,
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+				{
+					ID: "2",
+					Match: model.RouterMatch{
+						Headers: []model.HeaderMatcher{
 							{
 								Name:   "A",
 								Values: []string{"3", "4", "5"},
 							},
+						},
+						Methods: []string{"GET", "POST"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     Cluster2,
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+				{
+					ID: "3",
+					Match: model.RouterMatch{
+						Headers: []model.HeaderMatcher{
 							{
 								Name:   "B",
 								Values: []string{"1"},
 							},
+						},
+						Methods: []string{"GET", "POST"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     Cluster3,
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+				{
+					ID: "4",
+					Match: model.RouterMatch{
+						Headers: []model.HeaderMatcher{
 							{
 								Name:   "normal-regex",
 								Values: []string{"(k){2}"},
@@ -103,7 +145,65 @@ func TestRoute(t *testing.T) {
 						Methods: []string{"GET", "POST"},
 					},
 					Route: model.RouteAction{
-						Cluster:                     Cluster1,
+						Cluster:                     Cluster4,
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+				{
+					ID: "5",
+					Match: model.RouterMatch{
+						Headers: []model.HeaderMatcher{
+							{
+								Name:   "broken-regex",
+								Values: []string{"(t){2]]"},
+								Regex:  true,
+							},
+						},
+						Methods: []string{"GET", "POST"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     Cluster5,
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+				{
+					ID: "6",
+					Match: model.RouterMatch{
+						Headers: []model.HeaderMatcher{
+							{
+								Name:   "C",
+								Values: []string{"1", "2", "0"},
+							},
+							{
+								Name:   "D",
+								Values: []string{"3", "4", "5"},
+							},
+						},
+						Methods: []string{"GET", "POST"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     Cluster6,
+						ClusterNotFoundResponseCode: 505,
+					},
+				},
+				{
+					ID: "7",
+					Match: model.RouterMatch{
+						Headers: []model.HeaderMatcher{
+							{
+								Name:   "E",
+								Values: []string{"1", "2", "0"},
+							},
+							{
+								Name:   "normal-regex",
+								Values: []string{"(k){2}"},
+								Regex:  true,
+							},
+						},
+						Methods: []string{"GET", "POST"},
+					},
+					Route: model.RouteAction{
+						Cluster:                     Cluster7,
 						ClusterNotFoundResponseCode: 505,
 					},
 				},
@@ -142,7 +242,7 @@ func TestRoute(t *testing.T) {
 			Header: map[string]string{
 				"A": "3",
 			},
-			Expect: Cluster1,
+			Expect: Cluster2,
 		},
 		{
 			Name: "more header with one regex matched",
@@ -151,14 +251,14 @@ func TestRoute(t *testing.T) {
 				"A":            "5",
 				"normal-regex": "kkkk",
 			},
-			Expect: Cluster1,
+			Expect: Cluster2,
 		},
 		{
 			Name:   "one header but wrong method",
 			URL:    "/user",
 			Method: "PUT",
 			Header: map[string]string{
-				"A": "3",
+				"A": "0",
 			},
 			Expect: "route failed for PUT/user, no rules matched",
 		},
@@ -175,7 +275,7 @@ func TestRoute(t *testing.T) {
 			Header: map[string]string{
 				"B": "1",
 			},
-			Expect: Cluster1,
+			Expect: Cluster3,
 		},
 		{
 			Name:   "only header but wrong method",
@@ -184,6 +284,32 @@ func TestRoute(t *testing.T) {
 				"B": "1",
 			},
 			Expect: "route failed for DELETE, no rules matched",
+		},
+		{
+			Name:   "only header but wrong method",
+			Method: "DELETE",
+			Header: map[string]string{
+				"B": "1",
+			},
+			Expect: "route failed for DELETE, no rules matched",
+		},
+		{
+			Name: "regex AND normal",
+			URL:  "/user",
+			Header: map[string]string{
+				"E":            "0",
+				"normal-regex": "kk",
+			},
+			Expect: Cluster7,
+		},
+		{
+			Name: "normal AND normal",
+			URL:  "/user",
+			Header: map[string]string{
+				"C": "1",
+				"D": "3",
+			},
+			Expect: Cluster6,
 		},
 	}
 
@@ -612,4 +738,221 @@ func genRandomRequests(n int, seed int64) []*stdHttp.Request {
 		reqs = append(reqs, req)
 	}
 	return reqs
+}
+
+func newTestRouter(id, method, path, cluster string) *model.Router {
+	return &model.Router{
+		ID: id,
+		Match: model.RouterMatch{
+			Methods: []string{method},
+			Path:    path,
+		},
+		Route: model.RouteAction{
+			Cluster: cluster,
+		},
+	}
+}
+
+func mustRouteCluster(t *testing.T, rm *RouterCoordinator, method, path string, want string) {
+	t.Helper()
+	req, err := stdHttp.NewRequest(method, path, nil)
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+	ctx := http.HttpContext{Request: req}
+	act, err := rm.Route(&ctx)
+	if err != nil {
+		t.Fatalf("unexpected route error for %s %s: %v", method, path, err)
+	}
+	if act == nil {
+		t.Fatalf("route action is nil for %s %s", method, path)
+	}
+	if act.Cluster != want {
+		t.Fatalf("unexpected cluster for %s %s, want %q, got %q", method, path, want, act.Cluster)
+	}
+}
+
+func mustRouteNotFound(t *testing.T, rm *RouterCoordinator, method, path string) {
+	t.Helper()
+	req, err := stdHttp.NewRequest(method, path, nil)
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+	ctx := http.HttpContext{Request: req}
+	act, err := rm.Route(&ctx)
+	if err == nil {
+		t.Fatalf("expected error for %s %s, got nil (action=%#v)", method, path, act)
+	}
+}
+
+func mustRouteByPathAndNameCluster(t *testing.T, rm *RouterCoordinator, method, path string, want string) {
+	t.Helper()
+	act, err := rm.RouteByPathAndName(path, method)
+	if err != nil {
+		t.Fatalf("unexpected RouteByPathAndName error for %s %s: %v", method, path, err)
+	}
+	if act == nil {
+		t.Fatalf("route action is nil for %s %s", method, path)
+	}
+	if act.Cluster != want {
+		t.Fatalf("unexpected cluster for %s %s, want %q, got %q", method, path, want, act.Cluster)
+	}
+}
+
+func mustRouteByPathAndNameNotFound(t *testing.T, rm *RouterCoordinator, method, path string) {
+	t.Helper()
+	act, err := rm.RouteByPathAndName(path, method)
+	if err == nil {
+		t.Fatalf("expected RouteByPathAndName error for %s %s, got nil (action=%#v)", method, path, act)
+	}
+}
+
+func TestCreateRouterCoordinatorInitialSnapshot(t *testing.T) {
+	r1 := newTestRouter("r1", "GET", "/foo", "cluster-foo")
+	r2 := newTestRouter("r2", "GET", "/bar", "cluster-bar")
+
+	cfg := &model.RouteConfiguration{
+		Routes:  []*model.Router{r1, r2},
+		Dynamic: false,
+	}
+
+	rm := CreateRouterCoordinator(cfg)
+	rm.debounce = 0
+
+	mustRouteCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteCluster(t, rm, "GET", "/bar", "cluster-bar")
+
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/bar", "cluster-bar")
+}
+
+// TestRouterCoordinatorOnAddRouterUpdatesSnapshot 验证 Add 后新路由生效，旧路由保持
+func TestRouterCoordinatorOnAddRouterUpdatesSnapshot(t *testing.T) {
+	r1 := newTestRouter("r1", "GET", "/foo", "cluster-foo")
+
+	cfg := &model.RouteConfiguration{
+		Routes:  []*model.Router{r1},
+		Dynamic: false,
+	}
+
+	rm := CreateRouterCoordinator(cfg)
+	rm.debounce = 0
+
+	// only /foo
+	mustRouteCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteNotFound(t, rm, "GET", "/bar")
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteByPathAndNameNotFound(t, rm, "GET", "/bar")
+
+	// Add /bar
+	r2 := newTestRouter("r2", "GET", "/bar", "cluster-bar")
+	rm.OnAddRouter(r2)
+
+	// /foo available
+	mustRouteCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/foo", "cluster-foo")
+
+	// /bar available
+	mustRouteCluster(t, rm, "GET", "/bar", "cluster-bar")
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/bar", "cluster-bar")
+}
+
+// TestRouterCoordinatorOnDeleteRouterUpdatesSnapshot 验证 Delete 后路由失效
+func TestRouterCoordinatorOnDeleteRouterUpdatesSnapshot(t *testing.T) {
+	r1 := newTestRouter("r1", "GET", "/foo", "cluster-foo")
+	r2 := newTestRouter("r2", "GET", "/bar", "cluster-bar")
+
+	cfg := &model.RouteConfiguration{
+		Routes:  []*model.Router{r1, r2},
+		Dynamic: false,
+	}
+
+	rm := CreateRouterCoordinator(cfg)
+	rm.debounce = 0
+
+	// /foo、/bar available
+	mustRouteCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteCluster(t, rm, "GET", "/bar", "cluster-bar")
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/bar", "cluster-bar")
+
+	// delete /bar
+	rm.OnDeleteRouter(r2)
+
+	// /foo available
+	mustRouteCluster(t, rm, "GET", "/foo", "cluster-foo")
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/foo", "cluster-foo")
+
+	// /bar fail
+	mustRouteNotFound(t, rm, "GET", "/bar")
+	mustRouteByPathAndNameNotFound(t, rm, "GET", "/bar")
+}
+
+func TestOldVsNew_OnAddRouterWithSameID(t *testing.T) {
+	base := []*model.Router{
+		{
+			ID: "r1",
+			Match: model.RouterMatch{
+				Methods: []string{"POST"},
+				Path:    "/api/v1/item/711",
+			},
+			Route: model.RouteAction{Cluster: "c-x-r1"},
+		},
+	}
+
+	oldc := buildOldCoordinator(base)
+	newc := buildNewCoordinator(base)
+	newc.debounce = 0
+
+	{
+		req, _ := stdHttp.NewRequest("POST", "/api/v1/item/711", nil)
+		ctxOld := http.HttpContext{Request: req}
+		ctxNew := http.HttpContext{Request: req}
+
+		oldRes, oldErr := oldc.Route(&ctxOld)
+		newRes, newErr := newc.Route(&ctxNew)
+
+		if oldErr != nil || newErr != nil {
+			t.Fatalf("initial route error: oldErr=%v newErr=%v", oldErr, newErr)
+		}
+		if oldRes.Cluster != "c-x-r1" || newRes.Cluster != "c-x-r1" {
+			t.Fatalf("initial cluster mismatch: old=%v new=%v", oldRes, newRes)
+		}
+	}
+
+	delta := &model.Router{
+		ID: "r1",
+		Match: model.RouterMatch{
+			Methods: []string{"POST"},
+			Path:    "/api/v1/item/999999",
+		},
+		Route: model.RouteAction{Cluster: "c-x-r1"},
+	}
+
+	oldc.OnAddRouter(delta)
+	newc.OnAddRouter(delta)
+
+	{
+		req, _ := stdHttp.NewRequest("POST", "/api/v1/item/711", nil)
+		ctxOld := http.HttpContext{Request: req}
+		ctxNew := http.HttpContext{Request: req}
+
+		oldRes, oldErr := oldc.Route(&ctxOld)
+		newRes, newErr := newc.Route(&ctxNew)
+
+		assert.Equal(t, oldRes, newRes)
+		assert.Equal(t, oldErr, newErr)
+	}
+
+	{
+		req, _ := stdHttp.NewRequest("POST", "/api/v1/item/999999", nil)
+		ctxOld := http.HttpContext{Request: req}
+		ctxNew := http.HttpContext{Request: req}
+
+		oldRes, oldErr := oldc.Route(&ctxOld)
+		newRes, newErr := newc.Route(&ctxNew)
+
+		assert.Equal(t, oldRes, newRes)
+		assert.Equal(t, oldErr, newErr)
+	}
 }

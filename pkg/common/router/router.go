@@ -43,7 +43,7 @@ type RouterCoordinator struct {
 	mainSnapshot atomic.Pointer[model.RouteSnapshot] // atomic snapshot
 	mu           sync.Mutex
 
-	nextSnapshot map[string]*model.Router // temp store for dynamic update, DO NOT read directly
+	nextSnapshot []*model.Router // temp store for dynamic update, DO NOT read directly
 
 	timer    *time.Timer   // debounce timer
 	debounce time.Duration // merge window, default 50ms
@@ -52,7 +52,7 @@ type RouterCoordinator struct {
 // CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoordinator {
 	rc := &RouterCoordinator{
-		nextSnapshot: make(map[string]*model.Router),
+		nextSnapshot: make([]*model.Router, 0, len(routeConfig.Routes)),
 		debounce:     50 * time.Millisecond, // merge window
 	}
 	if routeConfig.Dynamic {
@@ -60,10 +60,8 @@ func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoord
 	}
 	// build initial config and store snapshot
 	rc.mainSnapshot.Store(model.ToSnapshot(buildRouteConfiguration(routeConfig.Routes).Routes))
-	// copy initial routes to store
-	for _, r := range routeConfig.Routes {
-		rc.nextSnapshot[r.ID] = r
-	}
+	// copy initial routes to store, keep origin order
+	rc.nextSnapshot = append(rc.nextSnapshot, routeConfig.Routes...)
 	return rc
 }
 
@@ -158,10 +156,8 @@ func (rm *RouterCoordinator) awaitAndPublish() {
 // publish: clone from store -> build new config -> atomic switch
 func (rm *RouterCoordinator) publishLocked() {
 	// 1) clone routes
-	next := make([]*model.Router, 0, len(rm.nextSnapshot))
-	for _, r := range rm.nextSnapshot {
-		next = append(next, r)
-	}
+	next := make([]*model.Router, len(rm.nextSnapshot))
+	copy(next, rm.nextSnapshot)
 	// 2) build new config
 	cfg := buildRouteConfiguration(next)
 	// 3) atomic switch
@@ -193,11 +189,11 @@ func initRegex(cfg *model.RouteConfiguration) {
 	}
 }
 
-// OnAddRouter add router
+// OnAddRouter add router, every call of OnAdd will ADD a new rule, instead of OVERWRITE the same rule
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	rm.nextSnapshot[r.ID] = r
+	rm.nextSnapshot = append(rm.nextSnapshot, r)
 	rm.schedulePublishLocked()
 }
 
@@ -218,7 +214,18 @@ func fillTrieFromRoutes(cfg *model.RouteConfiguration) {
 func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	delete(rm.nextSnapshot, r.ID)
+
+	if len(rm.nextSnapshot) == 0 {
+		return
+	}
+	out := rm.nextSnapshot[:0]
+	for _, rr := range rm.nextSnapshot {
+		if rr.ID == r.ID {
+			continue
+		}
+		out = append(out, rr)
+	}
+	rm.nextSnapshot = out
 	rm.schedulePublishLocked()
 }
 
@@ -226,13 +233,18 @@ func matchHeaders(chs []model.CompiledHeader, r *stdHttp.Request) bool {
 	for _, ch := range chs {
 		if val := r.Header.Get(ch.Name); len(val) > 0 {
 			if ch.Regex != nil {
-				return ch.Regex.MatchString(val)
+				if ok := ch.Regex.MatchString(val); !ok {
+					return false
+				}
+				continue
 			}
 
-			if slices.Contains(ch.Values, val) {
-				return true
+			if !slices.Contains(ch.Values, val) {
+				return false
 			}
+		} else {
+			return false
 		}
 	}
-	return false
+	return true
 }
