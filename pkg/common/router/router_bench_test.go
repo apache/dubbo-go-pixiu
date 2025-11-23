@@ -20,8 +20,10 @@ package router
 import (
 	"math/rand"
 	stdHttp "net/http"
+	"reflect"
 	"strconv"
 	"testing"
+	"time"
 )
 
 import (
@@ -162,6 +164,45 @@ func genRequests(n int) []*stdHttp.Request {
 	return reqs
 }
 
+// helper: assert Route behavior of old/new is the same on a set of requests
+func assertRouteSame(b testing.TB, oldc *oldrouter.RouterCoordinator, newc *RouterCoordinator, reqs []*stdHttp.Request) {
+	b.Helper()
+	for i, r := range reqs {
+		ctxOld := http.HttpContext{Request: r}
+		ctxNew := http.HttpContext{Request: r}
+
+		oldRes, oldErr := oldc.Route(&ctxOld)
+		newRes, newErr := newc.Route(&ctxNew)
+
+		if (oldErr != nil && newErr == nil) || (oldErr == nil && newErr != nil) {
+			b.Fatalf("route error text mismatch on #%d path=%s method=%s: oldErr=%v newErr=%v",
+				i, r.URL.Path, r.Method, oldErr, newErr)
+		}
+		if !reflect.DeepEqual(oldRes, newRes) {
+			b.Fatalf("route result mismatch on #%d path=%s method=%s: old=%#v new=%#v",
+				i, r.URL.Path, r.Method, oldRes, newRes)
+		}
+	}
+}
+
+// helper: assert RouteByPathAndName behavior is the same
+func assertRouteByPathAndNameSame(b testing.TB, oldc *oldrouter.RouterCoordinator, newc *RouterCoordinator, paths []string, method string) {
+	b.Helper()
+	for i, p := range paths {
+		oldRes, oldErr := oldc.RouteByPathAndName(p, method)
+		newRes, newErr := newc.RouteByPathAndName(p, method)
+
+		if (oldErr != nil && newErr == nil) || (oldErr == nil && newErr != nil) {
+			b.Fatalf("RouteByPathAndName mismatch on #%d path=%s method=%s: oldErr=%v newErr=%v",
+				i, p, method, oldErr, newErr)
+		}
+		if !reflect.DeepEqual(oldRes, newRes) {
+			b.Fatalf("RouteByPathAndName result mismatch on #%d path=%s method=%s: old=%#v new=%#v",
+				i, p, method, oldRes, newRes)
+		}
+	}
+}
+
 // ============= Bench 1：read throughput (one goroutine) =============
 
 func BenchmarkRouteReadThroughput(b *testing.B) {
@@ -173,6 +214,8 @@ func BenchmarkRouteReadThroughput(b *testing.B) {
 
 	oldc := buildOldCoordinator(oldRoutes)
 	newc := buildNewCoordinator(newRoutes)
+
+	assertRouteSame(b, oldc, newc, reqs)
 
 	b.Run("old/locked-read-30k", func(b *testing.B) {
 		b.ReportAllocs()
@@ -210,6 +253,8 @@ func BenchmarkRouteReadParallel(b *testing.B) {
 
 	oldc := buildOldCoordinator(oldRoutes)
 	newc := buildNewCoordinator(newRoutes)
+
+	assertRouteSame(b, oldc, newc, reqs)
 
 	b.Run("old/parallel-30k", func(b *testing.B) {
 		b.ReportAllocs()
@@ -256,6 +301,20 @@ func BenchmarkReloadLatency(b *testing.B) {
 	oldc := buildOldCoordinator(oldBase)
 	newc := buildNewCoordinator(newBase)
 
+	{
+		checkOld := buildOldCoordinator(oldBase)
+		checkNew := buildNewCoordinator(newBase)
+		deltaOld := buildDelta(oldBase, 1)
+		deltaNew := buildDelta(newBase, 1)
+		for i := range deltaOld {
+			checkOld.OnAddRouter(deltaOld[i])
+			checkNew.OnAddRouter(deltaNew[i])
+		}
+		reqs := genRequests(1024)
+		time.Sleep(55 * time.Millisecond)
+		assertRouteSame(b, checkOld, checkNew, reqs)
+	}
+
 	b.Run("old/reload-1percent-30k", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -288,6 +347,8 @@ func BenchmarkRoute100kReadThroughput(b *testing.B) {
 
 	oldc := buildOldCoordinator(genRoutes(shape))
 	newc := buildNewCoordinator(genRoutes(shape))
+
+	assertRouteSame(b, oldc, newc, reqs)
 
 	b.Run("old/locked-read-100k", func(b *testing.B) {
 		b.ReportAllocs()
@@ -322,6 +383,8 @@ func BenchmarkRoute100kReadParallel(b *testing.B) {
 
 	oldc := buildOldCoordinator(genRoutes(shape))
 	newc := buildNewCoordinator(genRoutes(shape))
+
+	assertRouteSame(b, oldc, newc, reqs)
 
 	b.Run("old/parallel-100k", func(b *testing.B) {
 		b.ReportAllocs()
@@ -368,6 +431,20 @@ func BenchmarkReload100kLatency1Percent(b *testing.B) {
 	oldc := buildOldCoordinator(genRoutes(shape))
 	newc := buildNewCoordinator(genRoutes(shape))
 
+	{
+		checkOld := buildOldCoordinator(oldBase)
+		checkNew := buildNewCoordinator(newBase)
+		deltaOld := buildDelta(oldBase, 1)
+		deltaNew := buildDelta(newBase, 1)
+		for i := range deltaOld {
+			checkOld.OnAddRouter(deltaOld[i])
+			checkNew.OnAddRouter(deltaNew[i])
+		}
+		reqs := genRequests(2048)
+		time.Sleep(55 * time.Millisecond)
+		assertRouteSame(b, checkOld, checkNew, reqs)
+	}
+
 	b.Run("old/reload-1percent-100k", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -408,6 +485,8 @@ func BenchmarkRouteByPathAndName(b *testing.B) {
 		"/no/match/path",
 	}
 	method := "GET"
+
+	assertRouteByPathAndNameSame(b, oldc, newc, paths, method)
 
 	b.Run("old/RouteByPathAndName", func(b *testing.B) {
 		b.ReportAllocs()
