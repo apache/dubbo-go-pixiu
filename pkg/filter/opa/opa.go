@@ -91,7 +91,7 @@ func (factory *FilterFactory) Config() any {
 func (factory *FilterFactory) Apply() error {
 	cfg := factory.cfg
 
-	// Priority 1: Server mode (recommended for production)
+	// Server mode (recommended for production)
 	if cfg.ServerURL != "" {
 		if cfg.DecisionPath == "" {
 			return fmt.Errorf("decision_path is required when using OPA server mode")
@@ -115,7 +115,7 @@ func (factory *FilterFactory) Apply() error {
 		return nil
 	}
 
-	// Priority 2: Embedded mode (for backward compatibility)
+	// Embedded mode (for backward compatibility)
 	if cfg.Policy != "" {
 		logger.Warnf("OPA filter using embedded mode. Consider using server mode for better maintainability and performance.")
 
