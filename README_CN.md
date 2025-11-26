@@ -115,6 +115,8 @@ docker-compose up -d
 
 ![pixiu-admin.png](./docs/images/pixiu-admin.png)
 
+👉 **更多细节：** 请访问 [pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)
+
 ## Dubbo-go-pixiu 生态系统的其他项目
 
 -   **[pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)**

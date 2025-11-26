@@ -24,7 +24,6 @@ function resolve(dir) {
 }
 
 module.exports = {
-    baseUrl : '/',
     publicPath : '/',
     productionSourceMap: true,
     chainWebpack: config => {
@@ -36,14 +35,14 @@ module.exports = {
         .set('@views',resolve('src/views'))
     },
     devServer:{
-        // 设置代理
+        // set proxy
         // before: require('./src/mock'),
         host: '0.0.0.0',
         port: 8080,
         hot: true,
         https: false,
         open: false,
-        disableHostCheck: true,
+        allowedHosts: 'all',
         proxy: {
             "/config": {
                 target: process.env.VUE_APP_BACKEND_URL,

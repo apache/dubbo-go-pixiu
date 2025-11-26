@@ -39,6 +39,12 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
+// @Tags Config
+// @Summary get basic configuration of Pixiu
+// @Description get pixiu base info such as name,desc
+// @Produce application/json
+// @Success 200 {string} string "YAML content"
+// @Router /config/api/base [get]
 // GetBaseInfo get pixiu base info such as name,desc
 func GetBaseInfo(c *gin.Context) {
 	conf, err := logic.BizGetBaseInfo()
@@ -50,6 +56,16 @@ func GetBaseInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet(string(data)))
 }
 
+// @Tags Config
+// @Summary modify pixiu base info such as name,desc
+// @Description Pass YAML content through the form's content field to set basic information.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param content formData string true "YAML content"
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /config/api/base/ [post]
+// @Router /config/api/base/ [put]
 // SetBaseInfo modify pixiu base info such as name,desc
 func SetBaseInfo(c *gin.Context) {
 	body := c.PostForm("content")
@@ -70,6 +86,13 @@ func SetBaseInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet("success"))
 }
 
+// @Tags Config
+// @Summary get all resource list
+// @Description Retrieve the list of resources. Use the unpublished parameter to control whether to include unpublished or published resources.
+// @Produce application/json
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {string} string "JSON array"
+// @Router /config/api/resource/list [get]
 // GetResourceList get all resource list
 func GetResourceList(c *gin.Context) {
 	unpublished := getUnpublishedVal(c)
@@ -83,6 +106,14 @@ func GetResourceList(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet(string(data)))
 }
 
+// @Tags Config
+// @Summary get resource detail with yml
+// @Description get resource details according to resource ID and return the YAML
+// @Produce application/json
+// @Param resourceId query int true "ResourceID"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {string} string "YAML content"
+// @Router /config/api/resource/detail [get]
 // GetResourceDetail get resource detail with yml
 func GetResourceDetail(c *gin.Context) {
 	unpublished := getUnpublishedVal(c)
@@ -95,6 +126,16 @@ func GetResourceDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet(res))
 }
 
+// @Tags Config
+// @Summary create resource
+// @Description create a resource by passing the Resource's YAML via the form's content field (simultaneously writing to the staging area and production area).
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param content formData string true "Resource YAML"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /config/api/resource [post]
 // CreateResourceInfo create resource
 func CreateResourceInfo(c *gin.Context) {
 	body := c.PostForm("content")
@@ -128,6 +169,16 @@ func CreateResourceInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet("Success"))
 }
 
+// @Tags Config
+// @Summary modify resource
+// @Description modify resource content, where content is the YAML of the Resource. Use resourceId to specify the resource to be modified.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param resourceId query int false "resource ID"
+// @Param content formData string true "Resource YAML"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {object} string
+// @Router /config/api/resource [put]
 // ModifyResourceInfo modify resource
 func ModifyResourceInfo(c *gin.Context) {
 	id := c.Query(logic.ResourceID)
@@ -184,6 +235,14 @@ func afterResourcePathChange(resourceId, path string, unpublished bool) {
 	}
 }
 
+// @Tags Config
+// @Summary delete resource
+// @Description delete resources by ID. When unpublished is 1, this indicates deleting configurations for unpublished spaces (requires checking published spaces).
+// @Produce application/json
+// @Param resourceId query int true "resource ID"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {object} string
+// @Router /config/api/resource [delete]
 // DeleteResourceInfo delete resource
 func DeleteResourceInfo(c *gin.Context) {
 	id := c.Query(logic.ResourceID)
@@ -209,6 +268,14 @@ func DeleteResourceInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet("Success"))
 }
 
+// @Tags Config
+// @Summary get all method list below one resource
+// @Description get the list of methods under the specified resource
+// @Produce application/json
+// @Param resourceId query int true "resource ID"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {string} string "JSON array"
+// @Router /config/api/resource/method/list [get]
 // GetMethodList get all method list below one resource
 func GetMethodList(c *gin.Context) {
 	resourceId := c.Query(logic.ResourceID) // unique id
@@ -223,6 +290,15 @@ func GetMethodList(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet(string(data)))
 }
 
+// @Tags Config
+// @Summary get method detail with yml
+// @Description get method details based on resourceId and methodId, returning YAML.
+// @Produce application/json
+// @Param resourceId query int true "resource ID"
+// @Param methodId query int true "method ID"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {string} string "YAML content"
+// @Router /config/api/resource/method/detail [get]
 // GetMethodDetail get method detail with yml
 func GetMethodDetail(c *gin.Context) {
 	resourceId := c.Query(logic.ResourceID)
@@ -236,6 +312,15 @@ func GetMethodDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet(res))
 }
 
+// @Tags Config
+// @Summary delete method
+// @Description Deleting a method under a resource, where `unpublished` equals 1 indicates removing the configuration for unpublished spaces (requires checking published spaces).
+// @Produce application/json
+// @Param resourceId query int true "ResourceID"
+// @Param methodId query int true "MethodID"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {object} string
+// @Router /config/api/resource/method [delete]
 // DeleteResourceInfo delete method
 func DeleteMethodInfo(c *gin.Context) {
 	resourceId := c.Query(logic.ResourceID)
@@ -261,6 +346,16 @@ func DeleteMethodInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet("Success"))
 }
 
+// @Tags Config
+// @Summary create method
+// @Description create a method under the specified resource, where content is the YAML for Method.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param resourceId query int true "ResourceID"
+// @Param content formData string true "Method YAML"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {object} string
+// @Router /config/api/resource/method [post]
 // CreateMethodInfo create method
 func CreateMethodInfo(c *gin.Context) {
 	body := c.PostForm("content")
@@ -307,6 +402,17 @@ func getResourceDetail(id string, unpublished bool) (*fc.Resource, error) {
 	return resource, nil
 }
 
+// @Tags Config
+// @Summary modify method
+// @Description Modify the specified method, where content is the YAML for Method.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param resourceId query int true "ResourceID"
+// @Param methodId query int false "MethodID"
+// @Param content formData string true "Method YAML"
+// @Param unpublished formData string false "1: unpublished; 0 or empty: published"
+// @Success 200 {object} string
+// @Router /config/api/resource/method [put]
 // ModifyMethodInfo modify method
 func ModifyMethodInfo(c *gin.Context) {
 	body := c.PostForm("content")
@@ -347,6 +453,9 @@ func ModifyMethodInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, config2.WithRet("Success"))
 }
 
+// @Tags Config
+// @Summary determine the configuration type of the current operation
+// @Description internal function, no external documentation required
 // getUnpublishedVal Determine the configuration type of the current operation
 func getUnpublishedVal(c *gin.Context) bool {
 	// The front-end request carries the unpublished field to determine which configuration is currently operating
@@ -359,6 +468,12 @@ func getUnpublishedVal(c *gin.Context) bool {
 	}
 }
 
+// @Tags Config
+// @Summary publish all configuration information
+// @Description publish resources from unpublished spaces to published spaces
+// @Produce application/json
+// @Success 200 {object} string
+// @Router /config/api/resource/publish [put]
 // BatchReleaseResource Publish all configuration information
 func BatchReleaseResource(c *gin.Context) {
 	fromKList, fromVList, fromErr := logic.BRGetResourceList(true) // from represent unpublished space
@@ -401,11 +516,23 @@ func BatchReleaseResource(c *gin.Context) {
 	}
 }
 
+// @Tags Config
+// @Summary batch Release Method Config
+// @Description TODO: unimplemented
+// @Produce application/json
+// @Success 200 {object} string
+// @Router /config/api/resource/method/publish [put]
 // BatchReleaseMethod Batch Release Method Config
 func BatchReleaseMethod(c *gin.Context) {
 	// todo
 }
 
+// @Tags Config
+// @Summary batch Release PluginGroup Config
+// @Description publish the PluginGroup from the unpublished space to the published space.
+// @Produce application/json
+// @Success 200 {object} string
+// @Router /config/api/plugin_group/publish [put]
 // BatchReleasePluginGroup Batch Release PluginGroup Config
 func BatchReleasePluginGroup(c *gin.Context) {
 	fromKList, fromVList, fromErr := logic.BRGetPluginGroupList(true) // from represent unpublished space

@@ -18,7 +18,6 @@
 package auth
 
 import (
-	"log"
 	"net/http"
 	"time"
 )
@@ -35,7 +34,13 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/config"
 )
 
-// Check token
+// @Tags Auth
+// @Summary JWT check midware
+// @Description Validate the token field in the request header, parse and verify the JWT. If verification fails, the request will be terminated.
+// @Produce application/json
+// @Success 200 {object} string
+// Note: this is a middleware, not a direct API endpoint
+// JWTAuth Check token
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Request.Header.Get("token")
@@ -44,7 +49,7 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		log.Print("get token: ", token)
+		//log.Print("get token: ", token)
 		j := NewJWT()
 		// Parse the information contained in the token
 		claims, err := j.ParseToken(token)

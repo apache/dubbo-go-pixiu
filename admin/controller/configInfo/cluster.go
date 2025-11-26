@@ -34,6 +34,12 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
+// @Tags Config
+// @Summary get cluster list
+// @Description get all clusters' info
+// @Produce application/json
+// @Success 200 {object} string
+// @Router /config/api/cluster/list [get]
 // GetClusterList get all cluster list
 func GetClusterList(c *gin.Context) {
 	rst, err := logic.BizGetClusters()
@@ -43,6 +49,15 @@ func GetClusterList(c *gin.Context) {
 	c.JSON(http.StatusOK, config.WithRet(rst))
 }
 
+// @Tags Config
+// @Summary create cluster
+// @Description Create a cluster by passing the YAML/JSON configuration for the cluster through the form's content field.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param content formData string true "Cluster content"
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /config/api/cluster [put]
 // CreateCluster create a cluster
 func CreateCluster(c *gin.Context) {
 	body := c.PostForm("content")
@@ -61,6 +76,13 @@ func CreateCluster(c *gin.Context) {
 	c.JSON(http.StatusOK, config.WithRet("create cluster success!"))
 }
 
+// @Tags Config
+// @Summary delete cluster
+// @Description delete cluster according to cluster ID
+// @Produce application/json
+// @Param id query string true "Cluster ID"
+// @Success 200 {object} string
+// @Router /config/api/cluster [delete]
 // DeleteCluster delete resource
 func DeleteCluster(c *gin.Context) {
 	id := c.Query(logic.ClusterID)
@@ -73,6 +95,13 @@ func DeleteCluster(c *gin.Context) {
 	c.JSON(http.StatusOK, config.WithRet("delete cluster success!"))
 }
 
+// @Tags Config
+// @Summary get cluster detail
+// @Description get cluster detail according to cluster ID
+// @Produce application/json
+// @Param id query string true "Cluster ID"
+// @Success 200 {object} string
+// @Router /config/api/cluster/detail [get]
 // DetailCluster get cluster detail
 func DetailCluster(c *gin.Context) {
 	id := c.Query(logic.ClusterID)
@@ -84,6 +113,15 @@ func DetailCluster(c *gin.Context) {
 	c.JSON(http.StatusOK, config.WithRet(res))
 }
 
+// @Tags Config
+// @Summary update cluster
+// @Description pass the Cluster's YAML/JSON via the form's content field to update the cluster.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param content formData string true "Cluster content"
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /config/api/cluster [post]
 // UpdateCluster update cluster
 func UpdateCluster(c *gin.Context) {
 	body := c.PostForm("content")

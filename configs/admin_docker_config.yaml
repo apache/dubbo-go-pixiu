@@ -20,7 +20,7 @@
 server:
   address: 127.0.0.1:8081
 etcd:
-  address: etcd_pixiu:2379
+  address: pixiu_admin_etcd:2379
   path: /pixiu/config/api
 mysql:
   username: root

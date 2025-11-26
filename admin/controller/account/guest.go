@@ -39,10 +39,10 @@ import (
 )
 
 // @Tags Register
-// @Summary 用户注册
+// @Summary user registration
 // @Produce  application/json
-// @Param username formData string true "用户名"
-// @Param password formData string true "密码"
+// @Param username formData string true "username"
+// @Param password formData string true "password"
 // @Success 200 {string} string "{"code":"","data":""}"
 // @Router /register [post]
 func Register(c *gin.Context) {

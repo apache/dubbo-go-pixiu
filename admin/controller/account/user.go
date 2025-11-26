@@ -34,6 +34,12 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/logic/account"
 )
 
+// @Tags Account
+// @Summary user logout
+// @Description log out the current user (invalidate the token)
+// @Produce application/json
+// @Success 200 {object} string
+// @Router /user/logout [post]
 // Logout user logout
 func Logout(c *gin.Context) {
 	// Invalid setting token
@@ -54,6 +60,16 @@ func Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, config.WithRet(token))
 }
 
+// @Tags Account
+// @Summary modify account password
+// @Description to modify the current user's password, the username must be included in the header.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param oldPassword formData string true "old password"
+// @Param newPassword formData string true "new password"
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /user/password/edit [post]
 // EditPassword modify account password
 func EditPassword(c *gin.Context) {
 
@@ -88,6 +104,13 @@ func EditPassword(c *gin.Context) {
 	//generateToken(c, username)
 }
 
+// @Tags Account
+// @Summary get user information
+// @Description return the current user's detailed information. The header must include the username.
+// @Produce application/json
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /user/getInfo [post]
 // GetUserInfo get user information
 func GetUserInfo(c *gin.Context) {
 	username := c.Request.Header.Get("username")
@@ -99,6 +122,13 @@ func GetUserInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, config.WithRet(userInfo))
 }
 
+// @Tags Account
+// @Summary get user role
+// @Description return the current user's role information. The header must include the username.
+// @Produce application/json
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /user/getUserRole [post]
 // GetUserRole get user role
 func GetUserRole(c *gin.Context) {
 	username := c.Request.Header.Get("username")
@@ -110,6 +140,13 @@ func GetUserRole(c *gin.Context) {
 	c.JSON(http.StatusOK, config.WithRet(result))
 }
 
+// @Tags Account
+// @Summary determine whether you are an administrator
+// @Description to determine whether the current user is an administrator, the header must include the username.
+// @Produce application/json
+// @Success 200 {object} string
+// @Failure 200 {object} string
+// @Router /user/checkIsAdmin [post]
 // CheckUserIsAdmin determine whether you are an administrator
 func CheckUserIsAdmin(c *gin.Context) {
 	username := c.Request.Header.Get("username")

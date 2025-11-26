@@ -1,0 +1,656 @@
+info:
+  contact: {}
+paths:
+  /config/api/base:
+    get:
+      description: get pixiu base info such as name,desc
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: YAML content
+          schema:
+            type: string
+      summary: get basic configuration of Pixiu
+      tags:
+      - Config
+  /config/api/base/:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Pass YAML content through the form's content field to set basic
+        information.
+      parameters:
+      - description: YAML content
+        in: formData
+        name: content
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: modify pixiu base info such as name,desc
+      tags:
+      - Config
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Pass YAML content through the form's content field to set basic
+        information.
+      parameters:
+      - description: YAML content
+        in: formData
+        name: content
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: modify pixiu base info such as name,desc
+      tags:
+      - Config
+  /config/api/cluster:
+    delete:
+      description: delete cluster according to cluster ID
+      parameters:
+      - description: Cluster ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: delete cluster
+      tags:
+      - Config
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: pass the Cluster's YAML/JSON via the form's content field to update
+        the cluster.
+      parameters:
+      - description: Cluster content
+        in: formData
+        name: content
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: update cluster
+      tags:
+      - Config
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Create a cluster by passing the YAML/JSON configuration for the
+        cluster through the form's content field.
+      parameters:
+      - description: Cluster content
+        in: formData
+        name: content
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: create cluster
+      tags:
+      - Config
+  /config/api/cluster/detail:
+    get:
+      description: get cluster detail according to cluster ID
+      parameters:
+      - description: Cluster ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get cluster detail
+      tags:
+      - Config
+  /config/api/cluster/list:
+    get:
+      description: get all clusters' info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get cluster list
+      tags:
+      - Config
+  /config/api/listener:
+    delete:
+      description: delete the Listener based on the name
+      parameters:
+      - description: Listener id
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: delete Listener
+      tags:
+      - Config
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: pass the YAML/JSON for the Listener through the form's content
+        field to update the Listener.
+      parameters:
+      - description: Listener content
+        in: formData
+        name: content
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: update Listener
+      tags:
+      - Config
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: pass the YAML/JSON for the Listener through the form's content
+        field to create the Listener.
+      parameters:
+      - description: Listener content
+        in: formData
+        name: content
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: create a Listener
+      tags:
+      - Config
+  /config/api/listener/detail:
+    get:
+      description: get Listener details based on name
+      parameters:
+      - description: Listener name
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get Listener detail
+      tags:
+      - Config
+  /config/api/listener/list:
+    get:
+      description: get all Listener list
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get all Listener list
+      tags:
+      - Config
+  /config/api/plugin_group/publish:
+    put:
+      description: publish the PluginGroup from the unpublished space to the published
+        space.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: batch Release PluginGroup Config
+      tags:
+      - Config
+  /config/api/resource:
+    delete:
+      description: delete resources by ID. When unpublished is 1, this indicates deleting
+        configurations for unpublished spaces (requires checking published spaces).
+      parameters:
+      - description: resource ID
+        in: query
+        name: resourceId
+        required: true
+        type: integer
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: delete resource
+      tags:
+      - Config
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: create a resource by passing the Resource's YAML via the form's
+        content field (simultaneously writing to the staging area and production area).
+      parameters:
+      - description: Resource YAML
+        in: formData
+        name: content
+        required: true
+        type: string
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: create resource
+      tags:
+      - Config
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: modify resource content, where content is the YAML of the Resource.
+        Use resourceId to specify the resource to be modified.
+      parameters:
+      - description: resource ID
+        in: query
+        name: resourceId
+        type: integer
+      - description: Resource YAML
+        in: formData
+        name: content
+        required: true
+        type: string
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: modify resource
+      tags:
+      - Config
+  /config/api/resource/detail:
+    get:
+      description: get resource details according to resource ID and return the YAML
+      parameters:
+      - description: ResourceID
+        in: query
+        name: resourceId
+        required: true
+        type: integer
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: YAML content
+          schema:
+            type: string
+      summary: get resource detail with yml
+      tags:
+      - Config
+  /config/api/resource/list:
+    get:
+      description: Retrieve the list of resources. Use the unpublished parameter to
+        control whether to include unpublished or published resources.
+      parameters:
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JSON array
+          schema:
+            type: string
+      summary: get all resource list
+      tags:
+      - Config
+  /config/api/resource/method:
+    delete:
+      description: Deleting a method under a resource, where `unpublished` equals
+        1 indicates removing the configuration for unpublished spaces (requires checking
+        published spaces).
+      parameters:
+      - description: ResourceID
+        in: query
+        name: resourceId
+        required: true
+        type: integer
+      - description: MethodID
+        in: query
+        name: methodId
+        required: true
+        type: integer
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: delete method
+      tags:
+      - Config
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: create a method under the specified resource, where content is
+        the YAML for Method.
+      parameters:
+      - description: ResourceID
+        in: query
+        name: resourceId
+        required: true
+        type: integer
+      - description: Method YAML
+        in: formData
+        name: content
+        required: true
+        type: string
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: create method
+      tags:
+      - Config
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Modify the specified method, where content is the YAML for Method.
+      parameters:
+      - description: ResourceID
+        in: query
+        name: resourceId
+        required: true
+        type: integer
+      - description: MethodID
+        in: query
+        name: methodId
+        type: integer
+      - description: Method YAML
+        in: formData
+        name: content
+        required: true
+        type: string
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: modify method
+      tags:
+      - Config
+  /config/api/resource/method/detail:
+    get:
+      description: get method details based on resourceId and methodId, returning
+        YAML.
+      parameters:
+      - description: resource ID
+        in: query
+        name: resourceId
+        required: true
+        type: integer
+      - description: method ID
+        in: query
+        name: methodId
+        required: true
+        type: integer
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: YAML content
+          schema:
+            type: string
+      summary: get method detail with yml
+      tags:
+      - Config
+  /config/api/resource/method/list:
+    get:
+      description: get the list of methods under the specified resource
+      parameters:
+      - description: resource ID
+        in: query
+        name: resourceId
+        required: true
+        type: integer
+      - description: '1: unpublished; 0 or empty: published'
+        in: formData
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JSON array
+          schema:
+            type: string
+      summary: get all method list below one resource
+      tags:
+      - Config
+  /config/api/resource/method/publish:
+    put:
+      description: 'TODO: unimplemented'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: batch Release Method Config
+      tags:
+      - Config
+  /config/api/resource/publish:
+    put:
+      description: publish resources from unpublished spaces to published spaces
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: publish all configuration information
+      tags:
+      - Config
+  /register:
+    post:
+      parameters:
+      - description: username
+        in: formData
+        name: username
+        required: true
+        type: string
+      - description: password
+        in: formData
+        name: password
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{"code":"","data":""}'
+          schema:
+            type: string
+      summary: user registration
+      tags:
+      - Register
+  /user/checkIsAdmin:
+    post:
+      description: to determine whether the current user is an administrator, the
+        header must include the username.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: determine whether you are an administrator
+      tags:
+      - Account
+  /user/getInfo:
+    post:
+      description: return the current user's detailed information. The header must
+        include the username.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get user information
+      tags:
+      - Account
+  /user/getUserRole:
+    post:
+      description: return the current user's role information. The header must include
+        the username.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get user role
+      tags:
+      - Account
+  /user/logout:
+    post:
+      description: log out the current user (invalidate the token)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: user logout
+      tags:
+      - Account
+  /user/password/edit:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: to modify the current user's password, the username must be included
+        in the header.
+      parameters:
+      - description: old password
+        in: formData
+        name: oldPassword
+        required: true
+        type: string
+      - description: new password
+        in: formData
+        name: newPassword
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: modify account password
+      tags:
+      - Account
+swagger: "2.0"
