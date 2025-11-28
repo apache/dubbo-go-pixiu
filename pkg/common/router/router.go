@@ -101,6 +101,9 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 			continue
 		}
 		if matchHeaders(hr.Headers, req) {
+			if len(hr.Action.Cluster) == 0 {
+				return nil, errors.New("action is nil. please check your configuration.")
+			}
 			return &hr.Action, nil
 		}
 	}
