@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -62,75 +63,20 @@ var _ = Describe("test", Ordered, func() {
 		test.CurPath, err = os.Getwd()
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+		// Wait for ports to be available before starting servers
+		waitForPortAvailable("20000", 10*time.Second)
+		waitForPortAvailable("8881", 10*time.Second)
+
 		dubboServerSession = prepareDubboServer()
+		// Wait for dubbo server to register to Zookeeper
+		time.Sleep(5 * time.Second)
+
 		pixiuSession = test.PreparePixiu("../../dist/pixiu", test.CurPath+"/../../protocol/dubbo/pixiu/conf/config.yaml")
-
-		time.Sleep(3 * time.Second)
-
-		prepareDubboClient()
+		// Wait for pixiu to discover services from Zookeeper
+		time.Sleep(5 * time.Second)
 	})
 
 	//TODO(kenwaycai): output to external file
-
-	It("dubbo protocol performance test", func() {
-		defer GinkgoRecover()
-
-		experiment := gmeasure.NewExperiment("dubbo protocol performance test")
-		AddReportEntry(experiment.Name, experiment)
-
-		experiment.Sample(func(idx int) {
-			reqUser := &pkg.User{}
-			reqUser.ID = "003"
-			experiment.MeasureDuration("GetUser", func() {
-				_, err := userProvider.GetUser(context.TODO(), reqUser)
-				gomega.Expect(err).To(gomega.Succeed())
-				//fmt.Printf("consumer:%+v", user)
-			})
-		}, test.SampleConfig)
-
-		experiment.Sample(func(idx int) {
-			experiment.MeasureDuration("GetGender", func() {
-				_, err := userProvider.GetGender(context.TODO(), 1)
-				gomega.Expect(err).To(gomega.Succeed())
-				//fmt.Printf("consumer:%+v", gender)
-			})
-		}, test.SampleConfig)
-
-		experiment.Sample(func(idx int) {
-			experiment.MeasureDuration("GetUser0", func() {
-				_, err := userProvider.GetUser0("003", "Moorse")
-				gomega.Expect(err).To(gomega.Succeed())
-				//fmt.Printf("consumer:%+v", ret)
-			})
-		}, test.SampleConfig)
-
-		experiment.Sample(func(idx int) {
-			experiment.MeasureDuration("GetUsers", func() {
-				_, err := userProvider.GetUsers([]string{"002", "003"})
-				gomega.Expect(err).To(gomega.Succeed())
-				//fmt.Printf("consumer:%+v", ret1)
-			})
-		}, test.SampleConfig)
-
-		experiment.Sample(func(idx int) {
-			experiment.MeasureDuration("GetUser2", func() {
-				var i int32 = 1
-				_, err := userProvider.GetUser2(context.TODO(), i)
-				gomega.Expect(err).To(gomega.Succeed())
-				//fmt.Printf("consumer:%+v", user)
-			})
-		}, test.SampleConfig)
-
-		experiment.Sample(func(idx int) {
-			experiment.MeasureDuration("GetErr", func() {
-				reqUser := &pkg.User{}
-				reqUser.ID = "003"
-				_, err := userProvider.GetErr(context.TODO(), reqUser)
-				gomega.Expect(err).To(gomega.HaveOccurred())
-				//fmt.Printf("consumer:%+v", err.Error())
-			})
-		}, test.SampleConfig)
-	})
 
 	It("pixiu to dubbo protocol performance test", func() {
 
@@ -155,6 +101,7 @@ var _ = Describe("test", Ordered, func() {
 
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				defer resp.Body.Close()
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
 				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -172,6 +119,7 @@ var _ = Describe("test", Ordered, func() {
 `
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				defer resp.Body.Close()
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
 
 				_, err = io.ReadAll(resp.Body)
@@ -193,6 +141,7 @@ var _ = Describe("test", Ordered, func() {
 `
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				defer resp.Body.Close()
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
 
 				_, err = io.ReadAll(resp.Body)
@@ -216,19 +165,84 @@ var _ = Describe("test", Ordered, func() {
 `
 
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
-				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				defer resp.Body.Close()
 				gomega.Expect(resp.Status).To(gomega.Equal("200 OK"))
+				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			})
 
 		}, test.SampleConfig)
 	})
 
+	It("dubbo protocol performance test", func() {
+		defer GinkgoRecover()
+
+		// Initialize dubbo client only when needed for this test
+		prepareDubboClient()
+
+		experiment := gmeasure.NewExperiment("dubbo protocol performance test")
+		AddReportEntry(experiment.Name, experiment)
+
+		experiment.Sample(func(idx int) {
+			reqUser := &pkg.User{}
+			reqUser.ID = "003"
+			experiment.MeasureDuration("GetUser", func() {
+				_, err := userProvider.GetUser(context.TODO(), reqUser)
+				gomega.Expect(err).To(gomega.Succeed())
+			})
+		}, test.SampleConfig)
+
+		experiment.Sample(func(idx int) {
+			experiment.MeasureDuration("GetGender", func() {
+				_, err := userProvider.GetGender(context.TODO(), 1)
+				gomega.Expect(err).To(gomega.Succeed())
+			})
+		}, test.SampleConfig)
+
+		experiment.Sample(func(idx int) {
+			experiment.MeasureDuration("GetUser0", func() {
+				_, err := userProvider.GetUser0("003", "Moorse")
+				gomega.Expect(err).To(gomega.Succeed())
+			})
+		}, test.SampleConfig)
+
+		experiment.Sample(func(idx int) {
+			experiment.MeasureDuration("GetUsers", func() {
+				_, err := userProvider.GetUsers([]string{"002", "003"})
+				gomega.Expect(err).To(gomega.Succeed())
+			})
+		}, test.SampleConfig)
+
+		experiment.Sample(func(idx int) {
+			experiment.MeasureDuration("GetUser2", func() {
+				var i int32 = 1
+				_, err := userProvider.GetUser2(context.TODO(), i)
+				gomega.Expect(err).To(gomega.Succeed())
+			})
+		}, test.SampleConfig)
+
+		experiment.Sample(func(idx int) {
+			experiment.MeasureDuration("GetErr", func() {
+				reqUser := &pkg.User{}
+				reqUser.ID = "003"
+				_, err := userProvider.GetErr(context.TODO(), reqUser)
+				gomega.Expect(err).To(gomega.HaveOccurred())
+			})
+		}, test.SampleConfig)
+	})
+
 	AfterAll(func() {
-		time.Sleep(5 * time.Second)
-		dubboServerSession.Terminate().Wait()
-		pixiuSession.Terminate().Wait(5 * time.Second)
+		// Use Kill instead of Terminate to ensure processes are fully stopped
+		if pixiuSession != nil {
+			pixiuSession.Kill().Wait(10 * time.Second)
+		}
+		if dubboServerSession != nil {
+			dubboServerSession.Kill().Wait(10 * time.Second)
+		}
+		gexec.CleanupBuildArtifacts()
+		// Wait for ports to be released
+		time.Sleep(2 * time.Second)
 	})
 
 })
@@ -237,7 +251,9 @@ func prepareDubboServer() *gexec.Session {
 	serverProcess, err := gexec.Build("dubbo-go-pixiu-benchmark/protocol/dubbo/go-server/cmd")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	command := exec.Command(serverProcess)
-	session, err := gexec.Start(command, io.Discard, io.Discard)
+	// Set working directory to test/dubbo_suite so that relative paths in server.go work correctly
+	command.Dir = test.CurPath
+	session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
 	//session, err := gexec.Start(command, os.Stdout, os.Stderr)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -253,4 +269,22 @@ func prepareDubboClient() {
 
 	err := config.Load(config.WithPath(test.CurPath + "/../../protocol/dubbo/go-client/conf/dubbogo.yml"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+// waitForPortAvailable waits until the port is available (not in use)
+func waitForPortAvailable(port string, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 100*time.Millisecond)
+		if err != nil {
+			// Port is available (connection refused means no one is listening)
+			if conn != nil {
+				conn.Close()
+			}
+			return
+		}
+		conn.Close()
+		time.Sleep(500 * time.Millisecond)
+	}
+	gomega.Expect(fmt.Errorf("port %s is still in use after %v", port, timeout)).NotTo(gomega.HaveOccurred())
 }
