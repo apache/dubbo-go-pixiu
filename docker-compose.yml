@@ -19,13 +19,14 @@ services:
   # etcd service
   etcd:
     image: quay.io/coreos/etcd:v3.6.1
-    container_name: etcd_pixiu
+    container_name: pixiu_admin_etcd
     environment:
       - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
       - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd_pixiu:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://pixiu_admin_etcd:2379
       - ETCD_DATA_DIR=/etcd-data
       - ETCD_NAME=etcd-node-1
+      - ALLOW_NONE_AUTHENTICATION=yes
     volumes:
       - ./etcd-data:/etcd-data
     ports:
@@ -36,7 +37,7 @@ services:
 
   mysql_pixiu:
     image: mysql:8
-    container_name: mysql_pixiu
+    container_name: pixiu_admin_mysql
     environment:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: pixiu
@@ -49,10 +50,33 @@ services:
     networks:
       - app_network
 
+  # pixiu service
+  pixiu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pixiu_admin_pixiu_gateway
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./configs/pixiu_with_admin_config.yaml:/etc/pixiu/conf.yaml  # Mount the custom config file
+      - ./configs/log.yml:/etc/pixiu/log.yml  # Mount log configuration if needed
+    networks:
+      - app_network
+    depends_on:
+      - etcd  # Ensure etcd is ready before starting the backend
+      - backend # backend is the xds server for pixiu
+    entrypoint: ["/bin/sh", "-c", "echo 'Waiting for backend to be ready on port 8081...' && \
+      until nc -z pixiu_admin_go_backend 8081; do \
+        sleep 3; \
+      done && \
+      echo 'Backend is ready!' && \
+      /app/docker-entrypoint.sh"]
+
   # backend service(GO)
   backend:
-    image: golang:1.23
-    container_name: go_backend
+    image: golang:1.25
+    container_name: pixiu_admin_go_backend
     working_dir: /app
     volumes:
       - .:/app
@@ -60,7 +84,7 @@ services:
       - "8081:8081"
     command: >
       sh -c "
-        curl -sS http://etcd_pixiu:2379/health || exit 1 &&
+        curl -sS http://pixiu_admin_etcd:2379/health || exit 1 &&
         go mod tidy &&
         go run ./cmd/admin/admin.go -c ./configs/admin_docker_config.yaml
       "
@@ -70,19 +94,19 @@ services:
     networks:
       - app_network
     depends_on:
-      - etcd
+      - etcd  # Ensure etcd is ready before starting the backend
 
   # frontend（Web）
   frontend:
     image: node:18.20.8
-    container_name: frontend
+    container_name: pixiu_admin_frontend
     working_dir: /app/web
     volumes:
       - ./admin/web:/app/web
     ports:
       - "8080:8080"
     environment:
-      - VUE_APP_BACKEND_URL=http://go_backend:8081
+      - VUE_APP_BACKEND_URL=http://pixiu_admin_go_backend:8081
     command: >
       sh -c "
         yarn install &&
@@ -90,8 +114,6 @@ services:
       "
     networks:
       - app_network
-    depends_on:
-      - backend
 
 networks:
   app_network:

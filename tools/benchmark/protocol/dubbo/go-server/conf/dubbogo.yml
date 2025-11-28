@@ -25,11 +25,13 @@ dubbo:
       protocol: zookeeper
       timeout: 3s
       address: 127.0.0.1:2181
+      registry-type: all
   protocols:
     dubbo:
       name: dubbo
       port: 20000
   provider:
+    registry-ids: demoZK
     services:
       UserProvider:
         interface: org.apache.dubbo.sample.UserProvider

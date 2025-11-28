@@ -18,7 +18,7 @@
 #
 
 ### builder
-FROM golang:1.23.4-bullseye AS builder
+FROM golang:1.25.4-bookworm AS builder
 LABEL MAINTAINER="dev@dubbo.apache.org"
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc
@@ -41,7 +41,7 @@ RUN go build -ldflags '-r ./lib -s -w' -tags="wasmer" -trimpath -o /app/dubbo-go
 RUN find /go/pkg/mod -name "libwasmer.so" -exec cp {} /app/libwasmer.so \;
 
 
-FROM pingcap/alpine-glibc:alpine-3.14.6
+FROM oowy/glibc:2.39-alpine3.20
 LABEL MAINTAINER="dev@dubbo.apache.org"
 
 RUN addgroup -S nonroot \

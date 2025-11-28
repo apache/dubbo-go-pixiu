@@ -48,7 +48,6 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -76,7 +75,6 @@ var (
 		Organization: "dubbo-go-pixiu",
 		Name:         "Dubbogo Pixiu",
 		Module:       "dubbogo Pixiu",
-		Version:      config.Version,
 		Owner:        "Dubbogo Pixiu",
 		Environment:  "dev",
 	}

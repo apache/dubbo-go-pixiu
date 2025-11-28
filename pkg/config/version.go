@@ -18,5 +18,6 @@
 package config
 
 const (
+	// Version TODO: delete this if not used in the future
 	Version = "0.4.0"
 )

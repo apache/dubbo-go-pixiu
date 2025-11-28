@@ -21,11 +21,13 @@ dubbo:
   registries:
     zk:
       address: zookeeper://127.0.0.1:2181
+      registry-type: all
   protocols:
     triple:
       name: tri
       port: 20001
   provider:
+    registry-ids: zk
     services:
       GreeterProvider:
         protocol-ids: triple # 使用上面定义的协议id
