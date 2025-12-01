@@ -282,7 +282,7 @@ func (f *Filter) evaluateServer(c *contextHttp.HttpContext, input map[string]any
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			logger.Errorf("Failed to read OPA server response body: %v", err)
-			body = []byte("") 
+			body = []byte("")
 		}
 		logger.Errorf("OPA server returned status %d: %s", resp.StatusCode, string(body))
 		errResp := contextHttp.BadGateway.WithError(fmt.Errorf("OPA server returned status %d", resp.StatusCode))
