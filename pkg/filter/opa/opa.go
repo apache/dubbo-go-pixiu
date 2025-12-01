@@ -279,7 +279,11 @@ func (f *Filter) evaluateServer(c *contextHttp.HttpContext, input map[string]any
 
 	// Check HTTP status code
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logger.Errorf("Failed to read OPA server response body: %v", err)
+			body = []byte("") 
+		}
 		logger.Errorf("OPA server returned status %d: %s", resp.StatusCode, string(body))
 		errResp := contextHttp.BadGateway.WithError(fmt.Errorf("OPA server returned status %d", resp.StatusCode))
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
