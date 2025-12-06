@@ -1,9 +1,0 @@
-apiVersion: pixiu.apache.org/v1alpha1
-kind: GatewayProxy
-metadata:
-  labels:
-    app.kubernetes.io/name: controllers
-    app.kubernetes.io/managed-by: kustomize
-  name: gatewayproxy-sample
-spec:
-  # TODO(user): Add fields here

@@ -19,7 +19,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"reflect"
@@ -27,13 +26,6 @@ import (
 )
 
 import (
-	"controllers/api/v1alpha1"
-
-	"controllers/internal/controller/config"
-	"controllers/internal/controller/indexer"
-
-	"controllers/internal/types"
-
 	"controllers/internal/utils"
 
 	"github.com/go-logr/logr"
@@ -41,8 +33,6 @@ import (
 	"github.com/samber/lo"
 
 	corev1 "k8s.io/api/core/v1"
-
-	networkingv1 "k8s.io/api/networking/v1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,12 +48,8 @@ import (
 )
 
 const (
-	KindGateway      = "Gateway"
-	KindGatewayClass = "GatewayClass"
-	KindIngress      = "Ingress"
-	KindIngressClass = "IngressClass"
-	KindGatewayProxy = "GatewayProxy"
-	KindSecret       = "Secret"
+	KindGateway = "Gateway"
+	KindSecret  = "Secret"
 )
 
 var (
@@ -127,115 +113,6 @@ func ListMatchingRequests(ctx context.Context, c client.Client, logger logr.Logg
 		}
 	}
 	return requests
-}
-
-func ProcessIngressClassParameters(c client.Client, log logr.Logger, object client.Object, ingressClass *networkingv1.IngressClass) error {
-	if ingressClass == nil || ingressClass.Spec.Parameters == nil {
-		return nil
-	}
-
-	parameters := ingressClass.Spec.Parameters
-	// check if the parameters reference GatewayProxy
-	if parameters.APIGroup != nil && *parameters.APIGroup == v1alpha1.GroupVersion.Group && parameters.Kind == KindGatewayProxy {
-		ns := object.GetNamespace()
-		if parameters.Namespace != nil {
-			ns = *parameters.Namespace
-		}
-
-		gatewayProxy := &v1alpha1.GatewayProxy{}
-		if err := c.Get(context.TODO(), client.ObjectKey{
-			Namespace: ns,
-			Name:      parameters.Name,
-		}, gatewayProxy); err != nil {
-			log.Error(err, "failed to get GatewayProxy", "namespace", ns, "name", parameters.Name)
-			return err
-		}
-	}
-
-	return nil
-}
-
-func GetIngressClass(ctx context.Context, c client.Client, log logr.Logger, ingressClassName string) (*networkingv1.IngressClass, error) {
-	if ingressClassName == "" {
-		// Check for default ingress class
-		ingressClassList := &networkingv1.IngressClassList{}
-		if err := c.List(ctx, ingressClassList, client.MatchingFields{
-			indexer.IngressClass: config.GetControllerName(),
-		}); err != nil {
-			log.Error(err, "failed to list ingress classes")
-			return nil, err
-		}
-
-		// Find the ingress class that is marked as default
-		for _, ic := range ingressClassList.Items {
-			if IsDefaultIngressClass(&ic) && matchesController(ic.Spec.Controller) {
-				return &ic, nil
-			}
-		}
-		return nil, errors.New("no default ingress class found")
-	}
-
-	// Check if the specified ingress class is controlled by us
-	var ingressClass networkingv1.IngressClass
-	if err := c.Get(ctx, client.ObjectKey{Name: ingressClassName}, &ingressClass); err != nil {
-		return nil, err
-	}
-
-	if matchesController(ingressClass.Spec.Controller) {
-		return &ingressClass, nil
-	}
-
-	return nil, errors.New("ingress class is not controlled by use")
-}
-
-func GetGatewayProxyByIngressClass(ctx context.Context, r client.Client, ingressClass *networkingv1.IngressClass) (*v1alpha1.GatewayProxy, error) {
-	if ingressClass.Spec.Parameters == nil {
-		return nil, nil
-	}
-
-	if ingressClass.Spec.Parameters.APIGroup == nil ||
-		*ingressClass.Spec.Parameters.APIGroup != v1alpha1.GroupVersion.Group ||
-		ingressClass.Spec.Parameters.Kind != KindGatewayProxy {
-		return nil, nil
-	}
-
-	namespace := ingressClass.Namespace
-	if ingressClass.Spec.Parameters.Namespace != nil {
-		namespace = *ingressClass.Spec.Parameters.Namespace
-	}
-
-	gatewayProxy := new(v1alpha1.GatewayProxy)
-	if err := r.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      ingressClass.Spec.Parameters.Name,
-	}, gatewayProxy); err != nil {
-		return nil, fmt.Errorf("failed to get gateway proxy: %w", err)
-	}
-	return gatewayProxy, nil
-}
-
-func GetGatewayProxyByGateway(ctx context.Context, r client.Client, gateway *gatewayv1.Gateway) (*v1alpha1.GatewayProxy, error) {
-	if gateway == nil {
-		return nil, nil
-	}
-	infra := gateway.Spec.Infrastructure
-	if infra == nil || infra.ParametersRef == nil {
-		return nil, nil
-	}
-
-	ns := gateway.GetNamespace()
-	paramRef := infra.ParametersRef
-	if string(paramRef.Group) != v1alpha1.GroupVersion.Group || string(paramRef.Kind) != KindGatewayProxy {
-		return nil, nil
-	}
-	gatewayProxy := &v1alpha1.GatewayProxy{}
-	if err := r.Get(context.Background(), client.ObjectKey{
-		Namespace: ns,
-		Name:      paramRef.Name,
-	}, gatewayProxy); err != nil {
-		return nil, fmt.Errorf("failed to get GatewayProxy: %w", err)
-	}
-	return gatewayProxy, nil
 }
 
 func getListenerStatus(ctx context.Context, mrgc client.Client, gateway *gatewayv1.Gateway) ([]gatewayv1.ListenerStatus, error) {
@@ -399,7 +276,7 @@ func setGatewayCondition(gw *gatewayv1.Gateway, newCondition metav1.Condition) {
 }
 
 func acceptedMessage(kind string) string {
-	return fmt.Sprintf("the %s has been accepted by the apisix-ingress-controller", kind)
+	return fmt.Sprintf("the %s has been accepted by the pixiu-gateway-controller", kind)
 }
 
 func referenceGrantPredicates(kind gatewayv1.Kind) predicate.Funcs {
@@ -568,31 +445,6 @@ func listenerHostnameIntersectWithRouteHostnames(listener gatewayv1.Listener, ho
 	}
 
 	return false
-}
-
-func ProcessGatewayProxy(r client.Client, log logr.Logger, gateway *gatewayv1.Gateway, rk types.NamespacedNameKind) error {
-	if gateway == nil {
-		return nil
-	}
-	infra := gateway.Spec.Infrastructure
-	if infra == nil || infra.ParametersRef == nil {
-		return nil
-	}
-
-	ns := gateway.GetNamespace()
-	paramRef := infra.ParametersRef
-	if string(paramRef.Group) == v1alpha1.GroupVersion.Group && string(paramRef.Kind) == KindGatewayProxy {
-		gatewayProxy := &v1alpha1.GatewayProxy{}
-		if err := r.Get(context.Background(), client.ObjectKey{
-			Namespace: ns,
-			Name:      paramRef.Name,
-		}, gatewayProxy); err != nil {
-			log.Error(err, "failed to get GatewayProxy", "namespace", ns, "name", paramRef.Name)
-			return err
-		}
-	}
-
-	return nil
 }
 
 func FullTypeName(a any) string {

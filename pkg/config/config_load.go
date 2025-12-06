@@ -144,7 +144,7 @@ func GetHttpConfig(cfg *model.Bootstrap) (err error) {
 						logger.Error(err)
 					}
 					cfg.StaticResources.Listeners[i].Config = *hc
-					//cfg.StaticResources.Listeners[i].FilterChains
+					// cfg.StaticResources.Listeners[i].FilterChains
 				}
 			}
 		}
@@ -212,7 +212,7 @@ func (m *ConfigManager) LoadBootConfig(path string) *model.Bootstrap {
 	err := m.check()
 
 	if err != nil {
-		logger.Errorf("[Pixiu-Config] check bootstrap config fail : %s", err.Error())
+		logger.Errorf("check bootstrap config fail : %s", err.Error())
 		panic(err)
 	}
 

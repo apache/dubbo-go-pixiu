@@ -37,25 +37,30 @@ import (
 )
 
 func GetRootCmd() *cobra.Command {
-	root := newPixiuIngressController()
+	root := newPixiuGatewayController()
 	return root
 }
 
-func newPixiuIngressController() *cobra.Command {
-	cfg := config.ControllerConfig
+func newPixiuGatewayController() *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:  "pixiu-ingress-controller [command]",
+		Use:  "pixiu-gateway-controller [command]",
 		Long: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.ControllerConfig
 			if configPath != "" {
 				c, err := config.GetConfigFromFile(configPath)
 				if err != nil {
-					return err
+					// If config file doesn't exist, log warning and continue with default config
+					// This allows the controller to start even if config file is missing
+					cmd.Printf("Warning: failed to load config from %s: %v, using default config\n", configPath, err)
+				} else {
+					cfg = c
+					config.SetControllerConfig(c)
 				}
-				cfg = c
-				config.SetControllerConfig(c)
 			}
+			// Command line flags are already bound to config.ControllerConfig,
+			// so cfg (which is config.ControllerConfig) already has the updated values
 
 			logLevel, err := zapcore.ParseLevel(cfg.LogLevel)
 			if err != nil {
@@ -78,12 +83,12 @@ func newPixiuIngressController() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&configPath, "config-path", "c", "", "configuration file path for pixiu-ingress-controller")
-	cmd.Flags().StringVar(&cfg.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
+	cmd.Flags().StringVarP(&configPath, "config-path", "c", "", "configuration file path for pixiu-gateway-controller")
+	cmd.Flags().StringVar(&config.ControllerConfig.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	cmd.Flags().StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	cmd.Flags().StringVar(&cfg.LogLevel, "log-level", config.DefaultLogLevel, "The log level for pixiu-ingress-controller")
-	cmd.Flags().StringVar(&cfg.ControllerName, "controller-name", config.DefaultControllerName, "The name of the controller")
+	cmd.Flags().StringVar(&config.ControllerConfig.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	cmd.Flags().StringVar(&config.ControllerConfig.LogLevel, "log-level", config.DefaultLogLevel, "The log level for pixiu-gateway-controller")
+	cmd.Flags().StringVar(&config.ControllerConfig.ControllerName, "controller-name", config.DefaultControllerName, "The name of the controller")
 
 	return cmd
 }

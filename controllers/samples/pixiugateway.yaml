@@ -1,0 +1,18 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: pg
+spec:
+  controllerName: pixiu.apache.org/pixiu-gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: pg
+  namespace: pixiu-gateway-system
+spec:
+  gatewayClassName: pg
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80

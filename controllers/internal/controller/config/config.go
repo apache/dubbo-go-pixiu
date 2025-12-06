@@ -28,8 +28,8 @@ var (
 )
 
 const (
-	DefaultLeaderElectionID = "pixiu-ingress-gateway-leader"
-	DefaultControllerName   = "pixiu.apache.org/pixiu-ingress-controller"
+	DefaultLeaderElectionID = "pixiu-gateway-leader"
+	DefaultControllerName   = "pixiu.apache.org/pixiu-gateway-controller"
 	DefaultLogLevel         = "info"
 	DefaultMetricsAddr      = ":8080"
 	DefaultProbeAddr        = ":8081"
