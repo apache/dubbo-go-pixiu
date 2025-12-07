@@ -115,7 +115,7 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		Status:             meta.ConditionTrue,
 		Reason:             string(gatewayv1.GatewayClassReasonAccepted),
 		ObservedGeneration: gc.Generation,
-		Message:            "the gatewayclass has been accepted by the apisix-ingress-controller",
+		Message:            "the gatewayclass has been accepted by the pixiu-gateway-controller",
 		LastTransitionTime: meta.Now(),
 	}
 

@@ -25,20 +25,26 @@ import (
 )
 
 import (
-	"controllers/api/v1alpha1"
-
-	"controllers/internal/controller/indexer"
 	"controllers/internal/controller/status"
+
+	"controllers/internal/converter"
+
+	"controllers/internal/ir"
+
+	"controllers/internal/translator"
 
 	"controllers/internal/utils"
 
 	"github.com/go-logr/logr"
+
+	appsv1 "k8s.io/api/apps/v1"
 
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -82,8 +88,16 @@ func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			),
 		).
 		Watches(
-			&v1alpha1.GatewayProxy{},
-			handler.EnqueueRequestsFromMapFunc(r.listGatewaysForGatewayProxy),
+			&gatewayv1.HTTPRoute{},
+			handler.EnqueueRequestsFromMapFunc(r.listGatewaysForHTTPRoute),
+		).
+		Watches(
+			&appsv1.Deployment{},
+			handler.EnqueueRequestsFromMapFunc(r.listGatewaysForDeployment),
+		).
+		Watches(
+			&corev1.Service{},
+			handler.EnqueueRequestsFromMapFunc(r.listGatewaysForService),
 		)
 
 	if GetEnableReferenceGrant() {
@@ -124,11 +138,21 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	r.processListenerConfig(gateway)
-	if err := r.processInfrastructure(gateway); err != nil {
-		acceptStatus = conditionStatus{
-			status: false,
-			msg:    err.Error(),
-		}
+
+	if err := r.ensureGatewayConfigMap(ctx, gateway); err != nil {
+		r.Log.Error(err, "failed to ensure gateway configmap", "gateway", gateway.GetName())
+		conditionProgrammedStatus = false
+		conditionProgrammedMsg = fmt.Sprintf("Failed to create configmap: %v", err)
+	}
+
+	if err := r.ensureDataPlane(ctx, gateway); err != nil {
+		r.Log.Error(err, "failed to ensure data plane", "gateway", gateway.GetName())
+		conditionProgrammedStatus = false
+		conditionProgrammedMsg = fmt.Sprintf("Failed to create data plane: %v", err)
+	}
+
+	if err := r.updateGatewayAddresses(ctx, gateway); err != nil {
+		r.Log.Error(err, "failed to update gateway addresses", "gateway", gateway.GetName())
 	}
 
 	listenerStatuses, err := getListenerStatus(ctx, r.Client, gateway)
@@ -139,7 +163,9 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	accepted := SetGatewayConditionAccepted(gateway, acceptStatus.status, acceptStatus.msg)
 	programmed := SetGatewayConditionProgrammed(gateway, conditionProgrammedStatus, conditionProgrammedMsg)
-	if accepted || programmed || len(listenerStatuses) > 0 {
+
+	needsUpdate := accepted || programmed || len(listenerStatuses) > 0 || len(gateway.Status.Addresses) > 0
+	if needsUpdate {
 		if len(listenerStatuses) > 0 {
 			gateway.Status.Listeners = listenerStatuses
 		}
@@ -158,8 +184,6 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return tCopy
 			}),
 		})
-
-		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -197,38 +221,6 @@ func (r *GatewayReconciler) checkGatewayClass(obj client.Object) bool {
 	return matchesController(string(gatewayClass.Spec.ControllerName))
 }
 
-func (r *GatewayReconciler) listGatewaysForGatewayProxy(ctx context.Context, obj client.Object) []reconcile.Request {
-	gatewayProxy, ok := obj.(*v1alpha1.GatewayProxy)
-	if !ok {
-		r.Log.Error(fmt.Errorf("unexpected object type"), "failed to convert object to GatewayProxy")
-		return nil
-	}
-	namespace := gatewayProxy.GetNamespace()
-	name := gatewayProxy.GetName()
-
-	gatewayList := &gatewayv1.GatewayList{}
-	if err := r.List(ctx, gatewayList, client.MatchingFields{
-		indexer.ParametersRef: indexer.GenIndexKey(namespace, name),
-	}); err != nil {
-		r.Log.Error(err, "failed to list gateways for gateway proxy", "gatewayproxy", gatewayProxy.GetName())
-		return nil
-	}
-
-	recs := make([]reconcile.Request, 0, len(gatewayList.Items))
-	for _, gateway := range gatewayList.Items {
-		if !r.checkGatewayClass(&gateway) {
-			continue
-		}
-		recs = append(recs, reconcile.Request{
-			NamespacedName: client.ObjectKey{
-				Namespace: gateway.GetNamespace(),
-				Name:      gateway.GetName(),
-			},
-		})
-	}
-	return recs
-}
-
 func (r *GatewayReconciler) listGatewaysForHTTPRoute(ctx context.Context, obj client.Object) []reconcile.Request {
 	httpRoute, ok := obj.(*gatewayv1.HTTPRoute)
 	if !ok {
@@ -240,15 +232,15 @@ func (r *GatewayReconciler) listGatewaysForHTTPRoute(ctx context.Context, obj cl
 		return nil
 	}
 	recs := []reconcile.Request{}
-	for _, routeParentStatus := range httpRoute.Status.Parents {
-		gatewayNamespace := httpRoute.GetNamespace()
-		parentRef := routeParentStatus.ParentRef
+	for _, parentRef := range httpRoute.Spec.ParentRefs {
 		if parentRef.Group != nil && *parentRef.Group != gatewayv1.GroupName {
 			continue
 		}
 		if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
 			continue
 		}
+
+		gatewayNamespace := httpRoute.GetNamespace()
 		if parentRef.Namespace != nil {
 			gatewayNamespace = string(*parentRef.Namespace)
 		}
@@ -312,10 +304,6 @@ func (r *GatewayReconciler) listReferenceGrantsForGateway(ctx context.Context, o
 	return requests
 }
 
-func (r *GatewayReconciler) processInfrastructure(gateway *gatewayv1.Gateway) error {
-	return ProcessGatewayProxy(r.Client, r.Log, gateway, utils.NamespacedNameKind(gateway))
-}
-
 func (r *GatewayReconciler) processListenerConfig(gateway *gatewayv1.Gateway) {
 	listeners := gateway.Spec.Listeners
 	for _, listener := range listeners {
@@ -341,4 +329,409 @@ func (r *GatewayReconciler) processListenerConfig(gateway *gatewayv1.Gateway) {
 			}
 		}
 	}
+}
+
+func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway *gatewayv1.Gateway) error {
+	configMapName := fmt.Sprintf("%s-config", gateway.GetName())
+
+	translator := translator.NewTranslator(r.Client, r.Log)
+	conv := converter.NewConverter()
+
+	xds, err := translator.TranslateGateway(ctx, gateway)
+	if err != nil {
+		return fmt.Errorf("failed to translate Gateway to IR: %w", err)
+	}
+
+	allClusters := []*ir.Cluster{}
+	clusterMap := make(map[string]*ir.Cluster)
+
+	var httpRouteList gatewayv1.HTTPRouteList
+	if err := r.Client.List(ctx, &httpRouteList); err == nil {
+		matchedHTTPRoutes := 0
+		for _, httpRoute := range httpRouteList.Items {
+			attached := false
+			for _, parentRef := range httpRoute.Spec.ParentRefs {
+				if parentRef.Group != nil && *parentRef.Group != gatewayv1.GroupName {
+					continue
+				}
+				if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
+					continue
+				}
+				if string(parentRef.Name) != gateway.Name {
+					continue
+				}
+				namespaceMatch := false
+				if parentRef.Namespace != nil {
+					namespaceMatch = string(*parentRef.Namespace) == gateway.Namespace
+				} else {
+					namespaceMatch = gateway.Namespace == httpRoute.Namespace
+				}
+				if !namespaceMatch {
+					continue
+				}
+				attached = true
+				break
+			}
+			if !attached {
+				continue
+			}
+
+			matchedHTTPRoutes++
+			clusters, err := translator.TranslateBackendToCluster(ctx, &httpRoute)
+			if err != nil {
+				r.Log.Error(err, "failed to translate backend to cluster", "httproute", httpRoute.Name)
+				continue
+			}
+			for _, cluster := range clusters {
+				if existing, exists := clusterMap[cluster.Name]; exists {
+					existing.Endpoints = append(existing.Endpoints, cluster.Endpoints...)
+				} else {
+					clusterMap[cluster.Name] = cluster
+					allClusters = append(allClusters, cluster)
+				}
+			}
+		}
+	} else {
+		r.Log.Error(err, "failed to list HTTPRoutes")
+	}
+
+	pixiuConfig, err := conv.ConvertIRToPixiuConfig(xds, allClusters)
+	if err != nil {
+		return fmt.Errorf("failed to convert IR to Pixiu config: %w", err)
+	}
+
+	configYAML, err := converter.ConvertToYAML(pixiuConfig)
+	if err != nil {
+		return fmt.Errorf("failed to convert config to YAML: %w", err)
+	}
+
+	existingConfigMap := &corev1.ConfigMap{}
+	err = r.Get(ctx, client.ObjectKey{
+		Name:      configMapName,
+		Namespace: gateway.GetNamespace(),
+	}, existingConfigMap)
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: gateway.GetNamespace(),
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by":           "pg-controller",
+				"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: gateway.APIVersion,
+					Kind:       gateway.Kind,
+					Name:       gateway.GetName(),
+					UID:        gateway.GetUID(),
+					Controller: func() *bool { b := true; return &b }(),
+				},
+			},
+		},
+		Data: map[string]string{
+			"conf.yaml": configYAML,
+		},
+	}
+
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			if err := r.Create(ctx, configMap); err != nil {
+				return fmt.Errorf("failed to create configmap: %w", err)
+			}
+			r.Log.Info("created gateway configmap", "gateway", gateway.GetName(), "configmap", configMapName)
+		} else {
+			return fmt.Errorf("failed to check configmap: %w", err)
+		}
+	} else {
+		if existingConfigMap.Data["conf.yaml"] != configYAML {
+			existingConfigMap.Data = configMap.Data
+			existingConfigMap.Labels = configMap.Labels
+			if err := r.Update(ctx, existingConfigMap); err != nil {
+				return fmt.Errorf("failed to update configmap: %w", err)
+			}
+			r.Log.Info("updated gateway configmap", "gateway", gateway.GetName(), "configmap", configMapName)
+		}
+	}
+
+	return nil
+}
+
+func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewayv1.Gateway) error {
+	configMapName := fmt.Sprintf("%s-config", gateway.GetName())
+	deploymentName := fmt.Sprintf("%s-%s", gateway.GetName(), string(gateway.GetUID())[:8])
+	serviceName := deploymentName
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deploymentName,
+			Namespace: gateway.GetNamespace(),
+			Labels: map[string]string{
+				"app.kubernetes.io/name":                 "pixiu-gateway",
+				"app.kubernetes.io/managed-by":           "pg-controller",
+				"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: gateway.APIVersion,
+					Kind:       gateway.Kind,
+					Name:       gateway.GetName(),
+					UID:        gateway.GetUID(),
+					Controller: func() *bool { b := true; return &b }(),
+				},
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: func() *int32 { r := int32(1); return &r }(),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app.kubernetes.io/name":                 "pixiu-gateway",
+					"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app.kubernetes.io/name":                 "pixiu-gateway",
+						"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "pixiu",
+							Image: "mfordjody/pixiugateway:debug",
+							Args: []string{
+								"gateway",
+								"start",
+								"-c",
+								"/etc/pixiu/conf.yaml",
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "http",
+									ContainerPort: 8888,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "config",
+									MountPath: "/etc/pixiu",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: configMapName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	existingDeployment := &appsv1.Deployment{}
+	err := r.Get(ctx, client.ObjectKey{
+		Name:      deploymentName,
+		Namespace: gateway.GetNamespace(),
+	}, existingDeployment)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			if err := r.Create(ctx, deployment); err != nil {
+				return fmt.Errorf("failed to create deployment: %w", err)
+			}
+			r.Log.Info("created data plane deployment", "gateway", gateway.GetName(), "deployment", deploymentName)
+		} else {
+			return fmt.Errorf("failed to get deployment: %w", err)
+		}
+	} else {
+		needsUpdate := false
+		if !reflect.DeepEqual(existingDeployment.Spec, deployment.Spec) {
+			needsUpdate = true
+		}
+		if !reflect.DeepEqual(existingDeployment.Labels, deployment.Labels) {
+			needsUpdate = true
+		}
+
+		if needsUpdate {
+			patch := client.MergeFrom(existingDeployment.DeepCopy())
+			existingDeployment.Spec = deployment.Spec
+			existingDeployment.Labels = deployment.Labels
+			if err := r.Patch(ctx, existingDeployment, patch); err != nil {
+				return fmt.Errorf("failed to patch deployment: %w", err)
+			}
+			r.Log.Info("updated data plane deployment", "gateway", gateway.GetName(), "deployment", deploymentName)
+		}
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: gateway.GetNamespace(),
+			Labels: map[string]string{
+				"app.kubernetes.io/name":                 "pixiu-gateway",
+				"app.kubernetes.io/managed-by":           "pg-controller",
+				"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: gateway.APIVersion,
+					Kind:       gateway.Kind,
+					Name:       gateway.GetName(),
+					UID:        gateway.GetUID(),
+					Controller: func() *bool { b := true; return &b }(),
+				},
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+			Selector: map[string]string{
+				"app.kubernetes.io/name":                 "pixiu-gateway",
+				"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.FromInt(8888),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	existingService := &corev1.Service{}
+	err = r.Get(ctx, client.ObjectKey{
+		Name:      serviceName,
+		Namespace: gateway.GetNamespace(),
+	}, existingService)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			if err := r.Create(ctx, service); err != nil {
+				return fmt.Errorf("failed to create service: %w", err)
+			}
+			r.Log.Info("created data plane service", "gateway", gateway.GetName(), "service", serviceName)
+		} else {
+			return fmt.Errorf("failed to get service: %w", err)
+		}
+	} else {
+		service.Spec.ClusterIP = existingService.Spec.ClusterIP
+		service.Spec.ClusterIPs = existingService.Spec.ClusterIPs
+		existingService.Spec = service.Spec
+		existingService.Labels = service.Labels
+		if err := r.Update(ctx, existingService); err != nil {
+			return fmt.Errorf("failed to update service: %w", err)
+		}
+		r.Log.Info("updated data plane service", "gateway", gateway.GetName(), "service", serviceName)
+	}
+
+	return nil
+}
+
+func (r *GatewayReconciler) updateGatewayAddresses(ctx context.Context, gateway *gatewayv1.Gateway) error {
+	deploymentName := fmt.Sprintf("%s-%s", gateway.GetName(), string(gateway.GetUID())[:8])
+	serviceName := deploymentName
+
+	service := &corev1.Service{}
+	if err := r.Get(ctx, client.ObjectKey{
+		Name:      serviceName,
+		Namespace: gateway.GetNamespace(),
+	}, service); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			gateway.Status.Addresses = nil
+			return nil
+		}
+		return fmt.Errorf("failed to get service: %w", err)
+	}
+
+	var addresses []gatewayv1.GatewayStatusAddress
+	if service.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		if len(service.Status.LoadBalancer.Ingress) > 0 {
+			for _, ingress := range service.Status.LoadBalancer.Ingress {
+				if ingress.IP != "" {
+					addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+						Type:  func() *gatewayv1.AddressType { t := gatewayv1.IPAddressType; return &t }(),
+						Value: ingress.IP,
+					})
+				} else if ingress.Hostname != "" {
+					addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+						Type:  func() *gatewayv1.AddressType { t := gatewayv1.HostnameAddressType; return &t }(),
+						Value: ingress.Hostname,
+					})
+				}
+			}
+		}
+	}
+
+	if len(addresses) == 0 && service.Spec.ClusterIP != "" && service.Spec.ClusterIP != "None" {
+		addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+			Type:  func() *gatewayv1.AddressType { t := gatewayv1.IPAddressType; return &t }(),
+			Value: service.Spec.ClusterIP,
+		})
+	}
+
+	gateway.Status.Addresses = addresses
+	return nil
+}
+
+func (r *GatewayReconciler) listGatewaysForDeployment(ctx context.Context, obj client.Object) []reconcile.Request {
+	deployment, ok := obj.(*appsv1.Deployment)
+	if !ok {
+		return nil
+	}
+
+	if len(deployment.OwnerReferences) == 0 {
+		return nil
+	}
+
+	for _, ownerRef := range deployment.OwnerReferences {
+		if ownerRef.Kind == "Gateway" && ownerRef.APIVersion == gatewayv1.GroupVersion.String() {
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Namespace: deployment.GetNamespace(),
+						Name:      ownerRef.Name,
+					},
+				},
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *GatewayReconciler) listGatewaysForService(ctx context.Context, obj client.Object) []reconcile.Request {
+	service, ok := obj.(*corev1.Service)
+	if !ok {
+		return nil
+	}
+
+	if len(service.OwnerReferences) == 0 {
+		return nil
+	}
+
+	for _, ownerRef := range service.OwnerReferences {
+		if ownerRef.Kind == "Gateway" && ownerRef.APIVersion == gatewayv1.GroupVersion.String() {
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Namespace: service.GetNamespace(),
+						Name:      ownerRef.Name,
+					},
+				},
+			}
+		}
+	}
+
+	return nil
 }

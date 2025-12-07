@@ -59,30 +59,51 @@ func IsPathVariableOrWildcard(key string) bool {
 
 // IsWildcard return if is *
 func IsWildcard(key string) bool {
-	return key == "*"
+	return key == constant.HeaderValueAll
 }
 
+// IsMatchAll return if is **
 func IsMatchAll(key string) bool {
-	return key == "**"
+	return key == constant.HeaderValueAllLevels
 }
 
 func GetTrieKey(method string, path string) string {
+	// "http://localhost:8882/api/v1/test-dubbo/user?name=tc/"
 	ret := ""
-	//"http://localhost:8882/api/v1/test-dubbo/user?name=tc"
+
 	if strings.Contains(path, constant.ProtocolSlash) {
 		path = path[strings.Index(path, constant.ProtocolSlash)+len(constant.ProtocolSlash):]
 		path = path[strings.Index(path, constant.PathSlash)+1:]
 	}
+	// "api/v1/test-dubbo/user?name=tc/"
+
 	if strings.HasPrefix(path, constant.PathSlash) {
 		ret = method + path
 	} else {
 		ret = method + constant.PathSlash + path
 	}
+	// "METHOD/api/v1/test-dubbo/user?name=tc/"
+
 	if strings.HasSuffix(ret, constant.PathSlash) {
 		ret = ret[0 : len(ret)-1]
 	}
+	// "METHOD/api/v1/test-dubbo/user?name=tc"
+
 	ret = strings.Split(ret, "?")[0]
+	// "METHOD/api/v1/test-dubbo/user"
+
 	return ret
+}
+
+func GetTrieKeyWithPrefix(method, path, prefix string, isPrefix bool) string {
+	if isPrefix {
+		if prefix != "" && prefix[len(prefix)-1] != '/' {
+			prefix += constant.PathSlash
+		}
+		prefix += constant.HeaderValueAllLevels
+		return GetTrieKey(method, prefix)
+	}
+	return GetTrieKey(method, path)
 }
 
 func GetIPAndPort(address string) ([]*net.TCPAddr, error) {

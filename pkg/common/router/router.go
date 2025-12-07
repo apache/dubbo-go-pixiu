@@ -19,8 +19,10 @@ package router
 
 import (
 	stdHttp "net/http"
-	"strings"
+	"slices"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 import (
@@ -28,7 +30,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -37,136 +38,216 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
-type (
-	// RouterCoordinator the router coordinator for http connection manager
-	RouterCoordinator struct {
-		activeConfig *model.RouteConfiguration
-		rw           sync.RWMutex
-	}
-)
+// RouterCoordinator the router coordinator for http connection manager
+type RouterCoordinator struct {
+	mainSnapshot atomic.Pointer[model.RouteSnapshot] // atomic snapshot
+	mu           sync.Mutex
+
+	nextSnapshot []*model.Router // temp store for dynamic update, DO NOT read directly
+
+	timer    *time.Timer   // debounce timer
+	debounce time.Duration // merge window, default 50ms
+}
 
 // CreateRouterCoordinator create coordinator for http connection manager
 func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoordinator {
-	rc := &RouterCoordinator{activeConfig: routeConfig}
+	rc := &RouterCoordinator{
+		nextSnapshot: make([]*model.Router, 0, len(routeConfig.Routes)),
+		debounce:     50 * time.Millisecond, // merge window
+	}
 	if routeConfig.Dynamic {
 		server.GetRouterManager().AddRouterListener(rc)
 	}
-	rc.initTrie()
-	rc.initRegex()
+	// build initial config and store snapshot
+	rc.mainSnapshot.Store(model.ToSnapshot(buildRouteConfiguration(routeConfig.Routes).Routes))
+	// copy initial routes to store, keep origin order
+	rc.nextSnapshot = append(rc.nextSnapshot, routeConfig.Routes...)
 	return rc
 }
 
-// Route find routeAction for request
 func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, error) {
-	rm.rw.RLock()
-	defer rm.rw.RUnlock()
-
 	return rm.route(hc.Request)
 }
 
 func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.RouteAction, error) {
-	rm.rw.RLock()
-	defer rm.rw.RUnlock()
-
-	return rm.activeConfig.RouteByPathAndMethod(path, method)
+	s := rm.mainSnapshot.Load()
+	if s == nil {
+		return nil, errors.New("router configuration is empty")
+	}
+	t := s.MethodTries[method]
+	if t == nil {
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(method, path))
+	}
+	node, _, ok := t.Match(stringutil.GetTrieKey(method, path))
+	if !ok || node == nil || node.GetBizInfo() == nil {
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(method, path))
+	}
+	act, ok := node.GetBizInfo().(model.RouteAction)
+	if !ok {
+		return nil, errors.Errorf("route failed for %s, invalid route action type", stringutil.GetTrieKey(method, path))
+	}
+	return &act, nil
 }
 
 func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, error) {
-	// match those route that only contains headers first
-	var matched []*model.Router
-	for _, route := range rm.activeConfig.Routes {
-		if len(route.Match.Prefix) > 0 {
+	s := rm.mainSnapshot.Load()
+	if s == nil {
+		return nil, errors.New("router configuration is empty")
+	}
+
+	// header-only first
+	for _, hr := range s.HeaderOnly {
+		if !model.MethodAllowed(hr.Methods, req.Method) {
 			continue
 		}
-		if route.Match.MatchHeader(req) {
-			matched = append(matched, route)
+		if matchHeaders(hr.Headers, req) {
+			if len(hr.Action.Cluster) == 0 {
+				return nil, errors.New("action is nil. please check your configuration.")
+			}
+			return &hr.Action, nil
 		}
 	}
+	// Trie
+	t := s.MethodTries[req.Method]
+	if t == nil {
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(req.Method, req.URL.Path))
 
-	// always return the first match of header if got any
-	if len(matched) > 0 {
-		if len(matched[0].Route.Cluster) == 0 {
-			return nil, errors.New("action is nil. please check your configuration.")
+	}
+
+	node, _, ok := t.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
+	if !ok || node == nil || node.GetBizInfo() == nil {
+		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(req.Method, req.URL.Path))
+	}
+	act, ok := node.GetBizInfo().(model.RouteAction)
+	if !ok {
+		return nil, errors.Errorf("route failed for %s, invalid route action type", stringutil.GetTrieKey(req.Method, req.URL.Path))
+	}
+	return &act, nil
+}
+
+// reset timer or publish directly
+func (rm *RouterCoordinator) schedulePublishLocked() {
+	if rm.debounce <= 0 {
+		// fallback: immediate
+		rm.publishLocked()
+		return
+	}
+	if rm.timer == nil {
+		rm.timer = time.NewTimer(rm.debounce)
+		go rm.awaitAndPublish()
+		return
+	}
+	// clear timer channel
+	if !rm.timer.Stop() {
+		select {
+		case <-rm.timer.C:
+		default:
 		}
-		return &matched[0].Route, nil
 	}
-
-	// match those route that only contains prefix
-	// TODO: may consider implementing both prefix and header in the future
-	return rm.activeConfig.Route(req)
+	rm.timer.Reset(rm.debounce)
 }
 
-func getTrieKey(method string, path string, isPrefix bool) string {
-	if isPrefix {
-		if !strings.HasSuffix(path, constant.PathSlash) {
-			path = path + constant.PathSlash
-		}
-		path = path + "**"
-	}
-	return stringutil.GetTrieKey(method, path)
+// wait for timer and publish
+func (rm *RouterCoordinator) awaitAndPublish() {
+	<-rm.timer.C
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	rm.publishLocked()
+	rm.timer = nil
 }
 
-func (rm *RouterCoordinator) initTrie() {
-	if rm.activeConfig.RouteTrie.IsEmpty() {
-		rm.activeConfig.RouteTrie = trie.NewTrie()
-	}
-	for _, router := range rm.activeConfig.Routes {
-		rm.OnAddRouter(router)
-	}
+// publish: clone from store -> build new config -> atomic switch
+func (rm *RouterCoordinator) publishLocked() {
+	// 1) clone routes
+	next := make([]*model.Router, len(rm.nextSnapshot))
+	copy(next, rm.nextSnapshot)
+	// 2) build new config
+	cfg := buildRouteConfiguration(next)
+	// 3) atomic switch
+	rm.mainSnapshot.Store(model.ToSnapshot(cfg.Routes))
 }
 
-func (rm *RouterCoordinator) initRegex() {
-	for _, router := range rm.activeConfig.Routes {
+func buildRouteConfiguration(routes []*model.Router) *model.RouteConfiguration {
+	cfg := &model.RouteConfiguration{
+		RouteTrie: trie.NewTrie(),
+		Routes:    make([]*model.Router, 0, len(routes)),
+		Dynamic:   false,
+	}
+	cfg.Routes = append(cfg.Routes, routes...)
+	initRegex(cfg)
+	fillTrieFromRoutes(cfg)
+	return cfg
+}
+
+func initRegex(cfg *model.RouteConfiguration) {
+	for _, router := range cfg.Routes {
 		headers := router.Match.Headers
 		for i := range headers {
 			if headers[i].Regex && len(headers[i].Values) > 0 {
-				// regexp always use first value of header
-				err := headers[i].SetValueRegex(headers[i].Values[0])
-				if err != nil {
-					logger.Errorf("invalid regexp in headers[%d]: %v", i, err)
-					panic(err)
+				if err := headers[i].SetValueRegex(headers[i].Values[0]); err != nil {
+					logger.Warnf("invalid regexp in headers[%d]: %v", i, err)
 				}
 			}
 		}
 	}
 }
 
-// OnAddRouter add router
+// OnAddRouter add router, every call of OnAdd will ADD a new rule, instead of OVERWRITE the same rule
 func (rm *RouterCoordinator) OnAddRouter(r *model.Router) {
-	//TODO: lock move to trie node
-	rm.rw.Lock()
-	defer rm.rw.Unlock()
-	if r.Match.Methods == nil {
-		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post, constant.Options}
-	}
-	isPrefix := r.Match.Prefix != ""
-	for _, method := range r.Match.Methods {
-		var key string
-		if isPrefix {
-			key = getTrieKey(method, r.Match.Prefix, isPrefix)
-		} else {
-			key = getTrieKey(method, r.Match.Path, isPrefix)
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	rm.nextSnapshot = append(rm.nextSnapshot, r)
+	rm.schedulePublishLocked()
+}
+
+func fillTrieFromRoutes(cfg *model.RouteConfiguration) {
+	for _, r := range cfg.Routes {
+		methods := r.Match.Methods
+		if len(methods) == 0 {
+			methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 		}
-		_, _ = rm.activeConfig.RouteTrie.Put(key, r.Route)
+		for _, m := range methods {
+			key := stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, r.Match.Prefix != "")
+			_, _ = cfg.RouteTrie.Put(key, r.Route)
+		}
 	}
 }
 
 // OnDeleteRouter delete router
 func (rm *RouterCoordinator) OnDeleteRouter(r *model.Router) {
-	rm.rw.Lock()
-	defer rm.rw.Unlock()
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	if r.Match.Methods == nil {
-		r.Match.Methods = []string{constant.Get, constant.Put, constant.Delete, constant.Post}
+	if len(rm.nextSnapshot) == 0 {
+		return
 	}
-	isPrefix := r.Match.Prefix != ""
-	for _, method := range r.Match.Methods {
-		var key string
-		if isPrefix {
-			key = getTrieKey(method, r.Match.Prefix, isPrefix)
-		} else {
-			key = getTrieKey(method, r.Match.Path, isPrefix)
+	out := rm.nextSnapshot[:0]
+	for _, rr := range rm.nextSnapshot {
+		if rr.ID == r.ID {
+			continue
 		}
-		_, _ = rm.activeConfig.RouteTrie.Remove(key)
+		out = append(out, rr)
 	}
+	rm.nextSnapshot = out
+	rm.schedulePublishLocked()
+}
+
+func matchHeaders(chs []model.CompiledHeader, r *stdHttp.Request) bool {
+	for _, ch := range chs {
+		if val := r.Header.Get(ch.Name); len(val) > 0 {
+			if ch.Regex != nil {
+				if ok := ch.Regex.MatchString(val); !ok {
+					return false
+				}
+				continue
+			}
+
+			if !slices.Contains(ch.Values, val) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+	return true
 }

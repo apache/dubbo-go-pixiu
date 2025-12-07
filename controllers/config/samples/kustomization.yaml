@@ -1,4 +1,0 @@
-## Append samples of your project ##
-resources:
-- v1alpha1_gatewayproxy.yaml
-# +kubebuilder:scaffold:manifestskustomizesamples
