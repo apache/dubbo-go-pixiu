@@ -4,12 +4,12 @@ go 1.25
 
 require (
 	dario.cat/mergo v1.0.1
-	dubbo.apache.org/dubbo-go/v3 v3.1.1
+	dubbo.apache.org/dubbo-go/v3 v3.3.0
 	github.com/IBM/sarama v1.45.1
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/alibaba/sentinel-golang v1.0.4
-	github.com/apache/dubbo-getty v1.4.9
-	github.com/apache/dubbo-go-hessian2 v1.12.3
+	github.com/apache/dubbo-getty v1.4.10
+	github.com/apache/dubbo-go-hessian2 v1.12.5
 	github.com/cch123/supermonkey v1.0.1
 	github.com/creasty/defaults v1.5.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -17,7 +17,7 @@ require (
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
 	github.com/dubbogo/gost v1.14.1
 	github.com/dubbogo/grpc-go v1.42.10
-	github.com/dubbogo/triple v1.2.2-rc3
+	github.com/dubbogo/triple v1.2.2-rc4
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240621013728-1eb8caab5155
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.10.1
@@ -122,6 +122,7 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
+	github.com/dop251/goja v0.0.0-20240220182346-e401ed450204 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
@@ -131,7 +132,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/go-co-op/gocron v1.9.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -149,15 +149,16 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.20.0 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
-	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
@@ -215,7 +216,6 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shirou/gopsutil/v3 v3.22.2 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
@@ -243,6 +243,7 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.7 // indirect
 	go.opentelemetry.io/contrib/propagators/b3 v1.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.10.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/zipkin v1.10.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect

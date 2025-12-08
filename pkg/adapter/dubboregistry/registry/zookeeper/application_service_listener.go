@@ -28,7 +28,6 @@ import (
 import (
 	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	dubboConst "dubbo.apache.org/dubbo-go/v3/common/constant"
-	"dubbo.apache.org/dubbo-go/v3/metadata/definition"
 	dr "dubbo.apache.org/dubbo-go/v3/registry"
 	"dubbo.apache.org/dubbo-go/v3/registry/servicediscovery"
 	"dubbo.apache.org/dubbo-go/v3/remoting/zookeeper/curator_discovery"
@@ -257,7 +256,14 @@ func (asl *applicationServiceListener) getMethods(in string) ([]string, error) {
 		return nil, err
 	}
 
-	sd := &definition.ServiceDefinition{}
+	// Minimal struct to parse method names from service definition JSON.
+	type method struct {
+		Name string `json:"name"`
+	}
+	type serviceDefinition struct {
+		Methods []method `json:"methods"`
+	}
+	sd := &serviceDefinition{}
 	err = json.Unmarshal(data, sd)
 	if err != nil {
 		return nil, err
