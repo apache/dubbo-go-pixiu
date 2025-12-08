@@ -73,7 +73,7 @@ With Pixiu, you can:
 | 🔍 **Service Discovery**   | Integrates with Zookeeper, Nacos, or any service registry to discover Dubbo and Spring Cloud services automatically.           |
 | ⚖️ **Traffic Governance**  | Integrates with Sentinel for fine-grained rate limiting, circuit breaking, and traffic shaping.                                |
 | 📈 **Observability**       | OpenTelemetry and Jaeger support for full tracing, metrics, and logging visibility.                                            |
-| 🎨 **Visual Management**   | The **[Pixiu-admin](./admin)** UI offers real-time visual configuration for gateway rules and policies.                                   |
+| 🎨 **Visual Management**   | The **[Pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)** UI offers real-time visual configuration for gateway rules and policies.                                   |
 
 ## Deploying with Docker
 
@@ -128,9 +128,9 @@ docker-compose up -d
 ## Other Projects in the Dubbo-Go-Pixiu Ecosystem
 
 * **[dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)** — Official sample repository demonstrating various use cases
-* **[pixiu-admin](./admin)** — Visual management plane for configuration & monitoring
+* **[pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)** — Visual management plane for configuration & monitoring
 * **[pixiu-api](https://github.com/dubbo-go-pixiu/pixiu-api)** — API / model definitions for Pixiu Admin
-* **[benchmark](./tools/benchmark/)** — Benchmarking suite for pixiu
+* **[benchmark](https://github.com/apache/dubbo-go-pixiu/tree/develop/tools/benchmark)** — Benchmarking suite for pixiu
 
 ## Community & Contribution
 

@@ -72,7 +72,7 @@ Pixiu 已经发展成 **通用 AI 网关**，旨在简化并统一访问 **LLMs 
 | 🔍 **服务发现**   | 集成 Zookeeper、Nacos 或任何服务注册中心，自动发现 Dubbo 和 Spring Cloud 服务。 |
 | ⚖️ **流量治理**   | 集成 Sentinel，实现精细化的限流、熔断和流量整形。                              |
 | 📈 **可观测性**   | 支持 OpenTelemetry 和 Jaeger 实现全链路追踪、指标和日志可视化。                |
-| 🎨 **可视化管理**  | **[Pixiu-admin](./admin)** UI 提供实时可视化的网关规则和策略配置管理。                    |
+| 🎨 **可视化管理**  | **[Pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)** UI 提供实时可视化的网关规则和策略配置管理。                    |
 
 ## 使用 Docker 部署
 
@@ -125,9 +125,9 @@ docker-compose up -d
 ## Dubbo-Go-Pixiu 生态中的其他项目
 
 * **[dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)** — 官方示例仓库，展示各种用例
-* **[pixiu-admin](./admin)** — 可视化配置与监控管理平台
+* **[pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)** — 可视化配置与监控管理平台
 * **[pixiu-api](https://github.com/dubbo-go-pixiu/pixiu-api)** — Pixiu 管理面 API / 模型定义
-* **[benchmark](./tools/benchmark/)** — Pixiu 性能测试套件
+* **[benchmark](https://github.com/apache/dubbo-go-pixiu/tree/develop/tools/benchmark)** — Pixiu 性能测试套件
 
 ## 社区与贡献
 
