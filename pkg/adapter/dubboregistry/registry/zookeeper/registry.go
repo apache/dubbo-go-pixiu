@@ -20,22 +20,17 @@ package zookeeper
 import (
 	"strings"
 	"time"
-)
 
-import (
+	_ "dubbo.apache.org/dubbo-go/v3/metadata/info"
+
 	"github.com/pkg/errors"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	baseRegistry "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/base"
 	zk "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-
-	// Ensure metadata info POJOs are registered in Hessian.
-	_ "dubbo.apache.org/dubbo-go/v3/metadata/info"
 )
 
 var (

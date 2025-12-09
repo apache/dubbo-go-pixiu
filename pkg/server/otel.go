@@ -28,7 +28,7 @@ import (
 
 	"go.opentelemetry.io/otel/exporters/prometheus"
 
-	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel"
 
 	"go.opentelemetry.io/otel/sdk/metric"
 )
@@ -40,17 +40,15 @@ import (
 
 func registerOtelMetricMeter(conf model.Metric) {
 	if conf.Enable {
-		exporter := prometheus.New()
-		provider := metric.NewMeterProvider(metric.WithReader(exporter))
-
 		registry := sdkprometheus.NewRegistry()
-		err := registry.Register(exporter.Collector)
+		exporter, err := prometheus.New(prometheus.WithRegisterer(registry))
 		if err != nil {
 			logger.Errorf("register otel metric meter failed, err: %v", err)
 			return
 		}
+		provider := metric.NewMeterProvider(metric.WithReader(exporter))
 
-		global.SetMeterProvider(provider)
+		otel.SetMeterProvider(provider)
 
 		http.Handle("/", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 		addr := ":" + strconv.Itoa(conf.PrometheusPort)

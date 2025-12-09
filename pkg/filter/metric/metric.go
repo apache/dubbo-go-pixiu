@@ -27,10 +27,9 @@ import (
 import (
 	"github.com/pkg/errors"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric"
 )
 
 import (
@@ -107,47 +106,47 @@ func initOTelInstruments() (*OTelInstruments, error) {
 }
 
 func doInitOTelInstruments() error {
-	meter := global.MeterProvider().Meter("pixiu")
+	meter := otel.GetMeterProvider().Meter("pixiu")
 
 	instruments := &OTelInstruments{}
 
-	elapsedCounter, err := meter.SyncInt64().Counter("pixiu_request_elapsed",
-		instrument.WithDescription("request total elapsed in pixiu"))
+	elapsedCounter, err := meter.Int64Counter("pixiu_request_elapsed",
+		metric.WithDescription("request total elapsed in pixiu"))
 	if err != nil {
 		return fmt.Errorf("register pixiu_request_elapsed metric failed: %w", err)
 	}
 	instruments.totalElapsed = elapsedCounter
 
-	count, err := meter.SyncInt64().Counter("pixiu_request_count",
-		instrument.WithDescription("request total count in pixiu"))
+	count, err := meter.Int64Counter("pixiu_request_count",
+		metric.WithDescription("request total count in pixiu"))
 	if err != nil {
 		return fmt.Errorf("register pixiu_request_count metric failed: %w", err)
 	}
 	instruments.totalCount = count
 
-	errorCounter, err := meter.SyncInt64().Counter("pixiu_request_error_count",
-		instrument.WithDescription("request error total count in pixiu"))
+	errorCounter, err := meter.Int64Counter("pixiu_request_error_count",
+		metric.WithDescription("request error total count in pixiu"))
 	if err != nil {
 		return fmt.Errorf("register pixiu_request_error_count metric failed: %w", err)
 	}
 	instruments.totalError = errorCounter
 
-	sizeRequest, err := meter.SyncInt64().Counter("pixiu_request_content_length",
-		instrument.WithDescription("request total content length in pixiu"))
+	sizeRequest, err := meter.Int64Counter("pixiu_request_content_length",
+		metric.WithDescription("request total content length in pixiu"))
 	if err != nil {
 		return fmt.Errorf("register pixiu_request_content_length metric failed: %w", err)
 	}
 	instruments.sizeRequest = sizeRequest
 
-	sizeResponse, err := meter.SyncInt64().Counter("pixiu_response_content_length",
-		instrument.WithDescription("request total content length response in pixiu"))
+	sizeResponse, err := meter.Int64Counter("pixiu_response_content_length",
+		metric.WithDescription("request total content length response in pixiu"))
 	if err != nil {
 		return fmt.Errorf("register pixiu_response_content_length metric failed: %w", err)
 	}
 	instruments.sizeResponse = sizeResponse
 
-	durationHist, err := meter.SyncInt64().Histogram("pixiu_process_time_millisec",
-		instrument.WithDescription("request process time response in pixiu"))
+	durationHist, err := meter.Int64Histogram("pixiu_process_time_millisec",
+		metric.WithDescription("request process time response in pixiu"))
 	if err != nil {
 		return fmt.Errorf("register pixiu_process_time_millisec metric failed: %w", err)
 	}
@@ -223,38 +222,40 @@ func (f *Filter) reportWithOTel(ctx *contextHttp.HttpContext) filter.FilterStatu
 	// Report context metrics dynamically
 	contextMetrics := ctx.GetAllMetrics()
 	if len(contextMetrics) > 0 {
-		meter := global.MeterProvider().Meter("pixiu")
+		meter := otel.GetMeterProvider().Meter("pixiu")
 
 		for _, m := range contextMetrics {
 			attrs := toOTelAttributes(m.Labels)
 
+			opts := metric.WithAttributes(attrs...)
+
 			switch m.Type {
 			case "counter":
-				counter, err := meter.SyncInt64().Counter(m.Name,
-					instrument.WithDescription(fmt.Sprintf("Context counter: %s", m.Name)))
+				counter, err := meter.Int64Counter(m.Name,
+					metric.WithDescription(fmt.Sprintf("Context counter: %s", m.Name)))
 				if err != nil {
 					logger.Warnf("[MetricReporter] Failed to create counter %s: %v", m.Name, err)
 					continue
 				}
-				counter.Add(ctx.Ctx, int64(m.Value), attrs...)
+				counter.Add(ctx.Ctx, int64(m.Value), opts)
 
 			case "histogram":
-				histogram, err := meter.SyncFloat64().Histogram(m.Name,
-					instrument.WithDescription(fmt.Sprintf("Context histogram: %s", m.Name)))
+				histogram, err := meter.Float64Histogram(m.Name,
+					metric.WithDescription(fmt.Sprintf("Context histogram: %s", m.Name)))
 				if err != nil {
 					logger.Warnf("[MetricReporter] Failed to create histogram %s: %v", m.Name, err)
 					continue
 				}
-				histogram.Record(ctx.Ctx, m.Value, attrs...)
+				histogram.Record(ctx.Ctx, m.Value, opts)
 
 			case "gauge":
-				gauge, err := meter.SyncInt64().UpDownCounter(m.Name,
-					instrument.WithDescription(fmt.Sprintf("Context gauge: %s", m.Name)))
+				gauge, err := meter.Int64UpDownCounter(m.Name,
+					metric.WithDescription(fmt.Sprintf("Context gauge: %s", m.Name)))
 				if err != nil {
 					logger.Warnf("[MetricReporter] Failed to create gauge %s: %v", m.Name, err)
 					continue
 				}
-				gauge.Add(ctx.Ctx, int64(m.Value), attrs...)
+				gauge.Add(ctx.Ctx, int64(m.Value), opts)
 			}
 		}
 	}
@@ -266,30 +267,31 @@ func (f *Filter) reportWithOTel(ctx *contextHttp.HttpContext) filter.FilterStatu
 		attribute.String("url", ctx.GetUrl()),
 		attribute.String("host", ctx.Request.Host),
 	}
+	commonOpts := metric.WithAttributes(commonAttrs...)
 
 	latency := time.Since(f.start)
-	f.otelInstruments.totalCount.Add(ctx.Ctx, 1, commonAttrs...)
+	f.otelInstruments.totalCount.Add(ctx.Ctx, 1, commonOpts)
 	latencyMilli := latency.Milliseconds()
-	f.otelInstruments.totalElapsed.Add(ctx.Ctx, latencyMilli, commonAttrs...)
+	f.otelInstruments.totalElapsed.Add(ctx.Ctx, latencyMilli, commonOpts)
 
 	if ctx.LocalReply() {
 		f.otelInstruments.totalError.Add(ctx.Ctx, 1)
 	}
 
-	f.otelInstruments.durationHist.Record(ctx.Ctx, latencyMilli, commonAttrs...)
+	f.otelInstruments.durationHist.Record(ctx.Ctx, latencyMilli, commonOpts)
 
 	size, err := computeApproximateRequestSize(ctx.Request)
 	if err != nil {
 		logger.Warnf("[MetricReporter] Cannot compute request size: %v", err)
 	} else {
-		f.otelInstruments.sizeRequest.Add(ctx.Ctx, int64(size), commonAttrs...)
+		f.otelInstruments.sizeRequest.Add(ctx.Ctx, int64(size), commonOpts)
 	}
 
 	size, err = computeApproximateResponseSize(ctx.TargetResp)
 	if err != nil {
 		logger.Warnf("[MetricReporter] Cannot compute response size: %v", err)
 	} else {
-		f.otelInstruments.sizeResponse.Add(ctx.Ctx, int64(size), commonAttrs...)
+		f.otelInstruments.sizeResponse.Add(ctx.Ctx, int64(size), commonOpts)
 	}
 
 	logger.Debugf("[MetricReporter] [PULL] request | %d | %s | %s | %s |",

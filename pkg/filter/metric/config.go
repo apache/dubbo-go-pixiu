@@ -22,10 +22,8 @@ import (
 )
 
 import (
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
-)
+	"go.opentelemetry.io/otel/metric"
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
@@ -55,12 +53,12 @@ type PushConfig struct {
 }
 
 type OTelInstruments struct {
-	totalElapsed syncint64.Counter
-	totalCount   syncint64.Counter
-	totalError   syncint64.Counter
-	sizeRequest  syncint64.Counter
-	sizeResponse syncint64.Counter
-	durationHist syncint64.Histogram
+	totalElapsed metric.Int64Counter
+	totalCount   metric.Int64Counter
+	totalError   metric.Int64Counter
+	sizeRequest  metric.Int64Counter
+	sizeResponse metric.Int64Counter
+	durationHist metric.Int64Histogram
 }
 
 // Validate validates the configuration based on mode.
