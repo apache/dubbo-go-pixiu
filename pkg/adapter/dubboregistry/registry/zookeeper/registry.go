@@ -22,7 +22,6 @@ import (
 	"time"
 
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/info"
-
 	"github.com/pkg/errors"
 
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"

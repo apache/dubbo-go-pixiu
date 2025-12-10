@@ -31,11 +31,8 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
-
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
