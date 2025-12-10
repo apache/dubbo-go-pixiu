@@ -61,9 +61,8 @@
 * Application gateway / ingress refactoring to a modern architecture ([#827](https://github.com/apache/dubbo-go-pixiu/pull/827))
 * Support for a new ingress controller ([#792](https://github.com/apache/dubbo-go-pixiu/pull/792))
 
-#### A2A / Tools / Extensibility
+#### Tools / Extensibility
 
-* A2A Server Filter implementation ([#771](https://github.com/apache/dubbo-go-pixiu/pull/771))
 * Benchmark tool enhancements ([#807](https://github.com/apache/dubbo-go-pixiu/pull/807))
 * Open Policy Agent (OPA) HTTP filter support ([#732](https://github.com/apache/dubbo-go-pixiu/pull/732))
 
