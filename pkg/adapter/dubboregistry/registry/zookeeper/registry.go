@@ -20,11 +20,14 @@ package zookeeper
 import (
 	"strings"
 	"time"
+)
 
+import (
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/info"
-
 	"github.com/pkg/errors"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	baseRegistry "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/base"
