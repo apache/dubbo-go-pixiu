@@ -1,0 +1,189 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: pixiufilterpolicies.pixiu.apache.org
+spec:
+  group: pixiu.apache.org
+  names:
+    kind: PixiuFilterPolicy
+    listKind: PixiuFilterPolicyList
+    plural: pixiufilterpolicies
+    shortNames:
+    - pfp
+    singular: pixiufilterpolicy
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PixiuFilterPolicy is the Schema for the pixiufilterpolicies API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PixiuFilterPolicySpec defines the desired state of PixiuFilterPolicy
+            properties:
+              config:
+                description: |-
+                  Config contains the filter-specific configuration
+                  Using runtime.RawExtension to support arbitrary JSON configuration
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              filterType:
+                description: FilterType specifies the type of filter to configure
+                enum:
+                - dgp.filter.http.auth.jwt
+                - dgp.filter.http.opa
+                - dgp.filter.http.cors
+                - dgp.filter.http.csrf
+                - dgp.filter.http.traffic
+                - dgp.filter.http.ratelimit
+                - dgp.filter.http.httpproxy
+                - dgp.filter.http.dubboproxy
+                - dgp.filter.http.directdubboproxy
+                - dgp.filter.http.apiconfig
+                - dgp.filter.http.loadbalance
+                - dgp.filter.http.prometheusmetric
+                - dgp.filter.http.seata
+                - dgp.filter.mcp.mcpserver
+                - dgp.filter.network.dubboconnectionmanager
+                - dgp.filter.network.grpcconnectionmanager
+                type: string
+              listenersRef:
+                description: |-
+                  ListenersRef defines listener-specific configurations
+                  This is used when targeting a Gateway to configure multiple listeners
+                items:
+                  description: ListenerRefConfig defines configuration for a specific
+                    listener
+                  properties:
+                    config:
+                      description: Config contains the listener-specific configuration
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    filterChains:
+                      description: FilterChains defines the filter chain configuration
+                      properties:
+                        type:
+                          description: Type specifies the filter chain type
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    name:
+                      description: Name specifies the listener name
+                      type: string
+                  required:
+                  - filterChains
+                  - name
+                  type: object
+                type: array
+              targetRef:
+                description: TargetRef identifies an API object to apply policy to.
+                properties:
+                  group:
+                    description: Group is the group of the target resource.
+                    type: string
+                  kind:
+                    description: Kind is kind of the target resource.
+                    type: string
+                  name:
+                    description: Name is the name of the target resource.
+                    type: string
+                  namespace:
+                    description: Namespace is the namespace of the target resource.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+            required:
+            - targetRef
+            type: object
+          status:
+            description: PixiuFilterPolicyStatus defines the observed state of PixiuFilterPolicy
+            properties:
+              conditions:
+                description: Conditions describe the current conditions of the PixiuFilterPolicy.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

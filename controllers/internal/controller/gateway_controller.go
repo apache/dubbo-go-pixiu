@@ -19,12 +19,18 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 import (
+	"controllers/api/v1alpha1"
+
 	"controllers/internal/controller/status"
 
 	"controllers/internal/converter"
@@ -40,6 +46,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 
 	corev1 "k8s.io/api/core/v1"
+
+	discoveryv1 "k8s.io/api/discovery/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,6 +106,16 @@ func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&corev1.Service{},
 			handler.EnqueueRequestsFromMapFunc(r.listGatewaysForService),
+		).
+		Watches(
+			&v1alpha1.PixiuFilterPolicy{},
+			handler.EnqueueRequestsFromMapFunc(r.listGatewaysForFilterPolicy),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
+		Watches(
+			&v1alpha1.PixiuClusterPolicy{},
+			handler.EnqueueRequestsFromMapFunc(r.listGatewaysForClusterPolicy),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		)
 
 	if GetEnableReferenceGrant() {
@@ -139,13 +157,14 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	r.processListenerConfig(gateway)
 
-	if err := r.ensureGatewayConfigMap(ctx, gateway); err != nil {
+	configHash, err := r.ensureGatewayConfigMap(ctx, gateway)
+	if err != nil {
 		r.Log.Error(err, "failed to ensure gateway configmap", "gateway", gateway.GetName())
 		conditionProgrammedStatus = false
 		conditionProgrammedMsg = fmt.Sprintf("Failed to create configmap: %v", err)
 	}
 
-	if err := r.ensureDataPlane(ctx, gateway); err != nil {
+	if err := r.ensureDataPlane(ctx, gateway, configHash); err != nil {
 		r.Log.Error(err, "failed to ensure data plane", "gateway", gateway.GetName())
 		conditionProgrammedStatus = false
 		conditionProgrammedMsg = fmt.Sprintf("Failed to create data plane: %v", err)
@@ -267,6 +286,94 @@ func (r *GatewayReconciler) listGatewaysForHTTPRoute(ctx context.Context, obj cl
 	return recs
 }
 
+func (r *GatewayReconciler) listGatewaysForFilterPolicy(ctx context.Context, obj client.Object) []reconcile.Request {
+	policy, ok := obj.(*v1alpha1.PixiuFilterPolicy)
+	if !ok {
+		r.Log.Error(fmt.Errorf("unexpected object type"), "PixiuFilterPolicy watch received unexpected object", "found", reflect.TypeOf(obj))
+		return nil
+	}
+	group := policy.Spec.TargetRef.Group
+	if group != "" && !strings.EqualFold(group, gatewayv1.GroupName) {
+		return nil
+	}
+	if !strings.EqualFold(policy.Spec.TargetRef.Kind, KindGateway) {
+		return nil
+	}
+	ns := policy.Namespace
+	if policy.Spec.TargetRef.Namespace != nil {
+		ns = string(*policy.Spec.TargetRef.Namespace)
+	}
+	gwName := string(policy.Spec.TargetRef.Name)
+	gw := new(gatewayv1.Gateway)
+	if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: gwName}, gw); err != nil {
+		return nil
+	}
+	if !r.checkGatewayClass(gw) {
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Namespace: ns,
+			Name:      gwName,
+		},
+	}}
+}
+
+func (r *GatewayReconciler) listGatewaysForClusterPolicy(ctx context.Context, obj client.Object) []reconcile.Request {
+	policy, ok := obj.(*v1alpha1.PixiuClusterPolicy)
+	if !ok {
+		r.Log.Error(fmt.Errorf("unexpected object type"), "PixiuClusterPolicy watch received unexpected object", "found", reflect.TypeOf(obj))
+		return nil
+	}
+	group := policy.Spec.TargetRef.Group
+	if group != "" && !strings.EqualFold(group, gatewayv1.GroupName) {
+		r.Log.Info(
+			"filter policy targetRef group does not match Gateway API group",
+			"policy", client.ObjectKeyFromObject(policy),
+			"group", group,
+		)
+		return nil
+	}
+	if !strings.EqualFold(policy.Spec.TargetRef.Kind, KindGateway) {
+		r.Log.Info(
+			"filter policy targetRef kind is not Gateway",
+			"policy", client.ObjectKeyFromObject(policy),
+			"kind", policy.Spec.TargetRef.Kind,
+		)
+		return nil
+	}
+	ns := policy.Namespace
+	if policy.Spec.TargetRef.Namespace != nil {
+		ns = string(*policy.Spec.TargetRef.Namespace)
+	}
+	gwName := string(policy.Spec.TargetRef.Name)
+	gw := new(gatewayv1.Gateway)
+	if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: gwName}, gw); err != nil {
+		r.Log.Info(
+			"referenced Gateway not found for filter policy",
+			"policy", client.ObjectKeyFromObject(policy),
+			"gateway", client.ObjectKey{Namespace: ns, Name: gwName},
+			"error", err,
+		)
+		return nil
+	}
+	if !r.checkGatewayClass(gw) {
+		r.Log.Info(
+			"gateway class not supported by this controller",
+			"policy", client.ObjectKeyFromObject(policy),
+			"gateway", client.ObjectKeyFromObject(gw),
+			"gatewayClass", gw.Spec.GatewayClassName,
+		)
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Namespace: ns,
+			Name:      gwName,
+		},
+	}}
+}
+
 func (r *GatewayReconciler) listReferenceGrantsForGateway(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	grant, ok := obj.(*v1beta1.ReferenceGrant)
 	if !ok {
@@ -331,7 +438,7 @@ func (r *GatewayReconciler) processListenerConfig(gateway *gatewayv1.Gateway) {
 	}
 }
 
-func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway *gatewayv1.Gateway) error {
+func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway *gatewayv1.Gateway) (string, error) {
 	configMapName := fmt.Sprintf("%s-config", gateway.GetName())
 
 	translator := translator.NewTranslator(r.Client, r.Log)
@@ -339,7 +446,7 @@ func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway 
 
 	xds, err := translator.TranslateGateway(ctx, gateway)
 	if err != nil {
-		return fmt.Errorf("failed to translate Gateway to IR: %w", err)
+		return "", fmt.Errorf("failed to translate Gateway to IR: %w", err)
 	}
 
 	allClusters := []*ir.Cluster{}
@@ -397,13 +504,72 @@ func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway 
 
 	pixiuConfig, err := conv.ConvertIRToPixiuConfig(xds, allClusters)
 	if err != nil {
-		return fmt.Errorf("failed to convert IR to Pixiu config: %w", err)
+		return "", fmt.Errorf("failed to convert IR to Pixiu config: %w", err)
 	}
 
+	policyLoader := NewPolicyLoader(r.Client, r.Log)
+	gatewayPolicy, err := policyLoader.LoadGatewayPolicy(ctx, gateway)
+	if err != nil {
+		r.Log.Error(err, "failed to load gateway policy", "gateway", gateway.Name)
+	} else if gatewayPolicy != nil {
+		converter.ApplyGatewayPolicy(pixiuConfig, gatewayPolicy)
+	}
+
+	clusterPolicies, err := policyLoader.LoadAllClusterPolicies(ctx, gateway.Namespace)
+	if err != nil {
+		r.Log.Error(err, "failed to load cluster policies")
+	} else {
+		clusterConfigMap := make(map[string]*v1alpha1.ClusterConfig)
+		serviceConfigMap := make(map[string]*v1alpha1.ServiceClusterConfig)
+
+		for i := range clusterPolicies {
+			policy := &clusterPolicies[i]
+
+			isGatewayPolicy := policy.Spec.TargetRef.Kind == "Gateway" &&
+				string(policy.Spec.TargetRef.Name) == gateway.Name
+
+			if isGatewayPolicy {
+				for j := range policy.Spec.ClusterRef {
+					clusterConfig := &policy.Spec.ClusterRef[j]
+					clusterConfigMap[clusterConfig.Name] = clusterConfig
+				}
+			} else {
+				for j := range policy.Spec.ServiceRef {
+					serviceConfig := &policy.Spec.ServiceRef[j]
+					serviceConfigMap[serviceConfig.Name] = serviceConfig
+				}
+			}
+		}
+	}
+
+	var filterPolicyList v1alpha1.PixiuFilterPolicyList
+	if err := r.Client.List(ctx, &filterPolicyList, client.InNamespace(gateway.Namespace)); err == nil {
+		for _, policy := range filterPolicyList.Items {
+			if policy.Spec.TargetRef.Kind == "Gateway" && string(policy.Spec.TargetRef.Name) == gateway.Name {
+				if len(policy.Spec.ListenersRef) > 0 {
+					if err := converter.ApplyListenersRefToConfig(ctx, r.Client, gateway.Namespace, pixiuConfig, &policy); err != nil {
+						r.Log.Error(err, "failed to apply listenersRef", "policy", policy.Name)
+					}
+				} else {
+					for i := range pixiuConfig.StaticResources.Listeners {
+						listener := pixiuConfig.StaticResources.Listeners[i]
+						if err := converter.ApplyFilterPolicyToListener(listener, &policy); err != nil {
+							r.Log.Error(err, "failed to apply filter policy to listener", "listener", listener.Name, "policy", policy.Name)
+						}
+					}
+				}
+			}
+		}
+	} else {
+		r.Log.Error(err, "failed to list filter policies")
+	}
+
+	normalizeHTTPMethods(pixiuConfig)
 	configYAML, err := converter.ConvertToYAML(pixiuConfig)
 	if err != nil {
-		return fmt.Errorf("failed to convert config to YAML: %w", err)
+		return "", fmt.Errorf("failed to convert config to YAML: %w", err)
 	}
+	configHash := hashString(configYAML)
 
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, client.ObjectKey{
@@ -437,27 +603,27 @@ func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway 
 	if err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			if err := r.Create(ctx, configMap); err != nil {
-				return fmt.Errorf("failed to create configmap: %w", err)
+				return "", fmt.Errorf("failed to create configmap: %w", err)
 			}
 			r.Log.Info("created gateway configmap", "gateway", gateway.GetName(), "configmap", configMapName)
 		} else {
-			return fmt.Errorf("failed to check configmap: %w", err)
+			return "", fmt.Errorf("failed to check configmap: %w", err)
 		}
 	} else {
 		if existingConfigMap.Data["conf.yaml"] != configYAML {
 			existingConfigMap.Data = configMap.Data
 			existingConfigMap.Labels = configMap.Labels
 			if err := r.Update(ctx, existingConfigMap); err != nil {
-				return fmt.Errorf("failed to update configmap: %w", err)
+				return "", fmt.Errorf("failed to update configmap: %w", err)
 			}
 			r.Log.Info("updated gateway configmap", "gateway", gateway.GetName(), "configmap", configMapName)
 		}
 	}
 
-	return nil
+	return configHash, nil
 }
 
-func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewayv1.Gateway) error {
+func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewayv1.Gateway, configHash string) error {
 	configMapName := fmt.Sprintf("%s-config", gateway.GetName())
 	deploymentName := fmt.Sprintf("%s-%s", gateway.GetName(), string(gateway.GetUID())[:8])
 	serviceName := deploymentName
@@ -495,12 +661,16 @@ func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewa
 						"app.kubernetes.io/name":                 "pixiu-gateway",
 						"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
 					},
+					Annotations: map[string]string{
+						"pixiu.apache.org/config-hash": configHash,
+					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "pixiu",
-							Image: "mfordjody/pixiugateway:debug",
+							Name:            "pixiu",
+							Image:           "mfordjody/pixiugateway:debug",
+							ImagePullPolicy: "Always",
 							Args: []string{
 								"gateway",
 								"start",
@@ -556,6 +726,15 @@ func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewa
 		}
 	} else {
 		needsUpdate := false
+		existingHash := existingDeployment.Spec.Template.Annotations["pixiu.apache.org/config-hash"]
+		if existingHash != configHash {
+			r.Log.Info("config hash changed, triggering deployment update",
+				"gateway", gateway.GetName(),
+				"deployment", deploymentName,
+				"oldHash", existingHash,
+				"newHash", configHash)
+			needsUpdate = true
+		}
 		if !reflect.DeepEqual(existingDeployment.Spec, deployment.Spec) {
 			needsUpdate = true
 		}
@@ -570,7 +749,7 @@ func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewa
 			if err := r.Patch(ctx, existingDeployment, patch); err != nil {
 				return fmt.Errorf("failed to patch deployment: %w", err)
 			}
-			r.Log.Info("updated data plane deployment", "gateway", gateway.GetName(), "deployment", deploymentName)
+			r.Log.Info("updated data plane deployment", "gateway", gateway.GetName(), "deployment", deploymentName, "configHash", configHash)
 		}
 	}
 
@@ -684,6 +863,46 @@ func (r *GatewayReconciler) updateGatewayAddresses(ctx context.Context, gateway 
 	return nil
 }
 
+func hashString(input string) string {
+	sum := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(sum[:])
+}
+
+func normalizeHTTPMethods(cfg *converter.PixiuConfig) {
+	for i := range cfg.StaticResources.Listeners {
+		l := cfg.StaticResources.Listeners[i]
+		for fi := range l.FilterChain.Filters {
+			f := l.FilterChain.Filters[fi]
+			if f.Name != "dgp.filter.httpconnectionmanager" {
+				continue
+			}
+			switch c := f.Config.(type) {
+			case converter.HTTPConnectionManagerConfig:
+				for _, r := range c.RouteConfig.Routes {
+					if r.Match.Methods == nil {
+						r.Match.Methods = []string{}
+					}
+				}
+				f.Config = c
+			case map[string]any:
+				b, _ := json.Marshal(c)
+				var hcm converter.HTTPConnectionManagerConfig
+				if err := json.Unmarshal(b, &hcm); err == nil {
+					for _, r := range hcm.RouteConfig.Routes {
+						if r.Match.Methods == nil {
+							r.Match.Methods = []string{}
+						}
+					}
+					f.Config = hcm
+				}
+			default:
+				fmt.Println("unsupported http connection manager config type.")
+			}
+			l.FilterChain.Filters[fi] = f
+		}
+	}
+}
+
 func (r *GatewayReconciler) listGatewaysForDeployment(ctx context.Context, obj client.Object) []reconcile.Request {
 	deployment, ok := obj.(*appsv1.Deployment)
 	if !ok {
@@ -734,4 +953,208 @@ func (r *GatewayReconciler) listGatewaysForService(ctx context.Context, obj clie
 	}
 
 	return nil
+}
+
+func (r *GatewayReconciler) resolveClusterEndpoints(ctx context.Context, namespace string, cluster *converter.Cluster, clusterConfig *v1alpha1.ClusterConfig) error {
+	if len(clusterConfig.Endpoints) == 0 {
+		return nil
+	}
+
+	resolvedEndpoints := []*converter.Endpoint{}
+	for _, epConfig := range clusterConfig.Endpoints {
+		if !isIPAddress(epConfig.Address) {
+			serviceName, serviceNamespace := parseServiceAddress(epConfig.Address, namespace)
+
+			clusterIP, svcPort, err := r.resolveServiceClusterIP(ctx, serviceNamespace, serviceName, epConfig.Port)
+			if err == nil && clusterIP != "" {
+				resolvedEndpoints = append(resolvedEndpoints, &converter.Endpoint{
+					ID: func() int {
+						if epConfig.ID != nil {
+							return int(*epConfig.ID)
+						}
+						return len(resolvedEndpoints) + 1
+					}(),
+					SocketAddress: converter.SocketAddress{
+						Address: clusterIP,
+						Port:    int(svcPort),
+					},
+				})
+				continue
+			}
+
+			resolvedEndpoints = append(resolvedEndpoints, &converter.Endpoint{
+				ID: func() int {
+					if epConfig.ID != nil {
+						return int(*epConfig.ID)
+					}
+					return len(resolvedEndpoints) + 1
+				}(),
+				SocketAddress: converter.SocketAddress{
+					Address: epConfig.Address,
+					Port:    int(epConfig.Port),
+				},
+			})
+			continue
+		}
+
+		resolvedEndpoints = append(resolvedEndpoints, &converter.Endpoint{
+			ID: func() int {
+				if epConfig.ID != nil {
+					return int(*epConfig.ID)
+				}
+				return len(resolvedEndpoints) + 1
+			}(),
+			SocketAddress: converter.SocketAddress{
+				Address: epConfig.Address,
+				Port:    int(epConfig.Port),
+			},
+		})
+	}
+
+	if len(resolvedEndpoints) > 0 {
+		cluster.Endpoints = resolvedEndpoints
+	}
+	return nil
+}
+
+func (r *GatewayReconciler) resolveServiceEndpoints(ctx context.Context, namespace, serviceName string, port int32) ([]*ir.Endpoint, error) {
+	var service corev1.Service
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      serviceName,
+	}, &service); err != nil {
+		return nil, fmt.Errorf("failed to get service %s/%s: %w", namespace, serviceName, err)
+	}
+
+	var endpointSliceList discoveryv1.EndpointSliceList
+	if err := r.Client.List(ctx, &endpointSliceList, client.MatchingLabels{
+		discoveryv1.LabelServiceName: serviceName,
+	}, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list endpoint slices: %w", err)
+	}
+
+	endpoints := []*ir.Endpoint{}
+	for _, endpointSlice := range endpointSliceList.Items {
+		for _, endpoint := range endpointSlice.Endpoints {
+			if endpoint.Conditions.Ready != nil && !*endpoint.Conditions.Ready {
+				continue
+			}
+			for _, address := range endpoint.Addresses {
+				targetPort := port
+				if len(endpointSlice.Ports) > 0 {
+					for _, endpointPort := range endpointSlice.Ports {
+						if endpointPort.Port != nil && endpointPort.Name != nil {
+							targetPort = int32(*endpointPort.Port)
+							return nil, nil
+						}
+					}
+
+					for _, endpointPort := range endpointSlice.Ports {
+						if endpointPort.Port != nil {
+							targetPort = int32(*endpointPort.Port)
+							return nil, nil
+						}
+					}
+				}
+				endpoints = append(endpoints, &ir.Endpoint{
+					Address: address,
+					Port:    targetPort,
+				})
+			}
+		}
+	}
+
+	if len(endpoints) == 0 && service.Spec.ClusterIP != "" && service.Spec.ClusterIP != "None" {
+		endpoints = append(endpoints, &ir.Endpoint{
+			Address: service.Spec.ClusterIP,
+			Port:    port,
+		})
+	}
+
+	return endpoints, nil
+}
+
+func (r *GatewayReconciler) resolveServiceClusterIP(ctx context.Context, namespace, serviceName string, desiredPort int32) (string, int32, error) {
+	var service corev1.Service
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      serviceName,
+	}, &service); err != nil {
+		return "", 0, fmt.Errorf("failed to get service %s/%s: %w", namespace, serviceName, err)
+	}
+
+	if service.Spec.ClusterIP == "" || service.Spec.ClusterIP == "None" {
+		return "", 0, fmt.Errorf("service %s/%s is headless or has no ClusterIP", namespace, serviceName)
+	}
+
+	resolvedPort := desiredPort
+	if resolvedPort == 0 && len(service.Spec.Ports) > 0 {
+		resolvedPort = service.Spec.Ports[0].Port
+	} else if resolvedPort != 0 {
+		for _, p := range service.Spec.Ports {
+			if p.Port == desiredPort {
+				resolvedPort = p.Port
+				break
+			}
+		}
+	}
+
+	if resolvedPort == 0 {
+		return "", 0, fmt.Errorf("no valid port resolved for service %s/%s", namespace, serviceName)
+	}
+
+	return service.Spec.ClusterIP, resolvedPort, nil
+}
+
+func isIPAddress(s string) bool {
+	parts := strings.Split(s, ".")
+	if len(parts) != 4 {
+		return strings.Contains(s, ":")
+	}
+	for _, part := range parts {
+		if len(part) == 0 || len(part) > 3 {
+			return false
+		}
+		for _, c := range part {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func parseServiceAddress(address, defaultNamespace string) (serviceName, namespace string) {
+	if strings.HasSuffix(address, ".svc.cluster.local") {
+		withoutSuffix := strings.TrimSuffix(address, ".svc.cluster.local")
+		parts := strings.Split(withoutSuffix, ".")
+		if len(parts) >= 2 {
+			serviceName = parts[0]
+			namespace = strings.Join(parts[1:], ".")
+			return serviceName, namespace
+		}
+		serviceName = parts[0]
+		namespace = defaultNamespace
+		return serviceName, namespace
+	}
+
+	parts := strings.Split(address, ".")
+	if len(parts) >= 2 {
+		if !isNumeric(parts[1]) {
+			serviceName = parts[0]
+			namespace = strings.Join(parts[1:], ".")
+			return serviceName, namespace
+		}
+	}
+
+	return address, defaultNamespace
+}
+
+func isNumeric(s string) bool {
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
 }
