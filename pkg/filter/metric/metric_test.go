@@ -20,14 +20,20 @@ package metric
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
@@ -58,6 +64,20 @@ func (w *mockResponseWriter) Write(b []byte) (int, error) {
 
 func (w *mockResponseWriter) WriteHeader(statusCode int) {
 	w.status = statusCode
+}
+
+// withTempPromRegistry swaps the global Prometheus registerer/gatherer with a fresh registry for test isolation.
+func withTempPromRegistry(t *testing.T) func() {
+	t.Helper()
+	oldReg := prometheus.DefaultRegisterer
+	oldGather := prometheus.DefaultGatherer
+	reg := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = reg
+	prometheus.DefaultGatherer = reg
+	return func() {
+		prometheus.DefaultRegisterer = oldReg
+		prometheus.DefaultGatherer = oldGather
+	}
 }
 
 // newTestHTTPContext creates a test HTTP context
@@ -256,14 +276,29 @@ func TestFilterWithPullMode(t *testing.T) {
 
 // TestFilterWithPushMode tests filter encode with push mode
 func TestFilterWithPushMode(t *testing.T) {
-	t.Skip("skip push-mode collector duplication and pushgateway dependency in CI")
+	restore := withTempPromRegistry(t)
+	defer restore()
+
+	pushCh := make(chan struct{}, 1)
+	var pushHits int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		atomic.AddInt32(&pushHits, 1)
+		select {
+		case pushCh <- struct{}{}:
+		default:
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
 	factory := &FilterFactory{
 		cfg: &Config{
 			Mode: "push",
 			Push: PushConfig{
-				GatewayURL:   "http://localhost:9091",
+				GatewayURL:   server.URL,
 				JobName:      "test",
-				PushInterval: 100,
+				PushInterval: 1,
 				MetricPath:   "/metrics",
 			},
 		},
@@ -291,6 +326,13 @@ func TestFilterWithPushMode(t *testing.T) {
 	// Execute encode (reports metrics)
 	status = chain.encodeFilters[0].Encode(ctx)
 	assert.Equal(t, 0, int(status))
+
+	select {
+	case <-pushCh:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("expected push gateway to be called")
+	}
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&pushHits), int32(1))
 }
 
 // TestPluginKind tests the plugin kind
@@ -407,15 +449,30 @@ func TestMetricReporterPullMode(t *testing.T) {
 
 // TestMetricReporterPushMode tests push mode with Prometheus Push Gateway.
 func TestMetricReporterPushMode(t *testing.T) {
-	t.Skip("skip push-mode collector duplication and pushgateway dependency in CI")
+	restore := withTempPromRegistry(t)
+	defer restore()
+
+	pushCh := make(chan struct{}, 1)
+	var pushHits int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		atomic.AddInt32(&pushHits, 1)
+		select {
+		case pushCh <- struct{}{}:
+		default:
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
 	// Create factory with push mode
 	factory := &FilterFactory{
 		cfg: &Config{
 			Mode: "push",
 			Push: PushConfig{
-				GatewayURL:   "http://127.0.0.1:9091",
+				GatewayURL:   server.URL,
 				JobName:      "pixiu-test",
-				PushInterval: 10, // Push every 10 requests for faster testing
+				PushInterval: 1, // Push every request for faster testing
 				MetricPath:   "/metrics",
 			},
 		},
@@ -464,6 +521,12 @@ func TestMetricReporterPushMode(t *testing.T) {
 		ctx.ClearMetrics()
 	}
 
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&pushHits), int32(1))
+	select {
+	case <-pushCh:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("expected push gateway to be called")
+	}
 	t.Log("Push mode metric reporter test finished successfully")
 }
 
@@ -586,31 +649,25 @@ func TestDynamicMetricsMultipleRequests(t *testing.T) {
 	t.Log("Successfully processed 100 requests with same metric names - no duplicate registration issues")
 }
 
-// TestSDKProviderRejectsRepeatedRegistration tests that when using SDK MeterProvider directly,
-// repeated registration of the same metric name WILL cause an error.
-// This is different from using the global provider via otel.GetMeterProvider().
+// TestSDKProviderRejectsRepeatedRegistration verifies duplicate-name behavior on SDK provider.
+// With OTel 1.21 the SDK allows creating the same-name instrument multiple times.
 func TestSDKProviderRejectsRepeatedRegistration(t *testing.T) {
-	t.Skip("skip: OTel 1.21 allows duplicate instrument creation; adjust test expectations if needed")
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	meter := provider.Meter("pixiu")
 
-	// First registration - should succeed
 	counter1, err1 := meter.Int64Counter("test_counter",
 		metric.WithDescription("First"))
 	require.NoError(t, err1)
 	require.NotNil(t, counter1)
 
-	// Second registration with SAME NAME - should FAIL with SDK provider
-	_, err2 := meter.Int64Counter("test_counter",
+	counter2, err2 := meter.Int64Counter("test_counter",
 		metric.WithDescription("Second"))
 
-	// SDK MeterProvider DOES reject duplicate registration
-	assert.Error(t, err2, "SDK MeterProvider should reject duplicate instrument registration")
-	assert.Contains(t, err2.Error(), "instrument already registered",
-		"Error should indicate duplicate registration")
+	assert.NoError(t, err2, "SDK MeterProvider should allow duplicate instrument registration")
+	assert.NotNil(t, counter2)
 
-	t.Log("✓ Confirmed: SDK MeterProvider rejects duplicate instrument registration")
+	t.Log("Confirmed: SDK MeterProvider accepts duplicate instrument registration in OTel 1.21")
 }
 
 // TestGlobalProviderHandlesRepeatedCalls tests that when using otel.GetMeterProvider(),
@@ -632,6 +689,6 @@ func TestGlobalProviderHandlesRepeatedCalls(t *testing.T) {
 		counter.Add(context.Background(), int64(i+1))
 	}
 
-	t.Log("✓ Confirmed: otel.GetMeterProvider() handles repeated instrument creation without errors")
-	t.Log("✓ This explains why the actual code (which uses the global provider) works fine")
+	t.Log("Confirmed: otel.GetMeterProvider() handles repeated instrument creation without errors")
+	t.Log("Confirmed: This explains why the actual code (which uses the global provider) works fine")
 }
