@@ -19,9 +19,11 @@ package metric
 
 import (
 	"fmt"
-
+)
+import (
 	"go.opentelemetry.io/otel/metric"
-
+)
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
