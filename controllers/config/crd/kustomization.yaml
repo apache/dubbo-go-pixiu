@@ -1,0 +1,6 @@
+resources:
+  - bases/pixiu.apache.org_pixiugatewaypolicies.yaml
+  - bases/pixiu.apache.org_pixiufilterpolicies.yaml
+  - bases/pixiu.apache.org_pixiuclusterpolicies.yaml
+
+

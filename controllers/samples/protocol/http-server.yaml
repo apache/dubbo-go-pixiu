@@ -1,0 +1,91 @@
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuGatewayPolicy
+metadata:
+  name: pixiu-gateway-listener
+  namespace: pixiu-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: pixiu-listeners
+  shutdown:
+    timeout: "60s"
+    stepTimeout: "10s"
+    rejectPolicy: "immediacy"
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuFilterPolicy
+metadata:
+  name: pixiu-listeners-filter
+  namespace: pixiu-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: pixiu-listeners
+  listenersRef:
+  - name: http
+    protocol:
+    filterChains:
+      type: dgp.filter.httpconnectionmanager
+    config:
+      routeConfig:
+        routes:
+          - match:
+              prefix: "*"
+      httpFilters:
+        - name: dgp.filter.http.dubboproxy
+          config:
+            dubboProxyConfig:
+              autoResolve: true
+              registries:
+                zookeeper:
+                  protocol: "zookeeper"
+                  timeout: "3s"
+                  address: "zookeeper:2181"
+                  username: ""
+                  password: ""
+              timeoutConfig:
+                connectTimeout: 5s
+                requestTimeout: 5s
+  - name: dubbo
+    filterChains:
+      type: dgp.filter.network.dubboconnectionmanager
+    config:
+      routeConfig:
+        routes:
+          - match:
+              prefix: "/com.dubbogo.pixiu.TripleUserService"
+              methods:
+                - "*"
+            route:
+              cluster: "http-server"
+              cluster_not_found_response_code: 505
+      dubboFilters:
+        - name: dgp.filter.dubbo.http
+          config:
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuClusterPolicy
+metadata:
+  name: pixiu-cluster
+  namespace: pixiu-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: pixiu-listeners
+  clusterRef:
+    - name: http-server
+      type: static
+      loadBalancerPolicy: "lb"
+      endpoints:
+        - address: http-server
+          port: 20001
+    - name: dubbo-server
+      type: static
+      loadBalancerPolicy: "lb"
+      endpoints:
+        - address: dubbo-server
+          port: 20000
