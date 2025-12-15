@@ -31,7 +31,6 @@ import (
 import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
-	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -65,6 +64,11 @@ func newNacosAppListener(client naming_client.INamingClient, reg *NacosRegistry,
 func (n *nacosAppListener) Close() {
 	close(n.exit)
 	n.wg.Wait()
+	for _, v := range n.appInfoMap {
+		if v.listener != nil {
+			v.listener.Close()
+		}
+	}
 }
 
 func (n *nacosAppListener) WatchAndHandle() {
@@ -74,15 +78,11 @@ func (n *nacosAppListener) WatchAndHandle() {
 
 func (n *nacosAppListener) watch() {
 	defer n.wg.Done()
-	var (
-		failTimes  int64 = 0
-		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
-	)
-	defer delayTimer.Stop()
-	
+	var failTimes int64 = 0
+
 	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
-	
+
 	for {
 		// Check for exit signal before processing
 		select {
@@ -91,7 +91,7 @@ func (n *nacosAppListener) watch() {
 			return
 		default:
 		}
-		
+
 		serviceList, err := n.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
 			GroupName: n.regConf.Group,
 			NameSpace: n.regConf.Namespace,
@@ -100,22 +100,19 @@ func (n *nacosAppListener) watch() {
 		if err != nil {
 			failTimes++
 			logger.Infof("watching nacos interface with error{%v}", err)
-			// Exit the watch if root node is in error
-			// TODO: do not use zookeeper error
-			if err == zookeeper.ErrNilNode {
-				logger.Errorf("watching nacos services got errNilNode,so exit listen")
-				return
-			}
 			if failTimes > MaxFailTimes {
-				logger.Errorf("Error happens on nacos exceed max fail times: %s,so exit listen", MaxFailTimes)
+				logger.Errorf("Error happens on nacos exceed max fail times: %d,so exit listen", MaxFailTimes)
 				return
 			}
-			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
+			// Create timer only when needed for backoff (avoids 0-duration timer bug)
+			delayTimer := time.NewTimer(ConnDelay * time.Duration(failTimes))
 			select {
 			case <-n.exit:
+				delayTimer.Stop()
 				logger.Info("nacosAppListener watch goroutine received exit signal during error backoff")
 				return
 			case <-delayTimer.C:
+				delayTimer.Stop()
 			}
 			continue
 		}
@@ -123,7 +120,7 @@ func (n *nacosAppListener) watch() {
 		if err := n.updateServiceList(serviceList.Doms); err != nil {
 			logger.Errorf("update service list failed %s", err)
 		}
-		
+
 		// Wait for next tick or exit signal
 		select {
 		case <-n.exit:
@@ -169,7 +166,6 @@ func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 		if _, ok := n.appInfoMap[key]; !ok {
 			l := newNacosAppSrvListener(n.client, n.adapterListener)
 			l.wg.Add(1)
-			defer l.wg.Done() // Ensure wg.Done() is always called, even on error paths
 
 			appInfo.listener = l
 			n.appInfoMap[key] = appInfo
@@ -188,36 +184,53 @@ func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 					logger.Infof("successfully subscribed to application %s", key)
 					break
 				}
-				
+
 				// Check if it's a "hosts is empty" error, which is expected during startup
 				if strings.Contains(subscribeErr.Error(), "hosts is empty") {
-					logger.Warnf("subscribe attempt %d/%d for application %s: hosts is empty, will retry after %v", 
+					logger.Warnf("subscribe attempt %d/%d for application %s: hosts is empty, will retry after %v",
 						retry+1, MaxSubscribeRetry, key, SubscribeRetryWait)
 					if retry < MaxSubscribeRetry-1 {
-						time.Sleep(SubscribeRetryWait)
+						// Wait with exit signal check for graceful shutdown
+						select {
+						case <-n.exit:
+							logger.Info("nacosAppListener received exit signal during subscription retry, aborting")
+							delete(n.appInfoMap, key)
+							l.wg.Done()
+							l.Close()
+							return nil
+						case <-time.After(SubscribeRetryWait):
+						}
 						continue
 					}
 					// On last retry, log as warning instead of error since service might register later
-					logger.Warnf("subscribe to application %s still has no hosts after %d retries, will continue monitoring", 
+					logger.Warnf("subscribe to application %s still has no hosts after %d retries, will continue monitoring",
 						key, MaxSubscribeRetry)
-					subscribeErr = nil // Don't treat as fatal error
+					subscribeErr = nil
 					break
 				}
-				
+
 				// For other errors, log and retry
-				logger.Warnf("subscribe attempt %d/%d for application %s failed: %s", 
+				logger.Warnf("subscribe attempt %d/%d for application %s failed: %s",
 					retry+1, MaxSubscribeRetry, key, subscribeErr)
 				if retry < MaxSubscribeRetry-1 {
-					time.Sleep(SubscribeRetryWait)
+					// Wait with exit signal check for graceful shutdown
+					select {
+					case <-n.exit:
+						logger.Info("nacosAppListener received exit signal during subscription retry, aborting")
+						delete(n.appInfoMap, key)
+						l.wg.Done()
+						l.Close()
+						return nil
+					case <-time.After(SubscribeRetryWait):
+					}
 				}
 			}
-			
+
 			if subscribeErr != nil {
-				logger.Errorf("failed to subscribe to application %s after %d retries: %s", 
+				logger.Errorf("failed to subscribe to application %s after %d retries: %s",
 					key, MaxSubscribeRetry, subscribeErr)
-				// Clean up orphaned entry to prevent resource leak
-				// Note: wg.Done() will be called by defer before Close() to avoid deadlock
 				delete(n.appInfoMap, key)
+				l.wg.Done()
 				l.Close()
 			}
 		}

@@ -66,8 +66,11 @@ func newNacosAppSrvListener(client naming_client.INamingClient, adapterListener 
 	}
 }
 
+// WatchAndHandle is not used for application service listener.
+// This listener is driven by Nacos subscription callbacks (Callback method) rather than active polling.
+// The parent nacosAppListener handles the watch loop and creates app service listeners as needed.
 func (l *appServiceListener) WatchAndHandle() {
-	panic("implement me")
+	// No-op: This listener uses callback-based subscription, not active watching
 }
 
 func (l *appServiceListener) Close() {
@@ -102,12 +105,12 @@ func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, er
 		services[i].ServiceName = handleServiceName(services[i].ServiceName)
 		instance := generateInstance(services[i])
 		newInstanceMap[host] = instance
-		if old, ok := l.instanceMap[host]; ok {
+		if old, ok := l.instanceMap[host]; !ok {
 			// instance does not exist in cache, add it to cache
 			addInstances = append(addInstances, instance)
 		} else {
 			if !reflect.DeepEqual(old, instance) {
-				// instance is not different from cache, update it to cache
+				// instance exists but is different, update it to cache
 				updateInstances = append(updateInstances, instance)
 			}
 		}
