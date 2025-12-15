@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -72,7 +73,12 @@ func newNacosSrvListener(url *dubboCommon.URL, client naming_client.INamingClien
 
 func (z *serviceListener) Callback(services []nacosModel.SubscribeService, err error) {
 	if err != nil {
-		logger.Errorf("nacos subscribe callback error:%s", err.Error())
+		// "hosts is empty" is expected during service startup, log as warning instead of error
+		if strings.Contains(err.Error(), "hosts is empty") {
+			logger.Warnf("nacos subscribe callback: %s (service may not be registered yet)", err.Error())
+		} else {
+			logger.Errorf("nacos subscribe callback error:%s", err.Error())
+		}
 		return
 	}
 

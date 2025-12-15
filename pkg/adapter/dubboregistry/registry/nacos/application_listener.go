@@ -79,7 +79,19 @@ func (n *nacosAppListener) watch() {
 		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
 	)
 	defer delayTimer.Stop()
+	
+	ticker := time.NewTicker(time.Second * 5)
+	defer ticker.Stop()
+	
 	for {
+		// Check for exit signal before processing
+		select {
+		case <-n.exit:
+			logger.Info("nacosAppListener watch goroutine received exit signal, shutting down gracefully")
+			return
+		default:
+		}
+		
 		serviceList, err := n.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
 			GroupName: n.regConf.Group,
 			NameSpace: n.regConf.Namespace,
@@ -99,14 +111,26 @@ func (n *nacosAppListener) watch() {
 				return
 			}
 			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
-			<-delayTimer.C
+			select {
+			case <-n.exit:
+				logger.Info("nacosAppListener watch goroutine received exit signal during error backoff")
+				return
+			case <-delayTimer.C:
+			}
 			continue
 		}
 		failTimes = 0
 		if err := n.updateServiceList(serviceList.Doms); err != nil {
 			logger.Errorf("update service list failed %s", err)
 		}
-		time.Sleep(time.Second * 5)
+		
+		// Wait for next tick or exit signal
+		select {
+		case <-n.exit:
+			logger.Info("nacosAppListener watch goroutine received exit signal, shutting down gracefully")
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
@@ -145,6 +169,7 @@ func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 		if _, ok := n.appInfoMap[key]; !ok {
 			l := newNacosAppSrvListener(n.client, n.adapterListener)
 			l.wg.Add(1)
+			defer l.wg.Done() // Ensure wg.Done() is always called, even on error paths
 
 			appInfo.listener = l
 			n.appInfoMap[key] = appInfo
@@ -155,10 +180,46 @@ func (n *nacosAppListener) updateServiceList(serviceList []string) error {
 				GroupName:         n.regConf.Group,
 			}
 
-			if err := n.client.Subscribe(sub); err != nil {
-				logger.Errorf("subscribe listener with interfaceKey = %s, error = %s", l, err)
+			// Retry subscription with exponential backoff
+			var subscribeErr error
+			for retry := 0; retry < MaxSubscribeRetry; retry++ {
+				subscribeErr = n.client.Subscribe(sub)
+				if subscribeErr == nil {
+					logger.Infof("successfully subscribed to application %s", key)
+					break
+				}
+				
+				// Check if it's a "hosts is empty" error, which is expected during startup
+				if strings.Contains(subscribeErr.Error(), "hosts is empty") {
+					logger.Warnf("subscribe attempt %d/%d for application %s: hosts is empty, will retry after %v", 
+						retry+1, MaxSubscribeRetry, key, SubscribeRetryWait)
+					if retry < MaxSubscribeRetry-1 {
+						time.Sleep(SubscribeRetryWait)
+						continue
+					}
+					// On last retry, log as warning instead of error since service might register later
+					logger.Warnf("subscribe to application %s still has no hosts after %d retries, will continue monitoring", 
+						key, MaxSubscribeRetry)
+					subscribeErr = nil // Don't treat as fatal error
+					break
+				}
+				
+				// For other errors, log and retry
+				logger.Warnf("subscribe attempt %d/%d for application %s failed: %s", 
+					retry+1, MaxSubscribeRetry, key, subscribeErr)
+				if retry < MaxSubscribeRetry-1 {
+					time.Sleep(SubscribeRetryWait)
+				}
 			}
-			l.wg.Done()
+			
+			if subscribeErr != nil {
+				logger.Errorf("failed to subscribe to application %s after %d retries: %s", 
+					key, MaxSubscribeRetry, subscribeErr)
+				// Clean up orphaned entry to prevent resource leak
+				// Note: wg.Done() will be called by defer before Close() to avoid deadlock
+				delete(n.appInfoMap, key)
+				l.Close()
+			}
 		}
 	}
 
