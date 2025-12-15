@@ -24,6 +24,7 @@ import (
 
 import (
 	_ "dubbo.apache.org/dubbo-go/v3/metadata/info"
+
 	"github.com/pkg/errors"
 )
 
