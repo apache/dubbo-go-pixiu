@@ -60,6 +60,8 @@
 * Route mechanism redesign and upgrade ([#777](https://github.com/apache/dubbo-go-pixiu/pull/777))
 * Application gateway / ingress refactoring to a modern architecture ([#827](https://github.com/apache/dubbo-go-pixiu/pull/827))
 * Support for a new ingress controller ([#792](https://github.com/apache/dubbo-go-pixiu/pull/792))
+* Add application gateway resource policy for ingress controller ([#839](https://github.com/apache/dubbo-go-pixiu/pull/839))
+* Refactor ingress into a more modern application gateway ([#827](https://github.com/apache/dubbo-go-pixiu/pull/827))
 
 #### Tools / Extensibility
 
