@@ -80,6 +80,15 @@ func (n *nacosAppListener) watch() {
 	defer n.wg.Done()
 	var failTimes int64 = 0
 
+	// Initial wait to allow Nacos and providers time to initialize
+	logger.Info("nacosAppListener waiting for initial service registration...")
+	select {
+	case <-n.exit:
+		logger.Info("nacosAppListener received exit signal during initial wait")
+		return
+	case <-time.After(2 * time.Second):
+	}
+
 	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
 

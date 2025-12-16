@@ -43,8 +43,8 @@ import (
 const (
 	MaxFailTimes       = 2
 	ConnDelay          = 3 * time.Second
-	MaxSubscribeRetry  = 3
-	SubscribeRetryWait = 2 * time.Second
+	MaxSubscribeRetry  = 5               // Increased retries to allow more time for provider registration
+	SubscribeRetryWait = 3 * time.Second // Increased wait time between retries
 )
 
 var _ registry.Listener = new(nacosIntfListener)
@@ -92,6 +92,15 @@ func (n *nacosIntfListener) WatchAndHandle() {
 func (n *nacosIntfListener) watch() {
 	defer n.wg.Done()
 	var failTimes int64 = 0
+
+	// Initial wait to allow Nacos and providers time to initialize
+	logger.Info("nacosIntfListener waiting for initial service registration...")
+	select {
+	case <-n.exit:
+		logger.Info("nacosIntfListener received exit signal during initial wait")
+		return
+	case <-time.After(2 * time.Second):
+	}
 
 	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
