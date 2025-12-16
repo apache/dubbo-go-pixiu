@@ -42,8 +42,9 @@ type Address struct {
 }
 
 type SocketAddress struct {
-	Address string `yaml:"address" json:"address"`
-	Port    int    `yaml:"port" json:"port"`
+	Address      string `yaml:"address" json:"address"`
+	Port         int    `yaml:"port" json:"port"`
+	ProtocolType string `yaml:"protocol_type,omitempty" json:"protocol_type,omitempty"`
 }
 
 type FilterChain struct {
@@ -60,6 +61,17 @@ type HTTPConnectionManagerConfig struct {
 	HTTPFilters []HTTPFilter       `yaml:"http_filters" json:"http_filters"`
 }
 
+type DubboConnectionManagerConfig struct {
+	RouteConfig  RouteConfiguration `yaml:"route_config" json:"route_config"`
+	DubboFilters []DubboFilter      `yaml:"dubbo_filters" json:"dubbo_filters"`
+	TimeoutStr   string             `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+}
+
+type DubboFilter struct {
+	Name   string                 `yaml:"name" json:"name"`
+	Config map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
+}
+
 type RouteConfiguration struct {
 	Routes []*Route `yaml:"routes" json:"routes"`
 }
@@ -70,9 +82,10 @@ type Route struct {
 }
 
 type RouteMatch struct {
-	Prefix  string          `yaml:"prefix,omitempty" json:"prefix,omitempty"`
-	Path    string          `yaml:"path,omitempty" json:"path,omitempty"`
-	Methods []string        `yaml:"methods,omitempty" json:"methods,omitempty"`
+	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	Path   string `yaml:"path,omitempty" json:"path,omitempty"`
+	// Keep methods serialized even when empty so routes explicitly mean "all methods"
+	Methods []string        `yaml:"methods" json:"methods"`
 	Headers []HeaderMatcher `yaml:"headers,omitempty" json:"headers,omitempty"`
 }
 

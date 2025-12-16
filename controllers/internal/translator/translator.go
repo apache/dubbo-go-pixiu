@@ -23,6 +23,10 @@ import (
 )
 
 import (
+	"controllers/api/v1alpha1"
+
+	"controllers/internal/converter"
+
 	"controllers/internal/ir"
 
 	"github.com/go-logr/logr"
@@ -76,6 +80,11 @@ func (t *Translator) TranslateGateway(ctx context.Context, gateway *gatewayv1.Ga
 			if udpListener != nil {
 				xds.UDP = append(xds.UDP, udpListener)
 			}
+		} else if string(listener.Protocol) == "GRPC" {
+			tcpListener := t.translateTCPListener(&listener, gateway)
+			if tcpListener != nil {
+				xds.TCP = append(xds.TCP, tcpListener)
+			}
 		}
 	}
 
@@ -88,8 +97,6 @@ func (t *Translator) translateHTTPListener(listener *gatewayv1.Listener, gateway
 		address = gateway.Spec.Addresses[0].Value
 	}
 
-	// Pixiu gateway listens on port 8888 internally
-	// Gateway listener port is mapped via Service
 	httpListener := &ir.HTTPListener{
 		Name:    string(listener.Name),
 		Address: address,
@@ -135,7 +142,7 @@ func (t *Translator) translateHTTPListener(listener *gatewayv1.Listener, gateway
 		matchedRoutes++
 		for _, rule := range httpRoute.Spec.Rules {
 			for _, match := range rule.Matches {
-				irRoute := t.translateHTTPRouteMatch(&match, &httpRoute, rule.BackendRefs)
+				irRoute := t.translateHTTPRouteMatch(&match, &httpRoute, rule.BackendRefs, rule.Filters)
 				if irRoute != nil {
 					httpListener.Routes = append(httpListener.Routes, irRoute)
 				}
@@ -146,7 +153,7 @@ func (t *Translator) translateHTTPListener(listener *gatewayv1.Listener, gateway
 	return httpListener
 }
 
-func (t *Translator) translateHTTPRouteMatch(match *gatewayv1.HTTPRouteMatch, httpRoute *gatewayv1.HTTPRoute, backendRefs []gatewayv1.HTTPBackendRef) *ir.HTTPRoute {
+func (t *Translator) translateHTTPRouteMatch(match *gatewayv1.HTTPRouteMatch, httpRoute *gatewayv1.HTTPRoute, backendRefs []gatewayv1.HTTPBackendRef, filters []gatewayv1.HTTPRouteFilter) *ir.HTTPRoute {
 	pathTypeStr := "PathPrefix"
 	if match.Path != nil && match.Path.Type != nil {
 		pathTypeStr = string(*match.Path.Type)
@@ -228,6 +235,33 @@ func (t *Translator) translateHTTPRouteMatch(match *gatewayv1.HTTPRouteMatch, ht
 		irRoute.Destinations = append(irRoute.Destinations, &ir.RouteDestination{
 			Name: clusterName,
 		})
+	}
+
+	irRoute.Filters = []*ir.HTTPFilter{}
+	for _, filter := range filters {
+		if filter.Type == gatewayv1.HTTPRouteFilterExtensionRef {
+			if filter.ExtensionRef != nil && filter.ExtensionRef.Group == "pixiu.apache.org" && filter.ExtensionRef.Kind == "PixiuFilterPolicy" {
+				var filterPolicy v1alpha1.PixiuFilterPolicy
+				if err := t.client.Get(context.Background(), client.ObjectKey{
+					Namespace: httpRoute.Namespace,
+					Name:      string(filter.ExtensionRef.Name),
+				}, &filterPolicy); err != nil {
+					t.logger.Error(err, "failed to load PixiuFilterPolicy", "namespace", httpRoute.Namespace, "name", filter.ExtensionRef.Name)
+					continue
+				}
+				if filterPolicy.Spec.TargetRef.Kind != "HTTPRoute" || string(filterPolicy.Spec.TargetRef.Name) != httpRoute.Name {
+					t.logger.V(1).Info("PixiuFilterPolicy does not target this HTTPRoute", "policy", filterPolicy.Name, "targetRef", filterPolicy.Spec.TargetRef)
+					continue
+				}
+				irFilter := &ir.HTTPFilter{}
+				if err := converter.ApplyFilterPolicy(irFilter, &filterPolicy); err != nil {
+					t.logger.Error(err, "failed to apply PixiuFilterPolicy", "policy", filterPolicy.Name)
+					continue
+				}
+				t.logger.V(1).Info("applied PixiuFilterPolicy", "policy", filterPolicy.Name, "filterType", filterPolicy.Spec.FilterType, "filterName", irFilter.Name)
+				irRoute.Filters = append(irRoute.Filters, irFilter)
+			}
+		}
 	}
 
 	return irRoute

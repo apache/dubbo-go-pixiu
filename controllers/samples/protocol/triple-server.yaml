@@ -1,0 +1,107 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: pg
+  namespace: pixiu-gateway-system
+spec:
+  gatewayClassName: pg
+  listeners:
+    - name: dubbo-listener
+      protocol: TCP
+      port: 8888
+    - name: triple-listener
+      protocol: TRIPLE
+      port: 9999
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuFilterPolicy
+metadata:
+  name: dubbo-listeners-filter
+  namespace: pixiu-gateway-system
+spec:
+  filterChains:
+    - filterType: dgp.filter.network.dubboconnectionmanager
+      config:
+        routeConfig:
+          routes:
+            - match:
+                prefix: "/com.dubbogo.pixiu.TripleUserService"
+                methods:
+                  - "*"
+              route:
+                cluster: "triple-server"
+                cluster_not_found_response_code: 505
+        dubboFilters:
+          - name: dgp.filter.dubbo.proxy
+            config:
+              protocol: tri
+    - filterType: dgp.filter.network.dubboconnectionmanager
+      config:
+        routeConfig:
+          routes:
+            - match:
+                prefix: "/com.dubbogo.pixiu.TripleUserService"
+                methods:
+                  - "*"
+              route:
+                cluster: "dubbo-server"
+                cluster_not_found_response_code: 505
+        dubboFilters:
+          - name: dgp.filter.dubbo.proxy
+            config:
+              protocol: dubbo
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dubbo-triple-proxy
+  namespace: default
+spec:
+  parentRefs:
+    - name: pg
+      namespace: pixiu-gateway-system
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: http-server
+          port: 20001
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: pixiu.apache.org
+            kind: PixiuFilterPolicy
+            name: dubboproxy-filter
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuGatewayPolicy
+metadata:
+  name: dubbo-http-proxy-gateway-policy
+  namespace: pixiu-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: pg
+  shutdown:
+    timeout: "60s"
+    stepTimeout: "10s"
+    rejectPolicy: "immediacy"
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuClusterPolicy
+metadata:
+  name: http-server-cluster-policy
+  namespace: default
+spec:
+  targetRef:
+    group: ""
+    kind: Service
+    name: http-server
+  loadBalancer:
+    policy: "lb"
+

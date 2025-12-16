@@ -4,21 +4,26 @@
 
 [![Build Status](https://github.com/apache/dubbo-go-pixiu/workflows/CI/badge.svg)](https://travis-ci.org/apache/dubbo-go-pixiu)
 [![codecov](https://codecov.io/gh/apache/dubbo-go-pixiu/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/dubbo-go-pixiu)
-[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/apache/dubbo-go-pixiu?tab=doc)
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go\&logoColor=white\&style=flat-square)](https://pkg.go.dev/github.com/apache/dubbo-go-pixiu?tab=doc)
 [![Go Report Card](https://goreportcard.com/badge/github.com/apache/dubbo-go-pixiu)](https://goreportcard.com/report/github.com/apache/dubbo-go-pixiu)
 ![license](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 
 **English** | [中文](README_CN.md)
 
------
+---
 
 **Dubbo-Go-Pixiu** is a next-generation **AI / API Gateway** built on **Dubbo-go**, empowering seamless connections to **LLMs** and **MCPs** with unified access, intelligent extensions, and cost-efficient management. At the same time, Pixiu bridges external protocols with internal Dubbo clusters, supporting **HTTP**, **gRPC**, **Dubbo2**, and **Triple** for high-performance, scalable integration.
+
+> ⭐ **New Capability:** Pixiu has evolved into a **universal AI Gateway**, designed to simplify and unify access to **LLMs and AI service providers** — whether from public vendors or self-hosted models.
+
+> ⭐ **New Capability:** Pixiu has also evolved into a **Kubernetes Ingress Controller**, enabling native management of API and AI traffic within Kubernetes clusters through declarative routing and Pixiu’s flexible governance model.
 
 👉 **Try it now:** Explore our official [samples](https://github.com/apache/dubbo-go-pixiu-samples)
 
 ## We've evolved into the **Next-Generation AI Gateway**
 
 Pixiu has evolved into a **universal AI Gateway**, designed to simplify and unify access to **LLMs and AI service providers** — whether from public vendors or self-hosted models.
+
 With Pixiu, you can:
 
 * **Unified Access to AI Models:**
@@ -35,6 +40,9 @@ With Pixiu, you can:
 
 * **Future-Proof Architecture:**
   Designed for the hybrid world of API + AI traffic — bridging traditional microservices with the AI-first era.
+
+> ✨ **Now also a Kubernetes Ingress Controller:**
+> Pixiu’s AI gateway abilities can now be applied directly at the cluster ingress layer — allowing traffic governance, routing, and observability to be defined declaratively via Kubernetes APIs.
 
 👉 **Try it now:** Explore our AI Gateway Samples: [LLM](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/llm) and [MCP](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/mcp)
 
@@ -65,7 +73,7 @@ With Pixiu, you can:
 | 🔍 **Service Discovery**   | Integrates with Zookeeper, Nacos, or any service registry to discover Dubbo and Spring Cloud services automatically.           |
 | ⚖️ **Traffic Governance**  | Integrates with Sentinel for fine-grained rate limiting, circuit breaking, and traffic shaping.                                |
 | 📈 **Observability**       | OpenTelemetry and Jaeger support for full tracing, metrics, and logging visibility.                                            |
-| 🎨 **Visual Management**   | The **Pixiu-Admin** UI offers real-time visual configuration for gateway rules and policies.                                   |
+| 🎨 **Visual Management**   | The **[Pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)** UI offers real-time visual configuration for gateway rules and policies.                                   |
 
 ## Deploying with Docker
 
@@ -102,33 +110,27 @@ docker run --name pixiu-gateway -p 8888:8888 -d \
     dubbo-go-pixiu:local
 ```
 
-For more information, visit the [Pixiu Docker Hub](https://hub.docker.com/r/dubbogopixiu/dubbo-go-pixiu).
 
 ## Pixiu Admin – Visual Control Plane
 
-Manage traffic, routing, and AI model access visually via `pixiu-admin`.
+Manage traffic, routing via `pixiu-admin`.
 Start instantly with Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
-After starting, you can access the management plane by opening `http://localhost:8080` in your browser.
+👉 Access admin UI at: [http://localhost:8080](http://localhost:8080)
 
 ![pixiu-admin.png](./docs/images/pixiu-admin.png)
 
-👉 **More Details：** please visit [pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)
 
 ## Other Projects in the Dubbo-Go-Pixiu Ecosystem
 
-* **[pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)**
-  The official sample repository for Dubbo-Go-Pixiu, demonstrating various use cases and configurations.
-* **[pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)**
-  Dubbo-Go-Pixiu Admin is a comprehensive management platform for the Dubbo-Go-Pixiu gateway. It provides a centralized control plane for configuring, monitoring, and managing gateway resources via a web-based UI and RESTful APIs.
-* **[pixiu-api](https://github.com/dubbo-go-pixiu/pixiu-api)**
-  Dubbo-Go-Pixiu API provides the API models for the ecosystem and integrates with Pixiu Admin.
-* **[benchmark](https://github.com/apache/dubbo-go-pixiu/tree/develop/tools/benchmark)**
-  The benchmarking system allows users to measure and analyze key performance metrics—such as latency, throughput, and QPS—under various load conditions to evaluate protocol conversion efficiency.
+* **[dubbo-go-pixiu-samples](https://github.com/apache/dubbo-go-pixiu-samples)** — Official sample repository demonstrating various use cases
+* **[pixiu-admin](https://github.com/apache/dubbo-go-pixiu/tree/develop/admin)** — Visual management plane for configuration & monitoring
+* **[pixiu-api](https://github.com/dubbo-go-pixiu/pixiu-api)** — API / model definitions for Pixiu Admin
+* **[benchmark](https://github.com/apache/dubbo-go-pixiu/tree/develop/tools/benchmark)** — Benchmarking suite for pixiu
 
 ## Community & Contribution
 
@@ -139,10 +141,10 @@ We warmly welcome all forms of contributions\! Whether it's submitting an issue,
 
 * **Join Our Community**:
 
-Join our discussion group through Ding talk, WeChat, or Discord.
+  Join our discussion group through Ding talk, WeChat, or Discord.
 
-discord https://discord.gg/C5ywvytg
-![invite.png](./docs/images/invite.png)
+  discord https://discord.gg/C5ywvytg
+  ![invite.png](./docs/images/invite.png)
 
 
 If you like Dubbo-Go-Pixiu, please ⭐ star us on GitHub!

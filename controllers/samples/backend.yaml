@@ -62,7 +62,7 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-    - name: pg
+    - name: pixiu-listeners
       namespace: pixiu-gateway-system
   hostnames:
     - "www.example.com"
