@@ -24,8 +24,8 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
+	xdspb "github.com/apache/dubbo-go-pixiu/pkg/api/xds/model"
 
 	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"

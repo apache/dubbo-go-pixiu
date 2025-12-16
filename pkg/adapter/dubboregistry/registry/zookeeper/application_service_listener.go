@@ -33,7 +33,7 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/registry/servicediscovery"
 	"dubbo.apache.org/dubbo-go/v3/remoting/zookeeper/curator_discovery"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
 
 	"github.com/dubbogo/go-zookeeper/zk"
 )

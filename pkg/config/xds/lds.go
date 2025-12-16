@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	xdsModel "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
+	xdsModel "github.com/apache/dubbo-go-pixiu/pkg/api/xds/model"
 
 	"gopkg.in/yaml.v3"
 )

@@ -1,0 +1,29 @@
+syntax = "proto3";
+import "google/protobuf/struct.proto";
+
+package pixiu.api.v1;
+
+// Filter core struct, filter is extend by user
+message NetworkFilter {
+  string name = 1;
+  oneof config {
+    Config yaml = 2;
+    Config json = 3;
+    google.protobuf.Struct struct = 4;
+  }
+}
+
+// Config string kind config(yaml or json such as) for NetworkFilter.
+message Config {
+  string content = 1;
+}
+
+// FilterChain filter chain
+message FilterChain {
+  repeated pixiu.api.v1.NetworkFilter filters = 1;
+}
+
+// HTTPFilter http filter
+message HTTPFilter {
+  string name = 1;
+}

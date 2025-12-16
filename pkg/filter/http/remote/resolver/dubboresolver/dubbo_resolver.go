@@ -18,8 +18,8 @@
 package dubboresolver
 
 import (
-	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+	apiConf "github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
 )
 
 import (

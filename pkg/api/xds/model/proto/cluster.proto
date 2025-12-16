@@ -1,0 +1,49 @@
+syntax = "proto3";
+package pixiu.api.v1;
+
+import "address.proto";
+import "health_check.proto";
+//import "google/protobuf/struct.proto";
+
+// ApiConfigSource
+message ApiConfigSource {
+  string API_type_str = 1 ;
+  repeated string cluster_name = 2;
+  string refresh_delay = 3;
+  string request_timeout = 4;
+}
+
+
+
+// ConfigSource api config from remote
+message ConfigSource {
+  string path = 1;
+  pixiu.api.v1.ApiConfigSource api_config_source = 2;
+}
+
+// EdsClusterConfig
+message EdsClusterConfig {
+  pixiu.api.v1.ConfigSource eds_config = 1;
+  string service_name = 2;
+}
+
+// Cluster a single upstream cluster
+message Cluster {
+  string name = 1;
+  string type_str = 2;
+  int32 type = 3 ;
+  EdsClusterConfig eds_cluster_config = 4;
+  string lb_str = 5;
+  int32 lb = 6 ;
+  repeated HealthCheck health_checks = 7;
+  repeated Endpoint endpoints = 8;
+}
+
+
+// Endpoint
+message Endpoint {
+  string id = 1;
+  string name = 2;
+  pixiu.api.v1.SocketAddress address = 3;
+  map<string, string> metadata = 4;
+}

@@ -610,7 +610,7 @@ func TestSDKProviderRejectsRepeatedRegistration(t *testing.T) {
 	assert.Contains(t, err2.Error(), "instrument already registered",
 		"Error should indicate duplicate registration")
 
-	t.Log("✓ Confirmed: SDK MeterProvider rejects duplicate instrument registration")
+	t.Log("�?Confirmed: SDK MeterProvider rejects duplicate instrument registration")
 }
 
 // TestGlobalProviderHandlesRepeatedCalls tests that when using global.MeterProvider(),

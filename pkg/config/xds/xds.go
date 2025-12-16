@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
 
 	"github.com/mitchellh/mapstructure"
 )

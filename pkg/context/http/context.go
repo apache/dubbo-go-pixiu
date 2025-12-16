@@ -30,7 +30,7 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
 )
 
 import (

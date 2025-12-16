@@ -18,8 +18,8 @@
 package apiconfig
 
 import (
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
 
 	"github.com/pkg/errors"
 )

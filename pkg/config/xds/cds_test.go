@@ -25,8 +25,8 @@ import (
 import (
 	"github.com/cch123/supermonkey"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
+	pixiupb "github.com/apache/dubbo-go-pixiu/pkg/api/xds/model"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 

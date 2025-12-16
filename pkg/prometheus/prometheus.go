@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/context"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/context"
 
 	"github.com/prometheus/client_golang/prometheus"
 

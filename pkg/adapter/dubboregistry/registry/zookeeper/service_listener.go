@@ -25,7 +25,7 @@ import (
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
 
 	"github.com/dubbogo/go-zookeeper/zk"
 )

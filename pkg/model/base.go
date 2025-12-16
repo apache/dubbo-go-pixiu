@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/api"
 )
 
 type Metadata struct {

@@ -1,0 +1,19 @@
+syntax = "proto3";
+package pixiu.api.v1;
+
+// Address the address
+message Address {
+	pixiu.api.v1.SocketAddress socket_address = 1;
+	string name = 2;
+}
+
+// SocketAddress specify either a logical or physical address and port, which are
+// used to tell server where to bind/listen, connect to upstream and find
+// management servers
+message SocketAddress {
+	string address = 1;
+	int64 port = 2;
+	string resolver_name = 3;
+	repeated string domains = 4;
+	string certsDir = 5;
+}

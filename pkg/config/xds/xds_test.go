@@ -26,7 +26,7 @@ import (
 import (
 	monkey "github.com/cch123/supermonkey"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
+	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
 
 	"github.com/golang/mock/gomock"
 
