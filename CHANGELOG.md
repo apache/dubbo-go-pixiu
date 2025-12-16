@@ -172,7 +172,7 @@
 
 ### Contributors
 
-Special thanks to all contributors for their efforts in improving `dubbo-go-pixiu`:
+Special thanks to all contributors for their efforts in improving `dubbo-go-pixiu` (listed alphabetically):
 
 @1kasa
 @Alanxtl
