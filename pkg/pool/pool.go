@@ -23,13 +23,10 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // ClientPool  a pool of client.

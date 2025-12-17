@@ -24,14 +24,13 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/router"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 func TestHeader(t *testing.T) {

@@ -20,8 +20,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"net"
 	"os"
 	"strconv"
@@ -29,7 +27,6 @@ import (
 )
 
 import (
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -55,6 +52,9 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

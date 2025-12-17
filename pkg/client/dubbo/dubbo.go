@@ -35,8 +35,6 @@ import (
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
-
 	"github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
@@ -48,6 +46,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

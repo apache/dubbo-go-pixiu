@@ -26,16 +26,13 @@ import (
 )
 
 import (
-	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/triple"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"

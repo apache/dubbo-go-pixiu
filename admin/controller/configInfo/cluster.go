@@ -22,8 +22,6 @@ import (
 )
 
 import (
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,6 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

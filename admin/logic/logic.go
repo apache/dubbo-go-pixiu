@@ -25,8 +25,6 @@ import (
 )
 
 import (
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
-
 	gxetcd "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	perrors "github.com/pkg/errors"
@@ -37,6 +35,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

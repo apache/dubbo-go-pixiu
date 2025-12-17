@@ -24,15 +24,14 @@ import (
 )
 
 import (
-	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/router"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 // TestStandardDubboResolver_Resolve tests the Resolve method of the StandardDubboResolver.

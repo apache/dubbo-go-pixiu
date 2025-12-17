@@ -22,13 +22,12 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func getMockMethod(verb config.HTTPVerb) config.Method {

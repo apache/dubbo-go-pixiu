@@ -26,14 +26,13 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func TestReg(t *testing.T) {

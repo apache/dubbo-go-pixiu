@@ -19,12 +19,11 @@ package registry
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // TransferURL2Api transfer url and clusterName to IntegrationRequest

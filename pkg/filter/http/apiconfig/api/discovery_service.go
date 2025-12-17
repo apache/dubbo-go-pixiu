@@ -24,13 +24,10 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	fr "github.com/apache/dubbo-go-pixiu/pkg/router"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
+	fr "github.com/apache/dubbo-go-pixiu/pkg/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 

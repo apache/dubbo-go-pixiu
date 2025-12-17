@@ -24,13 +24,12 @@ import (
 )
 
 import (
-	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // TestBaseResolver_PreCheck tests the PreCheck method of the BaseResolver.

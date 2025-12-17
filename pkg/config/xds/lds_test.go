@@ -18,7 +18,6 @@
 package xds
 
 import (
-	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"testing"
 )
 
@@ -32,6 +31,7 @@ import (
 )
 
 import (
+	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 

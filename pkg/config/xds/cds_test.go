@@ -19,7 +19,6 @@ package xds
 
 import (
 	stderr "errors"
-	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"testing"
 )
 
@@ -37,6 +36,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
+	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
