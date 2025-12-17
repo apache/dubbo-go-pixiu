@@ -66,11 +66,8 @@ func newNacosAppSrvListener(client naming_client.INamingClient, adapterListener 
 	}
 }
 
-// WatchAndHandle is not used for application service listener.
-// This listener is driven by Nacos subscription callbacks (Callback method) rather than active polling.
-// The parent nacosAppListener handles the watch loop and creates app service listeners as needed.
 func (l *appServiceListener) WatchAndHandle() {
-	// No-op: This listener uses callback-based subscription, not active watching
+	panic("implement me")
 }
 
 func (l *appServiceListener) Close() {
@@ -80,12 +77,7 @@ func (l *appServiceListener) Close() {
 
 func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, err error) {
 	if err != nil {
-		// "hosts is empty" is expected during service startup, log as warning instead of error
-		if strings.Contains(err.Error(), "hosts is empty") {
-			logger.Warnf("nacos subscribe callback: %s (service may not be registered yet)", err.Error())
-		} else {
-			logger.Errorf("nacos subscribe callback error:%s", err.Error())
-		}
+		logger.Errorf("nacos subscribe callback error:%s", err.Error())
 		return
 	}
 
@@ -105,12 +97,12 @@ func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, er
 		services[i].ServiceName = handleServiceName(services[i].ServiceName)
 		instance := generateInstance(services[i])
 		newInstanceMap[host] = instance
-		if old, ok := l.instanceMap[host]; !ok {
+		if old, ok := l.instanceMap[host]; ok {
 			// instance does not exist in cache, add it to cache
 			addInstances = append(addInstances, instance)
 		} else {
 			if !reflect.DeepEqual(old, instance) {
-				// instance exists but is different, update it to cache
+				// instance is not different from cache, update it to cache
 				updateInstances = append(updateInstances, instance)
 			}
 		}
