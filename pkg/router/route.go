@@ -24,8 +24,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 
 	"github.com/pkg/errors"
 )
@@ -59,7 +58,7 @@ func (rt *Route) ClearAPI() error {
 	return nil
 }
 
-func (rt *Route) RemoveAPI(api router.API) {
+func (rt *Route) RemoveAPI(api API) {
 	lowerCasePath := strings.ToLower(api.URLPattern)
 	key := getTrieKey(api.HTTPVerb, lowerCasePath, false)
 
@@ -120,7 +119,7 @@ func getTrieKey(method config.HTTPVerb, path string, isPrefix bool) string {
 }
 
 // PutAPI puts an api into the resource
-func (rt *Route) PutAPI(api router.API) error {
+func (rt *Route) PutAPI(api API) error {
 	lowerCasePath := strings.ToLower(api.URLPattern)
 	key := getTrieKey(api.HTTPVerb, lowerCasePath, false)
 	node, ok := rt.getNode(key)
@@ -142,7 +141,7 @@ func (rt *Route) PutAPI(api router.API) error {
 }
 
 // PutOrUpdateAPI puts or updates an api into the resource
-func (rt *Route) PutOrUpdateAPI(api router.API) error {
+func (rt *Route) PutOrUpdateAPI(api API) error {
 	lowerCasePath := strings.ToLower(api.URLPattern)
 	key := getTrieKey(api.HTTPVerb, lowerCasePath, false)
 	rn := &Node{
@@ -181,13 +180,13 @@ func (rt *Route) PutOrUpdateAPI(api router.API) error {
 }
 
 // FindAPI return if api has path in trie,or nil
-func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API, bool) {
+func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool) {
 	lowerCasePath := strings.ToLower(fullPath)
 	key := getTrieKey(httpverb, lowerCasePath, false)
 	if n, found := rt.getNode(key); found {
 		rt.lock.RLock()
 		defer rt.lock.RUnlock()
-		return &router.API{
+		return &API{
 			URLPattern: n.fullPath,
 			Method:     *n.method,
 			Headers:    n.headers,
@@ -197,13 +196,13 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*router.API
 }
 
 // MatchAPI FindAPI returns the api that meets the rule
-func (rt *Route) MatchAPI(fullPath string, httpverb config.HTTPVerb) (*router.API, bool) {
+func (rt *Route) MatchAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool) {
 	lowerCasePath := strings.ToLower(fullPath)
 	key := getTrieKey(httpverb, lowerCasePath, false)
 	if n, found := rt.matchNode(key); found {
 		rt.lock.RLock()
 		defer rt.lock.RUnlock()
-		return &router.API{
+		return &API{
 			URLPattern: n.fullPath,
 			Method:     *n.method,
 			Headers:    n.headers,

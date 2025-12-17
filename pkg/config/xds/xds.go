@@ -22,8 +22,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
-
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -119,7 +117,7 @@ func (a *Xds) Start() {
 	// lds fetch just run on init phase.
 	if a.dynamicResourceMg.GetLds() != nil {
 		a.lds = &LdsManager{
-			DiscoverApi: a.createApiManager(a.dynamicResourceMg.GetLds(), a.dynamicResourceMg.GetNode(), xds.ListenerType),
+			DiscoverApi: a.createApiManager(a.dynamicResourceMg.GetLds(), a.dynamicResourceMg.GetNode(), ListenerType),
 			listenerMg:  a.listenerMg,
 		}
 		if err := a.lds.Delta(); err != nil {
@@ -129,7 +127,7 @@ func (a *Xds) Start() {
 	// catch the ongoing cds config change.
 	if a.dynamicResourceMg.GetCds() != nil {
 		a.cds = &CdsManager{
-			DiscoverApi: a.createApiManager(a.dynamicResourceMg.GetCds(), a.dynamicResourceMg.GetNode(), xds.ClusterType),
+			DiscoverApi: a.createApiManager(a.dynamicResourceMg.GetCds(), a.dynamicResourceMg.GetNode(), ClusterType),
 			clusterMg:   a.clusterMg,
 		}
 		if err := a.cds.Delta(); err != nil {

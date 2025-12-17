@@ -19,14 +19,12 @@ package xds
 
 import (
 	stderr "errors"
+	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"testing"
 )
 
 import (
 	"github.com/cch123/supermonkey"
-
-	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
-	pixiupb "github.com/apache/dubbo-go-pixiu/pkg/api/xds/model"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
@@ -44,15 +42,15 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
 )
 
-func makeClusters() *pixiupb.PixiuExtensionClusters {
-	return &pixiupb.PixiuExtensionClusters{
-		Clusters: []*pixiupb.Cluster{
+func makeClusters() *model2.PixiuExtensionClusters {
+	return &model2.PixiuExtensionClusters{
+		Clusters: []*model2.Cluster{
 			{
 				Name:    "http-baidu",
 				TypeStr: "http",
-				Endpoints: []*pixiupb.Endpoint{{
+				Endpoints: []*model2.Endpoint{{
 					Id: "backend",
-					Address: &pixiupb.SocketAddress{
+					Address: &model2.SocketAddress{
 						Address: "httpbin.org",
 						Port:    80,
 					},
@@ -63,15 +61,15 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 }
 
 func getCdsConfig() *core.TypedExtensionConfig {
-	makeClusters := func() *pixiupb.PixiuExtensionClusters {
-		return &pixiupb.PixiuExtensionClusters{
-			Clusters: []*pixiupb.Cluster{
+	makeClusters := func() *model2.PixiuExtensionClusters {
+		return &model2.PixiuExtensionClusters{
+			Clusters: []*model2.Cluster{
 				{
 					Name:    "http-baidu",
 					TypeStr: "http",
-					Endpoints: []*pixiupb.Endpoint{{
+					Endpoints: []*model2.Endpoint{{
 						Id: "backend",
-						Address: &pixiupb.SocketAddress{
+						Address: &model2.SocketAddress{
 							Address: "httpbin.org",
 							Port:    80,
 						},
@@ -82,7 +80,7 @@ func getCdsConfig() *core.TypedExtensionConfig {
 	}
 	cdsResource, _ := anypb.New(makeClusters())
 	return &core.TypedExtensionConfig{
-		Name:        xds.ClusterType,
+		Name:        ClusterType,
 		TypedConfig: cdsResource,
 	}
 }

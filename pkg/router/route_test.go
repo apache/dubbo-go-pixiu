@@ -22,8 +22,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -48,37 +47,37 @@ func TestPut(t *testing.T) {
 		tree: trie.NewTrie(),
 	}
 	n0 := getMockMethod(config.MethodGet)
-	_ = rt.PutAPI(router.API{URLPattern: "/", Method: n0})
+	_ = rt.PutAPI(API{URLPattern: "/", Method: n0})
 	_, ok := rt.FindAPI("/", n0.HTTPVerb)
 	assert.True(t, ok)
 
-	err := rt.PutAPI(router.API{URLPattern: "/", Method: n0})
+	err := rt.PutAPI(API{URLPattern: "/", Method: n0})
 	assert.Error(t, err, "Method GET already exists in path /")
 
 	n1 := getMockMethod(config.MethodPost)
-	err = rt.PutAPI(router.API{URLPattern: "/mock", Method: n0})
+	err = rt.PutAPI(API{URLPattern: "/mock", Method: n0})
 	assert.Nil(t, err)
-	err = rt.PutAPI(router.API{URLPattern: "/mock", Method: n1})
+	err = rt.PutAPI(API{URLPattern: "/mock", Method: n1})
 	assert.Nil(t, err)
 	_, ok = rt.FindAPI("/mock", n0.HTTPVerb)
 	assert.True(t, ok)
 	_, ok = rt.FindAPI("/mock", n1.HTTPVerb)
 	assert.True(t, ok)
 
-	err = rt.PutAPI(router.API{URLPattern: "/mock/test", Method: n0})
+	err = rt.PutAPI(API{URLPattern: "/mock/test", Method: n0})
 	assert.Nil(t, err)
 	_, ok = rt.FindAPI("/mock/test", n0.HTTPVerb)
 	assert.True(t, ok)
 
-	_ = rt.PutAPI(router.API{URLPattern: "/test/:id", Method: n0})
+	_ = rt.PutAPI(API{URLPattern: "/test/:id", Method: n0})
 	_, ok = rt.FindAPI("/test/:id", n0.HTTPVerb)
 	assert.True(t, ok)
 
-	err = rt.PutAPI(router.API{URLPattern: "/test/:id", Method: n1})
+	err = rt.PutAPI(API{URLPattern: "/test/:id", Method: n1})
 	assert.Nil(t, err)
-	err = rt.PutAPI(router.API{URLPattern: "/test/js", Method: n0})
+	err = rt.PutAPI(API{URLPattern: "/test/js", Method: n0})
 	assert.Nil(t, err)
-	err = rt.PutAPI(router.API{URLPattern: "/test/:id/mock", Method: n0})
+	err = rt.PutAPI(API{URLPattern: "/test/:id/mock", Method: n0})
 	_, ok = rt.FindAPI("/test/:id/mock", n0.HTTPVerb)
 	assert.True(t, ok)
 	assert.Nil(t, err)
@@ -90,11 +89,11 @@ func TestMatchMethod(t *testing.T) {
 	}
 	n0 := getMockMethod(config.MethodGet)
 	n1 := getMockMethod(config.MethodPost)
-	e := rt.PutAPI(router.API{URLPattern: "/theboys", Method: n0})
+	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
 	assert.Nil(t, e)
-	e = rt.PutAPI(router.API{URLPattern: "/theboys/:id", Method: n0})
+	e = rt.PutAPI(API{URLPattern: "/theboys/:id", Method: n0})
 	assert.Nil(t, e)
-	e = rt.PutAPI(router.API{URLPattern: "/vought/:id/supe/:name", Method: n1})
+	e = rt.PutAPI(API{URLPattern: "/vought/:id/supe/:name", Method: n1})
 	assert.Nil(t, e)
 
 	m, ok := rt.MatchAPI("/theboys", config.MethodGet)
@@ -187,10 +186,10 @@ func TestGetFilters(t *testing.T) {
 	rt := NewRoute()
 	n0 := getMockMethod(config.MethodGet)
 	n1 := getMockMethod(config.MethodPost)
-	e := rt.PutAPI(router.API{URLPattern: "/theboys", Method: n0})
+	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
 	assert.Nil(t, e)
-	e = rt.PutAPI(router.API{URLPattern: "/theboys/:id", Method: n0})
+	e = rt.PutAPI(API{URLPattern: "/theboys/:id", Method: n0})
 	assert.Nil(t, e)
-	e = rt.PutAPI(router.API{URLPattern: "/vought/:id/supe/:name", Method: n1})
+	e = rt.PutAPI(API{URLPattern: "/vought/:id/supe/:name", Method: n1})
 	assert.Nil(t, e)
 }

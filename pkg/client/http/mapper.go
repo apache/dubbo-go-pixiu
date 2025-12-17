@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 
 	"github.com/pkg/errors"
 )

@@ -26,8 +26,6 @@ import (
 import (
 	monkey "github.com/cch123/supermonkey"
 
-	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/require"
@@ -131,7 +129,7 @@ func TestAdapter_createApiManager(t *testing.T) {
 		clusterMg: clusterMg,
 	}
 	ada.Start()
-	api := ada.createApiManager(&apiConfig, &node, xds.ClusterType)
+	api := ada.createApiManager(&apiConfig, &node, ClusterType)
 	assert := require.New(t)
 	assert.NotNil(api)
 }

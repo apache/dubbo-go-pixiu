@@ -23,14 +23,13 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetURIParams(t *testing.T) {
-	api := router.API{
+	api := API{
 		URLPattern: "/mock/:id/:name",
 		Method:     getMockMethod(config.MethodGet),
 	}
@@ -65,7 +64,7 @@ func TestGetURIParams(t *testing.T) {
 }
 
 func TestIsWildCardBackendPath(t *testing.T) {
-	mockAPI := &router.API{
+	mockAPI := &API{
 		URLPattern: "/mock/:id/:name",
 		Method:     getMockMethod(config.MethodGet),
 	}

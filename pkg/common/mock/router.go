@@ -18,8 +18,8 @@
 package mock
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 // GetMockAPI a mock util to create router.API

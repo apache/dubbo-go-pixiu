@@ -18,8 +18,6 @@
 package server
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api"
-
 	"github.com/pkg/errors"
 )
 
@@ -99,7 +97,7 @@ func convertApiType(config *model.ApiConfigSource) error {
 		if !ok {
 			return errors.Errorf("unknown apiType %s", config.APITypeStr)
 		}
-		config.APIType = api.ApiType(apiType)
+		config.APIType = model.ApiType(apiType)
 		if config.APIType != model.ApiTypeGRPC && config.APIType != model.ApiTypeIstioGRPC {
 			return errors.Errorf("APIType support GRPC/ISTIO only but get %s", config.APITypeStr)
 		}

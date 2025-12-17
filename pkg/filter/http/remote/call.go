@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	apiConf "github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
+	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 import (

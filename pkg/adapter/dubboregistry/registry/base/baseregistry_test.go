@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 import (

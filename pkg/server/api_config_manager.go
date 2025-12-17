@@ -22,8 +22,8 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/api/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 
 	"github.com/pkg/errors"
 )

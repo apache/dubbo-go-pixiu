@@ -18,7 +18,7 @@
 package dubbo
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // defaultMappingParams default http to dubbo config

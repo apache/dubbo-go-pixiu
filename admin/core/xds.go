@@ -20,6 +20,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"net"
 	"os"
 	"strconv"
@@ -27,10 +29,7 @@ import (
 )
 
 import (
-	fc "github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/api/xds"
-	pixiupb "github.com/apache/dubbo-go-pixiu/pkg/api/xds/model"
-
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -171,7 +170,7 @@ func watchConfigAndReload() {
 }
 
 // makeHTTPFilter returns a handler for the given resource.
-func makeHTTPFilter(listener fc.Listener) *pixiupb.FilterChain {
+func makeHTTPFilter(listener fc.Listener) *model.FilterChain {
 	var filters, routes []any
 
 	for _, f := range listener.HTTPFilters {
@@ -193,11 +192,11 @@ func makeHTTPFilter(listener fc.Listener) *pixiupb.FilterChain {
 		})
 	}
 
-	return &pixiupb.FilterChain{
-		Filters: []*pixiupb.NetworkFilter{
+	return &model.FilterChain{
+		Filters: []*model.NetworkFilter{
 			{
 				Name: constant.HTTPConnectManagerFilter,
-				Config: &pixiupb.NetworkFilter_Struct{
+				Config: &model.NetworkFilter_Struct{
 					Struct: func() *structpb.Struct {
 						v, err := structpb.NewStruct(map[string]any{
 							"route_config": map[string]any{
@@ -216,7 +215,7 @@ func makeHTTPFilter(listener fc.Listener) *pixiupb.FilterChain {
 	}
 }
 
-func makeListeners() *pixiupb.PixiuExtensionListeners {
+func makeListeners() *model.PixiuExtensionListeners {
 	listeners, err := logic.BizGetListeners()
 	if err != nil {
 		logger.Errorf("get listeners error %q", err)
@@ -227,12 +226,12 @@ func makeListeners() *pixiupb.PixiuExtensionListeners {
 		return nil
 	}
 
-	pbListeners := &pixiupb.PixiuExtensionListeners{}
+	pbListeners := &model.PixiuExtensionListeners{}
 	for _, listener := range listeners {
-		pbListeners.Listeners = append(pbListeners.Listeners, &pixiupb.Listener{
+		pbListeners.Listeners = append(pbListeners.Listeners, &model.Listener{
 			Name: listener.Name,
-			Address: &pixiupb.Address{
-				SocketAddress: &pixiupb.SocketAddress{
+			Address: &model.Address{
+				SocketAddress: &model.SocketAddress{
 					Address: listener.Address.SocketAddress.Address,
 					Port:    int64(listener.Address.SocketAddress.Port),
 				},
@@ -244,7 +243,7 @@ func makeListeners() *pixiupb.PixiuExtensionListeners {
 	return pbListeners
 }
 
-func makeClusters() *pixiupb.PixiuExtensionClusters {
+func makeClusters() *model.PixiuExtensionClusters {
 	clusters, err := logic.BizGetClusters()
 	if err != nil {
 		logger.Errorf("get clusters error %q", err)
@@ -255,16 +254,16 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 		return nil
 	}
 
-	pbCluster := &pixiupb.PixiuExtensionClusters{}
+	pbCluster := &model.PixiuExtensionClusters{}
 
 	for _, c := range clusters {
-		pbCluster.Clusters = append(pbCluster.Clusters, &pixiupb.Cluster{
+		pbCluster.Clusters = append(pbCluster.Clusters, &model.Cluster{
 			Name:    c.Name,
 			TypeStr: c.Type,
-			Endpoints: []*pixiupb.Endpoint{
+			Endpoints: []*model.Endpoint{
 				{
 					Id: c.Name + strconv.Itoa(c.ID),
-					Address: &pixiupb.SocketAddress{
+					Address: &model.SocketAddress{
 						Address: c.Address,
 						Port:    int64(c.Port),
 					},

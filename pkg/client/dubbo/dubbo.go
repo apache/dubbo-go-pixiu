@@ -35,7 +35,7 @@ import (
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
-	fc "github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 
 	"github.com/pkg/errors"
 

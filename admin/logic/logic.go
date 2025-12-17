@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	fc "github.com/apache/dubbo-go-pixiu/pkg/api/api/config"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 
 	gxetcd "github.com/dubbogo/gost/database/kv/etcd/v3"
 
