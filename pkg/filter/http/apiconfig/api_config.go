@@ -24,8 +24,8 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"

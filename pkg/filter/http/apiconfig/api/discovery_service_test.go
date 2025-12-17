@@ -28,8 +28,8 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func TestNewLocalMemoryAPIDiscoveryService(t *testing.T) {
