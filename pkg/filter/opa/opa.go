@@ -284,7 +284,7 @@ func (f *Filter) evaluateServer(c *contextHttp.HttpContext, input map[string]any
 			logger.Errorf("Failed to read OPA server response body: %v", err)
 			body = []byte("")
 		}
-
+    
 		logger.Errorf("OPA server returned status %d: %s", resp.StatusCode, string(body))
 		errResp := contextHttp.BadGateway.WithError(fmt.Errorf("OPA server returned status %d", resp.StatusCode))
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
