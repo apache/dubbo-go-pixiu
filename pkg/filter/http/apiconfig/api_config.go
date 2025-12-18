@@ -25,7 +25,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -93,7 +92,7 @@ func (factory *FilterFactory) OnRemoveAPI(r router.API) error {
 	return factory.apiService.RemoveAPIByIntance(r)
 }
 
-func (factory *FilterFactory) OnDeleteRouter(r fc.Resource) error {
+func (factory *FilterFactory) OnDeleteRouter(r config.Resource) error {
 	return factory.apiService.RemoveAPIByPath(r)
 }
 
@@ -109,7 +108,7 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 
 func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	req := ctx.Request
-	v, err := f.apiService.MatchAPI(req.URL.Path, fc.HTTPVerb(req.Method))
+	v, err := f.apiService.MatchAPI(req.URL.Path, string(req.Method))
 	if err != nil {
 		errResp := contexthttp.APINotFound.New()
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
@@ -134,7 +133,7 @@ func (factory *FilterFactory) GetApiService() api.APIDiscoveryService {
 }
 
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)
-func initApiConfig(cf *ApiConfigConfig) (*fc.APIConfig, error) {
+func initApiConfig(cf *ApiConfigConfig) (*config.APIConfig, error) {
 	if cf.APIMetaConfig != nil {
 		a, err := config.LoadAPIConfig(cf.APIMetaConfig)
 		if err != nil {

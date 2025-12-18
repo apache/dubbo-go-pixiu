@@ -465,28 +465,6 @@ func RegisterConfigListener(li APIConfigResourceListener) {
 	listener = li
 }
 
-// HTTPVerb defines the restful api http verb
-type HTTPVerb string
-
-const (
-	// MethodAny any method
-	MethodAny HTTPVerb = "ANY"
-	// MethodGet get
-	MethodGet HTTPVerb = "GET"
-	// MethodHead head
-	MethodHead HTTPVerb = "HEAD"
-	// MethodPost post
-	MethodPost HTTPVerb = "POST"
-	// MethodPut put
-	MethodPut HTTPVerb = "PUT"
-	// MethodPatch patch
-	MethodPatch HTTPVerb = "PATCH" // RFC 5789
-	// MethodDelete delete
-	MethodDelete HTTPVerb = "DELETE"
-	// MethodOptions options
-	MethodOptions HTTPVerb = "OPTIONS"
-)
-
 // RequestType describes the type of the request. could be DUBBO/HTTP and others that we might implement in the future
 type RequestType string
 
@@ -563,7 +541,7 @@ type Method struct {
 	Timeout            time.Duration `json:"timeout" yaml:"timeout"`
 	Mock               bool          `json:"mock" yaml:"mock"`
 	Filters            []Filter      `json:"filters" yaml:"filters"`
-	HTTPVerb           `json:"httpVerb" yaml:"httpVerb"`
+	HTTPVerb           string        `json:"httpVerb" yaml:"httpVerb"`
 	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
 	IntegrationRequest `json:"integrationRequest" yaml:"integrationRequest"`
 }

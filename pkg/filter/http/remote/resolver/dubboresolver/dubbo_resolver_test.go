@@ -29,7 +29,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
@@ -58,7 +58,7 @@ func TestStandardDubboResolver_Resolve(t *testing.T) {
 			checkAPI: func(t *testing.T, api *router.API) {
 				assert.NotNil(t, api)
 				// The key check: ensure the specific mapping params for this resolver are present.
-				expectedParams := []apiConf.MappingParam{
+				expectedParams := []config.MappingParam{
 					{Name: "requestBody.values", MapTo: "opt.values"},
 					{Name: "requestBody.types", MapTo: "opt.types"},
 					{Name: "uri.application", MapTo: "opt.application"},
@@ -66,7 +66,7 @@ func TestStandardDubboResolver_Resolve(t *testing.T) {
 					{Name: "uri.method", MapTo: "opt.method"},
 				}
 				assert.Equal(t, expectedParams, api.MappingParams)
-				assert.Equal(t, apiConf.DubboRequest, api.IntegrationRequest.RequestType)
+				assert.Equal(t, config.DubboRequest, api.IntegrationRequest.RequestType)
 			},
 		},
 		{

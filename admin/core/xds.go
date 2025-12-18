@@ -49,10 +49,10 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/admin/config"
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -145,7 +145,7 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 }
 
 func watchConfigAndReload() {
-	ch, err := config.Client.WatchWithPrefix(config.Bootstrap.EtcdConfig.Path)
+	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
 
 	if err != nil {
 		logger.Errorf("watch config error %q", err)
@@ -170,7 +170,7 @@ func watchConfigAndReload() {
 }
 
 // makeHTTPFilter returns a handler for the given resource.
-func makeHTTPFilter(listener fc.Listener) *model.FilterChain {
+func makeHTTPFilter(listener config.Listener) *model.FilterChain {
 	var filters, routes []any
 
 	for _, f := range listener.HTTPFilters {

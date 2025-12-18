@@ -26,7 +26,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	apiConf "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
@@ -61,37 +61,37 @@ func (b *BaseResolver) PreCheck(req *http.Request) error {
 	return nil
 }
 
-func (b *BaseResolver) BuildAPI(req *http.Request, mappingParams []apiConf.MappingParam) (*router.API, error) {
-	integrationRequest := apiConf.IntegrationRequest{}
+func (b *BaseResolver) BuildAPI(req *http.Request, mappingParams []config.MappingParam) (*router.API, error) {
+	integrationRequest := config.IntegrationRequest{}
 	resolveProtocol := req.Header.Get(constant.DubboServiceProtocol)
 	switch resolveProtocol {
-	case string(apiConf.HTTPRequest):
-		integrationRequest.RequestType = apiConf.RequestType(resolveProtocol)
-	case string(apiConf.DubboRequest):
-		integrationRequest.RequestType = apiConf.RequestType(resolveProtocol)
+	case string(config.HTTPRequest):
+		integrationRequest.RequestType = config.RequestType(resolveProtocol)
+	case string(config.DubboRequest):
+		integrationRequest.RequestType = config.RequestType(resolveProtocol)
 	case "triple":
-		integrationRequest.RequestType = apiConf.RequestType(resolveProtocol)
+		integrationRequest.RequestType = config.RequestType(resolveProtocol)
 	default:
 		// If the protocol is specified but unknown, it's an error.
 		if resolveProtocol != "" {
 			return nil, errors.New("http request has unknown protocol in x-dubbo-service-protocol")
 		}
 		// Default to dubbo if not specified
-		integrationRequest.RequestType = apiConf.DubboRequest
+		integrationRequest.RequestType = config.DubboRequest
 	}
 
-	dubboBackendConfig := apiConf.DubboBackendConfig{
+	dubboBackendConfig := config.DubboBackendConfig{
 		Version: req.Header.Get(constant.DubboServiceVersion),
 		Group:   req.Header.Get(constant.DubboGroup),
 	}
 	integrationRequest.DubboBackendConfig = dubboBackendConfig
 	integrationRequest.MappingParams = mappingParams
 
-	method := apiConf.Method{
+	method := config.Method{
 		Enable:             true,
 		HTTPVerb:           http.MethodPost,
 		IntegrationRequest: integrationRequest,
-		InboundRequest:     apiConf.InboundRequest{RequestType: apiConf.HTTPRequest},
+		InboundRequest:     config.InboundRequest{RequestType: config.HTTPRequest},
 	}
 
 	api := router.API{

@@ -26,20 +26,19 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	pc "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	fr "github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 // APIDiscoveryService api discovery service interface
 type APIDiscoveryService interface {
-	pc.APIConfigResourceListener
+	config.APIConfigResourceListener
 	InitAPIsFromConfig(apiConfig config.APIConfig) error
 	AddAPI(fr.API) error
 	AddOrUpdateAPI(fr.API) error
 	ClearAPI() error
-	GetAPI(string, config.HTTPVerb) (fr.API, error)
-	MatchAPI(string, config.HTTPVerb) (fr.API, error)
+	GetAPI(string, string) (fr.API, error)
+	MatchAPI(string, string) (fr.API, error)
 	RemoveAPIByPath(deleted config.Resource) error
 	RemoveAPIByIntance(api fr.API) error
 	RemoveAPI(fullPath string, method config.Method) error
@@ -68,7 +67,7 @@ func (l *LocalMemoryAPIDiscoveryService) AddOrUpdateAPI(api fr.API) error {
 }
 
 // GetAPI returns the method to the caller
-func (l *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTPVerb) (fr.API, error) {
+func (l *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb string) (fr.API, error) {
 	if api, ok := l.router.FindAPI(url, httpVerb); ok {
 		return *api, nil
 	}
@@ -76,7 +75,7 @@ func (l *LocalMemoryAPIDiscoveryService) GetAPI(url string, httpVerb config.HTTP
 	return fr.API{}, errors.New("not found")
 }
 
-func (l *LocalMemoryAPIDiscoveryService) MatchAPI(url string, httpVerb config.HTTPVerb) (fr.API, error) {
+func (l *LocalMemoryAPIDiscoveryService) MatchAPI(url string, httpVerb string) (fr.API, error) {
 	if api, ok := l.router.MatchAPI(url, httpVerb); ok {
 		return *api, nil
 	}
@@ -173,7 +172,7 @@ func (l *LocalMemoryAPIDiscoveryService) InitAPIsFromConfig(apiConfig config.API
 		return nil
 	}
 	// register config change listener
-	pc.RegisterConfigListener(l)
+	config.RegisterConfigListener(l)
 	return loadAPIFromResource("", apiConfig.Resources, nil, l)
 }
 

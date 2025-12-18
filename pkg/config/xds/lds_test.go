@@ -31,7 +31,7 @@ import (
 )
 
 import (
-	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -78,7 +78,7 @@ http_filters:
 	httpManagerConfigStruct, _ := structpb2.NewStruct(configMap)
 
 	type args struct {
-		filter *model2.NetworkFilter
+		filter *xdsmodel.NetworkFilter
 	}
 	tests := []struct {
 		name  string
@@ -88,10 +88,10 @@ http_filters:
 		{
 			name: "yaml",
 			args: args{
-				filter: &model2.NetworkFilter{
+				filter: &xdsmodel.NetworkFilter{
 					Name: "yaml_filter",
-					Config: &model2.NetworkFilter_Yaml{
-						Yaml: &model2.Config{
+					Config: &xdsmodel.NetworkFilter_Yaml{
+						Yaml: &xdsmodel.Config{
 							Content: httpManagerConfigYaml,
 						}},
 				},
@@ -101,9 +101,9 @@ http_filters:
 		{
 			name: "struct",
 			args: args{
-				filter: &model2.NetworkFilter{
+				filter: &xdsmodel.NetworkFilter{
 					Name:   "struct_filter",
-					Config: &model2.NetworkFilter_Struct{Struct: httpManagerConfigStruct},
+					Config: &xdsmodel.NetworkFilter_Struct{Struct: httpManagerConfigStruct},
 				},
 			},
 			wantM: configMap,
@@ -161,7 +161,7 @@ func TestMakeListener(t *testing.T) {
       }
     }
 `
-	l := &model2.Listener{}
+	l := &xdsmodel.Listener{}
 	if err := protojson.Unmarshal([]byte(json), l); err != nil {
 		t.Fatal(err)
 	}
@@ -210,26 +210,26 @@ func TestSetupListeners(t *testing.T) {
 	mock := &mockListenerManager{m: map[string]*model.Listener{}}
 	lm := &LdsManager{listenerMg: mock}
 
-	listeners := []*model2.Listener{
+	listeners := []*xdsmodel.Listener{
 		{
-			Protocol: model2.Listener_HTTP,
-			Address: &model2.Address{
-				SocketAddress: &model2.SocketAddress{
+			Protocol: xdsmodel.Listener_HTTP,
+			Address: &xdsmodel.Address{
+				SocketAddress: &xdsmodel.SocketAddress{
 					Address: "0.0.0.0",
 					Port:    8080,
 				},
 			},
-			FilterChain: &model2.FilterChain{},
+			FilterChain: &xdsmodel.FilterChain{},
 		},
 		{
-			Protocol: model2.Listener_TRIPLE,
-			Address: &model2.Address{
-				SocketAddress: &model2.SocketAddress{
+			Protocol: xdsmodel.Listener_TRIPLE,
+			Address: &xdsmodel.Address{
+				SocketAddress: &xdsmodel.SocketAddress{
 					Address: "0.0.0.0",
 					Port:    8081,
 				},
 			},
-			FilterChain: &model2.FilterChain{},
+			FilterChain: &xdsmodel.FilterChain{},
 		},
 	}
 	lm.setupListeners(listeners)
@@ -239,16 +239,16 @@ func TestSetupListeners(t *testing.T) {
 		assert.Equal(t, int(v.Address.SocketAddress.Port), mock.m[v.Name].Address.SocketAddress.Port)
 	}
 
-	newListeners := []*model2.Listener{
+	newListeners := []*xdsmodel.Listener{
 		{
-			Protocol: model2.Listener_HTTP,
-			Address: &model2.Address{
-				SocketAddress: &model2.SocketAddress{
+			Protocol: xdsmodel.Listener_HTTP,
+			Address: &xdsmodel.Address{
+				SocketAddress: &xdsmodel.SocketAddress{
 					Address: "0.0.0.0",
 					Port:    8080,
 				},
 			},
-			FilterChain: &model2.FilterChain{},
+			FilterChain: &xdsmodel.FilterChain{},
 		},
 	}
 	lm.setupListeners(newListeners)

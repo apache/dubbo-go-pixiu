@@ -41,7 +41,7 @@ import (
 )
 
 import (
-	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -187,8 +187,8 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 			// do not block, watch new resource at another goroutine
 			err := g.runEndpointReferences(pendingResourceNames, func(any2 []*anypb.Any) {
 				// run on another goroutine
-				extCluster := model2.PixiuExtensionClusters{
-					Clusters: []*model2.Cluster{
+				extCluster := xdsmodel.PixiuExtensionClusters{
+					Clusters: []*xdsmodel.Cluster{
 						{
 							Name:             "",
 							TypeStr:          ClusterType,
@@ -197,7 +197,7 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 							LbStr:            "",
 							Lb:               0,
 							HealthChecks:     nil,
-							Endpoints:        make([]*model2.Endpoint, 0, len(any2)),
+							Endpoints:        make([]*xdsmodel.Endpoint, 0, len(any2)),
 						},
 					},
 				}
@@ -213,10 +213,10 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 
 					for _, ep := range l.Endpoints {
 						address := ep.LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress()
-						extCluster.Clusters[0].Endpoints = append(extCluster.Clusters[0].Endpoints, &model2.Endpoint{
+						extCluster.Clusters[0].Endpoints = append(extCluster.Clusters[0].Endpoints, &xdsmodel.Endpoint{
 							Id:   "",
 							Name: "",
-							Address: &model2.SocketAddress{
+							Address: &xdsmodel.SocketAddress{
 								Address: address.Address,
 								Port:    int64(address.GetPortValue()),
 							},

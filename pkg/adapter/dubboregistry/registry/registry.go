@@ -109,7 +109,7 @@ func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboB
 		Enable:   true,
 		Timeout:  3 * time.Second,
 		Mock:     false,
-		HTTPVerb: config.MethodPost,
+		HTTPVerb: constant.Post,
 		InboundRequest: config.InboundRequest{
 			RequestType: config.HTTPRequest,
 		},

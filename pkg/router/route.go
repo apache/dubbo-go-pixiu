@@ -107,7 +107,7 @@ func (rt *Route) RemoveAPI(api API) {
 	}
 }
 
-func getTrieKey(method config.HTTPVerb, path string, isPrefix bool) string {
+func getTrieKey(method string, path string, isPrefix bool) string {
 	if isPrefix {
 		if !strings.HasSuffix(path, constant.PathSlash) {
 			path = path + constant.PathSlash
@@ -179,7 +179,7 @@ func (rt *Route) PutOrUpdateAPI(api API) error {
 }
 
 // FindAPI return if api has path in trie,or nil
-func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool) {
+func (rt *Route) FindAPI(fullPath string, httpverb string) (*API, bool) {
 	lowerCasePath := strings.ToLower(fullPath)
 	key := getTrieKey(httpverb, lowerCasePath, false)
 	if n, found := rt.getNode(key); found {
@@ -195,7 +195,7 @@ func (rt *Route) FindAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool)
 }
 
 // MatchAPI FindAPI returns the api that meets the rule
-func (rt *Route) MatchAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool) {
+func (rt *Route) MatchAPI(fullPath string, httpverb string) (*API, bool) {
 	lowerCasePath := strings.ToLower(fullPath)
 	key := getTrieKey(httpverb, lowerCasePath, false)
 	if n, found := rt.matchNode(key); found {
@@ -214,7 +214,7 @@ func (rt *Route) MatchAPI(fullPath string, httpverb config.HTTPVerb) (*API, bool
 func (rt *Route) DeleteNode(fullPath string) bool {
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
-	methodList := [8]config.HTTPVerb{"ANY", "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+	methodList := [8]string{"ANY", "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 	for _, v := range methodList {
 		key := getTrieKey(v, fullPath, false)
 		_, _ = rt.tree.Remove(key)
@@ -223,7 +223,7 @@ func (rt *Route) DeleteNode(fullPath string) bool {
 }
 
 // DeleteAPI delete api by fullPath and http verb
-func (rt *Route) DeleteAPI(fullPath string, httpverb config.HTTPVerb) bool {
+func (rt *Route) DeleteAPI(fullPath string, httpverb string) bool {
 	lowerCasePath := strings.ToLower(fullPath)
 	key := getTrieKey(httpverb, lowerCasePath, false)
 	if _, found := rt.getNode(key); found {

@@ -23,7 +23,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
-	model2 "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
@@ -40,9 +40,9 @@ func (c *CdsManager) Fetch() error {
 	if err != nil {
 		return err
 	}
-	clusters := make([]*model2.Cluster, 0, len(r))
+	clusters := make([]*xdsmodel.Cluster, 0, len(r))
 	for _, one := range r {
-		extClusters := &model2.PixiuExtensionClusters{}
+		extClusters := &xdsmodel.PixiuExtensionClusters{}
 		if err := one.To(extClusters); err != nil {
 			logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 			continue
@@ -65,9 +65,9 @@ func (c *CdsManager) Delta() error {
 
 func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for one := range read {
-		clusters := make([]*model2.Cluster, 0, len(one.NewResources))
+		clusters := make([]*xdsmodel.Cluster, 0, len(one.NewResources))
 		for _, one := range one.NewResources {
-			cluster := &model2.PixiuExtensionClusters{}
+			cluster := &xdsmodel.PixiuExtensionClusters{}
 			if err := one.To(cluster); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
@@ -86,7 +86,7 @@ func (c *CdsManager) removeCluster(clusterNames []string) {
 	c.clusterMg.RemoveCluster(clusterNames)
 }
 
-func (c *CdsManager) setupCluster(clusters []*model2.Cluster) error {
+func (c *CdsManager) setupCluster(clusters []*xdsmodel.Cluster) error {
 
 	laterApplies := make([]func() error, 0, len(clusters))
 	toRemoveHash := make(map[string]struct{}, len(clusters))
@@ -137,7 +137,7 @@ func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
 	c.removeCluster(removeClusters)
 }
 
-func (c *CdsManager) makeCluster(cluster *model2.Cluster) *model.ClusterConfig {
+func (c *CdsManager) makeCluster(cluster *xdsmodel.Cluster) *model.ClusterConfig {
 	return &model.ClusterConfig{
 		Name:             cluster.Name,
 		TypeStr:          cluster.TypeStr,
@@ -153,11 +153,11 @@ func (c *CdsManager) makeLoadBalancePolicy(lb string) model.LbPolicyType {
 	return model.LbPolicyTypeValue[lb]
 }
 
-func (c *CdsManager) makeClusterType(cluster *model2.Cluster) model.DiscoveryType {
+func (c *CdsManager) makeClusterType(cluster *xdsmodel.Cluster) model.DiscoveryType {
 	return model.DiscoveryTypeValue[cluster.TypeStr]
 }
 
-func (c *CdsManager) makeEndpoints(endpoints []*model2.Endpoint) []*model.Endpoint {
+func (c *CdsManager) makeEndpoints(endpoints []*xdsmodel.Endpoint) []*model.Endpoint {
 	r := make([]*model.Endpoint, len(endpoints))
 	for i, endpoint := range endpoints {
 		r[i] = &model.Endpoint{
@@ -170,7 +170,7 @@ func (c *CdsManager) makeEndpoints(endpoints []*model2.Endpoint) []*model.Endpoi
 	return r
 }
 
-func (c *CdsManager) makeAddress(endpoint *model2.Endpoint) model.SocketAddress {
+func (c *CdsManager) makeAddress(endpoint *xdsmodel.Endpoint) model.SocketAddress {
 	if endpoint == nil || endpoint.Address == nil {
 		return model.SocketAddress{}
 	}
@@ -183,7 +183,7 @@ func (c *CdsManager) makeAddress(endpoint *model2.Endpoint) model.SocketAddress 
 	}
 }
 
-func (c *CdsManager) makeHealthChecks(checks []*model2.HealthCheck) (result []model.HealthCheckConfig) {
+func (c *CdsManager) makeHealthChecks(checks []*xdsmodel.HealthCheck) (result []model.HealthCheckConfig) {
 	//todo implement me after fix model.HealthCheck type define
 	//result = make([]model.HealthCheck, 0, len(checks))
 	//for _, check := range checks {
@@ -215,7 +215,7 @@ func (c *CdsManager) makeHealthChecks(checks []*model2.HealthCheck) (result []mo
 	return
 }
 
-func (c *CdsManager) makeEdsClusterConfig(edsConfig *model2.EdsClusterConfig) model.EdsClusterConfig {
+func (c *CdsManager) makeEdsClusterConfig(edsConfig *xdsmodel.EdsClusterConfig) model.EdsClusterConfig {
 	if edsConfig == nil {
 		return model.EdsClusterConfig{}
 	}
@@ -228,7 +228,7 @@ func (c *CdsManager) makeEdsClusterConfig(edsConfig *model2.EdsClusterConfig) mo
 	}
 }
 
-func (c *CdsManager) makeApiConfigSource(apiConfig *model2.ApiConfigSource) (result model.ApiConfigSource) {
+func (c *CdsManager) makeApiConfigSource(apiConfig *xdsmodel.ApiConfigSource) (result model.ApiConfigSource) {
 	apiType, ok := model.ApiTypeValue[apiConfig.APITypeStr]
 	if !ok {
 		logger.Errorf("unknown apiType %s", apiConfig.APITypeStr)

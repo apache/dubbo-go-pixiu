@@ -26,10 +26,10 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/admin/config"
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
-	fc "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -43,10 +43,10 @@ import (
 func GetListenerList(c *gin.Context) {
 	rst, err := logic.BizGetListeners()
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config.WithRet(rst))
+	c.JSON(http.StatusOK, adminconfig.WithRet(rst))
 }
 
 // @Tags Config
@@ -61,19 +61,19 @@ func GetListenerList(c *gin.Context) {
 // CreateListener create a Listener
 func CreateListener(c *gin.Context) {
 	body := c.PostForm("content")
-	res := &fc.Listener{}
+	res := &config.Listener{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 	logger.Debug(body)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	err = logic.BizCreateListener(res)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config.WithRet("create Listener success!"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("create Listener success!"))
 }
 
 // @Tags Config
@@ -88,11 +88,11 @@ func DeleteListener(c *gin.Context) {
 	id := c.Query(logic.Listener)
 	err := logic.BizDeleteListener(id)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, config.WithRet("delete Listener success!"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("delete Listener success!"))
 }
 
 // @Tags Config
@@ -107,10 +107,10 @@ func DetailListener(c *gin.Context) {
 	name := c.Query(logic.Listener)
 	res, err := logic.BizGetListener(name)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config.WithRet(res))
+	c.JSON(http.StatusOK, adminconfig.WithRet(res))
 }
 
 // @Tags Config
@@ -125,17 +125,17 @@ func DetailListener(c *gin.Context) {
 // UpdateListener update Listener
 func UpdateListener(c *gin.Context) {
 	body := c.PostForm("content")
-	res := &fc.Listener{}
+	res := &config.Listener{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 	logger.Debug(body)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	err = logic.BizUpdateListener(res)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config.WithRet("update Listener success!"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("update Listener success!"))
 }
