@@ -66,7 +66,7 @@ func TestStandardDubboResolver_Resolve(t *testing.T) {
 					{Name: "uri.method", MapTo: "opt.method"},
 				}
 				assert.Equal(t, expectedParams, api.MappingParams)
-				assert.Equal(t, config.DubboRequest, api.IntegrationRequest.RequestType)
+				assert.Equal(t, constant.DubboRequest, api.IntegrationRequest.RequestType)
 			},
 		},
 		{

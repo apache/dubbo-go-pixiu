@@ -41,18 +41,10 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-)
-
-const (
-	ResourceTypePrefix = "dubbo-go.pixiu"
-	ClusterType        = ResourceTypePrefix + "/v1/discovery:cluster"
-	ListenerType       = ResourceTypePrefix + "/v1/discovery:listener"
-	EndpointType       = ResourceTypePrefix + "/v1/discovery:endpoint"
-	RouterType         = ResourceTypePrefix + "/v1/discovery:route"
-	RuntimeType        = ResourceTypePrefix + "/v1/discovery:runtime"
 )
 
 type GrpcApiClientOption func(*AggGrpcApiClient)
@@ -79,11 +71,11 @@ func CreateEnvoyGrpcApiClient(
 	v.grpcMg = grpcMg
 	v.exitCh = exitCh
 	switch typeName {
-	case ListenerType:
+	case constant.ListenerType:
 		v.typeUrl = resource.ListenerType
-	case ClusterType:
+	case constant.ClusterType:
 		v.typeUrl = resource.ClusterType
-	case EndpointType:
+	case constant.EndpointType:
 		v.typeUrl = resource.EndpointType
 	default:
 		logger.Warnf("typeName should be dubbo-go.pixiu/v1/discovery:cluster or dubbo-go.pixiu/v1/discovery:listener")
@@ -191,7 +183,7 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 					Clusters: []*xdsmodel.Cluster{
 						{
 							Name:             "",
-							TypeStr:          ClusterType,
+							TypeStr:          constant.ClusterType,
 							Type:             0,
 							EdsClusterConfig: nil,
 							LbStr:            "",

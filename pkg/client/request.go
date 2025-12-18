@@ -19,12 +19,12 @@ package client
 
 import (
 	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"net/http"
 	"time"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
@@ -48,7 +48,7 @@ func NewReq(ctx context.Context, request *http.Request, api router.API) *Request
 // GetURL new url
 func (r *Request) GetURL() string {
 	ir := r.API.IntegrationRequest
-	if ir.RequestType == config.HTTPRequest {
+	if ir.RequestType == constant.HTTPRequest {
 		if len(ir.URL) != 0 {
 			return ir.URL
 		}

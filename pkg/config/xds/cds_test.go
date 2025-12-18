@@ -35,6 +35,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -80,7 +81,7 @@ func getCdsConfig() *core.TypedExtensionConfig {
 	}
 	cdsResource, _ := anypb.New(makeClusters())
 	return &core.TypedExtensionConfig{
-		Name:        ClusterType,
+		Name:        constant.ClusterType,
 		TypedConfig: cdsResource,
 	}
 }

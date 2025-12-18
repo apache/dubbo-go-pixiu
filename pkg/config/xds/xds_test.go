@@ -35,6 +35,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
@@ -129,7 +130,7 @@ func TestAdapter_createApiManager(t *testing.T) {
 		clusterMg: clusterMg,
 	}
 	ada.Start()
-	api := ada.createApiManager(&apiConfig, &node, ClusterType)
+	api := ada.createApiManager(&apiConfig, &node, constant.ClusterType)
 	assert := require.New(t)
 	assert.NotNil(api)
 }

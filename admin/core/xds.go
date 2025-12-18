@@ -53,7 +53,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -283,11 +282,11 @@ func GenerateSnapshotPixiu() *cache.Snapshot {
 		map[resource.Type][]types.Resource{
 			resource.ExtensionConfigType: {
 				&core.TypedExtensionConfig{
-					Name:        xds.ClusterType,
+					Name:        constant.ClusterType,
 					TypedConfig: cdsResource,
 				},
 				&core.TypedExtensionConfig{
-					Name:        xds.ListenerType,
+					Name:        constant.ListenerType,
 					TypedConfig: ldsResource,
 				},
 			},

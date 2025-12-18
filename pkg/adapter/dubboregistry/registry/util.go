@@ -31,7 +31,7 @@ func TransferURL2Api(url *common.URL, clusterName string) []config.IntegrationRe
 	var irs []config.IntegrationRequest
 	for _, method := range url.Methods {
 		irs = append(irs, config.IntegrationRequest{
-			RequestType: config.RequestType(url.Protocol),
+			RequestType: string(url.Protocol),
 			DubboBackendConfig: config.DubboBackendConfig{
 				ApplicationName: url.GetParam(constant.NameKey, ""),
 				Group:           url.GetParam(constant.GroupKey, ""),

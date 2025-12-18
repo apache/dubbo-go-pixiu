@@ -65,19 +65,19 @@ func (b *BaseResolver) BuildAPI(req *http.Request, mappingParams []config.Mappin
 	integrationRequest := config.IntegrationRequest{}
 	resolveProtocol := req.Header.Get(constant.DubboServiceProtocol)
 	switch resolveProtocol {
-	case string(config.HTTPRequest):
-		integrationRequest.RequestType = config.RequestType(resolveProtocol)
-	case string(config.DubboRequest):
-		integrationRequest.RequestType = config.RequestType(resolveProtocol)
+	case string(constant.HTTPRequest):
+		integrationRequest.RequestType = resolveProtocol
+	case string(constant.DubboRequest):
+		integrationRequest.RequestType = resolveProtocol
 	case "triple":
-		integrationRequest.RequestType = config.RequestType(resolveProtocol)
+		integrationRequest.RequestType = resolveProtocol
 	default:
 		// If the protocol is specified but unknown, it's an error.
 		if resolveProtocol != "" {
 			return nil, errors.New("http request has unknown protocol in x-dubbo-service-protocol")
 		}
 		// Default to dubbo if not specified
-		integrationRequest.RequestType = config.DubboRequest
+		integrationRequest.RequestType = constant.DubboRequest
 	}
 
 	dubboBackendConfig := config.DubboBackendConfig{
@@ -91,7 +91,7 @@ func (b *BaseResolver) BuildAPI(req *http.Request, mappingParams []config.Mappin
 		Enable:             true,
 		HTTPVerb:           http.MethodPost,
 		IntegrationRequest: integrationRequest,
-		InboundRequest:     config.InboundRequest{RequestType: config.HTTPRequest},
+		InboundRequest:     config.InboundRequest{RequestType: constant.HTTPRequest},
 	}
 
 	api := router.API{

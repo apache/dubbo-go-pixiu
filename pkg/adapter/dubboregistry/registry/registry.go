@@ -96,14 +96,14 @@ func GetRegistry(name string, regConfig model.Registry, listener common2.Registr
 func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboBackendConfig, methodString string, mappingParams []config.MappingParam) router.API {
 	dboBackendConfig.Method = methodString
 	url := strings.Join([]string{urlPattern, methodString}, constant.PathSlash)
-	var requestType config.RequestType
+	var requestType string
 	switch dboBackendConfig.Protocol {
-	case string(config.DubboRequest):
-		requestType = config.DubboRequest
+	case string(constant.DubboRequest):
+		requestType = constant.DubboRequest
 	case "tri":
 		requestType = "triple"
 	default:
-		requestType = config.DubboRequest
+		requestType = constant.DubboRequest
 	}
 	method := config.Method{
 		Enable:   true,
@@ -111,7 +111,7 @@ func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboB
 		Mock:     false,
 		HTTPVerb: constant.Post,
 		InboundRequest: config.InboundRequest{
-			RequestType: config.HTTPRequest,
+			RequestType: constant.HTTPRequest,
 		},
 		IntegrationRequest: config.IntegrationRequest{
 			RequestType:        requestType,
