@@ -19,12 +19,12 @@ package client
 
 import (
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"net/http"
 	"time"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
