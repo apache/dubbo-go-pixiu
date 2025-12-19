@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	dario.cat/mergo v1.0.1
-	dubbo.apache.org/dubbo-go/v3 v3.3.1-0.20251028122905-48c55c00b702
+	dubbo.apache.org/dubbo-go/v3 v3.3.1-0.20251218171310-053cab86db13
 	github.com/IBM/sarama v1.45.1
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/alibaba/sentinel-golang v1.0.4
@@ -15,7 +15,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
-	github.com/dubbogo/gost v1.14.1
+	github.com/dubbogo/gost v1.14.3
 	github.com/dubbogo/grpc-go v1.42.10
 	github.com/dubbogo/triple v1.2.2-rc4
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240621013728-1eb8caab5155
