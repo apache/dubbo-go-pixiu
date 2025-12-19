@@ -39,7 +39,7 @@ import (
 func TestQueryMapper(t *testing.T) {
 	qs := queryStringsMapper{}
 	r, _ := http.NewRequest("GET", "/mock/test?id=12345&age=19&name=joe&nickName=trump", bytes.NewReader([]byte("")))
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "queryStrings.id",
@@ -87,7 +87,7 @@ func TestHeaderMapper(t *testing.T) {
 	r.Header.Set("Token", "ttttt12345ttt")
 	r.Header.Set("Origin-Passcode", "whoseyourdaddy")
 	r.Header.Set("Pokemon-Name", "Pika")
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "headers.Auth",
@@ -133,7 +133,7 @@ func TestHeaderMapper(t *testing.T) {
 func TestBodyMapper(t *testing.T) {
 	bm := bodyMapper{}
 	r, _ := http.NewRequest("POST", "/mock/test", bytes.NewReader([]byte("{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "requestBody.id",
@@ -176,7 +176,7 @@ func TestBodyMapper(t *testing.T) {
 func TestURIMap(t *testing.T) {
 	um := uriMapper{}
 	r, _ := http.NewRequest("POST", "/mock/test/12345", bytes.NewReader([]byte("{\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test/:id")
+	api := mock.GetMockAPI(constant.Get, "/mock/test/:id")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "uri.id",

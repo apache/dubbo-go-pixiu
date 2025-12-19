@@ -20,6 +20,7 @@ package dubbo
 import (
 	"bytes"
 	"context"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"net/http"
 	"regexp"
 	"testing"
@@ -92,7 +93,7 @@ func TestClose(t *testing.T) {
 func TestMappingParams(t *testing.T) {
 	dClient := NewDubboClient()
 	r, _ := http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "queryStrings.id",
@@ -112,7 +113,7 @@ func TestMappingParams(t *testing.T) {
 	assert.Equal(t, int(19), params.(*dubboTarget).Values[1])
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
-	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api = mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "queryStrings.id",
@@ -139,7 +140,7 @@ func TestMappingParams(t *testing.T) {
 	assert.Equal(t, "1234567", params.(*dubboTarget).Values[2])
 
 	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
-	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api = mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "queryStrings.id",
@@ -178,7 +179,7 @@ func TestMappingParams(t *testing.T) {
 	assert.Equal(t, "Joe", params.(*dubboTarget).Values[4])
 
 	r, _ = http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
-	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api = mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:  "queryStrings.id",

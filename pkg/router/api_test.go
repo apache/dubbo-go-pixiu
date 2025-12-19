@@ -27,13 +27,13 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 func TestGetURIParams(t *testing.T) {
 	api := API{
 		URLPattern: "/mock/:id/:name",
-		Method:     getMockMethod(config.MethodGet),
+		Method:     getMockMethod(constant.Get),
 	}
 	u, _ := url.Parse("https://test.com/mock/12345/Joe")
 	values := GetURIParams(&api, *u)
@@ -68,7 +68,7 @@ func TestGetURIParams(t *testing.T) {
 func TestIsWildCardBackendPath(t *testing.T) {
 	mockAPI := &API{
 		URLPattern: "/mock/:id/:name",
-		Method:     getMockMethod(config.MethodGet),
+		Method:     getMockMethod(constant.Get),
 	}
 	mockAPI.Path = "/mock/:id"
 	assert.True(t, IsWildCardBackendPath(mockAPI))

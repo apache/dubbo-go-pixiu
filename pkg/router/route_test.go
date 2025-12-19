@@ -26,11 +26,12 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/router/trie"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
-func getMockMethod(verb config.HTTPVerb) config.Method {
+func getMockMethod(verb string) config.Method {
 	inbound := config.InboundRequest{}
 	integration := config.IntegrationRequest{}
 	return config.Method{
@@ -45,7 +46,7 @@ func TestPut(t *testing.T) {
 	rt := &Route{
 		tree: trie.NewTrie(),
 	}
-	n0 := getMockMethod(config.MethodGet)
+	n0 := getMockMethod(constant.Get)
 	_ = rt.PutAPI(API{URLPattern: "/", Method: n0})
 	_, ok := rt.FindAPI("/", n0.HTTPVerb)
 	assert.True(t, ok)
@@ -53,7 +54,7 @@ func TestPut(t *testing.T) {
 	err := rt.PutAPI(API{URLPattern: "/", Method: n0})
 	assert.Error(t, err, "Method GET already exists in path /")
 
-	n1 := getMockMethod(config.MethodPost)
+	n1 := getMockMethod(constant.Post)
 	err = rt.PutAPI(API{URLPattern: "/mock", Method: n0})
 	assert.Nil(t, err)
 	err = rt.PutAPI(API{URLPattern: "/mock", Method: n1})
@@ -86,8 +87,8 @@ func TestMatchMethod(t *testing.T) {
 	rt := &Route{
 		tree: trie.NewTrie(),
 	}
-	n0 := getMockMethod(config.MethodGet)
-	n1 := getMockMethod(config.MethodPost)
+	n0 := getMockMethod(constant.Get)
+	n1 := getMockMethod(constant.Post)
 	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
 	assert.Nil(t, e)
 	e = rt.PutAPI(API{URLPattern: "/theboys/:id", Method: n0})
@@ -95,21 +96,21 @@ func TestMatchMethod(t *testing.T) {
 	e = rt.PutAPI(API{URLPattern: "/vought/:id/supe/:name", Method: n1})
 	assert.Nil(t, e)
 
-	m, ok := rt.MatchAPI("/theboys", config.MethodGet)
+	m, ok := rt.MatchAPI("/theboys", constant.Get)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
 	assert.Equal(t, m.URLPattern, "/theboys")
 
-	m, ok = rt.MatchAPI("/theboys", config.MethodPost)
+	m, ok = rt.MatchAPI("/theboys", constant.Post)
 	assert.False(t, ok)
 	assert.Nil(t, m)
 
-	m, ok = rt.MatchAPI("/vought/123/supe/startlight", config.MethodPost)
+	m, ok = rt.MatchAPI("/vought/123/supe/startlight", constant.Post)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
 	assert.Equal(t, m.URLPattern, "/vought/:id/supe/:name")
 
-	m, ok = rt.MatchAPI("/vought/123/supe/startlight", config.MethodPost)
+	m, ok = rt.MatchAPI("/vought/123/supe/startlight", constant.Post)
 	assert.True(t, ok)
 	assert.NotNil(t, m)
 	assert.Equal(t, m.URLPattern, "/vought/:id/supe/:name")
@@ -183,8 +184,8 @@ func TestWildcardMatch(t *testing.T) {
 
 func TestGetFilters(t *testing.T) {
 	rt := NewRoute()
-	n0 := getMockMethod(config.MethodGet)
-	n1 := getMockMethod(config.MethodPost)
+	n0 := getMockMethod(constant.Get)
+	n1 := getMockMethod(constant.Post)
 	e := rt.PutAPI(API{URLPattern: "/theboys", Method: n0})
 	assert.Nil(t, e)
 	e = rt.PutAPI(API{URLPattern: "/theboys/:id", Method: n0})
