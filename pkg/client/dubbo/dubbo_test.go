@@ -20,7 +20,6 @@ package dubbo
 import (
 	"bytes"
 	"context"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"net/http"
 	"regexp"
 	"testing"
@@ -32,6 +31,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
