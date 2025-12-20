@@ -142,7 +142,9 @@
 
 * dubbo-go updated to `v3.1.1`
   ([#630](https://github.com/apache/dubbo-go-pixiu/pull/630),
-  [#807](https://github.com/apache/dubbo-go-pixiu/pull/807))
+  [#807](https://github.com/apache/dubbo-go-pixiu/pull/807),
+  [#836](https://github.com/apache/dubbo-go-pixiu/pull/836),
+  [#845](https://github.com/apache/dubbo-go-pixiu/pull/845))
 
 * grpc, docker, crypto, jwx, and other key dependencies updated
   ([#624](https://github.com/apache/dubbo-go-pixiu/pull/624),
@@ -177,6 +179,7 @@ Special thanks to all contributors for their efforts in improving `dubbo-go-pixi
 @1kasa
 @Alanxtl
 @baerwang
+@Chen-BUPT
 @FoghostCn
 @KamToHung
 @ma642
