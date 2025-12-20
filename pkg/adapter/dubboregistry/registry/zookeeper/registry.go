@@ -23,9 +23,7 @@ import (
 )
 
 import (
-	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
-
-	hessian "github.com/apache/dubbo-go-hessian2"
+	_ "dubbo.apache.org/dubbo-go/v3/metadata/info"
 
 	"github.com/pkg/errors"
 )
@@ -53,9 +51,6 @@ const (
 
 func init() {
 	registry.SetRegistry(constant.Zookeeper, newZKRegistry)
-	hessian.RegisterPOJO(&dubboCommon.MetadataInfo{})
-	hessian.RegisterPOJO(&dubboCommon.ServiceInfo{})
-	hessian.RegisterPOJO(&dubboCommon.URL{})
 }
 
 type ZKRegistry struct {

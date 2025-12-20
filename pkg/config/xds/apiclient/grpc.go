@@ -374,13 +374,29 @@ func (g *GRPCCluster) GetConnection() (conn *grpc.ClientConn, err error) {
 	return g.conn, nil
 }
 
-func (g *GRPCCluster) IsAlive() bool {
-	return g.conn.GetState() == connectivity.Ready
+func (g *GRPCCluster) IsAlive() (alive bool) {
+	if g.conn == nil {
+		return false
+	}
+	state := connectivity.Ready
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Warnf("grpc connection state check panicked: %v", r)
+			alive = state == connectivity.Ready
+		}
+	}()
+	state = g.conn.GetState()
+	alive = state == connectivity.Ready
+	return
 }
 
 func (g *GRPCCluster) Close() error {
+	if g.conn == nil {
+		return nil
+	}
 	if err := g.conn.Close(); err != nil {
 		return errors.Wrapf(err, "can not close. %v", g.config)
 	}
+	g.conn = nil
 	return nil
 }

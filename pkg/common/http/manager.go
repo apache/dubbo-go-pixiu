@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	stdHttp "net/http"
+	"runtime/debug"
 	"sync"
 )
 
@@ -56,6 +57,14 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpC
 	hcm := &HttpConnectionManager{config: hcmc}
 	hcm.pool.New = func() any {
 		return hcm.allocateContext()
+	}
+	// Ensure all routes have methods field
+	// even if empty before creating router coordinator
+	// This ensures routes are properly matched even if methods field is missing in YAML
+	for _, route := range hcmc.RouteConfig.Routes {
+		if route.Match.Methods == nil {
+			route.Match.Methods = []string{}
+		}
 	}
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
@@ -100,16 +109,17 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	// recover any err when filterChain run
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Warnf("[dubbo-go-pixiu] Occur An Unexpected Err: %+v", err)
+			stack := debug.Stack()
+			logger.Warnf("[dubbo-go-pixiu] panic recovered: %+v\n%s", err, string(stack))
 			errResp := pch.InternalError.WithError(fmt.Errorf("panic recovered: %v", err))
 			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		}
 	}()
 
-	//todo timeout
+	// todo timeout
 	filterChain.OnDecode(c)
 	hcm.buildTargetResponse(c)
-	//todo: stream resp has to set HTTP Server's WriteTimeout to 0, need to check it
+	// todo: stream resp has to set HTTP Server's WriteTimeout to 0, need to check it
 	filterChain.OnEncode(c)
 	hcm.writeResponse(c)
 }
@@ -207,12 +217,12 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 
 	switch res := c.SourceResp.(type) {
 	case *stdHttp.Response:
-		//Merge header
+		// Merge header
 		remoteHeader := res.Header
 		for k := range remoteHeader {
 			c.AddHeader(k, remoteHeader.Get(k))
 		}
-		//status code
+		// status code
 		c.StatusCode(res.StatusCode)
 
 		if http.IsStreamableResponse(res) {
@@ -222,7 +232,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 			if err != nil {
 				panic(err)
 			}
-			//close body
+			// close body
 			_ = res.Body.Close()
 			c.TargetResp = client.NewUnaryResponse(body)
 		}
@@ -235,7 +245,7 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 		}
 		c.TargetResp = client.NewUnaryResponse(res)
 	default:
-		//dubbo go generic invoke
+		// dubbo go generic invoke
 		response := util.NewDubboResponse(res, false)
 		c.StatusCode(stdHttp.StatusOK)
 		c.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueJsonUtf8)

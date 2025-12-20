@@ -49,9 +49,9 @@ static_resources:
                     max_age: ""
                     allow_credentials: false
       config:
-        idle_timeout: 5s
-        read_timeout: 5s
-        write_timeout: 5s
+        idle_timeout: 5000ms
+        read_timeout: 5000ms
+        write_timeout: 5000ms
   clusters:
     - name: "user"
       lb_policy: "lb"
@@ -61,8 +61,8 @@ static_resources:
             address: 127.0.0.1
             port: 1314
   shutdown_config:
-    timeout: "60s"
-    step_timeout: "10s"
+    timeout: "60000ms"
+    step_timeout: "10000ms"
     reject_policy: "immediacy"
 
 config-center:
