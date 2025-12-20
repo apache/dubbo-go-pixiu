@@ -489,7 +489,7 @@ type Resource struct {
 const DefaultTimeoutStr = "1s"
 
 // UnmarshalYAML Resource custom UnmarshalYAML
-func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (r *Resource) UnmarshalYAML(unmarshal func(any) error) error {
 	s := &struct {
 		Timeout string `yaml:"timeout"`
 	}{}
