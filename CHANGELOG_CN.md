@@ -113,7 +113,11 @@
 
 #### Go Modules
 
-* dubbo-go 升级至 `v3.1.1`（[#630](https://github.com/apache/dubbo-go-pixiu/pull/630)，[#807](https://github.com/apache/dubbo-go-pixiu/pull/807)）
+* dubbo-go 升级至 `v3.1.1` （[#630](https://github.com/apache/dubbo-go-pixiu/pull/630),
+  [#807](https://github.com/apache/dubbo-go-pixiu/pull/807),
+  [#836](https://github.com/apache/dubbo-go-pixiu/pull/836),
+  [#845](https://github.com/apache/dubbo-go-pixiu/pull/845))
+
 * grpc、docker、crypto、jwx 等关键依赖升级（[#624](https://github.com/apache/dubbo-go-pixiu/pull/624)，[#619](https://github.com/apache/dubbo-go-pixiu/pull/619)，[#587](https://github.com/apache/dubbo-go-pixiu/pull/587)，[#618](https://github.com/apache/dubbo-go-pixiu/pull/618)，[#610](https://github.com/apache/dubbo-go-pixiu/pull/610)，[#584](https://github.com/apache/dubbo-go-pixiu/pull/584)，[#643](https://github.com/apache/dubbo-go-pixiu/pull/643)）
 * Vue 从 `2.x → 3.x` 升级；同时升级 axios、express、webpack、pbkdf2、sha.js、js-yaml 等前端依赖（[#719](https://github.com/apache/dubbo-go-pixiu/pull/719)–[#759](https://github.com/apache/dubbo-go-pixiu/pull/759)）
 * jinja2、werkzeug、urllib3、gevent、certifi、tornado 等依赖升级（[#607](https://github.com/apache/dubbo-go-pixiu/pull/607)，[#586](https://github.com/apache/dubbo-go-pixiu/pull/586)，[#582](https://github.com/apache/dubbo-go-pixiu/pull/582)，[#577](https://github.com/apache/dubbo-go-pixiu/pull/577)，[#576](https://github.com/apache/dubbo-go-pixiu/pull/576)）
@@ -131,6 +135,7 @@
 @1kasa
 @Alanxtl
 @baerwang
+@Chen-BUPT
 @FoghostCn
 @KamToHung
 @ma642
