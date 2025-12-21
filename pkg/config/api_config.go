@@ -92,8 +92,8 @@ type Resource struct {
 
 // Filter filter with config
 type Filter struct {
-	Name   string                 `json:"name,omitempty" yaml:"name,omitempty"`
-	Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty" `
+	Name   string         `json:"name,omitempty" yaml:"name,omitempty"`
+	Config map[string]any `json:"config,omitempty" yaml:"config,omitempty" `
 }
 
 // Method defines the method of the api
@@ -197,8 +197,8 @@ type RouteConfig struct {
 
 // HTTPFilters defines the http filter
 type HTTPFilters []struct {
-	Name   string      `yaml:"name" json:"name"`
-	Config interface{} `yaml:"config" json:"config"`
+	Name   string `yaml:"name" json:"name"`
+	Config any    `yaml:"config" json:"config"`
 }
 
 // Listener defines the listener config
