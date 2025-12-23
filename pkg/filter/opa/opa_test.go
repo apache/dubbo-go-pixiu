@@ -19,8 +19,12 @@ package opa
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 import (
@@ -31,7 +35,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	contextHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 const testPolicy = `
@@ -65,13 +69,14 @@ func setupFilterWithoutFile(t *testing.T, policy string) *Filter {
 	}
 }
 
-func TestAllowedRule(t *testing.T) {
+// TestEmbeddedAllowedRule tests embedded mode with allowed request
+func TestEmbeddedAllowedRule(t *testing.T) {
 	f := setupFilterWithoutFile(t, testPolicy)
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.Header.Set("Test_Header", "1")
 
 	rec := httptest.NewRecorder()
-	ctx := &http.HttpContext{
+	ctx := &contextHttp.HttpContext{
 		Writer:  rec,
 		Request: req,
 		Ctx:     context.Background(),
@@ -81,13 +86,14 @@ func TestAllowedRule(t *testing.T) {
 	assert.Equal(t, filter.Continue, result)
 }
 
-func TestDeniedRule(t *testing.T) {
+// TestEmbeddedDeniedRule tests embedded mode with denied request
+func TestEmbeddedDeniedRule(t *testing.T) {
 	f := setupFilterWithoutFile(t, testPolicy)
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.Header.Set("Test_Header", "0")
 
 	rec := httptest.NewRecorder()
-	ctx := &http.HttpContext{
+	ctx := &contextHttp.HttpContext{
 		Writer:  rec,
 		Request: req,
 		Ctx:     context.Background(),
@@ -95,4 +101,672 @@ func TestDeniedRule(t *testing.T) {
 
 	result := f.Decode(ctx)
 	assert.Equal(t, filter.Stop, result)
+}
+
+// TestServerModeAllowed tests server mode with allowed request
+func TestServerModeAllowed(t *testing.T) {
+	// Create mock OPA server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		assert.Equal(t, "/v1/data/test/allow", r.URL.Path)
+
+		// Read and verify request body
+		var reqBody map[string]any
+		err := json.NewDecoder(r.Body).Decode(&reqBody)
+		assert.Nil(t, err)
+		assert.NotNil(t, reqBody["input"])
+
+		input := reqBody["input"].(map[string]any)
+
+		// Simulate policy: Test_Header == "1" allows
+		// After JSON unmarshaling, headers is map[string][]string
+		// Note: HTTP header keys are canonicalized (e.g., "Test_Header" -> "Test_header")
+		allow := false
+		if headersMap, ok := input["headers"].(map[string]any); ok {
+			// Check for "Test_header" (canonicalized form)
+			if testHeader, ok := headersMap["Test_header"]; ok {
+				if headerArray, ok := testHeader.([]any); ok && len(headerArray) > 0 {
+					if strVal, ok := headerArray[0].(string); ok {
+						allow = strVal == "1"
+					}
+				}
+			}
+		}
+
+		// Return OPA response format
+		response := map[string]any{
+			"result": allow,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	// Create FilterFactory with server mode configuration
+	factory := &FilterFactory{
+		cfg: &Config{
+			ServerURL:    server.URL,
+			DecisionPath: "/v1/data/test/allow",
+			TimeoutMs:    100,
+		},
+	}
+
+	err := factory.Apply()
+	assert.Nil(t, err)
+	assert.NotNil(t, factory.httpClient)
+
+	// Prepare filter chain
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Test_Header", "1")
+	rec := httptest.NewRecorder()
+	ctx := &contextHttp.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
+	assert.Nil(t, err)
+	assert.Len(t, chain.filters, 1)
+
+	// Execute filter
+	result := chain.filters[0].Decode(ctx)
+	assert.Equal(t, filter.Continue, result)
+}
+
+// TestServerModeDenied tests server mode with denied request
+func TestServerModeDenied(t *testing.T) {
+	// Create mock OPA server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody map[string]any
+		json.NewDecoder(r.Body).Decode(&reqBody)
+		input := reqBody["input"].(map[string]any)
+
+		// After JSON unmarshaling, headers is map[string][]string
+		// Note: HTTP header keys are canonicalized
+		allow := false
+		if headersMap, ok := input["headers"].(map[string]any); ok {
+			if testHeader, ok := headersMap["Test_header"]; ok {
+				if headerArray, ok := testHeader.([]any); ok && len(headerArray) > 0 {
+					if strVal, ok := headerArray[0].(string); ok {
+						allow = strVal == "1"
+					}
+				}
+			}
+		}
+
+		response := map[string]any{
+			"result": allow,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			ServerURL:    server.URL,
+			DecisionPath: "/v1/data/test/allow",
+			TimeoutMs:    100,
+		},
+	}
+
+	err := factory.Apply()
+	assert.Nil(t, err)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Test_Header", "0") // This will be denied
+	rec := httptest.NewRecorder()
+	ctx := &contextHttp.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	chain := &mockFilterChain{}
+	err = factory.PrepareFilterChain(ctx, chain)
+	assert.Nil(t, err)
+
+	result := chain.filters[0].Decode(ctx)
+	assert.Equal(t, filter.Stop, result)
+}
+
+// TestServerModeWithBearerToken tests server mode with authentication token
+func TestServerModeWithBearerToken(t *testing.T) {
+	expectedToken := "test-token-123"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify authentication header
+		authHeader := r.Header.Get("Authorization")
+		assert.Equal(t, "Bearer "+expectedToken, authHeader)
+
+		response := map[string]any{
+			"result": true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			ServerURL:    server.URL,
+			DecisionPath: "/v1/data/test/allow",
+			TimeoutMs:    100,
+			BearerToken:  expectedToken,
+		},
+	}
+
+	err := factory.Apply()
+	assert.Nil(t, err)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rec := httptest.NewRecorder()
+	ctx := &contextHttp.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	chain := &mockFilterChain{}
+	factory.PrepareFilterChain(ctx, chain)
+	result := chain.filters[0].Decode(ctx)
+	assert.Equal(t, filter.Continue, result)
+}
+
+// TestServerModeError tests error handling in server mode
+func TestServerModeError(t *testing.T) {
+	// Create a server that returns error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal server error"))
+	}))
+	defer server.Close()
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			ServerURL:    server.URL,
+			DecisionPath: "/v1/data/test/allow",
+			TimeoutMs:    100,
+		},
+	}
+
+	err := factory.Apply()
+	assert.Nil(t, err)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rec := httptest.NewRecorder()
+	ctx := &contextHttp.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	chain := &mockFilterChain{}
+	factory.PrepareFilterChain(ctx, chain)
+	result := chain.filters[0].Decode(ctx)
+	assert.Equal(t, filter.Stop, result) // Should deny on error
+}
+
+// TestServerModeTimeout tests timeout handling in server mode
+func TestServerModeTimeout(t *testing.T) {
+	// Create a server that delays response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Sleep longer than the timeout
+		time.Sleep(200 * time.Millisecond)
+		response := map[string]any{
+			"result": true,
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			ServerURL:    server.URL,
+			DecisionPath: "/v1/data/test/allow",
+			TimeoutMs:    50, // Very short timeout to trigger timeout
+		},
+	}
+
+	err := factory.Apply()
+	assert.Nil(t, err)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rec := httptest.NewRecorder()
+	ctx := &contextHttp.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	chain := &mockFilterChain{}
+	factory.PrepareFilterChain(ctx, chain)
+	result := chain.filters[0].Decode(ctx)
+
+	// Should return Stop on timeout
+	assert.Equal(t, filter.Stop, result)
+
+	// Check that the response contains timeout error (504)
+	assert.Equal(t, 504, ctx.GetStatusCode())
+}
+
+// TestServerModeObjectResponse tests server mode with object response format
+func TestServerModeObjectResponse(t *testing.T) {
+	// Test object response with "allow" field
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody map[string]any
+		json.NewDecoder(r.Body).Decode(&reqBody)
+		input := reqBody["input"].(map[string]any)
+
+		headersMap := input["headers"].(map[string]any)
+		testHeaderValue := ""
+		if testHeader, ok := headersMap["Test_header"]; ok {
+			if headerArray, ok := testHeader.([]any); ok && len(headerArray) > 0 {
+				if strVal, ok := headerArray[0].(string); ok {
+					testHeaderValue = strVal
+				}
+			}
+		}
+
+		// Return object format: {allow: true}
+		response := map[string]any{
+			"result": map[string]any{
+				"allow":  testHeaderValue == "1",
+				"reason": "test policy",
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			ServerURL:    server.URL,
+			DecisionPath: "/v1/data/test/allow",
+			TimeoutMs:    100,
+		},
+	}
+
+	err := factory.Apply()
+	assert.Nil(t, err)
+
+	// Test allow case
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Test_Header", "1")
+	rec := httptest.NewRecorder()
+	ctx := &contextHttp.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	chain := &mockFilterChain{}
+	factory.PrepareFilterChain(ctx, chain)
+	result := chain.filters[0].Decode(ctx)
+	assert.Equal(t, filter.Continue, result)
+
+	// Test deny case
+	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2.Header.Set("Test_Header", "0")
+	rec2 := httptest.NewRecorder()
+	ctx2 := &contextHttp.HttpContext{
+		Writer:  rec2,
+		Request: req2,
+		Ctx:     context.Background(),
+	}
+
+	chain2 := &mockFilterChain{}
+	factory.PrepareFilterChain(ctx2, chain2)
+	result2 := chain2.filters[0].Decode(ctx2)
+	assert.Equal(t, filter.Stop, result2)
+}
+
+// TestEmbeddedObjectResponse tests embedded mode with object response format
+func TestEmbeddedObjectResponse(t *testing.T) {
+	// Policy that returns object with allow field
+	objectPolicy := `
+package test
+import future.keywords.if
+
+allow if {
+    input.headers[Test_Header][0] == "1"
+}
+
+decision := {
+    "allow": allow,
+    "reason": "test policy"
+}
+`
+
+	r := rego.New(
+		rego.Query("data.test.decision"),
+		rego.Module("policy.rego", objectPolicy),
+	)
+
+	preparedQuery, err := r.PrepareForEval(context.Background())
+	assert.Nil(t, err)
+
+	f := &Filter{
+		cfg: &Config{
+			Policy:     objectPolicy,
+			Entrypoint: "data.test.decision",
+		},
+		preparedQuery: &preparedQuery,
+	}
+
+	// Test allow case
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Test_Header", "1")
+	rec := httptest.NewRecorder()
+	ctx := &contextHttp.HttpContext{
+		Writer:  rec,
+		Request: req,
+		Ctx:     context.Background(),
+	}
+
+	result := f.Decode(ctx)
+	assert.Equal(t, filter.Continue, result)
+
+	// Test deny case
+	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2.Header.Set("Test_Header", "0")
+	rec2 := httptest.NewRecorder()
+	ctx2 := &contextHttp.HttpContext{
+		Writer:  rec2,
+		Request: req2,
+		Ctx:     context.Background(),
+	}
+
+	result2 := f.Decode(ctx2)
+	assert.Equal(t, filter.Stop, result2)
+}
+
+// TestConfigValidation tests configuration validation
+func TestConfigValidation(t *testing.T) {
+	// Test missing decision_path in server mode
+	factory := &FilterFactory{
+		cfg: &Config{
+			ServerURL: "http://localhost:8181",
+		},
+	}
+	err := factory.Apply()
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "decision_path is required")
+
+	// Test missing policy in embedded mode
+	factory2 := &FilterFactory{
+		cfg: &Config{
+			Entrypoint: "data.test.allow",
+		},
+	}
+	err2 := factory2.Apply()
+	assert.NotNil(t, err2)
+	assert.Contains(t, err2.Error(), "server_url")
+
+	// Test missing entrypoint in embedded mode
+	factory3 := &FilterFactory{
+		cfg: &Config{
+			Policy: "package test",
+		},
+	}
+	err3 := factory3.Apply()
+	assert.NotNil(t, err3)
+	assert.Contains(t, err3.Error(), "entrypoint is required")
+}
+
+// mockFilterChain is a mock implementation of filter.FilterChain for testing
+type mockFilterChain struct {
+	filters []filter.HttpDecodeFilter
+}
+
+func (m *mockFilterChain) AppendDecodeFilters(f ...filter.HttpDecodeFilter) {
+	m.filters = append(m.filters, f...)
+}
+
+func (m *mockFilterChain) AppendEncodeFilters(f ...filter.HttpEncodeFilter) {
+	// Not needed for testing
+}
+
+func (m *mockFilterChain) OnDecode(ctx *contextHttp.HttpContext) {
+	// Not needed for testing
+}
+
+func (m *mockFilterChain) OnEncode(ctx *contextHttp.HttpContext) {
+	// Not needed for testing
+}
+
+type errorRoundTripper struct {
+	err error
+}
+
+func (e errorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, e.err
+}
+
+func newTestContext(req *http.Request) *contextHttp.HttpContext {
+	return &contextHttp.HttpContext{
+		Writer:  httptest.NewRecorder(),
+		Request: req,
+		Ctx:     context.Background(),
+	}
+}
+
+// TestFactoryAndConfigCovers creation helpers with simple happy path coverage
+func TestFactoryAndConfig(t *testing.T) {
+	p := &Plugin{}
+	factoryIface, err := p.CreateFilterFactory()
+	assert.NoError(t, err)
+
+	factory, ok := factoryIface.(*FilterFactory)
+	assert.True(t, ok)
+	assert.NotNil(t, factory.Config())
+}
+
+func TestApplyEmbeddedSuccessAndDefaultServerTimeout(t *testing.T) {
+	// Embedded successful init
+	factory := &FilterFactory{
+		cfg: &Config{
+			Policy: `
+			package test
+			default allow := true
+			`,
+			Entrypoint: "data.test.allow",
+		},
+	}
+	err := factory.Apply()
+	assert.NoError(t, err)
+	assert.NotNil(t, factory.preparedQuery)
+
+	// Server mode default timeout 100ms when TimeoutMs not provided
+	serverFactory := &FilterFactory{
+		cfg: &Config{
+			ServerURL:    "http://example.com",
+			DecisionPath: "/v1/data/test",
+		},
+	}
+	err = serverFactory.Apply()
+	assert.NoError(t, err)
+	assert.Equal(t, 100*time.Millisecond, serverFactory.httpClient.Timeout)
+}
+
+func TestApplyEmbeddedPrepareFailure(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &Config{
+			Policy: `
+			package test
+			allow = 1 ==  // malformed to force prepare error
+			`,
+			Entrypoint: "data.test.allow",
+		},
+	}
+	err := factory.Apply()
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "failed to prepare"))
+}
+
+func TestPrepareFilterChainEmbeddedAndUninitialized(t *testing.T) {
+	// Embedded branch
+	factory := &FilterFactory{
+		cfg: &Config{
+			Policy: `
+			package test
+			default allow := true
+			`,
+			Entrypoint: "data.test.allow",
+		},
+	}
+	err := factory.Apply()
+	assert.NoError(t, err)
+
+	chain := &mockFilterChain{}
+	ctx := newTestContext(httptest.NewRequest("GET", "/demo", nil))
+	err = factory.PrepareFilterChain(ctx, chain)
+	assert.NoError(t, err)
+	assert.Len(t, chain.filters, 1)
+	assert.NotNil(t, chain.filters[0].(*Filter).preparedQuery)
+
+	// Uninitialized factory should error
+	emptyFactory := &FilterFactory{cfg: &Config{}}
+	err = emptyFactory.PrepareFilterChain(ctx, chain)
+	assert.Error(t, err)
+}
+
+func TestDecodeNotInitialized(t *testing.T) {
+	f := &Filter{cfg: &Config{}}
+	req := httptest.NewRequest("GET", "/not-init", nil)
+	ctx := newTestContext(req)
+
+	status := f.Decode(ctx)
+	assert.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusInternalServerError, ctx.GetStatusCode())
+}
+
+func TestEvaluateEmbeddedEmptyAndError(t *testing.T) {
+	// Empty results branch
+	rEmpty := rego.New(
+		rego.Query("data.test.undefined"),
+		rego.Module("policy.rego", `package test`),
+	)
+	preparedEmpty, err := rEmpty.PrepareForEval(context.Background())
+	assert.NoError(t, err)
+	fEmpty := &Filter{
+		cfg:           &Config{Policy: "package test", Entrypoint: "data.test.undefined"},
+		preparedQuery: &preparedEmpty,
+	}
+	ctx := newTestContext(httptest.NewRequest("GET", "/empty", nil))
+	result := fEmpty.Decode(ctx)
+	assert.Equal(t, filter.Stop, result)
+	assert.Equal(t, http.StatusForbidden, ctx.GetStatusCode())
+
+	// Eval error branch using unsupported input type to trigger value conversion error
+	rErr := rego.New(
+		rego.Query("data.test.allow"),
+		rego.Module("policy.rego", `
+		package test
+		default allow := true
+		`),
+	)
+	preparedErr, err := rErr.PrepareForEval(context.Background())
+	assert.NoError(t, err)
+	fErr := &Filter{
+		cfg:           &Config{Policy: "package test", Entrypoint: "data.test.allow"},
+		preparedQuery: &preparedErr,
+	}
+	ctxErr := newTestContext(httptest.NewRequest("GET", "/err", nil))
+	ctxErr.Params = map[string]any{"bad": make(chan int)} // unsupported type for input conversion
+
+	result = fErr.Decode(ctxErr)
+	assert.Equal(t, filter.Stop, result)
+	assert.Equal(t, http.StatusInternalServerError, ctxErr.GetStatusCode())
+}
+
+func TestEvaluateServerTransportAndDecodeErrors(t *testing.T) {
+	// Transport error (non-timeout) -> 503
+	fTransport := &Filter{
+		cfg: &Config{
+			ServerURL:    "http://opa",
+			DecisionPath: "/v1/data/test",
+		},
+		httpClient: &http.Client{Transport: errorRoundTripper{err: assert.AnError}},
+	}
+	req := httptest.NewRequest("GET", "/transport", nil)
+	ctx := newTestContext(req)
+	status := fTransport.Decode(ctx)
+	assert.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusServiceUnavailable, ctx.GetStatusCode())
+
+	// Decode error from invalid JSON
+	serverBadJSON := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("not-json"))
+	}))
+	defer serverBadJSON.Close()
+
+	fDecode := &Filter{
+		cfg: &Config{
+			ServerURL:    serverBadJSON.URL,
+			DecisionPath: "/v1/data/test",
+		},
+		httpClient: &http.Client{Timeout: time.Second},
+	}
+	ctxBad := newTestContext(httptest.NewRequest("GET", "/decode", nil))
+	status = fDecode.Decode(ctxBad)
+	assert.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusBadGateway, ctxBad.GetStatusCode())
+}
+
+func TestEvaluateServerMissingResult(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"decision": true,
+		})
+	}))
+	defer server.Close()
+
+	f := &Filter{
+		cfg: &Config{
+			ServerURL:    server.URL,
+			DecisionPath: "/v1/data/test",
+		},
+		httpClient: &http.Client{Timeout: time.Second},
+	}
+
+	ctx := newTestContext(httptest.NewRequest("GET", "/missing", nil))
+	status := f.Decode(ctx)
+	assert.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusBadGateway, ctx.GetStatusCode())
+}
+
+func TestExtractDecisionVariants(t *testing.T) {
+	testcases := []struct {
+		name     string
+		value    any
+		expected bool
+	}{
+		{"direct-bool", true, true},
+		{"allow-field", map[string]any{"allow": true}, true},
+		{"nested-result-field", map[string]any{"result": true}, true},
+		{"unknown-type", "unexpected", false},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := extractDecision(tc.value)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+// Backward compatibility test names
+func TestAllowedRule(t *testing.T) {
+	TestEmbeddedAllowedRule(t)
+}
+
+func TestDeniedRule(t *testing.T) {
+	TestEmbeddedDeniedRule(t)
 }

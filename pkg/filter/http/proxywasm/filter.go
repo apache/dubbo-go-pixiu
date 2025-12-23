@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build wasm && !windows
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more

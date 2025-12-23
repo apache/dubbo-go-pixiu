@@ -31,13 +31,9 @@ import (
 )
 
 import (
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncfloat64"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
-	"go.opentelemetry.io/otel/metric/unit"
+	"go.opentelemetry.io/otel/metric"
 )
 
 import (
@@ -92,15 +88,15 @@ const (
 
 var (
 	// Metric Instruments
-	llmPromptTokens                 syncint64.Counter
-	llmCompletionTokens             syncint64.Counter
-	llmTotalTokens                  syncint64.Counter
-	llmUpstreamRequestsTotal        syncint64.Counter
-	llmUpstreamRequestsSuccessTotal syncint64.Counter
-	llmUpstreamRequestsFailureTotal syncint64.Counter
-	llmTotalDurationSum             syncfloat64.Counter
-	llmTimeToLastTokenSum           syncfloat64.Counter
-	llmStreamingRequestsTotal       syncint64.Counter
+	llmPromptTokens                 metric.Int64Counter
+	llmCompletionTokens             metric.Int64Counter
+	llmTotalTokens                  metric.Int64Counter
+	llmUpstreamRequestsTotal        metric.Int64Counter
+	llmUpstreamRequestsSuccessTotal metric.Int64Counter
+	llmUpstreamRequestsFailureTotal metric.Int64Counter
+	llmTotalDurationSum             metric.Float64Counter
+	llmTimeToLastTokenSum           metric.Float64Counter
+	llmStreamingRequestsTotal       metric.Int64Counter
 
 	registerOnce sync.Once
 	registerErr  error
@@ -186,17 +182,17 @@ func (f *Filter) reportUpstreamMetrics(hc *contexthttp.HttpContext) {
 			attribute.String(attrEndpointAddress, attempt.EndpointAddress),
 		}
 
-		llmUpstreamRequestsTotal.Add(hc.Ctx, 1, attrs...)
+		llmUpstreamRequestsTotal.Add(hc.Ctx, 1, metric.WithAttributes(attrs...))
 
 		if attempt.Success {
 			successAttrs := append(attrs, attribute.String(attrStatusCode, strconv.Itoa(attempt.StatusCode)))
-			llmUpstreamRequestsSuccessTotal.Add(hc.Ctx, 1, successAttrs...)
+			llmUpstreamRequestsSuccessTotal.Add(hc.Ctx, 1, metric.WithAttributes(successAttrs...))
 		} else {
 			failureAttrs := append(attrs,
 				attribute.String(attrStatusCode, strconv.Itoa(attempt.StatusCode)),
 				attribute.String(attrErrorType, attempt.ErrorType),
 			)
-			llmUpstreamRequestsFailureTotal.Add(hc.Ctx, 1, failureAttrs...)
+			llmUpstreamRequestsFailureTotal.Add(hc.Ctx, 1, metric.WithAttributes(failureAttrs...))
 		}
 	}
 }
@@ -212,7 +208,7 @@ func (f *Filter) reportTotalDurationMetric(hc *contexthttp.HttpContext) {
 		attribute.String(attrClusterName, clusterName),
 		attribute.String(attrStatusCode, strconv.Itoa(hc.GetStatusCode())),
 	}
-	llmTotalDurationSum.Add(hc.Ctx, float64(totalDuration.Microseconds()), durationAttrs...)
+	llmTotalDurationSum.Add(hc.Ctx, float64(totalDuration.Microseconds()), metric.WithAttributes(durationAttrs...))
 }
 
 // processStreamResponse handles streaming responses to calculate TTFT and count tokens.
@@ -270,8 +266,8 @@ func (f *Filter) processStreamResponse(hc *contexthttp.HttpContext, body io.Read
 		}
 		attrs := attribute.String(attrClusterName, clusterName)
 
-		llmTimeToLastTokenSum.Add(hc.Ctx, float64(ttlt.Milliseconds()), attrs)
-		llmStreamingRequestsTotal.Add(hc.Ctx, 1, attrs)
+		llmTimeToLastTokenSum.Add(hc.Ctx, float64(ttlt.Milliseconds()), metric.WithAttributes(attrs))
+		llmStreamingRequestsTotal.Add(hc.Ctx, 1, metric.WithAttributes(attrs))
 	})
 }
 
@@ -327,13 +323,13 @@ func (f *Filter) parseAndReportTokens(hc *contexthttp.HttpContext, data []byte) 
 		attribute.String(attrClusterName, clusterName),
 	}
 	if pTokens, ok := usage[jsonKeyPromptTokens].(float64); ok {
-		llmPromptTokens.Add(hc.Ctx, int64(pTokens), tokenAttrs...)
+		llmPromptTokens.Add(hc.Ctx, int64(pTokens), metric.WithAttributes(tokenAttrs...))
 	}
 	if cTokens, ok := usage[jsonKeyCompletionTokens].(float64); ok {
-		llmCompletionTokens.Add(hc.Ctx, int64(cTokens), tokenAttrs...)
+		llmCompletionTokens.Add(hc.Ctx, int64(cTokens), metric.WithAttributes(tokenAttrs...))
 	}
 	if tTokens, ok := usage[jsonKeyTotalTokens].(float64); ok {
-		llmTotalTokens.Add(hc.Ctx, int64(tTokens), tokenAttrs...)
+		llmTotalTokens.Add(hc.Ctx, int64(tTokens), metric.WithAttributes(tokenAttrs...))
 	}
 }
 
@@ -387,77 +383,77 @@ func decompress(body io.Reader, encoding string) ([]byte, bool) {
 // registerLLMMetrics creates and registers all metrics for this plugin.
 func registerLLMMetrics() error {
 	registerOnce.Do(func() {
-		meter := global.MeterProvider().Meter(meterName)
+		meter := otel.GetMeterProvider().Meter(meterName)
 		var err error
 
-		llmPromptTokens, err = meter.SyncInt64().Counter(metricPromptTokens,
-			instrument.WithDescription("Total prompt tokens."),
-			instrument.WithUnit("1"))
+		llmPromptTokens, err = meter.Int64Counter(metricPromptTokens,
+			metric.WithDescription("Total prompt tokens."),
+			metric.WithUnit("1"))
 		if err != nil {
 			registerErr = err
 			return
 		}
-		llmCompletionTokens, err = meter.SyncInt64().Counter(metricCompletionTokens,
-			instrument.WithDescription("Total completion tokens."),
-			instrument.WithUnit("1"))
+		llmCompletionTokens, err = meter.Int64Counter(metricCompletionTokens,
+			metric.WithDescription("Total completion tokens."),
+			metric.WithUnit("1"))
 		if err != nil {
 			registerErr = err
 			return
 		}
-		llmTotalTokens, err = meter.SyncInt64().Counter(metricTotalTokens,
-			instrument.WithDescription("Total tokens."),
-			instrument.WithUnit("1"))
-		if err != nil {
-			registerErr = err
-			return
-		}
-
-		llmUpstreamRequestsTotal, err = meter.SyncInt64().Counter(metricUpstreamRequests,
-			instrument.WithDescription("Total requests to upstream endpoints."),
-			instrument.WithUnit("1"))
-		if err != nil {
-			registerErr = err
-			return
-		}
-		llmUpstreamRequestsSuccessTotal, err = meter.SyncInt64().Counter(metricUpstreamSuccess,
-			instrument.WithDescription("Total successful requests to upstream endpoints."),
-			instrument.WithUnit("1"))
-		if err != nil {
-			registerErr = err
-			return
-		}
-		llmUpstreamRequestsFailureTotal, err = meter.SyncInt64().Counter(metricUpstreamFailure,
-			instrument.WithDescription("Total failed requests to upstream endpoints."),
-			instrument.WithUnit("1"))
+		llmTotalTokens, err = meter.Int64Counter(metricTotalTokens,
+			metric.WithDescription("Total tokens."),
+			metric.WithUnit("1"))
 		if err != nil {
 			registerErr = err
 			return
 		}
 
-		llmTotalDurationSum, err = meter.SyncFloat64().Counter(
+		llmUpstreamRequestsTotal, err = meter.Int64Counter(metricUpstreamRequests,
+			metric.WithDescription("Total requests to upstream endpoints."),
+			metric.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
+		llmUpstreamRequestsSuccessTotal, err = meter.Int64Counter(metricUpstreamSuccess,
+			metric.WithDescription("Total successful requests to upstream endpoints."),
+			metric.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
+		llmUpstreamRequestsFailureTotal, err = meter.Int64Counter(metricUpstreamFailure,
+			metric.WithDescription("Total failed requests to upstream endpoints."),
+			metric.WithUnit("1"))
+		if err != nil {
+			registerErr = err
+			return
+		}
+
+		llmTotalDurationSum, err = meter.Float64Counter(
 			metricTotalDurationSum,
-			instrument.WithDescription("Sum of total duration of LLM requests in microseconds."),
-			instrument.WithUnit(unit.Unit("µs")),
+			metric.WithDescription("Sum of total duration of LLM requests in microseconds."),
+			metric.WithUnit("µs"),
 		)
 		if err != nil {
 			registerErr = err
 			return
 		}
 
-		llmTimeToLastTokenSum, err = meter.SyncFloat64().Counter(
+		llmTimeToLastTokenSum, err = meter.Float64Counter(
 			metricTTLTSum,
-			instrument.WithDescription("Sum of Time to Last Token for streaming responses in milliseconds."),
-			instrument.WithUnit("ms"),
+			metric.WithDescription("Sum of Time to Last Token for streaming responses in milliseconds."),
+			metric.WithUnit("ms"),
 		)
 		if err != nil {
 			registerErr = err
 			return
 		}
 
-		llmStreamingRequestsTotal, err = meter.SyncInt64().Counter(
+		llmStreamingRequestsTotal, err = meter.Int64Counter(
 			metricStreamingRequests,
-			instrument.WithDescription("Total number of streaming LLM requests."),
-			instrument.WithUnit("1"),
+			metric.WithDescription("Total number of streaming LLM requests."),
+			metric.WithUnit("1"),
 		)
 		if err != nil {
 			registerErr = err

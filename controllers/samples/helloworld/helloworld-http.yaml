@@ -1,0 +1,75 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: helloworld-http-route
+  namespace: default
+spec:
+  parentRefs:
+    - name: pixiu-listeners
+      namespace: pixiu-gateway-system
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /greet.GreetService
+      backendRefs:
+        - name: dubbo-go-server
+          namespace: helloworld
+          port: 20000
+          weight: 100
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuClusterPolicy
+metadata:
+  name: helloworld-cluster
+  namespace: pixiu-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: pixiu-listeners
+  clusterRef:
+    - name: helloworld-dubbo-go-server
+      type: static
+      loadBalancerPolicy: "lb"
+      endpoints:
+        - address: dubbo-go-server.helloworld.svc.cluster.local
+          port: 20000
+---
+apiVersion: pixiu.apache.org/v1alpha1
+kind: PixiuFilterPolicy
+metadata:
+  name: helloworld-http-filter
+  namespace: pixiu-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: pixiu-listeners
+  listenersRef:
+    - name: http
+      filterChains:
+        type: dgp.filter.httpconnectionmanager
+      config:
+        routeConfig:
+          routes:
+            - match:
+                prefix: "/greet.GreetService"
+                methods: []
+              route:
+                cluster: "helloworld-dubbo-go-server"
+                cluster_not_found_response_code: 505
+            - match:
+                path: "/greet.GreetService/Greet"
+                methods: []
+              route:
+                cluster: "helloworld-dubbo-go-server"
+                cluster_not_found_response_code: 505
+        httpFilters:
+          - name: dgp.filter.http.httpproxy
+            config:
+              timeoutConfig:
+                connectTimeout: 5s
+                requestTimeout: 5s

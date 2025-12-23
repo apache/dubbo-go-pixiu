@@ -69,7 +69,12 @@ func createDynamicResourceManger(bs *model.Bootstrap) DynamicResourceManager {
 	if bs.DynamicResources.AdsConfig != nil {
 		logger.Warnf("un-support ada_config.")
 	}
-	_ = xds.StartXdsClient(GetServer().GetListenerManager(), GetServer().GetClusterManager(), m) //todo graceful shutdown
+	srv := GetServer()
+	if srv == nil || srv.GetListenerManager() == nil || srv.GetClusterManager() == nil {
+		logger.Warnf("skip xds client start: server or managers not initialized")
+		return m
+	}
+	_ = xds.StartXdsClient(srv.GetListenerManager(), srv.GetClusterManager(), m) //todo graceful shutdown
 	return m
 }
 

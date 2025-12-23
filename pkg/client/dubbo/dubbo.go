@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/ringhash"
+	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/consistenthashing"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
 	dg "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
@@ -51,11 +51,22 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// TODO java class name elem
 const (
 	JavaStringClassName = "java.lang.String"
 	JavaLangClassName   = "java.lang.Long"
 )
+
+func javaClassNameElem(values []hessian.Object) []string {
+	types := make([]string, len(values))
+	for i, val := range values {
+		if _, ok := val.(string); ok {
+			types[i] = JavaStringClassName
+			continue
+		}
+		types[i] = JavaLangClassName
+	}
+	return types
+}
 
 const (
 	defaultDubboProtocol = "zookeeper"
@@ -186,6 +197,9 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 		vals = make([]hessian.Object, len(target.Values))
 		for i, v := range target.Values {
 			vals[i] = v
+		}
+		if len(types) == 0 {
+			types = javaClassNameElem(vals)
 		}
 		var err error
 		finalValues, err = json.Marshal(vals)

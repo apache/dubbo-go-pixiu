@@ -46,6 +46,10 @@ import (
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes/status,verbs=get;update
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=referencegrants,verbs=list;watch;update
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=referencegrants/status,verbs=get;update
+// Pixiu Policies
+// +kubebuilder:rbac:groups=pixiu.apache.org,resources=pixiugatewaypolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=pixiu.apache.org,resources=pixiufilterpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=pixiu.apache.org,resources=pixiuclusterpolicies,verbs=get;list;watch
 type Controller interface {
 	SetupWithManager(mgr manager.Manager) error
 }

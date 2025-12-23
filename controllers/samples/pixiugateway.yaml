@@ -8,11 +8,20 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: pg
+  name: pixiu-listeners
   namespace: pixiu-gateway-system
 spec:
   gatewayClassName: pg
   listeners:
     - name: http
       protocol: HTTP
-      port: 80
+      port: 8888
+    - name: dubbo
+      protocol: TCP
+      port: 8889
+    - name: triple
+      protocol: GRPC
+      port: 9999
+    - name: http2
+      protocol: HTTP2
+      port: 8881

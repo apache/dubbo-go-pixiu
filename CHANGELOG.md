@@ -4,78 +4,84 @@
 
 ## 1.1.0
 
+This release delivers major improvements in AI Gateway and LLM integration, including a full-featured LLM proxy, token billing, retry/fallback strategies, and HTTP/SSE streaming support.
+The gateway and ingress architecture has been significantly refactored, with redesigned routing and a modernized application gateway model for cloud-native environments.
+Model Context Protocol (MCP) support is introduced, enabling standardized AI service integration with registry and authorization capabilities.
+Service governance and observability are enhanced through deeper Nacos integration, dynamic configuration, unified metrics, and improved health checks.
+Numerous refactors, cleanups, and CI/build upgrades improve overall stability, maintainability, and long-term evolution.
+
 ### New Features
 
 #### AI Gateway / LLM Integration
 
-* Token billing / counting filter for model requests ([#659](https://github.com/apache/dubbo-go-pixiu/pull/659))
-* Retry and configurable strategy abstraction for LLM proxy ([#692](https://github.com/apache/dubbo-go-pixiu/pull/692))
-* Full LLM proxy filter with retry and fallback capabilities ([#685](https://github.com/apache/dubbo-go-pixiu/pull/685))
-* HTTP/SSE streaming support for model-serving scenarios ([#657](https://github.com/apache/dubbo-go-pixiu/pull/657))
-* Streamable HTTP support for long-lived data pipes ([#674](https://github.com/apache/dubbo-go-pixiu/pull/674))
-* Content-encoding support in tokenizer filter ([#706](https://github.com/apache/dubbo-go-pixiu/pull/706))
-* Nacos-based LLM registry support ([#746](https://github.com/apache/dubbo-go-pixiu/pull/746))
-* Enhanced upstream tracking and metrics instrumentation ([#733](https://github.com/apache/dubbo-go-pixiu/pull/733))
-* Improved API key handling and endpoint health check logic ([#731](https://github.com/apache/dubbo-go-pixiu/pull/731))
-* `LLMMeta` field added to simplify LLM endpoint configuration ([#678](https://github.com/apache/dubbo-go-pixiu/pull/678))
-* Static configuration providers removed in favor of dynamic governance ([#764](https://github.com/apache/dubbo-go-pixiu/pull/764))
+* Token billing / counting filter for model requests [#659](https://github.com/apache/dubbo-go-pixiu/pull/659)
+* Retry and configurable strategy abstraction for LLM proxy [#692](https://github.com/apache/dubbo-go-pixiu/pull/692)
+* Full LLM proxy filter with retry and fallback capabilities [#685](https://github.com/apache/dubbo-go-pixiu/pull/685)
+* HTTP/SSE streaming support for model-serving scenarios [#657](https://github.com/apache/dubbo-go-pixiu/pull/657)
+* Streamable HTTP support for long-lived data pipes [#674](https://github.com/apache/dubbo-go-pixiu/pull/674)
+* Content-encoding support in tokenizer filter [#706](https://github.com/apache/dubbo-go-pixiu/pull/706)
+* Nacos-based LLM registry support [#746](https://github.com/apache/dubbo-go-pixiu/pull/746)
+* Enhanced upstream tracking and metrics instrumentation [#733](https://github.com/apache/dubbo-go-pixiu/pull/733)
+* Improved API key handling and endpoint health check logic [#731](https://github.com/apache/dubbo-go-pixiu/pull/731)
+* `LLMMeta` field added to simplify LLM endpoint configuration [#678](https://github.com/apache/dubbo-go-pixiu/pull/678)
+* Static configuration providers removed in favor of dynamic governance [#764](https://github.com/apache/dubbo-go-pixiu/pull/764)
 
 #### Model Context Protocol (MCP)
 
-* MCP Server Filter implementation ([#702](https://github.com/apache/dubbo-go-pixiu/pull/702))
-* MCP server integration with Nacos ([#757](https://github.com/apache/dubbo-go-pixiu/pull/757))
-* Enhanced streamable HTTP for MCP ([#769](https://github.com/apache/dubbo-go-pixiu/pull/769))
-* MCP authorization support ([#740](https://github.com/apache/dubbo-go-pixiu/pull/740))
+* MCP Server Filter implementation [#702](https://github.com/apache/dubbo-go-pixiu/pull/702)
+* MCP server integration with Nacos [#757](https://github.com/apache/dubbo-go-pixiu/pull/757)
+* Enhanced streamable HTTP for MCP [#769](https://github.com/apache/dubbo-go-pixiu/pull/769)
+* MCP authorization support [#740](https://github.com/apache/dubbo-go-pixiu/pull/740)
 
 #### Service Discovery & Configuration
 
-* Nacos service discovery support ([#651](https://github.com/apache/dubbo-go-pixiu/pull/651))
-* Config center listening and hot reloading for logger ([#647](https://github.com/apache/dubbo-go-pixiu/pull/647))
-* Fetching logger configuration from Nacos at startup ([#640](https://github.com/apache/dubbo-go-pixiu/pull/640))
-* Dynamic router and cluster generation from registry center ([#632](https://github.com/apache/dubbo-go-pixiu/pull/632))
-* Fix for missing config fields in remote Nacos configuration ([#679](https://github.com/apache/dubbo-go-pixiu/pull/679))
+* Nacos service discovery support [#651](https://github.com/apache/dubbo-go-pixiu/pull/651)
+* Config center listening and hot reloading for logger [#647](https://github.com/apache/dubbo-go-pixiu/pull/647)
+* Fetching logger configuration from Nacos at startup [#640](https://github.com/apache/dubbo-go-pixiu/pull/640)
+* Dynamic router and cluster generation from registry center [#632](https://github.com/apache/dubbo-go-pixiu/pull/632)
+* Fix for missing config fields in remote Nacos configuration [#679](https://github.com/apache/dubbo-go-pixiu/pull/679)
 
 #### Proxy Core & Networking
 
-* Weighted random load balancer ([#677](https://github.com/apache/dubbo-go-pixiu/pull/677))
-* TCP/HTTP/HTTPS health check support and domain field fix ([#668](https://github.com/apache/dubbo-go-pixiu/pull/668))
-* Scheme field added to HTTP proxy filter allowing HTTPS upstream calls ([#671](https://github.com/apache/dubbo-go-pixiu/pull/671))
-* Customizable retry count for Dubbo invocations ([#625](https://github.com/apache/dubbo-go-pixiu/pull/625))
+* Weighted random load balancer [#677](https://github.com/apache/dubbo-go-pixiu/pull/677)
+* TCP/HTTP/HTTPS health check support and domain field fix [#668](https://github.com/apache/dubbo-go-pixiu/pull/668)
+* Scheme field added to HTTP proxy filter allowing HTTPS upstream calls [#671](https://github.com/apache/dubbo-go-pixiu/pull/671)
+* Customizable retry count for Dubbo invocations [#625](https://github.com/apache/dubbo-go-pixiu/pull/625)
 * Load balancing strategy configuration for Dubbo proxy
-  ([#613](https://github.com/apache/dubbo-go-pixiu/pull/613),
+  [#613](https://github.com/apache/dubbo-go-pixiu/pull/613),
   [#614](https://github.com/apache/dubbo-go-pixiu/pull/614),
-  [#615](https://github.com/apache/dubbo-go-pixiu/pull/615))
+  [#615](https://github.com/apache/dubbo-go-pixiu/pull/615)
 * Streamable HTTP and SSE handling improvements
-  ([#657](https://github.com/apache/dubbo-go-pixiu/pull/657),
+  [#657](https://github.com/apache/dubbo-go-pixiu/pull/657),
   [#676](https://github.com/apache/dubbo-go-pixiu/pull/676),
-  [#674](https://github.com/apache/dubbo-go-pixiu/pull/674))
+  [#674](https://github.com/apache/dubbo-go-pixiu/pull/674)
 
 #### gRPC & Dubbo
 
-* Full gRPC streaming proxy implementation and associated optimizations ([#688](https://github.com/apache/dubbo-go-pixiu/pull/688))
-* Abstracted HTTP request resolver and Dubbo resolver implementation ([#691](https://github.com/apache/dubbo-go-pixiu/pull/691))
+* Full gRPC streaming proxy implementation and associated optimizations [#688](https://github.com/apache/dubbo-go-pixiu/pull/688)
+* Abstracted HTTP request resolver and Dubbo resolver implementation [#691](https://github.com/apache/dubbo-go-pixiu/pull/691)
 
 #### Gateway / Routing / Ingress
 
-* Route mechanism redesign and upgrade ([#777](https://github.com/apache/dubbo-go-pixiu/pull/777))
-* Application gateway / ingress refactoring to a modern architecture ([#827](https://github.com/apache/dubbo-go-pixiu/pull/827))
-* Support for a new ingress controller ([#792](https://github.com/apache/dubbo-go-pixiu/pull/792))
-* Add application gateway resource policy for ingress controller ([#839](https://github.com/apache/dubbo-go-pixiu/pull/839))
-* Refactor ingress into a more modern application gateway ([#827](https://github.com/apache/dubbo-go-pixiu/pull/827))
+* Route mechanism redesign and upgrade [#777](https://github.com/apache/dubbo-go-pixiu/pull/777)
+* Application gateway / ingress refactoring to a modern architecture [#827](https://github.com/apache/dubbo-go-pixiu/pull/827)
+* Support for a new ingress controller [#792](https://github.com/apache/dubbo-go-pixiu/pull/792)
+* Add application gateway resource policy for ingress controller [#839](https://github.com/apache/dubbo-go-pixiu/pull/839)
+* Refactor ingress into a more modern application gateway [#827](https://github.com/apache/dubbo-go-pixiu/pull/827)
 
 #### Tools / Extensibility
 
-* Benchmark tool enhancements ([#807](https://github.com/apache/dubbo-go-pixiu/pull/807))
-* Open Policy Agent (OPA) HTTP filter support ([#732](https://github.com/apache/dubbo-go-pixiu/pull/732))
+* Benchmark tool enhancements [#807](https://github.com/apache/dubbo-go-pixiu/pull/807)
+* Open Policy Agent (OPA) HTTP filter support [#732](https://github.com/apache/dubbo-go-pixiu/pull/732)
 
 ### Enhancements & Refactors
 
 #### Logging & Config
 
-* Logger module refactoring ([#646](https://github.com/apache/dubbo-go-pixiu/pull/646))
+* Logger module refactoring [#646](https://github.com/apache/dubbo-go-pixiu/pull/646)
 * Hot-reload stability and overwrite fixes
-  ([#682](https://github.com/apache/dubbo-go-pixiu/pull/682),
-  [#765](https://github.com/apache/dubbo-go-pixiu/pull/765))
+  [#682](https://github.com/apache/dubbo-go-pixiu/pull/682),
+  [#765](https://github.com/apache/dubbo-go-pixiu/pull/765)
 
 #### Project Layout & Maintenance
 
@@ -87,89 +93,66 @@
 
 #### Resilience & Internal Quality
 
-* Broad robustness enhancements ([#644](https://github.com/apache/dubbo-go-pixiu/pull/644))
+* Broad robustness enhancements [#644](https://github.com/apache/dubbo-go-pixiu/pull/644)
 * Unified error code abstraction and consistent error handling
-  ([#809](https://github.com/apache/dubbo-go-pixiu/pull/809),
-  [#782](https://github.com/apache/dubbo-go-pixiu/pull/782))
-* Unified metric filter implementation ([#799](https://github.com/apache/dubbo-go-pixiu/pull/799))
+  [#809](https://github.com/apache/dubbo-go-pixiu/pull/809),
+  [#782](https://github.com/apache/dubbo-go-pixiu/pull/782)
+* Unified metric filter implementation [#799](https://github.com/apache/dubbo-go-pixiu/pull/799)
 * Correct copy semantics in filter configs to avoid pointer sharing
-  ([#815](https://github.com/apache/dubbo-go-pixiu/pull/815),
-  [#814](https://github.com/apache/dubbo-go-pixiu/pull/814))
+  [#815](https://github.com/apache/dubbo-go-pixiu/pull/815),
+  [#814](https://github.com/apache/dubbo-go-pixiu/pull/814)
 
 #### CI & Build Improvements
 
 * Update Go version to `1.25`, update CI workflows and lint rules
-  ([#752](https://github.com/apache/dubbo-go-pixiu/pull/752),
-  [#666](https://github.com/apache/dubbo-go-pixiu/pull/666))
+  [#752](https://github.com/apache/dubbo-go-pixiu/pull/752),
+  [#666](https://github.com/apache/dubbo-go-pixiu/pull/666)
 * GolangCI lint refactor and stability improvements
-  ([#650](https://github.com/apache/dubbo-go-pixiu/pull/650),
-  [#734](https://github.com/apache/dubbo-go-pixiu/pull/734))
+  [#650](https://github.com/apache/dubbo-go-pixiu/pull/650),
+  [#734](https://github.com/apache/dubbo-go-pixiu/pull/734)
 * Pipeline cleanup and unused GitHub Action removal
-  ([#775](https://github.com/apache/dubbo-go-pixiu/pull/775),
-  [#786](https://github.com/apache/dubbo-go-pixiu/pull/786))
+  [#775](https://github.com/apache/dubbo-go-pixiu/pull/775),
+  [#786](https://github.com/apache/dubbo-go-pixiu/pull/786)
 * Docker build optimization
-  ([#714](https://github.com/apache/dubbo-go-pixiu/pull/714),
-  [#723](https://github.com/apache/dubbo-go-pixiu/pull/723))
+  [#714](https://github.com/apache/dubbo-go-pixiu/pull/714),
+  [#723](https://github.com/apache/dubbo-go-pixiu/pull/723)
 
 ### Bug Fixes
 
-* SSE stream not closed on `io.EOF` ([#676](https://github.com/apache/dubbo-go-pixiu/pull/676))
-* HTTP proxy connection reuse issue ([#578](https://github.com/apache/dubbo-go-pixiu/pull/578))
-* Nil-pointer issue and non-unary response handling in access log filter ([#713](https://github.com/apache/dubbo-go-pixiu/pull/713))
-* Logger config overwrite error ([#765](https://github.com/apache/dubbo-go-pixiu/pull/765))
+* SSE stream not closed on `io.EOF` [#676](https://github.com/apache/dubbo-go-pixiu/pull/676)
+* HTTP proxy connection reuse issue [#578](https://github.com/apache/dubbo-go-pixiu/pull/578)
+* Nil-pointer issue and non-unary response handling in access log filter [#713](https://github.com/apache/dubbo-go-pixiu/pull/713)
+* Logger config overwrite error [#765](https://github.com/apache/dubbo-go-pixiu/pull/765)
 * Data race fixes across components
-  ([#750](https://github.com/apache/dubbo-go-pixiu/pull/750),
-  [#789](https://github.com/apache/dubbo-go-pixiu/pull/789))
-* Missing Nacos field transmission ([#679](https://github.com/apache/dubbo-go-pixiu/pull/679))
-* Benchmark logic corrections and performance test cleanup ([#819](https://github.com/apache/dubbo-go-pixiu/pull/819))
+  [#750](https://github.com/apache/dubbo-go-pixiu/pull/750),
+  [#789](https://github.com/apache/dubbo-go-pixiu/pull/789)
+* Missing Nacos field transmission [#679](https://github.com/apache/dubbo-go-pixiu/pull/679)
+* Benchmark logic corrections and performance test cleanup [#819](https://github.com/apache/dubbo-go-pixiu/pull/819)
 
 ### Documentation
 
 * Updated README and enhanced user guidance
-  ([#698](https://github.com/apache/dubbo-go-pixiu/pull/698),
+  [#698](https://github.com/apache/dubbo-go-pixiu/pull/698),
   [#794](https://github.com/apache/dubbo-go-pixiu/pull/794),
-  [#831](https://github.com/apache/dubbo-go-pixiu/pull/831))
-* Full administrative documentation rewrite ([#817](https://github.com/apache/dubbo-go-pixiu/pull/817))
-* MCP configuration documentation added ([#770](https://github.com/apache/dubbo-go-pixiu/pull/770))
-* Quick-start guide for OPA HTTP filter ([#751](https://github.com/apache/dubbo-go-pixiu/pull/751))
-* Chinese README improvements ([#641](https://github.com/apache/dubbo-go-pixiu/pull/641))
+  [#831](https://github.com/apache/dubbo-go-pixiu/pull/831)
+* Full administrative documentation rewrite [#817](https://github.com/apache/dubbo-go-pixiu/pull/817)
+* MCP configuration documentation added [#770](https://github.com/apache/dubbo-go-pixiu/pull/770)
+* Quick-start guide for OPA HTTP filter [#751](https://github.com/apache/dubbo-go-pixiu/pull/751)
+* Chinese README improvements [#641](https://github.com/apache/dubbo-go-pixiu/pull/641)
 * Issue template clean-ups and improvements
-  ([#736](https://github.com/apache/dubbo-go-pixiu/pull/736),
-  [#735](https://github.com/apache/dubbo-go-pixiu/pull/735))
-
-### Dependency Updates
-
-#### Go Modules
-
-* dubbo-go updated to `v3.1.1`
-  ([#630](https://github.com/apache/dubbo-go-pixiu/pull/630),
-  [#807](https://github.com/apache/dubbo-go-pixiu/pull/807))
-
-* grpc, docker, crypto, jwx, and other key dependencies updated
-  ([#624](https://github.com/apache/dubbo-go-pixiu/pull/624),
-  [#619](https://github.com/apache/dubbo-go-pixiu/pull/619),
-  [#587](https://github.com/apache/dubbo-go-pixiu/pull/587),
-  [#618](https://github.com/apache/dubbo-go-pixiu/pull/618),
-  [#610](https://github.com/apache/dubbo-go-pixiu/pull/610),
-  [#584](https://github.com/apache/dubbo-go-pixiu/pull/584),
-  [#643](https://github.com/apache/dubbo-go-pixiu/pull/643))
-
-* Vue upgraded from `2.x → 3.x`
-  and axios, express, webpack, pbkdf2, sha.js, js-yaml, and other frontend packages upgraded
-  ([#719](https://github.com/apache/dubbo-go-pixiu/pull/719)–[#759](https://github.com/apache/dubbo-go-pixiu/pull/759))
-
-* jinja2, werkzeug, urllib3, gevent, certifi, tornado and others upgraded
-  ([#607](https://github.com/apache/dubbo-go-pixiu/pull/607),
-  [#586](https://github.com/apache/dubbo-go-pixiu/pull/586),
-  [#582](https://github.com/apache/dubbo-go-pixiu/pull/582),
-  [#577](https://github.com/apache/dubbo-go-pixiu/pull/577),
-  [#576](https://github.com/apache/dubbo-go-pixiu/pull/576))
+  [#736](https://github.com/apache/dubbo-go-pixiu/pull/736),
+  [#735](https://github.com/apache/dubbo-go-pixiu/pull/735)
 
 ### Cleanups & Removals
 
-* Removal of unused Seata proxy ([#628](https://github.com/apache/dubbo-go-pixiu/pull/628))
-* Removal of Istio integration ([#622](https://github.com/apache/dubbo-go-pixiu/pull/622))
-* Removal of static config providers ([#764](https://github.com/apache/dubbo-go-pixiu/pull/764))
+* update dubbo-go to latest version
+  [#630](https://github.com/apache/dubbo-go-pixiu/pull/630),
+  [#807](https://github.com/apache/dubbo-go-pixiu/pull/807),
+  [#836](https://github.com/apache/dubbo-go-pixiu/pull/836),
+  [#845](https://github.com/apache/dubbo-go-pixiu/pull/845)
+* Removal of unused Seata proxy [#628](https://github.com/apache/dubbo-go-pixiu/pull/628)
+* Removal of Istio integration [#622](https://github.com/apache/dubbo-go-pixiu/pull/622)
+* Removal of static config providers [#764](https://github.com/apache/dubbo-go-pixiu/pull/764)
 
 ### Contributors
 
@@ -178,6 +161,7 @@ Special thanks to all contributors for their efforts in improving `dubbo-go-pixi
 @1kasa
 @Alanxtl
 @baerwang
+@Chen-BUPT
 @everfid-ever
 @FoghostCn
 @KamToHung

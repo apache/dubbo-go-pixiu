@@ -4,70 +4,76 @@
 
 ## 1.1.0
 
+本版本在 AI Gateway 与大模型接入能力 方面实现了重要增强，引入了完整的 LLM Proxy、Token 计量、重试与降级机制，并支持 HTTP / SSE 流式通信。
+对网关与 Ingress 架构 进行了全面重构，升级路由机制，构建更加现代化的应用网关模型，更好适配云原生场景。
+新增 Model Context Protocol（MCP） 支持，为 AI 服务提供标准化的接入、注册与鉴权能力。
+通过深度集成 Nacos，强化了服务发现、动态配置、指标采集和健康检查等服务治理能力。
+同时完成了大量 重构、清理与 CI / 构建升级，显著提升了系统稳定性、可维护性和长期演进能力。
+
 ### 新特性（New Features）
 
 #### AI Gateway / 大模型（LLM）集成
 
-* 新增模型请求 **Token 计费 / 统计 Filter**（[#659](https://github.com/apache/dubbo-go-pixiu/pull/659)）
-* LLM 代理支持 **重试机制与可配置策略抽象**（[#692](https://github.com/apache/dubbo-go-pixiu/pull/692)）
-* 完整的 LLM 代理 Filter，支持 **重试与失败回退**（[#685](https://github.com/apache/dubbo-go-pixiu/pull/685)）
-* 面向模型服务场景的 **HTTP / SSE 流式推理支持**（[#657](https://github.com/apache/dubbo-go-pixiu/pull/657)）
-* 支持 **可流式 HTTP（Streamable HTTP）**，适用于长连接数据管道（[#674](https://github.com/apache/dubbo-go-pixiu/pull/674)）
-* Tokenizer Filter 支持 **Content-Encoding**（[#706](https://github.com/apache/dubbo-go-pixiu/pull/706)）
-* 新增基于 **Nacos 的 LLM 注册中心支持**（[#746](https://github.com/apache/dubbo-go-pixiu/pull/746)）
-* 增强 Upstream 追踪能力与指标采集（[#733](https://github.com/apache/dubbo-go-pixiu/pull/733)）
-* 改进 API Key 处理逻辑与 Endpoint 健康检查机制（[#731](https://github.com/apache/dubbo-go-pixiu/pull/731)）
-* 新增 `LLMMeta` 字段，简化 LLM Endpoint 配置（[#678](https://github.com/apache/dubbo-go-pixiu/pull/678)）
-* 移除静态配置 Provider，全面转向 **动态治理能力**（[#764](https://github.com/apache/dubbo-go-pixiu/pull/764)）
+* 新增模型请求 **Token 计费 / 统计 Filter** [#659](https://github.com/apache/dubbo-go-pixiu/pull/659)
+* LLM 代理支持 **重试机制与可配置策略抽象** [#692](https://github.com/apache/dubbo-go-pixiu/pull/692)
+* 完整的 LLM 代理 Filter，支持 **重试与失败回退** [#685](https://github.com/apache/dubbo-go-pixiu/pull/685)
+* 面向模型服务场景的 **HTTP / SSE 流式推理支持** [#657](https://github.com/apache/dubbo-go-pixiu/pull/657)
+* 支持 **可流式 HTTP Streamable HTTP**，适用于长连接数据管道 [#674](https://github.com/apache/dubbo-go-pixiu/pull/674)
+* Tokenizer Filter 支持 **Content-Encoding** [#706](https://github.com/apache/dubbo-go-pixiu/pull/706)
+* 新增基于 **Nacos 的 LLM 注册中心支持** [#746](https://github.com/apache/dubbo-go-pixiu/pull/746)
+* 增强 Upstream 追踪能力与指标采集 [#733](https://github.com/apache/dubbo-go-pixiu/pull/733)
+* 改进 API Key 处理逻辑与 Endpoint 健康检查机制 [#731](https://github.com/apache/dubbo-go-pixiu/pull/731)
+* 新增 `LLMMeta` 字段，简化 LLM Endpoint 配置 [#678](https://github.com/apache/dubbo-go-pixiu/pull/678)
+* 移除静态配置 Provider，全面转向 **动态治理能力** [#764](https://github.com/apache/dubbo-go-pixiu/pull/764)
 
 #### Model Context Protocol（MCP）
 
-* MCP Server Filter 实现（[#702](https://github.com/apache/dubbo-go-pixiu/pull/702)）
-* MCP Server 与 **Nacos 注册中心集成**（[#757](https://github.com/apache/dubbo-go-pixiu/pull/757)）
-* 增强 MCP 场景下的 **可流式 HTTP 支持**（[#769](https://github.com/apache/dubbo-go-pixiu/pull/769)）
-* MCP 鉴权能力支持（[#740](https://github.com/apache/dubbo-go-pixiu/pull/740)）
+* MCP Server Filter 实现 [#702](https://github.com/apache/dubbo-go-pixiu/pull/702)
+* MCP Server 与 **Nacos 注册中心集成** [#757](https://github.com/apache/dubbo-go-pixiu/pull/757)
+* 增强 MCP 场景下的 **可流式 HTTP 支持** [#769](https://github.com/apache/dubbo-go-pixiu/pull/769)
+* MCP 鉴权能力支持 [#740](https://github.com/apache/dubbo-go-pixiu/pull/740)
 
 #### 服务发现与配置（Service Discovery & Configuration）
 
-* 支持 **Nacos 服务发现**（[#651](https://github.com/apache/dubbo-go-pixiu/pull/651)）
-* Logger 支持配置中心监听与 **热更新**（[#647](https://github.com/apache/dubbo-go-pixiu/pull/647)）
-* 启动时从 Nacos 拉取 Logger 配置（[#640](https://github.com/apache/dubbo-go-pixiu/pull/640)）
-* 支持从注册中心 **动态生成 Router 与 Cluster**（[#632](https://github.com/apache/dubbo-go-pixiu/pull/632)）
-* 修复远程 Nacos 配置字段缺失问题（[#679](https://github.com/apache/dubbo-go-pixiu/pull/679)）
+* 支持 **Nacos 服务发现** [#651](https://github.com/apache/dubbo-go-pixiu/pull/651)
+* Logger 支持配置中心监听与 **热更新** [#647](https://github.com/apache/dubbo-go-pixiu/pull/647)
+* 启动时从 Nacos 拉取 Logger 配置 [#640](https://github.com/apache/dubbo-go-pixiu/pull/640)
+* 支持从注册中心 **动态生成 Router 与 Cluster** [#632](https://github.com/apache/dubbo-go-pixiu/pull/632)
+* 修复远程 Nacos 配置字段缺失问题 [#679](https://github.com/apache/dubbo-go-pixiu/pull/679)
 
 #### 代理核心与网络能力（Proxy Core & Networking）
 
-* 新增 **加权随机负载均衡算法**（[#677](https://github.com/apache/dubbo-go-pixiu/pull/677)）
-* 支持 TCP / HTTP / HTTPS 健康检查，并修复 domain 字段问题（[#668](https://github.com/apache/dubbo-go-pixiu/pull/668)）
-* HTTP Proxy Filter 新增 `scheme` 字段，支持 HTTPS Upstream（[#671](https://github.com/apache/dubbo-go-pixiu/pull/671)）
-* Dubbo 调用支持 **可配置重试次数**（[#625](https://github.com/apache/dubbo-go-pixiu/pull/625)）
-* Dubbo Proxy 支持多种负载均衡策略配置（[#613](https://github.com/apache/dubbo-go-pixiu/pull/613)，[#614](https://github.com/apache/dubbo-go-pixiu/pull/614)，[#615](https://github.com/apache/dubbo-go-pixiu/pull/615)）
-* Streamable HTTP 与 SSE 处理能力增强（[#657](https://github.com/apache/dubbo-go-pixiu/pull/657)，[#676](https://github.com/apache/dubbo-go-pixiu/pull/676)，[#674](https://github.com/apache/dubbo-go-pixiu/pull/674)）
+* 新增 **加权随机负载均衡算法** [#677](https://github.com/apache/dubbo-go-pixiu/pull/677)
+* 支持 TCP / HTTP / HTTPS 健康检查，并修复 domain 字段问题 [#668](https://github.com/apache/dubbo-go-pixiu/pull/668)
+* HTTP Proxy Filter 新增 `scheme` 字段，支持 HTTPS Upstream [#671](https://github.com/apache/dubbo-go-pixiu/pull/671)
+* Dubbo 调用支持 **可配置重试次数** [#625](https://github.com/apache/dubbo-go-pixiu/pull/625)
+* Dubbo Proxy 支持多种负载均衡策略配置 [#613](https://github.com/apache/dubbo-go-pixiu/pull/613)，[#614](https://github.com/apache/dubbo-go-pixiu/pull/614)，[#615](https://github.com/apache/dubbo-go-pixiu/pull/615)
+* Streamable HTTP 与 SSE 处理能力增强 [#657](https://github.com/apache/dubbo-go-pixiu/pull/657)，[#676](https://github.com/apache/dubbo-go-pixiu/pull/676)，[#674](https://github.com/apache/dubbo-go-pixiu/pull/674)
 
 #### gRPC & Dubbo
 
-* 完整实现 **gRPC Streaming 全链路代理**，并进行性能优化（[#688](https://github.com/apache/dubbo-go-pixiu/pull/688)）
-* 抽象 HTTP 请求解析器，并实现 Dubbo Resolver（[#691](https://github.com/apache/dubbo-go-pixiu/pull/691)）
+* 完整实现 **gRPC Streaming 全链路代理**，并进行性能优化 [#688](https://github.com/apache/dubbo-go-pixiu/pull/688)
+* 抽象 HTTP 请求解析器，并实现 Dubbo Resolver [#691](https://github.com/apache/dubbo-go-pixiu/pull/691)
 
 #### 网关 / 路由 / Ingress
 
-* 路由机制重构与升级（[#777](https://github.com/apache/dubbo-go-pixiu/pull/777)）
-* Application Gateway / Ingress 架构重构为更现代的设计（[#827](https://github.com/apache/dubbo-go-pixiu/pull/827)）
-* 支持新的 Ingress Controller（[#792](https://github.com/apache/dubbo-go-pixiu/pull/792)）
-* Ingress Controller 新增 Application Gateway 资源策略（[#839](https://github.com/apache/dubbo-go-pixiu/pull/839)）
-* 重构 Ingress 为更现代的 Application Gateway（[#827](https://github.com/apache/dubbo-go-pixiu/pull/827)）
+* 路由机制重构与升级 [#777](https://github.com/apache/dubbo-go-pixiu/pull/777)
+* Application Gateway / Ingress 架构重构为更现代的设计 [#827](https://github.com/apache/dubbo-go-pixiu/pull/827)
+* 支持新的 Ingress Controller [#792](https://github.com/apache/dubbo-go-pixiu/pull/792)
+* Ingress Controller 新增 Application Gateway 资源策略 [#839](https://github.com/apache/dubbo-go-pixiu/pull/839)
+* 重构 Ingress 为更现代的 Application Gateway [#827](https://github.com/apache/dubbo-go-pixiu/pull/827)
 
 #### 工具 / 扩展性（Tools / Extensibility）
 
-* Benchmark 工具能力增强（[#807](https://github.com/apache/dubbo-go-pixiu/pull/807)）
-* 支持 **Open Policy Agent（OPA）HTTP Filter**（[#732](https://github.com/apache/dubbo-go-pixiu/pull/732)）
+* Benchmark 工具能力增强 [#807](https://github.com/apache/dubbo-go-pixiu/pull/807)
+* 支持 **Open Policy Agent(OPA) HTTP Filter** [#732](https://github.com/apache/dubbo-go-pixiu/pull/732)）
 
 ### 增强与重构（Enhancements & Refactors）
 
 #### 日志与配置（Logging & Config）
 
-* Logger 模块重构（[#646](https://github.com/apache/dubbo-go-pixiu/pull/646)）
-* 修复热更新稳定性与配置覆盖问题（[#682](https://github.com/apache/dubbo-go-pixiu/pull/682)，[#765](https://github.com/apache/dubbo-go-pixiu/pull/765)）
+* Logger 模块重构 [#646](https://github.com/apache/dubbo-go-pixiu/pull/646)
+* 修复热更新稳定性与配置覆盖问题 [#682](https://github.com/apache/dubbo-go-pixiu/pull/682)，[#765](https://github.com/apache/dubbo-go-pixiu/pull/765)
 
 #### 项目结构与维护（Project Layout & Maintenance）
 
@@ -79,51 +85,44 @@
 
 #### 稳定性与内部质量（Resilience & Internal Quality）
 
-* 大规模鲁棒性增强（[#644](https://github.com/apache/dubbo-go-pixiu/pull/644)）
-* 统一错误码体系与错误处理逻辑（[#809](https://github.com/apache/dubbo-go-pixiu/pull/809)，[#782](https://github.com/apache/dubbo-go-pixiu/pull/782)）
-* 统一指标采集 Filter（[#799](https://github.com/apache/dubbo-go-pixiu/pull/799)）
-* 修复 Filter 配置拷贝语义，避免指针共享问题（[#815](https://github.com/apache/dubbo-go-pixiu/pull/815)，[#814](https://github.com/apache/dubbo-go-pixiu/pull/814)）
+* 大规模鲁棒性增强 [#644](https://github.com/apache/dubbo-go-pixiu/pull/644)
+* 统一错误码体系与错误处理逻辑 [#809](https://github.com/apache/dubbo-go-pixiu/pull/809)，[#782](https://github.com/apache/dubbo-go-pixiu/pull/782)
+* 统一指标采集 Filter [#799](https://github.com/apache/dubbo-go-pixiu/pull/799)
+* 修复 Filter 配置拷贝语义，避免指针共享问题 [#815](https://github.com/apache/dubbo-go-pixiu/pull/815)，[#814](https://github.com/apache/dubbo-go-pixiu/pull/814)
 
 #### CI 与构建改进（CI & Build Improvements）
 
-* Go 版本升级至 `1.25`，更新 CI 工作流与 Lint 规则（[#752](https://github.com/apache/dubbo-go-pixiu/pull/752)，[#666](https://github.com/apache/dubbo-go-pixiu/pull/666)）
-* GolangCI Lint 重构与稳定性提升（[#650](https://github.com/apache/dubbo-go-pixiu/pull/650)，[#734](https://github.com/apache/dubbo-go-pixiu/pull/734)）
-* Pipeline 清理与无用 GitHub Action 移除（[#775](https://github.com/apache/dubbo-go-pixiu/pull/775)，[#786](https://github.com/apache/dubbo-go-pixiu/pull/786)）
-* Docker 构建优化（[#714](https://github.com/apache/dubbo-go-pixiu/pull/714)，[#723](https://github.com/apache/dubbo-go-pixiu/pull/723)）
+* Go 版本升级至 `1.25`，更新 CI 工作流与 Lint 规则 [#752](https://github.com/apache/dubbo-go-pixiu/pull/752)，[#666](https://github.com/apache/dubbo-go-pixiu/pull/666)
+* GolangCI Lint 重构与稳定性提升 [#650](https://github.com/apache/dubbo-go-pixiu/pull/650)，[#734](https://github.com/apache/dubbo-go-pixiu/pull/734)
+* Pipeline 清理与无用 GitHub Action 移除 [#775](https://github.com/apache/dubbo-go-pixiu/pull/775)，[#786](https://github.com/apache/dubbo-go-pixiu/pull/786)
+* Docker 构建优化 [#714](https://github.com/apache/dubbo-go-pixiu/pull/714)，[#723](https://github.com/apache/dubbo-go-pixiu/pull/723)
 
 ### Bug 修复（Bug Fixes）
 
-* SSE 流在 `io.EOF` 时未正确关闭（[#676](https://github.com/apache/dubbo-go-pixiu/pull/676)）
-* HTTP Proxy 连接复用问题（[#578](https://github.com/apache/dubbo-go-pixiu/pull/578)）
-* Access Log Filter 的空指针问题及非 Unary 响应处理（[#713](https://github.com/apache/dubbo-go-pixiu/pull/713)）
-* Logger 配置覆盖错误（[#765](https://github.com/apache/dubbo-go-pixiu/pull/765)）
-* 多处数据竞争修复（[#750](https://github.com/apache/dubbo-go-pixiu/pull/750)，[#789](https://github.com/apache/dubbo-go-pixiu/pull/789)）
-* Nacos 字段未正确传递（[#679](https://github.com/apache/dubbo-go-pixiu/pull/679)）
-* Benchmark 逻辑修正与性能测试清理（[#819](https://github.com/apache/dubbo-go-pixiu/pull/819)）
+* SSE 流在 `io.EOF` 时未正确关闭 [#676](https://github.com/apache/dubbo-go-pixiu/pull/676)
+* HTTP Proxy 连接复用问题 [#578](https://github.com/apache/dubbo-go-pixiu/pull/578)
+* Access Log Filter 的空指针问题及非 Unary 响应处理 [#713](https://github.com/apache/dubbo-go-pixiu/pull/713)
+* Logger 配置覆盖错误 [#765](https://github.com/apache/dubbo-go-pixiu/pull/765)
+* 多处数据竞争修复 [#750](https://github.com/apache/dubbo-go-pixiu/pull/750)，[#789](https://github.com/apache/dubbo-go-pixiu/pull/789)
+* Nacos 字段未正确传递 [#679](https://github.com/apache/dubbo-go-pixiu/pull/679)
+* Benchmark 逻辑修正与性能测试清理 [#819](https://github.com/apache/dubbo-go-pixiu/pull/819)
 
 ### 文档（Documentation）
 
-* README 更新与使用指引增强（[#698](https://github.com/apache/dubbo-go-pixiu/pull/698)，[#794](https://github.com/apache/dubbo-go-pixiu/pull/794)，[#831](https://github.com/apache/dubbo-go-pixiu/pull/831)）
-* 管理后台文档全面重写（[#817](https://github.com/apache/dubbo-go-pixiu/pull/817)）
-* 新增 MCP 配置文档（[#770](https://github.com/apache/dubbo-go-pixiu/pull/770)）
-* OPA HTTP Filter 快速入门文档（[#751](https://github.com/apache/dubbo-go-pixiu/pull/751)）
-* 中文 README 改进（[#641](https://github.com/apache/dubbo-go-pixiu/pull/641)）
-* Issue 模板清理与优化（[#736](https://github.com/apache/dubbo-go-pixiu/pull/736)，[#735](https://github.com/apache/dubbo-go-pixiu/pull/735)）
+* README 更新与使用指引增强 [#698](https://github.com/apache/dubbo-go-pixiu/pull/698)，[#794](https://github.com/apache/dubbo-go-pixiu/pull/794)，[#831](https://github.com/apache/dubbo-go-pixiu/pull/831)
+* 管理后台文档全面重写 [#817](https://github.com/apache/dubbo-go-pixiu/pull/817)
+* 新增 MCP 配置文档 [#770](https://github.com/apache/dubbo-go-pixiu/pull/770)
+* OPA HTTP Filter 快速入门文档 [#751](https://github.com/apache/dubbo-go-pixiu/pull/751)
+* 中文 README 改进 [#641](https://github.com/apache/dubbo-go-pixiu/pull/641)
+* Issue 模板清理与优化 [#736](https://github.com/apache/dubbo-go-pixiu/pull/736)，[#735](https://github.com/apache/dubbo-go-pixiu/pull/735)
 
-### 依赖更新（Dependency Updates）
-
-#### Go Modules
-
-* dubbo-go 升级至 `v3.1.1`（[#630](https://github.com/apache/dubbo-go-pixiu/pull/630)，[#807](https://github.com/apache/dubbo-go-pixiu/pull/807)）
-* grpc、docker、crypto、jwx 等关键依赖升级（[#624](https://github.com/apache/dubbo-go-pixiu/pull/624)，[#619](https://github.com/apache/dubbo-go-pixiu/pull/619)，[#587](https://github.com/apache/dubbo-go-pixiu/pull/587)，[#618](https://github.com/apache/dubbo-go-pixiu/pull/618)，[#610](https://github.com/apache/dubbo-go-pixiu/pull/610)，[#584](https://github.com/apache/dubbo-go-pixiu/pull/584)，[#643](https://github.com/apache/dubbo-go-pixiu/pull/643)）
-* Vue 从 `2.x → 3.x` 升级；同时升级 axios、express、webpack、pbkdf2、sha.js、js-yaml 等前端依赖（[#719](https://github.com/apache/dubbo-go-pixiu/pull/719)–[#759](https://github.com/apache/dubbo-go-pixiu/pull/759)）
-* jinja2、werkzeug、urllib3、gevent、certifi、tornado 等依赖升级（[#607](https://github.com/apache/dubbo-go-pixiu/pull/607)，[#586](https://github.com/apache/dubbo-go-pixiu/pull/586)，[#582](https://github.com/apache/dubbo-go-pixiu/pull/582)，[#577](https://github.com/apache/dubbo-go-pixiu/pull/577)，[#576](https://github.com/apache/dubbo-go-pixiu/pull/576)）
-
-### 清理与移除（Cleanups & Removals）
-
-* 移除未使用的 Seata Proxy（[#628](https://github.com/apache/dubbo-go-pixiu/pull/628)）
-* 移除 Istio 集成（[#622](https://github.com/apache/dubbo-go-pixiu/pull/622)）
-* 移除静态配置 Provider（[#764](https://github.com/apache/dubbo-go-pixiu/pull/764)）
+* dubbo-go 升级至最新版  [#630](https://github.com/apache/dubbo-go-pixiu/pull/630),
+  [#807](https://github.com/apache/dubbo-go-pixiu/pull/807),
+  [#836](https://github.com/apache/dubbo-go-pixiu/pull/836),
+  [#845](https://github.com/apache/dubbo-go-pixiu/pull/845))
+* 移除未使用的 Seata Proxy [#628](https://github.com/apache/dubbo-go-pixiu/pull/628)
+* 移除 Istio 集成 [#622](https://github.com/apache/dubbo-go-pixiu/pull/622)
+* 移除静态配置 Provider [#764](https://github.com/apache/dubbo-go-pixiu/pull/764)
 
 ### 贡献者（Contributors）
 
@@ -132,6 +131,7 @@
 @1kasa
 @Alanxtl
 @baerwang
+@Chen-BUPT
 @everfid-ever
 @FoghostCn
 @KamToHung
