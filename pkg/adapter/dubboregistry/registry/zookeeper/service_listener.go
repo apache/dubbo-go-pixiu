@@ -25,8 +25,6 @@ import (
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
@@ -34,6 +32,7 @@ import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

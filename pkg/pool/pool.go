@@ -23,18 +23,15 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 // ClientPool  a pool of client.
 type ClientPool struct {
-	poolMap map[config.RequestType]*sync.Pool
+	poolMap map[string]*sync.Pool
 }
 
 var (
@@ -44,15 +41,15 @@ var (
 
 func newClientPool() *ClientPool {
 	clientPool := &ClientPool{
-		poolMap: make(map[config.RequestType]*sync.Pool, 4),
+		poolMap: make(map[string]*sync.Pool, 4),
 	}
 	// init default support request type
-	clientPool.poolMap[config.DubboRequest] = &sync.Pool{
+	clientPool.poolMap[constant.DubboRequest] = &sync.Pool{
 		New: func() any {
 			return dubbo.NewDubboClient()
 		},
 	}
-	clientPool.poolMap[config.HTTPRequest] = &sync.Pool{
+	clientPool.poolMap[constant.HTTPRequest] = &sync.Pool{
 		New: func() any {
 			return http.NewHTTPClient()
 		},
@@ -72,7 +69,7 @@ func SingletonPool() *ClientPool {
 }
 
 // GetClient  a factory method to get a client according to apiType .
-func (pool *ClientPool) GetClient(t config.RequestType) (client.Client, error) {
+func (pool *ClientPool) GetClient(t string) (client.Client, error) {
 	if pool.poolMap[t] != nil {
 		return pool.poolMap[t].Get().(client.Client), nil
 	}
@@ -80,7 +77,7 @@ func (pool *ClientPool) GetClient(t config.RequestType) (client.Client, error) {
 }
 
 // Put put client to pool.
-func (pool *ClientPool) Put(t config.RequestType, c client.Client) error {
+func (pool *ClientPool) Put(t string, c client.Client) error {
 	if pool.poolMap[t] != nil {
 		pool.poolMap[t].Put(c)
 		return nil

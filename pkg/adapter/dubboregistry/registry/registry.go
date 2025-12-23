@@ -25,17 +25,16 @@ import (
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
-
 	"github.com/pkg/errors"
 )
 
 import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 type RegisteredType int8
@@ -97,22 +96,22 @@ func GetRegistry(name string, regConfig model.Registry, listener common2.Registr
 func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboBackendConfig, methodString string, mappingParams []config.MappingParam) router.API {
 	dboBackendConfig.Method = methodString
 	url := strings.Join([]string{urlPattern, methodString}, constant.PathSlash)
-	var requestType config.RequestType
+	var requestType string
 	switch dboBackendConfig.Protocol {
-	case string(config.DubboRequest):
-		requestType = config.DubboRequest
+	case string(constant.DubboRequest):
+		requestType = constant.DubboRequest
 	case "tri":
 		requestType = "triple"
 	default:
-		requestType = config.DubboRequest
+		requestType = constant.DubboRequest
 	}
 	method := config.Method{
 		Enable:   true,
 		Timeout:  3 * time.Second,
 		Mock:     false,
-		HTTPVerb: config.MethodPost,
+		HTTPVerb: constant.Post,
 		InboundRequest: config.InboundRequest{
-			RequestType: config.HTTPRequest,
+			RequestType: constant.HTTPRequest,
 		},
 		IntegrationRequest: config.IntegrationRequest{
 			RequestType:        requestType,

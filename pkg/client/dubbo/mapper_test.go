@@ -25,19 +25,19 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func TestQueryStringsMapper(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "queryStrings.id",
@@ -77,7 +77,7 @@ func TestQueryStringsMapper(t *testing.T) {
 	assert.EqualError(t, err, "Parameter mapping {queryStrings.age jk int} incorrect")
 
 	r, _ = http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
-	api = mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api = mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "queryStrings.id",
@@ -107,7 +107,7 @@ func TestQueryStringsMapper(t *testing.T) {
 func TestHeaderMapper(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	r.Header.Set("Auth", "1234567")
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "headers.Auth",
@@ -131,7 +131,7 @@ func TestHeaderMapper(t *testing.T) {
 func TestBodyMapper(t *testing.T) {
 	r, _ := http.NewRequest("POST", "/mock/test?id=12345&age=19", bytes.NewReader([]byte(`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
 	r.Header.Set("Auth", "1234567")
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "requestBody.sex",
@@ -175,7 +175,7 @@ func TestURIMapper(t *testing.T) {
 	r, _ := http.NewRequest("POST", "/mock/12345/joe?age=19", bytes.NewReader([]byte(
 		`{"sex": "male", "name":{"firstName": "Joe", "lastName": "Biden"}}`)))
 	r.Header.Set("Auth", "1234567")
-	api := mock.GetMockAPI(config.MethodGet, "/mock/:id/:name")
+	api := mock.GetMockAPI(constant.Get, "/mock/:id/:name")
 	api.MappingParams = []config.MappingParam{
 		{
 			Name:    "requestBody.sex",
@@ -303,7 +303,7 @@ func TestSetCommonTarget(t *testing.T) {
 }
 
 func TestSetGenericTarget(t *testing.T) {
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	r, _ := http.NewRequest("GET", "/mock/test?id=12345&age=19", bytes.NewReader([]byte("")))
 	req := client.NewReq(context.TODO(), r, api)
 

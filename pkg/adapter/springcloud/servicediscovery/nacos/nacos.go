@@ -26,7 +26,7 @@ import (
 
 import (
 	"github.com/nacos-group/nacos-sdk-go/clients/cache"
-	model2 "github.com/nacos-group/nacos-sdk-go/model"
+	xdsmodel "github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/util"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 
@@ -102,7 +102,7 @@ func (n *nacosServiceDiscovery) Unsubscribe() error {
 	return nil
 }
 
-func (n *nacosServiceDiscovery) Callback(services []model2.SubscribeService, err error) {
+func (n *nacosServiceDiscovery) Callback(services []xdsmodel.SubscribeService, err error) {
 
 	addInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
 	delInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
@@ -232,7 +232,7 @@ func NewNacosServiceDiscovery(targetService []string, config *model.RemoteConfig
 	}, nil
 }
 
-func fromInstanceToServiceInstance(serviceName string, instance model2.Instance) servicediscovery.ServiceInstance {
+func fromInstanceToServiceInstance(serviceName string, instance xdsmodel.Instance) servicediscovery.ServiceInstance {
 	addr := instance.Ip + ":" + fmt.Sprint(instance.Port)
 
 	return servicediscovery.ServiceInstance{
@@ -250,7 +250,7 @@ func fromInstanceToServiceInstance(serviceName string, instance model2.Instance)
 	}
 }
 
-func fromSubscribeServiceToServiceInstance(instance model2.SubscribeService) servicediscovery.ServiceInstance {
+func fromSubscribeServiceToServiceInstance(instance xdsmodel.SubscribeService) servicediscovery.ServiceInstance {
 	addr := instance.Ip + ":" + fmt.Sprint(instance.Port)
 	// because it value is DEFAULT_GROUP@@user-service, so split it with @@, and get service name
 	serviceName := instance.ServiceName

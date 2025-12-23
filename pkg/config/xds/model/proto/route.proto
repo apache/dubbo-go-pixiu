@@ -1,0 +1,45 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+syntax = "proto3";
+package pixiu.api.v1;
+
+// RouteAction match route should do
+message RouteAction {
+	string cluster = 1;
+	int64 cluster_not_found_response_code = 2;
+}
+
+// RouteConfiguration todo config route from (Http|Grpc|...)ManagerConfig
+message RouteConfiguration {
+	repeated pixiu.api.v1.Router routes = 1;
+	bool dynamic = 2;
+}
+
+// Router router config for RouteConfiguration
+message Router {
+	string id = 1 ;
+	pixiu.api.v1.RouterMatch match = 2;
+	pixiu.api.v1.RouteAction route = 3;
+}
+
+// RouterMatch
+message RouterMatch {
+	string prefix = 1;
+	string path = 2;
+	repeated string methods = 3;
+}

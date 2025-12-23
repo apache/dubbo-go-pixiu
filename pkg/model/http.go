@@ -78,44 +78,6 @@ const (
 	StandardDubboResolver = "StandardDubboResolver" // standard dubbo resolver
 )
 
-type RequestMethod int32
-
-const (
-	METHOD_UNSPECIFIED = 0 + iota // (DEFAULT)
-	GET
-	HEAD
-	POST
-	PUT
-	DELETE
-	CONNECT
-	OPTIONS
-	TRACE
-)
-
-var RequestMethodName = map[int32]string{
-	0: "METHOD_UNSPECIFIED",
-	1: "GET",
-	2: "HEAD",
-	3: "POST",
-	4: "PUT",
-	5: "DELETE",
-	6: "CONNECT",
-	7: "OPTIONS",
-	8: "TRACE",
-}
-
-var RequestMethodValue = map[string]int32{
-	"METHOD_UNSPECIFIED": 0,
-	"GET":                1,
-	"HEAD":               2,
-	"POST":               3,
-	"PUT":                4,
-	"DELETE":             5,
-	"CONNECT":            6,
-	"OPTIONS":            7,
-	"TRACE":              8,
-}
-
 // HttpConfig the http config
 type HttpConfig struct {
 	IdleTimeoutStr  string `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`

@@ -22,15 +22,14 @@ import (
 )
 
 import (
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/gin-gonic/gin"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/admin/config"
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -44,9 +43,9 @@ import (
 func GetClusterList(c *gin.Context) {
 	rst, err := logic.BizGetClusters()
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 	}
-	c.JSON(http.StatusOK, config.WithRet(rst))
+	c.JSON(http.StatusOK, adminconfig.WithRet(rst))
 }
 
 // @Tags Config
@@ -61,19 +60,19 @@ func GetClusterList(c *gin.Context) {
 // CreateCluster create a cluster
 func CreateCluster(c *gin.Context) {
 	body := c.PostForm("content")
-	res := &fc.Cluster{}
+	res := &config.Cluster{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 	logger.Debug(body)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	err = logic.BizCreateCluster(res)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config.WithRet("create cluster success!"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("create cluster success!"))
 }
 
 // @Tags Config
@@ -88,11 +87,11 @@ func DeleteCluster(c *gin.Context) {
 	id := c.Query(logic.ClusterID)
 	err := logic.BizDeleteCluster(id)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, config.WithRet("delete cluster success!"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("delete cluster success!"))
 }
 
 // @Tags Config
@@ -107,10 +106,10 @@ func DetailCluster(c *gin.Context) {
 	id := c.Query(logic.ClusterID)
 	res, err := logic.BizGetCluster(id)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config.WithRet(res))
+	c.JSON(http.StatusOK, adminconfig.WithRet(res))
 }
 
 // @Tags Config
@@ -125,17 +124,17 @@ func DetailCluster(c *gin.Context) {
 // UpdateCluster update cluster
 func UpdateCluster(c *gin.Context) {
 	body := c.PostForm("content")
-	res := &fc.Cluster{}
+	res := &config.Cluster{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 	logger.Debug(body)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	err = logic.BizUpdateCluster(res)
 	if err != nil {
-		c.JSON(http.StatusOK, config.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config.WithRet("update cluster success!"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("update cluster success!"))
 }

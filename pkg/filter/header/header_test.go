@@ -24,14 +24,14 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 func TestHeader(t *testing.T) {
@@ -43,7 +43,7 @@ func TestHeader(t *testing.T) {
 
 	api := router.API{
 		URLPattern: "/mock/:id/:name",
-		Method:     getMockMethod(config.MethodGet),
+		Method:     getMockMethod(constant.Get),
 		Headers:    map[string]string{},
 	}
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/mock/test?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
@@ -61,7 +61,7 @@ func TestHeader(t *testing.T) {
 	c2.API(api)
 }
 
-func getMockMethod(verb config.HTTPVerb) config.Method {
+func getMockMethod(verb string) config.Method {
 	inbound := config.InboundRequest{}
 	integration := config.IntegrationRequest{}
 	return config.Method{
