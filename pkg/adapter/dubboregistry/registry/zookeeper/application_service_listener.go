@@ -32,8 +32,6 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/registry/servicediscovery"
 	"dubbo.apache.org/dubbo-go/v3/remoting/zookeeper/curator_discovery"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/dubbogo/go-zookeeper/zk"
 )
 
@@ -42,6 +40,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/remoting/zookeeper"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

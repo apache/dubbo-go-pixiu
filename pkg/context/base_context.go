@@ -19,6 +19,7 @@ package context
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 type (
@@ -29,6 +30,7 @@ type (
 		Next()
 		Abort()
 		AbortWithError(string, error)
+		AppendFilter(ff ...func(Context))
 
 		Status(code int)
 		StatusCode() int
@@ -45,6 +47,8 @@ type (
 		SetRouteEntry(ra *model.RouteAction)
 		GetClientIP() string
 		GetApplicationName() string
+		API(router.API)
+		GetAPI() *router.API
 
 		WriteErr(p any)
 

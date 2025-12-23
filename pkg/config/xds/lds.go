@@ -23,13 +23,12 @@ import (
 )
 
 import (
-	xdsModel "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
-
 	"gopkg.in/yaml.v3"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
@@ -46,9 +45,9 @@ func (l *LdsManager) Fetch() error {
 	if err != nil {
 		return err
 	}
-	listeners := make([]*xdsModel.Listener, 0, len(r))
+	listeners := make([]*xdsmodel.Listener, 0, len(r))
 	for _, one := range r {
-		listener := &xdsModel.PixiuExtensionListeners{}
+		listener := &xdsmodel.PixiuExtensionListeners{}
 		if err := one.To(listener); err != nil {
 			logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 			continue
@@ -71,9 +70,9 @@ func (l *LdsManager) Delta() error {
 
 func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		listeners := make([]*xdsModel.Listener, 0, len(delta.NewResources))
+		listeners := make([]*xdsmodel.Listener, 0, len(delta.NewResources))
 		for _, one := range delta.NewResources {
-			listener := &xdsModel.PixiuExtensionListeners{}
+			listener := &xdsmodel.PixiuExtensionListeners{}
 			if err := one.To(listener); err != nil {
 				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
 				continue
@@ -86,7 +85,7 @@ func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	}
 }
 
-func (l *LdsManager) makeSocketAddress(address *xdsModel.SocketAddress) model.SocketAddress {
+func (l *LdsManager) makeSocketAddress(address *xdsmodel.SocketAddress) model.SocketAddress {
 	if address == nil {
 		return model.SocketAddress{}
 	}
@@ -108,7 +107,7 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 }
 
 // setupListeners setup listeners accord to dynamic resource
-func (l *LdsManager) setupListeners(listeners []*xdsModel.Listener) {
+func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) {
 	//Make sure each one has a unique name like "host-port-protocol"
 	for _, v := range listeners {
 		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), v.Protocol.String())
@@ -160,7 +159,7 @@ func resolveListenerName(host string, port int, protocol string) string {
 	return host + "-" + strconv.Itoa(port) + "-" + protocol
 }
 
-func (l *LdsManager) makeListener(listener *xdsModel.Listener) model.Listener {
+func (l *LdsManager) makeListener(listener *xdsmodel.Listener) model.Listener {
 	return model.Listener{
 		Name:        listener.Name,
 		ProtocolStr: listener.Protocol.String(),
@@ -171,13 +170,13 @@ func (l *LdsManager) makeListener(listener *xdsModel.Listener) model.Listener {
 	}
 }
 
-func (l *LdsManager) makeFilterChain(fChain *xdsModel.FilterChain) model.FilterChain {
+func (l *LdsManager) makeFilterChain(fChain *xdsmodel.FilterChain) model.FilterChain {
 	return model.FilterChain{
 		Filters: l.makeFilters(fChain.Filters),
 	}
 }
 
-func (l *LdsManager) makeFilters(filters []*xdsModel.NetworkFilter) []model.NetworkFilter {
+func (l *LdsManager) makeFilters(filters []*xdsmodel.NetworkFilter) []model.NetworkFilter {
 	result := make([]model.NetworkFilter, 0, len(filters))
 	for _, filter := range filters {
 		result = append(result, model.NetworkFilter{
@@ -189,17 +188,17 @@ func (l *LdsManager) makeFilters(filters []*xdsModel.NetworkFilter) []model.Netw
 	return result
 }
 
-func (l *LdsManager) makeConfig(filter *xdsModel.NetworkFilter) (m map[string]any) {
+func (l *LdsManager) makeConfig(filter *xdsmodel.NetworkFilter) (m map[string]any) {
 	switch cfg := filter.Config.(type) {
-	case *xdsModel.NetworkFilter_Yaml:
+	case *xdsmodel.NetworkFilter_Yaml:
 		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {
 			logger.Errorf("can not make yaml from filter.Config: %s", cfg.Yaml.Content, err)
 		}
-	case *xdsModel.NetworkFilter_Json:
+	case *xdsmodel.NetworkFilter_Json:
 		if err := json.Unmarshal([]byte(cfg.Json.Content), &m); err != nil {
 			logger.Errorf("can not make json from filter.Config: %s", cfg.Json.Content, err)
 		}
-	case *xdsModel.NetworkFilter_Struct:
+	case *xdsmodel.NetworkFilter_Struct:
 		m = cfg.Struct.AsMap()
 	default:
 		logger.Errorf("can not get filter config of %s", filter.Name)
@@ -207,7 +206,7 @@ func (l *LdsManager) makeConfig(filter *xdsModel.NetworkFilter) (m map[string]an
 	return
 }
 
-func (l *LdsManager) makeAddress(addr *xdsModel.Address) model.Address {
+func (l *LdsManager) makeAddress(addr *xdsmodel.Address) model.Address {
 	if addr == nil {
 		return model.Address{}
 	}

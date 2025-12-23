@@ -30,8 +30,6 @@ import (
 	_ "dubbo.apache.org/dubbo-go/v3/registry/nacos"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
 )
@@ -39,6 +37,7 @@ import (
 import (
 	common2 "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 

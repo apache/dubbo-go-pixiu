@@ -23,12 +23,11 @@ import (
 )
 
 import (
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
@@ -41,20 +40,20 @@ func TestNewLocalMemoryAPIDiscoveryService(t *testing.T) {
 
 func TestAddAPI(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
-	err := l.AddAPI(mock.GetMockAPI(fc.MethodPut, "/this/is/test"))
+	err := l.AddAPI(mock.GetMockAPI(constant.Put, "/this/is/test"))
 	assert.Nil(t, err)
-	_, found := l.router.FindAPI("/this/is/test", fc.MethodPut)
+	_, found := l.router.FindAPI("/this/is/test", constant.Put)
 	assert.True(t, found)
 }
 
 func TestGetAPI(t *testing.T) {
 	l := NewLocalMemoryAPIDiscoveryService()
-	err := l.AddAPI(mock.GetMockAPI(fc.MethodPut, "/this/is/test"))
+	err := l.AddAPI(mock.GetMockAPI(constant.Put, "/this/is/test"))
 	assert.Nil(t, err)
-	_, err = l.GetAPI("/this/is/test", fc.MethodPut)
+	_, err = l.GetAPI("/this/is/test", constant.Put)
 	assert.Nil(t, err)
 
-	_, err = l.GetAPI("/this/is/test/or/else", fc.MethodPut)
+	_, err = l.GetAPI("/this/is/test/or/else", constant.Put)
 	assert.NotNil(t, err)
 }
 
@@ -64,37 +63,37 @@ func TestLoadAPI(t *testing.T) {
 	assert.Empty(t, err)
 	err = apiDisSrv.InitAPIsFromConfig(*apiC)
 	assert.Nil(t, err)
-	rsp, _ := apiDisSrv.GetAPI("/", fc.MethodGet)
+	rsp, _ := apiDisSrv.GetAPI("/", constant.Get)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, _ = apiDisSrv.GetAPI("/mockTest", fc.MethodGet)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest", constant.Get)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, _ = apiDisSrv.GetAPI("/mockTest", fc.MethodPost)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest", constant.Post)
 	assert.NotNil(t, rsp.URLPattern)
-	rsp, _ = apiDisSrv.GetAPI("/mockTest/12345", fc.MethodGet)
+	rsp, _ = apiDisSrv.GetAPI("/mockTest/12345", constant.Get)
 	assert.NotNil(t, rsp.URLPattern)
 }
 
 func TestLoadAPIFromResource(t *testing.T) {
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
-	mockMethod1 := mock.GetMockAPI(fc.MethodPut, "").Method
-	mockMethod2 := mock.GetMockAPI(fc.MethodPost, "").Method
-	mockMethod3 := mock.GetMockAPI(fc.MethodGet, "").Method
-	tempResources := []fc.Resource{
+	mockMethod1 := mock.GetMockAPI(constant.Put, "").Method
+	mockMethod2 := mock.GetMockAPI(constant.Post, "").Method
+	mockMethod3 := mock.GetMockAPI(constant.Get, "").Method
+	tempResources := []config.Resource{
 		{
 			Type:        "Restful",
 			Path:        "/",
 			Description: "test only",
-			Methods: []fc.Method{
+			Methods: []config.Method{
 				mockMethod1,
 				mockMethod2,
 				mockMethod3,
 			},
-			Resources: []fc.Resource{
+			Resources: []config.Resource{
 				{
 					Type:        "Restful",
 					Path:        "/mock",
 					Description: "test only",
-					Methods: []fc.Method{
+					Methods: []config.Method{
 						mockMethod1,
 						mockMethod2,
 						mockMethod3,
@@ -104,15 +103,15 @@ func TestLoadAPIFromResource(t *testing.T) {
 					Type:        "Restful",
 					Path:        "/mock2",
 					Description: "test only",
-					Methods: []fc.Method{
+					Methods: []config.Method{
 						mockMethod1,
 					},
-					Resources: []fc.Resource{
+					Resources: []config.Resource{
 						{
 							Type:        "Restful",
 							Path:        "/:id",
 							Description: "test only",
-							Methods: []fc.Method{
+							Methods: []config.Method{
 								mockMethod1,
 							},
 						},
@@ -123,29 +122,29 @@ func TestLoadAPIFromResource(t *testing.T) {
 	}
 	err := loadAPIFromResource("", tempResources, nil, apiDiscSrv)
 	assert.Nil(t, err)
-	rsp, _ := apiDiscSrv.GetAPI("/", fc.MethodPut)
+	rsp, _ := apiDiscSrv.GetAPI("/", constant.Put)
 	assert.Equal(t, rsp.URLPattern, "/")
-	rsp, _ = apiDiscSrv.GetAPI("/", fc.MethodGet)
+	rsp, _ = apiDiscSrv.GetAPI("/", constant.Get)
 	assert.Equal(t, rsp.URLPattern, "/")
-	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
+	rsp, _ = apiDiscSrv.GetAPI("/mock", constant.Get)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	rsp, _ = apiDiscSrv.MatchAPI("/mock2/12345", fc.MethodPut)
+	rsp, _ = apiDiscSrv.MatchAPI("/mock2/12345", constant.Put)
 	assert.Equal(t, rsp.URLPattern, "/mock2/:id")
 
-	tempResources = []fc.Resource{
+	tempResources = []config.Resource{
 		{
 			Type:        "Restful",
 			Path:        "/mock",
 			Description: "test only",
-			Methods: []fc.Method{
+			Methods: []config.Method{
 				mockMethod1,
 			},
-			Resources: []fc.Resource{
+			Resources: []config.Resource{
 				{
 					Type:        "Restful",
 					Path:        ":id",
 					Description: "test only",
-					Methods: []fc.Method{
+					Methods: []config.Method{
 						mockMethod1,
 					},
 				},
@@ -153,7 +152,7 @@ func TestLoadAPIFromResource(t *testing.T) {
 					Type:        "Restful",
 					Path:        ":ik",
 					Description: "test only",
-					Methods: []fc.Method{
+					Methods: []config.Method{
 						mockMethod1,
 					},
 				},
@@ -166,21 +165,21 @@ func TestLoadAPIFromResource(t *testing.T) {
 }
 
 func TestLoadAPIFromMethods(t *testing.T) {
-	mockPutAPIMethod := mock.GetMockAPI(fc.MethodPut, "").Method
-	mockPutAPIMethod2 := mock.GetMockAPI(fc.MethodPut, "").Method
+	mockPutAPIMethod := mock.GetMockAPI(constant.Put, "").Method
+	mockPutAPIMethod2 := mock.GetMockAPI(constant.Put, "").Method
 	mockPutAPIMethod.URL = "localhost:8080"
 	mockPutAPIMethod2.URL = "localhost:8081"
-	tempMethods := []fc.Method{
+	tempMethods := []config.Method{
 		mockPutAPIMethod,
 		mockPutAPIMethod2,
-		mock.GetMockAPI(fc.MethodGet, "").Method,
+		mock.GetMockAPI(constant.Get, "").Method,
 		mockPutAPIMethod,
 	}
 	apiDiscSrv := NewLocalMemoryAPIDiscoveryService()
 	err := loadAPIFromMethods("/mock", tempMethods, nil, apiDiscSrv)
-	rsp, _ := apiDiscSrv.GetAPI("/mock", fc.MethodPut)
+	rsp, _ := apiDiscSrv.GetAPI("/mock", constant.Put)
 	assert.Equal(t, rsp.URLPattern, "/mock")
-	rsp, _ = apiDiscSrv.GetAPI("/mock", fc.MethodGet)
+	rsp, _ = apiDiscSrv.GetAPI("/mock", constant.Get)
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	assert.True(t, strings.Contains(err.Error(), "path: /mock, Method: PUT, error: Method PUT with address /mock already exists in path /mock"))
 }

@@ -21,9 +21,51 @@ import (
 	"fmt"
 )
 
-import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api"
+type ApiType int32
+type Status int32
+type RequestMethod int32
+
+const (
+	Down    Status = 0
+	Up      Status = 1
+	Unknown Status = 2
 )
+
+const (
+	METHOD_UNSPECIFIED RequestMethod = 0 + iota
+	GET
+	HEAD
+	POST
+	PUT
+	DELETE
+	CONNECT
+	OPTIONS
+	TRACE
+)
+
+var RequestMethodName = map[int32]string{
+	0: "METHOD_UNSPECIFIED",
+	1: "GET",
+	2: "HEAD",
+	3: "POST",
+	4: "PUT",
+	5: "DELETE",
+	6: "CONNECT",
+	7: "OPTIONS",
+	8: "TRACE",
+}
+
+var RequestMethodValue = map[string]int32{
+	"METHOD_UNSPECIFIED": 0,
+	"GET":                1,
+	"HEAD":               2,
+	"POST":               3,
+	"PUT":                4,
+	"DELETE":             5,
+	"CONNECT":            6,
+	"OPTIONS":            7,
+	"TRACE":              8,
+}
 
 type Metadata struct {
 	Info map[string]MetadataValue
@@ -31,18 +73,8 @@ type Metadata struct {
 
 type MetadataValue any
 
-// Status is the components status
-
 const (
-	// Down
-	Down api.Status = 0
-	// Up
-	Up      api.Status = 1
-	Unknown api.Status = 2
-)
-
-const (
-	ApiTypeREST api.ApiType = 0 + iota // support for 1.0
+	ApiTypeREST ApiType = 0 + iota // support for 1.0
 	ApiTypeGRPC
 	ApiTypeDUBBO
 	ApiTypeIstioGRPC
@@ -112,7 +144,7 @@ type (
 	//  "set_node_on_first_message_only": "..."
 	//	}
 	ApiConfigSource struct {
-		APIType        api.ApiType   `yaml:"omitempty" json:"omitempty"`
+		APIType        ApiType       `yaml:"omitempty" json:"omitempty"`
 		APITypeStr     string        `yaml:"api_type" json:"api_type" mapstructure:"api_type"`
 		ClusterName    []string      `yaml:"cluster_name" json:"cluster_name" mapstructure:"cluster_name"`
 		RefreshDelay   string        `yaml:"refresh_delay" json:"refresh_delay" mapstructure:"refresh_delay"`

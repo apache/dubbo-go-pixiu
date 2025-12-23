@@ -26,8 +26,6 @@ import (
 import (
 	monkey "github.com/cch123/supermonkey"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/require"
@@ -37,6 +35,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
@@ -131,7 +130,7 @@ func TestAdapter_createApiManager(t *testing.T) {
 		clusterMg: clusterMg,
 	}
 	ada.Start()
-	api := ada.createApiManager(&apiConfig, &node, xds.ClusterType)
+	api := ada.createApiManager(&apiConfig, &node, constant.ClusterType)
 	assert := require.New(t)
 	assert.NotNil(api)
 }

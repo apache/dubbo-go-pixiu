@@ -27,10 +27,6 @@ import (
 )
 
 import (
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -53,9 +49,11 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/admin/config"
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -146,7 +144,7 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 }
 
 func watchConfigAndReload() {
-	ch, err := config.Client.WatchWithPrefix(config.Bootstrap.EtcdConfig.Path)
+	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
 
 	if err != nil {
 		logger.Errorf("watch config error %q", err)
@@ -171,7 +169,7 @@ func watchConfigAndReload() {
 }
 
 // makeHTTPFilter returns a handler for the given resource.
-func makeHTTPFilter(listener fc.Listener) *pixiupb.FilterChain {
+func makeHTTPFilter(listener config.Listener) *model.FilterChain {
 	var filters, routes []any
 
 	for _, f := range listener.HTTPFilters {
@@ -193,11 +191,11 @@ func makeHTTPFilter(listener fc.Listener) *pixiupb.FilterChain {
 		})
 	}
 
-	return &pixiupb.FilterChain{
-		Filters: []*pixiupb.NetworkFilter{
+	return &model.FilterChain{
+		Filters: []*model.NetworkFilter{
 			{
 				Name: constant.HTTPConnectManagerFilter,
-				Config: &pixiupb.NetworkFilter_Struct{
+				Config: &model.NetworkFilter_Struct{
 					Struct: func() *structpb.Struct {
 						v, err := structpb.NewStruct(map[string]any{
 							"route_config": map[string]any{
@@ -216,7 +214,7 @@ func makeHTTPFilter(listener fc.Listener) *pixiupb.FilterChain {
 	}
 }
 
-func makeListeners() *pixiupb.PixiuExtensionListeners {
+func makeListeners() *model.PixiuExtensionListeners {
 	listeners, err := logic.BizGetListeners()
 	if err != nil {
 		logger.Errorf("get listeners error %q", err)
@@ -227,12 +225,12 @@ func makeListeners() *pixiupb.PixiuExtensionListeners {
 		return nil
 	}
 
-	pbListeners := &pixiupb.PixiuExtensionListeners{}
+	pbListeners := &model.PixiuExtensionListeners{}
 	for _, listener := range listeners {
-		pbListeners.Listeners = append(pbListeners.Listeners, &pixiupb.Listener{
+		pbListeners.Listeners = append(pbListeners.Listeners, &model.Listener{
 			Name: listener.Name,
-			Address: &pixiupb.Address{
-				SocketAddress: &pixiupb.SocketAddress{
+			Address: &model.Address{
+				SocketAddress: &model.SocketAddress{
 					Address: listener.Address.SocketAddress.Address,
 					Port:    int64(listener.Address.SocketAddress.Port),
 				},
@@ -244,7 +242,7 @@ func makeListeners() *pixiupb.PixiuExtensionListeners {
 	return pbListeners
 }
 
-func makeClusters() *pixiupb.PixiuExtensionClusters {
+func makeClusters() *model.PixiuExtensionClusters {
 	clusters, err := logic.BizGetClusters()
 	if err != nil {
 		logger.Errorf("get clusters error %q", err)
@@ -255,16 +253,16 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 		return nil
 	}
 
-	pbCluster := &pixiupb.PixiuExtensionClusters{}
+	pbCluster := &model.PixiuExtensionClusters{}
 
 	for _, c := range clusters {
-		pbCluster.Clusters = append(pbCluster.Clusters, &pixiupb.Cluster{
+		pbCluster.Clusters = append(pbCluster.Clusters, &model.Cluster{
 			Name:    c.Name,
 			TypeStr: c.Type,
-			Endpoints: []*pixiupb.Endpoint{
+			Endpoints: []*model.Endpoint{
 				{
 					Id: c.Name + strconv.Itoa(c.ID),
-					Address: &pixiupb.SocketAddress{
+					Address: &model.SocketAddress{
 						Address: c.Address,
 						Port:    int64(c.Port),
 					},
@@ -284,11 +282,11 @@ func GenerateSnapshotPixiu() *cache.Snapshot {
 		map[resource.Type][]types.Resource{
 			resource.ExtensionConfigType: {
 				&core.TypedExtensionConfig{
-					Name:        xds.ClusterType,
+					Name:        constant.ClusterType,
 					TypedConfig: cdsResource,
 				},
 				&core.TypedExtensionConfig{
-					Name:        xds.ListenerType,
+					Name:        constant.ListenerType,
 					TypedConfig: ldsResource,
 				},
 			},

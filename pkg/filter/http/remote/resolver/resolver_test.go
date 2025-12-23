@@ -24,13 +24,12 @@ import (
 )
 
 import (
-	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // TestBaseResolver_PreCheck tests the PreCheck method of the BaseResolver.
@@ -109,16 +108,16 @@ func TestBaseResolver_PreCheck(t *testing.T) {
 
 // TestBaseResolver_BuildAPI tests the BuildAPI method of the BaseResolver.
 func TestBaseResolver_BuildAPI(t *testing.T) {
-	sampleMappingParams := []apiConf.MappingParam{
+	sampleMappingParams := []config.MappingParam{
 		{Name: "requestBody.name", MapTo: "opt.name"},
 	}
 
 	tests := []struct {
 		name                string
 		setupReq            func() *http.Request
-		mappingParams       []apiConf.MappingParam
+		mappingParams       []config.MappingParam
 		expectError         bool
-		expectedRequestType apiConf.RequestType
+		expectedRequestType string
 		expectedVersion     string
 		expectedGroup       string
 		errorMsg            string
@@ -127,14 +126,14 @@ func TestBaseResolver_BuildAPI(t *testing.T) {
 			name: "Dubbo Protocol Request",
 			setupReq: func() *http.Request {
 				req := httptest.NewRequest("POST", "/app/service/method", nil)
-				req.Header.Set(constant.DubboServiceProtocol, string(apiConf.DubboRequest))
+				req.Header.Set(constant.DubboServiceProtocol, constant.DubboRequest)
 				req.Header.Set(constant.DubboServiceVersion, "1.0.0")
 				req.Header.Set(constant.DubboGroup, "test-group")
 				return req
 			},
 			mappingParams:       sampleMappingParams,
 			expectError:         false,
-			expectedRequestType: apiConf.DubboRequest,
+			expectedRequestType: constant.DubboRequest,
 			expectedVersion:     "1.0.0",
 			expectedGroup:       "test-group",
 		},
@@ -153,12 +152,12 @@ func TestBaseResolver_BuildAPI(t *testing.T) {
 			name: "HTTP Protocol Request",
 			setupReq: func() *http.Request {
 				req := httptest.NewRequest("POST", "/app/service/method", nil)
-				req.Header.Set(constant.DubboServiceProtocol, string(apiConf.HTTPRequest))
+				req.Header.Set(constant.DubboServiceProtocol, string(constant.HTTPRequest))
 				return req
 			},
 			mappingParams:       sampleMappingParams,
 			expectError:         false,
-			expectedRequestType: apiConf.HTTPRequest,
+			expectedRequestType: constant.HTTPRequest,
 		},
 		{
 			name: "No Protocol Specified (Defaults to Dubbo)",
@@ -168,7 +167,7 @@ func TestBaseResolver_BuildAPI(t *testing.T) {
 			},
 			mappingParams:       sampleMappingParams,
 			expectError:         false,
-			expectedRequestType: apiConf.DubboRequest,
+			expectedRequestType: constant.DubboRequest,
 		},
 		{
 			name: "Unknown Protocol",
@@ -199,7 +198,7 @@ func TestBaseResolver_BuildAPI(t *testing.T) {
 				assert.Equal(t, "/:application/:interface/:method", api.URLPattern)
 				assert.Equal(t, string(http.MethodPost), string(api.HTTPVerb))
 				assert.True(t, api.Enable)
-				assert.Equal(t, apiConf.HTTPRequest, api.InboundRequest.RequestType)
+				assert.Equal(t, constant.HTTPRequest, api.InboundRequest.RequestType)
 				assert.Equal(t, tt.expectedRequestType, api.IntegrationRequest.RequestType)
 				assert.Equal(t, tt.expectedVersion, api.Version)
 				assert.Equal(t, tt.expectedGroup, api.Group)

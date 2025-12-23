@@ -23,21 +23,25 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-)
+// API describes the minimum configuration of an RESTful api configure in gateway
+type API struct {
+	URLPattern    string `json:"urlPattern" yaml:"urlPattern"`
+	config.Method `json:"method,inline" yaml:"method,inline"`
+	Headers       map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+}
 
 // GetURIParams returns the values retrieved from the rawURL
-func GetURIParams(api *router.API, rawURL url.URL) url.Values {
+func GetURIParams(api *API, rawURL url.URL) url.Values {
 	return wildcardMatch(api.URLPattern, rawURL.Path)
 }
 
 // IsWildCardBackendPath checks whether the configured path of
 // the upstream restful service contains parameters
-func IsWildCardBackendPath(api *router.API) bool {
+func IsWildCardBackendPath(api *API) bool {
 	if len(api.Path) == 0 {
 		return false
 	}

@@ -26,8 +26,6 @@ import (
 )
 
 import (
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	perrors "github.com/pkg/errors"
@@ -41,8 +39,10 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const DefaultTimeoutStr = "1s"
+
 var (
-	apiConfig *fc.APIConfig
+	apiConfig *APIConfig
 	client    *etcdv3.Client
 	listener  APIConfigResourceListener
 	lock      sync.RWMutex
@@ -56,26 +56,172 @@ var (
 // APIConfigResourceListener defines api resource and method config listener interface
 type APIConfigResourceListener interface {
 	// ResourceChange handle modify resource event
-	ResourceChange(new fc.Resource, old fc.Resource) bool // bool is return for interface implement is interesting
+	ResourceChange(new Resource, old Resource) bool // bool is return for interface implement is interesting
 	// ResourceAdd handle add resource event
-	ResourceAdd(res fc.Resource) bool
+	ResourceAdd(res Resource) bool
 	// ResourceDelete handle delete resource event
-	ResourceDelete(deleted fc.Resource) bool
+	ResourceDelete(deleted Resource) bool
 	// MethodChange handle modify method event
-	MethodChange(res fc.Resource, method fc.Method, old fc.Method) bool
+	MethodChange(res Resource, method Method, old Method) bool
 	// MethodAdd handle add method below one resource event
-	MethodAdd(res fc.Resource, method fc.Method) bool
+	MethodAdd(res Resource, method Method) bool
 	// MethodDelete handle delete method event
-	MethodDelete(res fc.Resource, method fc.Method) bool
+	MethodDelete(res Resource, method Method) bool
+}
+
+// APIConfig defines the data structure of the api gateway configuration
+type APIConfig struct {
+	Name        string       `json:"name" yaml:"name"`
+	Description string       `json:"description" yaml:"description"`
+	Resources   []Resource   `json:"resources" yaml:"resources"`
+	Definitions []Definition `json:"definitions" yaml:"definitions"`
+}
+
+// Resource defines the API path
+type Resource struct {
+	ID          int               `json:"id,omitempty" yaml:"id,omitempty"`
+	Type        string            `json:"type" yaml:"type"` // Restful, Dubbo
+	Path        string            `json:"path" yaml:"path"`
+	Timeout     time.Duration     `json:"timeout" yaml:"timeout"`
+	Description string            `json:"description" yaml:"description"`
+	Filters     []Filter          `json:"filters" yaml:"filters"`
+	Methods     []Method          `json:"methods" yaml:"methods"`
+	Resources   []Resource        `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+}
+
+// Filter filter with config
+type Filter struct {
+	Name   string         `json:"name,omitempty" yaml:"name,omitempty"`
+	Config map[string]any `json:"config,omitempty" yaml:"config,omitempty" `
+}
+
+// Method defines the method of the api
+type Method struct {
+	ID                 int           `json:"id,omitempty" yaml:"id,omitempty"`
+	ResourcePath       string        `json:"resourcePath" yaml:"resourcePath"`
+	Enable             bool          `json:"enable" yaml:"enable"` // true means the method is up and false means method is down
+	Timeout            time.Duration `json:"timeout" yaml:"timeout"`
+	Mock               bool          `json:"mock" yaml:"mock"`
+	Filters            []Filter      `json:"filters" yaml:"filters"`
+	HTTPVerb           string        `json:"httpVerb" yaml:"httpVerb"`
+	InboundRequest     `json:"inboundRequest" yaml:"inboundRequest"`
+	IntegrationRequest `json:"integrationRequest" yaml:"integrationRequest"`
+}
+
+// InboundRequest defines the details of the inbound
+type InboundRequest struct {
+	RequestType  string           `json:"requestType" yaml:"requestType"` //http, TO-DO: dubbo
+	Headers      []Params         `json:"headers" yaml:"headers"`
+	QueryStrings []Params         `json:"queryStrings" yaml:"queryStrings"`
+	RequestBody  []BodyDefinition `json:"requestBody" yaml:"requestBody"`
+}
+
+// Params defines the simple parameter definition
+type Params struct {
+	Name     string `json:"name" yaml:"name"`
+	Type     string `json:"type" yaml:"type"`
+	Required bool   `json:"required" yaml:"required"`
+}
+
+// BodyDefinition connects the request body to the definitions
+type BodyDefinition struct {
+	DefinitionName string `json:"definitionName" yaml:"definitionName"`
+}
+
+// IntegrationRequest defines the backend request format and target
+type IntegrationRequest struct {
+	RequestType        string `json:"requestType" yaml:"requestType"` // dubbo, TO-DO: http
+	DubboBackendConfig `json:"dubboBackendConfig,inline,omitempty" yaml:"dubboBackendConfig,inline,omitempty"`
+	HTTPBackendConfig  `json:"httpBackendConfig,inline,omitempty" yaml:"httpBackendConfig,inline,omitempty"`
+	MappingParams      []MappingParam `json:"mappingParams,omitempty" yaml:"mappingParams,omitempty"`
+}
+
+// MappingParam defines the mapping rules of headers and queryStrings
+type MappingParam struct {
+	Name    string `json:"name,omitempty" yaml:"name"`
+	MapTo   string `json:"mapTo,omitempty" yaml:"mapTo"`
+	MapType string `json:"mapType,omitempty" yaml:"mapType"`
+}
+
+// DubboBackendConfig defines the basic dubbo backend config
+type DubboBackendConfig struct {
+	ClusterName     string `yaml:"clusterName" json:"clusterName"`
+	ApplicationName string `yaml:"applicationName" json:"applicationName"`
+	Protocol        string `yaml:"protocol" json:"protocol,omitempty" default:"dubbo"`
+	Group           string `yaml:"group" json:"group"`
+	Version         string `yaml:"version" json:"version"`
+	Interface       string `yaml:"interface" json:"interface"`
+	Method          string `yaml:"method" json:"method"`
+	Retries         string `yaml:"retries" json:"retries,omitempty"`
+}
+
+// HTTPBackendConfig defines the basic dubbo backend config
+type HTTPBackendConfig struct {
+	URL string `yaml:"url" json:"url,omitempty"`
+	// downstream host.
+	Host string `yaml:"host" json:"host,omitempty"`
+	// path to replace.
+	Path string `yaml:"path" json:"path,omitempty"`
+	// http protocol, http or https.
+	Schema string `yaml:"schema" json:"scheme,omitempty"`
+}
+
+// Definition defines the complex json request body
+type Definition struct {
+	Name   string `json:"name" yaml:"name"`
+	Schema string `json:"schema" yaml:"schema"` // use json schema
+}
+
+// Cluster defines the cluster config
+type Cluster struct {
+	Name    string `json:"name,omitempty" yaml:"name"`       // cluster name
+	Type    string `json:"type,omitempty" yaml:"type"`       // cluster type
+	Address string `json:"address,omitempty" yaml:"address"` // cluster address
+	Port    int    `json:"port,omitempty" yaml:"port"`       // cluster port
+	ID      int    `json:"id,omitempty" yaml:"id"`           // cluster id
+}
+
+// RouteConfig defines the route config
+type RouteConfig struct {
+	Routes []struct {
+		Match struct {
+			Prefix string `yaml:"prefix" json:"prefix"`
+		} `yaml:"match" json:"match"`
+		Route struct {
+			Cluster                     string `yaml:"cluster" json:"cluster"`
+			ClusterNotFoundResponseCode int    `yaml:"cluster_not_found_response_code" json:"cluster_not_found_response_code"`
+		} `yaml:"route" json:"route"`
+	} `yaml:"routes" json:"routes"`
+}
+
+// HTTPFilters defines the http filter
+type HTTPFilters []struct {
+	Name   string `yaml:"name" json:"name"`
+	Config any    `yaml:"config" json:"config"`
+}
+
+// Listener defines the listener config
+type Listener struct {
+	Name    string `yaml:"name" json:"name"`
+	Address struct {
+		SocketAddress struct {
+			Address string `yaml:"address" json:"address"`
+			Port    int    `yaml:"port" json:"port"`
+		} `yaml:"socket-address" json:"socket_address"`
+		Name string `yaml:"name" json:"name"`
+	} `yaml:"address" json:"address"`
+	RouteConfig RouteConfig `yaml:"route_config" json:"route_config"`
+	HTTPFilters HTTPFilters `yaml:"http_filters" json:"http_filters"`
 }
 
 // LoadAPIConfigFromFile load the api config from file
-func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
+func LoadAPIConfigFromFile(path string) (*APIConfig, error) {
 	if len(path) == 0 {
 		return nil, perrors.Errorf("Config file not specified")
 	}
 	logger.Infof("Load API configuration file form %s", path)
-	apiConf := &fc.APIConfig{}
+	apiConf := &APIConfig{}
 	err := yaml.UnmarshalYMLConfig(path, apiConf)
 	if err != nil {
 		return nil, perrors.Errorf("unmarshalYmlConfig error %s", perrors.WithStack(err))
@@ -85,7 +231,7 @@ func LoadAPIConfigFromFile(path string) (*fc.APIConfig, error) {
 }
 
 // LoadAPIConfig load the api config from config center
-func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*fc.APIConfig, error) {
+func LoadAPIConfig(metaConfig *model.APIMetaConfig) (*APIConfig, error) {
 	tmpClient, err := etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
@@ -141,7 +287,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	tmpApiConf := &fc.APIConfig{}
+	tmpApiConf := &APIConfig{}
 	if err := initBaseInfoFromString(tmpApiConf, baseInfo); err != nil {
 		logger.Errorf("initBaseInfoFromString error %s", err)
 		return err
@@ -159,7 +305,7 @@ func initAPIConfigFromKVList(kList, vList []string) error {
 	return nil
 }
 
-func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
+func initBaseInfoFromString(conf *APIConfig, str string) error {
 	properties := make(map[string]string, 8)
 	if err := yaml.UnmarshalYML([]byte(str), properties); err != nil {
 		logger.Errorf("unmarshalYmlConfig error %s", err)
@@ -174,10 +320,10 @@ func initBaseInfoFromString(conf *fc.APIConfig, str string) error {
 	return nil
 }
 
-func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) error {
+func initAPIConfigMethodFromKvList(config *APIConfig, kList, vList []string) error {
 	for i := range kList {
 		v := vList[i]
-		method := &fc.Method{}
+		method := &Method{}
 		err := yaml.UnmarshalYML([]byte(v), method)
 		if err != nil {
 			logger.Errorf("unmarshalYmlConfig error %s", err)
@@ -206,7 +352,7 @@ func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) 
 
 		// not found one resource, so need add empty resource first
 		if !found {
-			resource := &fc.Resource{}
+			resource := &Resource{}
 			resource.Methods = append(resource.Methods, *method)
 			resource.Path = method.ResourcePath
 			config.Resources = append(config.Resources, *resource)
@@ -215,10 +361,10 @@ func initAPIConfigMethodFromKvList(config *fc.APIConfig, kList, vList []string) 
 	return nil
 }
 
-func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string) error {
+func initAPIConfigServiceFromKvList(config *APIConfig, kList, vList []string) error {
 	for i := range kList {
 		v := vList[i]
-		resource := &fc.Resource{}
+		resource := &Resource{}
 		err := yaml.UnmarshalYML([]byte(v), resource)
 		if err != nil {
 			logger.Errorf("unmarshalYmlConfig error %s", err)
@@ -227,7 +373,7 @@ func initAPIConfigServiceFromKvList(config *fc.APIConfig, kList, vList []string)
 
 		found := false
 		if config.Resources == nil {
-			config.Resources = make([]fc.Resource, 0)
+			config.Resources = make([]Resource, 0)
 		}
 
 		for i, old := range config.Resources {
@@ -344,7 +490,7 @@ func handlePutEvent(key, val []byte) {
 
 	re := getCheckResourceRegexp()
 	if m := re.Match(key); m {
-		res := &fc.Resource{}
+		res := &Resource{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
@@ -356,7 +502,7 @@ func handlePutEvent(key, val []byte) {
 
 	re = getExtractMethodRegexp()
 	if m := re.Match(key); m {
-		res := &fc.Method{}
+		res := &Method{}
 		err := yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
@@ -385,7 +531,7 @@ func deleteApiConfigResource(resourceId int) {
 	}
 }
 
-func mergeApiConfigResource(val fc.Resource) {
+func mergeApiConfigResource(val Resource) {
 	for i, resource := range apiConfig.Resources {
 		if val.ID != resource.ID {
 			continue
@@ -423,7 +569,7 @@ func deleteApiConfigMethod(resourceId, methodId int) {
 	}
 }
 
-func mergeApiConfigMethod(path string, val fc.Method) {
+func mergeApiConfigMethod(path string, val Method) {
 	for i, resource := range apiConfig.Resources {
 		if path != resource.Path {
 			continue
@@ -465,4 +611,56 @@ func getCheckRatelimitRegexp() *regexp.Regexp {
 // RegisterConfigListener register APIConfigListener
 func RegisterConfigListener(li APIConfigResourceListener) {
 	listener = li
+}
+
+// UnmarshalYAML Resource custom UnmarshalYAML
+func (r *Resource) UnmarshalYAML(unmarshal func(any) error) error {
+	s := &struct {
+		Timeout string `yaml:"timeout"`
+	}{}
+	type Alias Resource
+	alias := (*Alias)(r)
+	if err := unmarshal(alias); err != nil {
+		return err
+	}
+	if err := unmarshal(s); err != nil {
+		return err
+	}
+	// if timeout is empty must set a default value. if "" used to time.ParseDuration will err.
+	if s.Timeout == "" {
+		s.Timeout = DefaultTimeoutStr
+	}
+	d, err := time.ParseDuration(s.Timeout)
+	if err != nil {
+		return err
+	}
+
+	r.Timeout = d
+
+	return nil
+}
+
+// UnmarshalYAML method custom UnmarshalYAML
+func (m *Method) UnmarshalYAML(unmarshal func(any) error) error {
+	type Alias Method
+	alias := (*Alias)(m)
+	if err := unmarshal(alias); err != nil {
+		return err
+	}
+	s := &struct {
+		Timeout string `yaml:"timeout"`
+	}{}
+	if err := unmarshal(s); err != nil {
+		return err
+	}
+	// if timeout is empty must set a default value. if "" used to time.ParseDuration will err.
+	if s.Timeout == "" {
+		s.Timeout = DefaultTimeoutStr
+	}
+	d, err := time.ParseDuration(s.Timeout)
+	if err != nil {
+		return err
+	}
+	m.Timeout = d
+	return nil
 }

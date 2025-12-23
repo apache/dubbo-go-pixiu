@@ -25,17 +25,16 @@ import (
 )
 
 import (
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/pkg/errors"
 )
 
 import (
-	config2 "github.com/apache/dubbo-go-pixiu/admin/config"
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -49,11 +48,11 @@ import (
 func GetBaseInfo(c *gin.Context) {
 	conf, err := logic.BizGetBaseInfo()
 	if err != nil {
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	data, _ := yaml.MarshalYML(conf)
-	c.JSON(http.StatusOK, config2.WithRet(string(data)))
+	c.JSON(http.StatusOK, adminconfig.WithRet(string(data)))
 }
 
 // @Tags Config
@@ -70,20 +69,20 @@ func GetBaseInfo(c *gin.Context) {
 func SetBaseInfo(c *gin.Context) {
 	body := c.PostForm("content")
 
-	baseInfo := &config2.BaseInfo{}
+	baseInfo := &adminconfig.BaseInfo{}
 	err := yaml.UnmarshalYML([]byte(body), baseInfo)
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
 	setErr := logic.BizSetBaseInfo(baseInfo, true)
 	if setErr != nil {
-		c.JSON(http.StatusOK, config2.WithError(setErr))
+		c.JSON(http.StatusOK, adminconfig.WithError(setErr))
 		return
 	}
-	c.JSON(http.StatusOK, config2.WithRet("success"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("success"))
 }
 
 // @Tags Config
@@ -99,11 +98,11 @@ func GetResourceList(c *gin.Context) {
 
 	res, err := logic.BizGetResourceList(unpublished)
 	if err != nil {
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	data, _ := json.Marshal(res)
-	c.JSON(http.StatusOK, config2.WithRet(string(data)))
+	c.JSON(http.StatusOK, adminconfig.WithRet(string(data)))
 }
 
 // @Tags Config
@@ -120,10 +119,10 @@ func GetResourceDetail(c *gin.Context) {
 	id := c.Query(logic.ResourceID)
 	res, err := logic.BizGetResourceDetail(id, unpublished)
 	if err != nil {
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config2.WithRet(res))
+	c.JSON(http.StatusOK, adminconfig.WithRet(res))
 }
 
 // @Tags Config
@@ -141,11 +140,11 @@ func CreateResourceInfo(c *gin.Context) {
 	body := c.PostForm("content")
 	unpublished := getUnpublishedVal(c)
 
-	res := &fc.Resource{}
+	res := &config.Resource{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
@@ -159,14 +158,14 @@ func CreateResourceInfo(c *gin.Context) {
 
 	//setErr := logic.BizSetResourceInfo(res, true, unpublished)
 	if setErr1 != nil {
-		c.JSON(http.StatusOK, config2.WithError(setErr1))
+		c.JSON(http.StatusOK, adminconfig.WithError(setErr1))
 		return
 	}
 	if setErr2 != nil {
-		c.JSON(http.StatusOK, config2.WithError(setErr2))
+		c.JSON(http.StatusOK, adminconfig.WithError(setErr2))
 		return
 	}
-	c.JSON(http.StatusOK, config2.WithRet("Success"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
 }
 
 // @Tags Config
@@ -185,11 +184,11 @@ func ModifyResourceInfo(c *gin.Context) {
 	body := c.PostForm("content")
 	unpublished := getUnpublishedVal(c)
 
-	res := &fc.Resource{}
+	res := &config.Resource{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
@@ -197,7 +196,7 @@ func ModifyResourceInfo(c *gin.Context) {
 		res.ID, err = strconv.Atoi(id)
 		if err != nil {
 			logger.Warnf("resourceID not number err, %v\n", err)
-			c.JSON(http.StatusOK, config2.WithError(err))
+			c.JSON(http.StatusOK, adminconfig.WithError(err))
 			return
 		}
 	}
@@ -212,11 +211,11 @@ func ModifyResourceInfo(c *gin.Context) {
 
 	setErr := logic.BizSetResourceInfo(res, false, unpublished)
 	if setErr != nil {
-		c.JSON(http.StatusOK, config2.WithError(setErr))
+		c.JSON(http.StatusOK, adminconfig.WithError(setErr))
 		return
 	}
 
-	c.JSON(http.StatusOK, config2.WithRet("Success"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
 }
 
 func afterResourcePathChange(resourceId, path string, unpublished bool) {
@@ -251,21 +250,21 @@ func DeleteResourceInfo(c *gin.Context) {
 		// Check whether the configuration has been released when deleting the configuration
 		old, err := getResourceDetail(id, false)
 		if err != nil {
-			c.JSON(http.StatusOK, config2.WithError(err))
+			c.JSON(http.StatusOK, adminconfig.WithError(err))
 			return
 		}
 		if old != nil {
-			c.JSON(http.StatusOK, config2.WithError(errors.New("The configuration has been published and cannot be deleted")))
+			c.JSON(http.StatusOK, adminconfig.WithError(errors.New("The configuration has been published and cannot be deleted")))
 			return
 		}
 	}
 	err := logic.BizDeleteResourceInfo(id, unpublished)
 	if err != nil {
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, config2.WithRet("Success"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
 }
 
 // @Tags Config
@@ -283,11 +282,11 @@ func GetMethodList(c *gin.Context) {
 
 	res, err := logic.BizGetMethodList(resourceId, unpublished)
 	if err != nil {
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	data, _ := json.Marshal(res)
-	c.JSON(http.StatusOK, config2.WithRet(string(data)))
+	c.JSON(http.StatusOK, adminconfig.WithRet(string(data)))
 }
 
 // @Tags Config
@@ -306,10 +305,10 @@ func GetMethodDetail(c *gin.Context) {
 	unpublished := getUnpublishedVal(c)
 	res, err := logic.BizGetMethodDetail(resourceId, methodId, unpublished)
 	if err != nil {
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config2.WithRet(res))
+	c.JSON(http.StatusOK, adminconfig.WithRet(res))
 }
 
 // @Tags Config
@@ -329,21 +328,21 @@ func DeleteMethodInfo(c *gin.Context) {
 	if unpublished {
 		old, err := logic.BizGetMethodDetail(resourceId, methodId, false)
 		if err != nil {
-			c.JSON(http.StatusOK, config2.WithError(err))
+			c.JSON(http.StatusOK, adminconfig.WithError(err))
 			return
 		}
 		if old != "" {
-			c.JSON(http.StatusOK, config2.WithError(errors.New("The configuration has been published and cannot be deleted")))
+			c.JSON(http.StatusOK, adminconfig.WithError(errors.New("The configuration has been published and cannot be deleted")))
 			return
 		}
 	}
 	err := logic.BizDeleteMethodInfo(resourceId, methodId, unpublished)
 
 	if err != nil {
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
-	c.JSON(http.StatusOK, config2.WithRet("Success"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
 }
 
 // @Tags Config
@@ -362,38 +361,38 @@ func CreateMethodInfo(c *gin.Context) {
 	resourceId := c.Query(logic.ResourceID)
 	unpublished := getUnpublishedVal(c)
 
-	res := &fc.Method{}
+	res := &config.Method{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
 	resource, err := getResourceDetail(resourceId, unpublished)
 	if err != nil {
 		logger.Warnf("CreateMethodInfo can't query resource  err, %v\n", err)
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	res.ResourcePath = resource.Path
 
 	setErr := logic.BizSetResourceMethod(resourceId, res, true, unpublished)
 	if setErr != nil {
-		c.JSON(http.StatusOK, config2.WithError(setErr))
+		c.JSON(http.StatusOK, adminconfig.WithError(setErr))
 		return
 	}
-	c.JSON(http.StatusOK, config2.WithRet("Success"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
 }
 
-func getResourceDetail(id string, unpublished bool) (*fc.Resource, error) {
+func getResourceDetail(id string, unpublished bool) (*config.Resource, error) {
 	res, err := logic.BizGetResourceDetail(id, unpublished)
 	if err != nil {
 		return nil, err
 	}
 
-	resource := &fc.Resource{}
+	resource := &config.Resource{}
 	err = yaml.UnmarshalYML([]byte(res), resource)
 	if err != nil {
 		return nil, err
@@ -420,11 +419,11 @@ func ModifyMethodInfo(c *gin.Context) {
 	methodId := c.Query(logic.MethodID)
 	unpublished := getUnpublishedVal(c)
 
-	res := &fc.Method{}
+	res := &config.Method{}
 	err := yaml.UnmarshalYML([]byte(body), res)
 	if err != nil {
 		logger.Warnf("read body err, %v\n", err)
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 
@@ -432,7 +431,7 @@ func ModifyMethodInfo(c *gin.Context) {
 		res.ID, err = strconv.Atoi(methodId)
 		if err != nil {
 			logger.Warnf("methodID not number err, %v\n", err)
-			c.JSON(http.StatusOK, config2.WithError(err))
+			c.JSON(http.StatusOK, adminconfig.WithError(err))
 			return
 		}
 	}
@@ -440,17 +439,17 @@ func ModifyMethodInfo(c *gin.Context) {
 	resource, err := getResourceDetail(resourceId, unpublished)
 	if err != nil {
 		logger.Warnf("CreateMethodInfo can't query resource  err, %v\n", err)
-		c.JSON(http.StatusOK, config2.WithError(err))
+		c.JSON(http.StatusOK, adminconfig.WithError(err))
 		return
 	}
 	res.ResourcePath = resource.Path
 
 	setErr := logic.BizSetResourceMethod(resourceId, res, false, unpublished)
 	if setErr != nil {
-		c.JSON(http.StatusOK, config2.WithError(setErr))
+		c.JSON(http.StatusOK, adminconfig.WithError(setErr))
 		return
 	}
-	c.JSON(http.StatusOK, config2.WithRet("Success"))
+	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
 }
 
 // @Tags Config
@@ -481,7 +480,7 @@ func BatchReleaseResource(c *gin.Context) {
 	// Do not handle toList errors
 	if fromErr != nil {
 		logger.Warnf("Batch Release Resource err, %v\n", fromErr)
-		c.JSON(http.StatusOK, config2.WithError(fromErr))
+		c.JSON(http.StatusOK, adminconfig.WithError(fromErr))
 		return
 	}
 	// todo Optimize comparison method to reduce time complexity
@@ -498,7 +497,7 @@ func BatchReleaseResource(c *gin.Context) {
 					err := logic.BRUpdate(toK, fromV)
 					if err != nil {
 						logger.Warnf("Batch Release Resource err, %v\n", err)
-						c.JSON(http.StatusOK, config2.WithError(err))
+						c.JSON(http.StatusOK, adminconfig.WithError(err))
 						return
 					}
 				}
@@ -509,7 +508,7 @@ func BatchReleaseResource(c *gin.Context) {
 			err := logic.BRCreate(fromKTmp[len(fromKTmp)-1], fromV, logic.Resources)
 			if err != nil {
 				logger.Warnf("Batch Release Resource err, %v\n", err)
-				c.JSON(http.StatusOK, config2.WithError(err))
+				c.JSON(http.StatusOK, adminconfig.WithError(err))
 				return
 			}
 		}
@@ -539,7 +538,7 @@ func BatchReleasePluginGroup(c *gin.Context) {
 	toKList, toVList, _ := logic.BRGetPluginGroupList(false)          // to represent published space
 	if fromErr != nil {
 		logger.Warnf("Batch Release PluginGroup err, %v\n", fromErr)
-		c.JSON(http.StatusOK, config2.WithError(fromErr))
+		c.JSON(http.StatusOK, adminconfig.WithError(fromErr))
 		return
 	}
 	fromKTmp := strings.Split(fromKList[0], "/")
@@ -547,7 +546,7 @@ func BatchReleasePluginGroup(c *gin.Context) {
 		err := logic.BRCreate(fromKTmp[len(fromKTmp)-1], fromVList[0], logic.PluginGroup)
 		if err != nil {
 			logger.Warnf("Batch Release PluginGroup err, %v\n", err)
-			c.JSON(http.StatusOK, config2.WithError(err))
+			c.JSON(http.StatusOK, adminconfig.WithError(err))
 		}
 		return
 	}
@@ -555,7 +554,7 @@ func BatchReleasePluginGroup(c *gin.Context) {
 		err := logic.BRUpdate(toKList[0], fromVList[0])
 		if err != nil {
 			logger.Warnf("Batch Release PluginGroup err, %v\n", err)
-			c.JSON(http.StatusOK, config2.WithError(err))
+			c.JSON(http.StatusOK, adminconfig.WithError(err))
 		}
 	}
 }

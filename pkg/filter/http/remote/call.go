@@ -26,10 +26,6 @@ import (
 )
 
 import (
-	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
@@ -176,14 +172,14 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (f *Filter) matchClient(typ apiConf.RequestType) (client.Client, error) {
-	switch strings.ToLower(string(typ)) {
-	case string(apiConf.DubboRequest):
+func (f *Filter) matchClient(typ string) (client.Client, error) {
+	switch strings.ToLower(typ) {
+	case constant.DubboRequest:
 		return dubbo.SingletonDubboClient(), nil
 	// todo @(laurence) add triple to apiConf
 	case "triple":
 		return triple.SingletonTripleClient(f.conf.DubboProxyConfig.Protoset), nil
-	case string(apiConf.HTTPRequest):
+	case constant.HTTPRequest:
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
 		return nil, errors.New("not support")

@@ -35,8 +35,6 @@ import (
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
@@ -48,6 +46,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -266,7 +265,7 @@ func (dc *Client) MapParams(req *client.Request) (any, error) {
 	return values, nil
 }
 
-func buildOption(conf fc.MappingParam) client.RequestOption {
+func buildOption(conf config.MappingParam) client.RequestOption {
 	var opt client.RequestOption
 	isGeneric, mapToType := getGenericMapTo(conf.MapTo)
 	if isGeneric {
@@ -291,7 +290,7 @@ func (dc *Client) check(key string) bool {
 }
 
 // Get find a dubbo GenericService
-func (dc *Client) Get(ir fc.IntegrationRequest) *generic.GenericService {
+func (dc *Client) Get(ir config.IntegrationRequest) *generic.GenericService {
 	key := apiKey(&ir)
 	if dc.check(key) {
 		return dc.get(key)
@@ -300,12 +299,12 @@ func (dc *Client) Get(ir fc.IntegrationRequest) *generic.GenericService {
 	return dc.create(key, ir)
 }
 
-func apiKey(ir *fc.IntegrationRequest) string {
+func apiKey(ir *config.IntegrationRequest) string {
 	dbc := ir.DubboBackendConfig
 	return strings.Join([]string{dbc.ClusterName, dbc.ApplicationName, dbc.Interface, dbc.Version, dbc.Group}, "_")
 }
 
-func (dc *Client) create(key string, irequest fc.IntegrationRequest) *generic.GenericService {
+func (dc *Client) create(key string, irequest config.IntegrationRequest) *generic.GenericService {
 	useNacosRegister := false
 	registerIds := make([]string, 0)
 	for k, v := range dc.rootConfig.Registries {

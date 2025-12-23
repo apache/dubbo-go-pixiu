@@ -28,8 +28,6 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/context"
-
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/prometheus/common/expfmt"
@@ -37,6 +35,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/context"
 	contextHttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
