@@ -72,6 +72,7 @@
 #### 项目结构与维护（Project Layout & Maintenance）
 
 * `pixiu-admin` 合并至主仓库（[#697](https://github.com/apache/dubbo-go-pixiu/pull/697)）
+* `pixiu-api` 合并至主仓库（[#841](https://github.com/apache/dubbo-go-pixiu/pull/841)）
 * `configcenter/` 迁移至 `pkg/`，并移除历史结构（[#762](https://github.com/apache/dubbo-go-pixiu/pull/762)）
 * Benchmark 工具迁移至 `tools/benchmark`（[#763](https://github.com/apache/dubbo-go-pixiu/pull/763)）
 * Pixiu CLI 调整至 `pkg/cmd`（[#596](https://github.com/apache/dubbo-go-pixiu/pull/596)）
@@ -131,6 +132,7 @@
 @1kasa
 @Alanxtl
 @baerwang
+@everfid-ever
 @FoghostCn
 @KamToHung
 @ma642
