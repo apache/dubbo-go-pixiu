@@ -243,11 +243,15 @@ jobs:
         sleep 10
         
         # Test resource creation
+        cat > /tmp/resource.yaml <<'EOFRESOURCE'
+        path: '/test'
+        type: restful
+        description: test resource
+        EOFRESOURCE
+        
         curl -X POST http://localhost:8081/config/api/resource \
           -H "Content-Type: multipart/form-data" \
-          -F "content=path: '/test'
-type: restful
-description: test resource"
+          -F "content=@/tmp/resource.yaml"
         
         # Test resource list
         curl http://localhost:8081/config/api/resource/list
