@@ -25,9 +25,6 @@ import (
 import (
 	"github.com/cch123/supermonkey"
 
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"github.com/golang/mock/gomock"
@@ -38,21 +35,23 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
 )
 
-func makeClusters() *pixiupb.PixiuExtensionClusters {
-	return &pixiupb.PixiuExtensionClusters{
-		Clusters: []*pixiupb.Cluster{
+func makeClusters() *xdsmodel.PixiuExtensionClusters {
+	return &xdsmodel.PixiuExtensionClusters{
+		Clusters: []*xdsmodel.Cluster{
 			{
 				Name:    "http-baidu",
 				TypeStr: "http",
-				Endpoints: []*pixiupb.Endpoint{{
+				Endpoints: []*xdsmodel.Endpoint{{
 					Id: "backend",
-					Address: &pixiupb.SocketAddress{
+					Address: &xdsmodel.SocketAddress{
 						Address: "httpbin.org",
 						Port:    80,
 					},
@@ -63,15 +62,15 @@ func makeClusters() *pixiupb.PixiuExtensionClusters {
 }
 
 func getCdsConfig() *core.TypedExtensionConfig {
-	makeClusters := func() *pixiupb.PixiuExtensionClusters {
-		return &pixiupb.PixiuExtensionClusters{
-			Clusters: []*pixiupb.Cluster{
+	makeClusters := func() *xdsmodel.PixiuExtensionClusters {
+		return &xdsmodel.PixiuExtensionClusters{
+			Clusters: []*xdsmodel.Cluster{
 				{
 					Name:    "http-baidu",
 					TypeStr: "http",
-					Endpoints: []*pixiupb.Endpoint{{
+					Endpoints: []*xdsmodel.Endpoint{{
 						Id: "backend",
-						Address: &pixiupb.SocketAddress{
+						Address: &xdsmodel.SocketAddress{
 							Address: "httpbin.org",
 							Port:    80,
 						},
@@ -82,7 +81,7 @@ func getCdsConfig() *core.TypedExtensionConfig {
 	}
 	cdsResource, _ := anypb.New(makeClusters())
 	return &core.TypedExtensionConfig{
-		Name:        xds.ClusterType,
+		Name:        constant.ClusterType,
 		TypedConfig: cdsResource,
 	}
 }

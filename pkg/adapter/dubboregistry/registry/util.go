@@ -19,12 +19,11 @@ package registry
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
-
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // TransferURL2Api transfer url and clusterName to IntegrationRequest
@@ -32,7 +31,7 @@ func TransferURL2Api(url *common.URL, clusterName string) []config.IntegrationRe
 	var irs []config.IntegrationRequest
 	for _, method := range url.Methods {
 		irs = append(irs, config.IntegrationRequest{
-			RequestType: config.RequestType(url.Protocol),
+			RequestType: string(url.Protocol),
 			DubboBackendConfig: config.DubboBackendConfig{
 				ApplicationName: url.GetParam(constant.NameKey, ""),
 				Group:           url.GetParam(constant.GroupKey, ""),

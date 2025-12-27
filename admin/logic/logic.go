@@ -25,8 +25,6 @@ import (
 )
 
 import (
-	fc "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	gxetcd "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	perrors "github.com/pkg/errors"
@@ -35,8 +33,9 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/admin/config"
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -60,32 +59,32 @@ const (
 )
 
 // BizGetBaseInfo get base info
-func BizGetBaseInfo() (*config.BaseInfo, error) {
-	content, err := config.Client.Get(getRootPath(Base))
+func BizGetBaseInfo() (*adminconfig.BaseInfo, error) {
+	content, err := adminconfig.Client.Get(getRootPath(Base))
 	if err != nil {
 		logger.Errorf("BizGetBaseInfo err, %v\n", err)
 		return nil, perrors.WithMessage(err, "BizGetBaseInfo error")
 	}
-	data := &config.BaseInfo{}
+	data := &adminconfig.BaseInfo{}
 	_ = yaml.UnmarshalYML([]byte(content), data)
 
 	return data, nil
 }
 
 // BizSetBaseInfo create or modify base info
-func BizSetBaseInfo(info *config.BaseInfo, created bool) error {
+func BizSetBaseInfo(info *adminconfig.BaseInfo, created bool) error {
 	// validate the api config
 
 	data, _ := yaml.MarshalYML(info)
 
 	if created {
-		setErr := config.Client.Put(getRootPath(Base), string(data))
+		setErr := adminconfig.Client.Put(getRootPath(Base), string(data))
 		if setErr != nil {
 			logger.Warnf("BizSetBaseInfo create error, %v\n", setErr)
 			return perrors.WithMessage(setErr, "BizSetBaseInfo error")
 		}
 	} else {
-		setErr := config.Client.Update(getRootPath(Base), string(data))
+		setErr := adminconfig.Client.Update(getRootPath(Base), string(data))
 		if setErr != nil {
 			logger.Warnf("BizSetBaseInfo update error, %v\n", setErr)
 			return perrors.WithMessage(setErr, "BizSetBaseInfo error")
@@ -96,20 +95,20 @@ func BizSetBaseInfo(info *config.BaseInfo, created bool) error {
 }
 
 // BizGetResourceList get resource list
-func BizGetResourceList(unpublished bool) ([]fc.Resource, error) {
+func BizGetResourceList(unpublished bool) ([]config.Resource, error) {
 	var kList, vList []string
 	var err error
 	if unpublished {
-		kList, vList, err = config.Client.GetChildrenKVList(getUnpublishedRootPath(Resources))
+		kList, vList, err = adminconfig.Client.GetChildrenKVList(getUnpublishedRootPath(Resources))
 	} else {
-		kList, vList, err = config.Client.GetChildrenKVList(getRootPath(Resources))
+		kList, vList, err = adminconfig.Client.GetChildrenKVList(getRootPath(Resources))
 	}
 
 	if err != nil {
 		logger.Errorf("BizGetResourceList err, %v\n", err)
 		return nil, perrors.WithMessage(err, "BizGetResourceList error")
 	}
-	var ret []fc.Resource
+	var ret []config.Resource
 
 	for i, k := range kList {
 		// only handle resource, filter method
@@ -118,7 +117,7 @@ func BizGetResourceList(unpublished bool) ([]fc.Resource, error) {
 			continue
 		}
 		v := vList[i]
-		res := &fc.Resource{}
+		res := &config.Resource{}
 		err := yaml.UnmarshalYML([]byte(v), res)
 		if err != nil {
 			logger.Errorf("UnmarshalYML err, %v\n", err)
@@ -132,7 +131,7 @@ func BizGetResourceList(unpublished bool) ([]fc.Resource, error) {
 // BizGetResourceDetail get resource detail
 func BizGetResourceDetail(id string, unpublished bool) (string, error) {
 	key := getResourceKey(id, unpublished)
-	detail, err := config.Client.Get(key)
+	detail, err := adminconfig.Client.Get(key)
 	if err != nil {
 		logger.Errorf("BizGetResourceDetail err, %v\n", err)
 		return "", perrors.WithMessage(err, "BizGetResourceDetail error")
@@ -141,7 +140,7 @@ func BizGetResourceDetail(id string, unpublished bool) (string, error) {
 }
 
 // BizSetResourceInfo create resource
-func BizSetResourceInfo(res *fc.Resource, created, unpublished bool) error {
+func BizSetResourceInfo(res *config.Resource, created, unpublished bool) error {
 
 	if created {
 		// backups method
@@ -155,7 +154,7 @@ func BizSetResourceInfo(res *fc.Resource, created, unpublished bool) error {
 		}
 		data, _ := yaml.MarshalYML(res)
 
-		setErr := config.Client.Create(getResourceKey(strconv.Itoa(res.ID), unpublished), string(data))
+		setErr := adminconfig.Client.Create(getResourceKey(strconv.Itoa(res.ID), unpublished), string(data))
 		if setErr != nil {
 			logger.Warnf("Create etcd error, %v\n", setErr)
 			return perrors.WithMessage(setErr, "BizSetResourceInfo error")
@@ -172,7 +171,7 @@ func BizSetResourceInfo(res *fc.Resource, created, unpublished bool) error {
 
 		// should set method in this situation
 		res.Methods = nil
-		setErr := config.Client.Update(key, string(data))
+		setErr := adminconfig.Client.Update(key, string(data))
 		if setErr != nil {
 			logger.Warnf("update etcd error, %v\n", setErr)
 			return perrors.WithMessage(setErr, "BizSetResourceInfo error")
@@ -185,7 +184,7 @@ func BizSetResourceInfo(res *fc.Resource, created, unpublished bool) error {
 func BizDeleteResourceInfo(id string, unpublished bool) error {
 	key := getResourceKey(id, unpublished)
 	// delete all key with prefix to delete method key
-	_, err := config.Client.GetRawClient().Delete(config.Client.GetCtx(), key, clientv3.WithPrefix())
+	_, err := adminconfig.Client.GetRawClient().Delete(adminconfig.Client.GetCtx(), key, clientv3.WithPrefix())
 	if err != nil {
 		logger.Warnf("BizDeleteResourceInfo, %v\n", err)
 		return perrors.WithMessage(err, "BizDeleteResourceInfo error")
@@ -194,18 +193,18 @@ func BizDeleteResourceInfo(id string, unpublished bool) error {
 }
 
 // BizGetMethodList get method list
-func BizGetMethodList(resourceId string, unpublished bool) ([]fc.Method, error) {
+func BizGetMethodList(resourceId string, unpublished bool) ([]config.Method, error) {
 	key := getResourceMethodPrefixKey(resourceId, unpublished)
 
-	_, vList, err := config.Client.GetChildrenKVList(key)
+	_, vList, err := adminconfig.Client.GetChildrenKVList(key)
 	if err != nil {
 		logger.Errorf("BizGetMethodList err, %v\n", err)
 		return nil, perrors.WithMessage(err, "BizGetMethodList error")
 	}
 
-	var ret []fc.Method
+	var ret []config.Method
 	for _, v := range vList {
-		res := &fc.Method{}
+		res := &config.Method{}
 		err := yaml.UnmarshalYML([]byte(v), res)
 		if err != nil {
 			logger.Errorf("UnmarshalYML err, %v\n", err)
@@ -219,7 +218,7 @@ func BizGetMethodList(resourceId string, unpublished bool) ([]fc.Method, error) 
 // BizGetMethodDetail get method detail
 func BizGetMethodDetail(resourceId string, methodId string, unpublished bool) (string, error) {
 	key := getMethodKey(resourceId, methodId, unpublished)
-	detail, err := config.Client.Get(key)
+	detail, err := adminconfig.Client.Get(key)
 	if err != nil {
 		logger.Errorf("BizGetMethodDetail err, %v\n", err)
 		return "", perrors.WithMessage(err, "BizGetMethodDetail error")
@@ -228,7 +227,7 @@ func BizGetMethodDetail(resourceId string, methodId string, unpublished bool) (s
 }
 
 // BizBatchCreateResourceMethod batch create method below one resource
-func BizBatchCreateResourceMethod(resourceId string, methods []fc.Method, unpublished bool) error {
+func BizBatchCreateResourceMethod(resourceId string, methods []config.Method, unpublished bool) error {
 
 	if len(methods) == 0 {
 		return nil
@@ -247,7 +246,7 @@ func BizBatchCreateResourceMethod(resourceId string, methods []fc.Method, unpubl
 		vList = append(vList, string(data))
 	}
 
-	err := config.Client.BatchCreate(kList, vList)
+	err := adminconfig.Client.BatchCreate(kList, vList)
 	if err != nil {
 		logger.Warnf("update etcd error, %v\n", err)
 		return perrors.WithMessage(err, "BizBatchCreateResourceMethod error")
@@ -256,7 +255,7 @@ func BizBatchCreateResourceMethod(resourceId string, methods []fc.Method, unpubl
 }
 
 // BizSetResourceMethod create or update method below specific path
-func BizSetResourceMethod(resourceId string, method *fc.Method, created, unpublished bool) error {
+func BizSetResourceMethod(resourceId string, method *config.Method, created, unpublished bool) error {
 
 	if created {
 		method.ID = getMethodId()
@@ -268,7 +267,7 @@ func BizSetResourceMethod(resourceId string, method *fc.Method, created, unpubli
 		}
 		data, _ := yaml.MarshalYML(method)
 
-		err := config.Client.Create(key, string(data))
+		err := adminconfig.Client.Create(key, string(data))
 		if err != nil {
 			logger.Warnf("BizSetResourceMethod etcd error, %v\n", err)
 			return perrors.WithMessage(err, "BizSetResourceMethod error")
@@ -276,7 +275,7 @@ func BizSetResourceMethod(resourceId string, method *fc.Method, created, unpubli
 	} else {
 		data, _ := yaml.MarshalYML(method)
 		key := getMethodKey(resourceId, strconv.Itoa(method.ID), unpublished)
-		err := config.Client.Update(key, string(data))
+		err := adminconfig.Client.Update(key, string(data))
 		if err != nil {
 			logger.Warnf("BizSetResourceMethod etcd error, %v\n", err)
 			return perrors.WithMessage(err, "BizSetResourceMethod error")
@@ -289,7 +288,7 @@ func BizSetResourceMethod(resourceId string, method *fc.Method, created, unpubli
 // BizDeleteMethodInfo delete method
 func BizDeleteMethodInfo(resourceId string, methodId string, unpublished bool) error {
 	key := getMethodKey(resourceId, methodId, unpublished)
-	err := config.Client.Delete(key)
+	err := adminconfig.Client.Delete(key)
 	if err != nil {
 		logger.Warnf("BizDeleteMethodInfo, %v\n", err)
 		return perrors.WithMessage(err, "BizDeleteMethodInfo error")
@@ -300,37 +299,37 @@ func BizDeleteMethodInfo(resourceId string, methodId string, unpublished bool) e
 // BRGetResourceList GetResourceList
 func BRGetResourceList(unpublished bool) ([]string, []string, error) {
 	if unpublished {
-		return config.Client.GetChildrenKVList(getUnpublishedRootPath(Resources))
+		return adminconfig.Client.GetChildrenKVList(getUnpublishedRootPath(Resources))
 	} else {
-		return config.Client.GetChildrenKVList(getRootPath(Resources))
+		return adminconfig.Client.GetChildrenKVList(getRootPath(Resources))
 	}
 }
 
 // BRGetMethodList GetMethodList
 func BRGetMethodList(resourceId string, unpublished bool) ([]string, []string, error) {
 	key := getResourceMethodPrefixKey(resourceId, unpublished)
-	return config.Client.GetChildrenKVList(key)
+	return adminconfig.Client.GetChildrenKVList(key)
 }
 
 // BRGetPluginGroupList GetPluginGroupList
 func BRGetPluginGroupList(unpublished bool) ([]string, []string, error) {
 	key := getPluginGroupPrefixKey(unpublished)
-	return config.Client.GetChildrenKVList(key)
+	return adminconfig.Client.GetChildrenKVList(key)
 }
 
 // BizGetClusters get clusters
-func BizGetClusters() ([]fc.Cluster, error) {
+func BizGetClusters() ([]config.Cluster, error) {
 	var (
 		kList, vList []string
 		err          error
 	)
-	kList, vList, err = config.Client.GetChildrenKVList(getRootPath(Clusters))
+	kList, vList, err = adminconfig.Client.GetChildrenKVList(getRootPath(Clusters))
 	if err != nil {
 		logger.Debugf("get clusters error from etcd, %+v, %+v, %s", kList, vList, err)
 		return nil, perrors.WithMessage(err, "get clusters error")
 	}
 
-	var ret []fc.Cluster
+	var ret []config.Cluster
 
 	for i, k := range kList {
 		// only handle resource, filter method
@@ -339,7 +338,7 @@ func BizGetClusters() ([]fc.Cluster, error) {
 			continue
 		}
 		v := vList[i]
-		res := &fc.Cluster{}
+		res := &config.Cluster{}
 		err := yaml.UnmarshalYML([]byte(v), res)
 		if err != nil {
 			logger.Errorf("UnmarshalYML err, %v\n", err)
@@ -351,14 +350,14 @@ func BizGetClusters() ([]fc.Cluster, error) {
 }
 
 // BizCreateCluster create cluster
-func BizCreateCluster(res *fc.Cluster) error {
+func BizCreateCluster(res *config.Cluster) error {
 	res.ID = getClusterId()
 	if res.ID == ErrID {
 		logger.Warnf("can't get id from etcd")
 		return perrors.New("BizSetCluster error can't get id from etcd")
 	}
 	data, _ := yaml.MarshalYML(res)
-	setErr := config.Client.Create(getClusterKey(strconv.Itoa(res.ID)), string(data))
+	setErr := adminconfig.Client.Create(getClusterKey(strconv.Itoa(res.ID)), string(data))
 
 	if setErr != nil {
 		logger.Warnf("Create etcd error, %v\n", setErr)
@@ -369,13 +368,13 @@ func BizCreateCluster(res *fc.Cluster) error {
 }
 
 // BizUpdateCluster create cluster
-func BizUpdateCluster(res *fc.Cluster) error {
+func BizUpdateCluster(res *config.Cluster) error {
 	if res.ID <= 0 {
 		logger.Warnf("invalid cluster id, %d", res.ID)
 		return perrors.New("invalid cluster id")
 	}
 	data, _ := yaml.MarshalYML(res)
-	setErr := config.Client.Update(getClusterKey(strconv.Itoa(res.ID)), string(data))
+	setErr := adminconfig.Client.Update(getClusterKey(strconv.Itoa(res.ID)), string(data))
 
 	if setErr != nil {
 		logger.Warnf("Update etcd error, %v\n", setErr)
@@ -389,7 +388,7 @@ func BizUpdateCluster(res *fc.Cluster) error {
 func BizDeleteCluster(id string) error {
 	key := getClusterKey(id)
 	// delete all key with prefix to delete method key
-	_, err := config.Client.GetRawClient().Delete(config.Client.GetCtx(), key, clientv3.WithPrefix())
+	_, err := adminconfig.Client.GetRawClient().Delete(adminconfig.Client.GetCtx(), key, clientv3.WithPrefix())
 	if err != nil {
 		logger.Warnf("BizDeleteCluster, %v\n", err)
 		return perrors.WithMessage(err, "BizDeleteCluster error")
@@ -400,7 +399,7 @@ func BizDeleteCluster(id string) error {
 // BizGetCluster get cluster
 func BizGetCluster(id string) (string, error) {
 	key := getClusterKey(id)
-	detail, err := config.Client.Get(key)
+	detail, err := adminconfig.Client.Get(key)
 	if err != nil {
 		logger.Errorf("BizGetClusterDetail error, %v\n", err)
 		return "", perrors.WithMessage(err, "BizGetClusterDetail error")
@@ -409,14 +408,14 @@ func BizGetCluster(id string) (string, error) {
 }
 
 // BizGetListeners get Listeners
-func BizGetListeners() ([]fc.Listener, error) {
-	kList, vList, err := config.Client.GetChildrenKVList(getRootPath(Listeners))
+func BizGetListeners() ([]config.Listener, error) {
+	kList, vList, err := adminconfig.Client.GetChildrenKVList(getRootPath(Listeners))
 	if err != nil {
 		logger.Debugf("get listeners error from etcd, %+v, %+v, %s", kList, vList, err)
 		return nil, perrors.WithMessage(err, "get listeners error")
 	}
 
-	var ret []fc.Listener
+	var ret []config.Listener
 
 	for i, k := range kList {
 		// only handle resource, filter method
@@ -425,7 +424,7 @@ func BizGetListeners() ([]fc.Listener, error) {
 			continue
 		}
 		v := vList[i]
-		res := &fc.Listener{}
+		res := &config.Listener{}
 		err := yaml.UnmarshalYML([]byte(v), res)
 		if err != nil {
 			logger.Errorf("UnmarshalYML err, %v\n", err)
@@ -437,13 +436,13 @@ func BizGetListeners() ([]fc.Listener, error) {
 }
 
 // BizCreateListener create Listener
-func BizCreateListener(res *fc.Listener) error {
+func BizCreateListener(res *config.Listener) error {
 	if strings.TrimSpace(res.Name) == "" {
 		logger.Warnf("invalid listener name, %s", res.Name)
 		return perrors.New("invalid listener id")
 	}
 	data, _ := yaml.MarshalYML(res)
-	setErr := config.Client.Create(getListenerKey(res.Name), string(data))
+	setErr := adminconfig.Client.Create(getListenerKey(res.Name), string(data))
 
 	if setErr != nil {
 		logger.Warnf("Create etcd error, %v\n", setErr)
@@ -454,13 +453,13 @@ func BizCreateListener(res *fc.Listener) error {
 }
 
 // BizUpdateListener create Listener
-func BizUpdateListener(res *fc.Listener) error {
+func BizUpdateListener(res *config.Listener) error {
 	if strings.TrimSpace(res.Name) == "" {
 		logger.Warnf("invalid listener name, %s", res.Name)
 		return perrors.New("invalid listener name")
 	}
 	data, _ := yaml.MarshalYML(res)
-	setErr := config.Client.Update(getListenerKey(res.Name), string(data))
+	setErr := adminconfig.Client.Update(getListenerKey(res.Name), string(data))
 
 	if setErr != nil {
 		logger.Warnf("Update etcd error, %v\n", setErr)
@@ -474,7 +473,7 @@ func BizUpdateListener(res *fc.Listener) error {
 func BizDeleteListener(name string) error {
 	key := getListenerKey(name)
 	// delete all key with prefix to delete listener key
-	_, err := config.Client.GetRawClient().Delete(config.Client.GetCtx(), key, clientv3.WithPrefix())
+	_, err := adminconfig.Client.GetRawClient().Delete(adminconfig.Client.GetCtx(), key, clientv3.WithPrefix())
 	if err != nil {
 		logger.Warnf("BizDeleteListener, %v\n", err)
 		return perrors.WithMessage(err, "BizDeleteListener error")
@@ -485,7 +484,7 @@ func BizDeleteListener(name string) error {
 // BizGetListener get Listener
 func BizGetListener(name string) (string, error) {
 	key := getListenerKey(name)
-	detail, err := config.Client.Get(key)
+	detail, err := adminconfig.Client.Get(key)
 	if err != nil {
 		logger.Errorf("BizGetListenerDetail error, %v\n", err)
 		return "", perrors.WithMessage(err, "BizGetListenerDetail error")
@@ -495,18 +494,18 @@ func BizGetListener(name string) (string, error) {
 
 // BRUpdate
 func BRUpdate(key, value string) error {
-	return config.Client.Update(key, value)
+	return adminconfig.Client.Update(key, value)
 }
 
 func BRCreate(key, value, configType string) error {
 	if strings.EqualFold(configType, Resources) {
-		return config.Client.Create(getResourceKey(key, false), value)
+		return adminconfig.Client.Create(getResourceKey(key, false), value)
 	} else if strings.EqualFold(configType, Method) {
 
 	} else if strings.EqualFold(configType, PluginGroup) {
-		return config.Client.Create(getPluginGroupKey(key, false), value)
+		return adminconfig.Client.Create(getPluginGroupKey(key, false), value)
 	} else {
-		return config.Client.Create(getPluginRatelimitKey(false), value)
+		return adminconfig.Client.Create(getPluginRatelimitKey(false), value)
 	}
 	return errors.New("")
 }
@@ -572,13 +571,13 @@ func getMethodId() int {
 func loopGetId(k string) int {
 	for {
 
-		rawClient := config.Client.GetRawClient()
+		rawClient := adminconfig.Client.GetRawClient()
 		if rawClient == nil {
 			logger.Error("GetId etcd client is null")
 			return ErrID
 		}
 
-		resp, err := rawClient.Get(config.Client.GetCtx(), k)
+		resp, err := rawClient.Get(adminconfig.Client.GetCtx(), k)
 		if err != nil {
 			return ErrID
 		}
@@ -601,9 +600,9 @@ func loopGetId(k string) int {
 		id += 1
 
 		if rev == 0 {
-			err = config.Client.Create(k, strconv.Itoa(id))
+			err = adminconfig.Client.Create(k, strconv.Itoa(id))
 		} else {
-			err = config.Client.UpdateWithRev(k, strconv.Itoa(id), rev)
+			err = adminconfig.Client.UpdateWithRev(k, strconv.Itoa(id), rev)
 		}
 
 		if err != nil {
@@ -619,11 +618,11 @@ func loopGetId(k string) int {
 }
 
 func getRootPath(key string) string {
-	return config.Bootstrap.GetPath() + "/" + key
+	return adminconfig.Bootstrap.GetPath() + "/" + key
 }
 
 func getUnpublishedRootPath(key string) string {
-	return config.Bootstrap.GetPath() + "/" + Unpublished + "/" + key
+	return adminconfig.Bootstrap.GetPath() + "/" + Unpublished + "/" + key
 }
 
 func getCheckResourceRegexp() *regexp.Regexp {

@@ -26,14 +26,14 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func TestMapParams(t *testing.T) {
@@ -41,7 +41,7 @@ func TestMapParams(t *testing.T) {
 	r, _ := http.NewRequest("POST", "/mock/test?team=theBoys", bytes.NewReader([]byte(
 		"{\"id\":\"12345\",\"age\":\"19\",\"testStruct\":{\"name\":\"mock\",\"test\":\"happy\",\"nickName\":\"trump\"}}")))
 	r.Header.Set("Auth", "12345")
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test")
+	api := mock.GetMockAPI(constant.Get, "/mock/test")
 	req := client.NewReq(context.TODO(), r, api)
 
 	val, err := hClient.MapParams(req)
@@ -103,7 +103,7 @@ func TestParseURL(t *testing.T) {
 	requestParams := newRequestParams()
 	requestParams.URIParams.Set("id", "12345")
 	r, _ := http.NewRequest("POST", "/mock/test/12345", bytes.NewReader([]byte("")))
-	api := mock.GetMockAPI(config.MethodGet, "/mock/test/:id")
+	api := mock.GetMockAPI(constant.Get, "/mock/test/:id")
 	api.IntegrationRequest.RequestType = "http"
 	api.Schema = "http"
 	api.Host = "abc.com"

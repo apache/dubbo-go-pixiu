@@ -25,7 +25,7 @@ const (
 	// Name pixiu name
 	Name = "dubbo-go-pixiu"
 	// Version pixiu version
-	Version = "1.0.0"
+	Version = "1.1.0"
 )
 
 // default timeout 1s.

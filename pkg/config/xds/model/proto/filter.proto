@@ -1,0 +1,46 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+syntax = "proto3";
+import "google/protobuf/struct.proto";
+
+package pixiu.api.v1;
+
+// Filter core struct, filter is extend by user
+message NetworkFilter {
+  string name = 1;
+  oneof config {
+    Config yaml = 2;
+    Config json = 3;
+    google.protobuf.Struct struct = 4;
+  }
+}
+
+// Config string kind config(yaml or json such as) for NetworkFilter.
+message Config {
+  string content = 1;
+}
+
+// FilterChain filter chain
+message FilterChain {
+  repeated pixiu.api.v1.NetworkFilter filters = 1;
+}
+
+// HTTPFilter http filter
+message HTTPFilter {
+  string name = 1;
+}

@@ -18,14 +18,11 @@
 package dubboresolver
 
 import (
-	apiConf "github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
-)
-
-import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 func init() {
@@ -44,7 +41,7 @@ func (s StandardDubboResolver) Resolve(ctx *contexthttp.HttpContext) (*router.AP
 	}
 
 	// This resolver specifically handles generic calls WITH types.
-	mappingParams := []apiConf.MappingParam{
+	mappingParams := []config.MappingParam{
 		{Name: "requestBody.values", MapTo: "opt.values"},
 		{Name: "requestBody.types", MapTo: "opt.types"},
 		{Name: "uri.application", MapTo: "opt.application"},

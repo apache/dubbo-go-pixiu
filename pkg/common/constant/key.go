@@ -97,3 +97,12 @@ const (
 	// RetriesKey retry times
 	RetriesKey = "retries"
 )
+
+const (
+	// DubboRequest represents the dubbo request
+	DubboRequest = "dubbo"
+	// HTTPRequest represents the http request
+	HTTPRequest = "http"
+	// GRPCRequest represents the grpc request
+	GRPCRequest = "grpc"
+)

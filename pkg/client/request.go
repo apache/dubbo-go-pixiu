@@ -24,8 +24,8 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/api/config"
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 // Request request for endpoint
@@ -48,7 +48,7 @@ func NewReq(ctx context.Context, request *http.Request, api router.API) *Request
 // GetURL new url
 func (r *Request) GetURL() string {
 	ir := r.API.IntegrationRequest
-	if ir.RequestType == config.HTTPRequest {
+	if ir.RequestType == constant.HTTPRequest {
 		if len(ir.URL) != 0 {
 			return ir.URL
 		}

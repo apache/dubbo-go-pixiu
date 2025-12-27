@@ -28,7 +28,7 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/common/constant"
-	model2 "github.com/nacos-group/nacos-sdk-go/model"
+	nacosmodel "github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 
 	perrors "github.com/pkg/errors"
@@ -42,11 +42,11 @@ type NacosClient struct {
 	namingClient naming_client.INamingClient
 }
 
-func (client *NacosClient) GetAllServicesInfo(param vo.GetAllServiceInfoParam) (model2.ServiceList, error) {
+func (client *NacosClient) GetAllServicesInfo(param vo.GetAllServiceInfoParam) (nacosmodel.ServiceList, error) {
 	return client.namingClient.GetAllServicesInfo(param)
 }
 
-func (client *NacosClient) SelectInstances(param vo.SelectInstancesParam) ([]model2.Instance, error) {
+func (client *NacosClient) SelectInstances(param vo.SelectInstancesParam) ([]nacosmodel.Instance, error) {
 	return client.namingClient.SelectInstances(param)
 }
 

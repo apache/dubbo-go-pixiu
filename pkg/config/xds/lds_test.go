@@ -22,8 +22,6 @@ import (
 )
 
 import (
-	pixiupb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -33,6 +31,7 @@ import (
 )
 
 import (
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -79,7 +78,7 @@ http_filters:
 	httpManagerConfigStruct, _ := structpb2.NewStruct(configMap)
 
 	type args struct {
-		filter *pixiupb.NetworkFilter
+		filter *xdsmodel.NetworkFilter
 	}
 	tests := []struct {
 		name  string
@@ -89,10 +88,10 @@ http_filters:
 		{
 			name: "yaml",
 			args: args{
-				filter: &pixiupb.NetworkFilter{
+				filter: &xdsmodel.NetworkFilter{
 					Name: "yaml_filter",
-					Config: &pixiupb.NetworkFilter_Yaml{
-						Yaml: &pixiupb.Config{
+					Config: &xdsmodel.NetworkFilter_Yaml{
+						Yaml: &xdsmodel.Config{
 							Content: httpManagerConfigYaml,
 						}},
 				},
@@ -102,9 +101,9 @@ http_filters:
 		{
 			name: "struct",
 			args: args{
-				filter: &pixiupb.NetworkFilter{
+				filter: &xdsmodel.NetworkFilter{
 					Name:   "struct_filter",
-					Config: &pixiupb.NetworkFilter_Struct{Struct: httpManagerConfigStruct},
+					Config: &xdsmodel.NetworkFilter_Struct{Struct: httpManagerConfigStruct},
 				},
 			},
 			wantM: configMap,
@@ -162,7 +161,7 @@ func TestMakeListener(t *testing.T) {
       }
     }
 `
-	l := &pixiupb.Listener{}
+	l := &xdsmodel.Listener{}
 	if err := protojson.Unmarshal([]byte(json), l); err != nil {
 		t.Fatal(err)
 	}
@@ -211,26 +210,26 @@ func TestSetupListeners(t *testing.T) {
 	mock := &mockListenerManager{m: map[string]*model.Listener{}}
 	lm := &LdsManager{listenerMg: mock}
 
-	listeners := []*pixiupb.Listener{
+	listeners := []*xdsmodel.Listener{
 		{
-			Protocol: pixiupb.Listener_HTTP,
-			Address: &pixiupb.Address{
-				SocketAddress: &pixiupb.SocketAddress{
+			Protocol: xdsmodel.Listener_HTTP,
+			Address: &xdsmodel.Address{
+				SocketAddress: &xdsmodel.SocketAddress{
 					Address: "0.0.0.0",
 					Port:    8080,
 				},
 			},
-			FilterChain: &pixiupb.FilterChain{},
+			FilterChain: &xdsmodel.FilterChain{},
 		},
 		{
-			Protocol: pixiupb.Listener_TRIPLE,
-			Address: &pixiupb.Address{
-				SocketAddress: &pixiupb.SocketAddress{
+			Protocol: xdsmodel.Listener_TRIPLE,
+			Address: &xdsmodel.Address{
+				SocketAddress: &xdsmodel.SocketAddress{
 					Address: "0.0.0.0",
 					Port:    8081,
 				},
 			},
-			FilterChain: &pixiupb.FilterChain{},
+			FilterChain: &xdsmodel.FilterChain{},
 		},
 	}
 	lm.setupListeners(listeners)
@@ -240,16 +239,16 @@ func TestSetupListeners(t *testing.T) {
 		assert.Equal(t, int(v.Address.SocketAddress.Port), mock.m[v.Name].Address.SocketAddress.Port)
 	}
 
-	newListeners := []*pixiupb.Listener{
+	newListeners := []*xdsmodel.Listener{
 		{
-			Protocol: pixiupb.Listener_HTTP,
-			Address: &pixiupb.Address{
-				SocketAddress: &pixiupb.SocketAddress{
+			Protocol: xdsmodel.Listener_HTTP,
+			Address: &xdsmodel.Address{
+				SocketAddress: &xdsmodel.SocketAddress{
 					Address: "0.0.0.0",
 					Port:    8080,
 				},
 			},
-			FilterChain: &pixiupb.FilterChain{},
+			FilterChain: &xdsmodel.FilterChain{},
 		},
 	}
 	lm.setupListeners(newListeners)

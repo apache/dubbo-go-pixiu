@@ -24,9 +24,6 @@ import (
 )
 
 import (
-	"github.com/dubbo-go-pixiu/pixiu-api/pkg/xds"
-	xdspb "github.com/dubbo-go-pixiu/pixiu-api/pkg/xds/model"
-
 	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -44,6 +41,8 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -72,11 +71,11 @@ func CreateEnvoyGrpcApiClient(
 	v.grpcMg = grpcMg
 	v.exitCh = exitCh
 	switch typeName {
-	case xds.ListenerType:
+	case constant.ListenerType:
 		v.typeUrl = resource.ListenerType
-	case xds.ClusterType:
+	case constant.ClusterType:
 		v.typeUrl = resource.ClusterType
-	case xds.EndpointType:
+	case constant.EndpointType:
 		v.typeUrl = resource.EndpointType
 	default:
 		logger.Warnf("typeName should be dubbo-go.pixiu/v1/discovery:cluster or dubbo-go.pixiu/v1/discovery:listener")
@@ -180,17 +179,17 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 			// do not block, watch new resource at another goroutine
 			err := g.runEndpointReferences(pendingResourceNames, func(any2 []*anypb.Any) {
 				// run on another goroutine
-				extCluster := xdspb.PixiuExtensionClusters{
-					Clusters: []*xdspb.Cluster{
+				extCluster := xdsmodel.PixiuExtensionClusters{
+					Clusters: []*xdsmodel.Cluster{
 						{
 							Name:             "",
-							TypeStr:          xds.ClusterType,
+							TypeStr:          constant.ClusterType,
 							Type:             0,
 							EdsClusterConfig: nil,
 							LbStr:            "",
 							Lb:               0,
 							HealthChecks:     nil,
-							Endpoints:        make([]*xdspb.Endpoint, 0, len(any2)),
+							Endpoints:        make([]*xdsmodel.Endpoint, 0, len(any2)),
 						},
 					},
 				}
@@ -206,10 +205,10 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 
 					for _, ep := range l.Endpoints {
 						address := ep.LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress()
-						extCluster.Clusters[0].Endpoints = append(extCluster.Clusters[0].Endpoints, &xdspb.Endpoint{
+						extCluster.Clusters[0].Endpoints = append(extCluster.Clusters[0].Endpoints, &xdsmodel.Endpoint{
 							Id:   "",
 							Name: "",
-							Address: &xdspb.SocketAddress{
+							Address: &xdsmodel.SocketAddress{
 								Address: address.Address,
 								Port:    int64(address.GetPortValue()),
 							},
