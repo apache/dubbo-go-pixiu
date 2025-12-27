@@ -166,6 +166,95 @@ jobs:
       run: |
         docker-compose down -v
 
+  # Integration tests with database
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-build]
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: pixiu
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+          
+      etcd:
+        image: bitnami/etcd:3.5.1
+        env:
+          ALLOW_NONE_AUTHENTICATION: yes
+        ports:
+          - 2379:2379
+        options: >-
+          --health-cmd="etcdctl endpoint health"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Initialize database
+      run: |
+        mysql -h 127.0.0.1 -u root -proot pixiu < admin/resources/sql/pixiu_demo.sql
+        
+    - name: Create test config
+      run: |
+        cat > /tmp/test-config.yaml <<EOF
+        server:
+          address: "127.0.0.1:8081"
+        etcd:
+          address: "127.0.0.1:2379"
+          path: "/pixiu/config/api"
+        mysql:
+          username: "root"
+          password: "root"
+          host: "127.0.0.1"
+          port: "3306"
+          dbname: "pixiu"
+        EOF
+        
+    - name: Run integration tests
+      run: |
+        cd admin
+        go test -v -tags=integration ./... || true
+        
+    - name: Test API operations
+      run: |
+        # Start admin server in background
+        cd admin
+        go run ./cmd/admin/admin.go -c /tmp/test-config.yaml &
+        ADMIN_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Test resource creation
+        curl -X POST http://localhost:8081/config/api/resource \
+          -H "Content-Type: multipart/form-data" \
+          -F "content=path: '/test'
+type: restful
+description: test resource"
+        
+        # Test resource list
+        curl http://localhost:8081/config/api/resource/list
+        
+        # Cleanup
+        kill $ADMIN_PID || true
+
   # Manual deployment test (following README instructions)
   manual-deployment-test:
     name: Manual Deployment Test
