@@ -44,8 +44,8 @@ cloud.google.com/go/storage v1.14.0/go.mod h1:GrKmX003DSIwi9o29oFT7YDnHYwZoctc3f
 dario.cat/mergo v1.0.1 h1:Ra4+bf83h2ztPIQYNP99R6m+Y7KfnARDfID+a+vLl4s=
 dario.cat/mergo v1.0.1/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
-dubbo.apache.org/dubbo-go/v3 v3.3.1-0.20251218171310-053cab86db13 h1:3CjSKq76j/W1cWuvI5/NDJOBEBXbVjabYoV1HFWGDSo=
-dubbo.apache.org/dubbo-go/v3 v3.3.1-0.20251218171310-053cab86db13/go.mod h1:va59d5/A3OD41YyxJ1cijhKV5ABV1OZxgjncWV+K8Ys=
+dubbo.apache.org/dubbo-go/v3 v3.3.1 h1:tYySwA8FsE6u6TfgvMmjrBrzu9kqhgMrQ7CJXW6deO8=
+dubbo.apache.org/dubbo-go/v3 v3.3.1/go.mod h1:va59d5/A3OD41YyxJ1cijhKV5ABV1OZxgjncWV+K8Ys=
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
@@ -293,8 +293,6 @@ github.com/dop251/goja v0.0.0-20240220182346-e401ed450204/go.mod h1:QMWlm50DNe14
 github.com/dop251/goja_nodejs v0.0.0-20210225215109-d91c329300e7/go.mod h1:hn7BA7c8pLvoGndExHudxTDKZ84Pyvv+90pbBjbTz0Y=
 github.com/dop251/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d h1:W1n4DvpzZGOISgp7wWNtraLcHtnmnTwBlJidqtMIuwQ=
 github.com/dop251/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d/go.mod h1:DngW8aVqWbuLRMHItjPUyqdj+HWPvnQe8V8y1nDpIbM=
-github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99 h1:UjDxgIEu6DbJVJTrxm5mwC0j54jNao1pkYVlT8X+KgY=
-github.com/dubbo-go-pixiu/pixiu-api v0.1.6-0.20220612115254-d9a176b25b99/go.mod h1:1l+6pDTdEHwCyyyJmfckOAdGp6f5PZ33ZVMgxso9q/U=
 github.com/dubbogo/go-zookeeper v1.0.3/go.mod h1:fn6n2CAEer3novYgk9ULLwAjuV8/g4DdC2ENwRb6E+c=
 github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5 h1:XoR8SSVziXe698dt4uZYDfsmHpKLemqAgFyndQsq5Kw=
 github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5/go.mod h1:fn6n2CAEer3novYgk9ULLwAjuV8/g4DdC2ENwRb6E+c=

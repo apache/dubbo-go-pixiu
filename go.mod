@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	dario.cat/mergo v1.0.1
-	dubbo.apache.org/dubbo-go/v3 v3.3.1-0.20251218171310-053cab86db13
+	dubbo.apache.org/dubbo-go/v3 v3.3.1
 	github.com/IBM/sarama v1.45.1
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/alibaba/sentinel-golang v1.0.4
