@@ -14,8 +14,6 @@
 # limitations under the License.
 
 name: Pixiu-Admin CI
-
-on:
   push:
     branches: [ main, develop ]
     paths:
@@ -310,7 +308,7 @@ jobs:
     - name: Create test config file
       run: |
         mkdir -p /tmp/admin-test
-        cat > /tmp/admin-test/conf.yaml <<EOF
+        cat > /tmp/admin-test/conf.yaml <<'EOF'
         server:
           address: "127.0.0.1:8081"
         etcd:
