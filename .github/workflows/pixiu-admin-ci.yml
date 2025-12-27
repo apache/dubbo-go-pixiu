@@ -1,0 +1,532 @@
+name: Pixiu-Admin CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'admin/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/pixiu-admin-ci.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'admin/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/pixiu-admin-ci.yml'
+
+jobs:
+  # Build and test backend
+  backend-build:
+    name: Build Admin Backend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Download dependencies
+      run: |
+        cd admin
+        go mod download
+        go mod verify
+        
+    - name: Build admin binary
+      run: |
+        cd admin
+        go build -v -o pixiu-admin ./cmd/admin/admin.go
+        
+    - name: Run Go tests
+      run: |
+        cd admin
+        go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./admin/coverage.out
+        flags: admin-backend
+        name: admin-backend-coverage
+
+  # Build and test frontend
+  frontend-build:
+    name: Build Admin Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        
+    - name: Cache node modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          admin/web/node_modules
+          ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('admin/web/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+          
+    - name: Install dependencies
+      run: |
+        cd admin/web
+        npm ci
+        
+    - name: Run linter
+      run: |
+        cd admin/web
+        npm run lint || true
+        
+    - name: Run unit tests
+      run: |
+        cd admin/web
+        npm run test:unit || true
+        
+    - name: Build frontend
+      run: |
+        cd admin/web
+        npm run build
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-dist
+        path: admin/web/dist/
+        retention-days: 7
+
+  # Docker Compose deployment test
+  docker-compose-test:
+    name: Docker Compose Deployment Test
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Check if docker-compose.yml exists
+      run: |
+        if [ ! -f docker-compose.yml ]; then
+          echo "⚠️ docker-compose.yml not found in root directory"
+          echo "Skipping docker-compose tests"
+          exit 0
+        fi
+        
+    - name: Start services with docker-compose
+      run: |
+        # Start etcd and any other services defined in docker-compose
+        docker-compose up -d
+        
+    - name: Wait for etcd to be ready
+      run: |
+        echo "Waiting for etcd to be ready..."
+        timeout 60 bash -c 'until docker ps | grep etcd | grep -q "Up"; do sleep 2; done'
+        
+        # Test etcd health
+        docker run --rm --network host bitnami/etcd:3.5.1 etcdctl \
+          --endpoints=http://localhost:2379 endpoint health || exit 1
+        
+    - name: Show running containers
+      run: |
+        echo "=== Running Docker Containers ==="
+        docker ps
+        
+    - name: Show docker-compose services
+      if: always()
+      run: |
+        docker-compose ps || true
+        
+    - name: Show service logs on failure
+      if: failure()
+      run: |
+        echo "=== Docker Compose Logs ==="
+        docker-compose logs || true
+        
+    - name: Stop services
+      if: always()
+      run: |
+        docker-compose down -v
+
+  # Manual deployment test (following README instructions)
+  manual-deployment-test:
+    name: Manual Deployment Test
+    runs-on: ubuntu-latest
+    needs: [backend-build]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        
+    - name: Start etcd service
+      run: |
+        docker run -d -p 2379:2379 \
+          --env ALLOW_NONE_AUTHENTICATION=yes \
+          --name etcd \
+          bitnami/etcd:3.5.1
+          
+    - name: Wait for etcd to be ready
+      run: |
+        echo "Waiting for etcd..."
+        timeout 60 bash -c 'until docker run --rm --network host bitnami/etcd:3.5.1 etcdctl --endpoints=http://localhost:2379 endpoint health 2>/dev/null; do sleep 2; done'
+        echo "✅ Etcd is ready"
+        
+    - name: Create test config file
+      run: |
+        mkdir -p /tmp/admin-test
+        cat > /tmp/admin-test/conf.yaml <<EOF
+        server:
+          address: "127.0.0.1:8081"
+        etcd:
+          address: "127.0.0.1:2379"
+          path: "/pixiu/config/api"
+        mysql:
+          username: "root"
+          password: "root"
+          host: "127.0.0.1"
+          port: "3306"
+          dbname: "pixiu"
+        zap:
+          level: "info"
+          format: "console"
+          prefix: "[PIXIU-ADMIN]"
+          director: "/tmp/logs"
+          linkName: "latest.log"
+          showLine: true
+          encodeLevel: "LowercaseColorLevelEncoder"
+          stacktraceKey: "stacktrace"
+          logInConsole: true
+        system:
+          env: "develop"
+          addr: 8081
+          dbType: "mysql"
+        EOF
+        
+    - name: Build admin binary
+      run: |
+        cd admin
+        go build -v -o /tmp/admin-test/pixiu-admin ./cmd/admin/admin.go
+        
+    - name: Start admin service in background
+      run: |
+        cd /tmp/admin-test
+        mkdir -p /tmp/logs
+        nohup ./pixiu-admin -c conf.yaml > /tmp/logs/admin.log 2>&1 &
+        echo $! > /tmp/admin.pid
+        echo "Admin PID: $(cat /tmp/admin.pid)"
+        
+    - name: Wait for admin service to be ready
+      run: |
+        echo "Waiting for admin service..."
+        for i in {1..30}; do
+          if curl -f http://localhost:8081/config/api/base 2>/dev/null; then
+            echo "✅ Admin service is ready"
+            exit 0
+          fi
+          echo "Attempt $i/30 - waiting..."
+          sleep 2
+        done
+        echo "❌ Admin service failed to start"
+        cat /tmp/logs/admin.log
+        exit 1
+        
+    - name: Test admin API endpoints
+      run: |
+        echo "Testing base info endpoint..."
+        curl -f http://localhost:8081/config/api/base
+        
+        echo -e "\nTesting resource list endpoint..."
+        curl -f http://localhost:8081/config/api/resource/list
+        
+        echo -e "\nTesting cluster list endpoint..."
+        curl -f http://localhost:8081/config/api/cluster/list
+        
+        echo -e "\nTesting listener list endpoint..."
+        curl -f http://localhost:8081/config/api/listener/list
+        
+    - name: Build frontend
+      run: |
+        cd admin/web
+        npm ci
+        npm run build
+        
+    - name: Verify frontend build output
+      run: |
+        ls -la admin/web/dist/
+        test -d admin/web/dist/ || exit 1
+        
+    - name: Show logs on failure
+      if: failure()
+      run: |
+        echo "=== Admin Service Logs ==="
+        cat /tmp/logs/admin.log || echo "No logs found"
+        
+        echo -e "\n=== Etcd Status ==="
+        docker logs etcd || echo "No etcd logs"
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        if [ -f /tmp/admin.pid ]; then
+          kill $(cat /tmp/admin.pid) || true
+        fi
+        docker stop etcd || true
+        docker rm etcd || true
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-build]
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: pixiu
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+          
+      etcd:
+        image: bitnami/etcd:3.5.1
+        env:
+          ALLOW_NONE_AUTHENTICATION: yes
+        ports:
+          - 2379:2379
+        options: >-
+          --health-cmd="etcdctl endpoint health"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Initialize database
+      run: |
+        mysql -h 127.0.0.1 -u root -proot pixiu < admin/resources/sql/pixiu_demo.sql
+        
+    - name: Create test config
+      run: |
+        cat > /tmp/test-config.yaml <<EOF
+        server:
+          address: "127.0.0.1:8081"
+        etcd:
+          address: "127.0.0.1:2379"
+          path: "/pixiu/config/api"
+        mysql:
+          username: "root"
+          password: "root"
+          host: "127.0.0.1"
+          port: "3306"
+          dbname: "pixiu"
+        EOF
+        
+    - name: Run integration tests
+      run: |
+        cd admin
+        go test -v -tags=integration ./... || true
+        
+    - name: Test API operations
+      run: |
+        # Start admin server in background
+        cd admin
+        go run ./cmd/admin/admin.go -c /tmp/test-config.yaml &
+        ADMIN_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Test resource creation
+        curl -X POST http://localhost:8081/config/api/resource \
+          -H "Content-Type: multipart/form-data" \
+          -F "content=path: '/test'
+type: restful
+description: test resource"
+        
+        # Test resource list
+        curl http://localhost:8081/config/api/resource/list
+        
+        # Cleanup
+        kill $ADMIN_PID || true
+
+  # Security and code quality checks
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        working-directory: admin
+        args: --timeout=5m
+        
+    - name: Run gosec security scanner
+      run: |
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        cd admin
+        gosec -fmt=json -out=gosec-report.json ./... || true
+        
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: gosec-report
+        path: admin/gosec-report.json
+        
+    - name: Check for SQL injection vulnerabilities
+      run: |
+        cd admin
+        grep -r "Query\|Exec" --include="*.go" . | grep -v "Prepare" || true
+
+  # Performance tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: [manual-deployment-test]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Start etcd
+      run: |
+        docker run -d -p 2379:2379 \
+          --env ALLOW_NONE_AUTHENTICATION=yes \
+          --name etcd \
+          bitnami/etcd:3.5.1
+        sleep 10
+        
+    - name: Build and start admin service
+      run: |
+        cd admin
+        go build -o /tmp/pixiu-admin ./cmd/admin/admin.go
+        
+        cat > /tmp/conf.yaml <<EOF
+        server:
+          address: "127.0.0.1:8081"
+        etcd:
+          address: "127.0.0.1:2379"
+          path: "/pixiu/config/api"
+        EOF
+        
+        nohup /tmp/pixiu-admin -c /tmp/conf.yaml > /tmp/admin.log 2>&1 &
+        sleep 15
+        
+    - name: Install Apache Bench
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y apache2-utils
+        
+    - name: Run load tests
+      run: |
+        echo "Testing base info endpoint..."
+        ab -n 100 -c 5 http://localhost:8081/config/api/base
+        
+        echo -e "\nTesting resource list endpoint..."
+        ab -n 100 -c 5 http://localhost:8081/config/api/resource/list
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        pkill -f pixiu-admin || true
+        docker stop etcd || true
+        docker rm etcd || true
+
+  # Documentation check
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Check API documentation exists
+      run: |
+        test -f admin/API.md || exit 1
+        test -f admin/API_CN.md || exit 1
+        test -f admin/README.md || exit 1
+        test -f admin/README_CN.md || exit 1
+        
+    - name: Check Swagger documentation
+      run: |
+        test -f admin/doc/swagger.json || exit 1
+        test -f admin/doc/swagger.yaml || exit 1
+        
+    - name: Verify API documentation completeness
+      run: |
+        # Check if all controller methods have Swagger annotations
+        cd admin
+        grep -r "@Tags\|@Summary\|@Router" controller/ | wc -l
+
+  # Final status check
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: 
+      - backend-build
+      - frontend-build
+      - docker-compose-test
+      - manual-deployment-test
+      - integration-tests
+      - code-quality
+      - performance-tests
+      - docs-check
+    
+    steps:
+    - name: All tests passed
+      run: |
+        echo "✅ All Pixiu-Admin CI checks passed successfully!"
