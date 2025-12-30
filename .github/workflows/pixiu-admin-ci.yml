@@ -29,6 +29,11 @@ on:
       - 'docker-compose.yml'
       - '.github/workflows/pixiu-admin-ci.yml'
 
+# cancel in-progress runs for the same branch or PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Build and test backend
   backend-build:
@@ -36,23 +41,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
-    - name: Set up Go
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
-        
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+        go-version-file: 'go.mod'
+        cache: true
           
     - name: Download dependencies
       run: |
@@ -80,8 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -106,12 +99,12 @@ jobs:
     - name: Run linter
       run: |
         cd admin/web
-        yarn lint || true
+        yarn lint
         
     - name: Run unit tests
       run: |
         cd admin/web
-        yarn test:unit || true
+        yarn test:unit
         
     - name: Build frontend
       run: |
@@ -132,8 +125,7 @@ jobs:
     needs: [backend-build, frontend-build]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
     - name: Check if docker-compose.yml exists
       run: |
@@ -201,20 +193,18 @@ jobs:
       etcd:
         image: quay.io/coreos/etcd:v3.6.1
         env:
-          ALLOW_NONE_AUTHENTICATION: yes
           ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
           ETCD_ADVERTISE_CLIENT_URLS: http://localhost:2379
         ports:
           - 2379:2379
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
-    - name: Set up Go
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version-file: 'go.mod'
+        cache: true
         
     - name: Initialize database
       run: |
@@ -236,18 +226,29 @@ jobs:
           dbname: "pixiu"
         EOF
         
-    - name: Run integration tests
-      run: |
-        go test -v -tags=integration ./admin/... || true
-        
     - name: Test API operations
       run: |
+        # Ensure cleanup on exit
+        cleanup() {
+          if [ -n "$ADMIN_PID" ]; then
+            kill $ADMIN_PID 2>/dev/null || true
+          fi
+        }
+        trap cleanup EXIT
+        
         # Start admin server in background
         go run ./cmd/admin/admin.go -c /tmp/test-config.yaml &
         ADMIN_PID=$!
         
         # Wait for server to start
-        sleep 10
+        for i in {1..30}; do
+          if curl -sf http://localhost:8081/config/api/base >/dev/null 2>&1; then
+            echo "Admin server is ready"
+            break
+          fi
+          echo "Waiting for admin server... attempt $i/30"
+          sleep 2
+        done
         
         # Test resource creation
         cat > /tmp/resource.yaml <<'EOFRESOURCE'
@@ -256,15 +257,17 @@ jobs:
         description: test resource
         EOFRESOURCE
         
-        curl -X POST http://localhost:8081/config/api/resource \
+        curl -f -X POST http://localhost:8081/config/api/resource \
           -H "Content-Type: multipart/form-data" \
           -F "content=@/tmp/resource.yaml"
         
-        # Test resource list
-        curl http://localhost:8081/config/api/resource/list
-        
-        # Cleanup
-        kill $ADMIN_PID || true
+        # Test resource list and validate response
+        RESPONSE=$(curl -sf http://localhost:8081/config/api/resource/list)
+        if [ -z "$RESPONSE" ]; then
+          echo "Error: Empty response from resource list endpoint"
+          exit 1
+        fi
+        echo "Resource list response: $RESPONSE"
 
   # Manual deployment test (following README instructions)
   manual-deployment-test:
@@ -273,13 +276,12 @@ jobs:
     needs: [backend-build]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
-    - name: Set up Go
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version-file: 'go.mod'
+        cache: true
         
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -289,7 +291,6 @@ jobs:
     - name: Start etcd service
       run: |
         docker run -d -p 2379:2379 \
-          --env ALLOW_NONE_AUTHENTICATION=yes \
           --env ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379 \
           --env ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379 \
           --name etcd \
@@ -362,16 +363,36 @@ jobs:
     - name: Test admin API endpoints
       run: |
         echo "Testing base info endpoint..."
-        curl -f http://localhost:8081/config/api/base
+        BASE_RESPONSE=$(curl -sf http://localhost:8081/config/api/base)
+        if [ -z "$BASE_RESPONSE" ]; then
+          echo "Error: Empty response from base endpoint"
+          exit 1
+        fi
+        echo "Base response: $BASE_RESPONSE"
         
         echo -e "\nTesting resource list endpoint..."
-        curl -f http://localhost:8081/config/api/resource/list
+        RESOURCE_RESPONSE=$(curl -sf http://localhost:8081/config/api/resource/list)
+        if [ -z "$RESOURCE_RESPONSE" ]; then
+          echo "Error: Empty response from resource list endpoint"
+          exit 1
+        fi
+        echo "Resource list response: $RESOURCE_RESPONSE"
         
         echo -e "\nTesting cluster list endpoint..."
-        curl -f http://localhost:8081/config/api/cluster/list
+        CLUSTER_RESPONSE=$(curl -sf http://localhost:8081/config/api/cluster/list)
+        if [ -z "$CLUSTER_RESPONSE" ]; then
+          echo "Error: Empty response from cluster list endpoint"
+          exit 1
+        fi
+        echo "Cluster list response: $CLUSTER_RESPONSE"
         
         echo -e "\nTesting listener list endpoint..."
-        curl -f http://localhost:8081/config/api/listener/list
+        LISTENER_RESPONSE=$(curl -sf http://localhost:8081/config/api/listener/list)
+        if [ -z "$LISTENER_RESPONSE" ]; then
+          echo "Error: Empty response from listener list endpoint"
+          exit 1
+        fi
+        echo "Listener list response: $LISTENER_RESPONSE"
         
     - name: Build frontend
       run: |
@@ -408,25 +429,23 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
-    - name: Set up Go
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version-file: 'go.mod'
+        cache: true
         
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8 # NOSONAR
       with:
-        version: latest
-        working-directory: .
-        args: --timeout=5m ./admin/...
+        version: v2.4.0
+        args: ./admin/...
         
     - name: Run gosec security scanner
       run: |
         go install github.com/securego/gosec/v2/cmd/gosec@latest
-        gosec -fmt=json -out=gosec-report.json ./admin/... || true
+        gosec -fmt=json -out=gosec-report.json ./admin/...
         
     - name: Upload security report
       uses: actions/upload-artifact@v4
@@ -437,7 +456,18 @@ jobs:
         
     - name: Check for SQL injection vulnerabilities
       run: |
-        grep -r "Query\|Exec" --include="*.go" admin/ | grep -v "Prepare" || true
+        # Use gosec report to detect SQL injection issues (rules G20x)
+        if [ ! -f gosec-report.json ]; then
+          echo "gosec-report.json not found. Ensure 'Run gosec security scanner' step completed successfully."
+          exit 1
+        fi
+        if grep -q '"rule_id":"G20' gosec-report.json; then
+          echo "Potential SQL injection vulnerabilities detected by gosec (rules G20x)."
+          grep -n '"rule_id":"G20' gosec-report.json || true
+          exit 1
+        else
+          echo "No SQL injection vulnerabilities (G20x rules) detected by gosec."
+        fi
 
   # Performance tests
   performance-tests:
@@ -446,18 +476,16 @@ jobs:
     needs: [manual-deployment-test]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
-    - name: Set up Go
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version-file: 'go.mod'
+        cache: true
         
     - name: Start etcd
       run: |
         docker run -d -p 2379:2379 \
-          --env ALLOW_NONE_AUTHENTICATION=yes \
           --env ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379 \
           --env ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379 \
           --name etcd \
@@ -505,8 +533,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       
     - name: Check API documentation exists
       run: |
