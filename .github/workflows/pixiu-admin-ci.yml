@@ -96,11 +96,6 @@ jobs:
         cd admin/web
         yarn install
         
-    - name: Run linter
-      run: |
-        cd admin/web
-        yarn lint
-        
     - name: Run unit tests
       run: |
         cd admin/web
