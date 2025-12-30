@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 module.exports = {
+  testEnvironment: 'jsdom',
   moduleFileExtensions: [
     'js',
     'jsx',
@@ -38,5 +39,7 @@ module.exports = {
   testMatch: [
     '**/tests/unit/**/*.spec.(js|jsx|ts|tsx)|**/__tests__/*.(js|jsx|ts|tsx)'
   ],
-  testURL: 'http://localhost/'
+  testEnvironmentOptions: {
+    url: 'http://localhost/'
+  }
 }

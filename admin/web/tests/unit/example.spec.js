@@ -15,14 +15,11 @@
  * limitations under the License.
  */
 import { shallowMount } from '@vue/test-utils'
-import HelloWorld from '@/components/HelloWorld.vue'
+import EmptyTip from '@/components/EmptyTip.vue'
 
-describe('HelloWorld.vue', () => {
-  it('renders props.msg when passed', () => {
-    const msg = 'new message'
-    const wrapper = shallowMount(HelloWorld, {
-      propsData: { msg }
-    })
-    expect(wrapper.text()).toMatch(msg)
+describe('EmptyTip.vue', () => {
+  it('renders empty tip message', () => {
+    const wrapper = shallowMount(EmptyTip)
+    expect(wrapper.text()).toMatch('暂无数据')
   })
 })
