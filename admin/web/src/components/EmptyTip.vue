@@ -15,7 +15,7 @@
  * limitations under the License.
 -->
 <template>
-  <div class="empty-tip">暂无数据</div>
+  <div class="empty-tip">data not found</div>
 </template>
 
 <script>

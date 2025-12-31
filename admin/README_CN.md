@@ -30,13 +30,13 @@ git clone https://github.com/apache/dubbo-go-pixiu
 手动部署 etcd 服务，使用以下命令：
 
 ```bash
-docker run -d -p2379:2379 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd
+docker run -d -p2379:2379 --name etcd quay.io/coreos/etcd:v3.6.1
 ```
 
 对于 M1/M1 Pro 用户，使用以下命令：
 
 ```bash
-docker run -d -p2379:2379 --platform linux/amd64 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd:3.5.1
+docker run -d -p2379:2379 --platform linux/amd64 --name etcd quay.io/coreos/etcd:v3.6.1
 ```
 
 ### 运行 Admin

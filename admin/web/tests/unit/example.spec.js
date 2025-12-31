@@ -20,6 +20,6 @@ import EmptyTip from '@/components/EmptyTip.vue'
 describe('EmptyTip.vue', () => {
   it('renders empty tip message', () => {
     const wrapper = shallowMount(EmptyTip)
-    expect(wrapper.text()).toMatch('暂无数据')
+    expect(wrapper.text()).toMatch('data not found')
   })
 })

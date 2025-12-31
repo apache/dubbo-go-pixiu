@@ -29,13 +29,13 @@ git clone https://github.com/apache/dubbo-go-pixiu
 To manually deploy the etcd service, run the following command:
 
 ```bash
-docker run -d -p 2379:2379 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd
+docker run -d -p 2379:2379 --name etcd quay.io/coreos/etcd:v3.6.1
 ```
 
 For M1/M1 Pro users, use the following command:
 
 ```bash
-docker run -d -p 2379:2379 --platform linux/amd64 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd:3.5.1
+docker run -d -p 2379:2379 --platform linux/amd64 --name etcd quay.io/coreos/etcd:v3.6.1
 ```
 
 ### Run Admin

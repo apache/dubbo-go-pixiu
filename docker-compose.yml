@@ -26,7 +26,6 @@ services:
       - ETCD_ADVERTISE_CLIENT_URLS=http://pixiu_admin_etcd:2379
       - ETCD_DATA_DIR=/etcd-data
       - ETCD_NAME=etcd-node-1
-      - ALLOW_NONE_AUTHENTICATION=yes
     volumes:
       - ./etcd-data:/etcd-data
     ports:
