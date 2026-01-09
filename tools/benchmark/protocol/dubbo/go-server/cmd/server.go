@@ -26,8 +26,6 @@ import (
 )
 
 import (
-	"dubbo-go-pixiu-benchmark/protocol/dubbo/go-server/pkg"
-
 	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
 
@@ -36,29 +34,35 @@ import (
 	"github.com/dubbogo/gost/log/logger"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/protocol/dubbo/go-server/pkg"
+)
+
 func main() {
-	// ------for hessian2------
+	// Register Hessian types for Dubbo protocol serialization
 	hessian.RegisterJavaEnum(pkg.Gender(pkg.MAN))
 	hessian.RegisterJavaEnum(pkg.Gender(pkg.WOMAN))
 	hessian.RegisterPOJO(&pkg.User{})
+
+	// Set provider service
 	config.SetProviderService(&pkg.UserProvider{})
-	// ------------
+
+	// Load config
 	curPath, err := os.Getwd()
-	curPath = curPath + "/../../protocol/dubbo/go-server/conf/dubbogo.yml"
 	if err != nil {
 		panic(err)
 	}
+	curPath = curPath + "/../../protocol/dubbo/go-server/conf/dubbogo.yml"
 	if err := config.Load(config.WithPath(curPath)); err != nil {
 		panic(err)
 	}
 
+	fmt.Println("dubbo benchmark server is now running...")
 	initSignal()
-
 }
 
 func initSignal() {
 	signals := make(chan os.Signal, 1)
-	// It is not possible to block SIGKILL or syscall.SIGSTOP
 	signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for {
 		sig := <-signals
@@ -71,9 +75,7 @@ func initSignal() {
 				logger.Warnf("app exit now by force...")
 				os.Exit(1)
 			})
-
-			// The program exits normally or timeout forcibly exits.
-			fmt.Println("provider app exit now...")
+			fmt.Println("dubbo benchmark server exit now...")
 			return
 		}
 	}

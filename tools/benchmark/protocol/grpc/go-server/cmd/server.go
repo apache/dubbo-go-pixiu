@@ -28,8 +28,6 @@ import (
 )
 
 import (
-	"dubbo-go-pixiu-benchmark/protocol/grpc/proto"
-
 	perrors "github.com/pkg/errors"
 
 	"google.golang.org/grpc"
@@ -37,59 +35,62 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-const (
-	MsgUserNotFound          = "user not found"
-	MsgUserQuerySuccessfully = "user(s) query successfully"
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/api/grpcstub"
 )
 
-// Test Cases
-// curl http://127.0.0.1:8881/api/v1/provider.UserProvider/GetUser
-// curl http://127.0.0.1:8881/api/v1/provider.UserProvider/GetUser -X POST -d '{"userId":1}'
-
+// server implements the BenchmarkService
 type server struct {
-	users map[int32]*proto.User
-	proto.UnimplementedUserProviderServer
+	users map[int32]*grpcstub.User
+	grpcstub.UnimplementedBenchmarkServiceServer
 }
 
-func (s *server) GetUser(ctx context.Context, request *proto.GetUserRequest) (*proto.GetUsersResponse, error) {
-	us := make([]*proto.User, 0)
+func (s *server) GetUser(ctx context.Context, request *grpcstub.GetUserRequest) (*grpcstub.GetUsersResponse, error) {
+	us := make([]*grpcstub.User, 0)
 	if request.GetUserId() == 0 {
-		for i := 1; i <= 2; i++ {
-			us = append(us, s.users[int32(i)])
+		for i := int32(1); i <= 2; i++ {
+			if u, ok := s.users[i]; ok {
+				us = append(us, u)
+			}
 		}
 	} else {
 		u, ok := s.users[request.GetUserId()]
 		if !ok {
-			return &proto.GetUsersResponse{}, perrors.New("Invalid User ID")
+			return &grpcstub.GetUsersResponse{}, perrors.New("Invalid User ID")
 		}
 		us = append(us, u)
 	}
-	return &proto.GetUsersResponse{Users: us}, nil
+	return &grpcstub.GetUsersResponse{Users: us}, nil
 }
 
-func (s *server) GetUsers(ctx context.Context, request *proto.GetUsersRequest) (*proto.GetUsersResponse, error) {
-	us := make([]*proto.User, 0)
-	for _, userId := range request.UserId {
+func (s *server) GetUsers(ctx context.Context, request *grpcstub.GetUsersRequest) (*grpcstub.GetUsersResponse, error) {
+	us := make([]*grpcstub.User, 0)
+	for _, userId := range request.UserIds {
 		u, ok := s.users[userId]
 		if ok {
 			us = append(us, u)
 		}
 	}
-	return &proto.GetUsersResponse{Users: us}, nil
+	return &grpcstub.GetUsersResponse{Users: us}, nil
 }
 
-func (s *server) GetUserByName(ctx context.Context, request *proto.GetUserByNameRequest) (*proto.GetUsersResponse, error) {
-	for i, user := range s.users {
+func (s *server) GetUserByName(ctx context.Context, request *grpcstub.GetUserByNameRequest) (*grpcstub.GetUsersResponse, error) {
+	for _, user := range s.users {
 		if user.Name == request.Name {
-			return &proto.GetUsersResponse{Users: []*proto.User{s.users[i]}}, nil
+			return &grpcstub.GetUsersResponse{Users: []*grpcstub.User{user}}, nil
 		}
 	}
-	return &proto.GetUsersResponse{}, perrors.New("Invalid User Name")
+	return &grpcstub.GetUsersResponse{}, perrors.New("Invalid User Name")
+}
+
+func (s *server) SayHello(ctx context.Context, request *grpcstub.HelloRequest) (*grpcstub.HelloResponse, error) {
+	return &grpcstub.HelloResponse{Message: "Hello " + request.Name}, nil
 }
 
 func initUsers(s *server) {
-	s.users[1] = &proto.User{UserId: 1, Name: "Kenway"}
-	s.users[2] = &proto.User{UserId: 2, Name: "Ken"}
+	s.users[1] = &grpcstub.User{Id: 1, Name: "Kenway", Age: 25}
+	s.users[2] = &grpcstub.User{Id: 2, Name: "Ken", Age: 30}
+	s.users[3] = &grpcstub.User{Id: 3, Name: "Moorse", Age: 28}
 }
 
 func main() {
@@ -98,7 +99,7 @@ func main() {
 		panic(err)
 	}
 
-	s := &server{users: make(map[int32]*proto.User)}
+	s := &server{users: make(map[int32]*grpcstub.User)}
 	initUsers(s)
 
 	keepAliveArgs := keepalive.ServerParameters{
@@ -107,12 +108,12 @@ func main() {
 	}
 	gs := grpc.NewServer(grpc.KeepaliveParams(keepAliveArgs))
 
-	proto.RegisterUserProviderServer(gs, s)
+	grpcstub.RegisterBenchmarkServiceServer(gs, s)
 
 	// registers the server reflection service on the given gRPC server.
 	reflection.Register(gs)
 
-	fmt.Println("grpc test server is now running...")
+	fmt.Println("grpc benchmark server is now running on :50001...")
 	go func() {
 		err = gs.Serve(l)
 		if err != nil {
@@ -121,12 +122,11 @@ func main() {
 	}()
 
 	initSignal()
-	gs.GracefulStop() // handle request until all of them is done
+	gs.GracefulStop()
 }
 
 func initSignal() {
 	signals := make(chan os.Signal, 1)
-	// It is not possible to block SIGKILL or syscall.SIGSTOP
 	signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for {
 		sig := <-signals
@@ -137,9 +137,7 @@ func initSignal() {
 			time.AfterFunc(3*time.Second, func() {
 				os.Exit(1)
 			})
-
-			// The program exits normally or timeout forcibly exits.
-			fmt.Println("provider app exit now...")
+			fmt.Println("grpc benchmark server exit now...")
 			return
 		}
 	}
