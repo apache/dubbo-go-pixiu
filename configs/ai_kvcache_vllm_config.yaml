@@ -1,0 +1,54 @@
+static_resources:
+  listeners:
+    - name: "ai-gateway-listener"
+      protocol: HTTP
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 8888
+      filter_chains:
+        - filters:
+            # KV Cache Filter
+            - name: dgp.filter.ai.kvcache
+              config:
+                enabled: true
+                backend: redis
+                engine_type: vllm  # 指定推理引擎
+                redis:
+                  cluster_mode: true
+                  addrs:
+                    - "redis-cluster-node-1:6379"
+                    - "redis-cluster-node-2:6379"
+                    - "redis-cluster-node-3:6379"
+                  password: "your_redis_password"
+                  key_prefix: "pixiu:vllm:kvcache"
+                  pool_size: 100
+                  # vLLM 需要提供 Redis URL
+                  redis_url: "redis://redis-cluster:6379"
+                cache_key:
+                  include_model: true
+                  include_session_id: true
+                  include_prompt: true
+                default_ttl: 3600s
+                target_models:
+                  - "meta-llama/Meta-Llama-3-8B-Instruct"
+                  - "mistralai/Mistral-7B-Instruct-v0.2"
+
+            # LLM Proxy
+            - name: dgp.filter.llm.proxy
+              config:
+                timeout: 60s
+                scheme: http
+
+  clusters:
+    - name: vllm_cluster
+      lb_policy: round_robin
+      endpoints:
+        - id: vllm-instance-1
+          socket_address:
+            address: "vllm-service"
+            port: 8000
+        - id: vllm-instance-2
+          socket_address:
+            address: "vllm-service"
+            port: 8001

@@ -40,6 +40,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.0
 	github.com/prometheus/common v0.65.0
+	github.com/redis/go-redis/v9 v9.5.5
 	github.com/smartystreets/goconvey v1.7.2
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/cobra v1.5.0
@@ -119,6 +120,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/dop251/goja v0.0.0-20240220182346-e401ed450204 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
