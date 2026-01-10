@@ -331,16 +331,43 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *generi
 	// Build ReferenceOptions using dubbo-go v3.3.1 client API
 	opts := dc.buildReferenceOptions(irequest, registerIds)
 
-	// Create ReferenceOptions and apply all options
+	// Create ReferenceOptions with all required fields initialized.
+	//
+	// Why we manually initialize ReferenceOptions instead of using Client.Dial():
+	// 1. Pixiu needs generic.GenericService for generic invocation (no IDL required)
+	// 2. Client.Dial() returns Connection which is designed for typed clients
+	// 3. Connection doesn't expose GenericService - we need direct access to ReferenceOptions
+	// 4. This approach mirrors what Client.dial() does internally, following dubbo-go's design
+	//
+	// This initialization pattern matches dubbo-go's internal defaultReferenceOptions():
+	// - All fields are initialized with default configs to prevent nil pointer dereference
+	// - User options are applied afterwards to override defaults (functional options pattern)
+	//
+	// TODO: Refactor to use official dubbo-go API when generic invocation is supported
+	// Currently, we manually construct ReferenceOptions because:
+	// - Client.Dial() returns Connection (for typed clients only)
+	// - Connection doesn't expose generic.GenericService
+	// When dubbo-go adds official support for generic invocation via Client.Dial() or similar API,
+	// we should migrate to that approach instead of manually initializing ReferenceOptions.
+	// This will eliminate the need to track dubbo-go's internal structure changes.
 	refOpts := &dclient.ReferenceOptions{
-		Reference: &global.ReferenceConfig{},
+		Reference:   global.DefaultReferenceConfig(),
+		Application: defaultApplication,
+		Consumer:    global.DefaultConsumerConfig(),
+		Shutdown:    global.DefaultShutdownConfig(),
+		Metrics:     global.DefaultMetricsConfig(),
+		Otel:        global.DefaultOtelConfig(),
+		TLS:         global.DefaultTLSConfig(),
+		Protocols:   make(map[string]*global.ProtocolConfig),
+		Registries:  dc.registries,
 	}
 
+	// Apply user-provided options to override defaults
 	for _, opt := range opts {
 		opt(refOpts)
 	}
 
-	// Set generic mode
+	// Set generic mode for generic invocation
 	refOpts.Reference.Generic = "true"
 
 	// Log dubbo client configuration
