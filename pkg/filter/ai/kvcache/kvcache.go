@@ -111,15 +111,15 @@ type (
 
 	// KVCache 表示存储在 redis 的缓存实体
 	KVCache struct {
-		SessionID  string            `json:"session_id"`
-		ModelName  string            `json:"model_name"`
-		PromptHash string            `json:"prompt_hash"`
-		Keys       []byte            `json:"keys"`
-		Values     []byte            `json:"values"`
-		TokenCount int               `json:"token_count"`
-		CreatedAt  time.Time         `json:"created_at"`
-		AccessedAt time.Time         `json:"accessed_at"`
-		Metadata   map[string]string `json:"metadata"`
+		SessionID  string         `json:"session_id"`
+		ModelName  string         `json:"model_name"`
+		PromptHash string         `json:"prompt_hash"`
+		Keys       []byte         `json:"keys"`
+		Values     []byte         `json:"values"`
+		TokenCount int            `json:"token_count"`
+		CreatedAt  time.Time      `json:"created_at"`
+		AccessedAt time.Time      `json:"accessed_at"`
+		Metadata   map[string]any `json:"metadata"`
 	}
 
 	// KVCacheManager 抽象缓存读写接口

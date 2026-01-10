@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -165,20 +166,16 @@ func (a *VLLMAdapter) ExtractAndSaveKVCache(ctx *contexthttp.HttpContext, cacheK
 	}
 
 	// vLLM 已经直接将 KV Cache 写入 Redis，Pixiu 只需记录元数据
-	resp, ok := ctx.SourceResp.(*http.Response)
-	if !ok || resp == nil {
-		return nil
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
+	bodyBytes, resp, err := readVLLMResponseBody(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return err
 	}
-	resp.Body.Close()
 
 	var vllmResp VLLMChatCompletionResponse
 	if err := json.Unmarshal(bodyBytes, &vllmResp); err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		if resp != nil {
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
 		return nil
 	}
 
@@ -191,13 +188,42 @@ func (a *VLLMAdapter) ExtractAndSaveKVCache(ctx *contexthttp.HttpContext, cacheK
 		go a.recordKVCacheMetadata(cacheKey, vllmResp.KVCacheInfo)
 	}
 
-	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	if resp != nil {
+		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
 	return nil
 }
 
 func (a *VLLMAdapter) recordKVCacheMetadata(cacheKey string, info *VLLMKVCacheInfo) {
 	// 实现元数据记录逻辑（可选）
 	// 例如：保存到 Prometheus、数据库等
+}
+
+func readVLLMResponseBody(ctx *contexthttp.HttpContext) ([]byte, *http.Response, error) {
+	if resp, ok := ctx.SourceResp.(*http.Response); ok && resp != nil && resp.Body != nil {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err == nil {
+			_ = resp.Body.Close()
+			return bodyBytes, resp, nil
+		}
+		if data, ok := targetVLLMResponseBytes(ctx); ok {
+			return data, nil, nil
+		}
+		return nil, resp, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if data, ok := targetVLLMResponseBytes(ctx); ok {
+		return data, nil, nil
+	}
+
+	return nil, nil, fmt.Errorf("response body not available")
+}
+
+func targetVLLMResponseBytes(ctx *contexthttp.HttpContext) ([]byte, bool) {
+	if resp, ok := ctx.TargetResp.(*client.UnaryResponse); ok && resp != nil {
+		return resp.Data, true
+	}
+	return nil, false
 }
 
 func extractPromptFromRequest(req *ChatCompletionRequest) string {

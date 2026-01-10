@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -59,10 +60,10 @@ type Message struct {
 
 // KVCachePayload KV Cache 数据载荷
 type KVCachePayload struct {
-	CacheKey      string            `json:"cache_key"`
-	CacheData     string            `json:"cache_data,omitempty"`     // Base64 编码的 KV Cache
-	CacheURL      string            `json:"cache_url,omitempty"`      // Redis URL（vLLM 使用）
-	CacheMetadata map[string]string `json:"cache_metadata,omitempty"` // 元数据
+	CacheKey      string         `json:"cache_key"`
+	CacheData     string         `json:"cache_data,omitempty"`     // Base64 编码的 KV Cache
+	CacheURL      string         `json:"cache_url,omitempty"`      // Redis URL（vLLM 使用）
+	CacheMetadata map[string]any `json:"cache_metadata,omitempty"` // 元数据
 }
 
 // ChatCompletionResponse SGLang/OpenAI Chat Completion 响应
@@ -189,32 +190,37 @@ func (a *SGLangAdapter) ExtractAndSaveKVCache(ctx *contexthttp.HttpContext, cach
 		return nil
 	}
 
-	// 1. 读取响应体
-	resp, ok := ctx.SourceResp.(*http.Response)
-	if !ok || resp == nil {
-		return nil
-	}
+	logger.Infof("[KVCache] Encode enter, cacheKey=%s", cacheKey)
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	// 1. 读取响应体
+	bodyBytes, resp, err := readSGLangResponseBody(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		logger.Errorf("[KVCache] Encode read body failed, cacheKey=%s, err=%v", cacheKey, err)
+		return err
 	}
-	resp.Body.Close()
+	logger.Infof("[KVCache] Encode read body ok, cacheKey=%s, size=%d", cacheKey, len(bodyBytes))
 
 	// 2. 解析响应
 	var chatResp ChatCompletionResponse
 	if err := json.Unmarshal(bodyBytes, &chatResp); err != nil {
 		// 不是 JSON 格式，可能是流式响应，跳过
-		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		logger.Errorf("[KVCache] Encode unmarshal failed, cacheKey=%s, err=%v", cacheKey, err)
+		if resp != nil {
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
 		return nil
 	}
+	logger.Infof("[KVCache] Encode parsed response, cacheKey=%s, model=%s", cacheKey, chatResp.Model)
 
 	// 3. 提取 KV Cache
 	if chatResp.KVCache != nil && chatResp.KVCache.CacheData != "" {
+		logger.Infof("[KVCache] Encode kv_cache present, cacheKey=%s", cacheKey)
 		keys, values, decodeErr := decodeKVPair(chatResp.KVCache.CacheData)
 		if decodeErr != nil {
 			logger.Errorf("[KVCache] Failed to decode kv cache data for key %s: %v", cacheKey, decodeErr)
-			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			if resp != nil {
+				resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			}
 			return nil
 		}
 
@@ -244,9 +250,12 @@ func (a *SGLangAdapter) ExtractAndSaveKVCache(ctx *contexthttp.HttpContext, cach
 			}
 		}()
 	}
+	logger.Infof("[KVCache] Encode kv_cache missing, cacheKey=%s", cacheKey)
 
 	// 5. 恢复响应体（供后续 Filter 使用）
-	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	if resp != nil {
+		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
 	return nil
 }
 
@@ -289,6 +298,33 @@ func (a *SGLangAdapter) extractRoundNumber(ctx *contexthttp.HttpContext) int {
 
 func extractSessionID(ctx *contexthttp.HttpContext) string {
 	return ctx.Request.Header.Get("X-Session-ID")
+}
+
+func readSGLangResponseBody(ctx *contexthttp.HttpContext) ([]byte, *http.Response, error) {
+	if resp, ok := ctx.SourceResp.(*http.Response); ok && resp != nil && resp.Body != nil {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err == nil {
+			_ = resp.Body.Close()
+			return bodyBytes, resp, nil
+		}
+		if data, ok := targetSGLangResponseBytes(ctx); ok {
+			return data, nil, nil
+		}
+		return nil, resp, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if data, ok := targetSGLangResponseBytes(ctx); ok {
+		return data, nil, nil
+	}
+
+	return nil, nil, fmt.Errorf("response body not available")
+}
+
+func targetSGLangResponseBytes(ctx *contexthttp.HttpContext) ([]byte, bool) {
+	if resp, ok := ctx.TargetResp.(*client.UnaryResponse); ok && resp != nil {
+		return resp.Data, true
+	}
+	return nil, false
 }
 
 // encodeKVPair 将键值对编码为 base64(JSON) 字符串，避免长度不一致导致的数据损坏
