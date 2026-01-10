@@ -20,16 +20,18 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
 import (
+	dclient "dubbo.apache.org/dubbo-go/v3/client"
 	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/consistenthashing"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
-	dg "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
+	"dubbo.apache.org/dubbo-go/v3/global"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
@@ -80,7 +82,7 @@ const (
 var (
 	dubboClient        *Client
 	onceClient         = sync.Once{}
-	defaultApplication = &dg.ApplicationConfig{
+	defaultApplication = &global.ApplicationConfig{
 		Organization: "dubbo-go-pixiu",
 		Name:         "Dubbogo Pixiu",
 		Module:       "dubbogo Pixiu",
@@ -94,7 +96,8 @@ type Client struct {
 	lock               sync.RWMutex
 	GenericServicePool map[string]*generic.GenericService
 	dubboProxyConfig   *DubboProxyConfig
-	rootConfig         *dg.RootConfig
+	registries         map[string]*global.RegistryConfig
+	dubboClient        *dclient.Client
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -132,15 +135,15 @@ func (dc *Client) SetConfig(dpc *DubboProxyConfig) {
 
 // Apply init dubbo, config mapping can do here
 func (dc *Client) Apply() error {
-
-	rootConfigBuilder := dg.NewRootConfigBuilder()
+	// Build registry configurations
+	registries := make(map[string]*global.RegistryConfig)
 	if dc.dubboProxyConfig != nil && dc.dubboProxyConfig.Registries != nil {
 		for k, v := range dc.dubboProxyConfig.Registries {
 			if len(v.Protocol) == 0 {
 				logger.Warnf("can not find registry protocol config, use default type 'zookeeper'")
 				v.Protocol = defaultDubboProtocol
 			}
-			rootConfigBuilder.AddRegistry(k, &dg.RegistryConfig{
+			registries[k] = &global.RegistryConfig{
 				Protocol:  v.Protocol,
 				Address:   v.Address,
 				Timeout:   v.Timeout,
@@ -148,16 +151,21 @@ func (dc *Client) Apply() error {
 				Password:  v.Password,
 				Namespace: v.Namespace,
 				Group:     v.Group,
-			})
+			}
 		}
 	}
-	rootConfigBuilder.SetApplication(defaultApplication)
-	rootConfig := rootConfigBuilder.Build()
+	dc.registries = registries
 
-	if err := dg.Load(dg.WithRootConfig(rootConfig)); err != nil {
-		panic(err)
+	// Create dubbo client with registries and application config
+	var err error
+	dc.dubboClient, err = dclient.NewClient(
+		dclient.SetClientApplication(defaultApplication),
+		dclient.SetClientRegistries(registries),
+	)
+	if err != nil {
+		return err
 	}
-	dc.rootConfig = rootConfig
+
 	return nil
 }
 
@@ -306,51 +314,11 @@ func apiKey(ir *config.IntegrationRequest) string {
 func (dc *Client) create(key string, irequest config.IntegrationRequest) *generic.GenericService {
 	useNacosRegister := false
 	registerIds := make([]string, 0)
-	for k, v := range dc.rootConfig.Registries {
+	for k, v := range dc.registries {
 		registerIds = append(registerIds, k)
 		if v.Protocol == "nacos" {
 			useNacosRegister = true
 		}
-	}
-
-	refConf := dg.ReferenceConfig{
-		InterfaceName: irequest.Interface,
-		Cluster:       dc.dubboProxyConfig.GetCluster(),
-		RegistryIDs:   registerIds,
-		Protocol:      dc.dubboProxyConfig.GetProtocol(),
-		Generic:       "true",
-		Version:       irequest.Version,
-		Group:         irequest.Group,
-		Loadbalance:   dc.dubboProxyConfig.LoadBalance,
-		Retries:       dc.dubboProxyConfig.Retries,
-	}
-
-	// Set Check configuration (only when explicitly configured)
-	if check := dc.dubboProxyConfig.GetCheck(); check != nil {
-		refConf.Check = check
-	}
-
-	if refConf.Retries == "" {
-		if len(irequest.Retries) == 0 {
-			refConf.Retries = "3"
-		} else {
-			refConf.Retries = irequest.Retries
-		}
-	}
-
-	if dc.dubboProxyConfig.Timeout != nil {
-		refConf.RequestTimeout = dc.dubboProxyConfig.Timeout.RequestTimeoutStr
-	} else {
-		refConf.RequestTimeout = cst.DefaultReqTimeout.String()
-	}
-
-	// Log dubbo client configuration
-	if check := dc.dubboProxyConfig.GetCheck(); check != nil {
-		logger.Debugf("[dubbo-go-pixiu] Dubbo client config: cluster=%s, protocol=%s, check=%v, timeout=%s",
-			refConf.Cluster, refConf.Protocol, *refConf.Check, refConf.RequestTimeout)
-	} else {
-		logger.Debugf("[dubbo-go-pixiu] Dubbo client config: cluster=%s, protocol=%s, check=nil (use dubbo-go default), timeout=%s",
-			refConf.Cluster, refConf.Protocol, refConf.RequestTimeout)
 	}
 
 	dc.lock.Lock()
@@ -360,21 +328,214 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *generi
 		return service
 	}
 
-	if err := dg.Load(dg.WithRootConfig(dc.rootConfig)); err != nil {
-		panic(err)
+	// Build ReferenceOptions using dubbo-go v3.3.1 client API
+	opts := dc.buildReferenceOptions(irequest, registerIds)
+
+	// Create ReferenceOptions and apply all options
+	refOpts := &dclient.ReferenceOptions{
+		Reference: &global.ReferenceConfig{},
 	}
 
-	_ = refConf.Init(dc.rootConfig)
-	refConf.GenericLoad(key)
+	for _, opt := range opts {
+		opt(refOpts)
+	}
+
+	// Set generic mode
+	refOpts.Reference.Generic = "true"
+
+	// Log dubbo client configuration
+	dc.logClientConfig(refOpts.Reference)
+
+	// Call Refer to initialize the service reference
+	refOpts.Refer()
 
 	// sleep when first call to fetch enough service meta data from nacos
-	// todo: GenericLoad should guarantee it
+	// todo: Refer should guarantee it
 	if useNacosRegister {
 		time.Sleep(1000 * time.Millisecond)
 	}
 
-	clientService := refConf.GetRPCService().(*generic.GenericService)
+	clientService := refOpts.GetRPCService().(*generic.GenericService)
 	dc.GenericServicePool[key] = clientService
 
 	return clientService
+}
+
+// buildReferenceOptions builds a list of dubbo-go ReferenceOption using the official API
+// Priority: DubboProxyConfig > IntegrationRequest > Default
+func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, registerIds []string) []dclient.ReferenceOption {
+	opts := make([]dclient.ReferenceOption, 0, 16)
+
+	// 1. Service Identity
+	opts = append(opts, dclient.WithInterface(irequest.Interface))
+	if irequest.Group != "" {
+		opts = append(opts, dclient.WithGroup(irequest.Group))
+	}
+	if irequest.Version != "" {
+		opts = append(opts, dclient.WithVersion(irequest.Version))
+	}
+
+	// 2. Registry Configuration
+	if len(registerIds) > 0 {
+		opts = append(opts, dclient.WithRegistryIDs(registerIds...))
+	}
+
+	// 3. Cluster Strategy (from DubboProxyConfig)
+	cluster := dc.dubboProxyConfig.GetCluster()
+	switch cluster {
+	case "failover":
+		opts = append(opts, dclient.WithClusterFailOver())
+	case "failfast":
+		opts = append(opts, dclient.WithClusterFailFast())
+	case "failsafe":
+		opts = append(opts, dclient.WithClusterFailSafe())
+	case "failback":
+		opts = append(opts, dclient.WithClusterFailBack())
+	case "broadcast":
+		opts = append(opts, dclient.WithClusterBroadcast())
+	case "forking":
+		opts = append(opts, dclient.WithClusterForking())
+	case "available":
+		opts = append(opts, dclient.WithClusterAvailable())
+	case "zoneaware":
+		opts = append(opts, dclient.WithClusterZoneAware())
+	case "adaptiveservice":
+		opts = append(opts, dclient.WithClusterAdaptiveService())
+	default:
+		opts = append(opts, dclient.WithCluster(cluster))
+	}
+
+	// 4. Protocol (from DubboProxyConfig)
+	protocol := dc.dubboProxyConfig.GetProtocol()
+	switch protocol {
+	case "tri", "triple":
+		opts = append(opts, dclient.WithProtocolTriple())
+	case "dubbo":
+		opts = append(opts, dclient.WithProtocolDubbo())
+	case "jsonrpc":
+		opts = append(opts, dclient.WithProtocolJsonRPC())
+	default:
+		opts = append(opts, dclient.WithProtocol(protocol))
+	}
+
+	// 5. Load Balance (from DubboProxyConfig)
+	if dc.dubboProxyConfig.LoadBalance != "" {
+		lb := dc.dubboProxyConfig.LoadBalance
+		switch lb {
+		case "random":
+			opts = append(opts, dclient.WithLoadBalanceRandom())
+		case "roundrobin":
+			opts = append(opts, dclient.WithLoadBalanceRoundRobin())
+		case "leastactive":
+			opts = append(opts, dclient.WithLoadBalanceLeastActive())
+		case "consistenthash", "consistenthashing":
+			opts = append(opts, dclient.WithLoadBalanceConsistentHashing())
+		case "p2c":
+			opts = append(opts, dclient.WithLoadBalanceP2C())
+		default:
+			opts = append(opts, dclient.WithLoadBalance(lb))
+		}
+	}
+
+	// 6. Retries (Priority: DubboProxyConfig > IntegrationRequest > Default)
+	var retries int
+	if dc.dubboProxyConfig.Retries != "" {
+		if r, err := strconv.Atoi(dc.dubboProxyConfig.Retries); err == nil {
+			retries = r
+		} else {
+			retries = 3
+		}
+	} else if irequest.Retries != "" {
+		if r, err := strconv.Atoi(irequest.Retries); err == nil {
+			retries = r
+		} else {
+			retries = 3
+		}
+	} else {
+		retries = 3
+	}
+	opts = append(opts, dclient.WithRetries(retries))
+
+	// 7. Request Timeout (from DubboProxyConfig.Timeout)
+	var timeout time.Duration
+	if dc.dubboProxyConfig.Timeout != nil {
+		if t, err := time.ParseDuration(dc.dubboProxyConfig.Timeout.RequestTimeoutStr); err == nil {
+			timeout = t
+		} else {
+			timeout = cst.DefaultReqTimeout
+		}
+	} else {
+		timeout = cst.DefaultReqTimeout
+	}
+	opts = append(opts, dclient.WithRequestTimeout(timeout))
+
+	// 8. Check (from DubboProxyConfig) - startup provider availability check
+	if check := dc.dubboProxyConfig.GetCheck(); check != nil {
+		if *check {
+			opts = append(opts, dclient.WithCheck())
+		}
+		// If check=false, don't add WithCheck() - dubbo-go defaults to not checking
+	}
+
+	// 9. Filter (from DubboProxyConfig) - filter chain configuration
+	if dc.dubboProxyConfig.Filter != "" {
+		opts = append(opts, dclient.WithFilter(dc.dubboProxyConfig.Filter))
+	}
+
+	// 10. Serialization (from DubboProxyConfig) - serialization protocol
+	if dc.dubboProxyConfig.Serialization != "" {
+		switch dc.dubboProxyConfig.Serialization {
+		case "json":
+			opts = append(opts, dclient.WithSerializationJSON())
+		default:
+			opts = append(opts, dclient.WithSerialization(dc.dubboProxyConfig.Serialization))
+		}
+	}
+
+	// 11. Sticky (from DubboProxyConfig) - sticky connection
+	if dc.dubboProxyConfig.Sticky != nil && *dc.dubboProxyConfig.Sticky {
+		opts = append(opts, dclient.WithSticky())
+	}
+
+	// 12. Params (from DubboProxyConfig) - custom parameters
+	if len(dc.dubboProxyConfig.Params) > 0 {
+		opts = append(opts, dclient.WithParams(dc.dubboProxyConfig.Params))
+	}
+
+	return opts
+}
+
+// logClientConfig logs the effective dubbo client configuration for debugging
+func (dc *Client) logClientConfig(refConf *global.ReferenceConfig) {
+	check := dc.dubboProxyConfig.GetCheck()
+	checkStr := "nil (use dubbo-go default)"
+	if check != nil {
+		if *check {
+			checkStr = "true"
+		} else {
+			checkStr = "false"
+		}
+	}
+
+	sticky := dc.dubboProxyConfig.Sticky
+	stickyStr := "false"
+	if sticky != nil && *sticky {
+		stickyStr = "true"
+	}
+
+	logger.Debugf("[dubbo-go-pixiu] Dubbo client config: interface=%s, group=%s, version=%s, cluster=%s, protocol=%s, loadbalance=%s, retries=%d, check=%s, timeout=%s, filter=%s, serialization=%s, sticky=%s, params=%v",
+		refConf.InterfaceName,
+		refConf.Group,
+		refConf.Version,
+		refConf.Cluster,
+		refConf.Protocol,
+		refConf.Loadbalance,
+		refConf.Retries,
+		checkStr,
+		refConf.RequestTimeout,
+		refConf.Filter,
+		refConf.Serialization,
+		stickyStr,
+		refConf.Params,
+	)
 }

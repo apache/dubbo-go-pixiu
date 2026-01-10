@@ -50,11 +50,29 @@ type DubboProxyConfig struct {
 	Check *bool `yaml:"check,omitempty" json:"check,omitempty"`
 
 	// Protocol type for dubbo client.
-	// Valid values (case-sensitive): "dubbo", "tri", "rest"
-	// ⚠️ Important: Triple protocol value is "tri", NOT "triple" (from triple.TRIPLE constant)
+	// Valid values (case-sensitive): "dubbo", "tri"
 	// Source: dubbo-go v3.3.1 protocol names
-	// Default: "dubbo"
+	// Default: "tri"
 	Protocol string `yaml:"protocol,omitempty" json:"protocol,omitempty"`
+
+	// Filter defines the filter chain for service invocation.
+	// Multiple filters separated by comma, e.g., "tracing,metrics,logging"
+	// Filters are executed in the order specified.
+	Filter string `yaml:"filter,omitempty" json:"filter,omitempty"`
+
+	// Serialization defines the serialization protocol.
+	// Valid values: "hessian2", "protobuf", "json", "msgpack"
+	// Default: "hessian2" (dubbo-go SDK default)
+	Serialization string `yaml:"serialization,omitempty" json:"serialization,omitempty"`
+
+	// Sticky enables sticky connections.
+	// When enabled, the same consumer always sends requests to the same provider.
+	// Uses pointer type to distinguish "not configured" (nil) from "explicitly false".
+	Sticky *bool `yaml:"sticky,omitempty" json:"sticky,omitempty"`
+
+	// Params allows passing custom parameters to the service provider.
+	// These parameters are passed as URL parameters in the Dubbo protocol.
+	Params map[string]string `yaml:"params,omitempty" json:"params,omitempty"`
 }
 
 // GetCluster returns cluster strategy with default value "failover".
@@ -68,7 +86,7 @@ func (dpc *DubboProxyConfig) GetCluster() string {
 // GetProtocol returns protocol with default value "dubbo".
 func (dpc *DubboProxyConfig) GetProtocol() string {
 	if dpc.Protocol == "" {
-		return "dubbo"
+		return "tri"
 	}
 	return dpc.Protocol
 }

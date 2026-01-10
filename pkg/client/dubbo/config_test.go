@@ -73,7 +73,7 @@ func TestDubboProxyConfig_GetProtocol(t *testing.T) {
 		{
 			name:     "empty - use default",
 			protocol: "",
-			expected: "dubbo",
+			expected: "tri",
 		},
 		{
 			name:     "triple protocol - tri",
@@ -144,4 +144,58 @@ func TestDubboProxyConfig_GetCheck(t *testing.T) {
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func TestDubboProxyConfig_NewFields(t *testing.T) {
+	t.Run("Filter configuration", func(t *testing.T) {
+		config := &DubboProxyConfig{Filter: "tracing,metrics"}
+		if config.Filter != "tracing,metrics" {
+			t.Errorf("Filter = %v, want %v", config.Filter, "tracing,metrics")
+		}
+	})
+
+	t.Run("Serialization configuration", func(t *testing.T) {
+		config := &DubboProxyConfig{Serialization: "protobuf"}
+		if config.Serialization != "protobuf" {
+			t.Errorf("Serialization = %v, want %v", config.Serialization, "protobuf")
+		}
+	})
+
+	t.Run("Sticky configuration - true", func(t *testing.T) {
+		config := &DubboProxyConfig{Sticky: boolPtr(true)}
+		if config.Sticky == nil || !*config.Sticky {
+			t.Errorf("Sticky should be true")
+		}
+	})
+
+	t.Run("Sticky configuration - false", func(t *testing.T) {
+		config := &DubboProxyConfig{Sticky: boolPtr(false)}
+		if config.Sticky == nil || *config.Sticky {
+			t.Errorf("Sticky should be false")
+		}
+	})
+
+	t.Run("Sticky configuration - nil", func(t *testing.T) {
+		config := &DubboProxyConfig{}
+		if config.Sticky != nil {
+			t.Errorf("Sticky should be nil")
+		}
+	})
+
+	t.Run("Params configuration", func(t *testing.T) {
+		params := map[string]string{
+			"timeout": "3000",
+			"version": "1.0.0",
+		}
+		config := &DubboProxyConfig{Params: params}
+		if len(config.Params) != 2 {
+			t.Errorf("Params length = %v, want %v", len(config.Params), 2)
+		}
+		if config.Params["timeout"] != "3000" {
+			t.Errorf("Params[timeout] = %v, want %v", config.Params["timeout"], "3000")
+		}
+		if config.Params["version"] != "1.0.0" {
+			t.Errorf("Params[version] = %v, want %v", config.Params["version"], "1.0.0")
+		}
+	})
 }
