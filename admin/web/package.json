@@ -36,9 +36,9 @@
     "import-three-examples": "^2.2.3",
     "imports-loader": "^2.0.0",
     "less": "^3.13.1",
-    "less-loader": "^4.1.0",
+    "less-loader": "^12.3.0",
     "sass": "^1.42.1",
-    "sass-loader": "^7.3.1",
+    "sass-loader": "^16.0.6",
     "vue-cli-plugin-element": "^1.0.1",
     "vue-template-compiler": "^2.5.21"
   }
