@@ -37,4 +37,44 @@ type DubboProxyConfig struct {
 	LoadBalance string `yaml:"load_balance"  json:"load_balance,omitempty"`
 	// Retries number of retries
 	Retries string `yaml:"retries" json:"retries,omitempty"`
+
+	// Cluster strategy for dubbo client.
+	// Valid values (case-sensitive): "failover", "failfast", "failsafe", "failback", "forking", "broadcast"
+	// Source: dubbo-go v3.3.1 cluster constants
+	// Default: "failover"
+	Cluster string `yaml:"cluster,omitempty" json:"cluster,omitempty"`
+
+	// Check whether to check provider availability on startup.
+	// Uses pointer type to distinguish "not configured" (nil) from "explicitly false".
+	// nil = let dubbo-go SDK use its default behavior
+	Check *bool `yaml:"check,omitempty" json:"check,omitempty"`
+
+	// Protocol type for dubbo client.
+	// Valid values (case-sensitive): "dubbo", "tri", "rest"
+	// ⚠️ Important: Triple protocol value is "tri", NOT "triple" (from triple.TRIPLE constant)
+	// Source: dubbo-go v3.3.1 protocol names
+	// Default: "dubbo"
+	Protocol string `yaml:"protocol,omitempty" json:"protocol,omitempty"`
+}
+
+// GetCluster returns cluster strategy with default value "failover".
+func (dpc *DubboProxyConfig) GetCluster() string {
+	if dpc.Cluster == "" {
+		return "failover"
+	}
+	return dpc.Cluster
+}
+
+// GetProtocol returns protocol with default value "dubbo".
+func (dpc *DubboProxyConfig) GetProtocol() string {
+	if dpc.Protocol == "" {
+		return "dubbo"
+	}
+	return dpc.Protocol
+}
+
+// GetCheck returns check pointer (nil means not configured, let dubbo-go use its default).
+// Does not provide default value to maintain backward compatibility.
+func (dpc *DubboProxyConfig) GetCheck() *bool {
+	return dpc.Check
 }

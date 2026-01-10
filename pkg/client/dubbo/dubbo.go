@@ -31,7 +31,6 @@ import (
 	dg "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
-	"dubbo.apache.org/dubbo-go/v3/protocol/dubbo"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
@@ -316,14 +315,19 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *generi
 
 	refConf := dg.ReferenceConfig{
 		InterfaceName: irequest.Interface,
-		Cluster:       constant.ClusterKeyFailover,
+		Cluster:       dc.dubboProxyConfig.GetCluster(),
 		RegistryIDs:   registerIds,
-		Protocol:      dubbo.DUBBO,
+		Protocol:      dc.dubboProxyConfig.GetProtocol(),
 		Generic:       "true",
 		Version:       irequest.Version,
 		Group:         irequest.Group,
 		Loadbalance:   dc.dubboProxyConfig.LoadBalance,
 		Retries:       dc.dubboProxyConfig.Retries,
+	}
+
+	// Set Check configuration (only when explicitly configured)
+	if check := dc.dubboProxyConfig.GetCheck(); check != nil {
+		refConf.Check = check
 	}
 
 	if refConf.Retries == "" {
@@ -339,7 +343,16 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *generi
 	} else {
 		refConf.RequestTimeout = cst.DefaultReqTimeout.String()
 	}
-	logger.Debugf("[dubbo-go-pixiu] client dubbo timeout val %v", refConf.RequestTimeout)
+
+	// Log dubbo client configuration
+	if check := dc.dubboProxyConfig.GetCheck(); check != nil {
+		logger.Debugf("[dubbo-go-pixiu] Dubbo client config: cluster=%s, protocol=%s, check=%v, timeout=%s",
+			refConf.Cluster, refConf.Protocol, *refConf.Check, refConf.RequestTimeout)
+	} else {
+		logger.Debugf("[dubbo-go-pixiu] Dubbo client config: cluster=%s, protocol=%s, check=nil (use dubbo-go default), timeout=%s",
+			refConf.Cluster, refConf.Protocol, refConf.RequestTimeout)
+	}
+
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 
