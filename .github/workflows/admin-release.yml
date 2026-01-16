@@ -1,0 +1,96 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+name: Admin CD
+
+on:
+  push:
+    tags:
+      - 'admin-v*'
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      # ==================== Build pixiu-admin-web ====================
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: admin/web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        working-directory: admin/web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        working-directory: admin/web
+        run: pnpm build
+
+      - name: Package pixiu-admin-web
+        run: |
+          mkdir -p dist
+          cd admin/web
+          tar -czvf ../../dist/pixiu-admin-web.tar.gz dist/
+
+      # ==================== Build pixiu-admin-api ====================
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build pixiu-admin-api binaries
+        run: |
+          # Linux amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/pixiu-admin-api-linux-amd64 ./cmd/admin/admin.go
+
+          # Linux arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/pixiu-admin-api-linux-arm64 ./cmd/admin/admin.go
+
+          # Darwin amd64
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/pixiu-admin-api-darwin-amd64 ./cmd/admin/admin.go
+
+          # Darwin arm64
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/pixiu-admin-api-darwin-arm64 ./cmd/admin/admin.go
+
+          # Windows amd64
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/pixiu-admin-api-windows-amd64.exe ./cmd/admin/admin.go
+
+      # ==================== Create Release ====================
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/pixiu-admin-web.tar.gz
+            dist/pixiu-admin-api-linux-amd64
+            dist/pixiu-admin-api-linux-arm64
+            dist/pixiu-admin-api-darwin-amd64
+            dist/pixiu-admin-api-darwin-arm64
+            dist/pixiu-admin-api-windows-amd64.exe
+          generate_release_notes: true

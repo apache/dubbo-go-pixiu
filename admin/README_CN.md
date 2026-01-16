@@ -2,287 +2,190 @@
 
 [English](README.md) | **中文**
 
-**Pixiu-Admin** 是基于 **Pixiu** 生态的管理平台，主要用于配置、监控和管理 Pixiu 网关资源。通过 Web 用户界面和 RESTful API
-提供集中式管理功能。本文档介绍了如何在 Linux 环境下部署和配置 Pixiu-Admin。
+**Pixiu-Admin** 是基于 **Pixiu** 生态的管理平台，主要用于配置、监控和管理 Pixiu 网关资源。通过现代化的 Web 用户界面和 RESTful API 提供集中式管理功能。
 
-后端API接口文档请参考 [API.md](../admin/API_CN.md)。
+后端 API 接口文档请参考 [API_CN.md](API_CN.md)。
 
-## 部署文档
+## 架构
 
-### 使用 Docker 启动
+### 技术栈
 
-首先，确保您在项目的根目录（包含 Dockerfile 的目录）下，使用以下命令启动 Pixiu-Admin：
+| 组件 | 技术 |
+|------|------|
+| 前端 | React 18 + TypeScript + Vite + Ant Design 5 |
+| 后端 | Go + Gin + GORM + Google Wire |
+| 配置存储 | etcd |
+| 用户存储 | MySQL |
+| 认证方式 | JWT |
 
-```bash
-docker-compose up -d
+### 后端结构
+
+```
+admin/
+├── app/                    # 应用入口
+├── internal/               # 内部包
+│   ├── handler/           # HTTP 处理器 (Gin)
+│   ├── model/             # 领域模型
+│   ├── store/             # 数据访问层 (etcd + MySQL)
+│   ├── server/            # HTTP 服务器配置
+│   ├── wire/              # 依赖注入
+│   └── xds/               # xDS 服务器集成
+└── pkg/                   # 共享包
+    ├── config/            # 配置工具
+    └── i18n/              # 国际化
 ```
 
-### 使用源码部署
+### 前端结构
 
-如果不使用 Docker，可以通过以下命令下载源代码：
-
-```bash
-git clone https://github.com/apache/dubbo-go-pixiu
 ```
+admin/web/
+├── src/
+│   ├── api/               # API 客户端 (axios)
+│   ├── components/        # 可复用组件
+│   │   ├── ClusterWizard/    # 集群配置向导
+│   │   ├── ListenerWizard/   # 监听器配置向导
+│   │   ├── MappingWizard/    # API 映射向导
+│   │   ├── PluginWizard/     # 插件组向导
+│   │   ├── DualModeEditor/   # 表单 + YAML 双模式编辑器
+│   │   └── YamlEditor/       # 基于 Monaco 的 YAML 编辑器
+│   ├── pages/             # 页面组件
+│   ├── layouts/           # 布局组件
+│   ├── stores/            # 状态管理 (Zustand)
+│   ├── locales/           # 国际化翻译 (中/英)
+│   └── hooks/             # 自定义 React Hooks
+└── vite.config.ts         # Vite 配置
+```
+
+## 功能特性
+
+- **网关配置管理**
+  - 集群管理，支持负载均衡和健康检查
+  - 监听器管理，支持多协议 (HTTP/HTTPS/Triple/Dubbo/gRPC)
+  - API 映射配置
+  - 插件组管理
+
+- **用户管理 (RBAC)**
+  - 基于 JWT 的用户认证
+  - 基于角色的访问控制
+  - 权限管理
+
+- **现代化 UI**
+  - 基于 Ant Design 的响应式设计
+  - 深色/浅色主题切换
+  - 国际化支持 (中文/英文)
+  - 向导式配置，带表单验证
+  - 双模式编辑 (表单 + YAML)
+
+## 部署
+
+### 环境要求
+
+- Go 1.21+
+- Node.js 18+ 和 pnpm
+- etcd 3.5+
+- MySQL 8.0+
 
 ### 部署 etcd
 
-手动部署 etcd 服务，使用以下命令：
+```bash
+docker run -d -p 2379:2379 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd
+```
+
+Apple Silicon (M1/M2/M3) 用户：
 
 ```bash
-docker run -d -p2379:2379 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd
+docker run -d -p 2379:2379 --platform linux/amd64 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd:3.5.1
 ```
 
-对于 M1/M1 Pro 用户，使用以下命令：
+### 部署 MySQL
 
 ```bash
-docker run -d -p2379:2379 --platform linux/amd64 --env ALLOW_NONE_AUTHENTICATION=yes --name etcd bitnami/etcd:3.5.1
+docker run -d -p 3306:3306 --name mysql \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=pixiu_admin \
+  mysql:8.0
 ```
 
-### 运行 Admin
+### 配置
 
-#### 源代码运行
-
-进入项目目录并运行：
-
-```bash
-cd dubbo-go-pixiu
-# 直接运行
-go run ./cmd/admin/admin.go -c /your/local/path/conf.yaml
-# 后台运行
-nohup go run ./cmd/admin/admin.go -c /your/local/path/conf.yaml &
-```
-
-#### 运行 Pixiu
-
-默认配置见 [pixiu_with_admin_config.yaml](../configs/pixiu_with_admin_config.yaml)
-
-```bash
-go run ./cmd/pixiu/pixiu.go gateway start -c ./configs/pixiu_with_admin_config.yaml
-```
-
-### 测试运行 admin-web
-
-进入 `web` 目录并安装依赖：
-
-```bash
-cd ./admin/web/
-yarn install  # 安装依赖
-yarn run serve  # 测试运行
-```
-
-#### admin-web 配置
-
-编辑 `web` 目录下的 `vue.config.js`，配置后端服务地址：
-
-```
-devServer: {
-    host: '0.0.0.0',
-        port: 8080,  // Web app address
-        hot: true,
-        https: false,
-        open: false,
-        disableHostCheck: true,
-        proxy: {
-        "/config": {
-            target: "http://127.0.0.1:8081",  // Backend service address
-                ws: true,  // Enable websockets
-                changeOrigin: true,  // Enable proxy
-        }
-    }
-}
-```
-
-运行成功后，可以在浏览器访问 [http://127.0.0.1:8081/login.html#/Overview](http://127.0.0.1:8081/login.html#/Overview)。
-
-## 二、相关操作
-
-### 管理映射（Resource）
-
-#### 创建映射配置
-
-1. 点击 "映射配置"，进入映射配置列表界面。
-2. 点击右上角的新增按钮，创建新的映射配置。
-
-![1.png](../docs/images/admin/1.png)
-
-在代码编辑器中键入映射配置，点击确认创建。
-
-![2.png](../docs/images/admin/2.png)
-
-#### 映射配置示例
+编辑 `configs/admin_config.yaml`：
 
 ```yaml
-path: '/api/v1/test-dubbo/user'
-type: restful
-description: user
-filters:
-  - filter0
-methods:
-  - httpVerb: GET
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: dubbo
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: 0
-          mapType: "java.lang.String"
-      applicationName: "UserProvider"
-      interface: "com.ic.user.UserProvider"
-      method: "GetUserByName"
-      group: "test"
-      version: 1.0.0
-      clusterName: "test_dubbo"
-  - httpVerb: POST
-    onAir: true
-    timeout: 10s
-    inboundRequest:
-      requestType: http
-    integrationRequest:
-      requestType: dubbo
-      mappingParams:
-        - name: requestBody._all
-          mapTo: 0
-          mapType: "object"
-      applicationName: "UserProvider"
-      interface: "com.ic.user.UserProvider"
-      method: "CreateUser"
-      group: "test"
-      version: 1.0.0
-      clusterName: "test_dubbo"
+admin:
+  address: 0.0.0.0
+  port: 8081
+  static_resources_dir: ./admin/web/dist
+
+etcd:
+  endpoints:
+    - 127.0.0.1:2379
+  base_path: /pixiu/config
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: root
+  database: pixiu_admin
+
+jwt:
+  secret: your-secret-key
+  issuer: pixiu-admin
+  expire_hours: 24
 ```
 
-#### 查看和删除映射
+### 运行后端
 
-1. 映射列表刷新后，可以查看和删除配置。
-
-![3.png](../docs/images/admin/3.png)
-
-2. 点击删除会删除该映射配置，点击查看跳转至配置详情界面。
-
-![4.png](../docs/images/admin/4.png)
-
-#### 编辑映射
-
-可以在编辑区修改映射配置，点击 "修改" 保存修改。
-
-![5.png](../docs/images/admin/5.png)
-
-#### 方法映射
-
-点击新增按钮，添加新的方法映射。编辑示例如下：
-
-```yaml
-httpVerb: PUT
-onAir: true
-timeout: 10s
-inboundRequest:
-  requestType: http
-integrationRequest:
-  requestType: dubbo
-  mappingParams:
-    - name: requestBody._all
-      mapTo: 0
-      mapType: "object"
-  applicationName: "UserProvider"
-  interface: "com.ic.user.UserProvider"
-  method: "CreateUser"
-  group: "test"
-  version: 1.0.0
-  clusterName: "test_dubbo"
+```bash
+# 在项目根目录
+go run ./cmd/admin/admin.go -c ./configs/admin_config.yaml
 ```
 
-点击确认后，方法映射会出现在列表中。
+### 运行前端 (开发模式)
 
-![6.png](../docs/images/admin/6.png)
-
-#### 查看和删除方法映射
-
-可以查看方法映射的详细信息或删除该映射。
-
-比如，将第二个方法映射的 httpVerb 从 POST 修改为 DELETE。
-
-![7.png](../docs/images/admin/7.png)
-
-注意：id不能进行修改，即使修改保存后也会改变为旧值。点击确定后，会更新该方法映射。
-
-![8.png](../docs/images/admin/8.png)
-
-### 管理插件组
-
-#### 创建插件组
-
-点击左侧插件配置菜单项，可以查看插件相关配置。
-
-![9.png](../docs/images/admin/9.png)
-
-点击右上方新增，可以创建新的插件组。
-
-![10.png](../docs/images/admin/10.png)
-
-插件组配置示例：
-
-```yaml
-groupName: "group2"
-plugins:
-  - name: "rate limit"
-    version: "0.1.0"
-    priority: 1000
-    externalLookupName: "ExternalPluginRateLimit"
-  - name: "log"
-    version: "0.2.0"
-    priority: 2000
-    externalLookupName: "ExternalPluginLog"
+```bash
+cd admin/web
+pnpm install
+pnpm dev
 ```
 
-保存后，列表刷新展示新创建的插件组。
+### 构建前端 (生产模式)
 
-![11.png](../docs/images/admin/11.png)
-
-和映射配置类似，点击查看会弹出编辑框，可以对插件组配置进行修改；点击删除会删除整个插件组配置。
-
-#### 查看和删除插件组
-
-点击查看可以编辑插件组配置，点击删除删除插件组。
-
-### 管理限流配置
-
-#### 配置限流
-
-点击 "限流配置" 菜单，进行限流组件的配置。具体配置示例：
-
-![12.png](../docs/images/admin/12.png)
-
-```yaml
-resources:
-  - name: test-http
-    items:
-      - pattern: /api/v1/test-dubbo/user
-      - matchStrategy: 1
-        pattern: /api/*/test-dubbo/user
-rules:
-  - flowRule:
-      resource: ""
-      tokencalculatestrategy: 0
-      threshold: 100
-      enable: true
+```bash
+cd admin/web
+pnpm build
 ```
 
-点击保存后，限流配置生效。
+构建产物位于 `admin/web/dist/`，将由后端服务提供静态文件服务。
 
-![13.png](../docs/images/admin/13.png)
+### 访问管理界面
 
-## 三、Pixiu 远程配置
+打开浏览器访问：`http://127.0.0.1:8081`
 
-### 启动和配置
+默认账号：
+- 用户名：`admin`
+- 密码：`admin123`
 
-启动 Pixiu 并指定配置文件，在配置文件中，定义 etcd 地址和配置路径：
+## API 接口
+
+所有 API 接口以 `/api/` 为前缀：
+
+| 接口 | 描述 |
+|------|------|
+| `POST /api/auth/login` | 用户登录 |
+| `POST /api/auth/register` | 用户注册 |
+| `GET /api/clusters` | 获取集群列表 |
+| `GET /api/listeners` | 获取监听器列表 |
+| `GET /api/resources` | 获取 API 映射列表 |
+| `GET /api/plugins` | 获取插件组列表 |
+| `GET /api/users` | 获取用户列表 (仅管理员) |
+| `GET /api/roles` | 获取角色列表 (仅管理员) |
+
+详细 API 文档请参考 [API_CN.md](API_CN.md)。
+
+## 与 Pixiu 网关配合使用
+
+配置 Pixiu 使用 etcd 进行动态配置：
 
 ```yaml
 api_meta_config:
@@ -290,18 +193,12 @@ api_meta_config:
   api_config_path: "/pixiu/config/api"
 ```
 
-### 测试
-
-在 admin 中创建资源配置，并使用 `curl` 测试 Pixiu 转发功能：
+启动 Pixiu：
 
 ```bash
-curl "http://127.0.0.1:8888/api/v1/test-dubbo/user?name=tc"
-curl -X POST "http://127.0.0.1:8888/api/v1/test-dubbo/user?name=tc"
+go run ./cmd/pixiu/pixiu.go gateway start -c ./configs/pixiu_with_admin_config.yaml
 ```
-
-如果请求未找到对应服务，返回错误信息；若配置正确，则返回服务响应。
 
 ## 许可证
 
 本项目采用 Apache License 2.0 开源许可。
-

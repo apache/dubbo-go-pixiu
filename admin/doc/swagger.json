@@ -1,967 +1,1549 @@
 {
-    "swagger": "2.0",
-    "info": {
-        "contact": {}
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pixiu Admin API",
+    "description": "RESTful API for Dubbo Go Pixiu Admin Management Platform",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Apache Dubbo",
+      "url": "https://github.com/apache/dubbo-go-pixiu"
     },
-    "paths": {
-        "/config/api/base": {
-            "get": {
-                "description": "get pixiu base info such as name,desc",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get basic configuration of Pixiu",
-                "responses": {
-                    "200": {
-                        "description": "YAML content",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/base/": {
-            "put": {
-                "description": "Pass YAML content through the form's content field to set basic information.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "modify pixiu base info such as name,desc",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "YAML content",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Pass YAML content through the form's content field to set basic information.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "modify pixiu base info such as name,desc",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "YAML content",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/cluster": {
-            "put": {
-                "description": "Create a cluster by passing the YAML/JSON configuration for the cluster through the form's content field.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "create cluster",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cluster content",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "pass the Cluster's YAML/JSON via the form's content field to update the cluster.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "update cluster",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cluster content",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "delete cluster according to cluster ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "delete cluster",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cluster ID",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/cluster/detail": {
-            "get": {
-                "description": "get cluster detail according to cluster ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get cluster detail",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cluster ID",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/cluster/list": {
-            "get": {
-                "description": "get all clusters' info",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get cluster list",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/listener": {
-            "put": {
-                "description": "pass the YAML/JSON for the Listener through the form's content field to create the Listener.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "create a Listener",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Listener content",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "pass the YAML/JSON for the Listener through the form's content field to update the Listener.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "update Listener",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Listener content",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "delete the Listener based on the name",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "delete Listener",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Listener id",
-                        "name": "name",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/listener/detail": {
-            "get": {
-                "description": "get Listener details based on name",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get Listener detail",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Listener name",
-                        "name": "name",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/listener/list": {
-            "get": {
-                "description": "get all Listener list",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get all Listener list",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/plugin_group/publish": {
-            "put": {
-                "description": "publish the PluginGroup from the unpublished space to the published space.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "batch Release PluginGroup Config",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource": {
-            "put": {
-                "description": "modify resource content, where content is the YAML of the Resource. Use resourceId to specify the resource to be modified.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "modify resource",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Resource YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "create a resource by passing the Resource's YAML via the form's content field (simultaneously writing to the staging area and production area).",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "create resource",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Resource YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "delete resources by ID. When unpublished is 1, this indicates deleting configurations for unpublished spaces (requires checking published spaces).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "delete resource",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/detail": {
-            "get": {
-                "description": "get resource details according to resource ID and return the YAML",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get resource detail with yml",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "YAML content",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/list": {
-            "get": {
-                "description": "Retrieve the list of resources. Use the unpublished parameter to control whether to include unpublished or published resources.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get all resource list",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "JSON array",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method": {
-            "put": {
-                "description": "Modify the specified method, where content is the YAML for Method.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "modify method",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "MethodID",
-                        "name": "methodId",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Method YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "create a method under the specified resource, where content is the YAML for Method.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "create method",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Method YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deleting a method under a resource, where `unpublished` equals 1 indicates removing the configuration for unpublished spaces (requires checking published spaces).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "delete method",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "MethodID",
-                        "name": "methodId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method/detail": {
-            "get": {
-                "description": "get method details based on resourceId and methodId, returning YAML.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get method detail with yml",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "method ID",
-                        "name": "methodId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "YAML content",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method/list": {
-            "get": {
-                "description": "get the list of methods under the specified resource",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get all method list below one resource",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "JSON array",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method/publish": {
-            "put": {
-                "description": "TODO: unimplemented",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "batch Release Method Config",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/publish": {
-            "put": {
-                "description": "publish resources from unpublished spaces to published spaces",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "publish all configuration information",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/register": {
-            "post": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Register"
-                ],
-                "summary": "user registration",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "username",
-                        "name": "username",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "password",
-                        "name": "password",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"\",\"data\":\"\"}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/checkIsAdmin": {
-            "post": {
-                "description": "to determine whether the current user is an administrator, the header must include the username.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Account"
-                ],
-                "summary": "determine whether you are an administrator",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/getInfo": {
-            "post": {
-                "description": "return the current user's detailed information. The header must include the username.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Account"
-                ],
-                "summary": "get user information",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/getUserRole": {
-            "post": {
-                "description": "return the current user's role information. The header must include the username.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Account"
-                ],
-                "summary": "get user role",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/logout": {
-            "post": {
-                "description": "log out the current user (invalidate the token)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Account"
-                ],
-                "summary": "user logout",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/password/edit": {
-            "post": {
-                "description": "to modify the current user's password, the username must be included in the header.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Account"
-                ],
-                "summary": "modify account password",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "old password",
-                        "name": "oldPassword",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "new password",
-                        "name": "newPassword",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        }
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
     }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8081/api",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {"name": "Auth", "description": "Authentication endpoints"},
+    {"name": "User", "description": "Current user profile endpoints"},
+    {"name": "Clusters", "description": "Cluster management"},
+    {"name": "Listeners", "description": "Listener management"},
+    {"name": "Resources", "description": "API resource mapping management"},
+    {"name": "Methods", "description": "Method management"},
+    {"name": "Plugins", "description": "Plugin group management"},
+    {"name": "Instances", "description": "Instance statistics"},
+    {"name": "Users", "description": "User management (Admin)"},
+    {"name": "Roles", "description": "Role management (Admin)"},
+    {"name": "Permissions", "description": "Permission management (Admin)"}
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "User login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LoginRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/LoginResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "User registration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/RegisterRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration successful",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/info": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get current user info",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "User info",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/UserInfoResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/password": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Change password",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/ChangePasswordRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/logout": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Logout",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/clusters": {
+      "get": {
+        "tags": ["Clusters"],
+        "summary": "List all clusters",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Cluster list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ClusterListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Clusters"],
+        "summary": "Create a cluster",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Cluster"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cluster created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/clusters/{name}": {
+      "get": {
+        "tags": ["Clusters"],
+        "summary": "Get cluster by name",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cluster details",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ClusterResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Clusters"],
+        "summary": "Update cluster",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Cluster"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cluster updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Clusters"],
+        "summary": "Delete cluster",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cluster deleted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listeners": {
+      "get": {
+        "tags": ["Listeners"],
+        "summary": "List all listeners",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Listener list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ListenerListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Listeners"],
+        "summary": "Create a listener",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Listener"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Listener created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listeners/{name}": {
+      "get": {
+        "tags": ["Listeners"],
+        "summary": "Get listener by name",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listener details",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ListenerResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Listeners"],
+        "summary": "Update listener",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Listener"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Listener updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Listeners"],
+        "summary": "Delete listener",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listener deleted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resources": {
+      "get": {
+        "tags": ["Resources"],
+        "summary": "List all resources",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Resource list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ResourceListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Resources"],
+        "summary": "Create a resource",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Resource"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resource created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resources/{id}": {
+      "get": {
+        "tags": ["Resources"],
+        "summary": "Get resource by ID",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource details",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ResourceResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Resources"],
+        "summary": "Update resource",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Resource"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resource updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Resources"],
+        "summary": "Delete resource",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource deleted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/methods": {
+      "get": {
+        "tags": ["Methods"],
+        "summary": "List methods",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "query",
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Method list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MethodListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Methods"],
+        "summary": "Create a method",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Method"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Method created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/methods/{id}": {
+      "get": {
+        "tags": ["Methods"],
+        "summary": "Get method by ID",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Method details",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MethodResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Methods"],
+        "summary": "Update method",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Method"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Method updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Methods"],
+        "summary": "Delete method",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Method deleted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plugins": {
+      "get": {
+        "tags": ["Plugins"],
+        "summary": "List all plugin groups",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Plugin group list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/PluginGroupListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Plugins"],
+        "summary": "Create a plugin group",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/PluginGroup"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plugin group created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plugins/{name}": {
+      "get": {
+        "tags": ["Plugins"],
+        "summary": "Get plugin group by name",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plugin group details",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/PluginGroupResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Plugins"],
+        "summary": "Update plugin group",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/PluginGroup"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plugin group updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Plugins"],
+        "summary": "Delete plugin group",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plugin group deleted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/instances": {
+      "get": {
+        "tags": ["Instances"],
+        "summary": "List all instances",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Instance list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/InstanceListResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/instances/stats": {
+      "get": {
+        "tags": ["Instances"],
+        "summary": "Get instance statistics",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Instance statistics",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/InstanceStatsResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List all users",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}},
+          {"name": "page_size", "in": "query", "schema": {"type": "integer", "default": 10}}
+        ],
+        "responses": {
+          "200": {
+            "description": "User list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/UserListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create a user",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateUserRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by ID",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "User details",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/UserResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateUserRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete user",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/reset-password": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Reset user password",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/ResetPasswordRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/assign-role": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Assign role to user",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/AssignRoleRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role assigned",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roles": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "List all roles",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Role list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/RoleListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Roles"],
+        "summary": "Create a role",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateRoleRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roles/{id}": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "Get role by ID",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Role details",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/RoleResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Roles"],
+        "summary": "Update role",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateRoleRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Roles"],
+        "summary": "Delete role",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Role deleted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roles/{id}/permissions": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "Get role permissions",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Role permissions",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/PermissionListResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Roles"],
+        "summary": "Update role permissions",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdatePermissionsRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permissions updated",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MessageResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/permissions": {
+      "get": {
+        "tags": ["Permissions"],
+        "summary": "List all permissions",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Permission list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/PermissionListResponse"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "token",
+        "description": "JWT token"
+      }
+    },
+    "schemas": {
+      "Response": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer", "description": "0=success, -1=error, 401=unauthorized, 403=forbidden"},
+          "message": {"type": "string"},
+          "data": {"type": "object"}
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "message": {"type": "string"}
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": {"type": "string"},
+          "password": {"type": "string"}
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "object",
+            "properties": {
+              "token": {"type": "string"}
+            }
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": {"type": "string"},
+          "password": {"type": "string"},
+          "nickname": {"type": "string"},
+          "email": {"type": "string", "format": "email"}
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": ["old_password", "new_password"],
+        "properties": {
+          "old_password": {"type": "string"},
+          "new_password": {"type": "string"}
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "username": {"type": "string"},
+          "nickname": {"type": "string"},
+          "email": {"type": "string"},
+          "role_id": {"type": "integer"},
+          "status": {"type": "integer"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "UserInfoResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/User"}
+        }
+      },
+      "UserListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/User"}
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/User"}
+        }
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": {"type": "string"},
+          "password": {"type": "string"},
+          "nickname": {"type": "string"},
+          "email": {"type": "string"},
+          "role_id": {"type": "integer"}
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "nickname": {"type": "string"},
+          "email": {"type": "string"},
+          "status": {"type": "integer"}
+        }
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "required": ["password"],
+        "properties": {
+          "password": {"type": "string"}
+        }
+      },
+      "AssignRoleRequest": {
+        "type": "object",
+        "required": ["role_id"],
+        "properties": {
+          "role_id": {"type": "integer"}
+        }
+      },
+      "Role": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "RoleListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Role"}
+          }
+        }
+      },
+      "RoleResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/Role"}
+        }
+      },
+      "CreateRoleRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      },
+      "UpdateRoleRequest": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      },
+      "Permission": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "resource": {"type": "string"},
+          "action": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      },
+      "PermissionListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Permission"}
+          }
+        }
+      },
+      "UpdatePermissionsRequest": {
+        "type": "object",
+        "required": ["permission_ids"],
+        "properties": {
+          "permission_ids": {
+            "type": "array",
+            "items": {"type": "integer"}
+          }
+        }
+      },
+      "SocketAddress": {
+        "type": "object",
+        "properties": {
+          "address": {"type": "string"},
+          "port": {"type": "integer"}
+        }
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "socket_address": {"$ref": "#/components/schemas/SocketAddress"}
+        }
+      },
+      "Endpoint": {
+        "type": "object",
+        "properties": {
+          "address": {"$ref": "#/components/schemas/Address"}
+        }
+      },
+      "HealthCheck": {
+        "type": "object",
+        "properties": {
+          "timeout": {"type": "string"},
+          "interval": {"type": "string"},
+          "healthy_threshold": {"type": "integer"},
+          "unhealthy_threshold": {"type": "integer"}
+        }
+      },
+      "Cluster": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "type_str": {"type": "string", "enum": ["EDS", "STATIC", "STRICT_DNS", "LOGICAL_DNS"]},
+          "lb_str": {"type": "string", "enum": ["RoundRobin", "Random", "LeastRequest", "RingHash", "Maglev"]},
+          "endpoints": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Endpoint"}
+          },
+          "health_checks": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/HealthCheck"}
+          }
+        }
+      },
+      "ClusterListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Cluster"}
+          }
+        }
+      },
+      "ClusterResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/Cluster"}
+        }
+      },
+      "Filter": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "config": {"type": "object"}
+        }
+      },
+      "FilterChain": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Filter"}
+          }
+        }
+      },
+      "Listener": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "protocol_str": {"type": "string", "enum": ["HTTP", "HTTPS", "HTTP2", "TRIPLE", "DUBBO", "GRPC"]},
+          "address": {"$ref": "#/components/schemas/Address"},
+          "filter_chains": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/FilterChain"}
+          }
+        }
+      },
+      "ListenerListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Listener"}
+          }
+        }
+      },
+      "ListenerResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/Listener"}
+        }
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "path": {"type": "string"},
+          "type": {"type": "string"},
+          "description": {"type": "string"},
+          "timeout": {"type": "string"},
+          "plugins": {"type": "object"}
+        }
+      },
+      "ResourceListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Resource"}
+          }
+        }
+      },
+      "ResourceResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/Resource"}
+        }
+      },
+      "Method": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "resource_id": {"type": "integer"},
+          "http_verb": {"type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
+          "on_air": {"type": "boolean"},
+          "timeout": {"type": "string"},
+          "inbound_request": {"type": "object"},
+          "integration_request": {"type": "object"}
+        }
+      },
+      "MethodListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Method"}
+          }
+        }
+      },
+      "MethodResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/Method"}
+        }
+      },
+      "Plugin": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "version": {"type": "string"},
+          "priority": {"type": "integer"},
+          "config": {"type": "object"}
+        }
+      },
+      "PluginGroup": {
+        "type": "object",
+        "properties": {
+          "group_name": {"type": "string"},
+          "plugins": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Plugin"}
+          }
+        }
+      },
+      "PluginGroupListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/PluginGroup"}
+          }
+        }
+      },
+      "PluginGroupResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/PluginGroup"}
+        }
+      },
+      "Instance": {
+        "type": "object",
+        "properties": {
+          "cluster_name": {"type": "string"},
+          "address": {"type": "string"},
+          "port": {"type": "integer"},
+          "healthy": {"type": "boolean"}
+        }
+      },
+      "InstanceListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Instance"}
+          }
+        }
+      },
+      "InstanceStats": {
+        "type": "object",
+        "properties": {
+          "total": {"type": "integer"},
+          "healthy": {"type": "integer"},
+          "unhealthy": {"type": "integer"}
+        }
+      },
+      "InstanceStatsResponse": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "integer"},
+          "data": {"$ref": "#/components/schemas/InstanceStats"}
+        }
+      }
+    }
+  }
 }

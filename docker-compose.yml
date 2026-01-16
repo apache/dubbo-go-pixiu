@@ -96,24 +96,27 @@ services:
     depends_on:
       - etcd  # Ensure etcd is ready before starting the backend
 
-  # frontend（Web）
+  # frontend（Web）- React + TypeScript + Vite
   frontend:
-    image: node:18.20.8
+    image: node:22
     container_name: pixiu_admin_frontend
     working_dir: /app/web
     volumes:
       - ./admin/web:/app/web
     ports:
-      - "8080:8080"
+      - "3000:3000"
     environment:
-      - VUE_APP_BACKEND_URL=http://pixiu_admin_go_backend:8081
+      - VITE_API_PROXY_TARGET=http://pixiu_admin_go_backend:8081
     command: >
       sh -c "
-        yarn install &&
-        yarn run serve --host 0.0.0.0
+        npm install -g pnpm &&
+        pnpm install &&
+        pnpm dev
       "
     networks:
       - app_network
+    depends_on:
+      - backend
 
 networks:
   app_network:

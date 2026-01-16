@@ -2,375 +2,805 @@
 
 **English** | [中文](API_CN.md)
 
-This API documentation describes the backend operations of the Pixiu management platform, including the APIs for retrieving, creating, modifying, and deleting resources (Resource), methods (Method), and plugin groups (PluginGroup). Pixiu provides a complete set of APIs to help users manage API gateway resource mappings, plugin configurations, and request handling. The examples in this document cover common request and response formats and show how to test the APIs using Postman.
+This document describes the RESTful API for the Pixiu Admin management platform. All APIs use JSON for request and response bodies, and require JWT authentication (except for login/register).
 
-Whether you are creating new resources, modifying existing configurations, or managing plugin groups, this document provides clear steps and necessary API details, making it easier for developers to get started and integrate quickly.
+## Base URL
 
-More detailed API descriptions can be found in the [Swagger documentation](./doc/swagger.json).
-
-## Response Codes
-
-* **code**:
-
-    * `10001`: Success
-    * `10002`: Data not found
-    * `10003`: Concurrent operation, please refresh the page and try again
-
-* **data**: Typically, data will be in YAML format.
-
-## I. Basic Information
-
-### 1.1 Get Basic Information
-
-**Request**:
-
-```http
-GET /config/api/base HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+```
+http://127.0.0.1:8081/api
 ```
 
-**Response**:
+## Authentication
+
+All protected endpoints require a JWT token in the `token` header:
+
+```
+token: <your-jwt-token>
+```
+
+## Response Format
+
+All responses follow this format:
 
 ```json
 {
-  "code": "10001",
-  "data": "name: pixiu\ndescription: pixiu111 sample\npluginFilePath: \"\"\n"
+  "code": 0,
+  "message": "optional message",
+  "data": {}
 }
 ```
 
-### 1.2 Create or Modify Basic Information
+- `code`: `0` for success, `-1` for error, `401` for unauthorized, `403` for forbidden
+- `message`: Error message or success message (optional)
+- `data`: Response data (optional)
 
-**Request**:
+---
 
-```http
-POST /config/api/base HTTP/1.1
-Host: 127.0.0.1:8080
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
-cache-control: no-cache
-```
+## I. Authentication
 
-**Form Data**:
+### 1.1 Login
 
-```text
-Content-Disposition: form-data; name="content"
-name: pixiu
-description: pixiu111 sample
-```
-
-## II. Resource
-
-### 2.1 Get Resource List
-
-**Request**:
+**Request:**
 
 ```http
-GET /config/api/resource/list HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
 ```
 
-### 2.2 Get Resource Details
+**Response:**
 
-**Request**:
+```json
+{
+  "code": 0,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+  }
+}
+```
+
+### 1.2 Register
+
+**Request:**
 
 ```http
-GET /config/api/resource/detail?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "password123",
+  "nickname": "New User",
+  "email": "user@example.com"
+}
 ```
 
-### 2.3 Create Resource
+**Response:**
 
-**Request**:
+```json
+{
+  "code": 0,
+  "message": "Registration successful"
+}
+```
+
+---
+
+## II. User Profile
+
+### 2.1 Get Current User Info
+
+**Request:**
 
 ```http
-POST /config/api/resource/ HTTP/1.1
-Host: 127.0.0.1:8080
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
-cache-control: no-cache
+GET /api/user/info
+token: <jwt-token>
 ```
 
-**Form Data**:
+**Response:**
 
-```text
-Content-Disposition: form-data; name="content"
-path: '/api/v1/test-dubbo/friend2'
-type: restful
-description: user
-timeout: 100ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    resourcePath: '/api/v1/test-dubbo/friend2'
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
+```json
+{
+  "code": 0,
+  "data": {
+    "id": 1,
+    "username": "admin",
+    "nickname": "Administrator",
+    "email": "admin@example.com",
+    "role_id": 1,
+    "status": 1
+  }
+}
 ```
 
-### 2.4 Modify Resource
+### 2.2 Change Password
 
-**Request**:
+**Request:**
 
 ```http
-PUT /config/api/resource? HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+POST /api/user/password
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "old_password": "oldpass",
+  "new_password": "newpass"
+}
 ```
 
-**Form Data**:
+### 2.3 Logout
 
-```text
-Content-Disposition: form-data; name="content"
-id: 1
-path: '/api/v1/test-dubbo/friend'
-type: restful
-description: update
-timeout: 1000ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
-```
-
-### 2.5 Delete Resource
-
-**Request**:
+**Request:**
 
 ```http
-DELETE /config/api/resource/?resourceId=2 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+POST /api/user/logout
+token: <jwt-token>
 ```
 
-## III. Method Related
+---
 
-### 3.1 Get Method List for a Resource
+## III. Clusters
 
-**Request**:
+### 3.1 List Clusters
+
+**Request:**
 
 ```http
-GET /config/api/resource/method/list?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/clusters
+token: <jwt-token>
 ```
 
-### 3.2 Get Method Details
+**Response:**
 
-**Request**:
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "name": "backend-cluster",
+      "type_str": "EDS",
+      "endpoints": [
+        {
+          "address": {
+            "socket_address": {
+              "address": "127.0.0.1",
+              "port": 8080
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 3.2 Get Cluster
+
+**Request:**
 
 ```http
-GET /config/api/resource/method/detail?resourceId=1&methodId=2 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/clusters/:name
+token: <jwt-token>
 ```
 
-### 3.3 Create Method
+### 3.3 Create Cluster
 
-**Request**:
+**Request:**
 
 ```http
-POST /config/api/resource/method/?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+POST /api/clusters
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "my-cluster",
+  "type_str": "EDS",
+  "lb_str": "RoundRobin",
+  "endpoints": [
+    {
+      "address": {
+        "socket_address": {
+          "address": "127.0.0.1",
+          "port": 8080
+        }
+      }
+    }
+  ],
+  "health_checks": [
+    {
+      "timeout": "5s",
+      "interval": "10s",
+      "healthy_threshold": 2,
+      "unhealthy_threshold": 3
+    }
+  ]
+}
 ```
 
-**Form Data**:
+### 3.4 Update Cluster
 
-```text
-Content-Disposition: form-data; name="content"
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 1000ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
-
-### 3.4 Modify Method
-
-**Request**:
+**Request:**
 
 ```http
-PUT /config/api/resource/method/?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+PUT /api/clusters/:name
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "my-cluster",
+  "type_str": "EDS",
+  "lb_str": "LeastRequest",
+  "endpoints": [...]
+}
 ```
 
-**Form Data**:
+### 3.5 Delete Cluster
 
-```text
-Content-Disposition: form-data; name="content"
-id: 2
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 300ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
-
-### 3.5 Delete Method
-
-**Request**:
+**Request:**
 
 ```http
-DELETE /config/api/resource/method/?resourceId=1&methodId=2 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+DELETE /api/clusters/:name
+token: <jwt-token>
 ```
 
-## IV. PluginGroup and Plugin Related
+---
 
-### 4.1 Get PluginGroup List
+## IV. Listeners
 
-**Request**:
+### 4.1 List Listeners
+
+**Request:**
 
 ```http
-GET /config/api/plugin_group/list HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/listeners
+token: <jwt-token>
 ```
 
-### 4.2 Get PluginGroup Details
+**Response:**
 
-**Request**:
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "name": "http-listener",
+      "protocol_str": "HTTP",
+      "address": {
+        "socket_address": {
+          "address": "0.0.0.0",
+          "port": 8080
+        }
+      },
+      "filter_chains": [...]
+    }
+  ]
+}
+```
+
+### 4.2 Get Listener
+
+**Request:**
 
 ```http
-GET /config/api/plugin_group/list HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/listeners/:name
+token: <jwt-token>
 ```
 
-### 4.3 Create PluginGroup
+### 4.3 Create Listener
 
-**Request**:
+**Request:**
 
 ```http
-POST /config/api/plugin_group/ HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+POST /api/listeners
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "my-listener",
+  "protocol_str": "HTTP",
+  "address": {
+    "socket_address": {
+      "address": "0.0.0.0",
+      "port": 8080
+    }
+  },
+  "filter_chains": [
+    {
+      "filters": [
+        {
+          "name": "dgp.filter.httpconnectionmanager",
+          "config": {
+            "route_config": {
+              "routes": [...]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
 ```
 
-**Form Data**:
+### 4.4 Update Listener
 
-```text
-Content-Disposition: form-data; name="content"
-groupName: "group1"
-plugins:
-  - name: "rate limit"
-    version: "0.0.1"
-    priority: 1000
-    externalLookupName: "ExternalPluginRateLimit"
-  - name: "access"
-    version: "0.0.1"
-    priority: 1000
-    externalLookupName: "ExternalPluginAccess"
-```
-
-### 4.4 Modify PluginGroup
-
-**Request**:
+**Request:**
 
 ```http
-PUT /config/api/plugin_group/ HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+PUT /api/listeners/:name
+token: <jwt-token>
+Content-Type: application/json
 ```
 
-**Form Data**:
+### 4.5 Delete Listener
 
-```text
-Content-Disposition: form-data; name="content"
-groupName: "group1"
-plugins:
-  - name: "rate limit"
-    version: "0.0.2"
-    priority: 1000
-    externalLookupName: "ExternalPluginRateLimit"
-  - name: "access"
-    version: "0.0.1"
-    priority: 1000
-    externalLookupName: "ExternalPluginAccess"
-```
-
-### 4.5 Delete PluginGroup
-
-**Request**:
+**Request:**
 
 ```http
-DELETE /config/api/plugin_group/?name=group1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+DELETE /api/listeners/:name
+token: <jwt-token>
 ```
+
+---
+
+## V. Resources (API Mappings)
+
+### 5.1 List Resources
+
+**Request:**
+
+```http
+GET /api/resources
+token: <jwt-token>
+```
+
+### 5.2 Get Resource
+
+**Request:**
+
+```http
+GET /api/resources/:id
+token: <jwt-token>
+```
+
+### 5.3 Create Resource
+
+**Request:**
+
+```http
+POST /api/resources
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "path": "/api/v1/users",
+  "type": "restful",
+  "description": "User API",
+  "timeout": "30s",
+  "plugins": {
+    "pre": {
+      "pluginNames": ["rate-limit"]
+    }
+  }
+}
+```
+
+### 5.4 Update Resource
+
+**Request:**
+
+```http
+PUT /api/resources/:id
+token: <jwt-token>
+Content-Type: application/json
+```
+
+### 5.5 Delete Resource
+
+**Request:**
+
+```http
+DELETE /api/resources/:id
+token: <jwt-token>
+```
+
+---
+
+## VI. Methods
+
+### 6.1 List Methods
+
+**Request:**
+
+```http
+GET /api/methods?resource_id=1
+token: <jwt-token>
+```
+
+### 6.2 Get Method
+
+**Request:**
+
+```http
+GET /api/methods/:id
+token: <jwt-token>
+```
+
+### 6.3 Create Method
+
+**Request:**
+
+```http
+POST /api/methods
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "resource_id": 1,
+  "http_verb": "GET",
+  "on_air": true,
+  "timeout": "10s",
+  "inbound_request": {
+    "request_type": "http"
+  },
+  "integration_request": {
+    "request_type": "http",
+    "host": "127.0.0.1:8889",
+    "path": "/backend/users"
+  }
+}
+```
+
+### 6.4 Update Method
+
+**Request:**
+
+```http
+PUT /api/methods/:id
+token: <jwt-token>
+Content-Type: application/json
+```
+
+### 6.5 Delete Method
+
+**Request:**
+
+```http
+DELETE /api/methods/:id
+token: <jwt-token>
+```
+
+---
+
+## VII. Plugin Groups
+
+### 7.1 List Plugin Groups
+
+**Request:**
+
+```http
+GET /api/plugins
+token: <jwt-token>
+```
+
+### 7.2 Get Plugin Group
+
+**Request:**
+
+```http
+GET /api/plugins/:name
+token: <jwt-token>
+```
+
+### 7.3 Create Plugin Group
+
+**Request:**
+
+```http
+POST /api/plugins
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "group_name": "my-plugin-group",
+  "plugins": [
+    {
+      "name": "rate-limit",
+      "version": "1.0.0",
+      "priority": 100,
+      "config": {}
+    }
+  ]
+}
+```
+
+### 7.4 Update Plugin Group
+
+**Request:**
+
+```http
+PUT /api/plugins/:name
+token: <jwt-token>
+Content-Type: application/json
+```
+
+### 7.5 Delete Plugin Group
+
+**Request:**
+
+```http
+DELETE /api/plugins/:name
+token: <jwt-token>
+```
+
+---
+
+## VIII. Instances
+
+### 8.1 List Instances
+
+**Request:**
+
+```http
+GET /api/instances
+token: <jwt-token>
+```
+
+### 8.2 Get Instance Stats
+
+**Request:**
+
+```http
+GET /api/instances/stats
+token: <jwt-token>
+```
+
+**Response:**
+
+```json
+{
+  "code": 0,
+  "data": {
+    "total": 10,
+    "healthy": 8,
+    "unhealthy": 2
+  }
+}
+```
+
+---
+
+## IX. User Management (Admin Only)
+
+### 9.1 List Users
+
+**Request:**
+
+```http
+GET /api/users?page=1&page_size=10
+token: <jwt-token>
+```
+
+### 9.2 Get User
+
+**Request:**
+
+```http
+GET /api/users/:id
+token: <jwt-token>
+```
+
+### 9.3 Create User
+
+**Request:**
+
+```http
+POST /api/users
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "password123",
+  "nickname": "New User",
+  "email": "user@example.com",
+  "role_id": 2
+}
+```
+
+### 9.4 Update User
+
+**Request:**
+
+```http
+PUT /api/users/:id
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "nickname": "Updated Name",
+  "email": "updated@example.com",
+  "status": 1
+}
+```
+
+### 9.5 Delete User
+
+**Request:**
+
+```http
+DELETE /api/users/:id
+token: <jwt-token>
+```
+
+### 9.6 Reset User Password
+
+**Request:**
+
+```http
+POST /api/users/:id/reset-password
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "password": "newpassword123"
+}
+```
+
+### 9.7 Assign Role to User
+
+**Request:**
+
+```http
+POST /api/users/:id/assign-role
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "role_id": 2
+}
+```
+
+---
+
+## X. Role Management (Admin Only)
+
+### 10.1 List Roles
+
+**Request:**
+
+```http
+GET /api/roles
+token: <jwt-token>
+```
+
+### 10.2 Get Role
+
+**Request:**
+
+```http
+GET /api/roles/:id
+token: <jwt-token>
+```
+
+### 10.3 Create Role
+
+**Request:**
+
+```http
+POST /api/roles
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "operator",
+  "description": "Operator role"
+}
+```
+
+### 10.4 Update Role
+
+**Request:**
+
+```http
+PUT /api/roles/:id
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "operator",
+  "description": "Updated description"
+}
+```
+
+### 10.5 Delete Role
+
+**Request:**
+
+```http
+DELETE /api/roles/:id
+token: <jwt-token>
+```
+
+### 10.6 Get Role Permissions
+
+**Request:**
+
+```http
+GET /api/roles/:id/permissions
+token: <jwt-token>
+```
+
+### 10.7 Update Role Permissions
+
+**Request:**
+
+```http
+PUT /api/roles/:id/permissions
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "permission_ids": [1, 2, 3, 4]
+}
+```
+
+---
+
+## XI. Permissions (Admin Only)
+
+### 11.1 List All Permissions
+
+**Request:**
+
+```http
+GET /api/permissions
+token: <jwt-token>
+```
+
+**Response:**
+
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "id": 1,
+      "resource": "clusters",
+      "action": "read",
+      "description": "View clusters"
+    },
+    {
+      "id": 2,
+      "resource": "clusters",
+      "action": "create",
+      "description": "Create clusters"
+    }
+  ]
+}
+```
+
+---
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| 0 | Success |
+| -1 | General error |
+| 401 | Unauthorized (invalid or missing token) |
+| 403 | Forbidden (insufficient permissions) |
+
+## Permission Resources
+
+| Resource | Actions |
+|----------|---------|
+| clusters | read, create, update, delete |
+| listeners | read, create, update, delete |
+| resources | read, create, update, delete |
+| methods | read, create, update, delete |
+| plugins | read, create, update, delete |
+| users | read, create, update, delete |

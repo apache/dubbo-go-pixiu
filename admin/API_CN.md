@@ -1,378 +1,806 @@
-# 后端API接口文档
+# 后端 API 接口文档
 
 [English](API.md) | **中文**
 
-本接口文档详细描述了 Pixiu 管理平台的后端 API 操作，包括获取、创建、修改、删除资源（Resource）、方法（Method）及插件组（PluginGroup）的接口。Pixiu
-平台提供了一整套 API 来帮助用户管理 API 网关的资源映射、插件配置以及请求处理。文档中的示例涵盖了常见的请求与响应格式，并介绍了如何使用
-Postman 进行接口测试。
+本文档描述了 Pixiu Admin 管理平台的 RESTful API。所有 API 使用 JSON 格式进行请求和响应，除登录/注册外均需要 JWT 认证。
 
-无论是创建新资源、修改现有配置，还是管理插件组，本文档都提供了清晰的步骤和必要的 API 细节，方便开发者快速上手并进行集成。
+## 基础 URL
 
-更多的 API 具体介绍请参考 [Swagger 文档](./doc/swagger.json)
-
-## 返回值说明
-
-* **code**：
-
-    * `10001`: 成功
-    * `10002`: 未找到对应数据
-    * `10003`: 并发操作，请刷新页面重试
-
-* **data**：一般为 YAML 格式的数据
-
-## 一、基础信息
-
-### 1.1 获取基础信息
-
-**请求**：
-
-```http
-GET /config/api/base HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+```
+http://127.0.0.1:8081/api
 ```
 
-**返回值**：
+## 认证
+
+所有受保护的接口需要在请求头中携带 JWT Token：
+
+```
+token: <your-jwt-token>
+```
+
+## 响应格式
+
+所有响应遵循以下格式：
 
 ```json
 {
-  "code": "10001",
-  "data": "name: pixiu\ndescription: pixiu111 sample\npluginFilePath: \"\"\n"
+  "code": 0,
+  "message": "可选的消息",
+  "data": {}
 }
 ```
 
-### 1.2 创建或修改基础信息
+- `code`：`0` 表示成功，`-1` 表示错误，`401` 表示未授权，`403` 表示禁止访问
+- `message`：错误消息或成功消息（可选）
+- `data`：响应数据（可选）
 
-**请求**：
+---
 
-```http
-POST /config/api/base HTTP/1.1
-Host: 127.0.0.1:8080
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
-cache-control: no-cache
-```
+## 一、认证
 
-**表单数据**：
+### 1.1 登录
 
-```text
-Content-Disposition: form-data; name="content"
-name: pixiu
-description: pixiu111 sample
-```
-
-## 二、Resource
-
-### 2.1 获取 Resource 列表
-
-**请求**：
+**请求：**
 
 ```http
-GET /config/api/resource/list HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
 ```
 
-### 2.2 获取 Resource 详情
+**响应：**
 
-**请求**：
+```json
+{
+  "code": 0,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+  }
+}
+```
+
+### 1.2 注册
+
+**请求：**
 
 ```http
-GET /config/api/resource/detail?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "password123",
+  "nickname": "新用户",
+  "email": "user@example.com"
+}
 ```
 
-### 2.3 创建 Resource
+**响应：**
 
-**请求**：
+```json
+{
+  "code": 0,
+  "message": "注册成功"
+}
+```
+
+---
+
+## 二、用户信息
+
+### 2.1 获取当前用户信息
+
+**请求：**
 
 ```http
-POST /config/api/resource/ HTTP/1.1
-Host: 127.0.0.1:8080
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
-cache-control: no-cache
+GET /api/user/info
+token: <jwt-token>
 ```
 
-**表单数据**：
+**响应：**
 
-```text
-Content-Disposition: form-data; name="content"
-path: '/api/v1/test-dubbo/friend2'
-type: restful
-description: user
-timeout: 100ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    resourcePath: '/api/v1/test-dubbo/friend2'
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
+```json
+{
+  "code": 0,
+  "data": {
+    "id": 1,
+    "username": "admin",
+    "nickname": "管理员",
+    "email": "admin@example.com",
+    "role_id": 1,
+    "status": 1
+  }
+}
 ```
 
-### 2.4 修改 Resource
+### 2.2 修改密码
 
-**请求**：
+**请求：**
 
 ```http
-PUT /config/api/resource? HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+POST /api/user/password
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "old_password": "旧密码",
+  "new_password": "新密码"
+}
 ```
 
-**表单数据**：
+### 2.3 退出登录
 
-```text
-Content-Disposition: form-data; name="content"
-id: 1
-path: '/api/v1/test-dubbo/friend'
-type: restful
-description: update
-timeout: 1000ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
-```
-
-### 2.5 删除 Resource
-
-**请求**：
+**请求：**
 
 ```http
-DELETE /config/api/resource/?resourceId=2 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+POST /api/user/logout
+token: <jwt-token>
 ```
 
-## 三、Method 相关
+---
 
-### 3.1 查询某个 Resource 下的 Method 列表
+## 三、集群管理
 
-**请求**：
+### 3.1 获取集群列表
+
+**请求：**
 
 ```http
-GET /config/api/resource/method/list?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/clusters
+token: <jwt-token>
 ```
 
-### 3.2 查询 Method 详情
+**响应：**
 
-**请求**：
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "name": "backend-cluster",
+      "type_str": "EDS",
+      "endpoints": [
+        {
+          "address": {
+            "socket_address": {
+              "address": "127.0.0.1",
+              "port": 8080
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 3.2 获取集群详情
+
+**请求：**
 
 ```http
-GET /config/api/resource/method/detail?resourceId=1&methodId=2 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/clusters/:name
+token: <jwt-token>
 ```
 
-### 3.3 创建 Method
+### 3.3 创建集群
 
-**请求**：
+**请求：**
 
 ```http
-POST /config/api/resource/method/?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+POST /api/clusters
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "my-cluster",
+  "type_str": "EDS",
+  "lb_str": "RoundRobin",
+  "endpoints": [
+    {
+      "address": {
+        "socket_address": {
+          "address": "127.0.0.1",
+          "port": 8080
+        }
+      }
+    }
+  ],
+  "health_checks": [
+    {
+      "timeout": "5s",
+      "interval": "10s",
+      "healthy_threshold": 2,
+      "unhealthy_threshold": 3
+    }
+  ]
+}
 ```
 
-**表单数据**：
+### 3.4 更新集群
 
-```text
-Content-Disposition: form-data; name="content"
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 1000ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
-
-### 3.4 修改 Method
-
-**请求**：
+**请求：**
 
 ```http
-PUT /config/api/resource/method/?resourceId=1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+PUT /api/clusters/:name
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "my-cluster",
+  "type_str": "EDS",
+  "lb_str": "LeastRequest",
+  "endpoints": [...]
+}
 ```
 
-**表单数据**：
+### 3.5 删除集群
 
-```text
-Content-Disposition: form-data; name="content"
-id: 2
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 300ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
-
-### 3.5 删除 Method
-
-**请求**：
+**请求：**
 
 ```http
-DELETE /config/api/resource/method/?resourceId=1&methodId=2 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+DELETE /api/clusters/:name
+token: <jwt-token>
 ```
 
-## 四、PluginGroup 和 Plugin 相关
+---
 
-### 4.1 查看 PluginGroup 列表
+## 四、监听器管理
 
-**请求**：
+### 4.1 获取监听器列表
+
+**请求：**
 
 ```http
-GET /config/api/plugin_group/list HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/listeners
+token: <jwt-token>
 ```
 
-### 4.2 查看 PluginGroup 详情
+**响应：**
 
-**请求**：
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "name": "http-listener",
+      "protocol_str": "HTTP",
+      "address": {
+        "socket_address": {
+          "address": "0.0.0.0",
+          "port": 8080
+        }
+      },
+      "filter_chains": [...]
+    }
+  ]
+}
+```
+
+### 4.2 获取监听器详情
+
+**请求：**
 
 ```http
-GET /config/api/plugin_group/list HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+GET /api/listeners/:name
+token: <jwt-token>
 ```
 
-### 4.3 创建 PluginGroup
+### 4.3 创建监听器
 
-**请求**：
+**请求：**
 
 ```http
-POST /config/api/plugin_group/ HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+POST /api/listeners
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "my-listener",
+  "protocol_str": "HTTP",
+  "address": {
+    "socket_address": {
+      "address": "0.0.0.0",
+      "port": 8080
+    }
+  },
+  "filter_chains": [
+    {
+      "filters": [
+        {
+          "name": "dgp.filter.httpconnectionmanager",
+          "config": {
+            "route_config": {
+              "routes": [...]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
 ```
 
-**表单数据**：
+### 4.4 更新监听器
 
-```text
-Content-Disposition: form-data; name="content"
-groupName: "group1"
-plugins:
-  - name: "rate limit"
-    version: "0.0.1"
-    priority: 1000
-    externalLookupName: "ExternalPluginRateLimit"
-  - name: "access"
-    version: "0.0.1"
-    priority: 1000
-    externalLookupName: "ExternalPluginAccess"
-```
-
-### 4.4 修改 PluginGroup
-
-**请求**：
+**请求：**
 
 ```http
-PUT /config/api/plugin_group/ HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+PUT /api/listeners/:name
+token: <jwt-token>
+Content-Type: application/json
 ```
 
-**表单数据**：
+### 4.5 删除监听器
 
-```text
-Content-Disposition: form-data; name="content"
-groupName: "group1"
-plugins:
-  - name: "rate limit"
-    version: "0.0.2"
-    priority: 1000
-    externalLookupName: "ExternalPluginRateLimit"
-  - name: "access"
-    version: "0.0.1"
-    priority: 1000
-    externalLookupName: "ExternalPluginAccess"
-```
-
-### 4.5 删除 PluginGroup
-
-**请求**：
+**请求：**
 
 ```http
-DELETE /config/api/plugin_group/?name=group1 HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
+DELETE /api/listeners/:name
+token: <jwt-token>
 ```
+
+---
+
+## 五、资源管理（API 映射）
+
+### 5.1 获取资源列表
+
+**请求：**
+
+```http
+GET /api/resources
+token: <jwt-token>
+```
+
+### 5.2 获取资源详情
+
+**请求：**
+
+```http
+GET /api/resources/:id
+token: <jwt-token>
+```
+
+### 5.3 创建资源
+
+**请求：**
+
+```http
+POST /api/resources
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "path": "/api/v1/users",
+  "type": "restful",
+  "description": "用户 API",
+  "timeout": "30s",
+  "plugins": {
+    "pre": {
+      "pluginNames": ["rate-limit"]
+    }
+  }
+}
+```
+
+### 5.4 更新资源
+
+**请求：**
+
+```http
+PUT /api/resources/:id
+token: <jwt-token>
+Content-Type: application/json
+```
+
+### 5.5 删除资源
+
+**请求：**
+
+```http
+DELETE /api/resources/:id
+token: <jwt-token>
+```
+
+---
+
+## 六、方法管理
+
+### 6.1 获取方法列表
+
+**请求：**
+
+```http
+GET /api/methods?resource_id=1
+token: <jwt-token>
+```
+
+### 6.2 获取方法详情
+
+**请求：**
+
+```http
+GET /api/methods/:id
+token: <jwt-token>
+```
+
+### 6.3 创建方法
+
+**请求：**
+
+```http
+POST /api/methods
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "resource_id": 1,
+  "http_verb": "GET",
+  "on_air": true,
+  "timeout": "10s",
+  "inbound_request": {
+    "request_type": "http"
+  },
+  "integration_request": {
+    "request_type": "http",
+    "host": "127.0.0.1:8889",
+    "path": "/backend/users"
+  }
+}
+```
+
+### 6.4 更新方法
+
+**请求：**
+
+```http
+PUT /api/methods/:id
+token: <jwt-token>
+Content-Type: application/json
+```
+
+### 6.5 删除方法
+
+**请求：**
+
+```http
+DELETE /api/methods/:id
+token: <jwt-token>
+```
+
+---
+
+## 七、插件组管理
+
+### 7.1 获取插件组列表
+
+**请求：**
+
+```http
+GET /api/plugins
+token: <jwt-token>
+```
+
+### 7.2 获取插件组详情
+
+**请求：**
+
+```http
+GET /api/plugins/:name
+token: <jwt-token>
+```
+
+### 7.3 创建插件组
+
+**请求：**
+
+```http
+POST /api/plugins
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "group_name": "my-plugin-group",
+  "plugins": [
+    {
+      "name": "rate-limit",
+      "version": "1.0.0",
+      "priority": 100,
+      "config": {}
+    }
+  ]
+}
+```
+
+### 7.4 更新插件组
+
+**请求：**
+
+```http
+PUT /api/plugins/:name
+token: <jwt-token>
+Content-Type: application/json
+```
+
+### 7.5 删除插件组
+
+**请求：**
+
+```http
+DELETE /api/plugins/:name
+token: <jwt-token>
+```
+
+---
+
+## 八、实例管理
+
+### 8.1 获取实例列表
+
+**请求：**
+
+```http
+GET /api/instances
+token: <jwt-token>
+```
+
+### 8.2 获取实例统计
+
+**请求：**
+
+```http
+GET /api/instances/stats
+token: <jwt-token>
+```
+
+**响应：**
+
+```json
+{
+  "code": 0,
+  "data": {
+    "total": 10,
+    "healthy": 8,
+    "unhealthy": 2
+  }
+}
+```
+
+---
+
+## 九、用户管理（仅管理员）
+
+### 9.1 获取用户列表
+
+**请求：**
+
+```http
+GET /api/users?page=1&page_size=10
+token: <jwt-token>
+```
+
+### 9.2 获取用户详情
+
+**请求：**
+
+```http
+GET /api/users/:id
+token: <jwt-token>
+```
+
+### 9.3 创建用户
+
+**请求：**
+
+```http
+POST /api/users
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "password123",
+  "nickname": "新用户",
+  "email": "user@example.com",
+  "role_id": 2
+}
+```
+
+### 9.4 更新用户
+
+**请求：**
+
+```http
+PUT /api/users/:id
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "nickname": "更新的名称",
+  "email": "updated@example.com",
+  "status": 1
+}
+```
+
+### 9.5 删除用户
+
+**请求：**
+
+```http
+DELETE /api/users/:id
+token: <jwt-token>
+```
+
+### 9.6 重置用户密码
+
+**请求：**
+
+```http
+POST /api/users/:id/reset-password
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "password": "newpassword123"
+}
+```
+
+### 9.7 分配用户角色
+
+**请求：**
+
+```http
+POST /api/users/:id/assign-role
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "role_id": 2
+}
+```
+
+---
+
+## 十、角色管理（仅管理员）
+
+### 10.1 获取角色列表
+
+**请求：**
+
+```http
+GET /api/roles
+token: <jwt-token>
+```
+
+### 10.2 获取角色详情
+
+**请求：**
+
+```http
+GET /api/roles/:id
+token: <jwt-token>
+```
+
+### 10.3 创建角色
+
+**请求：**
+
+```http
+POST /api/roles
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "operator",
+  "description": "操作员角色"
+}
+```
+
+### 10.4 更新角色
+
+**请求：**
+
+```http
+PUT /api/roles/:id
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "operator",
+  "description": "更新的描述"
+}
+```
+
+### 10.5 删除角色
+
+**请求：**
+
+```http
+DELETE /api/roles/:id
+token: <jwt-token>
+```
+
+### 10.6 获取角色权限
+
+**请求：**
+
+```http
+GET /api/roles/:id/permissions
+token: <jwt-token>
+```
+
+### 10.7 更新角色权限
+
+**请求：**
+
+```http
+PUT /api/roles/:id/permissions
+token: <jwt-token>
+Content-Type: application/json
+
+{
+  "permission_ids": [1, 2, 3, 4]
+}
+```
+
+---
+
+## 十一、权限管理（仅管理员）
+
+### 11.1 获取所有权限
+
+**请求：**
+
+```http
+GET /api/permissions
+token: <jwt-token>
+```
+
+**响应：**
+
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "id": 1,
+      "resource": "clusters",
+      "action": "read",
+      "description": "查看集群"
+    },
+    {
+      "id": 2,
+      "resource": "clusters",
+      "action": "create",
+      "description": "创建集群"
+    }
+  ]
+}
+```
+
+---
+
+## 错误码
+
+| 错误码 | 描述 |
+|--------|------|
+| 0 | 成功 |
+| -1 | 通用错误 |
+| 401 | 未授权（Token 无效或缺失） |
+| 403 | 禁止访问（权限不足） |
+
+## 权限资源
+
+| 资源 | 操作 |
+|------|------|
+| clusters | read, create, update, delete |
+| listeners | read, create, update, delete |
+| resources | read, create, update, delete |
+| methods | read, create, update, delete |
+| plugins | read, create, update, delete |
+| users | read, create, update, delete |

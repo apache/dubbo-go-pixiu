@@ -118,9 +118,7 @@ docker run --name pixiu-gateway -p 8888:8888 -d \
 docker-compose up -d
 ```
 
-👉 访问管理员 UI：[http://localhost:8080](http://localhost:8080)
-
-![pixiu-admin.png](./docs/images/pixiu-admin.png)
+👉 访问管理员 UI：[http://localhost:3000](http://localhost:3000)
 
 ## Dubbo-Go-Pixiu 生态中的其他项目
 

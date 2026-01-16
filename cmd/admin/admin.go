@@ -18,8 +18,8 @@
 package main
 
 import (
+	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
 	"time"
 )
@@ -29,14 +29,13 @@ import (
 )
 
 import (
-	config2 "github.com/apache/dubbo-go-pixiu/admin/config"
-	"github.com/apache/dubbo-go-pixiu/admin/core"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/admin/app"
 )
 
+const Version = "1.0.0"
+
 var (
-	configPath    string
-	apiConfigPath string
+	configPath string
 )
 
 var (
@@ -47,39 +46,28 @@ var (
 			"plugin management, service configuration, API key management, interface authority management \n" +
 			"(appKey authorization, interface authority, online and offline). \n" +
 			"(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo",
-		Version: config2.Version,
+		Version: Version,
 		PreRun: func(cmd *cobra.Command, args []string) {
 			initDefaultValue()
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := config2.LoadAPIConfigFromFile(configPath)
+			srv, err := app.New(configPath)
 			if err != nil {
-				logger.Errorf("load admin config  error:%+v", err)
+				fmt.Fprintf(os.Stderr, "failed to create server: %v\n", err)
+				os.Exit(1)
 			}
-			Start()
-			// gracefully shutdown
-			sigint := make(chan os.Signal, 1)
-			signal.Notify(sigint, os.Interrupt)
-			<-sigint
-			Stop()
+
+			if err := srv.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "server error: %v\n", err)
+				os.Exit(1)
+			}
 		},
 	}
 )
 
-// Start start init etcd client and start admin http server
-func Start() {
-	core.RunServer()
-}
-
-func Stop() {
-	config2.CloseEtcdClient()
-}
-
 // init Init startCmd
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", os.Getenv("DUBBOGO_PIXIU_CONFIG"), "Load configuration from `FILE`")
-	rootCmd.PersistentFlags().StringVarP(&apiConfigPath, "api-config", "a", os.Getenv("DUBBOGO_PIXIU_API_CONFIG"), "Load api configuration from `FILE`")
-
 }
 
 func getRootCmd() *cobra.Command {
@@ -89,10 +77,6 @@ func getRootCmd() *cobra.Command {
 func initDefaultValue() {
 	if configPath == "" {
 		configPath = "configs/admin_config.yaml"
-	}
-
-	if apiConfigPath == "" {
-		apiConfigPath = "configs/api_config.yaml"
 	}
 }
 

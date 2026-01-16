@@ -120,10 +120,7 @@ Start instantly with Docker Compose:
 docker-compose up -d
 ```
 
-👉 Access admin UI at: [http://localhost:8080](http://localhost:8080)
-
-![pixiu-admin.png](./docs/images/pixiu-admin.png)
-
+👉 Access admin UI at: [http://localhost:3000](http://localhost:3000)
 
 ## Other Projects in the Dubbo-Go-Pixiu Ecosystem
 
