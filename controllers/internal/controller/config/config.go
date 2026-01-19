@@ -33,7 +33,16 @@ const (
 	DefaultLogLevel         = "info"
 	DefaultMetricsAddr      = ":8080"
 	DefaultProbeAddr        = ":8081"
+	DefaultGatewayImage     = "mfordjody/pixiugateway:debug"
+	DefaultImagePullPolicy  = "Always"
 )
+
+// ValidImagePullPolicies contains all valid Kubernetes ImagePullPolicy values
+var ValidImagePullPolicies = map[string]bool{
+	"Always":       true,
+	"IfNotPresent": true,
+	"Never":        true,
+}
 
 type Config struct {
 	LogLevel         string          `json:"log_level" yaml:"log_level"`
@@ -44,6 +53,15 @@ type Config struct {
 	ProbeAddr        string          `json:"probe_addr" yaml:"probe_addr"`
 	SecureMetrics    bool            `json:"secure_metrics" yaml:"secure_metrics"`
 	LeaderElection   *LeaderElection `json:"leader_election" yaml:"leader_election"`
+	Gateway          *GatewayConfig  `json:"gateway" yaml:"gateway"`
+}
+
+// GatewayConfig contains configuration for the Pixiu Gateway data plane
+type GatewayConfig struct {
+	// Image is the container image for the Pixiu Gateway
+	Image string `json:"image" yaml:"image"`
+	// ImagePullPolicy defines when to pull the container image
+	ImagePullPolicy string `json:"image_pull_policy" yaml:"image_pull_policy"`
 }
 
 type LeaderElection struct {
@@ -65,7 +83,34 @@ func NewDefaultConfig() *Config {
 		ProbeAddr:        DefaultProbeAddr,
 		MetricsAddr:      DefaultMetricsAddr,
 		LeaderElection:   NewLeaderElection(),
+		Gateway:          NewDefaultGatewayConfig(),
 	}
+}
+
+// NewDefaultGatewayConfig returns default gateway configuration
+func NewDefaultGatewayConfig() *GatewayConfig {
+	return &GatewayConfig{
+		Image:           DefaultGatewayImage,
+		ImagePullPolicy: DefaultImagePullPolicy,
+	}
+}
+
+// ValidateImagePullPolicy checks if the given policy is a valid Kubernetes ImagePullPolicy.
+// Returns the validated policy or the default if invalid.
+func ValidateImagePullPolicy(policy string) string {
+	if policy == "" {
+		return DefaultImagePullPolicy
+	}
+	if ValidImagePullPolicies[policy] {
+		return policy
+	}
+	// Invalid policy, return default
+	return DefaultImagePullPolicy
+}
+
+// IsValidImagePullPolicy checks if the given policy is valid
+func IsValidImagePullPolicy(policy string) bool {
+	return ValidImagePullPolicies[policy]
 }
 
 func NewLeaderElection() *LeaderElection {

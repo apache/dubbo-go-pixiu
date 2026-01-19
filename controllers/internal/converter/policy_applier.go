@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -647,7 +648,8 @@ func mergeFilterConfig(filter *NetworkFilter, configMap map[string]interface{}, 
 			filter.Config = configMap
 		}
 	default:
-		// For other filter types, replace config
+		// For other filter types, log a warning and replace config
+		log.Printf("[WARN] mergeFilterConfig: unsupported filter type %q, replacing config instead of merging", filterType)
 		filter.Config = configMap
 	}
 	return nil
