@@ -15,29 +15,23 @@ static_resources:
                   - match:
                       prefix: "/v1/chat/completions"
                     route:
-                      cluster: "sglang_cluster"
+                      cluster: "mock_adapter"
                       cluster_not_found_response_code: 503
               http_filters:
                 - name: dgp.filter.ai.kvcache
                   config:
                     enabled: true
-                    backend: redis
-                    engine_type: sglang
-                    redis:
-                      cluster_mode: false
-                      addrs:
-                        - "127.0.0.1:6379"
-                      password: ""
-                      key_prefix: "pixiu:sglang:kvcache"
-                      pool_size: 100
+                    backend: "noop"
+                    default_use_cache: true
+                    default_mode: "reuse"
+                    drop_client_headers: true
                     cache_key:
                       include_model: true
                       include_session_id: true
-                      include_prompt: true
-                    default_ttl: 3600s
+                      include_prompt: false
+                    default_ttl: 60s
                     target_models:
-                      - "meta-llama/Llama-3.1-8B-Instruct"
-                      - "Qwen/Qwen2.5-7B-Instruct"
+                      - "test-model"
                 - name: dgp.filter.llm.proxy
                   config:
                     timeout: 60s
@@ -48,13 +42,13 @@ static_resources:
         write_timeout: 300s
 
   clusters:
-    - name: sglang_cluster
+    - name: mock_adapter
       lb_policy: round_robin
       endpoints:
-        - id: sglang-instance-1
+        - id: mock-adapter-1
           socket_address:
             address: "127.0.0.1"
-            port: 30000
+            port: 18080
           llm_meta:
             retry_policy:
               name: "NoRetry"
