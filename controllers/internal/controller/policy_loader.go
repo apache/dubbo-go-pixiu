@@ -93,9 +93,8 @@ func (pl *PolicyLoader) LoadFilterPolicies(ctx context.Context, httpRoute *gatew
 	return policies, nil
 }
 
-// LoadClusterPolicy loads PixiuClusterPolicy for a Service
-// This is kept for backward compatibility but may not be used with the new serviceRef format
-func (pl *PolicyLoader) LoadClusterPolicy(ctx context.Context, namespace, serviceName string) (*v1alpha1.PixiuClusterPolicy, error) {
+// loadClusterPolicyByName is a shared implementation for loading cluster policies by service/cluster name
+func (pl *PolicyLoader) loadClusterPolicyByName(ctx context.Context, namespace, name string) (*v1alpha1.PixiuClusterPolicy, error) {
 	var policyList v1alpha1.PixiuClusterPolicyList
 	if err := pl.client.List(ctx, &policyList, client.InNamespace(namespace)); err != nil {
 		return nil, fmt.Errorf("failed to list cluster policies: %w", err)
@@ -104,7 +103,7 @@ func (pl *PolicyLoader) LoadClusterPolicy(ctx context.Context, namespace, servic
 	// Search through all policies and their serviceRef entries
 	for _, policy := range policyList.Items {
 		for _, serviceConfig := range policy.Spec.ServiceRef {
-			if serviceConfig.Name == serviceName {
+			if serviceConfig.Name == name {
 				return &policy, nil
 			}
 		}
@@ -113,24 +112,16 @@ func (pl *PolicyLoader) LoadClusterPolicy(ctx context.Context, namespace, servic
 	return nil, nil
 }
 
+// LoadClusterPolicy loads PixiuClusterPolicy for a Service
+// This is kept for backward compatibility but may not be used with the new serviceRef format
+func (pl *PolicyLoader) LoadClusterPolicy(ctx context.Context, namespace, serviceName string) (*v1alpha1.PixiuClusterPolicy, error) {
+	return pl.loadClusterPolicyByName(ctx, namespace, serviceName)
+}
+
 // LoadClusterPolicyByClusterName loads PixiuClusterPolicy by cluster name
 // This searches through serviceRef entries to find matching service name
 func (pl *PolicyLoader) LoadClusterPolicyByClusterName(ctx context.Context, namespace, clusterName string) (*v1alpha1.PixiuClusterPolicy, error) {
-	var policyList v1alpha1.PixiuClusterPolicyList
-	if err := pl.client.List(ctx, &policyList, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list cluster policies: %w", err)
-	}
-
-	// Search through all policies and their serviceRef entries
-	for _, policy := range policyList.Items {
-		for _, serviceConfig := range policy.Spec.ServiceRef {
-			if serviceConfig.Name == clusterName {
-				return &policy, nil
-			}
-		}
-	}
-
-	return nil, nil
+	return pl.loadClusterPolicyByName(ctx, namespace, clusterName)
 }
 
 // LoadAllClusterPolicies loads all PixiuClusterPolicy in a namespace

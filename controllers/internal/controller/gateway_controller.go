@@ -31,6 +31,7 @@ import (
 import (
 	"controllers/api/v1alpha1"
 
+	"controllers/internal/controller/config"
 	"controllers/internal/controller/status"
 
 	"controllers/internal/converter"
@@ -669,8 +670,8 @@ func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewa
 					Containers: []corev1.Container{
 						{
 							Name:            "pixiu",
-							Image:           "mfordjody/pixiugateway:debug",
-							ImagePullPolicy: "Always",
+							Image:           config.ControllerConfig.Gateway.Image,
+							ImagePullPolicy: corev1.PullPolicy(config.ValidateImagePullPolicy(config.ControllerConfig.Gateway.ImagePullPolicy)),
 							Args: []string{
 								"gateway",
 								"start",
