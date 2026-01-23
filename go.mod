@@ -7,10 +7,10 @@ require (
 	dubbo.apache.org/dubbo-go/v3 v3.3.1
 	github.com/IBM/sarama v1.45.1
 	github.com/MicahParks/keyfunc v1.0.0
+	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/apache/dubbo-getty v1.4.10
 	github.com/apache/dubbo-go-hessian2 v1.12.5
-	github.com/cch123/supermonkey v1.0.1
 	github.com/creasty/defaults v1.5.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dubbogo/go-zookeeper v1.0.4-0.20211212162352-f9d2183d89d5
@@ -62,6 +62,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.44.0
 	golang.org/x/net v0.47.0
+	golang.org/x/sync v0.18.0
 	google.golang.org/grpc v1.66.2
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
@@ -251,7 +252,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.20.0 // indirect
 	golang.org/x/mod v0.30.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.12.0 // indirect

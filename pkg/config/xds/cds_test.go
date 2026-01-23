@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/cch123/supermonkey"
+	"github.com/agiledragon/gomonkey/v2"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
@@ -98,12 +98,11 @@ func TestCdsManager_Fetch(t *testing.T) {
 	clusterMg := mocks.NewMockClusterManager(ctrl)
 	//var deltaResult chan *apiclient.DeltaResources
 	//var deltaErr error
-	supermonkey.Patch((*apiclient.GrpcExtensionApiClient).Fetch, func(_ *apiclient.GrpcExtensionApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
+	patches := gomonkey.ApplyMethod(&apiclient.GrpcExtensionApiClient{}, "Fetch", func(_ *apiclient.GrpcExtensionApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
 		return fetchResult, fetchError
 	})
-	//supermonkey.Patch(server.GetClusterManager, func() *server.ClusterManager {
-	//	return nil
-	//})
+	defer patches.Reset()
+
 	clusterMg.EXPECT().HasCluster(gomock.Any()).DoAndReturn(func(clusterName string) bool {
 		_, ok := cluster[clusterName]
 		return ok
@@ -140,7 +139,6 @@ func TestCdsManager_Fetch(t *testing.T) {
 	//supermonkey.Patch((*apiclient.GrpcExtensionApiClient).Delta, func(_ *apiclient.GrpcExtensionApiClient) (chan *apiclient.DeltaResources, error) {
 	//	return deltaResult, deltaErr
 	//})
-	defer supermonkey.UnpatchAll()
 
 	tests := []struct {
 		name              string

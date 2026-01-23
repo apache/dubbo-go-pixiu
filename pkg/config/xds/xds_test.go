@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	monkey "github.com/cch123/supermonkey"
+	"github.com/agiledragon/gomonkey/v2"
 
 	"github.com/golang/mock/gomock"
 
@@ -69,39 +69,23 @@ func TestAdapter_createApiManager(t *testing.T) {
 
 	var state = connectivity.Ready
 	gconn := &grpc.ClientConn{}
-	monkey.Patch(grpc.DialContext, func(ctx context.Context, target string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+	patches := gomonkey.ApplyFunc(grpc.DialContext, func(ctx context.Context, target string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 		fmt.Println("***** DialContext")
 		return gconn, nil
 	})
-	monkey.Patch((*grpc.ClientConn).Close, func(_ *grpc.ClientConn) error {
+	defer patches.Reset()
+
+	patches.ApplyMethod(&grpc.ClientConn{}, "Close", func(_ *grpc.ClientConn) error {
 		return nil
 	})
-	monkey.Patch((*grpc.ClientConn).GetState, func(_ *grpc.ClientConn) connectivity.State {
+	patches.ApplyMethod(&grpc.ClientConn{}, "GetState", func(_ *grpc.ClientConn) connectivity.State {
 		return state
 	})
-	//monkey.Patch(server.GetDynamicResourceManager, func() server.DynamicResourceManager {
-	//	return &server.DynamicResourceManagerImpl{}
-	//})
-	//monkey.Patch((*server.DynamicResourceManagerImpl).GetLds, func(_ *server.DynamicResourceManagerImpl) *model.ApiConfigSource {
-	//	return &apiConfig
-	//})
-	//monkey.Patch((*server.DynamicResourceManagerImpl).GetCds, func(_ *server.DynamicResourceManagerImpl) *model.ApiConfigSource {
-	//	return &apiConfig
-	//})
-	//monkey.Patch(server.GetClusterManager, func() *server.ClusterManager {
-	//	return nil
-	//})
-	//monkey.Patch((*server.ClusterManager).CloneStore, func(_ *server.ClusterManager) (*server.ClusterStore, error) {
-	//	return &server.ClusterStore{
-	//		Config:  []*model.Cluster{cluster},
-	//		Version: 1,
-	//	}, nil
-	//})
 
-	monkey.Patch((*apiclient.GrpcExtensionApiClient).Fetch, func(_ *apiclient.GrpcExtensionApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
+	patches.ApplyMethod(&apiclient.GrpcExtensionApiClient{}, "Fetch", func(_ *apiclient.GrpcExtensionApiClient, localVersion string) ([]*apiclient.ProtoAny, error) {
 		return nil, nil
 	})
-	monkey.Patch((*apiclient.GrpcExtensionApiClient).Delta, func(_ *apiclient.GrpcExtensionApiClient) (chan *apiclient.DeltaResources, error) {
+	patches.ApplyMethod(&apiclient.GrpcExtensionApiClient{}, "Delta", func(_ *apiclient.GrpcExtensionApiClient) (chan *apiclient.DeltaResources, error) {
 		ch := make(chan *apiclient.DeltaResources)
 		close(ch)
 		return ch, nil
@@ -123,8 +107,6 @@ func TestAdapter_createApiManager(t *testing.T) {
 		//clusterMg.EXPECT().HasCluster("cluster-2").Return(false)
 		apiclient.Init(clusterMg)
 	}
-
-	defer monkey.UnpatchAll()
 
 	ada := Xds{
 		clusterMg: clusterMg,
