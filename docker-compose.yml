@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
     container_name: pixiu_admin_pixiu_gateway
     ports:
-      - "9888:8888"
+      - "8888:8888"
     volumes:
       - ./configs/pixiu_with_admin_config.yaml:/etc/pixiu/conf.yaml  # Mount the custom config file
       - ./configs/log.yml:/etc/pixiu/log.yml  # Mount log configuration if needed
@@ -81,7 +81,7 @@ services:
     volumes:
       - .:/app
     ports:
-      - "9081:8081"
+      - "8081:8081"
     command: >
       sh -c "
         curl -sS http://pixiu_admin_etcd:2379/health || exit 1 &&
@@ -104,7 +104,7 @@ services:
     volumes:
       - ./admin/web:/app/web
     ports:
-      - "9080:8080"
+      - "8080:8080"
     environment:
       - VUE_APP_BACKEND_URL=http://pixiu_admin_go_backend:8081
     command: >
