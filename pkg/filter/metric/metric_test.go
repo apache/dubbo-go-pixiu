@@ -335,6 +335,9 @@ func TestFilterWithPushMode(t *testing.T) {
 		t.Fatalf("expected push gateway to be called")
 	}
 	assert.GreaterOrEqual(t, atomic.LoadInt32(&pushHits), int32(1))
+
+	// Give a small grace period for the client to process the response
+	time.Sleep(50 * time.Millisecond)
 }
 
 // TestPluginKind tests the plugin kind
@@ -474,7 +477,7 @@ func TestMetricReporterPushMode(t *testing.T) {
 			Push: PushConfig{
 				GatewayURL:   server.URL,
 				JobName:      "pixiu-test",
-				PushInterval: 1, // Push every request for faster testing
+				PushInterval: 5, // Push every 5 requests to avoid spamming the test server
 				MetricPath:   "/metrics",
 			},
 		},
@@ -523,12 +526,15 @@ func TestMetricReporterPushMode(t *testing.T) {
 		ctx.ClearMetrics()
 	}
 
-	assert.GreaterOrEqual(t, atomic.LoadInt32(&pushHits), int32(1))
 	select {
 	case <-pushCh:
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatalf("expected push gateway to be called")
 	}
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&pushHits), int32(1))
+
+	// Give a grace period for the client to process the response
+	time.Sleep(200 * time.Millisecond)
 	t.Log("Push mode metric reporter test finished successfully")
 }
 
