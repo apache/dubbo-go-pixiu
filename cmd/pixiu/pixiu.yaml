@@ -15,23 +15,46 @@ static_resources:
                   - match:
                       prefix: "/v1/chat/completions"
                     route:
-                      cluster: "mock_adapter"
+                      cluster: "vllm_cluster"
                       cluster_not_found_response_code: 503
               http_filters:
+                # KV Cache Filter
                 - name: dgp.filter.ai.kvcache
                   config:
                     enabled: true
-                    backend: "noop"
-                    default_use_cache: true
-                    default_mode: "reuse"
-                    drop_client_headers: true
-                    cache_key:
-                      include_model: true
-                      include_session_id: true
-                      include_prompt: false
-                    default_ttl: 60s
-                    target_models:
-                      - "test-model"
+                    vllm_endpoint: "http://127.0.0.1:8000"
+                    lmcache_endpoint: "http://127.0.0.1:8080"
+                    default_model: "demo"
+                    request_timeout: 2s
+                    max_idle_conns: 100
+                    max_idle_conns_per_host: 50
+                    max_conns_per_host: 100
+                    token_cache:
+                      enabled: true
+                      max_size: 10000
+                      ttl: 5m
+                    cache_strategy:
+                      enable_compression: true
+                      enable_pinning: true
+                      enable_eviction: true
+                      memory_threshold: 0.8
+                      hot_content_threshold: 100
+                      load_threshold: 0.7
+                      pin_instance_id: "lmcache_default_instance"
+                      pin_location: "LocalCPUBackend"
+                      compress_instance_id: "lmcache_default_instance"
+                      compress_location: "LocalCPUBackend"
+                      evict_instance_id: "lmcache_default_instance"
+                    circuit_breaker:
+                      failure_threshold: 5
+                      recovery_timeout: 10s
+                      half_open_max_calls: 2
+                    retry:
+                      max_attempts: 3
+                      base_backoff: 100ms
+                      max_backoff: 2s
+
+                # LLM Proxy
                 - name: dgp.filter.llm.proxy
                   config:
                     timeout: 60s
@@ -42,13 +65,13 @@ static_resources:
         write_timeout: 300s
 
   clusters:
-    - name: mock_adapter
+    - name: vllm_cluster
       lb_policy: round_robin
       endpoints:
-        - id: mock-adapter-1
+        - id: vllm-instance-1
           socket_address:
             address: "127.0.0.1"
-            port: 18080
+            port: 8000
           llm_meta:
             retry_policy:
               name: "NoRetry"

@@ -18,82 +18,115 @@
 package kvcache
 
 import (
-	"strings"
+	"context"
+	"net/http"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-type Filter struct {
-	cfg   *Config
-	store *RedisStore
+import "github.com/go-resty/resty/v2"
+
+const (
+	Kind = constant.AIKVCacheFilter
+)
+
+func init() {
+	filter.RegisterHttpFilter(&Plugin{})
+}
+
+type (
+	Plugin struct{}
+
+	FilterFactory struct {
+		cfg        *Config
+		httpClient *http.Client
+		resty      *resty.Client
+	}
+
+	Filter struct {
+		cfg           *Config
+		tokenManager  *TokenManager
+		lmcacheClient *LMCacheClient
+		cacheStrategy *CacheStrategy
+	}
+)
+
+func (p *Plugin) Kind() string { return Kind }
+
+func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return &FilterFactory{cfg: &Config{}}, nil
+}
+
+func (factory *FilterFactory) Config() any { return factory.cfg }
+
+func (factory *FilterFactory) Apply() error {
+	factory.cfg.ApplyDefaults()
+	if err := factory.cfg.Validate(); err != nil {
+		return err
+	}
+	cfg := factory.cfg
+	factory.httpClient = &http.Client{
+		Timeout: cfg.RequestTimeout,
+		Transport: &http.Transport{
+			MaxIdleConns:        cfg.MaxIdleConns,
+			MaxIdleConnsPerHost: cfg.MaxIdleConnsPerHost,
+			MaxConnsPerHost:     cfg.MaxConnsPerHost,
+		},
+	}
+	factory.resty = resty.NewWithClient(factory.httpClient).
+		SetTimeout(cfg.RequestTimeout)
+	return nil
+}
+
+func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain filter.FilterChain) error {
+	cfgCopy := factory.cfg.DeepCopy()
+	cbToken := NewCircuitBreaker(cfgCopy.CircuitBreaker)
+	cbLMCache := NewCircuitBreaker(cfgCopy.CircuitBreaker)
+	tokenManager := NewTokenManager(cfgCopy.VLLMEndpoint, factory.resty, cfgCopy.TokenCache, cbToken)
+	lmcacheClient := NewLMCacheClient(cfgCopy.LMCacheEndpoint, factory.resty, cfgCopy.Retry, cbLMCache)
+	cacheStrategy := NewCacheStrategy(cfgCopy.CacheStrategy, lmcacheClient)
+
+	f := &Filter{
+		cfg:           cfgCopy,
+		tokenManager:  tokenManager,
+		lmcacheClient: lmcacheClient,
+		cacheStrategy: cacheStrategy,
+	}
+	chain.AppendDecodeFilters(f)
+	return nil
 }
 
 func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	if f.cfg == nil || !f.cfg.Enabled {
 		return filter.Continue
 	}
-	incomingSessionID := strings.TrimSpace(hc.Request.Header.Get(HeaderSessionID))
-	if f.cfg.DropClientHeaders != nil && *f.cfg.DropClientHeaders {
-		stripIncomingHeaders(hc.Request.Header)
+	if f.cacheStrategy != nil {
+		f.cacheStrategy.RecordRequest()
 	}
-
-	sessionID, generated := generateSessionID(incomingSessionID)
-	if generated {
-		hc.AddHeader(HeaderSessionID, sessionID)
-	}
-
-	modelName := getModels(hc.Request.URL, f.cfg.TargetModels)
-	if !modelAllowed(modelName, f.cfg.TargetModels) {
+	body, err := readRequestBody(hc.Request)
+	if err != nil {
+		logger.Warnf("[KVCache] read request body failed: %v", err)
 		return filter.Continue
 	}
-
-	policy := defaultPolicy(f.cfg)
-	ctx := getContext(hc)
-	if sessionID != "" && f.store != nil {
-		stored, err := f.store.GetPolicy(ctx, sessionID, policy)
-		if err != nil {
-			logger.Warnf("[dubbo-go-pixiu] kvcache redis get policy failed: %v", err)
-		} else {
-			policy = stored
-		}
-	}
-
-	mode := resolveMode(policy)
-
-	if f.cfg.CacheKey.IncludeSessionID {
-		hc.Request.Header.Set(HeaderSessionID, sessionID)
-	}
-	if f.cfg.CacheKey.IncludeModel && modelName != "" {
-		hc.Request.Header.Set(HeaderModel, modelName)
-	}
-	if mode != "" {
-		hc.Request.Header.Set(HeaderCacheMode, mode)
-	}
-
-	storeContextValue(hc, ctxSessionIDKey, sessionID)
-	storeContextValue(hc, ctxCacheModeKey, mode)
-	storeContextValue(hc, ctxModelKey, modelName)
-
-	return filter.Continue
-}
-
-func (f *Filter) Encode(hc *contexthttp.HttpContext) filter.FilterStatus {
-	if f.cfg == nil || !f.cfg.Enabled {
+	prompt, model, err := extractPromptAndModel(body)
+	if err != nil {
+		logger.Warnf("[KVCache] parse request body failed: %v", err)
 		return filter.Continue
 	}
-	sessionID, _ := getContextValue(hc, ctxSessionIDKey).(string)
-	if sessionID == "" || f.store == nil {
+	if prompt == "" {
 		return filter.Continue
 	}
-	mode, _ := getContextValue(hc, ctxCacheModeKey).(string)
-	result := resolveCacheResult(readResponseHeader(hc, HeaderCacheHit))
-	if result == "" {
-		return filter.Continue
+	if model == "" {
+		model = f.cfg.DefaultModel
 	}
-	if err := f.store.UpdateStats(getContext(hc), sessionID, result, mode); err != nil {
-		logger.Warnf("[dubbo-go-pixiu] kvcache redis update stats failed: %v", err)
-	}
+	ctx, cancel := context.WithTimeout(hc.Ctx, effectiveTimeout(hc, f.cfg))
+	go func() {
+		defer cancel()
+		f.manageCache(ctx, model, prompt)
+	}()
 	return filter.Continue
 }

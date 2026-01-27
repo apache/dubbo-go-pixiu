@@ -1,73 +1,119 @@
 package kvcache
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
-	"net/url"
 	"strings"
+	"time"
 
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/hashicorp/go-uuid"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-func stripIncomingHeaders(headers http.Header) {
-	headers.Del(HeaderSessionID)
-	headers.Del(HeaderCacheMode)
-	headers.Del(HeaderModel)
-	headers.Del(HeaderCacheHit)
-	headers.Del(HeaderCacheDetail)
-	headers.Del(HeaderPolicy)
-}
-
-func generateSessionID(existing string) (string, bool) {
-	if existing != "" {
-		return existing, false
-	}
-	id, err := uuid.GenerateUUID()
+func (f *Filter) manageCache(ctx context.Context, model string, prompt string) {
+	tokens, err := f.tokenManager.GetTokens(ctx, model, prompt)
 	if err != nil {
-		return "", false
+		logger.Warnf("[KVCache] tokenize failed: %v", err)
+		return
 	}
-	return id, true
+	cacheStatus, err := f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
+	if err != nil {
+		logger.Warnf("[KVCache] lookup failed: %v", err)
+		return
+	}
+	decision := f.cacheStrategy.MakeDecision(ctx, cacheStatus)
+	if err := f.cacheStrategy.ExecuteDecision(ctx, decision, tokens); err != nil {
+		logger.Warnf("[KVCache] execute strategy failed: %v", err)
+	}
 }
 
-func getModels(u *url.URL, targets []string) string {
-	if len(targets) == 1 {
-		return targets[0]
+func readRequestBody(req *http.Request) ([]byte, error) {
+	if req == nil || req.Body == nil {
+		return nil, nil
 	}
-	if u == nil {
+	if req.GetBody != nil {
+		reader, err := req.GetBody()
+		if err == nil {
+			defer reader.Close()
+			return io.ReadAll(reader)
+		}
+	}
+	bodyBytes, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	req.Body.Close()
+	req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(bodyBytes)), nil
+	}
+	return bodyBytes, nil
+}
+
+func extractPromptAndModel(body []byte) (string, string, error) {
+	if len(body) == 0 {
+		return "", "", nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "", "", err
+	}
+	model, _ := payload["model"].(string)
+	prompt := coercePrompt(payload["prompt"])
+	if prompt == "" {
+		prompt = extractPromptFromMessages(payload["messages"])
+	}
+	return strings.TrimSpace(prompt), model, nil
+}
+
+func coercePrompt(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case []any:
+		parts := make([]string, 0, len(v))
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				parts = append(parts, str)
+			}
+		}
+		return strings.Join(parts, "\n")
+	default:
 		return ""
 	}
-	model := strings.TrimSpace(u.Query().Get("model"))
-	return model
 }
 
-func readResponseHeader(hc *contexthttp.HttpContext, key string) string {
-	if hc == nil {
+func extractPromptFromMessages(value any) string {
+	msgs, ok := value.([]any)
+	if !ok {
 		return ""
 	}
-	if resp, ok := hc.SourceResp.(*http.Response); ok && resp != nil {
-		return resp.Header.Get(key)
+	parts := make([]string, 0, len(msgs))
+	for _, msg := range msgs {
+		msgMap, ok := msg.(map[string]any)
+		if !ok {
+			continue
+		}
+		if content, ok := msgMap["content"].(string); ok {
+			parts = append(parts, content)
+		}
 	}
-	return hc.Writer.Header().Get(key)
+	return strings.Join(parts, "\n")
 }
 
-func storeContextValue(hc *contexthttp.HttpContext, key string, value any) {
-	if hc.Params == nil {
-		hc.Params = make(map[string]any)
+func effectiveTimeout(hc *contexthttp.HttpContext, cfg *Config) time.Duration {
+	if cfg == nil {
+		return 0
 	}
-	hc.Params[key] = value
-}
-
-func getContextValue(hc *contexthttp.HttpContext, key string) any {
-	if hc.Params == nil {
-		return nil
+	timeout := cfg.RequestTimeout
+	if hc != nil && hc.Timeout > 0 && (timeout <= 0 || hc.Timeout < timeout) {
+		timeout = hc.Timeout
 	}
-	return hc.Params[key]
-}
-
-func getContext(hc *contexthttp.HttpContext) context.Context {
-	if hc != nil && hc.Ctx != nil {
-		return hc.Ctx
+	if timeout <= 0 {
+		return 2 * time.Second
 	}
-	return context.Background()
+	return timeout
 }
