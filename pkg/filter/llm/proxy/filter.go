@@ -98,6 +98,18 @@ type (
 	}
 )
 
+func getPreferredEndpointID(hc *contexthttp.HttpContext) string {
+	if hc == nil || hc.Params == nil {
+		return ""
+	}
+	val, ok := hc.Params[constant.LLMPreferredEndpointID]
+	if !ok {
+		return ""
+	}
+	endpointID, _ := val.(string)
+	return endpointID
+}
+
 // Kind returns the unique name of this filter.
 func (p *Plugin) Kind() string {
 	return Kind
@@ -265,6 +277,11 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 	// 1. Pick initial endpoint from the cluster based on load balancing.
 	endpoint := executor.clusterManager.PickEndpoint(executor.clusterName, executor.hc)
+	if preferred := getPreferredEndpointID(executor.hc); preferred != "" {
+		if target := executor.clusterManager.GetEndpointByID(executor.clusterName, preferred); target != nil {
+			endpoint = target
+		}
+	}
 
 	// 2. The main fallback loop. It continues as long as we have a valid endpoint to try.
 	for endpoint != nil {

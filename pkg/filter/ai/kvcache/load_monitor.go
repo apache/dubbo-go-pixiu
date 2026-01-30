@@ -23,11 +23,6 @@ import (
 	"time"
 )
 
-var (
-	monitorOnce   sync.Once
-	globalMonitor *LoadMonitor
-)
-
 type LoadMonitor struct {
 	window time.Duration
 	last   time.Time
@@ -37,13 +32,10 @@ type LoadMonitor struct {
 }
 
 func NewLoadMonitor() *LoadMonitor {
-	monitorOnce.Do(func() {
-		globalMonitor = &LoadMonitor{
-			window: time.Second,
-			last:   time.Now(),
-		}
-	})
-	return globalMonitor
+	return &LoadMonitor{
+		window: time.Second,
+		last:   time.Now(),
+	}
 }
 
 func (lm *LoadMonitor) RecordRequest() {

@@ -91,8 +91,10 @@ func (cb *CircuitBreaker) recordResult(err error) {
 
 	if err == nil {
 		cb.failureCount = 0
-		cb.state = CircuitClosed
-		cb.halfOpenCalls = 0
+		if cb.state == CircuitHalfOpen || cb.state == CircuitOpen {
+			cb.state = CircuitClosed
+			cb.halfOpenCalls = 0
+		}
 		return
 	}
 

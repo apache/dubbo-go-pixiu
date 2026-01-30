@@ -23,6 +23,7 @@ type CacheStrategy struct {
 	config        CacheStrategyConfig
 	loadMonitor   *LoadMonitor
 	lmcacheClient *LMCacheClient
+	tokenManager  *TokenManager
 }
 
 type StrategyDecision struct {
@@ -32,11 +33,12 @@ type StrategyDecision struct {
 	Reason         string
 }
 
-func NewCacheStrategy(cfg CacheStrategyConfig, client *LMCacheClient) *CacheStrategy {
+func NewCacheStrategy(cfg CacheStrategyConfig, client *LMCacheClient, tokenManager *TokenManager) *CacheStrategy {
 	return &CacheStrategy{
 		config:        cfg,
 		loadMonitor:   NewLoadMonitor(),
 		lmcacheClient: client,
+		tokenManager:  tokenManager,
 	}
 }
 
@@ -47,7 +49,7 @@ func (cs *CacheStrategy) RecordRequest() {
 	cs.loadMonitor.RecordRequest()
 }
 
-func (cs *CacheStrategy) MakeDecision(_ context.Context, cacheStatus *LookupResponse) *StrategyDecision {
+func (cs *CacheStrategy) MakeDecision(_ context.Context, cacheStatus *LookupResponse, model string, prompt string) *StrategyDecision {
 	if cs == nil {
 		return &StrategyDecision{}
 	}
@@ -63,7 +65,8 @@ func (cs *CacheStrategy) MakeDecision(_ context.Context, cacheStatus *LookupResp
 		decision.ShouldEvict = true
 		decision.Reason = "memory_threshold"
 	}
-	if cs.config.EnablePinning && isHotContent(cacheStatus, cs.config.HotContentThreshold) {
+	if cs.config.EnablePinning && cs.tokenManager != nil &&
+		cs.tokenManager.IsHot(model, prompt, cs.config.HotContentThreshold) {
 		decision.ShouldPin = true
 		decision.Reason = "hot_content"
 	}
@@ -104,16 +107,4 @@ func (cs *CacheStrategy) ExecuteDecision(ctx context.Context, decision *Strategy
 		}
 	}
 	return nil
-}
-
-func isHotContent(cacheStatus *LookupResponse, threshold int) bool {
-	if cacheStatus == nil || threshold <= 0 {
-		return false
-	}
-	for _, layout := range cacheStatus.LayoutInfo {
-		if layout.TokenCount >= threshold {
-			return true
-		}
-	}
-	return false
 }

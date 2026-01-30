@@ -86,9 +86,9 @@ func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, cha
 	cfgCopy := factory.cfg.DeepCopy()
 	cbToken := NewCircuitBreaker(cfgCopy.CircuitBreaker)
 	cbLMCache := NewCircuitBreaker(cfgCopy.CircuitBreaker)
-	tokenManager := NewTokenManager(cfgCopy.VLLMEndpoint, factory.resty, cfgCopy.TokenCache, cbToken)
+	tokenManager := NewTokenManager(cfgCopy.VLLMEndpoint, factory.resty, cfgCopy.TokenCache, cbToken, cfgCopy.HotWindow, cfgCopy.HotMaxRecords)
 	lmcacheClient := NewLMCacheClient(cfgCopy.LMCacheEndpoint, factory.resty, cfgCopy.Retry, cbLMCache)
-	cacheStrategy := NewCacheStrategy(cfgCopy.CacheStrategy, lmcacheClient)
+	cacheStrategy := NewCacheStrategy(cfgCopy.CacheStrategy, lmcacheClient, tokenManager)
 
 	f := &Filter{
 		cfg:           cfgCopy,
@@ -123,10 +123,48 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	if model == "" {
 		model = f.cfg.DefaultModel
 	}
+
+	f.tokenManager.RecordHot(model, prompt)
+
+	cacheStatus, routed := f.tryRouteToCachedInstance(hc, model, prompt)
+
 	ctx, cancel := context.WithTimeout(hc.Ctx, effectiveTimeout(hc, f.cfg))
 	go func() {
 		defer cancel()
-		f.manageCache(ctx, model, prompt)
+		f.manageCache(ctx, model, prompt, body, cacheStatus, routed)
 	}()
 	return filter.Continue
+}
+
+func (f *Filter) tryRouteToCachedInstance(hc *contexthttp.HttpContext, model string, prompt string) (*LookupResponse, bool) {
+	if f == nil || f.tokenManager == nil || f.lmcacheClient == nil {
+		return nil, false
+	}
+	tokens, ok := f.tokenManager.GetCachedTokens(model, prompt)
+	if !ok || len(tokens) == 0 {
+		logger.Debugf("[KVCache] routing lookup skipped: token cache miss")
+		return nil, false
+	}
+	timeout := effectiveTimeout(hc, f.cfg)
+	if f.cfg != nil && f.cfg.LookupRoutingTimeout > 0 && f.cfg.LookupRoutingTimeout < timeout {
+		timeout = f.cfg.LookupRoutingTimeout
+	}
+	ctx, cancel := context.WithTimeout(hc.Ctx, timeout)
+	defer cancel()
+	cacheStatus, err := f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
+	if err != nil {
+		logger.Debugf("[KVCache] routing lookup failed: %v", err)
+		return nil, false
+	}
+	instanceID := selectPreferredInstanceID(cacheStatus)
+	if instanceID == "" {
+		logger.Debugf("[KVCache] routing lookup returned empty instance")
+		return cacheStatus, false
+	}
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[constant.LLMPreferredEndpointID] = instanceID
+	logger.Debugf("[KVCache] routing preferred endpoint set: %s", instanceID)
+	return cacheStatus, true
 }

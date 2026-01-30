@@ -24,18 +24,21 @@ import (
 )
 
 type Config struct {
-	Enabled             bool                 `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
-	VLLMEndpoint        string               `yaml:"vllm_endpoint" json:"vllm_endpoint" mapstructure:"vllm_endpoint"`
-	LMCacheEndpoint     string               `yaml:"lmcache_endpoint" json:"lmcache_endpoint" mapstructure:"lmcache_endpoint"`
-	DefaultModel        string               `yaml:"default_model" json:"default_model" mapstructure:"default_model"`
-	RequestTimeout      time.Duration        `yaml:"request_timeout" json:"request_timeout" mapstructure:"request_timeout"`
-	MaxIdleConns        int                  `yaml:"max_idle_conns" json:"max_idle_conns" mapstructure:"max_idle_conns"`
-	MaxIdleConnsPerHost int                  `yaml:"max_idle_conns_per_host" json:"max_idle_conns_per_host" mapstructure:"max_idle_conns_per_host"`
-	MaxConnsPerHost     int                  `yaml:"max_conns_per_host" json:"max_conns_per_host" mapstructure:"max_conns_per_host"`
-	TokenCache          TokenCacheConfig     `yaml:"token_cache" json:"token_cache" mapstructure:"token_cache"`
-	CacheStrategy       CacheStrategyConfig  `yaml:"cache_strategy" json:"cache_strategy" mapstructure:"cache_strategy"`
-	CircuitBreaker      CircuitBreakerConfig `yaml:"circuit_breaker" json:"circuit_breaker" mapstructure:"circuit_breaker"`
-	Retry               RetryConfig          `yaml:"retry" json:"retry" mapstructure:"retry"`
+	Enabled              bool                 `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
+	VLLMEndpoint         string               `yaml:"vllm_endpoint" json:"vllm_endpoint" mapstructure:"vllm_endpoint"`
+	LMCacheEndpoint      string               `yaml:"lmcache_endpoint" json:"lmcache_endpoint" mapstructure:"lmcache_endpoint"`
+	DefaultModel         string               `yaml:"default_model" json:"default_model" mapstructure:"default_model"`
+	RequestTimeout       time.Duration        `yaml:"request_timeout" json:"request_timeout" mapstructure:"request_timeout"`
+	LookupRoutingTimeout time.Duration        `yaml:"lookup_routing_timeout" json:"lookup_routing_timeout" mapstructure:"lookup_routing_timeout"`
+	HotWindow            time.Duration        `yaml:"hot_window" json:"hot_window" mapstructure:"hot_window"`
+	HotMaxRecords        int                  `yaml:"hot_max_records" json:"hot_max_records" mapstructure:"hot_max_records"`
+	MaxIdleConns         int                  `yaml:"max_idle_conns" json:"max_idle_conns" mapstructure:"max_idle_conns"`
+	MaxIdleConnsPerHost  int                  `yaml:"max_idle_conns_per_host" json:"max_idle_conns_per_host" mapstructure:"max_idle_conns_per_host"`
+	MaxConnsPerHost      int                  `yaml:"max_conns_per_host" json:"max_conns_per_host" mapstructure:"max_conns_per_host"`
+	TokenCache           TokenCacheConfig     `yaml:"token_cache" json:"token_cache" mapstructure:"token_cache"`
+	CacheStrategy        CacheStrategyConfig  `yaml:"cache_strategy" json:"cache_strategy" mapstructure:"cache_strategy"`
+	CircuitBreaker       CircuitBreakerConfig `yaml:"circuit_breaker" json:"circuit_breaker" mapstructure:"circuit_breaker"`
+	Retry                RetryConfig          `yaml:"retry" json:"retry" mapstructure:"retry"`
 }
 
 type TokenCacheConfig struct {
@@ -74,12 +77,45 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.LMCacheEndpoint) == "" {
 		return fmt.Errorf("kvcache: lmcache_endpoint is required when enabled")
 	}
+	if c.TokenCache.MaxSize < 0 {
+		return fmt.Errorf("kvcache: token_cache.max_size must be >= 0")
+	}
+	if c.CacheStrategy.MemoryThreshold < 0 || c.CacheStrategy.MemoryThreshold > 1 {
+		return fmt.Errorf("kvcache: cache_strategy.memory_threshold must be between 0 and 1")
+	}
+	if c.CacheStrategy.LoadThreshold < 0 || c.CacheStrategy.LoadThreshold > 1 {
+		return fmt.Errorf("kvcache: cache_strategy.load_threshold must be between 0 and 1")
+	}
+	if c.CacheStrategy.HotContentThreshold < 0 {
+		return fmt.Errorf("kvcache: cache_strategy.hot_content_threshold must be >= 0")
+	}
+	if c.Retry.MaxAttempts < 0 {
+		return fmt.Errorf("kvcache: retry.max_attempts must be >= 0")
+	}
+	if c.Retry.BaseBackoff < 0 || c.Retry.MaxBackoff < 0 {
+		return fmt.Errorf("kvcache: retry backoff durations must be >= 0")
+	}
+	if c.HotWindow < 0 {
+		return fmt.Errorf("kvcache: hot_window must be >= 0")
+	}
+	if c.HotMaxRecords < 0 {
+		return fmt.Errorf("kvcache: hot_max_records must be >= 0")
+	}
 	return nil
 }
 
 func (c *Config) ApplyDefaults() {
 	if c.RequestTimeout <= 0 {
 		c.RequestTimeout = 2 * time.Second
+	}
+	if c.LookupRoutingTimeout <= 0 {
+		c.LookupRoutingTimeout = 50 * time.Millisecond
+	}
+	if c.HotWindow <= 0 {
+		c.HotWindow = 5 * time.Minute
+	}
+	if c.HotMaxRecords <= 0 {
+		c.HotMaxRecords = 300
 	}
 	if c.Retry.MaxAttempts <= 0 {
 		c.Retry.MaxAttempts = 3

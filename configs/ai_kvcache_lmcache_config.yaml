@@ -75,7 +75,3 @@ static_resources:
           socket_address:
             address: "vllm-service"
             port: 8000
-        - id: vllm-instance-2
-          socket_address:
-            address: "vllm-service"
-            port: 8001

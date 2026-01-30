@@ -1,42 +1,71 @@
 static_resources:
   listeners:
     - name: "ai-gateway-listener"
-      protocol: HTTP
+      protocol_type: "HTTP"
       address:
         socket_address:
           address: "0.0.0.0"
           port: 8888
       filter_chains:
-        - filters:
-            # KV Cache Filter
-            - name: dgp.filter.ai.kvcache
-              config:
-                enabled: true
-                backend: redis
-                engine_type: sglang  # 指定推理引擎
-                redis:
-                  cluster_mode: true
-                  addrs:
-                    - "redis-cluster-node-1:6379"
-                    - "redis-cluster-node-2:6379"
-                    - "redis-cluster-node-3:6379"
-                  password: "your_redis_password"
-                  key_prefix: "pixiu:sglang:kvcache"
-                  pool_size: 100
-                cache_key:
-                  include_model: true
-                  include_session_id: true
-                  include_prompt: true
-                default_ttl: 3600s
-                target_models:
-                  - "meta-llama/Llama-3.1-8B-Instruct"
-                  - "Qwen/Qwen2.5-7B-Instruct"
+        filters:
+          - name: dgp.filter.httpconnectionmanager
+            config:
+              route_config:
+                routes:
+                  - match:
+                      prefix: "/v1/chat/completions"
+                    route:
+                      cluster: "sglang_cluster"
+                      cluster_not_found_response_code: 503
+              http_filters:
+                # KV Cache Filter
+                - name: dgp.filter.ai.kvcache
+                  config:
+                    enabled: true
+                    vllm_endpoint: "http://sglang-service:30000"
+                    lmcache_endpoint: "http://lmcache-controller:8080"
+                    default_model: "meta-llama/Llama-3.1-8B-Instruct"
+                    request_timeout: 2s
+                    lookup_routing_timeout: 50ms
+                    hot_window: 5m
+                    hot_max_records: 300
+                    max_idle_conns: 100
+                    max_idle_conns_per_host: 50
+                    max_conns_per_host: 100
+                    token_cache:
+                      enabled: true
+                      max_size: 10000
+                      ttl: 5m
+                    cache_strategy:
+                      enable_compression: true
+                      enable_pinning: true
+                      enable_eviction: true
+                      memory_threshold: 0.8
+                      hot_content_threshold: 100
+                      load_threshold: 0.7
+                      pin_instance_id: "lmcache_default_instance"
+                      pin_location: "LocalCPUBackend"
+                      compress_instance_id: "lmcache_default_instance"
+                      compress_location: "LocalCPUBackend"
+                      evict_instance_id: "lmcache_default_instance"
+                    circuit_breaker:
+                      failure_threshold: 5
+                      recovery_timeout: 10s
+                      half_open_max_calls: 2
+                    retry:
+                      max_attempts: 3
+                      base_backoff: 100ms
+                      max_backoff: 2s
 
-            # LLM Proxy
-            - name: dgp.filter.llm.proxy
-              config:
-                timeout: 60s
-                scheme: http
+                # LLM Proxy
+                - name: dgp.filter.llm.proxy
+                  config:
+                    timeout: 60s
+                    scheme: http
+      config:
+        idle_timeout: 5s
+        read_timeout: 300s
+        write_timeout: 300s
 
   clusters:
     - name: sglang_cluster

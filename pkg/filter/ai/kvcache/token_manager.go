@@ -25,9 +25,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-import "github.com/go-resty/resty/v2"
+	"github.com/go-resty/resty/v2"
+)
 
 type TokenManager struct {
 	httpClient     *resty.Client
@@ -39,6 +39,11 @@ type TokenManager struct {
 	cacheSize int64
 	hitCount  int64
 	missCount int64
+
+	hotWindow time.Duration
+	hotMax    int
+	hotMu     sync.Mutex
+	hotMap    map[string][]time.Time
 }
 
 type TokenizeRequest struct {
@@ -57,16 +62,19 @@ type tokenCacheEntry struct {
 	expiresAt time.Time
 }
 
-func NewTokenManager(endpoint string, httpClient *resty.Client, cfg TokenCacheConfig, cb *CircuitBreaker) *TokenManager {
+func NewTokenManager(endpoint string, httpClient *resty.Client, cfg TokenCacheConfig, cb *CircuitBreaker, hotWindow time.Duration, hotMax int) *TokenManager {
 	return &TokenManager{
 		httpClient:     httpClient,
 		endpoint:       endpoint,
 		config:         cfg,
 		circuitBreaker: cb,
+		hotWindow:      hotWindow,
+		hotMax:         hotMax,
+		hotMap:         make(map[string][]time.Time),
 	}
 }
 
-func (tm *TokenManager) GetTokens(ctx context.Context, model string, prompt string) ([]int, error) {
+func (tm *TokenManager) GetTokens(ctx context.Context, model string, prompt string, rawBody []byte) ([]int, error) {
 	cacheKey := tm.cacheKey(model, prompt)
 	if tm.config.Enabled {
 		if tokens, ok := tm.loadCache(cacheKey); ok {
@@ -76,28 +84,7 @@ func (tm *TokenManager) GetTokens(ctx context.Context, model string, prompt stri
 		atomic.AddInt64(&tm.missCount, 1)
 	}
 
-	var tokens []int
-	err := tm.execute(ctx, func() error {
-		reqBody := TokenizeRequest{Model: model, Prompt: prompt}
-		tokenizeURL := strings.TrimRight(tm.endpoint, "/") + "/tokenize"
-		resp, err := tm.httpClient.R().
-			SetContext(ctx).
-			SetHeader("Content-Type", "application/json").
-			SetBody(reqBody).
-			Post(tokenizeURL)
-		if err != nil {
-			return fmt.Errorf("call tokenize: %w", err)
-		}
-		if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
-			return fmt.Errorf("tokenize status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body())))
-		}
-		var tokenResp TokenizeResponse
-		if err := json.Unmarshal(resp.Body(), &tokenResp); err != nil {
-			return fmt.Errorf("decode tokenize response: %w", err)
-		}
-		tokens = tokenResp.Tokens
-		return nil
-	})
+	tokens, err := tm.tokenize(ctx, model, prompt, rawBody)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +93,20 @@ func (tm *TokenManager) GetTokens(ctx context.Context, model string, prompt stri
 		tm.storeCache(cacheKey, tokens)
 	}
 	return tokens, nil
+}
+
+func (tm *TokenManager) GetCachedTokens(model string, prompt string) ([]int, bool) {
+	if !tm.config.Enabled {
+		return nil, false
+	}
+	cacheKey := tm.cacheKey(model, prompt)
+	tokens, ok := tm.loadCache(cacheKey)
+	if ok {
+		atomic.AddInt64(&tm.hitCount, 1)
+	} else {
+		atomic.AddInt64(&tm.missCount, 1)
+	}
+	return tokens, ok
 }
 
 func (tm *TokenManager) InvalidateCache(model string, prompt string) {
@@ -131,6 +132,105 @@ func (tm *TokenManager) GetCacheStats() CacheStats {
 		HitCount:  hit,
 		MissCount: miss,
 	}
+}
+
+func (tm *TokenManager) tokenize(ctx context.Context, model string, prompt string, rawBody []byte) ([]int, error) {
+	var tokens []int
+	err := tm.execute(ctx, func() error {
+		body, err := tm.buildTokenizeBody(model, prompt, rawBody)
+		if err != nil {
+			return err
+		}
+		resp, err := tm.doTokenizeRequest(ctx, body)
+		if err != nil {
+			return err
+		}
+		tokens = resp.Tokens
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tokens, nil
+}
+
+func (tm *TokenManager) buildTokenizeBody(model string, prompt string, rawBody []byte) (any, error) {
+	if len(rawBody) > 0 {
+		return rawBody, nil
+	}
+	return TokenizeRequest{Model: model, Prompt: prompt}, nil
+}
+
+func (tm *TokenManager) doTokenizeRequest(ctx context.Context, body any) (*TokenizeResponse, error) {
+	tokenizeURL := strings.TrimRight(tm.endpoint, "/") + "/tokenize"
+	resp, err := tm.httpClient.R().
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetBody(body).
+		Post(tokenizeURL)
+	if err != nil {
+		return nil, fmt.Errorf("call tokenize: %w", err)
+	}
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+		return nil, fmt.Errorf("tokenize status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body())))
+	}
+	var tokenResp TokenizeResponse
+	if err := json.Unmarshal(resp.Body(), &tokenResp); err != nil {
+		return nil, fmt.Errorf("decode tokenize response: %w", err)
+	}
+	return &tokenResp, nil
+}
+
+func (tm *TokenManager) RecordHot(model string, prompt string) {
+	if tm == nil || tm.hotWindow <= 0 || model == "" || prompt == "" {
+		return
+	}
+	now := time.Now()
+	key := tm.cacheKey(model, prompt)
+	tm.hotMu.Lock()
+	defer tm.hotMu.Unlock()
+	entries := tm.hotMap[key]
+	entries = append(entries, now)
+	entries = trimHotWindow(entries, now, tm.hotWindow)
+	if tm.hotMax > 0 && len(entries) > tm.hotMax {
+		entries = entries[len(entries)-tm.hotMax:]
+	}
+	tm.hotMap[key] = entries
+}
+
+func (tm *TokenManager) IsHot(model string, prompt string, threshold int) bool {
+	if tm == nil || tm.hotWindow <= 0 || threshold <= 0 || model == "" || prompt == "" {
+		return false
+	}
+	now := time.Now()
+	key := tm.cacheKey(model, prompt)
+	tm.hotMu.Lock()
+	defer tm.hotMu.Unlock()
+	entries := tm.hotMap[key]
+	if len(entries) == 0 {
+		return false
+	}
+	entries = trimHotWindow(entries, now, tm.hotWindow)
+	if tm.hotMax > 0 && len(entries) > tm.hotMax {
+		entries = entries[len(entries)-tm.hotMax:]
+	}
+	tm.hotMap[key] = entries
+	return len(entries) >= threshold
+}
+
+func trimHotWindow(entries []time.Time, now time.Time, window time.Duration) []time.Time {
+	if window <= 0 || len(entries) == 0 {
+		return entries
+	}
+	cutoff := now.Add(-window)
+	idx := 0
+	for idx < len(entries) && entries[idx].Before(cutoff) {
+		idx++
+	}
+	if idx == 0 {
+		return entries
+	}
+	return append([]time.Time(nil), entries[idx:]...)
 }
 
 func (tm *TokenManager) execute(ctx context.Context, operation func() error) error {

@@ -13,18 +13,29 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-func (f *Filter) manageCache(ctx context.Context, model string, prompt string) {
-	tokens, err := f.tokenManager.GetTokens(ctx, model, prompt)
+func (f *Filter) manageCache(ctx context.Context, model string, prompt string, rawBody []byte, cacheStatus *LookupResponse, lookupDone bool) {
+	if ctx.Err() != nil {
+		return
+	}
+	tokens, err := f.tokenManager.GetTokens(ctx, model, prompt, rawBody)
 	if err != nil {
 		logger.Warnf("[KVCache] tokenize failed: %v", err)
 		return
 	}
-	cacheStatus, err := f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
-	if err != nil {
-		logger.Warnf("[KVCache] lookup failed: %v", err)
+	if ctx.Err() != nil {
 		return
 	}
-	decision := f.cacheStrategy.MakeDecision(ctx, cacheStatus)
+	if !lookupDone || cacheStatus == nil {
+		cacheStatus, err = f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
+		if err != nil {
+			logger.Warnf("[KVCache] lookup failed: %v", err)
+			return
+		}
+	}
+	decision := f.cacheStrategy.MakeDecision(ctx, cacheStatus, model, prompt)
+	if ctx.Err() != nil {
+		return
+	}
 	if err := f.cacheStrategy.ExecuteDecision(ctx, decision, tokens); err != nil {
 		logger.Warnf("[KVCache] execute strategy failed: %v", err)
 	}
@@ -102,6 +113,23 @@ func extractPromptFromMessages(value any) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func selectPreferredInstanceID(resp *LookupResponse) string {
+	if resp == nil || len(resp.LayoutInfo) == 0 {
+		return ""
+	}
+	var (
+		selected string
+		maxCount int
+	)
+	for instanceID, layout := range resp.LayoutInfo {
+		if layout.TokenCount > maxCount || selected == "" {
+			selected = instanceID
+			maxCount = layout.TokenCount
+		}
+	}
+	return selected
 }
 
 func effectiveTimeout(hc *contexthttp.HttpContext, cfg *Config) time.Duration {
