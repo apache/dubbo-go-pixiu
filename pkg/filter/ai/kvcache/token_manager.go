@@ -195,6 +195,10 @@ func (tm *TokenManager) RecordHot(model string, prompt string) {
 	if tm.hotMax > 0 && len(entries) > tm.hotMax {
 		entries = entries[len(entries)-tm.hotMax:]
 	}
+	if len(entries) == 0 {
+		delete(tm.hotMap, key)
+		return
+	}
 	tm.hotMap[key] = entries
 }
 
@@ -213,6 +217,10 @@ func (tm *TokenManager) IsHot(model string, prompt string, threshold int) bool {
 	entries = trimHotWindow(entries, now, tm.hotWindow)
 	if tm.hotMax > 0 && len(entries) > tm.hotMax {
 		entries = entries[len(entries)-tm.hotMax:]
+	}
+	if len(entries) == 0 {
+		delete(tm.hotMap, key)
+		return false
 	}
 	tm.hotMap[key] = entries
 	return len(entries) >= threshold

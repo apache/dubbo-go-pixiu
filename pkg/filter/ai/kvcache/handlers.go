@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -144,4 +145,37 @@ func effectiveTimeout(hc *contexthttp.HttpContext, cfg *Config) time.Duration {
 		return 2 * time.Second
 	}
 	return timeout
+}
+
+func (f *Filter) tryRouteToCachedInstance(hc *contexthttp.HttpContext, model string, prompt string) (*LookupResponse, bool) {
+	if f == nil || f.tokenManager == nil || f.lmcacheClient == nil {
+		return nil, false
+	}
+	tokens, ok := f.tokenManager.GetCachedTokens(model, prompt)
+	if !ok || len(tokens) == 0 {
+		logger.Debugf("[KVCache] routing lookup skipped: token cache miss")
+		return nil, false
+	}
+	timeout := effectiveTimeout(hc, f.cfg)
+	if f.cfg != nil && f.cfg.LookupRoutingTimeout > 0 && f.cfg.LookupRoutingTimeout < timeout {
+		timeout = f.cfg.LookupRoutingTimeout
+	}
+	ctx, cancel := context.WithTimeout(hc.Ctx, timeout)
+	defer cancel()
+	cacheStatus, err := f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
+	if err != nil {
+		logger.Debugf("[KVCache] routing lookup failed: %v", err)
+		return nil, false
+	}
+	instanceID := selectPreferredInstanceID(cacheStatus)
+	if instanceID == "" {
+		logger.Debugf("[KVCache] routing lookup returned empty instance")
+		return cacheStatus, false
+	}
+	if hc.Params == nil {
+		hc.Params = make(map[string]any)
+	}
+	hc.Params[constant.LLMPreferredEndpointID] = instanceID
+	logger.Debugf("[KVCache] routing preferred endpoint set: %s", instanceID)
+	return cacheStatus, true
 }
