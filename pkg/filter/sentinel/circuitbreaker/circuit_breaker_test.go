@@ -21,20 +21,15 @@ import (
 	stdHttp "net/http"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	pkgs "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel"
 )
 
