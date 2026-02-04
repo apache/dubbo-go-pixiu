@@ -18,6 +18,7 @@
 package circuitbreaker
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -29,6 +30,8 @@ import (
 )
 
 import (
+	"github.com/alibaba/sentinel-golang/core/base"
+
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -39,6 +42,8 @@ import (
 const (
 	Kind         = constant.HTTPCircuitBreakerFilter
 	Segmentation = "@"
+	// ContextKeySentinelEntry is the key to store Sentinel entry in HttpContext
+	ContextKeySentinelEntry = "sentinel_entry"
 )
 
 func init() {
@@ -77,9 +82,11 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
+// deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	chain.AppendDecodeFilters(&Filter{cfg: factory.cfg.DeepCopy(), matcher: factory.matcher})
+	f := &Filter{cfg: factory.cfg.DeepCopy(), matcher: factory.matcher}
+	chain.AppendDecodeFilters(f)
+	chain.AppendEncodeFilters(f)
 	return nil
 }
 
@@ -101,7 +108,40 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
+
+	// Store entry in context for later use in Encode phase
+	if ctx.Params == nil {
+		ctx.Params = make(map[string]any)
+	}
+	ctx.Params[ContextKeySentinelEntry] = entry
+
+	return filter.Continue
+}
+
+// Encode processes the response and reports statistics to Sentinel
+func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus {
+	entryVal, ok := ctx.Params[ContextKeySentinelEntry]
+	if !ok {
+		// No entry in context, skip
+		return filter.Continue
+	}
+
+	entry, ok := entryVal.(*base.SentinelEntry)
+	if !ok || entry == nil {
+		logger.Warnf("Invalid sentinel entry type in context")
+		return filter.Continue
+	}
+
+	// Ensure entry.Exit() is called
 	defer entry.Exit()
+
+	// Report error to Sentinel if response indicates failure
+	// Consider 5xx status codes as errors for circuit breaker
+	statusCode := ctx.GetStatusCode()
+	if statusCode >= 500 && statusCode < 600 {
+		entry.SetError(errors.New("backend service error"))
+	}
+
 	return filter.Continue
 }
 

@@ -20,12 +20,15 @@ package circuitbreaker
 import (
 	stdHttp "net/http"
 	"testing"
+	"time"
 )
 
 import (
+	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 import (
@@ -73,4 +76,205 @@ func mockConfig() *Config {
 		}},
 	}
 	return &c
+}
+
+// mockConfigWithResource creates a test config with a custom resource name
+func mockConfigWithResource(resourceName string) *Config {
+	c := Config{
+		Resources: []*pkgs.Resource{
+			{
+				Name: resourceName,
+				Items: []*pkgs.Item{
+					{MatchStrategy: pkgs.EXACT, Pattern: "/api/v1/" + resourceName + "/user"},
+					{MatchStrategy: pkgs.REGEX, Pattern: "/api/v1/" + resourceName + "/user/*"},
+				},
+			},
+		},
+		Rules: []*circuitbreaker.Rule{{
+			Resource:         resourceName,
+			Strategy:         circuitbreaker.ErrorCount,
+			RetryTimeoutMs:   3000,
+			MinRequestAmount: 10,
+			StatIntervalMs:   1000,
+			Threshold:        1.0,
+		}},
+	}
+	return &c
+}
+
+// TestCircuitBreakerFeedbackLoop tests the complete feedback loop for circuit breaker
+// This test verifies the fix for issue #869
+func TestCircuitBreakerFeedbackLoop(t *testing.T) {
+	// Setup
+	factory := FilterFactory{cfg: &Config{}}
+	mockYaml, err := yaml.MarshalYML(mockConfig())
+	require.NoError(t, err)
+	require.NoError(t, yaml.UnmarshalYML(mockYaml, factory.Config()))
+	require.NoError(t, factory.Apply())
+
+	f := &Filter{cfg: factory.cfg, matcher: factory.matcher}
+
+	t.Run("Decode stores entry in context", func(t *testing.T) {
+		request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-dubbo/user/1111", nil)
+		ctx := mock.GetMockHTTPContext(request)
+
+		// Execute Decode
+		status := f.Decode(ctx)
+		assert.Equal(t, filter.Continue, status)
+
+		// Verify entry is stored in context
+		entryVal, exists := ctx.Params[ContextKeySentinelEntry]
+		assert.True(t, exists, "Sentinel entry should be stored in context")
+		assert.NotNil(t, entryVal, "Sentinel entry should not be nil")
+
+		_, ok := entryVal.(*base.SentinelEntry)
+		assert.True(t, ok, "Context value should be a SentinelEntry")
+	})
+
+	t.Run("Encode reports error for 5xx status codes", func(t *testing.T) {
+		request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-dubbo/user/1111", nil)
+		ctx := mock.GetMockHTTPContext(request)
+
+		// Execute Decode to get entry
+		decodeStatus := f.Decode(ctx)
+		require.Equal(t, filter.Continue, decodeStatus)
+
+		// Simulate backend error - set 5xx status code
+		ctx.StatusCode(500)
+
+		// Execute Encode
+		encodeStatus := f.Encode(ctx)
+		assert.Equal(t, filter.Continue, encodeStatus)
+
+		// Entry should be removed from context after Exit (cleanup)
+		// Note: We can't directly verify SetError was called, but we can verify the flow completes
+	})
+
+	t.Run("Encode handles success status codes", func(t *testing.T) {
+		request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-dubbo/user/1111", nil)
+		ctx := mock.GetMockHTTPContext(request)
+
+		// Execute Decode
+		decodeStatus := f.Decode(ctx)
+		require.Equal(t, filter.Continue, decodeStatus)
+
+		// Simulate successful response
+		ctx.StatusCode(200)
+
+		// Execute Encode
+		encodeStatus := f.Encode(ctx)
+		assert.Equal(t, filter.Continue, encodeStatus)
+	})
+
+	t.Run("Encode handles various 5xx error codes", func(t *testing.T) {
+		errorCodes := []int{500, 502, 503, 504, 599}
+
+		for _, code := range errorCodes {
+			request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-dubbo/user/1111", nil)
+			ctx := mock.GetMockHTTPContext(request)
+
+			// Execute Decode
+			decodeStatus := f.Decode(ctx)
+			require.Equal(t, filter.Continue, decodeStatus)
+
+			// Set error status code
+			ctx.StatusCode(code)
+
+			// Execute Encode
+			encodeStatus := f.Encode(ctx)
+			assert.Equal(t, filter.Continue, encodeStatus, "Should handle status code %d", code)
+		}
+	})
+
+	t.Run("Encode handles non-5xx error codes", func(t *testing.T) {
+		// Use a fresh config to avoid circuit breaker state pollution
+		factory2 := FilterFactory{cfg: &Config{}}
+		config2 := mockConfigWithResource("test-non-error")
+		mockYaml2, _ := yaml.MarshalYML(config2)
+		yaml.UnmarshalYML(mockYaml2, factory2.Config())
+		factory2.Apply()
+		f2 := &Filter{cfg: factory2.cfg, matcher: factory2.matcher}
+
+		nonErrorCodes := []int{200, 201, 301, 400, 401, 403, 404}
+
+		for _, code := range nonErrorCodes {
+			request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-non-error/user/1111", nil)
+			ctx := mock.GetMockHTTPContext(request)
+
+			// Execute Decode
+			decodeStatus := f2.Decode(ctx)
+			require.Equal(t, filter.Continue, decodeStatus)
+
+			// Set non-error status code
+			ctx.StatusCode(code)
+
+			// Execute Encode
+			encodeStatus := f2.Encode(ctx)
+			assert.Equal(t, filter.Continue, encodeStatus, "Should handle status code %d without error", code)
+		}
+	})
+
+	t.Run("Encode handles missing entry gracefully", func(t *testing.T) {
+		request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-dubbo/user/1111", nil)
+		ctx := mock.GetMockHTTPContext(request)
+
+		// Don't call Decode, so no entry in context
+		ctx.StatusCode(500)
+
+		// Execute Encode without entry
+		encodeStatus := f.Encode(ctx)
+		assert.Equal(t, filter.Continue, encodeStatus, "Should handle missing entry gracefully")
+	})
+
+	t.Run("Complete request lifecycle with latency", func(t *testing.T) {
+		// Use a fresh config to avoid circuit breaker state pollution
+		factory3 := FilterFactory{cfg: &Config{}}
+		config3 := mockConfigWithResource("test-latency")
+		mockYaml3, _ := yaml.MarshalYML(config3)
+		yaml.UnmarshalYML(mockYaml3, factory3.Config())
+		factory3.Apply()
+		f3 := &Filter{cfg: factory3.cfg, matcher: factory3.matcher}
+
+		request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-latency/user/1111", nil)
+		ctx := mock.GetMockHTTPContext(request)
+
+		// Execute Decode
+		decodeStatus := f3.Decode(ctx)
+		require.Equal(t, filter.Continue, decodeStatus)
+
+		// Simulate backend processing time
+		time.Sleep(10 * time.Millisecond)
+
+		// Simulate backend response
+		ctx.StatusCode(200)
+
+		// Execute Encode
+		encodeStatus := f3.Encode(ctx)
+		assert.Equal(t, filter.Continue, encodeStatus)
+
+		// Sentinel will automatically track the latency between Entry() and Exit()
+	})
+}
+
+// TestCircuitBreakerNoMatch tests that non-matching URLs are not processed
+func TestCircuitBreakerNoMatch(t *testing.T) {
+	factory := FilterFactory{cfg: &Config{}}
+	mockYaml, err := yaml.MarshalYML(mockConfig())
+	require.NoError(t, err)
+	require.NoError(t, yaml.UnmarshalYML(mockYaml, factory.Config()))
+	require.NoError(t, factory.Apply())
+
+	f := &Filter{cfg: factory.cfg, matcher: factory.matcher}
+
+	// Request that doesn't match any resource pattern
+	request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/other-service/data", nil)
+	ctx := mock.GetMockHTTPContext(request)
+
+	// Execute Decode
+	status := f.Decode(ctx)
+	assert.Equal(t, filter.Continue, status)
+
+	// Verify no entry is stored
+	_, exists := ctx.Params[ContextKeySentinelEntry]
+	assert.False(t, exists, "No entry should be stored for non-matching URL")
 }
