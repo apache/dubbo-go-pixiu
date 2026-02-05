@@ -34,7 +34,19 @@ services:
       - "2380:2380"
     networks:
       - app_network
-
+  # OPA service
+  opa:
+    image: openpolicyagent/opa:latest
+    container_name: pixiu_admin_opa
+    ports:
+      - "8181:8181"
+    networks:
+      - app_network
+    command:
+      - "run"
+      - "--server"
+      - "--addr=:8181"
+      - "--log-level=info"
   mysql_pixiu:
     image: mysql:8
     container_name: pixiu_admin_mysql
