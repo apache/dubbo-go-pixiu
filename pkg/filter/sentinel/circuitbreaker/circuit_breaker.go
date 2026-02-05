@@ -21,16 +21,19 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+)
 
+import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
-	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
-
 	"github.com/alibaba/sentinel-golang/core/base"
+	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
 	sc "github.com/alibaba/sentinel-golang/core/config"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
-
 	pkgs "github.com/apache/dubbo-go-pixiu/pkg/filter/sentinel"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
