@@ -17,7 +17,9 @@
 
 package config
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	DefaultOPAServerURL     = "http://opa:8181"

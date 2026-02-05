@@ -28,13 +28,17 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+)
 
+import (
 	gxetcd "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	perrors "github.com/pkg/errors"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+)
 
+import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"

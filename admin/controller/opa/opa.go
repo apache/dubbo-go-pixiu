@@ -20,11 +20,15 @@ package opa
 import (
 	"net/http"
 	"strings"
+)
 
+import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/pkg/errors"
+)
 
+import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 )
