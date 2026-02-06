@@ -58,6 +58,7 @@ type CacheStrategyConfig struct {
 	PinLocation         string  `yaml:"pin_location" json:"pin_location" mapstructure:"pin_location"`
 	CompressInstanceID  string  `yaml:"compress_instance_id" json:"compress_instance_id" mapstructure:"compress_instance_id"`
 	CompressLocation    string  `yaml:"compress_location" json:"compress_location" mapstructure:"compress_location"`
+	CompressMethod      string  `yaml:"compress_method" json:"compress_method" mapstructure:"compress_method"`
 	EvictInstanceID     string  `yaml:"evict_instance_id" json:"evict_instance_id" mapstructure:"evict_instance_id"`
 }
 
@@ -134,6 +135,9 @@ func (c *Config) ApplyDefaults() {
 	}
 	if c.CircuitBreaker.HalfOpenMaxCalls <= 0 {
 		c.CircuitBreaker.HalfOpenMaxCalls = 2
+	}
+	if c.CacheStrategy.CompressMethod == "" {
+		c.CacheStrategy.CompressMethod = "zstd"
 	}
 }
 

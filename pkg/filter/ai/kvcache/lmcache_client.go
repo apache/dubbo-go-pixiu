@@ -48,6 +48,7 @@ type CompressRequest struct {
 	Tokens     []int  `json:"tokens"`
 	InstanceID string `json:"instance_id"`
 	Location   string `json:"location"`
+	Method     string `json:"method"`
 }
 
 type EvictRequest struct {

@@ -82,6 +82,7 @@ func (cs *CacheStrategy) ExecuteDecision(ctx context.Context, decision *Strategy
 			Tokens:     tokens,
 			InstanceID: cs.config.CompressInstanceID,
 			Location:   cs.config.CompressLocation,
+			Method:     cs.config.CompressMethod,
 		})
 		if err != nil {
 			return err

@@ -41,9 +41,12 @@ type (
 	Plugin struct{}
 
 	FilterFactory struct {
-		cfg        *Config
-		httpClient *http.Client
-		resty      *resty.Client
+		cfg           *Config
+		httpClient    *http.Client
+		resty         *resty.Client
+		tokenManager  *TokenManager
+		lmcacheClient *LMCacheClient
+		cacheStrategy *CacheStrategy
 	}
 
 	Filter struct {
@@ -78,22 +81,21 @@ func (factory *FilterFactory) Apply() error {
 	}
 	factory.resty = resty.NewWithClient(factory.httpClient).
 		SetTimeout(cfg.RequestTimeout)
+
+	cbToken := NewCircuitBreaker(cfg.CircuitBreaker)
+	cbLMCache := NewCircuitBreaker(cfg.CircuitBreaker)
+	factory.tokenManager = NewTokenManager(cfg.VLLMEndpoint, factory.resty, cfg.TokenCache, cbToken, cfg.HotWindow, cfg.HotMaxRecords)
+	factory.lmcacheClient = NewLMCacheClient(cfg.LMCacheEndpoint, factory.resty, cfg.Retry, cbLMCache)
+	factory.cacheStrategy = NewCacheStrategy(cfg.CacheStrategy, factory.lmcacheClient, factory.tokenManager)
 	return nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain filter.FilterChain) error {
-	cfgCopy := factory.cfg.DeepCopy()
-	cbToken := NewCircuitBreaker(cfgCopy.CircuitBreaker)
-	cbLMCache := NewCircuitBreaker(cfgCopy.CircuitBreaker)
-	tokenManager := NewTokenManager(cfgCopy.VLLMEndpoint, factory.resty, cfgCopy.TokenCache, cbToken, cfgCopy.HotWindow, cfgCopy.HotMaxRecords)
-	lmcacheClient := NewLMCacheClient(cfgCopy.LMCacheEndpoint, factory.resty, cfgCopy.Retry, cbLMCache)
-	cacheStrategy := NewCacheStrategy(cfgCopy.CacheStrategy, lmcacheClient, tokenManager)
-
 	f := &Filter{
-		cfg:           cfgCopy,
-		tokenManager:  tokenManager,
-		lmcacheClient: lmcacheClient,
-		cacheStrategy: cacheStrategy,
+		cfg:           factory.cfg,
+		tokenManager:  factory.tokenManager,
+		lmcacheClient: factory.lmcacheClient,
+		cacheStrategy: factory.cacheStrategy,
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
