@@ -25,7 +25,9 @@ import (
 	"time"
 )
 
-import "github.com/go-resty/resty/v2"
+import (
+	"github.com/go-resty/resty/v2"
+)
 
 type LMCacheClient struct {
 	httpClient     *resty.Client

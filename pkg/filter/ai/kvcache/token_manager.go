@@ -25,7 +25,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+)
 
+import (
 	"github.com/go-resty/resty/v2"
 )
 

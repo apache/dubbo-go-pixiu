@@ -17,7 +17,9 @@
 
 package kvcache
 
-import "context"
+import (
+	"context"
+)
 
 type CacheStrategy struct {
 	config        CacheStrategyConfig

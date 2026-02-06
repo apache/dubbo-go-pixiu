@@ -20,13 +20,17 @@ package kvcache
 import (
 	"context"
 	"net/http"
+)
 
+import (
+	"github.com/go-resty/resty/v2"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/go-resty/resty/v2"
 )
 
 const (
