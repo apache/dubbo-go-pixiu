@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/cch123/supermonkey"
+	"github.com/agiledragon/gomonkey/v2"
 
 	"github.com/golang/mock/gomock"
 
@@ -130,17 +130,17 @@ func TestGRPCCluster_GetConnect(t *testing.T) {
 
 	gconn := &grpc.ClientConn{}
 	var state = connectivity.Ready
-	supermonkey.Patch(grpc.DialContext, func(ctx context.Context, target string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+	patches := gomonkey.ApplyFunc(grpc.DialContext, func(ctx context.Context, target string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 		return gconn, nil
 	})
-	supermonkey.Patch((*grpc.ClientConn).Close, func(_ *grpc.ClientConn) error {
+	defer patches.Reset()
+	patches.ApplyMethod(&grpc.ClientConn{}, "Close", func(_ *grpc.ClientConn) error {
 		return nil
 	})
-	supermonkey.Patch((*grpc.ClientConn).GetState, func(_ *grpc.ClientConn) connectivity.State {
+	patches.ApplyMethod(&grpc.ClientConn{}, "GetState", func(_ *grpc.ClientConn) connectivity.State {
 		return state
 	})
 
-	defer supermonkey.UnpatchAll()
 	assert := require.New(t)
 	conn, err := g.GetConnection()
 	assert.NoError(err)

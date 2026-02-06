@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	"github.com/cch123/supermonkey"
+	"github.com/agiledragon/gomonkey/v2"
 
 	"github.com/stretchr/testify/require"
 )
@@ -175,13 +175,14 @@ func Test_createDynamicResourceManger(t *testing.T) {
 		},
 	}
 
-	supermonkey.Patch(xds.StartXdsClient, func(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) xds.Client {
+	patches := gomonkey.ApplyFunc(xds.StartXdsClient, func(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) xds.Client {
 		return nil
 	})
-	supermonkey.Patch((*Server).GetListenerManager, func(_ *Server) *ListenerManager {
+	defer patches.Reset()
+	patches.ApplyMethod(&Server{}, "GetListenerManager", func(_ *Server) *ListenerManager {
 		return nil
 	})
-	supermonkey.Patch((*Server).GetClusterManager, func(_ *Server) *ClusterManager {
+	patches.ApplyMethod(&Server{}, "GetClusterManager", func(_ *Server) *ClusterManager {
 		return nil
 	})
 

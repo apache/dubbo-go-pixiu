@@ -29,10 +29,6 @@ import (
 )
 
 import (
-	pb "dubbo-go-pixiu-benchmark/protocol/grpc/proto"
-
-	"dubbo-go-pixiu-benchmark/test"
-
 	. "github.com/onsi/ginkgo/v2"
 
 	"github.com/onsi/gomega"
@@ -43,18 +39,23 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/api/grpcstub"
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/test"
+)
+
 var (
-	userProviderClient              pb.UserProviderClient
+	benchmarkClient                 grpcstub.BenchmarkServiceClient
 	grpcServerSession, pixiuSession *gexec.Session
 	ctx                             = context.Background()
 )
 
 func TestGRPCCases(t *testing.T) {
 	gomega.RegisterFailHandler(Fail)
-	RunSpecs(t, "test")
+	RunSpecs(t, "gRPC Benchmark Test Suite")
 }
 
-var _ = Describe("grpc protocol performance test", Ordered, func() {
+var _ = Describe("gRPC protocol performance test", Ordered, func() {
 	BeforeAll(func() {
 		var err error
 		test.CurPath, err = os.Getwd()
@@ -71,8 +72,8 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 		prepareGRPCClient()
 	})
 
-	It("grpc protocol performance test", func() {
-		experiment := gmeasure.NewExperiment("grpc protocol performance test")
+	It("gRPC protocol performance test", func() {
+		experiment := gmeasure.NewExperiment("gRPC protocol performance test")
 		AddReportEntry(experiment.Name, experiment)
 
 		experiment.Sample(func(idx int) {
@@ -81,11 +82,10 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 			experiment.MeasureDuration("GetUser", func() {
 				ctxWithTO, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
-				resp, err := userProviderClient.GetUser(ctxWithTO, &pb.GetUserRequest{UserId: 1})
+				resp, err := benchmarkClient.GetUser(ctxWithTO, &grpcstub.GetUserRequest{UserId: 1})
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp).NotTo(gomega.BeNil())
-				gomega.Expect(len(resp.Users), 1)
-				//fmt.Printf("consumer:%+v\n", resp.Users)
+				gomega.Expect(len(resp.Users)).To(gomega.Equal(1))
 			})
 		}, test.SampleConfig)
 
@@ -95,11 +95,10 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 			experiment.MeasureDuration("GetUsers", func() {
 				ctxWithTO, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
-				resp, err := userProviderClient.GetUsers(ctxWithTO, &pb.GetUsersRequest{UserId: []int32{1, 2}})
+				resp, err := benchmarkClient.GetUsers(ctxWithTO, &grpcstub.GetUsersRequest{UserIds: []int32{1, 2}})
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp).NotTo(gomega.BeNil())
-				gomega.Expect(len(resp.Users), 2)
-				//fmt.Printf("consumer:%+v\n", resp.Users)
+				gomega.Expect(len(resp.Users)).To(gomega.Equal(2))
 			})
 		}, test.SampleConfig)
 
@@ -109,37 +108,44 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 			experiment.MeasureDuration("GetUserByName", func() {
 				ctxWithTO, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
-				resp, err := userProviderClient.GetUserByName(ctxWithTO, &pb.GetUserByNameRequest{Name: "Kenway"})
+				resp, err := benchmarkClient.GetUserByName(ctxWithTO, &grpcstub.GetUserByNameRequest{Name: "Kenway"})
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp).NotTo(gomega.BeNil())
-				gomega.Expect(len(resp.Users), 1)
-				//fmt.Printf("consumer:%+v\n", resp.Users)
+				gomega.Expect(len(resp.Users)).To(gomega.Equal(1))
+			})
+		}, test.SampleConfig)
+
+		experiment.Sample(func(idx int) {
+			defer GinkgoRecover()
+
+			experiment.MeasureDuration("SayHello", func() {
+				ctxWithTO, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				resp, err := benchmarkClient.SayHello(ctxWithTO, &grpcstub.HelloRequest{Name: "World"})
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(resp).NotTo(gomega.BeNil())
+				gomega.Expect(resp.Message).To(gomega.Equal("Hello World"))
 			})
 		}, test.SampleConfig)
 	})
 
-	It("pixiu to grpc protocol performance test", func() {
-		experiment := gmeasure.NewExperiment("pixiu to grpc protocol performance test")
+	It("pixiu to gRPC protocol performance test", func() {
+		experiment := gmeasure.NewExperiment("pixiu to gRPC protocol performance test")
 		AddReportEntry(experiment.Name, experiment)
 
-		urlPrefix := "http://localhost:8881/api/v1/provider.UserProvider/"
+		urlPrefix := "http://localhost:8881/api/v1/benchmark.BenchmarkService/"
 
 		experiment.Sample(func(idx int) {
 			defer GinkgoRecover()
 
 			experiment.MeasureDuration("GetUser", func() {
 				url := urlPrefix + "GetUser"
-				data := `
-{
-	"userId": 1
-}
-`
+				data := `{"userId": 1}`
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(resp.Status, 200)
-				//println(string(respBytes))
+				gomega.Expect(resp.StatusCode).To(gomega.Equal(200))
 			})
 		}, test.SampleConfig)
 
@@ -148,17 +154,12 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 
 			experiment.MeasureDuration("GetUsers", func() {
 				url := urlPrefix + "GetUsers"
-				data := `
-{
-	"userId": [1, 2, 3]
-}
-`
+				data := `{"userIds": [1, 2, 3]}`
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(resp.Status, 200)
-				//println(string(respBytes))
+				gomega.Expect(resp.StatusCode).To(gomega.Equal(200))
 			})
 		}, test.SampleConfig)
 
@@ -167,17 +168,26 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 
 			experiment.MeasureDuration("GetUserByName", func() {
 				url := urlPrefix + "GetUserByName"
-				data := `
-{
-	"name": "Kenway"
-}
-`
+				data := `{"name": "Kenway"}`
 				resp, err := http.Post(url, "application/json", strings.NewReader(data))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				_, err = io.ReadAll(resp.Body)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(resp.Status, 200)
-				//println(string(respBytes))
+				gomega.Expect(resp.StatusCode).To(gomega.Equal(200))
+			})
+		}, test.SampleConfig)
+
+		experiment.Sample(func(idx int) {
+			defer GinkgoRecover()
+
+			experiment.MeasureDuration("SayHello", func() {
+				url := urlPrefix + "SayHello"
+				data := `{"name": "World"}`
+				resp, err := http.Post(url, "application/json", strings.NewReader(data))
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				_, err = io.ReadAll(resp.Body)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(resp.StatusCode).To(gomega.Equal(200))
 			})
 		}, test.SampleConfig)
 	})
@@ -190,12 +200,11 @@ var _ = Describe("grpc protocol performance test", Ordered, func() {
 })
 
 func prepareGRPCServer() *gexec.Session {
-	serverProcess, err := gexec.Build("dubbo-go-pixiu-benchmark/protocol/grpc/go-server/cmd")
+	serverProcess, err := gexec.Build("github.com/apache/dubbo-go-pixiu/tools/benchmark/protocol/grpc/go-server/cmd")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	command := exec.Command(serverProcess)
 	session, err := gexec.Start(command, io.Discard, io.Discard)
-	//session, err := gexec.Start(command, os.Stdout, os.Stderr)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return session
@@ -204,5 +213,5 @@ func prepareGRPCServer() *gexec.Session {
 func prepareGRPCClient() {
 	conn, err := grpc.Dial("localhost:50001", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	userProviderClient = pb.NewUserProviderClient(conn)
+	benchmarkClient = grpcstub.NewBenchmarkServiceClient(conn)
 }

@@ -26,38 +26,48 @@ import (
 )
 
 import (
-	"dubbo-go-pixiu-benchmark/protocol/triple/pb/go-server/pkg"
-
-	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+	"dubbo.apache.org/dubbo-go/v3/protocol"
+	"dubbo.apache.org/dubbo-go/v3/server"
 
 	"github.com/dubbogo/gost/log/logger"
-
-	_ "github.com/dubbogo/triple/pkg/triple"
 )
 
-var (
-	survivalTimeout = int(3 * time.Second)
+import (
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/api"
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/protocol/triple/go-server/pkg"
 )
 
 func main() {
-	config.SetProviderService(&pkg.GreeterProvider{})
-	// ------------
-
-	curPath, err := os.Getwd()
+	// Create server using new API
+	srv, err := server.NewServer(
+		server.WithServerProtocol(
+			protocol.WithPort(20000),
+			protocol.WithTriple(),
+		),
+	)
 	if err != nil {
 		panic(err)
 	}
-	curPath = curPath + "/../../../protocol/triple/pb/go-server/conf/dubbogo.yml"
-	if err := config.Load(config.WithPath(curPath)); err != nil {
+
+	// Register BenchmarkService handler
+	if err := api.RegisterBenchmarkServiceHandler(srv, pkg.NewBenchmarkProvider()); err != nil {
 		panic(err)
 	}
+
+	// Start server in goroutine
+	go func() {
+		if err := srv.Serve(); err != nil {
+			logger.Errorf("server serve error: %v", err)
+		}
+	}()
+
+	fmt.Println("triple benchmark server is now running on :20000...")
 	initSignal()
 }
 
 func initSignal() {
 	signals := make(chan os.Signal, 1)
-	// It is not possible to block SIGKILL or syscall.SIGSTOP
 	signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for {
 		sig := <-signals
@@ -66,14 +76,11 @@ func initSignal() {
 		case syscall.SIGHUP:
 			// reload()
 		default:
-			time.Sleep(time.Second * 5)
-			time.AfterFunc(time.Duration(survivalTimeout), func() {
+			time.AfterFunc(3*time.Second, func() {
 				logger.Warnf("app exit now by force...")
 				os.Exit(1)
 			})
-
-			// The program exits normally or timeout forcibly exits.
-			fmt.Println("provider app exit now...")
+			fmt.Println("triple benchmark server exit now...")
 			return
 		}
 	}

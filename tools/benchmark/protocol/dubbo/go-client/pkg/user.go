@@ -88,16 +88,8 @@ func (u *User) JavaClassName() string {
 }
 
 type UserProvider struct {
-	GetUsers func(req []string) ([]*User, error)
-	GetErr   func(ctx context.Context, req *User) (*User, error)
-
-	GetUser func(ctx context.Context, req *User) (*User, error)
-
-	GetUserNew func(ctx context.Context, req1, req2 *User) (*User, error)
-
+	GetUser   func(ctx context.Context, req *User) (*User, error)
 	GetUser0  func(id string, name string) (User, error)
-	GetUser2  func(ctx context.Context, req int32) (*User, error) `dubbo:"getUser"`
-	GetUser3  func() error
+	GetUsers  func(req []string) ([]*User, error)
 	GetGender func(ctx context.Context, i int32) (Gender, error)
-	Echo      func(ctx context.Context, req interface{}) (interface{}, error) // Echo represent EchoFilter will be used
 }
