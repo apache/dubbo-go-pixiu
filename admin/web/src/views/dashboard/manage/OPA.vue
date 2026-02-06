@@ -115,7 +115,7 @@ function registerRegoLanguage(monaco) {
         [/[=><!]=?/, 'operator'],
         [/\"([^\"\\]|\\.)*$/, 'string.invalid'],
         [/\"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
-        [/#.*$/, 'comment'],
+        [/#[^\r\n]*/, 'comment'],
         [/\d+(\.\d+)?/, 'number'],
         [/[;,.]/, 'delimiter']
       ],
@@ -187,8 +187,19 @@ export default {
         policy_id: this.form.policy_id || DEFAULT_POLICY_ID
       })
         .then((res) => {
-          if (res.code === 10001) {
-            let content = res.data || ''
+          if (res) {
+            let content = ''
+            if (res && typeof res === 'object') {
+              if (res.code == 10001) {
+                content = res.data || ''
+              } else if (res.result && typeof res.result.raw === 'string') {
+                content = res.result.raw
+              } else if (typeof res.data === 'string') {
+                content = res.data
+              }
+            } else if (typeof res === 'string') {
+              content = res
+            }
             if (content.trim() === '') {
               this.setEditorValue(DEFAULT_POLICY)
               if (showMessage) {
