@@ -376,3 +376,78 @@ DELETE /config/api/plugin_group/?name=group1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
+
+## 五、OPA 策略
+
+OPA 策略接口会代理请求到 OPA 服务端。未提供 `server_url` 或 `policy_id` 时，会使用默认值（`http://opa:8181` 和 `pixiu-authz`）。
+
+### 5.1 获取 OPA 策略
+
+**请求**：
+
+```http
+GET /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+**Query 参数**：
+
+* `policy_id`: OPA policy id（可选）
+* `server_url`: OPA 服务地址（可选）
+* `bearer_token`: OPA Bearer Token（可选）
+
+**返回**：
+
+```json
+{
+  "code": "10001",
+  "data": "package pixiu.authz\n\ndefault allow := false\n"
+}
+```
+
+若策略不存在，`data` 返回空字符串。
+
+### 5.2 新增或更新 OPA 策略
+
+**请求**：
+
+```http
+PUT /config/api/opa/policy HTTP/1.1
+Host: 127.0.0.1:8080
+Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+cache-control: no-cache
+```
+
+**表单数据**：
+
+```text
+Content-Disposition: form-data; name="policy_id"
+pixiu-authz
+
+Content-Disposition: form-data; name="content"
+package pixiu.authz
+
+default allow := false
+```
+
+可选表单字段：
+
+* `server_url`
+* `bearer_token`
+
+### 5.3 删除 OPA 策略
+
+**请求**：
+
+```http
+DELETE /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+**Query 参数**：
+
+* `policy_id`: OPA policy id（可选）
+* `server_url`: OPA 服务地址（可选）
+* `bearer_token`: OPA Bearer Token（可选）

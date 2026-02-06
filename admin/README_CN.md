@@ -278,6 +278,18 @@ rules:
 
 ![13.png](../docs/images/admin/13.png)
 
+### 管理 OPA 策略配置
+
+#### 配置 OPA 策略
+
+点击 "OPA 策略配置" 菜单，可以修改 `policy_id`，同步 OPA 策略，并在编辑器中编写 Rego 策略内容。
+
+![14.png](../docs/images/admin/14.png)
+
+编辑完成后，点击 "保存" 将策略提交到 OPA；也可以点击 "删除" 删除该策略。
+
+![15.png](../docs/images/admin/15.png)
+
 ## 三、Pixiu 远程配置
 
 ### 启动和配置
@@ -304,4 +316,3 @@ curl -X POST "http://127.0.0.1:8888/api/v1/test-dubbo/user?name=tc"
 ## 许可证
 
 本项目采用 Apache License 2.0 开源许可。
-
