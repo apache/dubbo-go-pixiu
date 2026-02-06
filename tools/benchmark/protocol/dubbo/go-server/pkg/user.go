@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+// Package pkg contains Dubbo protocol specific types with Hessian serialization support.
+// Note: Dubbo protocol uses Hessian serialization which requires Java class name mapping.
+// This is different from gRPC/Triple which use protobuf serialization.
 package pkg
 
 import (
@@ -27,6 +30,7 @@ import (
 	hessian "github.com/apache/dubbo-go-hessian2"
 )
 
+// Gender is a Java enum type for Hessian serialization
 type Gender hessian.JavaEnum
 
 const (
@@ -53,7 +57,6 @@ func (g Gender) String() string {
 	if ok {
 		return s
 	}
-
 	return strconv.Itoa(int(g))
 }
 
@@ -62,20 +65,17 @@ func (g Gender) EnumValue(s string) hessian.JavaEnum {
 	if ok {
 		return v
 	}
-
 	return hessian.InvalidJavaEnum
 }
 
-type (
-	User struct {
-		// !!! Cannot define lowercase names of variable
-		ID   string `hessian:"id"`
-		Name string
-		Age  int32
-		Time time.Time
-		Sex  Gender // notice: java enum Object <--> go string
-	}
-)
+// User is the Dubbo protocol user entity with Hessian serialization support
+type User struct {
+	ID   string `hessian:"id"`
+	Name string
+	Age  int32
+	Time time.Time
+	Sex  Gender
+}
 
 var (
 	DefaultUser = User{
@@ -88,9 +88,9 @@ var (
 
 func init() {
 	userMap["000"] = DefaultUser
-	userMap["001"] = User{ID: "001", Name: "ZhangSheng", Age: 18, Sex: Gender(MAN)}
-	userMap["002"] = User{ID: "002", Name: "Lily", Age: 20, Sex: Gender(WOMAN)}
-	userMap["003"] = User{ID: "113", Name: "Moorse", Age: 30, Sex: Gender(WOMAN)}
+	userMap["001"] = User{ID: "001", Name: "Kenway", Age: 25, Sex: Gender(MAN)}
+	userMap["002"] = User{ID: "002", Name: "Ken", Age: 30, Sex: Gender(MAN)}
+	userMap["003"] = User{ID: "003", Name: "Moorse", Age: 28, Sex: Gender(WOMAN)}
 	for k, v := range userMap {
 		v.Time = time.Now()
 		userMap[k] = v

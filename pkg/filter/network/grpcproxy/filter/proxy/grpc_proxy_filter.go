@@ -35,6 +35,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
+
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 import (
@@ -54,6 +56,17 @@ const (
 	defaultConnectTimeout      = 5 * time.Second
 	defaultMaxMsgSize          = 4 * 1024 * 1024 // 4MB
 	defaultHealthCheckInterval = 30 * time.Second
+	defaultDescriptorCacheTTL  = 5 * time.Minute
+)
+
+// ReflectionMode defines the mode of gRPC reflection
+const (
+	// ReflectionModePassthrough performs transparent binary proxying (default, highest performance)
+	ReflectionModePassthrough = "passthrough"
+	// ReflectionModeReflection uses gRPC reflection to decode/encode messages (content-aware)
+	ReflectionModeReflection = "reflection"
+	// ReflectionModeHybrid tries reflection first, falls back to passthrough on failure
+	ReflectionModeHybrid = "hybrid"
 )
 
 func init() {
@@ -76,13 +89,20 @@ type (
 		KeepAliveTime        time.Duration `yaml:"-" json:"-"`
 		KeepAliveTimeout     time.Duration `yaml:"-" json:"-"`
 		ConnectTimeout       time.Duration `yaml:"-" json:"-"`
+
+		// ReflectionMode: "passthrough" (default), "reflection", or "hybrid"
+		ReflectionMode        string        `yaml:"reflection_mode" json:"reflection_mode" mapstructure:"reflection_mode"`
+		DescriptorCacheTTLStr string        `yaml:"descriptor_cache_ttl" json:"descriptor_cache_ttl" mapstructure:"descriptor_cache_ttl"`
+		DescriptorCacheTTL    time.Duration `yaml:"-" json:"-"`
+		ExtractTripleMetadata bool          `yaml:"extract_triple_metadata" json:"extract_triple_metadata" mapstructure:"extract_triple_metadata"`
 	}
 
 	// Filter implements the gRPC proxy filter
 	Filter struct {
-		Config         *Config
-		clientConnPool sync.Map     // address -> *grpc.ClientConn
-		mu             sync.RWMutex // protects concurrent operations
+		Config            *Config
+		clientConnPool    sync.Map     // address -> *grpc.ClientConn
+		mu                sync.RWMutex // protects concurrent operations
+		reflectionManager *ReflectionManager
 	}
 )
 
@@ -102,8 +122,25 @@ func (p Plugin) CreateFilter(config any) (filter.GrpcFilter, error) {
 	cfg.KeepAliveTime = parseDurationWithDefault(cfg.KeepAliveTimeStr, defaultKeepAliveTime)
 	cfg.KeepAliveTimeout = parseDurationWithDefault(cfg.KeepAliveTimeoutStr, defaultKeepAliveTimeout)
 	cfg.ConnectTimeout = parseDurationWithDefault(cfg.ConnectTimeoutStr, defaultConnectTimeout)
+	cfg.DescriptorCacheTTL = parseDurationWithDefault(cfg.DescriptorCacheTTLStr, defaultDescriptorCacheTTL)
 
-	return &Filter{Config: cfg}, nil
+	// Set default reflection mode if not specified
+	if cfg.ReflectionMode == "" {
+		cfg.ReflectionMode = ReflectionModePassthrough
+	}
+
+	f := &Filter{Config: cfg}
+
+	// Initialize reflection manager if reflection mode is enabled
+	if cfg.ReflectionMode == ReflectionModeReflection || cfg.ReflectionMode == ReflectionModeHybrid {
+		f.reflectionManager = NewReflectionManager(cfg.DescriptorCacheTTL)
+		logger.Infof("gRPC proxy filter initialized with reflection mode: %s, cache TTL: %s",
+			cfg.ReflectionMode, cfg.DescriptorCacheTTL)
+	} else {
+		logger.Infof("gRPC proxy filter initialized with passthrough mode")
+	}
+
+	return f, nil
 }
 
 // Config Expose the config so that Filter Manger can inject it, so it must be a pointer
@@ -160,77 +197,98 @@ func (f *Filter) Handle(ctx *grpcCtx.GrpcContext) filter.FilterStatus {
 
 // handleStream handles all types of gRPC calls by creating a full-duplex stream pipe.
 func (f *Filter) handleStream(ctx *grpcCtx.GrpcContext, address string) filter.FilterStatus {
-	// Get or create connection
 	conn, err := f.getOrCreateConnection(address)
 	if err != nil {
 		ctx.SetError(errors.Errorf("gRPC proxy failed to get connection: %v", err))
 		return filter.Stop
 	}
 
-	// Set metadata for the outgoing context
 	md := make(metadata.MD)
 	for k, v := range ctx.Attachments {
 		if str, ok := v.(string); ok {
 			md.Set(k, str)
 		}
 	}
+
+	if f.Config.ExtractTripleMetadata {
+		tripleMeta := ExtractTripleMetadata(ctx.Attachments)
+		if len(tripleMeta) > 0 {
+			ctx.SetAttachment("_triple_metadata", tripleMeta)
+			logger.Debugf("Extracted Triple metadata: %v", tripleMeta)
+		}
+	}
+
 	outCtx := metadata.NewOutgoingContext(ctx.Context, md)
-
-	// Create the full method path for the gRPC call
 	fullMethod := ctx.ServiceName + "/" + ctx.MethodName
-	// logger.Debugf("[dubbo-go-pixiu] gRPC proxy bidirectional stream to %s", fullMethod)
 
-	// Create a new client stream to the backend
+	var codecOpt grpc.CallOption
+	var useReflection bool
+
+	if f.reflectionManager != nil && f.Config.ReflectionMode != ReflectionModePassthrough {
+		methodDesc, err := f.reflectionManager.GetMethodDescriptor(
+			ctx.Context, conn, address, ctx.ServiceName, ctx.MethodName)
+		if err != nil {
+			if f.Config.ReflectionMode == ReflectionModeHybrid {
+				logger.Warnf("Reflection failed for %s, falling back to passthrough: %v", fullMethod, err)
+				codecOpt = grpc.ForceCodec(ptcodec.Codec{})
+				useReflection = false
+			} else {
+				ctx.SetError(errors.Wrapf(err, "reflection failed for %s", fullMethod))
+				return filter.Stop
+			}
+		} else {
+			ctx.SetAttachment("_method_descriptor", methodDesc)
+			ctx.SetAttachment("_is_client_streaming", methodDesc.IsStreamingClient())
+			logger.Debugf("Reflection succeeded for %s, input: %s, output: %s, clientStream: %v",
+				fullMethod, methodDesc.Input().FullName(), methodDesc.Output().FullName(), methodDesc.IsStreamingClient())
+			codecOpt = grpc.ForceCodec(NewDynamicCodec(methodDesc))
+			useReflection = true
+		}
+	} else {
+		codecOpt = grpc.ForceCodec(ptcodec.Codec{})
+		useReflection = false
+	}
+
+	ctx.SetAttachment("_use_reflection", useReflection)
+
 	clientStream, err := conn.NewStream(outCtx, &grpc.StreamDesc{
 		StreamName:    ctx.MethodName,
 		ServerStreams: true,
 		ClientStreams: true,
-	}, fullMethod, grpc.ForceCodec(ptcodec.Codec{}))
-
+	}, fullMethod, codecOpt)
 	if err != nil {
 		ctx.SetError(errors.Errorf("failed to create client stream: %v", err))
 		return filter.Stop
 	}
 
-	// Ensure there is a server stream to work with
 	if ctx.Stream == nil {
 		ctx.SetError(errors.New("no stream available in context"))
 		return filter.Stop
 	}
 
-	// Use a WaitGroup to coordinate the two forwarding goroutines
 	var wg sync.WaitGroup
 	wg.Add(2)
-
-	// Channels for error propagation and termination signaling
 	errChan := make(chan error, 2)
 	doneChan := make(chan struct{})
 
-	// Start forwarding data in both directions
 	go f.forwardClientToServer(ctx, clientStream, &wg, errChan, doneChan)
 	go f.forwardServerToClient(ctx, clientStream, &wg, errChan, doneChan)
 
-	// Goroutine to wait for context cancellation or the first error
 	go func() {
 		select {
 		case <-ctx.Context.Done():
-			// If the client context is canceled, signal the forwarding goroutines to stop
 			close(doneChan)
 		case err := <-errChan:
-			// If an error occurs, propagate it and signal termination
 			ctx.SetError(err)
 			close(doneChan)
 		}
 	}()
 
-	// Wait for both forwarding goroutines to complete
 	wg.Wait()
-	close(errChan) // Close channel to allow the final error check to complete
+	close(errChan)
 
-	// Final check for any errors that might have occurred
 	for err := range errChan {
 		if err != nil && ctx.Error == nil {
-			// Set error if one hasn't been set already
 			ctx.SetError(err)
 		}
 	}
@@ -249,7 +307,24 @@ func (f *Filter) handleStream(ctx *grpcCtx.GrpcContext, address string) filter.F
 func (f *Filter) forwardClientToServer(ctx *grpcCtx.GrpcContext, clientStream grpc.ClientStream, wg *sync.WaitGroup, errChan chan<- error, doneChan <-chan struct{}) {
 	defer wg.Done()
 
-	// Send initial arguments if available (for unary and server-stream calls)
+	useReflection := false
+	if val, ok := ctx.GetAttachment("_use_reflection"); ok {
+		useReflection, _ = val.(bool)
+	}
+
+	var methodDesc protoreflect.MethodDescriptor
+	if useReflection {
+		if md, ok := ctx.GetAttachment("_method_descriptor"); ok {
+			methodDesc, _ = md.(protoreflect.MethodDescriptor)
+		}
+	}
+
+	// Check if this is a client-streaming call (client-stream or bidirectional)
+	isClientStreaming := false
+	if val, ok := ctx.GetAttachment("_is_client_streaming"); ok {
+		isClientStreaming, _ = val.(bool)
+	}
+
 	if len(ctx.Arguments) > 0 {
 		for _, arg := range ctx.Arguments {
 			if err := clientStream.SendMsg(arg); err != nil {
@@ -259,17 +334,46 @@ func (f *Filter) forwardClientToServer(ctx *grpcCtx.GrpcContext, clientStream gr
 		}
 	}
 
-	// Continuously forward messages from the client stream
+	// For unary/server-stream: read one message then CloseSend to prevent deadlock
+	if !isClientStreaming {
+		var msg []byte
+		if err := ctx.Stream.RecvMsg(&msg); err != nil {
+			if err == io.EOF {
+				if err := clientStream.CloseSend(); err != nil {
+					logger.Errorf("Error closing send stream to backend: %v", err)
+				}
+				return
+			}
+			errChan <- errors.Wrap(err, "error receiving from client")
+			return
+		}
+
+		if methodDesc != nil {
+			if decoded, err := DecodeRequest(methodDesc, msg); err == nil {
+				logger.Debugf("Decoded request message: %v", decoded.Message)
+			}
+		}
+
+		if err := clientStream.SendMsg(msg); err != nil {
+			errChan <- errors.Wrap(err, "error forwarding to backend")
+			return
+		}
+
+		if err := clientStream.CloseSend(); err != nil {
+			logger.Errorf("Error closing send stream to backend: %v", err)
+		}
+		return
+	}
+
+	// Client-streaming: continuously forward messages until EOF
 	for {
 		select {
 		case <-doneChan:
-			// Stop forwarding if the done signal is received
 			return
 		default:
 			var msg []byte
 			if err := ctx.Stream.RecvMsg(&msg); err != nil {
 				if err == io.EOF {
-					// Client has finished sending, so close the send direction of the backend stream
 					if err := clientStream.CloseSend(); err != nil {
 						logger.Errorf("Error closing send stream to backend: %v", err)
 					}
@@ -277,6 +381,12 @@ func (f *Filter) forwardClientToServer(ctx *grpcCtx.GrpcContext, clientStream gr
 				}
 				errChan <- errors.Wrap(err, "error receiving from client")
 				return
+			}
+
+			if methodDesc != nil {
+				if decoded, err := DecodeRequest(methodDesc, msg); err == nil {
+					logger.Debugf("Decoded request message: %v", decoded.Message)
+				}
 			}
 
 			if err := clientStream.SendMsg(msg); err != nil {
@@ -291,7 +401,13 @@ func (f *Filter) forwardClientToServer(ctx *grpcCtx.GrpcContext, clientStream gr
 func (f *Filter) forwardServerToClient(ctx *grpcCtx.GrpcContext, clientStream grpc.ClientStream, wg *sync.WaitGroup, errChan chan<- error, doneChan <-chan struct{}) {
 	defer wg.Done()
 
-	// Forward header metadata from backend to client
+	var methodDesc protoreflect.MethodDescriptor
+	if val, ok := ctx.GetAttachment("_use_reflection"); ok && val.(bool) {
+		if md, ok := ctx.GetAttachment("_method_descriptor"); ok {
+			methodDesc, _ = md.(protoreflect.MethodDescriptor)
+		}
+	}
+
 	if header, err := clientStream.Header(); err == nil {
 		if s, ok := ctx.Stream.(grpc.ServerStream); ok {
 			s.SetHeader(header)
@@ -301,21 +417,24 @@ func (f *Filter) forwardServerToClient(ctx *grpcCtx.GrpcContext, clientStream gr
 	for {
 		select {
 		case <-doneChan:
-			// Stop forwarding if the done signal is received
 			return
 		default:
 			var resp []byte
 			err := clientStream.RecvMsg(&resp)
 			if err != nil {
-				// Upon any error from the backend, including EOF, forward the trailer metadata
 				if s, ok := ctx.Stream.(grpc.ServerStream); ok {
 					s.SetTrailer(clientStream.Trailer())
 				}
 				if err != io.EOF {
-					// Propagate the actual gRPC status error, but not EOF
 					errChan <- err
 				}
 				return
+			}
+
+			if methodDesc != nil {
+				if decoded, err := DecodeResponse(methodDesc, resp); err == nil {
+					logger.Debugf("Decoded response message: %v", decoded.Message)
+				}
 			}
 
 			if err := ctx.Stream.SendMsg(resp); err != nil {
@@ -495,6 +614,12 @@ func (f *Filter) createTLSCredentials() (credentials.TransportCredentials, error
 // Close gracefully closes all connections and cleans up resources
 func (f *Filter) Close() error {
 	logger.Info("Closing gRPC proxy filter and all connections")
+
+	// Close reflection manager if initialized
+	if f.reflectionManager != nil {
+		f.reflectionManager.Close()
+		logger.Info("Reflection manager closed")
+	}
 
 	var wg sync.WaitGroup
 	var closeErrors []error

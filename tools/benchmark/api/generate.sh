@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,7 +18,30 @@
 # under the License.
 #
 
+set -e
+
 export GO111MODULE="on"
-export GOPROXY="http://goproxy.io"
-go install github.com/dubbogo/tools/cmd/protoc-gen-go-triple@latest
-protoc --go_out=. --go-triple_out=. samples_api.proto
+
+# Install required protoc plugins
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install github.com/dubbogo/protoc-gen-go-triple/v3@latest
+
+# Generate Triple stubs from benchmark.proto (for Triple protocol)
+protoc \
+    --go_out=. --go_opt=paths=source_relative \
+    --go-triple_out=. --go-triple_opt=paths=source_relative \
+    benchmark.proto
+
+echo "Generated Triple stubs from benchmark.proto"
+
+# Generate gRPC stubs in grpcstub/ directory (for standard gRPC protocol)
+# Using the same proto file but with different go_package output
+protoc \
+    --go_out=./grpcstub --go_opt=paths=source_relative \
+    --go_opt=Mbenchmark.proto=github.com/apache/dubbo-go-pixiu/tools/benchmark/api/grpcstub \
+    --go-grpc_out=./grpcstub --go-grpc_opt=paths=source_relative \
+    --go-grpc_opt=Mbenchmark.proto=github.com/apache/dubbo-go-pixiu/tools/benchmark/api/grpcstub \
+    benchmark.proto
+
+echo "Generated gRPC stubs in grpcstub/"

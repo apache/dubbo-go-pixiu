@@ -26,38 +26,43 @@ import (
 )
 
 import (
-	"dubbo.apache.org/dubbo-go/v3/config"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
-
-	hessian "github.com/apache/dubbo-go-hessian2"
+	"dubbo.apache.org/dubbo-go/v3/protocol"
+	"dubbo.apache.org/dubbo-go/v3/server"
 
 	"github.com/dubbogo/gost/log/logger"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/tools/benchmark/protocol/dubbo/go-server/pkg"
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/api"
+	"github.com/apache/dubbo-go-pixiu/tools/benchmark/protocol/triple/go-server/pkg"
 )
 
 func main() {
-	// Register Hessian types for Dubbo protocol serialization
-	hessian.RegisterJavaEnum(pkg.Gender(pkg.MAN))
-	hessian.RegisterJavaEnum(pkg.Gender(pkg.WOMAN))
-	hessian.RegisterPOJO(&pkg.User{})
-
-	// Set provider service
-	config.SetProviderService(&pkg.UserProvider{})
-
-	// Load config
-	curPath, err := os.Getwd()
+	// Create server using new API
+	srv, err := server.NewServer(
+		server.WithServerProtocol(
+			protocol.WithPort(20000),
+			protocol.WithTriple(),
+		),
+	)
 	if err != nil {
 		panic(err)
 	}
-	curPath = curPath + "/../../protocol/dubbo/go-server/conf/dubbogo.yml"
-	if err := config.Load(config.WithPath(curPath)); err != nil {
+
+	// Register BenchmarkService handler
+	if err := api.RegisterBenchmarkServiceHandler(srv, pkg.NewBenchmarkProvider()); err != nil {
 		panic(err)
 	}
 
-	fmt.Println("dubbo benchmark server is now running...")
+	// Start server in goroutine
+	go func() {
+		if err := srv.Serve(); err != nil {
+			logger.Errorf("server serve error: %v", err)
+		}
+	}()
+
+	fmt.Println("triple benchmark server is now running on :20000...")
 	initSignal()
 }
 
@@ -75,7 +80,7 @@ func initSignal() {
 				logger.Warnf("app exit now by force...")
 				os.Exit(1)
 			})
-			fmt.Println("dubbo benchmark server exit now...")
+			fmt.Println("triple benchmark server exit now...")
 			return
 		}
 	}

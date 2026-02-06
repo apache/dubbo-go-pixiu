@@ -20,46 +20,36 @@ package pkg
 import (
 	"context"
 	"fmt"
-	"strconv"
 )
 
 import (
-	"github.com/apache/dubbo-go-hessian2/java_exception"
-
-	"github.com/dubbogo/gost/log"
+	"github.com/dubbogo/gost/log/logger"
 
 	perrors "github.com/pkg/errors"
 )
 
-type CommonUserProvider struct {
+// UserProvider implements the Dubbo protocol benchmark service with Hessian serialization
+type UserProvider struct {
 }
 
-func (u *CommonUserProvider) getUser(userID string) (*User, error) {
+func (u *UserProvider) getUser(userID string) (*User, error) {
 	if user, ok := userMap[userID]; ok {
 		return &user, nil
 	}
-
-	return nil, fmt.Errorf("invalid user id:%s", userID)
+	return nil, fmt.Errorf("invalid user id: %s", userID)
 }
 
-func (u *CommonUserProvider) GetUser(ctx context.Context, req *User) (*User, error) {
-	var (
-		err  error
-		user *User
-	)
-
-	gxlog.CInfo("req:%#v", req)
-	user, err = u.getUser(req.ID)
+func (u *UserProvider) GetUser(ctx context.Context, req *User) (*User, error) {
+	logger.Infof("Dubbo UserProvider GetUser, req: %#v", req)
+	user, err := u.getUser(req.ID)
 	if err == nil {
-		gxlog.CInfo("rsp:%#v", user)
+		logger.Infof("Dubbo UserProvider GetUser, rsp: %#v", user)
 	}
 	return user, err
 }
 
-func (u *CommonUserProvider) GetUser0(id string, name string) (User, error) {
-	var err error
-
-	gxlog.CInfo("id:%s, name:%s", id, name)
+func (u *UserProvider) GetUser0(id string, name string) (User, error) {
+	logger.Infof("Dubbo UserProvider GetUser0, id: %s, name: %s", id, name)
 	user, err := u.getUser(id)
 	if err != nil {
 		return User{}, err
@@ -67,57 +57,25 @@ func (u *CommonUserProvider) GetUser0(id string, name string) (User, error) {
 	if user.Name != name {
 		return User{}, perrors.New("name is not " + user.Name)
 	}
-	return *user, err
+	return *user, nil
 }
 
-func (u *CommonUserProvider) GetUser2(ctx context.Context, req int32) (*User, error) {
-	var err error
-
-	gxlog.CInfo("req:%#v", req)
-	user := &User{}
-	user.ID = strconv.Itoa(int(req))
-	return user, err
-}
-
-func (u *CommonUserProvider) GetUser3() error {
-	return nil
-}
-
-func (u *CommonUserProvider) GetErr(ctx context.Context, req *User) (*User, error) {
-	return nil, java_exception.NewThrowable("exception")
-}
-
-func (u *CommonUserProvider) GetUsers(req []string) ([]*User, error) {
-	var err error
-
-	gxlog.CInfo("req:%s", req)
-	user, err := u.getUser(req[0])
-	if err != nil {
-		return nil, err
+func (u *UserProvider) GetUsers(req []string) ([]*User, error) {
+	logger.Infof("Dubbo UserProvider GetUsers, req: %v", req)
+	users := make([]*User, 0, len(req))
+	for _, id := range req {
+		user, err := u.getUser(id)
+		if err != nil {
+			continue
+		}
+		users = append(users, user)
 	}
-	gxlog.CInfo("user:%v", user)
-	user1, err := u.getUser(req[1])
-	if err != nil {
-		return nil, err
-	}
-	gxlog.CInfo("user1:%v", user1)
-
-	return []*User{user, user1}, err
+	return users, nil
 }
 
-func (u *CommonUserProvider) GetGender(i int32) (Gender, error) {
-	if 1 == i {
+func (u *UserProvider) GetGender(i int32) (Gender, error) {
+	if i == 1 {
 		return Gender(WOMAN), nil
 	}
 	return Gender(MAN), nil
-}
-
-func (u *CommonUserProvider) MethodMapper() map[string]string {
-	return map[string]string{
-		"GetUser2": "getUser",
-	}
-}
-
-type UserProvider struct {
-	CommonUserProvider
 }

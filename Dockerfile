@@ -31,8 +31,7 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=1 \
-    GOOS=linux \
-    GOARCH=amd64
+    GOOS=linux
 
 # Here I still remains "wasmer" tag, because we need to build the wasmer plugin
 # if wasm feature is removed in the future, this tag and following wasm related command can be removed
