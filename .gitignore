@@ -33,6 +33,4 @@ target/
 samples/**/dist
 
 out/
-/test
-.worktrees/
 /test.worktrees/
