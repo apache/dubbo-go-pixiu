@@ -116,7 +116,11 @@ func (lc *LMCacheClient) Evict(ctx context.Context, req *EvictRequest) (*EvictRe
 
 func (lc *LMCacheClient) doRequestWithRetry(ctx context.Context, path string, payload any, out any, op string) error {
 	var lastErr error
-	for attempt := 0; attempt < lc.retry.MaxAttempts; attempt++ {
+	maxAttempts := lc.retry.MaxAttempts
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		err := lc.execute(func() error {
 			return lc.doRequest(ctx, path, payload, out)
 		})

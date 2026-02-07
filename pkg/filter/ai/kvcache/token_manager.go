@@ -19,6 +19,8 @@ package kvcache
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -113,10 +115,7 @@ func (tm *TokenManager) GetCachedTokens(model string, prompt string) ([]int, boo
 
 func (tm *TokenManager) InvalidateCache(model string, prompt string) {
 	cacheKey := tm.cacheKey(model, prompt)
-	if _, ok := tm.cache.Load(cacheKey); ok {
-		tm.cache.Delete(cacheKey)
-		atomic.AddInt64(&tm.cacheSize, -1)
-	}
+	tm.deleteCache(cacheKey)
 }
 
 func (tm *TokenManager) GetCacheStats() CacheStats {
@@ -251,10 +250,14 @@ func (tm *TokenManager) execute(ctx context.Context, operation func() error) err
 }
 
 func (tm *TokenManager) cacheKey(model string, prompt string) string {
-	if model == "" {
-		return prompt
+	sum := sha256.Sum256([]byte(model + "\x00" + prompt))
+	return hex.EncodeToString(sum[:])
+}
+
+func (tm *TokenManager) deleteCache(key string) {
+	if _, loaded := tm.cache.LoadAndDelete(key); loaded {
+		atomic.AddInt64(&tm.cacheSize, -1)
 	}
-	return model + ":" + prompt
 }
 
 func (tm *TokenManager) loadCache(key string) ([]int, bool) {
@@ -264,13 +267,11 @@ func (tm *TokenManager) loadCache(key string) ([]int, bool) {
 	}
 	entry, ok := entryAny.(*tokenCacheEntry)
 	if !ok {
-		tm.cache.Delete(key)
-		atomic.AddInt64(&tm.cacheSize, -1)
+		tm.deleteCache(key)
 		return nil, false
 	}
 	if tm.config.TTL > 0 && time.Now().After(entry.expiresAt) {
-		tm.cache.Delete(key)
-		atomic.AddInt64(&tm.cacheSize, -1)
+		tm.deleteCache(key)
 		return nil, false
 	}
 	return entry.tokens, true
@@ -296,8 +297,7 @@ func (tm *TokenManager) storeCache(key string, tokens []int) {
 func (tm *TokenManager) evictOne() bool {
 	evicted := false
 	tm.cache.Range(func(key, value any) bool {
-		tm.cache.Delete(key)
-		atomic.AddInt64(&tm.cacheSize, -1)
+		tm.deleteCache(key.(string))
 		evicted = true
 		return false
 	})

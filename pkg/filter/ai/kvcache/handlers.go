@@ -149,6 +149,16 @@ func effectiveTimeout(hc *contexthttp.HttpContext, cfg *Config) time.Duration {
 	return timeout
 }
 
+func requestScopedContext(hc *contexthttp.HttpContext) context.Context {
+	if hc != nil && hc.Request != nil {
+		return hc.Request.Context()
+	}
+	if hc != nil && hc.Ctx != nil {
+		return hc.Ctx
+	}
+	return context.Background()
+}
+
 func (f *Filter) tryRouteToCachedInstance(hc *contexthttp.HttpContext, model string, prompt string) (*LookupResponse, bool) {
 	if f == nil || f.tokenManager == nil || f.lmcacheClient == nil {
 		return nil, false
@@ -162,7 +172,7 @@ func (f *Filter) tryRouteToCachedInstance(hc *contexthttp.HttpContext, model str
 	if f.cfg != nil && f.cfg.LookupRoutingTimeout > 0 && f.cfg.LookupRoutingTimeout < timeout {
 		timeout = f.cfg.LookupRoutingTimeout
 	}
-	ctx, cancel := context.WithTimeout(hc.Ctx, timeout)
+	ctx, cancel := context.WithTimeout(requestScopedContext(hc), timeout)
 	defer cancel()
 	cacheStatus, err := f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
 	if err != nil {

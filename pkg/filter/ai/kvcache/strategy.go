@@ -58,8 +58,10 @@ func (cs *CacheStrategy) MakeDecision(_ context.Context, cacheStatus *LookupResp
 	decision := &StrategyDecision{}
 	metrics := cs.loadMonitor.Snapshot()
 
+	// load_threshold is validated as a ratio [0,1], so only ratio-based metrics
+	// should participate in this decision.
 	if cs.config.EnableCompression && cs.config.LoadThreshold > 0 &&
-		(metrics.CPUUsage >= cs.config.LoadThreshold || metrics.RequestRate >= cs.config.LoadThreshold) {
+		metrics.CPUUsage >= cs.config.LoadThreshold {
 		decision.ShouldCompress = true
 		decision.Reason = "high_load"
 	}

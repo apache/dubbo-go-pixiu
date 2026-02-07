@@ -133,7 +133,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 
 	cacheStatus, routed := f.tryRouteToCachedInstance(hc, model, prompt)
 
-	ctx, cancel := context.WithTimeout(hc.Ctx, effectiveTimeout(hc, f.cfg))
+	ctx, cancel := context.WithTimeout(requestScopedContext(hc), effectiveTimeout(hc, f.cfg))
 	go func() {
 		defer cancel()
 		f.manageCache(ctx, model, prompt, body, cacheStatus, routed)
