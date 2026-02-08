@@ -28,10 +28,11 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
+
+const llmPreferredEndpointIDKey = "llm_preferred_endpoint_id"
 
 func (f *Filter) manageCache(ctx context.Context, model string, prompt string, rawBody []byte, cacheStatus *LookupResponse, lookupDone bool) {
 	if ctx.Err() != nil {
@@ -39,7 +40,7 @@ func (f *Filter) manageCache(ctx context.Context, model string, prompt string, r
 	}
 	tokens, err := f.tokenManager.GetTokens(ctx, model, prompt, rawBody)
 	if err != nil {
-		logger.Warnf("[KVCache] tokenize failed: %v", err)
+		logger.Warnf("[kvcache] tokenize failed: %v", err)
 		return
 	}
 	if ctx.Err() != nil {
@@ -48,7 +49,7 @@ func (f *Filter) manageCache(ctx context.Context, model string, prompt string, r
 	if !lookupDone || cacheStatus == nil {
 		cacheStatus, err = f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
 		if err != nil {
-			logger.Warnf("[KVCache] lookup failed: %v", err)
+			logger.Warnf("[kvcache] lookup failed: %v", err)
 			return
 		}
 	}
@@ -57,7 +58,7 @@ func (f *Filter) manageCache(ctx context.Context, model string, prompt string, r
 		return
 	}
 	if err := f.cacheStrategy.ExecuteDecision(ctx, decision, tokens); err != nil {
-		logger.Warnf("[KVCache] execute strategy failed: %v", err)
+		logger.Warnf("[kvcache] execute strategy failed: %v", err)
 	}
 }
 
@@ -182,7 +183,7 @@ func (f *Filter) tryRouteToCachedInstance(hc *contexthttp.HttpContext, model str
 	}
 	tokens, ok := f.tokenManager.GetCachedTokens(model, prompt)
 	if !ok || len(tokens) == 0 {
-		logger.Debugf("[KVCache] routing lookup skipped: token cache miss")
+		logger.Debugf("[kvcache] routing lookup skipped: token cache miss")
 		return nil, false
 	}
 	timeout := effectiveTimeout(hc, f.cfg)
@@ -193,18 +194,18 @@ func (f *Filter) tryRouteToCachedInstance(hc *contexthttp.HttpContext, model str
 	defer cancel()
 	cacheStatus, err := f.lmcacheClient.Lookup(ctx, &LookupRequest{Tokens: tokens})
 	if err != nil {
-		logger.Debugf("[KVCache] routing lookup failed: %v", err)
+		logger.Debugf("[kvcache] routing lookup failed: %v", err)
 		return nil, false
 	}
 	instanceID := selectPreferredInstanceID(cacheStatus)
 	if instanceID == "" {
-		logger.Debugf("[KVCache] routing lookup returned empty instance")
+		logger.Debugf("[kvcache] routing lookup returned empty instance")
 		return cacheStatus, false
 	}
 	if hc.Params == nil {
 		hc.Params = make(map[string]any)
 	}
-	hc.Params[constant.LLMPreferredEndpointID] = instanceID
-	logger.Debugf("[KVCache] routing preferred endpoint set: %s", instanceID)
+	hc.Params[llmPreferredEndpointIDKey] = instanceID
+	logger.Debugf("[kvcache] routing preferred endpoint set: %s", instanceID)
 	return cacheStatus, true
 }

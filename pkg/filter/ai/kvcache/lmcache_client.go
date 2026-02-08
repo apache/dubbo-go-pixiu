@@ -149,16 +149,16 @@ func (lc *LMCacheClient) doRequest(ctx context.Context, path string, payload any
 		SetBody(payload).
 		Post(url)
 	if err != nil {
-		return fmt.Errorf("call lmcache: %w", err)
+		return fmt.Errorf("[kvcache] call lmcache: %w", err)
 	}
 	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
-		return fmt.Errorf("lmcache status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body())))
+		return fmt.Errorf("[kvcache] lmcache status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body())))
 	}
 	if out == nil {
 		return nil
 	}
 	if err := json.Unmarshal(resp.Body(), out); err != nil {
-		return fmt.Errorf("decode lmcache response: %w", err)
+		return fmt.Errorf("[kvcache] decode lmcache response: %w", err)
 	}
 	return nil
 }

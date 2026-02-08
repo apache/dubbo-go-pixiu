@@ -114,12 +114,12 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	}
 	body, err := readRequestBody(hc.Request)
 	if err != nil {
-		logger.Warnf("[KVCache] read request body failed: %v", err)
+		logger.Warnf("[kvcache] read request body failed: %v", err)
 		return filter.Continue
 	}
 	prompt, model, err := extractPromptAndModel(body)
 	if err != nil {
-		logger.Warnf("[KVCache] parse request body failed: %v", err)
+		logger.Warnf("[kvcache] parse request body failed: %v", err)
 		return filter.Continue
 	}
 	if prompt == "" {

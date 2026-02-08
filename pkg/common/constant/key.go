@@ -62,8 +62,6 @@ const (
 	AIKVCacheFilter    = "dgp.filter.ai.kvcache"
 
 	MCPServerFilter = "dgp.filter.mcp.mcpserver"
-
-	LLMPreferredEndpointID = "llm_preferred_endpoint_id"
 )
 
 const (

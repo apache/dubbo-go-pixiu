@@ -45,7 +45,8 @@ const (
 	LLMUnhealthyKey     = "LLMUnhealthy"
 	HealthyCheckTimeKey = "HealthyCheckTime"
 	// Context key to pass attempt data from proxy to downstream filters
-	LLMUpstreamAttemptsKey = "llm_upstream_attempts"
+	LLMUpstreamAttemptsKey    = "llm_upstream_attempts"
+	llmPreferredEndpointIDKey = "llm_preferred_endpoint_id"
 )
 
 // UpstreamAttempt holds details for a single request attempt to an endpoint.
@@ -102,11 +103,14 @@ func getPreferredEndpointID(hc *contexthttp.HttpContext) string {
 	if hc == nil || hc.Params == nil {
 		return ""
 	}
-	val, ok := hc.Params[constant.LLMPreferredEndpointID]
+	val, ok := hc.Params[llmPreferredEndpointIDKey]
 	if !ok {
 		return ""
 	}
-	endpointID, _ := val.(string)
+	endpointID, ok := val.(string)
+	if !ok {
+		return ""
+	}
 	return endpointID
 }
 

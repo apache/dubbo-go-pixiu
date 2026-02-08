@@ -170,14 +170,14 @@ func (tm *TokenManager) doTokenizeRequest(ctx context.Context, body any) (*Token
 		SetBody(body).
 		Post(tokenizeURL)
 	if err != nil {
-		return nil, fmt.Errorf("call tokenize: %w", err)
+		return nil, fmt.Errorf("[kvcache] call tokenize: %w", err)
 	}
 	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
-		return nil, fmt.Errorf("tokenize status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body())))
+		return nil, fmt.Errorf("[kvcache] tokenize status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body())))
 	}
 	var tokenResp TokenizeResponse
 	if err := json.Unmarshal(resp.Body(), &tokenResp); err != nil {
-		return nil, fmt.Errorf("decode tokenize response: %w", err)
+		return nil, fmt.Errorf("[kvcache] decode tokenize response: %w", err)
 	}
 	return &tokenResp, nil
 }

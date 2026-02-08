@@ -23,6 +23,23 @@ import (
 	"time"
 )
 
+const (
+	minRatio = 0.0
+	maxRatio = 1.0
+
+	defaultRequestTimeout       = 2 * time.Second
+	defaultLookupRoutingTimeout = 50 * time.Millisecond
+	defaultHotWindow            = 5 * time.Minute
+	defaultHotMaxRecords        = 300
+	defaultRetryMaxAttempts     = 3
+	defaultRetryBaseBackoff     = 100 * time.Millisecond
+	defaultRetryMaxBackoff      = 2 * time.Second
+	defaultCBFailureThreshold   = 5
+	defaultCBRecoveryTimeout    = 10 * time.Second
+	defaultCBHalfOpenMaxCalls   = 2
+	defaultCompressMethod       = "zstd"
+)
+
 type Config struct {
 	Enabled              bool                 `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
 	VLLMEndpoint         string               `yaml:"vllm_endpoint" json:"vllm_endpoint" mapstructure:"vllm_endpoint"`
@@ -73,71 +90,71 @@ func (c *Config) Validate() error {
 		return nil
 	}
 	if strings.TrimSpace(c.VLLMEndpoint) == "" {
-		return fmt.Errorf("kvcache: vllm_endpoint is required when enabled")
+		return fmt.Errorf("[kvcache] vllm_endpoint is required when enabled")
 	}
 	if strings.TrimSpace(c.LMCacheEndpoint) == "" {
-		return fmt.Errorf("kvcache: lmcache_endpoint is required when enabled")
+		return fmt.Errorf("[kvcache] lmcache_endpoint is required when enabled")
 	}
 	if c.TokenCache.MaxSize < 0 {
-		return fmt.Errorf("kvcache: token_cache.max_size must be >= 0")
+		return fmt.Errorf("[kvcache] token_cache.max_size must be >= 0")
 	}
-	if c.CacheStrategy.MemoryThreshold < 0 || c.CacheStrategy.MemoryThreshold > 1 {
-		return fmt.Errorf("kvcache: cache_strategy.memory_threshold must be between 0 and 1")
+	if c.CacheStrategy.MemoryThreshold < minRatio || c.CacheStrategy.MemoryThreshold > maxRatio {
+		return fmt.Errorf("[kvcache] cache_strategy.memory_threshold must be between 0 and 1")
 	}
-	if c.CacheStrategy.LoadThreshold < 0 || c.CacheStrategy.LoadThreshold > 1 {
-		return fmt.Errorf("kvcache: cache_strategy.load_threshold must be between 0 and 1")
+	if c.CacheStrategy.LoadThreshold < minRatio || c.CacheStrategy.LoadThreshold > maxRatio {
+		return fmt.Errorf("[kvcache] cache_strategy.load_threshold must be between 0 and 1")
 	}
 	if c.CacheStrategy.HotContentThreshold < 0 {
-		return fmt.Errorf("kvcache: cache_strategy.hot_content_threshold must be >= 0")
+		return fmt.Errorf("[kvcache] cache_strategy.hot_content_threshold must be >= 0")
 	}
 	if c.Retry.MaxAttempts < 0 {
-		return fmt.Errorf("kvcache: retry.max_attempts must be >= 0")
+		return fmt.Errorf("[kvcache] retry.max_attempts must be >= 0")
 	}
 	if c.Retry.BaseBackoff < 0 || c.Retry.MaxBackoff < 0 {
-		return fmt.Errorf("kvcache: retry backoff durations must be >= 0")
+		return fmt.Errorf("[kvcache] retry backoff durations must be >= 0")
 	}
 	if c.HotWindow < 0 {
-		return fmt.Errorf("kvcache: hot_window must be >= 0")
+		return fmt.Errorf("[kvcache] hot_window must be >= 0")
 	}
 	if c.HotMaxRecords < 0 {
-		return fmt.Errorf("kvcache: hot_max_records must be >= 0")
+		return fmt.Errorf("[kvcache] hot_max_records must be >= 0")
 	}
 	return nil
 }
 
 func (c *Config) ApplyDefaults() {
 	if c.RequestTimeout <= 0 {
-		c.RequestTimeout = 2 * time.Second
+		c.RequestTimeout = defaultRequestTimeout
 	}
 	if c.LookupRoutingTimeout <= 0 {
-		c.LookupRoutingTimeout = 50 * time.Millisecond
+		c.LookupRoutingTimeout = defaultLookupRoutingTimeout
 	}
 	if c.HotWindow <= 0 {
-		c.HotWindow = 5 * time.Minute
+		c.HotWindow = defaultHotWindow
 	}
 	if c.HotMaxRecords <= 0 {
-		c.HotMaxRecords = 300
+		c.HotMaxRecords = defaultHotMaxRecords
 	}
 	if c.Retry.MaxAttempts <= 0 {
-		c.Retry.MaxAttempts = 3
+		c.Retry.MaxAttempts = defaultRetryMaxAttempts
 	}
 	if c.Retry.BaseBackoff <= 0 {
-		c.Retry.BaseBackoff = 100 * time.Millisecond
+		c.Retry.BaseBackoff = defaultRetryBaseBackoff
 	}
 	if c.Retry.MaxBackoff <= 0 {
-		c.Retry.MaxBackoff = 2 * time.Second
+		c.Retry.MaxBackoff = defaultRetryMaxBackoff
 	}
 	if c.CircuitBreaker.FailureThreshold <= 0 {
-		c.CircuitBreaker.FailureThreshold = 5
+		c.CircuitBreaker.FailureThreshold = defaultCBFailureThreshold
 	}
 	if c.CircuitBreaker.RecoveryTimeout <= 0 {
-		c.CircuitBreaker.RecoveryTimeout = 10 * time.Second
+		c.CircuitBreaker.RecoveryTimeout = defaultCBRecoveryTimeout
 	}
 	if c.CircuitBreaker.HalfOpenMaxCalls <= 0 {
-		c.CircuitBreaker.HalfOpenMaxCalls = 2
+		c.CircuitBreaker.HalfOpenMaxCalls = defaultCBHalfOpenMaxCalls
 	}
 	if c.CacheStrategy.CompressMethod == "" {
-		c.CacheStrategy.CompressMethod = "zstd"
+		c.CacheStrategy.CompressMethod = defaultCompressMethod
 	}
 }
 
