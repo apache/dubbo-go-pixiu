@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 import (
@@ -67,7 +68,14 @@ const (
 
 // Use a shared client to enable HTTP keep-alive and prevent connection exhaustion
 var opaHTTPClient = &http.Client{
-	Timeout: adminconfig.DefaultOPAPolicyTimeout,
+	Timeout: getOPATimeout(),
+}
+
+func getOPATimeout() time.Duration {
+	if adminconfig.Bootstrap != nil && adminconfig.Bootstrap.OPA.RequestTimeout > 0 {
+		return adminconfig.Bootstrap.OPA.RequestTimeout
+	}
+	return adminconfig.DefaultOPAPolicyTimeout
 }
 
 // BizGetBaseInfo get base info

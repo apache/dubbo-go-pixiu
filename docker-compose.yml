@@ -36,7 +36,7 @@ services:
       - app_network
   # OPA service
   opa:
-    image: openpolicyagent/opa:latest
+    image: openpolicyagent/opa:1.13.1
     container_name: pixiu_admin_opa
     ports:
       - "8181:8181"

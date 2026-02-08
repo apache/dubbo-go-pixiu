@@ -1,4 +1,4 @@
-﻿{
+{
     "swagger": "2.0",
     "info": {
         "contact": {}
@@ -815,7 +815,7 @@
                         "type": "string",
                         "description": "Bearer token",
                         "name": "bearer_token",
-                        "in": "header"
+                        "in": "query"
                     }
                 ],
                 "responses": {

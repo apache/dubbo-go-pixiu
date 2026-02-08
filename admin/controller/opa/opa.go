@@ -99,10 +99,11 @@ func DeleteOPAPolicy(c *gin.Context) {
 func resolveOPAServerURL(serverURL string) string {
 	serverURL = strings.TrimSpace(serverURL)
 	if serverURL != "" {
-		if adminconfig.Bootstrap != nil {
-			if trimmed := strings.TrimSpace(adminconfig.Bootstrap.OPA.PolicyID); trimmed != "" {
-				return trimmed
-			}
+		return serverURL
+	}
+	if adminconfig.Bootstrap != nil {
+		if trimmed := strings.TrimSpace(adminconfig.Bootstrap.OPA.ServerURL); trimmed != "" {
+			return trimmed
 		}
 	}
 	return adminconfig.DefaultOPAServerURL

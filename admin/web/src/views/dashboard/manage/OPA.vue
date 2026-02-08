@@ -189,7 +189,7 @@ export default {
         .then((res) => {
           if (res) {
             let content = ''
-            if (res && typeof res === 'object') {
+            if (typeof res === 'object') {
               if (res.code == 10001) {
                 content = res.data || ''
               } else if (res.result && typeof res.result.raw === 'string') {
