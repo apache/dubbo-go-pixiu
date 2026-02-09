@@ -18,7 +18,6 @@
 package circuitbreaker
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -81,7 +80,7 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	return &FilterFactory{cfg: &Config{}}, nil
 }
 
-// deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
+// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{cfg: factory.cfg.DeepCopy(), matcher: factory.matcher}
 	chain.AppendDecodeFilters(f)
@@ -103,7 +102,8 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 
 	// if blockErr not nil, indicates the request was blocked by Sentinel
 	if blockErr != nil {
-		errResp := http.ServiceUnavailable.New()
+		logger.Warnf("circuit breaker request blocked for resource %s: %v", resourceName, blockErr)
+		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("circuit breaker open for resource: %s", resourceName))
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
@@ -127,7 +127,7 @@ func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus {
 
 	entry, ok := entryVal.(*base.SentinelEntry)
 	if !ok || entry == nil {
-		logger.Warnf("Invalid sentinel entry type in context")
+		logger.Warnf("circuit breaker invalid sentinel entry type in context")
 		return filter.Continue
 	}
 
@@ -138,7 +138,11 @@ func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus {
 	// Consider 5xx status codes as errors for circuit breaker
 	statusCode := ctx.GetStatusCode()
 	if statusCode >= 500 && statusCode < 600 {
-		entry.SetError(errors.New("backend service error"))
+		// Create detailed error with status code and request context
+		err := fmt.Errorf("backend returned HTTP %d for %s %s",
+			statusCode, ctx.GetMethod(), ctx.GetUrl())
+		entry.SetError(err)
+		logger.Debugf("circuit breaker reported error to Sentinel: %v", err)
 	}
 
 	return filter.Continue

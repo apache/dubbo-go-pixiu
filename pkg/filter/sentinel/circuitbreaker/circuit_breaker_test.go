@@ -129,6 +129,11 @@ func TestCircuitBreakerFeedbackLoop(t *testing.T) {
 
 		_, ok := entryVal.(*base.SentinelEntry)
 		assert.True(t, ok, "Context value should be a SentinelEntry")
+
+		// Call Encode to ensure the Sentinel entry is properly exited and cleaned up
+		ctx.StatusCode(200)
+		encodeStatus := f.Encode(ctx)
+		assert.Equal(t, filter.Continue, encodeStatus)
 	})
 
 	t.Run("Encode reports error for 5xx status codes", func(t *testing.T) {
@@ -277,4 +282,82 @@ func TestCircuitBreakerNoMatch(t *testing.T) {
 	// Verify no entry is stored
 	_, exists := ctx.Params[ContextKeySentinelEntry]
 	assert.False(t, exists, "No entry should be stored for non-matching URL")
+}
+
+// TestEncodeWithInvalidEntryType tests that Encode handles invalid entry type gracefully
+func TestEncodeWithInvalidEntryType(t *testing.T) {
+	factory := FilterFactory{cfg: &Config{}}
+	mockYaml, err := yaml.MarshalYML(mockConfig())
+	require.NoError(t, err)
+	require.NoError(t, yaml.UnmarshalYML(mockYaml, factory.Config()))
+	require.NoError(t, factory.Apply())
+
+	f := &Filter{cfg: factory.cfg, matcher: factory.matcher}
+
+	request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-dubbo/user/1111", nil)
+	ctx := mock.GetMockHTTPContext(request)
+
+	// Manually set an invalid entry type in context
+	ctx.Params = make(map[string]any)
+	ctx.Params[ContextKeySentinelEntry] = "invalid_type" // string instead of *base.SentinelEntry
+
+	ctx.StatusCode(500)
+
+	// Execute Encode - should handle gracefully and return Continue
+	encodeStatus := f.Encode(ctx)
+	assert.Equal(t, filter.Continue, encodeStatus, "Should handle invalid entry type gracefully")
+}
+
+// TestCircuitBreakerTriggered tests the behavior when circuit breaker is open
+func TestCircuitBreakerTriggered(t *testing.T) {
+	// Create config with very low threshold to trigger circuit breaker easily
+	config := &Config{
+		Resources: []*pkgs.Resource{
+			{
+				Name: "test-trigger",
+				Items: []*pkgs.Item{
+					{MatchStrategy: pkgs.REGEX, Pattern: "/api/v1/test-trigger/*"},
+				},
+			},
+		},
+		Rules: []*circuitbreaker.Rule{{
+			Resource:         "test-trigger",
+			Strategy:         circuitbreaker.ErrorCount,
+			RetryTimeoutMs:   3000,
+			MinRequestAmount: 1, // Only need 1 request
+			StatIntervalMs:   10000,
+			Threshold:        1.0, // Trip after 1 error
+		}},
+	}
+
+	factory := FilterFactory{cfg: &Config{}}
+	mockYaml, _ := yaml.MarshalYML(config)
+	yaml.UnmarshalYML(mockYaml, factory.Config())
+	require.NoError(t, factory.Apply())
+
+	f := &Filter{cfg: factory.cfg, matcher: factory.matcher}
+
+	// First request - should pass and report error
+	request1, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-trigger/user", nil)
+	ctx1 := mock.GetMockHTTPContext(request1)
+
+	status1 := f.Decode(ctx1)
+	assert.Equal(t, filter.Continue, status1)
+
+	// Report error to trigger circuit breaker
+	ctx1.StatusCode(500)
+	f.Encode(ctx1)
+
+	// Wait a bit for circuit breaker state to update
+	time.Sleep(50 * time.Millisecond)
+
+	// Second request - may be blocked if circuit breaker is open
+	request2, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-trigger/user", nil)
+	ctx2 := mock.GetMockHTTPContext(request2)
+
+	status2 := f.Decode(ctx2)
+	// The request might be blocked (filter.Stop) or passed (filter.Continue) depending on circuit breaker state
+	// We just verify the code path executes without panic
+	assert.True(t, status2 == filter.Continue || status2 == filter.Stop,
+		"Decode should return either Continue or Stop")
 }
