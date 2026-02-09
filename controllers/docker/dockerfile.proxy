@@ -1,0 +1,27 @@
+FROM golang:1.25 AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /src
+
+ENV CGO_ENABLED=0 \
+    GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH} \
+    GOPROXY=https://goproxy.cn,direct
+
+COPY go.mod go.sum ./
+RUN go mod download -x
+
+COPY . .
+
+RUN go build -v -trimpath -ldflags="-s -w" \
+    -o /out/pixiu-proxy \
+    ./cmd/pixiu/pixiu.go
+
+FROM scratch
+
+COPY --from=builder /out/pixiu-proxy /usr/local/bin/pixiu-proxy
+
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/pixiu-proxy"]

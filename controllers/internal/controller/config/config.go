@@ -33,8 +33,8 @@ const (
 	DefaultLogLevel         = "info"
 	DefaultMetricsAddr      = ":8080"
 	DefaultProbeAddr        = ":8081"
-	DefaultGatewayImage     = "mfordjody/pixiugateway:debug"
-	DefaultImagePullPolicy  = "Always"
+	DefaultGatewayImage     = "dubboregistry/pixiu-proxy:v1.1.0"
+	DefaultImagePullPolicy  = "IfNotPresent"
 )
 
 // ValidImagePullPolicies contains all valid Kubernetes ImagePullPolicy values

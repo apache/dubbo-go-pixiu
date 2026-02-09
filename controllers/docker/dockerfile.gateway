@@ -1,0 +1,26 @@
+FROM golang:1.25 AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /src
+
+ENV CGO_ENABLED=0 \
+    GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH}
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -v -trimpath -ldflags="-s -w" \
+    -o /out/pixiu-gateway \
+    ./cmd/pgctl/main.go
+
+FROM scratch
+
+COPY --from=builder /out/pixiu-gateway /usr/local/bin/pixiu-gateway
+
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/pixiu-gateway"]
