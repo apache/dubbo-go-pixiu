@@ -48,7 +48,6 @@ services:
       - "--server"
       - "--addr=:8181"
       - "--log-level=info"
-      -
 
   mysql_pixiu:
     image: mysql:8
