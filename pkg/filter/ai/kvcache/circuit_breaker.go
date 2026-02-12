@@ -28,9 +28,9 @@ var ErrCircuitBreakerOpen = errors.New("kvcache circuit breaker open")
 type CircuitState int
 
 const (
-	CircuitClosed CircuitState = iota
-	CircuitOpen
-	CircuitHalfOpen
+	CircuitClosed   CircuitState = 0
+	CircuitOpen     CircuitState = 1
+	CircuitHalfOpen CircuitState = 2
 )
 
 type CircuitBreaker struct {
