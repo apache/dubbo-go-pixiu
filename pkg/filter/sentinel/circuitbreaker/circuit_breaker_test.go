@@ -32,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
@@ -123,7 +124,7 @@ func TestCircuitBreakerFeedbackLoop(t *testing.T) {
 		assert.Equal(t, filter.Continue, status)
 
 		// Verify entry is stored in context
-		entryVal, exists := ctx.Params[ContextKeySentinelEntry]
+		entryVal, exists := ctx.Params[constant.SentinelEntryKey]
 		assert.True(t, exists, "Sentinel entry should be stored in context")
 		assert.NotNil(t, entryVal, "Sentinel entry should not be nil")
 
@@ -195,9 +196,10 @@ func TestCircuitBreakerFeedbackLoop(t *testing.T) {
 		// Use a fresh config to avoid circuit breaker state pollution
 		factory2 := FilterFactory{cfg: &Config{}}
 		config2 := mockConfigWithResource("test-non-error")
-		mockYaml2, _ := yaml.MarshalYML(config2)
-		yaml.UnmarshalYML(mockYaml2, factory2.Config())
-		factory2.Apply()
+		mockYaml2, err := yaml.MarshalYML(config2)
+		require.NoError(t, err)
+		require.NoError(t, yaml.UnmarshalYML(mockYaml2, factory2.Config()))
+		require.NoError(t, factory2.Apply())
 		f2 := &Filter{cfg: factory2.cfg, matcher: factory2.matcher}
 
 		nonErrorCodes := []int{200, 201, 301, 400, 401, 403, 404}
@@ -235,9 +237,10 @@ func TestCircuitBreakerFeedbackLoop(t *testing.T) {
 		// Use a fresh config to avoid circuit breaker state pollution
 		factory3 := FilterFactory{cfg: &Config{}}
 		config3 := mockConfigWithResource("test-latency")
-		mockYaml3, _ := yaml.MarshalYML(config3)
-		yaml.UnmarshalYML(mockYaml3, factory3.Config())
-		factory3.Apply()
+		mockYaml3, err := yaml.MarshalYML(config3)
+		require.NoError(t, err)
+		require.NoError(t, yaml.UnmarshalYML(mockYaml3, factory3.Config()))
+		require.NoError(t, factory3.Apply())
 		f3 := &Filter{cfg: factory3.cfg, matcher: factory3.matcher}
 
 		request, _ := stdHttp.NewRequest(stdHttp.MethodGet, "https://www.dubbogopixiu.com/api/v1/test-latency/user/1111", nil)
@@ -280,7 +283,7 @@ func TestCircuitBreakerNoMatch(t *testing.T) {
 	assert.Equal(t, filter.Continue, status)
 
 	// Verify no entry is stored
-	_, exists := ctx.Params[ContextKeySentinelEntry]
+	_, exists := ctx.Params[constant.SentinelEntryKey]
 	assert.False(t, exists, "No entry should be stored for non-matching URL")
 }
 
@@ -299,7 +302,7 @@ func TestEncodeWithInvalidEntryType(t *testing.T) {
 
 	// Manually set an invalid entry type in context
 	ctx.Params = make(map[string]any)
-	ctx.Params[ContextKeySentinelEntry] = "invalid_type" // string instead of *base.SentinelEntry
+	ctx.Params[constant.SentinelEntryKey] = "invalid_type" // string instead of *base.SentinelEntry
 
 	ctx.StatusCode(500)
 
@@ -331,8 +334,9 @@ func TestCircuitBreakerTriggered(t *testing.T) {
 	}
 
 	factory := FilterFactory{cfg: &Config{}}
-	mockYaml, _ := yaml.MarshalYML(config)
-	yaml.UnmarshalYML(mockYaml, factory.Config())
+	mockYaml, err := yaml.MarshalYML(config)
+	require.NoError(t, err)
+	require.NoError(t, yaml.UnmarshalYML(mockYaml, factory.Config()))
 	require.NoError(t, factory.Apply())
 
 	f := &Filter{cfg: factory.cfg, matcher: factory.matcher}

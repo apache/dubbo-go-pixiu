@@ -40,8 +40,6 @@ import (
 const (
 	Kind         = constant.HTTPCircuitBreakerFilter
 	Segmentation = "@"
-	// ContextKeySentinelEntry is the key to store Sentinel entry in HttpContext
-	ContextKeySentinelEntry = "sentinel_entry"
 )
 
 func init() {
@@ -112,14 +110,14 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	if ctx.Params == nil {
 		ctx.Params = make(map[string]any)
 	}
-	ctx.Params[ContextKeySentinelEntry] = entry
+	ctx.Params[constant.SentinelEntryKey] = entry
 
 	return filter.Continue
 }
 
 // Encode processes the response and reports statistics to Sentinel
 func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus {
-	entryVal, ok := ctx.Params[ContextKeySentinelEntry]
+	entryVal, ok := ctx.Params[constant.SentinelEntryKey]
 	if !ok {
 		// No entry in context, skip
 		return filter.Continue
