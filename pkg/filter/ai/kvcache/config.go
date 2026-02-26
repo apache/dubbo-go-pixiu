@@ -31,6 +31,7 @@ const (
 	defaultLookupRoutingTimeout = 50 * time.Millisecond
 	defaultHotWindow            = 5 * time.Minute
 	defaultHotMaxRecords        = 300
+	defaultHotMaxKeys           = 0
 	defaultRetryMaxAttempts     = 3
 	defaultRetryBaseBackoff     = 100 * time.Millisecond
 	defaultRetryMaxBackoff      = 2 * time.Second
@@ -49,6 +50,7 @@ type Config struct {
 	LookupRoutingTimeout time.Duration        `yaml:"lookup_routing_timeout" json:"lookup_routing_timeout" mapstructure:"lookup_routing_timeout"`
 	HotWindow            time.Duration        `yaml:"hot_window" json:"hot_window" mapstructure:"hot_window"`
 	HotMaxRecords        int                  `yaml:"hot_max_records" json:"hot_max_records" mapstructure:"hot_max_records"`
+	HotMaxKeys           int                  `yaml:"hot_max_keys" json:"hot_max_keys" mapstructure:"hot_max_keys"`
 	MaxIdleConns         int                  `yaml:"max_idle_conns" json:"max_idle_conns" mapstructure:"max_idle_conns"`
 	MaxIdleConnsPerHost  int                  `yaml:"max_idle_conns_per_host" json:"max_idle_conns_per_host" mapstructure:"max_idle_conns_per_host"`
 	MaxConnsPerHost      int                  `yaml:"max_conns_per_host" json:"max_conns_per_host" mapstructure:"max_conns_per_host"`
@@ -119,6 +121,9 @@ func (c *Config) Validate() error {
 	if c.HotMaxRecords < 0 {
 		return fmt.Errorf("[kvcache] hot_max_records must be >= 0")
 	}
+	if c.HotMaxKeys < 0 {
+		return fmt.Errorf("[kvcache] hot_max_keys must be >= 0")
+	}
 	return nil
 }
 
@@ -134,6 +139,9 @@ func (c *Config) ApplyDefaults() {
 	}
 	if c.HotMaxRecords <= 0 {
 		c.HotMaxRecords = defaultHotMaxRecords
+	}
+	if c.HotMaxKeys < 0 {
+		c.HotMaxKeys = defaultHotMaxKeys
 	}
 	if c.Retry.MaxAttempts <= 0 {
 		c.Retry.MaxAttempts = defaultRetryMaxAttempts

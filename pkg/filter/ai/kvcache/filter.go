@@ -88,7 +88,7 @@ func (factory *FilterFactory) Apply() error {
 
 	cbToken := NewCircuitBreaker(cfg.CircuitBreaker)
 	cbLMCache := NewCircuitBreaker(cfg.CircuitBreaker)
-	factory.tokenManager = NewTokenManager(cfg.VLLMEndpoint, factory.resty, cfg.TokenCache, cbToken, cfg.HotWindow, cfg.HotMaxRecords)
+	factory.tokenManager = NewTokenManager(cfg.VLLMEndpoint, factory.resty, cfg.TokenCache, cbToken, cfg.HotWindow, cfg.HotMaxRecords, cfg.HotMaxKeys)
 	factory.lmcacheClient = NewLMCacheClient(cfg.LMCacheEndpoint, factory.resty, cfg.Retry, cbLMCache)
 	factory.cacheStrategy = NewCacheStrategy(cfg.CacheStrategy, factory.lmcacheClient, factory.tokenManager)
 	return nil

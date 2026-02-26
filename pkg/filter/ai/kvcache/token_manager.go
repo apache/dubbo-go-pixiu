@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -32,6 +33,8 @@ import (
 import (
 	"github.com/go-resty/resty/v2"
 )
+
+const hotMapMinSweepInterval = 30 * time.Second
 
 type TokenManager struct {
 	httpClient     *resty.Client
@@ -44,10 +47,14 @@ type TokenManager struct {
 	hitCount  int64
 	missCount int64
 
-	hotWindow time.Duration
-	hotMax    int
-	hotMu     sync.Mutex
-	hotMap    map[string][]time.Time
+	hotWindow  time.Duration
+	hotMax     int
+	hotMaxKeys int
+	hotMu      sync.Mutex
+	hotMap     map[string][]time.Time
+
+	hotSweepInterval time.Duration
+	hotLastSweep     time.Time
 }
 
 type TokenizeRequest struct {
@@ -66,15 +73,21 @@ type tokenCacheEntry struct {
 	expiresAt time.Time
 }
 
-func NewTokenManager(endpoint string, httpClient *resty.Client, cfg TokenCacheConfig, cb *CircuitBreaker, hotWindow time.Duration, hotMax int) *TokenManager {
+func NewTokenManager(endpoint string, httpClient *resty.Client, cfg TokenCacheConfig, cb *CircuitBreaker, hotWindow time.Duration, hotMax int, hotMaxKeys ...int) *TokenManager {
+	maxKeys := 0
+	if len(hotMaxKeys) > 0 {
+		maxKeys = hotMaxKeys[0]
+	}
 	return &TokenManager{
-		httpClient:     httpClient,
-		endpoint:       endpoint,
-		config:         cfg,
-		circuitBreaker: cb,
-		hotWindow:      hotWindow,
-		hotMax:         hotMax,
-		hotMap:         make(map[string][]time.Time),
+		httpClient:       httpClient,
+		endpoint:         endpoint,
+		config:           cfg,
+		circuitBreaker:   cb,
+		hotWindow:        hotWindow,
+		hotMax:           hotMax,
+		hotMaxKeys:       maxKeys,
+		hotMap:           make(map[string][]time.Time),
+		hotSweepInterval: computeHotSweepInterval(hotWindow),
 	}
 }
 
@@ -190,6 +203,7 @@ func (tm *TokenManager) RecordHot(model string, prompt string) {
 	key := tm.cacheKey(model, prompt)
 	tm.hotMu.Lock()
 	defer tm.hotMu.Unlock()
+	tm.maybeSweepHotMapLocked(now)
 	entries := tm.hotMap[key]
 	entries = append(entries, now)
 	entries = trimHotWindow(entries, now, tm.hotWindow)
@@ -201,6 +215,7 @@ func (tm *TokenManager) RecordHot(model string, prompt string) {
 		return
 	}
 	tm.hotMap[key] = entries
+	tm.enforceHotMapLimitLocked(now)
 }
 
 func (tm *TokenManager) IsHot(model string, prompt string, threshold int) bool {
@@ -225,6 +240,89 @@ func (tm *TokenManager) IsHot(model string, prompt string, threshold int) bool {
 	}
 	tm.hotMap[key] = entries
 	return len(entries) >= threshold
+}
+
+func computeHotSweepInterval(hotWindow time.Duration) time.Duration {
+	if hotWindow <= 0 {
+		return 0
+	}
+	interval := hotWindow / 2
+	if interval <= 0 {
+		interval = hotWindow
+	}
+	if hotWindow > hotMapMinSweepInterval && interval < hotMapMinSweepInterval {
+		interval = hotMapMinSweepInterval
+	}
+	return interval
+}
+
+func (tm *TokenManager) maybeSweepHotMapLocked(now time.Time) {
+	if tm.hotSweepInterval <= 0 {
+		return
+	}
+	if !tm.hotLastSweep.IsZero() && now.Sub(tm.hotLastSweep) < tm.hotSweepInterval {
+		return
+	}
+	for key, entries := range tm.hotMap {
+		entries = trimHotWindow(entries, now, tm.hotWindow)
+		if tm.hotMax > 0 && len(entries) > tm.hotMax {
+			entries = entries[len(entries)-tm.hotMax:]
+		}
+		if len(entries) == 0 {
+			delete(tm.hotMap, key)
+			continue
+		}
+		tm.hotMap[key] = entries
+	}
+	tm.hotLastSweep = now
+}
+
+func (tm *TokenManager) enforceHotMapLimitLocked(now time.Time) {
+	if tm.hotMaxKeys <= 0 || len(tm.hotMap) <= tm.hotMaxKeys {
+		return
+	}
+
+	// First, aggressively drop expired keys when we are already over the key cap.
+	for key, entries := range tm.hotMap {
+		entries = trimHotWindow(entries, now, tm.hotWindow)
+		if tm.hotMax > 0 && len(entries) > tm.hotMax {
+			entries = entries[len(entries)-tm.hotMax:]
+		}
+		if len(entries) == 0 {
+			delete(tm.hotMap, key)
+			continue
+		}
+		tm.hotMap[key] = entries
+	}
+	if len(tm.hotMap) <= tm.hotMaxKeys {
+		return
+	}
+
+	type hotKeyLastSeen struct {
+		key      string
+		lastSeen time.Time
+	}
+	candidates := make([]hotKeyLastSeen, 0, len(tm.hotMap))
+	for key, entries := range tm.hotMap {
+		if len(entries) == 0 {
+			delete(tm.hotMap, key)
+			continue
+		}
+		candidates = append(candidates, hotKeyLastSeen{
+			key:      key,
+			lastSeen: entries[len(entries)-1],
+		})
+	}
+	if len(candidates) <= tm.hotMaxKeys {
+		return
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].lastSeen.Before(candidates[j].lastSeen)
+	})
+	excess := len(candidates) - tm.hotMaxKeys
+	for i := 0; i < excess; i++ {
+		delete(tm.hotMap, candidates[i].key)
+	}
 }
 
 func trimHotWindow(entries []time.Time, now time.Time, window time.Duration) []time.Time {
