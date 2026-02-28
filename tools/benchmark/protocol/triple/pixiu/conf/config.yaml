@@ -32,30 +32,29 @@ static_resources:
                 route_config:
                   routes:
                     - match:
-                        prefix: "/"
+                        prefix: "/dubbo.io"
+                      route:
+                        cluster: "test-triple"
+                        cluster_not_found_response_code: 505
                 http_filters:
-                  - name: dgp.filter.http.apiconfig
+                  - name: dgp.filter.http.grpcproxy
                     config:
-                      dynamic: true
-                      dynamic_adapter: test
-                  - name: dgp.filter.http.loadbalance
-                  - name: dgp.filter.http.dubboproxy
-                    config:
-                      dubboProxyConfig:
-                        registries:
-                          zookeeper:
-                            protocol: zookeeper
-                            timeout: "3s"
-                            address: "127.0.0.1:2181"
-                        timeout_config:
-                          connect_timeout: 5s
-                          request_timeout: 5s
-  adapters:
-    - id: test
-      name: dgp.adapter.dubboregistrycenter
+                      descriptor_source_strategy: remote
+                server_name: "test-http-triple"
+                generate_request_id: false
       config:
-        registries:
-          zookeeper:
-            protocol: zookeeper
-            address:  "127.0.0.1:2181"
-            timeout: "5s"
+        idle_timeout: 5s
+        read_timeout: 5s
+        write_timeout: 5s
+  clusters:
+    - name: "test-triple"
+      lb_policy: "RoundRobin"
+      endpoints:
+        - socket_address:
+            address: 127.0.0.1
+            port: 20000
+            protocol_type: "TRIPLE"
+  shutdown_config:
+    timeout: "60s"
+    step_timeout: "10s"
+    reject_policy: "immediacy"

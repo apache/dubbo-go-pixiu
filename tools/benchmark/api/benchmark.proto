@@ -1,0 +1,75 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package benchmark;
+
+option go_package = "github.com/apache/dubbo-go-pixiu/tools/benchmark/api;api";
+
+// User represents a user entity
+message User {
+  int32 id = 1;
+  string name = 2;
+  int32 age = 3;
+}
+
+// GetUserRequest is the request for GetUser
+message GetUserRequest {
+  int32 user_id = 1;
+}
+
+// GetUsersRequest is the request for GetUsers
+message GetUsersRequest {
+  repeated int32 user_ids = 1;
+}
+
+// GetUserByNameRequest is the request for GetUserByName
+message GetUserByNameRequest {
+  string name = 1;
+}
+
+// GetUsersResponse is the response containing users
+message GetUsersResponse {
+  repeated User users = 1;
+}
+
+// HelloRequest is the request for SayHello
+message HelloRequest {
+  string name = 1;
+}
+
+// HelloResponse is the response for SayHello
+message HelloResponse {
+  string message = 1;
+}
+
+// BenchmarkService is the unified service for benchmarking
+// This service is used by gRPC, Triple, and Dubbo protocols
+service BenchmarkService {
+  // GetUser returns a single user by ID
+  rpc GetUser(GetUserRequest) returns (GetUsersResponse);
+
+  // GetUsers returns multiple users by IDs
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse);
+
+  // GetUserByName returns a user by name
+  rpc GetUserByName(GetUserByNameRequest) returns (GetUsersResponse);
+
+  // SayHello returns a greeting message
+  rpc SayHello(HelloRequest) returns (HelloResponse);
+}
