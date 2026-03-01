@@ -3,7 +3,7 @@ module github.com/apache/dubbo-go-pixiu/tools/benchmark
 go 1.25.0
 
 require (
-	dubbo.apache.org/dubbo-go/v3 v3.3.1
+	dubbo.apache.org/dubbo-go/v3 v3.0.0-20260210015753-35ea886421f9
 	github.com/apache/dubbo-go-hessian2 v1.12.5
 	github.com/dubbogo/gost v1.14.3
 	github.com/onsi/ginkgo/v2 v2.11.0

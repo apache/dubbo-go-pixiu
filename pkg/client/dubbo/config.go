@@ -18,6 +18,8 @@
 package dubbo
 
 import (
+	"strings"
+
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -40,7 +42,7 @@ type DubboProxyConfig struct {
 
 	// Cluster strategy for dubbo client.
 	// Valid values (case-sensitive): "failover", "failfast", "failsafe", "failback", "forking", "broadcast"
-	// Source: dubbo-go v3.3.1 cluster constants
+	// Source: dubbo-go cluster constants
 	// Default: "failover"
 	Cluster string `yaml:"cluster,omitempty" json:"cluster,omitempty"`
 
@@ -51,7 +53,7 @@ type DubboProxyConfig struct {
 
 	// Protocol type for dubbo client.
 	// Valid values (case-sensitive): "dubbo", "tri"
-	// Source: dubbo-go v3.3.1 protocol names
+	// Source: dubbo-go protocol names
 	// Default: "tri"
 	Protocol string `yaml:"protocol,omitempty" json:"protocol,omitempty"`
 
@@ -73,6 +75,12 @@ type DubboProxyConfig struct {
 	// Params allows passing custom parameters to the service provider.
 	// These parameters are passed as URL parameters in the Dubbo protocol.
 	Params map[string]string `yaml:"params,omitempty" json:"params,omitempty"`
+
+	// GenericType defines generic invocation mode for dubbo-go generic service.
+	// Currently only "true" is considered stable in pixiu.
+	// Other configured values are downgraded to "true" for compatibility.
+	// Default: "true"
+	GenericType string `yaml:"generic_type,omitempty" json:"generic_type,omitempty"`
 }
 
 // GetCluster returns cluster strategy with default value "failover".
@@ -95,4 +103,22 @@ func (dpc *DubboProxyConfig) GetProtocol() string {
 // Does not provide default value to maintain backward compatibility.
 func (dpc *DubboProxyConfig) GetCheck() *bool {
 	return dpc.Check
+}
+
+// GetGenericType returns generic invocation mode with default value "true".
+// Only "true" is treated as supported in pixiu currently.
+// Other values are downgraded to "true" for compatibility.
+func (dpc *DubboProxyConfig) GetGenericType() string {
+	genericType, _ := normalizeGenericType(dpc.GenericType)
+	return genericType
+}
+
+func normalizeGenericType(genericType string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(genericType))
+	switch normalized {
+	case "", "true":
+		return "true", true
+	default:
+		return "true", false
+	}
 }

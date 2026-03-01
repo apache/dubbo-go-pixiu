@@ -328,53 +328,18 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *generi
 		return service
 	}
 
-	// Build ReferenceOptions using dubbo-go v3.3.1 client API
+	// Build ReferenceOptions using dubbo-go client API
 	opts := dc.buildReferenceOptions(irequest, registerIds)
 
-	// Create ReferenceOptions with all required fields initialized.
-	//
-	// Why we manually initialize ReferenceOptions instead of using Client.Dial():
-	// 1. Pixiu needs generic.GenericService for generic invocation (no IDL required)
-	// 2. Client.Dial() returns Connection which is designed for typed clients
-	// 3. Connection doesn't expose GenericService - we need direct access to ReferenceOptions
-	// 4. This approach mirrors what Client.dial() does internally, following dubbo-go's design
-	//
-	// This initialization pattern matches dubbo-go's internal defaultReferenceOptions():
-	// - All fields are initialized with default configs to prevent nil pointer dereference
-	// - User options are applied afterwards to override defaults (functional options pattern)
-	//
-	// TODO: Refactor to use official dubbo-go API when generic invocation is supported
-	// Currently, we manually construct ReferenceOptions because:
-	// - Client.Dial() returns Connection (for typed clients only)
-	// - Connection doesn't expose generic.GenericService
-	// When dubbo-go adds official support for generic invocation via Client.Dial() or similar API,
-	// we should migrate to that approach instead of manually initializing ReferenceOptions.
-	// This will eliminate the need to track dubbo-go's internal structure changes.
-	refOpts := &dclient.ReferenceOptions{
-		Reference:   global.DefaultReferenceConfig(),
-		Application: defaultApplication,
-		Consumer:    global.DefaultConsumerConfig(),
-		Shutdown:    global.DefaultShutdownConfig(),
-		Metrics:     global.DefaultMetricsConfig(),
-		Otel:        global.DefaultOtelConfig(),
-		TLS:         global.DefaultTLSConfig(),
-		Protocols:   make(map[string]*global.ProtocolConfig),
-		Registries:  dc.registries,
+	if dc.dubboClient == nil {
+		panic("dubbo client is not initialized, call Apply() first")
 	}
 
-	// Apply user-provided options to override defaults
-	for _, opt := range opts {
-		opt(refOpts)
+	// DialWithService initializes ReferenceOptions (including internal compat fields) and binds GenericService.
+	clientService := generic.NewGenericService(key)
+	if _, err := dc.dubboClient.DialWithService(irequest.Interface, clientService, opts...); err != nil {
+		panic(err)
 	}
-
-	// Set generic mode for generic invocation
-	refOpts.Reference.Generic = "true"
-
-	// Log dubbo client configuration
-	dc.logClientConfig(refOpts.Reference)
-
-	// Call Refer to initialize the service reference
-	refOpts.Refer()
 
 	// sleep when first call to fetch enough service meta data from nacos
 	// todo: Refer should guarantee it
@@ -382,7 +347,6 @@ func (dc *Client) create(key string, irequest config.IntegrationRequest) *generi
 		time.Sleep(1000 * time.Millisecond)
 	}
 
-	clientService := refOpts.GetRPCService().(*generic.GenericService)
 	dc.GenericServicePool[key] = clientService
 
 	return clientService
@@ -498,10 +462,7 @@ func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, regi
 
 	// 8. Check (from DubboProxyConfig) - startup provider availability check
 	if check := dc.dubboProxyConfig.GetCheck(); check != nil {
-		if *check {
-			opts = append(opts, dclient.WithCheck())
-		}
-		// If check=false, don't add WithCheck() - dubbo-go defaults to not checking
+		opts = append(opts, withReferenceCheck(*check))
 	}
 
 	// 9. Filter (from DubboProxyConfig) - filter chain configuration
@@ -519,12 +480,19 @@ func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, regi
 		}
 	}
 
-	// 11. Sticky (from DubboProxyConfig) - sticky connection
+	// 11. GenericType (from DubboProxyConfig) - generic serialization mode
+	genericType, supported := normalizeGenericType(dc.dubboProxyConfig.GenericType)
+	if !supported && strings.TrimSpace(dc.dubboProxyConfig.GenericType) != "" {
+		logger.Warnf("[dubbo-go-pixiu] unsupported generic_type=%q, fallback to \"true\"", dc.dubboProxyConfig.GenericType)
+	}
+	opts = append(opts, dclient.WithGenericType(genericType))
+
+	// 12. Sticky (from DubboProxyConfig) - sticky connection
 	if dc.dubboProxyConfig.Sticky != nil && *dc.dubboProxyConfig.Sticky {
 		opts = append(opts, dclient.WithSticky())
 	}
 
-	// 12. Params (from DubboProxyConfig) - custom parameters
+	// 13. Params (from DubboProxyConfig) - custom parameters
 	if len(dc.dubboProxyConfig.Params) > 0 {
 		opts = append(opts, dclient.WithParams(dc.dubboProxyConfig.Params))
 	}
@@ -532,37 +500,9 @@ func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, regi
 	return opts
 }
 
-// logClientConfig logs the effective dubbo client configuration for debugging
-func (dc *Client) logClientConfig(refConf *global.ReferenceConfig) {
-	check := dc.dubboProxyConfig.GetCheck()
-	checkStr := "nil (use dubbo-go default)"
-	if check != nil {
-		if *check {
-			checkStr = "true"
-		} else {
-			checkStr = "false"
-		}
+func withReferenceCheck(check bool) dclient.ReferenceOption {
+	return func(opts *dclient.ReferenceOptions) {
+		v := check
+		opts.Reference.Check = &v
 	}
-
-	sticky := dc.dubboProxyConfig.Sticky
-	stickyStr := "false"
-	if sticky != nil && *sticky {
-		stickyStr = "true"
-	}
-
-	logger.Debugf("[dubbo-go-pixiu] Dubbo client config: interface=%s, group=%s, version=%s, cluster=%s, protocol=%s, loadbalance=%s, retries=%d, check=%s, timeout=%s, filter=%s, serialization=%s, sticky=%s, params=%v",
-		refConf.InterfaceName,
-		refConf.Group,
-		refConf.Version,
-		refConf.Cluster,
-		refConf.Protocol,
-		refConf.Loadbalance,
-		refConf.Retries,
-		checkStr,
-		refConf.RequestTimeout,
-		refConf.Filter,
-		refConf.Serialization,
-		stickyStr,
-		refConf.Params,
-	)
 }

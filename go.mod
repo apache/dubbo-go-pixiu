@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	dario.cat/mergo v1.0.1
-	dubbo.apache.org/dubbo-go/v3 v3.3.1
+	dubbo.apache.org/dubbo-go/v3 v3.0.0-20260210015753-35ea886421f9
 	github.com/IBM/sarama v1.45.1
 	github.com/MicahParks/keyfunc v1.0.0
 	github.com/agiledragon/gomonkey/v2 v2.11.0
@@ -169,7 +169,6 @@ require (
 	github.com/jcmturner/gofork v1.7.6 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
-	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
