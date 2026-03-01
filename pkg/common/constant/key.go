@@ -96,6 +96,8 @@ const (
 	NameKey = "name"
 	// RetriesKey retry times
 	RetriesKey = "retries"
+	// SentinelEntryKey is the key to store Sentinel entry in HttpContext.Params
+	SentinelEntryKey = "sentinel_entry"
 )
 
 const (

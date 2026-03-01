@@ -24,6 +24,7 @@ import (
 
 import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
+	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
 	sc "github.com/alibaba/sentinel-golang/core/config"
 )
@@ -79,7 +80,9 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 
 // Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	chain.AppendDecodeFilters(&Filter{cfg: factory.cfg.DeepCopy(), matcher: factory.matcher})
+	f := &Filter{cfg: factory.cfg.DeepCopy(), matcher: factory.matcher}
+	chain.AppendDecodeFilters(f)
+	chain.AppendEncodeFilters(f)
 	return nil
 }
 
@@ -97,11 +100,49 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 
 	// if blockErr not nil, indicates the request was blocked by Sentinel
 	if blockErr != nil {
-		errResp := http.ServiceUnavailable.New()
+		logger.Warnf("circuit breaker request blocked for resource %s: %v", resourceName, blockErr)
+		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("circuit breaker open for resource: %s", resourceName))
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
+
+	// Store entry in context for later use in Encode phase
+	if ctx.Params == nil {
+		ctx.Params = make(map[string]any)
+	}
+	ctx.Params[constant.SentinelEntryKey] = entry
+
+	return filter.Continue
+}
+
+// Encode processes the response and reports statistics to Sentinel
+func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus {
+	entryVal, ok := ctx.Params[constant.SentinelEntryKey]
+	if !ok {
+		// No entry in context, skip
+		return filter.Continue
+	}
+
+	entry, ok := entryVal.(*base.SentinelEntry)
+	if !ok || entry == nil {
+		logger.Warnf("circuit breaker invalid sentinel entry type in context")
+		return filter.Continue
+	}
+
+	// Ensure entry.Exit() is called
 	defer entry.Exit()
+
+	// Report error to Sentinel if response indicates failure
+	// Consider 5xx status codes as errors for circuit breaker
+	statusCode := ctx.GetStatusCode()
+	if statusCode >= 500 && statusCode < 600 {
+		// Create detailed error with status code and request context
+		err := fmt.Errorf("backend returned HTTP %d for %s %s",
+			statusCode, ctx.GetMethod(), ctx.GetUrl())
+		entry.SetError(err)
+		logger.Debugf("circuit breaker reported error to Sentinel: %v", err)
+	}
+
 	return filter.Continue
 }
 
