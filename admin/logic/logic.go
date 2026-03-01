@@ -66,9 +66,13 @@ const (
 	ErrID = -1
 )
 
-// Use a shared client to enable HTTP keep-alive and prevent connection exhaustion
+// Use a shared client to enable HTTP keep-alive and prevent connection exhaustion.
+// Timeout is enforced per request so it can honor late-loaded config.
+// Set a large fallback timeout as a last-resort guard.
+const opaHTTPClientFallbackTimeout = 30 * time.Second
+
 var opaHTTPClient = &http.Client{
-	Timeout: getOPATimeout(),
+	Timeout: opaHTTPClientFallbackTimeout,
 }
 
 func getOPATimeout() time.Duration {
@@ -604,6 +608,11 @@ func doOPARequestWithStatus(method, url, bearerToken, contentType string, body [
 	ctx := context.Background()
 	if adminconfig.Client != nil {
 		ctx = adminconfig.Client.GetCtx()
+	}
+	if timeout := getOPATimeout(); timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
 	}
 	req, err := http.NewRequestWithContext(ctx, method, url, reader)
 	if err != nil {
