@@ -33,3 +33,9 @@ system:
   env: 'public'
   addr: 8081
   db-type: 'mysql'
+
+# opa configuration
+opa:
+  server_url: http://opa:8181
+  policy_id: pixiu-authz
+  request_timeout: 8s

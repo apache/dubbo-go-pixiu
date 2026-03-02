@@ -535,6 +535,86 @@ paths:
       summary: batch Release Method Config
       tags:
       - Config
+  /config/api/opa/policy:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get OPA policy (server mode)
+      tags:
+      - Config
+      parameters:
+      - description: OPA server url
+        in: query
+        name: server_url
+        type: string
+      - description: Policy ID
+        in: query
+        name: policy_id
+        type: string
+      - description: Bearer token
+        in: query
+        name: bearer_token
+        type: string
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: OPA server url
+        in: formData
+        name: server_url
+        type: string
+      - description: Policy ID
+        in: formData
+        name: policy_id
+        type: string
+      - description: Bearer token
+        in: formData
+        name: bearer_token
+        type: string
+      - description: Rego content
+        in: formData
+        name: content
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: upload OPA policy (server mode)
+      tags:
+      - Config
+    delete:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: delete OPA policy (server mode)
+      tags:
+      - Config
+      parameters:
+      - description: OPA server url
+        in: query
+        name: server_url
+        type: string
+      - description: Policy ID
+        in: query
+        name: policy_id
+        type: string
+      - description: Bearer token
+        in: query
+        name: bearer_token
+        type: string
   /config/api/resource/publish:
     put:
       description: publish resources from unpublished spaces to published spaces

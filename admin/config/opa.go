@@ -14,41 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export const menuList = [{
-  name: '网关配置',
-  id: 'Gateway',
-  children: [{
-    name: '概览',
-    id: 'Overview',
-    componentName: '/Overview'
-  },
-  {
-    name: '插件配置',
-    id: 'Plug',
-    componentName: 'Plug'
-  },{
-    name: '集群管理',
-    id: 'Cluster',
-    componentName: 'Cluster'
-  },{
-    name: 'Listener管理',
-    id: 'Listener',
-    componentName: 'Listener'
-  }]
-}, {
-  name: '限流配置',
-  id: 'Flow',
-  children: [{
-    name: '限流配置',
-    id: 'RateLimiter',
-    componentName: '/RateLimiter'
-  }]
-}, {
-  name: 'OPA配置',
-  id: 'OPAConfig',
-  children: [{
-    name: 'OPA配置',
-    id: 'OPA',
-    componentName: '/OPA'
-  }]
-}]
+
+package config
+
+import (
+	"time"
+)
+
+const (
+	DefaultOPAServerURL     = "http://opa:8181"
+	DefaultOPAPolicyID      = "pixiu-authz"
+	DefaultOPAPolicyTimeout = 8 * time.Second
+)
+
+type OPAQuery struct {
+	ServerURL   string `form:"server_url"`
+	PolicyID    string `form:"policy_id"`
+	BearerToken string `form:"bearer_token"`
+}
+
+type OPAPolicyGetResponse struct {
+	Result struct {
+		Raw string `json:"raw"`
+	} `json:"result"`
+}

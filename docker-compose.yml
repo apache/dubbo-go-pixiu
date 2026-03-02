@@ -35,6 +35,20 @@ services:
     networks:
       - app_network
 
+  # OPA service
+  opa:
+    image: openpolicyagent/opa:1.13.1
+    container_name: pixiu_admin_opa
+    ports:
+      - "8181:8181"
+    networks:
+      - app_network
+    command:
+      - "run"
+      - "--server"
+      - "--addr=:8181"
+      - "--log-level=info"
+
   mysql_pixiu:
     image: mysql:8
     container_name: pixiu_admin_mysql
@@ -65,6 +79,7 @@ services:
       - app_network
     depends_on:
       - etcd  # Ensure etcd is ready before starting the backend
+      - opa  # Ensure opa is ready before starting the backend
       - backend # backend is the xds server for pixiu
     entrypoint: ["/bin/sh", "-c", "echo 'Waiting for backend to be ready on port 8081...' && \
       until nc -z pixiu_admin_go_backend 8081; do \
@@ -118,3 +133,4 @@ services:
 networks:
   app_network:
     driver: bridge
+

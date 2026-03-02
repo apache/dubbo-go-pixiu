@@ -29,6 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/controller/account"
 	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	"github.com/apache/dubbo-go-pixiu/admin/controller/configInfo"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/opa"
 	_ "github.com/apache/dubbo-go-pixiu/admin/doc"
 )
 
@@ -81,6 +82,10 @@ func Routers() *gin.Engine {
 		taR.POST("/config/api/resource/method", configInfo.CreateMethodInfo)
 		taR.PUT("/config/api/resource/method", configInfo.ModifyMethodInfo)
 		taR.DELETE("/config/api/resource/method", configInfo.DeleteMethodInfo)
+
+		taR.GET("/config/api/opa/policy", opa.GetOPAPolicy)
+		taR.PUT("/config/api/opa/policy", opa.PutOPAPolicy)
+		taR.DELETE("/config/api/opa/policy", opa.DeleteOPAPolicy)
 
 		// Which request method to choose, Temporarily choose put method
 		taR.PUT("/config/api/resource/publish", configInfo.BatchReleaseResource)

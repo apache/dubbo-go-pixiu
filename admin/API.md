@@ -374,3 +374,78 @@ DELETE /config/api/plugin_group/?name=group1 HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
+
+## V. OPA Policy
+
+OPA policy APIs proxy requests to the OPA server. If `server_url` or `policy_id` is not provided, defaults are used (`http://opa:8181` and `pixiu-authz`).
+
+### 5.1 Get OPA Policy
+
+**Request**:
+
+```http
+GET /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+**Query Params**:
+
+* `policy_id`: OPA policy id (optional)
+* `server_url`: OPA server URL (optional)
+* `bearer_token`: OPA bearer token (optional)
+
+**Response**:
+
+```json
+{
+  "code": "10001",
+  "data": "package pixiu.authz\n\ndefault allow := false\n"
+}
+```
+
+If the policy does not exist, `data` will be an empty string.
+
+### 5.2 Create or Update OPA Policy
+
+**Request**:
+
+```http
+PUT /config/api/opa/policy HTTP/1.1
+Host: 127.0.0.1:8080
+Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+cache-control: no-cache
+```
+
+**Form Data**:
+
+```text
+Content-Disposition: form-data; name="policy_id"
+pixiu-authz
+
+Content-Disposition: form-data; name="content"
+package pixiu.authz
+
+default allow := false
+```
+
+Optional form fields:
+
+* `server_url`
+* `bearer_token`
+
+### 5.3 Delete OPA Policy
+
+**Request**:
+
+```http
+DELETE /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+**Query Params**:
+
+* `policy_id`: OPA policy id (optional)
+* `server_url`: OPA server URL (optional)
+* `bearer_token`: OPA bearer token (optional)

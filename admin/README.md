@@ -277,6 +277,18 @@ After saving, the rate-limiting configuration will take effect.
 
 ![13.png](../docs/images/admin/13.png)
 
+### Manage OPA Policy Configuration
+
+#### Configure OPA Policy
+
+Click the "OPA Policy Configuration" menu to manage the OPA policy. You can change `policy_id`, synchronize the latest policy from the OPA server, and edit Rego policy content in the editor.
+
+![14.png](../docs/images/admin/14.png)
+
+After editing, click "Save" to upload the policy to OPA. You can also click "Delete" to remove the policy.
+
+![15.png](../docs/images/admin/15.png)
+
 ## III. Pixiu Remote Configuration
 
 ### Start and Configure

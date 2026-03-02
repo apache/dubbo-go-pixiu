@@ -789,7 +789,129 @@
                 }
             }
         },
-        "/config/api/resource/publish": {
+        "/config/api/opa/policy": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "get OPA policy (server mode)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OPA server url",
+                        "name": "server_url",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "bearer_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "upload OPA policy (server mode)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OPA server url",
+                        "name": "server_url",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "bearer_token",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Rego content",
+                        "name": "content",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "delete OPA policy (server mode)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OPA server url",
+                        "name": "server_url",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "bearer_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },        "/config/api/resource/publish": {
             "put": {
                 "description": "publish resources from unpublished spaces to published spaces",
                 "produces": [

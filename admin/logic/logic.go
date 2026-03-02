@@ -18,10 +18,17 @@
 package logic
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 import (
@@ -51,12 +58,29 @@ const (
 	Plugin      = "plugin"
 	Filter      = "filter"
 	Ratelimit   = "ratelimit"
+	OPA         = "opa"
 	Clusters    = "clusters"
 	Listeners   = "listeners"
 	Unpublished = "unpublished"
 
 	ErrID = -1
 )
+
+// Use a shared client to enable HTTP keep-alive and prevent connection exhaustion.
+// Timeout is enforced per request so it can honor late-loaded config.
+// Set a large fallback timeout as a last-resort guard.
+const opaHTTPClientFallbackTimeout = 30 * time.Second
+
+var opaHTTPClient = &http.Client{
+	Timeout: opaHTTPClientFallbackTimeout,
+}
+
+func getOPATimeout() time.Duration {
+	if adminconfig.Bootstrap != nil && adminconfig.Bootstrap.OPA.RequestTimeout > 0 {
+		return adminconfig.Bootstrap.OPA.RequestTimeout
+	}
+	return adminconfig.DefaultOPAPolicyTimeout
+}
 
 // BizGetBaseInfo get base info
 func BizGetBaseInfo() (*adminconfig.BaseInfo, error) {
@@ -508,6 +532,127 @@ func BRCreate(key, value, configType string) error {
 		return adminconfig.Client.Create(getPluginRatelimitKey(false), value)
 	}
 	return errors.New("")
+}
+
+// BizGetOPAPolicy fetches the policy raw text. Returns empty string if not found.
+func BizGetOPAPolicy(serverURL, policyID, bearerToken string) (string, error) {
+	url, err := buildOPAPolicyURL(serverURL, policyID)
+	if err != nil {
+		return "", err
+	}
+
+	status, body, err := doOPARequestWithStatus(http.MethodGet, url, bearerToken, "", nil)
+	if err != nil {
+		return "", err
+	}
+
+	// Handle the "initial state" where the policy doesn't exist yet
+	if status == http.StatusNotFound {
+		return "", nil
+	}
+
+	var decoded adminconfig.OPAPolicyGetResponse
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return "", perrors.WithMessage(err, "failed to decode OPA response")
+	}
+
+	return decoded.Result.Raw, nil
+}
+
+// BizPutOPAPolicy updates or creates a policy.
+func BizPutOPAPolicy(serverURL, policyID, bearerToken, policy string) error {
+	url, err := buildOPAPolicyURL(serverURL, policyID)
+	if err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(policy) == "" {
+		return perrors.New("policy content is required")
+	}
+
+	normalized := strings.ReplaceAll(policy, "\r\n", "\n")
+	_, _, err = doOPARequestWithStatus(http.MethodPut, url, bearerToken, "text/plain", []byte(normalized))
+	return err
+}
+
+// BizDeleteOPAPolicy removes a policy. Returns nil if policy is already gone.
+func BizDeleteOPAPolicy(serverURL, policyID, bearerToken string) error {
+	url, err := buildOPAPolicyURL(serverURL, policyID)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = doOPARequestWithStatus(http.MethodDelete, url, bearerToken, "", nil)
+	return err
+}
+
+func buildOPAPolicyURL(serverURL, policyID string) (string, error) {
+	serverURL = strings.TrimSpace(serverURL)
+	policyID = strings.TrimSpace(policyID)
+
+	if serverURL == "" || policyID == "" {
+		return "", perrors.New("server_url and policy_id are required")
+	}
+
+	base := strings.TrimRight(serverURL, "/")
+	return fmt.Sprintf("%s/v1/policies/%s", base, policyID), nil
+}
+
+// doOPARequestWithStatus is the core proxy function
+func doOPARequestWithStatus(method, url, bearerToken, contentType string, body []byte) (int, []byte, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+
+	ctx := context.Background()
+	if adminconfig.Client != nil {
+		ctx = adminconfig.Client.GetCtx()
+	}
+	if timeout := getOPATimeout(); timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, reader)
+	if err != nil {
+		return 0, nil, perrors.Wrap(err, "failed to create OPA request")
+	}
+
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if token := strings.TrimSpace(bearerToken); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := opaHTTPClient.Do(req)
+	if err != nil {
+		return 0, nil, perrors.Wrap(err, "OPA connection failed")
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Warnf("failed to read OPA response body: %v", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return resp.StatusCode, respBody, nil
+
+	case http.StatusNotFound:
+		if method == http.MethodGet || method == http.MethodDelete {
+			return resp.StatusCode, nil, nil
+		}
+		return resp.StatusCode, nil, perrors.Errorf("OPA endpoint not found: %s", url)
+
+	default:
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			return resp.StatusCode, nil, perrors.Errorf("OPA status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		}
+		return resp.StatusCode, respBody, nil
+	}
 }
 
 func getResourceKey(path string, unpublished bool) string {

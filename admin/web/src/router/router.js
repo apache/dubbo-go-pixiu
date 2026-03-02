@@ -64,6 +64,10 @@ export default new Router({
           component: () => import('@/views/dashboard/manage/RateLimiter.vue')
         },
         {
+          path: 'OPA',
+          component: () => import('@/views/dashboard/manage/OPA.vue')
+        },
+        {
           path: 'personInfo',
           component: () => import('@/views/dashboard/personInfo/index.vue')
         },
