@@ -191,6 +191,23 @@ func (cm *ClusterManager) PickNextEndpoint(clusterName string, curEndpointID str
 	return nil
 }
 
+// GetEndpointByID returns the endpoint by ID in the given cluster.
+func (cm *ClusterManager) GetEndpointByID(clusterName string, endpointID string) *model.Endpoint {
+	cm.rw.RLock()
+	defer cm.rw.RUnlock()
+
+	c := cm.getCluster(clusterName)
+	if c == nil {
+		return nil
+	}
+	for _, endpoint := range c.Endpoints {
+		if endpoint.ID == endpointID && !endpoint.UnHealthy {
+			return endpoint
+		}
+	}
+	return nil
+}
+
 // getCluster returns the cluster configuration by its name.
 func (cm *ClusterManager) getCluster(clusterName string) *model.ClusterConfig {
 	for _, c := range cm.store.Config {

@@ -59,6 +59,7 @@ const (
 
 	LLMProxyFilter     = "dgp.filter.llm.proxy"
 	LLMTokenizerFilter = "dgp.filter.llm.tokenizer"
+	AIKVCacheFilter    = "dgp.filter.ai.kvcache"
 
 	MCPServerFilter = "dgp.filter.mcp.mcpserver"
 )
