@@ -154,8 +154,23 @@ func ApplyClusterConfig(cluster *Cluster, clusterConfig *v1alpha1.ClusterConfig)
 		cluster.Type = clusterConfig.Type
 	}
 
-	// Endpoints are already resolved in gateway_controller.go
-	// This function is called after endpoints are resolved
+	if len(clusterConfig.Endpoints) > 0 {
+		cluster.Endpoints = []*Endpoint{}
+		for i, ep := range clusterConfig.Endpoints {
+			endpoint := &Endpoint{
+				SocketAddress: SocketAddress{
+					Address: ep.Address,
+					Port:    int(ep.Port),
+				},
+			}
+			if ep.ID != nil {
+				endpoint.ID = int(*ep.ID)
+			} else {
+				endpoint.ID = i + 1
+			}
+			cluster.Endpoints = append(cluster.Endpoints, endpoint)
+		}
+	}
 }
 
 // ApplyFilterPolicy applies PixiuFilterPolicy config to ir.HTTPFilter

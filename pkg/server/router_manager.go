@@ -46,6 +46,19 @@ func (rm *RouterManager) AddRouterListener(l RouterListener) {
 	rm.rls = append(rm.rls, l)
 }
 
+func (rm *RouterManager) RemoveRouterListener(l RouterListener) {
+	for i, listener := range rm.rls {
+		if listener == l {
+			rm.rls = append(rm.rls[:i], rm.rls[i+1:]...)
+			return
+		}
+	}
+}
+
+func (rm *RouterManager) ClearRouterListeners() {
+	rm.rls = nil
+}
+
 func (rm *RouterManager) AddRouter(r *model.Router) {
 	logger.Infof("add router: %v", r)
 	for _, l := range rm.rls {

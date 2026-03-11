@@ -58,6 +58,11 @@ func GetBootstrap() *model.Bootstrap {
 	return config
 }
 
+// SetBootstrap set config global
+func SetBootstrap(cfg *model.Bootstrap) {
+	config = cfg
+}
+
 // Load config file and parse
 func Load(path string) *model.Bootstrap {
 	logger.Infof("[dubbo-go-pixiu] load path:%s", path)
