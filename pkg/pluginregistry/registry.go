@@ -34,6 +34,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/ai/kvcache"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/jwt"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/mcp"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/auth/saml"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/authority"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/cors"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/csrf"
