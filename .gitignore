@@ -34,3 +34,13 @@ samples/**/dist
 
 out/
 /test.worktrees/
+
+CLAUDE.md
+AGENTS.md
+.claude/
+
+
+
+# SAML local test files
+certs/
+configs/saml_test.yaml

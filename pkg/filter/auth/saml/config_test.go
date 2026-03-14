@@ -30,7 +30,7 @@ func TestConfigValidate(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name:    "missing entity id",
+			name: "missing entity id",
 			cfg: func() Config {
 				cfg := validConfig()
 				cfg.EntityID = ""

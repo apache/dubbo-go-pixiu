@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	stdHttp "net/http"
 	"net/url"
@@ -133,12 +134,22 @@ func (factory *FilterFactory) Apply() error {
 	}
 
 	rootURL := url.URL{Scheme: acsURL.Scheme, Host: acsURL.Host}
+
+	// SAML ACS receives a cross-site POST from the IdP. For the request-tracking
+	// cookie to survive that cross-site POST, browsers need SameSite=None + Secure.
+	// This only works over HTTPS; for plain HTTP dev/test, use AllowIDPInitiated.
+	cookieSameSite := stdHttp.SameSiteNoneMode
+	if acsURL.Scheme != "https" {
+		cookieSameSite = stdHttp.SameSiteDefaultMode
+	}
+
 	middleware, err := samlsp.New(samlsp.Options{
-		EntityID:    factory.cfg.EntityID,
-		URL:         rootURL,
-		Key:         privateKey,
-		Certificate: keyPair.Leaf,
-		IDPMetadata: idpMetadata,
+		EntityID:       factory.cfg.EntityID,
+		URL:            rootURL,
+		Key:            privateKey,
+		Certificate:    keyPair.Leaf,
+		IDPMetadata:    idpMetadata,
+		CookieSameSite: cookieSameSite,
 	})
 	if err != nil {
 		return fmt.Errorf("create saml middleware: %w", err)
@@ -158,7 +169,7 @@ func (factory *FilterFactory) Apply() error {
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *pixiuhttp.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{
-		cfg:             factory.cfg,
+		cfg:             factory.cfg.DeepCopy(),
 		errMsg:          factory.errMsg,
 		serviceProvider: factory.serviceProvider,
 		middleware:      factory.middleware,
@@ -197,9 +208,15 @@ func (f *Filter) Decode(ctx *pixiuhttp.HttpContext) filter.FilterStatus {
 	// 4. Protected path: verify session cookie.
 	session, err := f.middleware.Session.GetSession(ctx.Request)
 	if err != nil {
-		// No valid session — redirect the browser to the IdP login page.
-		logger.Debugf("SAML: no valid session for %s, redirecting to IdP", path)
-		f.middleware.HandleStartAuthFlow(ctx.Writer, ctx.Request)
+		if errors.Is(err, samlsp.ErrNoSession) {
+			// No valid session — redirect the browser to the IdP login page.
+			logger.Debugf("SAML: no valid session for %s, redirecting to IdP", path)
+			f.middleware.HandleStartAuthFlow(ctx.Writer, ctx.Request)
+			return filter.Stop
+		}
+		// Unexpected error (e.g. cookie decryption failure) — don't silently redirect.
+		logger.Errorf("SAML: session error for %s: %v", path, err)
+		ctx.SendLocalReply(stdHttp.StatusInternalServerError, []byte("internal authentication error"))
 		return filter.Stop
 	}
 
@@ -235,7 +252,15 @@ func (f *Filter) handleACS(ctx *pixiuhttp.HttpContext) filter.FilterStatus {
 
 // forwardAttributes reads SAML attributes from the session and injects them
 // into the request headers so that backend services can identify the user.
+// It first removes any client-supplied values for the configured headers
+// to prevent header spoofing.
 func (f *Filter) forwardAttributes(ctx *pixiuhttp.HttpContext, session samlsp.Session) {
+	// Always strip client-supplied values for SAML-controlled headers,
+	// even if the session doesn't carry attributes.
+	for _, fa := range f.cfg.ForwardAttributes {
+		ctx.Request.Header.Del(fa.Header)
+	}
+
 	sa, ok := session.(samlsp.SessionWithAttributes)
 	if !ok {
 		return

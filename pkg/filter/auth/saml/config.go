@@ -86,3 +86,23 @@ func (cfg *Config) Validate() error {
 	}
 	return nil
 }
+
+// DeepCopy returns a new independent copy of Config.
+func (cfg *Config) DeepCopy() *Config {
+	if cfg == nil {
+		return nil
+	}
+	cp := *cfg
+
+	if cfg.Rules != nil {
+		cp.Rules = make([]Rule, len(cfg.Rules))
+		copy(cp.Rules, cfg.Rules)
+	}
+
+	if cfg.ForwardAttributes != nil {
+		cp.ForwardAttributes = make([]ForwardAttribute, len(cfg.ForwardAttributes))
+		copy(cp.ForwardAttributes, cfg.ForwardAttributes)
+	}
+
+	return &cp
+}
