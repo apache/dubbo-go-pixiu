@@ -4,3 +4,4 @@
 * [Api Model](api.md)
 * [Response](response.md)
 * [Installation](installation.md)
+* [SAML Auth Filter](filter/saml.md)
