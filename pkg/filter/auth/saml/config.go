@@ -37,6 +37,14 @@ type Config struct {
 	// Routing rules
 	Rules []Rule `yaml:"rules" json:"rules" mapstructure:"rules"` // URL matching rules
 
+	// AllowIDPInitiated skips InResponseTo validation. Required for HTTP (non-TLS)
+	// testing because SAML request tracking cookies need Secure + SameSite=None
+	// which browsers reject over plain HTTP. In production with HTTPS, set to false.
+	AllowIDPInitiated bool `yaml:"allow_idp_initiated" json:"allow_idp_initiated" mapstructure:"allow_idp_initiated"`
+
+	// Attribute forwarding to backend services
+	ForwardAttributes []ForwardAttribute `yaml:"forward_attributes" json:"forward_attributes" mapstructure:"forward_attributes"`
+
 	// Error message
 	ErrMsg string `yaml:"err_msg" json:"err_msg" mapstructure:"err_msg"` // Custom error message
 }
@@ -49,6 +57,12 @@ type Rule struct {
 // Match defines the URL pattern to match
 type Match struct {
 	Prefix string `yaml:"prefix" json:"prefix" mapstructure:"prefix"` // URL prefix to match
+}
+
+// ForwardAttribute maps a SAML assertion attribute to an HTTP request header.
+type ForwardAttribute struct {
+	SAMLAttribute string `yaml:"saml_attribute" json:"saml_attribute" mapstructure:"saml_attribute"` // SAML attribute name
+	Header        string `yaml:"header" json:"header" mapstructure:"header"`                         // HTTP header name
 }
 
 func (cfg *Config) Validate() error {

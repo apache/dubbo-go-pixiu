@@ -22,6 +22,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/xml"
 	"fmt"
 	stdHttp "net/http"
 	"net/url"
@@ -145,6 +146,7 @@ func (factory *FilterFactory) Apply() error {
 
 	middleware.ServiceProvider.MetadataURL = *metadataURL
 	middleware.ServiceProvider.AcsURL = *acsURL
+	middleware.ServiceProvider.AllowIDPInitiated = factory.cfg.AllowIDPInitiated
 	factory.middleware = middleware
 	factory.serviceProvider = &middleware.ServiceProvider
 	factory.metadataPath = metadataURL.Path
@@ -170,6 +172,17 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *pixiuhttp.HttpContext, cha
 func (f *Filter) Decode(ctx *pixiuhttp.HttpContext) filter.FilterStatus {
 	path := ctx.Request.URL.Path
 
+	// 1. Metadata endpoint — returns SP metadata XML for IdP configuration.
+	if path == f.metadataPath {
+		return f.handleMetadata(ctx)
+	}
+
+	// 2. ACS endpoint — processes the SAML Response posted by IdP.
+	if path == f.acsPath {
+		return f.handleACS(ctx)
+	}
+
+	// 3. Check if the request path matches any protected rule.
 	matched := false
 	for _, rule := range f.cfg.Rules {
 		if strings.HasPrefix(path, rule.Match.Prefix) {
@@ -177,14 +190,62 @@ func (f *Filter) Decode(ctx *pixiuhttp.HttpContext) filter.FilterStatus {
 			break
 		}
 	}
-
 	if !matched {
 		return filter.Continue
 	}
 
-	logger.Warnf("SAML authentication not yet implemented for path: %s", path)
-	ctx.SendLocalReply(stdHttp.StatusUnauthorized, f.errMsg)
+	// 4. Protected path: verify session cookie.
+	session, err := f.middleware.Session.GetSession(ctx.Request)
+	if err != nil {
+		// No valid session — redirect the browser to the IdP login page.
+		logger.Debugf("SAML: no valid session for %s, redirecting to IdP", path)
+		f.middleware.HandleStartAuthFlow(ctx.Writer, ctx.Request)
+		return filter.Stop
+	}
+
+	// 5. Valid session — forward configured attributes and let the request through.
+	f.forwardAttributes(ctx, session)
+	return filter.Continue
+}
+
+// handleMetadata serves the SP metadata document as XML.
+// IdP administrators import this URL to configure their side of the trust.
+func (f *Filter) handleMetadata(ctx *pixiuhttp.HttpContext) filter.FilterStatus {
+	buf, err := xml.MarshalIndent(f.serviceProvider.Metadata(), "", "  ")
+	if err != nil {
+		logger.Errorf("SAML: failed to marshal metadata: %v", err)
+		ctx.SendLocalReply(stdHttp.StatusInternalServerError, []byte("failed to generate metadata"))
+		return filter.Stop
+	}
+
+	w := ctx.Writer
+	w.Header().Set("Content-Type", "application/samlmetadata+xml; charset=utf-8")
+	w.WriteHeader(stdHttp.StatusOK)
+	_, _ = w.Write(buf)
 	return filter.Stop
+}
+
+// handleACS delegates the Assertion Consumer Service request to the SAML middleware.
+// The middleware validates the assertion, creates a session cookie, and redirects
+// the user back to the originally requested URL (RelayState).
+func (f *Filter) handleACS(ctx *pixiuhttp.HttpContext) filter.FilterStatus {
+	f.middleware.ServeHTTP(ctx.Writer, ctx.Request)
+	return filter.Stop
+}
+
+// forwardAttributes reads SAML attributes from the session and injects them
+// into the request headers so that backend services can identify the user.
+func (f *Filter) forwardAttributes(ctx *pixiuhttp.HttpContext, session samlsp.Session) {
+	sa, ok := session.(samlsp.SessionWithAttributes)
+	if !ok {
+		return
+	}
+	attrs := sa.GetAttributes()
+	for _, fa := range f.cfg.ForwardAttributes {
+		if val := attrs.Get(fa.SAMLAttribute); val != "" {
+			ctx.Request.Header.Set(fa.Header, val)
+		}
+	}
 }
 
 func (factory *FilterFactory) loadIDPMetadata() (*samlcore.EntityDescriptor, error) {
