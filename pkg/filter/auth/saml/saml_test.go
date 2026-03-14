@@ -44,6 +44,8 @@ import (
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
+const testSPEntityID = "test-sp"
+
 // =============================================================================
 // Test Helpers
 // =============================================================================
@@ -58,7 +60,7 @@ func generateTestCert(t *testing.T) (certFile, keyFile string) {
 
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "test-sp"},
+		Subject:      pkix.Name{CommonName: testSPEntityID},
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().Add(24 * time.Hour),
 	}
@@ -129,7 +131,7 @@ func buildTestFactoryWithScheme(t *testing.T, scheme string) *FilterFactory {
 	idpServer := startTestIdPServer(t)
 
 	factory := &FilterFactory{cfg: &Config{
-		EntityID:             "test-sp",
+		EntityID:             testSPEntityID,
 		AssertionConsumerURL: fmt.Sprintf("%s://localhost:8888/saml/acs", scheme),
 		MetadataURL:          fmt.Sprintf("%s://localhost:8888/saml/metadata", scheme),
 		IdPMetadataURL:       idpServer.URL,
@@ -235,7 +237,7 @@ func TestApply_InvalidConfig(t *testing.T) {
 func TestApply_InvalidCertFile(t *testing.T) {
 	idpServer := startTestIdPServer(t)
 	factory := &FilterFactory{cfg: &Config{
-		EntityID:             "test-sp",
+		EntityID:             testSPEntityID,
 		AssertionConsumerURL: "http://localhost:8888/saml/acs",
 		MetadataURL:          "http://localhost:8888/saml/metadata",
 		IdPMetadataURL:       idpServer.URL,
@@ -297,7 +299,7 @@ func TestDecode_MetadataEndpoint(t *testing.T) {
 	assert.Contains(t, rec.Header().Get("Content-Type"), "application/samlmetadata+xml")
 
 	body := rec.Body.String()
-	assert.Contains(t, body, `entityID="test-sp"`)
+	assert.Contains(t, body, fmt.Sprintf(`entityID="%s"`, testSPEntityID))
 	assert.Contains(t, body, "AssertionConsumerService")
 }
 
@@ -497,7 +499,7 @@ func TestHandleMetadata_ContainsSPInfo(t *testing.T) {
 
 	assert.Equal(t, filter.Stop, result)
 	body := rec.Body.String()
-	assert.Contains(t, body, `entityID="test-sp"`)
+	assert.Contains(t, body, fmt.Sprintf(`entityID="%s"`, testSPEntityID))
 	assert.Contains(t, body, "http://localhost:8888/saml/acs")
 	assert.Contains(t, body, "SPSSODescriptor")
 	assert.True(t, strings.HasPrefix(rec.Header().Get("Content-Type"), "application/samlmetadata+xml"))

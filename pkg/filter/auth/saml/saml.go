@@ -85,6 +85,40 @@ func (factory *FilterFactory) Config() any {
 }
 
 func (factory *FilterFactory) Apply() error {
+	if err := factory.initConfig(); err != nil {
+		return err
+	}
+
+	acsURL, metadataURL, err := factory.parseServiceProviderURLs()
+	if err != nil {
+		return err
+	}
+
+	certificate, privateKey, err := factory.loadSigningCredentials()
+	if err != nil {
+		return err
+	}
+
+	idpMetadata, err := factory.loadIDPMetadata()
+	if err != nil {
+		return err
+	}
+
+	middleware, err := factory.newMiddleware(acsURL, metadataURL, certificate, privateKey, idpMetadata)
+	if err != nil {
+		return err
+	}
+
+	factory.middleware = middleware
+	factory.serviceProvider = &middleware.ServiceProvider
+	factory.metadataPath = metadataURL.Path
+	factory.acsPath = acsURL.Path
+
+	logger.Infof("SAML filter initialized with entity_id=%s metadata_path=%s acs_path=%s", factory.cfg.EntityID, factory.metadataPath, factory.acsPath)
+	return nil
+}
+
+func (factory *FilterFactory) initConfig() error {
 	if err := factory.cfg.Validate(); err != nil {
 		return err
 	}
@@ -93,46 +127,56 @@ func (factory *FilterFactory) Apply() error {
 		factory.cfg.ErrMsg = "SAML authentication failed"
 	}
 	factory.errMsg = []byte(factory.cfg.ErrMsg)
+	return nil
+}
 
+func (factory *FilterFactory) parseServiceProviderURLs() (*url.URL, *url.URL, error) {
 	acsURL, err := url.Parse(factory.cfg.AssertionConsumerURL)
 	if err != nil {
-		return fmt.Errorf("parse acs_url: %w", err)
+		return nil, nil, fmt.Errorf("parse acs_url: %w", err)
 	}
 	metadataURL, err := url.Parse(factory.cfg.MetadataURL)
 	if err != nil {
-		return fmt.Errorf("parse metadata_url: %w", err)
+		return nil, nil, fmt.Errorf("parse metadata_url: %w", err)
 	}
 	if acsURL.Scheme == "" || acsURL.Host == "" {
-		return fmt.Errorf("acs_url must be an absolute URL")
+		return nil, nil, fmt.Errorf("acs_url must be an absolute URL")
 	}
 	if metadataURL.Scheme == "" || metadataURL.Host == "" {
-		return fmt.Errorf("metadata_url must be an absolute URL")
+		return nil, nil, fmt.Errorf("metadata_url must be an absolute URL")
 	}
 	if metadataURL.Scheme != acsURL.Scheme || metadataURL.Host != acsURL.Host {
-		return fmt.Errorf("metadata_url and acs_url must use the same scheme and host")
+		return nil, nil, fmt.Errorf("metadata_url and acs_url must use the same scheme and host")
 	}
+	return acsURL, metadataURL, nil
+}
 
+func (factory *FilterFactory) loadSigningCredentials() (*x509.Certificate, *rsa.PrivateKey, error) {
 	keyPair, err := tls.LoadX509KeyPair(factory.cfg.CertFile, factory.cfg.KeyFile)
 	if err != nil {
-		return fmt.Errorf("load cert/key pair: %w", err)
+		return nil, nil, fmt.Errorf("load cert/key pair: %w", err)
 	}
 	if len(keyPair.Certificate) == 0 {
-		return fmt.Errorf("certificate file %s does not contain a certificate", factory.cfg.CertFile)
+		return nil, nil, fmt.Errorf("certificate file %s does not contain a certificate", factory.cfg.CertFile)
 	}
-	keyPair.Leaf, err = x509.ParseCertificate(keyPair.Certificate[0])
+
+	certificate, err := x509.ParseCertificate(keyPair.Certificate[0])
 	if err != nil {
-		return fmt.Errorf("parse certificate leaf: %w", err)
+		return nil, nil, fmt.Errorf("parse certificate leaf: %w", err)
 	}
 	privateKey, ok := keyPair.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
-		return fmt.Errorf("expected RSA private key, got %T", keyPair.PrivateKey)
+		return nil, nil, fmt.Errorf("expected RSA private key, got %T", keyPair.PrivateKey)
 	}
+	return certificate, privateKey, nil
+}
 
-	idpMetadata, err := factory.loadIDPMetadata()
-	if err != nil {
-		return err
-	}
-
+func (factory *FilterFactory) newMiddleware(
+	acsURL, metadataURL *url.URL,
+	certificate *x509.Certificate,
+	privateKey *rsa.PrivateKey,
+	idpMetadata *samlcore.EntityDescriptor,
+) (*samlsp.Middleware, error) {
 	rootURL := url.URL{Scheme: acsURL.Scheme, Host: acsURL.Host}
 
 	// SAML ACS receives a cross-site POST from the IdP. For the request-tracking
@@ -147,24 +191,18 @@ func (factory *FilterFactory) Apply() error {
 		EntityID:       factory.cfg.EntityID,
 		URL:            rootURL,
 		Key:            privateKey,
-		Certificate:    keyPair.Leaf,
+		Certificate:    certificate,
 		IDPMetadata:    idpMetadata,
 		CookieSameSite: cookieSameSite,
 	})
 	if err != nil {
-		return fmt.Errorf("create saml middleware: %w", err)
+		return nil, fmt.Errorf("create saml middleware: %w", err)
 	}
 
 	middleware.ServiceProvider.MetadataURL = *metadataURL
 	middleware.ServiceProvider.AcsURL = *acsURL
 	middleware.ServiceProvider.AllowIDPInitiated = factory.cfg.AllowIDPInitiated
-	factory.middleware = middleware
-	factory.serviceProvider = &middleware.ServiceProvider
-	factory.metadataPath = metadataURL.Path
-	factory.acsPath = acsURL.Path
-
-	logger.Infof("SAML filter initialized with entity_id=%s metadata_path=%s acs_path=%s", factory.cfg.EntityID, factory.metadataPath, factory.acsPath)
-	return nil
+	return middleware, nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *pixiuhttp.HttpContext, chain filter.FilterChain) error {
