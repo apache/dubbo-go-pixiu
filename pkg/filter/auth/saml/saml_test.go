@@ -34,12 +34,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	samlcore "github.com/crewjam/saml"
 	"github.com/crewjam/saml/samlsp"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )

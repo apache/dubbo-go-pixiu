@@ -29,10 +29,14 @@ import (
 	"net/url"
 	"os"
 	"strings"
+)
 
+import (
 	samlcore "github.com/crewjam/saml"
 	"github.com/crewjam/saml/samlsp"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	pixiuhttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"

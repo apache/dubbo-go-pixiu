@@ -17,7 +17,9 @@
 
 package saml
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Config describes the configuration for SAML authentication filter
 type Config struct {
