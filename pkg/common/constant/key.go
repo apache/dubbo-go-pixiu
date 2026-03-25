@@ -43,6 +43,7 @@ const (
 	HTTPCircuitBreakerFilter   = "dgp.filter.http.circuitbreaker"
 	HTTPAuthJwtFilter          = "dgp.filter.http.auth.jwt"
 	HTTPMCPAuthFilter          = "dgp.filter.http.auth.mcp"
+	HTTPAuthSamlFilter         = "dgp.filter.http.auth.saml"
 	HTTPCorsFilter             = "dgp.filter.http.cors"
 	HTTPCsrfFilter             = "dgp.filter.http.csrf"
 	HTTPProxyRewriteFilter     = "dgp.filter.http.proxyrewrite"
