@@ -23,7 +23,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -156,28 +155,19 @@ func reloadFromYAML(content []byte) error {
 	logger.Infof("Old config has %d listeners, new config has %d listeners",
 		len(oldConfig.StaticResources.Listeners), len(newConfig.StaticResources.Listeners))
 
-	wg := &sync.WaitGroup{}
-	var reloadErrors []error
-	errorMutex := &sync.Mutex{}
-
+	// Execute reloaders serially with CheckUpdate validation
 	for _, reloader := range coordinator.reloaders {
+		// Check if update is needed before executing reload
+		if !reloader.CheckUpdate(oldConfig, newConfig) {
+			logger.Debugf("No update needed for %T", reloader)
+			continue
+		}
+
 		logger.Infof("Triggering reload for %T", reloader)
-		wg.Add(1)
-		go func(r HotReloader) {
-			defer wg.Done()
-			if err := r.HotReload(oldConfig, newConfig); err != nil {
-				logger.Errorf("Hot reload failed for %T: %v", r, err)
-				errorMutex.Lock()
-				reloadErrors = append(reloadErrors, err)
-				errorMutex.Unlock()
-			}
-		}(reloader)
-	}
-
-	wg.Wait()
-
-	if len(reloadErrors) > 0 {
-		return fmt.Errorf("reload completed with %d errors", len(reloadErrors))
+		if err := reloader.HotReload(oldConfig, newConfig); err != nil {
+			logger.Errorf("Hot reload failed for %T: %v", reloader, err)
+			return fmt.Errorf("reload failed for %T: %w", reloader, err)
+		}
 	}
 
 	config.SetBootstrap(newConfig)
