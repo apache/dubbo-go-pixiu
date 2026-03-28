@@ -92,8 +92,31 @@ func (h *ReloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Received reload request via HTTP")
 
 	var err error
-	if r.ContentLength > 0 {
-		err = triggerConfigReloadFromBody(r)
+	// Try to read from body first (handles chunked encoding where ContentLength == -1)
+	// If body is empty, fallback to file reload
+	if r.Body != nil {
+		content, readErr := io.ReadAll(r.Body)
+		defer func() {
+			if closeErr := r.Body.Close(); closeErr != nil {
+				logger.Errorf("Failed to close request body: %v", closeErr)
+			}
+		}()
+
+		if readErr != nil {
+			logger.Errorf("Failed to read request body: %v", readErr)
+			http.Error(w, fmt.Sprintf("Failed to read request body: %v", readErr), http.StatusBadRequest)
+			return
+		}
+
+		if len(content) > 0 {
+			// Body has content, use it
+			reloadMutex.Lock()
+			err = reloadFromYAML(content)
+			reloadMutex.Unlock()
+		} else {
+			// Body is empty, fallback to file reload
+			err = triggerConfigReload()
+		}
 	} else {
 		err = triggerConfigReload()
 	}
@@ -152,26 +175,6 @@ func triggerConfigReload() error {
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
-
-	return reloadFromYAML(content)
-}
-
-// triggerConfigReloadFromBody reloads configuration from HTTP request body
-func triggerConfigReloadFromBody(r *http.Request) error {
-	reloadMutex.Lock()
-	defer reloadMutex.Unlock()
-
-	logger.Info("Reloading configuration from request body")
-
-	content, err := io.ReadAll(r.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read request body: %w", err)
-	}
-	defer func() {
-		if err := r.Body.Close(); err != nil {
-			logger.Errorf("Failed to close request body: %v", err)
-		}
-	}()
 
 	return reloadFromYAML(content)
 }
