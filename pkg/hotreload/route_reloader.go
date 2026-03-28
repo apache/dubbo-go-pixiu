@@ -71,11 +71,11 @@ func (r *RouteReloader) HotReload(oldConfig, newConfig *model.Bootstrap) error {
 		return errors.New("listener manager is nil")
 	}
 
+	srv.GetRouterManager().ClearRouterListeners()
+
 	refreshed := 0
 	for _, listener := range newConfig.StaticResources.Listeners {
 		logger.Infof("Refreshing listener: name=%s, protocol=%s", listener.Name, listener.ProtocolStr)
-
-		srv.GetRouterManager().ClearRouterListeners()
 
 		if err := listenerManager.UpdateListener(listener); err != nil {
 			logger.Errorf("Failed to refresh listener %s: %v", listener.Name, err)
