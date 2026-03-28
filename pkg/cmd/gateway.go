@@ -120,7 +120,7 @@ func (d *DefaultDeployer) initialize() error {
 	hotreload.SetConfigPath(configPath)
 
 	// Start HTTP reload endpoint on port 18380
-	if err := hotreload.StartReloadServer(18380); err != nil {
+	if err := hotreload.StartReloadServer(18380, ""); err != nil {
 		logger.Warnf("[startGatewayCmd] failed to start reload server: %s", err.Error())
 	}
 
