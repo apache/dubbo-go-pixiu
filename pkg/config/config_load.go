@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 import (
@@ -44,7 +45,7 @@ import (
 
 var (
 	configPath     string
-	config         *model.Bootstrap
+	config         atomic.Pointer[model.Bootstrap]
 	configLoadFunc LoadFunc = LoadYAMLConfig
 
 	once sync.Once
@@ -55,12 +56,12 @@ type LoadFunc func(path string) *model.Bootstrap
 
 // GetBootstrap get config global, need a better name
 func GetBootstrap() *model.Bootstrap {
-	return config
+	return config.Load()
 }
 
 // SetBootstrap set config global
 func SetBootstrap(cfg *model.Bootstrap) {
-	config = cfg
+	config.Store(cfg)
 }
 
 // Load config file and parse
@@ -71,9 +72,9 @@ func Load(path string) *model.Bootstrap {
 		RegisterConfigLoadFunc(LoadYAMLConfig)
 	}
 	if cfg := configLoadFunc(configPath); cfg != nil {
-		config = cfg
+		config.Store(cfg)
 	}
-	return config
+	return config.Load()
 }
 
 // RegisterConfigLoadFunc can replace a new config load function instead of default
@@ -212,7 +213,7 @@ func (m *ConfigManager) LoadBootConfig(path string) *model.Bootstrap {
 		}
 	}
 
-	config = configs
+	config.Store(configs)
 
 	err := m.check()
 
@@ -279,5 +280,5 @@ func (m *ConfigManager) ViewRemoteConfig() *model.Bootstrap {
 
 func (m *ConfigManager) check() error {
 
-	return Adapter(config)
+	return Adapter(config.Load())
 }
