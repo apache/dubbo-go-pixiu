@@ -18,6 +18,8 @@
 package server
 
 import (
+	"sync"
+
 	"github.com/pkg/errors"
 )
 
@@ -33,6 +35,7 @@ type (
 	}
 
 	RouterManager struct {
+		mu  sync.RWMutex
 		rls []RouterListener
 	}
 )
@@ -43,10 +46,16 @@ func CreateDefaultRouterManager(server *Server, bs *model.Bootstrap) *RouterMana
 }
 
 func (rm *RouterManager) AddRouterListener(l RouterListener) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
 	rm.rls = append(rm.rls, l)
 }
 
 func (rm *RouterManager) RemoveRouterListener(l RouterListener) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
 	for i, listener := range rm.rls {
 		if listener == l {
 			rm.rls = append(rm.rls[:i], rm.rls[i+1:]...)
@@ -56,19 +65,34 @@ func (rm *RouterManager) RemoveRouterListener(l RouterListener) {
 }
 
 func (rm *RouterManager) ClearRouterListeners() {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
 	rm.rls = nil
 }
 
 func (rm *RouterManager) AddRouter(r *model.Router) {
 	logger.Infof("add router: %v", r)
-	for _, l := range rm.rls {
+
+	rm.mu.RLock()
+	listeners := make([]RouterListener, len(rm.rls))
+	copy(listeners, rm.rls)
+	rm.mu.RUnlock()
+
+	for _, l := range listeners {
 		l.OnAddRouter(r)
 	}
 }
 
 func (rm *RouterManager) DeleteRouter(r *model.Router) {
 	logger.Infof("del router: %v", r)
-	for _, l := range rm.rls {
+
+	rm.mu.RLock()
+	listeners := make([]RouterListener, len(rm.rls))
+	copy(listeners, rm.rls)
+	rm.mu.RUnlock()
+
+	for _, l := range listeners {
 		l.OnDeleteRouter(r)
 	}
 }
@@ -86,7 +110,13 @@ func (rm *RouterManager) UpdateRoutes(oldRoutes []*model.Router, newRoutes []*mo
 	// Notify listeners to delete existing routes
 	for _, route := range oldRoutes {
 		logger.Debugf("Notifying listeners to delete route: %s", route.String())
-		for _, listener := range rm.rls {
+
+		rm.mu.RLock()
+		listeners := make([]RouterListener, len(rm.rls))
+		copy(listeners, rm.rls)
+		rm.mu.RUnlock()
+
+		for _, listener := range listeners {
 			listener.OnDeleteRouter(route)
 		}
 	}
@@ -94,7 +124,13 @@ func (rm *RouterManager) UpdateRoutes(oldRoutes []*model.Router, newRoutes []*mo
 	// Notify listeners to add new routes
 	for _, route := range newRoutes {
 		logger.Debugf("Notifying listeners to add route: %s", route.String())
-		for _, listener := range rm.rls {
+
+		rm.mu.RLock()
+		listeners := make([]RouterListener, len(rm.rls))
+		copy(listeners, rm.rls)
+		rm.mu.RUnlock()
+
+		for _, listener := range listeners {
 			listener.OnAddRouter(route)
 		}
 	}
