@@ -1266,28 +1266,42 @@ func (r *GatewayReconciler) resolveServiceClusterEndpoints(ctx context.Context, 
 		return
 	}
 
+	resolved := make([]v1alpha1.EndpointConfig, 0, len(serviceConfig.Endpoints))
+	idCounter := 1
+
 	for i := range serviceConfig.Endpoints {
 		ep := &serviceConfig.Endpoints[i]
-		if !isIPAddress(ep.Address) {
-			serviceName, serviceNamespace := parseServiceAddress(ep.Address, namespace)
-			r.Log.Info("resolving service DNS", "address", ep.Address, "serviceName", serviceName, "namespace", serviceNamespace)
+		if isIPAddress(ep.Address) {
+			// Keep IP addresses as-is
+			resolved = append(resolved, *ep)
+			idCounter++
+			continue
+		}
 
-			endpoints, err := r.resolveServiceEndpoints(ctx, serviceNamespace, serviceName, ep.Port)
-			if err == nil && len(endpoints) > 0 {
-				r.Log.Info("resolved service to endpoints", "service", serviceName, "endpointCount", len(endpoints))
-				serviceConfig.Endpoints = []v1alpha1.EndpointConfig{}
-				for j, resolvedEp := range endpoints {
-					serviceConfig.Endpoints = append(serviceConfig.Endpoints, v1alpha1.EndpointConfig{
-						ID:      func() *int32 { id := int32(j + 1); return &id }(),
-						Address: resolvedEp.Address,
-						Port:    resolvedEp.Port,
-					})
-				}
-				return
+		serviceName, serviceNamespace := parseServiceAddress(ep.Address, namespace)
+		r.Log.Info("resolving service DNS", "address", ep.Address, "serviceName", serviceName, "namespace", serviceNamespace)
+
+		endpoints, err := r.resolveServiceEndpoints(ctx, serviceNamespace, serviceName, ep.Port)
+		if err == nil && len(endpoints) > 0 {
+			r.Log.Info("resolved service to endpoints", "service", serviceName, "endpointCount", len(endpoints))
+			for _, resolvedEp := range endpoints {
+				id := int32(idCounter)
+				resolved = append(resolved, v1alpha1.EndpointConfig{
+					ID:      &id,
+					Address: resolvedEp.Address,
+					Port:    resolvedEp.Port,
+				})
+				idCounter++
 			}
+		} else {
 			r.Log.Info("failed to resolve service, keeping original address", "service", serviceName, "error", err)
+			// Keep the original unresolved entry
+			resolved = append(resolved, *ep)
+			idCounter++
 		}
 	}
+
+	serviceConfig.Endpoints = resolved
 }
 
 // triggerHotReload triggers hot reload on all pods in the deployment
