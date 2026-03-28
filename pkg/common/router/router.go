@@ -48,8 +48,8 @@ type RouterCoordinator struct {
 	timer    *time.Timer   // debounce timer
 	debounce time.Duration // merge window, default 50ms
 
-	needsRegistration bool // whether needs to register as RouterListener
-	dynamic           bool // whether dynamic routing is enabled
+	needsRegistration atomic.Bool // whether needs to register as RouterListener
+	dynamic           bool        // whether dynamic routing is enabled
 }
 
 // CreateRouterCoordinator create coordinator for http connection manager
@@ -65,7 +65,7 @@ func CreateRouterCoordinator(routeConfig *model.RouteConfiguration) *RouterCoord
 			rm.AddRouterListener(rc)
 		} else {
 			// RouterManager not initialized yet, will register later
-			rc.needsRegistration = true
+			rc.needsRegistration.Store(true)
 		}
 	}
 	// build initial config and store snapshot
@@ -85,11 +85,11 @@ func (rm *RouterCoordinator) Close() {
 }
 
 func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, error) {
-	if rm.needsRegistration && rm.dynamic {
+	if rm.needsRegistration.Load() && rm.dynamic {
 		routerMgr := server.GetRouterManager()
 		if routerMgr != nil {
 			routerMgr.AddRouterListener(rm)
-			rm.needsRegistration = false
+			rm.needsRegistration.Store(false)
 		}
 	}
 	return rm.route(hc.Request)
