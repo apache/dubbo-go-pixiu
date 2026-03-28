@@ -96,11 +96,6 @@ func (h *ReloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If body is empty, fallback to file reload
 	if r.Body != nil {
 		content, readErr := io.ReadAll(r.Body)
-		defer func() {
-			if closeErr := r.Body.Close(); closeErr != nil {
-				logger.Errorf("Failed to close request body: %v", closeErr)
-			}
-		}()
 
 		if readErr != nil {
 			logger.Errorf("Failed to read request body: %v", readErr)
