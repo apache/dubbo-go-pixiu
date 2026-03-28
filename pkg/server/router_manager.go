@@ -19,7 +19,9 @@ package server
 
 import (
 	"sync"
+)
 
+import (
 	"github.com/pkg/errors"
 )
 
