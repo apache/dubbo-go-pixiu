@@ -18,11 +18,14 @@
 package hotreload
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -37,21 +40,52 @@ import (
 )
 
 var (
-	reloadMutex sync.Mutex
-	configPath  string
+	reloadMutex    sync.Mutex
+	configPath     string
+	reloadServer   *http.Server
+	reloadServerMu sync.Mutex
+	reloadSecret   string // shared secret for authentication
 )
 
 func SetConfigPath(path string) {
 	configPath = path
 }
 
+func SetReloadSecret(secret string) {
+	reloadSecret = secret
+}
+
 // ReloadHandler handles HTTP reload requests
 type ReloadHandler struct{}
+
+// checkAuth validates the request authentication
+func checkAuth(r *http.Request) bool {
+	// Allow localhost without authentication
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && (host == "127.0.0.1" || host == "::1" || host == "localhost") {
+		return true
+	}
+
+	// Check shared secret if configured
+	if reloadSecret != "" {
+		token := r.Header.Get("X-Reload-Token")
+		return token == reloadSecret
+	}
+
+	// If no secret configured and not localhost, deny
+	return false
+}
 
 // ServeHTTP handles the reload HTTP request
 func (h *ReloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed, use POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !checkAuth(r) {
+		logger.Warnf("Unauthorized reload request from %s", r.RemoteAddr)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -92,6 +126,12 @@ type HealthHandler struct{}
 
 // ServeHTTP handles the health check HTTP request
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !checkAuth(r) {
+		logger.Warnf("Unauthorized health check request from %s", r.RemoteAddr)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	writeJSONResponse(w, "healthy", "")
@@ -176,27 +216,76 @@ func reloadFromYAML(content []byte) error {
 }
 
 // StartReloadServer starts the HTTP server for reload endpoint
-func StartReloadServer(port int) error {
-	mux := http.NewServeMux()
+// port: the port to listen on (0 means use default 8888)
+// secret: optional shared secret for authentication (empty means localhost-only)
+func StartReloadServer(port int, secret string) error {
+	reloadServerMu.Lock()
+	defer reloadServerMu.Unlock()
 
-	mux.Handle("/-/reload", &ReloadHandler{})
-	mux.Handle("/-/health", &HealthHandler{})
+	if reloadServer != nil {
+		return fmt.Errorf("reload server already running")
+	}
+
+	if port <= 0 {
+		port = 8888 // default port
+	}
+
+	if secret != "" {
+		reloadSecret = secret
+	}
 
 	addr := fmt.Sprintf(":%d", port)
 	logger.Infof("Starting reload HTTP server on %s", addr)
 
-	server := &http.Server{
-		Addr:         addr,
+	// Try to bind the port first to catch errors early
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to bind port %d: %w", port, err)
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/-/reload", &ReloadHandler{})
+	mux.Handle("/-/health", &HealthHandler{})
+
+	reloadServer = &http.Server{
 		Handler:      mux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
+	// Start server in goroutine
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := reloadServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			logger.Errorf("Reload HTTP server failed: %v", err)
 		}
 	}()
 
+	logger.Infof("Reload HTTP server started successfully on port %d", port)
+	return nil
+}
+
+// StopReloadServer gracefully stops the reload HTTP server
+func StopReloadServer(timeout time.Duration) error {
+	reloadServerMu.Lock()
+	defer reloadServerMu.Unlock()
+
+	if reloadServer == nil {
+		return nil
+	}
+
+	logger.Info("Stopping reload HTTP server")
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := reloadServer.Shutdown(ctx)
+	reloadServer = nil
+
+	if err != nil {
+		logger.Errorf("Error stopping reload server: %v", err)
+		return err
+	}
+
+	logger.Info("Reload HTTP server stopped successfully")
 	return nil
 }
