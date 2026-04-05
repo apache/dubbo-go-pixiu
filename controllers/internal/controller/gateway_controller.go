@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -686,10 +687,9 @@ func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway 
 
 			deploymentName := fmt.Sprintf("%s-%s", gateway.GetName(), string(gateway.GetUID())[:8])
 			if err := r.triggerHotReload(ctx, gateway, deploymentName); err != nil {
-				r.Log.Error(err, "failed to trigger hot reload after configmap update", "gateway", gateway.GetName())
-			} else {
-				r.Log.Info("hot reload triggered successfully after configmap update", "gateway", gateway.GetName())
+				return "", fmt.Errorf("failed to trigger hot reload after configmap update: %w", err)
 			}
+			r.Log.Info("hot reload triggered successfully after configmap update", "gateway", gateway.GetName())
 		}
 	}
 
@@ -1306,7 +1306,7 @@ func (r *GatewayReconciler) resolveServiceClusterEndpoints(ctx context.Context, 
 }
 
 // triggerHotReload triggers hot reload on all pods in the deployment
-func (r *GatewayReconciler) triggerHotReload(ctx context.Context, gateway *gatewayv1.Gateway, deploymentName string) error {
+func (r *GatewayReconciler) triggerHotReload(ctx context.Context, gateway *gatewayv1.Gateway, _ string) error {
 	configMapName := fmt.Sprintf("%s-config", gateway.GetName())
 	configMap := &corev1.ConfigMap{}
 	if err := r.Get(ctx, client.ObjectKey{
@@ -1340,54 +1340,76 @@ func (r *GatewayReconciler) triggerHotReload(ctx context.Context, gateway *gatew
 		return nil
 	}
 
-	successCount := 0
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var successCount int
+	var failureCount int
+
 	for _, pod := range podList.Items {
-		if pod.Status.Phase != corev1.PodRunning {
-			r.Log.Info("skipping non-running pod", "pod", pod.Name, "phase", pod.Status.Phase)
-			continue
-		}
+		pod := pod
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		podIP := pod.Status.PodIP
-		if podIP == "" {
-			r.Log.Info("pod has no IP address", "pod", pod.Name)
-			continue
-		}
+			if pod.Status.Phase != corev1.PodRunning {
+				r.Log.Info("skipping non-running pod", "pod", pod.Name, "phase", pod.Status.Phase)
+				return
+			}
 
-		reloadURL := fmt.Sprintf("http://%s:18380/-/reload", podIP)
-		r.Log.Info("triggering hot reload", "pod", pod.Name, "url", reloadURL)
+			podIP := pod.Status.PodIP
+			if podIP == "" {
+				r.Log.Info("pod has no IP address", "pod", pod.Name)
+				return
+			}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, reloadURL, strings.NewReader(configYAML))
-		if err != nil {
-			r.Log.Error(err, "failed to create reload request", "pod", pod.Name)
-			continue
-		}
-		req.Header.Set("Content-Type", "application/x-yaml")
+			reloadURL := fmt.Sprintf("http://%s:18380/-/reload", podIP)
+			r.Log.Info("triggering hot reload", "pod", pod.Name, "url", reloadURL)
 
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			r.Log.Error(err, "failed to trigger hot reload", "pod", pod.Name, "url", reloadURL)
-			continue
-		}
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, reloadURL, strings.NewReader(configYAML))
+			if err != nil {
+				r.Log.Error(err, "failed to create reload request", "pod", pod.Name)
+				mu.Lock()
+				failureCount++
+				mu.Unlock()
+				return
+			}
+			req.Header.Set("Content-Type", "application/x-yaml")
 
-		_, _ = io.Copy(io.Discard, resp.Body)
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			r.Log.Error(closeErr, "failed to close reload response body", "pod", pod.Name)
-		}
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				r.Log.Error(err, "failed to trigger hot reload", "pod", pod.Name, "url", reloadURL)
+				mu.Lock()
+				failureCount++
+				mu.Unlock()
+				return
+			}
 
-		if resp.StatusCode == http.StatusOK {
-			r.Log.Info("hot reload successful", "pod", pod.Name)
-			successCount++
-		} else {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				r.Log.Error(closeErr, "failed to close reload response body", "pod", pod.Name)
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			if resp.StatusCode == http.StatusOK {
+				r.Log.Info("hot reload successful", "pod", pod.Name)
+				successCount++
+				return
+			}
+
+			failureCount++
 			r.Log.Error(fmt.Errorf("unexpected status code: %d", resp.StatusCode),
 				"hot reload failed", "pod", pod.Name)
-		}
+		}()
 	}
+
+	wg.Wait()
 
 	if successCount == 0 {
 		return fmt.Errorf("hot reload failed on all pods")
 	}
 
 	r.Log.Info("hot reload completed", "gateway", gateway.GetName(),
-		"successCount", successCount, "totalPods", len(podList.Items))
+		"successCount", successCount, "failureCount", failureCount, "totalPods", len(podList.Items))
 	return nil
 }
