@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -1320,6 +1321,10 @@ func (r *GatewayReconciler) triggerHotReload(ctx context.Context, gateway *gatew
 		return fmt.Errorf("conf.yaml not found in configmap")
 	}
 
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
 	podList := &corev1.PodList{}
 	if err := r.List(ctx, podList,
 		client.InNamespace(gateway.GetNamespace()),
@@ -1351,10 +1356,6 @@ func (r *GatewayReconciler) triggerHotReload(ctx context.Context, gateway *gatew
 		reloadURL := fmt.Sprintf("http://%s:18380/-/reload", podIP)
 		r.Log.Info("triggering hot reload", "pod", pod.Name, "url", reloadURL)
 
-		httpClient := &http.Client{
-			Timeout: 10 * time.Second,
-		}
-
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, reloadURL, strings.NewReader(configYAML))
 		if err != nil {
 			r.Log.Error(err, "failed to create reload request", "pod", pod.Name)
@@ -1367,7 +1368,11 @@ func (r *GatewayReconciler) triggerHotReload(ctx context.Context, gateway *gatew
 			r.Log.Error(err, "failed to trigger hot reload", "pod", pod.Name, "url", reloadURL)
 			continue
 		}
-		resp.Body.Close()
+
+		_, _ = io.Copy(io.Discard, resp.Body)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			r.Log.Error(closeErr, "failed to close reload response body", "pod", pod.Name)
+		}
 
 		if resp.StatusCode == http.StatusOK {
 			r.Log.Info("hot reload successful", "pod", pod.Name)
