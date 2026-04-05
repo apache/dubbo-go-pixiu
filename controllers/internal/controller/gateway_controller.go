@@ -30,42 +30,28 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	"controllers/api/v1alpha1"
-
 	"controllers/internal/controller/config"
 	"controllers/internal/controller/status"
-
 	"controllers/internal/converter"
-
 	"controllers/internal/ir"
-
 	"controllers/internal/translator"
-
 	"controllers/internal/utils"
-
 	"github.com/go-logr/logr"
-
 	appsv1 "k8s.io/api/apps/v1"
-
 	corev1 "k8s.io/api/core/v1"
-
 	discoveryv1 "k8s.io/api/discovery/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -1047,12 +1033,12 @@ func (r *GatewayReconciler) resolveClusterEndpoints(ctx context.Context, namespa
 	}
 
 	resolvedEndpoints := []*converter.Endpoint{}
+	resolveFailed := false
 	for _, epConfig := range clusterConfig.Endpoints {
 		if !isIPAddress(epConfig.Address) {
 			serviceName, serviceNamespace := parseServiceAddress(epConfig.Address, namespace)
 			r.Log.Info("resolving service DNS to Pod IPs", "address", epConfig.Address, "serviceName", serviceName, "namespace", serviceNamespace)
 
-			// Try to resolve to actual Pod IPs via EndpointSlices
 			podEndpoints, err := r.resolveServiceEndpoints(ctx, serviceNamespace, serviceName, epConfig.Port)
 			if err == nil && len(podEndpoints) > 0 {
 				r.Log.Info("resolved service to Pod endpoints", "service", serviceName, "endpointCount", len(podEndpoints))
@@ -1086,8 +1072,8 @@ func (r *GatewayReconciler) resolveClusterEndpoints(ctx context.Context, namespa
 				continue
 			}
 
+			resolveFailed = true
 			r.Log.Info("failed to resolve service, skipping this endpoint", "address", epConfig.Address, "error", err)
-			// Don't add unresolvable DNS addresses to resolvedEndpoints
 			continue
 		}
 
@@ -1105,15 +1091,14 @@ func (r *GatewayReconciler) resolveClusterEndpoints(ctx context.Context, namespa
 		})
 	}
 
-	if len(resolvedEndpoints) > 0 {
-		cluster.Endpoints = resolvedEndpoints
-		return nil
+	if len(resolvedEndpoints) == 0 {
+		if resolveFailed {
+			return fmt.Errorf("failed to resolve configured endpoints from ClusterPolicy")
+		}
+		return fmt.Errorf("ClusterPolicy configured no usable endpoints")
 	}
 
-	if len(clusterConfig.Endpoints) > 0 {
-		return fmt.Errorf("failed to resolve any endpoints from ClusterPolicy")
-	}
-
+	cluster.Endpoints = resolvedEndpoints
 	return nil
 }
 
