@@ -85,11 +85,12 @@ func (rm *RouterCoordinator) Close() {
 }
 
 func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, error) {
-	if rm.needsRegistration.Load() && rm.dynamic {
+	if rm.dynamic && rm.needsRegistration.CompareAndSwap(true, false) {
 		routerMgr := server.GetRouterManager()
 		if routerMgr != nil {
 			routerMgr.AddRouterListener(rm)
-			rm.needsRegistration.Store(false)
+		} else {
+			rm.needsRegistration.Store(true)
 		}
 	}
 	return rm.route(hc.Request)
