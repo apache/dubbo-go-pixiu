@@ -29,7 +29,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/client/triple"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -45,6 +44,10 @@ const (
 
 const (
 	Kind = constant.HTTPDubboProxyFilter
+)
+
+var (
+	initDubboClient = dubbo.InitDefaultDubboClient
 )
 
 func init() {
@@ -108,8 +111,7 @@ func (factory *FilterFactory) Apply() error {
 	if factory.conf.DubboProxyConfig == nil {
 		return errors.New("expect the dubboProxyConfig config the registries")
 	}
-	dubbo.InitDefaultDubboClient(factory.conf.DubboProxyConfig)
-	triple.InitDefaultTripleClient(factory.conf.DubboProxyConfig.Protoset)
+	initDubboClient(factory.conf.DubboProxyConfig)
 	return nil
 }
 
@@ -176,9 +178,8 @@ func (f *Filter) matchClient(typ string) (client.Client, error) {
 	switch strings.ToLower(typ) {
 	case constant.DubboRequest:
 		return dubbo.SingletonDubboClient(), nil
-	// todo @(laurence) add triple to apiConf
 	case "triple":
-		return triple.SingletonTripleClient(f.conf.DubboProxyConfig.Protoset), nil
+		return dubbo.SingletonDubboClient(), nil
 	case constant.HTTPRequest:
 		return clienthttp.SingletonHTTPClient(), nil
 	default:
