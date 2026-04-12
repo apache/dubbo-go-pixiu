@@ -64,44 +64,6 @@ func TestDubboProxyConfig_GetCluster(t *testing.T) {
 	}
 }
 
-func TestDubboProxyConfig_GetProtocol(t *testing.T) {
-	tests := []struct {
-		name     string
-		protocol string
-		expected string
-	}{
-		{
-			name:     "empty - use default",
-			protocol: "",
-			expected: "tri",
-		},
-		{
-			name:     "triple protocol - tri",
-			protocol: "tri",
-			expected: "tri",
-		},
-		{
-			name:     "dubbo protocol",
-			protocol: "dubbo",
-			expected: "dubbo",
-		},
-		{
-			name:     "rest protocol",
-			protocol: "rest",
-			expected: "rest",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := &DubboProxyConfig{Protocol: tt.protocol}
-			if got := config.GetProtocol(); got != tt.expected {
-				t.Errorf("GetProtocol() = %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
 func TestDubboProxyConfig_GetCheck(t *testing.T) {
 	tests := []struct {
 		name     string

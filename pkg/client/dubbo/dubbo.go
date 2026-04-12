@@ -20,6 +20,8 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,10 +31,14 @@ import (
 import (
 	dclient "dubbo.apache.org/dubbo-go/v3/client"
 	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/consistenthashing"
+	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	"dubbo.apache.org/dubbo-go/v3/common/extension"
+	dconfig "dubbo.apache.org/dubbo-go/v3/config"
 	"dubbo.apache.org/dubbo-go/v3/config/generic"
 	"dubbo.apache.org/dubbo-go/v3/global"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
+	dregistry "dubbo.apache.org/dubbo-go/v3/registry"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
@@ -41,7 +47,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -93,11 +98,55 @@ var (
 
 // Client client to generic invoke dubbo
 type Client struct {
-	lock               sync.RWMutex
-	GenericServicePool map[string]*generic.GenericService
-	dubboProxyConfig   *DubboProxyConfig
-	registries         map[string]*global.RegistryConfig
-	dubboClient        *dclient.Client
+	lock                     sync.RWMutex
+	GenericServicePool       map[string]*generic.GenericService
+	dubboProxyConfig         *DubboProxyConfig
+	registries               map[string]*global.RegistryConfig
+	dubboClient              *dclient.Client
+	registryProviderResolver func(config.IntegrationRequest, resolvedReferSpec) ([]providerProtocolView, error)
+}
+
+type resolvedConsumerDefaults struct {
+	Cluster        string
+	LoadBalance    string
+	Retries        string
+	RequestTimeout time.Duration
+	Check          *bool
+	Filter         string
+	Serialization  string
+	Sticky         *bool
+	Params         map[string]string
+	GenericType    string
+}
+
+type resolvedReferSpec struct {
+	Mode              string
+	Interface         string
+	Group             string
+	Version           string
+	URL               string
+	RegistryIDs       []string
+	EffectiveProtocol string
+	UseNacosWarmup    bool
+	ConsumerDefaults  resolvedConsumerDefaults
+}
+
+type providerProtocolView struct {
+	URLProtocol       string
+	MetadataProtocol  string
+	EndpointProtocols []string
+	ServiceProtocols  []string
+}
+
+type genericServiceKey struct {
+	Mode              string   `json:"mode"`
+	URL               string   `json:"url"`
+	RegistryIDs       []string `json:"registry_ids"`
+	Cluster           string   `json:"cluster"`
+	Interface         string   `json:"interface"`
+	Version           string   `json:"version"`
+	Group             string   `json:"group"`
+	EffectiveProtocol string   `json:"effective_protocol"`
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -144,13 +193,14 @@ func (dc *Client) Apply() error {
 				v.Protocol = defaultDubboProtocol
 			}
 			registries[k] = &global.RegistryConfig{
-				Protocol:  v.Protocol,
-				Address:   v.Address,
-				Timeout:   v.Timeout,
-				Username:  v.Username,
-				Password:  v.Password,
-				Namespace: v.Namespace,
-				Group:     v.Group,
+				Protocol:     v.Protocol,
+				Address:      v.Address,
+				Timeout:      v.Timeout,
+				Username:     v.Username,
+				Password:     v.Password,
+				Namespace:    v.Namespace,
+				Group:        v.Group,
+				RegistryType: v.RegistryType,
 			}
 		}
 	}
@@ -191,6 +241,19 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 		return nil, errors.New("map parameters failed")
 	}
 
+	spec, err := dc.resolveReferSpec(req.API.IntegrationRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	gs, err := dc.Get(spec)
+	if err != nil {
+		return nil, err
+	}
+	if gs == nil {
+		return nil, errors.New("dubbo generic service is nil")
+	}
+
 	dm := req.API.IntegrationRequest
 	method := dm.Method
 	types := []string{}
@@ -216,19 +279,24 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
 	}
 
-	gs := dc.Get(dm)
+	invokeCtx := req.Context
+	if invokeCtx == nil {
+		invokeCtx = context.Background()
+	}
+	var cancel context.CancelFunc
+	if req.Timeout > 0 {
+		invokeCtx, cancel = context.WithTimeout(invokeCtx, req.Timeout)
+		defer cancel()
+	}
+
 	tr := otel.Tracer(traceNameDubbogoClient)
-	ctx, span := tr.Start(req.Context, spanNameDubbogoClient)
-	trace.SpanFromContext(req.Context).SpanContext()
+	ctx, span := tr.Start(invokeCtx, spanNameDubbogoClient)
 	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
 	span.SetAttributes(attribute.Key(spanTagType).StringSlice(types))
 	span.SetAttributes(attribute.Key(spanTagValues).String(string(finalValues)))
 	defer span.End()
 
-	// tracing inject manually;
-	carrier := propagation.MapCarrier{}
-	otel.GetTextMapPropagator().Inject(ctx, carrier)
-	ctxWithAttachment := context.WithValue(ctx, constant.AttachmentKey, map[string]string(carrier))
+	ctxWithAttachment := withAttachments(ctx)
 
 	rst, err := gs.Invoke(ctxWithAttachment, method, types, vals)
 	if err != nil {
@@ -296,84 +364,219 @@ func (dc *Client) check(key string) bool {
 	return false
 }
 
-// Get find a dubbo GenericService
-func (dc *Client) Get(ir config.IntegrationRequest) *generic.GenericService {
-	key := apiKey(&ir)
-	if dc.check(key) {
-		return dc.get(key)
+func (dc *Client) resolveReferSpec(irequest config.IntegrationRequest) (resolvedReferSpec, error) {
+	spec := resolvedReferSpec{
+		Interface:        irequest.Interface,
+		Group:            irequest.Group,
+		Version:          irequest.Version,
+		ConsumerDefaults: dc.resolveConsumerDefaults(irequest),
 	}
 
-	return dc.create(key, ir)
-}
-
-func apiKey(ir *config.IntegrationRequest) string {
-	dbc := ir.DubboBackendConfig
-	return strings.Join([]string{dbc.ClusterName, dbc.ApplicationName, dbc.Interface, dbc.Version, dbc.Group}, "_")
-}
-
-func (dc *Client) create(key string, irequest config.IntegrationRequest) *generic.GenericService {
-	useNacosRegister := false
-	registerIds := make([]string, 0)
-	for k, v := range dc.registries {
-		registerIds = append(registerIds, k)
-		if v.Protocol == "nacos" {
-			useNacosRegister = true
+	if len(dc.registries) > 0 {
+		registryIDs := make([]string, 0, len(dc.registries))
+		useNacosWarmup := false
+		for id, registry := range dc.registries {
+			registryIDs = append(registryIDs, id)
+			if registry != nil && registry.Protocol == "nacos" {
+				useNacosWarmup = true
+			}
 		}
+		sort.Strings(registryIDs)
+		spec.Mode = "registry"
+		spec.RegistryIDs = registryIDs
+		spec.UseNacosWarmup = useNacosWarmup
+		effectiveProtocol, err := dc.resolveRegistryProtocol(irequest, spec)
+		if err != nil {
+			return resolvedReferSpec{}, err
+		}
+		spec.EffectiveProtocol = effectiveProtocol
+		return spec, nil
+	}
+
+	canonicalURL := strings.TrimSpace(irequest.URL)
+	if canonicalURL == "" {
+		return resolvedReferSpec{}, errors.New("dubbo refer mode invalid: no registry configured and no direct url provided")
+	}
+	directProtocol, err := directURLProtocol(canonicalURL)
+	if err != nil {
+		return resolvedReferSpec{}, err
+	}
+
+	spec.Mode = "direct"
+	spec.URL = canonicalURL
+	spec.EffectiveProtocol = directProtocol
+	return spec, nil
+}
+
+func (dc *Client) resolveConsumerDefaults(irequest config.IntegrationRequest) resolvedConsumerDefaults {
+	defaults := resolvedConsumerDefaults{
+		Cluster:     "failover",
+		Retries:     "3",
+		GenericType: "true",
+	}
+
+	if dc.dubboProxyConfig == nil {
+		if strings.TrimSpace(irequest.Retries) != "" {
+			defaults.Retries = strings.TrimSpace(irequest.Retries)
+		}
+		defaults.RequestTimeout = cst.DefaultReqTimeout
+		return defaults
+	}
+
+	defaults.Cluster = dc.dubboProxyConfig.GetCluster()
+	defaults.LoadBalance = dc.dubboProxyConfig.LoadBalance
+	defaults.Check = dc.dubboProxyConfig.GetCheck()
+	defaults.Filter = dc.dubboProxyConfig.Filter
+	defaults.Serialization = dc.dubboProxyConfig.Serialization
+	defaults.Sticky = dc.dubboProxyConfig.Sticky
+	defaults.GenericType = dc.dubboProxyConfig.GetGenericType()
+	defaults.Params = dc.dubboProxyConfig.Params
+	if strings.TrimSpace(dc.dubboProxyConfig.Retries) != "" {
+		defaults.Retries = strings.TrimSpace(dc.dubboProxyConfig.Retries)
+	} else if strings.TrimSpace(irequest.Retries) != "" {
+		defaults.Retries = strings.TrimSpace(irequest.Retries)
+	}
+
+	if dc.dubboProxyConfig.Timeout != nil {
+		if timeout, err := time.ParseDuration(dc.dubboProxyConfig.Timeout.RequestTimeoutStr); err == nil {
+			defaults.RequestTimeout = timeout
+		} else {
+			defaults.RequestTimeout = cst.DefaultReqTimeout
+		}
+	} else {
+		defaults.RequestTimeout = cst.DefaultReqTimeout
+	}
+
+	return defaults
+}
+
+func (spec resolvedReferSpec) validate() error {
+	switch spec.Mode {
+	case "registry":
+		if len(spec.RegistryIDs) == 0 {
+			return errors.New("dubbo refer mode invalid: registry mode requires registry ids")
+		}
+		return nil
+	case "direct":
+		if strings.TrimSpace(spec.URL) == "" {
+			return errors.New("dubbo refer mode invalid: direct mode requires direct url")
+		}
+		return nil
+	default:
+		return errors.Errorf("dubbo refer mode invalid: %s", spec.Mode)
+	}
+}
+
+func (spec resolvedReferSpec) cacheKey() (string, error) {
+	if err := spec.validate(); err != nil {
+		return "", err
+	}
+
+	key := spec.genericServiceKey()
+	raw, err := json.Marshal(key)
+	if err != nil {
+		return "", errors.Wrap(err, "marshal generic service key")
+	}
+	return string(raw), nil
+}
+
+func (spec resolvedReferSpec) genericServiceKey() genericServiceKey {
+	registryIDs := append([]string(nil), spec.RegistryIDs...)
+	sort.Strings(registryIDs)
+	return genericServiceKey{
+		Mode:              spec.Mode,
+		URL:               spec.URL,
+		RegistryIDs:       registryIDs,
+		Cluster:           spec.ConsumerDefaults.Cluster,
+		Interface:         spec.Interface,
+		Version:           spec.Version,
+		Group:             spec.Group,
+		EffectiveProtocol: spec.EffectiveProtocol,
+	}
+}
+
+// Get find a dubbo GenericService
+func (dc *Client) Get(spec resolvedReferSpec) (*generic.GenericService, error) {
+	key, err := spec.cacheKey()
+	if err != nil {
+		return nil, err
+	}
+	if dc.check(key) {
+		return dc.get(key), nil
+	}
+
+	return dc.create(spec)
+}
+
+func (dc *Client) create(spec resolvedReferSpec) (*generic.GenericService, error) {
+	if err := spec.validate(); err != nil {
+		return nil, err
+	}
+	if dc.dubboClient == nil {
+		return nil, errors.New("dubbo client is not initialized, call Apply() first")
+	}
+
+	key, err := spec.cacheKey()
+	if err != nil {
+		return nil, err
+	}
+
+	opts, err := dc.buildReferenceOptions(spec)
+	if err != nil {
+		return nil, err
 	}
 
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 
 	if service, ok := dc.GenericServicePool[key]; ok {
-		return service
+		return service, nil
 	}
 
-	// Build ReferenceOptions using dubbo-go client API
-	opts := dc.buildReferenceOptions(irequest, registerIds)
-
-	if dc.dubboClient == nil {
-		panic("dubbo client is not initialized, call Apply() first")
+	clientService, err := dc.dubboClient.NewGenericService(spec.Interface, opts...)
+	if err != nil {
+		return nil, err
 	}
 
-	// DialWithService initializes ReferenceOptions (including internal compat fields) and binds GenericService.
-	clientService := generic.NewGenericService(key)
-	if _, err := dc.dubboClient.DialWithService(irequest.Interface, clientService, opts...); err != nil {
-		panic(err)
-	}
-
-	// sleep when first call to fetch enough service meta data from nacos
-	// todo: Refer should guarantee it
-	if useNacosRegister {
-		time.Sleep(1000 * time.Millisecond)
+	if spec.Mode == "registry" && spec.UseNacosWarmup {
+		time.Sleep(time.Second)
 	}
 
 	dc.GenericServicePool[key] = clientService
 
-	return clientService
+	return clientService, nil
 }
 
-// buildReferenceOptions builds a list of dubbo-go ReferenceOption using the official API
-// Priority: DubboProxyConfig > IntegrationRequest > Default
-func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, registerIds []string) []dclient.ReferenceOption {
+// buildReferenceOptions builds a list of dubbo-go ReferenceOption using the official API.
+func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.ReferenceOption, error) {
+	if err := spec.validate(); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(spec.EffectiveProtocol) == "" {
+		return nil, errors.New("dubbo refer mode invalid: effective protocol is required")
+	}
+
+	defaults := spec.ConsumerDefaults
 	opts := make([]dclient.ReferenceOption, 0, 16)
 
-	// 1. Service Identity
-	opts = append(opts, dclient.WithInterface(irequest.Interface))
-	if irequest.Group != "" {
-		opts = append(opts, dclient.WithGroup(irequest.Group))
+	opts = append(opts, dclient.WithInterface(spec.Interface))
+	if spec.Group != "" {
+		opts = append(opts, dclient.WithGroup(spec.Group))
 	}
-	if irequest.Version != "" {
-		opts = append(opts, dclient.WithVersion(irequest.Version))
-	}
-
-	// 2. Registry Configuration
-	if len(registerIds) > 0 {
-		opts = append(opts, dclient.WithRegistryIDs(registerIds...))
+	if spec.Version != "" {
+		opts = append(opts, dclient.WithVersion(spec.Version))
 	}
 
-	// 3. Cluster Strategy (from DubboProxyConfig)
-	cluster := dc.dubboProxyConfig.GetCluster()
-	switch cluster {
+	switch spec.Mode {
+	case "registry":
+		registryIDs := append([]string(nil), spec.RegistryIDs...)
+		sort.Strings(registryIDs)
+		opts = append(opts, dclient.WithRegistryIDs(registryIDs...))
+	case "direct":
+		opts = append(opts, dclient.WithURL(spec.URL))
+	}
+
+	switch defaults.Cluster {
 	case "failover":
 		opts = append(opts, dclient.WithClusterFailOver())
 	case "failfast":
@@ -393,12 +596,10 @@ func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, regi
 	case "adaptiveservice":
 		opts = append(opts, dclient.WithClusterAdaptiveService())
 	default:
-		opts = append(opts, dclient.WithCluster(cluster))
+		opts = append(opts, dclient.WithCluster(defaults.Cluster))
 	}
 
-	// 4. Protocol (from DubboProxyConfig)
-	protocol := dc.dubboProxyConfig.GetProtocol()
-	switch protocol {
+	switch spec.EffectiveProtocol {
 	case "tri", "triple":
 		opts = append(opts, dclient.WithProtocolTriple())
 	case "dubbo":
@@ -406,13 +607,11 @@ func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, regi
 	case "jsonrpc":
 		opts = append(opts, dclient.WithProtocolJsonRPC())
 	default:
-		opts = append(opts, dclient.WithProtocol(protocol))
+		opts = append(opts, dclient.WithProtocol(spec.EffectiveProtocol))
 	}
 
-	// 5. Load Balance (from DubboProxyConfig)
-	if dc.dubboProxyConfig.LoadBalance != "" {
-		lb := dc.dubboProxyConfig.LoadBalance
-		switch lb {
+	if defaults.LoadBalance != "" {
+		switch defaults.LoadBalance {
 		case "random":
 			opts = append(opts, dclient.WithLoadBalanceRandom())
 		case "roundrobin":
@@ -424,80 +623,324 @@ func (dc *Client) buildReferenceOptions(irequest config.IntegrationRequest, regi
 		case "p2c":
 			opts = append(opts, dclient.WithLoadBalanceP2C())
 		default:
-			opts = append(opts, dclient.WithLoadBalance(lb))
+			opts = append(opts, dclient.WithLoadBalance(defaults.LoadBalance))
 		}
 	}
 
-	// 6. Retries (Priority: DubboProxyConfig > IntegrationRequest > Default)
-	var retries int
-	if dc.dubboProxyConfig.Retries != "" {
-		if r, err := strconv.Atoi(dc.dubboProxyConfig.Retries); err == nil {
-			retries = r
-		} else {
-			retries = 3
+	retries := 3
+	if strings.TrimSpace(defaults.Retries) != "" {
+		if resolvedRetries, err := strconv.Atoi(defaults.Retries); err == nil {
+			retries = resolvedRetries
 		}
-	} else if irequest.Retries != "" {
-		if r, err := strconv.Atoi(irequest.Retries); err == nil {
-			retries = r
-		} else {
-			retries = 3
-		}
-	} else {
-		retries = 3
 	}
 	opts = append(opts, dclient.WithRetries(retries))
 
-	// 7. Request Timeout (from DubboProxyConfig.Timeout)
-	var timeout time.Duration
-	if dc.dubboProxyConfig.Timeout != nil {
-		if t, err := time.ParseDuration(dc.dubboProxyConfig.Timeout.RequestTimeoutStr); err == nil {
-			timeout = t
-		} else {
-			timeout = cst.DefaultReqTimeout
-		}
-	} else {
+	timeout := defaults.RequestTimeout
+	if timeout <= 0 {
 		timeout = cst.DefaultReqTimeout
 	}
 	opts = append(opts, dclient.WithRequestTimeout(timeout))
 
-	// 8. Check (from DubboProxyConfig) - startup provider availability check
-	if check := dc.dubboProxyConfig.GetCheck(); check != nil {
-		opts = append(opts, withReferenceCheck(*check))
+	if defaults.Check != nil {
+		opts = append(opts, withReferenceCheck(*defaults.Check))
 	}
-
-	// 9. Filter (from DubboProxyConfig) - filter chain configuration
-	if dc.dubboProxyConfig.Filter != "" {
-		opts = append(opts, dclient.WithFilter(dc.dubboProxyConfig.Filter))
+	if defaults.Filter != "" {
+		opts = append(opts, dclient.WithFilter(defaults.Filter))
 	}
-
-	// 10. Serialization (from DubboProxyConfig) - serialization protocol
-	if dc.dubboProxyConfig.Serialization != "" {
-		switch dc.dubboProxyConfig.Serialization {
+	if defaults.Serialization != "" {
+		switch defaults.Serialization {
 		case "json":
 			opts = append(opts, dclient.WithSerializationJSON())
 		default:
-			opts = append(opts, dclient.WithSerialization(dc.dubboProxyConfig.Serialization))
+			opts = append(opts, dclient.WithSerialization(defaults.Serialization))
 		}
 	}
 
-	// 11. GenericType (from DubboProxyConfig) - generic serialization mode
-	genericType, supported := normalizeGenericType(dc.dubboProxyConfig.GenericType)
-	if !supported && strings.TrimSpace(dc.dubboProxyConfig.GenericType) != "" {
-		logger.Warnf("[dubbo-go-pixiu] unsupported generic_type=%q, fallback to \"true\"", dc.dubboProxyConfig.GenericType)
-	}
-	opts = append(opts, dclient.WithGenericType(genericType))
+	opts = append(opts, dclient.WithGenericType(defaults.GenericType))
 
-	// 12. Sticky (from DubboProxyConfig) - sticky connection
-	if dc.dubboProxyConfig.Sticky != nil && *dc.dubboProxyConfig.Sticky {
+	if defaults.Sticky != nil && *defaults.Sticky {
 		opts = append(opts, dclient.WithSticky())
 	}
-
-	// 13. Params (from DubboProxyConfig) - custom parameters
-	if len(dc.dubboProxyConfig.Params) > 0 {
-		opts = append(opts, dclient.WithParams(dc.dubboProxyConfig.Params))
+	if len(defaults.Params) > 0 {
+		opts = append(opts, dclient.WithParams(defaults.Params))
 	}
 
-	return opts
+	return opts, nil
+}
+
+func (dc *Client) resolveRegistryProtocol(irequest config.IntegrationRequest, spec resolvedReferSpec) (string, error) {
+	resolver := dc.registryProviderResolver
+	if resolver == nil {
+		resolver = dc.resolveRegistryProviderViews
+	}
+
+	views, err := resolver(irequest, spec)
+	if err != nil {
+		return "", err
+	}
+
+	return resolveProviderProtocolViews(views)
+}
+
+func resolveProviderProtocolViews(views []providerProtocolView) (string, error) {
+	candidates := make(map[string]struct{})
+	for _, view := range views {
+		addProtocolCandidate(candidates, view.URLProtocol)
+		addProtocolCandidate(candidates, view.MetadataProtocol)
+		for _, protocol := range view.EndpointProtocols {
+			addProtocolCandidate(candidates, protocol)
+		}
+		for _, protocol := range view.ServiceProtocols {
+			addProtocolCandidate(candidates, protocol)
+		}
+	}
+
+	if len(candidates) == 0 {
+		return "", errors.New("dubbo refer mode invalid: registry provider protocol metadata is missing")
+	}
+	if len(candidates) > 1 {
+		values := make([]string, 0, len(candidates))
+		for protocol := range candidates {
+			values = append(values, protocol)
+		}
+		sort.Strings(values)
+		return "", errors.Errorf("dubbo refer mode invalid: registry provider protocols are ambiguous: %v", values)
+	}
+	for protocol := range candidates {
+		return protocol, nil
+	}
+	return "", errors.New("dubbo refer mode invalid: registry provider protocol metadata is missing")
+}
+
+func addProtocolCandidate(candidates map[string]struct{}, protocol string) {
+	if normalized := normalizeReferenceProtocol(protocol); normalized != "" {
+		candidates[normalized] = struct{}{}
+	}
+}
+
+func (dc *Client) resolveRegistryProviderViews(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
+	views := make([]providerProtocolView, 0, len(spec.RegistryIDs))
+	for _, registryID := range spec.RegistryIDs {
+		registryCfg := dc.registries[registryID]
+		if registryCfg == nil {
+			continue
+		}
+
+		registryInstance, err := newRegistryInstance(registryID, registryCfg)
+		if err != nil {
+			return nil, err
+		}
+		if registryInstance == nil {
+			continue
+		}
+
+		registryViews, resolveErr := dc.resolveRegistryViewsFromInstance(irequest, registryID, registryInstance)
+		registryInstance.Destroy()
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		views = append(views, registryViews...)
+	}
+
+	return views, nil
+}
+
+func newRegistryInstance(registryID string, registryCfg *global.RegistryConfig) (dregistry.Registry, error) {
+	consumerCfg := &dconfig.RegistryConfig{
+		Protocol:     registryCfg.Protocol,
+		Timeout:      registryCfg.Timeout,
+		Group:        registryCfg.Group,
+		Namespace:    registryCfg.Namespace,
+		TTL:          registryCfg.TTL,
+		Address:      registryCfg.Address,
+		Username:     registryCfg.Username,
+		Password:     registryCfg.Password,
+		Simplified:   registryCfg.Simplified,
+		Preferred:    registryCfg.Preferred,
+		Zone:         registryCfg.Zone,
+		Weight:       registryCfg.Weight,
+		Params:       registryCfg.Params,
+		RegistryType: registryCfg.RegistryType,
+	}
+
+	registryInstance, err := consumerCfg.GetInstance(dubboCommon.CONSUMER)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create registry instance %q", registryID)
+	}
+	return registryInstance, nil
+}
+
+func (dc *Client) resolveRegistryViewsFromInstance(irequest config.IntegrationRequest, registryID string, registryInstance dregistry.Registry) ([]providerProtocolView, error) {
+	if discoveryProvider, ok := registryInstance.(interface {
+		GetServiceDiscovery() dregistry.ServiceDiscovery
+	}); ok {
+		return dc.resolveServiceDiscoveryProviderViews(irequest, registryID, discoveryProvider.GetServiceDiscovery())
+	}
+
+	consumerURL, err := buildRegistryLookupConsumerURL(irequest)
+	if err != nil {
+		return nil, err
+	}
+
+	listener := &providerEventCollector{}
+	if err := registryInstance.LoadSubscribeInstances(consumerURL, listener); err != nil {
+		return nil, errors.Wrapf(err, "load provider instances from registry %q", registryID)
+	}
+	return listener.views, nil
+}
+
+func (dc *Client) resolveServiceDiscoveryProviderViews(irequest config.IntegrationRequest, registryID string, discovery dregistry.ServiceDiscovery) ([]providerProtocolView, error) {
+	serviceNames, err := dc.resolveServiceDiscoveryNames(irequest)
+	if err != nil {
+		return nil, errors.Wrapf(err, "resolve service discovery names from registry %q", registryID)
+	}
+
+	views := make([]providerProtocolView, 0)
+	for _, serviceName := range serviceNames {
+		instances := discovery.GetInstances(serviceName)
+		for _, instance := range instances {
+			views = append(views, buildProviderViewFromInstance(irequest, instance))
+		}
+	}
+	return views, nil
+}
+
+func (dc *Client) resolveServiceDiscoveryNames(irequest config.IntegrationRequest) ([]string, error) {
+	if application := strings.TrimSpace(irequest.ApplicationName); application != "" {
+		return []string{application}, nil
+	}
+
+	consumerURL, err := buildRegistryLookupConsumerURL(irequest)
+	if err != nil {
+		return nil, err
+	}
+	services, err := extension.GetGlobalServiceNameMapping().Get(consumerURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	values := services.Values()
+	names := make([]string, 0, len(values))
+	for _, service := range values {
+		if name, ok := service.(string); ok && strings.TrimSpace(name) != "" {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func buildRegistryLookupConsumerURL(irequest config.IntegrationRequest) (*dubboCommon.URL, error) {
+	params := url.Values{}
+	if irequest.Interface != "" {
+		params.Set(constant.InterfaceKey, irequest.Interface)
+	}
+	if irequest.Group != "" {
+		params.Set(constant.GroupKey, irequest.Group)
+	}
+	if irequest.Version != "" {
+		params.Set(constant.VersionKey, irequest.Version)
+	}
+	if irequest.ApplicationName != "" {
+		params.Set(constant.ApplicationKey, irequest.ApplicationName)
+	}
+	params.Set(constant.SideKey, constant.SideConsumer)
+
+	return dubboCommon.NewURL("consumer://127.0.0.1/"+irequest.Interface, dubboCommon.WithParams(params))
+}
+
+func buildProviderViewFromInstance(irequest config.IntegrationRequest, instance dregistry.ServiceInstance) providerProtocolView {
+	view := providerProtocolView{
+		MetadataProtocol: instance.GetMetadata()["protocol"],
+	}
+
+	for _, endpoint := range instance.GetEndPoints() {
+		view.EndpointProtocols = append(view.EndpointProtocols, endpoint.Protocol)
+	}
+
+	if metadata := instance.GetServiceMetadata(); metadata != nil {
+		for _, service := range metadata.Services {
+			if service == nil || !serviceMatchesRequest(service, irequest) {
+				continue
+			}
+			view.ServiceProtocols = append(view.ServiceProtocols, service.Protocol)
+			if service.URL != nil {
+				view.ServiceProtocols = append(view.ServiceProtocols, service.URL.Protocol)
+			}
+		}
+	}
+
+	return view
+}
+
+func serviceMatchesRequest(service interface {
+	GetServiceKey() string
+}, irequest config.IntegrationRequest) bool {
+	expectedServiceKey := dubboCommon.ServiceKey(irequest.Interface, irequest.Group, irequest.Version)
+	return service.GetServiceKey() == expectedServiceKey
+}
+
+type providerEventCollector struct {
+	views []providerProtocolView
+}
+
+func (c *providerEventCollector) Notify(event *dregistry.ServiceEvent) {
+	if event == nil || event.Service == nil {
+		return
+	}
+	c.views = append(c.views, providerProtocolView{
+		URLProtocol: event.Service.Protocol,
+	})
+}
+
+func (c *providerEventCollector) NotifyAll(events []*dregistry.ServiceEvent, callback func()) {
+	for _, event := range events {
+		c.Notify(event)
+	}
+	if callback != nil {
+		callback()
+	}
+}
+
+func directURLProtocol(rawURL string) (string, error) {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "", errors.Wrapf(err, "parse direct url %q", rawURL)
+	}
+	return normalizeReferenceProtocol(parsedURL.Scheme), nil
+}
+
+func normalizeReferenceProtocol(protocol string) string {
+	normalized := strings.ToLower(strings.TrimSpace(protocol))
+	switch normalized {
+	case "triple":
+		return "tri"
+	default:
+		return normalized
+	}
+}
+
+func withAttachments(ctx context.Context) context.Context {
+	attachments := make(map[string]any)
+	if attaRaw := ctx.Value(constant.AttachmentKey); attaRaw != nil {
+		switch userAtta := attaRaw.(type) {
+		case map[string]any:
+			for key, val := range userAtta {
+				attachments[key] = val
+			}
+		case map[string]string:
+			for key, val := range userAtta {
+				attachments[key] = val
+			}
+		}
+	}
+
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	for key, val := range carrier {
+		attachments[key] = val
+	}
+
+	return context.WithValue(ctx, constant.AttachmentKey, attachments)
 }
 
 func withReferenceCheck(check bool) dclient.ReferenceOption {

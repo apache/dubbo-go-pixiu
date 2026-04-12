@@ -53,10 +53,8 @@ type DubboProxyConfig struct {
 	// nil = let dubbo-go SDK use its default behavior
 	Check *bool `yaml:"check,omitempty" json:"check,omitempty"`
 
-	// Protocol type for dubbo client.
-	// Valid values (case-sensitive): "dubbo", "tri"
-	// Source: dubbo-go protocol names
-	// Default: "tri"
+	// Protocol is retained for backward-compatible config parsing.
+	// It is no longer used as the final protocol source in registry mode.
 	Protocol string `yaml:"protocol,omitempty" json:"protocol,omitempty"`
 
 	// Filter defines the filter chain for service invocation.
@@ -91,14 +89,6 @@ func (dpc *DubboProxyConfig) GetCluster() string {
 		return "failover"
 	}
 	return dpc.Cluster
-}
-
-// GetProtocol returns protocol with default value "dubbo".
-func (dpc *DubboProxyConfig) GetProtocol() string {
-	if dpc.Protocol == "" {
-		return "tri"
-	}
-	return dpc.Protocol
 }
 
 // GetCheck returns check pointer (nil means not configured, let dubbo-go use its default).
