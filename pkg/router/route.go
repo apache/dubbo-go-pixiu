@@ -41,6 +41,7 @@ type Node struct {
 	filters  []string // nolint:unused
 	method   *config.Method
 	headers  map[string]string
+	metadata map[string]any
 }
 
 // Route defines the tree of router APIs
@@ -127,6 +128,7 @@ func (rt *Route) PutAPI(api API) error {
 			fullPath: lowerCasePath,
 			method:   &api.Method,
 			headers:  api.Headers,
+			metadata: api.Metadata,
 		}
 		rt.lock.Lock()
 		defer rt.lock.Unlock()
@@ -147,6 +149,7 @@ func (rt *Route) PutOrUpdateAPI(api API) error {
 		fullPath: lowerCasePath,
 		method:   &api.Method,
 		headers:  api.Headers,
+		metadata: api.Metadata,
 	}
 	rt.lock.Lock()
 	defer rt.lock.Unlock()
@@ -189,6 +192,7 @@ func (rt *Route) FindAPI(fullPath string, httpverb string) (*API, bool) {
 			URLPattern: n.fullPath,
 			Method:     *n.method,
 			Headers:    n.headers,
+			Metadata:   n.metadata,
 		}, found
 	}
 	return nil, false
@@ -205,6 +209,7 @@ func (rt *Route) MatchAPI(fullPath string, httpverb string) (*API, bool) {
 			URLPattern: n.fullPath,
 			Method:     *n.method,
 			Headers:    n.headers,
+			Metadata:   n.metadata,
 		}, found
 	}
 	return nil, false

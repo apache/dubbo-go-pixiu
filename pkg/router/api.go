@@ -32,6 +32,7 @@ type API struct {
 	URLPattern    string `json:"urlPattern" yaml:"urlPattern"`
 	config.Method `json:"method,inline" yaml:"method,inline"`
 	Headers       map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Metadata      map[string]any    `json:"-" yaml:"-"`
 }
 
 // GetURIParams returns the values retrieved from the rawURL
