@@ -33,6 +33,7 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/global"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
