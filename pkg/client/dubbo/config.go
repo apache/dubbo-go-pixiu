@@ -18,10 +18,6 @@
 package dubbo
 
 import (
-	"strings"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -41,76 +37,4 @@ type DubboProxyConfig struct {
 	LoadBalance string `yaml:"load_balance"  json:"load_balance,omitempty"`
 	// Retries number of retries
 	Retries string `yaml:"retries" json:"retries,omitempty"`
-
-	// Cluster strategy for dubbo client.
-	// Valid values (case-sensitive): "failover", "failfast", "failsafe", "failback", "forking", "broadcast"
-	// Source: dubbo-go cluster constants
-	// Default: "failover"
-	Cluster string `yaml:"cluster,omitempty" json:"cluster,omitempty"`
-
-	// Check whether to check provider availability on startup.
-	// Uses pointer type to distinguish "not configured" (nil) from "explicitly false".
-	// nil = let dubbo-go SDK use its default behavior
-	Check *bool `yaml:"check,omitempty" json:"check,omitempty"`
-
-	// Protocol is retained for backward-compatible config parsing.
-	// It is no longer used as the final protocol source in registry mode.
-	Protocol string `yaml:"protocol,omitempty" json:"protocol,omitempty"`
-
-	// Filter defines the filter chain for service invocation.
-	// Multiple filters separated by comma, e.g., "tracing,metrics,logging"
-	// Filters are executed in the order specified.
-	Filter string `yaml:"filter,omitempty" json:"filter,omitempty"`
-
-	// Serialization defines the serialization protocol.
-	// Valid values: "hessian2", "protobuf", "json", "msgpack"
-	// Default: "hessian2" (dubbo-go SDK default)
-	Serialization string `yaml:"serialization,omitempty" json:"serialization,omitempty"`
-
-	// Sticky enables sticky connections.
-	// When enabled, the same consumer always sends requests to the same provider.
-	// Uses pointer type to distinguish "not configured" (nil) from "explicitly false".
-	Sticky *bool `yaml:"sticky,omitempty" json:"sticky,omitempty"`
-
-	// Params allows passing custom parameters to the service provider.
-	// These parameters are passed as URL parameters in the Dubbo protocol.
-	Params map[string]string `yaml:"params,omitempty" json:"params,omitempty"`
-
-	// GenericType defines generic invocation mode for dubbo-go generic service.
-	// Currently only "true" is considered stable in pixiu.
-	// Other configured values are downgraded to "true" for compatibility.
-	// Default: "true"
-	GenericType string `yaml:"generic_type,omitempty" json:"generic_type,omitempty"`
-}
-
-// GetCluster returns cluster strategy with default value "failover".
-func (dpc *DubboProxyConfig) GetCluster() string {
-	if dpc.Cluster == "" {
-		return "failover"
-	}
-	return dpc.Cluster
-}
-
-// GetCheck returns check pointer (nil means not configured, let dubbo-go use its default).
-// Does not provide default value to maintain backward compatibility.
-func (dpc *DubboProxyConfig) GetCheck() *bool {
-	return dpc.Check
-}
-
-// GetGenericType returns generic invocation mode with default value "true".
-// Only "true" is treated as supported in pixiu currently.
-// Other values are downgraded to "true" for compatibility.
-func (dpc *DubboProxyConfig) GetGenericType() string {
-	genericType, _ := normalizeGenericType(dpc.GenericType)
-	return genericType
-}
-
-func normalizeGenericType(genericType string) (string, bool) {
-	normalized := strings.ToLower(strings.TrimSpace(genericType))
-	switch normalized {
-	case "", "true":
-		return "true", true
-	default:
-		return "true", false
-	}
 }

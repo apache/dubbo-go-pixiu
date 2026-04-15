@@ -31,14 +31,10 @@ import (
 import (
 	dclient "dubbo.apache.org/dubbo-go/v3/client"
 	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/consistenthashing"
-	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
-	"dubbo.apache.org/dubbo-go/v3/common/extension"
-	dconfig "dubbo.apache.org/dubbo-go/v3/config"
-	"dubbo.apache.org/dubbo-go/v3/config/generic"
+	"dubbo.apache.org/dubbo-go/v3/filter/generic"
 	"dubbo.apache.org/dubbo-go/v3/global"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
-	dregistry "dubbo.apache.org/dubbo-go/v3/registry"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
@@ -98,12 +94,11 @@ var (
 
 // Client client to generic invoke dubbo
 type Client struct {
-	lock                     sync.RWMutex
-	GenericServicePool       map[string]*generic.GenericService
-	dubboProxyConfig         *DubboProxyConfig
-	registries               map[string]*global.RegistryConfig
-	dubboClient              *dclient.Client
-	registryProviderResolver func(config.IntegrationRequest, resolvedReferSpec) ([]providerProtocolView, error)
+	lock               sync.RWMutex
+	GenericServicePool map[string]*generic.GenericService
+	dubboProxyConfig   *DubboProxyConfig
+	registries         map[string]*global.RegistryConfig
+	dubboClient        *dclient.Client
 }
 
 type resolvedConsumerDefaults struct {
@@ -111,12 +106,6 @@ type resolvedConsumerDefaults struct {
 	LoadBalance    string
 	Retries        string
 	RequestTimeout time.Duration
-	Check          *bool
-	Filter         string
-	Serialization  string
-	Sticky         *bool
-	Params         map[string]string
-	GenericType    string
 }
 
 type resolvedReferSpec struct {
@@ -129,13 +118,6 @@ type resolvedReferSpec struct {
 	EffectiveProtocol string
 	UseNacosWarmup    bool
 	ConsumerDefaults  resolvedConsumerDefaults
-}
-
-type providerProtocolView struct {
-	URLProtocol       string
-	MetadataProtocol  string
-	EndpointProtocols []string
-	ServiceProtocols  []string
 }
 
 type genericServiceKey struct {
@@ -385,11 +367,7 @@ func (dc *Client) resolveReferSpec(irequest config.IntegrationRequest) (resolved
 		spec.Mode = "registry"
 		spec.RegistryIDs = registryIDs
 		spec.UseNacosWarmup = useNacosWarmup
-		effectiveProtocol, err := dc.resolveRegistryProtocol(irequest, spec)
-		if err != nil {
-			return resolvedReferSpec{}, err
-		}
-		spec.EffectiveProtocol = effectiveProtocol
+		spec.EffectiveProtocol = resolveDeclaredProtocol(irequest)
 		return spec, nil
 	}
 
@@ -410,9 +388,8 @@ func (dc *Client) resolveReferSpec(irequest config.IntegrationRequest) (resolved
 
 func (dc *Client) resolveConsumerDefaults(irequest config.IntegrationRequest) resolvedConsumerDefaults {
 	defaults := resolvedConsumerDefaults{
-		Cluster:     "failover",
-		Retries:     "3",
-		GenericType: "true",
+		Cluster: "failover",
+		Retries: "3",
 	}
 
 	if dc.dubboProxyConfig == nil {
@@ -423,14 +400,7 @@ func (dc *Client) resolveConsumerDefaults(irequest config.IntegrationRequest) re
 		return defaults
 	}
 
-	defaults.Cluster = dc.dubboProxyConfig.GetCluster()
 	defaults.LoadBalance = dc.dubboProxyConfig.LoadBalance
-	defaults.Check = dc.dubboProxyConfig.GetCheck()
-	defaults.Filter = dc.dubboProxyConfig.Filter
-	defaults.Serialization = dc.dubboProxyConfig.Serialization
-	defaults.Sticky = dc.dubboProxyConfig.Sticky
-	defaults.GenericType = dc.dubboProxyConfig.GetGenericType()
-	defaults.Params = dc.dubboProxyConfig.Params
 	if strings.TrimSpace(dc.dubboProxyConfig.Retries) != "" {
 		defaults.Retries = strings.TrimSpace(dc.dubboProxyConfig.Retries)
 	} else if strings.TrimSpace(irequest.Retries) != "" {
@@ -641,264 +611,19 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 	}
 	opts = append(opts, dclient.WithRequestTimeout(timeout))
 
-	if defaults.Check != nil {
-		opts = append(opts, withReferenceCheck(*defaults.Check))
-	}
-	if defaults.Filter != "" {
-		opts = append(opts, dclient.WithFilter(defaults.Filter))
-	}
-	if defaults.Serialization != "" {
-		switch defaults.Serialization {
-		case "json":
-			opts = append(opts, dclient.WithSerializationJSON())
-		default:
-			opts = append(opts, dclient.WithSerialization(defaults.Serialization))
-		}
-	}
-
-	opts = append(opts, dclient.WithGenericType(defaults.GenericType))
-
-	if defaults.Sticky != nil && *defaults.Sticky {
-		opts = append(opts, dclient.WithSticky())
-	}
-	if len(defaults.Params) > 0 {
-		opts = append(opts, dclient.WithParams(defaults.Params))
-	}
+	opts = append(opts, dclient.WithGeneric())
 
 	return opts, nil
 }
 
-func (dc *Client) resolveRegistryProtocol(irequest config.IntegrationRequest, spec resolvedReferSpec) (string, error) {
-	resolver := dc.registryProviderResolver
-	if resolver == nil {
-		resolver = dc.resolveRegistryProviderViews
+func resolveDeclaredProtocol(irequest config.IntegrationRequest) string {
+	if protocol := normalizeReferenceProtocol(irequest.Protocol); protocol != "" {
+		return protocol
 	}
-
-	views, err := resolver(irequest, spec)
-	if err != nil {
-		return "", err
+	if normalizeReferenceProtocol(irequest.RequestType) == "tri" {
+		return "tri"
 	}
-
-	return resolveProviderProtocolViews(views)
-}
-
-func resolveProviderProtocolViews(views []providerProtocolView) (string, error) {
-	candidates := make(map[string]struct{})
-	for _, view := range views {
-		addProtocolCandidate(candidates, view.URLProtocol)
-		addProtocolCandidate(candidates, view.MetadataProtocol)
-		for _, protocol := range view.EndpointProtocols {
-			addProtocolCandidate(candidates, protocol)
-		}
-		for _, protocol := range view.ServiceProtocols {
-			addProtocolCandidate(candidates, protocol)
-		}
-	}
-
-	if len(candidates) == 0 {
-		return "", errors.New("dubbo refer mode invalid: registry provider protocol metadata is missing")
-	}
-	if len(candidates) > 1 {
-		values := make([]string, 0, len(candidates))
-		for protocol := range candidates {
-			values = append(values, protocol)
-		}
-		sort.Strings(values)
-		return "", errors.Errorf("dubbo refer mode invalid: registry provider protocols are ambiguous: %v", values)
-	}
-	for protocol := range candidates {
-		return protocol, nil
-	}
-	return "", errors.New("dubbo refer mode invalid: registry provider protocol metadata is missing")
-}
-
-func addProtocolCandidate(candidates map[string]struct{}, protocol string) {
-	if normalized := normalizeReferenceProtocol(protocol); normalized != "" {
-		candidates[normalized] = struct{}{}
-	}
-}
-
-func (dc *Client) resolveRegistryProviderViews(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-	views := make([]providerProtocolView, 0, len(spec.RegistryIDs))
-	for _, registryID := range spec.RegistryIDs {
-		registryCfg := dc.registries[registryID]
-		if registryCfg == nil {
-			continue
-		}
-
-		registryInstance, err := newRegistryInstance(registryID, registryCfg)
-		if err != nil {
-			return nil, err
-		}
-		if registryInstance == nil {
-			continue
-		}
-
-		registryViews, resolveErr := dc.resolveRegistryViewsFromInstance(irequest, registryID, registryInstance)
-		registryInstance.Destroy()
-		if resolveErr != nil {
-			return nil, resolveErr
-		}
-		views = append(views, registryViews...)
-	}
-
-	return views, nil
-}
-
-func newRegistryInstance(registryID string, registryCfg *global.RegistryConfig) (dregistry.Registry, error) {
-	consumerCfg := &dconfig.RegistryConfig{
-		Protocol:     registryCfg.Protocol,
-		Timeout:      registryCfg.Timeout,
-		Group:        registryCfg.Group,
-		Namespace:    registryCfg.Namespace,
-		TTL:          registryCfg.TTL,
-		Address:      registryCfg.Address,
-		Username:     registryCfg.Username,
-		Password:     registryCfg.Password,
-		Simplified:   registryCfg.Simplified,
-		Preferred:    registryCfg.Preferred,
-		Zone:         registryCfg.Zone,
-		Weight:       registryCfg.Weight,
-		Params:       registryCfg.Params,
-		RegistryType: registryCfg.RegistryType,
-	}
-
-	registryInstance, err := consumerCfg.GetInstance(dubboCommon.CONSUMER)
-	if err != nil {
-		return nil, errors.Wrapf(err, "create registry instance %q", registryID)
-	}
-	return registryInstance, nil
-}
-
-func (dc *Client) resolveRegistryViewsFromInstance(irequest config.IntegrationRequest, registryID string, registryInstance dregistry.Registry) ([]providerProtocolView, error) {
-	if discoveryProvider, ok := registryInstance.(interface {
-		GetServiceDiscovery() dregistry.ServiceDiscovery
-	}); ok {
-		return dc.resolveServiceDiscoveryProviderViews(irequest, registryID, discoveryProvider.GetServiceDiscovery())
-	}
-
-	consumerURL, err := buildRegistryLookupConsumerURL(irequest)
-	if err != nil {
-		return nil, err
-	}
-
-	listener := &providerEventCollector{}
-	if err := registryInstance.LoadSubscribeInstances(consumerURL, listener); err != nil {
-		return nil, errors.Wrapf(err, "load provider instances from registry %q", registryID)
-	}
-	return listener.views, nil
-}
-
-func (dc *Client) resolveServiceDiscoveryProviderViews(irequest config.IntegrationRequest, registryID string, discovery dregistry.ServiceDiscovery) ([]providerProtocolView, error) {
-	serviceNames, err := dc.resolveServiceDiscoveryNames(irequest)
-	if err != nil {
-		return nil, errors.Wrapf(err, "resolve service discovery names from registry %q", registryID)
-	}
-
-	views := make([]providerProtocolView, 0)
-	for _, serviceName := range serviceNames {
-		instances := discovery.GetInstances(serviceName)
-		for _, instance := range instances {
-			views = append(views, buildProviderViewFromInstance(irequest, instance))
-		}
-	}
-	return views, nil
-}
-
-func (dc *Client) resolveServiceDiscoveryNames(irequest config.IntegrationRequest) ([]string, error) {
-	if application := strings.TrimSpace(irequest.ApplicationName); application != "" {
-		return []string{application}, nil
-	}
-
-	consumerURL, err := buildRegistryLookupConsumerURL(irequest)
-	if err != nil {
-		return nil, err
-	}
-	services, err := extension.GetGlobalServiceNameMapping().Get(consumerURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	values := services.Values()
-	names := make([]string, 0, len(values))
-	for _, service := range values {
-		if name, ok := service.(string); ok && strings.TrimSpace(name) != "" {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
-func buildRegistryLookupConsumerURL(irequest config.IntegrationRequest) (*dubboCommon.URL, error) {
-	params := url.Values{}
-	if irequest.Interface != "" {
-		params.Set(constant.InterfaceKey, irequest.Interface)
-	}
-	if irequest.Group != "" {
-		params.Set(constant.GroupKey, irequest.Group)
-	}
-	if irequest.Version != "" {
-		params.Set(constant.VersionKey, irequest.Version)
-	}
-	if irequest.ApplicationName != "" {
-		params.Set(constant.ApplicationKey, irequest.ApplicationName)
-	}
-	params.Set(constant.SideKey, constant.SideConsumer)
-
-	return dubboCommon.NewURL("consumer://127.0.0.1/"+irequest.Interface, dubboCommon.WithParams(params))
-}
-
-func buildProviderViewFromInstance(irequest config.IntegrationRequest, instance dregistry.ServiceInstance) providerProtocolView {
-	view := providerProtocolView{
-		MetadataProtocol: instance.GetMetadata()["protocol"],
-	}
-
-	for _, endpoint := range instance.GetEndPoints() {
-		view.EndpointProtocols = append(view.EndpointProtocols, endpoint.Protocol)
-	}
-
-	if metadata := instance.GetServiceMetadata(); metadata != nil {
-		for _, service := range metadata.Services {
-			if service == nil || !serviceMatchesRequest(service, irequest) {
-				continue
-			}
-			view.ServiceProtocols = append(view.ServiceProtocols, service.Protocol)
-			if service.URL != nil {
-				view.ServiceProtocols = append(view.ServiceProtocols, service.URL.Protocol)
-			}
-		}
-	}
-
-	return view
-}
-
-func serviceMatchesRequest(service interface {
-	GetServiceKey() string
-}, irequest config.IntegrationRequest) bool {
-	expectedServiceKey := dubboCommon.ServiceKey(irequest.Interface, irequest.Group, irequest.Version)
-	return service.GetServiceKey() == expectedServiceKey
-}
-
-type providerEventCollector struct {
-	views []providerProtocolView
-}
-
-func (c *providerEventCollector) Notify(event *dregistry.ServiceEvent) {
-	if event == nil || event.Service == nil {
-		return
-	}
-	c.views = append(c.views, providerProtocolView{
-		URLProtocol: event.Service.Protocol,
-	})
-}
-
-func (c *providerEventCollector) NotifyAll(events []*dregistry.ServiceEvent, callback func()) {
-	for _, event := range events {
-		c.Notify(event)
-	}
-	if callback != nil {
-		callback()
-	}
+	return "dubbo"
 }
 
 func directURLProtocol(rawURL string) (string, error) {
@@ -941,11 +666,4 @@ func withAttachments(ctx context.Context) context.Context {
 	}
 
 	return context.WithValue(ctx, constant.AttachmentKey, attachments)
-}
-
-func withReferenceCheck(check bool) dclient.ReferenceOption {
-	return func(opts *dclient.ReferenceOptions) {
-		v := check
-		opts.Reference.Check = &v
-	}
 }

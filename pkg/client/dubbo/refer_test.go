@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -30,7 +29,7 @@ import (
 import (
 	dclient "dubbo.apache.org/dubbo-go/v3/client"
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
-	"dubbo.apache.org/dubbo-go/v3/config/generic"
+	"dubbo.apache.org/dubbo-go/v3/filter/generic"
 	"dubbo.apache.org/dubbo-go/v3/global"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
@@ -285,208 +284,64 @@ func TestDirectModeUsesCanonicalURLForOptionsAndCacheKey(t *testing.T) {
 	assert.Equal(t, "direct", key.Mode)
 }
 
-func TestDirectModeUsesURLProtocolInsteadOfConfiguredProtocol(t *testing.T) {
-	dc := NewDubboClient()
-	dc.SetConfig(&DubboProxyConfig{
-		Protocol: "tri",
-	})
-
-	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
-		HTTPBackendConfig: config.HTTPBackendConfig{
-			URL: "dubbo://127.0.0.1:20880",
-		},
-		DubboBackendConfig: config.DubboBackendConfig{
-			Interface: "com.example.UserService",
-		},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "dubbo", spec.EffectiveProtocol)
-
-	refOpts := applyResolvedReferenceOptions(t, dc, spec)
-	assert.Equal(t, dubboConstant.DubboProtocol, refOpts.Reference.Protocol)
-}
-
-func TestBuildReferenceOptionsNormalizesTripleDirectProtocol(t *testing.T) {
-	dc := NewDubboClient()
-	dc.SetConfig(&DubboProxyConfig{
-		Protocol: "tri",
-	})
-
-	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
-		HTTPBackendConfig: config.HTTPBackendConfig{
-			URL: "triple://127.0.0.1:50051",
-		},
-		DubboBackendConfig: config.DubboBackendConfig{
-			Interface: "com.example.UserService",
-		},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "tri", spec.EffectiveProtocol)
-
-	refOpts := applyResolvedReferenceOptions(t, dc, spec)
-	assert.Equal(t, "triple://127.0.0.1:50051", refOpts.Reference.URL)
-	assert.Equal(t, "tri", refOpts.Reference.Protocol)
-}
-
-func TestRegistryModeIgnoresURLAndSortsRegistryIDs(t *testing.T) {
-	dc := NewDubboClient()
-	dc.registries = map[string]*global.RegistryConfig{
-		"z-reg": {Protocol: "zookeeper"},
-		"a-reg": {Protocol: "nacos"},
-	}
-	dc.registryProviderResolver = func(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-		return []providerProtocolView{
-			{URLProtocol: "dubbo"},
-		}, nil
-	}
-
-	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
-		HTTPBackendConfig: config.HTTPBackendConfig{
-			URL: "dubbo://should-be-ignored",
-		},
-		DubboBackendConfig: config.DubboBackendConfig{
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
-		},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "registry", spec.Mode)
-	assert.Equal(t, []string{"a-reg", "z-reg"}, spec.RegistryIDs)
-	assert.True(t, spec.UseNacosWarmup)
-	assert.Empty(t, spec.URL)
-	assert.Equal(t, "dubbo", spec.EffectiveProtocol)
-}
-
-func TestBuildReferenceOptionsRejectsRegistryModeWithoutResolvedProtocol(t *testing.T) {
+func TestResolveReferSpecRegistryModeUsesDeclaredProtocolWithoutProbe(t *testing.T) {
 	dc := NewDubboClient()
 	dc.registries = map[string]*global.RegistryConfig{
 		"zk": {Protocol: "zookeeper"},
-	}
-	dc.registryProviderResolver = func(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-		return nil, errors.New("dubbo refer mode invalid: registry provider protocol metadata is missing")
-	}
-
-	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
-		DubboBackendConfig: config.DubboBackendConfig{
-			Interface: "com.example.UserService",
-		},
-	})
-	assert.EqualError(t, err, "dubbo refer mode invalid: registry provider protocol metadata is missing")
-	assert.Equal(t, resolvedReferSpec{}, spec)
-}
-
-func TestResolveReferSpecRegistryModeUsesProviderURLProtocol(t *testing.T) {
-	dc := NewDubboClient()
-	dc.registries = map[string]*global.RegistryConfig{
-		"zk": {Protocol: "zookeeper"},
-	}
-	dc.registryProviderResolver = func(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-		return []providerProtocolView{
-			{URLProtocol: "dubbo"},
-		}, nil
-	}
-
-	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
-		RequestType: "triple",
-		DubboBackendConfig: config.DubboBackendConfig{
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
-		},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "registry", spec.Mode)
-	assert.Equal(t, "dubbo", spec.EffectiveProtocol)
-}
-
-func TestResolveReferSpecRegistryModeUsesProviderMetadataProtocol(t *testing.T) {
-	dc := NewDubboClient()
-	dc.registries = map[string]*global.RegistryConfig{
-		"zk": {Protocol: "zookeeper"},
-	}
-	dc.registryProviderResolver = func(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-		return []providerProtocolView{
-			{MetadataProtocol: "triple"},
-		}, nil
 	}
 
 	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
 		RequestType: "dubbo",
 		DubboBackendConfig: config.DubboBackendConfig{
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
+			Interface: "com.example.UserService",
+			Protocol:  "dubbo",
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "registry", spec.Mode)
+	assert.Equal(t, []string{"zk"}, spec.RegistryIDs)
+	assert.Equal(t, "dubbo", spec.EffectiveProtocol)
+}
+
+func TestResolveReferSpecRegistryModeUsesTripleRequestTypeWithoutProbe(t *testing.T) {
+	dc := NewDubboClient()
+	dc.registries = map[string]*global.RegistryConfig{
+		"zk": {Protocol: "zookeeper"},
+	}
+
+	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
+		RequestType: "triple",
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.example.UserService",
 		},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "tri", spec.EffectiveProtocol)
 }
 
-func TestResolveReferSpecRegistryModeRejectsMissingProviderProtocol(t *testing.T) {
+func TestBuildReferenceOptionsUsesRegistryProtocolFromRequest(t *testing.T) {
 	dc := NewDubboClient()
-	dc.registries = map[string]*global.RegistryConfig{
-		"zk": {Protocol: "zookeeper"},
-	}
-	dc.registryProviderResolver = func(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-		return []providerProtocolView{
-			{},
-		}, nil
-	}
 
-	_, err := dc.resolveReferSpec(config.IntegrationRequest{
-		DubboBackendConfig: config.DubboBackendConfig{
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
+	spec := resolvedReferSpec{
+		Mode:              "registry",
+		Interface:         "com.example.UserService",
+		RegistryIDs:       []string{"zk"},
+		EffectiveProtocol: "dubbo",
+		ConsumerDefaults: resolvedConsumerDefaults{
+			Cluster:        "failover",
+			Retries:        "7",
+			LoadBalance:    "consistenthash",
+			RequestTimeout: 6 * time.Second,
 		},
-	})
-	assert.EqualError(t, err, "dubbo refer mode invalid: registry provider protocol metadata is missing")
-}
-
-func TestResolveReferSpecRegistryModeRejectsMixedProviderProtocols(t *testing.T) {
-	dc := NewDubboClient()
-	dc.registries = map[string]*global.RegistryConfig{
-		"zk": {Protocol: "zookeeper"},
 	}
-	dc.registryProviderResolver = func(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-		return []providerProtocolView{
-			{URLProtocol: "dubbo"},
-			{MetadataProtocol: "tri"},
-		}, nil
-	}
-
-	_, err := dc.resolveReferSpec(config.IntegrationRequest{
-		DubboBackendConfig: config.DubboBackendConfig{
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
-		},
-	})
-	assert.EqualError(t, err, "dubbo refer mode invalid: registry provider protocols are ambiguous: [dubbo tri]")
-}
-
-func TestBuildReferenceOptionsUsesResolvedRegistryProtocolInsteadOfProxyConfig(t *testing.T) {
-	dc := NewDubboClient()
-	dc.SetConfig(&DubboProxyConfig{
-		Protocol: "tri",
-	})
-	dc.registries = map[string]*global.RegistryConfig{
-		"zk": {Protocol: "zookeeper"},
-	}
-	dc.registryProviderResolver = func(irequest config.IntegrationRequest, spec resolvedReferSpec) ([]providerProtocolView, error) {
-		return []providerProtocolView{
-			{URLProtocol: "dubbo"},
-		}, nil
-	}
-
-	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
-		RequestType: "triple",
-		DubboBackendConfig: config.DubboBackendConfig{
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
-		},
-	})
-	require.NoError(t, err)
 
 	refOpts := applyResolvedReferenceOptions(t, dc, spec)
 	assert.Equal(t, []string{"zk"}, refOpts.Reference.RegistryIDs)
 	assert.Equal(t, dubboConstant.DubboProtocol, refOpts.Reference.Protocol)
+	assert.Equal(t, dubboConstant.LoadBalanceKeyConsistentHashing, refOpts.Reference.Loadbalance)
+	assert.Equal(t, "7", refOpts.Reference.Retries)
+	assert.Equal(t, "6s", refOpts.Reference.RequestTimeout)
+	assert.Equal(t, "true", refOpts.Reference.Generic)
 }
 
 func TestCallWithZeroTimeoutDoesNotCreateImmediateDeadline(t *testing.T) {
@@ -542,25 +397,13 @@ func TestCallWithTimeoutCreatesPerCallDeadline(t *testing.T) {
 }
 
 func TestBuildReferenceOptionsUsesStaticRequestTimeoutAndConfigPriority(t *testing.T) {
-	check := false
-	sticky := true
 	dc := NewDubboClient()
 	dc.SetConfig(&DubboProxyConfig{
 		Timeout: &model.TimeoutConfig{
 			RequestTimeoutStr: "6s",
 		},
-		Cluster:       "failfast",
-		Protocol:      "dubbo",
-		LoadBalance:   "consistenthash",
-		Retries:       "7",
-		Check:         &check,
-		Filter:        "tracing,metrics",
-		Serialization: "json",
-		Sticky:        &sticky,
-		Params: map[string]string{
-			"env": "test",
-		},
-		GenericType: "true",
+		LoadBalance: "consistenthash",
+		Retries:     "7",
 	})
 
 	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
@@ -575,18 +418,12 @@ func TestBuildReferenceOptionsUsesStaticRequestTimeoutAndConfigPriority(t *testi
 	require.NoError(t, err)
 
 	refOpts := applyResolvedReferenceOptions(t, dc, spec)
-	assert.Equal(t, dubboConstant.ClusterKeyFailfast, refOpts.Reference.Cluster)
+	assert.Equal(t, dubboConstant.ClusterKeyFailover, refOpts.Reference.Cluster)
 	assert.Equal(t, dubboConstant.DubboProtocol, refOpts.Reference.Protocol)
 	assert.Equal(t, dubboConstant.LoadBalanceKeyConsistentHashing, refOpts.Reference.Loadbalance)
 	assert.Equal(t, "7", refOpts.Reference.Retries)
 	assert.Equal(t, "6s", refOpts.Reference.RequestTimeout)
-	require.NotNil(t, refOpts.Reference.Check)
-	assert.False(t, *refOpts.Reference.Check)
-	assert.Equal(t, "tracing,metrics", refOpts.Reference.Filter)
-	assert.Equal(t, dubboConstant.JSONSerialization, refOpts.Reference.Serialization)
 	assert.Equal(t, "true", refOpts.Reference.Generic)
-	assert.True(t, refOpts.Reference.Sticky)
-	assert.Equal(t, map[string]string{"env": "test"}, refOpts.Reference.Params)
 }
 
 func TestCallFlattensAttachmentsIntoMapAny(t *testing.T) {

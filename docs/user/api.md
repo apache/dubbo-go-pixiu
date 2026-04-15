@@ -29,7 +29,6 @@ resources:
           mappingParams:
             - name: queryStrings.id
               mapTo: 1
-          applicationName: "BDTService"
           interface: "com.ikurento.user.UserProvider"
           method: "GetUser"
           clusterName: "test_dubbo"
@@ -147,4 +146,3 @@ definitions
 
     name: The name of the definitions.
     schema: The detail definition of the definition. Use json.schema.
-
