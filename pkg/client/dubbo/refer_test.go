@@ -49,7 +49,9 @@ import (
 
 type fixedPropagator struct{}
 
-func (fixedPropagator) Inject(_ context.Context, _ propagation.TextMapCarrier) {}
+func (fixedPropagator) Inject(_ context.Context, _ propagation.TextMapCarrier) {
+	// Intentionally left blank for tests that need a no-op injector.
+}
 
 func (fixedPropagator) Extract(ctx context.Context, _ propagation.TextMapCarrier) context.Context {
 	return ctx
@@ -61,9 +63,30 @@ func (fixedPropagator) Fields() []string {
 
 type attachmentPropagator struct{}
 
+const (
+	invokePath              = "/invoke"
+	traceparentKey          = "traceparent"
+	traceparentValue        = "00-test-traceparent"
+	otelScopeKey            = "x-otel-scope"
+	otelScopeValue          = "pixiu"
+	requestBodyValuesSource = "requestBody.values"
+	requestBodyTypesSource  = "requestBody.types"
+	optValuesTarget         = "opt.values"
+	optTypesTarget          = "opt.types"
+	mappedAppName           = "mapped-app"
+	demoAppName             = "demo-app"
+	orderServiceInterface   = "com.example.OrderService"
+	userServiceInterface    = "com.example.UserService"
+	directDubboURL          = "dubbo://127.0.0.1:20880"
+	directTripleURL         = "triple://127.0.0.1:50051"
+	userAttachmentKey       = "user-key"
+	userAttachmentValue     = "user-value"
+	autoResolveRequestPath  = "/" + demoAppName + "/" + userServiceInterface + "/GetUser"
+)
+
 func (attachmentPropagator) Inject(_ context.Context, carrier propagation.TextMapCarrier) {
-	carrier.Set("traceparent", "00-test-traceparent")
-	carrier.Set("x-otel-scope", "pixiu")
+	carrier.Set(traceparentKey, traceparentValue)
+	carrier.Set(otelScopeKey, otelScopeValue)
 }
 
 func (attachmentPropagator) Extract(ctx context.Context, _ propagation.TextMapCarrier) context.Context {
@@ -71,30 +94,30 @@ func (attachmentPropagator) Extract(ctx context.Context, _ propagation.TextMapCa
 }
 
 func (attachmentPropagator) Fields() []string {
-	return []string{"traceparent", "x-otel-scope"}
+	return []string{traceparentKey, otelScopeKey}
 }
 
 func TestCallUsesMapParamsBeforeRefer(t *testing.T) {
 	dc := NewDubboClient()
 	restorePropagator(t, fixedPropagator{})
 
-	req := newDirectCallRequest(t, context.Background(), "/invoke", "/invoke", `{"values":["123"],"types":"java.lang.String"}`, []config.MappingParam{
+	req := newDirectCallRequest(t, context.Background(), invokePath, invokePath, `{"values":["123"],"types":"java.lang.String"}`, []config.MappingParam{
 		{Name: "headers.X-App", MapTo: "opt.application"},
 		{Name: "headers.X-Interface", MapTo: "opt.interface"},
 		{Name: "headers.X-Method", MapTo: "opt.method"},
-		{Name: "requestBody.values", MapTo: "opt.values"},
-		{Name: "requestBody.types", MapTo: "opt.types"},
+		{Name: requestBodyValuesSource, MapTo: optValuesTarget},
+		{Name: requestBodyTypesSource, MapTo: optTypesTarget},
 	})
-	req.IngressRequest.Header.Set("X-App", "mapped-app")
-	req.IngressRequest.Header.Set("X-Interface", "com.example.OrderService")
+	req.IngressRequest.Header.Set("X-App", mappedAppName)
+	req.IngressRequest.Header.Set("X-Interface", orderServiceInterface)
 	req.IngressRequest.Header.Set("X-Method", "CreateOrder")
 	req.API.ApplicationName = "initial-app"
 	req.API.Interface = "initial.Interface"
 	req.API.Method.Method = "initialMethod"
 
 	expectedIR := req.API.IntegrationRequest
-	expectedIR.ApplicationName = "mapped-app"
-	expectedIR.Interface = "com.example.OrderService"
+	expectedIR.ApplicationName = mappedAppName
+	expectedIR.Interface = orderServiceInterface
 	expectedIR.Method = "CreateOrder"
 
 	cached := false
@@ -113,8 +136,8 @@ func TestCallUsesMapParamsBeforeRefer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 	assert.True(t, cached)
-	assert.Equal(t, "mapped-app", req.API.ApplicationName)
-	assert.Equal(t, "com.example.OrderService", req.API.Interface)
+	assert.Equal(t, mappedAppName, req.API.ApplicationName)
+	assert.Equal(t, orderServiceInterface, req.API.Interface)
 	assert.Equal(t, "CreateOrder", req.API.Method.Method)
 }
 
@@ -122,9 +145,9 @@ func TestCallAutoResolveSnapshotUsesMappedFields(t *testing.T) {
 	dc := NewDubboClient()
 	restorePropagator(t, fixedPropagator{})
 
-	req := newDirectCallRequest(t, context.Background(), "/:application/:interface/:method", "/demo-app/com.example.UserService/GetUser", `{"values":["u-1"],"types":"java.lang.String"}`, []config.MappingParam{
-		{Name: "requestBody.values", MapTo: "opt.values"},
-		{Name: "requestBody.types", MapTo: "opt.types"},
+	req := newDirectCallRequest(t, context.Background(), "/:application/:interface/:method", autoResolveRequestPath, `{"values":["u-1"],"types":"java.lang.String"}`, []config.MappingParam{
+		{Name: requestBodyValuesSource, MapTo: optValuesTarget},
+		{Name: requestBodyTypesSource, MapTo: optTypesTarget},
 		{Name: "uri.application", MapTo: "opt.application"},
 		{Name: "uri.interface", MapTo: "opt.interface"},
 		{Name: "uri.method", MapTo: "opt.method"},
@@ -135,8 +158,8 @@ func TestCallAutoResolveSnapshotUsesMappedFields(t *testing.T) {
 	req.IngressRequest.Header.Set("X-Version", "1.0.0")
 
 	expectedIR := req.API.IntegrationRequest
-	expectedIR.ApplicationName = "demo-app"
-	expectedIR.Interface = "com.example.UserService"
+	expectedIR.ApplicationName = demoAppName
+	expectedIR.Interface = userServiceInterface
 	expectedIR.Method = "GetUser"
 	expectedIR.Group = "gray"
 	expectedIR.Version = "1.0.0"
@@ -152,8 +175,8 @@ func TestCallAutoResolveSnapshotUsesMappedFields(t *testing.T) {
 	res, err := dc.Call(req)
 	require.NoError(t, err)
 	assert.Equal(t, "resolved", res)
-	assert.Equal(t, "demo-app", req.API.ApplicationName)
-	assert.Equal(t, "com.example.UserService", req.API.Interface)
+	assert.Equal(t, demoAppName, req.API.ApplicationName)
+	assert.Equal(t, userServiceInterface, req.API.Interface)
 	assert.Equal(t, "GetUser", req.API.Method.Method)
 	assert.Equal(t, "gray", req.API.Group)
 	assert.Equal(t, "1.0.0", req.API.Version)
@@ -170,8 +193,8 @@ func TestGetAndCreateReturnErrorsInsteadOfPanic(t *testing.T) {
 
 	spec := resolvedReferSpec{
 		Mode:              "direct",
-		URL:               "dubbo://127.0.0.1:20880",
-		Interface:         "com.example.UserService",
+		URL:               directDubboURL,
+		Interface:         userServiceInterface,
 		EffectiveProtocol: "dubbo",
 		ConsumerDefaults: resolvedConsumerDefaults{
 			Cluster: "failover",
@@ -197,20 +220,20 @@ func TestResolveReferSpecDirectModeResolvesEffectiveProtocol(t *testing.T) {
 
 	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
 		HTTPBackendConfig: config.HTTPBackendConfig{
-			URL: "  triple://127.0.0.1:50051  ",
+			URL: "  " + directTripleURL + "  ",
 		},
 		DubboBackendConfig: config.DubboBackendConfig{
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
+			ApplicationName: demoAppName,
+			Interface:       userServiceInterface,
 			Group:           "gray",
 			Version:         "1.0.0",
 		},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "direct", spec.Mode)
-	assert.Equal(t, "triple://127.0.0.1:50051", spec.URL)
+	assert.Equal(t, directTripleURL, spec.URL)
 	assert.Equal(t, "tri", spec.EffectiveProtocol)
-	assert.Equal(t, "com.example.UserService", spec.Interface)
+	assert.Equal(t, userServiceInterface, spec.Interface)
 	assert.Equal(t, "gray", spec.Group)
 	assert.Equal(t, "1.0.0", spec.Version)
 }
@@ -218,7 +241,7 @@ func TestResolveReferSpecDirectModeResolvesEffectiveProtocol(t *testing.T) {
 func TestResolvedReferSpecCacheKeyIncludesEffectiveProtocol(t *testing.T) {
 	dubboSpec := resolvedReferSpec{
 		Mode:              "registry",
-		Interface:         "com.example.UserService",
+		Interface:         userServiceInterface,
 		Group:             "gray",
 		Version:           "1.0.0",
 		RegistryIDs:       []string{"demo"},
@@ -240,8 +263,8 @@ func TestBuildReferenceOptionsUsesResolvedDirectSpec(t *testing.T) {
 
 	spec := resolvedReferSpec{
 		Mode:              "direct",
-		Interface:         "com.example.UserService",
-		URL:               "triple://127.0.0.1:50051",
+		Interface:         userServiceInterface,
+		URL:               directTripleURL,
 		EffectiveProtocol: "tri",
 		ConsumerDefaults: resolvedConsumerDefaults{
 			Cluster: "failover",
@@ -249,7 +272,7 @@ func TestBuildReferenceOptionsUsesResolvedDirectSpec(t *testing.T) {
 	}
 
 	refOpts := applyResolvedReferenceOptions(t, dc, spec)
-	assert.Equal(t, "triple://127.0.0.1:50051", refOpts.Reference.URL)
+	assert.Equal(t, directTripleURL, refOpts.Reference.URL)
 	assert.Equal(t, "tri", refOpts.Reference.Protocol)
 	assert.Empty(t, refOpts.Reference.RegistryIDs)
 }
@@ -259,28 +282,28 @@ func TestDirectModeUsesCanonicalURLForOptionsAndCacheKey(t *testing.T) {
 
 	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
 		HTTPBackendConfig: config.HTTPBackendConfig{
-			URL: "  dubbo://127.0.0.1:20880  ",
+			URL: "  " + directDubboURL + "  ",
 		},
 		DubboBackendConfig: config.DubboBackendConfig{
 			ClusterName:     "demo-cluster",
-			ApplicationName: "demo-app",
-			Interface:       "com.example.UserService",
+			ApplicationName: demoAppName,
+			Interface:       userServiceInterface,
 			Group:           "gray",
 			Version:         "1.0.0",
 		},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "direct", spec.Mode)
-	assert.Equal(t, "dubbo://127.0.0.1:20880", spec.URL)
+	assert.Equal(t, directDubboURL, spec.URL)
 	assert.Equal(t, "dubbo", spec.EffectiveProtocol)
 
 	refOpts := applyResolvedReferenceOptions(t, dc, spec)
-	assert.Equal(t, "dubbo://127.0.0.1:20880", refOpts.Reference.URL)
+	assert.Equal(t, directDubboURL, refOpts.Reference.URL)
 	assert.Empty(t, refOpts.Reference.RegistryIDs)
 	assert.Equal(t, dubboConstant.DubboProtocol, refOpts.Reference.Protocol)
 
 	key := decodeResolvedGenericServiceKey(t, spec)
-	assert.Equal(t, "dubbo://127.0.0.1:20880", key.URL)
+	assert.Equal(t, directDubboURL, key.URL)
 	assert.Equal(t, "direct", key.Mode)
 }
 
@@ -293,7 +316,7 @@ func TestResolveReferSpecRegistryModeUsesDeclaredProtocolWithoutProbe(t *testing
 	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
 		RequestType: "dubbo",
 		DubboBackendConfig: config.DubboBackendConfig{
-			Interface: "com.example.UserService",
+			Interface: userServiceInterface,
 			Protocol:  "dubbo",
 		},
 	})
@@ -312,7 +335,7 @@ func TestResolveReferSpecRegistryModeUsesTripleRequestTypeWithoutProbe(t *testin
 	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
 		RequestType: "triple",
 		DubboBackendConfig: config.DubboBackendConfig{
-			Interface: "com.example.UserService",
+			Interface: userServiceInterface,
 		},
 	})
 	require.NoError(t, err)
@@ -324,7 +347,7 @@ func TestBuildReferenceOptionsUsesRegistryProtocolFromRequest(t *testing.T) {
 
 	spec := resolvedReferSpec{
 		Mode:              "registry",
-		Interface:         "com.example.UserService",
+		Interface:         userServiceInterface,
 		RegistryIDs:       []string{"zk"},
 		EffectiveProtocol: "dubbo",
 		ConsumerDefaults: resolvedConsumerDefaults{
@@ -348,9 +371,9 @@ func TestCallWithZeroTimeoutDoesNotCreateImmediateDeadline(t *testing.T) {
 	dc := NewDubboClient()
 	restorePropagator(t, fixedPropagator{})
 
-	req := newDirectCallRequest(t, context.Background(), "/invoke", "/invoke", `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
-		{Name: "requestBody.values", MapTo: "opt.values"},
-		{Name: "requestBody.types", MapTo: "opt.types"},
+	req := newDirectCallRequest(t, context.Background(), invokePath, invokePath, `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
+		{Name: requestBodyValuesSource, MapTo: optValuesTarget},
+		{Name: requestBodyTypesSource, MapTo: optTypesTarget},
 	})
 	req.Timeout = 0
 
@@ -372,9 +395,9 @@ func TestCallWithTimeoutCreatesPerCallDeadline(t *testing.T) {
 	dc := NewDubboClient()
 	restorePropagator(t, fixedPropagator{})
 
-	req := newDirectCallRequest(t, context.Background(), "/invoke", "/invoke", `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
-		{Name: "requestBody.values", MapTo: "opt.values"},
-		{Name: "requestBody.types", MapTo: "opt.types"},
+	req := newDirectCallRequest(t, context.Background(), invokePath, invokePath, `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
+		{Name: requestBodyValuesSource, MapTo: optValuesTarget},
+		{Name: requestBodyTypesSource, MapTo: optTypesTarget},
 	})
 	req.Timeout = 80 * time.Millisecond
 
@@ -408,10 +431,10 @@ func TestBuildReferenceOptionsUsesStaticRequestTimeoutAndConfigPriority(t *testi
 
 	spec, err := dc.resolveReferSpec(config.IntegrationRequest{
 		HTTPBackendConfig: config.HTTPBackendConfig{
-			URL: "dubbo://127.0.0.1:20880",
+			URL: directDubboURL,
 		},
 		DubboBackendConfig: config.DubboBackendConfig{
-			Interface: "com.example.UserService",
+			Interface: userServiceInterface,
 			Retries:   "2",
 		},
 	})
@@ -431,20 +454,20 @@ func TestCallFlattensAttachmentsIntoMapAny(t *testing.T) {
 	restorePropagator(t, attachmentPropagator{})
 
 	baseCtx := context.WithValue(context.Background(), dubboConstant.AttachmentKey, map[string]any{
-		"user-key": "user-value",
+		userAttachmentKey: userAttachmentValue,
 	})
-	req := newDirectCallRequest(t, baseCtx, "/invoke", "/invoke", `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
-		{Name: "requestBody.values", MapTo: "opt.values"},
-		{Name: "requestBody.types", MapTo: "opt.types"},
+	req := newDirectCallRequest(t, baseCtx, invokePath, invokePath, `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
+		{Name: requestBodyValuesSource, MapTo: optValuesTarget},
+		{Name: requestBodyTypesSource, MapTo: optTypesTarget},
 	})
 
 	cacheServiceForRequest(t, dc, req.API.IntegrationRequest, &generic.GenericService{
 		Invoke: func(ctx context.Context, methodName string, types []string, args []hessian.Object) (any, error) {
 			attachments, ok := ctx.Value(dubboConstant.AttachmentKey).(map[string]any)
 			require.True(t, ok)
-			assert.Equal(t, "user-value", attachments["user-key"])
-			assert.Equal(t, "00-test-traceparent", attachments["traceparent"])
-			assert.Equal(t, "pixiu", attachments["x-otel-scope"])
+			assert.Equal(t, userAttachmentValue, attachments[userAttachmentKey])
+			assert.Equal(t, traceparentValue, attachments[traceparentKey])
+			assert.Equal(t, otelScopeValue, attachments[otelScopeKey])
 			assert.NotContains(t, attachments, "carrier")
 			return "ok", nil
 		},
@@ -460,20 +483,20 @@ func TestCallPreservesStringMapAttachments(t *testing.T) {
 	restorePropagator(t, attachmentPropagator{})
 
 	baseCtx := context.WithValue(context.Background(), dubboConstant.AttachmentKey, map[string]string{
-		"user-key": "user-value",
+		userAttachmentKey: userAttachmentValue,
 	})
-	req := newDirectCallRequest(t, baseCtx, "/invoke", "/invoke", `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
-		{Name: "requestBody.values", MapTo: "opt.values"},
-		{Name: "requestBody.types", MapTo: "opt.types"},
+	req := newDirectCallRequest(t, baseCtx, invokePath, invokePath, `{"values":["1"],"types":"java.lang.String"}`, []config.MappingParam{
+		{Name: requestBodyValuesSource, MapTo: optValuesTarget},
+		{Name: requestBodyTypesSource, MapTo: optTypesTarget},
 	})
 
 	cacheServiceForRequest(t, dc, req.API.IntegrationRequest, &generic.GenericService{
 		Invoke: func(ctx context.Context, methodName string, types []string, args []hessian.Object) (any, error) {
 			attachments, ok := ctx.Value(dubboConstant.AttachmentKey).(map[string]any)
 			require.True(t, ok)
-			assert.Equal(t, "user-value", attachments["user-key"])
-			assert.Equal(t, "00-test-traceparent", attachments["traceparent"])
-			assert.Equal(t, "pixiu", attachments["x-otel-scope"])
+			assert.Equal(t, userAttachmentValue, attachments[userAttachmentKey])
+			assert.Equal(t, traceparentValue, attachments[traceparentKey])
+			assert.Equal(t, otelScopeValue, attachments[otelScopeKey])
 			return "ok", nil
 		},
 	})
@@ -491,10 +514,10 @@ func newDirectCallRequest(t *testing.T, ctx context.Context, urlPattern string, 
 
 	api := mock.GetMockAPI(http.MethodPost, urlPattern)
 	api.MappingParams = mapping
-	api.IntegrationRequest.URL = "  dubbo://127.0.0.1:20880  "
-	api.Interface = "com.example.UserService"
+	api.IntegrationRequest.URL = "  " + directDubboURL + "  "
+	api.Interface = userServiceInterface
 	api.Method.Method = "SayHello"
-	api.ApplicationName = "demo-app"
+	api.ApplicationName = demoAppName
 	api.Group = "demo-group"
 	api.Version = "1.0.0"
 

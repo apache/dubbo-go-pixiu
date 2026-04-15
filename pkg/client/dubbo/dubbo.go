@@ -238,36 +238,9 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 
 	dm := req.API.IntegrationRequest
 	method := dm.Method
-	types := []string{}
-	vals := []hessian.Object{}
-	finalValues := []byte{}
-
-	if target != nil {
-		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, target.Types, target.Values)
-		types = target.Types
-		vals = make([]hessian.Object, len(target.Values))
-		for i, v := range target.Values {
-			vals[i] = v
-		}
-		if len(types) == 0 {
-			types = javaClassNameElem(vals)
-		}
-		var err error
-		finalValues, err = json.Marshal(vals)
-		if err != nil {
-			logger.Warnf("[dubbo-go-pixiu] reqData convert to string failed: %v", err)
-		}
-	} else {
-		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
-	}
-
-	invokeCtx := req.Context
-	if invokeCtx == nil {
-		invokeCtx = context.Background()
-	}
-	var cancel context.CancelFunc
-	if req.Timeout > 0 {
-		invokeCtx, cancel = context.WithTimeout(invokeCtx, req.Timeout)
+	types, vals, finalValues := prepareInvokePayload(method, target)
+	invokeCtx, cancel := prepareInvokeContext(req.Context, req.Timeout)
+	if cancel != nil {
 		defer cancel()
 	}
 
@@ -290,6 +263,41 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 	logger.Debugf("[dubbo-go-pixiu] dubbo client resp:%v", rst)
 
 	return rst, nil
+}
+
+func prepareInvokePayload(method string, target *dubboTarget) ([]string, []hessian.Object, []byte) {
+	if target == nil {
+		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
+		return []string{}, []hessian.Object{}, []byte{}
+	}
+
+	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, target.Types, target.Values)
+
+	types := target.Types
+	vals := make([]hessian.Object, len(target.Values))
+	for i, v := range target.Values {
+		vals[i] = v
+	}
+	if len(types) == 0 {
+		types = javaClassNameElem(vals)
+	}
+
+	finalValues, err := json.Marshal(vals)
+	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] reqData convert to string failed: %v", err)
+	}
+
+	return types, vals, finalValues
+}
+
+func prepareInvokeContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if timeout <= 0 {
+		return ctx, nil
+	}
+	return context.WithTimeout(ctx, timeout)
 }
 
 func (dc *Client) genericArgs(req *client.Request) (any, error) {
@@ -537,64 +545,12 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 		opts = append(opts, dclient.WithVersion(spec.Version))
 	}
 
-	switch spec.Mode {
-	case "registry":
-		registryIDs := append([]string(nil), spec.RegistryIDs...)
-		sort.Strings(registryIDs)
-		opts = append(opts, dclient.WithRegistryIDs(registryIDs...))
-	case "direct":
-		opts = append(opts, dclient.WithURL(spec.URL))
-	}
+	opts = appendModeReferenceOptions(opts, spec)
+	opts = append(opts, clusterReferenceOption(defaults.Cluster))
+	opts = append(opts, protocolReferenceOption(spec.EffectiveProtocol))
 
-	switch defaults.Cluster {
-	case "failover":
-		opts = append(opts, dclient.WithClusterFailOver())
-	case "failfast":
-		opts = append(opts, dclient.WithClusterFailFast())
-	case "failsafe":
-		opts = append(opts, dclient.WithClusterFailSafe())
-	case "failback":
-		opts = append(opts, dclient.WithClusterFailBack())
-	case "broadcast":
-		opts = append(opts, dclient.WithClusterBroadcast())
-	case "forking":
-		opts = append(opts, dclient.WithClusterForking())
-	case "available":
-		opts = append(opts, dclient.WithClusterAvailable())
-	case "zoneaware":
-		opts = append(opts, dclient.WithClusterZoneAware())
-	case "adaptiveservice":
-		opts = append(opts, dclient.WithClusterAdaptiveService())
-	default:
-		opts = append(opts, dclient.WithCluster(defaults.Cluster))
-	}
-
-	switch spec.EffectiveProtocol {
-	case "tri", "triple":
-		opts = append(opts, dclient.WithProtocolTriple())
-	case "dubbo":
-		opts = append(opts, dclient.WithProtocolDubbo())
-	case "jsonrpc":
-		opts = append(opts, dclient.WithProtocolJsonRPC())
-	default:
-		opts = append(opts, dclient.WithProtocol(spec.EffectiveProtocol))
-	}
-
-	if defaults.LoadBalance != "" {
-		switch defaults.LoadBalance {
-		case "random":
-			opts = append(opts, dclient.WithLoadBalanceRandom())
-		case "roundrobin":
-			opts = append(opts, dclient.WithLoadBalanceRoundRobin())
-		case "leastactive":
-			opts = append(opts, dclient.WithLoadBalanceLeastActive())
-		case "consistenthash", "consistenthashing":
-			opts = append(opts, dclient.WithLoadBalanceConsistentHashing())
-		case "p2c":
-			opts = append(opts, dclient.WithLoadBalanceP2C())
-		default:
-			opts = append(opts, dclient.WithLoadBalance(defaults.LoadBalance))
-		}
+	if loadBalanceOpt := loadBalanceReferenceOption(defaults.LoadBalance); loadBalanceOpt != nil {
+		opts = append(opts, loadBalanceOpt)
 	}
 
 	retries := 3
@@ -614,6 +570,76 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 	opts = append(opts, dclient.WithGeneric())
 
 	return opts, nil
+}
+
+func appendModeReferenceOptions(opts []dclient.ReferenceOption, spec resolvedReferSpec) []dclient.ReferenceOption {
+	switch spec.Mode {
+	case "registry":
+		registryIDs := append([]string(nil), spec.RegistryIDs...)
+		sort.Strings(registryIDs)
+		return append(opts, dclient.WithRegistryIDs(registryIDs...))
+	case "direct":
+		return append(opts, dclient.WithURL(spec.URL))
+	default:
+		return opts
+	}
+}
+
+func clusterReferenceOption(cluster string) dclient.ReferenceOption {
+	switch cluster {
+	case "failover":
+		return dclient.WithClusterFailOver()
+	case "failfast":
+		return dclient.WithClusterFailFast()
+	case "failsafe":
+		return dclient.WithClusterFailSafe()
+	case "failback":
+		return dclient.WithClusterFailBack()
+	case "broadcast":
+		return dclient.WithClusterBroadcast()
+	case "forking":
+		return dclient.WithClusterForking()
+	case "available":
+		return dclient.WithClusterAvailable()
+	case "zoneaware":
+		return dclient.WithClusterZoneAware()
+	case "adaptiveservice":
+		return dclient.WithClusterAdaptiveService()
+	default:
+		return dclient.WithCluster(cluster)
+	}
+}
+
+func protocolReferenceOption(protocol string) dclient.ReferenceOption {
+	switch protocol {
+	case "tri", "triple":
+		return dclient.WithProtocolTriple()
+	case "dubbo":
+		return dclient.WithProtocolDubbo()
+	case "jsonrpc":
+		return dclient.WithProtocolJsonRPC()
+	default:
+		return dclient.WithProtocol(protocol)
+	}
+}
+
+func loadBalanceReferenceOption(loadBalance string) dclient.ReferenceOption {
+	switch loadBalance {
+	case "":
+		return nil
+	case "random":
+		return dclient.WithLoadBalanceRandom()
+	case "roundrobin":
+		return dclient.WithLoadBalanceRoundRobin()
+	case "leastactive":
+		return dclient.WithLoadBalanceLeastActive()
+	case "consistenthash", "consistenthashing":
+		return dclient.WithLoadBalanceConsistentHashing()
+	case "p2c":
+		return dclient.WithLoadBalanceP2C()
+	default:
+		return dclient.WithLoadBalance(loadBalance)
+	}
 }
 
 func resolveDeclaredProtocol(irequest config.IntegrationRequest) string {
