@@ -18,53 +18,143 @@
 package server
 
 import (
+	"fmt"
+	"sync"
 	"testing"
-)
 
-import (
 	"github.com/stretchr/testify/assert"
-)
 
-import (
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func TestClusterManager(t *testing.T) {
-	bs := &model.Bootstrap{
-		StaticResources: model.StaticResources{
-			Clusters: []*model.ClusterConfig{
-				{
-					Name: "test",
-					Endpoints: []*model.Endpoint{
-						{
-							Address: model.SocketAddress{},
-							ID:      "1",
-						},
-					},
+	cm := testClusterManager(
+		testCluster("test", model.LoadBalancerRoundRobin, []*model.Endpoint{
+			testEndpoint("1", "127.0.0.1", 18080),
+		}),
+	)
+
+	assert.Len(t, cm.store.Config, 1)
+
+	cm.AddCluster(testCluster("test2", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("1", "127.0.0.1", 18081),
+	}))
+
+	assert.Len(t, cm.store.Config, 2)
+
+	cm.SetEndpoint("test2", testEndpoint("2", "127.0.0.1", 18082))
+	assert.Equal(t, "1", cm.PickEndpoint("test", nil).ID)
+	cm.DeleteEndpoint("test2", "1")
+}
+
+func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
+	cm := testClusterManager()
+	assert.Nil(t, cm.PickEndpoint("missing-cluster", nil))
+}
+
+func TestClusterManager_PickEndpointSingleUnhealthyReturnsNil(t *testing.T) {
+	cm := testClusterManager(
+		testCluster("single-unhealthy", model.LoadBalancerRoundRobin, []*model.Endpoint{
+			{
+				ID:        "ep-1",
+				Name:      "endpoint-ep-1",
+				UnHealthy: true,
+				Address: model.SocketAddress{
+					Address: "127.0.0.1",
+					Port:    18090,
 				},
 			},
-		},
+		}),
+	)
+
+	assert.Nil(t, cm.PickEndpoint("single-unhealthy", nil))
+}
+
+func TestClusterManager_PickEndpointAllUnhealthyReturnsNil(t *testing.T) {
+	cm := testClusterManager(
+		testCluster("all-unhealthy", model.LoadBalancerRoundRobin, []*model.Endpoint{
+			{
+				ID:        "ep-1",
+				Name:      "endpoint-ep-1",
+				UnHealthy: true,
+				Address: model.SocketAddress{
+					Address: "127.0.0.1",
+					Port:    18091,
+				},
+			},
+			{
+				ID:        "ep-2",
+				Name:      "endpoint-ep-2",
+				UnHealthy: true,
+				Address: model.SocketAddress{
+					Address: "127.0.0.1",
+					Port:    18092,
+				},
+			},
+		}),
+	)
+
+	assert.Nil(t, cm.PickEndpoint("all-unhealthy", nil))
+}
+
+func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
+	cluster := testCluster("race-round-robin", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19100),
+		testEndpoint("ep-2", "127.0.0.1", 19101),
+		testEndpoint("ep-3", "127.0.0.1", 19102),
+		testEndpoint("ep-4", "127.0.0.1", 19103),
+	})
+	cm := testClusterManager(cluster)
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < 4000; j++ {
+				_ = cm.PickEndpoint(cluster.Name, nil)
+			}
+		}()
 	}
 
-	cm := CreateDefaultClusterManager(bs)
-	assert.Equal(t, len(cm.store.Config), 1)
+	close(start)
+	wg.Wait()
+}
 
-	cm.AddCluster(&model.ClusterConfig{
-		Name: "test2",
-		Endpoints: []*model.Endpoint{
-			{
-				Address: model.SocketAddress{},
-				ID:      "1",
-			},
+func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
+	return CreateDefaultClusterManager(&model.Bootstrap{
+		StaticResources: model.StaticResources{
+			Clusters: clusters,
 		},
 	})
+}
 
-	assert.Equal(t, len(cm.store.Config), 2)
+func testCluster(name string, lb model.LbPolicyType, endpoints []*model.Endpoint, healthChecks ...model.HealthCheckConfig) *model.ClusterConfig {
+	cluster := &model.ClusterConfig{
+		Name:      name,
+		LbStr:     lb,
+		Endpoints: endpoints,
+	}
+	if len(healthChecks) > 0 {
+		cluster.HealthChecks = append([]model.HealthCheckConfig(nil), healthChecks...)
+	}
+	return cluster
+}
 
-	cm.SetEndpoint("test2", &model.Endpoint{
-		Address: model.SocketAddress{},
-		ID:      "2",
-	})
-	assert.Equal(t, cm.PickEndpoint("test", nil).ID, "1")
-	cm.DeleteEndpoint("test2", "1")
+func testEndpoint(id string, host string, port int) *model.Endpoint {
+	return &model.Endpoint{
+		ID:   id,
+		Name: fmt.Sprintf("endpoint-%s", id),
+		Address: model.SocketAddress{
+			Address: host,
+			Port:    port,
+		},
+	}
 }
