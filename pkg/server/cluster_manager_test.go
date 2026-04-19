@@ -28,10 +28,10 @@ import (
 )
 
 import (
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for cluster-manager tests.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for cluster-manager tests.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for cluster-manager tests.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin" // Register RoundRobin for cluster-manager tests.
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 

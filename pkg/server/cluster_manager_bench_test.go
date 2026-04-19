@@ -24,10 +24,10 @@ import (
 )
 
 import (
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for benchmark coverage.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for benchmark coverage.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for benchmark coverage.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin" // Register RoundRobin for benchmark coverage.
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
