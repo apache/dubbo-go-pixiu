@@ -109,15 +109,16 @@ type resolvedConsumerDefaults struct {
 }
 
 type resolvedReferSpec struct {
-	Mode              string
-	Interface         string
-	Group             string
-	Version           string
-	URL               string
-	RegistryIDs       []string
-	EffectiveProtocol string
-	UseNacosWarmup    bool
-	ConsumerDefaults  resolvedConsumerDefaults
+	Mode                   string
+	Interface              string
+	Group                  string
+	Version                string
+	URL                    string
+	RegistryIDs            []string
+	EffectiveProtocol      string
+	EffectiveSerialization string
+	UseNacosWarmup         bool
+	ConsumerDefaults       resolvedConsumerDefaults
 }
 
 type genericServiceKey struct {
@@ -129,6 +130,7 @@ type genericServiceKey struct {
 	Version           string   `json:"version"`
 	Group             string   `json:"group"`
 	EffectiveProtocol string   `json:"effective_protocol"`
+	Serialization     string   `json:"serialization"`
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -218,14 +220,36 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 	if err != nil {
 		return nil, err
 	}
-	target, ok := values.(*dubboTarget)
-	if !ok {
-		return nil, errors.New("map parameters failed")
+
+	var target *dubboTarget
+	if values != nil {
+		var ok bool
+		target, ok = values.(*dubboTarget)
+		if !ok {
+			return nil, errors.New("map parameters failed")
+		}
 	}
 
 	spec, err := dc.resolveReferSpec(req.API.IntegrationRequest)
 	if err != nil {
 		return nil, err
+	}
+
+	dm := req.API.IntegrationRequest
+	method := dm.Method
+
+	var (
+		types       []string
+		vals        []hessian.Object
+		finalValues []byte
+	)
+	if spec.Mode == "direct" {
+		types, vals, finalValues, err = resolveDirectInvokePayload(dm, target)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		types, vals, finalValues = prepareInvokePayload(method, target)
 	}
 
 	gs, err := dc.Get(spec)
@@ -236,9 +260,6 @@ func (dc *Client) Call(req *client.Request) (res any, err error) {
 		return nil, errors.New("dubbo generic service is nil")
 	}
 
-	dm := req.API.IntegrationRequest
-	method := dm.Method
-	types, vals, finalValues := prepareInvokePayload(method, target)
 	invokeCtx, cancel := prepareInvokeContext(req.Context, req.Timeout)
 	if cancel != nil {
 		defer cancel()
@@ -362,6 +383,27 @@ func (dc *Client) resolveReferSpec(irequest config.IntegrationRequest) (resolved
 		ConsumerDefaults: dc.resolveConsumerDefaults(irequest),
 	}
 
+	canonicalURL := strings.TrimSpace(irequest.URL)
+	if canonicalURL != "" {
+		directProtocol, err := directURLProtocol(canonicalURL)
+		if err != nil {
+			return resolvedReferSpec{}, err
+		}
+		declared := normalizeReferenceProtocol(irequest.Protocol)
+		if declared != "" && declared != directProtocol {
+			return resolvedReferSpec{}, errors.Errorf("direct protocol mismatch: url=%s protocol=%s", directProtocol, declared)
+		}
+
+		spec.Mode = "direct"
+		spec.URL = canonicalURL
+		spec.EffectiveProtocol = directProtocol
+		spec.EffectiveSerialization = strings.TrimSpace(irequest.Serialization)
+		if spec.EffectiveSerialization == "" {
+			return resolvedReferSpec{}, errors.New("direct generic invoke requires serialization")
+		}
+		return spec, nil
+	}
+
 	if len(dc.registries) > 0 {
 		registryIDs := make([]string, 0, len(dc.registries))
 		useNacosWarmup := false
@@ -379,19 +421,7 @@ func (dc *Client) resolveReferSpec(irequest config.IntegrationRequest) (resolved
 		return spec, nil
 	}
 
-	canonicalURL := strings.TrimSpace(irequest.URL)
-	if canonicalURL == "" {
-		return resolvedReferSpec{}, errors.New("dubbo refer mode invalid: no registry configured and no direct url provided")
-	}
-	directProtocol, err := directURLProtocol(canonicalURL)
-	if err != nil {
-		return resolvedReferSpec{}, err
-	}
-
-	spec.Mode = "direct"
-	spec.URL = canonicalURL
-	spec.EffectiveProtocol = directProtocol
-	return spec, nil
+	return resolvedReferSpec{}, errors.New("dubbo refer mode invalid: no registry configured and no direct url provided")
 }
 
 func (dc *Client) resolveConsumerDefaults(irequest config.IntegrationRequest) resolvedConsumerDefaults {
@@ -470,6 +500,7 @@ func (spec resolvedReferSpec) genericServiceKey() genericServiceKey {
 		Version:           spec.Version,
 		Group:             spec.Group,
 		EffectiveProtocol: spec.EffectiveProtocol,
+		Serialization:     spec.EffectiveSerialization,
 	}
 }
 
@@ -548,6 +579,9 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 	opts = appendModeReferenceOptions(opts, spec)
 	opts = append(opts, clusterReferenceOption(defaults.Cluster))
 	opts = append(opts, protocolReferenceOption(spec.EffectiveProtocol))
+	if spec.EffectiveSerialization != "" {
+		opts = append(opts, dclient.WithSerialization(spec.EffectiveSerialization))
+	}
 
 	if loadBalanceOpt := loadBalanceReferenceOption(defaults.LoadBalance); loadBalanceOpt != nil {
 		opts = append(opts, loadBalanceOpt)

@@ -47,6 +47,7 @@ func TestMatchClientRoutesDubboAndTripleToDubboClient(t *testing.T) {
 		t.Run(requestType, func(t *testing.T) {
 			cli, err := filter.matchClient(requestType)
 			require.NoError(t, err)
+			require.IsType(t, &dubbo.Client{}, cli)
 			assert.Same(t, dubbo.SingletonDubboClient(), cli)
 		})
 	}

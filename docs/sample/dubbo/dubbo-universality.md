@@ -2,6 +2,24 @@
 
 > POST request [samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/simple/proxy)
 
+## Direct Generic Contract (Breaking Change)
+
+Pixiu direct generic invocation no longer accepts request-provided `types` as the method
+signature source. Direct mode now requires:
+
+- `integrationRequest.url`
+- `integrationRequest.interface`
+- `integrationRequest.method`
+- `integrationRequest.parameterTypes`
+- `integrationRequest.serialization`
+
+`mappingParams` is still responsible for values, but no longer defines method signatures.
+
+For Triple direct generic invocation, the provider must expose the service in
+non-IDL mode (for example via `RegisterService`). IDL-generated Triple handlers
+do not expose `$invoke`, so generic Triple calls against them return `404 Not
+Found`.
+
 ## Suggest
 
 > In this way, you can request your dubbo rpc service by defined one api for every cluster.

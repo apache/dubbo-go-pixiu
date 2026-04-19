@@ -2,6 +2,22 @@
 
 > POST 请求 [samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/simple/proxy)
 
+## 直连泛化调用契约（破坏性变更）
+
+Pixiu 直连泛化调用不再使用请求体里的 `types` 作为方法签名来源。直连模式现在要求：
+
+- `integrationRequest.url`
+- `integrationRequest.interface`
+- `integrationRequest.method`
+- `integrationRequest.parameterTypes`
+- `integrationRequest.serialization`
+
+`mappingParams` 仍然只负责传值，不再定义方法签名。
+
+对于 Triple 直连泛化调用，provider 必须以 non-IDL 方式暴露服务，例如使用
+`RegisterService`。IDL 生成的 Triple handler 不会暴露 `$invoke`，因此对这类
+provider 发起 generic Triple 调用会直接返回 `404 Not Found`。
+
 ## 建议
 
 > 使用此方式，你能够给一个集群定义一个接口来请求对应 dubbo 提供的服务

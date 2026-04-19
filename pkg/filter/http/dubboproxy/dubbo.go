@@ -56,6 +56,8 @@ func init() {
 
 type (
 
+	// Deprecated: legacy direct RPC path. Direct Dubbo/Triple generic calls now go through
+	// dgp.filter.http.dubboproxy -> pkg/client/dubbo and should not be extended.
 	// Plugin is http to dubbo with direct generic call filter plugin.
 	Plugin struct{}
 
