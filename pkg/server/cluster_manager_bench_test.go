@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+)
 
-	"github.com/stretchr/testify/require"
-
+import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"
@@ -147,8 +147,12 @@ func BenchmarkClusterCompareAndSetStoreMixed(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		if i%20 == 19 {
 			newStore, err := benchmarkFreshStore(cm, names, model.LoadBalancerRoundRobin, 4)
-			require.NoError(b, err)
-			require.True(b, cm.CompareAndSetStore(newStore))
+			if err != nil {
+				b.Fatal(err)
+			}
+			if !cm.CompareAndSetStore(newStore) {
+				b.Fatal("CompareAndSetStore returned false")
+			}
 			continue
 		}
 

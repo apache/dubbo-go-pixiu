@@ -21,9 +21,13 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
+)
 
+import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"

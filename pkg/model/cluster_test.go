@@ -18,12 +18,19 @@
 package model_test
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
 
+import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -68,6 +75,21 @@ func TestClusterConfig_CreateConsistentHashRegistersHash(t *testing.T) {
 	hash, err := cluster.ConsistentHash.Hash.GetHash(cluster.ConsistentHash.Hash.Hash("coverage-key"))
 	require.NoError(t, err)
 	assert.Equal(t, "127.0.0.1:20880", hash)
+}
+
+func TestClusterConfig_PrePickEndpointIndexIsRuntimeOnly(t *testing.T) {
+	cluster := &model.ClusterConfig{
+		Name:                 "runtime-cursor",
+		PrePickEndpointIndex: 7,
+	}
+
+	jsonBytes, err := json.Marshal(cluster)
+	require.NoError(t, err)
+	assert.NotContains(t, strings.ToLower(string(jsonBytes)), "prepickendpointindex")
+
+	yamlBytes, err := yaml.MarshalYML(cluster)
+	require.NoError(t, err)
+	assert.NotContains(t, strings.ToLower(string(yamlBytes)), "prepickendpointindex")
 }
 
 func TestEndpoint_GetHost(t *testing.T) {

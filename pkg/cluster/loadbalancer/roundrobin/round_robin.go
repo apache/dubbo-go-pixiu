@@ -19,7 +19,9 @@ package roundrobin
 
 import (
 	"sync/atomic"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
