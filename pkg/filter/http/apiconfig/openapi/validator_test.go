@@ -57,6 +57,34 @@ func TestValidateRequest_QueryEnumMismatch(t *testing.T) {
 	assert.ErrorContains(t, err, "role")
 }
 
+func TestValidateRequest_QueryTypeMismatch(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/users?page=abc", nil)
+	plan := &ValidationPlan{
+		RoutePattern: "/users",
+		QueryParameters: []ParameterValidation{
+			{Name: "page", Type: "integer", Required: true},
+		},
+	}
+
+	err := ValidateRequest(req, plan)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "integer")
+}
+
+func TestValidateRequest_QueryRangeViolation(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/users?page=0", nil)
+	plan := &ValidationPlan{
+		RoutePattern: "/users",
+		QueryParameters: []ParameterValidation{
+			{Name: "page", Type: "integer", Minimum: float64Ptr(1), Maximum: float64Ptr(100)},
+		},
+	}
+
+	err := ValidateRequest(req, plan)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, ">=")
+}
+
 func TestValidateRequest_InvalidJSONBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "/users", strings.NewReader(`{"role":"member"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -102,6 +130,21 @@ func TestValidateRequest_MissingRequiredHeader(t *testing.T) {
 	err := ValidateRequest(req, plan)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "trace-id")
+}
+
+func TestValidateRequest_HeaderLengthViolation(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/users/123", nil)
+	req.Header.Set("trace-id", "abc")
+	plan := &ValidationPlan{
+		RoutePattern: "/users/:id",
+		HeaderParameters: []ParameterValidation{
+			{Name: "trace-id", Type: "string", MinLength: intPtr(4)},
+		},
+	}
+
+	err := ValidateRequest(req, plan)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "length")
 }
 
 func TestValidateRequest_InvalidNumericBody(t *testing.T) {

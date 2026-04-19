@@ -60,6 +60,20 @@ paths:
             enum:
               - web
               - app
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: x-trace
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 12
       requestBody:
         required: true
         content:
@@ -135,10 +149,26 @@ func TestCompileOpenAPIRoute(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "/users", postRoute.Route.URLPattern)
 	assert.NotNil(t, postRoute.Validation)
-	require.Len(t, postRoute.Validation.QueryParameters, 1)
+	require.Len(t, postRoute.Validation.QueryParameters, 2)
 	assert.Equal(t, "source", postRoute.Validation.QueryParameters[0].Name)
 	assert.True(t, postRoute.Validation.QueryParameters[0].Required)
 	assert.Equal(t, []string{"web", "app"}, postRoute.Validation.QueryParameters[0].Enum)
+	pageParam := postRoute.Validation.QueryParameters[1]
+	assert.Equal(t, "page", pageParam.Name)
+	assert.Equal(t, "integer", pageParam.Type)
+	require.NotNil(t, pageParam.Minimum)
+	assert.Equal(t, 1.0, *pageParam.Minimum)
+	require.NotNil(t, pageParam.Maximum)
+	assert.Equal(t, 100.0, *pageParam.Maximum)
+
+	require.Len(t, postRoute.Validation.HeaderParameters, 1)
+	headerParam := postRoute.Validation.HeaderParameters[0]
+	assert.Equal(t, "x-trace", headerParam.Name)
+	assert.Equal(t, "string", headerParam.Type)
+	require.NotNil(t, headerParam.MinLength)
+	assert.Equal(t, 4, *headerParam.MinLength)
+	require.NotNil(t, headerParam.MaxLength)
+	assert.Equal(t, 12, *headerParam.MaxLength)
 
 	require.NotNil(t, postRoute.Validation.RequestBody)
 	assert.True(t, postRoute.Validation.RequestBody.Required)

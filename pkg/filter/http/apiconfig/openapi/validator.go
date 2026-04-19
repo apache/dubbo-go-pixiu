@@ -24,6 +24,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -69,8 +70,8 @@ func validatePathParameters(req *http.Request, plan *ValidationPlan) error {
 		if value == "" {
 			continue
 		}
-		if len(param.Enum) > 0 && !contains(param.Enum, value) {
-			return fmt.Errorf("path parameter %q must be one of %v", param.Name, param.Enum)
+		if err := validateParameterValue("path parameter", value, param); err != nil {
+			return err
 		}
 	}
 
@@ -87,8 +88,8 @@ func validateQueryParameters(req *http.Request, params []ParameterValidation) er
 		if value == "" {
 			continue
 		}
-		if len(param.Enum) > 0 && !contains(param.Enum, value) {
-			return fmt.Errorf("query parameter %q must be one of %v", param.Name, param.Enum)
+		if err := validateParameterValue("query parameter", value, param); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -103,10 +104,54 @@ func validateHeaderParameters(req *http.Request, params []ParameterValidation) e
 		if value == "" {
 			continue
 		}
-		if len(param.Enum) > 0 && !contains(param.Enum, value) {
-			return fmt.Errorf("header %q must be one of %v", param.Name, param.Enum)
+		if err := validateParameterValue("header", value, param); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+func validateParameterValue(kind string, value string, param ParameterValidation) error {
+	if len(param.Enum) > 0 && !contains(param.Enum, value) {
+		return fmt.Errorf("%s %q must be one of %v", kind, param.Name, param.Enum)
+	}
+
+	switch param.Type {
+	case "", "string":
+		if param.MinLength != nil && len(value) < *param.MinLength {
+			return fmt.Errorf("%s %q length must be >= %d", kind, param.Name, *param.MinLength)
+		}
+		if param.MaxLength != nil && len(value) > *param.MaxLength {
+			return fmt.Errorf("%s %q length must be <= %d", kind, param.Name, *param.MaxLength)
+		}
+	case "integer":
+		number, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("%s %q must be an integer", kind, param.Name)
+		}
+		if param.Minimum != nil && float64(number) < *param.Minimum {
+			return fmt.Errorf("%s %q must be >= %v", kind, param.Name, *param.Minimum)
+		}
+		if param.Maximum != nil && float64(number) > *param.Maximum {
+			return fmt.Errorf("%s %q must be <= %v", kind, param.Name, *param.Maximum)
+		}
+	case "number":
+		number, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("%s %q must be a number", kind, param.Name)
+		}
+		if param.Minimum != nil && number < *param.Minimum {
+			return fmt.Errorf("%s %q must be >= %v", kind, param.Name, *param.Minimum)
+		}
+		if param.Maximum != nil && number > *param.Maximum {
+			return fmt.Errorf("%s %q must be <= %v", kind, param.Name, *param.Maximum)
+		}
+	case "boolean":
+		if _, err := strconv.ParseBool(value); err != nil {
+			return fmt.Errorf("%s %q must be a boolean", kind, param.Name)
+		}
+	}
+
 	return nil
 }
 

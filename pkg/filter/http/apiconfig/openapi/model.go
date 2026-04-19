@@ -28,10 +28,14 @@ type ValidationPlan struct {
 }
 
 type ParameterValidation struct {
-	Name     string
-	Required bool
-	Enum     []string
-	Type     string
+	Name      string
+	Required  bool
+	Enum      []string
+	Type      string
+	MinLength *int
+	MaxLength *int
+	Minimum   *float64
+	Maximum   *float64
 }
 
 type BodyValidation struct {

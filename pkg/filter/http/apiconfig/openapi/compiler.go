@@ -161,6 +161,22 @@ func compileParameter(parameter *v3.Parameter) ParameterValidation {
 		if err == nil && schema != nil {
 			compiled.Type = firstType(schema)
 			compiled.Enum = decodeEnum(schema.Enum)
+			if schema.MinLength != nil {
+				value := int(*schema.MinLength)
+				compiled.MinLength = &value
+			}
+			if schema.MaxLength != nil {
+				value := int(*schema.MaxLength)
+				compiled.MaxLength = &value
+			}
+			if schema.Minimum != nil {
+				value := *schema.Minimum
+				compiled.Minimum = &value
+			}
+			if schema.Maximum != nil {
+				value := *schema.Maximum
+				compiled.Maximum = &value
+			}
 		}
 	}
 	return compiled

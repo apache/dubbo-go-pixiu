@@ -100,6 +100,37 @@ func TestDecode_ContinuesOnOpenAPIValidationSuccess(t *testing.T) {
 	assert.Equal(t, "/users", ctx.GetAPI().URLPattern)
 }
 
+func TestDecode_StopsOnOpenAPIParameterTypeFailure(t *testing.T) {
+	apiService := api.NewLocalMemoryAPIDiscoveryService()
+	err := apiService.AddAPI(router.API{
+		URLPattern: "/users",
+		Method: config.Method{
+			Enable:   true,
+			HTTPVerb: constant.Get,
+		},
+		Metadata: map[string]any{
+			openapi.ValidationPlanMetadataKey: &openapi.ValidationPlan{
+				QueryParameters: []openapi.ParameterValidation{
+					{Name: "page", Type: "integer", Required: true},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	filterInstance := &Filter{apiService: apiService}
+	req := httptest.NewRequest(http.MethodGet, "/users?page=abc", nil)
+	recorder := httptest.NewRecorder()
+	ctx := &contexthttp.HttpContext{Request: req, Writer: recorder}
+
+	status := filterInstance.Decode(ctx)
+
+	assert.Equal(t, extfilter.Stop, status)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.True(t, ctx.LocalReply())
+	assert.Nil(t, ctx.GetAPI())
+}
+
 func TestApply_LoadsOpenAPIRoutesFromFile(t *testing.T) {
 	specFile, err := os.CreateTemp(t.TempDir(), "openapi-*.yaml")
 	require.NoError(t, err)
@@ -168,4 +199,20 @@ paths:
 	require.NoError(t, err)
 	require.NotNil(t, openapi.ExtractValidationPlan(pathMatched))
 	assert.Equal(t, "/users/:id", pathMatched.URLPattern)
+}
+
+func TestApply_RejectsDynamicOpenAPIValidationCombination(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &ApiConfigConfig{
+			Dynamic:                 true,
+			DynamicAdapter:          "mock",
+			OpenAPIPath:             "configs/openapi_users.yaml",
+			EnableOpenAPIValidation: true,
+		},
+	}
+
+	err := factory.Apply()
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "dynamic")
+	assert.ErrorContains(t, err, "openapi")
 }

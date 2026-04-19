@@ -36,6 +36,7 @@ If validation fails, Pixiu returns a `400 Bad Request` locally and stops the fil
 - remote `$ref`
 - `oneOf` / `allOf` / `anyOf`
 - admin or config-center distribution of OpenAPI files
+- `dynamic + openapi_path` combined configuration
 
 ## Example Filter Config
 
@@ -45,6 +46,11 @@ If validation fails, Pixiu returns a `400 Bad Request` locally and stops the fil
     openapi_path: configs/openapi_users.yaml
     enable_openapi_validation: true
 ```
+
+## Notes
+
+- Parameter-level validation covers common scalar constraints for `path`, `query`, and `header` parameters.
+- V1 does not support using `dynamic` together with `openapi_path` in the same filter config.
 
 ## Runtime Flow
 

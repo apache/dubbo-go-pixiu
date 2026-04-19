@@ -74,6 +74,10 @@ func (factory *FilterFactory) Config() any {
 func (factory *FilterFactory) Apply() error {
 	factory.apiService = api.NewLocalMemoryAPIDiscoveryService()
 
+	if factory.cfg.Dynamic && (factory.cfg.EnableOpenAPIValidation || factory.cfg.OpenAPIPath != "") {
+		return errors.New("dynamic api config does not support openapi validation")
+	}
+
 	if factory.cfg.Dynamic {
 		server.GetApiConfigManager().AddApiConfigListener(factory.cfg.DynamicAdapter, factory)
 		return nil

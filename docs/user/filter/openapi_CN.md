@@ -36,6 +36,7 @@ Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x �
 - 远程 `$ref`
 - `oneOf` / `allOf` / `anyOf`
 - admin 或配置中心分发 OpenAPI 文件
+- `dynamic + openapi_path` 组合配置
 
 ## 配置示例
 
@@ -45,6 +46,11 @@ Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x �
     openapi_path: configs/openapi_users.yaml
     enable_openapi_validation: true
 ```
+
+## 说明
+
+- 参数级校验现在覆盖 `path`、`query`、`header` 上常见的标量类型约束。
+- 第一版不支持在同一个 filter 配置里同时使用 `dynamic` 和 `openapi_path`。
 
 ## 运行流程
 
