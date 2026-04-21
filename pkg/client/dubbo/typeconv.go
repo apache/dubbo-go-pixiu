@@ -144,12 +144,18 @@ func InferJavaClassNames(values []any) []string {
 			types[i] = JavaStringClassName
 		case bool:
 			types[i] = "java.lang.Boolean"
-		case int, int8, int16, int32, int64:
+		case float32:
+			types[i] = "java.lang.Float"
+		case float64:
+			types[i] = "java.lang.Double"
+		case int16:
+			types[i] = "java.lang.Short"
+		case int32:
+			types[i] = "java.lang.Integer"
+		case int, int8, int64:
 			types[i] = JavaLangClassName
 		case uint, uint8, uint16, uint32, uint64:
 			types[i] = JavaLangClassName
-		case float32, float64:
-			types[i] = "java.lang.Double"
 		default:
 			types[i] = "java.lang.Object"
 		}

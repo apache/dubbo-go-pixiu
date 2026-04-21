@@ -81,6 +81,22 @@ func TestDirectURLProtocolMissingScheme(t *testing.T) {
 }
 
 func TestInferJavaClassNames(t *testing.T) {
-	val := InferJavaClassNames([]any{"name", int64(1), true})
-	assert.Equal(t, []string{"java.lang.String", "java.lang.Long", "java.lang.Boolean"}, val)
+	val := InferJavaClassNames([]any{
+		"name",
+		true,
+		float32(1.5),
+		float64(2.5),
+		int16(3),
+		int32(4),
+		map[string]any{"k": "v"},
+	})
+	assert.Equal(t, []string{
+		"java.lang.String",
+		"java.lang.Boolean",
+		"java.lang.Float",
+		"java.lang.Double",
+		"java.lang.Short",
+		"java.lang.Integer",
+		"java.lang.Object",
+	}, val)
 }
