@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -32,12 +33,13 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	clientdubbo "github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
+
+var mapSourcePattern = regexp.MustCompile(`^(uri|queryStrings|headers|requestBody)\.([\w\d.-]+)$`)
 
 type DubboHandler struct{}
 
@@ -229,7 +231,11 @@ func (h *DubboHandler) applyOptMapping(state *outboundBuildState, mapTo string, 
 }
 
 func (h *DubboHandler) parseMapSource(source string) (string, []string, error) {
-	return client.ParseMapSource(source)
+	matches := mapSourcePattern.FindStringSubmatch(source)
+	if matches == nil {
+		return "", nil, errors.New("Parameter mapping config incorrect. Please fix it")
+	}
+	return matches[1], strings.Split(matches[2], "."), nil
 }
 
 func (h *DubboHandler) readQueryValue(req *http.Request, keys []string) (any, error) {
@@ -255,7 +261,26 @@ func (h *DubboHandler) readHeaderValue(req *http.Request, keys []string) (any, e
 }
 
 func (h *DubboHandler) readBodyValue(body map[string]any, keys []string) (any, error) {
-	return client.GetMapValue(body, keys)
+	if len(keys) > 0 && keys[0] == constant.DefaultBodyAll {
+		return body, nil
+	}
+	if len(keys) == 0 {
+		return nil, errors.New("request body mapping keys are empty")
+	}
+
+	current, ok := body[keys[0]]
+	if !ok {
+		return nil, errors.Errorf("%s does not exist in request body", keys[0])
+	}
+	if len(keys) == 1 {
+		return current, nil
+	}
+
+	next, ok := current.(map[string]any)
+	if !ok {
+		return nil, errors.Errorf("%s is not a map structure. It contains %v", keys[0], current)
+	}
+	return h.readBodyValue(next, keys[1:])
 }
 
 func (h *DubboHandler) readURIValue(req *http.Request, api router.API, keys []string) (any, error) {
@@ -275,6 +300,8 @@ func (h *DubboHandler) readURIValue(req *http.Request, api router.API, keys []st
 
 func (h *DubboHandler) normalizeOptTypes(value any) ([]string, error) {
 	switch v := value.(type) {
+	case nil:
+		return nil, nil
 	case string:
 		if strings.TrimSpace(v) == "" {
 			return []string{}, nil
@@ -283,6 +310,12 @@ func (h *DubboHandler) normalizeOptTypes(value any) ([]string, error) {
 		types := make([]string, len(parts))
 		for i, part := range parts {
 			types[i] = strings.TrimSpace(part)
+		}
+		return types, nil
+	case []string:
+		types := make([]string, len(v))
+		for i, item := range v {
+			types[i] = strings.TrimSpace(item)
 		}
 		return types, nil
 	case []any:
@@ -302,8 +335,16 @@ func (h *DubboHandler) normalizeOptTypes(value any) ([]string, error) {
 
 func (h *DubboHandler) normalizeOptValues(value any) ([]any, error) {
 	switch v := value.(type) {
+	case nil:
+		return nil, nil
 	case []any:
 		return append([]any(nil), v...), nil
+	case []string:
+		values := make([]any, len(v))
+		for i, item := range v {
+			values[i] = item
+		}
+		return values, nil
 	case string:
 		if v == "" {
 			return []any{}, nil

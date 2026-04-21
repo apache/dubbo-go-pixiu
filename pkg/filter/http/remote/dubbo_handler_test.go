@@ -31,14 +31,30 @@ import (
 import (
 	clientdubbo "github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
-func newTestAPI() router.API {
-	api := mock.GetMockAPI(http.MethodPost, "/users/:id")
-	api.IntegrationRequest = config.IntegrationRequest{
+func newTestAPI(ir config.IntegrationRequest, pattern string) router.API {
+	if pattern == "" {
+		pattern = "/users/:id"
+	}
+	if ir.RequestType == "" {
+		ir.RequestType = constant.DubboRequest
+	}
+	return router.API{
+		URLPattern: pattern,
+		Method: config.Method{
+			Enable:             true,
+			HTTPVerb:           http.MethodPost,
+			IntegrationRequest: ir,
+		},
+	}
+}
+
+func TestBuildOutboundMapsQueryHeaderBodyAndURI(t *testing.T) {
+	handler := &DubboHandler{}
+	api := newTestAPI(config.IntegrationRequest{
 		RequestType: constant.DubboRequest,
 		DubboBackendConfig: config.DubboBackendConfig{
 			Interface: "com.demo.UserService",
@@ -46,13 +62,7 @@ func newTestAPI() router.API {
 			Group:     "demo-group",
 			Version:   "1.0.0",
 		},
-	}
-	return api
-}
-
-func TestBuildOutboundMapsQueryHeaderBodyAndURI(t *testing.T) {
-	handler := &DubboHandler{}
-	api := newTestAPI()
+	}, "/users/:id")
 	api.MappingParams = []config.MappingParam{
 		{Name: "queryStrings.page", MapTo: "0", MapType: "java.lang.Integer"},
 		{Name: "headers.x-user", MapTo: "1", MapType: clientdubbo.JavaStringClassName},
@@ -90,12 +100,20 @@ func TestBuildOutboundParameterTypesPriority(t *testing.T) {
 	handler := &DubboHandler{}
 
 	t.Run("integration request parameter types override opt types", func(t *testing.T) {
-		api := newTestAPI()
-		api.IntegrationRequest.ParameterTypes = []string{"java.lang.Integer"}
-		api.MappingParams = []config.MappingParam{
-			{Name: "requestBody.values", MapTo: "opt.values"},
-			{Name: "requestBody.types", MapTo: "opt.types"},
-		}
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: constant.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface:      "com.demo.UserService",
+				Method:         "SayHello",
+				Group:          "demo-group",
+				Version:        "1.0.0",
+				ParameterTypes: []string{"java.lang.Integer"},
+			},
+			MappingParams: []config.MappingParam{
+				{Name: "requestBody.values", MapTo: "opt.values"},
+				{Name: "requestBody.types", MapTo: "opt.types"},
+			},
+		}, "/users/:id")
 
 		req, err := http.NewRequest(
 			http.MethodPost,
@@ -111,11 +129,19 @@ func TestBuildOutboundParameterTypesPriority(t *testing.T) {
 	})
 
 	t.Run("opt types override inferred types", func(t *testing.T) {
-		api := newTestAPI()
-		api.MappingParams = []config.MappingParam{
-			{Name: "requestBody.values", MapTo: "opt.values"},
-			{Name: "requestBody.types", MapTo: "opt.types"},
-		}
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: constant.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface: "com.demo.UserService",
+				Method:    "SayHello",
+				Group:     "demo-group",
+				Version:   "1.0.0",
+			},
+			MappingParams: []config.MappingParam{
+				{Name: "requestBody.values", MapTo: "opt.values"},
+				{Name: "requestBody.types", MapTo: "opt.types"},
+			},
+		}, "/users/:id")
 
 		req, err := http.NewRequest(
 			http.MethodPost,
@@ -131,10 +157,18 @@ func TestBuildOutboundParameterTypesPriority(t *testing.T) {
 	})
 
 	t.Run("infer parameter types when none declared", func(t *testing.T) {
-		api := newTestAPI()
-		api.MappingParams = []config.MappingParam{
-			{Name: "queryStrings.name", MapTo: "0"},
-		}
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: constant.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface: "com.demo.UserService",
+				Method:    "SayHello",
+				Group:     "demo-group",
+				Version:   "1.0.0",
+			},
+			MappingParams: []config.MappingParam{
+				{Name: "queryStrings.name", MapTo: "0"},
+			},
+		}, "/users/:id")
 
 		req, err := http.NewRequest(
 			http.MethodPost,
@@ -152,11 +186,19 @@ func TestBuildOutboundParameterTypesPriority(t *testing.T) {
 
 func TestBuildOutboundRejectsMixedPositionalAndOptValues(t *testing.T) {
 	handler := &DubboHandler{}
-	api := newTestAPI()
-	api.MappingParams = []config.MappingParam{
-		{Name: "queryStrings.name", MapTo: "0"},
-		{Name: "requestBody.values", MapTo: "opt.values"},
-	}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.demo.UserService",
+			Method:    "SayHello",
+			Group:     "demo-group",
+			Version:   "1.0.0",
+		},
+		MappingParams: []config.MappingParam{
+			{Name: "queryStrings.name", MapTo: "0"},
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		},
+	}, "/users/:id")
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -173,10 +215,18 @@ func TestBuildOutboundRejectsMixedPositionalAndOptValues(t *testing.T) {
 
 func TestBuildOutboundRejectsUnknownOptMapping(t *testing.T) {
 	handler := &DubboHandler{}
-	api := newTestAPI()
-	api.MappingParams = []config.MappingParam{
-		{Name: "queryStrings.name", MapTo: "opt.unknown"},
-	}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.demo.UserService",
+			Method:    "SayHello",
+			Group:     "demo-group",
+			Version:   "1.0.0",
+		},
+		MappingParams: []config.MappingParam{
+			{Name: "queryStrings.name", MapTo: "opt.unknown"},
+		},
+	}, "/users/:id")
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -193,10 +243,18 @@ func TestBuildOutboundRejectsUnknownOptMapping(t *testing.T) {
 
 func TestBuildOutboundRejectsDeprecatedOptApplication(t *testing.T) {
 	handler := &DubboHandler{}
-	api := newTestAPI()
-	api.MappingParams = []config.MappingParam{
-		{Name: "queryStrings.app", MapTo: "opt.application"},
-	}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.demo.UserService",
+			Method:    "SayHello",
+			Group:     "demo-group",
+			Version:   "1.0.0",
+		},
+		MappingParams: []config.MappingParam{
+			{Name: "queryStrings.app", MapTo: "opt.application"},
+		},
+	}, "/users/:id")
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -213,10 +271,20 @@ func TestBuildOutboundRejectsDeprecatedOptApplication(t *testing.T) {
 
 func TestBuildOutboundRejectsProtocolSchemeMismatch(t *testing.T) {
 	handler := &DubboHandler{}
-	api := newTestAPI()
-	api.IntegrationRequest.Protocol = "tri"
-	api.IntegrationRequest.URL = "dubbo://127.0.0.1:20880"
-	api.IntegrationRequest.Serialization = "hessian2"
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface:     "com.demo.UserService",
+			Method:        "SayHello",
+			Group:         "demo-group",
+			Version:       "1.0.0",
+			Protocol:      "tri",
+			Serialization: "hessian2",
+		},
+		HTTPBackendConfig: config.HTTPBackendConfig{
+			URL: "dubbo://127.0.0.1:20880",
+		},
+	}, "/users/:id")
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -233,8 +301,18 @@ func TestBuildOutboundRejectsProtocolSchemeMismatch(t *testing.T) {
 
 func TestBuildOutboundRejectsDirectURLWithoutSerialization(t *testing.T) {
 	handler := &DubboHandler{}
-	api := newTestAPI()
-	api.IntegrationRequest.URL = "dubbo://127.0.0.1:20880"
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.demo.UserService",
+			Method:    "SayHello",
+			Group:     "demo-group",
+			Version:   "1.0.0",
+		},
+		HTTPBackendConfig: config.HTTPBackendConfig{
+			URL: "dubbo://127.0.0.1:20880",
+		},
+	}, "/users/:id")
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -253,9 +331,16 @@ func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
 	handler := &DubboHandler{}
 
 	t.Run("integration request protocol wins", func(t *testing.T) {
-		api := newTestAPI()
-		api.IntegrationRequest.Protocol = "triple"
-		api.IntegrationRequest.RequestType = constant.DubboRequest
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: constant.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface: "com.demo.UserService",
+				Method:    "SayHello",
+				Group:     "demo-group",
+				Version:   "1.0.0",
+				Protocol:  "triple",
+			},
+		}, "/users/:id")
 
 		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(`{}`))
 		require.NoError(t, err)
@@ -266,9 +351,15 @@ func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
 	})
 
 	t.Run("request type wins when protocol empty", func(t *testing.T) {
-		api := newTestAPI()
-		api.IntegrationRequest.Protocol = ""
-		api.IntegrationRequest.RequestType = "triple"
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: "triple",
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface: "com.demo.UserService",
+				Method:    "SayHello",
+				Group:     "demo-group",
+				Version:   "1.0.0",
+			},
+		}, "/users/:id")
 
 		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(`{}`))
 		require.NoError(t, err)
@@ -279,9 +370,14 @@ func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
 	})
 
 	t.Run("default to dubbo", func(t *testing.T) {
-		api := newTestAPI()
-		api.IntegrationRequest.Protocol = ""
-		api.IntegrationRequest.RequestType = ""
+		api := newTestAPI(config.IntegrationRequest{
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface: "com.demo.UserService",
+				Method:    "SayHello",
+				Group:     "demo-group",
+				Version:   "1.0.0",
+			},
+		}, "/users/:id")
 
 		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(`{}`))
 		require.NoError(t, err)
@@ -294,13 +390,23 @@ func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
 
 func TestBuildOutboundValidatesDirectInvokeArity(t *testing.T) {
 	handler := &DubboHandler{}
-	api := newTestAPI()
-	api.IntegrationRequest.URL = "dubbo://127.0.0.1:20880"
-	api.IntegrationRequest.Serialization = "hessian2"
-	api.IntegrationRequest.ParameterTypes = []string{"java.lang.Integer", clientdubbo.JavaStringClassName}
-	api.MappingParams = []config.MappingParam{
-		{Name: "requestBody.values", MapTo: "opt.values"},
-	}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface:      "com.demo.UserService",
+			Method:         "SayHello",
+			Group:          "demo-group",
+			Version:        "1.0.0",
+			ParameterTypes: []string{"java.lang.Integer", clientdubbo.JavaStringClassName},
+			Serialization:  "hessian2",
+		},
+		HTTPBackendConfig: config.HTTPBackendConfig{
+			URL: "dubbo://127.0.0.1:20880",
+		},
+		MappingParams: []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		},
+	}, "/users/:id")
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -313,4 +419,42 @@ func TestBuildOutboundValidatesDirectInvokeArity(t *testing.T) {
 	assert.Nil(t, outbound)
 	require.Error(t, err)
 	assert.EqualError(t, err, "direct generic invoke requires values to match parameterTypes")
+}
+
+func TestNormalizeOptTypes(t *testing.T) {
+	handler := &DubboHandler{}
+
+	t.Run("nil", func(t *testing.T) {
+		types, err := handler.normalizeOptTypes(nil)
+		require.NoError(t, err)
+		assert.Nil(t, types)
+	})
+
+	t.Run("string slice", func(t *testing.T) {
+		types, err := handler.normalizeOptTypes([]string{" java.lang.Integer ", "java.lang.String"})
+		require.NoError(t, err)
+		assert.Equal(t, []string{"java.lang.Integer", "java.lang.String"}, types)
+	})
+}
+
+func TestNormalizeOptValues(t *testing.T) {
+	handler := &DubboHandler{}
+
+	t.Run("nil", func(t *testing.T) {
+		values, err := handler.normalizeOptValues(nil)
+		require.NoError(t, err)
+		assert.Nil(t, values)
+	})
+
+	t.Run("string slice", func(t *testing.T) {
+		values, err := handler.normalizeOptValues([]string{"1", "2"})
+		require.NoError(t, err)
+		assert.Equal(t, []any{"1", "2"}, values)
+	})
+
+	t.Run("default single value", func(t *testing.T) {
+		values, err := handler.normalizeOptValues(7)
+		require.NoError(t, err)
+		assert.Equal(t, []any{7}, values)
+	})
 }
