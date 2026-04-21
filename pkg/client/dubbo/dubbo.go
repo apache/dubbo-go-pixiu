@@ -45,9 +45,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -55,14 +53,6 @@ const (
 	JavaStringClassName = "java.lang.String"
 	JavaLangClassName   = "java.lang.Long"
 )
-
-func javaClassNameElem(values []hessian.Object) []string {
-	types := make([]any, len(values))
-	for i, val := range values {
-		types[i] = val
-	}
-	return InferJavaClassNames(types)
-}
 
 const (
 	defaultDubboProtocol = "zookeeper"
@@ -354,31 +344,6 @@ func mergeOutboundAttachments(ctx context.Context, outbound map[string]any) map[
 	return attachments
 }
 
-func prepareInvokePayload(method string, target *dubboTarget) ([]string, []hessian.Object, []byte) {
-	if target == nil {
-		logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, nil, nil)
-		return []string{}, []hessian.Object{}, []byte{}
-	}
-
-	logger.Debugf("[dubbo-go-pixiu] dubbo invoke, method:%s, types:%s, reqData:%v", method, target.Types, target.Values)
-
-	types := target.Types
-	vals := make([]hessian.Object, len(target.Values))
-	for i, v := range target.Values {
-		vals[i] = v
-	}
-	if len(types) == 0 {
-		types = javaClassNameElem(vals)
-	}
-
-	finalValues, err := json.Marshal(vals)
-	if err != nil {
-		logger.Warnf("[dubbo-go-pixiu] reqData convert to string failed: %v", err)
-	}
-
-	return types, vals, finalValues
-}
-
 func prepareInvokeContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -387,45 +352,6 @@ func prepareInvokeContext(ctx context.Context, timeout time.Duration) (context.C
 		return ctx, nil
 	}
 	return context.WithTimeout(ctx, timeout)
-}
-
-func (dc *Client) genericArgs(req *client.Request) (any, error) {
-	values, err := dc.MapParams(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return values, nil
-}
-
-// MapParams params mapping to api.
-func (dc *Client) MapParams(req *client.Request) (any, error) {
-	r := req.API.IntegrationRequest
-	values := newDubboTarget(r.MappingParams)
-	if dc.dubboProxyConfig != nil && dc.dubboProxyConfig.IsDefaultMap {
-		values = newDubboTarget(defaultMappingParams)
-	}
-	for _, mappingParam := range r.MappingParams {
-		source, _, err := client.ParseMapSource(mappingParam.Name)
-		if err != nil {
-			return nil, err
-		}
-		if mapper, ok := mappers[source]; ok {
-			if err := mapper.Map(mappingParam, req, values, buildOption(mappingParam)); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return values, nil
-}
-
-func buildOption(conf config.MappingParam) client.RequestOption {
-	var opt client.RequestOption
-	isGeneric, mapToType := getGenericMapTo(conf.MapTo)
-	if isGeneric {
-		opt = DefaultMapOption[mapToType]
-	}
-	return opt
 }
 
 func (dc *Client) get(key string) *generic.GenericService {
@@ -441,89 +367,6 @@ func (dc *Client) check(key string) bool {
 		return true
 	}
 	return false
-}
-
-func (dc *Client) resolveReferSpec(irequest config.IntegrationRequest) (resolvedReferSpec, error) {
-	spec := resolvedReferSpec{
-		Interface:        irequest.Interface,
-		Group:            irequest.Group,
-		Version:          irequest.Version,
-		ConsumerDefaults: dc.resolveConsumerDefaults(irequest),
-	}
-
-	canonicalURL := strings.TrimSpace(irequest.URL)
-	if canonicalURL != "" {
-		directProtocol, err := DirectURLProtocol(canonicalURL)
-		if err != nil {
-			return resolvedReferSpec{}, err
-		}
-		declared := NormalizeReferenceProtocol(irequest.Protocol)
-		if declared != "" && declared != directProtocol {
-			return resolvedReferSpec{}, errors.Errorf("direct protocol mismatch: url=%s protocol=%s", directProtocol, declared)
-		}
-
-		spec.Mode = "direct"
-		spec.URL = canonicalURL
-		spec.EffectiveProtocol = directProtocol
-		spec.EffectiveSerialization = strings.TrimSpace(irequest.Serialization)
-		if spec.EffectiveSerialization == "" {
-			return resolvedReferSpec{}, errors.New("direct generic invoke requires serialization")
-		}
-		return spec, nil
-	}
-
-	if len(dc.registries) > 0 {
-		registryIDs := make([]string, 0, len(dc.registries))
-		useNacosWarmup := false
-		for id, registry := range dc.registries {
-			registryIDs = append(registryIDs, id)
-			if registry != nil && registry.Protocol == "nacos" {
-				useNacosWarmup = true
-			}
-		}
-		sort.Strings(registryIDs)
-		spec.Mode = "registry"
-		spec.RegistryIDs = registryIDs
-		spec.UseNacosWarmup = useNacosWarmup
-		spec.EffectiveProtocol = resolveDeclaredProtocol(irequest)
-		return spec, nil
-	}
-
-	return resolvedReferSpec{}, errors.New("dubbo refer mode invalid: no registry configured and no direct url provided")
-}
-
-func (dc *Client) resolveConsumerDefaults(irequest config.IntegrationRequest) resolvedConsumerDefaults {
-	defaults := resolvedConsumerDefaults{
-		Cluster: "failover",
-		Retries: "3",
-	}
-
-	if dc.dubboProxyConfig == nil {
-		if strings.TrimSpace(irequest.Retries) != "" {
-			defaults.Retries = strings.TrimSpace(irequest.Retries)
-		}
-		defaults.RequestTimeout = cst.DefaultReqTimeout
-		return defaults
-	}
-
-	defaults.LoadBalance = dc.dubboProxyConfig.LoadBalance
-	if strings.TrimSpace(dc.dubboProxyConfig.Retries) != "" {
-		defaults.Retries = strings.TrimSpace(dc.dubboProxyConfig.Retries)
-	} else if strings.TrimSpace(irequest.Retries) != "" {
-		defaults.Retries = strings.TrimSpace(irequest.Retries)
-	}
-
-	if dc.dubboProxyConfig.Timeout != nil {
-		if timeout, err := time.ParseDuration(dc.dubboProxyConfig.Timeout.RequestTimeoutStr); err == nil {
-			defaults.RequestTimeout = timeout
-		} else {
-			defaults.RequestTimeout = cst.DefaultReqTimeout
-		}
-	} else {
-		defaults.RequestTimeout = cst.DefaultReqTimeout
-	}
-
-	return defaults
 }
 
 func (spec resolvedReferSpec) validate() error {
@@ -745,24 +588,6 @@ func loadBalanceReferenceOption(loadBalance string) dclient.ReferenceOption {
 	default:
 		return dclient.WithLoadBalance(loadBalance)
 	}
-}
-
-func resolveDeclaredProtocol(irequest config.IntegrationRequest) string {
-	if protocol := NormalizeReferenceProtocol(irequest.Protocol); protocol != "" {
-		return protocol
-	}
-	if NormalizeReferenceProtocol(irequest.RequestType) == "tri" {
-		return "tri"
-	}
-	return "dubbo"
-}
-
-func directURLProtocol(rawURL string) (string, error) {
-	return DirectURLProtocol(rawURL)
-}
-
-func normalizeReferenceProtocol(protocol string) string {
-	return NormalizeReferenceProtocol(protocol)
 }
 
 func withAttachments(ctx context.Context) context.Context {

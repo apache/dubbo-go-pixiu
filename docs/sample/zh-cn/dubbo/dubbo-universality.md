@@ -110,15 +110,15 @@ true
 
 #### 可配码
 
-```go
-const (
-	optionKeyTypes       = "types"
-	optionKeyGroup       = "group"
-	optionKeyVersion     = "version"
-	optionKeyInterface   = "interface"
-	optionKeyMethod      = "method"
-	optionKeyValues      = "values"
-)
+支持的 `mapTo` 选项：
+
+```yaml
+- opt.types
+- opt.group
+- opt.version
+- opt.interface
+- opt.method
+- opt.values
 ```
 
 #### 选择项

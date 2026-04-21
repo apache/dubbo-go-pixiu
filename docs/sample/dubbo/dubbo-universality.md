@@ -112,15 +112,15 @@ true
 
 #### Code
 
-```go
-const (
-	optionKeyTypes       = "types"
-	optionKeyGroup       = "group"
-	optionKeyVersion     = "version"
-	optionKeyInterface   = "interface"
-	optionKeyMethod      = "method"
-	optionKeyValues      = "values"
-)
+Supported `mapTo` options:
+
+```yaml
+- opt.types
+- opt.group
+- opt.version
+- opt.interface
+- opt.method
+- opt.values
 ```
 
 #### Options

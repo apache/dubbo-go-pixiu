@@ -24,7 +24,6 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
-	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/client/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
@@ -44,11 +43,6 @@ func newClientPool() *ClientPool {
 		poolMap: make(map[string]*sync.Pool, 4),
 	}
 	// init default support request type
-	clientPool.poolMap[constant.DubboRequest] = &sync.Pool{
-		New: func() any {
-			return dubbo.NewDubboClient()
-		},
-	}
 	clientPool.poolMap[constant.HTTPRequest] = &sync.Pool{
 		New: func() any {
 			return http.NewHTTPClient()
