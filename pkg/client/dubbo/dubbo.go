@@ -40,6 +40,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 )
 
@@ -209,7 +210,145 @@ func (dc *Client) Close() error {
 
 // Call invoke service.
 func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, error) {
-	return nil, errors.New("not implemented")
+	if req == nil {
+		return nil, errors.New("dubbo outbound request is nil")
+	}
+
+	spec := dc.resolveFromOutbound(req)
+	types, vals, finalValues, err := dc.preparePayload(req)
+	if err != nil {
+		return nil, err
+	}
+
+	gs, err := dc.Get(spec)
+	if err != nil {
+		return nil, err
+	}
+	if gs == nil {
+		return nil, errors.New("dubbo generic service is nil")
+	}
+
+	invokeCtx, cancel := prepareInvokeContext(ctx, req.Timeout)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	spanCtx, span := otel.Tracer(traceNameDubbogoClient).Start(invokeCtx, spanNameDubbogoClient)
+	defer span.End()
+	span.SetAttributes(
+		attribute.String(spanTagMethod, req.Method),
+		attribute.StringSlice(spanTagType, types),
+		attribute.String(spanTagValues, string(finalValues)),
+	)
+
+	spanCtx = context.WithValue(spanCtx, constant.AttachmentKey, mergeOutboundAttachments(spanCtx, req.Attachments))
+	ctxWithAttachment := withAttachments(spanCtx)
+	rst, err := gs.Invoke(ctxWithAttachment, req.Method, types, vals)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	logger.Debugf("[dubbo-go-pixiu] dubbo invoke result:%v", rst)
+	return rst, nil
+}
+
+func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest) resolvedReferSpec {
+	spec := resolvedReferSpec{
+		Interface:              req.Service,
+		Group:                  req.Group,
+		Version:                req.Version,
+		EffectiveProtocol:      req.Protocol,
+		EffectiveSerialization: req.Serialization,
+		ConsumerDefaults:       dc.resolveGlobalConsumerDefaults(),
+	}
+
+	if strings.TrimSpace(req.Address) != "" {
+		spec.Mode = "direct"
+		spec.URL = req.Protocol + "://" + req.Address
+		return spec
+	}
+
+	registryIDs := make([]string, 0, len(dc.registries))
+	useNacosWarmup := false
+	for id, registry := range dc.registries {
+		registryIDs = append(registryIDs, id)
+		if registry != nil && registry.Protocol == "nacos" {
+			useNacosWarmup = true
+		}
+	}
+	sort.Strings(registryIDs)
+
+	spec.Mode = "registry"
+	spec.RegistryIDs = registryIDs
+	spec.UseNacosWarmup = useNacosWarmup
+	return spec
+}
+
+func (dc *Client) resolveGlobalConsumerDefaults() resolvedConsumerDefaults {
+	defaults := resolvedConsumerDefaults{
+		Cluster:        "failover",
+		Retries:        "3",
+		RequestTimeout: cst.DefaultReqTimeout,
+	}
+
+	if dc.dubboProxyConfig == nil {
+		return defaults
+	}
+
+	defaults.LoadBalance = dc.dubboProxyConfig.LoadBalance
+	if strings.TrimSpace(dc.dubboProxyConfig.Retries) != "" {
+		defaults.Retries = strings.TrimSpace(dc.dubboProxyConfig.Retries)
+	}
+	if dc.dubboProxyConfig.Timeout != nil {
+		if timeout, err := time.ParseDuration(dc.dubboProxyConfig.Timeout.RequestTimeoutStr); err == nil {
+			defaults.RequestTimeout = timeout
+		}
+	}
+
+	return defaults
+}
+
+func (dc *Client) preparePayload(req *DubboOutboundRequest) ([]string, []hessian.Object, []byte, error) {
+	if len(req.Arguments) == 0 && len(req.ParamTypes) == 0 {
+		return []string{}, []hessian.Object{}, []byte("[]"), nil
+	}
+	if len(req.Arguments) != len(req.ParamTypes) {
+		return nil, nil, nil, errors.Errorf("arguments/paramTypes length mismatch: %d vs %d", len(req.Arguments), len(req.ParamTypes))
+	}
+
+	types := append([]string(nil), req.ParamTypes...)
+	vals := make([]hessian.Object, len(req.Arguments))
+	for i, arg := range req.Arguments {
+		vals[i] = arg
+	}
+
+	finalValues, err := json.Marshal(vals)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "marshal dubbo arguments")
+	}
+
+	return types, vals, finalValues, nil
+}
+
+func mergeOutboundAttachments(ctx context.Context, outbound map[string]any) map[string]any {
+	attachments := make(map[string]any, len(outbound))
+	if attaRaw := ctx.Value(constant.AttachmentKey); attaRaw != nil {
+		switch userAtta := attaRaw.(type) {
+		case map[string]any:
+			for key, val := range userAtta {
+				attachments[key] = val
+			}
+		case map[string]string:
+			for key, val := range userAtta {
+				attachments[key] = val
+			}
+		}
+	}
+	for key, val := range outbound {
+		attachments[key] = val
+	}
+	return attachments
 }
 
 func prepareInvokePayload(method string, target *dubboTarget) ([]string, []hessian.Object, []byte) {
