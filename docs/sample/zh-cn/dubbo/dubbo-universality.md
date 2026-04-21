@@ -28,7 +28,7 @@ provider 发起 generic Triple 调用会直接返回 `404 Not Found`。
 name: pixiu
 description: pixiu sample
 resources:
-  - path: '/api/v1/test-dubbo/:application/:interface'
+  - path: '/api/v1/test-dubbo/:interface'
     type: restful
     description: common
     methods:
@@ -44,8 +44,6 @@ resources:
               mapTo: opt.values
             - name: requestBody.types
               mapTo: opt.types
-            - name: uri.application
-              mapTo: opt.application
             - name: uri.interface
               mapTo: opt.interface
             - name: queryStrings.method
@@ -63,7 +61,7 @@ resources:
 - 单个 string 参数
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
 ```
 
 result
@@ -81,7 +79,7 @@ result
 - 单个 int 参数
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
 ```
 
 result
@@ -99,7 +97,7 @@ result
 - 多个参数
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
 ```
 
 result
@@ -118,7 +116,6 @@ const (
 	optionKeyGroup       = "group"
 	optionKeyVersion     = "version"
 	optionKeyInterface   = "interface"
-	optionKeyApplication = "application"
 	optionKeyMethod      = "method"
 	optionKeyValues      = "values"
 )
@@ -157,10 +154,6 @@ Dubbo 版本配置 `ReferenceConfig#Version`。
 - opt.interface
 
 Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
-
-- opt.application
-
-目前暂时用于缓存，索引的一部分查找对应的缓存对象。
 
 - opt.values
 
