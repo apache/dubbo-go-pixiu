@@ -22,16 +22,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 import (
 	"github.com/pkg/errors"
-
-	"github.com/spf13/cast"
 )
 
 import (
@@ -234,34 +230,7 @@ func setCommonTarget(target *dubboTarget, pos int, value any, targetType string)
 }
 
 func mapTypes(jType string, originVal any) (any, error) {
-	targetType, ok := constant.JTypeMapper[jType]
-	if !ok {
-		return nil, errors.Errorf("Invalid parameter type: %s", jType)
-	}
-	switch targetType {
-	case reflect.TypeOf(""):
-		return cast.ToStringE(originVal)
-	case reflect.TypeOf(int(0)):
-		return cast.ToIntE(originVal)
-	case reflect.TypeOf(int8(0)):
-		return cast.ToInt8E(originVal)
-	case reflect.TypeOf(int16(16)):
-		return cast.ToInt16E(originVal)
-	case reflect.TypeOf(int32(0)):
-		return cast.ToInt32E(originVal)
-	case reflect.TypeOf(int64(0)):
-		return cast.ToInt64E(originVal)
-	case reflect.TypeOf(float32(0)):
-		return cast.ToFloat32E(originVal)
-	case reflect.TypeOf(float64(0)):
-		return cast.ToFloat64E(originVal)
-	case reflect.TypeOf(true):
-		return cast.ToBoolE(originVal)
-	case reflect.TypeOf(time.Time{}):
-		return cast.ToTimeE(originVal)
-	default:
-		return originVal, nil
-	}
+	return MapTypes(jType, originVal)
 }
 
 // getGenericMapTo will parse the mapTo field, if the mapTo value is

@@ -19,9 +19,12 @@ package dubbo
 
 import (
 	"net/url"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/spf13/cast"
 
 	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
@@ -43,7 +46,34 @@ func MapTypes(jType string, originVal any) (any, error) {
 	if normalized == "" {
 		return originVal, nil
 	}
-	return mapTypes(normalized, originVal)
+	targetType, ok := cst.JTypeMapper[normalized]
+	if !ok {
+		return nil, errors.Errorf("Invalid parameter type: %s", normalized)
+	}
+	switch targetType {
+	case reflect.TypeOf(""):
+		return cast.ToStringE(originVal)
+	case reflect.TypeOf(int(0)):
+		return cast.ToIntE(originVal)
+	case reflect.TypeOf(int8(0)):
+		return cast.ToInt8E(originVal)
+	case reflect.TypeOf(int16(16)):
+		return cast.ToInt16E(originVal)
+	case reflect.TypeOf(int32(0)):
+		return cast.ToInt32E(originVal)
+	case reflect.TypeOf(int64(0)):
+		return cast.ToInt64E(originVal)
+	case reflect.TypeOf(float32(0)):
+		return cast.ToFloat32E(originVal)
+	case reflect.TypeOf(float64(0)):
+		return cast.ToFloat64E(originVal)
+	case reflect.TypeOf(true):
+		return cast.ToBoolE(originVal)
+	case reflect.TypeOf(time.Time{}):
+		return cast.ToTimeE(originVal)
+	default:
+		return originVal, nil
+	}
 }
 
 // CoerceDirectInvokeValue coerces direct invoke values according to parameter types.

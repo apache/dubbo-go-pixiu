@@ -19,7 +19,6 @@ package dubbo
 
 import (
 	"encoding/json"
-	"strings"
 )
 
 import (
@@ -29,40 +28,11 @@ import (
 )
 
 import (
-	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 func coerceDirectInvokeValue(parameterType string, value any) (any, error) {
-	trimmed := strings.TrimSpace(parameterType)
-	if trimmed == "" {
-		return value, nil
-	}
-	if _, ok := cst.JTypeMapper[trimmed]; ok {
-		return mapTypes(trimmed, value)
-	}
-	if strings.HasSuffix(trimmed, "[]") {
-		elementType := strings.TrimSuffix(trimmed, "[]")
-		if _, ok := cst.JTypeMapper[elementType]; !ok {
-			return value, nil
-		}
-
-		items, ok := value.([]any)
-		if !ok {
-			return value, nil
-		}
-
-		result := make([]any, len(items))
-		for i, item := range items {
-			mapped, err := mapTypes(elementType, item)
-			if err != nil {
-				return nil, err
-			}
-			result[i] = mapped
-		}
-		return result, nil
-	}
-	return value, nil
+	return CoerceDirectInvokeValue(parameterType, value)
 }
 
 func resolveDirectInvokePayload(irequest config.IntegrationRequest, target *dubboTarget) ([]string, []hessian.Object, []byte, error) {
@@ -84,7 +54,7 @@ func resolveDirectInvokePayload(irequest config.IntegrationRequest, target *dubb
 
 	vals := make([]hessian.Object, len(target.Values))
 	for i, value := range target.Values {
-		mapped, err := coerceDirectInvokeValue(irequest.ParameterTypes[i], value)
+		mapped, err := CoerceDirectInvokeValue(irequest.ParameterTypes[i], value)
 		if err != nil {
 			return nil, nil, nil, err
 		}

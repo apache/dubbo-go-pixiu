@@ -20,7 +20,6 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,15 +56,11 @@ const (
 )
 
 func javaClassNameElem(values []hessian.Object) []string {
-	types := make([]string, len(values))
+	types := make([]any, len(values))
 	for i, val := range values {
-		if _, ok := val.(string); ok {
-			types[i] = JavaStringClassName
-			continue
-		}
-		types[i] = JavaLangClassName
+		types[i] = val
 	}
-	return types
+	return InferJavaClassNames(types)
 }
 
 const (
@@ -316,11 +311,11 @@ func (dc *Client) resolveReferSpec(irequest config.IntegrationRequest) (resolved
 
 	canonicalURL := strings.TrimSpace(irequest.URL)
 	if canonicalURL != "" {
-		directProtocol, err := directURLProtocol(canonicalURL)
+		directProtocol, err := DirectURLProtocol(canonicalURL)
 		if err != nil {
 			return resolvedReferSpec{}, err
 		}
-		declared := normalizeReferenceProtocol(irequest.Protocol)
+		declared := NormalizeReferenceProtocol(irequest.Protocol)
 		if declared != "" && declared != directProtocol {
 			return resolvedReferSpec{}, errors.Errorf("direct protocol mismatch: url=%s protocol=%s", directProtocol, declared)
 		}
@@ -608,31 +603,21 @@ func loadBalanceReferenceOption(loadBalance string) dclient.ReferenceOption {
 }
 
 func resolveDeclaredProtocol(irequest config.IntegrationRequest) string {
-	if protocol := normalizeReferenceProtocol(irequest.Protocol); protocol != "" {
+	if protocol := NormalizeReferenceProtocol(irequest.Protocol); protocol != "" {
 		return protocol
 	}
-	if normalizeReferenceProtocol(irequest.RequestType) == "tri" {
+	if NormalizeReferenceProtocol(irequest.RequestType) == "tri" {
 		return "tri"
 	}
 	return "dubbo"
 }
 
 func directURLProtocol(rawURL string) (string, error) {
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
-		return "", errors.Wrapf(err, "parse direct url %q", rawURL)
-	}
-	return normalizeReferenceProtocol(parsedURL.Scheme), nil
+	return DirectURLProtocol(rawURL)
 }
 
 func normalizeReferenceProtocol(protocol string) string {
-	normalized := strings.ToLower(strings.TrimSpace(protocol))
-	switch normalized {
-	case "triple":
-		return "tri"
-	default:
-		return normalized
-	}
+	return NormalizeReferenceProtocol(protocol)
 }
 
 func withAttachments(ctx context.Context) context.Context {

@@ -65,12 +65,19 @@ func TestCoerceDirectInvokeValueWrapperFQNArray(t *testing.T) {
 func TestNormalizeReferenceProtocol(t *testing.T) {
 	assert.Equal(t, "tri", NormalizeReferenceProtocol("triple"))
 	assert.Equal(t, "tri", NormalizeReferenceProtocol("  TRI  "))
+	assert.Equal(t, "dubbo", NormalizeReferenceProtocol("dubbo"))
 }
 
 func TestDirectURLProtocol(t *testing.T) {
 	val, err := DirectURLProtocol("tri://127.0.0.1:50051")
 	require.NoError(t, err)
 	assert.Equal(t, "tri", val)
+}
+
+func TestDirectURLProtocolMissingScheme(t *testing.T) {
+	_, err := DirectURLProtocol("//127.0.0.1:50051")
+	require.Error(t, err)
+	assert.EqualError(t, err, "direct url requires scheme")
 }
 
 func TestInferJavaClassNames(t *testing.T) {
