@@ -18,8 +18,37 @@
 package dubbo
 
 import (
+	"context"
+	"time"
+
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+// DubboClient is the protocol-specific client contract for outbound Dubbo calls.
+type DubboClient interface {
+	Apply() error
+	Close() error
+	Call(ctx context.Context, req *DubboOutboundRequest) (any, error)
+}
+
+// DubboOutboundRequest is an immutable contract for a single Dubbo outbound invocation.
+type DubboOutboundRequest struct {
+	Service string
+	Method  string
+	Group   string
+	Version string
+
+	Address string
+
+	Protocol      string
+	Serialization string
+
+	Arguments   []any
+	ParamTypes  []string
+	Attachments map[string]any
+
+	Timeout time.Duration
+}
 
 // DubboProxyConfig the config for dubbo proxy
 type DubboProxyConfig struct {
