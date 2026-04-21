@@ -72,6 +72,23 @@ func TestValuesOpt(t *testing.T) {
 	assert.Equal(t, len(target.Types), 0)
 }
 
+func TestValuesOptActionWrapperFQNNormalization(t *testing.T) {
+	opt := &valuesOpt{}
+	target := &dubboTarget{
+		Values: make([]any, 1),
+		Types:  make([]string, 1),
+	}
+
+	err := opt.Action(target, [2]any{
+		[]any{"19"},
+		"java.lang.Integer",
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, 19, target.Values[0])
+	assert.Equal(t, "int", target.Types[0])
+}
+
 func TestParamTypesOptAction(t *testing.T) {
 	opt := &paramTypesOpt{}
 	target := &dubboTarget{

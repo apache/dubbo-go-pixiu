@@ -165,13 +165,14 @@ func (opt *valuesOpt) Action(target, val any) error {
 	}
 	for i := range toVals {
 		trimType := strings.TrimSpace(toTypes[i])
-		if _, ok = constant.JTypeMapper[trimType]; ok {
-			toTypes[i] = trimType
+		normalizedType := normalizeJavaTypeName(trimType)
+		if _, ok = constant.JTypeMapper[normalizedType]; ok {
+			toTypes[i] = normalizedType
 		} else {
 			return errors.Errorf("Types invalid %s", trimType)
 		}
 		var err error
-		toVals[i], err = mapTypes(toTypes[i], toVals[i])
+		toVals[i], err = MapTypes(toTypes[i], toVals[i])
 		if err != nil {
 			return errors.WithStack(err)
 		}
