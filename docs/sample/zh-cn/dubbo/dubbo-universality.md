@@ -167,25 +167,18 @@ Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
 
 ```json
 {
-    "types": [
-        "string"
-    ],
+    "types": ["string"],
     "values": "tc"
 }
 ```
 
 ```yaml
-            - name: requestBody.types
-              mapTo: 1
-              opt:
-                open: true
-                name: types
+  - name: requestBody.types
+    mapTo: opt.types
 ```
 
-- `requestBody.types` 意味着对 body 的 json 内容取 key 的值为 types。
-- `opt.name` 意味着扩展名称，和 proxy 提供的默认实现匹配。
-- `opt.open` 打开，目前是 `true` 才会创建对应的扩展，如果后续配置缩减的话考虑删除。
-- `opt.usable` 表示上游服务是否需要这个参数，对应代码里面 `setTarget` 这个行为，默认加了扩展是 `false`，即这个字段只有行为，不会成为 RPC 的参数。
+- `requestBody.types` 表示读取请求体里的 `types` 字段。
+- `opt.types` 表示使用 types 选项。
 
 ##### 多个参数
 
