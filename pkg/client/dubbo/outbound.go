@@ -17,32 +17,19 @@
 
 package dubbo
 
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-)
+import "time"
 
-// defaultMappingParams default http to dubbo config
-var defaultMappingParams = []config.MappingParam{
-	{
-		Name:  "requestBody.values",
-		MapTo: "opt.values",
-	}, {
-		Name:  "requestBody.types",
-		MapTo: "opt.types",
-	}, {
-		Name:  "uri.application",
-		MapTo: "opt.application",
-	}, {
-		Name:  "uri.interface",
-		MapTo: "opt.interface",
-	}, {
-		Name:  "queryStrings.method",
-		MapTo: "opt.method",
-	}, {
-		Name:  "queryStrings.group",
-		MapTo: "opt.group",
-	}, {
-		Name:  "queryStrings.version",
-		MapTo: "opt.version",
-	},
+// DubboOutboundRequest is an immutable contract for a single Dubbo outbound invocation.
+type DubboOutboundRequest struct {
+	Service       string
+	Method        string
+	Group         string
+	Version       string
+	Address       string
+	Protocol      string
+	Serialization string
+	Arguments     []any
+	ParamTypes    []string
+	Attachments   map[string]any
+	Timeout       time.Duration
 }

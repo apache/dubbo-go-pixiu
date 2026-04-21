@@ -28,7 +28,7 @@ provider 发起 generic Triple 调用会直接返回 `404 Not Found`。
 name: pixiu
 description: pixiu sample
 resources:
-  - path: '/api/v1/test-dubbo/:application/:interface'
+  - path: '/api/v1/test-dubbo/:interface'
     type: restful
     description: common
     methods:
@@ -44,8 +44,6 @@ resources:
               mapTo: opt.values
             - name: requestBody.types
               mapTo: opt.types
-            - name: uri.application
-              mapTo: opt.application
             - name: uri.interface
               mapTo: opt.interface
             - name: queryStrings.method
@@ -63,7 +61,7 @@ resources:
 - 单个 string 参数
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
 ```
 
 result
@@ -81,7 +79,7 @@ result
 - 单个 int 参数
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
 ```
 
 result
@@ -99,7 +97,7 @@ result
 - 多个参数
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
 ```
 
 result
@@ -112,16 +110,15 @@ true
 
 #### 可配码
 
-```go
-const (
-	optionKeyTypes       = "types"
-	optionKeyGroup       = "group"
-	optionKeyVersion     = "version"
-	optionKeyInterface   = "interface"
-	optionKeyApplication = "application"
-	optionKeyMethod      = "method"
-	optionKeyValues      = "values"
-)
+支持的 `mapTo` 选项：
+
+```yaml
+- opt.types
+- opt.group
+- opt.version
+- opt.interface
+- opt.method
+- opt.values
 ```
 
 #### 选择项
@@ -158,10 +155,6 @@ Dubbo 版本配置 `ReferenceConfig#Version`。
 
 Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
 
-- opt.application
-
-目前暂时用于缓存，索引的一部分查找对应的缓存对象。
-
 - opt.values
 
 值的处理，用于 `GenericService#Invoke` 函数的第三个参数。
@@ -174,25 +167,18 @@ Dubbo 接口配置 `ReferenceConfig#InterfaceName`。
 
 ```json
 {
-    "types": [
-        "string"
-    ],
+    "types": ["string"],
     "values": "tc"
 }
 ```
 
 ```yaml
-            - name: requestBody.types
-              mapTo: 1
-              opt:
-                open: true
-                name: types
+  - name: requestBody.types
+    mapTo: opt.types
 ```
 
-- `requestBody.types` 意味着对 body 的 json 内容取 key 的值为 types。
-- `opt.name` 意味着扩展名称，和 proxy 提供的默认实现匹配。
-- `opt.open` 打开，目前是 `true` 才会创建对应的扩展，如果后续配置缩减的话考虑删除。
-- `opt.usable` 表示上游服务是否需要这个参数，对应代码里面 `setTarget` 这个行为，默认加了扩展是 `false`，即这个字段只有行为，不会成为 RPC 的参数。
+- `requestBody.types` 表示读取请求体里的 `types` 字段。
+- `opt.types` 表示使用 types 选项。
 
 ##### 多个参数
 

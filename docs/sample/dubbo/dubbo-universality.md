@@ -30,7 +30,7 @@ Found`.
 name: pixiu
 description: pixiu sample
 resources:
-  - path: '/api/v1/test-dubbo/:application/:interface'
+  - path: '/api/v1/test-dubbo/:interface'
     type: restful
     description: common
     methods:
@@ -46,8 +46,6 @@ resources:
               mapTo: opt.values
             - name: requestBody.types
               mapTo: opt.types
-            - name: uri.application
-              mapTo: opt.application
             - name: uri.interface
               mapTo: opt.interface
             - name: queryStrings.method
@@ -65,7 +63,7 @@ resources:
 - single param string
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
 ```
 
 result
@@ -83,7 +81,7 @@ result
 - single param int
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
 ```
 
 result
@@ -101,7 +99,7 @@ result
 - multi params
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
 ```
 
 result
@@ -114,16 +112,15 @@ true
 
 #### Code
 
-```go
-const (
-	optionKeyTypes       = "types"
-	optionKeyGroup       = "group"
-	optionKeyVersion     = "version"
-	optionKeyInterface   = "interface"
-	optionKeyApplication = "application"
-	optionKeyMethod      = "method"
-	optionKeyValues      = "values"
-)
+Supported `mapTo` options:
+
+```yaml
+- opt.types
+- opt.group
+- opt.version
+- opt.interface
+- opt.method
+- opt.values
 ```
 
 #### Options
@@ -159,10 +156,6 @@ Dubbo version in `ReferenceConfig#Version`.
 - opt.interface
 
 Dubbo interface in `ReferenceConfig#InterfaceName`.
-
-- opt.application
-
-Now only use for part of cache key.
 
 - opt.values
 

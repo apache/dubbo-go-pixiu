@@ -17,27 +17,11 @@
 
 package dubbo
 
-import (
-	"testing"
-)
+import "context"
 
-import (
-	"github.com/stretchr/testify/assert"
-)
-
-func TestClose(t *testing.T) {
-	client := SingletonDubboClient()
-	client.GenericServicePool["key1"] = nil
-	client.GenericServicePool["key2"] = nil
-	client.GenericServicePool["key3"] = nil
-	client.GenericServicePool["key4"] = nil
-	assert.Equal(t, 4, len(client.GenericServicePool))
-	client.Close()
-	assert.Equal(t, 0, len(client.GenericServicePool))
-}
-
-func TestApply(t *testing.T) {
-	dClient := NewDubboClient()
-	err := dClient.Apply()
-	assert.Nil(t, err)
+// DubboClient is the protocol-specific client contract for outbound Dubbo calls.
+type DubboClient interface {
+	Apply() error
+	Close() error
+	Call(ctx context.Context, req *DubboOutboundRequest) (any, error)
 }

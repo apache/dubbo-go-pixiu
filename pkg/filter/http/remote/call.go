@@ -20,6 +20,7 @@ package remote
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote/resolver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
 const (
@@ -47,7 +49,10 @@ const (
 )
 
 var (
-	initDubboClient = dubbo.InitDefaultDubboClient
+	initDubboClient      = dubbo.InitDefaultDubboClient
+	singletonDubboClient = func() dubbo.DubboClient {
+		return dubbo.SingletonDubboClient()
+	}
 )
 
 func init() {
@@ -61,19 +66,24 @@ type (
 	}
 
 	FilterFactory struct {
-		conf *config
+		conf *filterConfig
 	}
 
 	Filter struct {
-		conf     config
-		resolver resolver.Resolver
+		conf         filterConfig
+		resolver     resolver.Resolver
+		dubboHandler dubboOutboundBuilder
 	}
 
-	config struct {
+	filterConfig struct {
 		Level            mockLevel               `yaml:"level,omitempty" json:"level,omitempty"`
 		DubboProxyConfig *dubbo.DubboProxyConfig `yaml:"dubboProxyConfig,omitempty" json:"dubboProxyConfig,omitempty"`
 		// Resolver is the Resolver to resolve HTTP requests to Dubbo services.
 		Resolver string `yaml:"resolver,omitempty" json:"resolver,omitempty" default:"StandardDubboResolver"`
+	}
+
+	dubboOutboundBuilder interface {
+		BuildOutbound(*http.Request, router.API) (*dubbo.DubboOutboundRequest, error)
 	}
 
 	mockResponse struct {
@@ -86,7 +96,7 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{conf: &config{}}, nil
+	return &FilterFactory{conf: &filterConfig{}}, nil
 }
 
 func (factory *FilterFactory) Config() any {
@@ -123,8 +133,9 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 	}
 
 	f := &Filter{
-		conf:     *factory.conf,
-		resolver: r,
+		conf:         *factory.conf,
+		resolver:     r,
+		dubboHandler: &DubboHandler{},
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
@@ -147,25 +158,27 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	typ := api.IntegrationRequest.RequestType
+	switch strings.ToLower(typ) {
+	case constant.DubboRequest, "triple":
+		return f.callDubbo(c, *api)
+	case constant.HTTPRequest:
+		return f.callHTTP(c, *api)
+	default:
+		panic(errors.New("not support"))
+	}
+}
 
-	cli, err := f.matchClient(typ)
+func (f *Filter) callHTTP(c *contexthttp.HttpContext, api router.API) filter.FilterStatus {
+	cli, err := f.matchHTTPClient(api.IntegrationRequest.RequestType)
 	if err != nil {
 		panic(err)
 	}
 
-	req := client.NewReq(c.Request.Context(), c.Request, *api)
+	req := client.NewReq(c.Request.Context(), c.Request, api)
 	req.Timeout = c.Timeout
 	resp, err := cli.Call(req)
 	if err != nil {
-		logger.Errorf("[dubbo-go-pixiu] client call err: %v!", err)
-		if strings.Contains(strings.ToLower(err.Error()), "timeout") {
-			errResp := contexthttp.GatewayTimeout.WithError(fmt.Errorf("client timeout: %w", err))
-			c.SendLocalReply(errResp.Status, errResp.ToJSON())
-			return filter.Stop
-		}
-		errResp := contexthttp.InternalError.WithError(fmt.Errorf("client call error: %w", err))
-		c.SendLocalReply(errResp.Status, errResp.ToJSON())
-		return filter.Stop
+		return f.handleClientError(c, err)
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] client call resp: %v", resp)
@@ -174,12 +187,43 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 	return filter.Continue
 }
 
-func (f *Filter) matchClient(typ string) (client.Client, error) {
+func (f *Filter) callDubbo(c *contexthttp.HttpContext, api router.API) filter.FilterStatus {
+	handler := f.dubboHandler
+	if handler == nil {
+		handler = &DubboHandler{}
+	}
+
+	outbound, err := handler.BuildOutbound(c.Request, api)
+	if err != nil {
+		return f.handleClientError(c, err)
+	}
+	outbound.Timeout = c.Timeout
+
+	resp, err := singletonDubboClient().Call(c.Request.Context(), outbound)
+	if err != nil {
+		return f.handleClientError(c, err)
+	}
+
+	logger.Debugf("[dubbo-go-pixiu] client call resp: %v", resp)
+
+	c.SourceResp = resp
+	return filter.Continue
+}
+
+func (f *Filter) handleClientError(c *contexthttp.HttpContext, err error) filter.FilterStatus {
+	logger.Errorf("[dubbo-go-pixiu] client call err: %v!", err)
+	if strings.Contains(strings.ToLower(err.Error()), "timeout") {
+		errResp := contexthttp.GatewayTimeout.WithError(fmt.Errorf("client timeout: %w", err))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
+	}
+	errResp := contexthttp.InternalError.WithError(fmt.Errorf("client call error: %w", err))
+	c.SendLocalReply(errResp.Status, errResp.ToJSON())
+	return filter.Stop
+}
+
+func (f *Filter) matchHTTPClient(typ string) (client.Client, error) {
 	switch strings.ToLower(typ) {
-	case constant.DubboRequest:
-		return dubbo.SingletonDubboClient(), nil
-	case "triple":
-		return dubbo.SingletonDubboClient(), nil
 	case constant.HTTPRequest:
 		return clienthttp.SingletonHTTPClient(), nil
 	default:

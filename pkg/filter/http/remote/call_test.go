@@ -18,7 +18,11 @@
 package remote
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 import (
@@ -30,35 +34,143 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	clienthttp "github.com/apache/dubbo-go-pixiu/pkg/client/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	extfilter "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
-func TestMatchClientRoutesHTTPToHTTPClient(t *testing.T) {
-	filter := &Filter{conf: config{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
+type recordingDubboClient struct {
+	ctx context.Context
+	req *dubbo.DubboOutboundRequest
+	res any
+	err error
+}
 
-	cli, err := filter.matchClient(constant.HTTPRequest)
+func (c *recordingDubboClient) Apply() error {
+	return nil
+}
+
+func (c *recordingDubboClient) Close() error {
+	return nil
+}
+
+func (c *recordingDubboClient) Call(ctx context.Context, req *dubbo.DubboOutboundRequest) (any, error) {
+	c.ctx = ctx
+	c.req = req
+	return c.res, c.err
+}
+
+func TestMatchClientRoutesHTTPToHTTPClient(t *testing.T) {
+	filter := &Filter{conf: filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
+
+	cli, err := filter.matchHTTPClient(constant.HTTPRequest)
 	require.NoError(t, err)
 	assert.Same(t, clienthttp.SingletonHTTPClient(), cli)
 }
 
-func TestMatchClientRoutesDubboAndTripleToDubboClient(t *testing.T) {
-	filter := &Filter{conf: config{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
+func TestDecodeRoutesDubboAndTripleThroughOutboundClient(t *testing.T) {
+	originalSingletonDubboClient := singletonDubboClient
+	t.Cleanup(func() {
+		singletonDubboClient = originalSingletonDubboClient
+	})
 
 	for _, requestType := range []string{constant.DubboRequest, "triple"} {
 		t.Run(requestType, func(t *testing.T) {
-			cli, err := filter.matchClient(requestType)
-			require.NoError(t, err)
-			require.IsType(t, &dubbo.Client{}, cli)
-			assert.Same(t, dubbo.SingletonDubboClient(), cli)
+			resp := map[string]string{"ok": requestType}
+			recorder := &recordingDubboClient{res: resp}
+			singletonDubboClient = func() dubbo.DubboClient {
+				return recorder
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "http://example.com/users/42?name=alice", nil)
+			ctx := &contexthttp.HttpContext{
+				Timeout: 150 * time.Millisecond,
+				Request: req,
+				Writer:  httptest.NewRecorder(),
+			}
+			ctx.API(router.API{
+				Method: config.Method{
+					Timeout:  time.Second,
+					HTTPVerb: http.MethodPost,
+					IntegrationRequest: config.IntegrationRequest{
+						RequestType: requestType,
+						DubboBackendConfig: config.DubboBackendConfig{
+							Interface: "com.demo.UserService",
+							Method:    "SayHello",
+						},
+						MappingParams: []config.MappingParam{
+							{Name: "queryStrings.name", MapTo: "0"},
+						},
+					},
+				},
+			})
+
+			filter := &Filter{conf: filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
+			status := filter.Decode(ctx)
+
+			require.Equal(t, extfilter.Continue, status)
+			assert.Equal(t, resp, ctx.SourceResp)
+			require.NotNil(t, recorder.req)
+			assert.Equal(t, req.Context(), recorder.ctx)
+			assert.Equal(t, "com.demo.UserService", recorder.req.Service)
+			assert.Equal(t, "SayHello", recorder.req.Method)
+			assert.Equal(t, []any{"alice"}, recorder.req.Arguments)
+			assert.Equal(t, 150*time.Millisecond, recorder.req.Timeout)
 		})
 	}
 }
 
 func TestMatchClientRejectsUnknownRequestType(t *testing.T) {
-	filter := &Filter{conf: config{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
+	filter := &Filter{conf: filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
 
-	cli, err := filter.matchClient("grpc")
+	cli, err := filter.matchHTTPClient("grpc")
 	assert.Nil(t, cli)
 	assert.EqualError(t, err, "not support")
+}
+
+func TestDecodeStopsWithLocalReplyWhenBuildOutboundFails(t *testing.T) {
+	originalSingletonDubboClient := singletonDubboClient
+	t.Cleanup(func() {
+		singletonDubboClient = originalSingletonDubboClient
+	})
+
+	recorder := &recordingDubboClient{res: "should not be called"}
+	singletonDubboClient = func() dubbo.DubboClient {
+		return recorder
+	}
+
+	writer := httptest.NewRecorder()
+	ctx := &contexthttp.HttpContext{
+		Timeout: time.Second,
+		Request: httptest.NewRequest(http.MethodPost, "http://example.com/users/42?app=demo", nil),
+		Writer:  writer,
+	}
+	ctx.API(router.API{
+		Method: config.Method{
+			Timeout:  time.Second,
+			HTTPVerb: http.MethodPost,
+			IntegrationRequest: config.IntegrationRequest{
+				RequestType: constant.DubboRequest,
+				DubboBackendConfig: config.DubboBackendConfig{
+					Interface: "com.demo.UserService",
+					Method:    "SayHello",
+				},
+				MappingParams: []config.MappingParam{
+					{Name: "queryStrings.app", MapTo: "opt.application"},
+				},
+			},
+		},
+	})
+
+	filter := &Filter{conf: filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
+	status := filter.Decode(ctx)
+
+	assert.Equal(t, extfilter.Stop, status)
+	assert.Nil(t, recorder.req)
+	assert.True(t, ctx.LocalReply())
+	assert.Equal(t, http.StatusInternalServerError, writer.Code)
+	assert.Contains(t, writer.Body.String(), "client call error")
 }
 
 func TestFilterFactoryApplyOnlyInitializesDubboClient(t *testing.T) {
@@ -73,7 +185,7 @@ func TestFilterFactoryApplyOnlyInitializesDubboClient(t *testing.T) {
 	}
 
 	factory := &FilterFactory{
-		conf: &config{
+		conf: &filterConfig{
 			DubboProxyConfig: &dubbo.DubboProxyConfig{},
 		},
 	}

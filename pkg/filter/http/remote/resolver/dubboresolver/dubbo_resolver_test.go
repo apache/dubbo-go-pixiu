@@ -61,7 +61,6 @@ func TestStandardDubboResolver_Resolve(t *testing.T) {
 				expectedParams := []config.MappingParam{
 					{Name: "requestBody.values", MapTo: "opt.values"},
 					{Name: "requestBody.types", MapTo: "opt.types"},
-					{Name: "uri.application", MapTo: "opt.application"},
 					{Name: "uri.interface", MapTo: "opt.interface"},
 					{Name: "uri.method", MapTo: "opt.method"},
 				}
