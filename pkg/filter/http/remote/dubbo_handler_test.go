@@ -421,6 +421,34 @@ func TestBuildOutboundValidatesDirectInvokeArity(t *testing.T) {
 	assert.EqualError(t, err, "direct generic invoke requires values to match parameterTypes")
 }
 
+func TestBuildOutboundPreservesOptValuesInlineTypeCoercion(t *testing.T) {
+	handler := &DubboHandler{}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.demo.UserService",
+			Method:    "SayHello",
+			Group:     "demo-group",
+			Version:   "1.0.0",
+		},
+		MappingParams: []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values", MapType: "java.lang.Integer,java.lang.String"},
+		},
+	}, "/users/:id")
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		"http://example.com/users/42",
+		bytes.NewBufferString(`{"values":["7","alice"]}`),
+	)
+	require.NoError(t, err)
+
+	outbound, err := handler.BuildOutbound(req, api)
+	require.NoError(t, err)
+	assert.Equal(t, []any{7, "alice"}, outbound.Arguments)
+	assert.Equal(t, []string{"java.lang.Integer", "java.lang.String"}, outbound.ParamTypes)
+}
+
 func TestNormalizeOptTypes(t *testing.T) {
 	handler := &DubboHandler{}
 

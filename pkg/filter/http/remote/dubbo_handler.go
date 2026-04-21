@@ -135,7 +135,7 @@ func (h *DubboHandler) applyMapping(state *outboundBuildState, req *http.Request
 	}
 
 	if strings.HasPrefix(mp.MapTo, "opt.") {
-		return h.applyOptMapping(state, mp.MapTo, value)
+		return h.applyOptMapping(state, mp.MapTo, value, mp.MapType)
 	}
 
 	pos, err := strconv.Atoi(strings.TrimSpace(mp.MapTo))
@@ -178,7 +178,7 @@ func (h *DubboHandler) readSourceValue(state *outboundBuildState, req *http.Requ
 	}
 }
 
-func (h *DubboHandler) applyOptMapping(state *outboundBuildState, mapTo string, value any) error {
+func (h *DubboHandler) applyOptMapping(state *outboundBuildState, mapTo string, value any, mapType string) error {
 	optKey := strings.TrimSpace(strings.TrimPrefix(mapTo, "opt."))
 	switch optKey {
 	case "group":
@@ -215,6 +215,13 @@ func (h *DubboHandler) applyOptMapping(state *outboundBuildState, mapTo string, 
 			return err
 		}
 		state.optValues = values
+		if state.optTypes == nil && strings.TrimSpace(mapType) != "" {
+			types, err := h.normalizeOptTypes(mapType)
+			if err != nil {
+				return err
+			}
+			state.optTypes = types
+		}
 		return nil
 	case "types":
 		types, err := h.normalizeOptTypes(value)
