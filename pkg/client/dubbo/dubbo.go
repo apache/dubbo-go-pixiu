@@ -121,6 +121,9 @@ type genericServiceKey struct {
 	URL               string   `json:"url"`
 	RegistryIDs       []string `json:"registry_ids"`
 	Cluster           string   `json:"cluster"`
+	LoadBalance       string   `json:"load_balance"`
+	Retries           string   `json:"retries"`
+	RequestTimeout    string   `json:"request_timeout"`
 	Interface         string   `json:"interface"`
 	Version           string   `json:"version"`
 	Group             string   `json:"group"`
@@ -561,6 +564,9 @@ func (spec resolvedReferSpec) genericServiceKey() genericServiceKey {
 		URL:               spec.URL,
 		RegistryIDs:       registryIDs,
 		Cluster:           spec.ConsumerDefaults.Cluster,
+		LoadBalance:       spec.ConsumerDefaults.LoadBalance,
+		Retries:           spec.ConsumerDefaults.Retries,
+		RequestTimeout:    spec.ConsumerDefaults.RequestTimeout.String(),
 		Interface:         spec.Interface,
 		Version:           spec.Version,
 		Group:             spec.Group,

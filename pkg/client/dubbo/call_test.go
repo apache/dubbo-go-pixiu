@@ -19,6 +19,7 @@ package dubbo
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -153,6 +154,40 @@ func TestPreparePayloadRejectsLengthMismatch(t *testing.T) {
 	assert.Nil(t, vals)
 	assert.Nil(t, finalValues)
 	assert.EqualError(t, err, "arguments/paramTypes length mismatch: 1 vs 2")
+}
+
+func TestCacheKeyIncludesConsumerDefaults(t *testing.T) {
+	baseSpec := resolvedReferSpec{
+		Mode:                   "direct",
+		Interface:              "com.example.UserService",
+		URL:                    "dubbo://127.0.0.1:20880",
+		EffectiveProtocol:      "dubbo",
+		EffectiveSerialization: "hessian2",
+		ConsumerDefaults: resolvedConsumerDefaults{
+			Cluster:        "failover",
+			LoadBalance:    "roundrobin",
+			Retries:        "3",
+			RequestTimeout: time.Second,
+		},
+	}
+
+	changedSpec := baseSpec
+	changedSpec.ConsumerDefaults.LoadBalance = "random"
+	changedSpec.ConsumerDefaults.Retries = "5"
+	changedSpec.ConsumerDefaults.RequestTimeout = 2 * time.Second
+
+	baseKey, err := baseSpec.cacheKey()
+	require.NoError(t, err)
+	changedKey, err := changedSpec.cacheKey()
+	require.NoError(t, err)
+
+	assert.NotEqual(t, baseKey, changedKey)
+
+	var decoded genericServiceKey
+	require.NoError(t, json.Unmarshal([]byte(changedKey), &decoded))
+	assert.Equal(t, "random", decoded.LoadBalance)
+	assert.Equal(t, "5", decoded.Retries)
+	assert.Equal(t, "2s", decoded.RequestTimeout)
 }
 
 func TestCallUsesOutboundOnly(t *testing.T) {
