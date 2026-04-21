@@ -139,7 +139,7 @@ func (h *DubboHandler) applyMapping(state *outboundBuildState, req *http.Request
 	}
 
 	pos, err := strconv.Atoi(strings.TrimSpace(mp.MapTo))
-	if err != nil {
+	if err != nil || pos < 0 {
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 
@@ -379,8 +379,9 @@ func (h *DubboHandler) finalizeDirectAddress(state *outboundBuildState, ir confi
 	if err != nil {
 		return err
 	}
-	if state.protocol != "" && state.protocol != directProtocol {
-		return errors.Errorf("direct protocol mismatch: url=%s protocol=%s", directProtocol, state.protocol)
+	declaredProtocol := clientdubbo.NormalizeReferenceProtocol(ir.Protocol)
+	if declaredProtocol != "" && declaredProtocol != directProtocol {
+		return errors.Errorf("direct protocol mismatch: url=%s protocol=%s", directProtocol, declaredProtocol)
 	}
 
 	state.protocol = directProtocol
@@ -396,6 +397,9 @@ func (h *DubboHandler) finalizeArgumentsAndTypes(state *outboundBuildState, ir c
 		state.arguments = append([]any(nil), state.optValues...)
 	}
 
+	if strings.TrimSpace(ir.URL) != "" && ir.ParameterTypes == nil {
+		return errors.New("direct generic invoke requires parameterTypes")
+	}
 	if ir.ParameterTypes != nil {
 		state.paramTypes = append([]string(nil), ir.ParameterTypes...)
 		return h.coerceDeclaredArguments(state)

@@ -269,6 +269,33 @@ func TestBuildOutboundRejectsDeprecatedOptApplication(t *testing.T) {
 	assert.Contains(t, err.Error(), "deprecated opt mapping")
 }
 
+func TestBuildOutboundRejectsNegativePositionalMapping(t *testing.T) {
+	handler := &DubboHandler{}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.demo.UserService",
+			Method:    "SayHello",
+		},
+		MappingParams: []config.MappingParam{
+			{Name: "queryStrings.name", MapTo: "-1"},
+		},
+	}, "/users/:id")
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		"http://example.com/users/42?name=alice",
+		bytes.NewBufferString(`{}`),
+	)
+	require.NoError(t, err)
+
+	outbound, err := handler.BuildOutbound(req, api)
+	assert.Nil(t, outbound)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Parameter mapping")
+	assert.Contains(t, err.Error(), "incorrect")
+}
+
 func TestBuildOutboundRejectsProtocolSchemeMismatch(t *testing.T) {
 	handler := &DubboHandler{}
 	api := newTestAPI(config.IntegrationRequest{
@@ -325,6 +352,37 @@ func TestBuildOutboundRejectsDirectURLWithoutSerialization(t *testing.T) {
 	assert.Nil(t, outbound)
 	require.Error(t, err)
 	assert.EqualError(t, err, "direct generic invoke requires serialization")
+}
+
+func TestBuildOutboundRejectsDirectURLWithoutParameterTypes(t *testing.T) {
+	handler := &DubboHandler{}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: constant.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface:     "com.demo.UserService",
+			Method:        "SayHello",
+			Serialization: "hessian2",
+		},
+		HTTPBackendConfig: config.HTTPBackendConfig{
+			URL: "dubbo://127.0.0.1:20880",
+		},
+		MappingParams: []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+			{Name: "requestBody.types", MapTo: "opt.types"},
+		},
+	}, "/users/:id")
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		"http://example.com/users/42",
+		bytes.NewBufferString(`{"values":["alice"],"types":"java.lang.String"}`),
+	)
+	require.NoError(t, err)
+
+	outbound, err := handler.BuildOutbound(req, api)
+	assert.Nil(t, outbound)
+	require.Error(t, err)
+	assert.EqualError(t, err, "direct generic invoke requires parameterTypes")
 }
 
 func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
@@ -385,6 +443,30 @@ func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
 		outbound, err := handler.BuildOutbound(req, api)
 		require.NoError(t, err)
 		assert.Equal(t, "dubbo", outbound.Protocol)
+	})
+
+	t.Run("direct url scheme wins when protocol empty", func(t *testing.T) {
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: constant.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface:      "com.demo.UserService",
+				Method:         "SayHello",
+				ParameterTypes: []string{},
+				Serialization:  "hessian2",
+			},
+			HTTPBackendConfig: config.HTTPBackendConfig{
+				URL: "tri://127.0.0.1:50051",
+			},
+		}, "/users/:id")
+
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(`{}`))
+		require.NoError(t, err)
+
+		outbound, err := handler.BuildOutbound(req, api)
+		require.NoError(t, err)
+		assert.Equal(t, "tri", outbound.Protocol)
+		assert.Empty(t, outbound.Arguments)
+		assert.Empty(t, outbound.ParamTypes)
 	})
 }
 
