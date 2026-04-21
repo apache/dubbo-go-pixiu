@@ -44,7 +44,6 @@ func (s StandardDubboResolver) Resolve(ctx *contexthttp.HttpContext) (*router.AP
 	mappingParams := []config.MappingParam{
 		{Name: "requestBody.values", MapTo: "opt.values"},
 		{Name: "requestBody.types", MapTo: "opt.types"},
-		{Name: "uri.application", MapTo: "opt.application"},
 		{Name: "uri.interface", MapTo: "opt.interface"},
 		{Name: "uri.method", MapTo: "opt.method"},
 	}

@@ -30,9 +30,6 @@ var defaultMappingParams = []config.MappingParam{
 		Name:  "requestBody.types",
 		MapTo: "opt.types",
 	}, {
-		Name:  "uri.application",
-		MapTo: "opt.application",
-	}, {
 		Name:  "uri.interface",
 		MapTo: "opt.interface",
 	}, {
