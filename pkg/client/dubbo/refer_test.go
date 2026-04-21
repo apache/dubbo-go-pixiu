@@ -145,7 +145,7 @@ func TestCallDirectUsesConfiguredParameterTypesInsteadOfMappedTypes(t *testing.T
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 	assert.True(t, cached)
@@ -193,7 +193,7 @@ func TestCallAutoResolveSnapshotUsesMappedFields(t *testing.T) {
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "resolved", res)
 	assert.Equal(t, demoAppName, req.API.ApplicationName)
@@ -486,7 +486,7 @@ func TestCallWithZeroTimeoutDoesNotCreateImmediateDeadline(t *testing.T) {
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 	assert.False(t, sawDeadline)
@@ -521,7 +521,7 @@ func TestCallWithTimeoutCreatesPerCallDeadline(t *testing.T) {
 	})
 
 	start := time.Now()
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 	assert.False(t, deadline.IsZero())
@@ -592,7 +592,7 @@ func TestCallFlattensAttachmentsIntoMapAny(t *testing.T) {
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 }
@@ -628,7 +628,7 @@ func TestCallPreservesStringMapAttachments(t *testing.T) {
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 }
@@ -649,8 +649,9 @@ func TestCallDirectRejectsMissingSerialization(t *testing.T) {
 			{Name: requestBodyValuesSource, MapTo: optValuesTarget},
 		},
 	)
+	_ = req
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	assert.Nil(t, res)
 	assert.EqualError(t, err, "direct generic invoke requires serialization")
 }
@@ -672,8 +673,9 @@ func TestCallDirectRejectsMissingParameterTypes(t *testing.T) {
 			{Name: requestBodyTypesSource, MapTo: optTypesTarget},
 		},
 	)
+	_ = req
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	assert.Nil(t, res)
 	assert.EqualError(t, err, "direct generic invoke requires parameterTypes")
 }
@@ -704,7 +706,7 @@ func TestCallDirectConvertsMappedValuesUsingConfiguredParameterTypes(t *testing.
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 }
@@ -737,7 +739,7 @@ func TestCallDirectPassesThroughComplexDeclaredTypes(t *testing.T) {
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
 }
@@ -767,7 +769,7 @@ func TestCallDirectSupportsExplicitZeroParameterMethod(t *testing.T) {
 		},
 	})
 
-	res, err := dc.Call(req)
+	res, err := dc.Call(context.Background(), &DubboOutboundRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "pong", res)
 }

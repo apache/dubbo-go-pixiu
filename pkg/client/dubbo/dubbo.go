@@ -41,7 +41,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 )
 
@@ -213,77 +212,9 @@ func (dc *Client) Close() error {
 	return nil
 }
 
-// Call invoke service
-func (dc *Client) Call(req *client.Request) (res any, err error) {
-	// if GET with no args, values would be nil
-	values, err := dc.genericArgs(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var target *dubboTarget
-	if values != nil {
-		var ok bool
-		target, ok = values.(*dubboTarget)
-		if !ok {
-			return nil, errors.New("map parameters failed")
-		}
-	}
-
-	spec, err := dc.resolveReferSpec(req.API.IntegrationRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	dm := req.API.IntegrationRequest
-	method := dm.Method
-
-	var (
-		types       []string
-		vals        []hessian.Object
-		finalValues []byte
-	)
-	if spec.Mode == "direct" {
-		types, vals, finalValues, err = resolveDirectInvokePayload(dm, target)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		types, vals, finalValues = prepareInvokePayload(method, target)
-	}
-
-	gs, err := dc.Get(spec)
-	if err != nil {
-		return nil, err
-	}
-	if gs == nil {
-		return nil, errors.New("dubbo generic service is nil")
-	}
-
-	invokeCtx, cancel := prepareInvokeContext(req.Context, req.Timeout)
-	if cancel != nil {
-		defer cancel()
-	}
-
-	tr := otel.Tracer(traceNameDubbogoClient)
-	ctx, span := tr.Start(invokeCtx, spanNameDubbogoClient)
-	span.SetAttributes(attribute.Key(spanTagMethod).String(method))
-	span.SetAttributes(attribute.Key(spanTagType).StringSlice(types))
-	span.SetAttributes(attribute.Key(spanTagValues).String(string(finalValues)))
-	defer span.End()
-
-	ctxWithAttachment := withAttachments(ctx)
-
-	rst, err := gs.Invoke(ctxWithAttachment, method, types, vals)
-	if err != nil {
-		// TODO statusCode I don’t know what dubbo will return when it times out, so I will return it directly. I will judge it when I call it.
-		span.RecordError(err)
-		return nil, err
-	}
-
-	logger.Debugf("[dubbo-go-pixiu] dubbo client resp:%v", rst)
-
-	return rst, nil
+// Call invoke service.
+func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, error) {
+	return nil, errors.New("not implemented")
 }
 
 func prepareInvokePayload(method string, target *dubboTarget) ([]string, []hessian.Object, []byte) {
