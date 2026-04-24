@@ -30,14 +30,14 @@ import (
 )
 
 var javaWrapperTypeAliases = map[string]string{
-	"java.lang.Boolean":   "boolean",
-	"java.lang.Byte":      "byte",
-	"java.lang.Character": "char",
-	"java.lang.Double":    "double",
-	"java.lang.Float":     "float",
-	"java.lang.Integer":   "int",
-	"java.lang.Long":      "long",
-	"java.lang.Short":     "short",
+	cst.JavaLangBooleanClassName: cst.JavaPrimitiveBoolean,
+	cst.JavaLangByteClassName:    cst.JavaPrimitiveByte,
+	cst.JavaLangCharClassName:    cst.JavaPrimitiveChar,
+	cst.JavaLangDoubleClassName:  cst.JavaPrimitiveDouble,
+	cst.JavaLangFloatClassName:   cst.JavaPrimitiveFloat,
+	cst.JavaLangIntegerClassName: cst.JavaPrimitiveInt,
+	cst.JavaLangLongClassName:    cst.JavaPrimitiveLong,
+	cst.JavaLangShortClassName:   cst.JavaPrimitiveShort,
 }
 
 // MapTypes converts a declared java type into a Go value using the dubbo mapper.
@@ -141,23 +141,23 @@ func InferJavaClassNames(values []any) []string {
 	for i, val := range values {
 		switch val.(type) {
 		case string:
-			types[i] = JavaStringClassName
+			types[i] = cst.JavaLangStringClassName
 		case bool:
-			types[i] = "java.lang.Boolean"
+			types[i] = cst.JavaLangBooleanClassName
 		case float32:
-			types[i] = "java.lang.Float"
+			types[i] = cst.JavaLangFloatClassName
 		case float64:
-			types[i] = "java.lang.Double"
+			types[i] = cst.JavaLangDoubleClassName
 		case int16:
-			types[i] = "java.lang.Short"
+			types[i] = cst.JavaLangShortClassName
 		case int32:
-			types[i] = "java.lang.Integer"
+			types[i] = cst.JavaLangIntegerClassName
 		case int, int8, int64:
-			types[i] = JavaLangClassName
+			types[i] = cst.JavaLangLongClassName
 		case uint, uint8, uint16, uint32, uint64:
-			types[i] = JavaLangClassName
+			types[i] = cst.JavaLangLongClassName
 		default:
-			types[i] = "java.lang.Object"
+			types[i] = cst.JavaLangObjectClassName
 		}
 	}
 	return types

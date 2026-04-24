@@ -50,11 +50,6 @@ import (
 )
 
 const (
-	JavaStringClassName = "java.lang.String"
-	JavaLangClassName   = "java.lang.Long"
-)
-
-const (
 	defaultDubboProtocol = "zookeeper"
 
 	traceNameDubbogoClient = "dubbogo-client"

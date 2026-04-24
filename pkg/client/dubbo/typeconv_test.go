@@ -22,6 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 func TestMapTypesStringToInt(t *testing.T) {
@@ -91,12 +93,12 @@ func TestInferJavaClassNames(t *testing.T) {
 		map[string]any{"k": "v"},
 	})
 	assert.Equal(t, []string{
-		"java.lang.String",
-		"java.lang.Boolean",
-		"java.lang.Float",
-		"java.lang.Double",
-		"java.lang.Short",
-		"java.lang.Integer",
-		"java.lang.Object",
+		cst.JavaLangStringClassName,
+		cst.JavaLangBooleanClassName,
+		cst.JavaLangFloatClassName,
+		cst.JavaLangDoubleClassName,
+		cst.JavaLangShortClassName,
+		cst.JavaLangIntegerClassName,
+		cst.JavaLangObjectClassName,
 	}, val)
 }
