@@ -105,6 +105,38 @@ func TestClusterManager_PickEndpointAllUnhealthyReturnsNil(t *testing.T) {
 	assert.Nil(t, cm.PickEndpoint("all-unhealthy", nil))
 }
 
+func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh(t *testing.T) {
+	cluster := testCluster("refresh-round-robin", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19200),
+		testEndpoint("ep-2", "127.0.0.1", 19201),
+		testEndpoint("ep-3", "127.0.0.1", 19202),
+	})
+	cm := testClusterManager(cluster)
+
+	const expectedCursor uint32 = 5
+	cm.store.Config[0].PrePickEndpointIndex = expectedCursor
+
+	oldStore, err := cm.CloneStore()
+	if !assert.NoError(t, err) {
+		return
+	}
+	newStore := cm.NewStore(oldStore.Version)
+	for _, endpoint := range oldStore.Config[0].Endpoints {
+		copied := *endpoint
+		newStore.SetEndpoint(cluster.Name, &copied)
+	}
+
+	assert.True(t, cm.CompareAndSetStore(newStore))
+	if assert.Len(t, cm.store.Config, 1) {
+		assert.Equal(t, expectedCursor, cm.store.Config[0].PrePickEndpointIndex)
+	}
+
+	endpoint := cm.PickEndpoint(cluster.Name, nil)
+	if assert.NotNil(t, endpoint) {
+		assert.Equal(t, "ep-3", endpoint.ID)
+	}
+}
+
 func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
 	cluster := testCluster("race-round-robin", model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-1", "127.0.0.1", 19100),

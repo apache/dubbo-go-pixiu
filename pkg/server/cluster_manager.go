@@ -151,6 +151,7 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 		return false
 	}
 
+	store.carryOverRuntimeStateFrom(cm.store)
 	cm.store = store
 	return true
 }
@@ -385,4 +386,27 @@ func (s *ClusterStore) HasCluster(clusterName string) bool {
 
 func (s *ClusterStore) IncreaseVersion() {
 	atomic.AddInt32(&s.Version, 1)
+}
+
+func (s *ClusterStore) carryOverRuntimeStateFrom(old *ClusterStore) {
+	if s == nil || old == nil {
+		return
+	}
+
+	oldConfigsByName := make(map[string]*model.ClusterConfig, len(old.Config))
+	for _, clusterConfig := range old.Config {
+		if clusterConfig != nil {
+			oldConfigsByName[clusterConfig.Name] = clusterConfig
+		}
+	}
+
+	// Preserve runtime-only load-balancer state when a rebuilt store is swapped in.
+	for _, clusterConfig := range s.Config {
+		if clusterConfig == nil {
+			continue
+		}
+		if oldConfig := oldConfigsByName[clusterConfig.Name]; oldConfig != nil {
+			clusterConfig.PrePickEndpointIndex = oldConfig.PrePickEndpointIndex
+		}
+	}
 }
