@@ -56,8 +56,6 @@ type DubboProxyConfig struct {
 	Registries map[string]model.Registry `yaml:"registries" json:"registries"`
 	// Timeout
 	Timeout *model.TimeoutConfig `yaml:"timeout_config" json:"timeout_config"`
-	// AutoResolve whether to resolve api config from request
-	AutoResolve bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
 	// Protoset path to load protoset files
 	Protoset []string `yaml:"protoset" json:"protoset,omitempty"`
 	// Load balance

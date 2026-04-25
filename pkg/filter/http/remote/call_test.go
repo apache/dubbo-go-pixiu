@@ -70,18 +70,10 @@ func TestMatchClientRoutesHTTPToHTTPClient(t *testing.T) {
 }
 
 func TestDecodeRoutesDubboAndTripleThroughOutboundClient(t *testing.T) {
-	originalSingletonDubboClient := singletonDubboClient
-	t.Cleanup(func() {
-		singletonDubboClient = originalSingletonDubboClient
-	})
-
 	for _, requestType := range []string{constant.DubboRequest, "triple"} {
 		t.Run(requestType, func(t *testing.T) {
 			resp := map[string]string{"ok": requestType}
 			recorder := &recordingDubboClient{res: resp}
-			singletonDubboClient = func() dubbo.DubboClient {
-				return recorder
-			}
 
 			req := httptest.NewRequest(http.MethodPost, "http://example.com/users/42?name=alice", nil)
 			ctx := &contexthttp.HttpContext{
@@ -106,8 +98,11 @@ func TestDecodeRoutesDubboAndTripleThroughOutboundClient(t *testing.T) {
 				},
 			})
 
-			filter := &Filter{conf: filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
-			status := filter.Decode(ctx)
+			f := &Filter{
+				conf:        filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}},
+				dubboClient: recorder,
+			}
+			status := f.Decode(ctx)
 
 			require.Equal(t, extfilter.Continue, status)
 			assert.Equal(t, resp, ctx.SourceResp)
@@ -130,15 +125,7 @@ func TestMatchClientRejectsUnknownRequestType(t *testing.T) {
 }
 
 func TestDecodeStopsWithLocalReplyWhenBuildOutboundFails(t *testing.T) {
-	originalSingletonDubboClient := singletonDubboClient
-	t.Cleanup(func() {
-		singletonDubboClient = originalSingletonDubboClient
-	})
-
 	recorder := &recordingDubboClient{res: "should not be called"}
-	singletonDubboClient = func() dubbo.DubboClient {
-		return recorder
-	}
 
 	writer := httptest.NewRecorder()
 	ctx := &contexthttp.HttpContext{
@@ -163,8 +150,11 @@ func TestDecodeStopsWithLocalReplyWhenBuildOutboundFails(t *testing.T) {
 		},
 	})
 
-	filter := &Filter{conf: filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}}}
-	status := filter.Decode(ctx)
+	f := &Filter{
+		conf:        filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}},
+		dubboClient: recorder,
+	}
+	status := f.Decode(ctx)
 
 	assert.Equal(t, extfilter.Stop, status)
 	assert.Nil(t, recorder.req)

@@ -17,7 +17,11 @@
 
 package client
 
-// Client represents the interface of http/dubbo clients
+// Client represents the interface of http clients.
+//
+// TODO: This interface is currently only used by the HTTP client path in the remote filter.
+// Once the HTTP client is refactored to use a protocol-specific model (similar to DubboClient),
+// this interface and pkg/client/request.go can be removed.
 type Client interface {
 	// Apply to init client
 	Apply() error
@@ -31,11 +35,6 @@ type Client interface {
 	// MapParams mapping param, uri, query, body ...
 	MapParams(req *Request) (reqData any, err error)
 }
-
-/**
- * the following option is designed to support dubbo pixiu model. you can see
- * https://github.com/apache/dubbo-go-pixiu/pixiu/tree/master.
- */
 
 // MapOption option map, key : name, value : option
 type MapOption map[string]RequestOption
