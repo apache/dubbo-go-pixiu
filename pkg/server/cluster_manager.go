@@ -406,7 +406,10 @@ func (s *ClusterStore) carryOverRuntimeStateFrom(old *ClusterStore) {
 			continue
 		}
 		if oldConfig := oldConfigsByName[clusterConfig.Name]; oldConfig != nil {
-			clusterConfig.PrePickEndpointIndex = oldConfig.PrePickEndpointIndex
+			atomic.StoreUint32(
+				&clusterConfig.PrePickEndpointIndex,
+				atomic.LoadUint32(&oldConfig.PrePickEndpointIndex),
+			)
 		}
 	}
 }

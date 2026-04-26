@@ -20,6 +20,7 @@ package server
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -114,7 +115,7 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 	cm := testClusterManager(cluster)
 
 	const expectedCursor uint32 = 5
-	cm.store.Config[0].PrePickEndpointIndex = expectedCursor
+	atomic.StoreUint32(&cm.store.Config[0].PrePickEndpointIndex, expectedCursor)
 
 	oldStore, err := cm.CloneStore()
 	if !assert.NoError(t, err) {
@@ -128,7 +129,7 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 
 	assert.True(t, cm.CompareAndSetStore(newStore))
 	if assert.Len(t, cm.store.Config, 1) {
-		assert.Equal(t, expectedCursor, cm.store.Config[0].PrePickEndpointIndex)
+		assert.Equal(t, expectedCursor, atomic.LoadUint32(&cm.store.Config[0].PrePickEndpointIndex))
 	}
 
 	endpoint := cm.PickEndpoint(cluster.Name, nil)
