@@ -19,10 +19,14 @@ package dubbo
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
 
+import (
 	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 

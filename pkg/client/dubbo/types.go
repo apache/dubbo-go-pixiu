@@ -20,7 +20,9 @@ package dubbo
 import (
 	"context"
 	"time"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -52,6 +54,9 @@ type DubboOutboundRequest struct {
 
 // DubboProxyConfig the config for dubbo proxy
 type DubboProxyConfig struct {
+	// Deprecated: AutoResolve is no longer supported. Remove auto_resolve from your
+	// dubboProxyConfig and configure integrationRequest explicitly in the API definition.
+	AutoResolve *bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
 	// Registries such as zk,nacos or etcd
 	Registries map[string]model.Registry `yaml:"registries" json:"registries"`
 	// Timeout

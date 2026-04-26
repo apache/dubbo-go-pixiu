@@ -101,7 +101,7 @@ func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboB
 	case string(constant.DubboRequest):
 		requestType = constant.DubboRequest
 	case "tri":
-		requestType = "triple"
+		requestType = constant.TripleRequest
 	default:
 		requestType = constant.DubboRequest
 	}

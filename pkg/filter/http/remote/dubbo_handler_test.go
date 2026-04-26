@@ -409,7 +409,7 @@ func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
 
 	t.Run("request type wins when protocol empty", func(t *testing.T) {
 		api := newTestAPI(config.IntegrationRequest{
-			RequestType: "triple",
+			RequestType: cst.TripleRequest,
 			DubboBackendConfig: config.DubboBackendConfig{
 				Interface: "com.demo.UserService",
 				Method:    "SayHello",

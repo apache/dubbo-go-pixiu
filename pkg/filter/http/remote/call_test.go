@@ -70,7 +70,7 @@ func TestMatchClientRoutesHTTPToHTTPClient(t *testing.T) {
 }
 
 func TestDecodeRoutesDubboAndTripleThroughOutboundClient(t *testing.T) {
-	for _, requestType := range []string{constant.DubboRequest, "triple"} {
+	for _, requestType := range []string{constant.DubboRequest, constant.TripleRequest} {
 		t.Run(requestType, func(t *testing.T) {
 			resp := map[string]string{"ok": requestType}
 			recorder := &recordingDubboClient{res: resp}
@@ -182,4 +182,18 @@ func TestFilterFactoryApplyOnlyInitializesDubboClient(t *testing.T) {
 
 	require.NoError(t, factory.Apply())
 	assert.Equal(t, 1, dubboInitCalls)
+}
+
+func TestFilterFactoryApplyRejectsDeprecatedAutoResolve(t *testing.T) {
+	trueVal := true
+	factory := &FilterFactory{
+		conf: &filterConfig{
+			DubboProxyConfig: &dubbo.DubboProxyConfig{
+				AutoResolve: &trueVal,
+			},
+		},
+	}
+	err := factory.Apply()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "auto_resolve is no longer supported")
 }

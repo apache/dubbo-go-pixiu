@@ -105,6 +105,8 @@ const (
 	DubboRequest = "dubbo"
 	// HTTPRequest represents the http request
 	HTTPRequest = "http"
+	// TripleRequest represents the triple request
+	TripleRequest = "triple"
 	// GRPCRequest represents the grpc request
 	GRPCRequest = "grpc"
 )

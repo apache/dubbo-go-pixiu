@@ -109,6 +109,9 @@ func (factory *FilterFactory) Apply() error {
 	if factory.conf.DubboProxyConfig == nil {
 		return errors.New("expect the dubboProxyConfig config the registries")
 	}
+	if factory.conf.DubboProxyConfig.AutoResolve != nil {
+		return errors.New("dubboProxyConfig.auto_resolve is no longer supported; remove it and configure integrationRequest explicitly in the API definition")
+	}
 	initDubboClient(factory.conf.DubboProxyConfig)
 	return nil
 }
@@ -132,7 +135,7 @@ func (f *Filter) Decode(c *contexthttp.HttpContext) filter.FilterStatus {
 
 	typ := api.IntegrationRequest.RequestType
 	switch strings.ToLower(typ) {
-	case constant.DubboRequest, "triple":
+	case constant.DubboRequest, constant.TripleRequest:
 		return f.callDubbo(c, *api)
 	case constant.HTTPRequest:
 		return f.callHTTP(c, *api)
