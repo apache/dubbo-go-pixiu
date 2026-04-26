@@ -164,6 +164,7 @@ func (f *Filter) callHTTP(c *contexthttp.HttpContext, api router.API) filter.Fil
 }
 
 func (f *Filter) callDubbo(c *contexthttp.HttpContext, api router.API) filter.FilterStatus {
+	// BuildOutbound keeps HTTP mapping details out of the Dubbo client.
 	outbound, err := (&DubboHandler{}).BuildOutbound(c.Request, api)
 	if err != nil {
 		return f.handleClientError(c, err)

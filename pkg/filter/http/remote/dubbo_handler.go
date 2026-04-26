@@ -65,6 +65,7 @@ func (h *DubboHandler) BuildOutbound(req *http.Request, api router.API) (*client
 		return nil, err
 	}
 
+	// First map HTTP sources into invocation state, then validate direct mode and types.
 	for _, mp := range api.IntegrationRequest.MappingParams {
 		if err := h.applyMapping(state, req, api, mp); err != nil {
 			return nil, err
@@ -98,6 +99,7 @@ func (h *DubboHandler) newState(req *http.Request, api router.API) (*outboundBui
 		if err != nil {
 			return nil, err
 		}
+		// Put the body back because this handler only inspects it while building outbound args.
 		req.Body = io.NopCloser(bytes.NewReader(rawBody))
 		if len(bytes.TrimSpace(rawBody)) > 0 {
 			if err := json.Unmarshal(rawBody, &body); err != nil {
@@ -134,6 +136,7 @@ func (h *DubboHandler) applyMapping(state *outboundBuildState, req *http.Request
 		return err
 	}
 
+	// opt.* rewrites invoke metadata; numeric MapTo fills positional arguments.
 	if strings.HasPrefix(mp.MapTo, "opt.") {
 		return h.applyOptMapping(state, mp.MapTo, value, mp.MapType)
 	}
@@ -370,6 +373,7 @@ func (h *DubboHandler) finalizeDirectAddress(state *outboundBuildState, ir confi
 		return errors.New("direct generic invoke requires serialization")
 	}
 
+	// Direct URLs bypass registry lookup and must match the declared protocol.
 	u, err := url.Parse(strings.TrimSpace(ir.URL))
 	if err != nil {
 		return err
@@ -397,6 +401,7 @@ func (h *DubboHandler) finalizeArgumentsAndTypes(state *outboundBuildState, ir c
 		state.arguments = append([]any(nil), state.optValues...)
 	}
 
+	// Generic invoke requires values and Java parameter types to stay aligned.
 	if strings.TrimSpace(ir.URL) != "" && ir.ParameterTypes == nil {
 		return errors.New("direct generic invoke requires parameterTypes")
 	}
@@ -409,6 +414,7 @@ func (h *DubboHandler) finalizeArgumentsAndTypes(state *outboundBuildState, ir c
 		return h.coerceDeclaredArguments(state)
 	}
 
+	// Registry mode keeps the historical behavior of inferring omitted Java types.
 	inferred := clientdubbo.InferJavaClassNames(state.arguments)
 	if len(inferred) < len(state.arguments) {
 		inferred = append(inferred, make([]string, len(state.arguments)-len(inferred))...)

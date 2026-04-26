@@ -395,6 +395,7 @@ func (spec resolvedReferSpec) cacheKey() (string, error) {
 }
 
 func (spec resolvedReferSpec) genericServiceKey() genericServiceKey {
+	// Cache key includes all fields that affect reference creation.
 	registryIDs := append([]string(nil), spec.RegistryIDs...)
 	sort.Strings(registryIDs)
 	return genericServiceKey{
@@ -447,6 +448,7 @@ func (dc *Client) create(spec resolvedReferSpec) (*generic.GenericService, error
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
 
+	// Another request may have built the same GenericService while this one prepared options.
 	if service, ok := dc.GenericServicePool[key]; ok {
 		return service, nil
 	}
@@ -485,6 +487,7 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 		opts = append(opts, dclient.WithVersion(spec.Version))
 	}
 
+	// Mode selects either registry discovery or a direct provider URL.
 	opts = appendModeReferenceOptions(opts, spec)
 	opts = append(opts, clusterReferenceOption(defaults.Cluster))
 	opts = append(opts, protocolReferenceOption(spec.EffectiveProtocol))
@@ -601,6 +604,7 @@ func withAttachments(ctx context.Context) context.Context {
 	}
 
 	carrier := propagation.MapCarrier{}
+	// Carry tracing headers as Dubbo attachments for the upstream invocation.
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	for key, val := range carrier {
 		attachments[key] = val
