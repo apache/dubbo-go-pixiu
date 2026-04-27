@@ -147,6 +147,7 @@ func ParseDubboString(urlString string) (config.DubboBackendConfig, []string, st
 		Group:           url.GetParam(constant.GroupKey, ""),
 		Interface:       url.GetParam(constant.InterfaceKey, ""),
 		Retries:         url.GetParam(constant.RetriesKey, ""),
+		Serialization:   url.GetParam(constant.SerializationKey, ""),
 	}, strings.Split(url.GetParam(constant.MethodsKey, ""), constant.StringSeparator), url.Location, nil
 }
 

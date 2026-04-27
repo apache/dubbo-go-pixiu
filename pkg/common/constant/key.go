@@ -85,13 +85,14 @@ const (
 )
 
 const (
-	ApplicationKey = "application"
-	AppVersionKey  = "app.version"
-	ClusterKey     = "cluster"
-	GroupKey       = "group"
-	VersionKey     = "version"
-	InterfaceKey   = "interface"
-	MethodsKey     = "methods"
+	ApplicationKey   = "application"
+	AppVersionKey    = "app.version"
+	ClusterKey       = "cluster"
+	GroupKey         = "group"
+	VersionKey       = "version"
+	InterfaceKey     = "interface"
+	MethodsKey       = "methods"
+	SerializationKey = "serialization"
 	// NameKey name of interface
 	NameKey = "name"
 	// RetriesKey retry times
