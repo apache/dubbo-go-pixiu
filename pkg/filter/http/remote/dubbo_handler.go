@@ -366,20 +366,29 @@ func (h *DubboHandler) normalizeOptValues(value any) ([]any, error) {
 }
 
 func (h *DubboHandler) finalizeDirectAddress(state *outboundBuildState, ir config.IntegrationRequest) error {
-	if strings.TrimSpace(ir.URL) == "" {
+	rawURL := strings.TrimSpace(ir.URL)
+	if rawURL == "" {
 		return nil
 	}
 	if state.serialization == "" {
 		return errors.New("direct generic invoke requires serialization")
 	}
 
+	if !strings.Contains(rawURL, "://") {
+		if state.protocol == "" {
+			return errors.New("direct generic invoke requires protocol")
+		}
+		state.address = rawURL
+		return nil
+	}
+
 	// Direct URLs bypass registry lookup and must match the declared protocol.
-	u, err := url.Parse(strings.TrimSpace(ir.URL))
+	u, err := url.Parse(rawURL)
 	if err != nil {
 		return err
 	}
 
-	directProtocol, err := clientdubbo.DirectURLProtocol(ir.URL)
+	directProtocol, err := clientdubbo.DirectURLProtocol(rawURL)
 	if err != nil {
 		return err
 	}
@@ -402,9 +411,6 @@ func (h *DubboHandler) finalizeArgumentsAndTypes(state *outboundBuildState, ir c
 	}
 
 	// Generic invoke requires values and Java parameter types to stay aligned.
-	if strings.TrimSpace(ir.URL) != "" && ir.ParameterTypes == nil {
-		return errors.New("direct generic invoke requires parameterTypes")
-	}
 	if ir.ParameterTypes != nil {
 		state.paramTypes = append([]string(nil), ir.ParameterTypes...)
 		return h.coerceDeclaredArguments(state)
@@ -412,6 +418,9 @@ func (h *DubboHandler) finalizeArgumentsAndTypes(state *outboundBuildState, ir c
 	if state.optTypes != nil {
 		state.paramTypes = append([]string(nil), state.optTypes...)
 		return h.coerceDeclaredArguments(state)
+	}
+	if strings.TrimSpace(ir.URL) != "" {
+		return errors.New("direct generic invoke requires parameterTypes")
 	}
 
 	// Registry mode keeps the historical behavior of inferring omitted Java types.

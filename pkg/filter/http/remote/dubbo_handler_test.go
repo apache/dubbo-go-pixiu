@@ -367,14 +367,13 @@ func TestBuildOutboundRejectsDirectURLWithoutParameterTypes(t *testing.T) {
 		},
 		MappingParams: []config.MappingParam{
 			{Name: "requestBody.values", MapTo: "opt.values"},
-			{Name: "requestBody.types", MapTo: "opt.types"},
 		},
 	}, "/users/:id")
 
 	req, err := http.NewRequest(
 		http.MethodPost,
 		"http://example.com/users/42",
-		bytes.NewBufferString(`{"values":["alice"],"types":"java.lang.String"}`),
+		bytes.NewBufferString(`{"values":["alice"]}`),
 	)
 	require.NoError(t, err)
 
@@ -466,6 +465,63 @@ func TestBuildOutboundResolvesProtocolPriority(t *testing.T) {
 		assert.Equal(t, "tri", outbound.Protocol)
 		assert.Empty(t, outbound.Arguments)
 		assert.Empty(t, outbound.ParamTypes)
+	})
+
+	t.Run("direct host address uses declared protocol", func(t *testing.T) {
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: cst.TripleRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface:      "com.demo.UserService",
+				Method:         "SayHello",
+				Protocol:       "tri",
+				Serialization:  "protobuf",
+				ParameterTypes: []string{},
+			},
+			HTTPBackendConfig: config.HTTPBackendConfig{
+				URL: "127.0.0.1:50051",
+			},
+		}, "/users/:id")
+
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(`{}`))
+		require.NoError(t, err)
+
+		outbound, err := handler.BuildOutbound(req, api)
+		require.NoError(t, err)
+		assert.Equal(t, "tri", outbound.Protocol)
+		assert.Equal(t, "127.0.0.1:50051", outbound.Address)
+	})
+
+	t.Run("direct host address accepts opt types", func(t *testing.T) {
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: cst.TripleRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface:     "com.demo.UserService",
+				Method:        "SayHello",
+				Protocol:      "tri",
+				Serialization: "protobuf",
+			},
+			HTTPBackendConfig: config.HTTPBackendConfig{
+				URL: "127.0.0.1:50051",
+			},
+			MappingParams: []config.MappingParam{
+				{Name: "requestBody.values", MapTo: "opt.values"},
+				{Name: "requestBody.types", MapTo: "opt.types"},
+			},
+		}, "/users/:id")
+
+		req, err := http.NewRequest(
+			http.MethodPost,
+			"http://example.com/users/42",
+			bytes.NewBufferString(`{"values":[{"name":"test"}],"types":["org.apache.dubbogo.samples.api.HelloRequest"]}`),
+		)
+		require.NoError(t, err)
+
+		outbound, err := handler.BuildOutbound(req, api)
+		require.NoError(t, err)
+		assert.Equal(t, "tri", outbound.Protocol)
+		assert.Equal(t, "127.0.0.1:50051", outbound.Address)
+		assert.Equal(t, []string{"org.apache.dubbogo.samples.api.HelloRequest"}, outbound.ParamTypes)
+		assert.Equal(t, []any{map[string]any{"name": "test"}}, outbound.Arguments)
 	})
 }
 

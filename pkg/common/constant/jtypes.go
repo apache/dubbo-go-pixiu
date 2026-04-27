@@ -55,17 +55,17 @@ const (
 
 // JTypeMapper maps the java basic types to golang types
 var JTypeMapper = map[string]reflect.Type{
-	JavaPrimitiveString:  reflect.TypeOf(""),
+	JavaPrimitiveString:     reflect.TypeOf(""),
 	JavaLangStringClassName: reflect.TypeOf(""),
-	JavaPrimitiveChar:    reflect.TypeOf(""),
-	JavaPrimitiveShort:   reflect.TypeOf(int16(0)),
-	JavaPrimitiveInt:     reflect.TypeOf(int(0)),
-	JavaPrimitiveLong:    reflect.TypeOf(int64(0)),
-	JavaPrimitiveFloat:   reflect.TypeOf(float32(0)),
-	JavaPrimitiveDouble:  reflect.TypeOf(float64(0)),
-	JavaPrimitiveBoolean: reflect.TypeOf(true),
-	JavaUtilDateClassName: reflect.TypeOf(time.Time{}),
-	JavaPrimitiveDate:    reflect.TypeOf(time.Time{}),
-	JavaPrimitiveObject:  reflect.TypeOf([]Object{}).Elem(),
+	JavaPrimitiveChar:       reflect.TypeOf(""),
+	JavaPrimitiveShort:      reflect.TypeOf(int16(0)),
+	JavaPrimitiveInt:        reflect.TypeOf(int(0)),
+	JavaPrimitiveLong:       reflect.TypeOf(int64(0)),
+	JavaPrimitiveFloat:      reflect.TypeOf(float32(0)),
+	JavaPrimitiveDouble:     reflect.TypeOf(float64(0)),
+	JavaPrimitiveBoolean:    reflect.TypeOf(true),
+	JavaUtilDateClassName:   reflect.TypeOf(time.Time{}),
+	JavaPrimitiveDate:       reflect.TypeOf(time.Time{}),
+	JavaPrimitiveObject:     reflect.TypeOf([]Object{}).Elem(),
 	JavaLangObjectClassName: reflect.TypeOf([]Object{}).Elem(),
 }
