@@ -216,8 +216,13 @@ func (c *EndpointChecker) Start() {
 		if r := recover(); r != nil {
 			logger.Warnf("[health check] node checker panic %v\n%s", r, string(debug.Stack()))
 		}
-		c.checkTimer.Stop()
-		c.checkTimeout.Stop()
+		// Early Stop may run before timers are assigned.
+		if c.checkTimer != nil {
+			c.checkTimer.Stop()
+		}
+		if c.checkTimeout != nil {
+			c.checkTimeout.Stop()
+		}
 	}()
 	c.checkTimer = gxtime.AfterFunc(c.HealthChecker.initialDelay, c.OnCheck)
 	for {
