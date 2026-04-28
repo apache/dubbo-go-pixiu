@@ -84,7 +84,7 @@ func (f *FilterFactory) Config() any   { return f.cfg }
 func (f *FilterFactory) Apply() error  { return nil }
 
 func (f *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	inst := &Filter{cfg: *f.cfg}
+	inst := &Filter{cfg: f.cfg.DeepCopy()}
 	chain.AppendDecodeFilters(inst)
 	return nil
 }
@@ -99,7 +99,7 @@ import (
 )
 
 type Filter struct {
-	cfg Config
+	cfg *Config
 }
 
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
@@ -115,6 +115,16 @@ package ${PKG}
 type Config struct {
 	// TODO: add yaml-tagged fields, e.g.:
 	// Enabled bool \`yaml:"enabled" json:"enabled" mapstructure:"enabled"\`
+}
+
+// DeepCopy returns an independent per-request copy of Config.
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+	cp := *c
+	// TODO: explicitly clone any slices/maps/pointers added to Config.
+	return &cp
 }
 EOF
 
@@ -138,7 +148,7 @@ func init() {
 type (
 	Plugin        struct{}
 	FilterFactory struct{ cfg *Config }
-	Filter        struct{ cfg Config }
+	Filter        struct{ cfg *Config }
 	Config        struct {
 		// TODO: add yaml-tagged fields.
 	}
@@ -152,7 +162,7 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 func (f *FilterFactory) Config() any  { return f.cfg }
 func (f *FilterFactory) Apply() error { return nil }
 func (f *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
-	inst := &Filter{cfg: *f.cfg}
+	inst := &Filter{cfg: f.cfg.DeepCopy()}
 	chain.AppendDecodeFilters(inst)
 	return nil
 }
@@ -160,6 +170,16 @@ func (f *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.F
 func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 	// TODO: implement.
 	return filter.Continue
+}
+
+// DeepCopy returns an independent per-request copy of Config.
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+	cp := *c
+	// TODO: explicitly clone any slices/maps/pointers added to Config.
+	return &cp
 }
 EOF
 fi

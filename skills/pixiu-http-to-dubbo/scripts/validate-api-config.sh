@@ -22,7 +22,7 @@ yaml_to_json() {
   if command -v yq >/dev/null 2>&1; then
     yq -o json eval '.' "$file"
   elif command -v ruby >/dev/null 2>&1; then
-    ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load_file(ARGV.fetch(0)))' "$file"
+    ruby -ryaml -rjson -e 'puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false))' "$file"
   else
     return 127
   fi
@@ -50,15 +50,25 @@ if [[ ! -f "$SCHEMA" ]]; then
 fi
 
 errors=0
+tmp_files=()
+
+cleanup() {
+  if [[ ${#tmp_files[@]} -gt 0 ]]; then
+    rm -f "${tmp_files[@]}"
+  fi
+}
+trap cleanup EXIT
 
 section() { echo; echo "== $* =="; }
 
 section "1. YAML syntax"
 if has_yaml_reader; then
-  if yaml_to_json "$API_CFG" > /dev/null 2>/tmp/yaml.err; then
+  yaml_err=$(mktemp -t pixiu-api-yaml-XXXXXX)
+  tmp_files+=("$yaml_err")
+  if yaml_to_json "$API_CFG" > /dev/null 2>"$yaml_err"; then
     echo "  OK"
   else
-    echo "  FAIL:"; cat /tmp/yaml.err
+    echo "  FAIL:"; cat "$yaml_err"
     errors=$((errors+1))
   fi
 else
@@ -68,14 +78,16 @@ fi
 section "2. JSON Schema conformance"
 if command -v ajv >/dev/null 2>&1 && has_yaml_reader; then
   tmpjson=$(mktemp -t pixiu-api-XXXXXX.json)
+  tmp_files+=("$tmpjson")
+  ajv_out=$(mktemp -t pixiu-api-ajv-XXXXXX)
+  tmp_files+=("$ajv_out")
   yaml_to_json "$API_CFG" > "$tmpjson"
-  if ajv validate --spec=draft7 -s "$SCHEMA" -d "$tmpjson" > /tmp/ajv.out 2>&1; then
+  if ajv validate --spec=draft7 -s "$SCHEMA" -d "$tmpjson" > "$ajv_out" 2>&1; then
     echo "  OK"
   else
-    echo "  FAIL:"; cat /tmp/ajv.out
+    echo "  FAIL:"; cat "$ajv_out"
     errors=$((errors+1))
   fi
-  rm -f "$tmpjson"
 else
   echo "  SKIP (install: npm i -g ajv-cli; yq or ruby for yaml parsing)"
 fi
@@ -83,6 +95,7 @@ fi
 section "3. Legacy top-level paramTypes"
 if has_yaml_reader && command -v python3 >/dev/null 2>&1; then
   tmpjson=$(mktemp -t pixiu-api-XXXXXX.json)
+  tmp_files+=("$tmpjson")
   yaml_to_json "$API_CFG" > "$tmpjson"
   legacy=$(python3 - "$tmpjson" <<'PY'
 import json
@@ -108,10 +121,10 @@ walk(data, [])
 print("\n".join(hits))
 PY
 )
-  rm -f "$tmpjson"
   if [[ -n "$legacy" ]]; then
     echo "  FAIL: current pixiu IntegrationRequest does not bind top-level paramTypes:"
-    echo "$legacy" | sed 's/^/    - /'
+    formatted="    - ${legacy//$'\n'/$'\n    - '}"
+    printf '%s\n' "$formatted"
     echo "  (use mappingParams[].mapType for static args, or opt.types for dynamic generic routes)"
     errors=$((errors+1))
   else
@@ -124,6 +137,7 @@ fi
 section "4. mappingParams mapTo/mapType sanity"
 if has_yaml_reader && command -v python3 >/dev/null 2>&1; then
   tmpjson=$(mktemp -t pixiu-api-XXXXXX.json)
+  tmp_files+=("$tmpjson")
   yaml_to_json "$API_CFG" > "$tmpjson"
   map_errors=$(python3 - "$tmpjson" <<'PY'
 import json
@@ -159,12 +173,19 @@ allowed_opt = {
     "opt.method",
 }
 index_re = re.compile(r"^\d+$")
+http_target_re = re.compile(r"^(queryStrings|requestBody|headers|uri)(\.|$)")
 errors = []
 
-def check_mapping(mapping, trail):
+def check_mapping(mapping, trail, request_type):
     map_to = str(mapping.get("mapTo", ""))
-    if not (index_re.match(map_to) or map_to in allowed_opt):
-        errors.append(f"{trail}.mapTo={map_to!r} is not a numeric index or supported opt.* target")
+    if request_type == "dubbo":
+        if not (index_re.match(map_to) or map_to in allowed_opt):
+            errors.append(f"{trail}.mapTo={map_to!r} is not a numeric index or supported opt.* target")
+    elif request_type == "http":
+        if not http_target_re.match(map_to):
+            errors.append(f"{trail}.mapTo={map_to!r} is not a supported HTTP target path")
+    elif not (index_re.match(map_to) or map_to in allowed_opt or http_target_re.match(map_to)):
+        errors.append(f"{trail}.mapTo={map_to!r} is not a supported target")
     map_type = mapping.get("mapType")
     if map_type not in (None, "") and str(map_type) not in allowed_map_types:
         errors.append(f"{trail}.mapType={map_type!r} is not in current JTypeMapper")
@@ -173,9 +194,10 @@ def walk(node, trail):
     if isinstance(node, dict):
         mappings = node.get("mappingParams")
         if isinstance(mappings, list):
+            request_type = str(node.get("requestType", ""))
             for i, mapping in enumerate(mappings):
                 if isinstance(mapping, dict):
-                    check_mapping(mapping, ".".join(trail + ["mappingParams", str(i)]))
+                    check_mapping(mapping, ".".join(trail + ["mappingParams", str(i)]), request_type)
         for key, value in node.items():
             walk(value, trail + [str(key)])
     elif isinstance(node, list):
@@ -186,10 +208,10 @@ walk(data, [])
 print("\n".join(errors))
 PY
 )
-  rm -f "$tmpjson"
   if [[ -n "$map_errors" ]]; then
     echo "  FAIL:"
-    echo "$map_errors" | sed 's/^/    - /'
+    formatted="    - ${map_errors//$'\n'/$'\n    - '}"
+    printf '%s\n' "$formatted"
     errors=$((errors+1))
   else
     echo "  OK"
@@ -207,6 +229,7 @@ if [[ -n "$CONF_CFG" ]]; then
   else
     api_json=$(mktemp -t pixiu-api-XXXXXX.json)
     conf_json=$(mktemp -t pixiu-conf-XXXXXX.json)
+    tmp_files+=("$api_json" "$conf_json")
     yaml_to_json "$API_CFG" > "$api_json"
     yaml_to_json "$CONF_CFG" > "$conf_json"
     missing=$(python3 - "$api_json" "$conf_json" <<'PY'
@@ -238,7 +261,6 @@ declared = {str(c.get("name")) for c in clusters if isinstance(c, dict) and c.ge
 print(" ".join(sorted(refs - declared)))
 PY
 )
-    rm -f "$api_json" "$conf_json"
     if [[ -n "$missing" ]]; then
       echo "  FAIL: clusterName(s) referenced but not declared in conf.yaml:$missing"
       errors=$((errors+1))

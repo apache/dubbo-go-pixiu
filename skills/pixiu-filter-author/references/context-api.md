@@ -19,13 +19,13 @@ chain position.
 | `ctx.Params` | `map[string]any` | route params + filter-decoded values (JWT claims, etc.) |
 | `ctx.SourceResp` | upstream's response (raw) | what the client/adapter returned; available in Encode |
 | `ctx.TargetResp` | what pixiu will ship to client | what the client will see; Encode may mutate |
-| `ctx.Err` | `error` | set by upstream failures; Encode can decide to mask or expose |
+| `ctx.SendLocalReply(status, body)` | local reply state + `TargetResp` | emit a generic local error response and stop proxying; log internal details server-side only |
+| `ctx.GetStatusCode()` / `ctx.GetLocalReplyBody()` / `ctx.LocalReply()` | local reply state | inspect whether a filter already sent a local response |
 | `ctx.Route` | `*model.RouteAction` | matched route, cluster name, timeouts |
 | `ctx.API` | `*router.API` | api-config route, only populated when the api filter is in play |
 | `ctx.Next()` | — | explicitly advance; rarely needed — returning `filter.Continue` is the idiomatic way |
 | `ctx.Abort()` | — | stop subsequent Decode filters; Encode still runs for filters already on-chain |
 | `ctx.AddFinishCallbacks(f)` | — | run `f` after response is sent; use for cleanup / metric emission |
-| `ctx.WriteErr(...)`, `ctx.WriteWithStatus(...)` | — | respond from within the filter (bypass upstream) |
 
 ## `SourceResp` vs `TargetResp` — the number-one Encode bug
 
@@ -65,7 +65,7 @@ checking.
 
 ## Lifecycle in one diagram
 
-```
+```text
 client → ctx = new HttpContext
        → Decode[0] → Decode[1] → ... → Decode[N]
                                          ↓

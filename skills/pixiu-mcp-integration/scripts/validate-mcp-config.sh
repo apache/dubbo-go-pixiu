@@ -23,27 +23,51 @@ yaml_to_json() {
   if command -v yq >/dev/null 2>&1; then
     yq -o json eval '.' "$file"
   elif command -v ruby >/dev/null 2>&1; then
-    ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load_file(ARGV.fetch(0)))' "$file"
+    ruby -ryaml -rjson -e 'puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false))' "$file"
   else
     return 127
   fi
 }
 
+has_yaml_reader() {
+  command -v yq >/dev/null 2>&1 || command -v ruby >/dev/null 2>&1
+}
+
 errors=0
+tmp_files=()
+
+cleanup() {
+  if [[ ${#tmp_files[@]} -gt 0 ]]; then
+    rm -f "${tmp_files[@]}"
+  fi
+}
+trap cleanup EXIT
+
 section() { echo; echo "== $* =="; }
 
 section "1. YAML syntax"
 tmpjson=$(mktemp -t pixiu-mcp-XXXXXX.json)
-if yaml_to_json "$CONF" > "$tmpjson" 2>/tmp/pixiu-mcp-yaml.err; then
+tmp_files+=("$tmpjson")
+yaml_err=$(mktemp -t pixiu-mcp-yaml-XXXXXX)
+tmp_files+=("$yaml_err")
+if ! has_yaml_reader; then
+  echo "  SKIP (install yq or ruby for YAML parsing)"
+  errors=$((errors+1))
+elif yaml_to_json "$CONF" > "$tmpjson" 2>"$yaml_err"; then
   echo "  OK"
 else
-  echo "  FAIL:"; cat /tmp/pixiu-mcp-yaml.err
-  rm -f "$tmpjson"
+  echo "  FAIL:"; cat "$yaml_err"
   exit 2
 fi
 
 section "2. MCP gateway semantics"
-semantic_errors=$(python3 - "$tmpjson" <<'PY'
+if ! has_yaml_reader; then
+  echo "  SKIP (install yq or ruby for YAML parsing; YAML syntax section already recorded this)"
+elif ! command -v python3 >/dev/null 2>&1; then
+  echo "  SKIP (install python3 for semantic validation)"
+  errors=$((errors+1))
+else
+  semantic_errors=$(python3 - "$tmpjson" <<'PY'
 import json
 import re
 import sys
@@ -59,8 +83,24 @@ cluster_names = {c.get("name") for c in clusters if isinstance(c, dict)}
 
 all_http_filters = []
 routes = []
+
+def network_filters(listener):
+    if not isinstance(listener, dict):
+        return []
+    filter_chains = listener.get("filter_chains") or []
+    if isinstance(filter_chains, dict):
+        filter_chains = [filter_chains]
+    elif not isinstance(filter_chains, list):
+        return []
+
+    filters = []
+    for fc in filter_chains:
+        if isinstance(fc, dict):
+            filters.extend(fc.get("filters") or [])
+    return filters
+
 for listener in listeners:
-    for chain in (((listener or {}).get("filter_chains") or {}).get("filters") or []):
+    for chain in network_filters(listener):
         if not isinstance(chain, dict):
             continue
         if chain.get("name") != "dgp.filter.httpconnectionmanager":
@@ -166,14 +206,15 @@ for adapter in adapters:
 print("\n".join(errors))
 PY
 )
-rm -f "$tmpjson"
 
-if [[ -n "$semantic_errors" ]]; then
-  echo "  FAIL:"
-  echo "$semantic_errors" | sed 's/^/    - /'
-  errors=$((errors+1))
-else
-  echo "  OK"
+  if [[ -n "$semantic_errors" ]]; then
+    echo "  FAIL:"
+    formatted="    - ${semantic_errors//$'\n'/$'\n    - '}"
+    printf '%s\n' "$formatted"
+    errors=$((errors+1))
+  else
+    echo "  OK"
+  fi
 fi
 
 echo

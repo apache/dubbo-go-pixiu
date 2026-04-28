@@ -168,7 +168,7 @@ Load `references/mcp-registry.md` before generating Nacos instructions.
 Run:
 
 ```sh
-bash scripts/validate-mcp-config.sh <conf.yaml>
+bash "$(git rev-parse --show-toplevel)/skills/pixiu-mcp-integration/scripts/validate-mcp-config.sh" <conf.yaml>
 ```
 
 Smoke-test Streamable HTTP:

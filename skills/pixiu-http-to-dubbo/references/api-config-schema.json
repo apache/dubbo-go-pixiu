@@ -4,21 +4,26 @@
   "title": "pixiu api_config.yaml",
   "type": "object",
   "required": ["name", "resources"],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "name": { "type": "string" },
     "description": { "type": "string" },
+    "definitions": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/definition" }
+    },
     "pluginFilePath": { "type": "string" },
     "pluginsGroup": {
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": ["groupName"],
         "properties": {
           "groupName": { "type": "string" },
           "plugins": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": { "$ref": "#/definitions/pluginDeclaration" }
           }
         }
       }
@@ -32,18 +37,27 @@
     "resource": {
       "type": "object",
       "required": ["path", "methods"],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
+        "id":          { "type": "integer" },
         "path":        { "type": "string", "pattern": "^/" },
         "type":        { "type": "string", "enum": ["restful"] },
         "description": { "type": "string" },
         "timeout":     { "type": "string", "pattern": "^\\d+(ms|s|m|h)$" },
-        "plugins": {
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/filter" }
+        },
+        "headers": {
           "type": "object",
-          "properties": {
-            "pre":  { "type": "object" },
-            "post": { "type": "object" }
-          }
+          "additionalProperties": { "type": "string" }
+        },
+        "resources": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/resource" }
+        },
+        "plugins": {
+          "$ref": "#/definitions/resourcePlugins"
         },
         "methods": {
           "type": "array",
@@ -54,8 +68,10 @@
     "method": {
       "type": "object",
       "required": ["httpVerb", "inboundRequest", "integrationRequest"],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
+        "id": { "type": "integer" },
+        "resourcePath": { "type": "string" },
         "httpVerb": {
           "type": "string",
           "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
@@ -63,6 +79,11 @@
         "enable":  { "type": "boolean" },
         "onAir":   { "type": "boolean", "description": "Legacy examples use this name; current Method binds enable." },
         "timeout": { "type": "string", "pattern": "^\\d+(ms|s|m|h)$" },
+        "mock":    { "type": "boolean" },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/filter" }
+        },
         "inboundRequest":     { "$ref": "#/definitions/inboundRequest" },
         "integrationRequest": { "$ref": "#/definitions/integrationRequest" }
       }
@@ -70,7 +91,7 @@
     "inboundRequest": {
       "type": "object",
       "required": ["requestType"],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "requestType": { "type": "string", "enum": ["http"] },
         "headers":      { "type": "array", "items": { "$ref": "#/definitions/param" } },
@@ -79,6 +100,7 @@
           "type": "array",
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "contentType": { "type": "string" },
               "schema":      { "type": "string" },
@@ -92,7 +114,7 @@
     "integrationRequest": {
       "type": "object",
       "required": ["requestType"],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "requestType": { "type": "string", "enum": ["dubbo", "http"] },
         "clusterName":     { "type": "string" },
@@ -116,6 +138,7 @@
     "param": {
       "type": "object",
       "required": ["name"],
+      "additionalProperties": false,
       "properties": {
         "name":     { "type": "string" },
         "type":     { "type": "string" },
@@ -125,6 +148,7 @@
     "mappingParam": {
       "type": "object",
       "required": ["name", "mapTo"],
+      "additionalProperties": false,
       "properties": {
         "name":    { "type": "string" },
         "mapTo":   { "type": "string" },
@@ -146,6 +170,59 @@
             "java.lang.Object"
           ]
         }
+      }
+    },
+    "filter": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "config": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "resourcePlugins": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pre":  { "$ref": "#/definitions/pluginHook" },
+        "post": { "$ref": "#/definitions/pluginHook" }
+      }
+    },
+    "pluginHook": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pluginNames": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "groupNames": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "pluginDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "priority": { "type": "integer" },
+        "externalLookupName": { "type": "string" }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "required": ["name", "schema"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "schema": { "type": "string" }
       }
     }
   }

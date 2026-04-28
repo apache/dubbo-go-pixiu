@@ -31,7 +31,7 @@ the mapping rules in between.
 ## Two files, two jobs
 
 - **`conf.yaml`** (bootstrap) — wires the HTTP listener, enables the
-  `dgp.filter.http.httpconnectionmanager` network filter, and loads the
+  `dgp.filter.httpconnectionmanager` network filter, and loads the
   Dubbo registry adapter. You almost always keep this close to the
   sample; changes are listener port, adapter type, and sometimes
   cluster definitions.
@@ -249,7 +249,7 @@ target cluster explicitly:
 static_resources:
   clusters:
     - name: direct-dubbo
-      lb_policy: lb
+      lb_policy: RoundRobin
       endpoints:
         - id: direct-provider-1
           socket_address:
@@ -271,15 +271,17 @@ order matters — see `references/api-config-schema.md`.
 Run the bundled validator:
 
 ```sh
-bash scripts/validate-api-config.sh <path-to-api_config.yaml>
+bash "$(git rev-parse --show-toplevel)/skills/pixiu-http-to-dubbo/scripts/validate-api-config.sh" <path-to-api_config.yaml> [conf.yaml]
 ```
 
 It does:
 
 1. `yq` parse (catches yaml syntax errors).
 2. JSON Schema validation against
-   `references/api-config-schema.json` — catches unknown fields, wrong
-   types, missing required keys.
+   `references/api-config-schema.json` — catches unknown fields in
+   structured API mapping objects, wrong types, and missing required
+   keys. `filter.config` remains intentionally permissive because
+   individual filter plugins own their own config schemas.
 3. A sanity pass: every `clusterName` referenced in `integrationRequest`
    appears as an `id` / `name` in the adapters / clusters section of
    `conf.yaml` (if the user passes both files).

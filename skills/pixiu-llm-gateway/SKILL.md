@@ -124,7 +124,7 @@ static_resources:
                     timeout: "60s"
   clusters:
     - name: "llm_cluster"
-      lb_policy: "lb"
+      lb_policy: "RoundRobin"
       endpoints:
         - id: "openai-primary"
           socket_address:
@@ -239,7 +239,7 @@ metadata keys such as `llm-meta.api_key`,
 Run:
 
 ```sh
-bash scripts/validate-llm-config.sh <conf.yaml>
+bash "$(git rev-parse --show-toplevel)/skills/pixiu-llm-gateway/scripts/validate-llm-config.sh" <conf.yaml>
 ```
 
 The validator checks yaml syntax, filter order, required LLM cluster

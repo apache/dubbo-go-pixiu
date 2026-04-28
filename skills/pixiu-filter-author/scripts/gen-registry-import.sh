@@ -26,7 +26,8 @@ declare -a WANT=()
 while IFS= read -r gofile; do
   if grep -q -E 'filter\.RegisterHttpFilter|filter\.RegisterNetworkFilterPlugin' "$gofile" 2>/dev/null; then
     dir=$(dirname "$gofile")
-    rel="${dir#$ROOT/}"
+    prefix="${ROOT}/"
+    rel="${dir#$prefix}"
     WANT+=("$MOD/$rel")
   fi
 done < <(find "$ROOT/pkg/filter" -type f -name '*.go' 2>/dev/null)

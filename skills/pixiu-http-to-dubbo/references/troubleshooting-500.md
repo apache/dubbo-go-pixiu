@@ -3,6 +3,10 @@
 When the gateway returns a 5xx for a Dubbo-backed route, the failure is
 almost always in one of four places. Walk them in order.
 
+The detailed exception strings below are **server-log signatures** to
+search in Pixiu logs, not response text to expose to clients. Keep
+client-facing 5xx bodies generic; log internal details server-side.
+
 ## Symptom: 404 "no route found"
 
 Not a Dubbo issue — the request did not match any `resources[].path`.
@@ -16,12 +20,12 @@ Checks:
 - `dgp.filter.http.apiconfig` is in the `http_filters` list in
   `conf.yaml`. Without it, the api_config is not consulted.
 
-## Symptom: 500 `no filter found for name dgp.filter.http.XXX`
+## Symptom: 500; log signature `no filter found for name dgp.filter.http.XXX`
 
 Filter-registration issue. Apply the fix from `pixiu-filter-author`
 (missing blank import in `pkg/pluginregistry/registry.go`).
 
-## Symptom: 500 `no provider found`
+## Symptom: 500; log signature `no provider found`
 
 The registry adapter booted but the Dubbo `interface` / `group` /
 `version` combo is not registered. Check the three fields are spelled
@@ -33,7 +37,7 @@ Also confirm the provider is registered to the *same* registry that the
 pixiu adapter points at. A ZK-registered provider will not be found via
 a Nacos adapter and vice versa.
 
-## Symptom: 500 `generic invoke failed: ClassNotFoundException`
+## Symptom: 500; log signature `generic invoke failed: ClassNotFoundException`
 
 Pixiu or the request supplied a type string the provider cannot load.
 In current static routes, the first place to check is
@@ -55,7 +59,7 @@ Usual offenders:
 
 See `generic-invoke-types.md` for the current `mapType` table.
 
-## Symptom: 500 `generic invoke failed: ... NullPointerException`
+## Symptom: 500; log signature `generic invoke failed: ... NullPointerException`
 
 The Dubbo method got called, but with `null` arguments. Root causes:
 
@@ -70,7 +74,7 @@ The Dubbo method got called, but with `null` arguments. Root causes:
 Quick check: `curl -v` the request and confirm the body shape; then
 walk `mappingParams` rule-by-rule.
 
-## Symptom: 500 with `io.netty.handler.timeout.ReadTimeoutException`
+## Symptom: 500; log signature `io.netty.handler.timeout.ReadTimeoutException`
 
 Dubbo call is slower than the configured timeout. Two timeouts in play:
 
@@ -111,5 +115,6 @@ Connection / routing issue, not a pixiu-config issue:
 3. Match the error substring against the sections above.
 4. If no match, enable debug logging (`log.level: debug` in
    `conf.yaml`) and repeat.
-5. Before editing yaml, run `bash scripts/validate-api-config.sh` — it
-   catches structural mistakes the logs will not be specific about.
+5. Before editing yaml, run
+   `bash "$(git rev-parse --show-toplevel)/skills/pixiu-http-to-dubbo/scripts/validate-api-config.sh" <api_config.yaml> [conf.yaml]` —
+   it catches structural mistakes the logs will not be specific about.

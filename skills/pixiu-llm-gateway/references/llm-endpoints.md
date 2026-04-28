@@ -39,7 +39,7 @@ http_filters:
 
 clusters:
   - name: "llm_cluster"
-    lb_policy: "lb"
+    lb_policy: "RoundRobin"
     endpoints:
       - id: "openai-primary"
         socket_address:

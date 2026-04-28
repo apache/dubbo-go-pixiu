@@ -96,8 +96,11 @@ Do not write code until the user has answered, in plain words:
    upstream), or both?
 2. **Kind**: the string that identifies the filter in yaml. It MUST start
    with `dgp.filter.http.` for HTTP filters or
-   `dgp.filter.networkfilter.` for L4. Suggest a name; confirm the user
-   is happy.
+   match Pixiu's current Network filter constants for L4 filters, usually
+   `dgp.filter.network.`. The built-in HTTP connection manager is the
+   special network-filter Kind `dgp.filter.httpconnectionmanager`.
+   Suggest a name after checking `pkg/common/constant/key.go`; confirm
+   the user is happy.
 3. **Config fields**: what yaml keys does the user want? (`allow_origin`,
    `max_request_bytes`, etc.)
 4. **Where to put the package**: the convention is
@@ -157,7 +160,7 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus { return filt
 func (f *Filter) Encode(ctx *http.HttpContext) filter.FilterStatus { return filter.Continue }
 ```
 
-Two subtle rules the interface alone does not enforce:
+A few subtle rules the interface alone does not enforce:
 
 - **Do not reuse `factory.cfg` directly in the Filter instance.** The
   factory's config pointer can be hot-reloaded at runtime. Copy the
@@ -291,9 +294,11 @@ For full-workflow answers, emit a compact delivery checklist:
 
 ### Always
 
-- Name the `Kind` constant with the correct prefix — `dgp.filter.http.`
-  or `dgp.filter.networkfilter.`. Put it in a `const` at the top of the
-  package.
+- Name the `Kind` constant with the correct prefix. HTTP filters use
+  `dgp.filter.http.*`; Network filters must match the current constants
+  in `pkg/common/constant/key.go` such as `dgp.filter.network.*` or the
+  special `dgp.filter.httpconnectionmanager`. Put it in a `const` at
+  the top of the package.
 - Use the project's logger: `import ".../pkg/logger"` and
   `logger.Infof(...)`. Never `fmt.Println`, never stdlib `log`.
 - Deep-copy config into the per-request `Filter` instance — the factory
@@ -309,6 +314,8 @@ For full-workflow answers, emit a compact delivery checklist:
 
 ### Never
 
+- Expose internal error details in HTTP responses. Return generic
+  client-facing errors and log full diagnostics server-side only.
 - Skip the blank import. This is the #1 filter bug. If something does
   not seem to register, re-check this before anything else.
 - Mutate `ctx.TargetResp` from a Decode filter. Use Encode.
