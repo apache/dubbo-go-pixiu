@@ -23,7 +23,7 @@ yaml_to_json() {
   if command -v yq >/dev/null 2>&1; then
     yq -o json eval '.' "$file"
   elif command -v ruby >/dev/null 2>&1; then
-    ruby -ryaml -rjson -e 'puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false))' "$file"
+    ruby -ryaml -rjson -e 'begin; puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)); rescue StandardError => e; warn "#{e.class}: #{e.message}"; exit 1; end' "$file"
   else
     return 127
   fi
@@ -73,13 +73,52 @@ import re
 import sys
 
 with open(sys.argv[1], "r", encoding="utf-8") as f:
-    cfg = json.load(f) or {}
+    raw_cfg = json.load(f)
 
 errors = []
-sr = cfg.get("static_resources") or cfg
-listeners = sr.get("listeners") or []
-clusters = sr.get("clusters") or cfg.get("clusters") or []
-cluster_names = {c.get("name") for c in clusters if isinstance(c, dict)}
+
+def dict_field(container, key, label):
+    if not isinstance(container, dict):
+        return {}
+    value = container.get(key)
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    errors.append(f"{label} must be a map/object")
+    return {}
+
+def list_field(container, key, label):
+    if not isinstance(container, dict):
+        return []
+    value = container.get(key)
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    errors.append(f"{label} must be a list")
+    return []
+
+if not isinstance(raw_cfg, dict):
+    errors.append("top-level config must be a map/object")
+    cfg = {}
+else:
+    cfg = raw_cfg
+
+sr_value = cfg.get("static_resources")
+if sr_value is None:
+    sr = cfg
+elif isinstance(sr_value, dict):
+    sr = sr_value
+else:
+    errors.append("static_resources must be a map/object")
+    sr = {}
+
+listeners = list_field(sr, "listeners", "static_resources.listeners")
+clusters = list_field(sr, "clusters", "static_resources.clusters")
+if not clusters and sr is not cfg:
+    clusters = list_field(cfg, "clusters", "clusters")
+cluster_names = {c.get("name") for c in clusters if isinstance(c, dict) and c.get("name")}
 
 all_http_filters = []
 routes = []
@@ -105,9 +144,9 @@ for listener in listeners:
             continue
         if chain.get("name") != "dgp.filter.httpconnectionmanager":
             continue
-        hcm = chain.get("config") or {}
-        routes.extend(((hcm.get("route_config") or {}).get("routes") or []))
-        all_http_filters.extend(hcm.get("http_filters") or [])
+        hcm = dict_field(chain, "config", "dgp.filter.httpconnectionmanager.config")
+        routes.extend(list_field(dict_field(hcm, "route_config", "route_config"), "routes", "route_config.routes"))
+        all_http_filters.extend(list_field(hcm, "http_filters", "http_filters"))
 
 filter_names = [f.get("name") for f in all_http_filters if isinstance(f, dict)]
 if "dgp.filter.mcp.mcpserver" not in filter_names:
@@ -121,7 +160,7 @@ else:
 
 route_clusters = set()
 for route in routes:
-    cluster = ((route or {}).get("route") or {}).get("cluster")
+    cluster = dict_field(route, "route", "route.route").get("cluster")
     if cluster:
         route_clusters.add(cluster)
         if cluster not in cluster_names:
@@ -132,11 +171,11 @@ valid_arg_in = {"path", "query", "body"}
 for f in all_http_filters:
     if not isinstance(f, dict) or f.get("name") != "dgp.filter.mcp.mcpserver":
         continue
-    c = f.get("config") or {}
+    c = dict_field(f, "config", "dgp.filter.mcp.mcpserver.config")
     endpoint = c.get("endpoint", "/mcp")
     if not str(endpoint).startswith("/"):
         errors.append("mcp endpoint must start with /")
-    for tool in c.get("tools") or []:
+    for tool in list_field(c, "tools", "mcpserver tools"):
         if not isinstance(tool, dict):
             continue
         name = tool.get("name", "<unnamed>")
@@ -145,13 +184,13 @@ for f in all_http_filters:
             errors.append(f"tool {name}: cluster is required")
         elif cluster not in cluster_names:
             errors.append(f"tool {name}: cluster {cluster!r} is not declared")
-        req = tool.get("request") or {}
+        req = dict_field(tool, "request", f"tool {name}.request")
         path = req.get("path", "")
         if not req.get("method"):
             errors.append(f"tool {name}: request.method is required")
         if not path:
             errors.append(f"tool {name}: request.path is required")
-        args = tool.get("args") or []
+        args = list_field(tool, "args", f"tool {name}.args")
         arg_by_name = {a.get("name"): a for a in args if isinstance(a, dict)}
         for placeholder in re.findall(r"\{([^}]+)\}", str(path)):
             arg = arg_by_name.get(placeholder)
@@ -168,13 +207,13 @@ for f in all_http_filters:
 for f in all_http_filters:
     if not isinstance(f, dict) or f.get("name") != "dgp.filter.http.auth.mcp":
         continue
-    c = f.get("config") or {}
-    rm = c.get("resource_metadata") or {}
+    c = dict_field(f, "config", "dgp.filter.http.auth.mcp.config")
+    rm = dict_field(c, "resource_metadata", "mcp auth resource_metadata")
     if not rm.get("resource"):
         errors.append("mcp auth resource_metadata.resource is required")
     if not rm.get("authorization_servers"):
         errors.append("mcp auth resource_metadata.authorization_servers is required")
-    providers = c.get("providers") or []
+    providers = list_field(c, "providers", "mcp auth providers")
     if not providers:
         errors.append("mcp auth providers must not be empty")
     for p in providers:
@@ -183,24 +222,38 @@ for f in all_http_filters:
         for key in ("name", "issuer", "jwks"):
             if not p.get(key):
                 errors.append(f"mcp auth provider missing {key}")
-    for rule in c.get("rules") or []:
-        cluster = (rule or {}).get("cluster")
+    for rule in list_field(c, "rules", "mcp auth rules"):
+        rule = dict_field({"rule": rule}, "rule", "mcp auth rule")
+        cluster = rule.get("cluster")
         if not cluster:
             errors.append("mcp auth rule cluster is required")
         elif cluster not in route_clusters:
             errors.append(f"mcp auth rule cluster {cluster!r} does not match any route cluster")
 
-adapters = cfg.get("adapters") or sr.get("adapters") or []
+if cfg.get("adapters") is not None:
+    adapters = list_field(cfg, "adapters", "adapters")
+else:
+    adapters = list_field(sr, "adapters", "static_resources.adapters")
 for adapter in adapters:
     if not isinstance(adapter, dict) or adapter.get("name") != "dgp.adapter.mcpserver":
         continue
-    regs = ((adapter.get("config") or {}).get("registries") or {})
-    if not regs:
+    adapter_config = dict_field(adapter, "config", "mcpserver adapter config")
+    regs_value = adapter_config.get("registries")
+    if regs_value is None:
         errors.append("mcpserver adapter has no registries")
-    for name, reg in regs.items():
-        if (reg or {}).get("protocol") != "nacos":
+        continue
+    if not isinstance(regs_value, dict):
+        errors.append("mcpserver adapter registries must be a map/object")
+        continue
+    if not regs_value:
+        errors.append("mcpserver adapter has no registries")
+    for name, reg in regs_value.items():
+        if not isinstance(reg, dict):
+            errors.append(f"mcp registry {name} must be a map/object")
+            continue
+        if reg.get("protocol") != "nacos":
             errors.append(f"mcp registry {name} protocol should be nacos for current source")
-        if not (reg or {}).get("address"):
+        if not reg.get("address"):
             errors.append(f"mcp registry {name} address is empty")
 
 print("\n".join(errors))

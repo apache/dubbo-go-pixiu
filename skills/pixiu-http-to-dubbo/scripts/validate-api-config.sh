@@ -22,7 +22,7 @@ yaml_to_json() {
   if command -v yq >/dev/null 2>&1; then
     yq -o json eval '.' "$file"
   elif command -v ruby >/dev/null 2>&1; then
-    ruby -ryaml -rjson -e 'puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false))' "$file"
+    ruby -ryaml -rjson -e 'begin; puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)); rescue StandardError => e; warn "#{e.class}: #{e.message}"; exit 1; end' "$file"
   else
     return 127
   fi
@@ -61,16 +61,27 @@ trap cleanup EXIT
 
 section() { echo; echo "== $* =="; }
 
+json_from_yaml() {
+  local src="$1"
+  local dst="$2"
+  local label="$3"
+  local err
+  err=$(mktemp -t pixiu-yaml-XXXXXX)
+  tmp_files+=("$err")
+  if yaml_to_json "$src" > "$dst" 2>"$err"; then
+    return 0
+  fi
+  echo "  FAIL: unable to parse $label:"
+  cat "$err"
+  exit 2
+}
+
 section "1. YAML syntax"
 if has_yaml_reader; then
-  yaml_err=$(mktemp -t pixiu-api-yaml-XXXXXX)
-  tmp_files+=("$yaml_err")
-  if yaml_to_json "$API_CFG" > /dev/null 2>"$yaml_err"; then
-    echo "  OK"
-  else
-    echo "  FAIL:"; cat "$yaml_err"
-    errors=$((errors+1))
-  fi
+  syntax_json=$(mktemp -t pixiu-api-syntax-XXXXXX.json)
+  tmp_files+=("$syntax_json")
+  json_from_yaml "$API_CFG" "$syntax_json" "$API_CFG"
+  echo "  OK"
 else
   echo "  SKIP (install yq or ruby)"
 fi
@@ -81,7 +92,7 @@ if command -v ajv >/dev/null 2>&1 && has_yaml_reader; then
   tmp_files+=("$tmpjson")
   ajv_out=$(mktemp -t pixiu-api-ajv-XXXXXX)
   tmp_files+=("$ajv_out")
-  yaml_to_json "$API_CFG" > "$tmpjson"
+  json_from_yaml "$API_CFG" "$tmpjson" "$API_CFG"
   if ajv validate --spec=draft7 -s "$SCHEMA" -d "$tmpjson" > "$ajv_out" 2>&1; then
     echo "  OK"
   else
@@ -96,7 +107,7 @@ section "3. Legacy top-level paramTypes"
 if has_yaml_reader && command -v python3 >/dev/null 2>&1; then
   tmpjson=$(mktemp -t pixiu-api-XXXXXX.json)
   tmp_files+=("$tmpjson")
-  yaml_to_json "$API_CFG" > "$tmpjson"
+  json_from_yaml "$API_CFG" "$tmpjson" "$API_CFG"
   legacy=$(python3 - "$tmpjson" <<'PY'
 import json
 import sys
@@ -138,7 +149,7 @@ section "4. mappingParams mapTo/mapType sanity"
 if has_yaml_reader && command -v python3 >/dev/null 2>&1; then
   tmpjson=$(mktemp -t pixiu-api-XXXXXX.json)
   tmp_files+=("$tmpjson")
-  yaml_to_json "$API_CFG" > "$tmpjson"
+  json_from_yaml "$API_CFG" "$tmpjson" "$API_CFG"
   map_errors=$(python3 - "$tmpjson" <<'PY'
 import json
 import re
@@ -230,8 +241,8 @@ if [[ -n "$CONF_CFG" ]]; then
     api_json=$(mktemp -t pixiu-api-XXXXXX.json)
     conf_json=$(mktemp -t pixiu-conf-XXXXXX.json)
     tmp_files+=("$api_json" "$conf_json")
-    yaml_to_json "$API_CFG" > "$api_json"
-    yaml_to_json "$CONF_CFG" > "$conf_json"
+    json_from_yaml "$API_CFG" "$api_json" "$API_CFG"
+    json_from_yaml "$CONF_CFG" "$conf_json" "$CONF_CFG"
     missing=$(python3 - "$api_json" "$conf_json" <<'PY'
 import json
 import sys

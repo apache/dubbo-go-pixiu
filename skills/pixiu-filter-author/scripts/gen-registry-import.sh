@@ -27,19 +27,29 @@ while IFS= read -r gofile; do
   if grep -q -E 'filter\.RegisterHttpFilter|filter\.RegisterNetworkFilterPlugin' "$gofile" 2>/dev/null; then
     dir=$(dirname "$gofile")
     prefix="${ROOT}/"
-    rel="${dir#$prefix}"
+    rel="${dir#"$prefix"}"
     WANT+=("$MOD/$rel")
   fi
 done < <(find "$ROOT/pkg/filter" -type f -name '*.go' 2>/dev/null)
 
-# De-dup and sort.
-mapfile -t WANT < <(printf '%s\n' "${WANT[@]}" | sort -u)
+# De-dup and sort. Keep Bash 3 compatibility for macOS /bin/bash.
+declare -a WANT_UNIQ=()
+if [[ ${#WANT[@]} -gt 0 ]]; then
+  while IFS= read -r line; do
+    WANT_UNIQ+=("$line")
+  done < <(printf '%s\n' "${WANT[@]}" | sort -u)
+fi
+WANT=("${WANT_UNIQ[@]}")
 
 # Collect packages already blank-imported.
 declare -a HAVE=()
 while IFS= read -r line; do
   HAVE+=("$line")
-done < <(grep -oE '"[^"]+"' "$REG" | tr -d '"' | sort -u)
+done < <(
+  grep -oE '^[[:space:]]*_[[:space:]]+"[^"]+"' "$REG" \
+    | sed -E 's/^[[:space:]]*_[[:space:]]+"([^"]+)".*$/\1/' \
+    | sort -u
+)
 
 missing=()
 for p in "${WANT[@]}"; do

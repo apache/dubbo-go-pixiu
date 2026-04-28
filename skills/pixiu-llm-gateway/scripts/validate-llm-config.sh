@@ -23,7 +23,7 @@ yaml_to_json() {
   if command -v yq >/dev/null 2>&1; then
     yq -o json eval '.' "$file"
   elif command -v ruby >/dev/null 2>&1; then
-    ruby -ryaml -rjson -e 'puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false))' "$file"
+    ruby -ryaml -rjson -e 'begin; puts JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)); rescue StandardError => e; warn "#{e.class}: #{e.message}"; exit 1; end' "$file"
   else
     return 127
   fi
@@ -70,26 +70,65 @@ import json
 import sys
 
 with open(sys.argv[1], "r", encoding="utf-8") as f:
-    cfg = json.load(f) or {}
+    raw_cfg = json.load(f)
 
 errors = []
 warnings = []
-sr = cfg.get("static_resources") or cfg
-listeners = sr.get("listeners") or []
-clusters = sr.get("clusters") or cfg.get("clusters") or []
-cluster_names = {c.get("name") for c in clusters if isinstance(c, dict)}
+
+def dict_field(container, key, label):
+    if not isinstance(container, dict):
+        return {}
+    value = container.get(key)
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    errors.append(f"{label} must be a map/object")
+    return {}
+
+def list_field(container, key, label):
+    if not isinstance(container, dict):
+        return []
+    value = container.get(key)
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    errors.append(f"{label} must be a list")
+    return []
+
+if not isinstance(raw_cfg, dict):
+    errors.append("top-level config must be a map/object")
+    cfg = {}
+else:
+    cfg = raw_cfg
+
+sr_value = cfg.get("static_resources")
+if sr_value is None:
+    sr = cfg
+elif isinstance(sr_value, dict):
+    sr = sr_value
+else:
+    errors.append("static_resources must be a map/object")
+    sr = {}
+
+listeners = list_field(sr, "listeners", "static_resources.listeners")
+clusters = list_field(sr, "clusters", "static_resources.clusters")
+if not clusters and sr is not cfg:
+    clusters = list_field(cfg, "clusters", "clusters")
+cluster_names = {c.get("name") for c in clusters if isinstance(c, dict) and c.get("name")}
 endpoint_ids = {}
 for cluster in clusters:
     if not isinstance(cluster, dict):
         continue
     cname = cluster.get("name")
     endpoint_ids[cname] = set()
-    for ep in cluster.get("endpoints") or []:
+    for ep in list_field(cluster, "endpoints", f"cluster {cname}.endpoints"):
         if not isinstance(ep, dict):
             continue
         if ep.get("id"):
             endpoint_ids[cname].add(str(ep.get("id")))
-        domains = ((ep.get("socket_address") or {}).get("domains") or [])
+        domains = list_field(dict_field(ep, "socket_address", f"cluster {cname} endpoint socket_address"), "domains", f"cluster {cname} endpoint socket_address.domains")
         for domain in domains:
             if "://" in str(domain) or "/" in str(domain):
                 errors.append(f"cluster {cname}: endpoint {ep.get('id')} socket_address.domains entries must be host-only, got {domain!r}")
@@ -125,9 +164,9 @@ for listener in listeners:
             continue
         if chain.get("name") != "dgp.filter.httpconnectionmanager":
             continue
-        hcm = chain.get("config") or {}
-        routes.extend(((hcm.get("route_config") or {}).get("routes") or []))
-        all_http_filters.extend(hcm.get("http_filters") or [])
+        hcm = dict_field(chain, "config", "dgp.filter.httpconnectionmanager.config")
+        routes.extend(list_field(dict_field(hcm, "route_config", "route_config"), "routes", "route_config.routes"))
+        all_http_filters.extend(list_field(hcm, "http_filters", "http_filters"))
 
 filter_names = [f.get("name") for f in all_http_filters if isinstance(f, dict)]
 if "dgp.filter.llm.proxy" not in filter_names:
@@ -139,20 +178,20 @@ else:
             errors.append(f"{before} must be before dgp.filter.llm.proxy")
 
 for route in routes:
-    cluster = ((route or {}).get("route") or {}).get("cluster")
+    cluster = dict_field(route, "route", "route.route").get("cluster")
     if cluster and cluster not in cluster_names:
         errors.append(f"route references missing cluster {cluster!r}")
 
 for f in all_http_filters:
     if not isinstance(f, dict) or f.get("name") != "dgp.filter.ai.kvcache":
         continue
-    c = f.get("config") or {}
+    c = dict_field(f, "config", "dgp.filter.ai.kvcache.config")
     if c.get("enabled") is True:
         if not c.get("vllm_endpoint"):
             errors.append("kvcache enabled but vllm_endpoint is empty")
         if not c.get("lmcache_endpoint"):
             errors.append("kvcache enabled but lmcache_endpoint is empty")
-    cs = c.get("cache_strategy") or {}
+    cs = dict_field(c, "cache_strategy", "cache_strategy")
     for key in ("pin_instance_id", "compress_instance_id", "evict_instance_id"):
         val = cs.get(key)
         if val and not any(val in ids for ids in endpoint_ids.values()):
@@ -167,18 +206,31 @@ for f in all_http_filters:
             except Exception:
                 errors.append(f"cache_strategy.{key} must be numeric")
 
-adapters = cfg.get("adapters") or sr.get("adapters") or []
+if cfg.get("adapters") is not None:
+    adapters = list_field(cfg, "adapters", "adapters")
+else:
+    adapters = list_field(sr, "adapters", "static_resources.adapters")
 for adapter in adapters:
     if not isinstance(adapter, dict) or adapter.get("name") != "dgp.adapter.llmregistrycenter":
         continue
-    regs = ((adapter.get("config") or {}).get("registries") or {})
-    if not regs:
+    adapter_config = dict_field(adapter, "config", "llmregistrycenter config")
+    regs_value = adapter_config.get("registries")
+    if regs_value is None:
         errors.append("llmregistrycenter adapter has no registries")
-    for name, reg in regs.items():
-        protocol = (reg or {}).get("protocol")
+        continue
+    if not isinstance(regs_value, dict):
+        errors.append("llmregistrycenter adapter registries must be a map/object")
+        continue
+    if not regs_value:
+        errors.append("llmregistrycenter adapter has no registries")
+    for name, reg in regs_value.items():
+        if not isinstance(reg, dict):
+            errors.append(f"llm registry {name} must be a map/object")
+            continue
+        protocol = reg.get("protocol")
         if protocol != "nacos":
             warnings.append(f"llm registry {name} protocol is {protocol!r}; current examples use nacos")
-        if not (reg or {}).get("address"):
+        if not reg.get("address"):
             errors.append(f"llm registry {name} address is empty")
 
 for warning in warnings:
