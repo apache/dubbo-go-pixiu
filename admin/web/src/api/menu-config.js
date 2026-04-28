@@ -43,4 +43,12 @@ export const menuList = [{
     id: 'RateLimiter',
     componentName: '/RateLimiter'
   }]
+}, {
+  name: 'OPA配置',
+  id: 'OPAConfig',
+  children: [{
+    name: 'OPA配置',
+    id: 'OPA',
+    componentName: '/OPA'
+  }]
 }]

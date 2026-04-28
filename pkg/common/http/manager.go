@@ -66,6 +66,10 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpC
 			route.Match.Methods = []string{}
 		}
 	}
+
+	// Force enable dynamic routing for hot reload
+	hcmc.RouteConfig.Dynamic = true
+
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
 	hcm.filterManager.Load()

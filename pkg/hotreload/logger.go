@@ -42,7 +42,6 @@ func (r *LoggerReloader) CheckUpdate(oldConfig, newConfig *model.Bootstrap) bool
 		return true
 	}
 
-	// Check if any logger configuration fields have changed.
 	if oc.Level != nc.Level ||
 		oc.Development != nc.Development ||
 		oc.DisableCaller != nc.DisableCaller ||
@@ -51,17 +50,14 @@ func (r *LoggerReloader) CheckUpdate(oldConfig, newConfig *model.Bootstrap) bool
 		return true
 	}
 
-	// Check sampling configuration.
 	if !r.checkSampling(oc.Sampling, nc.Sampling) {
 		return true
 	}
 
-	// Check encoder configuration.
 	if !r.checkEncoderConfig(oc.EncoderConfig, nc.EncoderConfig) {
 		return true
 	}
 
-	// Check output paths.
 	if !equal(oc.OutputPaths, nc.OutputPaths) {
 		return true
 	}

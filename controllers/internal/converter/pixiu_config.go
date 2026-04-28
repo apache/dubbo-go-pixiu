@@ -73,7 +73,8 @@ type DubboFilter struct {
 }
 
 type RouteConfiguration struct {
-	Routes []*Route `yaml:"routes" json:"routes"`
+	Routes  []*Route `yaml:"routes" json:"routes"`
+	Dynamic bool     `yaml:"dynamic" json:"dynamic"`
 }
 
 type Route struct {

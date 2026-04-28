@@ -60,7 +60,7 @@ type (
 		ConsistentHash       ConsistentHash      `yaml:"consistent" json:"consistent"` // Consistent hash config info
 		HealthChecks         []HealthCheckConfig `yaml:"health_checks" json:"health_checks"`
 		Endpoints            []*Endpoint         `yaml:"endpoints" json:"endpoints"`
-		PrePickEndpointIndex int
+		PrePickEndpointIndex uint32              `yaml:"-" json:"-"` // runtime-only round-robin cursor state
 	}
 
 	// EdsClusterConfig todo remove un-used EdsClusterConfig

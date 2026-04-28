@@ -1,0 +1,37 @@
+http_filters:
+  - name: dgp.filter.ai.kvcache
+    config:
+      enabled: true
+      vllm_endpoint: "http://localhost:8001"
+      lmcache_endpoint: "http://localhost:8080"
+      default_model: "Qwen2.5-3B-Instruct"
+      request_timeout: 5s
+      lookup_routing_timeout: 100ms
+      hot_window: 5m
+      hot_max_records: 500
+      token_cache:
+        enabled: true
+        max_size: 10000
+        ttl: 10m
+      cache_strategy:
+        enable_compression: true
+        enable_pinning: true
+        enable_eviction: true
+        memory_threshold: 0.8
+        hot_content_threshold: 50
+        load_threshold: 0.7
+        compress_method: "zstd"
+        pin_instance_id: "vllm-instance-1"
+        pin_location: "redis"
+        compress_instance_id: "vllm-instance-2"
+        compress_location: "redis"
+        evict_instance_id: "vllm-instance-1"
+
+clusters:
+  - name: vllm_cluster
+    lb_policy: round_robin
+    endpoints:
+      - id: vllm-instance-1
+        socket_address: { address: "localhost", port: 8001 }
+      - id: vllm-instance-2
+        socket_address: { address: "localhost", port: 8002 }

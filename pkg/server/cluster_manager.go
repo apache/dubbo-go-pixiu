@@ -151,6 +151,7 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 		return false
 	}
 
+	store.carryOverRuntimeStateFrom(cm.store)
 	cm.store = store
 	return true
 }
@@ -188,6 +189,23 @@ func (cm *ClusterManager) PickNextEndpoint(clusterName string, curEndpointID str
 		}
 	}
 
+	return nil
+}
+
+// GetEndpointByID returns the endpoint by ID in the given cluster.
+func (cm *ClusterManager) GetEndpointByID(clusterName string, endpointID string) *model.Endpoint {
+	cm.rw.RLock()
+	defer cm.rw.RUnlock()
+
+	c := cm.getCluster(clusterName)
+	if c == nil {
+		return nil
+	}
+	for _, endpoint := range c.Endpoints {
+		if endpoint.ID == endpointID && !endpoint.UnHealthy {
+			return endpoint
+		}
+	}
 	return nil
 }
 
@@ -368,4 +386,30 @@ func (s *ClusterStore) HasCluster(clusterName string) bool {
 
 func (s *ClusterStore) IncreaseVersion() {
 	atomic.AddInt32(&s.Version, 1)
+}
+
+func (s *ClusterStore) carryOverRuntimeStateFrom(old *ClusterStore) {
+	if s == nil || old == nil {
+		return
+	}
+
+	oldConfigsByName := make(map[string]*model.ClusterConfig, len(old.Config))
+	for _, clusterConfig := range old.Config {
+		if clusterConfig != nil {
+			oldConfigsByName[clusterConfig.Name] = clusterConfig
+		}
+	}
+
+	// Preserve runtime-only load-balancer state when a rebuilt store is swapped in.
+	for _, clusterConfig := range s.Config {
+		if clusterConfig == nil {
+			continue
+		}
+		if oldConfig := oldConfigsByName[clusterConfig.Name]; oldConfig != nil {
+			atomic.StoreUint32(
+				&clusterConfig.PrePickEndpointIndex,
+				atomic.LoadUint32(&oldConfig.PrePickEndpointIndex),
+			)
+		}
+	}
 }

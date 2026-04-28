@@ -24,8 +24,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"reflect"
 	"strings"
+	"sync"
+	"time"
 )
 
 import (
@@ -529,17 +533,79 @@ func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway 
 			isGatewayPolicy := policy.Spec.TargetRef.Kind == "Gateway" &&
 				string(policy.Spec.TargetRef.Name) == gateway.Name
 
+			r.Log.Info("processing cluster policy", "policy", policy.Name, "isGatewayPolicy", isGatewayPolicy)
+
 			if isGatewayPolicy {
 				for j := range policy.Spec.ClusterRef {
 					clusterConfig := &policy.Spec.ClusterRef[j]
 					clusterConfigMap[clusterConfig.Name] = clusterConfig
+					r.Log.Info("added cluster config", "clusterName", clusterConfig.Name, "endpointCount", len(clusterConfig.Endpoints))
 				}
 			} else {
 				for j := range policy.Spec.ServiceRef {
 					serviceConfig := &policy.Spec.ServiceRef[j]
 					serviceConfigMap[serviceConfig.Name] = serviceConfig
+					r.Log.Info("added service config", "serviceName", serviceConfig.Name, "endpointCount", len(serviceConfig.Endpoints))
 				}
 			}
+		}
+
+		r.Log.Info("cluster policy maps", "clusterConfigCount", len(clusterConfigMap), "serviceConfigCount", len(serviceConfigMap))
+
+		for _, cluster := range pixiuConfig.StaticResources.Clusters {
+			r.Log.Info("generated cluster", "name", cluster.Name, "endpointCount", len(cluster.Endpoints))
+		}
+
+		for _, cluster := range pixiuConfig.StaticResources.Clusters {
+			originalEndpoints := cluster.Endpoints
+			originalEndpointCount := len(originalEndpoints)
+
+			r.Log.Info("cluster before policy", "cluster", cluster.Name, "endpointCount", originalEndpointCount)
+
+			if clusterConfig, ok := clusterConfigMap[cluster.Name]; ok {
+				r.Log.Info("applying cluster config (exact match)", "cluster", cluster.Name, "hasEndpoints", len(clusterConfig.Endpoints) > 0)
+				if err := r.resolveClusterEndpoints(ctx, gateway.Namespace, cluster, clusterConfig); err != nil {
+					r.Log.Error(err, "failed to resolve cluster endpoints", "cluster", cluster.Name)
+				}
+				converter.ApplyClusterConfig(cluster, clusterConfig)
+			} else {
+				// match without namespace prefix (e.g., "default-service" -> "service")
+				parts := strings.SplitN(cluster.Name, "-", 2)
+				if len(parts) == 2 {
+					shortName := parts[1]
+					if clusterConfig, ok := clusterConfigMap[shortName]; ok {
+						r.Log.Info("applying cluster config (short name match)", "cluster", cluster.Name, "shortName", shortName, "hasEndpoints", len(clusterConfig.Endpoints) > 0)
+						if err := r.resolveClusterEndpoints(ctx, gateway.Namespace, cluster, clusterConfig); err != nil {
+							r.Log.Error(err, "failed to resolve cluster endpoints", "cluster", cluster.Name)
+						}
+						converter.ApplyClusterConfig(cluster, clusterConfig)
+					}
+				}
+			}
+
+			if serviceConfig, ok := serviceConfigMap[cluster.Name]; ok {
+				r.Log.Info("applying service cluster config (exact match)", "cluster", cluster.Name, "hasEndpoints", len(serviceConfig.Endpoints) > 0)
+				r.resolveServiceClusterEndpoints(ctx, gateway.Namespace, cluster, serviceConfig)
+				converter.ApplyClusterPolicy(cluster, serviceConfig)
+			} else {
+				parts := strings.SplitN(cluster.Name, "-", 2)
+				if len(parts) == 2 {
+					shortName := parts[1]
+					if serviceConfig, ok := serviceConfigMap[shortName]; ok {
+						r.Log.Info("applying service cluster config (short name match)", "cluster", cluster.Name, "shortName", shortName, "hasEndpoints", len(serviceConfig.Endpoints) > 0)
+						r.resolveServiceClusterEndpoints(ctx, gateway.Namespace, cluster, serviceConfig)
+						converter.ApplyClusterPolicy(cluster, serviceConfig)
+					}
+				}
+			}
+
+			if len(cluster.Endpoints) == 0 && originalEndpointCount > 0 {
+				r.Log.Info("policy resulted in no endpoints, restoring original endpoints",
+					"cluster", cluster.Name, "originalCount", originalEndpointCount)
+				cluster.Endpoints = originalEndpoints
+			}
+
+			r.Log.Info("cluster after policy", "cluster", cluster.Name, "endpointCount", len(cluster.Endpoints))
 		}
 	}
 
@@ -618,6 +684,12 @@ func (r *GatewayReconciler) ensureGatewayConfigMap(ctx context.Context, gateway 
 				return "", fmt.Errorf("failed to update configmap: %w", err)
 			}
 			r.Log.Info("updated gateway configmap", "gateway", gateway.GetName(), "configmap", configMapName)
+
+			deploymentName := fmt.Sprintf("%s-%s", gateway.GetName(), string(gateway.GetUID())[:8])
+			if err := r.triggerHotReload(ctx, gateway, deploymentName); err != nil {
+				return "", fmt.Errorf("failed to trigger hot reload after configmap update: %w", err)
+			}
+			r.Log.Info("hot reload triggered successfully after configmap update", "gateway", gateway.GetName())
 		}
 	}
 
@@ -684,6 +756,11 @@ func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewa
 									ContainerPort: 8888,
 									Protocol:      corev1.ProtocolTCP,
 								},
+								{
+									Name:          "reload",
+									ContainerPort: 18380,
+									Protocol:      corev1.ProtocolTCP,
+								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -729,12 +806,20 @@ func (r *GatewayReconciler) ensureDataPlane(ctx context.Context, gateway *gatewa
 		needsUpdate := false
 		existingHash := existingDeployment.Spec.Template.Annotations["pixiu.apache.org/config-hash"]
 		if existingHash != configHash {
-			r.Log.Info("config hash changed, triggering deployment update",
+			r.Log.Info("config hash changed, triggering hot reload",
 				"gateway", gateway.GetName(),
 				"deployment", deploymentName,
 				"oldHash", existingHash,
 				"newHash", configHash)
-			needsUpdate = true
+
+			if err := r.triggerHotReload(ctx, gateway, deploymentName); err != nil {
+				r.Log.Error(err, "failed to trigger hot reload, will update deployment", "gateway", gateway.GetName())
+				needsUpdate = true
+			} else {
+				// Update annotation only after successful hot reload
+				existingDeployment.Spec.Template.Annotations["pixiu.apache.org/config-hash"] = configHash
+				needsUpdate = true
+			}
 		}
 		if !reflect.DeepEqual(existingDeployment.Spec, deployment.Spec) {
 			needsUpdate = true
@@ -962,10 +1047,28 @@ func (r *GatewayReconciler) resolveClusterEndpoints(ctx context.Context, namespa
 	}
 
 	resolvedEndpoints := []*converter.Endpoint{}
+	resolveFailed := false
 	for _, epConfig := range clusterConfig.Endpoints {
 		if !isIPAddress(epConfig.Address) {
 			serviceName, serviceNamespace := parseServiceAddress(epConfig.Address, namespace)
+			r.Log.Info("resolving service DNS to Pod IPs", "address", epConfig.Address, "serviceName", serviceName, "namespace", serviceNamespace)
 
+			podEndpoints, err := r.resolveServiceEndpoints(ctx, serviceNamespace, serviceName, epConfig.Port)
+			if err == nil && len(podEndpoints) > 0 {
+				r.Log.Info("resolved service to Pod endpoints", "service", serviceName, "endpointCount", len(podEndpoints))
+				for _, podEp := range podEndpoints {
+					resolvedEndpoints = append(resolvedEndpoints, &converter.Endpoint{
+						ID: len(resolvedEndpoints) + 1,
+						SocketAddress: converter.SocketAddress{
+							Address: podEp.Address,
+							Port:    int(podEp.Port),
+						},
+					})
+				}
+				continue
+			}
+
+			r.Log.Info("failed to resolve to Pod IPs, trying Service ClusterIP", "service", serviceName, "error", err)
 			clusterIP, svcPort, err := r.resolveServiceClusterIP(ctx, serviceNamespace, serviceName, epConfig.Port)
 			if err == nil && clusterIP != "" {
 				resolvedEndpoints = append(resolvedEndpoints, &converter.Endpoint{
@@ -983,18 +1086,8 @@ func (r *GatewayReconciler) resolveClusterEndpoints(ctx context.Context, namespa
 				continue
 			}
 
-			resolvedEndpoints = append(resolvedEndpoints, &converter.Endpoint{
-				ID: func() int {
-					if epConfig.ID != nil {
-						return int(*epConfig.ID)
-					}
-					return len(resolvedEndpoints) + 1
-				}(),
-				SocketAddress: converter.SocketAddress{
-					Address: epConfig.Address,
-					Port:    int(epConfig.Port),
-				},
-			})
+			resolveFailed = true
+			r.Log.Info("failed to resolve service, skipping this endpoint", "address", epConfig.Address, "error", err)
 			continue
 		}
 
@@ -1012,9 +1105,14 @@ func (r *GatewayReconciler) resolveClusterEndpoints(ctx context.Context, namespa
 		})
 	}
 
-	if len(resolvedEndpoints) > 0 {
-		cluster.Endpoints = resolvedEndpoints
+	if len(resolvedEndpoints) == 0 {
+		if resolveFailed {
+			return fmt.Errorf("failed to resolve configured endpoints from ClusterPolicy")
+		}
+		return fmt.Errorf("ClusterPolicy configured no usable endpoints")
 	}
+
+	cluster.Endpoints = resolvedEndpoints
 	return nil
 }
 
@@ -1046,14 +1144,16 @@ func (r *GatewayReconciler) resolveServiceEndpoints(ctx context.Context, namespa
 					for _, endpointPort := range endpointSlice.Ports {
 						if endpointPort.Port != nil && endpointPort.Name != nil {
 							targetPort = int32(*endpointPort.Port)
-							return nil, nil
+							break // Found port, break to use it
 						}
 					}
 
-					for _, endpointPort := range endpointSlice.Ports {
-						if endpointPort.Port != nil {
-							targetPort = int32(*endpointPort.Port)
-							return nil, nil
+					if targetPort == port {
+						for _, endpointPort := range endpointSlice.Ports {
+							if endpointPort.Port != nil {
+								targetPort = int32(*endpointPort.Port)
+								break // Found port, break to use it
+							}
 						}
 					}
 				}
@@ -1158,4 +1258,157 @@ func isNumeric(s string) bool {
 		}
 	}
 	return len(s) > 0
+}
+
+// resolveServiceClusterEndpoints resolves Service DNS names in ServiceClusterConfig endpoints to actual IPs
+func (r *GatewayReconciler) resolveServiceClusterEndpoints(ctx context.Context, namespace string, cluster *converter.Cluster, serviceConfig *v1alpha1.ServiceClusterConfig) {
+	if len(serviceConfig.Endpoints) == 0 {
+		return
+	}
+
+	resolved := make([]v1alpha1.EndpointConfig, 0, len(serviceConfig.Endpoints))
+	idCounter := 1
+
+	for i := range serviceConfig.Endpoints {
+		ep := &serviceConfig.Endpoints[i]
+		if isIPAddress(ep.Address) {
+			// Keep IP addresses as-is
+			resolved = append(resolved, *ep)
+			idCounter++
+			continue
+		}
+
+		serviceName, serviceNamespace := parseServiceAddress(ep.Address, namespace)
+		r.Log.Info("resolving service DNS", "address", ep.Address, "serviceName", serviceName, "namespace", serviceNamespace)
+
+		endpoints, err := r.resolveServiceEndpoints(ctx, serviceNamespace, serviceName, ep.Port)
+		if err == nil && len(endpoints) > 0 {
+			r.Log.Info("resolved service to endpoints", "service", serviceName, "endpointCount", len(endpoints))
+			for _, resolvedEp := range endpoints {
+				id := int32(idCounter)
+				resolved = append(resolved, v1alpha1.EndpointConfig{
+					ID:      &id,
+					Address: resolvedEp.Address,
+					Port:    resolvedEp.Port,
+				})
+				idCounter++
+			}
+		} else {
+			r.Log.Info("failed to resolve service, keeping original address", "service", serviceName, "error", err)
+			// Keep the original unresolved entry
+			resolved = append(resolved, *ep)
+			idCounter++
+		}
+	}
+
+	serviceConfig.Endpoints = resolved
+}
+
+// triggerHotReload triggers hot reload on all pods in the deployment
+func (r *GatewayReconciler) triggerHotReload(ctx context.Context, gateway *gatewayv1.Gateway, _ string) error {
+	configMapName := fmt.Sprintf("%s-config", gateway.GetName())
+	configMap := &corev1.ConfigMap{}
+	if err := r.Get(ctx, client.ObjectKey{
+		Name:      configMapName,
+		Namespace: gateway.GetNamespace(),
+	}, configMap); err != nil {
+		return fmt.Errorf("failed to get configmap: %w", err)
+	}
+
+	configYAML, ok := configMap.Data["conf.yaml"]
+	if !ok {
+		return fmt.Errorf("conf.yaml not found in configmap")
+	}
+
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	podList := &corev1.PodList{}
+	if err := r.List(ctx, podList,
+		client.InNamespace(gateway.GetNamespace()),
+		client.MatchingLabels{
+			"app.kubernetes.io/name":                 "pixiu-gateway",
+			"gateway.networking.k8s.io/gateway-name": gateway.GetName(),
+		}); err != nil {
+		return fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	if len(podList.Items) == 0 {
+		r.Log.Info("no pods found for hot reload", "gateway", gateway.GetName())
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var successCount int
+	var failureCount int
+
+	for _, pod := range podList.Items {
+		pod := pod
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			if pod.Status.Phase != corev1.PodRunning {
+				r.Log.Info("skipping non-running pod", "pod", pod.Name, "phase", pod.Status.Phase)
+				return
+			}
+
+			podIP := pod.Status.PodIP
+			if podIP == "" {
+				r.Log.Info("pod has no IP address", "pod", pod.Name)
+				return
+			}
+
+			reloadURL := fmt.Sprintf("http://%s:18380/-/reload", podIP)
+			r.Log.Info("triggering hot reload", "pod", pod.Name, "url", reloadURL)
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, reloadURL, strings.NewReader(configYAML))
+			if err != nil {
+				r.Log.Error(err, "failed to create reload request", "pod", pod.Name)
+				mu.Lock()
+				failureCount++
+				mu.Unlock()
+				return
+			}
+			req.Header.Set("Content-Type", "application/x-yaml")
+
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				r.Log.Error(err, "failed to trigger hot reload", "pod", pod.Name, "url", reloadURL)
+				mu.Lock()
+				failureCount++
+				mu.Unlock()
+				return
+			}
+
+			_, _ = io.Copy(io.Discard, resp.Body)
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				r.Log.Error(closeErr, "failed to close reload response body", "pod", pod.Name)
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			if resp.StatusCode == http.StatusOK {
+				r.Log.Info("hot reload successful", "pod", pod.Name)
+				successCount++
+				return
+			}
+
+			failureCount++
+			r.Log.Error(fmt.Errorf("unexpected status code: %d", resp.StatusCode),
+				"hot reload failed", "pod", pod.Name)
+		}()
+	}
+
+	wg.Wait()
+
+	if successCount == 0 {
+		return fmt.Errorf("hot reload failed on all pods")
+	}
+
+	r.Log.Info("hot reload completed", "gateway", gateway.GetName(),
+		"successCount", successCount, "failureCount", failureCount, "totalPods", len(podList.Items))
+	return nil
 }

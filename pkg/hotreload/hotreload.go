@@ -46,10 +46,9 @@ type Coordinator struct {
 	manager   *config.ConfigManager // Configuration manager
 }
 
-var coordinator = Coordinator{reloaders: []HotReloader{&LoggerReloader{}, &RouteReloader{}}}
+var coordinator = Coordinator{reloaders: []HotReloader{&LoggerReloader{}, &RouteReloader{}, &ClusterReloader{}}}
 
 // StartHotReload initializes the hot reload process.
-// It should be called when the project starts, e.g., in cmd/gateway.go.
 func StartHotReload(manager *config.ConfigManager, boot *model.Bootstrap) {
 	if manager == nil || boot == nil {
 		logger.Warn("ConfigManager or Bootstrap is nil, hot reload will not start")
@@ -100,7 +99,6 @@ func (c *Coordinator) hotReload(newBoot *model.Bootstrap) {
 	}
 }
 
-// equal checks if two string slices are equal.
 func equal(s1, s2 []string) bool {
 	if len(s1) != len(s2) {
 		return false

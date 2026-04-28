@@ -54,6 +54,7 @@ type AdminBootstrap struct {
 	Server      ServerConfig `yaml:"server" json:"server" mapstructure:"server"`
 	EtcdConfig  EtcdConfig   `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
 	MysqlConfig MysqlConfig  `yaml:"mysql" json:"mysql" mapstructure:"mysql"`
+	OPA         OPAConfig    `yaml:"opa" json:"opa" mapstructure:"opa"`
 }
 
 // GetAddress get etcd server address
@@ -84,6 +85,12 @@ type MysqlConfig struct {
 	Host     string `yaml:"host" json:"host" mapstructure:"host"`
 	Port     string `yaml:"port" json:"port" mapstructure:"port"`
 	Dbname   string `yaml:"dbname" json:"dbname" mapstructure:"dbname"`
+}
+
+type OPAConfig struct {
+	ServerURL      string        `yaml:"server_url" json:"server_url" mapstructure:"server_url"`
+	PolicyID       string        `yaml:"policy_id" json:"policy_id" mapstructure:"policy_id"`
+	RequestTimeout time.Duration `yaml:"request_timeout" json:"request_timeout" mapstructure:"request_timeout"`
 }
 
 // BaseInfo base info

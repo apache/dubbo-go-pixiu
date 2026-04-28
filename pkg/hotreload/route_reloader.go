@@ -39,12 +39,10 @@ type RouteReloader struct{}
 func (r *RouteReloader) CheckUpdate(oldConfig, newConfig *model.Bootstrap) bool {
 	oldRoutes := extractRoutes(oldConfig)
 	newRoutes := extractRoutes(newConfig)
-	// Compare the number of routes
 	if len(oldRoutes.Routes) != len(newRoutes.Routes) || oldRoutes.Dynamic != newRoutes.Dynamic {
 		return true
 	}
 
-	// Compare each route
 	for i := range newRoutes.Routes {
 		if oldRoutes.Routes[i].Match.Prefix != newRoutes.Routes[i].Match.Prefix ||
 			oldRoutes.Routes[i].Route.Cluster != newRoutes.Routes[i].Route.Cluster {
@@ -56,16 +54,44 @@ func (r *RouteReloader) CheckUpdate(oldConfig, newConfig *model.Bootstrap) bool 
 
 // HotReload applies the new route configuration.
 func (r *RouteReloader) HotReload(oldConfig, newConfig *model.Bootstrap) error {
-	oldRoutes := extractRoutes(oldConfig)
-	newRoutes := extractRoutes(newConfig)
+	logger.Info("Starting route hot reload")
 
-	// Update routes in the RouterManager
-	err := server.GetRouterManager().UpdateRoutes(oldRoutes.Routes, newRoutes.Routes)
-	if err != nil {
-		logger.Infof("Failed to Routes reloaded.")
-		return err
+	srv := server.GetServer()
+	if srv == nil {
+		logger.Error("Server instance is nil")
+		return errors.New("server instance is nil")
+	}
+	logger.Info("Got server instance")
+
+	logger.Info("Reinitializing server components...")
+
+	listenerManager := srv.GetListenerManager()
+	if listenerManager == nil {
+		logger.Error("Listener manager is nil")
+		return errors.New("listener manager is nil")
 	}
 
+	srv.GetRouterManager().ClearRouterListeners()
+
+	refreshed := 0
+	for _, listener := range newConfig.StaticResources.Listeners {
+		logger.Infof("Refreshing listener: name=%s, protocol=%s", listener.Name, listener.ProtocolStr)
+
+		if err := listenerManager.UpdateListener(listener); err != nil {
+			logger.Errorf("Failed to refresh listener %s: %v", listener.Name, err)
+			return errors.Wrapf(err, "failed to refresh listener %s", listener.Name)
+		}
+		logger.Infof("Successfully refreshed listener: %s", listener.Name)
+		refreshed++
+	}
+
+	if refreshed == 0 {
+		logger.Warn("No listeners were refreshed")
+	} else {
+		logger.Infof("Successfully refreshed %d listener(s)", refreshed)
+	}
+
+	logger.Info("Route hot reload completed successfully")
 	return nil
 }
 
@@ -78,7 +104,6 @@ func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
 	for _, listener := range config.StaticResources.Listeners {
 		for _, filterChain := range listener.FilterChain.Filters {
 			if filterChain.Name == constant.HTTPConnectManagerFilter {
-				// Extract route_config
 				rawRouteConfig, ok := filterChain.Config["route_config"]
 				if !ok {
 					logger.Debugf("No route_config found in filter chain: %+v", filterChain)
@@ -86,14 +111,12 @@ func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
 				}
 				logger.Debugf("Raw route_config: %+v", rawRouteConfig)
 
-				// Convert route_config to JSON bytes
 				routeConfigBytes, err := json.Marshal(rawRouteConfig)
 				if err != nil {
 					logger.Errorf("Failed to marshal route_config: %v", err)
 					continue
 				}
 
-				// Parse JSON bytes into model.RouteConfiguration
 				if err := json.Unmarshal(routeConfigBytes, &routeConfig); err != nil {
 					logger.Errorf("Failed to unmarshal route_config: %v", err)
 					continue
@@ -101,7 +124,6 @@ func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
 
 				logger.Debugf("Parsed route_config: %+v", routeConfig)
 
-				// Validate and filter routes
 				validRoutes := make([]*model.Router, 0, len(routeConfig.Routes))
 				for _, route := range routeConfig.Routes {
 					if err := validateRoute(route); err != nil {
@@ -115,7 +137,6 @@ func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
 				routeConfig.Routes = validRoutes
 				logger.Debugf("Valid routes after filtering: %+v", validRoutes)
 
-				// Return if we have valid routes
 				if len(validRoutes) > 0 {
 					return routeConfig
 				}
@@ -131,12 +152,10 @@ func extractRoutes(config *model.Bootstrap) model.RouteConfiguration {
 
 // validateRoute validates a single route, returning an error if invalid.
 func validateRoute(route *model.Router) error {
-	// Ensure route has a valid match condition
 	if route.Match.Prefix == "" && route.Match.Path == "" {
 		return errors.Errorf("route %s has no prefix or path defined", route.ID)
 	}
 
-	// Ensure cluster is specified
 	if route.Route.Cluster == "" {
 		return errors.Errorf("route %s has no cluster defined", route.ID)
 	}

@@ -147,11 +147,14 @@ func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
 	// lock
 	lm.rwLock.Lock()
 	defer lm.rwLock.Unlock()
-	ls, ok := lm.activeListenerService[m.Name]
+
+	// Use resolveListenerName to get the correct key
+	listenerKey := resolveListenerName(m)
+	ls, ok := lm.activeListenerService[listenerKey]
 	if !ok {
-		return errors.New("ListenerManager UpdateListener error: listener not found")
+		return errors.Errorf("ListenerManager UpdateListener error: listener not found with key %s", listenerKey)
 	}
-	logger.Infof("Update Listener %s", m.Name)
+	logger.Infof("Update Listener %s (key: %s)", m.Name, listenerKey)
 	ls.config = m
 	err := ls.Refresh(*m)
 	if err != nil {
