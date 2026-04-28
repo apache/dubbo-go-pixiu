@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/apache/dubbo-go-pixiu/api-config.schema.json",
+  "title": "pixiu api_config.yaml",
+  "type": "object",
+  "required": ["name", "resources"],
+  "additionalProperties": true,
+  "properties": {
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "pluginFilePath": { "type": "string" },
+    "pluginsGroup": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["groupName"],
+        "properties": {
+          "groupName": { "type": "string" },
+          "plugins": {
+            "type": "array",
+            "items": { "type": "object" }
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/resource" }
+    }
+  },
+  "definitions": {
+    "resource": {
+      "type": "object",
+      "required": ["path", "methods"],
+      "additionalProperties": true,
+      "properties": {
+        "path":        { "type": "string", "pattern": "^/" },
+        "type":        { "type": "string", "enum": ["restful"] },
+        "description": { "type": "string" },
+        "timeout":     { "type": "string", "pattern": "^\\d+(ms|s|m|h)$" },
+        "plugins": {
+          "type": "object",
+          "properties": {
+            "pre":  { "type": "object" },
+            "post": { "type": "object" }
+          }
+        },
+        "methods": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/method" }
+        }
+      }
+    },
+    "method": {
+      "type": "object",
+      "required": ["httpVerb", "inboundRequest", "integrationRequest"],
+      "additionalProperties": true,
+      "properties": {
+        "httpVerb": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+        },
+        "enable":  { "type": "boolean" },
+        "onAir":   { "type": "boolean", "description": "Legacy examples use this name; current Method binds enable." },
+        "timeout": { "type": "string", "pattern": "^\\d+(ms|s|m|h)$" },
+        "inboundRequest":     { "$ref": "#/definitions/inboundRequest" },
+        "integrationRequest": { "$ref": "#/definitions/integrationRequest" }
+      }
+    },
+    "inboundRequest": {
+      "type": "object",
+      "required": ["requestType"],
+      "additionalProperties": true,
+      "properties": {
+        "requestType": { "type": "string", "enum": ["http"] },
+        "headers":      { "type": "array", "items": { "$ref": "#/definitions/param" } },
+        "queryStrings": { "type": "array", "items": { "$ref": "#/definitions/param" } },
+        "requestBody":  {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "contentType": { "type": "string" },
+              "schema":      { "type": "string" },
+              "required":    { "type": "boolean" },
+              "definitionName": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "integrationRequest": {
+      "type": "object",
+      "required": ["requestType"],
+      "additionalProperties": true,
+      "properties": {
+        "requestType": { "type": "string", "enum": ["dubbo", "http"] },
+        "clusterName":     { "type": "string" },
+        "applicationName": { "type": "string" },
+        "protocol": { "type": "string", "enum": ["dubbo", "tri", "triple", "grpc", "http", "https"] },
+        "group":     { "type": "string" },
+        "version":   { "type": "string" },
+        "interface": { "type": "string" },
+        "method":    { "type": "string" },
+        "retries":   { "type": "string" },
+        "mappingParams": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/mappingParam" }
+        },
+        "host":   { "type": "string" },
+        "path":   { "type": "string" },
+        "schema": { "type": "string", "enum": ["http", "https"] },
+        "url":    { "type": "string" }
+      }
+    },
+    "param": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name":     { "type": "string" },
+        "type":     { "type": "string" },
+        "required": { "type": "boolean" }
+      }
+    },
+    "mappingParam": {
+      "type": "object",
+      "required": ["name", "mapTo"],
+      "properties": {
+        "name":    { "type": "string" },
+        "mapTo":   { "type": "string" },
+        "mapType": {
+          "type": "string",
+          "enum": [
+            "string",
+            "java.lang.String",
+            "char",
+            "short",
+            "int",
+            "long",
+            "float",
+            "double",
+            "boolean",
+            "java.util.Date",
+            "date",
+            "object",
+            "java.lang.Object"
+          ]
+        }
+      }
+    }
+  }
+}
