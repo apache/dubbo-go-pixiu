@@ -260,6 +260,6 @@ if [[ $errors -eq 0 ]]; then
   echo "Validation passed."
   exit 0
 else
-  echo "Validation failed with $errors error group(s)."
+  echo "Validation failed with $errors error group(s)." >&2
   exit 2
 fi
