@@ -108,7 +108,10 @@ if has_yaml_reader && command -v python3 >/dev/null 2>&1; then
   tmpjson=$(mktemp -t pixiu-api-XXXXXX.json)
   tmp_files+=("$tmpjson")
   json_from_yaml "$API_CFG" "$tmpjson" "$API_CFG"
-  legacy=$(python3 - "$tmpjson" <<'PY'
+  py_err=$(mktemp -t pixiu-api-python-XXXXXX)
+  tmp_files+=("$py_err")
+  legacy_failed=0
+  legacy=$(python3 - "$tmpjson" 2>"$py_err" <<'PY'
 import json
 import sys
 
@@ -131,14 +134,19 @@ def walk(node, trail):
 walk(data, [])
 print("\n".join(hits))
 PY
-)
-  if [[ -n "$legacy" ]]; then
+) || {
+    echo "  FAIL: legacy paramTypes helper failed:"
+    cat "$py_err"
+    errors=$((errors+1))
+    legacy_failed=1
+  }
+  if [[ $legacy_failed -eq 0 && -n "$legacy" ]]; then
     echo "  FAIL: current pixiu IntegrationRequest does not bind top-level paramTypes:"
     formatted="    - ${legacy//$'\n'/$'\n    - '}"
     printf '%s\n' "$formatted"
     echo "  (use mappingParams[].mapType for static args, or opt.types for dynamic generic routes)"
     errors=$((errors+1))
-  else
+  elif [[ $legacy_failed -eq 0 ]]; then
     echo "  OK"
   fi
 else
@@ -150,7 +158,10 @@ if has_yaml_reader && command -v python3 >/dev/null 2>&1; then
   tmpjson=$(mktemp -t pixiu-api-XXXXXX.json)
   tmp_files+=("$tmpjson")
   json_from_yaml "$API_CFG" "$tmpjson" "$API_CFG"
-  map_errors=$(python3 - "$tmpjson" <<'PY'
+  py_err=$(mktemp -t pixiu-api-python-XXXXXX)
+  tmp_files+=("$py_err")
+  map_failed=0
+  map_errors=$(python3 - "$tmpjson" 2>"$py_err" <<'PY'
 import json
 import re
 import sys
@@ -218,13 +229,18 @@ def walk(node, trail):
 walk(data, [])
 print("\n".join(errors))
 PY
-)
-  if [[ -n "$map_errors" ]]; then
+) || {
+    echo "  FAIL: mappingParams helper failed:"
+    cat "$py_err"
+    errors=$((errors+1))
+    map_failed=1
+  }
+  if [[ $map_failed -eq 0 && -n "$map_errors" ]]; then
     echo "  FAIL:"
     formatted="    - ${map_errors//$'\n'/$'\n    - '}"
     printf '%s\n' "$formatted"
     errors=$((errors+1))
-  else
+  elif [[ $map_failed -eq 0 ]]; then
     echo "  OK"
   fi
 else
@@ -243,7 +259,10 @@ if [[ -n "$CONF_CFG" ]]; then
     tmp_files+=("$api_json" "$conf_json")
     json_from_yaml "$API_CFG" "$api_json" "$API_CFG"
     json_from_yaml "$CONF_CFG" "$conf_json" "$CONF_CFG"
-    missing=$(python3 - "$api_json" "$conf_json" <<'PY'
+    py_err=$(mktemp -t pixiu-api-python-XXXXXX)
+    tmp_files+=("$py_err")
+    missing_failed=0
+    missing=$(python3 - "$api_json" "$conf_json" 2>"$py_err" <<'PY'
 import json
 import sys
 
@@ -271,11 +290,16 @@ clusters = (((conf or {}).get("static_resources") or {}).get("clusters") or [])
 declared = {str(c.get("name")) for c in clusters if isinstance(c, dict) and c.get("name")}
 print(" ".join(sorted(refs - declared)))
 PY
-)
-    if [[ -n "$missing" ]]; then
+    ) || {
+      echo "  FAIL: clusterName cross-check helper failed:"
+      cat "$py_err"
+      errors=$((errors+1))
+      missing_failed=1
+    }
+    if [[ $missing_failed -eq 0 && -n "$missing" ]]; then
       echo "  FAIL: clusterName(s) referenced but not declared in conf.yaml:$missing"
       errors=$((errors+1))
-    else
+    elif [[ $missing_failed -eq 0 ]]; then
       echo "  OK"
     fi
   fi
