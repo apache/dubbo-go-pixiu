@@ -45,15 +45,26 @@ trap cleanup EXIT
 
 section() { echo; echo "== $* =="; }
 
+if ! has_yaml_reader; then
+  echo "error: install yq (preferred) or ruby for YAML parsing." >&2
+  echo "       macOS: brew install yq" >&2
+  echo "       Debian/Ubuntu: apt install yq" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "error: python3 is required for MCP semantic validation." >&2
+  echo "       macOS: brew install python" >&2
+  echo "       Debian/Ubuntu: apt install python3" >&2
+  exit 1
+fi
+
 section "1. YAML syntax"
 tmpjson=$(mktemp -t pixiu-mcp-XXXXXX.json)
 tmp_files+=("$tmpjson")
 yaml_err=$(mktemp -t pixiu-mcp-yaml-XXXXXX)
 tmp_files+=("$yaml_err")
-if ! has_yaml_reader; then
-  echo "  SKIP (install yq or ruby for YAML parsing)"
-  errors=$((errors+1))
-elif yaml_to_json "$CONF" > "$tmpjson" 2>"$yaml_err"; then
+if yaml_to_json "$CONF" > "$tmpjson" 2>"$yaml_err"; then
   echo "  OK"
 else
   echo "  FAIL:"; cat "$yaml_err"
@@ -61,13 +72,7 @@ else
 fi
 
 section "2. MCP gateway semantics"
-if ! has_yaml_reader; then
-  echo "  SKIP (install yq or ruby for YAML parsing; YAML syntax section already recorded this)"
-elif ! command -v python3 >/dev/null 2>&1; then
-  echo "  SKIP (install python3 for semantic validation)"
-  errors=$((errors+1))
-else
-  semantic_errors=$(python3 - "$tmpjson" <<'PY'
+semantic_errors=$(python3 - "$tmpjson" <<'PY'
 import json
 import re
 import sys
@@ -260,14 +265,13 @@ print("\n".join(errors))
 PY
 )
 
-  if [[ -n "$semantic_errors" ]]; then
-    echo "  FAIL:"
-    formatted="    - ${semantic_errors//$'\n'/$'\n    - '}"
-    printf '%s\n' "$formatted"
-    errors=$((errors+1))
-  else
-    echo "  OK"
-  fi
+if [[ -n "$semantic_errors" ]]; then
+  echo "  FAIL:"
+  formatted="    - ${semantic_errors//$'\n'/$'\n    - '}"
+  printf '%s\n' "$formatted"
+  errors=$((errors+1))
+else
+  echo "  OK"
 fi
 
 echo
