@@ -33,7 +33,7 @@ var (
 )
 
 // RouteSnapshot Read-only snapshot for routing
-输入 RouteSnapshot struct {
+type RouteSnapshot struct {
 	// multi-trie for each method, built once and read-only
 	MethodTries map[string]*trie.Trie
 
@@ -54,17 +54,17 @@ type CompiledHeader struct {
 }
 
 func MethodAllowed(methods []string, m string) bool {
-    if len(methods) == 0 {
-        return true
-    }
-    for _, x := range methods {
-        // "*" matches any method (wildcard semantics, important for non-HTTP
-        // scenarios like Dubbo/Triple RPC method matching).
-        if x == "*" || x == m {
-            return true
-        }
-    }
-    return false
+	if len(methods) == 0 {
+		return true
+	}
+	for _, x := range methods {
+		// "*" matches any method (wildcard semantics, important for non-HTTP
+		// scenarios like Dubbo/Triple RPC method matching).
+		if x == "*" || x == m {
+			return true
+		}
+	}
+	return false
 }
 
 var regexCache sync.Map // map[string]*regexp.Regexp
@@ -106,7 +106,7 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 	}
 
 	if headerOnlyCount > 0 {
-		s。HeaderOnly = make([]HeaderRoute, 0, headerOnlyCount)
+		s.HeaderOnly = make([]HeaderRoute, 0, headerOnlyCount)
 	}
 
 	// part to get or create trie for a method
@@ -114,8 +114,8 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 		if t := s.MethodTries[m]; t != nil {
 			return t
 		}
-		nt := trie。NewTrie()
-		s。MethodTries[m] = &nt
+		nt := trie.NewTrie()
+		s.MethodTries[m] = &nt
 		return &nt
 	}
 
