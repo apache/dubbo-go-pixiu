@@ -146,11 +146,22 @@ func (cm *ClusterManager) NewStore(version int32) *ClusterStore {
 // CompareAndSetStore swaps the store only when versions match.
 // Version mismatch must leave both stores and runtime clusters untouched.
 func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
+	swapped, replacedClusters := cm.compareAndSetStore(store)
+	if !swapped {
+		return false
+	}
+
+	// Stop old runtime after publishing the swap; Stop may touch timers/goroutines.
+	stopClusters(replacedClusters)
+	return true
+}
+
+func (cm *ClusterManager) compareAndSetStore(store *ClusterStore) (bool, []*cluster.Cluster) {
 	cm.rw.Lock()
+	defer cm.rw.Unlock()
 
 	if store.Version != cm.store.Version {
-		cm.rw.Unlock()
-		return false
+		return false, nil
 	}
 
 	currentStore := cm.store
@@ -160,11 +171,7 @@ func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
 	if store != currentStore {
 		replacedClusters = append(replacedClusters, currentStore.runtimeClustersNotIn(store)...)
 	}
-	cm.rw.Unlock()
-
-	// Stop old runtime after publishing the swap; Stop may touch timers/goroutines.
-	stopClusters(replacedClusters)
-	return true
+	return true, replacedClusters
 }
 
 // PickEndpoint picks an endpoint from the cluster by its name and load balancing policy.

@@ -212,18 +212,7 @@ func (hc *HealthChecker) getCheckInterval() time.Duration {
 }
 
 func (c *EndpointChecker) Start() {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Warnf("[health check] node checker panic %v\n%s", r, string(debug.Stack()))
-		}
-		// Early Stop may run before timers are assigned.
-		if c.checkTimer != nil {
-			c.checkTimer.Stop()
-		}
-		if c.checkTimeout != nil {
-			c.checkTimeout.Stop()
-		}
-	}()
+	defer c.cleanupStart()
 	c.checkTimer = gxtime.AfterFunc(c.HealthChecker.initialDelay, c.OnCheck)
 	for {
 		select {
@@ -258,6 +247,23 @@ func (c *EndpointChecker) Start() {
 
 			}
 		}
+	}
+}
+
+func (c *EndpointChecker) cleanupStart() {
+	if r := recover(); r != nil {
+		logger.Warnf("[health check] node checker panic %v\n%s", r, string(debug.Stack()))
+	}
+	c.stopCheckTimers()
+}
+
+func (c *EndpointChecker) stopCheckTimers() {
+	// Early Stop may run before timers are assigned.
+	if c.checkTimer != nil {
+		c.checkTimer.Stop()
+	}
+	if c.checkTimeout != nil {
+		c.checkTimeout.Stop()
 	}
 }
 
