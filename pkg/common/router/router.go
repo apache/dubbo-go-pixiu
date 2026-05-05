@@ -39,7 +39,7 @@ import (
 )
 
 // RouterCoordinator the router coordinator for http connection manager
-输入 RouterCoordinator struct {
+type RouterCoordinator struct {
 	mainSnapshot atomic.Pointer[model.RouteSnapshot] // atomic snapshot
 	mu           sync.Mutex
 
@@ -88,7 +88,7 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 	if rm.dynamic && rm.needsRegistration.CompareAndSwap(true, false) {
 		routerMgr := server.GetRouterManager()
 		if routerMgr != nil {
-			routerMgr。AddRouterListener(rm)
+			routerMgr.AddRouterListener(rm)
 		} else {
 			rm.needsRegistration.Store(true)
 		}
@@ -134,8 +134,8 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 			return &hr.Action, nil
 		}
 	}
-	// Trie
-	key := stringutil。GetTrieKey(req.Method, req.URL.Path)
+
+	key := stringutil.GetTrieKey(req.Method, req.URL.Path)
 	// Method-specific trie first, then fall back to the wildcard ("*") trie
 	// so routes declared with methods: ["*"] continue to match any method.
 	if act, err := matchInTrie(s.MethodTries[req.Method], key); act != nil || err != nil {
@@ -156,18 +156,18 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 //	(nil, error)  -> match found but bizInfo has wrong type, do NOT fall back
 //	(nil, nil)    -> miss, caller may try the next trie
 func matchInTrie(t *trie.Trie, key string) (*model.RouteAction, error) {
-    if t == nil {
-        return nil, nil
-    }
-    node, _, ok := t.Match(key)
-    if !ok || node == nil || node.GetBizInfo() == nil {
-        return nil, nil
-    }
-    act, ok := node.GetBizInfo().(model.RouteAction)
-    if !ok {
-        return nil, errors.Errorf("route failed for %s, invalid route action type", key)
-    }
-    return &act, nil
+	if t == nil {
+		return nil, nil
+	}
+	node, _, ok := t.Match(key)
+	if !ok || node == nil || node.GetBizInfo() == nil {
+		return nil, nil
+	}
+	act, ok := node.GetBizInfo().(model.RouteAction)
+	if !ok {
+		return nil, errors.Errorf("route failed for %s, invalid route action type", key)
+	}
+	return &act, nil
 }
 
 // reset timer or publish directly
