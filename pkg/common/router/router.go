@@ -88,7 +88,7 @@ func (rm *RouterCoordinator) Route(hc *http.HttpContext) (*model.RouteAction, er
 	if rm.dynamic && rm.needsRegistration.CompareAndSwap(true, false) {
 		routerMgr := server.GetRouterManager()
 		if routerMgr != nil {
-			routerMgr.AddRouterListener(rm)
+			routerMgr。AddRouterListener(rm)
 		} else {
 			rm.needsRegistration.Store(true)
 		}
@@ -135,21 +135,39 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 		}
 	}
 	// Trie
-	t := s.MethodTries[req.Method]
-	if t == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(req.Method, req.URL.Path))
+	key := stringutil。GetTrieKey(req.Method, req.URL.Path)
+	// Method-specific trie first, then fall back to the wildcard ("*") trie
+	// so routes declared with methods: ["*"] continue to match any method.
+	if act, err := matchInTrie(s.MethodTries[req.Method], key); act != nil || err != nil {
+		return act, err
+	}
+	if req.Method != "*" {
+		if act, err := matchInTrie(s.MethodTries["*"], key); act != nil || err != nil {
+			return act, err
+		}
+	}
+	return nil, errors.Errorf("route failed for %s, no rules matched", key)
+}
 
-	}
-
-	node, _, ok := t.Match(stringutil.GetTrieKey(req.Method, req.URL.Path))
-	if !ok || node == nil || node.GetBizInfo() == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(req.Method, req.URL.Path))
-	}
-	act, ok := node.GetBizInfo().(model.RouteAction)
-	if !ok {
-		return nil, errors.Errorf("route failed for %s, invalid route action type", stringutil.GetTrieKey(req.Method, req.URL.Path))
-	}
-	return &act, nil
+// matchInTrie looks up key in t. The tri-state return lets callers chain a
+// fallback trie:
+//
+//	(action, nil) -> match found, return immediately
+//	(nil, error)  -> match found but bizInfo has wrong type, do NOT fall back
+//	(nil, nil)    -> miss, caller may try the next trie
+func matchInTrie(t *trie.Trie, key string) (*model.RouteAction, error) {
+    if t == nil {
+        return nil, nil
+    }
+    node, _, ok := t.Match(key)
+    if !ok || node == nil || node.GetBizInfo() == nil {
+        return nil, nil
+    }
+    act, ok := node.GetBizInfo().(model.RouteAction)
+    if !ok {
+        return nil, errors.Errorf("route failed for %s, invalid route action type", key)
+    }
+    return &act, nil
 }
 
 // reset timer or publish directly
