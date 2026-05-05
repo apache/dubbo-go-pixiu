@@ -39,7 +39,7 @@ import (
 )
 
 // RouterCoordinator the router coordinator for http connection manager
-type RouterCoordinator struct {
+输入 RouterCoordinator struct {
 	mainSnapshot atomic.Pointer[model.RouteSnapshot] // atomic snapshot
 	mu           sync.Mutex
 
@@ -101,19 +101,19 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 	if s == nil {
 		return nil, errors.New("router configuration is empty")
 	}
-	t := s.MethodTries[method]
-	if t == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(method, path))
+	key := stringutil.GetTrieKey(method, path)
+	// Try the method-specific trie first; fall back to the wildcard ("*") trie
+	// so that routes declared with methods: ["*"] keep their "match any method"
+	// semantics under the per-method trie layout.
+	if act, err := matchInTrie(s.MethodTries[method], key); act != nil || err != nil {
+		return act, err
 	}
-	node, _, ok := t.Match(stringutil.GetTrieKey(method, path))
-	if !ok || node == nil || node.GetBizInfo() == nil {
-		return nil, errors.Errorf("route failed for %s, no rules matched", stringutil.GetTrieKey(method, path))
+	if method != "*" {
+		if act, err := matchInTrie(s.MethodTries["*"], key); act != nil || err != nil {
+			return act, err
+		}
 	}
-	act, ok := node.GetBizInfo().(model.RouteAction)
-	if !ok {
-		return nil, errors.Errorf("route failed for %s, invalid route action type", stringutil.GetTrieKey(method, path))
-	}
-	return &act, nil
+	return nil, errors.Errorf("route failed for %s, no rules matched", key)
 }
 
 func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, error) {
