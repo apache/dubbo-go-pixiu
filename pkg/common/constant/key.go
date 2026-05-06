@@ -87,13 +87,14 @@ const (
 )
 
 const (
-	ApplicationKey = "application"
-	AppVersionKey  = "app.version"
-	ClusterKey     = "cluster"
-	GroupKey       = "group"
-	VersionKey     = "version"
-	InterfaceKey   = "interface"
-	MethodsKey     = "methods"
+	ApplicationKey   = "application"
+	AppVersionKey    = "app.version"
+	ClusterKey       = "cluster"
+	GroupKey         = "group"
+	VersionKey       = "version"
+	InterfaceKey     = "interface"
+	MethodsKey       = "methods"
+	SerializationKey = "serialization"
 	// NameKey name of interface
 	NameKey = "name"
 	// RetriesKey retry times
@@ -107,6 +108,8 @@ const (
 	DubboRequest = "dubbo"
 	// HTTPRequest represents the http request
 	HTTPRequest = "http"
+	// TripleRequest represents the triple request
+	TripleRequest = "triple"
 	// GRPCRequest represents the grpc request
 	GRPCRequest = "grpc"
 )

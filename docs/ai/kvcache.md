@@ -182,4 +182,3 @@ listeners:
    - hit ratio
    - p95/p99 latency
    - upstream load distribution
-
