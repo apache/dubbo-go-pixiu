@@ -41,11 +41,13 @@ import (
 )
 
 type recordingDubboClient struct {
-	ctx context.Context
-	req *dubbo.DubboOutboundRequest
-	res any
-	err error
+	req           *dubbo.DubboOutboundRequest
+	res           any
+	err           error
+	contextMarker any
 }
+
+type testContextKey struct{}
 
 func (c *recordingDubboClient) Apply() error {
 	return nil
@@ -56,8 +58,8 @@ func (c *recordingDubboClient) Close() error {
 }
 
 func (c *recordingDubboClient) Call(ctx context.Context, req *dubbo.DubboOutboundRequest) (any, error) {
-	c.ctx = ctx
 	c.req = req
+	c.contextMarker = ctx.Value(testContextKey{})
 	return c.res, c.err
 }
 
@@ -73,9 +75,11 @@ func TestDecodeRoutesDubboAndTripleThroughOutboundClient(t *testing.T) {
 	for _, requestType := range []string{constant.DubboRequest, constant.TripleRequest} {
 		t.Run(requestType, func(t *testing.T) {
 			resp := map[string]string{"ok": requestType}
-			recorder := &recordingDubboClient{res: resp}
 
+			marker := struct{}{}
 			req := httptest.NewRequest(http.MethodPost, "http://example.com/users/42?name=alice", nil)
+			req = req.WithContext(context.WithValue(req.Context(), testContextKey{}, marker))
+			recorder := &recordingDubboClient{res: resp}
 			ctx := &contexthttp.HttpContext{
 				Timeout: 150 * time.Millisecond,
 				Request: req,
@@ -107,7 +111,7 @@ func TestDecodeRoutesDubboAndTripleThroughOutboundClient(t *testing.T) {
 			require.Equal(t, extfilter.Continue, status)
 			assert.Equal(t, resp, ctx.SourceResp)
 			require.NotNil(t, recorder.req)
-			assert.Equal(t, req.Context(), recorder.ctx)
+			assert.Equal(t, marker, recorder.contextMarker)
 			assert.Equal(t, "com.demo.UserService", recorder.req.Service)
 			assert.Equal(t, "SayHello", recorder.req.Method)
 			assert.Equal(t, []any{"alice"}, recorder.req.Arguments)

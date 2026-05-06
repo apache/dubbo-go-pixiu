@@ -185,33 +185,13 @@ func (h *DubboHandler) applyOptMapping(state *outboundBuildState, mapTo string, 
 	optKey := strings.TrimSpace(strings.TrimPrefix(mapTo, "opt."))
 	switch optKey {
 	case "group":
-		v, ok := value.(string)
-		if !ok {
-			return errors.New("Group value is not string")
-		}
-		state.group = v
-		return nil
+		return applyStringOptValue(&state.group, "Group", value)
 	case "version":
-		v, ok := value.(string)
-		if !ok {
-			return errors.New("Version value is not string")
-		}
-		state.version = v
-		return nil
+		return applyStringOptValue(&state.version, "Version", value)
 	case "interface":
-		v, ok := value.(string)
-		if !ok {
-			return errors.New("Interface value is not string")
-		}
-		state.service = v
-		return nil
+		return applyStringOptValue(&state.service, "Interface", value)
 	case "method":
-		v, ok := value.(string)
-		if !ok {
-			return errors.New("Method value is not string")
-		}
-		state.method = v
-		return nil
+		return applyStringOptValue(&state.method, "Method", value)
 	case "values":
 		values, err := h.normalizeOptValues(value)
 		if err != nil {
@@ -238,6 +218,15 @@ func (h *DubboHandler) applyOptMapping(state *outboundBuildState, mapTo string, 
 	default:
 		return errors.Errorf("unknown opt mapping: %s", mapTo)
 	}
+}
+
+func applyStringOptValue(target *string, name string, value any) error {
+	v, ok := value.(string)
+	if !ok {
+		return errors.Errorf("%s value is not string", name)
+	}
+	*target = v
+	return nil
 }
 
 func (h *DubboHandler) parseMapSource(source string) (string, []string, error) {
