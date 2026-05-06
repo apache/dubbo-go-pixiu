@@ -63,6 +63,62 @@ func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
 	assert.Nil(t, cm.PickEndpoint("missing-cluster", nil))
 }
 
+func TestClusterManager_PickEndpointUsesRuntimeClusterMap(t *testing.T) {
+	runtimeConfig := testCluster("runtime-lookup", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("runtime-ep", "127.0.0.1", 18083),
+	})
+	cm := testClusterManager(runtimeConfig)
+	cm.store.Config = []*model.ClusterConfig{
+		testCluster(runtimeConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
+			testEndpoint("stale-ep", "127.0.0.1", 18084),
+		}),
+	}
+
+	endpoint := cm.PickEndpoint(runtimeConfig.Name, nil)
+
+	if assert.NotNil(t, endpoint) {
+		assert.Equal(t, "runtime-ep", endpoint.ID)
+	}
+}
+
+func TestClusterManager_PickNextEndpointUsesRuntimeClusterMap(t *testing.T) {
+	runtimeConfig := testCluster("runtime-next-lookup", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("runtime-1", "127.0.0.1", 18085),
+		testEndpoint("runtime-2", "127.0.0.1", 18086),
+	})
+	cm := testClusterManager(runtimeConfig)
+	cm.store.Config = []*model.ClusterConfig{
+		testCluster(runtimeConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
+			testEndpoint("stale-1", "127.0.0.1", 18087),
+			testEndpoint("stale-2", "127.0.0.1", 18088),
+		}),
+	}
+
+	endpoint := cm.PickNextEndpoint(runtimeConfig.Name, "runtime-1")
+
+	if assert.NotNil(t, endpoint) {
+		assert.Equal(t, "runtime-2", endpoint.ID)
+	}
+}
+
+func TestClusterManager_GetEndpointByIDUsesRuntimeClusterMap(t *testing.T) {
+	runtimeConfig := testCluster("runtime-id-lookup", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("runtime-ep", "127.0.0.1", 18089),
+	})
+	cm := testClusterManager(runtimeConfig)
+	cm.store.Config = []*model.ClusterConfig{
+		testCluster(runtimeConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
+			testEndpoint("stale-ep", "127.0.0.1", 18090),
+		}),
+	}
+
+	endpoint := cm.GetEndpointByID(runtimeConfig.Name, "runtime-ep")
+
+	if assert.NotNil(t, endpoint) {
+		assert.Equal(t, "runtime-ep", endpoint.ID)
+	}
+}
+
 func TestClusterManager_PickEndpointSingleUnhealthyReturnsNil(t *testing.T) {
 	cm := testClusterManager(
 		testCluster("single-unhealthy", model.LoadBalancerRoundRobin, []*model.Endpoint{

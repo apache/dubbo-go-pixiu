@@ -229,12 +229,11 @@ func (cm *ClusterManager) GetEndpointByID(clusterName string, endpointID string)
 
 // getCluster returns the cluster configuration by its name.
 func (cm *ClusterManager) getCluster(clusterName string) *model.ClusterConfig {
-	for _, c := range cm.store.Config {
-		if c.Name == clusterName {
-			return c
-		}
+	runtimeCluster := cm.store.clustersMap[clusterName]
+	if runtimeCluster == nil {
+		return nil
 	}
-	return nil
+	return runtimeCluster.Config
 }
 
 func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
