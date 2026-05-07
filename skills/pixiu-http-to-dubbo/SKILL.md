@@ -35,6 +35,11 @@ the mapping rules in between.
   Dubbo registry adapter. You almost always keep this close to the
   sample; changes are listener port, adapter type, and sometimes
   cluster definitions.
+  In config answers, explicitly use canonical HCM Kind
+  `dgp.filter.httpconnectionmanager` (never
+  `dgp.filter.http.httpconnectionmanager`) and put
+  `dgp.filter.http.apiconfig` before `dgp.filter.http.dubboproxy` or
+  `dgp.filter.http.httpproxy` inside HCM `http_filters`.
 - **`api_config.yaml`** — the per-endpoint mapping. One
   `resources[].methods[]` entry per HTTP route. Every field except the
   path comes from the Dubbo side; every mapping rule comes from the
@@ -87,8 +92,7 @@ Use this skill when the user wants to:
 4. Open `pkg/client/dubbo/default.go`, `pkg/client/dubbo/mapper.go`,
    and `pkg/client/dubbo/option.go` before editing mappings. They define
    the accepted `mapTo` grammar and how `mapType` becomes the generic
-   invocation type list. Load `references/api-config-schema.md` for the
-   annotated view.
+   invocation type list.
 5. If the user says "Dubbo direct URL, no registry", make sure you
    understand they still need `clusters[]` in `conf.yaml` with the
    provider address.
@@ -118,9 +122,9 @@ Dubbo/Hessian class discriminator the provider expects, usually a
 argument as `object`, but it cannot infer every provider-side POJO FQCN
 from a yaml field that the current config struct ignores.
 
-Read `references/param-mapping-rules.md` for the exact `mapTo` grammar
-and `references/generic-invoke-types.md` for the current `mapType` /
-`opt.types` conventions for primitives, collections, and nested POJOs.
+For primitives, collections, and nested POJOs, stay close to the current
+mapper source and existing `api_config.yaml` examples before finalizing
+`mappingParams`.
 
 If the user says "direct URL", "no registry", or gives a provider
 address such as `10.0.0.8:20880`, keep the Dubbo route as
@@ -264,38 +268,31 @@ provider URL.
 And the HTTP listener MUST have `dgp.filter.http.apiconfig` in its
 `http_filters` list, followed by `dgp.filter.http.dubboproxy` (or
 `dgp.filter.http.httpproxy` if some routes are pass-through). Filter
-order matters — see `references/api-config-schema.md`.
+order matters — compare against the current config structs and examples.
 
 ### Step 4 — Validate
 
-Run the bundled validator:
+Before booting Pixiu, inspect the generated config directly:
 
-```sh
-bash "$(git rev-parse --show-toplevel)/skills/pixiu-http-to-dubbo/scripts/validate-api-config.sh" <path-to-api_config.yaml> [conf.yaml]
-```
-
-It does:
-
-1. `yq` parse (catches yaml syntax errors).
-2. JSON Schema validation against
-   `references/api-config-schema.json` — catches unknown fields in
-   structured API mapping objects, wrong types, and missing required
-   keys. `filter.config` remains intentionally permissive because
+1. Parse the yaml with an available local parser or by loading it through
+   Pixiu's config path.
+2. Check the current API config structs and examples for required keys,
+   expected types, and the allowed shape of structured API mapping
+   objects. `filter.config` remains intentionally permissive because
    individual filter plugins own their own config schemas.
-3. A sanity pass: every `clusterName` referenced in `integrationRequest`
-   appears as an `id` / `name` in the adapters / clusters section of
-   `conf.yaml` (if the user passes both files).
+3. Cross-check every `clusterName` referenced in `integrationRequest`
+   against the adapter / cluster `id` or `name` values in `conf.yaml`.
 
 If validation fails, fix *before* trying to boot pixiu — boot-time
-errors are more cryptic than the validator's messages.
+errors are more cryptic than config-shape mistakes found by inspection.
 
 ### Step 5 — Smoke Test
 
 1. `go run ./cmd/pixiu/... gateway start -c configs/conf.yaml -a configs/api_config.yaml`
    (or the binary equivalent).
 2. `curl -v -X POST http://localhost:<port>/<path> ...`
-3. If you get HTTP 5xx, jump to `references/troubleshooting-500.md` —
-   it is organized by symptom.
+3. If you get HTTP 5xx, inspect Pixiu server logs near the request
+   timestamp and match the first error to the config area it references.
 
 ## Cross-Cutting Rules
 
@@ -359,18 +356,11 @@ errors are more cryptic than the validator's messages.
    the adapter source under `pkg/adapter/` for the actual field
    names.
 
-## References
+## Source Files To Read
 
-| File | When to load |
-|---|---|
-| [references/api-config-schema.md](references/api-config-schema.md) | Step 0 and Step 2: annotated view of the Go struct backing `api_config.yaml`, with field-by-field notes |
-| [references/param-mapping-rules.md](references/param-mapping-rules.md) | Step 1–2: the `mappingParams.name` grammar (`queryStrings.*`, `requestBody.*`, `headers.*`, `uri.*`) and the `mapType` values |
-| [references/generic-invoke-types.md](references/generic-invoke-types.md) | Step 1–2: current `mapType` / `opt.types` rules for primitives, POJOs, enums, and nested objects |
-| [references/troubleshooting-500.md](references/troubleshooting-500.md) | Step 5 if a smoke test fails; ordered by symptom → root cause → fix |
-| [references/api-config-schema.json](references/api-config-schema.json) | Consumed by the validator script; does not need to be read directly |
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `scripts/validate-api-config.sh <api_config.yaml> [conf.yaml]` | yaml-parse, JSON-Schema-validate, and cross-file cluster-name sanity-check. Exits 0 on pass, non-zero with a grouped error report on failure. |
+- `pkg/config/api_config.go`
+- `pkg/client/dubbo/mapper.go`
+- `pkg/client/dubbo/option.go`
+- Existing `configs/api_config.yaml` and sample `api_config.yaml`
+  files.
+- Pixiu server logs for the first error near a failing request.

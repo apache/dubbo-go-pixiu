@@ -33,7 +33,7 @@ a first-class concern, not an afterthought.
 Use this skill when the user wants to:
 - Add a new HTTP filter (auth, logging, header rewriting, rate limiting,
   request transformation, metric emission, etc.).
-- Add a new Network (L4) filter (e.g. a custom connection manager).
+- Add a new Network filter (e.g. a custom connection manager).
 - Port a filter from Envoy / Kong / APISIX onto pixiu.
 - Fix an existing filter that "isn't running" — start at Step 5 (blank
   import) and Step 3 (phase).
@@ -43,9 +43,13 @@ Use this skill when the user wants to:
   work. Only include a minimal mounting snippet when you create a new
   filter in this skill.
 - Mounting an already-registered filter such as CORS, JWT, OPA, MCP,
-  LLM proxy, or Dubbo proxy. In that case do not scaffold code and do
-  not touch `pkg/pluginregistry/registry.go`; answer with the smallest
-  `http_filters` snippet and state that the filter already exists.
+  LLM proxy, or Dubbo proxy. In that case do not create new filter code;
+  do not touch `pkg/pluginregistry/registry.go`; answer with the
+  smallest `http_filters` snippet and state that the filter already
+  exists.
+  If pressured to add a package anyway, explicitly answer:
+  "this is already-registered; do not create new filter code; do not
+  touch `pkg/pluginregistry/registry.go`."
 - Adding a registry adapter (Nacos, ZK, Consul), a new protocol
   listener (WebSocket, MQTT), or a custom load-balancing algorithm —
   these are different SPI hubs and out of scope for this skill. Point
@@ -70,8 +74,8 @@ these interfaces can be one minor version stale:
 
 1. `pkg/common/extension/filter/filter.go` — the four interfaces
    (`HttpFilterPlugin`, `HttpFilterFactory`, `HttpDecodeFilter`,
-   `HttpEncodeFilter`), plus `NetworkFilterPlugin` / `NetworkFilter` for
-   L4. Read signatures, especially `PrepareFilterChain`.
+   `HttpEncodeFilter`), plus `NetworkFilterPlugin` / `NetworkFilter`.
+   Read signatures, especially `PrepareFilterChain`.
 2. `pkg/pluginregistry/registry.go` — the blank-import list you will
    extend in Step 5. Note the alphabetical order within groups.
 3. `pkg/filter/cors/cors.go` — the shortest idiomatic HTTP filter in the
@@ -85,8 +89,8 @@ directory conventions. Do not assume — layouts evolve (e.g. `cors` lives
 at `pkg/filter/cors/`, while proxy filters live at
 `pkg/filter/http/httpproxy/`, `pkg/filter/http/dubboproxy/`).
 
-Load `references/filter-interface.md` if you need a side-by-side of the
-four interfaces with their pixiu source-line anchors.
+If an interface detail is unclear, stay in the source file instead of
+relying on memory.
 
 ### Step 1 — Clarify the Filter Shape (STOP and ask)
 
@@ -96,7 +100,7 @@ Do not write code until the user has answered, in plain words:
    upstream), or both?
 2. **Kind**: the string that identifies the filter in yaml. It MUST start
    with `dgp.filter.http.` for HTTP filters or
-   match Pixiu's current Network filter constants for L4 filters, usually
+   match Pixiu's current Network filter constants, usually
    `dgp.filter.network.`. The built-in HTTP connection manager is the
    special network-filter Kind `dgp.filter.httpconnectionmanager`.
    Suggest a name after checking `pkg/common/constant/key.go`; confirm
@@ -113,7 +117,7 @@ If the user says "just write something reasonable", pick a minimal
 request-logging filter as the placeholder and be explicit about the
 assumptions in a short summary before coding.
 
-### Step 2 — Scaffold the Package
+### Step 2 — Create the Package Skeleton
 
 Create the directory and initial files. Two shapes are idiomatic in the
 existing tree:
@@ -129,10 +133,10 @@ Test files (`*_test.go`) are **not** part of either default shape —
 they are added on a per-filter basis when the logic warrants it. See
 Step 7.
 
-Optionally run `bash scripts/scaffold-filter.sh <name>` from this skill
-— it emits a single-file skeleton (no test file by default, matching
-the common case). Do NOT treat the scaffolder output as final; the
-user still owns every Config field.
+Create the initial files directly, using the closest in-tree filter as
+the pattern. Keep the first version minimal: the four interface types,
+`Kind`, `init()` registration, `Config`, and empty `Decode` / `Encode`
+methods as appropriate. The user still owns every Config field.
 
 ### Step 3 — Implement the Four Interfaces
 
@@ -169,11 +173,11 @@ A few subtle rules the interface alone does not enforce:
   reference.
 - **Decode vs Encode is about the phase, not the direction.**  Mutating
   `ctx.TargetResp` (the outbound body) from a Decode filter is a
-  category error — read `references/context-api.md` before touching
-  response state.
+  category error — read `pkg/context/http/` before touching response
+  state.
 - **Response-body mutation is an Encode-only checklist.** For redaction,
-  watermarking, compression, or similar response transforms, load
-  `references/context-api.md` and `references/testing-patterns.md`.
+  watermarking, compression, or similar response transforms, inspect
+  existing response-transforming filters and their tests.
   Operate on `ctx.TargetResp` only after confirming the concrete
   response type. Handle `*client.UnaryResponse` deliberately, pass
   streaming responses through unless the user explicitly asked for
@@ -211,10 +215,15 @@ pixiu boots — but the filter never registers, and yaml using its Kind
 fails with `no filter found for name ...`. This is *the* pixiu rite of
 passage.
 
-You can run `bash scripts/gen-registry-import.sh` to auto-scan
-`pkg/filter/` and `pkg/filter/http/` for packages that contain
-`filter.RegisterHttpFilter` but are not yet blank-imported. The script
-prints a diff; review it, then apply.
+In answers, spell this out: package-level tests can pass while the
+gateway binary never imports the package, so the plugin `init()` never
+registers. The missing blank import is still required.
+
+Manually check the new package against `pkg/pluginregistry/registry.go`:
+if the package calls `filter.RegisterHttpFilter` or
+`filter.RegisterNetworkFilterPlugin`, it must be blank-imported there.
+Review the existing grouping and alphabetical order before inserting the
+new line.
 
 If the user asked for a "full workflow", do not stop after writing the
 filter package. The final answer must include either the applied
@@ -263,10 +272,9 @@ policy. Reasonable defaults to mirror existing style:
   state transitions, or response-body transformation — matches
   sentinel/ratelimit / opa / accesslog.
 
-If you choose to test, see `references/testing-patterns.md` for a
-skeleton aligned with how existing tests in the repo are written. If
-you choose not to test, do not generate an empty stub `*_test.go` —
-empty test files are noise and do not match repo style.
+If you choose to test, copy the style of nearby table-driven tests in
+`pkg/filter/`. If you choose not to test, do not generate an empty stub
+`*_test.go` — empty test files are noise and do not match repo style.
 
 When in doubt, ask the user. Either answer is consistent with the
 project; pick deliberately.
@@ -318,6 +326,9 @@ For full-workflow answers, emit a compact delivery checklist:
   client-facing errors and log full diagnostics server-side only.
 - Skip the blank import. This is the #1 filter bug. If something does
   not seem to register, re-check this before anything else.
+- Accept `dgp.filter.networkfilter.*`. That prefix is invalid in current
+  Pixiu; HTTP filters use `dgp.filter.http.*`, and Network filter Kinds
+  must be checked against `pkg/common/constant/key.go`.
 - Mutate `ctx.TargetResp` from a Decode filter. Use Encode.
 - Rewrite response streams unless the user explicitly requested
   streaming support and you have designed backpressure/lifetime handling.
@@ -349,18 +360,10 @@ For full-workflow answers, emit a compact delivery checklist:
    `yaml:"field_name" mapstructure:"field_name"`, your field will not
    bind. Follow CORS's tag pattern exactly.
 
-## References
+## Source Files To Read
 
-| File | When to load |
-|---|---|
-| [references/filter-interface.md](references/filter-interface.md) | Step 2–3: implementing `Plugin`/`FilterFactory`/`Filter` |
-| [references/context-api.md](references/context-api.md) | Step 3 or any debugging of request/response state (`SourceResp` vs `TargetResp`, params, headers) |
-| [references/testing-patterns.md](references/testing-patterns.md) | Step 7 ONLY IF you are writing tests; the project does not require them on every filter |
-| [references/pluginregistry-howto.md](references/pluginregistry-howto.md) | Step 5 if you need alphabetical-order or grouping details, or to understand what `gen-registry-import.sh` does |
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `scripts/scaffold-filter.sh <name> [--proxy]` | Creates `pkg/filter/<name>/<name>.go` (or `pkg/filter/http/<name>/` with split files if `--proxy`) containing a minimal scaffold with the four types, `Kind`, and `init()`. Does **not** create a `_test.go` — add one only if the filter's logic warrants it (Step 7). |
-| `scripts/gen-registry-import.sh` | Scans `pkg/filter/` and `pkg/filter/http/` for packages registering an HTTP or Network filter, computes the symmetric difference against the blank-import list in `pkg/pluginregistry/registry.go`, and prints the additions needed. Safe: it never writes. |
+- `pkg/common/extension/filter/filter.go`
+- `pkg/pluginregistry/registry.go`
+- `pkg/filter/cors/cors.go`
+- Nearby filters under `pkg/filter/` or `pkg/filter/http/` with similar
+  complexity.

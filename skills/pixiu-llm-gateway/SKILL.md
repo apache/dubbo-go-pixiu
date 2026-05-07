@@ -158,12 +158,21 @@ Notes:
   not mix `https` providers and `http` local vLLM endpoints in the same
   route/filter configuration. Split them by route/listener/cluster
   arrangement or normalize the upstream scheme.
+- When correcting adversarial configs, explicitly say: `scheme` is
+  filter-level, `socket_address.domains` is host-only, and full URLs
+  such as `https://api.openai.com/v1` do not belong in `domains`.
+- `lb_policy` must be one of `Rand`, `RoundRobin`, `RingHashing`,
+  `MaglevHashing`, or `WeightRandom`; reject `lb` and check
+  `pkg/model/cluster.go` before inventing a policy.
 - Endpoint API keys are injected as `Authorization: Bearer <api_key>`.
   Do not hard-code production secrets; use placeholders or the user's
   secret management convention.
 - `dgp.filter.llm.tokenizer` should be before `dgp.filter.llm.proxy` so
   Decode starts timing before the upstream call. Its Encode phase reads
   proxy attempt data and token usage from the response.
+- Tokenizer metrics read OpenAI-style `usage` fields for unary responses
+  and SSE `data:` frames for streaming responses. If upstream omits token
+  usage, report partial metrics instead of inventing counts.
 
 ## Step 3 — Add KV Cache Only When the Contract Exists
 
@@ -208,7 +217,8 @@ http_filters:
       timeout: "60s"
 ```
 
-Load `references/kvcache-config.md` before generating a kvcache config.
+Before generating a kvcache config, read the current
+`pkg/filter/ai/kvcache/` source and any checked-in AI config examples.
 
 ## Step 4 — Use Nacos Discovery Only for Dynamic Endpoint Discovery
 
@@ -231,20 +241,14 @@ adapters:
 
 The Nacos instance metadata must include `cluster`, `id`, and LLM
 metadata keys such as `llm-meta.api_key`,
-`llm-meta.retry_policy.name`, and `llm-meta.fallback`. Load
-`references/llm-registry.md` before generating Nacos instructions.
+`llm-meta.retry_policy.name`, and `llm-meta.fallback`. Read the current
+LLM registry adapter source before generating Nacos instructions.
 
 ## Step 5 — Validate
 
-Run:
-
-```sh
-bash "$(git rev-parse --show-toplevel)/skills/pixiu-llm-gateway/scripts/validate-llm-config.sh" <conf.yaml>
-```
-
-The validator checks yaml syntax, filter order, required LLM cluster
-fields, `llm_meta` placement, kvcache instance-id references, and
-Nacos adapter basics.
+Before booting Pixiu, inspect `conf.yaml` directly. Check yaml syntax,
+filter order, required LLM cluster fields, `llm_meta` placement,
+kvcache instance-id references, and Nacos adapter basics.
 
 ## Cross-Cutting Rules
 
@@ -279,18 +283,11 @@ Nacos adapter basics.
   token metrics; pricing/currency math belongs outside the current
   filter unless the target branch adds it.
 
-## References
+## Source Files To Read
 
-| File | When to load |
-|---|---|
-| [references/llm-endpoints.md](references/llm-endpoints.md) | Static LLM endpoint clusters, `llm_meta`, retry, fallback, API keys |
-| [references/kvcache-config.md](references/kvcache-config.md) | KV cache-aware routing, vLLM/LMCache fields, instance-id contract |
-| [references/tokenizer-metrics.md](references/tokenizer-metrics.md) | Tokenizer placement, metric names, streaming/unary response notes |
-| [references/llm-registry.md](references/llm-registry.md) | Nacos LLM registry adapter and instance metadata |
-| [references/troubleshooting.md](references/troubleshooting.md) | Common startup/runtime LLM gateway failures |
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `scripts/validate-llm-config.sh <conf.yaml>` | Static validation for LLM gateway `conf.yaml` fragments. |
+- `pkg/filter/llm/proxy/`
+- `pkg/filter/llm/tokenizer/`
+- `pkg/filter/ai/kvcache/`
+- `pkg/adapter/llmregistry/`
+- `pkg/model/llm.go`, `pkg/model/cluster.go`, and current AI config
+  examples.

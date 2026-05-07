@@ -83,8 +83,9 @@ Do not generate final config until these are explicit:
 
 ## Step 2 — Shape the Static MCP Server Config
 
-Load `references/mcp-server-config.md` before generating a static tool
-config. Keep the generated config compact but include these essentials:
+Before generating a static tool config, read `pkg/model/mcpserver.go`
+and the current MCP filter source. Keep the generated config compact but
+include these essentials:
 
 - `endpoint` must match the client URL path. Current filter checks
   `ctx.Request.URL.Path == cfg.Endpoint`.
@@ -97,6 +98,12 @@ config. Keep the generated config compact but include these essentials:
   by the MCP filter.
 - `tools/call` continues through the chain to an HTTP proxy, then
   Encode converts the backend response into MCP tool-call output.
+- When explaining ordering, spell it out as
+  `dgp.filter.http.auth.mcp` before `dgp.filter.mcp.mcpserver`, and
+  `dgp.filter.mcp.mcpserver` before `dgp.filter.http.httpproxy`.
+  Terminal methods (`initialize`, `tools/list`, `resources/list`,
+  `prompts/list`, `ping`) stop at the MCP filter; `tools/call`
+  continues to `httpproxy`.
 - Current source declares `request.headers`, but `buildBackendRequest`
   does not apply them yet. Do not rely on static tool headers for
   runtime behavior; request bodies still get `Content-Type:
@@ -133,8 +140,11 @@ On successful validation the current auth filter removes the
 caller token reaches the tool backend; if the backend needs credentials,
 design an explicit downstream auth strategy instead of relying on the
 validated bearer token being forwarded.
+Safe alternatives are backend-side service auth, an external bridge or
+proxy that injects credentials, mTLS or network policy, or a source
+change that explicitly applies outbound headers.
 
-Load `references/mcp-auth.md` before generating auth config.
+Before generating auth config, read the current MCP auth filter source.
 
 ## Step 4 — Use Nacos Only for Dynamic Tool Definitions
 
@@ -161,15 +171,14 @@ The listener still needs `dgp.filter.mcp.mcpserver`; the adapter updates
 the in-process tool registry and may register endpoints for tools with
 `backend_url`.
 
-Load `references/mcp-registry.md` before generating Nacos instructions.
+Before generating Nacos instructions, read the current MCP registry
+adapter source.
 
 ## Step 5 — Validate and Smoke Test
 
-Run:
-
-```sh
-bash "$(git rev-parse --show-toplevel)/skills/pixiu-mcp-integration/scripts/validate-mcp-config.sh" <conf.yaml>
-```
+Before booting Pixiu, inspect `conf.yaml` directly. Check yaml syntax,
+filter order, MCP server config shape, route targets, static tool
+definitions, auth settings, and Nacos adapter basics.
 
 Smoke-test Streamable HTTP:
 
@@ -213,18 +222,10 @@ For SSE, the client should call `GET /mcp` with
   not apply it yet; use an external bridge/proxy, backend-side auth, or
   a source change before promising static header injection.
 
-## References
+## Source Files To Read
 
-| File | When to load |
-|---|---|
-| [references/mcp-server-config.md](references/mcp-server-config.md) | Static server_info, tools, args, resources, templates, prompts |
-| [references/mcp-transport.md](references/mcp-transport.md) | Streamable HTTP/SSE behavior, required headers, smoke tests |
-| [references/mcp-auth.md](references/mcp-auth.md) | OAuth protected resource metadata and JWT provider/rule config |
-| [references/mcp-registry.md](references/mcp-registry.md) | Nacos MCP adapter and dynamic tool loading |
-| [references/troubleshooting.md](references/troubleshooting.md) | Common startup/runtime MCP failures |
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `scripts/validate-mcp-config.sh <conf.yaml>` | Static validation for MCP gateway `conf.yaml` fragments. |
+- `pkg/model/mcpserver.go`
+- `pkg/filter/mcp/mcpserver/`
+- `pkg/filter/auth/mcp/`
+- `pkg/adapter/mcpserver/`
+- `docs/ai/mcp/` if present.
