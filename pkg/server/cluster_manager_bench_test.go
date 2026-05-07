@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for benchmark coverage.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for benchmark coverage.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for benchmark coverage.
@@ -106,32 +107,33 @@ func BenchmarkClusterLoadBalancerHotPathSerial(b *testing.B) {
 		for _, endpointCount := range []int{4, 64, 512} {
 			b.Run(fmt.Sprintf("%s/endpoints=%d", lbType, endpointCount), func(b *testing.B) {
 				cm := &ClusterManager{}
-				cluster := benchmarkClusterConfig("lb-hot-path", lbType, endpointCount, 0)
+				runtimeCluster := cluster.NewCluster(benchmarkClusterConfig("lb-hot-path", lbType, endpointCount, 0))
 
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					benchmarkEndpointSink = cm.pickOneEndpoint(cluster, nil)
+					benchmarkEndpointSink = cm.pickOneEndpoint(runtimeCluster, nil)
 				}
 			})
 		}
 	}
 }
 
-func BenchmarkClusterHealthyFilterCost(b *testing.B) {
+func BenchmarkClusterHealthySnapshotLoad(b *testing.B) {
 	for _, endpointCount := range []int{8, 64, 512} {
 		for _, healthyRatio := range []int{100, 50, 0} {
 			b.Run(fmt.Sprintf("endpoints=%d/healthy=%d", endpointCount, healthyRatio), func(b *testing.B) {
-				cluster := benchmarkClusterConfig("healthy-filter", model.LoadBalancerRoundRobin, endpointCount, 0)
+				clusterConfig := benchmarkClusterConfig("healthy-snapshot", model.LoadBalancerRoundRobin, endpointCount, 0)
 				healthyCount := endpointCount * healthyRatio / 100
-				for i := healthyCount; i < len(cluster.Endpoints); i++ {
-					cluster.Endpoints[i].UnHealthy = true
+				for i := healthyCount; i < len(clusterConfig.Endpoints); i++ {
+					clusterConfig.Endpoints[i].UnHealthy = true
 				}
+				runtimeCluster := cluster.NewCluster(clusterConfig)
 
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					benchmarkEndpointsSink = cluster.GetEndpoint(true)
+					benchmarkEndpointsSink = runtimeCluster.EndpointSnapshot().HealthyEndpoints()
 				}
 			})
 		}

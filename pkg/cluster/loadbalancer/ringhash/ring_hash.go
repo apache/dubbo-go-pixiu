@@ -59,14 +59,21 @@ func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model
 type RingHashing struct{}
 
 func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
-	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
-	hash, err := c.ConsistentHash.Hash.GetHash(u)
+	return r.HandlerWithSnapshot(loadbalancer.PickContext{
+		Config:           c,
+		HealthyEndpoints: c.GetEndpoint(true),
+	}, policy)
+}
+
+func (r RingHashing) HandlerWithSnapshot(c loadbalancer.PickContext, policy model.LbPolicy) *model.Endpoint {
+	u := c.Config.ConsistentHash.Hash.Hash(policy.GenerateHash())
+	hash, err := c.Config.ConsistentHash.Hash.GetHash(u)
 	if err != nil {
 		logger.Warnf("[dubbo-go-pixiu] error of getting from ring hash: %v", err)
 		return nil
 	}
 
-	endpoints := c.GetEndpoint(true)
+	endpoints := c.HealthyEndpoints
 
 	for _, endpoint := range endpoints {
 		if endpoint.GetHost() == hash {

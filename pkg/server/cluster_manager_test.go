@@ -101,6 +101,27 @@ func TestClusterManager_PickNextEndpointUsesRuntimeClusterMap(t *testing.T) {
 	}
 }
 
+func TestClusterManager_PickNextEndpointSkipsSnapshotUnhealthyEndpoints(t *testing.T) {
+	ep1 := testEndpoint("fallback-1", "127.0.0.1", 18087)
+	ep2 := testEndpoint("fallback-2", "127.0.0.1", 18088)
+	ep3 := testEndpoint("fallback-3", "127.0.0.1", 18089)
+	cm := testClusterManager(
+		testCluster("fallback-health", model.LoadBalancerRoundRobin, []*model.Endpoint{ep1, ep2, ep3}),
+	)
+	runtimeCluster := cm.store.clustersMap["fallback-health"]
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(ep2.ID, ep2.Address.GetAddress(), false))
+	assert.False(t, ep2.UnHealthy)
+
+	endpoint := cm.PickNextEndpoint("fallback-health", ep1.ID)
+	if assert.NotNil(t, endpoint) {
+		assert.Equal(t, ep3.ID, endpoint.ID)
+	}
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(ep3.ID, ep3.Address.GetAddress(), false))
+	assert.Nil(t, cm.PickNextEndpoint("fallback-health", ep1.ID))
+}
+
 func TestClusterManager_GetEndpointByIDUsesRuntimeClusterMap(t *testing.T) {
 	runtimeConfig := testCluster("runtime-id-lookup", model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("runtime-ep", "127.0.0.1", 18089),
@@ -116,6 +137,56 @@ func TestClusterManager_GetEndpointByIDUsesRuntimeClusterMap(t *testing.T) {
 
 	if assert.NotNil(t, endpoint) {
 		assert.Equal(t, "runtime-ep", endpoint.ID)
+	}
+}
+
+func TestClusterManager_PickEndpointUsesHealthySnapshot(t *testing.T) {
+	endpoint := testEndpoint("snapshot-ep", "127.0.0.1", 18088)
+	cm := testClusterManager(
+		testCluster("snapshot-pick", model.LoadBalancerRoundRobin, []*model.Endpoint{endpoint}),
+	)
+	runtimeCluster := cm.store.clustersMap["snapshot-pick"]
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), false))
+	assert.False(t, endpoint.UnHealthy)
+	assert.Nil(t, cm.PickEndpoint("snapshot-pick", nil))
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), true))
+	if picked := cm.PickEndpoint("snapshot-pick", nil); assert.NotNil(t, picked) {
+		assert.Equal(t, endpoint.ID, picked.ID)
+	}
+}
+
+func TestClusterManager_PickEndpointSingleHealthyInMultiEndpointUsesLoadBalancer(t *testing.T) {
+	ep1 := testEndpoint("snapshot-lb-1", "127.0.0.1", 18089)
+	ep2 := testEndpoint("snapshot-lb-2", "127.0.0.1", 18090)
+	config := testCluster("snapshot-lb-degraded", model.LoadBalancerRoundRobin, []*model.Endpoint{ep1, ep2})
+	cm := testClusterManager(config)
+	runtimeCluster := cm.store.clustersMap[config.Name]
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(ep1.ID, ep1.Address.GetAddress(), false))
+	picked := cm.PickEndpoint(config.Name, nil)
+
+	if assert.NotNil(t, picked) {
+		assert.Equal(t, ep2.ID, picked.ID)
+	}
+	assert.Equal(t, uint32(1), atomic.LoadUint32(&config.PrePickEndpointIndex))
+}
+
+func TestClusterManager_GetEndpointByIDUsesHealthySnapshot(t *testing.T) {
+	endpoint := testEndpoint("snapshot-id-ep", "127.0.0.1", 18089)
+	cm := testClusterManager(
+		testCluster("snapshot-id", model.LoadBalancerRoundRobin, []*model.Endpoint{endpoint}),
+	)
+	runtimeCluster := cm.store.clustersMap["snapshot-id"]
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), false))
+	assert.False(t, endpoint.UnHealthy)
+	assert.Nil(t, cm.GetEndpointByID("snapshot-id", endpoint.ID))
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), true))
+	if got := cm.GetEndpointByID("snapshot-id", endpoint.ID); assert.NotNil(t, got) {
+		assert.Equal(t, endpoint.ID, got.ID)
 	}
 }
 
@@ -169,17 +240,27 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 		testEndpoint("ep-1", "127.0.0.1", 19200),
 		testEndpoint("ep-2", "127.0.0.1", 19201),
 		testEndpoint("ep-3", "127.0.0.1", 19202),
-	})
+	}, testHealthCheck())
 	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
 
 	const expectedCursor uint32 = 5
 	atomic.StoreUint32(&cm.store.Config[0].PrePickEndpointIndex, expectedCursor)
+	oldRuntime := cm.store.clustersMap[cluster.Name]
+	temporarilyUnhealthy := cluster.Endpoints[1]
+	assert.True(t, oldRuntime.UpdateEndpointHealth(
+		temporarilyUnhealthy.ID,
+		temporarilyUnhealthy.Address.GetAddress(),
+		false,
+	))
 
 	oldStore, err := cm.CloneStore()
 	if !assert.NoError(t, err) {
 		return
 	}
 	newStore := cm.NewStore(oldStore.Version)
+	defer stopStoreRuntimes(newStore)
+	newStore.AddCluster(testCluster(cluster.Name, model.LoadBalancerRoundRobin, nil, testHealthCheck()))
 	for _, endpoint := range oldStore.Config[0].Endpoints {
 		copied := *endpoint
 		newStore.SetEndpoint(cluster.Name, &copied)
@@ -189,6 +270,13 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 	if assert.Len(t, cm.store.Config, 1) {
 		assert.Equal(t, expectedCursor, atomic.LoadUint32(&cm.store.Config[0].PrePickEndpointIndex))
 	}
+	assert.Nil(t, cm.GetEndpointByID(cluster.Name, temporarilyUnhealthy.ID))
+	assert.False(t, oldRuntime.UpdateEndpointHealth(
+		temporarilyUnhealthy.ID,
+		temporarilyUnhealthy.Address.GetAddress(),
+		true,
+	))
+	assert.Nil(t, cm.GetEndpointByID(cluster.Name, temporarilyUnhealthy.ID))
 
 	endpoint := cm.PickEndpoint(cluster.Name, nil)
 	if assert.NotNil(t, endpoint) {
@@ -413,6 +501,18 @@ func TestClusterManager_SetEndpointUpdateRebuildsConsistentHash(t *testing.T) {
 			newHost := newEndpoint.GetHost()
 			cm.SetEndpoint(config.Name, newEndpoint)
 
+			runtime := cm.store.clustersMap[config.Name]
+			if assert.NotNil(t, runtime) {
+				runtimeEndpoint := runtime.EndpointSnapshot().EndpointByID(newEndpoint.ID)
+				if assert.NotNil(t, runtimeEndpoint) {
+					assert.Equal(t, newEndpoint.Address, runtimeEndpoint.Address)
+				}
+				healthyEndpoint := runtime.EndpointSnapshot().HealthyEndpointByID(newEndpoint.ID)
+				if assert.NotNil(t, healthyEndpoint) {
+					assert.Equal(t, newEndpoint.Address, healthyEndpoint.Address)
+				}
+			}
+
 			hash := cm.store.Config[0].ConsistentHash.Hash
 			if !assert.NotNil(t, hash) {
 				return
@@ -427,6 +527,43 @@ func TestClusterManager_SetEndpointUpdateRebuildsConsistentHash(t *testing.T) {
 			assert.True(t, hash.Remove(newHost))
 		})
 	}
+}
+
+func TestClusterManager_SetEndpointUpdateMergesWithoutMutatingOldEndpoint(t *testing.T) {
+	oldEndpoint := testEndpoint("ep-1", "127.0.0.1", 19345)
+	oldEndpoint.Metadata = map[string]string{"stable": "old"}
+	oldEndpoint.LLMMeta = &model.LLMMeta{
+		Provider: "openai",
+		APIKey:   "old-key",
+	}
+	oldEndpoint.UnHealthy = true
+	config := testCluster("endpoint-merge", model.LoadBalancerRoundRobin, []*model.Endpoint{oldEndpoint})
+	cm := testClusterManager(config)
+
+	incoming := testEndpoint("ep-1", "127.0.0.2", 19346)
+	incoming.Metadata = map[string]string{"discovered": "new"}
+	cm.SetEndpoint(config.Name, incoming)
+
+	if !assert.Len(t, config.Endpoints, 1) {
+		return
+	}
+	merged := config.Endpoints[0]
+	assert.NotSame(t, oldEndpoint, merged)
+	assert.NotSame(t, incoming, merged)
+	assert.Equal(t, incoming.ID, merged.ID)
+	assert.Equal(t, incoming.Name, merged.Name)
+	assert.Equal(t, incoming.Address, merged.Address)
+	assert.Equal(t, incoming.Metadata, merged.Metadata)
+	assert.Same(t, oldEndpoint.LLMMeta, merged.LLMMeta)
+	assert.True(t, merged.UnHealthy)
+
+	assert.Equal(t, "endpoint-ep-1", oldEndpoint.Name)
+	assert.Equal(t, model.SocketAddress{Address: "127.0.0.1", Port: 19345}, oldEndpoint.Address)
+	assert.Equal(t, map[string]string{"stable": "old"}, oldEndpoint.Metadata)
+
+	runtimeEndpoint := cm.store.clustersMap[config.Name].EndpointSnapshot().EndpointByID(incoming.ID)
+	assert.Same(t, merged, runtimeEndpoint)
+	assert.Nil(t, cm.store.clustersMap[config.Name].EndpointSnapshot().HealthyEndpointByID(incoming.ID))
 }
 
 func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing.T) {
@@ -459,6 +596,8 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 	if assert.Len(t, config.Endpoints, 1) {
 		assert.Same(t, remainingEndpoint, config.Endpoints[0])
 	}
+	assert.Equal(t, []*model.Endpoint{remainingEndpoint}, runtime.EndpointSnapshot().AllEndpoints())
+	assert.Equal(t, []*model.Endpoint{remainingEndpoint}, runtime.EndpointSnapshot().HealthyEndpoints())
 
 	hash := config.ConsistentHash.Hash
 	if !assert.NotNil(t, hash) {
@@ -495,6 +634,45 @@ func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
 			}
 		}()
 	}
+
+	close(start)
+	wg.Wait()
+}
+
+func TestClusterManager_Race_PickEndpointWithHealthUpdates(t *testing.T) {
+	cluster := testCluster("race-health-snapshot", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19400),
+		testEndpoint("ep-2", "127.0.0.1", 19401),
+		testEndpoint("ep-3", "127.0.0.1", 19402),
+		testEndpoint("ep-4", "127.0.0.1", 19403),
+	})
+	cm := testClusterManager(cluster)
+	runtimeCluster := cm.store.clustersMap[cluster.Name]
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < 4000; j++ {
+				_ = cm.PickEndpoint(cluster.Name, nil)
+			}
+		}()
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		target := cluster.Endpoints[0]
+		address := target.Address.GetAddress()
+		for j := 0; j < 4000; j++ {
+			_ = runtimeCluster.UpdateEndpointHealth(target.ID, address, j%2 == 0)
+		}
+	}()
 
 	close(start)
 	wg.Wait()

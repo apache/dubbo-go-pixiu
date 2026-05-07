@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -40,7 +41,7 @@ func TestRoundRobin_AllEndpointsUnhealthy_ReturnsNilWithoutPanic(t *testing.T) {
 
 	var got *model.Endpoint
 	assert.NotPanics(t, func() {
-		got = RoundRobin{}.Handler(cluster, nil)
+		got = RoundRobin{}.HandlerWithSnapshot(testPickContext(cluster), nil)
 	})
 	assert.Nil(t, got)
 }
@@ -56,10 +57,10 @@ func TestRoundRobin_RepeatedPicksFollowHealthyOrder(t *testing.T) {
 
 	rr := RoundRobin{}
 	got := []string{
-		rr.Handler(cluster, nil).ID,
-		rr.Handler(cluster, nil).ID,
-		rr.Handler(cluster, nil).ID,
-		rr.Handler(cluster, nil).ID,
+		rr.HandlerWithSnapshot(testPickContext(cluster), nil).ID,
+		rr.HandlerWithSnapshot(testPickContext(cluster), nil).ID,
+		rr.HandlerWithSnapshot(testPickContext(cluster), nil).ID,
+		rr.HandlerWithSnapshot(testPickContext(cluster), nil).ID,
 	}
 
 	assert.Equal(t, []string{"ep-1", "ep-2", "ep-3", "ep-1"}, got)
@@ -77,13 +78,20 @@ func TestRoundRobin_MixedHealthyEndpointsHonorNonZeroCursor(t *testing.T) {
 	}
 
 	rr := RoundRobin{}
-	first := rr.Handler(cluster, nil)
-	second := rr.Handler(cluster, nil)
+	first := rr.HandlerWithSnapshot(testPickContext(cluster), nil)
+	second := rr.HandlerWithSnapshot(testPickContext(cluster), nil)
 
 	if assert.NotNil(t, first) {
 		assert.Equal(t, "ep-4", first.ID)
 	}
 	if assert.NotNil(t, second) {
 		assert.Equal(t, "ep-2", second.ID)
+	}
+}
+
+func testPickContext(cluster *model.ClusterConfig) loadbalancer.PickContext {
+	return loadbalancer.PickContext{
+		Config:           cluster,
+		HealthyEndpoints: cluster.GetEndpoint(true),
 	}
 }

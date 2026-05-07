@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -49,7 +50,7 @@ func TestRand_TwoHealthyEndpoints_CanSelectSecondEndpoint(t *testing.T) {
 
 	var got *model.Endpoint
 	assert.NotPanics(t, func() {
-		got = Rand{}.Handler(cluster, nil)
+		got = Rand{}.HandlerWithSnapshot(testPickContext(cluster), nil)
 	})
 	if assert.NotNil(t, got) {
 		assert.Equal(t, "ep-2", got.ID)
@@ -77,7 +78,7 @@ func TestRand_PartiallyUnhealthyEndpoints_DoesNotIndexPastHealthySlice(t *testin
 
 	var got *model.Endpoint
 	assert.NotPanics(t, func() {
-		got = Rand{}.Handler(cluster, nil)
+		got = Rand{}.HandlerWithSnapshot(testPickContext(cluster), nil)
 	})
 	if assert.NotNil(t, got) {
 		assert.Equal(t, "ep-2", got.ID)
@@ -104,7 +105,14 @@ func TestRand_AllEndpointsUnhealthy_ReturnsNilWithoutPanic(t *testing.T) {
 
 	var got *model.Endpoint
 	assert.NotPanics(t, func() {
-		got = Rand{}.Handler(cluster, nil)
+		got = Rand{}.HandlerWithSnapshot(testPickContext(cluster), nil)
 	})
 	assert.Nil(t, got)
+}
+
+func testPickContext(cluster *model.ClusterConfig) loadbalancer.PickContext {
+	return loadbalancer.PickContext{
+		Config:           cluster,
+		HealthyEndpoints: cluster.GetEndpoint(true),
+	}
 }

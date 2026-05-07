@@ -23,6 +23,72 @@ import (
 	"time"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
+func TestEndpointCheckerHealthHandlersEmitEventsWithoutMutatingEndpoint(t *testing.T) {
+	endpoint := &model.Endpoint{
+		ID:        "ep-1",
+		UnHealthy: true,
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18080,
+		},
+	}
+
+	events := make([]EndpointHealthEvent, 0, 2)
+	hc := &HealthChecker{
+		onEndpointHealth: func(event EndpointHealthEvent) {
+			events = append(events, event)
+		},
+	}
+	checker := newChecker(endpoint, hc)
+
+	checker.handleHealth()
+	checker.handleUnHealth()
+
+	if !endpoint.UnHealthy {
+		t.Fatalf("endpoint.UnHealthy was mutated by health handlers")
+	}
+	if len(events) != 2 {
+		t.Fatalf("events length = %d, want 2", len(events))
+	}
+	if !events[0].Healthy {
+		t.Fatalf("first event healthy = false, want true")
+	}
+	if events[0].EndpointID != endpoint.ID {
+		t.Fatalf("first event endpoint ID = %q, want %q", events[0].EndpointID, endpoint.ID)
+	}
+	if events[0].EndpointAddress != endpoint.Address.GetAddress() {
+		t.Fatalf("first event endpoint address = %q, want %q", events[0].EndpointAddress, endpoint.Address.GetAddress())
+	}
+	if events[1].Healthy {
+		t.Fatalf("second event healthy = true, want false")
+	}
+}
+
+func TestEndpointCheckerHealthHandlersMutateEndpointWithoutListener(t *testing.T) {
+	endpoint := &model.Endpoint{
+		ID: "ep-1",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18081,
+		},
+	}
+	checker := newChecker(endpoint, &HealthChecker{})
+
+	checker.handleUnHealth()
+	if !endpoint.UnHealthy {
+		t.Fatalf("endpoint.UnHealthy = false after unhealth event, want true")
+	}
+
+	checker.handleHealth()
+	if endpoint.UnHealthy {
+		t.Fatalf("endpoint.UnHealthy = true after health event, want false")
+	}
+}
+
 func TestNormalizeAddress(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -139,9 +205,9 @@ func TestCheckTcpConn(t *testing.T) {
 
 	// Failure case 1: Invalid address format
 	t.Run("failed connection due to invalid address format", func(t *testing.T) {
-		success := CheckTcpConn("invalid address", "80", 100*time.Millisecond)
+		success := CheckTcpConn("127.0.0.1:80:90", "80", 100*time.Millisecond)
 		if success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return false for an invalid address format", "invalid address", "80")
+			t.Errorf("CheckTcpConn(%q, %q, ...) should return false for an invalid address format", "127.0.0.1:80:90", "80")
 		}
 	})
 

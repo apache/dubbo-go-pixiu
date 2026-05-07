@@ -25,6 +25,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -56,7 +57,10 @@ func TestMaglevHash(t *testing.T) {
 
 	for i := 1; i <= 20; i++ {
 		path = fmt.Sprintf("/pixiu?total=%d", i)
-		t.Log(hashing.Handler(cluster, &http.HttpContext{Request: &stdHttp.Request{Method: stdHttp.MethodGet, RequestURI: path}}))
+		t.Log(hashing.HandlerWithSnapshot(loadbalancer.PickContext{
+			Config:           cluster,
+			HealthyEndpoints: cluster.GetEndpoint(true),
+		}, &http.HttpContext{Request: &stdHttp.Request{Method: stdHttp.MethodGet, RequestURI: path}}))
 	}
 
 }

@@ -54,11 +54,14 @@ type HealthChecker struct {
 	cluster            *model.ClusterConfig
 	unhealthyThreshold uint32
 	protocol           string
+	onEndpointHealth   EndpointHealthListener
 }
 
 // EndpointChecker is a wrapper of types.HealthCheckSession for health check
 type EndpointChecker struct {
 	endpoint      *model.Endpoint
+	endpointID    string
+	endpointAddr  string
 	HealthChecker *HealthChecker
 	// checker, todo can extend to TCP, http, grpc, dubbo or other protocol checker
 	checker       Checker
@@ -80,12 +83,28 @@ type Checker interface {
 	OnTimeout()
 }
 
+type EndpointHealthEvent struct {
+	EndpointID      string
+	EndpointAddress string
+	Healthy         bool
+}
+
+type EndpointHealthListener func(EndpointHealthEvent)
+
 type checkResponse struct {
 	ID      uint64
 	Healthy bool
 }
 
 func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig) *HealthChecker {
+	return CreateHealthCheckWithCallback(cluster, cfg, nil)
+}
+
+func CreateHealthCheckWithCallback(
+	cluster *model.ClusterConfig,
+	cfg model.HealthCheckConfig,
+	onEndpointHealth EndpointHealthListener,
+) *HealthChecker {
 
 	timeout, err := time.ParseDuration(cfg.TimeoutConfig)
 	if err != nil {
@@ -124,6 +143,7 @@ func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig
 		unhealthyThreshold: unhealthyThreshold,
 		initialDelay:       initialDelay,
 		checkers:           make(map[string]*EndpointChecker),
+		onEndpointHealth:   onEndpointHealth,
 	}
 
 	return hc
@@ -197,8 +217,12 @@ func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
 	}
 
 	c := &EndpointChecker{
-		checker:       checker,
-		endpoint:      endpoint,
+		checker:  checker,
+		endpoint: endpoint,
+		// Capture stable event identity when the checker starts; endpoint
+		// objects can be replaced while old checker events are still in flight.
+		endpointID:    endpoint.ID,
+		endpointAddr:  endpoint.Address.GetAddress(),
 		HealthChecker: hc,
 		resp:          make(chan checkResponse),
 		timeout:       make(chan bool),
@@ -300,13 +324,27 @@ func (c *EndpointChecker) HandleTimeout() {
 func (c *EndpointChecker) handleHealth() {
 	c.healthCount = 0
 	c.unHealthCount = 0
-	c.endpoint.UnHealthy = false
+	c.emitHealth(true)
 }
 
 func (c *EndpointChecker) handleUnHealth() {
 	c.healthCount = 0
 	c.unHealthCount = 0
-	c.endpoint.UnHealthy = true
+	c.emitHealth(false)
+}
+
+func (c *EndpointChecker) emitHealth(healthy bool) {
+	if c.HealthChecker.onEndpointHealth == nil {
+		// Direct CreateHealthCheck callers still observe health through
+		// Endpoint.UnHealthy; runtime clusters install a snapshot callback.
+		c.endpoint.UnHealthy = !healthy
+		return
+	}
+	c.HealthChecker.onEndpointHealth(EndpointHealthEvent{
+		EndpointID:      c.endpointID,
+		EndpointAddress: c.endpointAddr,
+		Healthy:         healthy,
+	})
 }
 
 func (c *EndpointChecker) OnCheck() {

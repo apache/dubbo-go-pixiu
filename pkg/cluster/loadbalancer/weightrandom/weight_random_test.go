@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -119,7 +120,7 @@ func TestWeightRandom_Handler(t *testing.T) {
 
 			var (
 				wr  = WeightRandom{}
-				got = wr.Handler(tt.clusterConfig, nil)
+				got = wr.HandlerWithSnapshot(testPickContext(tt.clusterConfig), nil)
 			)
 
 			if tt.want == nil {
@@ -200,7 +201,7 @@ func TestWeightRandom_Handler_Probabilistic(t *testing.T) {
 			)
 
 			for i := 0; i < tt.iterations; i++ {
-				endpoint := wr.Handler(clusterConfig, nil)
+				endpoint := wr.HandlerWithSnapshot(testPickContext(clusterConfig), nil)
 				if endpoint != nil {
 					counts[endpoint.ID]++
 				}
@@ -217,6 +218,13 @@ func TestWeightRandom_Handler_Probabilistic(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func testPickContext(cluster *model.ClusterConfig) loadbalancer.PickContext {
+	return loadbalancer.PickContext{
+		Config:           cluster,
+		HealthyEndpoints: cluster.GetEndpoint(true),
 	}
 }
 

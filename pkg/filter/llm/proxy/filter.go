@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
@@ -289,30 +290,17 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 	// 2. The main fallback loop. It continues as long as we have a valid endpoint to try.
 	for endpoint != nil {
-		if endpoint.Metadata == nil {
-			endpoint.Metadata = make(map[string]string)
-		}
 		if executor.hc.Params == nil {
 			executor.hc.Params = make(map[string]any)
 		}
 
 		logger.Debugf("[dubbo-go-pixiu] client attempting endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 
-		// 3. Check the health of current endpoint,
-		if unhealthy, ok := endpoint.Metadata[LLMUnhealthyKey]; ok && unhealthy == "true" {
-			// check the health cooldown time
-			if t, ok := endpoint.Metadata[HealthyCheckTimeKey]; ok {
-				lt, err := time.Parse(time.RFC3339, t)
-				if err == nil && time.Since(lt) < time.Millisecond*time.Duration(endpoint.LLMMeta.HealthCheckInterval) {
-					logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] is still in unhealthy cooldown period. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress())
-					endpoint = getNextFallbackEndpoint(endpoint, executor)
-					continue
-				}
-				// The Cooldown period has passed, ready for a new attempt
-				delete(endpoint.Metadata, LLMUnhealthyKey)
-				delete(endpoint.Metadata, HealthyCheckTimeKey)
-				logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] cooldown period passed. Retrying this endpoint.", endpoint.ID, endpoint.Address.GetAddress())
-			}
+		// 3. Check the runtime health cooldown of current endpoint.
+		if executor.endpointInCooldown(endpoint) {
+			logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] is still in unhealthy cooldown period. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress())
+			endpoint = getNextFallbackEndpoint(endpoint, executor)
+			continue
 		}
 
 		// 4. Dynamically load the retry policy for the current endpoint
@@ -373,8 +361,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 		// 6. If we are here, all retries for the current endpoint are exhausted.
 		// Get the next endpoint for fallback. The loop will terminate if it's nil.
-		endpoint.Metadata[LLMUnhealthyKey] = "true"
-		endpoint.Metadata[HealthyCheckTimeKey] = time.Now().Format(time.RFC3339)
+		executor.markEndpointCooldown(endpoint)
 		endpoint = getNextFallbackEndpoint(endpoint, executor)
 	}
 
@@ -388,6 +375,57 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		problems = append(problems, errors.New("all retries and fallbacks failed without a definitive error or response"))
 	}
 	return resp, errors.Join(problems...)
+}
+
+func (executor *RequestExecutor) endpointRuntimeState(endpoint *model.Endpoint) *cluster.EndpointRuntimeState {
+	if executor == nil || executor.clusterManager == nil || endpoint == nil {
+		return nil
+	}
+	// LLM cooldown is runtime state, not endpoint config metadata. The address
+	// guard keeps late fallback attempts from updating a replaced endpoint.
+	return executor.clusterManager.GetEndpointRuntimeState(
+		executor.clusterName,
+		endpoint.ID,
+		endpoint.Address.GetAddress(),
+	)
+}
+
+func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bool {
+	state := executor.endpointRuntimeState(endpoint)
+	if state == nil {
+		return false
+	}
+
+	values := state.LoadMany(LLMUnhealthyKey, HealthyCheckTimeKey)
+	unhealthy, ok := values[LLMUnhealthyKey]
+	if !ok || unhealthy != "true" {
+		return false
+	}
+
+	t, ok := values[HealthyCheckTimeKey]
+	if !ok {
+		return false
+	}
+	lastFailure, err := time.Parse(time.RFC3339, t)
+	if err == nil && time.Since(lastFailure) < time.Millisecond*time.Duration(endpoint.LLMMeta.HealthCheckInterval) {
+		return true
+	}
+
+	if state.DeleteIfMatches(values, LLMUnhealthyKey, HealthyCheckTimeKey) {
+		logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] cooldown period passed. Retrying this endpoint.", endpoint.ID, endpoint.Address.GetAddress())
+	}
+	return false
+}
+
+func (executor *RequestExecutor) markEndpointCooldown(endpoint *model.Endpoint) {
+	state := executor.endpointRuntimeState(endpoint)
+	if state == nil {
+		return
+	}
+	state.StoreMany(map[string]string{
+		LLMUnhealthyKey:     "true",
+		HealthyCheckTimeKey: time.Now().Format(time.RFC3339),
+	})
 }
 
 // getNextFallbackEndpoint checks if fallback is enabled and returns the next endpoint.
