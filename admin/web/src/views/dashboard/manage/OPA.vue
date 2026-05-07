@@ -45,7 +45,7 @@
                           clearable
                           placeholder="pixiu-authz"></el-input>
               </el-form-item>
-              
+
             </el-row>
             <el-row>
               <div style="clear: both; height: 300px;width: 100%;" id="policyEditor" ref="policyEditor"/>

@@ -146,14 +146,16 @@ type MappingParam struct {
 
 // DubboBackendConfig defines the basic dubbo backend config
 type DubboBackendConfig struct {
-	ClusterName     string `yaml:"clusterName" json:"clusterName"`
-	ApplicationName string `yaml:"applicationName" json:"applicationName"`
-	Protocol        string `yaml:"protocol" json:"protocol,omitempty" default:"dubbo"`
-	Group           string `yaml:"group" json:"group"`
-	Version         string `yaml:"version" json:"version"`
-	Interface       string `yaml:"interface" json:"interface"`
-	Method          string `yaml:"method" json:"method"`
-	Retries         string `yaml:"retries" json:"retries,omitempty"`
+	ClusterName     string   `yaml:"clusterName" json:"clusterName"`
+	ApplicationName string   `yaml:"applicationName" json:"applicationName"`
+	Protocol        string   `yaml:"protocol" json:"protocol,omitempty" default:"dubbo"`
+	Group           string   `yaml:"group" json:"group"`
+	Version         string   `yaml:"version" json:"version"`
+	Interface       string   `yaml:"interface" json:"interface"`
+	Method          string   `yaml:"method" json:"method"`
+	ParameterTypes  []string `yaml:"parameterTypes" json:"parameterTypes,omitempty"`
+	Serialization   string   `yaml:"serialization" json:"serialization,omitempty"`
+	Retries         string   `yaml:"retries" json:"retries,omitempty"`
 }
 
 // HTTPBackendConfig defines the basic dubbo backend config
@@ -436,7 +438,7 @@ func listenResourceAndMethodEvent(key string) bool {
 	}
 }
 
-func handleDeleteEvent(key, val []byte) {
+func handleDeleteEvent(key, _ []byte) {
 	lock.Lock()
 	defer lock.Unlock()
 

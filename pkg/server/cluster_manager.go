@@ -143,17 +143,35 @@ func (cm *ClusterManager) NewStore(version int32) *ClusterStore {
 	return &ClusterStore{Version: version, clustersMap: map[string]*cluster.Cluster{}}
 }
 
+// CompareAndSetStore swaps the store only when versions match.
+// Version mismatch must leave both stores and runtime clusters untouched.
 func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
+	swapped, replacedClusters := cm.compareAndSetStore(store)
+	if !swapped {
+		return false
+	}
+
+	// Stop old runtime after publishing the swap; Stop may touch timers/goroutines.
+	stopClusters(replacedClusters)
+	return true
+}
+
+func (cm *ClusterManager) compareAndSetStore(store *ClusterStore) (bool, []*cluster.Cluster) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
 	if store.Version != cm.store.Version {
-		return false
+		return false, nil
 	}
 
-	store.carryOverRuntimeStateFrom(cm.store)
+	currentStore := cm.store
+	replacedClusters := store.ensureRuntimeClusters()
+	store.carryOverRuntimeStateFrom(currentStore)
 	cm.store = store
-	return true
+	if store != currentStore {
+		replacedClusters = append(replacedClusters, currentStore.runtimeClustersNotIn(store)...)
+	}
+	return true, replacedClusters
 }
 
 // PickEndpoint picks an endpoint from the cluster by its name and load balancing policy.
@@ -211,12 +229,11 @@ func (cm *ClusterManager) GetEndpointByID(clusterName string, endpointID string)
 
 // getCluster returns the cluster configuration by its name.
 func (cm *ClusterManager) getCluster(clusterName string) *model.ClusterConfig {
-	for _, c := range cm.store.Config {
-		if c.Name == clusterName {
-			return c
-		}
+	runtimeCluster := cm.store.clustersMap[clusterName]
+	if runtimeCluster == nil {
+		return nil
 	}
-	return nil
+	return runtimeCluster.Config
 }
 
 func (cm *ClusterManager) pickOneEndpoint(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
@@ -249,7 +266,7 @@ func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 		for _, name := range namesToDel { // suppose resource to remove and clusters is few
 			if name == c.Name {
 				removed := cm.store.Config[i]
-				cm.store.clustersMap[removed.Name].Stop()
+				stopClusters([]*cluster.Cluster{cm.store.clustersMap[removed.Name]})
 				cm.store.Config[i] = nil
 				delete(cm.store.clustersMap, removed.Name)
 			}
@@ -278,10 +295,15 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 		atomic.AddInt32(&clusterIndex, 1)
 	}
 
-	s.assembleClusterEndpoints(c)
+	s.prepareClusterConfig(c)
 
 	s.Config = append(s.Config, c)
-	s.clustersMap[c.Name] = cluster.NewCluster(c)
+	stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(c.Name, c)})
+}
+
+// prepareClusterConfig rebuilds endpoint defaults and hash from current endpoints.
+func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
+	s.assembleClusterEndpoints(c)
 	c.CreateConsistentHash()
 }
 
@@ -309,10 +331,108 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	}
 }
 
+// replaceClusterRuntime returns the old runtime so callers decide when to stop it.
+func (s *ClusterStore) replaceClusterRuntime(name string, config *model.ClusterConfig) *cluster.Cluster {
+	if s.clustersMap == nil {
+		s.clustersMap = map[string]*cluster.Cluster{}
+	}
+
+	oldRuntime := s.clustersMap[name]
+	s.clustersMap[name] = cluster.NewCluster(config)
+	return oldRuntime
+}
+
+// ensureRuntimeClusters repairs clustersMap to match Config by name and pointer.
+func (s *ClusterStore) ensureRuntimeClusters() []*cluster.Cluster {
+	if s == nil {
+		return nil
+	}
+	if s.clustersMap == nil {
+		s.clustersMap = map[string]*cluster.Cluster{}
+	}
+
+	replacedClusters := make([]*cluster.Cluster, 0)
+	configsByName := make(map[string]*model.ClusterConfig, len(s.Config))
+	for _, clusterConfig := range s.Config {
+		if clusterConfig == nil {
+			continue
+		}
+		s.prepareClusterConfig(clusterConfig)
+		configsByName[clusterConfig.Name] = clusterConfig
+
+		runtimeCluster := s.clustersMap[clusterConfig.Name]
+		if runtimeCluster == nil || runtimeCluster.Config != clusterConfig {
+			if oldRuntime := s.replaceClusterRuntime(clusterConfig.Name, clusterConfig); oldRuntime != nil {
+				replacedClusters = append(replacedClusters, oldRuntime)
+			}
+		}
+	}
+
+	for name, runtimeCluster := range s.clustersMap {
+		if _, ok := configsByName[name]; !ok {
+			replacedClusters = append(replacedClusters, runtimeCluster)
+			delete(s.clustersMap, name)
+		}
+	}
+	return replacedClusters
+}
+
+// runtimeClustersNotIn finds old runtime clusters dropped by the next store.
+func (s *ClusterStore) runtimeClustersNotIn(next *ClusterStore) []*cluster.Cluster {
+	if s == nil {
+		return nil
+	}
+
+	nextClusters := make(map[*cluster.Cluster]struct{})
+	if next != nil {
+		for _, runtimeCluster := range next.clustersMap {
+			if runtimeCluster != nil {
+				nextClusters[runtimeCluster] = struct{}{}
+			}
+		}
+	}
+
+	replacedClusters := make([]*cluster.Cluster, 0)
+	for _, runtimeCluster := range s.clustersMap {
+		if runtimeCluster == nil {
+			continue
+		}
+		if _, ok := nextClusters[runtimeCluster]; !ok {
+			replacedClusters = append(replacedClusters, runtimeCluster)
+		}
+	}
+	return replacedClusters
+}
+
+// stopClusters is nil-safe and avoids stopping the same runtime twice.
+func stopClusters(clusters []*cluster.Cluster) {
+	stopped := make(map[*cluster.Cluster]struct{}, len(clusters))
+	for _, runtimeCluster := range clusters {
+		if runtimeCluster == nil {
+			continue
+		}
+		if _, ok := stopped[runtimeCluster]; ok {
+			continue
+		}
+		stopped[runtimeCluster] = struct{}{}
+		runtimeCluster.Stop()
+	}
+}
+
+// UpdateCluster replaces config/runtime together while preserving the RR cursor.
 func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 	for i, c := range s.Config {
+		if c == nil {
+			continue
+		}
 		if c.Name == new.Name {
+			s.prepareClusterConfig(new)
+			atomic.StoreUint32(
+				&new.PrePickEndpointIndex,
+				atomic.LoadUint32(&c.PrePickEndpointIndex),
+			)
 			s.Config[i] = new
+			stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(new.Name, new)})
 			return
 		}
 	}
@@ -320,59 +440,67 @@ func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 }
 
 func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
-	cluster := s.clustersMap[clusterName]
-	if cluster == nil {
+	clusterConfig := s.findClusterConfig(clusterName)
+	if clusterConfig == nil {
 		c := &model.ClusterConfig{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{}}
 		s.AddCluster(c)
-		cluster = s.clustersMap[clusterName]
+		clusterConfig = c
 	}
 
-	for _, c := range s.Config {
-		if c.Name == clusterName {
-			for _, e := range c.Endpoints {
-				// endpoint update
-				if e.ID == endpoint.ID {
-					cluster.RemoveEndpoint(e)
-					e.Name = endpoint.Name
-					e.Metadata = endpoint.Metadata
-					e.Address = endpoint.Address
-					cluster.AddEndpoint(e)
-					return
-				}
-			}
-			// endpoint create
-			c.Endpoints = append(c.Endpoints, endpoint)
-			cluster.AddEndpoint(endpoint)
-			if c.ConsistentHash.Hash != nil {
-				c.ConsistentHash.Hash.Add(endpoint.GetHost())
-			}
+	runtimeCluster := s.clustersMap[clusterName]
+	if runtimeCluster == nil || runtimeCluster.Config != clusterConfig {
+		stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(clusterName, clusterConfig)})
+		runtimeCluster = s.clustersMap[clusterName]
+	}
+
+	for _, e := range clusterConfig.Endpoints {
+		if e.ID == endpoint.ID {
+			// Remove before mutating address because healthcheck keys by address.
+			runtimeCluster.RemoveEndpoint(e)
+			e.Name = endpoint.Name
+			e.Metadata = endpoint.Metadata
+			e.Address = endpoint.Address
+			s.prepareClusterConfig(clusterConfig)
+			runtimeCluster.AddEndpoint(e)
 			return
 		}
 	}
+	clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
+	s.prepareClusterConfig(clusterConfig)
+	runtimeCluster.AddEndpoint(endpoint)
 }
 
 func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
-	cluster := s.clustersMap[clusterName]
-	if cluster == nil {
+	clusterConfig := s.findClusterConfig(clusterName)
+	if clusterConfig == nil {
+		logger.Warnf("not found cluster %s", clusterName)
 		return
 	}
-	for _, c := range s.Config {
-		if c.Name == clusterName {
-			for i, e := range c.Endpoints {
-				if e.ID == endpointID {
-					cluster.RemoveEndpoint(e)
-					c.Endpoints = append(c.Endpoints[:i], c.Endpoints[i+1:]...)
-					if c.ConsistentHash.Hash != nil {
-						c.ConsistentHash.Hash.Remove(e.GetHost())
-					}
-					return
-				}
-			}
-			logger.Warnf("not found endpoint %s", endpointID)
+
+	runtimeCluster := s.clustersMap[clusterName]
+	if runtimeCluster == nil || runtimeCluster.Config != clusterConfig {
+		stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(clusterName, clusterConfig)})
+		runtimeCluster = s.clustersMap[clusterName]
+	}
+
+	for i, e := range clusterConfig.Endpoints {
+		if e.ID == endpointID {
+			runtimeCluster.RemoveEndpoint(e)
+			clusterConfig.Endpoints = append(clusterConfig.Endpoints[:i], clusterConfig.Endpoints[i+1:]...)
+			s.prepareClusterConfig(clusterConfig)
 			return
 		}
 	}
-	logger.Warnf("not found cluster %s", clusterName)
+	logger.Warnf("not found endpoint %s", endpointID)
+}
+
+func (s *ClusterStore) findClusterConfig(clusterName string) *model.ClusterConfig {
+	for _, c := range s.Config {
+		if c != nil && c.Name == clusterName {
+			return c
+		}
+	}
+	return nil
 }
 
 func (s *ClusterStore) HasCluster(clusterName string) bool {

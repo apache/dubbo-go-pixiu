@@ -74,10 +74,6 @@ type GrpcFilter struct {
 	Config map[string]any `yaml:"config" json:"config" mapstructure:"config"`
 }
 
-const (
-	StandardDubboResolver = "StandardDubboResolver" // standard dubbo resolver
-)
-
 // HttpConfig the http config
 type HttpConfig struct {
 	IdleTimeoutStr  string `yaml:"idle_timeout" json:"idle_timeout" mapstructure:"idle_timeout"`
