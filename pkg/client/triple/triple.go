@@ -56,6 +56,8 @@ func NewTripleClient(protoset []string) *Client {
 	return tripleClient
 }
 
+// Deprecated: legacy direct RPC path. Direct Dubbo/Triple generic calls now go through
+// dgp.filter.http.dubboproxy -> pkg/client/dubbo and should not be extended.
 // Client client to generic invoke dubbo
 type Client struct {
 }

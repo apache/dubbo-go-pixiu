@@ -18,6 +18,10 @@
 package roundrobin
 
 import (
+	"sync/atomic"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -30,11 +34,10 @@ type RoundRobin struct{}
 
 func (RoundRobin) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
 	endpoints := c.GetEndpoint(true)
-	lens := len(endpoints)
-	if c.PrePickEndpointIndex >= lens {
-		c.PrePickEndpointIndex = 0
+	if len(endpoints) == 0 {
+		return nil
 	}
-	e := endpoints[c.PrePickEndpointIndex]
-	c.PrePickEndpointIndex = (c.PrePickEndpointIndex + 1) % lens
-	return e
+	// AddUint32 returns the incremented value, so subtract 1 for a zero-based index.
+	index := atomic.AddUint32(&c.PrePickEndpointIndex, 1) - 1
+	return endpoints[int(index%uint32(len(endpoints)))]
 }

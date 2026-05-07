@@ -29,7 +29,6 @@ resources:
           mappingParams:
             - name: queryStrings.id
               mapTo: 1
-          applicationName: "BDTService"
           interface: "com.ikurento.user.UserProvider"
           method: "GetUser"
           clusterName: "test_dubbo"
@@ -125,10 +124,6 @@ mappingParams
     name: The name of the inboundRequest parameter name. use queryStrings.* for the parameters defines in queryStrings, 
     mapTo: The index of the target parameters. Starts from 0.
 
-application
-:
-> The name of the target dubbo application.
-
 interface
 :
 > The interface represents the interface in dubbo.
@@ -141,10 +136,38 @@ clusterName
 :
 > The clusterName defines which dubbo cluster to call(Will release later)
 
+### Migration from `dubboProxyConfig.auto_resolve`
+
+`dubboProxyConfig.auto_resolve` is no longer supported. If this field is present
+under `dgp.filter.http.dubboproxy`, Pixiu rejects the configuration during filter
+initialization.
+
+Remove the legacy field:
+
+```yaml
+dubboProxyConfig:
+  auto_resolve: true
+```
+
+Configure the Dubbo backend explicitly in the API definition instead:
+
+```yaml
+integrationRequest:
+  requestType: dubbo
+  applicationName: "UserProvider"
+  interface: "com.dubbogo.pixiu.UserService"
+  method: "GetUserByName"
+  group: "test"
+  version: 1.0.0
+  clusterName: "test_dubbo"
+```
+
+For Triple backend calls, use `requestType: triple` and keep the target service,
+method, parameter mapping, and cluster information explicit in `integrationRequest`.
+
 definitions
 :
 > the definitions of the models. They will be used as request body.
 
     name: The name of the definitions.
     schema: The detail definition of the definition. Use json.schema.
-

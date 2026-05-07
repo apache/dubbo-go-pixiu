@@ -32,6 +32,13 @@ func init() {
 
 type Rand struct{}
 
+// randIntn lets tests replace randomness with deterministic choices.
+var randIntn = rand.Intn
+
 func (Rand) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
-	return c.GetEndpoint(true)[rand.Intn(len(c.Endpoints)-1)] // NOSONAR
+	endpoints := c.GetEndpoint(true)
+	if len(endpoints) == 0 {
+		return nil
+	}
+	return endpoints[randIntn(len(endpoints))] // NOSONAR
 }

@@ -15,34 +15,23 @@
  * limitations under the License.
  */
 
-package dubbo
+package registry
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"testing"
 )
 
-// defaultMappingParams default http to dubbo config
-var defaultMappingParams = []config.MappingParam{
-	{
-		Name:  "requestBody.values",
-		MapTo: "opt.values",
-	}, {
-		Name:  "requestBody.types",
-		MapTo: "opt.types",
-	}, {
-		Name:  "uri.application",
-		MapTo: "opt.application",
-	}, {
-		Name:  "uri.interface",
-		MapTo: "opt.interface",
-	}, {
-		Name:  "queryStrings.method",
-		MapTo: "opt.method",
-	}, {
-		Name:  "queryStrings.group",
-		MapTo: "opt.group",
-	}, {
-		Name:  "queryStrings.version",
-		MapTo: "opt.version",
-	},
+import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestParseDubboStringPreservesSerialization(t *testing.T) {
+	backend, methods, location, err := ParseDubboString("tri://127.0.0.1:20001/org.apache.dubbogo.samples.api.Greeter?application=BDTService&interface=org.apache.dubbogo.samples.api.Greeter&methods=SayHello&serialization=hessian2")
+	require.NoError(t, err)
+
+	assert.Equal(t, "tri", backend.Protocol)
+	assert.Equal(t, "hessian2", backend.Serialization)
+	assert.Equal(t, []string{"SayHello"}, methods)
+	assert.Equal(t, "127.0.0.1:20001", location)
 }

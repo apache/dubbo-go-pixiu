@@ -2,9 +2,31 @@
 
 > POST request [samples](https://github.com/apache/dubbo-go-pixiu-samples/tree/main/dubbogo/simple/proxy)
 
+## Direct Generic Contract (Breaking Change)
+
+Pixiu direct generic invocation no longer accepts request-provided `types` as the method
+signature source. Direct mode now requires:
+
+- `integrationRequest.url`
+- `integrationRequest.interface`
+- `integrationRequest.method`
+- `integrationRequest.parameterTypes`
+- `integrationRequest.serialization`
+
+`mappingParams` is still responsible for values, but no longer defines method signatures.
+
+For Triple direct generic invocation, the provider must expose a generic
+`$invoke` endpoint. The dubbo-go generic client uses non-IDL mode for this
+path. IDL-generated Triple handlers normally register only concrete RPC methods,
+so a generic call to `$invoke` has no matching Triple handler and may return
+`404 Not Found`.
+
 ## Suggest
 
 > In this way, you can request your dubbo rpc service by defined one api for every cluster.
+> The following sample uses registry mode. In this mode, `opt.types` can still
+> provide the generic invocation signature. Direct mode must use
+> `integrationRequest.parameterTypes` instead.
 
 ### Api Config
 
@@ -12,7 +34,7 @@
 name: pixiu
 description: pixiu sample
 resources:
-  - path: '/api/v1/test-dubbo/:application/:interface'
+  - path: '/api/v1/test-dubbo/:interface'
     type: restful
     description: common
     methods:
@@ -28,8 +50,6 @@ resources:
               mapTo: opt.values
             - name: requestBody.types
               mapTo: opt.types
-            - name: uri.application
-              mapTo: opt.application
             - name: uri.interface
               mapTo: opt.interface
             - name: queryStrings.method
@@ -38,7 +58,6 @@ resources:
               mapTo: opt.group
             - name: queryStrings.version
               mapTo: opt.version
-          # Notice: this is the really paramTypes to dubbo service, it takes precedence over paramTypes when it is finally called.
           clusterName: "test_dubbo"
 ```
 
@@ -47,7 +66,7 @@ resources:
 - single param string
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByName -X POST -d '{"types":["string"],"values":"tc"}' --header "Content-Type: application/json"
 ```
 
 result
@@ -65,7 +84,7 @@ result
 - single param int
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=GetUserByCode -X POST -d '{"types":["int"],"values":1}' --header "Content-Type: application/json"
 ```
 
 result
@@ -83,7 +102,7 @@ result
 - multi params
 
 ```bash
-curl host:port/api/v1/test-dubbo/UserService/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
+curl host:port/api/v1/test-dubbo/com.dubbogo.proxy.UserService?group=test&version=1.0.0&method=UpdateUserByName -X POST -d '{"types":["string","body"],"values":["tc",{"id":"0001","code":1,"name":"tc","age":15}]}' --header "Content-Type: application/json"
 ```
 
 result
@@ -96,16 +115,15 @@ true
 
 #### Code
 
-```go
-const (
-	optionKeyTypes       = "types"
-	optionKeyGroup       = "group"
-	optionKeyVersion     = "version"
-	optionKeyInterface   = "interface"
-	optionKeyApplication = "application"
-	optionKeyMethod      = "method"
-	optionKeyValues      = "values"
-)
+Supported `mapTo` options:
+
+```yaml
+- opt.types
+- opt.group
+- opt.version
+- opt.interface
+- opt.method
+- opt.values
 ```
 
 #### Options
@@ -115,8 +133,7 @@ By configuring mapTo with option keywords(listed below), Pixiu will assemble gen
 ```go
 // GenericService uses for generic invoke for service call
 type GenericService struct {
-	Invoke       func(ctx context.Context, req []interface{}) (interface{}, error) `dubbo:"$invoke"`
-	referenceStr string
+	Invoke func(ctx context.Context, methodName string, types []string, args []hessian.Object) (any, error) `dubbo:"$invoke"`
 }
 ```
 
@@ -124,31 +141,28 @@ type GenericService struct {
 
 > dubbo generic types
 
-Use for dubbogo `GenericService#Invoke` func arg 2rd param.
+Use as the `types` argument of dubbogo `GenericService#Invoke` when `integrationRequest.parameterTypes` is not configured.
+For direct generic invocation, configure `integrationRequest.parameterTypes` instead.
 
 - opt.method
 
-Use for dubbogo `GenericService#Invoke` func arg 1rd param.
+Use as the `methodName` argument of dubbogo `GenericService#Invoke`.
 
 - opt.group
 
-Dubbo group in `ReferenceConfig#Group`.
+Dubbo reference group.
 
 - opt.version
 
-Dubbo version in `ReferenceConfig#Version`.
+Dubbo reference version.
 
 - opt.interface
 
-Dubbo interface in `ReferenceConfig#InterfaceName`.
-
-- opt.application
-
-Now only use for part of cache key.
+Dubbo service interface.
 
 - opt.values
 
-Use for dubbogo `GenericService#Invoke` func arg 3rd param.
+Use as the `args` argument of dubbogo `GenericService#Invoke`.
 
 #### Explain
 
@@ -169,7 +183,7 @@ request body
 ```
 
 - `requestBody.types` means body content with types key.
-- `opt.types` means use types option.
+- `opt.types` means using the value as the generic invocation `types` argument in this registry-mode sample.
 
 ##### Multiple params
 
@@ -191,6 +205,6 @@ request body
 }
 ```
 
-Please pay attention to the special situation of configuration the degrees of freedom is not very high, if can't meet the scene, please mention [issue](https://github.com/dubbogo/dubbo-go-proxy/issues), thank you.
+Please pay attention to the special situation of configuration the degrees of freedom is not very high, if can't meet the scene, please mention [issue](https://github.com/apache/dubbo-go-pixiu/issues), thank you.
 
 [Previous](dubbo.md)

@@ -18,19 +18,49 @@
 package dubbo
 
 import (
+	"context"
+	"time"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+// DubboClient is the protocol-specific client contract for outbound Dubbo calls.
+type DubboClient interface {
+	Apply() error
+	Close() error
+	Call(ctx context.Context, req *DubboOutboundRequest) (any, error)
+}
+
+// DubboOutboundRequest is an immutable contract for a single Dubbo outbound invocation.
+type DubboOutboundRequest struct {
+	Service string
+	Method  string
+	Group   string
+	Version string
+
+	Address string
+
+	Protocol      string
+	Serialization string
+
+	Arguments   []any
+	ParamTypes  []string
+	Attachments map[string]any
+
+	Timeout time.Duration
+}
+
 // DubboProxyConfig the config for dubbo proxy
 type DubboProxyConfig struct {
+	// Deprecated: AutoResolve is no longer supported. Remove auto_resolve from your
+	// dubboProxyConfig and configure integrationRequest explicitly in the API definition.
+	AutoResolve *bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
 	// Registries such as zk,nacos or etcd
 	Registries map[string]model.Registry `yaml:"registries" json:"registries"`
 	// Timeout
 	Timeout *model.TimeoutConfig `yaml:"timeout_config" json:"timeout_config"`
-	// IsDefaultMap whether to use DefaultMap role
-	IsDefaultMap bool
-	// AutoResolve whether to resolve api config from request
-	AutoResolve bool `yaml:"auto_resolve" json:"auto_resolve,omitempty"`
 	// Protoset path to load protoset files
 	Protoset []string `yaml:"protoset" json:"protoset,omitempty"`
 	// Load balance

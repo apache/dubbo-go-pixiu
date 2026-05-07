@@ -33,7 +33,7 @@ const (
 	DefaultLogLevel         = "info"
 	DefaultMetricsAddr      = ":8080"
 	DefaultProbeAddr        = ":8081"
-	DefaultGatewayImage     = "dubboregistry/pixiu-proxy:v1.1.0"
+	DefaultGatewayImage     = "dubbogopixiu/pixiu-proxy:v1.1.0"
 	DefaultImagePullPolicy  = "IfNotPresent"
 )
 

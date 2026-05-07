@@ -141,6 +141,9 @@ func GetClusterManager() *ClusterManager {
 }
 
 func GetRouterManager() *RouterManager {
+	if server == nil {
+		return nil
+	}
 	return server.GetRouterManager()
 }
 

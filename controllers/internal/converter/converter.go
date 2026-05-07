@@ -184,7 +184,8 @@ func (c *Converter) convertHTTPListener(httpListener *ir.HTTPListener, clusters 
 
 	hcmConfig := HTTPConnectionManagerConfig{
 		RouteConfig: RouteConfiguration{
-			Routes: routes,
+			Routes:  routes,
+			Dynamic: true,
 		},
 		HTTPFilters: httpFilters,
 	}
@@ -298,7 +299,8 @@ func (c *Converter) convertTripleListener(tcpListener *ir.TCPListener, clusters 
 
 	dubboConfig := DubboConnectionManagerConfig{
 		RouteConfig: RouteConfiguration{
-			Routes: routes,
+			Routes:  routes,
+			Dynamic: true,
 		},
 		DubboFilters: dubboFilters,
 	}
@@ -359,7 +361,8 @@ func (c *Converter) convertTCPListener(tcpListener *ir.TCPListener, clusters []*
 
 		dubboConfig := DubboConnectionManagerConfig{
 			RouteConfig: RouteConfiguration{
-				Routes: routes,
+				Routes:  routes,
+				Dynamic: true,
 			},
 			DubboFilters: dubboFilters,
 		}

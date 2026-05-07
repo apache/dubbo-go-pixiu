@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 import (
@@ -41,4 +42,64 @@ func TestLoadAPIConfigFromFile(t *testing.T) {
 	assert.Equal(t, apiC.Name, "api name")
 	bytes, _ := yaml.MarshalYML(apiC)
 	log.Printf("%s", bytes)
+}
+
+func TestAPIConfigLoadsDirectGenericContractFields(t *testing.T) {
+	raw := []byte(`
+name: pixiu
+resources:
+  - path: /invoke
+    type: restful
+    methods:
+      - httpVerb: POST
+        enable: true
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: triple
+          url: tri://127.0.0.1:20000
+          protocol: tri
+          interface: benchmark.BenchmarkService
+          method: SayHello
+          parameterTypes:
+            - benchmark.HelloRequest
+          serialization: protobuf
+`)
+	var cfg config.APIConfig
+	err := yaml.UnmarshalYML(raw, &cfg)
+	require.NoError(t, err)
+
+	ir := cfg.Resources[0].Methods[0].IntegrationRequest
+	require.Equal(t, []string{"benchmark.HelloRequest"}, ir.ParameterTypes)
+	require.Equal(t, "protobuf", ir.Serialization)
+}
+
+func TestAPIConfigKeepsExplicitEmptyParameterTypes(t *testing.T) {
+	raw := []byte(`
+name: pixiu
+resources:
+  - path: /ping
+    type: restful
+    methods:
+      - httpVerb: POST
+        enable: true
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          url: dubbo://127.0.0.1:20880
+          protocol: dubbo
+          interface: demo.PingService
+          method: Ping
+          parameterTypes: []
+          serialization: hessian2
+`)
+	var cfg config.APIConfig
+	err := yaml.UnmarshalYML(raw, &cfg)
+	require.NoError(t, err)
+
+	ir := cfg.Resources[0].Methods[0].IntegrationRequest
+	require.NotNil(t, ir.ParameterTypes)
+	require.Len(t, ir.ParameterTypes, 0)
+	require.Equal(t, "hessian2", ir.Serialization)
 }

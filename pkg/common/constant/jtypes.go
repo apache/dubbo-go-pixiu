@@ -25,19 +25,47 @@ import (
 // Object represents the java.lang.Object type
 type Object any
 
+const (
+	JavaLangStringClassName  = "java.lang.String"
+	JavaLangBooleanClassName = "java.lang.Boolean"
+	JavaLangByteClassName    = "java.lang.Byte"
+	JavaLangCharClassName    = "java.lang.Character"
+	JavaLangShortClassName   = "java.lang.Short"
+	JavaLangIntegerClassName = "java.lang.Integer"
+	JavaLangLongClassName    = "java.lang.Long"
+	JavaLangFloatClassName   = "java.lang.Float"
+	JavaLangDoubleClassName  = "java.lang.Double"
+	JavaLangObjectClassName  = "java.lang.Object"
+	JavaUtilDateClassName    = "java.util.Date"
+)
+
+const (
+	JavaPrimitiveString  = "string"
+	JavaPrimitiveChar    = "char"
+	JavaPrimitiveShort   = "short"
+	JavaPrimitiveInt     = "int"
+	JavaPrimitiveLong    = "long"
+	JavaPrimitiveFloat   = "float"
+	JavaPrimitiveDouble  = "double"
+	JavaPrimitiveBoolean = "boolean"
+	JavaPrimitiveByte    = "byte"
+	JavaPrimitiveObject  = "object"
+	JavaPrimitiveDate    = "date"
+)
+
 // JTypeMapper maps the java basic types to golang types
 var JTypeMapper = map[string]reflect.Type{
-	"string":           reflect.TypeOf(""),
-	"java.lang.String": reflect.TypeOf(""),
-	"char":             reflect.TypeOf(""),
-	"short":            reflect.TypeOf(int16(0)),
-	"int":              reflect.TypeOf(int(0)),
-	"long":             reflect.TypeOf(int64(0)),
-	"float":            reflect.TypeOf(float32(0)),
-	"double":           reflect.TypeOf(float64(0)),
-	"boolean":          reflect.TypeOf(true),
-	"java.util.Date":   reflect.TypeOf(time.Time{}),
-	"date":             reflect.TypeOf(time.Time{}),
-	"object":           reflect.TypeOf([]Object{}).Elem(),
-	"java.lang.Object": reflect.TypeOf([]Object{}).Elem(),
+	JavaPrimitiveString:     reflect.TypeOf(""),
+	JavaLangStringClassName: reflect.TypeOf(""),
+	JavaPrimitiveChar:       reflect.TypeOf(""),
+	JavaPrimitiveShort:      reflect.TypeOf(int16(0)),
+	JavaPrimitiveInt:        reflect.TypeOf(int(0)),
+	JavaPrimitiveLong:       reflect.TypeOf(int64(0)),
+	JavaPrimitiveFloat:      reflect.TypeOf(float32(0)),
+	JavaPrimitiveDouble:     reflect.TypeOf(float64(0)),
+	JavaPrimitiveBoolean:    reflect.TypeOf(true),
+	JavaUtilDateClassName:   reflect.TypeOf(time.Time{}),
+	JavaPrimitiveDate:       reflect.TypeOf(time.Time{}),
+	JavaPrimitiveObject:     reflect.TypeOf([]Object{}).Elem(),
+	JavaLangObjectClassName: reflect.TypeOf([]Object{}).Elem(),
 }

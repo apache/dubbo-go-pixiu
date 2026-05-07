@@ -116,6 +116,14 @@ func (d *DefaultDeployer) initialize() error {
 
 	hotreload.StartHotReload(d.configManger, d.bootstrap)
 
+	// Set config path for hot reload
+	hotreload.SetConfigPath(configPath)
+
+	// Start HTTP reload endpoint on port 18380
+	if err := hotreload.StartReloadServer(18380, ""); err != nil {
+		logger.Warnf("[startGatewayCmd] failed to start reload server: %s", err.Error())
+	}
+
 	return err
 }
 
@@ -125,7 +133,7 @@ func (d *DefaultDeployer) start() error {
 }
 
 func (d *DefaultDeployer) stop() error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
