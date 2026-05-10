@@ -83,13 +83,10 @@ func (factory *FilterFactory) Apply() error {
 		return nil
 	}
 
-	if factory.cfg.EnableOpenAPIValidation && factory.cfg.OpenAPIPath != "" {
-		if err := factory.loadOpenAPIFromFile(factory.cfg.OpenAPIPath); err != nil {
-			return err
-		}
-	}
-
 	if factory.cfg.Path == "" && factory.cfg.APIMetaConfig == nil {
+		if factory.cfg.EnableOpenAPIValidation && factory.cfg.OpenAPIPath != "" {
+			logger.Warn("openapi validation is configured without api config; skip openapi validation")
+		}
 		return nil
 	}
 
@@ -99,6 +96,12 @@ func (factory *FilterFactory) Apply() error {
 	}
 	if err := factory.apiService.InitAPIsFromConfig(*config); err != nil {
 		return err
+	}
+
+	if factory.cfg.EnableOpenAPIValidation && factory.cfg.OpenAPIPath != "" {
+		if err := factory.mergeOpenAPIFromFile(factory.cfg.OpenAPIPath); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -160,7 +163,7 @@ func (factory *FilterFactory) GetApiService() api.APIDiscoveryService {
 	return factory.apiService
 }
 
-func (factory *FilterFactory) loadOpenAPIFromFile(path string) error {
+func (factory *FilterFactory) mergeOpenAPIFromFile(path string) error {
 	spec, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -176,7 +179,15 @@ func (factory *FilterFactory) loadOpenAPIFromFile(path string) error {
 		return err
 	}
 	for _, compiled := range compiledRoutes {
-		if err := factory.apiService.AddOrUpdateAPI(compiled.Route); err != nil {
+		if _, err := factory.apiService.GetAPI(compiled.Route.URLPattern, compiled.Route.HTTPVerb); err != nil {
+			logger.Warnf(
+				"skip openapi validation for %s %s because api config route does not exist",
+				compiled.Route.HTTPVerb,
+				compiled.Route.URLPattern,
+			)
+			continue
+		}
+		if err := factory.apiService.MergeAPI(compiled.Route); err != nil {
 			return err
 		}
 	}

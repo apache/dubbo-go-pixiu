@@ -131,7 +131,7 @@ func TestDecode_StopsOnOpenAPIParameterTypeFailure(t *testing.T) {
 	assert.Nil(t, ctx.GetAPI())
 }
 
-func TestApply_LoadsOpenAPIRoutesFromFile(t *testing.T) {
+func TestApply_MergesOpenAPIRoutesFromFile(t *testing.T) {
 	specFile, err := os.CreateTemp(t.TempDir(), "openapi-*.yaml")
 	require.NoError(t, err)
 	defer specFile.Close()
@@ -179,8 +179,30 @@ paths:
 `)
 	require.NoError(t, err)
 
+	apiConfigFile, err := os.CreateTemp(t.TempDir(), "api-config-*.yaml")
+	require.NoError(t, err)
+	defer apiConfigFile.Close()
+
+	_, err = apiConfigFile.WriteString(`
+name: api name
+resources:
+  - path: /users
+    type: restful
+    methods:
+      - httpVerb: POST
+        enable: true
+    resources:
+      - path: /:id
+        type: restful
+        methods:
+          - httpVerb: GET
+            enable: true
+`)
+	require.NoError(t, err)
+
 	factory := &FilterFactory{
 		cfg: &ApiConfigConfig{
+			Path:                    apiConfigFile.Name(),
 			OpenAPIPath:             specFile.Name(),
 			EnableOpenAPIValidation: true,
 		},

@@ -6,10 +6,8 @@
 
 ## 概述
 
-Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x 文件，并把每个 operation 编译成：
-
-- 一条 Pixiu 路由
-- 一份挂在该路由上的 `ValidationPlan`
+Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x 文件，并把每个 operation 的
+`ValidationPlan` 合并到 `api_config` 里已经存在的同名路由上。
 
 当请求命中 API 后，Pixiu 会在转发到上游之前先执行请求校验。
 
@@ -43,9 +41,12 @@ Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x �
 ```yaml
 - name: dgp.filter.http.apiconfig
   config:
+    path: configs/api_config.yaml
     openapi_path: configs/openapi_users.yaml
     enable_openapi_validation: true
 ```
+
+OpenAPI 校验不会单独创建路由，目标路由必须已经存在于 `api_config` 中。
 
 ## 说明
 
@@ -54,9 +55,9 @@ Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x �
 
 ## 运行流程
 
-1. Pixiu 在 `apiconfig.Apply()` 阶段加载 OpenAPI 文件。
-2. 每个 OpenAPI operation 都会被编译成一条 Pixiu `router.API`。
-3. 编译后的 `ValidationPlan` 会存放到 `router.API.Metadata`。
+1. Pixiu 在 `apiconfig.Apply()` 阶段先加载 `api_config`。
+2. Pixiu 再加载 OpenAPI 文件并编译校验计划。
+3. 每个编译结果的 `ValidationPlan` 会合并到匹配的 `router.API.Metadata` 中。
 4. 请求进入 `apiconfig.Decode()`。
 5. Pixiu 先按 path 和 method 匹配 API。
 6. 从命中的 API metadata 中取出 `ValidationPlan`。

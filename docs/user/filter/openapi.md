@@ -6,10 +6,8 @@ English | [中文](openapi_CN.md)
 
 ## Overview
 
-Pixiu can load an OpenAPI 3.x file during `dgp.filter.http.apiconfig` initialization, compile each operation into:
-
-- a Pixiu route
-- a `ValidationPlan` attached to that route
+Pixiu can load an OpenAPI 3.x file during `dgp.filter.http.apiconfig` initialization and merge each operation's
+`ValidationPlan` into the matching route that is already defined by `api_config`.
 
 When a request matches an API, Pixiu validates the request before it is forwarded upstream.
 
@@ -43,9 +41,12 @@ If validation fails, Pixiu returns a `400 Bad Request` locally and stops the fil
 ```yaml
 - name: dgp.filter.http.apiconfig
   config:
+    path: configs/api_config.yaml
     openapi_path: configs/openapi_users.yaml
     enable_openapi_validation: true
 ```
+
+OpenAPI validation does not create standalone routes. The route must already exist in `api_config`.
 
 ## Notes
 
@@ -54,9 +55,9 @@ If validation fails, Pixiu returns a `400 Bad Request` locally and stops the fil
 
 ## Runtime Flow
 
-1. Pixiu loads the OpenAPI file during `apiconfig.Apply()`.
-2. Each OpenAPI operation is compiled into a Pixiu `router.API`.
-3. The compiled `ValidationPlan` is stored in `router.API.Metadata`.
+1. Pixiu loads `api_config` during `apiconfig.Apply()`.
+2. Pixiu loads the OpenAPI file and compiles validation plans.
+3. Each compiled `ValidationPlan` is merged into the matching `router.API.Metadata`.
 4. A request enters `apiconfig.Decode()`.
 5. Pixiu matches the request path and method.
 6. Pixiu extracts the `ValidationPlan` from the matched API metadata.

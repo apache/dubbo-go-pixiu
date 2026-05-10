@@ -181,6 +181,44 @@ func (rt *Route) PutOrUpdateAPI(api API) error {
 	return nil
 }
 
+// MergeAPI replaces the metadata of an existing api without creating a new route.
+func (rt *Route) MergeAPI(api API) error {
+	lowerCasePath := strings.ToLower(api.URLPattern)
+	key := getTrieKey(api.HTTPVerb, lowerCasePath, false)
+
+	rt.lock.Lock()
+	defer rt.lock.Unlock()
+
+	node, _, exists, err := rt.tree.Get(key)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.Errorf(
+			"Method %s with address %s does not exist in path %s",
+			api.HTTPVerb, lowerCasePath, lowerCasePath,
+		)
+	}
+
+	bizInfoInterface := node.GetBizInfo()
+	bizInfo, ok := bizInfoInterface.(*Node)
+	if bizInfo == nil || !ok {
+		return errors.New("bizInfoInterface.(*Node) failed")
+	}
+
+	if len(api.Metadata) == 0 {
+		return nil
+	}
+	if bizInfo.metadata == nil {
+		bizInfo.metadata = make(map[string]any, len(api.Metadata))
+	}
+	for key, value := range api.Metadata {
+		bizInfo.metadata[key] = value
+	}
+
+	return nil
+}
+
 // FindAPI return if api has path in trie,or nil
 func (rt *Route) FindAPI(fullPath string, httpverb string) (*API, bool) {
 	lowerCasePath := strings.ToLower(fullPath)
