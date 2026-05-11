@@ -72,9 +72,10 @@ Use this skill when the user wants to:
 - A Dubbo provider running somewhere reachable. The user must know the
   interface FQCN, method name, Java method signature, and the Dubbo
   `group` / `version`.
-- A registry: ZooKeeper, Nacos, or an in-process ("direct URL")
-  endpoint. The registry configuration lives in `conf.yaml` under the
-  Dubbo adapter, not in `api_config.yaml`.
+- Registry mode needs ZooKeeper/Nacos config under
+  `dgp.filter.http.dubboproxy.config.dubboProxyConfig.registries`.
+  Direct mode instead uses `integrationRequest.url` in `api_config.yaml`
+  and must also declare `parameterTypes` and `serialization`.
 
 ## Steps
 
@@ -85,21 +86,21 @@ Use this skill when the user wants to:
    `configs/api_config.yaml` in the pixiu repo, or user-specified
    paths.
 3. Open `pkg/config/api_config.go` — that's the Go struct the yaml
-   actually binds to. Fields not present there are silently ignored;
-   always cross-reference. Current pixiu has `mappingParams` but no
-   top-level `paramTypes` field on `IntegrationRequest`, so do not
-   generate `paramTypes` unless a target version proves it exists.
-4. Open `pkg/client/dubbo/default.go`, `pkg/client/dubbo/mapper.go`,
-   and `pkg/client/dubbo/option.go` before editing mappings. They define
-   the accepted `mapTo` grammar and how `mapType` becomes the generic
-   invocation type list.
-5. If the user says "Dubbo direct URL, no registry", make sure you
-   understand they still need `clusters[]` in `conf.yaml` with the
-   provider address.
+   actually binds to. Current `DubboBackendConfig` includes
+   `parameterTypes` and `serialization`; the legacy spelling
+   `paramTypes` is not the current field name.
+4. Open `pkg/filter/http/remote/dubbo_handler.go`,
+   `pkg/client/dubbo/types.go`, `pkg/client/dubbo/typeconv.go`, and
+   `pkg/client/dubbo/dubbo.go` before editing mappings. Do not cite
+   legacy mapping helpers on branches where they no longer exist.
+5. If the user says "Dubbo direct URL, no registry", use the current
+   direct generic contract: `integrationRequest.url` plus explicit
+   `protocol`, `parameterTypes`, and `serialization`.
 
-### Step 1 — Gather the Seven Things (STOP and ask)
+### Step 1 — Gather the Required Things (STOP and ask)
 
-You cannot write a valid `integrationRequest` without all of:
+You cannot write a valid `integrationRequest` without all applicable
+items:
 
 1. **HTTP method + path**: `POST /api/v1/user`, etc.
 2. **Dubbo interface FQCN**: e.g. `com.example.UserProvider`.
@@ -107,14 +108,17 @@ You cannot write a valid `integrationRequest` without all of:
 4. **Java method signature**: e.g.
    `User createUser(com.example.User user)` or
    `Page<Order> search(String tenant, OrderQuery q)`. Translate each
-   argument into a supported pixiu `mapType` (`string`, `int`, `long`,
-   `double`, `boolean`, `object`, etc.) rather than a top-level
-   `paramTypes` list.
+   argument into `parameterTypes` and supported pixiu `mapType` values
+   (`string`, `int`, `long`, `double`, `boolean`, `object`, etc.).
 5. **Dubbo `group` and `version`**: empty strings are allowed but must
    be explicit.
 6. **Where each parameter comes from** on the HTTP side: `queryStrings.
    <name>`, `requestBody.<path>`, `headers.<name>`, `uri.<name>`.
-7. **Registry type**: ZK, Nacos, direct URL. This lives in `conf.yaml`.
+7. **Registry/direct mode**: ZK/Nacos registry, or direct URL. Registry
+   settings live in `conf.yaml`; direct provider address lives in
+   `integrationRequest.url`.
+8. **Direct-call extras**: for direct URL mode, the declared protocol,
+   `parameterTypes`, and `serialization`.
 
 For POJO arguments, also ask whether the HTTP JSON body includes the
 Dubbo/Hessian class discriminator the provider expects, usually a
@@ -122,18 +126,18 @@ Dubbo/Hessian class discriminator the provider expects, usually a
 argument as `object`, but it cannot infer every provider-side POJO FQCN
 from a yaml field that the current config struct ignores.
 
-For primitives, collections, and nested POJOs, stay close to the current
-mapper source and existing `api_config.yaml` examples before finalizing
-`mappingParams`.
+For primitives, collections, and nested POJOs, stay close to
+`DubboHandler`, `typeconv.go`, and existing `api_config.yaml` examples
+before finalizing `mappingParams`.
 
 If the user says "direct URL", "no registry", or gives a provider
 address such as `10.0.0.8:20880`, keep the Dubbo route as
-`integrationRequest.requestType: dubbo` and put only `clusterName` in
-`api_config.yaml`. The provider address belongs in `conf.yaml` as a
-static/direct Dubbo cluster endpoint; do not copy it into the HTTP
-backend `url` / `host` / `path` fields.
+`integrationRequest.requestType: dubbo` and put the provider address in
+`integrationRequest.url`. Direct generic invoke also requires
+`parameterTypes` and `serialization`; without them Pixiu returns direct
+generic validation errors before invoking the provider.
 
-Do NOT proceed until all seven are answered. It is fine to propose
+Do NOT proceed until the required fields are answered. It is fine to propose
 defaults and ask for confirmation — but **every field must be explicit
 in the final yaml**.
 
@@ -166,12 +170,13 @@ resources:
         integrationRequest:
           requestType: dubbo
           # Dubbo coordinates:
-          clusterName: dubbo-cluster          # matches conf.yaml clusters[].name
           applicationName: pixiu
           group: ""
           version: "1.0.0"
           interface: com.example.UserProvider
           method: createUser
+          parameterTypes:
+            - com.example.User
           # How to pull each Dubbo method argument from the HTTP request:
           mappingParams:
             - name: requestBody
@@ -183,23 +188,30 @@ Rules the template hides:
 
 - `requestType` **must** be `dubbo` for Dubbo routes. `http` is the
   pass-through mode; different code path.
+- `requestType: triple` uses the same outbound builder, but direct
+  Triple generic invoke requires the provider to expose generic `$invoke`;
+  IDL-only Triple handlers may return `404 Not Found`.
 - `mapTo` is either the **index** of the Dubbo method parameter
   (`mapTo: "0"` is the first argument) or one of the supported
   `opt.*` targets such as `opt.types`, `opt.values`, `opt.group`,
-  `opt.version`, `opt.interface`, `opt.application`, or `opt.method`.
-- `mapType` is the generic invoke type hint consumed by pixiu's Dubbo
-  mapper. Supported values come from `constant.JTypeMapper`: `string`,
+  `opt.version`, `opt.interface`, or `opt.method`. `opt.application`
+  is deprecated in the current handler.
+- `parameterTypes` is the preferred explicit Java signature. In
+  registry mode, `opt.types` can still provide the signature when
+  `parameterTypes` is omitted. In direct mode, `parameterTypes` is
+  required.
+- `mapType` is the conversion hint consumed by pixiu's Dubbo type
+  conversion path. Supported values come from `constant.JTypeMapper`: `string`,
   `java.lang.String`, `char`, `short`, `int`, `long`, `float`,
   `double`, `boolean`, `java.util.Date`, `date`, `object`, and
   `java.lang.Object`. Use `object` / `java.lang.Object` for POJO or map
   payloads, and include provider-required class metadata in the body
   when the Dubbo serializer needs it.
-- Do not emit top-level `paramTypes` for current pixiu. Old examples may
-  contain it, but `pkg/config/api_config.go` does not bind it on
-  `IntegrationRequest`, so it is ignored unless the target branch proves
-  otherwise.
-- `clusterName` cross-references `conf.yaml`'s
-  `static_resources.clusters[].name`. A typo here = "cluster not found".
+- `paramTypes` is not the current field name. Use `parameterTypes`.
+- Registry mode gets provider discovery from
+  `dubboProxyConfig.registries`. Direct mode gets the provider address
+  from `integrationRequest.url`; do not model it as a static cluster-only
+  path unless the target branch proves that older direct filter is in use.
 
 For dynamic/default generic routes where the HTTP client explicitly
 sends the type list and value list, map body fields to `opt.types` and
@@ -215,28 +227,33 @@ mappingParams:
 
 When the user pastes legacy `paramTypes`, `groupType`, or old
 `types/values` examples, translate the intent into current
-`mappingParams` and `mapType` rules. Do not preserve unknown fields just
-because the user supplied them; current `IntegrationRequest` silently
-ignores fields not present in `pkg/config/api_config.go`.
+`parameterTypes`, `mappingParams`, and `mapType` rules. Do not preserve
+unknown fields just because the user supplied them; current
+`IntegrationRequest` silently ignores fields not present in
+`pkg/config/api_config.go`.
 
 ### Step 3 — Update `conf.yaml` if needed
 
 You usually only touch `conf.yaml` when:
 
-- This is the first Dubbo route (need the Dubbo registry adapter).
-- A new `clusterName` is introduced.
+- This is the first registry-backed Dubbo route (need
+  `dgp.filter.http.dubboproxy.config.dubboProxyConfig.registries`, and
+  often the dynamic `dgp.adapter.dubboregistrycenter` if API definitions
+  come from a registry).
 - A new listener port or host is needed.
-- The user wants direct/no-registry Dubbo access. In that case declare a
-  static/direct cluster endpoint in `conf.yaml` and keep
-  `api_config.yaml` focused on the Dubbo interface/method mapping.
+- The user wants direct/no-registry Dubbo access. In that case
+  `api_config.yaml` must carry `integrationRequest.url`,
+  `parameterTypes`, and `serialization`; `conf.yaml` still needs the
+  listener/filter chain, but not a static Dubbo cluster endpoint for
+  that direct provider.
 
-The Dubbo adapter block (ZK example):
+The `dgp.filter.http.dubboproxy` registry block (ZK example, inside HCM
+`http_filters`):
 
 ```yaml
-adapters:
-  - id: dubbo
-    name: dgp.adapter.dubboregistrycenter
-    config:
+- name: dgp.filter.http.dubboproxy
+  config:
+    dubboProxyConfig:
       registries:
         zk:
           protocol: zookeeper
@@ -244,26 +261,38 @@ adapters:
           address: 127.0.0.1:2181
           username: ""
           password: ""
+      timeout_config:
+        connect_timeout: 5s
+        request_timeout: 5s
 ```
 
-For direct/no-registry cases, omit the registry adapter and declare the
-target cluster explicitly:
+Add `dgp.adapter.dubboregistrycenter` only when API definitions are
+dynamically discovered from a Dubbo registry, not for every static
+`api_config.yaml` route.
+
+For direct/no-registry cases, omit the registry adapter and put the
+provider address in `api_config.yaml`:
 
 ```yaml
-static_resources:
-  clusters:
-    - name: direct-dubbo
-      lb_policy: RoundRobin
-      endpoints:
-        - id: direct-provider-1
-          socket_address:
-            address: "10.0.0.8"
-            port: 20880
+integrationRequest:
+  requestType: dubbo
+  url: dubbo://10.0.0.8:20880
+  protocol: dubbo
+  serialization: hessian2
+  interface: com.example.UserProvider
+  method: getUser
+  group: ""
+  version: "1.0.0"
+  parameterTypes:
+    - java.lang.String
+  mappingParams:
+    - name: queryStrings.name
+      mapTo: "0"
+      mapType: string
 ```
 
-The matching `api_config.yaml` still uses
-`integrationRequest.clusterName: direct-dubbo`; it does not contain the
-provider URL.
+If the URL omits a scheme, `protocol` must still be set so Pixiu can
+construct the direct Dubbo reference.
 
 And the HTTP listener MUST have `dgp.filter.http.apiconfig` in its
 `http_filters` list, followed by `dgp.filter.http.dubboproxy` (or
@@ -280,8 +309,10 @@ Before booting Pixiu, inspect the generated config directly:
    expected types, and the allowed shape of structured API mapping
    objects. `filter.config` remains intentionally permissive because
    individual filter plugins own their own config schemas.
-3. Cross-check every `clusterName` referenced in `integrationRequest`
-   against the adapter / cluster `id` or `name` values in `conf.yaml`.
+3. For registry mode, check that `dgp.filter.http.dubboproxy` has usable
+   `dubboProxyConfig.registries`. For direct mode, check
+   `integrationRequest.url`, `protocol`, `parameterTypes`, and
+   `serialization`.
 
 If validation fails, fix *before* trying to boot pixiu — boot-time
 errors are more cryptic than config-shape mistakes found by inspection.
@@ -299,9 +330,8 @@ errors are more cryptic than config-shape mistakes found by inspection.
 ### Always
 
 - Base generated yaml on the current `pkg/config/api_config.go` and
-  `pkg/client/dubbo/*` code, not on older examples. If
-  `IntegrationRequest` has no `ParamTypes` field, treat top-level
-  `paramTypes` as legacy and do not generate it.
+  `pkg/filter/http/remote/dubbo_handler.go`, not on older examples. Use
+  `parameterTypes`, not legacy `paramTypes`.
 - Use supported `mapType` values exactly as pixiu's `constant.JTypeMapper`
   defines them. `String` and `bool` are not valid current-source values;
   use `string` / `java.lang.String` and `boolean`.
@@ -316,17 +346,18 @@ errors are more cryptic than config-shape mistakes found by inspection.
 
 ### Never
 
-- Generate top-level `paramTypes` for current pixiu unless Step 0 proves
-  the target branch has that field on `IntegrationRequest`.
+- Generate top-level `paramTypes`; current pixiu uses `parameterTypes`.
 - Write `String` or `bool` as a `mapType`. Current pixiu accepts
   `string` / `java.lang.String` and `boolean`.
 - Mix `requestType: http` and Dubbo fields in the same
   `integrationRequest`. Pick one.
-- Put a Dubbo provider address in `integrationRequest.url`, `host`, or
-  `path`. Those fields belong to HTTP pass-through backends, not Dubbo
-  generic invoke routes.
+- Put a registry-backed Dubbo provider address in HTTP backend fields
+  such as `host` or `path`. For direct/no-registry Dubbo calls, use
+  `integrationRequest.url` and also set `parameterTypes` and
+  `serialization`.
 - Put the Dubbo registry configuration in `api_config.yaml`. It lives
-  in `conf.yaml` under `adapters`.
+  in `conf.yaml` under `dgp.filter.http.dubboproxy` and, for dynamic API
+  discovery, under `adapters`.
 - Use the literal object from the request body as a single arg when
   the Dubbo side expects separate primitives. Use
   `mappingParams[].mapTo` with an index per arg.
@@ -337,16 +368,16 @@ errors are more cryptic than config-shape mistakes found by inspection.
    cannot resolve the interface. Check `interface`, `group`, `version`
    spelling; `group` is case-sensitive.
 2. **500 with `generic invoke failed: ClassNotFound`** — type strings
-   came from legacy `paramTypes`, `opt.types`, or request body `types`
-   and do not match classes visible to the provider. For static routes,
-   prefer supported `mapType` keys and provider-required POJO class
-   metadata in the JSON body.
+   came from `parameterTypes`, `opt.types`, or request body `types` and
+   do not match classes visible to the provider. Prefer exact Java
+   class names and provider-required POJO class metadata in the JSON
+   body.
 3. **Response is `{}` / empty** — `mappingParams` is empty or wrong,
    so the Dubbo method got `null` args and returned its default value.
-4. **Per-method timeout overridden by cluster timeout** —
-   `methods[].timeout` governs the Dubbo call deadline; the cluster's
-   `timeout` is the connection-level. If the Dubbo call is slow, bump
-   the method timeout first.
+4. **Timeout set in the wrong layer** — `methods[].timeout` becomes the
+   Dubbo call deadline; `dubboProxyConfig.timeout_config` controls the
+   Dubbo client side. If the Dubbo call is slow, check the method
+   timeout first, then the proxy timeout config.
 5. **Header/query name case** — `inboundRequest.headers[].name` is
    case-insensitive on match but case-sensitive in logs; normalize in
    docs.
@@ -359,8 +390,10 @@ errors are more cryptic than config-shape mistakes found by inspection.
 ## Source Files To Read
 
 - `pkg/config/api_config.go`
-- `pkg/client/dubbo/mapper.go`
-- `pkg/client/dubbo/option.go`
+- `pkg/filter/http/remote/dubbo_handler.go`
+- `pkg/client/dubbo/types.go`
+- `pkg/client/dubbo/typeconv.go`
+- `pkg/client/dubbo/dubbo.go`
 - Existing `configs/api_config.yaml` and sample `api_config.yaml`
   files.
 - Pixiu server logs for the first error near a failing request.

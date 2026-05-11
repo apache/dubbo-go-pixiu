@@ -250,19 +250,9 @@ inside `dgp.filter.httpconnectionmanager`'s `http_filters`.
 
 ### Step 7 — Tests (optional; follow the project's actual convention)
 
-Pixiu does **not** have a "every filter must have tests" policy. As of
-0.6, of the ~38 packages under `pkg/filter/`:
-
-- **Roughly 20 ship without `_test.go`** — including cors, csrf, jwt,
-  httpproxy, dubboproxy, grpcproxy, tracing, traffic, failinject,
-  network/dubboproxy, network/httpconnectionmanager, llm/proxy.
-- **Roughly 18 do have tests** — including accesslog, opa, prometheus,
-  metric, sentinel/ratelimit, sentinel/circuitbreaker, ai/kvcache,
-  authority, header, host, http/proxyrewrite, mcp/mcpserver, auth/saml,
-  auth/mcp.
-
-The split is by **whether the filter has logic worth testing**, not by
-policy. Reasonable defaults to mirror existing style:
+Pixiu does **not** have a "every filter must have tests" policy. Decide
+from the behavior you add, then mirror a nearby filter with comparable
+complexity:
 
 - **Skip the test** when your filter is a thin config-driven header
   rewriter, an auth check that delegates to a library, a one-line proxy
