@@ -18,6 +18,7 @@
 package loadbalancer
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -45,6 +46,17 @@ type blockingLegacyLoadBalancer struct {
 	calls   int32
 }
 
+type clusterScopedBlockingLegacyLoadBalancer struct {
+	*blockingLegacyLoadBalancer
+}
+
+type observableLocker struct {
+	mu      sync.Mutex
+	waiter  chan struct{}
+	locked  bool
+	blocked chan struct{}
+}
+
 func (l *legacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
 	l.seenEndpoints = c.Endpoints
 	if len(c.Endpoints) == 0 {
@@ -66,6 +78,44 @@ func (b *blockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbP
 		return nil
 	}
 	return c.Endpoints[0]
+}
+
+func (b *clusterScopedBlockingLegacyLoadBalancer) UseClusterScopedLegacyLock() bool {
+	return true
+}
+
+func newObservableLocker() *observableLocker {
+	return &observableLocker{
+		blocked: make(chan struct{}, 1),
+	}
+}
+
+func (l *observableLocker) Lock() {
+	l.mu.Lock()
+	if !l.locked {
+		l.locked = true
+		l.mu.Unlock()
+		return
+	}
+	waiter := make(chan struct{})
+	l.waiter = waiter
+	l.blocked <- struct{}{}
+	l.mu.Unlock()
+	<-waiter
+
+	l.mu.Lock()
+	l.locked = true
+	l.mu.Unlock()
+}
+
+func (l *observableLocker) Unlock() {
+	l.mu.Lock()
+	l.locked = false
+	if l.waiter != nil {
+		close(l.waiter)
+		l.waiter = nil
+	}
+	l.mu.Unlock()
 }
 
 func TestPickEndpointAdaptsLegacyLoadBalancer(t *testing.T) {
@@ -133,14 +183,215 @@ func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {
 		_ = PickEndpoint(balancer, pickContext, nil)
 	}()
 
-	select {
-	case call := <-balancer.entered:
-		t.Fatalf("legacy handler call %d entered before the first call returned", call)
-	case <-time.After(50 * time.Millisecond):
-	}
+	assertNoLegacyHandlerEntry(t, balancer.entered)
 
 	close(balancer.release)
 	assert.Equal(t, 2, waitLegacyHandlerEntry(t, balancer.entered))
+	waitClosed(t, firstDone)
+	waitClosed(t, secondDone)
+}
+
+func TestPickEndpointKeepsCompatibilityLockForOptInLegacyLoadBalancer(t *testing.T) {
+	firstEndpoint := &model.Endpoint{ID: "first"}
+	firstCluster := &model.ClusterConfig{
+		Name:      "blocking-legacy-load-balancer-first-direct-pick",
+		Endpoints: []*model.Endpoint{firstEndpoint},
+	}
+	secondEndpoint := &model.Endpoint{ID: "second"}
+	secondCluster := &model.ClusterConfig{
+		Name:      "blocking-legacy-load-balancer-second-direct-pick",
+		Endpoints: []*model.Endpoint{secondEndpoint},
+	}
+	balancer := &clusterScopedBlockingLegacyLoadBalancer{
+		blockingLegacyLoadBalancer: &blockingLegacyLoadBalancer{
+			entered: make(chan int, 2),
+			release: make(chan struct{}),
+		},
+	}
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() {
+			close(balancer.release)
+		})
+	})
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_ = PickEndpoint(balancer, PickContext{
+			Config:           firstCluster,
+			HealthyEndpoints: []*model.Endpoint{firstEndpoint},
+		}, nil)
+	}()
+	assert.Equal(t, 1, waitLegacyHandlerEntry(t, balancer.entered))
+
+	secondDone := make(chan struct{})
+	go func() {
+		defer close(secondDone)
+		_ = PickEndpoint(balancer, PickContext{
+			Config:           secondCluster,
+			HealthyEndpoints: []*model.Endpoint{secondEndpoint},
+		}, nil)
+	}()
+
+	assertNoLegacyHandlerEntry(t, balancer.entered)
+
+	releaseOnce.Do(func() {
+		close(balancer.release)
+	})
+	assert.Equal(t, 2, waitLegacyHandlerEntry(t, balancer.entered))
+	waitClosed(t, firstDone)
+	waitClosed(t, secondDone)
+}
+
+func TestPickEndpointWithLegacyLockSerializesOptInLegacyLoadBalancerHandlersWithSameLock(t *testing.T) {
+	first := &model.Endpoint{ID: "first"}
+	cluster := &model.ClusterConfig{
+		Name:      "blocking-legacy-load-balancer-same-lock",
+		Endpoints: []*model.Endpoint{first},
+	}
+	balancer := &clusterScopedBlockingLegacyLoadBalancer{
+		blockingLegacyLoadBalancer: &blockingLegacyLoadBalancer{
+			entered: make(chan int, 2),
+			release: make(chan struct{}),
+		},
+	}
+	legacyPickLock := newObservableLocker()
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() {
+			close(balancer.release)
+		})
+	})
+	pickContext := PickContext{
+		Config:           cluster,
+		HealthyEndpoints: []*model.Endpoint{first},
+	}
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_ = PickEndpointWithLegacyLock(balancer, legacyPickLock, pickContext, nil)
+	}()
+	assert.Equal(t, 1, waitLegacyHandlerEntry(t, balancer.entered))
+
+	secondDone := make(chan struct{})
+	go func() {
+		defer close(secondDone)
+		_ = PickEndpointWithLegacyLock(balancer, legacyPickLock, pickContext, nil)
+	}()
+	waitLegacyLockBlocked(t, legacyPickLock.blocked)
+
+	releaseOnce.Do(func() {
+		close(balancer.release)
+	})
+	assert.Equal(t, 2, waitLegacyHandlerEntry(t, balancer.entered))
+	waitClosed(t, firstDone)
+	waitClosed(t, secondDone)
+}
+
+func TestPickEndpointWithLegacyLockSerializesNonOptInLegacyLoadBalancerHandlersAcrossDifferentLocks(t *testing.T) {
+	firstEndpoint := &model.Endpoint{ID: "first"}
+	firstCluster := &model.ClusterConfig{
+		Name:      "blocking-legacy-load-balancer-first-lock",
+		Endpoints: []*model.Endpoint{firstEndpoint},
+	}
+	secondEndpoint := &model.Endpoint{ID: "second"}
+	secondCluster := &model.ClusterConfig{
+		Name:      "blocking-legacy-load-balancer-second-lock",
+		Endpoints: []*model.Endpoint{secondEndpoint},
+	}
+	balancer := &blockingLegacyLoadBalancer{
+		entered: make(chan int, 2),
+		release: make(chan struct{}),
+	}
+	var firstLock sync.Mutex
+	var secondLock sync.Mutex
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() {
+			close(balancer.release)
+		})
+	})
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_ = PickEndpointWithLegacyLock(balancer, &firstLock, PickContext{
+			Config:           firstCluster,
+			HealthyEndpoints: []*model.Endpoint{firstEndpoint},
+		}, nil)
+	}()
+	assert.Equal(t, 1, waitLegacyHandlerEntry(t, balancer.entered))
+
+	secondDone := make(chan struct{})
+	go func() {
+		defer close(secondDone)
+		_ = PickEndpointWithLegacyLock(balancer, &secondLock, PickContext{
+			Config:           secondCluster,
+			HealthyEndpoints: []*model.Endpoint{secondEndpoint},
+		}, nil)
+	}()
+
+	assertNoLegacyHandlerEntry(t, balancer.entered)
+
+	releaseOnce.Do(func() {
+		close(balancer.release)
+	})
+	assert.Equal(t, 2, waitLegacyHandlerEntry(t, balancer.entered))
+	waitClosed(t, firstDone)
+	waitClosed(t, secondDone)
+}
+
+func TestPickEndpointWithLegacyLockAllowsOptInLegacyLoadBalancerHandlersWithDifferentLocksToRunConcurrently(t *testing.T) {
+	firstEndpoint := &model.Endpoint{ID: "first"}
+	firstCluster := &model.ClusterConfig{
+		Name:      "blocking-legacy-load-balancer-first-lock",
+		Endpoints: []*model.Endpoint{firstEndpoint},
+	}
+	secondEndpoint := &model.Endpoint{ID: "second"}
+	secondCluster := &model.ClusterConfig{
+		Name:      "blocking-legacy-load-balancer-second-lock",
+		Endpoints: []*model.Endpoint{secondEndpoint},
+	}
+	balancer := &clusterScopedBlockingLegacyLoadBalancer{
+		blockingLegacyLoadBalancer: &blockingLegacyLoadBalancer{
+			entered: make(chan int, 2),
+			release: make(chan struct{}),
+		},
+	}
+	var firstLock sync.Mutex
+	var secondLock sync.Mutex
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() {
+			close(balancer.release)
+		})
+	})
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_ = PickEndpointWithLegacyLock(balancer, &firstLock, PickContext{
+			Config:           firstCluster,
+			HealthyEndpoints: []*model.Endpoint{firstEndpoint},
+		}, nil)
+	}()
+	assert.Equal(t, 1, waitLegacyHandlerEntry(t, balancer.entered))
+
+	secondDone := make(chan struct{})
+	go func() {
+		defer close(secondDone)
+		_ = PickEndpointWithLegacyLock(balancer, &secondLock, PickContext{
+			Config:           secondCluster,
+			HealthyEndpoints: []*model.Endpoint{secondEndpoint},
+		}, nil)
+	}()
+	assert.Equal(t, 2, waitLegacyHandlerEntry(t, balancer.entered))
+
+	releaseOnce.Do(func() {
+		close(balancer.release)
+	})
 	waitClosed(t, firstDone)
 	waitClosed(t, secondDone)
 }
@@ -153,6 +404,24 @@ func waitLegacyHandlerEntry(t *testing.T, entered <-chan int) int {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for legacy handler entry")
 		return 0
+	}
+}
+
+func assertNoLegacyHandlerEntry(t *testing.T, entered <-chan int) {
+	t.Helper()
+	select {
+	case call := <-entered:
+		t.Fatalf("legacy handler call %d entered before the first call returned", call)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func waitLegacyLockBlocked(t *testing.T, blocked <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-blocked:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for legacy pick to block on the runtime lock")
 	}
 }
 

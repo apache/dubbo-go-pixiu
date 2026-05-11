@@ -37,6 +37,7 @@ type Cluster struct {
 	// without health checks.
 	Config             *model.ClusterConfig
 	healthMu           sync.Mutex
+	legacyPickMu       sync.Mutex
 	acceptHealthEvents bool
 	endpoints          atomic.Pointer[EndpointSnapshot]
 }
@@ -80,6 +81,14 @@ func (c *Cluster) AddEndpoint(endpoint *model.Endpoint) {
 	if c.HealthCheck != nil {
 		c.HealthCheck.StartOne(endpoint)
 	}
+}
+
+// LegacyPickLock returns the runtime-scoped lock for legacy load balancer picks.
+func (c *Cluster) LegacyPickLock() sync.Locker {
+	if c == nil {
+		return nil
+	}
+	return &c.legacyPickMu
 }
 
 func (c *Cluster) EndpointSnapshot() *EndpointSnapshot {

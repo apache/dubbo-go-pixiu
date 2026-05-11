@@ -280,15 +280,21 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 	}
 
 	c := runtimeCluster.Config
+	legacyPickLock := runtimeCluster.LegacyPickLock()
 	pickContext := loadbalancer.PickContext{
 		Config:           c,
 		HealthyEndpoints: healthyEndpoints,
 	}
 	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
 	if ok {
-		return loadbalancer.PickEndpoint(loadBalancer, pickContext, policy)
+		return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, pickContext, policy)
 	}
-	return loadbalancer.PickEndpoint(loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand], pickContext, policy)
+	return loadbalancer.PickEndpointWithLegacyLock(
+		loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand],
+		legacyPickLock,
+		pickContext,
+		policy,
+	)
 }
 
 func (cm *ClusterManager) RemoveCluster(namesToDel []string) {

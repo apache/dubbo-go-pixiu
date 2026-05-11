@@ -23,6 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 import (
@@ -31,12 +32,40 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin" // Register RoundRobin for cluster-manager tests.
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+const (
+	testLegacyCompatibilityLockLB model.LbPolicyType = "test-legacy-compatibility-lock"
+	testLegacyScopedLockLB        model.LbPolicyType = "test-legacy-scoped-lock"
+)
+
+type serverBlockingLegacyLoadBalancer struct {
+	entered chan string
+	release chan struct{}
+}
+
+type serverClusterScopedBlockingLegacyLoadBalancer struct {
+	*serverBlockingLegacyLoadBalancer
+}
+
+func (b *serverBlockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	b.entered <- c.Name
+	<-b.release
+	if len(c.Endpoints) == 0 {
+		return nil
+	}
+	return c.Endpoints[0]
+}
+
+func (b *serverClusterScopedBlockingLegacyLoadBalancer) UseClusterScopedLegacyLock() bool {
+	return true
+}
 
 func TestClusterManager(t *testing.T) {
 	cm := testClusterManager(
@@ -678,6 +707,172 @@ func TestClusterManager_Race_PickEndpointWithHealthUpdates(t *testing.T) {
 	wg.Wait()
 }
 
+func TestClusterManager_LegacyLoadBalancerPicksUseCompatibilityLockAcrossClusters(t *testing.T) {
+	balancer := &serverBlockingLegacyLoadBalancer{
+		entered: make(chan string, 2),
+		release: make(chan struct{}),
+	}
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyCompatibilityLockLB]
+	loadbalancer.LoadBalancerStrategy[testLegacyCompatibilityLockLB] = balancer
+	t.Cleanup(func() {
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[testLegacyCompatibilityLockLB] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, testLegacyCompatibilityLockLB)
+	})
+
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() {
+			close(balancer.release)
+		})
+	})
+
+	cm := testClusterManager(
+		testCluster("legacy-cluster-a", testLegacyCompatibilityLockLB, []*model.Endpoint{
+			testEndpoint("legacy-a-1", "127.0.0.1", 19500),
+			testEndpoint("legacy-a-2", "127.0.0.1", 19501),
+		}),
+		testCluster("legacy-cluster-b", testLegacyCompatibilityLockLB, []*model.Endpoint{
+			testEndpoint("legacy-b-1", "127.0.0.1", 19502),
+			testEndpoint("legacy-b-2", "127.0.0.1", 19503),
+		}),
+	)
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_ = cm.PickEndpoint("legacy-cluster-a", nil)
+	}()
+	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+
+	secondDone := make(chan struct{})
+	go func() {
+		defer close(secondDone)
+		_ = cm.PickEndpoint("legacy-cluster-b", nil)
+	}()
+
+	assertNoServerLegacyHandlerEntry(t, balancer.entered)
+
+	releaseOnce.Do(func() {
+		close(balancer.release)
+	})
+	assert.Equal(t, "legacy-cluster-b", waitServerLegacyHandlerEntry(t, balancer.entered))
+	waitServerClosed(t, firstDone)
+	waitServerClosed(t, secondDone)
+}
+
+func TestClusterManager_OptInLegacyLoadBalancerPicksUseRuntimeScopedLocksAcrossClusters(t *testing.T) {
+	balancer := &serverClusterScopedBlockingLegacyLoadBalancer{
+		serverBlockingLegacyLoadBalancer: &serverBlockingLegacyLoadBalancer{
+			entered: make(chan string, 2),
+			release: make(chan struct{}),
+		},
+	}
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB]
+	loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = balancer
+	t.Cleanup(func() {
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, testLegacyScopedLockLB)
+	})
+
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() {
+			close(balancer.release)
+		})
+	})
+
+	cm := testClusterManager(
+		testCluster("legacy-cluster-a", testLegacyScopedLockLB, []*model.Endpoint{
+			testEndpoint("legacy-a-1", "127.0.0.1", 19500),
+			testEndpoint("legacy-a-2", "127.0.0.1", 19501),
+		}),
+		testCluster("legacy-cluster-b", testLegacyScopedLockLB, []*model.Endpoint{
+			testEndpoint("legacy-b-1", "127.0.0.1", 19502),
+			testEndpoint("legacy-b-2", "127.0.0.1", 19503),
+		}),
+	)
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_ = cm.PickEndpoint("legacy-cluster-a", nil)
+	}()
+	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+
+	secondDone := make(chan struct{})
+	go func() {
+		defer close(secondDone)
+		_ = cm.PickEndpoint("legacy-cluster-b", nil)
+	}()
+	assert.Equal(t, "legacy-cluster-b", waitServerLegacyHandlerEntry(t, balancer.entered))
+
+	releaseOnce.Do(func() {
+		close(balancer.release)
+	})
+	waitServerClosed(t, firstDone)
+	waitServerClosed(t, secondDone)
+}
+
+func TestClusterManager_OptInLegacyLoadBalancerPicksSerializeWithinSameCluster(t *testing.T) {
+	balancer := &serverClusterScopedBlockingLegacyLoadBalancer{
+		serverBlockingLegacyLoadBalancer: &serverBlockingLegacyLoadBalancer{
+			entered: make(chan string, 2),
+			release: make(chan struct{}),
+		},
+	}
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB]
+	loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = balancer
+	t.Cleanup(func() {
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, testLegacyScopedLockLB)
+	})
+
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() {
+			close(balancer.release)
+		})
+	})
+
+	cm := testClusterManager(
+		testCluster("legacy-cluster-a", testLegacyScopedLockLB, []*model.Endpoint{
+			testEndpoint("legacy-a-1", "127.0.0.1", 19500),
+			testEndpoint("legacy-a-2", "127.0.0.1", 19501),
+		}),
+	)
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		_ = cm.PickEndpoint("legacy-cluster-a", nil)
+	}()
+	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+
+	secondDone := make(chan struct{})
+	go func() {
+		defer close(secondDone)
+		_ = cm.PickEndpoint("legacy-cluster-a", nil)
+	}()
+
+	assertNoServerLegacyHandlerEntry(t, balancer.entered)
+
+	releaseOnce.Do(func() {
+		close(balancer.release)
+	})
+	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+	waitServerClosed(t, firstDone)
+	waitServerClosed(t, secondDone)
+}
+
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
 	return CreateDefaultClusterManager(&model.Bootstrap{
 		StaticResources: model.StaticResources{
@@ -733,4 +928,33 @@ func healthCheckersLen(runtime *cluster.Cluster) int {
 		return 0
 	}
 	return reflect.ValueOf(runtime.HealthCheck).Elem().FieldByName("checkers").Len()
+}
+
+func waitServerLegacyHandlerEntry(t *testing.T, entered <-chan string) string {
+	t.Helper()
+	select {
+	case clusterName := <-entered:
+		return clusterName
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for legacy handler entry")
+		return ""
+	}
+}
+
+func assertNoServerLegacyHandlerEntry(t *testing.T, entered <-chan string) {
+	t.Helper()
+	select {
+	case clusterName := <-entered:
+		t.Fatalf("legacy handler for %s entered before the first cluster pick returned", clusterName)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func waitServerClosed(t *testing.T, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for legacy pick to finish")
+	}
 }

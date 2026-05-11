@@ -47,6 +47,15 @@ type SnapshotLoadBalancer interface {
 	HandlerWithSnapshot(c PickContext, policy model.LbPolicy) *model.Endpoint
 }
 
+// ClusterScopedLegacyLoadBalancer lets a legacy load balancer opt in to
+// runtime-cluster scoped serialization. Legacy balancers that do not implement
+// this interface keep the package-level compatibility lock because strategy
+// instances are shared globally. Implementations must ensure the same balancer
+// instance can run Handler concurrently across different clusters.
+type ClusterScopedLegacyLoadBalancer interface {
+	UseClusterScopedLegacyLock() bool
+}
+
 // LoadBalancerStrategy load balancer strategy mode
 var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
 
@@ -60,6 +69,18 @@ func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
 }
 
 func PickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPolicy) *model.Endpoint {
+	return pickEndpointWithLegacyLock(balancer, nil, context, policy)
+}
+
+// PickEndpointWithLegacyLock serializes legacy balancers. The caller-provided
+// runtime lock is used only when the balancer explicitly opts in to scoped
+// serialization; other legacy balancers keep the package-level compatibility
+// lock.
+func PickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locker, context PickContext, policy model.LbPolicy) *model.Endpoint {
+	return pickEndpointWithLegacyLock(balancer, legacyPickLock, context, policy)
+}
+
+func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locker, context PickContext, policy model.LbPolicy) *model.Endpoint {
 	if balancer == nil || context.Config == nil {
 		return nil
 	}
@@ -70,8 +91,9 @@ func PickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	// Legacy balancers only understand ClusterConfig. Serialize this
 	// compatibility path so cursor-style state reconciles predictably; custom
 	// mutable state should move to SnapshotLoadBalancer instead.
-	legacyPickMu.Lock()
-	defer legacyPickMu.Unlock()
+	lock := legacyPickLockFor(balancer, legacyPickLock)
+	lock.Lock()
+	defer lock.Unlock()
 
 	config := *context.Config
 	config.Endpoints = cloneEndpoints(context.HealthyEndpoints)
@@ -83,6 +105,13 @@ func PickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 		atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
 	}
 	return endpoint
+}
+
+func legacyPickLockFor(balancer LoadBalancer, legacyPickLock sync.Locker) sync.Locker {
+	if scoped, ok := balancer.(ClusterScopedLegacyLoadBalancer); ok && scoped.UseClusterScopedLegacyLock() && legacyPickLock != nil {
+		return legacyPickLock
+	}
+	return &legacyPickMu
 }
 
 func cloneEndpoints(endpoints []*model.Endpoint) []*model.Endpoint {
