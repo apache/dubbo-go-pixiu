@@ -54,6 +54,12 @@ type serverClusterScopedBlockingLegacyLoadBalancer struct {
 	*serverBlockingLegacyLoadBalancer
 }
 
+type serverLegacyPickHarness struct {
+	t           *testing.T
+	balancer    *serverBlockingLegacyLoadBalancer
+	releaseOnce sync.Once
+}
+
 func (b *serverBlockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
 	b.entered <- c.Name
 	<-b.release
@@ -65,6 +71,68 @@ func (b *serverBlockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ mod
 
 func (b *serverClusterScopedBlockingLegacyLoadBalancer) UseClusterScopedLegacyLock() bool {
 	return true
+}
+
+func registerServerLegacyBalancer(t *testing.T, policy model.LbPolicyType, scoped bool) *serverLegacyPickHarness {
+	t.Helper()
+	blocking := &serverBlockingLegacyLoadBalancer{
+		entered: make(chan string, 2),
+		release: make(chan struct{}),
+	}
+	var registered loadbalancer.LoadBalancer = blocking
+	if scoped {
+		registered = &serverClusterScopedBlockingLegacyLoadBalancer{
+			serverBlockingLegacyLoadBalancer: blocking,
+		}
+	}
+
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[policy]
+	loadbalancer.LoadBalancerStrategy[policy] = registered
+	harness := &serverLegacyPickHarness{
+		t:        t,
+		balancer: blocking,
+	}
+	t.Cleanup(func() {
+		harness.release()
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[policy] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, policy)
+	})
+	return harness
+}
+
+func testLegacyLockCluster(name string, policy model.LbPolicyType, portBase int) *model.ClusterConfig {
+	return testCluster(name, policy, []*model.Endpoint{
+		testEndpoint(name+"-1", "127.0.0.1", portBase),
+		testEndpoint(name+"-2", "127.0.0.1", portBase+1),
+	})
+}
+
+func startServerPick(cm *ClusterManager, clusterName string) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = cm.PickEndpoint(clusterName, nil)
+	}()
+	return done
+}
+
+func (h *serverLegacyPickHarness) release() {
+	h.releaseOnce.Do(func() {
+		close(h.balancer.release)
+	})
+}
+
+func (h *serverLegacyPickHarness) waitEntry() string {
+	h.t.Helper()
+	return waitServerLegacyHandlerEntry(h.t, h.balancer.entered)
+}
+
+func (h *serverLegacyPickHarness) assertNoEntry() {
+	h.t.Helper()
+	assertNoServerLegacyHandlerEntry(h.t, h.balancer.entered)
 }
 
 func TestClusterManager(t *testing.T) {
@@ -530,32 +598,41 @@ func TestClusterManager_SetEndpointUpdateRebuildsConsistentHash(t *testing.T) {
 			newHost := newEndpoint.GetHost()
 			cm.SetEndpoint(config.Name, newEndpoint)
 
-			runtime := cm.store.clustersMap[config.Name]
-			if assert.NotNil(t, runtime) {
-				runtimeEndpoint := runtime.EndpointSnapshot().EndpointByID(newEndpoint.ID)
-				if assert.NotNil(t, runtimeEndpoint) {
-					assert.Equal(t, newEndpoint.Address, runtimeEndpoint.Address)
-				}
-				healthyEndpoint := runtime.EndpointSnapshot().HealthyEndpointByID(newEndpoint.ID)
-				if assert.NotNil(t, healthyEndpoint) {
-					assert.Equal(t, newEndpoint.Address, healthyEndpoint.Address)
-				}
-			}
-
-			hash := cm.store.Config[0].ConsistentHash.Hash
-			if !assert.NotNil(t, hash) {
-				return
-			}
-			if hostList, ok := hash.(interface{ Hosts() []string }); ok {
-				hosts := hostList.Hosts()
-				assert.NotContains(t, hosts, oldHost)
-				assert.Contains(t, hosts, newHost)
-				return
-			}
-			assert.False(t, hash.Remove(oldHost))
-			assert.True(t, hash.Remove(newHost))
+			assertRuntimeEndpointAddress(t, cm.store.clustersMap[config.Name], newEndpoint)
+			assertConsistentHashRebuilt(t, cm.store.Config[0].ConsistentHash.Hash, oldHost, newHost)
 		})
 	}
+}
+
+func assertRuntimeEndpointAddress(t *testing.T, runtime *cluster.Cluster, endpoint *model.Endpoint) {
+	t.Helper()
+	if !assert.NotNil(t, runtime) {
+		return
+	}
+	snapshot := runtime.EndpointSnapshot()
+	runtimeEndpoint := snapshot.EndpointByID(endpoint.ID)
+	if assert.NotNil(t, runtimeEndpoint) {
+		assert.Equal(t, endpoint.Address, runtimeEndpoint.Address)
+	}
+	healthyEndpoint := snapshot.HealthyEndpointByID(endpoint.ID)
+	if assert.NotNil(t, healthyEndpoint) {
+		assert.Equal(t, endpoint.Address, healthyEndpoint.Address)
+	}
+}
+
+func assertConsistentHashRebuilt(t *testing.T, hash model.LbConsistentHash, oldHost, newHost string) {
+	t.Helper()
+	if !assert.NotNil(t, hash) {
+		return
+	}
+	if hostList, ok := hash.(interface{ Hosts() []string }); ok {
+		hosts := hostList.Hosts()
+		assert.NotContains(t, hosts, oldHost)
+		assert.Contains(t, hosts, newHost)
+		return
+	}
+	assert.False(t, hash.Remove(oldHost))
+	assert.True(t, hash.Remove(newHost))
 }
 
 func TestClusterManager_SetEndpointUpdateMergesWithoutMutatingOldEndpoint(t *testing.T) {
@@ -708,167 +785,56 @@ func TestClusterManager_Race_PickEndpointWithHealthUpdates(t *testing.T) {
 }
 
 func TestClusterManager_LegacyLoadBalancerPicksUseCompatibilityLockAcrossClusters(t *testing.T) {
-	balancer := &serverBlockingLegacyLoadBalancer{
-		entered: make(chan string, 2),
-		release: make(chan struct{}),
-	}
-	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyCompatibilityLockLB]
-	loadbalancer.LoadBalancerStrategy[testLegacyCompatibilityLockLB] = balancer
-	t.Cleanup(func() {
-		if hadPrevious {
-			loadbalancer.LoadBalancerStrategy[testLegacyCompatibilityLockLB] = previous
-			return
-		}
-		delete(loadbalancer.LoadBalancerStrategy, testLegacyCompatibilityLockLB)
-	})
-
-	var releaseOnce sync.Once
-	t.Cleanup(func() {
-		releaseOnce.Do(func() {
-			close(balancer.release)
-		})
-	})
-
+	harness := registerServerLegacyBalancer(t, testLegacyCompatibilityLockLB, false)
 	cm := testClusterManager(
-		testCluster("legacy-cluster-a", testLegacyCompatibilityLockLB, []*model.Endpoint{
-			testEndpoint("legacy-a-1", "127.0.0.1", 19500),
-			testEndpoint("legacy-a-2", "127.0.0.1", 19501),
-		}),
-		testCluster("legacy-cluster-b", testLegacyCompatibilityLockLB, []*model.Endpoint{
-			testEndpoint("legacy-b-1", "127.0.0.1", 19502),
-			testEndpoint("legacy-b-2", "127.0.0.1", 19503),
-		}),
+		testLegacyLockCluster("legacy-cluster-a", testLegacyCompatibilityLockLB, 19500),
+		testLegacyLockCluster("legacy-cluster-b", testLegacyCompatibilityLockLB, 19502),
 	)
 
-	firstDone := make(chan struct{})
-	go func() {
-		defer close(firstDone)
-		_ = cm.PickEndpoint("legacy-cluster-a", nil)
-	}()
-	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+	firstDone := startServerPick(cm, "legacy-cluster-a")
+	assert.Equal(t, "legacy-cluster-a", harness.waitEntry())
 
-	secondDone := make(chan struct{})
-	go func() {
-		defer close(secondDone)
-		_ = cm.PickEndpoint("legacy-cluster-b", nil)
-	}()
+	secondDone := startServerPick(cm, "legacy-cluster-b")
+	harness.assertNoEntry()
 
-	assertNoServerLegacyHandlerEntry(t, balancer.entered)
-
-	releaseOnce.Do(func() {
-		close(balancer.release)
-	})
-	assert.Equal(t, "legacy-cluster-b", waitServerLegacyHandlerEntry(t, balancer.entered))
+	harness.release()
+	assert.Equal(t, "legacy-cluster-b", harness.waitEntry())
 	waitServerClosed(t, firstDone)
 	waitServerClosed(t, secondDone)
 }
 
 func TestClusterManager_OptInLegacyLoadBalancerPicksUseRuntimeScopedLocksAcrossClusters(t *testing.T) {
-	balancer := &serverClusterScopedBlockingLegacyLoadBalancer{
-		serverBlockingLegacyLoadBalancer: &serverBlockingLegacyLoadBalancer{
-			entered: make(chan string, 2),
-			release: make(chan struct{}),
-		},
-	}
-	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB]
-	loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = balancer
-	t.Cleanup(func() {
-		if hadPrevious {
-			loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = previous
-			return
-		}
-		delete(loadbalancer.LoadBalancerStrategy, testLegacyScopedLockLB)
-	})
-
-	var releaseOnce sync.Once
-	t.Cleanup(func() {
-		releaseOnce.Do(func() {
-			close(balancer.release)
-		})
-	})
-
+	harness := registerServerLegacyBalancer(t, testLegacyScopedLockLB, true)
 	cm := testClusterManager(
-		testCluster("legacy-cluster-a", testLegacyScopedLockLB, []*model.Endpoint{
-			testEndpoint("legacy-a-1", "127.0.0.1", 19500),
-			testEndpoint("legacy-a-2", "127.0.0.1", 19501),
-		}),
-		testCluster("legacy-cluster-b", testLegacyScopedLockLB, []*model.Endpoint{
-			testEndpoint("legacy-b-1", "127.0.0.1", 19502),
-			testEndpoint("legacy-b-2", "127.0.0.1", 19503),
-		}),
+		testLegacyLockCluster("legacy-cluster-a", testLegacyScopedLockLB, 19500),
+		testLegacyLockCluster("legacy-cluster-b", testLegacyScopedLockLB, 19502),
 	)
 
-	firstDone := make(chan struct{})
-	go func() {
-		defer close(firstDone)
-		_ = cm.PickEndpoint("legacy-cluster-a", nil)
-	}()
-	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+	firstDone := startServerPick(cm, "legacy-cluster-a")
+	assert.Equal(t, "legacy-cluster-a", harness.waitEntry())
 
-	secondDone := make(chan struct{})
-	go func() {
-		defer close(secondDone)
-		_ = cm.PickEndpoint("legacy-cluster-b", nil)
-	}()
-	assert.Equal(t, "legacy-cluster-b", waitServerLegacyHandlerEntry(t, balancer.entered))
+	secondDone := startServerPick(cm, "legacy-cluster-b")
+	assert.Equal(t, "legacy-cluster-b", harness.waitEntry())
 
-	releaseOnce.Do(func() {
-		close(balancer.release)
-	})
+	harness.release()
 	waitServerClosed(t, firstDone)
 	waitServerClosed(t, secondDone)
 }
 
 func TestClusterManager_OptInLegacyLoadBalancerPicksSerializeWithinSameCluster(t *testing.T) {
-	balancer := &serverClusterScopedBlockingLegacyLoadBalancer{
-		serverBlockingLegacyLoadBalancer: &serverBlockingLegacyLoadBalancer{
-			entered: make(chan string, 2),
-			release: make(chan struct{}),
-		},
-	}
-	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB]
-	loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = balancer
-	t.Cleanup(func() {
-		if hadPrevious {
-			loadbalancer.LoadBalancerStrategy[testLegacyScopedLockLB] = previous
-			return
-		}
-		delete(loadbalancer.LoadBalancerStrategy, testLegacyScopedLockLB)
-	})
-
-	var releaseOnce sync.Once
-	t.Cleanup(func() {
-		releaseOnce.Do(func() {
-			close(balancer.release)
-		})
-	})
-
+	harness := registerServerLegacyBalancer(t, testLegacyScopedLockLB, true)
 	cm := testClusterManager(
-		testCluster("legacy-cluster-a", testLegacyScopedLockLB, []*model.Endpoint{
-			testEndpoint("legacy-a-1", "127.0.0.1", 19500),
-			testEndpoint("legacy-a-2", "127.0.0.1", 19501),
-		}),
+		testLegacyLockCluster("legacy-cluster-a", testLegacyScopedLockLB, 19500),
 	)
 
-	firstDone := make(chan struct{})
-	go func() {
-		defer close(firstDone)
-		_ = cm.PickEndpoint("legacy-cluster-a", nil)
-	}()
-	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+	firstDone := startServerPick(cm, "legacy-cluster-a")
+	assert.Equal(t, "legacy-cluster-a", harness.waitEntry())
 
-	secondDone := make(chan struct{})
-	go func() {
-		defer close(secondDone)
-		_ = cm.PickEndpoint("legacy-cluster-a", nil)
-	}()
+	secondDone := startServerPick(cm, "legacy-cluster-a")
+	harness.assertNoEntry()
 
-	assertNoServerLegacyHandlerEntry(t, balancer.entered)
-
-	releaseOnce.Do(func() {
-		close(balancer.release)
-	})
-	assert.Equal(t, "legacy-cluster-a", waitServerLegacyHandlerEntry(t, balancer.entered))
+	harness.release()
+	assert.Equal(t, "legacy-cluster-a", harness.waitEntry())
 	waitServerClosed(t, firstDone)
 	waitServerClosed(t, secondDone)
 }

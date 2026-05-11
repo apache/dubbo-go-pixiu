@@ -30,8 +30,8 @@ import (
 )
 
 import (
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/retry/noretry"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin" // Register RoundRobin for LLM proxy cluster tests.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/retry/noretry"           // Register NoRetry for LLM proxy retry tests.
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"

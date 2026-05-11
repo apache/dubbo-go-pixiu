@@ -117,7 +117,7 @@ func (c *Cluster) RefreshEndpointsFrom(previous *EndpointSnapshot) {
 	}
 }
 
-func (c *Cluster) UpdateEndpointHealth(endpointID string, endpointAddress string, healthy bool) bool {
+func (c *Cluster) UpdateEndpointHealth(endpointID, endpointAddress string, healthy bool) bool {
 	c.healthMu.Lock()
 	defer c.healthMu.Unlock()
 	if !c.acceptHealthEvents {
@@ -154,7 +154,7 @@ func (c *Cluster) SnapshotForRuntimeReplacement() *EndpointSnapshot {
 	return c.EndpointSnapshot()
 }
 
-func (c *Cluster) EndpointRuntimeState(endpointID string, endpointAddress string) *EndpointRuntimeState {
+func (c *Cluster) EndpointRuntimeState(endpointID, endpointAddress string) *EndpointRuntimeState {
 	return c.EndpointSnapshot().EndpointRuntimeState(endpointID, endpointAddress)
 }
 
@@ -225,7 +225,7 @@ func (s *EndpointRuntimeState) LoadMany(keys ...string) map[string]string {
 	return loaded
 }
 
-func (s *EndpointRuntimeState) Store(key string, value string) {
+func (s *EndpointRuntimeState) Store(key, value string) {
 	if s == nil {
 		return
 	}
@@ -275,7 +275,20 @@ func (s *EndpointRuntimeState) DeleteIfMatches(expected map[string]string, keys 
 }
 
 func newEndpointSnapshot(endpoints []*model.Endpoint, previous *EndpointSnapshot, inheritRuntimeHealth bool) *EndpointSnapshot {
-	snapshot := &EndpointSnapshot{
+	snapshot := newEndpointSnapshotIndex(endpoints)
+	for _, endpoint := range endpoints {
+		if endpoint == nil {
+			continue
+		}
+		address := endpoint.Address.GetAddress()
+		healthy, runtimeState := endpointSnapshotRuntimeState(endpoint, address, previous, inheritRuntimeHealth)
+		snapshot.addEndpoint(endpoint, address, healthy, runtimeState)
+	}
+	return snapshot
+}
+
+func newEndpointSnapshotIndex(endpoints []*model.Endpoint) *EndpointSnapshot {
+	return &EndpointSnapshot{
 		all:                 cloneEndpoints(endpoints),
 		healthy:             make([]*model.Endpoint, 0, len(endpoints)),
 		endpointByID:        make(map[string]*model.Endpoint, len(endpoints)),
@@ -284,39 +297,49 @@ func newEndpointSnapshot(endpoints []*model.Endpoint, previous *EndpointSnapshot
 		healthyByID:         make(map[string]bool, len(endpoints)),
 		runtimeStateByID:    make(map[string]*EndpointRuntimeState, len(endpoints)),
 	}
+}
 
-	for _, endpoint := range endpoints {
-		if endpoint == nil {
-			continue
-		}
-
-		address := endpoint.Address.GetAddress()
-		healthy := !endpoint.UnHealthy
-		runtimeState := newEndpointRuntimeState()
-		if previous != nil {
-			if previousAddress, ok := previous.addressByID[endpoint.ID]; ok && previousAddress == address {
-				// Carry health only while this runtime still has a health checker
-				// that can later correct it; otherwise seed health from config.
-				if inheritRuntimeHealth {
-					healthy = previous.healthyByID[endpoint.ID]
-				}
-				if previousRuntimeState := previous.runtimeStateByID[endpoint.ID]; previousRuntimeState != nil {
-					runtimeState = previousRuntimeState
-				}
-			}
-		}
-
-		snapshot.endpointByID[endpoint.ID] = endpoint
-		snapshot.addressByID[endpoint.ID] = address
-		snapshot.healthyByID[endpoint.ID] = healthy
-		snapshot.runtimeStateByID[endpoint.ID] = runtimeState
-		if healthy {
-			snapshot.healthy = append(snapshot.healthy, endpoint)
-			snapshot.healthyEndpointByID[endpoint.ID] = endpoint
-		}
+func endpointSnapshotRuntimeState(
+	endpoint *model.Endpoint,
+	address string,
+	previous *EndpointSnapshot,
+	inheritRuntimeHealth bool,
+) (bool, *EndpointRuntimeState) {
+	healthy := !endpoint.UnHealthy
+	runtimeState := newEndpointRuntimeState()
+	if previous == nil {
+		return healthy, runtimeState
+	}
+	previousAddress, ok := previous.addressByID[endpoint.ID]
+	if !ok || previousAddress != address {
+		return healthy, runtimeState
 	}
 
-	return snapshot
+	// Carry health only while this runtime still has a health checker that can
+	// later correct it; otherwise seed health from config.
+	if inheritRuntimeHealth {
+		healthy = previous.healthyByID[endpoint.ID]
+	}
+	if previousRuntimeState := previous.runtimeStateByID[endpoint.ID]; previousRuntimeState != nil {
+		runtimeState = previousRuntimeState
+	}
+	return healthy, runtimeState
+}
+
+func (s *EndpointSnapshot) addEndpoint(
+	endpoint *model.Endpoint,
+	address string,
+	healthy bool,
+	runtimeState *EndpointRuntimeState,
+) {
+	s.endpointByID[endpoint.ID] = endpoint
+	s.addressByID[endpoint.ID] = address
+	s.healthyByID[endpoint.ID] = healthy
+	s.runtimeStateByID[endpoint.ID] = runtimeState
+	if healthy {
+		s.healthy = append(s.healthy, endpoint)
+		s.healthyEndpointByID[endpoint.ID] = endpoint
+	}
 }
 
 func (s *EndpointSnapshot) AllEndpoints() []*model.Endpoint {
@@ -354,7 +377,7 @@ func (s *EndpointSnapshot) HealthyEndpointByID(endpointID string) *model.Endpoin
 	return s.healthyEndpointByID[endpointID]
 }
 
-func (s *EndpointSnapshot) EndpointRuntimeState(endpointID string, endpointAddress string) *EndpointRuntimeState {
+func (s *EndpointSnapshot) EndpointRuntimeState(endpointID, endpointAddress string) *EndpointRuntimeState {
 	if s == nil {
 		return nil
 	}
@@ -366,8 +389,7 @@ func (s *EndpointSnapshot) EndpointRuntimeState(endpointID string, endpointAddre
 }
 
 func (s *EndpointSnapshot) withEndpointHealth(
-	endpointID string,
-	endpointAddress string,
+	endpointID, endpointAddress string,
 	healthy bool,
 ) (*EndpointSnapshot, bool) {
 	if s == nil {

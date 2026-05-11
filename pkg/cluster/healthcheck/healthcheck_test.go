@@ -27,6 +27,32 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+type normalizeAddressCase struct {
+	name        string
+	address     string
+	port        string
+	wantAddress string
+	wantErr     bool
+}
+
+func normalizeOK(name, address, port, wantAddress string) normalizeAddressCase {
+	return normalizeAddressCase{
+		name:        name,
+		address:     address,
+		port:        port,
+		wantAddress: wantAddress,
+	}
+}
+
+func normalizeErr(name, address, port string) normalizeAddressCase {
+	return normalizeAddressCase{
+		name:    name,
+		address: address,
+		port:    port,
+		wantErr: true,
+	}
+}
+
 func TestEndpointCheckerHealthHandlersEmitEventsWithoutMutatingEndpoint(t *testing.T) {
 	endpoint := &model.Endpoint{
 		ID:        "ep-1",
@@ -90,76 +116,16 @@ func TestEndpointCheckerHealthHandlersMutateEndpointWithoutListener(t *testing.T
 }
 
 func TestNormalizeAddress(t *testing.T) {
-	tests := []struct {
-		name        string
-		address     string
-		port        string
-		wantAddress string
-		wantErr     bool
-	}{
-		{
-			name:        "port is empty, address has port",
-			address:     "localhost:8080",
-			port:        "",
-			wantAddress: "localhost:8080",
-			wantErr:     false,
-		},
-		{
-			name:        "port is empty, address has no port",
-			address:     "localhost",
-			port:        "",
-			wantAddress: "",
-			wantErr:     true,
-		},
-		{
-			name:        "port is not empty, address has no port",
-			address:     "localhost",
-			port:        "80",
-			wantAddress: "localhost:80",
-			wantErr:     false,
-		},
-		{
-			name:        "port is not empty, address has same port",
-			address:     "localhost:80",
-			port:        "80",
-			wantAddress: "localhost:80",
-			wantErr:     false,
-		},
-		{
-			name:        "port is not empty, address has different port",
-			address:     "localhost:8080",
-			port:        "80",
-			wantAddress: "localhost:80",
-			wantErr:     false,
-		},
-		{
-			name:        "invalid address format for empty port",
-			address:     "[::1]", // IPv6 without port
-			port:        "",
-			wantAddress: "",
-			wantErr:     true,
-		},
-		{
-			name:        "valid IPv6 address with port",
-			address:     "[::1]:8080",
-			port:        "",
-			wantAddress: "[::1]:8080",
-			wantErr:     false,
-		},
-		{
-			name:        "port is not empty, valid IPv6 address without port",
-			address:     "[::1]",
-			port:        "80",
-			wantAddress: "[::1]:80",
-			wantErr:     false,
-		},
-		{
-			name:        "port is not empty, valid IPv6 address with different port",
-			address:     "[::1]:8080",
-			port:        "80",
-			wantAddress: "[::1]:80",
-			wantErr:     false,
-		},
+	tests := []normalizeAddressCase{
+		normalizeOK("port is empty, address has port", "localhost:8080", "", "localhost:8080"),
+		normalizeErr("port is empty, address has no port", "localhost", ""),
+		normalizeOK("port is not empty, address has no port", "localhost", "80", "localhost:80"),
+		normalizeOK("port is not empty, address has same port", "localhost:80", "80", "localhost:80"),
+		normalizeOK("port is not empty, address has different port", "localhost:8080", "80", "localhost:80"),
+		normalizeErr("invalid IPv6 address format for empty port", "[::1]", ""),
+		normalizeOK("valid IPv6 address with port", "[::1]:8080", "", "[::1]:8080"),
+		normalizeOK("port is not empty, valid IPv6 address without port", "[::1]", "80", "[::1]:80"),
+		normalizeOK("port is not empty, valid IPv6 address with different port", "[::1]:8080", "80", "[::1]:80"),
 	}
 
 	for _, tt := range tests {
@@ -176,6 +142,25 @@ func TestNormalizeAddress(t *testing.T) {
 	}
 }
 
+func acceptOneTCPConnection(listener net.Listener) {
+	go func() {
+		conn, _ := listener.Accept()
+		if conn != nil {
+			conn.Close()
+		}
+	}()
+}
+
+func assertCheckTcpConn(t *testing.T, name, host, port string, want bool) {
+	t.Helper()
+	t.Run(name, func(t *testing.T) {
+		success := CheckTcpConn(host, port, 100*time.Millisecond)
+		if success != want {
+			t.Errorf("CheckTcpConn(%q, %q, ...) = %t, want %t", host, port, success, want)
+		}
+	})
+}
+
 func TestCheckTcpConn(t *testing.T) {
 	// We need a way to simulate a successful and a failed TCP connection.
 	// We can achieve this by setting up a temporary listener for the success case
@@ -190,55 +175,19 @@ func TestCheckTcpConn(t *testing.T) {
 	addr := listener.Addr().String()
 	host, portStr, _ := net.SplitHostPort(addr)
 
-	t.Run("successful connection", func(t *testing.T) {
-		go func() {
-			conn, _ := listener.Accept() // Accept the incoming connection
-			if conn != nil {
-				conn.Close()
-			}
-		}()
-		success := CheckTcpConn(host, portStr, 100*time.Millisecond)
-		if !success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return true for a successful connection", host, portStr)
-		}
-	})
+	acceptOneTCPConnection(listener)
+	assertCheckTcpConn(t, "successful connection", host, portStr, true)
 
 	// Failure case 1: Invalid address format
-	t.Run("failed connection due to invalid address format", func(t *testing.T) {
-		success := CheckTcpConn("127.0.0.1:80:90", "80", 100*time.Millisecond)
-		if success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return false for an invalid address format", "127.0.0.1:80:90", "80")
-		}
-	})
+	assertCheckTcpConn(t, "failed connection due to invalid address format", "127.0.0.1:80:90", "80", false)
 
 	// Failure case 2: Connection timeout
-	t.Run("failed connection due to timeout", func(t *testing.T) {
-		// Use a non-routable local address to ensure a timeout
-		success := CheckTcpConn("127.0.0.1", "80", 100*time.Millisecond)
-		if success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return false due to timeout", "127.0.0.1", "80")
-		}
-	})
+	assertCheckTcpConn(t, "failed connection due to timeout", "127.0.0.1", "80", false)
 
 	// Test with empty port (should fail due to normalizeAddress)
-	t.Run("failed with empty port and no port in address", func(t *testing.T) {
-		success := CheckTcpConn("localhost", "", 100*time.Millisecond)
-		if success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return false when port is empty and address has no port", "localhost", "")
-		}
-	})
+	assertCheckTcpConn(t, "failed with empty port and no port in address", "localhost", "", false)
 
 	// Test with empty port and address has port (should succeed)
-	t.Run("successful with empty port and port in address", func(t *testing.T) {
-		go func() {
-			conn, _ := listener.Accept()
-			if conn != nil {
-				conn.Close()
-			}
-		}()
-		success := CheckTcpConn(addr, "", 100*time.Millisecond)
-		if !success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return true when port is empty and address has port", addr, "")
-		}
-	})
+	acceptOneTCPConnection(listener)
+	assertCheckTcpConn(t, "successful with empty port and port in address", addr, "", true)
 }
