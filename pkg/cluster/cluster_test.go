@@ -162,13 +162,39 @@ func TestClusterEndpointHealthEventUpdatesSnapshotWithoutMutatingEndpoint(t *tes
 	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), false))
 
 	assert.False(t, endpoint.UnHealthy)
-	assert.False(t, runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID).UnHealthy)
+	assert.True(t, runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID).UnHealthy)
 	assert.Empty(t, runtimeCluster.EndpointSnapshot().HealthyEndpoints())
 	assert.Nil(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpoint.ID))
 
 	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), true))
 	assert.False(t, endpoint.UnHealthy)
-	assert.Equal(t, []*model.Endpoint{endpoint}, runtimeCluster.EndpointSnapshot().HealthyEndpoints())
+	healthyEndpoints := runtimeCluster.EndpointSnapshot().HealthyEndpoints()
+	assert.Equal(t, []*model.Endpoint{endpoint}, healthyEndpoints)
+	if assert.Len(t, healthyEndpoints, 1) {
+		assert.False(t, healthyEndpoints[0].UnHealthy)
+	}
+	assert.False(t, runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID).UnHealthy)
+}
+
+func TestClusterEndpointHealthEventRestoresRuntimeEndpointHealthFlag(t *testing.T) {
+	endpoint := testEndpoint("ep-1", "127.0.0.1", 18082)
+	endpoint.UnHealthy = true
+	runtimeCluster := NewCluster(testCluster("snapshot-health-flag", endpoint))
+
+	assert.Empty(t, runtimeCluster.EndpointSnapshot().HealthyEndpoints())
+	assert.True(t, runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID).UnHealthy)
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), true))
+
+	assert.True(t, endpoint.UnHealthy)
+	healthyEndpoint := runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpoint.ID)
+	if assert.NotNil(t, healthyEndpoint) {
+		assert.False(t, healthyEndpoint.UnHealthy)
+	}
+	allEndpoint := runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID)
+	if assert.NotNil(t, allEndpoint) {
+		assert.False(t, allEndpoint.UnHealthy)
+	}
 }
 
 func TestClusterEndpointHealthEventIgnoresStaleAddress(t *testing.T) {

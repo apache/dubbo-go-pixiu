@@ -43,6 +43,7 @@ import (
 const (
 	testLegacyCompatibilityLockLB model.LbPolicyType = "test-legacy-compatibility-lock"
 	testLegacyScopedLockLB        model.LbPolicyType = "test-legacy-scoped-lock"
+	testLegacyHealthFilteringLB   model.LbPolicyType = "test-legacy-health-filtering"
 )
 
 type serverBlockingLegacyLoadBalancer struct {
@@ -53,6 +54,8 @@ type serverBlockingLegacyLoadBalancer struct {
 type serverClusterScopedBlockingLegacyLoadBalancer struct {
 	*serverBlockingLegacyLoadBalancer
 }
+
+type serverHealthFilteringLegacyLoadBalancer struct{}
 
 type serverLegacyPickHarness struct {
 	t           *testing.T
@@ -71,6 +74,14 @@ func (b *serverBlockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ mod
 
 func (b *serverClusterScopedBlockingLegacyLoadBalancer) UseClusterScopedLegacyLock() bool {
 	return true
+}
+
+func (serverHealthFilteringLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	endpoints := c.GetEndpoint(true)
+	if len(endpoints) == 0 {
+		return nil
+	}
+	return endpoints[0]
 }
 
 func registerServerLegacyBalancer(t *testing.T, policy model.LbPolicyType, scoped bool) *serverLegacyPickHarness {
@@ -252,6 +263,34 @@ func TestClusterManager_PickEndpointUsesHealthySnapshot(t *testing.T) {
 	if picked := cm.PickEndpoint("snapshot-pick", nil); assert.NotNil(t, picked) {
 		assert.Equal(t, endpoint.ID, picked.ID)
 	}
+}
+
+func TestClusterManager_PickEndpointLegacyLBSeesRestoredRuntimeHealth(t *testing.T) {
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyHealthFilteringLB]
+	loadbalancer.LoadBalancerStrategy[testLegacyHealthFilteringLB] = serverHealthFilteringLegacyLoadBalancer{}
+	t.Cleanup(func() {
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[testLegacyHealthFilteringLB] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, testLegacyHealthFilteringLB)
+	})
+
+	restored := testEndpoint("snapshot-restored", "127.0.0.1", 18088)
+	restored.UnHealthy = true
+	fallback := testEndpoint("snapshot-fallback", "127.0.0.1", 18089)
+	config := testCluster("snapshot-legacy-health", testLegacyHealthFilteringLB, []*model.Endpoint{restored, fallback})
+	cm := testClusterManager(config)
+	runtimeCluster := cm.store.clustersMap[config.Name]
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(restored.ID, restored.Address.GetAddress(), true))
+
+	picked := cm.PickEndpoint(config.Name, nil)
+	if assert.NotNil(t, picked) {
+		assert.Equal(t, restored.ID, picked.ID)
+		assert.False(t, picked.UnHealthy)
+	}
+	assert.True(t, restored.UnHealthy)
 }
 
 func TestClusterManager_PickEndpointSingleHealthyInMultiEndpointUsesLoadBalancer(t *testing.T) {

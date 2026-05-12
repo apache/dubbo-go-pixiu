@@ -234,6 +234,7 @@ func (s *EndpointSnapshot) addEndpoint(
 	address string,
 	healthy bool,
 ) {
+	endpoint.UnHealthy = !healthy
 	s.all = append(s.all, endpoint)
 	s.endpointByID[endpoint.ID] = endpoint
 	s.addressByID[endpoint.ID] = address
@@ -265,6 +266,51 @@ func (s *EndpointSnapshot) HealthyEndpoints() []*model.Endpoint {
 	return cloneEndpoints(s.healthy)
 }
 
+func (s *EndpointSnapshot) HealthyEndpointCount() int {
+	if s == nil {
+		return 0
+	}
+	return len(s.healthy)
+}
+
+// PickHealthyEndpoint gives request-path selectors a read-only view of healthy
+// endpoints and clones only the selected endpoint before returning it. The pick
+// callback must not mutate or retain the endpoint view.
+func (s *EndpointSnapshot) PickHealthyEndpoint(pick func([]*model.Endpoint) *model.Endpoint) *model.Endpoint {
+	if s == nil || len(s.healthy) == 0 || pick == nil {
+		return nil
+	}
+	return cloneEndpoint(pick(s.healthy))
+}
+
+func (s *EndpointSnapshot) NextHealthyEndpoint(curEndpointID string) *model.Endpoint {
+	if s == nil {
+		return nil
+	}
+	start := s.nextEndpointStartIndex(curEndpointID)
+	if start < 0 {
+		return nil
+	}
+	for _, endpoint := range s.all[start:] {
+		if endpoint == nil {
+			continue
+		}
+		if s.healthyByID[endpoint.ID] {
+			return cloneEndpoint(endpoint)
+		}
+	}
+	return nil
+}
+
+func (s *EndpointSnapshot) nextEndpointStartIndex(curEndpointID string) int {
+	for i, endpoint := range s.all {
+		if endpoint != nil && endpoint.ID == curEndpointID {
+			return i + 1
+		}
+	}
+	return -1
+}
+
 func (s *EndpointSnapshot) EndpointByID(endpointID string) *model.Endpoint {
 	if s == nil {
 		return nil
@@ -294,12 +340,12 @@ func (s *EndpointSnapshot) withEndpointHealth(
 		return s, true
 	}
 
-	// Reuse the immutable endpoint/address views and rebuild only the health
-	// views that change for this event.
+	// Reuse unchanged endpoint/address views and rebuild the endpoint clone
+	// whose runtime health flag changed.
 	next := &EndpointSnapshot{
-		all:                 s.all,
+		all:                 make([]*model.Endpoint, 0, len(s.all)),
 		healthy:             make([]*model.Endpoint, 0, len(s.all)),
-		endpointByID:        s.endpointByID,
+		endpointByID:        make(map[string]*model.Endpoint, len(s.endpointByID)),
 		healthyEndpointByID: make(map[string]*model.Endpoint, len(s.endpointByID)),
 		addressByID:         s.addressByID,
 		healthyByID:         make(map[string]bool, len(s.healthyByID)),
@@ -315,12 +361,20 @@ func (s *EndpointSnapshot) withEndpointHealth(
 
 	for _, endpoint := range s.all {
 		if endpoint == nil {
+			next.all = append(next.all, nil)
 			continue
 		}
 		id := endpoint.ID
+		nextEndpoint := endpoint
+		if id == endpointID {
+			nextEndpoint = cloneEndpoint(endpoint)
+			nextEndpoint.UnHealthy = !healthy
+		}
+		next.all = append(next.all, nextEndpoint)
+		next.endpointByID[id] = nextEndpoint
 		if next.healthyByID[id] {
-			next.healthy = append(next.healthy, endpoint)
-			next.healthyEndpointByID[id] = endpoint
+			next.healthy = append(next.healthy, nextEndpoint)
+			next.healthyEndpointByID[id] = nextEndpoint
 		}
 	}
 

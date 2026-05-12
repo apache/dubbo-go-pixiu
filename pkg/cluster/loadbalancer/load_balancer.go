@@ -32,6 +32,8 @@ type PickContext struct {
 	// for health filtering.
 	Config *model.ClusterConfig
 	// HealthyEndpoints is already filtered from the current runtime snapshot.
+	// Snapshot-aware balancers must treat endpoints as read-only and return the
+	// chosen endpoint without mutating or retaining it.
 	HealthyEndpoints []*model.Endpoint
 }
 

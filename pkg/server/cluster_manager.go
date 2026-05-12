@@ -206,32 +206,7 @@ func (cm *ClusterManager) PickNextEndpoint(clusterName, curEndpointID string) *m
 }
 
 func pickNextHealthyEndpoint(snapshot *cluster.EndpointSnapshot, curEndpointID string) *model.Endpoint {
-	endpoints := snapshot.AllEndpoints()
-	start := nextEndpointStartIndex(endpoints, curEndpointID)
-	if start < 0 {
-		return nil
-	}
-
-	// Fallback keeps the configured endpoint order, but skips endpoints that are
-	// no longer healthy in the current runtime snapshot.
-	for _, nextEndpoint := range endpoints[start:] {
-		if nextEndpoint == nil {
-			continue
-		}
-		if healthyEndpoint := snapshot.HealthyEndpointByID(nextEndpoint.ID); healthyEndpoint != nil {
-			return healthyEndpoint
-		}
-	}
-	return nil // have tried all endpoints
-}
-
-func nextEndpointStartIndex(endpoints []*model.Endpoint, curEndpointID string) int {
-	for i, endpoint := range endpoints {
-		if endpoint != nil && endpoint.ID == curEndpointID {
-			return i + 1
-		}
-	}
-	return -1
+	return snapshot.NextHealthyEndpoint(curEndpointID)
 }
 
 // GetEndpointByID returns the healthy runtime endpoint by ID in the given cluster.
@@ -267,30 +242,35 @@ func (cm *ClusterManager) getRuntimeCluster(clusterName string) *cluster.Cluster
 
 func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, policy model.LbPolicy) *model.Endpoint {
 	snapshot := runtimeCluster.EndpointSnapshot()
-	healthyEndpoints := snapshot.HealthyEndpoints()
-	if len(healthyEndpoints) == 0 {
+	if snapshot.HealthyEndpointCount() == 0 {
 		return nil
 	}
 	if snapshot.EndpointCount() == 1 {
-		return healthyEndpoints[0]
+		return snapshot.PickHealthyEndpoint(func(healthyEndpoints []*model.Endpoint) *model.Endpoint {
+			return healthyEndpoints[0]
+		})
 	}
 
 	c := runtimeCluster.Config
 	legacyPickLock := runtimeCluster.LegacyPickLock()
-	pickContext := loadbalancer.PickContext{
+	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
+	if !ok {
+		loadBalancer = loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand]
+	}
+	if _, ok := loadBalancer.(loadbalancer.SnapshotLoadBalancer); ok {
+		return snapshot.PickHealthyEndpoint(func(healthyEndpoints []*model.Endpoint) *model.Endpoint {
+			return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, loadbalancer.PickContext{
+				Config:           c,
+				HealthyEndpoints: healthyEndpoints,
+			}, policy)
+		})
+	}
+
+	healthyEndpoints := snapshot.HealthyEndpoints()
+	return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, loadbalancer.PickContext{
 		Config:           c,
 		HealthyEndpoints: healthyEndpoints,
-	}
-	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
-	if ok {
-		return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, pickContext, policy)
-	}
-	return loadbalancer.PickEndpointWithLegacyLock(
-		loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand],
-		legacyPickLock,
-		pickContext,
-		policy,
-	)
+	}, policy)
 }
 
 func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
