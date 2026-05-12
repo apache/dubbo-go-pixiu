@@ -76,22 +76,7 @@ func TestClusterEndpointSnapshotEndpointCountIsNilSafe(t *testing.T) {
 }
 
 func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
-	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
-	endpoint.Address.Domains = []string{"api.example.com"}
-	endpoint.Metadata = map[string]string{"weight": "3"}
-	endpoint.LLMMeta = &model.LLMMeta{
-		Provider: "openai",
-		APIKey:   "old-key",
-		RetryPolicy: model.RetryPolicy{
-			Config: map[string]any{
-				"attempts": 1,
-				"nested": map[string]any{
-					"delays": []any{"100ms"},
-				},
-			},
-		},
-	}
-
+	endpoint := testSnapshotEndpointWithLLMMeta()
 	runtimeCluster := NewCluster(testCluster("snapshot-clone", endpoint))
 	snapshotEndpoint := runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID)
 	if !assert.NotNil(t, snapshotEndpoint) {
@@ -113,22 +98,7 @@ func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
 }
 
 func TestClusterEndpointSnapshotReturnsDefensiveEndpointObjects(t *testing.T) {
-	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
-	endpoint.Address.Domains = []string{"api.example.com"}
-	endpoint.Metadata = map[string]string{"weight": "3"}
-	endpoint.LLMMeta = &model.LLMMeta{
-		Provider: "openai",
-		APIKey:   "old-key",
-		RetryPolicy: model.RetryPolicy{
-			Config: map[string]any{
-				"attempts": 1,
-				"nested": map[string]any{
-					"delays": []any{"100ms"},
-				},
-			},
-		},
-	}
-
+	endpoint := testSnapshotEndpointWithLLMMeta()
 	runtimeCluster := NewCluster(testCluster("snapshot-defensive-endpoint", endpoint))
 	snapshot := runtimeCluster.EndpointSnapshot()
 
@@ -309,6 +279,25 @@ func testEndpoint(id string, host string, port int) *model.Endpoint {
 			Port:    port,
 		},
 	}
+}
+
+func testSnapshotEndpointWithLLMMeta() *model.Endpoint {
+	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
+	endpoint.Address.Domains = []string{"api.example.com"}
+	endpoint.Metadata = map[string]string{"weight": "3"}
+	endpoint.LLMMeta = &model.LLMMeta{
+		Provider: "openai",
+		APIKey:   "old-key",
+		RetryPolicy: model.RetryPolicy{
+			Config: map[string]any{
+				"attempts": 1,
+				"nested": map[string]any{
+					"delays": []any{"100ms"},
+				},
+			},
+		},
+	}
+	return endpoint
 }
 
 func mutateReturnedEndpoint(endpoint *model.Endpoint) {
