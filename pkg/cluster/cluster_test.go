@@ -63,7 +63,10 @@ func TestClusterEndpointSnapshotReturnsDefensiveEndpointSlices(t *testing.T) {
 	assert.Equal(t, 2, snapshot.EndpointCount())
 	assert.NotSame(t, first, snapshot.EndpointByID(first.ID))
 	assert.Equal(t, first, snapshot.EndpointByID(first.ID))
-	assert.Same(t, snapshot.EndpointByID(first.ID), snapshot.HealthyEndpointByID(first.ID))
+	endpointByID := snapshot.EndpointByID(first.ID)
+	healthyByID := snapshot.HealthyEndpointByID(first.ID)
+	assert.NotSame(t, endpointByID, healthyByID)
+	assert.Equal(t, endpointByID, healthyByID)
 }
 
 func TestClusterEndpointSnapshotEndpointCountIsNilSafe(t *testing.T) {
@@ -80,7 +83,12 @@ func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
 		Provider: "openai",
 		APIKey:   "old-key",
 		RetryPolicy: model.RetryPolicy{
-			Config: map[string]any{"attempts": 1},
+			Config: map[string]any{
+				"attempts": 1,
+				"nested": map[string]any{
+					"delays": []any{"100ms"},
+				},
+			},
 		},
 	}
 
@@ -98,14 +106,53 @@ func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
 	endpoint.Metadata["weight"] = "9"
 	endpoint.LLMMeta.APIKey = "new-key"
 	endpoint.LLMMeta.RetryPolicy.Config["attempts"] = 2
+	endpoint.LLMMeta.RetryPolicy.Config["nested"].(map[string]any)["delays"].([]any)[0] = "200ms"
 	endpoint.UnHealthy = true
 
-	assert.Equal(t, model.SocketAddress{Address: "127.0.0.1", Port: 18080, Domains: []string{"api.example.com"}}, snapshotEndpoint.Address)
-	assert.Equal(t, "api.example.com", snapshotEndpoint.Address.GetAddress())
-	assert.Equal(t, map[string]string{"weight": "3"}, snapshotEndpoint.Metadata)
-	assert.Equal(t, "old-key", snapshotEndpoint.LLMMeta.APIKey)
-	assert.Equal(t, 1, snapshotEndpoint.LLMMeta.RetryPolicy.Config["attempts"])
-	assert.False(t, snapshotEndpoint.UnHealthy)
+	assertEndpointMatchesOriginalSnapshot(t, runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID))
+}
+
+func TestClusterEndpointSnapshotReturnsDefensiveEndpointObjects(t *testing.T) {
+	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
+	endpoint.Address.Domains = []string{"api.example.com"}
+	endpoint.Metadata = map[string]string{"weight": "3"}
+	endpoint.LLMMeta = &model.LLMMeta{
+		Provider: "openai",
+		APIKey:   "old-key",
+		RetryPolicy: model.RetryPolicy{
+			Config: map[string]any{
+				"attempts": 1,
+				"nested": map[string]any{
+					"delays": []any{"100ms"},
+				},
+			},
+		},
+	}
+
+	runtimeCluster := NewCluster(testCluster("snapshot-defensive-endpoint", endpoint))
+	snapshot := runtimeCluster.EndpointSnapshot()
+
+	all := snapshot.AllEndpoints()
+	healthy := snapshot.HealthyEndpoints()
+	byID := snapshot.EndpointByID(endpoint.ID)
+	healthyByID := snapshot.HealthyEndpointByID(endpoint.ID)
+
+	assert.NotSame(t, all[0], healthy[0])
+	assert.NotSame(t, all[0], byID)
+	assert.NotSame(t, byID, healthyByID)
+
+	mutateReturnedEndpoint(all[0])
+	mutateReturnedEndpoint(healthy[0])
+	mutateReturnedEndpoint(byID)
+	mutateReturnedEndpoint(healthyByID)
+
+	assertEndpointMatchesOriginalSnapshot(t, snapshot.EndpointByID(endpoint.ID))
+	assertEndpointMatchesOriginalSnapshot(t, snapshot.HealthyEndpointByID(endpoint.ID))
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), false))
+	assert.Nil(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpoint.ID))
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), true))
+	assertEndpointMatchesOriginalSnapshot(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpoint.ID))
 }
 
 func TestClusterEndpointHealthEventUpdatesSnapshotWithoutMutatingEndpoint(t *testing.T) {
@@ -236,4 +283,30 @@ func testEndpoint(id string, host string, port int) *model.Endpoint {
 			Port:    port,
 		},
 	}
+}
+
+func mutateReturnedEndpoint(endpoint *model.Endpoint) {
+	endpoint.Name = "mutated"
+	endpoint.Address.Address = "127.0.0.2"
+	endpoint.Address.Domains[0] = "changed.example.com"
+	endpoint.Metadata["weight"] = "9"
+	endpoint.LLMMeta.APIKey = "new-key"
+	endpoint.LLMMeta.RetryPolicy.Config["attempts"] = 2
+	endpoint.LLMMeta.RetryPolicy.Config["nested"].(map[string]any)["delays"].([]any)[0] = "200ms"
+	endpoint.UnHealthy = true
+}
+
+func assertEndpointMatchesOriginalSnapshot(t *testing.T, endpoint *model.Endpoint) {
+	t.Helper()
+
+	if !assert.NotNil(t, endpoint) {
+		return
+	}
+	assert.Equal(t, "endpoint-ep-1", endpoint.Name)
+	assert.Equal(t, model.SocketAddress{Address: "127.0.0.1", Port: 18080, Domains: []string{"api.example.com"}}, endpoint.Address)
+	assert.Equal(t, map[string]string{"weight": "3"}, endpoint.Metadata)
+	assert.Equal(t, "old-key", endpoint.LLMMeta.APIKey)
+	assert.Equal(t, 1, endpoint.LLMMeta.RetryPolicy.Config["attempts"])
+	assert.Equal(t, "100ms", endpoint.LLMMeta.RetryPolicy.Config["nested"].(map[string]any)["delays"].([]any)[0])
+	assert.False(t, endpoint.UnHealthy)
 }

@@ -269,14 +269,14 @@ func (s *EndpointSnapshot) EndpointByID(endpointID string) *model.Endpoint {
 	if s == nil {
 		return nil
 	}
-	return s.endpointByID[endpointID]
+	return cloneEndpoint(s.endpointByID[endpointID])
 }
 
 func (s *EndpointSnapshot) HealthyEndpointByID(endpointID string) *model.Endpoint {
 	if s == nil {
 		return nil
 	}
-	return s.healthyEndpointByID[endpointID]
+	return cloneEndpoint(s.healthyEndpointByID[endpointID])
 }
 
 func (s *EndpointSnapshot) withEndpointHealth(
@@ -332,7 +332,9 @@ func cloneEndpoints(endpoints []*model.Endpoint) []*model.Endpoint {
 		return nil
 	}
 	cloned := make([]*model.Endpoint, len(endpoints))
-	copy(cloned, endpoints)
+	for i, endpoint := range endpoints {
+		cloned[i] = cloneEndpoint(endpoint)
+	}
 	return cloned
 }
 
@@ -371,11 +373,44 @@ func cloneLLMMeta(meta *model.LLMMeta) *model.LLMMeta {
 		return nil
 	}
 	cloned := *meta
-	if meta.RetryPolicy.Config != nil {
-		cloned.RetryPolicy.Config = make(map[string]any, len(meta.RetryPolicy.Config))
-		for key, value := range meta.RetryPolicy.Config {
-			cloned.RetryPolicy.Config[key] = value
-		}
-	}
+	cloned.RetryPolicy.Config = cloneAnyMap(meta.RetryPolicy.Config)
 	return &cloned
+}
+
+func cloneAnyMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(input))
+	for key, value := range input {
+		cloned[key] = cloneAnyValue(value)
+	}
+	return cloned
+}
+
+func cloneAnyValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(typed)
+	case []any:
+		cloned := make([]any, len(typed))
+		for i, item := range typed {
+			cloned[i] = cloneAnyValue(item)
+		}
+		return cloned
+	case []string:
+		return append([]string(nil), typed...)
+	case []int:
+		return append([]int(nil), typed...)
+	case []int64:
+		return append([]int64(nil), typed...)
+	case []float64:
+		return append([]float64(nil), typed...)
+	case []bool:
+		return append([]bool(nil), typed...)
+	case map[string]string:
+		return cloneMetadata(typed)
+	default:
+		return value
+	}
 }

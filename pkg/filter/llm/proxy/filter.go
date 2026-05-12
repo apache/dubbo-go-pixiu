@@ -117,6 +117,10 @@ type (
 	}
 )
 
+// sharedCooldownStore keeps endpoint cooldowns process-wide so filter reloads
+// and multiple LLM proxy factories do not reset runtime failure state.
+var sharedCooldownStore = newCooldownStore()
+
 func getPreferredEndpointID(hc *contexthttp.HttpContext) string {
 	if hc == nil || hc.Params == nil {
 		return ""
@@ -139,7 +143,7 @@ func (p *Plugin) Kind() string {
 
 // CreateFilterFactory creates a new factory instance for this filter.
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &Config{}, cooldowns: newCooldownStore()}, nil
+	return &FilterFactory{cfg: &Config{}}, nil
 }
 
 // Config returns the configuration struct for the factory.
@@ -432,15 +436,15 @@ func (executor *RequestExecutor) cooldownStore() *cooldownStore {
 	if executor.cooldowns != nil {
 		return executor.cooldowns
 	}
-	if executor.filter != nil {
+	if executor.filter != nil && executor.filter.cooldowns != nil {
 		return executor.filter.cooldowns
 	}
-	return nil
+	return sharedCooldownStore
 }
 
 func (factory *FilterFactory) cooldownStore() *cooldownStore {
-	if factory.cooldowns == nil {
-		factory.cooldowns = newCooldownStore()
+	if factory == nil || factory.cooldowns == nil {
+		return sharedCooldownStore
 	}
 	return factory.cooldowns
 }

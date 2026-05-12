@@ -43,13 +43,37 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
 }
 
-func TestFilterFactoryCooldownStoreIsShared(t *testing.T) {
-	factory := &FilterFactory{cfg: &Config{}}
+func TestFilterFactoriesShareRuntimeCooldownStore(t *testing.T) {
+	plugin := &Plugin{}
+	firstFactory, err := plugin.CreateFilterFactory()
+	if !assert.NoError(t, err) {
+		return
+	}
+	secondFactory, err := plugin.CreateFilterFactory()
+	if !assert.NoError(t, err) {
+		return
+	}
 
-	store := factory.cooldownStore()
+	firstStore := firstFactory.(*FilterFactory).cooldownStore()
+	secondStore := secondFactory.(*FilterFactory).cooldownStore()
 
-	assert.NotNil(t, store)
-	assert.Same(t, store, factory.cooldownStore())
+	assert.NotNil(t, firstStore)
+	assert.Same(t, firstStore, secondStore)
+
+	clusterName := "llm-shared-runtime-cooldown"
+	endpoint := testLLMEndpoint("ep-1", 18089)
+	firstExecutor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   firstStore,
+	}
+	secondExecutor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   secondStore,
+	}
+
+	firstExecutor.markEndpointCooldown(endpoint)
+
+	assert.True(t, secondExecutor.endpointInCooldown(endpoint))
 }
 
 func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(t *testing.T) {
