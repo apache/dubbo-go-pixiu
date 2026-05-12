@@ -154,18 +154,14 @@ func (c *Cluster) SnapshotForRuntimeReplacement() *EndpointSnapshot {
 	return c.EndpointSnapshot()
 }
 
-func (c *Cluster) EndpointRuntimeState(endpointID, endpointAddress string) *EndpointRuntimeState {
-	return c.EndpointSnapshot().EndpointRuntimeState(endpointID, endpointAddress)
-}
-
 func (c *Cluster) handleEndpointHealth(event healthcheck.EndpointHealthEvent) {
 	c.UpdateEndpointHealth(event.EndpointID, event.EndpointAddress, event.Healthy)
 }
 
 // EndpointSnapshot endpoint membership and health indexes are immutable after
-// publication. Returned *model.Endpoint values are shared config objects, so
-// runtime-only state must stay in EndpointRuntimeState instead of endpoint
-// fields or metadata.
+// publication. Snapshot endpoints are cloned from config endpoints when the
+// snapshot is built, so request-path health changes do not mutate config
+// Endpoint.UnHealthy or config metadata.
 type EndpointSnapshot struct {
 	all                 []*model.Endpoint
 	healthy             []*model.Endpoint
@@ -173,7 +169,6 @@ type EndpointSnapshot struct {
 	healthyEndpointByID map[string]*model.Endpoint
 	addressByID         map[string]string
 	healthyByID         map[string]bool
-	runtimeStateByID    map[string]*EndpointRuntimeState
 }
 
 var emptyEndpointSnapshot = &EndpointSnapshot{
@@ -183,136 +178,47 @@ var emptyEndpointSnapshot = &EndpointSnapshot{
 	healthyEndpointByID: map[string]*model.Endpoint{},
 	addressByID:         map[string]string{},
 	healthyByID:         map[string]bool{},
-	runtimeStateByID:    map[string]*EndpointRuntimeState{},
-}
-
-// EndpointRuntimeState holds runtime-only mutable endpoint state. It is keyed
-// by endpoint ID plus address through EndpointSnapshot, so config refreshes can
-// retain state for the same backend without leaking it to a replaced address.
-type EndpointRuntimeState struct {
-	mu     sync.RWMutex
-	values map[string]string
-}
-
-func newEndpointRuntimeState() *EndpointRuntimeState {
-	return &EndpointRuntimeState{
-		values: map[string]string{},
-	}
-}
-
-func (s *EndpointRuntimeState) Load(key string) (string, bool) {
-	if s == nil {
-		return "", false
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	value, ok := s.values[key]
-	return value, ok
-}
-
-func (s *EndpointRuntimeState) LoadMany(keys ...string) map[string]string {
-	loaded := make(map[string]string, len(keys))
-	if s == nil || len(keys) == 0 {
-		return loaded
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, key := range keys {
-		if value, ok := s.values[key]; ok {
-			loaded[key] = value
-		}
-	}
-	return loaded
-}
-
-func (s *EndpointRuntimeState) Store(key, value string) {
-	if s == nil {
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.values[key] = value
-}
-
-func (s *EndpointRuntimeState) StoreMany(values map[string]string) {
-	if s == nil || len(values) == 0 {
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for key, value := range values {
-		s.values[key] = value
-	}
-}
-
-func (s *EndpointRuntimeState) Delete(keys ...string) {
-	if s == nil {
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, key := range keys {
-		delete(s.values, key)
-	}
-}
-
-func (s *EndpointRuntimeState) DeleteIfMatches(expected map[string]string, keys ...string) bool {
-	if s == nil {
-		return false
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for key, expectedValue := range expected {
-		currentValue, ok := s.values[key]
-		if !ok || currentValue != expectedValue {
-			return false
-		}
-	}
-	for _, key := range keys {
-		delete(s.values, key)
-	}
-	return true
 }
 
 func newEndpointSnapshot(endpoints []*model.Endpoint, previous *EndpointSnapshot, inheritRuntimeHealth bool) *EndpointSnapshot {
-	snapshot := newEndpointSnapshotIndex(endpoints)
+	snapshot := newEndpointSnapshotIndex(len(endpoints))
 	for _, endpoint := range endpoints {
 		if endpoint == nil {
+			snapshot.all = append(snapshot.all, nil)
 			continue
 		}
-		address := endpoint.Address.GetAddress()
-		healthy, runtimeState := endpointSnapshotRuntimeState(endpoint, address, previous, inheritRuntimeHealth)
-		snapshot.addEndpoint(endpoint, address, healthy, runtimeState)
+		snapshotEndpoint := cloneEndpoint(endpoint)
+		address := snapshotEndpoint.Address.GetAddress()
+		healthy := endpointSnapshotHealth(snapshotEndpoint, address, previous, inheritRuntimeHealth)
+		snapshot.addEndpoint(snapshotEndpoint, address, healthy)
 	}
 	return snapshot
 }
 
-func newEndpointSnapshotIndex(endpoints []*model.Endpoint) *EndpointSnapshot {
+func newEndpointSnapshotIndex(endpointCount int) *EndpointSnapshot {
 	return &EndpointSnapshot{
-		all:                 cloneEndpoints(endpoints),
-		healthy:             make([]*model.Endpoint, 0, len(endpoints)),
-		endpointByID:        make(map[string]*model.Endpoint, len(endpoints)),
-		healthyEndpointByID: make(map[string]*model.Endpoint, len(endpoints)),
-		addressByID:         make(map[string]string, len(endpoints)),
-		healthyByID:         make(map[string]bool, len(endpoints)),
-		runtimeStateByID:    make(map[string]*EndpointRuntimeState, len(endpoints)),
+		all:                 make([]*model.Endpoint, 0, endpointCount),
+		healthy:             make([]*model.Endpoint, 0, endpointCount),
+		endpointByID:        make(map[string]*model.Endpoint, endpointCount),
+		healthyEndpointByID: make(map[string]*model.Endpoint, endpointCount),
+		addressByID:         make(map[string]string, endpointCount),
+		healthyByID:         make(map[string]bool, endpointCount),
 	}
 }
 
-func endpointSnapshotRuntimeState(
+func endpointSnapshotHealth(
 	endpoint *model.Endpoint,
 	address string,
 	previous *EndpointSnapshot,
 	inheritRuntimeHealth bool,
-) (bool, *EndpointRuntimeState) {
+) bool {
 	healthy := !endpoint.UnHealthy
-	runtimeState := newEndpointRuntimeState()
 	if previous == nil {
-		return healthy, runtimeState
+		return healthy
 	}
 	previousAddress, ok := previous.addressByID[endpoint.ID]
 	if !ok || previousAddress != address {
-		return healthy, runtimeState
+		return healthy
 	}
 
 	// Carry health only while this runtime still has a health checker that can
@@ -320,22 +226,18 @@ func endpointSnapshotRuntimeState(
 	if inheritRuntimeHealth {
 		healthy = previous.healthyByID[endpoint.ID]
 	}
-	if previousRuntimeState := previous.runtimeStateByID[endpoint.ID]; previousRuntimeState != nil {
-		runtimeState = previousRuntimeState
-	}
-	return healthy, runtimeState
+	return healthy
 }
 
 func (s *EndpointSnapshot) addEndpoint(
 	endpoint *model.Endpoint,
 	address string,
 	healthy bool,
-	runtimeState *EndpointRuntimeState,
 ) {
+	s.all = append(s.all, endpoint)
 	s.endpointByID[endpoint.ID] = endpoint
 	s.addressByID[endpoint.ID] = address
 	s.healthyByID[endpoint.ID] = healthy
-	s.runtimeStateByID[endpoint.ID] = runtimeState
 	if healthy {
 		s.healthy = append(s.healthy, endpoint)
 		s.healthyEndpointByID[endpoint.ID] = endpoint
@@ -377,17 +279,6 @@ func (s *EndpointSnapshot) HealthyEndpointByID(endpointID string) *model.Endpoin
 	return s.healthyEndpointByID[endpointID]
 }
 
-func (s *EndpointSnapshot) EndpointRuntimeState(endpointID, endpointAddress string) *EndpointRuntimeState {
-	if s == nil {
-		return nil
-	}
-	address, ok := s.addressByID[endpointID]
-	if !ok || address != endpointAddress {
-		return nil
-	}
-	return s.runtimeStateByID[endpointID]
-}
-
 func (s *EndpointSnapshot) withEndpointHealth(
 	endpointID, endpointAddress string,
 	healthy bool,
@@ -412,7 +303,6 @@ func (s *EndpointSnapshot) withEndpointHealth(
 		healthyEndpointByID: make(map[string]*model.Endpoint, len(s.endpointByID)),
 		addressByID:         s.addressByID,
 		healthyByID:         make(map[string]bool, len(s.healthyByID)),
-		runtimeStateByID:    s.runtimeStateByID,
 	}
 
 	for id, wasHealthy := range s.healthyByID {
@@ -444,4 +334,48 @@ func cloneEndpoints(endpoints []*model.Endpoint) []*model.Endpoint {
 	cloned := make([]*model.Endpoint, len(endpoints))
 	copy(cloned, endpoints)
 	return cloned
+}
+
+func cloneEndpoint(endpoint *model.Endpoint) *model.Endpoint {
+	if endpoint == nil {
+		return nil
+	}
+	cloned := *endpoint
+	cloned.Address = cloneSocketAddress(endpoint.Address)
+	cloned.Metadata = cloneMetadata(endpoint.Metadata)
+	cloned.LLMMeta = cloneLLMMeta(endpoint.LLMMeta)
+	return &cloned
+}
+
+func cloneSocketAddress(address model.SocketAddress) model.SocketAddress {
+	cloned := address
+	if address.Domains != nil {
+		cloned.Domains = append([]string(nil), address.Domains...)
+	}
+	return cloned
+}
+
+func cloneMetadata(metadata map[string]string) map[string]string {
+	if metadata == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(metadata))
+	for key, value := range metadata {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneLLMMeta(meta *model.LLMMeta) *model.LLMMeta {
+	if meta == nil {
+		return nil
+	}
+	cloned := *meta
+	if meta.RetryPolicy.Config != nil {
+		cloned.RetryPolicy.Config = make(map[string]any, len(meta.RetryPolicy.Config))
+		for key, value := range meta.RetryPolicy.Config {
+			cloned.RetryPolicy.Config[key] = value
+		}
+	}
+	return &cloned
 }

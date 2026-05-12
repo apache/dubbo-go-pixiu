@@ -280,9 +280,16 @@ func TestClusterManager_GetEndpointByIDUsesHealthySnapshot(t *testing.T) {
 	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), false))
 	assert.False(t, endpoint.UnHealthy)
 	assert.Nil(t, cm.GetEndpointByID("snapshot-id", endpoint.ID))
+	assert.Nil(t, cm.GetHealthyEndpointByID("snapshot-id", endpoint.ID))
+	if got := runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID); assert.NotNil(t, got) {
+		assert.Equal(t, endpoint.ID, got.ID)
+	}
 
 	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), true))
 	if got := cm.GetEndpointByID("snapshot-id", endpoint.ID); assert.NotNil(t, got) {
+		assert.Equal(t, endpoint.ID, got.ID)
+	}
+	if got := cm.GetHealthyEndpointByID("snapshot-id", endpoint.ID); assert.NotNil(t, got) {
 		assert.Equal(t, endpoint.ID, got.ID)
 	}
 }
@@ -368,12 +375,17 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 		assert.Equal(t, expectedCursor, atomic.LoadUint32(&cm.store.Config[0].PrePickEndpointIndex))
 	}
 	assert.Nil(t, cm.GetEndpointByID(cluster.Name, temporarilyUnhealthy.ID))
+	assert.Nil(t, cm.GetHealthyEndpointByID(cluster.Name, temporarilyUnhealthy.ID))
+	if got := cm.store.clustersMap[cluster.Name].EndpointSnapshot().EndpointByID(temporarilyUnhealthy.ID); assert.NotNil(t, got) {
+		assert.Equal(t, temporarilyUnhealthy.ID, got.ID)
+	}
 	assert.False(t, oldRuntime.UpdateEndpointHealth(
 		temporarilyUnhealthy.ID,
 		temporarilyUnhealthy.Address.GetAddress(),
 		true,
 	))
 	assert.Nil(t, cm.GetEndpointByID(cluster.Name, temporarilyUnhealthy.ID))
+	assert.Nil(t, cm.GetHealthyEndpointByID(cluster.Name, temporarilyUnhealthy.ID))
 
 	endpoint := cm.PickEndpoint(cluster.Name, nil)
 	if assert.NotNil(t, endpoint) {
@@ -668,7 +680,8 @@ func TestClusterManager_SetEndpointUpdateMergesWithoutMutatingOldEndpoint(t *tes
 	assert.Equal(t, map[string]string{"stable": "old"}, oldEndpoint.Metadata)
 
 	runtimeEndpoint := cm.store.clustersMap[config.Name].EndpointSnapshot().EndpointByID(incoming.ID)
-	assert.Same(t, merged, runtimeEndpoint)
+	assert.NotSame(t, merged, runtimeEndpoint)
+	assert.Equal(t, merged, runtimeEndpoint)
 	assert.Nil(t, cm.store.clustersMap[config.Name].EndpointSnapshot().HealthyEndpointByID(incoming.ID))
 }
 

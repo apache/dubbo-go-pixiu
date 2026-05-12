@@ -25,11 +25,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/retry"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
@@ -41,10 +41,8 @@ import (
 )
 
 const (
-	Kind                = constant.LLMProxyFilter
-	APIKeyPrefix        = "Bearer"
-	LLMUnhealthyKey     = "LLMUnhealthy"
-	HealthyCheckTimeKey = "HealthyCheckTime"
+	Kind         = constant.LLMProxyFilter
+	APIKeyPrefix = "Bearer"
 	// Context key to pass attempt data from proxy to downstream filters
 	LLMUpstreamAttemptsKey    = "llm_upstream_attempts"
 	llmPreferredEndpointIDKey = "llm_preferred_endpoint_id"
@@ -70,8 +68,9 @@ type (
 
 	// FilterFactory creates filter instances.
 	FilterFactory struct {
-		cfg    *Config
-		client http.Client
+		cfg       *Config
+		client    http.Client
+		cooldowns *cooldownStore
 	}
 
 	// Filter is the processing entity for each request.
@@ -80,6 +79,7 @@ type (
 		scheme         string
 		strategy       *Strategy
 		clusterManager *server.ClusterManager
+		cooldowns      *cooldownStore
 	}
 
 	// Config describes the top-level configuration for the filter.
@@ -97,6 +97,23 @@ type (
 		filter         *Filter
 		clusterName    string
 		clusterManager *server.ClusterManager
+		cooldowns      *cooldownStore
+	}
+
+	cooldownKey struct {
+		clusterName     string
+		endpointID      string
+		endpointAddress string
+	}
+
+	cooldownStore struct {
+		mu                    sync.Mutex
+		lastFailureByEndpoint map[cooldownKey]cooldownEntry
+	}
+
+	cooldownEntry struct {
+		lastFailure time.Time
+		ttl         time.Duration
 	}
 )
 
@@ -122,7 +139,7 @@ func (p *Plugin) Kind() string {
 
 // CreateFilterFactory creates a new factory instance for this filter.
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &Config{}}, nil
+	return &FilterFactory{cfg: &Config{}, cooldowns: newCooldownStore()}, nil
 }
 
 // Config returns the configuration struct for the factory.
@@ -157,6 +174,7 @@ func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, cha
 		scheme:         factory.cfg.Scheme,
 		strategy:       &Strategy{},
 		clusterManager: server.GetClusterManager(),
+		cooldowns:      factory.cooldownStore(),
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
@@ -186,6 +204,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		filter:         f,
 		clusterName:    rEntry.Cluster,
 		clusterManager: f.clusterManager,
+		cooldowns:      f.cooldowns,
 	}
 
 	// Delegate the complex execution logic to the strategy
@@ -283,7 +302,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 	// 1. Pick initial endpoint from the cluster based on load balancing.
 	endpoint := executor.clusterManager.PickEndpoint(executor.clusterName, executor.hc)
 	if preferred := getPreferredEndpointID(executor.hc); preferred != "" {
-		if target := executor.clusterManager.GetEndpointByID(executor.clusterName, preferred); target != nil {
+		if target := executor.clusterManager.GetHealthyEndpointByID(executor.clusterName, preferred); target != nil {
 			endpoint = target
 		}
 	}
@@ -377,55 +396,129 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 	return resp, errors.Join(problems...)
 }
 
-func (executor *RequestExecutor) endpointRuntimeState(endpoint *model.Endpoint) *cluster.EndpointRuntimeState {
-	if executor == nil || executor.clusterManager == nil || endpoint == nil {
-		return nil
-	}
-	// LLM cooldown is runtime state, not endpoint config metadata. The address
-	// guard keeps late fallback attempts from updating a replaced endpoint.
-	return executor.clusterManager.GetEndpointRuntimeState(
-		executor.clusterName,
-		endpoint.ID,
-		endpoint.Address.GetAddress(),
-	)
-}
-
 func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bool {
-	state := executor.endpointRuntimeState(endpoint)
-	if state == nil {
+	store := executor.cooldownStore()
+	if store == nil || endpoint == nil {
 		return false
 	}
 
-	values := state.LoadMany(LLMUnhealthyKey, HealthyCheckTimeKey)
-	unhealthy, ok := values[LLMUnhealthyKey]
-	if !ok || unhealthy != "true" {
-		return false
-	}
-
-	t, ok := values[HealthyCheckTimeKey]
+	lastFailure, ok := store.lastFailure(executor.clusterName, endpoint)
 	if !ok {
 		return false
 	}
-	lastFailure, err := time.Parse(time.RFC3339, t)
-	if err == nil && time.Since(lastFailure) < time.Millisecond*time.Duration(endpoint.LLMMeta.HealthCheckInterval) {
+
+	if time.Since(lastFailure) < endpointCooldownInterval(endpoint) {
 		return true
 	}
 
-	if state.DeleteIfMatches(values, LLMUnhealthyKey, HealthyCheckTimeKey) {
+	if store.deleteLastFailureIfMatches(executor.clusterName, endpoint, lastFailure) {
 		logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] cooldown period passed. Retrying this endpoint.", endpoint.ID, endpoint.Address.GetAddress())
 	}
 	return false
 }
 
 func (executor *RequestExecutor) markEndpointCooldown(endpoint *model.Endpoint) {
-	state := executor.endpointRuntimeState(endpoint)
-	if state == nil {
+	store := executor.cooldownStore()
+	if store == nil || endpoint == nil {
 		return
 	}
-	state.StoreMany(map[string]string{
-		LLMUnhealthyKey:     "true",
-		HealthyCheckTimeKey: time.Now().Format(time.RFC3339),
-	})
+	store.markFailure(executor.clusterName, endpoint, time.Now())
+}
+
+func (executor *RequestExecutor) cooldownStore() *cooldownStore {
+	if executor == nil {
+		return nil
+	}
+	if executor.cooldowns != nil {
+		return executor.cooldowns
+	}
+	if executor.filter != nil {
+		return executor.filter.cooldowns
+	}
+	return nil
+}
+
+func (factory *FilterFactory) cooldownStore() *cooldownStore {
+	if factory.cooldowns == nil {
+		factory.cooldowns = newCooldownStore()
+	}
+	return factory.cooldowns
+}
+
+func newCooldownStore() *cooldownStore {
+	return &cooldownStore{
+		lastFailureByEndpoint: map[cooldownKey]cooldownEntry{},
+	}
+}
+
+func (s *cooldownStore) lastFailure(clusterName string, endpoint *model.Endpoint) (time.Time, bool) {
+	if s == nil || endpoint == nil {
+		return time.Time{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := newCooldownKey(clusterName, endpoint)
+	s.sweepExpiredExceptLocked(time.Now(), key)
+	entry, ok := s.lastFailureByEndpoint[key]
+	return entry.lastFailure, ok
+}
+
+func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint, lastFailure time.Time) {
+	if s == nil || endpoint == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := newCooldownKey(clusterName, endpoint)
+	s.sweepExpiredExceptLocked(time.Now(), key)
+	s.lastFailureByEndpoint[key] = cooldownEntry{
+		lastFailure: lastFailure,
+		ttl:         endpointCooldownInterval(endpoint),
+	}
+}
+
+func (s *cooldownStore) deleteLastFailureIfMatches(clusterName string, endpoint *model.Endpoint, expected time.Time) bool {
+	if s == nil || endpoint == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := newCooldownKey(clusterName, endpoint)
+	current, ok := s.lastFailureByEndpoint[key]
+	if !ok || current.lastFailure != expected {
+		return false
+	}
+	delete(s.lastFailureByEndpoint, key)
+	return true
+}
+
+func (s *cooldownStore) sweepExpiredExceptLocked(now time.Time, current cooldownKey) {
+	for key, entry := range s.lastFailureByEndpoint {
+		if key == current {
+			continue
+		}
+		if now.Sub(entry.lastFailure) >= entry.ttl {
+			delete(s.lastFailureByEndpoint, key)
+		}
+	}
+}
+
+func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {
+	if endpoint == nil {
+		return cooldownKey{clusterName: clusterName}
+	}
+	return cooldownKey{
+		clusterName:     clusterName,
+		endpointID:      endpoint.ID,
+		endpointAddress: endpoint.Address.GetAddress(),
+	}
+}
+
+func endpointCooldownInterval(endpoint *model.Endpoint) time.Duration {
+	if endpoint == nil || endpoint.LLMMeta == nil {
+		return 0
+	}
+	return time.Millisecond * time.Duration(endpoint.LLMMeta.HealthCheckInterval)
 }
 
 // getNextFallbackEndpoint checks if fallback is enabled and returns the next endpoint.

@@ -234,8 +234,14 @@ func nextEndpointStartIndex(endpoints []*model.Endpoint, curEndpointID string) i
 	return -1
 }
 
-// GetEndpointByID returns the endpoint by ID in the given cluster.
+// GetEndpointByID returns the healthy runtime endpoint by ID in the given cluster.
 func (cm *ClusterManager) GetEndpointByID(clusterName, endpointID string) *model.Endpoint {
+	return cm.GetHealthyEndpointByID(clusterName, endpointID)
+}
+
+// GetHealthyEndpointByID returns the runtime endpoint by ID only when it is
+// healthy in the current runtime snapshot.
+func (cm *ClusterManager) GetHealthyEndpointByID(clusterName, endpointID string) *model.Endpoint {
 	cm.rw.RLock()
 	defer cm.rw.RUnlock()
 
@@ -244,22 +250,6 @@ func (cm *ClusterManager) GetEndpointByID(clusterName, endpointID string) *model
 		return nil
 	}
 	return runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpointID)
-}
-
-// GetEndpointRuntimeState returns runtime state only when the endpoint ID still
-// resolves to the same address. This prevents stale request goroutines from
-// writing state onto an endpoint that has been replaced under the same ID.
-func (cm *ClusterManager) GetEndpointRuntimeState(
-	clusterName, endpointID, endpointAddress string,
-) *cluster.EndpointRuntimeState {
-	cm.rw.RLock()
-	defer cm.rw.RUnlock()
-
-	runtimeCluster := cm.getRuntimeCluster(clusterName)
-	if runtimeCluster == nil {
-		return nil
-	}
-	return runtimeCluster.EndpointRuntimeState(endpointID, endpointAddress)
 }
 
 // getCluster returns the cluster configuration by its name.

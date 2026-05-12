@@ -39,8 +39,10 @@ func TestClusterEndpointSnapshotSeedsFromEndpointHealth(t *testing.T) {
 
 	assert.Equal(t, []*model.Endpoint{healthy, unhealthy}, snapshot.AllEndpoints())
 	assert.Equal(t, []*model.Endpoint{healthy}, snapshot.HealthyEndpoints())
-	assert.Same(t, healthy, snapshot.EndpointByID(healthy.ID))
-	assert.Same(t, healthy, snapshot.HealthyEndpointByID(healthy.ID))
+	assert.NotSame(t, healthy, snapshot.EndpointByID(healthy.ID))
+	assert.Equal(t, healthy, snapshot.EndpointByID(healthy.ID))
+	assert.NotSame(t, healthy, snapshot.HealthyEndpointByID(healthy.ID))
+	assert.Equal(t, healthy, snapshot.HealthyEndpointByID(healthy.ID))
 	assert.Nil(t, snapshot.HealthyEndpointByID(unhealthy.ID))
 }
 
@@ -59,14 +61,51 @@ func TestClusterEndpointSnapshotReturnsDefensiveEndpointSlices(t *testing.T) {
 	assert.Equal(t, []*model.Endpoint{first, second}, snapshot.AllEndpoints())
 	assert.Equal(t, []*model.Endpoint{first, second}, snapshot.HealthyEndpoints())
 	assert.Equal(t, 2, snapshot.EndpointCount())
-	assert.Same(t, first, snapshot.EndpointByID(first.ID))
-	assert.Same(t, first, snapshot.HealthyEndpointByID(first.ID))
+	assert.NotSame(t, first, snapshot.EndpointByID(first.ID))
+	assert.Equal(t, first, snapshot.EndpointByID(first.ID))
+	assert.Same(t, snapshot.EndpointByID(first.ID), snapshot.HealthyEndpointByID(first.ID))
 }
 
 func TestClusterEndpointSnapshotEndpointCountIsNilSafe(t *testing.T) {
 	var snapshot *EndpointSnapshot
 
 	assert.Zero(t, snapshot.EndpointCount())
+}
+
+func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
+	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
+	endpoint.Address.Domains = []string{"api.example.com"}
+	endpoint.Metadata = map[string]string{"weight": "3"}
+	endpoint.LLMMeta = &model.LLMMeta{
+		Provider: "openai",
+		APIKey:   "old-key",
+		RetryPolicy: model.RetryPolicy{
+			Config: map[string]any{"attempts": 1},
+		},
+	}
+
+	runtimeCluster := NewCluster(testCluster("snapshot-clone", endpoint))
+	snapshotEndpoint := runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID)
+	if !assert.NotNil(t, snapshotEndpoint) {
+		return
+	}
+
+	assert.NotSame(t, endpoint, snapshotEndpoint)
+	assert.NotSame(t, endpoint.LLMMeta, snapshotEndpoint.LLMMeta)
+
+	endpoint.Address.Address = "127.0.0.2"
+	endpoint.Address.Domains[0] = "changed.example.com"
+	endpoint.Metadata["weight"] = "9"
+	endpoint.LLMMeta.APIKey = "new-key"
+	endpoint.LLMMeta.RetryPolicy.Config["attempts"] = 2
+	endpoint.UnHealthy = true
+
+	assert.Equal(t, model.SocketAddress{Address: "127.0.0.1", Port: 18080, Domains: []string{"api.example.com"}}, snapshotEndpoint.Address)
+	assert.Equal(t, "api.example.com", snapshotEndpoint.Address.GetAddress())
+	assert.Equal(t, map[string]string{"weight": "3"}, snapshotEndpoint.Metadata)
+	assert.Equal(t, "old-key", snapshotEndpoint.LLMMeta.APIKey)
+	assert.Equal(t, 1, snapshotEndpoint.LLMMeta.RetryPolicy.Config["attempts"])
+	assert.False(t, snapshotEndpoint.UnHealthy)
 }
 
 func TestClusterEndpointHealthEventUpdatesSnapshotWithoutMutatingEndpoint(t *testing.T) {
@@ -76,6 +115,7 @@ func TestClusterEndpointHealthEventUpdatesSnapshotWithoutMutatingEndpoint(t *tes
 	assert.True(t, runtimeCluster.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), false))
 
 	assert.False(t, endpoint.UnHealthy)
+	assert.False(t, runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID).UnHealthy)
 	assert.Empty(t, runtimeCluster.EndpointSnapshot().HealthyEndpoints())
 	assert.Nil(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpoint.ID))
 
@@ -135,17 +175,13 @@ func TestClusterSnapshotForRuntimeReplacementFreezesHealthEvents(t *testing.T) {
 
 	assert.Nil(t, replacementRuntime.EndpointSnapshot().HealthyEndpointByID(replacement.ID))
 	assert.True(t, replacementRuntime.UpdateEndpointHealth(replacement.ID, replacement.Address.GetAddress(), true))
-	assert.Same(t, replacement, replacementRuntime.EndpointSnapshot().HealthyEndpointByID(replacement.ID))
+	assert.NotSame(t, replacement, replacementRuntime.EndpointSnapshot().HealthyEndpointByID(replacement.ID))
+	assert.Equal(t, replacement, replacementRuntime.EndpointSnapshot().HealthyEndpointByID(replacement.ID))
 }
 
 func TestNewClusterWithEndpointSnapshotInheritsHealthOnlyWhenHealthCheckEnabled(t *testing.T) {
 	endpoint := testEndpoint("ep-1", "127.0.0.1", 18085)
 	oldRuntime := NewCluster(testCluster("snapshot-constructor-old", endpoint))
-	state := oldRuntime.EndpointRuntimeState(endpoint.ID, endpoint.Address.GetAddress())
-	if !assert.NotNil(t, state) {
-		return
-	}
-	state.Store("cooldown", "true")
 	assert.True(t, oldRuntime.UpdateEndpointHealth(endpoint.ID, endpoint.Address.GetAddress(), false))
 	previous := oldRuntime.EndpointSnapshot()
 
@@ -156,151 +192,22 @@ func TestNewClusterWithEndpointSnapshotInheritsHealthOnlyWhenHealthCheckEnabled(
 	)
 	t.Cleanup(replacementRuntime.Stop)
 	assert.Nil(t, replacementRuntime.EndpointSnapshot().HealthyEndpointByID(replacement.ID))
-	if carriedState := replacementRuntime.EndpointRuntimeState(replacement.ID, replacement.Address.GetAddress()); assert.Same(t, state, carriedState) {
-		value, ok := carriedState.Load("cooldown")
-		assert.True(t, ok)
-		assert.Equal(t, "true", value)
-	}
 
 	noHealthCheckReplacement := testEndpoint(endpoint.ID, "127.0.0.1", 18085)
 	noHealthCheckRuntime := NewClusterWithEndpointSnapshot(
 		testCluster("snapshot-constructor-no-healthcheck", noHealthCheckReplacement),
 		previous,
 	)
-	assert.Same(t, noHealthCheckReplacement, noHealthCheckRuntime.EndpointSnapshot().HealthyEndpointByID(noHealthCheckReplacement.ID))
-	if carriedState := noHealthCheckRuntime.EndpointRuntimeState(noHealthCheckReplacement.ID, noHealthCheckReplacement.Address.GetAddress()); assert.Same(t, state, carriedState) {
-		value, ok := carriedState.Load("cooldown")
-		assert.True(t, ok)
-		assert.Equal(t, "true", value)
-	}
+	assert.NotSame(t, noHealthCheckReplacement, noHealthCheckRuntime.EndpointSnapshot().HealthyEndpointByID(noHealthCheckReplacement.ID))
+	assert.Equal(t, noHealthCheckReplacement, noHealthCheckRuntime.EndpointSnapshot().HealthyEndpointByID(noHealthCheckReplacement.ID))
 
 	moved := testEndpoint(endpoint.ID, "127.0.0.2", 18086)
 	movedRuntime := NewClusterWithEndpointSnapshot(
 		testCluster("snapshot-constructor-moved", moved),
 		previous,
 	)
-	assert.Same(t, moved, movedRuntime.EndpointSnapshot().HealthyEndpointByID(moved.ID))
-	movedState := movedRuntime.EndpointRuntimeState(moved.ID, moved.Address.GetAddress())
-	if assert.NotNil(t, movedState) {
-		_, ok := movedState.Load("cooldown")
-		assert.False(t, ok)
-	}
-}
-
-func TestClusterEndpointRuntimeStateFollowsSameAddressOnly(t *testing.T) {
-	endpoint := testEndpoint("ep-1", "127.0.0.1", 18085)
-	config := testCluster("runtime-state", endpoint)
-	runtimeCluster := NewCluster(config)
-	address := endpoint.Address.GetAddress()
-
-	state := runtimeCluster.EndpointRuntimeState(endpoint.ID, address)
-	if !assert.NotNil(t, state) {
-		return
-	}
-	state.Store("cooldown", "true")
-
-	replacement := testEndpoint(endpoint.ID, "127.0.0.1", 18085)
-	config.Endpoints[0] = replacement
-	runtimeCluster.RefreshEndpoints()
-
-	carriedState := runtimeCluster.EndpointRuntimeState(replacement.ID, replacement.Address.GetAddress())
-	if assert.Same(t, state, carriedState) {
-		value, ok := carriedState.Load("cooldown")
-		assert.True(t, ok)
-		assert.Equal(t, "true", value)
-	}
-
-	moved := testEndpoint(endpoint.ID, "127.0.0.2", 18086)
-	config.Endpoints[0] = moved
-	runtimeCluster.RefreshEndpoints()
-
-	assert.Nil(t, runtimeCluster.EndpointRuntimeState(endpoint.ID, address))
-	movedState := runtimeCluster.EndpointRuntimeState(moved.ID, moved.Address.GetAddress())
-	if assert.NotNil(t, movedState) {
-		_, ok := movedState.Load("cooldown")
-		assert.False(t, ok)
-	}
-
-	config.Endpoints = nil
-	runtimeCluster.RefreshEndpoints()
-	assert.Nil(t, runtimeCluster.EndpointRuntimeState(moved.ID, moved.Address.GetAddress()))
-}
-
-func TestEndpointRuntimeStateLoadManyReturnsCopy(t *testing.T) {
-	state := newEndpointRuntimeState()
-	state.StoreMany(map[string]string{
-		"cooldown": "true",
-		"checked":  "now",
-	})
-
-	values := state.LoadMany("cooldown", "checked", "missing")
-	assert.Equal(t, map[string]string{
-		"cooldown": "true",
-		"checked":  "now",
-	}, values)
-
-	values["cooldown"] = "false"
-	value, ok := state.Load("cooldown")
-	assert.True(t, ok)
-	assert.Equal(t, "true", value)
-}
-
-func TestEndpointRuntimeStateStoreManyStoresPair(t *testing.T) {
-	state := newEndpointRuntimeState()
-
-	state.StoreMany(map[string]string{
-		"unhealthy": "true",
-		"checked":   "now",
-	})
-
-	values := state.LoadMany("unhealthy", "checked")
-	assert.Equal(t, "true", values["unhealthy"])
-	assert.Equal(t, "now", values["checked"])
-}
-
-func TestEndpointRuntimeStateDeleteIfMatchesDeletesMatchingValues(t *testing.T) {
-	state := newEndpointRuntimeState()
-	state.StoreMany(map[string]string{
-		"unhealthy": "true",
-		"checked":   "old",
-		"stable":    "keep",
-	})
-
-	assert.True(t, state.DeleteIfMatches(
-		map[string]string{
-			"unhealthy": "true",
-			"checked":   "old",
-		},
-		"unhealthy",
-		"checked",
-	))
-
-	_, ok := state.Load("unhealthy")
-	assert.False(t, ok)
-	_, ok = state.Load("checked")
-	assert.False(t, ok)
-	stable, ok := state.Load("stable")
-	assert.True(t, ok)
-	assert.Equal(t, "keep", stable)
-}
-
-func TestEndpointRuntimeStateDeleteIfMatchesPreservesRefreshedValues(t *testing.T) {
-	state := newEndpointRuntimeState()
-	state.StoreMany(map[string]string{
-		"unhealthy": "true",
-		"checked":   "old",
-	})
-	expected := state.LoadMany("unhealthy", "checked")
-
-	state.Store("checked", "new")
-
-	assert.False(t, state.DeleteIfMatches(expected, "unhealthy", "checked"))
-	unhealthy, ok := state.Load("unhealthy")
-	assert.True(t, ok)
-	assert.Equal(t, "true", unhealthy)
-	checked, ok := state.Load("checked")
-	assert.True(t, ok)
-	assert.Equal(t, "new", checked)
+	assert.NotSame(t, moved, movedRuntime.EndpointSnapshot().HealthyEndpointByID(moved.ID))
+	assert.Equal(t, moved, movedRuntime.EndpointSnapshot().HealthyEndpointByID(moved.ID))
 }
 
 func testCluster(name string, endpoints ...*model.Endpoint) *model.ClusterConfig {

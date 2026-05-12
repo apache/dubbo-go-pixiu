@@ -43,6 +43,15 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
 }
 
+func TestFilterFactoryCooldownStoreIsShared(t *testing.T) {
+	factory := &FilterFactory{cfg: &Config{}}
+
+	store := factory.cooldownStore()
+
+	assert.NotNil(t, store)
+	assert.Same(t, store, factory.cooldownStore())
+}
+
 func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(t *testing.T) {
 	clusterName := "llm-runtime-cooldown"
 	endpoints := []*model.Endpoint{
@@ -65,7 +74,8 @@ func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(
 				return nil, errors.New("upstream unavailable")
 			}),
 		},
-		scheme: "http",
+		scheme:    "http",
+		cooldowns: newCooldownStore(),
 	}
 	strategy := &Strategy{}
 
@@ -91,6 +101,7 @@ func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(
 					filter:         filter,
 					clusterName:    clusterName,
 					clusterManager: clusterManager,
+					cooldowns:      filter.cooldowns,
 				})
 			}
 		}()
@@ -101,77 +112,158 @@ func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(
 
 	for _, endpoint := range endpoints {
 		assert.Equal(t, map[string]string{"static": "value"}, endpoint.Metadata)
-		state := clusterManager.GetEndpointRuntimeState(clusterName, endpoint.ID, endpoint.Address.GetAddress())
-		if assert.NotNil(t, state) {
-			unhealthy, ok := state.Load(LLMUnhealthyKey)
-			assert.True(t, ok)
-			assert.Equal(t, "true", unhealthy)
-			_, ok = state.Load(HealthyCheckTimeKey)
-			assert.True(t, ok)
-		}
+		lastFailure, ok := filter.cooldowns.lastFailure(clusterName, endpoint)
+		assert.True(t, ok)
+		assert.False(t, lastFailure.IsZero())
 	}
 }
 
-func TestRequestExecutorEndpointInCooldownClearsExpiredCooldownAtomically(t *testing.T) {
+func TestRequestExecutorEndpointInCooldownClearsExpiredCooldownFromProxyStore(t *testing.T) {
 	clusterName := "llm-expired-cooldown"
 	endpoint := testLLMEndpoint("ep-1", 18082)
-	clusterManager := server.CreateDefaultClusterManager(&model.Bootstrap{
-		StaticResources: model.StaticResources{
-			Clusters: []*model.ClusterConfig{{
-				Name:      clusterName,
-				LbStr:     model.LoadBalancerRoundRobin,
-				Endpoints: []*model.Endpoint{endpoint},
-			}},
-		},
-	})
+	store := newCooldownStore()
 	executor := &RequestExecutor{
-		clusterName:    clusterName,
-		clusterManager: clusterManager,
+		clusterName: clusterName,
+		cooldowns:   store,
 	}
-	state := clusterManager.GetEndpointRuntimeState(clusterName, endpoint.ID, endpoint.Address.GetAddress())
-	if !assert.NotNil(t, state) {
-		return
-	}
-	state.StoreMany(map[string]string{
-		LLMUnhealthyKey:     "true",
-		HealthyCheckTimeKey: time.Now().Add(-time.Hour).Format(time.RFC3339),
-	})
+	store.markFailure(clusterName, endpoint, time.Now().Add(-time.Hour))
 
 	assert.False(t, executor.endpointInCooldown(endpoint))
 
-	values := state.LoadMany(LLMUnhealthyKey, HealthyCheckTimeKey)
-	_, unhealthyExists := values[LLMUnhealthyKey]
-	_, timeExists := values[HealthyCheckTimeKey]
-	assert.False(t, unhealthyExists)
-	assert.False(t, timeExists)
+	_, ok := store.lastFailure(clusterName, endpoint)
+	assert.False(t, ok)
 }
 
-func TestRequestExecutorMarkEndpointCooldownStoresCooldownPairAtomically(t *testing.T) {
+func TestRequestExecutorMarkEndpointCooldownStoresCooldownInProxyStore(t *testing.T) {
 	clusterName := "llm-mark-cooldown"
 	endpoint := testLLMEndpoint("ep-1", 18083)
-	clusterManager := server.CreateDefaultClusterManager(&model.Bootstrap{
-		StaticResources: model.StaticResources{
-			Clusters: []*model.ClusterConfig{{
-				Name:      clusterName,
-				LbStr:     model.LoadBalancerRoundRobin,
-				Endpoints: []*model.Endpoint{endpoint},
-			}},
-		},
-	})
+	store := newCooldownStore()
 	executor := &RequestExecutor{
-		clusterName:    clusterName,
-		clusterManager: clusterManager,
+		clusterName: clusterName,
+		cooldowns:   store,
 	}
 
 	executor.markEndpointCooldown(endpoint)
 
-	state := clusterManager.GetEndpointRuntimeState(clusterName, endpoint.ID, endpoint.Address.GetAddress())
-	if !assert.NotNil(t, state) {
+	lastFailure, ok := store.lastFailure(clusterName, endpoint)
+	assert.True(t, ok)
+	assert.False(t, lastFailure.IsZero())
+}
+
+func TestRequestExecutorCooldownIsIsolatedByEndpointAddress(t *testing.T) {
+	clusterName := "llm-address-cooldown"
+	oldEndpoint := testLLMEndpoint("ep-1", 18084)
+	movedEndpoint := testLLMEndpoint("ep-1", 18085)
+	store := newCooldownStore()
+	executor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   store,
+	}
+
+	executor.markEndpointCooldown(oldEndpoint)
+
+	assert.True(t, executor.endpointInCooldown(oldEndpoint))
+	assert.False(t, executor.endpointInCooldown(movedEndpoint))
+	_, ok := store.lastFailure(clusterName, movedEndpoint)
+	assert.False(t, ok)
+}
+
+func TestRequestExecutorCooldownUsesCurrentEndpointInterval(t *testing.T) {
+	clusterName := "llm-current-interval-cooldown"
+	oldEndpoint := testLLMEndpoint("ep-1", 18088)
+	oldEndpoint.LLMMeta.HealthCheckInterval = 10
+	replacement := testLLMEndpoint("ep-1", 18088)
+	replacement.LLMMeta.HealthCheckInterval = 60000
+	store := newCooldownStore()
+	executor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   store,
+	}
+	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-50*time.Millisecond))
+
+	assert.True(t, executor.endpointInCooldown(replacement))
+}
+
+func TestCooldownStoreLazySweepRemovesExpiredChurnedEndpointEntry(t *testing.T) {
+	clusterName := "llm-churn-cooldown"
+	oldEndpoint := testLLMEndpoint("ep-1", 18084)
+	movedEndpoint := testLLMEndpoint("ep-1", 18085)
+	activeEndpoint := testLLMEndpoint("ep-2", 18086)
+	store := newCooldownStore()
+
+	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-time.Hour))
+	store.markFailure(clusterName, movedEndpoint, time.Now())
+
+	store.mu.Lock()
+	_, oldExistsAfterMove := store.lastFailureByEndpoint[newCooldownKey(clusterName, oldEndpoint)]
+	_, movedExists := store.lastFailureByEndpoint[newCooldownKey(clusterName, movedEndpoint)]
+	store.mu.Unlock()
+	assert.False(t, oldExistsAfterMove)
+	assert.True(t, movedExists)
+
+	store.markFailure(clusterName, movedEndpoint, time.Now().Add(-time.Hour))
+	store.lastFailure(clusterName, activeEndpoint)
+
+	store.mu.Lock()
+	_, movedExistsAfterDeletedStyleSweep := store.lastFailureByEndpoint[newCooldownKey(clusterName, movedEndpoint)]
+	store.mu.Unlock()
+	assert.False(t, movedExistsAfterDeletedStyleSweep)
+}
+
+func TestStrategyExecuteIgnoresUnhealthyPreferredEndpoint(t *testing.T) {
+	clusterName := "llm-preferred-health"
+	healthyEndpoint := testLLMEndpoint("ep-1", 18086)
+	preferredEndpoint := testLLMEndpoint("ep-2", 18087)
+	preferredEndpoint.UnHealthy = true
+	clusterManager := server.CreateDefaultClusterManager(&model.Bootstrap{
+		StaticResources: model.StaticResources{
+			Clusters: []*model.ClusterConfig{{
+				Name:      clusterName,
+				LbStr:     model.LoadBalancerRoundRobin,
+				Endpoints: []*model.Endpoint{healthyEndpoint, preferredEndpoint},
+			}},
+		},
+	})
+
+	var attemptedHost string
+	filter := &Filter{
+		client: http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				attemptedHost = req.URL.Host
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Status:     "200 OK",
+					Body:       http.NoBody,
+				}, nil
+			}),
+		},
+		scheme:    "http",
+		cooldowns: newCooldownStore(),
+	}
+	req, err := http.NewRequest(http.MethodPost, "http://example.com/v1/chat/completions", http.NoBody)
+	if !assert.NoError(t, err) {
 		return
 	}
-	values := state.LoadMany(LLMUnhealthyKey, HealthyCheckTimeKey)
-	assert.Equal(t, "true", values[LLMUnhealthyKey])
-	assert.NotEmpty(t, values[HealthyCheckTimeKey])
+	hc := &contexthttp.HttpContext{
+		Request: req,
+		Params: map[string]any{
+			llmPreferredEndpointIDKey: preferredEndpoint.ID,
+		},
+	}
+
+	resp, err := (&Strategy{}).Execute(&RequestExecutor{
+		hc:             hc,
+		filter:         filter,
+		clusterName:    clusterName,
+		clusterManager: clusterManager,
+		cooldowns:      filter.cooldowns,
+	})
+
+	assert.NoError(t, err)
+	if assert.NotNil(t, resp) {
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	}
+	assert.Equal(t, healthyEndpoint.Address.GetAddress(), attemptedHost)
 }
 
 func testLLMEndpoint(id string, port int) *model.Endpoint {
