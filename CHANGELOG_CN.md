@@ -99,6 +99,8 @@
 
 ### Bug 修复（Bug Fixes）
 
+* 修复 Maglev 请求 key 哈希不稳定问题 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* 修复 Nacos LLM 注册中心 endpoint 在 metadata port 无效时丢失地址的问题 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
 * SSE 流在 `io.EOF` 时未正确关闭 [#676](https://github.com/apache/dubbo-go-pixiu/pull/676)
 * HTTP Proxy 连接复用问题 [#578](https://github.com/apache/dubbo-go-pixiu/pull/578)
 * Access Log Filter 的空指针问题及非 Unary 响应处理 [#713](https://github.com/apache/dubbo-go-pixiu/pull/713)

@@ -119,6 +119,8 @@ Numerous refactors, cleanups, and CI/build upgrades improve overall stability, m
 
 ### Bug Fixes
 
+* Stabilize Maglev request-key hashing [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* Nacos LLM registry endpoint loses address when metadata port is invalid [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
 * SSE stream not closed on `io.EOF` [#676](https://github.com/apache/dubbo-go-pixiu/pull/676)
 * HTTP proxy connection reuse issue [#578](https://github.com/apache/dubbo-go-pixiu/pull/578)
 * Nil-pointer issue and non-unary response handling in access log filter [#713](https://github.com/apache/dubbo-go-pixiu/pull/713)
