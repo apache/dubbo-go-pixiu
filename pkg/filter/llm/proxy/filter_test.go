@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"testing"
@@ -192,12 +193,40 @@ func TestRequestExecutorCooldownIsIsolatedByEndpointAddress(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestRequestExecutorCooldownUsesCurrentEndpointInterval(t *testing.T) {
-	clusterName := "llm-current-interval-cooldown"
+func TestRequestExecutorCooldownIsIsolatedByEndpointCredential(t *testing.T) {
+	clusterName := "llm-credential-cooldown"
 	oldEndpoint := testLLMEndpoint("ep-1", 18088)
-	oldEndpoint.LLMMeta.HealthCheckInterval = 10
 	replacement := testLLMEndpoint("ep-1", 18088)
+	replacement.LLMMeta.APIKey = "fixed-key"
+	store := newCooldownStore()
+	executor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   store,
+	}
+	executor.markEndpointCooldown(oldEndpoint)
+
+	assert.True(t, executor.endpointInCooldown(oldEndpoint))
+	assert.False(t, executor.endpointInCooldown(replacement))
+	_, ok := store.lastFailure(clusterName, replacement)
+	assert.False(t, ok)
+}
+
+func TestRequestExecutorCooldownSurvivesNonIdentityLLMConfigChanges(t *testing.T) {
+	clusterName := "llm-policy-cooldown"
+	oldEndpoint := testLLMEndpoint("ep-1", 18089)
+	oldEndpoint.LLMMeta.APIKey = "same-key"
+	oldEndpoint.LLMMeta.HealthCheckInterval = 10
+	replacement := testLLMEndpoint("ep-1", 18089)
+	replacement.Name = "renamed-endpoint"
+	replacement.Metadata["dynamic"] = "value"
+	replacement.LLMMeta.APIKey = "same-key"
 	replacement.LLMMeta.HealthCheckInterval = 60000
+	replacement.LLMMeta.RetryPolicy = model.RetryPolicy{
+		Name: model.RetryerCountBased,
+		Config: map[string]any{
+			"attempts": 2,
+		},
+	}
 	store := newCooldownStore()
 	executor := &RequestExecutor{
 		clusterName: clusterName,
@@ -206,6 +235,35 @@ func TestRequestExecutorCooldownUsesCurrentEndpointInterval(t *testing.T) {
 	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-50*time.Millisecond))
 
 	assert.True(t, executor.endpointInCooldown(replacement))
+}
+
+func TestCooldownStoreLazySweepKeepsEntryAfterEndpointIntervalExtends(t *testing.T) {
+	clusterName := "llm-extended-cooldown"
+	oldEndpoint := testLLMEndpoint("ep-1", 18090)
+	oldEndpoint.LLMMeta.APIKey = "same-key"
+	oldEndpoint.LLMMeta.HealthCheckInterval = 10
+	replacement := testLLMEndpoint("ep-1", 18090)
+	replacement.LLMMeta.APIKey = "same-key"
+	replacement.LLMMeta.HealthCheckInterval = 60000
+	activeEndpoint := testLLMEndpoint("ep-2", 18091)
+	store := newCooldownStore()
+	executor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   store,
+	}
+	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-50*time.Millisecond))
+
+	assert.True(t, executor.endpointInCooldown(replacement))
+	_, _ = store.lastFailure(clusterName, activeEndpoint)
+	store.mu.Lock()
+	_, ok := store.lastFailureByEndpoint[newCooldownKey(clusterName, replacement)]
+	store.mu.Unlock()
+	assert.True(t, ok)
+}
+
+func TestLegacyEndpointHealthMetadataKeysRemainExported(t *testing.T) {
+	assert.Equal(t, "LLMUnhealthy", LLMUnhealthyKey)
+	assert.Equal(t, "HealthyCheckTime", HealthyCheckTimeKey)
 }
 
 func TestCooldownStoreLazySweepRemovesExpiredChurnedEndpointEntry(t *testing.T) {
@@ -222,16 +280,62 @@ func TestCooldownStoreLazySweepRemovesExpiredChurnedEndpointEntry(t *testing.T) 
 	_, oldExistsAfterMove := store.lastFailureByEndpoint[newCooldownKey(clusterName, oldEndpoint)]
 	_, movedExists := store.lastFailureByEndpoint[newCooldownKey(clusterName, movedEndpoint)]
 	store.mu.Unlock()
-	assert.False(t, oldExistsAfterMove)
+	assert.True(t, oldExistsAfterMove)
 	assert.True(t, movedExists)
 
-	store.markFailure(clusterName, movedEndpoint, time.Now().Add(-time.Hour))
+	store.mu.Lock()
+	store.lastSweep = time.Now().Add(-cooldownStoreSweepAfter - time.Millisecond)
+	store.mu.Unlock()
 	store.lastFailure(clusterName, activeEndpoint)
 
 	store.mu.Lock()
-	_, movedExistsAfterDeletedStyleSweep := store.lastFailureByEndpoint[newCooldownKey(clusterName, movedEndpoint)]
+	_, oldExistsAfterUnrelatedSweep := store.lastFailureByEndpoint[newCooldownKey(clusterName, oldEndpoint)]
 	store.mu.Unlock()
-	assert.False(t, movedExistsAfterDeletedStyleSweep)
+	assert.False(t, oldExistsAfterUnrelatedSweep)
+}
+
+func TestCooldownStoreLazySweepRemovesExpiredEndpointFromDifferentCluster(t *testing.T) {
+	expiredEndpoint := testLLMEndpoint("ep-1", 18092)
+	activeEndpoint := testLLMEndpoint("ep-2", 18093)
+	store := newCooldownStore()
+
+	store.markFailure("old-cluster", expiredEndpoint, time.Now().Add(-time.Hour))
+	store.mu.Lock()
+	store.lastSweep = time.Now().Add(-cooldownStoreSweepAfter - time.Millisecond)
+	store.mu.Unlock()
+	store.lastFailure("active-cluster", activeEndpoint)
+
+	store.mu.Lock()
+	_, expiredExists := store.lastFailureByEndpoint[newCooldownKey("old-cluster", expiredEndpoint)]
+	store.mu.Unlock()
+	assert.False(t, expiredExists)
+}
+
+func TestCooldownStoreEvictsOldestEntryWhenCapacityExceeded(t *testing.T) {
+	store := newCooldownStore()
+	now := time.Now()
+	oldestEndpoint := testLLMEndpoint("ep-0", 19000)
+
+	for i := 0; i < maxCooldownStoreEntries; i++ {
+		endpoint := testLLMEndpoint(fmt.Sprintf("ep-%d", i), 19000+i)
+		if i == 0 {
+			oldestEndpoint = endpoint
+		}
+		store.markFailure("capacity-cluster", endpoint, now.Add(time.Duration(i)*time.Millisecond))
+	}
+
+	newestEndpoint := testLLMEndpoint("ep-new", 21000)
+	store.markFailure("capacity-cluster", newestEndpoint, now.Add(time.Hour))
+
+	store.mu.Lock()
+	_, oldestExists := store.lastFailureByEndpoint[newCooldownKey("capacity-cluster", oldestEndpoint)]
+	_, newestExists := store.lastFailureByEndpoint[newCooldownKey("capacity-cluster", newestEndpoint)]
+	entryCount := len(store.lastFailureByEndpoint)
+	store.mu.Unlock()
+
+	assert.False(t, oldestExists)
+	assert.True(t, newestExists)
+	assert.Equal(t, maxCooldownStoreEntries, entryCount)
 }
 
 func TestStrategyExecuteIgnoresUnhealthyPreferredEndpoint(t *testing.T) {

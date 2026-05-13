@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -43,6 +44,18 @@ import (
 const (
 	Kind         = constant.LLMProxyFilter
 	APIKeyPrefix = "Bearer"
+	// maxCooldownStoreEntries bounds process-wide cooldown state under registry churn.
+	maxCooldownStoreEntries = 1024
+	cooldownStoreSweepAfter = time.Second
+	cooldownStoreSweepAt    = maxCooldownStoreEntries * 9 / 10
+	// LLMUnhealthyKey is kept for downstream compatibility.
+	//
+	// Deprecated: runtime LLM health is now tracked outside endpoint metadata.
+	LLMUnhealthyKey = "LLMUnhealthy"
+	// HealthyCheckTimeKey is kept for downstream compatibility.
+	//
+	// Deprecated: runtime LLM health is now tracked outside endpoint metadata.
+	HealthyCheckTimeKey = "HealthyCheckTime"
 	// Context key to pass attempt data from proxy to downstream filters
 	LLMUpstreamAttemptsKey    = "llm_upstream_attempts"
 	llmPreferredEndpointIDKey = "llm_preferred_endpoint_id"
@@ -104,11 +117,13 @@ type (
 		clusterName     string
 		endpointID      string
 		endpointAddress string
+		credentialHash  string
 	}
 
 	cooldownStore struct {
 		mu                    sync.Mutex
 		lastFailureByEndpoint map[cooldownKey]cooldownEntry
+		lastSweep             time.Time
 	}
 
 	cooldownEntry struct {
@@ -406,12 +421,12 @@ func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bo
 		return false
 	}
 
-	lastFailure, ok := store.lastFailure(executor.clusterName, endpoint)
+	lastFailure, ttl, ok := store.lastFailureWithCurrentTTL(executor.clusterName, endpoint)
 	if !ok {
 		return false
 	}
 
-	if time.Since(lastFailure) < endpointCooldownInterval(endpoint) {
+	if time.Since(lastFailure) < ttl {
 		return true
 	}
 
@@ -456,15 +471,29 @@ func newCooldownStore() *cooldownStore {
 }
 
 func (s *cooldownStore) lastFailure(clusterName string, endpoint *model.Endpoint) (time.Time, bool) {
+	lastFailure, _, ok := s.lastFailureWithCurrentTTL(clusterName, endpoint)
+	return lastFailure, ok
+}
+
+func (s *cooldownStore) lastFailureWithCurrentTTL(clusterName string, endpoint *model.Endpoint) (time.Time, time.Duration, bool) {
 	if s == nil || endpoint == nil {
-		return time.Time{}, false
+		return time.Time{}, 0, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := newCooldownKey(clusterName, endpoint)
-	s.sweepExpiredExceptLocked(time.Now(), key)
+	now := time.Now()
+	s.sweepExpiredIfNeededLocked(now, key)
 	entry, ok := s.lastFailureByEndpoint[key]
-	return entry.lastFailure, ok
+	if !ok {
+		return time.Time{}, 0, false
+	}
+	currentTTL := endpointCooldownInterval(endpoint)
+	if entry.ttl != currentTTL {
+		entry.ttl = currentTTL
+		s.lastFailureByEndpoint[key] = entry
+	}
+	return entry.lastFailure, entry.ttl, true
 }
 
 func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint, lastFailure time.Time) {
@@ -474,7 +503,10 @@ func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := newCooldownKey(clusterName, endpoint)
-	s.sweepExpiredExceptLocked(time.Now(), key)
+	s.sweepExpiredIfNeededLocked(time.Now(), key)
+	if _, ok := s.lastFailureByEndpoint[key]; !ok {
+		s.evictOldestIfFullLocked(key)
+	}
 	s.lastFailureByEndpoint[key] = cooldownEntry{
 		lastFailure: lastFailure,
 		ttl:         endpointCooldownInterval(endpoint),
@@ -496,6 +528,16 @@ func (s *cooldownStore) deleteLastFailureIfMatches(clusterName string, endpoint 
 	return true
 }
 
+func (s *cooldownStore) sweepExpiredIfNeededLocked(now time.Time, current cooldownKey) {
+	if len(s.lastFailureByEndpoint) < cooldownStoreSweepAt &&
+		!s.lastSweep.IsZero() &&
+		now.Sub(s.lastSweep) < cooldownStoreSweepAfter {
+		return
+	}
+	s.lastSweep = now
+	s.sweepExpiredExceptLocked(now, current)
+}
+
 func (s *cooldownStore) sweepExpiredExceptLocked(now time.Time, current cooldownKey) {
 	for key, entry := range s.lastFailureByEndpoint {
 		if key == current {
@@ -507,6 +549,31 @@ func (s *cooldownStore) sweepExpiredExceptLocked(now time.Time, current cooldown
 	}
 }
 
+func (s *cooldownStore) evictOldestIfFullLocked(current cooldownKey) {
+	if len(s.lastFailureByEndpoint) < maxCooldownStoreEntries {
+		return
+	}
+
+	var (
+		oldestKey   cooldownKey
+		oldestEntry cooldownEntry
+		found       bool
+	)
+	for key, entry := range s.lastFailureByEndpoint {
+		if key == current {
+			continue
+		}
+		if !found || entry.lastFailure.Before(oldestEntry.lastFailure) {
+			oldestKey = key
+			oldestEntry = entry
+			found = true
+		}
+	}
+	if found {
+		delete(s.lastFailureByEndpoint, oldestKey)
+	}
+}
+
 func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {
 	if endpoint == nil {
 		return cooldownKey{clusterName: clusterName}
@@ -515,7 +582,16 @@ func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {
 		clusterName:     clusterName,
 		endpointID:      endpoint.ID,
 		endpointAddress: endpoint.Address.GetAddress(),
+		credentialHash:  endpointCredentialHash(endpoint),
 	}
+}
+
+func endpointCredentialHash(endpoint *model.Endpoint) string {
+	if endpoint == nil || endpoint.LLMMeta == nil || endpoint.LLMMeta.APIKey == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(endpoint.LLMMeta.APIKey))
+	return fmt.Sprintf("%x", sum)
 }
 
 func endpointCooldownInterval(endpoint *model.Endpoint) time.Duration {
