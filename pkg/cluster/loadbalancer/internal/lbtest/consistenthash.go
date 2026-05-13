@@ -28,6 +28,11 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const (
+	testLoopbackAddress = "127.0.0.1"
+	pickedWantMsgFormat = "picked %q, want %q"
+)
+
 // StaticHashPolicy returns a fixed hash key, satisfying model.LbPolicy.
 type StaticHashPolicy string
 
@@ -41,8 +46,12 @@ type FixedConsistentHash struct {
 	Host string
 }
 
-func (h FixedConsistentHash) Hash(string) uint32             { return 0 }
-func (h FixedConsistentHash) Add(string)                     {}
+func (h FixedConsistentHash) Hash(string) uint32 { return 0 }
+
+// Add intentionally does nothing: the fixture exposes a frozen single-host
+// view and rejects runtime membership changes by design.
+func (h FixedConsistentHash) Add(string) {}
+
 func (h FixedConsistentHash) Get(string) (string, error)     { return h.Host, nil }
 func (h FixedConsistentHash) GetHash(uint32) (string, error) { return h.Host, nil }
 func (h FixedConsistentHash) Remove(string) bool             { return false }
@@ -63,11 +72,11 @@ func RunConsistentHashHandlerSuite(t *testing.T, balancer ConsistentHashBalancer
 	t.Run("HandlerUsesConfiguredHashWithoutClusterLBPolicy", func(t *testing.T) {
 		first := &model.Endpoint{
 			ID:      "first",
-			Address: model.SocketAddress{Address: "127.0.0.1", Port: 18080},
+			Address: model.SocketAddress{Address: testLoopbackAddress, Port: 18080},
 		}
 		second := &model.Endpoint{
 			ID:      "second",
-			Address: model.SocketAddress{Address: "127.0.0.1", Port: 18081},
+			Address: model.SocketAddress{Address: testLoopbackAddress, Port: 18081},
 		}
 		cluster := &model.ClusterConfig{
 			Name:      namePrefix + "-direct",
@@ -82,18 +91,18 @@ func RunConsistentHashHandlerSuite(t *testing.T, balancer ConsistentHashBalancer
 			t.Fatal("expected endpoint, got nil")
 		}
 		if got.ID != second.ID {
-			t.Fatalf("picked %q, want %q", got.ID, second.ID)
+			t.Fatalf(pickedWantMsgFormat, got.ID, second.ID)
 		}
 	})
 
 	t.Run("HandlerFallsBackWhenConfiguredHashHitsUnhealthyEndpoint", func(t *testing.T) {
 		healthy := &model.Endpoint{
 			ID:      "healthy",
-			Address: model.SocketAddress{Address: "127.0.0.1", Port: 18080},
+			Address: model.SocketAddress{Address: testLoopbackAddress, Port: 18080},
 		}
 		unhealthy := &model.Endpoint{
 			ID:        "unhealthy",
-			Address:   model.SocketAddress{Address: "127.0.0.1", Port: 18081},
+			Address:   model.SocketAddress{Address: testLoopbackAddress, Port: 18081},
 			UnHealthy: true,
 		}
 		cluster := &model.ClusterConfig{
@@ -109,23 +118,23 @@ func RunConsistentHashHandlerSuite(t *testing.T, balancer ConsistentHashBalancer
 			t.Fatal("expected fallback endpoint, got nil")
 		}
 		if got.ID != healthy.ID {
-			t.Fatalf("picked %q, want %q", got.ID, healthy.ID)
+			t.Fatalf(pickedWantMsgFormat, got.ID, healthy.ID)
 		}
 	})
 
 	t.Run("UsesHealthyConsistentHashSnapshot", func(t *testing.T) {
 		first := &model.Endpoint{
 			ID:      "first",
-			Address: model.SocketAddress{Address: "127.0.0.1", Port: 18080},
+			Address: model.SocketAddress{Address: testLoopbackAddress, Port: 18080},
 		}
 		unhealthy := &model.Endpoint{
 			ID:        "unhealthy",
-			Address:   model.SocketAddress{Address: "127.0.0.1", Port: 18081},
+			Address:   model.SocketAddress{Address: testLoopbackAddress, Port: 18081},
 			UnHealthy: true,
 		}
 		second := &model.Endpoint{
 			ID:      "second",
-			Address: model.SocketAddress{Address: "127.0.0.1", Port: 18082},
+			Address: model.SocketAddress{Address: testLoopbackAddress, Port: 18082},
 		}
 		cluster := &model.ClusterConfig{
 			Name: namePrefix + "-healthy-snapshot",
@@ -144,7 +153,7 @@ func RunConsistentHashHandlerSuite(t *testing.T, balancer ConsistentHashBalancer
 			t.Fatal("expected healthy endpoint, got nil")
 		}
 		if got.ID != second.ID {
-			t.Fatalf("picked %q, want %q", got.ID, second.ID)
+			t.Fatalf(pickedWantMsgFormat, got.ID, second.ID)
 		}
 	})
 }
