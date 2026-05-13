@@ -18,6 +18,7 @@
 package weightrandom
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"testing"
@@ -35,89 +36,51 @@ func TestWeightRandom_Handler(t *testing.T) {
 		want          *model.Endpoint
 	}{
 		{
-			name: "no healthy endpoints",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{},
-			},
-			want: nil,
+			name:          "no healthy endpoints",
+			clusterConfig: &model.ClusterConfig{Endpoints: []*model.Endpoint{}},
+			want:          nil,
 		},
 		{
-			name: "single healthy endpoint with default weight",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{
-					{ID: "ep1", Name: "ep1"},
-				},
-			},
-			want: &model.Endpoint{ID: "ep1", Name: "ep1"},
+			name:          "single healthy endpoint with default weight",
+			clusterConfig: clusterWithWeightedEndpoints(""),
+			want:          &model.Endpoint{ID: "ep1", Name: "ep1"},
+		},
+		// `want: nil` below means "any healthy endpoint is acceptable"; the helper
+		// in the assertion accepts non-nil picks for non-empty clusters.
+		{
+			name:          "multiple healthy endpoints with default weight, should return one randomly",
+			clusterConfig: clusterWithWeightedEndpoints("", "", ""),
+			want:          nil,
 		},
 		{
-			name: "multiple healthy endpoints with default weight, should return one randomly",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{
-					{ID: "ep1", Name: "ep1"},
-					{ID: "ep2", Name: "ep2"},
-					{ID: "ep3", Name: "ep3"},
-				},
-			},
-			want: nil, // We can't predict which one will be picked, so we check for non-nil
+			name:          "multiple healthy endpoints with different weights",
+			clusterConfig: clusterWithWeightedEndpoints("3", "1", "2"),
+			want:          nil,
 		},
 		{
-			name: "multiple healthy endpoints with different weights",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{
-					{ID: "ep1", Name: "ep1", Metadata: map[string]string{"weight": "3"}},
-					{ID: "ep2", Name: "ep2", Metadata: map[string]string{"weight": "1"}},
-					{ID: "ep3", Name: "ep3", Metadata: map[string]string{"weight": "2"}},
-				},
-			},
-			want: nil, // Again, random but weighted
+			name:          "endpoint with invalid weight string, should use default weight",
+			clusterConfig: clusterWithWeightedEndpoints("abc", ""),
+			want:          nil,
 		},
 		{
-			name: "endpoint with invalid weight string, should use default weight",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{
-					{ID: "ep1", Name: "ep1", Metadata: map[string]string{"weight": "abc"}},
-					{ID: "ep2", Name: "ep2"},
-				},
-			},
-			want: nil,
+			name:          "endpoint with zero weight, should use default weight",
+			clusterConfig: clusterWithWeightedEndpoints("0", ""),
+			want:          nil,
 		},
 		{
-			name: "endpoint with zero weight, should use default weight",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{
-					{ID: "ep1", Name: "ep1", Metadata: map[string]string{"weight": "0"}},
-					{ID: "ep2", Name: "ep2"},
-				},
-			},
-			want: nil,
+			name:          "endpoint with negative weight, should use default weight",
+			clusterConfig: clusterWithWeightedEndpoints("-1", ""),
+			want:          nil,
 		},
 		{
-			name: "endpoint with negative weight, should use default weight",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{
-					{ID: "ep1", Name: "ep1", Metadata: map[string]string{"weight": "-1"}},
-					{ID: "ep2", Name: "ep2"},
-				},
-			},
-			want: nil,
-		},
-		{
-			name: "all endpoints have invalid weights, should return random",
-			clusterConfig: &model.ClusterConfig{
-				Endpoints: []*model.Endpoint{
-					{ID: "ep1", Name: "ep1", Metadata: map[string]string{"weight": "abc"}},
-					{ID: "ep2", Name: "ep2", Metadata: map[string]string{"weight": "def"}},
-				},
-			},
-			want: nil,
+			name:          "all endpoints have invalid weights, should return random",
+			clusterConfig: clusterWithWeightedEndpoints("abc", "def"),
+			want:          nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock GetEndpoint method
-
 			var (
 				wr  = WeightRandom{}
 				got = wr.HandlerWithSnapshot(testPickContext(tt.clusterConfig), nil)
@@ -136,6 +99,23 @@ func TestWeightRandom_Handler(t *testing.T) {
 			}
 		})
 	}
+}
+
+// clusterWithWeightedEndpoints builds a ClusterConfig with sequentially-named
+// endpoints (`ep1`, `ep2`, ...). Each entry in weights becomes one endpoint;
+// an empty string leaves Metadata unset, any other value is stored as the
+// raw `weight` metadata.
+func clusterWithWeightedEndpoints(weights ...string) *model.ClusterConfig {
+	endpoints := make([]*model.Endpoint, 0, len(weights))
+	for i, w := range weights {
+		id := fmt.Sprintf("ep%d", i+1)
+		ep := &model.Endpoint{ID: id, Name: id}
+		if w != "" {
+			ep.Metadata = map[string]string{"weight": w}
+		}
+		endpoints = append(endpoints, ep)
+	}
+	return &model.ClusterConfig{Endpoints: endpoints}
 }
 
 // Helper function to create a ClusterConfig with specific endpoints and weights for probabilistic testing
