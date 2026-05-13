@@ -50,7 +50,9 @@ func (h FixedConsistentHash) Hash(string) uint32 { return 0 }
 
 // Add intentionally does nothing: the fixture exposes a frozen single-host
 // view and rejects runtime membership changes by design.
-func (h FixedConsistentHash) Add(string) {}
+func (h FixedConsistentHash) Add(string) {
+	// no-op: see method doc above.
+}
 
 func (h FixedConsistentHash) Get(string) (string, error)     { return h.Host, nil }
 func (h FixedConsistentHash) GetHash(uint32) (string, error) { return h.Host, nil }
