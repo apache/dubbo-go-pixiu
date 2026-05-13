@@ -31,6 +31,15 @@ type PickContext struct {
 	// cursor state. Snapshot-aware balancers should not reread Config.Endpoints
 	// for health filtering.
 	Config *model.ClusterConfig
+	// HealthyConsistentHash is built from HealthyEndpoints for the same
+	// immutable runtime snapshot and intentionally exposes lookup methods only.
+	// Consistent-hash balancers should prefer this view over
+	// Config.ConsistentHash.Hash, which is mutable and can include
+	// runtime-unhealthy endpoints.
+	HealthyConsistentHash model.LbConsistentHashView
+	// AllEndpoints is the current runtime snapshot, including endpoints marked
+	// unhealthy by runtime health checks.
+	AllEndpoints []*model.Endpoint
 	// HealthyEndpoints is already filtered from the current runtime snapshot.
 	// Snapshot-aware balancers must treat endpoints as read-only and return the
 	// chosen endpoint without mutating or retaining it.
@@ -47,6 +56,19 @@ type LoadBalancer interface {
 // config entries.
 type SnapshotLoadBalancer interface {
 	HandlerWithSnapshot(c PickContext, policy model.LbPolicy) *model.Endpoint
+}
+
+// HealthyOnlySnapshotLoadBalancer marks snapshot-aware balancers that do not
+// need PickContext.AllEndpoints. Unmarked snapshot balancers keep receiving the
+// full snapshot for compatibility with custom implementations.
+type HealthyOnlySnapshotLoadBalancer interface {
+	UseHealthyEndpointsOnly() bool
+}
+
+// ZeroCopySnapshotLoadBalancer marks trusted balancers that never mutate or
+// retain snapshot endpoints. Other snapshot balancers receive defensive copies.
+type ZeroCopySnapshotLoadBalancer interface {
+	UseZeroCopySnapshot() bool
 }
 
 // ClusterScopedLegacyLoadBalancer lets a legacy load balancer opt in to
@@ -82,12 +104,41 @@ func PickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locke
 	return pickEndpointWithLegacyLock(balancer, legacyPickLock, context, policy)
 }
 
+// NeedsAllEndpoints reports whether a snapshot-aware balancer should receive
+// PickContext.AllEndpoints on the request path.
+func NeedsAllEndpoints(balancer LoadBalancer) bool {
+	healthyOnly, ok := balancer.(HealthyOnlySnapshotLoadBalancer)
+	return !ok || !healthyOnly.UseHealthyEndpointsOnly()
+}
+
+// ConsistentHashForHealthyEndpoints returns a consistent hash view that only
+// contains the healthy endpoints visible to this pick.
+func ConsistentHashForHealthyEndpoints(context PickContext) model.LbConsistentHashView {
+	if context.HealthyConsistentHash != nil {
+		return context.HealthyConsistentHash
+	}
+	if context.Config == nil || len(context.HealthyEndpoints) == 0 {
+		return nil
+	}
+	newConsistentHash, ok := model.ConsistentHashInitMap[context.Config.LbStr]
+	if ok {
+		return model.ReadOnlyConsistentHash(newConsistentHash(context.Config.ConsistentHash, context.HealthyEndpoints))
+	}
+	return model.ReadOnlyConsistentHash(context.Config.ConsistentHash.Hash)
+}
+
 func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locker, context PickContext, policy model.LbPolicy) *model.Endpoint {
 	if balancer == nil || context.Config == nil {
 		return nil
 	}
 	if snapshotBalancer, ok := balancer.(SnapshotLoadBalancer); ok {
-		return snapshotBalancer.HandlerWithSnapshot(context, policy)
+		snapshotContext := context
+		zeroCopy, ok := balancer.(ZeroCopySnapshotLoadBalancer)
+		if !ok || !zeroCopy.UseZeroCopySnapshot() {
+			snapshotContext = defensiveSnapshotPickContext(context)
+		}
+		endpoint := snapshotBalancer.HandlerWithSnapshot(snapshotContext, policy)
+		return healthyEndpointFromSnapshot(endpoint, context.HealthyEndpoints)
 	}
 
 	// Legacy balancers only understand ClusterConfig. Serialize this
@@ -97,8 +148,12 @@ func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locke
 	lock.Lock()
 	defer lock.Unlock()
 
+	allEndpoints := context.AllEndpoints
+	if allEndpoints == nil {
+		allEndpoints = context.HealthyEndpoints
+	}
 	config := *context.Config
-	config.Endpoints = cloneEndpoints(context.HealthyEndpoints)
+	config.Endpoints = model.CloneEndpoints(allEndpoints)
 	cursorBefore := atomic.LoadUint32(&context.Config.PrePickEndpointIndex)
 	atomic.StoreUint32(&config.PrePickEndpointIndex, cursorBefore)
 	endpoint := balancer.Handler(&config, policy)
@@ -106,7 +161,14 @@ func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locke
 	if cursorAfter != cursorBefore {
 		atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
 	}
-	return endpoint
+	return healthyEndpointFromSnapshot(endpoint, context.HealthyEndpoints)
+}
+
+func defensiveSnapshotPickContext(context PickContext) PickContext {
+	defensive := context
+	defensive.AllEndpoints = model.CloneEndpoints(context.AllEndpoints)
+	defensive.HealthyEndpoints = model.CloneEndpoints(context.HealthyEndpoints)
+	return defensive
 }
 
 func legacyPickLockFor(balancer LoadBalancer, legacyPickLock sync.Locker) sync.Locker {
@@ -116,13 +178,30 @@ func legacyPickLockFor(balancer LoadBalancer, legacyPickLock sync.Locker) sync.L
 	return &legacyPickMu
 }
 
-func cloneEndpoints(endpoints []*model.Endpoint) []*model.Endpoint {
-	if endpoints == nil {
+func healthyEndpointFromSnapshot(endpoint *model.Endpoint, healthyEndpoints []*model.Endpoint) *model.Endpoint {
+	if endpoint == nil {
 		return nil
 	}
-	cloned := make([]*model.Endpoint, len(endpoints))
-	copy(cloned, endpoints)
-	return cloned
+	for _, candidate := range healthyEndpoints {
+		if sameEndpointIdentity(candidate, endpoint) {
+			return model.CloneEndpoint(candidate)
+		}
+	}
+	return nil
+}
+
+func sameEndpointIdentity(candidate, endpoint *model.Endpoint) bool {
+	if candidate == nil || endpoint == nil {
+		return false
+	}
+	if endpoint.ID != "" || candidate.ID != "" {
+		if candidate.ID != endpoint.ID {
+			return false
+		}
+		endpointAddress := endpoint.Address.GetAddress()
+		return endpointAddress == "" || candidate.Address.GetAddress() == endpointAddress
+	}
+	return candidate.Address.GetAddress() == endpoint.Address.GetAddress()
 }
 
 func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {

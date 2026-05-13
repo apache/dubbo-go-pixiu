@@ -19,7 +19,6 @@ package maglev
 
 import (
 	"encoding/binary"
-	"hash/maphash"
 	"math"
 	"math/big"
 	"sync"
@@ -187,10 +186,7 @@ func (t *LookUpTable) removePerm(dst int) {
 
 // Hash the input key.
 func (t *LookUpTable) Hash(key string) uint32 {
-	var h maphash.Hash
-	h.SetSeed(maphash.MakeSeed())
-	h.WriteString(key)
-	return uint32(h.Sum64())
+	return _hash1(key)
 }
 
 // Get a slot by hashing the input key.

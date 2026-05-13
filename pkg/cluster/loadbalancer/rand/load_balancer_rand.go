@@ -32,6 +32,14 @@ func init() {
 
 type Rand struct{}
 
+func (Rand) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (Rand) UseZeroCopySnapshot() bool {
+	return true
+}
+
 // randIntn lets tests replace randomness with deterministic choices.
 var randIntn = rand.Intn
 

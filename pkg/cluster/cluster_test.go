@@ -18,6 +18,8 @@
 package cluster
 
 import (
+	"fmt"
+	"sync/atomic"
 	"testing"
 )
 
@@ -26,6 +28,9 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/healthcheck"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"   // Register Maglev for snapshot hash tests.
+	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash" // Register RingHash for snapshot hash tests.
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -73,6 +78,110 @@ func TestClusterEndpointSnapshotEndpointCountIsNilSafe(t *testing.T) {
 	var snapshot *EndpointSnapshot
 
 	assert.Zero(t, snapshot.EndpointCount())
+}
+
+func TestClusterEndpointSnapshotBuildsConsistentHashFromRuntimeHealthyEndpoints(t *testing.T) {
+	tests := []model.LbPolicyType{
+		model.LoadBalancerRingHashing,
+		model.LoadBalancerMaglevHashing,
+	}
+
+	for _, lb := range tests {
+		t.Run(string(lb), func(t *testing.T) {
+			first := testEndpoint("ep-1", "127.0.0.1", 18080)
+			second := testEndpoint("ep-2", "127.0.0.1", 18081)
+			temporarilyUnhealthy := testEndpoint("ep-3", "127.0.0.1", 18082)
+			config := testCluster("snapshot-healthy-hash", first, second, temporarilyUnhealthy)
+			config.LbStr = lb
+			config.ConsistentHash = model.ConsistentHash{
+				ReplicaNum:      10,
+				MaxVnodeNum:     1023,
+				MaglevTableSize: 521,
+			}
+			runtimeCluster := NewCluster(config)
+
+			assert.True(t, runtimeCluster.UpdateEndpointHealth(
+				temporarilyUnhealthy.ID,
+				temporarilyUnhealthy.Address.GetAddress(),
+				false,
+			))
+
+			snapshot := runtimeCluster.EndpointSnapshot()
+			hash := snapshot.HealthyConsistentHash()
+			if !assert.NotNil(t, hash) {
+				return
+			}
+			for i := 0; i < 20; i++ {
+				host, err := hash.Get(fmt.Sprintf("request-%d", i))
+				if assert.NoError(t, err) {
+					assert.NotEqual(t, temporarilyUnhealthy.GetHost(), host)
+				}
+			}
+		})
+	}
+}
+
+func TestClusterEndpointSnapshotExposesReadOnlyConsistentHash(t *testing.T) {
+	first := testEndpoint("ep-1", "127.0.0.1", 18080)
+	second := testEndpoint("ep-2", "127.0.0.1", 18081)
+	config := testCluster("snapshot-readonly-hash", first, second)
+	config.LbStr = model.LoadBalancerRingHashing
+	config.ConsistentHash = model.ConsistentHash{
+		ReplicaNum:  10,
+		MaxVnodeNum: 1023,
+	}
+
+	hashView := NewCluster(config).EndpointSnapshot().HealthyConsistentHash()
+	if !assert.NotNil(t, hashView) {
+		return
+	}
+	_, mutable := hashView.(model.LbConsistentHash)
+	assert.False(t, mutable)
+
+	host, err := hashView.Get("request-key")
+	assert.NoError(t, err)
+	assert.Contains(t, []string{first.GetHost(), second.GetHost()}, host)
+}
+
+func TestClusterEndpointSnapshotBuildsConsistentHashLazily(t *testing.T) {
+	var builds int32
+	lbPolicy := model.LbPolicyType("test-lazy-hash")
+	previousInit, hadPreviousInit := model.ConsistentHashInitMap[lbPolicy]
+	model.ConsistentHashInitMap[lbPolicy] = func(_ model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
+		atomic.AddInt32(&builds, 1)
+		if len(endpoints) == 0 {
+			return countingConsistentHash{}
+		}
+		return countingConsistentHash{host: endpoints[0].GetHost()}
+	}
+	t.Cleanup(func() {
+		if hadPreviousInit {
+			model.ConsistentHashInitMap[lbPolicy] = previousInit
+			return
+		}
+		delete(model.ConsistentHashInitMap, lbPolicy)
+	})
+
+	first := testEndpoint("ep-1", "127.0.0.1", 18080)
+	second := testEndpoint("ep-2", "127.0.0.1", 18081)
+	config := testCluster("snapshot-lazy-hash", first, second)
+	config.LbStr = lbPolicy
+	runtimeCluster := NewCluster(config)
+
+	assert.Zero(t, atomic.LoadInt32(&builds))
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(second.ID, second.Address.GetAddress(), false))
+	assert.Zero(t, atomic.LoadInt32(&builds))
+
+	snapshot := runtimeCluster.EndpointSnapshot()
+	assert.NotNil(t, snapshot.HealthyConsistentHash())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+	assert.NotNil(t, snapshot.HealthyConsistentHash())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(second.ID, second.Address.GetAddress(), true))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+	assert.NotNil(t, runtimeCluster.EndpointSnapshot().HealthyConsistentHash())
+	assert.Equal(t, int32(2), atomic.LoadInt32(&builds))
 }
 
 func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
@@ -125,6 +234,32 @@ func TestClusterEndpointSnapshotReturnsDefensiveEndpointObjects(t *testing.T) {
 	assertEndpointMatchesOriginalSnapshot(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpoint.ID))
 }
 
+func TestNewClusterAssignsUniqueRuntimeIDsForAnonymousEndpoints(t *testing.T) {
+	first := testEndpoint("", "127.0.0.1", 18080)
+	second := testEndpoint("", "127.0.0.2", 18081)
+	runtimeCluster := NewCluster(testCluster("snapshot-anonymous-ids", first, second))
+
+	snapshot := runtimeCluster.EndpointSnapshot()
+	all := snapshot.AllEndpoints()
+	if !assert.Len(t, all, 2) {
+		return
+	}
+	assert.NotEmpty(t, all[0].ID)
+	assert.NotEmpty(t, all[1].ID)
+	assert.NotEqual(t, all[0].ID, all[1].ID)
+
+	assert.True(t, runtimeCluster.UpdateEndpointAddressHealth(first.Address.GetAddress(), false))
+	updated := runtimeCluster.EndpointSnapshot().AllEndpoints()
+	if assert.Len(t, updated, 2) {
+		assert.True(t, updated[0].UnHealthy)
+		assert.False(t, updated[1].UnHealthy)
+	}
+	healthy := runtimeCluster.EndpointSnapshot().HealthyEndpoints()
+	if assert.Len(t, healthy, 1) {
+		assert.Equal(t, second.Address.GetAddress(), healthy[0].Address.GetAddress())
+	}
+}
+
 func TestClusterEndpointHealthEventUpdatesSnapshotWithoutMutatingEndpoint(t *testing.T) {
 	endpoint := testEndpoint("ep-1", "127.0.0.1", 18082)
 	runtimeCluster := NewCluster(testCluster("snapshot-health", endpoint))
@@ -144,6 +279,36 @@ func TestClusterEndpointHealthEventUpdatesSnapshotWithoutMutatingEndpoint(t *tes
 		assert.False(t, healthyEndpoints[0].UnHealthy)
 	}
 	assert.False(t, runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID).UnHealthy)
+}
+
+func TestClusterEndpointHealthEventUpdatesSameAddressEndpoints(t *testing.T) {
+	first := testEndpoint("ep-1", "127.0.0.1", 18082)
+	second := testEndpoint("ep-2", "127.0.0.1", 18082)
+	otherAddress := testEndpoint("ep-3", "127.0.0.1", 18083)
+	runtimeCluster := NewCluster(testCluster("snapshot-shared-address-health", first, second, otherAddress))
+
+	runtimeCluster.handleEndpointHealth(healthcheck.EndpointHealthEvent{
+		EndpointID:      first.ID,
+		EndpointAddress: first.Address.GetAddress(),
+		Healthy:         false,
+	})
+
+	assert.False(t, first.UnHealthy)
+	assert.False(t, second.UnHealthy)
+	assert.True(t, runtimeCluster.EndpointSnapshot().EndpointByID(first.ID).UnHealthy)
+	assert.True(t, runtimeCluster.EndpointSnapshot().EndpointByID(second.ID).UnHealthy)
+	assert.False(t, runtimeCluster.EndpointSnapshot().EndpointByID(otherAddress.ID).UnHealthy)
+	assert.Nil(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(first.ID))
+	assert.Nil(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(second.ID))
+	assert.NotNil(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(otherAddress.ID))
+
+	runtimeCluster.handleEndpointHealth(healthcheck.EndpointHealthEvent{
+		EndpointID:      first.ID,
+		EndpointAddress: first.Address.GetAddress(),
+		Healthy:         true,
+	})
+
+	assert.Equal(t, []*model.Endpoint{first, second, otherAddress}, runtimeCluster.EndpointSnapshot().HealthyEndpoints())
 }
 
 func TestClusterEndpointHealthEventRestoresRuntimeEndpointHealthFlag(t *testing.T) {
@@ -222,6 +387,37 @@ func TestClusterSnapshotForRuntimeReplacementFreezesHealthEvents(t *testing.T) {
 	assert.Equal(t, replacement, replacementRuntime.EndpointSnapshot().HealthyEndpointByID(replacement.ID))
 }
 
+func TestNewClusterWithEndpointSnapshotInheritsAddressHealthForChangedEndpointID(t *testing.T) {
+	endpoint := testEndpoint("ep-old", "127.0.0.1", 18085)
+	oldRuntime := NewCluster(testClusterWithHealthCheck("snapshot-address-old", endpoint))
+	t.Cleanup(oldRuntime.Stop)
+	oldRuntime.handleEndpointHealth(healthcheck.EndpointHealthEvent{
+		EndpointID:      endpoint.ID,
+		EndpointAddress: endpoint.Address.GetAddress(),
+		Healthy:         false,
+	})
+	previous := oldRuntime.SnapshotForRuntimeReplacement()
+
+	replacement := testEndpoint("ep-new", "127.0.0.1", 18085)
+	replacementRuntime := NewClusterWithEndpointSnapshot(
+		testClusterWithHealthCheck("snapshot-address-new", replacement),
+		previous,
+	)
+	t.Cleanup(replacementRuntime.Stop)
+
+	assert.Nil(t, replacementRuntime.EndpointSnapshot().HealthyEndpointByID(replacement.ID))
+	if got := replacementRuntime.EndpointSnapshot().EndpointByID(replacement.ID); assert.NotNil(t, got) {
+		assert.True(t, got.UnHealthy)
+	}
+
+	noHealthCheckReplacement := testEndpoint("ep-new-no-healthcheck", "127.0.0.1", 18085)
+	noHealthCheckRuntime := NewClusterWithEndpointSnapshot(
+		testCluster("snapshot-address-no-healthcheck", noHealthCheckReplacement),
+		previous,
+	)
+	assert.NotNil(t, noHealthCheckRuntime.EndpointSnapshot().HealthyEndpointByID(noHealthCheckReplacement.ID))
+}
+
 func TestNewClusterWithEndpointSnapshotInheritsHealthOnlyWhenHealthCheckEnabled(t *testing.T) {
 	endpoint := testEndpoint("ep-1", "127.0.0.1", 18085)
 	oldRuntime := NewCluster(testCluster("snapshot-constructor-old", endpoint))
@@ -298,6 +494,28 @@ func testSnapshotEndpointWithLLMMeta() *model.Endpoint {
 		},
 	}
 	return endpoint
+}
+
+type countingConsistentHash struct {
+	host string
+}
+
+func (h countingConsistentHash) Hash(string) uint32 {
+	return 0
+}
+
+func (h countingConsistentHash) Get(string) (string, error) {
+	return h.host, nil
+}
+
+func (h countingConsistentHash) GetHash(uint32) (string, error) {
+	return h.host, nil
+}
+
+func (h countingConsistentHash) Add(string) {}
+
+func (h countingConsistentHash) Remove(string) bool {
+	return false
 }
 
 func mutateReturnedEndpoint(endpoint *model.Endpoint) {

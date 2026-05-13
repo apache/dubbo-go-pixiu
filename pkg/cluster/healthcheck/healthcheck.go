@@ -157,8 +157,10 @@ func (hc *HealthChecker) Start() {
 }
 
 func (hc *HealthChecker) Stop() {
-	for _, h := range hc.cluster.Endpoints {
-		hc.stopCheck(h)
+	for addr, h := range hc.checkers {
+		h.Stop()
+		delete(hc.checkers, addr)
+		logger.Infof("[health check] stop a health check session for %s", addr)
 	}
 }
 
@@ -171,6 +173,9 @@ func (hc *HealthChecker) StartOne(endpoint *model.Endpoint) {
 }
 
 func (hc *HealthChecker) startCheck(endpoint *model.Endpoint) {
+	if endpoint == nil {
+		return
+	}
 	addr := endpoint.Address.GetAddress()
 	if _, ok := hc.checkers[addr]; !ok {
 		c := newChecker(endpoint, hc)
@@ -181,12 +186,36 @@ func (hc *HealthChecker) startCheck(endpoint *model.Endpoint) {
 }
 
 func (hc *HealthChecker) stopCheck(endpoint *model.Endpoint) {
+	if endpoint == nil {
+		return
+	}
 	addr := endpoint.Address.GetAddress()
+	if hc.hasOtherEndpointWithAddress(endpoint, addr) {
+		return
+	}
 	if c, ok := hc.checkers[addr]; ok {
 		c.Stop()
 		delete(hc.checkers, addr)
-		logger.Infof("[health check] create a health check session for %s", addr)
+		logger.Infof("[health check] stop a health check session for %s", addr)
 	}
+}
+
+func (hc *HealthChecker) hasOtherEndpointWithAddress(endpoint *model.Endpoint, addr string) bool {
+	if hc.cluster == nil {
+		return false
+	}
+	for _, candidate := range hc.cluster.Endpoints {
+		if candidate == nil || candidate == endpoint {
+			continue
+		}
+		if endpoint.ID != "" && candidate.ID == endpoint.ID {
+			continue
+		}
+		if candidate.Address.GetAddress() == addr {
+			return true
+		}
+	}
+	return false
 }
 
 func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
@@ -337,7 +366,9 @@ func (c *EndpointChecker) emitHealth(healthy bool) {
 	if c.HealthChecker.onEndpointHealth == nil {
 		// Direct CreateHealthCheck callers still observe health through
 		// Endpoint.UnHealthy; runtime clusters install a snapshot callback.
-		c.endpoint.UnHealthy = !healthy
+		if !c.HealthChecker.setEndpointAddressHealth(c.endpointAddr, healthy) {
+			c.endpoint.UnHealthy = !healthy
+		}
 		return
 	}
 	c.HealthChecker.onEndpointHealth(EndpointHealthEvent{
@@ -345,6 +376,21 @@ func (c *EndpointChecker) emitHealth(healthy bool) {
 		EndpointAddress: c.endpointAddr,
 		Healthy:         healthy,
 	})
+}
+
+func (hc *HealthChecker) setEndpointAddressHealth(addr string, healthy bool) bool {
+	if hc.cluster == nil {
+		return false
+	}
+	updated := false
+	for _, endpoint := range hc.cluster.Endpoints {
+		if endpoint == nil || endpoint.Address.GetAddress() != addr {
+			continue
+		}
+		endpoint.UnHealthy = !healthy
+		updated = true
+	}
+	return updated
 }
 
 func (c *EndpointChecker) OnCheck() {

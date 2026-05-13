@@ -40,6 +40,14 @@ type weightedEndpoint struct {
 // It assigns weights to endpoints and uses these weights to influence the probability of selection.
 type WeightRandom struct{}
 
+func (WeightRandom) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (WeightRandom) UseZeroCopySnapshot() bool {
+	return true
+}
+
 func (w WeightRandom) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
 	return w.HandlerWithSnapshot(loadbalancer.PickContext{
 		Config:           c,

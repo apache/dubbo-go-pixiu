@@ -44,6 +44,8 @@ const (
 	testLegacyCompatibilityLockLB model.LbPolicyType = "test-legacy-compatibility-lock"
 	testLegacyScopedLockLB        model.LbPolicyType = "test-legacy-scoped-lock"
 	testLegacyHealthFilteringLB   model.LbPolicyType = "test-legacy-health-filtering"
+	testSnapshotAllEndpointsLB    model.LbPolicyType = "test-snapshot-all-endpoints"
+	testSnapshotMutatingLB        model.LbPolicyType = "test-snapshot-mutating"
 )
 
 type serverBlockingLegacyLoadBalancer struct {
@@ -56,6 +58,13 @@ type serverClusterScopedBlockingLegacyLoadBalancer struct {
 }
 
 type serverHealthFilteringLegacyLoadBalancer struct{}
+
+type serverSnapshotAllEndpointsLoadBalancer struct {
+	seenAll     []*model.Endpoint
+	seenHealthy []*model.Endpoint
+}
+
+type serverSnapshotMutatingLoadBalancer struct{}
 
 type serverLegacyPickHarness struct {
 	t           *testing.T
@@ -82,6 +91,33 @@ func (serverHealthFilteringLegacyLoadBalancer) Handler(c *model.ClusterConfig, _
 		return nil
 	}
 	return endpoints[0]
+}
+
+func (b *serverSnapshotAllEndpointsLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (b *serverSnapshotAllEndpointsLoadBalancer) HandlerWithSnapshot(c loadbalancer.PickContext, _ model.LbPolicy) *model.Endpoint {
+	b.seenAll = c.AllEndpoints
+	b.seenHealthy = c.HealthyEndpoints
+	if len(c.HealthyEndpoints) == 0 {
+		return nil
+	}
+	return c.HealthyEndpoints[0]
+}
+
+func (serverSnapshotMutatingLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (serverSnapshotMutatingLoadBalancer) HandlerWithSnapshot(c loadbalancer.PickContext, _ model.LbPolicy) *model.Endpoint {
+	if len(c.HealthyEndpoints) > 0 {
+		c.HealthyEndpoints[0].Metadata["weight"] = "99"
+	}
+	if len(c.AllEndpoints) > 1 {
+		return c.AllEndpoints[1]
+	}
+	return nil
 }
 
 func registerServerLegacyBalancer(t *testing.T, policy model.LbPolicyType, scoped bool) *serverLegacyPickHarness {
@@ -164,6 +200,77 @@ func TestClusterManager(t *testing.T) {
 	cm.SetEndpoint("test2", testEndpoint("2", "127.0.0.1", 18082))
 	assert.Equal(t, "1", cm.PickEndpoint("test", nil).ID)
 	cm.DeleteEndpoint("test2", "1")
+}
+
+func TestClusterManagerRepairsDuplicateEndpointIDsBeforeRuntimeSnapshot(t *testing.T) {
+	first := testEndpoint("duplicate", "127.0.0.1", 18082)
+	second := testEndpoint("duplicate", "127.0.0.2", 18083)
+	config := testCluster("duplicate-endpoint-id", model.LoadBalancerRoundRobin, []*model.Endpoint{first, second})
+	cm := testClusterManager(config)
+
+	if !assert.Len(t, config.Endpoints, 2) {
+		return
+	}
+	assert.Equal(t, "duplicate", first.ID)
+	assert.NotEmpty(t, second.ID)
+	assert.NotEqual(t, first.ID, second.ID)
+
+	runtimeCluster := cm.store.clustersMap[config.Name]
+	if !assert.NotNil(t, runtimeCluster) {
+		return
+	}
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(first.ID, first.Address.GetAddress(), false))
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(second.ID, second.Address.GetAddress(), false))
+	assert.Empty(t, runtimeCluster.EndpointSnapshot().HealthyEndpoints())
+	assert.NotNil(t, runtimeCluster.EndpointSnapshot().EndpointByID(first.ID))
+	assert.NotNil(t, runtimeCluster.EndpointSnapshot().EndpointByID(second.ID))
+}
+
+func TestClusterManager_SetEndpointFreshAnonymousEndpointUpdatesStableEndpoint(t *testing.T) {
+	config := testCluster("set-anonymous-endpoint", model.LoadBalancerRoundRobin, nil)
+	cm := testClusterManager(config)
+
+	first := testEndpoint("", "127.0.0.1", 18084)
+	first.Metadata = map[string]string{"version": "1"}
+	cm.SetEndpoint(config.Name, first)
+	firstID := first.ID
+	assert.NotEmpty(t, firstID)
+
+	second := testEndpoint("", "127.0.0.1", 18084)
+	second.Metadata = map[string]string{"version": "2"}
+	cm.SetEndpoint(config.Name, second)
+
+	if assert.Len(t, config.Endpoints, 1) {
+		assert.Equal(t, firstID, config.Endpoints[0].ID)
+		assert.Equal(t, map[string]string{"version": "2"}, config.Endpoints[0].Metadata)
+	}
+	snapshot := cm.store.clustersMap[config.Name].EndpointSnapshot()
+	assert.Len(t, snapshot.AllEndpoints(), 1)
+	if picked := cm.PickEndpoint(config.Name, nil); assert.NotNil(t, picked) {
+		assert.Equal(t, firstID, picked.ID)
+		assert.Equal(t, map[string]string{"version": "2"}, picked.Metadata)
+	}
+}
+
+func TestClusterManager_SetEndpointAnonymousIDAvoidsExistingExplicitGeneratedID(t *testing.T) {
+	clusterName := "set-anonymous-id-collision"
+	incoming := testEndpoint("", "127.0.0.2", 18085)
+	collidingID := model.GeneratedEndpointID(clusterName, incoming)
+	existing := testEndpoint(collidingID, "127.0.0.1", 18084)
+	config := testCluster(clusterName, model.LoadBalancerRoundRobin, []*model.Endpoint{existing})
+	cm := testClusterManager(config)
+
+	cm.SetEndpoint(config.Name, incoming)
+
+	if !assert.Len(t, config.Endpoints, 2) {
+		return
+	}
+	assert.Equal(t, collidingID, config.Endpoints[0].ID)
+	assert.Equal(t, model.SocketAddress{Address: "127.0.0.1", Port: 18084}, config.Endpoints[0].Address)
+	assert.NotEmpty(t, incoming.ID)
+	assert.NotEqual(t, collidingID, incoming.ID)
+	assert.Equal(t, incoming.ID, config.Endpoints[1].ID)
+	assert.Equal(t, model.SocketAddress{Address: "127.0.0.2", Port: 18085}, config.Endpoints[1].Address)
 }
 
 func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
@@ -265,6 +372,33 @@ func TestClusterManager_PickEndpointUsesHealthySnapshot(t *testing.T) {
 	}
 }
 
+func TestClusterManager_PickEndpointSkipsSameAddressEndpointsAfterAddressHealthEvent(t *testing.T) {
+	first := testEndpoint("snapshot-shared-address-1", "127.0.0.1", 18088)
+	second := testEndpoint("snapshot-shared-address-2", "127.0.0.1", 18088)
+	fallback := testEndpoint("snapshot-shared-address-fallback", "127.0.0.1", 18089)
+	config := testCluster("snapshot-shared-address", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		first,
+		second,
+		fallback,
+	})
+	cm := testClusterManager(config)
+	runtimeCluster := cm.store.clustersMap[config.Name]
+
+	assert.True(t, runtimeCluster.UpdateEndpointAddressHealth(first.Address.GetAddress(), false))
+	assert.Nil(t, cm.GetHealthyEndpointByID(config.Name, first.ID))
+	assert.Nil(t, cm.GetHealthyEndpointByID(config.Name, second.ID))
+	assert.NotNil(t, cm.GetHealthyEndpointByID(config.Name, fallback.ID))
+
+	picked := cm.PickEndpoint(config.Name, nil)
+	if assert.NotNil(t, picked) {
+		assert.Equal(t, fallback.ID, picked.ID)
+	}
+
+	assert.True(t, runtimeCluster.UpdateEndpointAddressHealth(first.Address.GetAddress(), true))
+	assert.NotNil(t, cm.GetHealthyEndpointByID(config.Name, first.ID))
+	assert.NotNil(t, cm.GetHealthyEndpointByID(config.Name, second.ID))
+}
+
 func TestClusterManager_PickEndpointLegacyLBSeesRestoredRuntimeHealth(t *testing.T) {
 	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testLegacyHealthFilteringLB]
 	loadbalancer.LoadBalancerStrategy[testLegacyHealthFilteringLB] = serverHealthFilteringLegacyLoadBalancer{}
@@ -309,6 +443,66 @@ func TestClusterManager_PickEndpointSingleHealthyInMultiEndpointUsesLoadBalancer
 	assert.Equal(t, uint32(1), atomic.LoadUint32(&config.PrePickEndpointIndex))
 }
 
+func TestClusterManager_SnapshotLoadBalancerReceivesAllEndpoints(t *testing.T) {
+	balancer := &serverSnapshotAllEndpointsLoadBalancer{}
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testSnapshotAllEndpointsLB]
+	loadbalancer.LoadBalancerStrategy[testSnapshotAllEndpointsLB] = balancer
+	t.Cleanup(func() {
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[testSnapshotAllEndpointsLB] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, testSnapshotAllEndpointsLB)
+	})
+
+	healthy := testEndpoint("snapshot-all-healthy", "127.0.0.1", 18091)
+	unhealthy := testEndpoint("snapshot-all-unhealthy", "127.0.0.1", 18092)
+	config := testCluster("snapshot-all-endpoints", testSnapshotAllEndpointsLB, []*model.Endpoint{healthy, unhealthy})
+	cm := testClusterManager(config)
+	runtimeCluster := cm.store.clustersMap[config.Name]
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(unhealthy.ID, unhealthy.Address.GetAddress(), false))
+	picked := cm.PickEndpoint(config.Name, nil)
+
+	if assert.NotNil(t, picked) {
+		assert.Equal(t, healthy.ID, picked.ID)
+	}
+	assert.Equal(t, []*model.Endpoint{healthy}, balancer.seenHealthy)
+	if assert.Len(t, balancer.seenAll, 2) {
+		assert.Equal(t, healthy.ID, balancer.seenAll[0].ID)
+		assert.False(t, balancer.seenAll[0].UnHealthy)
+		assert.Equal(t, unhealthy.ID, balancer.seenAll[1].ID)
+		assert.True(t, balancer.seenAll[1].UnHealthy)
+	}
+}
+
+func TestClusterManager_SnapshotLoadBalancerCannotMutateOrBypassHealthySnapshot(t *testing.T) {
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testSnapshotMutatingLB]
+	loadbalancer.LoadBalancerStrategy[testSnapshotMutatingLB] = serverSnapshotMutatingLoadBalancer{}
+	t.Cleanup(func() {
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[testSnapshotMutatingLB] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, testSnapshotMutatingLB)
+	})
+
+	healthy := testEndpoint("snapshot-safe-healthy", "127.0.0.1", 18093)
+	healthy.Metadata = map[string]string{"weight": "1"}
+	unhealthy := testEndpoint("snapshot-safe-unhealthy", "127.0.0.1", 18094)
+	config := testCluster("snapshot-safe", testSnapshotMutatingLB, []*model.Endpoint{healthy, unhealthy})
+	cm := testClusterManager(config)
+	runtimeCluster := cm.store.clustersMap[config.Name]
+
+	assert.True(t, runtimeCluster.UpdateEndpointHealth(unhealthy.ID, unhealthy.Address.GetAddress(), false))
+	assert.Nil(t, cm.PickEndpoint(config.Name, nil))
+
+	if got := runtimeCluster.EndpointSnapshot().HealthyEndpointByID(healthy.ID); assert.NotNil(t, got) {
+		assert.Equal(t, map[string]string{"weight": "1"}, got.Metadata)
+	}
+	assert.Nil(t, runtimeCluster.EndpointSnapshot().HealthyEndpointByID(unhealthy.ID))
+}
+
 func TestClusterManager_GetEndpointByIDUsesHealthySnapshot(t *testing.T) {
 	endpoint := testEndpoint("snapshot-id-ep", "127.0.0.1", 18089)
 	cm := testClusterManager(
@@ -320,6 +514,10 @@ func TestClusterManager_GetEndpointByIDUsesHealthySnapshot(t *testing.T) {
 	assert.False(t, endpoint.UnHealthy)
 	assert.Nil(t, cm.GetEndpointByID("snapshot-id", endpoint.ID))
 	assert.Nil(t, cm.GetHealthyEndpointByID("snapshot-id", endpoint.ID))
+	if got := cm.GetAnyEndpointByID("snapshot-id", endpoint.ID); assert.NotNil(t, got) {
+		assert.Equal(t, endpoint.ID, got.ID)
+		assert.True(t, got.UnHealthy)
+	}
 	if got := runtimeCluster.EndpointSnapshot().EndpointByID(endpoint.ID); assert.NotNil(t, got) {
 		assert.Equal(t, endpoint.ID, got.ID)
 	}
@@ -430,6 +628,75 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 	if assert.NotNil(t, endpoint) {
 		assert.Equal(t, "ep-3", endpoint.ID)
 	}
+}
+
+func TestClusterManager_CompareAndSetStorePreservesAnonymousEndpointHealthAcrossRefresh(t *testing.T) {
+	initialEndpoint := testEndpoint("", "127.0.0.1", 19203)
+	cluster := testCluster("refresh-anonymous-health", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		initialEndpoint,
+	}, testHealthCheck())
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	initialID := initialEndpoint.ID
+	assert.NotEmpty(t, initialID)
+
+	oldRuntime := cm.store.clustersMap[cluster.Name]
+	assert.True(t, oldRuntime.UpdateEndpointHealth(
+		initialID,
+		initialEndpoint.Address.GetAddress(),
+		false,
+	))
+
+	newStore := cm.NewStore(cm.store.Version)
+	defer stopStoreRuntimes(newStore)
+	refreshedEndpoint := testEndpoint("", "127.0.0.1", 19203)
+	refreshedEndpoint.Name = "renamed-endpoint"
+	newStore.AddCluster(testCluster(cluster.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
+		refreshedEndpoint,
+	}, testHealthCheck()))
+	assert.Equal(t, initialID, refreshedEndpoint.ID)
+
+	assert.True(t, cm.CompareAndSetStore(newStore))
+	assert.Nil(t, cm.GetHealthyEndpointByID(cluster.Name, initialID))
+	if got := cm.store.clustersMap[cluster.Name].EndpointSnapshot().EndpointByID(initialID); assert.NotNil(t, got) {
+		assert.True(t, got.UnHealthy)
+	}
+}
+
+func TestClusterManager_GeneratedEndpointIDsIncludeLLMIdentity(t *testing.T) {
+	first := testLLMIdentityEndpoint("127.0.0.1", 19204, "openai", "key-a")
+	second := testLLMIdentityEndpoint("127.0.0.1", 19204, "openai", "key-b")
+	cluster := testCluster("refresh-llm-identity", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		first,
+		second,
+	}, testHealthCheck())
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	firstID := first.ID
+	secondID := second.ID
+	assert.NotEmpty(t, firstID)
+	assert.NotEmpty(t, secondID)
+	assert.NotEqual(t, firstID, secondID)
+
+	oldRuntime := cm.store.clustersMap[cluster.Name]
+	assert.True(t, oldRuntime.UpdateEndpointHealth(secondID, second.Address.GetAddress(), false))
+
+	newStore := cm.NewStore(cm.store.Version)
+	defer stopStoreRuntimes(newStore)
+	refreshedSecond := testLLMIdentityEndpoint("127.0.0.1", 19204, "openai", "key-b")
+	refreshedFirst := testLLMIdentityEndpoint("127.0.0.1", 19204, "openai", "key-a")
+	newStore.AddCluster(testCluster(cluster.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
+		refreshedSecond,
+		refreshedFirst,
+	}, testHealthCheck()))
+
+	assert.Equal(t, secondID, refreshedSecond.ID)
+	assert.Equal(t, firstID, refreshedFirst.ID)
+	assert.True(t, cm.CompareAndSetStore(newStore))
+	assert.Nil(t, cm.GetHealthyEndpointByID(cluster.Name, secondID))
+	assert.NotNil(t, cm.GetHealthyEndpointByID(cluster.Name, firstID))
 }
 
 func TestClusterManager_UpdateClusterRebuildsRuntimeCluster(t *testing.T) {
@@ -920,6 +1187,16 @@ func testEndpoint(id string, host string, port int) *model.Endpoint {
 			Port:    port,
 		},
 	}
+}
+
+func testLLMIdentityEndpoint(host string, port int, provider, apiKey string) *model.Endpoint {
+	endpoint := testEndpoint("", host, port)
+	endpoint.Name = "shared-llm"
+	endpoint.LLMMeta = &model.LLMMeta{
+		Provider: provider,
+		APIKey:   apiKey,
+	}
+	return endpoint
 }
 
 func testHealthCheck() model.HealthCheckConfig {

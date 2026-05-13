@@ -37,6 +37,11 @@ type legacyLoadBalancer struct {
 }
 
 type legacyCursorLoadBalancer struct{}
+type mutatingLegacyLoadBalancer struct{}
+type unhealthyLegacyLoadBalancer struct{}
+type mutatingSnapshotLoadBalancer struct{}
+type unhealthySnapshotLoadBalancer struct{}
+type healthyOnlySnapshotLoadBalancer struct{}
 
 var _ LoadBalancer = (*legacyLoadBalancer)(nil)
 
@@ -75,6 +80,61 @@ func (l *legacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *
 func (legacyCursorLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
 	index := atomic.AddUint32(&c.PrePickEndpointIndex, 1) - 1
 	return c.Endpoints[int(index%uint32(len(c.Endpoints)))]
+}
+
+func (mutatingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	if len(c.Endpoints) == 0 {
+		return nil
+	}
+	c.Endpoints[0].Metadata["weight"] = "99"
+	c.Endpoints[0].LLMMeta.APIKey = "mutated-key"
+	return c.Endpoints[0]
+}
+
+func (unhealthyLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	if len(c.Endpoints) < 2 {
+		return nil
+	}
+	return c.Endpoints[1]
+}
+
+func (mutatingSnapshotLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (mutatingSnapshotLoadBalancer) HandlerWithSnapshot(c PickContext, _ model.LbPolicy) *model.Endpoint {
+	if len(c.HealthyEndpoints) == 0 {
+		return nil
+	}
+	c.HealthyEndpoints[0].Metadata["weight"] = "99"
+	c.HealthyEndpoints[0].LLMMeta.APIKey = "mutated-key"
+	if len(c.AllEndpoints) > 1 {
+		c.AllEndpoints[1].Metadata["weight"] = "42"
+	}
+	return c.HealthyEndpoints[0]
+}
+
+func (unhealthySnapshotLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (unhealthySnapshotLoadBalancer) HandlerWithSnapshot(c PickContext, _ model.LbPolicy) *model.Endpoint {
+	if len(c.AllEndpoints) < 2 {
+		return nil
+	}
+	return c.AllEndpoints[1]
+}
+
+func (healthyOnlySnapshotLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (healthyOnlySnapshotLoadBalancer) HandlerWithSnapshot(_ PickContext, _ model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (healthyOnlySnapshotLoadBalancer) UseHealthyEndpointsOnly() bool {
+	return true
 }
 
 func (b *blockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
@@ -194,7 +254,7 @@ func (h *legacyPickHarness) assertNoEntry() {
 
 func TestPickEndpointAdaptsLegacyLoadBalancer(t *testing.T) {
 	healthy := &model.Endpoint{ID: "healthy"}
-	unhealthy := &model.Endpoint{ID: "unhealthy"}
+	unhealthy := &model.Endpoint{ID: "unhealthy", UnHealthy: true}
 	cluster := &model.ClusterConfig{
 		Name:      "legacy-load-balancer",
 		Endpoints: []*model.Endpoint{healthy, unhealthy},
@@ -202,12 +262,16 @@ func TestPickEndpointAdaptsLegacyLoadBalancer(t *testing.T) {
 	balancer := &legacyLoadBalancer{}
 
 	got := PickEndpoint(balancer, PickContext{
+		AllEndpoints:     []*model.Endpoint{healthy, unhealthy},
 		Config:           cluster,
 		HealthyEndpoints: []*model.Endpoint{healthy},
 	}, nil)
 
-	assert.Same(t, healthy, got)
-	assert.Equal(t, []*model.Endpoint{healthy}, balancer.seenEndpoints)
+	assert.NotSame(t, healthy, got)
+	assert.Equal(t, healthy, got)
+	assert.Equal(t, []*model.Endpoint{healthy, unhealthy}, balancer.seenEndpoints)
+	assert.NotSame(t, healthy, balancer.seenEndpoints[0])
+	assert.NotSame(t, unhealthy, balancer.seenEndpoints[1])
 	assert.Equal(t, []*model.Endpoint{healthy, unhealthy}, cluster.Endpoints)
 }
 
@@ -225,8 +289,105 @@ func TestPickEndpointReconcilesLegacyCursorState(t *testing.T) {
 		HealthyEndpoints: []*model.Endpoint{first, second},
 	}, nil)
 
-	assert.Same(t, second, got)
+	assert.NotSame(t, second, got)
+	assert.Equal(t, second, got)
 	assert.Equal(t, uint32(4), atomic.LoadUint32(&cluster.PrePickEndpointIndex))
+}
+
+func TestPickEndpointLegacyMutationsDoNotEscape(t *testing.T) {
+	healthy := &model.Endpoint{
+		ID:       "healthy",
+		Metadata: map[string]string{"weight": "1"},
+		LLMMeta:  &model.LLMMeta{APIKey: "original-key"},
+	}
+	cluster := &model.ClusterConfig{
+		Name:      "legacy-mutation",
+		Endpoints: []*model.Endpoint{healthy},
+	}
+
+	got := PickEndpoint(mutatingLegacyLoadBalancer{}, PickContext{
+		AllEndpoints:     []*model.Endpoint{healthy},
+		Config:           cluster,
+		HealthyEndpoints: []*model.Endpoint{healthy},
+	}, nil)
+
+	if assert.NotNil(t, got) {
+		assert.Equal(t, map[string]string{"weight": "1"}, got.Metadata)
+		assert.Equal(t, "original-key", got.LLMMeta.APIKey)
+	}
+	assert.Equal(t, map[string]string{"weight": "1"}, healthy.Metadata)
+	assert.Equal(t, "original-key", healthy.LLMMeta.APIKey)
+}
+
+func TestPickEndpointRejectsUnhealthyLegacyReturn(t *testing.T) {
+	healthy := &model.Endpoint{ID: "healthy"}
+	unhealthy := &model.Endpoint{ID: "unhealthy", UnHealthy: true}
+	cluster := &model.ClusterConfig{
+		Name:      "legacy-health-guard",
+		Endpoints: []*model.Endpoint{healthy, unhealthy},
+	}
+
+	got := PickEndpoint(unhealthyLegacyLoadBalancer{}, PickContext{
+		AllEndpoints:     []*model.Endpoint{healthy, unhealthy},
+		Config:           cluster,
+		HealthyEndpoints: []*model.Endpoint{healthy},
+	}, nil)
+
+	assert.Nil(t, got)
+}
+
+func TestPickEndpointSnapshotMutationsDoNotEscape(t *testing.T) {
+	healthy := &model.Endpoint{
+		ID:       "healthy",
+		Metadata: map[string]string{"weight": "1"},
+		LLMMeta:  &model.LLMMeta{APIKey: "original-key"},
+	}
+	unhealthy := &model.Endpoint{
+		ID:        "unhealthy",
+		Metadata:  map[string]string{"weight": "2"},
+		UnHealthy: true,
+	}
+	cluster := &model.ClusterConfig{
+		Name:      "snapshot-mutation",
+		Endpoints: []*model.Endpoint{healthy, unhealthy},
+	}
+
+	got := PickEndpoint(mutatingSnapshotLoadBalancer{}, PickContext{
+		AllEndpoints:     []*model.Endpoint{healthy, unhealthy},
+		Config:           cluster,
+		HealthyEndpoints: []*model.Endpoint{healthy},
+	}, nil)
+
+	if assert.NotNil(t, got) {
+		assert.NotSame(t, healthy, got)
+		assert.Equal(t, map[string]string{"weight": "1"}, got.Metadata)
+		assert.Equal(t, "original-key", got.LLMMeta.APIKey)
+	}
+	assert.Equal(t, map[string]string{"weight": "1"}, healthy.Metadata)
+	assert.Equal(t, "original-key", healthy.LLMMeta.APIKey)
+	assert.Equal(t, map[string]string{"weight": "2"}, unhealthy.Metadata)
+}
+
+func TestPickEndpointRejectsUnhealthySnapshotReturn(t *testing.T) {
+	healthy := &model.Endpoint{ID: "healthy"}
+	unhealthy := &model.Endpoint{ID: "unhealthy", UnHealthy: true}
+	cluster := &model.ClusterConfig{
+		Name:      "snapshot-health-guard",
+		Endpoints: []*model.Endpoint{healthy, unhealthy},
+	}
+
+	got := PickEndpoint(unhealthySnapshotLoadBalancer{}, PickContext{
+		AllEndpoints:     []*model.Endpoint{healthy, unhealthy},
+		Config:           cluster,
+		HealthyEndpoints: []*model.Endpoint{healthy},
+	}, nil)
+
+	assert.Nil(t, got)
+}
+
+func TestNeedsAllEndpointsKeepsCompatibilityForUnmarkedSnapshotLoadBalancer(t *testing.T) {
+	assert.True(t, NeedsAllEndpoints(mutatingSnapshotLoadBalancer{}))
+	assert.False(t, NeedsAllEndpoints(healthyOnlySnapshotLoadBalancer{}))
 }
 
 func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {

@@ -24,10 +24,6 @@ import (
 )
 
 import (
-	"github.com/hashicorp/go-uuid"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
@@ -214,6 +210,19 @@ func (cm *ClusterManager) GetEndpointByID(clusterName, endpointID string) *model
 	return cm.GetHealthyEndpointByID(clusterName, endpointID)
 }
 
+// GetAnyEndpointByID returns the runtime endpoint by ID regardless of its
+// current health in the runtime snapshot.
+func (cm *ClusterManager) GetAnyEndpointByID(clusterName, endpointID string) *model.Endpoint {
+	cm.rw.RLock()
+	defer cm.rw.RUnlock()
+
+	runtimeCluster := cm.getRuntimeCluster(clusterName)
+	if runtimeCluster == nil {
+		return nil
+	}
+	return runtimeCluster.EndpointSnapshot().EndpointByID(endpointID)
+}
+
 // GetHealthyEndpointByID returns the runtime endpoint by ID only when it is
 // healthy in the current runtime snapshot.
 func (cm *ClusterManager) GetHealthyEndpointByID(clusterName, endpointID string) *model.Endpoint {
@@ -258,18 +267,27 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 		loadBalancer = loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand]
 	}
 	if _, ok := loadBalancer.(loadbalancer.SnapshotLoadBalancer); ok {
+		var allEndpoints []*model.Endpoint
+		if loadbalancer.NeedsAllEndpoints(loadBalancer) {
+			allEndpoints = snapshot.AllEndpoints()
+		}
 		return snapshot.PickHealthyEndpoint(func(healthyEndpoints []*model.Endpoint) *model.Endpoint {
 			return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, loadbalancer.PickContext{
-				Config:           c,
-				HealthyEndpoints: healthyEndpoints,
+				Config:                c,
+				HealthyConsistentHash: snapshot.HealthyConsistentHash(),
+				AllEndpoints:          allEndpoints,
+				HealthyEndpoints:      healthyEndpoints,
 			}, policy)
 		})
 	}
 
+	allEndpoints := snapshot.AllEndpoints()
 	healthyEndpoints := snapshot.HealthyEndpoints()
 	return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, loadbalancer.PickContext{
-		Config:           c,
-		HealthyEndpoints: healthyEndpoints,
+		Config:                c,
+		HealthyConsistentHash: snapshot.HealthyConsistentHash(),
+		AllEndpoints:          allEndpoints,
+		HealthyEndpoints:      healthyEndpoints,
 	}, policy)
 }
 
@@ -334,17 +352,44 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 		return
 	}
 
+	endpointIDs := make(map[string]struct{}, len(c.Endpoints))
 	for i, endpoint := range c.Endpoints {
-		// If the endpoint ID is not set, set it to the index + 1
-		if endpoint.ID == "" {
-			endpoint.ID, _ = uuid.GenerateUUID()
+		if endpoint == nil {
+			continue
 		}
+		// Endpoint IDs are runtime health keys, so keep them unique per cluster.
+		if endpoint.ID == "" {
+			endpoint.ID = nextStableEndpointID(c.Name, endpoint, endpointIDs)
+		} else if _, exists := endpointIDs[endpoint.ID]; exists {
+			duplicateID := endpoint.ID
+			endpoint.ID = nextStableEndpointID(c.Name, endpoint, endpointIDs)
+			logger.Warnf(
+				"[dubbo-go-pixiu] duplicate endpoint ID %s in cluster %s, assigned endpoint ID %s",
+				duplicateID,
+				c.Name,
+				endpoint.ID,
+			)
+		}
+		endpointIDs[endpoint.ID] = struct{}{}
 
 		// If the endpoint has no name, set a default name
 		if endpoint.Name == "" && endpoint.LLMMeta != nil {
 			endpoint.Name = fmt.Sprintf("endpoint-%d#%s", i+1, endpoint.LLMMeta.Provider)
 		} else if endpoint.Name == "" && endpoint.LLMMeta == nil {
 			endpoint.Name = fmt.Sprintf("endpoint-%d", i+1)
+		}
+	}
+}
+
+func nextStableEndpointID(clusterName string, endpoint *model.Endpoint, endpointIDs map[string]struct{}) string {
+	baseID := model.GeneratedEndpointID(clusterName, endpoint)
+	for suffix := 0; ; suffix++ {
+		id := baseID
+		if suffix > 0 {
+			id = fmt.Sprintf("%s-%d", baseID, suffix+1)
+		}
+		if _, exists := endpointIDs[id]; !exists {
+			return id
 		}
 	}
 }
@@ -543,6 +588,10 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 		runtimeCluster = s.clustersMap[clusterName]
 	}
 
+	if endpoint.ID == "" {
+		endpoint.ID = stableEndpointIDForSet(clusterName, endpoint, clusterConfig.Endpoints)
+	}
+
 	for i, e := range clusterConfig.Endpoints {
 		if e.ID == endpoint.ID {
 			// Remove before replacing the endpoint because healthcheck keys by address.
@@ -575,6 +624,37 @@ func mergeEndpointForSet(oldEndpoint, incoming *model.Endpoint) *model.Endpoint 
 		merged.LLMMeta = incoming.LLMMeta
 	}
 	return &merged
+}
+
+func stableEndpointIDForSet(clusterName string, endpoint *model.Endpoint, endpoints []*model.Endpoint) string {
+	generatedID := model.GeneratedEndpointID(clusterName, endpoint)
+	if existingEndpointMatchesGeneratedID(clusterName, generatedID, endpoints) {
+		return generatedID
+	}
+	return nextStableEndpointID(clusterName, endpoint, existingEndpointIDs(endpoints))
+}
+
+func existingEndpointMatchesGeneratedID(clusterName, generatedID string, endpoints []*model.Endpoint) bool {
+	for _, existing := range endpoints {
+		if existing == nil || existing.ID != generatedID {
+			continue
+		}
+		if model.GeneratedEndpointID(clusterName, existing) == generatedID {
+			return true
+		}
+	}
+	return false
+}
+
+func existingEndpointIDs(endpoints []*model.Endpoint) map[string]struct{} {
+	ids := make(map[string]struct{}, len(endpoints))
+	for _, endpoint := range endpoints {
+		if endpoint == nil || endpoint.ID == "" {
+			continue
+		}
+		ids[endpoint.ID] = struct{}{}
+	}
+	return ids
 }
 
 func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {

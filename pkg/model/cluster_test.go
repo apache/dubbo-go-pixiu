@@ -102,3 +102,62 @@ func TestEndpoint_GetHost(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.1:20880", endpoint.GetHost())
 }
+
+func TestGeneratedEndpointIDIncludesLLMIdentity(t *testing.T) {
+	endpoint := &model.Endpoint{
+		Name: "shared-llm",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    20880,
+		},
+		LLMMeta: &model.LLMMeta{
+			Provider: "openai",
+			APIKey:   "key-a",
+		},
+	}
+	same := model.CloneEndpoint(endpoint)
+	renamed := model.CloneEndpoint(endpoint)
+	renamed.Name = "renamed-llm"
+	otherKey := model.CloneEndpoint(endpoint)
+	otherKey.LLMMeta.APIKey = "key-b"
+
+	id := model.GeneratedEndpointID("cluster-a", endpoint)
+
+	assert.Equal(t, id, model.GeneratedEndpointID("cluster-a", same))
+	assert.Equal(t, id, model.GeneratedEndpointID("cluster-a", renamed))
+	assert.NotEqual(t, id, model.GeneratedEndpointID("cluster-a", otherKey))
+	assert.Contains(t, id, "generated-")
+	assert.NotContains(t, id, endpoint.LLMMeta.APIKey)
+}
+
+func TestCloneEndpointDeepCopiesRuntimeMutableFields(t *testing.T) {
+	endpoint := &model.Endpoint{
+		ID:   "ep-1",
+		Name: "endpoint-1",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    20880,
+			Domains: []string{"api.example.com"},
+		},
+		Metadata: map[string]string{"weight": "1"},
+		LLMMeta: &model.LLMMeta{
+			APIKey: "key-a",
+			RetryPolicy: model.RetryPolicy{
+				Config: map[string]any{
+					"nested": map[string]any{"delays": []any{"100ms"}},
+				},
+			},
+		},
+	}
+
+	cloned := model.CloneEndpoint(endpoint)
+	cloned.Address.Domains[0] = "changed.example.com"
+	cloned.Metadata["weight"] = "99"
+	cloned.LLMMeta.APIKey = "key-b"
+	cloned.LLMMeta.RetryPolicy.Config["nested"].(map[string]any)["delays"].([]any)[0] = "200ms"
+
+	assert.Equal(t, []string{"api.example.com"}, endpoint.Address.Domains)
+	assert.Equal(t, map[string]string{"weight": "1"}, endpoint.Metadata)
+	assert.Equal(t, "key-a", endpoint.LLMMeta.APIKey)
+	assert.Equal(t, "100ms", endpoint.LLMMeta.RetryPolicy.Config["nested"].(map[string]any)["delays"].([]any)[0])
+}

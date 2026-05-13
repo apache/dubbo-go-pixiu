@@ -115,6 +115,101 @@ func TestEndpointCheckerHealthHandlersMutateEndpointWithoutListener(t *testing.T
 	}
 }
 
+func TestEndpointCheckerHealthHandlersMutateSameAddressEndpointsWithoutListener(t *testing.T) {
+	first := &model.Endpoint{
+		ID: "ep-1",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18082,
+		},
+	}
+	second := &model.Endpoint{
+		ID: "ep-2",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18082,
+		},
+	}
+	otherAddress := &model.Endpoint{
+		ID: "ep-3",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18083,
+		},
+	}
+	checker := newChecker(first, &HealthChecker{
+		cluster: &model.ClusterConfig{
+			Endpoints: []*model.Endpoint{first, second, otherAddress},
+		},
+	})
+
+	checker.handleUnHealth()
+
+	if !first.UnHealthy {
+		t.Fatalf("first endpoint UnHealthy = false after shared-address unhealth event, want true")
+	}
+	if !second.UnHealthy {
+		t.Fatalf("second endpoint UnHealthy = false after shared-address unhealth event, want true")
+	}
+	if otherAddress.UnHealthy {
+		t.Fatalf("other-address endpoint UnHealthy = true after shared-address unhealth event, want false")
+	}
+
+	checker.handleHealth()
+
+	if first.UnHealthy {
+		t.Fatalf("first endpoint UnHealthy = true after shared-address health event, want false")
+	}
+	if second.UnHealthy {
+		t.Fatalf("second endpoint UnHealthy = true after shared-address health event, want false")
+	}
+}
+
+func TestHealthCheckerStopOneKeepsSharedAddressChecker(t *testing.T) {
+	first := &model.Endpoint{
+		ID: "ep-1",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18084,
+		},
+	}
+	second := &model.Endpoint{
+		ID: "ep-2",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18084,
+		},
+	}
+	addr := first.Address.GetAddress()
+	checker := &EndpointChecker{
+		stop: make(chan struct{}),
+	}
+	hc := &HealthChecker{
+		cluster: &model.ClusterConfig{
+			Endpoints: []*model.Endpoint{first, second},
+		},
+		checkers: map[string]*EndpointChecker{
+			addr: checker,
+		},
+	}
+
+	hc.stopCheck(first)
+	if _, ok := hc.checkers[addr]; !ok {
+		t.Fatalf("shared-address checker was stopped while another endpoint still used the address")
+	}
+
+	hc.cluster.Endpoints = []*model.Endpoint{first}
+	hc.stopCheck(first)
+	if _, ok := hc.checkers[addr]; ok {
+		t.Fatalf("checker was kept after the last endpoint using the address was removed")
+	}
+	select {
+	case <-checker.stop:
+	default:
+		t.Fatalf("checker stop channel was not closed")
+	}
+}
+
 func TestNormalizeAddress(t *testing.T) {
 	tests := []normalizeAddressCase{
 		normalizeOK("port is empty, address has port", "localhost:8080", "", "localhost:8080"),

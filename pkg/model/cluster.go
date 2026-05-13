@@ -18,6 +18,7 @@
 package model
 
 import (
+	"crypto/sha256"
 	"fmt"
 )
 
@@ -127,4 +128,115 @@ func (c *ClusterConfig) CreateConsistentHash() {
 
 func (e Endpoint) GetHost() string {
 	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
+}
+
+// GeneratedEndpointID returns a deterministic runtime identity for endpoints
+// that do not provide an explicit ID.
+func GeneratedEndpointID(clusterName string, endpoint *Endpoint) string {
+	sum := sha256.Sum256([]byte(endpointIDMaterial(clusterName, endpoint)))
+	return fmt.Sprintf("generated-%x", sum[:8])
+}
+
+func endpointIDMaterial(clusterName string, endpoint *Endpoint) string {
+	if endpoint == nil {
+		return clusterName
+	}
+	provider := ""
+	apiKey := ""
+	if endpoint.LLMMeta != nil {
+		provider = endpoint.LLMMeta.Provider
+		apiKey = endpoint.LLMMeta.APIKey
+	}
+	return clusterName + "\x00" +
+		endpoint.Address.GetAddress() + "\x00" +
+		provider + "\x00" +
+		apiKey
+}
+
+func CloneEndpoints(endpoints []*Endpoint) []*Endpoint {
+	if endpoints == nil {
+		return nil
+	}
+	cloned := make([]*Endpoint, len(endpoints))
+	for i, endpoint := range endpoints {
+		cloned[i] = CloneEndpoint(endpoint)
+	}
+	return cloned
+}
+
+func CloneEndpoint(endpoint *Endpoint) *Endpoint {
+	if endpoint == nil {
+		return nil
+	}
+	cloned := *endpoint
+	cloned.Address = cloneSocketAddress(endpoint.Address)
+	cloned.Metadata = cloneMetadata(endpoint.Metadata)
+	cloned.LLMMeta = cloneLLMMeta(endpoint.LLMMeta)
+	return &cloned
+}
+
+func cloneSocketAddress(address SocketAddress) SocketAddress {
+	cloned := address
+	if address.Domains != nil {
+		cloned.Domains = append([]string(nil), address.Domains...)
+	}
+	return cloned
+}
+
+func cloneMetadata(metadata map[string]string) map[string]string {
+	if metadata == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(metadata))
+	for key, value := range metadata {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
+	if meta == nil {
+		return nil
+	}
+	cloned := *meta
+	cloned.RetryPolicy.Config = cloneAnyMap(meta.RetryPolicy.Config)
+	return &cloned
+}
+
+func cloneAnyMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(input))
+	for key, value := range input {
+		cloned[key] = cloneAnyValue(value)
+	}
+	return cloned
+}
+
+func cloneAnyValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(typed)
+	case []any:
+		cloned := make([]any, len(typed))
+		for i, item := range typed {
+			cloned[i] = cloneAnyValue(item)
+		}
+		return cloned
+	case []string:
+		return append([]string(nil), typed...)
+	case []int:
+		return append([]int(nil), typed...)
+	case []int64:
+		return append([]int64(nil), typed...)
+	case []float64:
+		return append([]float64(nil), typed...)
+	case []bool:
+		return append([]bool(nil), typed...)
+	case map[string]string:
+		return cloneMetadata(typed)
+	default:
+		return value
+	}
 }

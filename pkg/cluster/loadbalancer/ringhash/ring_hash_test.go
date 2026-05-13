@@ -30,6 +30,87 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+type staticHashPolicy string
+
+func (p staticHashPolicy) GenerateHash() string {
+	return string(p)
+}
+
+type fixedConsistentHash struct {
+	host string
+}
+
+func (h fixedConsistentHash) Hash(string) uint32 {
+	return 0
+}
+
+func (h fixedConsistentHash) Add(string) {}
+
+func (h fixedConsistentHash) Get(string) (string, error) {
+	return h.host, nil
+}
+
+func (h fixedConsistentHash) GetHash(uint32) (string, error) {
+	return h.host, nil
+}
+
+func (h fixedConsistentHash) Remove(string) bool {
+	return false
+}
+
+func TestRingHashHandlerUsesConfiguredHashWithoutClusterLBPolicy(t *testing.T) {
+	first := &model.Endpoint{
+		ID:      "first",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 18080},
+	}
+	second := &model.Endpoint{
+		ID:      "second",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 18081},
+	}
+	cluster := &model.ClusterConfig{
+		Name:      "ring-direct",
+		Endpoints: []*model.Endpoint{first, second},
+		ConsistentHash: model.ConsistentHash{
+			Hash: fixedConsistentHash{host: second.GetHost()},
+		},
+	}
+
+	got := RingHashing{}.Handler(cluster, staticHashPolicy("request-key"))
+	if got == nil {
+		t.Fatal("expected endpoint, got nil")
+	}
+	if got.ID != second.ID {
+		t.Fatalf("RingHashing picked %q, want %q", got.ID, second.ID)
+	}
+}
+
+func TestRingHashHandlerFallsBackWhenConfiguredHashHitsUnhealthyEndpoint(t *testing.T) {
+	healthy := &model.Endpoint{
+		ID:      "healthy",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 18080},
+	}
+	unhealthy := &model.Endpoint{
+		ID:        "unhealthy",
+		Address:   model.SocketAddress{Address: "127.0.0.1", Port: 18081},
+		UnHealthy: true,
+	}
+	cluster := &model.ClusterConfig{
+		Name:      "ring-direct-unhealthy-hit",
+		Endpoints: []*model.Endpoint{healthy, unhealthy},
+		ConsistentHash: model.ConsistentHash{
+			Hash: fixedConsistentHash{host: unhealthy.GetHost()},
+		},
+	}
+
+	got := RingHashing{}.Handler(cluster, staticHashPolicy("request-key"))
+	if got == nil {
+		t.Fatal("expected fallback endpoint, got nil")
+	}
+	if got.ID != healthy.ID {
+		t.Fatalf("RingHashing picked %q, want %q", got.ID, healthy.ID)
+	}
+}
+
 func TestHashRing(t *testing.T) {
 
 	nodeCount := 5
@@ -63,4 +144,39 @@ func TestHashRing(t *testing.T) {
 		}, &http.HttpContext{Request: &stdHttp.Request{Method: stdHttp.MethodGet, RequestURI: path}}))
 	}
 
+}
+
+func TestRingHashUsesHealthyConsistentHashSnapshot(t *testing.T) {
+	first := &model.Endpoint{
+		ID:      "first",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 18080},
+	}
+	unhealthy := &model.Endpoint{
+		ID:        "unhealthy",
+		Address:   model.SocketAddress{Address: "127.0.0.1", Port: 18081},
+		UnHealthy: true,
+	}
+	second := &model.Endpoint{
+		ID:      "second",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 18082},
+	}
+	cluster := &model.ClusterConfig{
+		Name: "ring-healthy-snapshot",
+		ConsistentHash: model.ConsistentHash{
+			Hash: fixedConsistentHash{host: unhealthy.GetHost()},
+		},
+	}
+
+	got := RingHashing{}.HandlerWithSnapshot(loadbalancer.PickContext{
+		Config:                cluster,
+		HealthyConsistentHash: fixedConsistentHash{host: second.GetHost()},
+		HealthyEndpoints:      []*model.Endpoint{first, second},
+	}, staticHashPolicy("key-for-unhealthy-slot"))
+
+	if got == nil {
+		t.Fatal("expected healthy endpoint, got nil")
+	}
+	if got.ID != second.ID {
+		t.Fatalf("RingHashing picked %q, want %q", got.ID, second.ID)
+	}
 }
