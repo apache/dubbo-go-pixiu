@@ -80,6 +80,30 @@ func TestClusterEndpointSnapshotEndpointCountIsNilSafe(t *testing.T) {
 	assert.Zero(t, snapshot.EndpointCount())
 }
 
+func TestClusterEndpointSnapshotForPickAccessorsAliasInternalStorage(t *testing.T) {
+	first := testEndpoint("ep-1", "127.0.0.1", 18080)
+	second := testEndpoint("ep-2", "127.0.0.1", 18081)
+
+	runtimeCluster := NewCluster(testCluster("snapshot-for-pick-alias", first, second))
+	snapshot := runtimeCluster.EndpointSnapshot()
+
+	healthy1 := snapshot.HealthyEndpointsForPick()
+	healthy2 := snapshot.HealthyEndpointsForPick()
+	if assert.Len(t, healthy1, 2) && assert.Len(t, healthy2, 2) {
+		assert.Same(t, &healthy1[0], &healthy2[0])
+	}
+
+	all1 := snapshot.AllEndpointsForPick()
+	all2 := snapshot.AllEndpointsForPick()
+	if assert.Len(t, all1, 2) && assert.Len(t, all2, 2) {
+		assert.Same(t, &all1[0], &all2[0])
+	}
+
+	var nilSnapshot *EndpointSnapshot
+	assert.Nil(t, nilSnapshot.HealthyEndpointsForPick())
+	assert.Nil(t, nilSnapshot.AllEndpointsForPick())
+}
+
 func TestClusterEndpointSnapshotBuildsConsistentHashFromRuntimeHealthyEndpoints(t *testing.T) {
 	tests := []model.LbPolicyType{
 		model.LoadBalancerRingHashing,

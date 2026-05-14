@@ -356,6 +356,29 @@ func (s *EndpointSnapshot) HealthyEndpointCount() int {
 	return len(s.healthy)
 }
 
+// HealthyEndpointsForPick returns the snapshot-internal healthy endpoint slice
+// without cloning. The returned slice and its endpoints are owned by the
+// snapshot; callers MUST NOT mutate elements, append into the slice, or retain
+// the slice past the current pick. This accessor exists for the request-path
+// picker; external callers should use HealthyEndpoints (defensive deep copy) or
+// PickHealthyEndpoint (zero-copy callback that clones only the chosen endpoint).
+func (s *EndpointSnapshot) HealthyEndpointsForPick() []*model.Endpoint {
+	if s == nil {
+		return nil
+	}
+	return s.healthy
+}
+
+// AllEndpointsForPick mirrors HealthyEndpointsForPick for the full endpoint set.
+// The same no-mutate / no-retain contract applies. The slice may contain nil
+// entries to preserve positional alignment with the originating cluster config.
+func (s *EndpointSnapshot) AllEndpointsForPick() []*model.Endpoint {
+	if s == nil {
+		return nil
+	}
+	return s.all
+}
+
 func (s *EndpointSnapshot) HealthyConsistentHash() model.LbConsistentHashView {
 	if s == nil {
 		return nil
