@@ -18,6 +18,7 @@
 package model
 
 import (
+	"crypto/sha256"
 	"fmt"
 )
 
@@ -127,4 +128,30 @@ func (c *ClusterConfig) CreateConsistentHash() {
 
 func (e Endpoint) GetHost() string {
 	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
+}
+
+// GeneratedEndpointID returns a deterministic runtime identity for endpoints
+// that do not provide an explicit ID. The hash material includes cluster name,
+// endpoint address, and (when present) LLM provider + API key, so endpoints
+// that differ only by credential do not collide and the same endpoint hashes
+// to the same ID across process restarts.
+func GeneratedEndpointID(clusterName string, endpoint *Endpoint) string {
+	sum := sha256.Sum256([]byte(endpointIDMaterial(clusterName, endpoint)))
+	return fmt.Sprintf("generated-%x", sum[:8])
+}
+
+func endpointIDMaterial(clusterName string, endpoint *Endpoint) string {
+	if endpoint == nil {
+		return clusterName
+	}
+	provider := ""
+	apiKey := ""
+	if endpoint.LLMMeta != nil {
+		provider = endpoint.LLMMeta.Provider
+		apiKey = endpoint.LLMMeta.APIKey
+	}
+	return clusterName + "\x00" +
+		endpoint.Address.GetAddress() + "\x00" +
+		provider + "\x00" +
+		apiKey
 }

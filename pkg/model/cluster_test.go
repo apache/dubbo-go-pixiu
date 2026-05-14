@@ -102,3 +102,44 @@ func TestEndpoint_GetHost(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.1:20880", endpoint.GetHost())
 }
+
+func TestGeneratedEndpointIDIsDeterministic(t *testing.T) {
+	build := func(apiKey string) *model.Endpoint {
+		return &model.Endpoint{
+			Name:    "shared-llm",
+			Address: model.SocketAddress{Address: "127.0.0.1", Port: 20880},
+			LLMMeta: &model.LLMMeta{Provider: "openai", APIKey: apiKey},
+		}
+	}
+
+	first := model.GeneratedEndpointID("cluster-a", build("key-a"))
+	second := model.GeneratedEndpointID("cluster-a", build("key-a"))
+	other := model.GeneratedEndpointID("cluster-a", build("key-b"))
+
+	assert.Equal(t, first, second, "same material must produce same ID")
+	assert.NotEqual(t, first, other, "different credential must produce different ID")
+	assert.True(t, strings.HasPrefix(first, "generated-"), "ID must use generated- prefix")
+	assert.NotContains(t, first, "key-a", "raw API key must not leak into the ID")
+}
+
+func TestGeneratedEndpointIDIgnoresEndpointName(t *testing.T) {
+	base := &model.Endpoint{
+		Name:    "old-name",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 20880},
+		LLMMeta: &model.LLMMeta{Provider: "openai", APIKey: "k"},
+	}
+	renamed := *base
+	renamed.Name = "new-name"
+
+	assert.Equal(t,
+		model.GeneratedEndpointID("cluster-a", base),
+		model.GeneratedEndpointID("cluster-a", &renamed),
+	)
+}
+
+func TestGeneratedEndpointIDHandlesNilEndpoint(t *testing.T) {
+	a := model.GeneratedEndpointID("cluster-a", nil)
+	b := model.GeneratedEndpointID("cluster-b", nil)
+	assert.True(t, strings.HasPrefix(a, "generated-"))
+	assert.NotEqual(t, a, b)
+}
