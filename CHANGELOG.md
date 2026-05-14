@@ -117,6 +117,14 @@ Numerous refactors, cleanups, and CI/build upgrades improve overall stability, m
   [#714](https://github.com/apache/dubbo-go-pixiu/pull/714),
   [#723](https://github.com/apache/dubbo-go-pixiu/pull/723)
 
+#### Cluster / Load Balancer
+
+* Introduce immutable healthy-endpoint snapshots for cluster runtime state; the request-path picker no longer scans config for health filtering [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* Lazy-built healthy consistent-hash view skipped when not consumed by the configured load balancer [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* LB hot path reduced to one allocation per pick on `endpoints=4` Rand (213 ns/8 allocs → 65 ns/1 alloc) [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* Per-API-key LLM fallback cooldown moved out of `Endpoint.Metadata` into the LLM proxy filter with bounded LRU + throttled sweep [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* Runtime endpoint health preserved across config refresh when endpoint ID and address still match [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+
 ### Bug Fixes
 
 * Stabilize Maglev request-key hashing [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
@@ -155,6 +163,7 @@ Numerous refactors, cleanups, and CI/build upgrades improve overall stability, m
 * Removal of unused Seata proxy [#628](https://github.com/apache/dubbo-go-pixiu/pull/628)
 * Removal of Istio integration [#622](https://github.com/apache/dubbo-go-pixiu/pull/622)
 * Removal of static config providers [#764](https://github.com/apache/dubbo-go-pixiu/pull/764)
+* Drop direct dependency on `hashicorp/go-uuid`; endpoint IDs derive deterministically via `GeneratedEndpointID` [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
 
 ### Contributors
 

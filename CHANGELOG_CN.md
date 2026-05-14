@@ -97,6 +97,14 @@
 * Pipeline 清理与无用 GitHub Action 移除 [#775](https://github.com/apache/dubbo-go-pixiu/pull/775)，[#786](https://github.com/apache/dubbo-go-pixiu/pull/786)
 * Docker 构建优化 [#714](https://github.com/apache/dubbo-go-pixiu/pull/714)，[#723](https://github.com/apache/dubbo-go-pixiu/pull/723)
 
+#### 集群 / 负载均衡（Cluster / Load Balancer）
+
+* 引入不可变的健康 Endpoint 快照,请求路径选点不再扫描 config 进行健康过滤 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* 一致性哈希视图按需懒构建,未使用一致性哈希的 LB 跳过构建 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* 简单 LB 热路径降至单次分配(`endpoints=4` Rand:213 ns/8 allocs → 65 ns/1 alloc) [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* 按 API Key 隔离的 LLM 回退冷却从 `Endpoint.Metadata` 迁移到 LLM Proxy Filter,带容量上限的 LRU 与节流清理 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+* 配置刷新时,Endpoint ID 与地址未变的运行时健康状态得以保留 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
+
 ### Bug 修复（Bug Fixes）
 
 * 修复 Maglev 请求 key 哈希不稳定问题 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
@@ -125,6 +133,7 @@
 * 移除未使用的 Seata Proxy [#628](https://github.com/apache/dubbo-go-pixiu/pull/628)
 * 移除 Istio 集成 [#622](https://github.com/apache/dubbo-go-pixiu/pull/622)
 * 移除静态配置 Provider [#764](https://github.com/apache/dubbo-go-pixiu/pull/764)
+* 移除对 `hashicorp/go-uuid` 的直接依赖,Endpoint ID 通过 `GeneratedEndpointID` 确定性派生 [#925](https://github.com/apache/dubbo-go-pixiu/pull/925)
 
 ### 贡献者（Contributors）
 
