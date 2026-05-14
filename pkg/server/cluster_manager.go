@@ -254,10 +254,9 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 	if snapshot.HealthyEndpointCount() == 0 {
 		return nil
 	}
+	healthyEndpoints := snapshot.HealthyEndpointsForPick()
 	if snapshot.EndpointCount() == 1 {
-		return snapshot.PickHealthyEndpoint(func(healthyEndpoints []*model.Endpoint) *model.Endpoint {
-			return healthyEndpoints[0]
-		})
+		return model.CloneEndpoint(healthyEndpoints[0])
 	}
 
 	c := runtimeCluster.Config
@@ -266,23 +265,12 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 	if !ok {
 		loadBalancer = loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand]
 	}
-	if _, ok := loadBalancer.(loadbalancer.SnapshotLoadBalancer); ok {
-		var allEndpoints []*model.Endpoint
-		if loadbalancer.NeedsAllEndpoints(loadBalancer) {
-			allEndpoints = snapshot.AllEndpoints()
-		}
-		return snapshot.PickHealthyEndpoint(func(healthyEndpoints []*model.Endpoint) *model.Endpoint {
-			return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, loadbalancer.PickContext{
-				Config:                c,
-				HealthyConsistentHash: snapshot.HealthyConsistentHash(),
-				AllEndpoints:          allEndpoints,
-				HealthyEndpoints:      healthyEndpoints,
-			}, policy)
-		})
+
+	var allEndpoints []*model.Endpoint
+	if loadbalancer.NeedsAllEndpoints(loadBalancer) {
+		allEndpoints = snapshot.AllEndpointsForPick()
 	}
 
-	allEndpoints := snapshot.AllEndpoints()
-	healthyEndpoints := snapshot.HealthyEndpoints()
 	return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, loadbalancer.PickContext{
 		Config:                c,
 		HealthyConsistentHash: snapshot.HealthyConsistentHash(),

@@ -476,6 +476,32 @@ func TestClusterManager_SnapshotLoadBalancerReceivesAllEndpoints(t *testing.T) {
 	}
 }
 
+func TestClusterManager_PickEndpointToleratesNilEntryInAllEndpoints(t *testing.T) {
+	balancer := &serverSnapshotAllEndpointsLoadBalancer{}
+	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testSnapshotAllEndpointsLB]
+	loadbalancer.LoadBalancerStrategy[testSnapshotAllEndpointsLB] = balancer
+	t.Cleanup(func() {
+		if hadPrevious {
+			loadbalancer.LoadBalancerStrategy[testSnapshotAllEndpointsLB] = previous
+			return
+		}
+		delete(loadbalancer.LoadBalancerStrategy, testSnapshotAllEndpointsLB)
+	})
+
+	healthy := testEndpoint("snapshot-nil-tolerant-healthy", "127.0.0.1", 18099)
+	config := testCluster("snapshot-nil-tolerant", testSnapshotAllEndpointsLB, []*model.Endpoint{healthy, nil})
+	cm := testClusterManager(config)
+
+	picked := cm.PickEndpoint(config.Name, nil)
+	if assert.NotNil(t, picked) {
+		assert.Equal(t, healthy.ID, picked.ID)
+	}
+	if assert.Len(t, balancer.seenAll, 2) {
+		assert.NotNil(t, balancer.seenAll[0])
+		assert.Nil(t, balancer.seenAll[1])
+	}
+}
+
 func TestClusterManager_SnapshotLoadBalancerCannotMutateOrBypassHealthySnapshot(t *testing.T) {
 	previous, hadPrevious := loadbalancer.LoadBalancerStrategy[testSnapshotMutatingLB]
 	loadbalancer.LoadBalancerStrategy[testSnapshotMutatingLB] = serverSnapshotMutatingLoadBalancer{}
