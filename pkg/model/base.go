@@ -180,3 +180,20 @@ func (a SocketAddress) GetAddress() string {
 	}
 	return fmt.Sprintf("%s:%v", a.Address, a.Port)
 }
+
+// Equal reports whether two SocketAddresses refer to the same upstream identity
+// without allocating the formatted "address:port" string. Domain-mode addresses
+// compare on Domains[0]; bare-IP addresses compare on Address+Port. Mixed-mode
+// pairs (one domain, one IP+port) are reported unequal because they describe
+// different upstreams even when their formatted forms collide.
+func (a SocketAddress) Equal(b SocketAddress) bool {
+	aHasDomain := len(a.Domains) > 0
+	bHasDomain := len(b.Domains) > 0
+	if aHasDomain != bHasDomain {
+		return false
+	}
+	if aHasDomain {
+		return a.Domains[0] == b.Domains[0]
+	}
+	return a.Address == b.Address && a.Port == b.Port
+}

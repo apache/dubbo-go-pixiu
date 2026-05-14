@@ -198,10 +198,14 @@ func sameEndpointIdentity(candidate, endpoint *model.Endpoint) bool {
 		if candidate.ID != endpoint.ID {
 			return false
 		}
-		endpointAddress := endpoint.Address.GetAddress()
-		return endpointAddress == "" || candidate.Address.GetAddress() == endpointAddress
+		// Preserve historical behavior: a snapshot endpoint declaring a single
+		// blank domain (GetAddress() == "") accepts any candidate by ID.
+		if len(endpoint.Address.Domains) > 0 && endpoint.Address.Domains[0] == "" {
+			return true
+		}
+		return candidate.Address.Equal(endpoint.Address)
 	}
-	return candidate.Address.GetAddress() == endpoint.Address.GetAddress()
+	return candidate.Address.Equal(endpoint.Address)
 }
 
 func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {
