@@ -555,12 +555,12 @@ func TestClusterManager_AssembleEndpointsPreservesExplicitID(t *testing.T) {
 	}
 }
 
-// TestClusterManager_AssembleEndpointsCollapseDuplicateGenerated locks the
-// documented collapse behavior: two static endpoints sharing every input that
-// feeds GenerateEndpointID (cluster name, address, LLM credential) end up with
-// the same generated ID, and operators must set an explicit `id:` to keep
-// them distinct.
-func TestClusterManager_AssembleEndpointsCollapseDuplicateGenerated(t *testing.T) {
+// TestClusterManager_AssembleEndpointsDeduplicatesDuplicateGenerated locks
+// the PR-3 dedup behavior: when two static endpoints share every input that
+// feeds GenerateEndpointID (cluster name, address, LLM credential), the
+// second one's ID gets a -2 suffix so runtime health-key lookups stay
+// unambiguous. A warning is logged so the operator notices.
+func TestClusterManager_AssembleEndpointsDeduplicatesDuplicateGenerated(t *testing.T) {
 	cluster := &model.ClusterConfig{
 		Name:  "collapse-id",
 		LbStr: model.LoadBalancerRoundRobin,
@@ -578,11 +578,39 @@ func TestClusterManager_AssembleEndpointsCollapseDuplicateGenerated(t *testing.T
 		return
 	}
 
-	// Both endpoints survived in the slice (we do not silently dedupe) but
-	// share the same generated identifier.
-	assert.Equal(t, endpoints[0].ID, endpoints[1].ID,
-		"endpoints with identical hash material must collapse to the same ID")
+	assert.NotEqual(t, endpoints[0].ID, endpoints[1].ID,
+		"PR-3 deduplicates colliding generated IDs instead of collapsing them")
 	assert.Contains(t, endpoints[0].ID, "pixiu-generated-endpoint-")
+	assert.Equal(t, endpoints[0].ID+"-2", endpoints[1].ID,
+		"second endpoint must be suffixed -2 relative to the first")
+}
+
+// TestAssembleEndpointsDeduplicatesExplicitID locks Blocker 6: when an
+// operator writes the same `id:` on two static endpoints, the second one
+// becomes `<id>-2` rather than `generated-<hash>-2`. Most-readable
+// (least-surprising) choice for dashboards and log correlation.
+func TestAssembleEndpointsDeduplicatesExplicitID(t *testing.T) {
+	cluster := &model.ClusterConfig{
+		Name:  "explicit-id-collision",
+		LbStr: model.LoadBalancerRoundRobin,
+		Endpoints: []*model.Endpoint{
+			{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 21090}},
+			{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 21091}},
+		},
+	}
+
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 2) {
+		return
+	}
+
+	assert.Equal(t, "foo", endpoints[0].ID, "first explicit ID is preserved")
+	assert.Equal(t, "foo-2", endpoints[1].ID,
+		"colliding second endpoint must be suffixed off the operator's ID, "+
+			"not the generated- hash, so the operator's choice stays readable")
 }
 
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
