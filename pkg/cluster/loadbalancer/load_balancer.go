@@ -18,21 +18,235 @@
 package loadbalancer
 
 import (
+	"sync"
+	"sync/atomic"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+// PickContext bundles the snapshot view a load balancer needs to make a
+// single pick. The runtime publishes an immutable EndpointSnapshot per
+// cluster and derives PickContext from it, so balancers must treat every
+// field as read-only.
+type PickContext struct {
+	// Config carries cluster-level load-balancer configuration and runtime
+	// cursor state. Snapshot-aware balancers should not reread
+	// Config.Endpoints for health filtering — use HealthyEndpoints instead.
+	Config *model.ClusterConfig
+	// HealthyConsistentHash is built from HealthyEndpoints for the same
+	// immutable runtime snapshot and intentionally exposes lookup methods only.
+	// Consistent-hash balancers should prefer this view over
+	// Config.ConsistentHash.Hash, which is mutable and can include
+	// runtime-unhealthy endpoints.
+	HealthyConsistentHash model.LbConsistentHashView
+	// AllEndpoints is the current runtime snapshot, including endpoints marked
+	// unhealthy by runtime health checks. Provided only when the balancer
+	// requests it via NeedsAllEndpoints.
+	AllEndpoints []*model.Endpoint
+	// HealthyEndpoints is already filtered from the current runtime snapshot.
+	// Snapshot-aware balancers must treat endpoints as read-only and return
+	// the chosen endpoint without mutating or retaining it.
+	HealthyEndpoints []*model.Endpoint
+}
 
 type LoadBalancer interface {
 	Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint
 }
 
+// SnapshotLoadBalancer is optional for balancers that consume the current
+// runtime snapshot. Implementations should pick only from
+// PickContext.HealthyEndpoints; Config.Endpoints may include unhealthy or
+// stale config entries.
+type SnapshotLoadBalancer interface {
+	HandlerWithSnapshot(c PickContext, policy model.LbPolicy) *model.Endpoint
+}
+
+// HealthyOnlySnapshotLoadBalancer marks snapshot-aware balancers that do not
+// need PickContext.AllEndpoints. Unmarked snapshot balancers keep receiving
+// the full snapshot for compatibility with custom implementations.
+type HealthyOnlySnapshotLoadBalancer interface {
+	UseHealthyEndpointsOnly() bool
+}
+
+// ZeroCopySnapshotLoadBalancer marks trusted balancers that never mutate or
+// retain snapshot endpoints. Other snapshot balancers receive defensive
+// copies.
+type ZeroCopySnapshotLoadBalancer interface {
+	UseZeroCopySnapshot() bool
+}
+
+// ClusterScopedLegacyLoadBalancer lets a legacy load balancer opt in to
+// runtime-cluster scoped serialization. Legacy balancers that do not
+// implement this interface keep the package-level compatibility lock because
+// strategy instances are shared globally. Implementations must ensure the
+// same balancer instance can run Handler concurrently across different
+// clusters.
+type ClusterScopedLegacyLoadBalancer interface {
+	UseClusterScopedLegacyLock() bool
+}
+
 // LoadBalancerStrategy load balancer strategy mode
 var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
+
+// legacyPickMu serializes pre-snapshot balancers. They share strategy
+// instances globally and may carry mutable cursor state, so concurrent
+// Handler calls across clusters are unsafe by default.
+var legacyPickMu sync.Mutex
 
 func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
 	if _, ok := LoadBalancerStrategy[name]; ok {
 		panic("load balancer register fail " + name)
 	}
 	LoadBalancerStrategy[name] = balancer
+}
+
+// PickEndpoint picks an endpoint for the supplied snapshot context. Use this
+// from snapshot-published pick paths. Legacy balancers fall back to the
+// package-level compatibility lock automatically.
+func PickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPolicy) *model.Endpoint {
+	return pickEndpointWithLegacyLock(balancer, nil, context, policy)
+}
+
+// PickEndpointWithLegacyLock serializes legacy balancers. The caller-provided
+// runtime lock is used only when the balancer explicitly opts in to scoped
+// serialization; other legacy balancers keep the package-level compatibility
+// lock.
+func PickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locker, context PickContext, policy model.LbPolicy) *model.Endpoint {
+	return pickEndpointWithLegacyLock(balancer, legacyPickLock, context, policy)
+}
+
+// NeedsAllEndpoints reports whether a snapshot-aware balancer should receive
+// PickContext.AllEndpoints on the request path.
+func NeedsAllEndpoints(balancer LoadBalancer) bool {
+	healthyOnly, ok := balancer.(HealthyOnlySnapshotLoadBalancer)
+	return !ok || !healthyOnly.UseHealthyEndpointsOnly()
+}
+
+// ConsistentHashForHealthyEndpoints returns a consistent hash view that only
+// contains the healthy endpoints visible to this pick. Returns nil if the
+// context has no healthy endpoints or no consistent-hash factory registered.
+func ConsistentHashForHealthyEndpoints(context PickContext) model.LbConsistentHashView {
+	if context.HealthyConsistentHash != nil {
+		return context.HealthyConsistentHash
+	}
+	if context.Config == nil || len(context.HealthyEndpoints) == 0 {
+		return nil
+	}
+	newConsistentHash, ok := model.ConsistentHashInitMap[context.Config.LbStr]
+	if ok {
+		return model.ReadOnlyConsistentHash(newConsistentHash(context.Config.ConsistentHash, context.HealthyEndpoints))
+	}
+	return model.ReadOnlyConsistentHash(context.Config.ConsistentHash.Hash)
+}
+
+func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locker, context PickContext, policy model.LbPolicy) *model.Endpoint {
+	if balancer == nil || context.Config == nil {
+		return nil
+	}
+	if snapshotBalancer, ok := balancer.(SnapshotLoadBalancer); ok {
+		snapshotContext := context
+		zeroCopy, ok := balancer.(ZeroCopySnapshotLoadBalancer)
+		if !ok || !zeroCopy.UseZeroCopySnapshot() {
+			snapshotContext = defensiveSnapshotPickContext(context)
+		}
+		endpoint := snapshotBalancer.HandlerWithSnapshot(snapshotContext, policy)
+		return healthyEndpointFromSnapshot(endpoint, context.HealthyEndpoints)
+	}
+
+	// Legacy balancers only understand ClusterConfig. Serialize this
+	// compatibility path so cursor-style state reconciles predictably;
+	// custom mutable state should move to SnapshotLoadBalancer instead.
+	lock := legacyPickLockFor(balancer, legacyPickLock)
+	lock.Lock()
+	defer lock.Unlock()
+
+	allEndpoints := context.AllEndpoints
+	if allEndpoints == nil {
+		allEndpoints = context.HealthyEndpoints
+	}
+	config := *context.Config
+	config.Endpoints = model.CloneEndpoints(allEndpoints)
+	cursorBefore := atomic.LoadUint32(&context.Config.PrePickEndpointIndex)
+	atomic.StoreUint32(&config.PrePickEndpointIndex, cursorBefore)
+	endpoint := balancer.Handler(&config, policy)
+	cursorAfter := atomic.LoadUint32(&config.PrePickEndpointIndex)
+	if cursorAfter != cursorBefore {
+		atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
+	}
+	return healthyEndpointFromSnapshot(endpoint, context.HealthyEndpoints)
+}
+
+func defensiveSnapshotPickContext(context PickContext) PickContext {
+	defensive := context
+	defensive.AllEndpoints = model.CloneEndpoints(context.AllEndpoints)
+	defensive.HealthyEndpoints = model.CloneEndpoints(context.HealthyEndpoints)
+	return defensive
+}
+
+func legacyPickLockFor(balancer LoadBalancer, legacyPickLock sync.Locker) sync.Locker {
+	if scoped, ok := balancer.(ClusterScopedLegacyLoadBalancer); ok && scoped.UseClusterScopedLegacyLock() && legacyPickLock != nil {
+		return legacyPickLock
+	}
+	return &legacyPickMu
+}
+
+func healthyEndpointFromSnapshot(endpoint *model.Endpoint, healthyEndpoints []*model.Endpoint) *model.Endpoint {
+	if endpoint == nil {
+		return nil
+	}
+	for _, candidate := range healthyEndpoints {
+		if sameEndpointIdentity(candidate, endpoint) {
+			return model.CloneEndpoint(candidate)
+		}
+	}
+	return nil
+}
+
+// sameEndpointIdentity reports whether candidate (from the snapshot's healthy
+// set) matches endpoint (returned by a balancer pick). Used to confirm the
+// balancer chose a still-healthy entry before handing it back to the request
+// path.
+//
+// Rules:
+//
+//  1. When either side carries a non-empty ID, IDs must match. ID is the
+//     authoritative identity since PR-2 (deterministic generation) and is
+//     immune to address drift caused by DNS or service-discovery refreshes.
+//  2. With IDs matched, when the snapshot endpoint's address declares a
+//     single blank domain (Domains == [""], so GetAddress() == ""), any
+//     candidate address is accepted. This preserves a long-standing legacy
+//     resolver behavior: certain dynamic backends produce endpoints whose
+//     literal address is intentionally blank and the resolver is expected to
+//     reconcile via ID. Stripping this wildcard would regress those
+//     deployments.
+//  3. Otherwise (or when neither side has an ID), addresses must compare
+//     equal via SocketAddress.Equal — no string formatting, no allocation.
+//
+// Risk: rule (2) is only safe because IDs are now deterministic and
+// non-empty by default (see model.GenerateEndpointID). If an attacker could
+// inject an endpoint with the same ID and a blank-domain address it would
+// match regardless of where the candidate points. The ID is therefore
+// treated as a trust boundary and must remain operator-controlled or
+// system-generated.
+//
+// This wildcard's behavior is locked by
+// TestSameEndpointIdentityBlankDomainWildcard in load_balancer_test.go.
+func sameEndpointIdentity(candidate, endpoint *model.Endpoint) bool {
+	if candidate == nil || endpoint == nil {
+		return false
+	}
+	if endpoint.ID != "" || candidate.ID != "" {
+		if candidate.ID != endpoint.ID {
+			return false
+		}
+		if len(endpoint.Address.Domains) > 0 && endpoint.Address.Domains[0] == "" {
+			return true
+		}
+		return candidate.Address.Equal(endpoint.Address)
+	}
+	return candidate.Address.Equal(endpoint.Address)
 }
 
 func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {

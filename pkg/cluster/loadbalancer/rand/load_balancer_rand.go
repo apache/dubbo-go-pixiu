@@ -32,11 +32,26 @@ func init() {
 
 type Rand struct{}
 
+func (Rand) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (Rand) UseZeroCopySnapshot() bool {
+	return true
+}
+
 // randIntn lets tests replace randomness with deterministic choices.
 var randIntn = rand.Intn
 
-func (Rand) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
-	endpoints := c.GetEndpoint(true)
+func (r Rand) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
+	return r.HandlerWithSnapshot(loadbalancer.PickContext{
+		Config:           c,
+		HealthyEndpoints: c.GetEndpoint(true),
+	}, policy)
+}
+
+func (Rand) HandlerWithSnapshot(c loadbalancer.PickContext, _ model.LbPolicy) *model.Endpoint {
+	endpoints := c.HealthyEndpoints
 	if len(endpoints) == 0 {
 		return nil
 	}
