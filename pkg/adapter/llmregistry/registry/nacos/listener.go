@@ -318,8 +318,8 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 }
 
 func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) string {
-	if id, ok := instance.Metadata["id"]; ok && strings.TrimSpace(id) != "" {
-		return strings.TrimSpace(id)
+	if id := strings.TrimSpace(instance.Metadata["id"]); id != "" {
+		return id
 	}
 	if instanceID := strings.TrimSpace(instance.InstanceId); instanceID != "" {
 		return instanceID
