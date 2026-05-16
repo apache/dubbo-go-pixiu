@@ -555,6 +555,36 @@ func TestClusterManager_AssembleEndpointsPreservesExplicitID(t *testing.T) {
 	}
 }
 
+// TestClusterManager_AssembleEndpointsCollapseDuplicateGenerated locks the
+// documented collapse behavior: two static endpoints sharing every input that
+// feeds GenerateEndpointID (cluster name, address, LLM credential) end up with
+// the same generated ID, and operators must set an explicit `id:` to keep
+// them distinct.
+func TestClusterManager_AssembleEndpointsCollapseDuplicateGenerated(t *testing.T) {
+	cluster := &model.ClusterConfig{
+		Name:  "collapse-id",
+		LbStr: model.LoadBalancerRoundRobin,
+		Endpoints: []*model.Endpoint{
+			{Address: model.SocketAddress{Address: "127.0.0.1", Port: 21083}},
+			{Address: model.SocketAddress{Address: "127.0.0.1", Port: 21083}},
+		},
+	}
+
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 2) {
+		return
+	}
+
+	// Both endpoints survived in the slice (we do not silently dedupe) but
+	// share the same generated identifier.
+	assert.Equal(t, endpoints[0].ID, endpoints[1].ID,
+		"endpoints with identical hash material must collapse to the same ID")
+	assert.Contains(t, endpoints[0].ID, "generated-")
+}
+
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
 	return CreateDefaultClusterManager(&model.Bootstrap{
 		StaticResources: model.StaticResources{

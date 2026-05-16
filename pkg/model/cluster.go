@@ -139,7 +139,7 @@ func (e Endpoint) GetHost() string {
 // Design notes:
 //   - The output is sha256(material) truncated to the first 8 bytes (64 bits).
 //     Birthday-collision probability becomes meaningful only around 2^32
-//     endpoints, far above any per-cluster scale we operate at.
+//     endpoints, far above any realistic per-cluster scale.
 //   - clusterName is part of the material so endpoints in different clusters
 //     never alias. Callers from the Nacos LLM path supply
 //     instance.Metadata["cluster"]; if that metadata is missing the value is
@@ -153,6 +153,14 @@ func GenerateEndpointID(clusterName string, endpoint *Endpoint) string {
 	return fmt.Sprintf("generated-%x", sum[:8])
 }
 
+// endpointIDMaterial builds the byte string fed into the hash inside
+// GenerateEndpointID.
+//
+// Contract: this function MUST NOT depend on endpoint.Name. Callers
+// (notably ClusterStore.assembleClusterEndpoints) rely on being able to
+// derive the ID before assigning a default Name. Adding Name into the
+// material would also break the rename-invariance guarantee asserted by
+// TestGenerateEndpointIDIgnoresEndpointName.
 func endpointIDMaterial(clusterName string, endpoint *Endpoint) string {
 	if endpoint == nil {
 		return clusterName
