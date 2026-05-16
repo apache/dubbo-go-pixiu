@@ -500,6 +500,61 @@ func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
 	wg.Wait()
 }
 
+func TestClusterManager_AssembleEndpointsAssignsDeterministicID(t *testing.T) {
+	build := func() *model.ClusterConfig {
+		return &model.ClusterConfig{
+			Name:  "assemble-id",
+			LbStr: model.LoadBalancerRoundRobin,
+			Endpoints: []*model.Endpoint{
+				{Address: model.SocketAddress{Address: "127.0.0.1", Port: 21080}},
+				{Address: model.SocketAddress{Address: "127.0.0.1", Port: 21081}},
+			},
+		}
+	}
+
+	first := testClusterManager(build())
+	defer stopStoreRuntimes(first.store)
+	second := testClusterManager(build())
+	defer stopStoreRuntimes(second.store)
+
+	firstEPs := first.store.Config[0].Endpoints
+	secondEPs := second.store.Config[0].Endpoints
+
+	if !assert.Len(t, firstEPs, 2) || !assert.Len(t, secondEPs, 2) {
+		return
+	}
+
+	// Deterministic: identical static config produces identical IDs across
+	// independent constructions, so dashboards keyed on endpoint.ID survive
+	// process restart.
+	assert.Equal(t, firstEPs[0].ID, secondEPs[0].ID)
+	assert.Equal(t, firstEPs[1].ID, secondEPs[1].ID)
+
+	// Generated prefix indicates the deterministic helper, not the legacy
+	// random UUID fallback.
+	assert.Contains(t, firstEPs[0].ID, "generated-")
+
+	// Endpoints differing only by port must not collide within the same cluster.
+	assert.NotEqual(t, firstEPs[0].ID, firstEPs[1].ID)
+}
+
+func TestClusterManager_AssembleEndpointsPreservesExplicitID(t *testing.T) {
+	cluster := &model.ClusterConfig{
+		Name:  "explicit-id",
+		LbStr: model.LoadBalancerRoundRobin,
+		Endpoints: []*model.Endpoint{
+			{ID: "operator-pinned", Address: model.SocketAddress{Address: "127.0.0.1", Port: 21082}},
+		},
+	}
+
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	if assert.Len(t, cm.store.Config[0].Endpoints, 1) {
+		assert.Equal(t, "operator-pinned", cm.store.Config[0].Endpoints[0].ID)
+	}
+}
+
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
 	return CreateDefaultClusterManager(&model.Bootstrap{
 		StaticResources: model.StaticResources{

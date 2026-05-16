@@ -24,10 +24,6 @@ import (
 )
 
 import (
-	"github.com/hashicorp/go-uuid"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
@@ -317,9 +313,12 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	}
 
 	for i, endpoint := range c.Endpoints {
-		// If the endpoint ID is not set, set it to the index + 1
+		// If the endpoint ID is not set, derive a deterministic one so the same
+		// endpoint hashes to the same ID across process restarts. Identifiers
+		// must be stable for metrics/log correlation and runtime lookups
+		// (PickNextEndpoint, GetEndpointByID, DeleteEndpoint).
 		if endpoint.ID == "" {
-			endpoint.ID, _ = uuid.GenerateUUID()
+			endpoint.ID = model.GenerateEndpointID(c.Name, endpoint)
 		}
 
 		// If the endpoint has no name, set a default name
