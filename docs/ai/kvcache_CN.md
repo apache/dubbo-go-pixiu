@@ -43,6 +43,27 @@
 
 如果不一致，请求会自动回退到正常负载均衡。
 
+#### `pixiu cluster endpoint.id` 的生成规则
+
+按三档优先级取第一个非空值：
+
+1. 注册中心实例上的 `metadata["id"]`（Nacos LLM 注册中心），
+   或静态配置 endpoint 上的 `id:` 字段。
+2. Nacos 的 `InstanceId`（若存在）。
+3. 由 `(cluster_name, address, provider, api_key)` 派生的确定性哈希
+   `generated-<sha8>`。
+
+三种形式在 pixiu 重启之间都保持稳定，只要底层属性没有变化，所以
+`LMCache instance_id ↔ pixiu endpoint.id` 这条契约长期成立。
+
+#### 升级说明
+
+早期 pixiu 版本在第 2、3 档使用随机 UUID，导致 `endpoint.id` 每次
+重启和重订阅都会变化。当前版本改为确定性 ID；如果你的 LMCache
+部署中 `instance_id` 是基于那些随机 UUID 推导的，升级时会看到一次性
+的 ID 形态切换。切换之后，LMCache 只需为每个 endpoint 重新学习一次
+`instance_id`，之后路由恢复稳定。
+
 说明：
 
 - 当前实现 **不会** 调 LMCache `/query_worker_info`
