@@ -130,12 +130,25 @@ func (e Endpoint) GetHost() string {
 	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
 }
 
-// GeneratedEndpointID returns a deterministic runtime identity for endpoints
+// GenerateEndpointID returns a deterministic runtime identity for endpoints
 // that do not provide an explicit ID. The hash material includes cluster name,
 // endpoint address, and (when present) LLM provider + API key, so endpoints
 // that differ only by credential do not collide and the same endpoint hashes
 // to the same ID across process restarts.
-func GeneratedEndpointID(clusterName string, endpoint *Endpoint) string {
+//
+// Design notes:
+//   - The output is sha256(material) truncated to the first 8 bytes (64 bits).
+//     Birthday-collision probability becomes meaningful only around 2^32
+//     endpoints, far above any per-cluster scale we operate at.
+//   - clusterName is part of the material so endpoints in different clusters
+//     never alias. Callers from the Nacos LLM path supply
+//     instance.Metadata["cluster"]; if that metadata is missing the value is
+//     the empty string, and identity is then determined by address +
+//     credential only.
+//   - The LLM API key is included on purpose so two endpoints that share an
+//     address but use different credentials never alias to the same ID. The
+//     output is one-way (sha256), so the raw key never appears in the ID.
+func GenerateEndpointID(clusterName string, endpoint *Endpoint) string {
 	sum := sha256.Sum256([]byte(endpointIDMaterial(clusterName, endpoint)))
 	return fmt.Sprintf("generated-%x", sum[:8])
 }
