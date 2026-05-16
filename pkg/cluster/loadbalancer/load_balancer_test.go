@@ -514,3 +514,67 @@ func waitClosed(t *testing.T, done <-chan struct{}) {
 		t.Fatal("timed out waiting for legacy pick to finish")
 	}
 }
+
+// TestSameEndpointIdentityBlankDomainWildcard locks the legacy resolver
+// behavior in sameEndpointIdentity: when a snapshot endpoint declares a
+// single blank domain (Domains == [""], so GetAddress() == ""), it
+// matches any candidate by ID alone. This wildcard is preserved
+// intentionally — see the contract comment on sameEndpointIdentity for
+// why, and the risk it introduces (IDs must be operator-controlled or
+// system-generated).
+func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
+	cases := []struct {
+		name       string
+		snapshotEP *model.Endpoint
+		candidate  *model.Endpoint
+		want       bool
+		why        string
+	}{
+		{
+			name: "matching_id_with_blank_domain_accepts_any_candidate_address",
+			snapshotEP: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Domains: []string{""}},
+			},
+			candidate: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
+			},
+			want: true,
+			why:  "blank-domain snapshot endpoint wildcards on ID",
+		},
+		{
+			name: "matching_id_with_real_domain_requires_address_equality",
+			snapshotEP: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Domains: []string{"openai.com"}},
+			},
+			candidate: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
+			},
+			want: false,
+			why:  "real-domain snapshot endpoint must match address too",
+		},
+		{
+			name: "different_id_with_blank_domain_is_not_a_match",
+			snapshotEP: &model.Endpoint{
+				ID:      "snapshot-id",
+				Address: model.SocketAddress{Domains: []string{""}},
+			},
+			candidate: &model.Endpoint{
+				ID:      "candidate-id",
+				Address: model.SocketAddress{Domains: []string{""}},
+			},
+			want: false,
+			why:  "ID is the trust boundary; blank domain does not paper over an ID mismatch",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := sameEndpointIdentity(tc.candidate, tc.snapshotEP)
+			assert.Equal(t, tc.want, got, tc.why)
+		})
+	}
+}
