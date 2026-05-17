@@ -19,7 +19,6 @@ package nacos
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -322,14 +321,19 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 // Lookup order:
 //  1. instance.Metadata["id"] (operator override)
 //  2. instance.InstanceId (nacos-assigned identity, stable for a registration)
-//  3. model.GenerateEndpointID(metadata["cluster"], endpoint)
-//  4. fallback when cluster metadata is missing: a deterministic key built
-//     from ServiceName + ClusterName + address, prefixed with the constant
-//     nacosMissingClusterFallbackPrefix so the synthesized identity is
-//     visible in logs/dashboards. A warn is logged once per call so an
-//     operator can fix the metadata; without it, two instances at the
-//     same address from different services would alias to the same
-//     generated- ID (clusterName == "" in the hash material).
+//  3. model.GenerateEndpointID(metadata["cluster"], endpoint) — covers the
+//     normal LLM registry flow where adapter routes by metadata["cluster"]
+//
+// When metadata["cluster"] is missing, this function still returns the
+// generated- ID with an empty cluster name in the hash, but logs a warn
+// pointing the operator at the downstream behavior: the LLM registry
+// adapter (Adapter.OnAddEndpoint) explicitly skips endpoints that lack
+// metadata["cluster"] (see pkg/adapter/llmregistry/registrycenter.go).
+// In other words, an endpoint reaching this branch will not be admitted
+// into any runtime cluster regardless of the ID we synthesize, so we do
+// not try to disambiguate cross-service collisions here — the
+// disambiguation is the adapter's job and currently is "drop". If that
+// adapter contract relaxes, this function will need a real fallback.
 func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) string {
 	if id := strings.TrimSpace(instance.Metadata["id"]); id != "" {
 		return id
@@ -338,32 +342,20 @@ func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) str
 		return instanceID
 	}
 	clusterMeta := strings.TrimSpace(instance.Metadata["cluster"])
-	if clusterMeta != "" {
-		return model.GenerateEndpointID(clusterMeta, endpoint)
+	if clusterMeta == "" {
+		address := ""
+		if endpoint != nil {
+			address = endpoint.Address.GetAddress()
+		}
+		logger.Warnf(
+			"[dubbo-go-pixiu] nacos instance (service=%s, cluster=%s, addr=%s) is missing metadata[\"cluster\"]; "+
+				"the LLM registry adapter will skip this endpoint. Set metadata[\"cluster\"] (or "+
+				"metadata[\"id\"]) on the nacos registration to admit it into a runtime cluster.",
+			instance.ServiceName, instance.ClusterName, address,
+		)
 	}
-	address := ""
-	if endpoint != nil {
-		address = endpoint.Address.GetAddress()
-	}
-	fallback := fmt.Sprintf("%s%s/%s/%s",
-		nacosMissingClusterFallbackPrefix,
-		instance.ServiceName,
-		instance.ClusterName,
-		address,
-	)
-	logger.Warnf(
-		"[dubbo-go-pixiu] nacos instance %q (service=%s, cluster=%s, addr=%s) is missing metadata[\"cluster\"]; "+
-			"endpoint ID falls back to %q. Set metadata[\"cluster\"] (or metadata[\"id\"]) so cross-cluster instances "+
-			"at the same address do not alias.",
-		instance.InstanceId, instance.ServiceName, instance.ClusterName, address, fallback,
-	)
-	return fallback
+	return model.GenerateEndpointID(clusterMeta, endpoint)
 }
-
-// nacosMissingClusterFallbackPrefix marks endpoint IDs synthesized by
-// nacosEndpointID when the nacos instance lacks metadata["cluster"]. The
-// prefix lets operators grep for misconfigured registrations.
-const nacosMissingClusterFallbackPrefix = "nacos-no-cluster-"
 
 func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {
 	return nacosModel.Instance{

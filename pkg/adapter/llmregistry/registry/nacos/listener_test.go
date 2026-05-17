@@ -19,6 +19,7 @@ package nacos
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -490,15 +491,16 @@ func TestServiceCallbackKeepsNacosInstancesWithoutMetadataIDDistinct(t *testing.
 	assert.Contains(t, adapterListener.removedEndpoints, "nacos-instance-a")
 }
 
-// TestNacosEndpointIDFallbackDifferentiatesServicesWithoutClusterMetadata
-// covers the case where nacosEndpointID has neither metadata["id"], nor an
-// InstanceId, nor metadata["cluster"] to feed into the deterministic hash.
-// Two such instances at the same address (e.g. registered against different
-// nacos services in the same DC) must not alias to the same endpoint ID. The
-// fallback derives identity from ServiceName + ClusterName + address.
-func TestNacosEndpointIDFallbackDifferentiatesServicesWithoutClusterMetadata(t *testing.T) {
-	// Instance A: service "alpha", cluster "DEFAULT", same IP/port as B.
-	instanceA := nacosModel.Instance{
+// TestNacosEndpointIDMissingClusterFallsBackToEmptyClusterHash ensures that
+// when a nacos instance has no metadata["id"], no InstanceId, and no
+// metadata["cluster"], nacosEndpointID returns a generated- ID derived
+// with an empty cluster name. The downstream LLM registry adapter
+// (Adapter.OnAddEndpoint) drops such endpoints, so we do not attempt to
+// disambiguate cross-service collisions here. The contract this test
+// locks: the function does not invent a synthesized fallback prefix and
+// does not pretend an unreachable endpoint will be admitted.
+func TestNacosEndpointIDMissingClusterFallsBackToEmptyClusterHash(t *testing.T) {
+	instance := nacosModel.Instance{
 		// InstanceId intentionally empty; metadata has neither "id" nor "cluster".
 		Ip:          "10.0.0.1",
 		Port:        18080,
@@ -506,42 +508,28 @@ func TestNacosEndpointIDFallbackDifferentiatesServicesWithoutClusterMetadata(t *
 		ClusterName: "DEFAULT",
 		Metadata:    map[string]string{"llm-meta.api_key": "key-shared"},
 	}
-	endpointA := generateEndpoint(instanceA)
 
-	// Instance B: different service, same address + credential.
-	instanceB := nacosModel.Instance{
-		Ip:          "10.0.0.1",
-		Port:        18080,
-		ServiceName: "bravo",
-		ClusterName: "DEFAULT",
-		Metadata:    map[string]string{"llm-meta.api_key": "key-shared"},
+	endpoint := generateEndpoint(instance)
+	assert.True(t, strings.HasPrefix(endpoint.ID, "generated-"),
+		"missing metadata[\"cluster\"] falls through to model.GenerateEndpointID with empty cluster")
+
+	// Deterministic: re-generating from the same instance returns the same ID.
+	assert.Equal(t, endpoint.ID, generateEndpoint(instance).ID)
+
+	// Acknowledged limitation: at this code level we cannot tell two
+	// instances apart that share address+credential and both lack
+	// metadata["cluster"]. They alias to the same generated- ID. The LLM
+	// registry adapter skips them before the alias has any runtime effect.
+	collidingInstance := nacosModel.Instance{
+		Ip:          instance.Ip,
+		Port:        instance.Port,
+		ServiceName: "bravo", // different service, but the adapter ignores ServiceName for ID
+		ClusterName: instance.ClusterName,
+		Metadata:    instance.Metadata,
 	}
-	endpointB := generateEndpoint(instanceB)
-
-	assert.NotEqual(t, endpointA.ID, endpointB.ID,
-		"nacos instances at the same address but registered against different services "+
-			"must not alias to the same generated- ID just because metadata[\"cluster\"] is missing")
-	assert.Contains(t, endpointA.ID, nacosMissingClusterFallbackPrefix,
-		"fallback ID must be visibly tagged so misconfigured registrations are greppable")
-	assert.Contains(t, endpointB.ID, nacosMissingClusterFallbackPrefix)
-}
-
-// TestNacosEndpointIDFallbackStableForSameInstance ensures the fallback
-// ID is deterministic: re-generating from the same nacos instance returns
-// the same ID, so dashboards and snapshot inheritance keep working.
-func TestNacosEndpointIDFallbackStableForSameInstance(t *testing.T) {
-	instance := nacosModel.Instance{
-		Ip:          "10.0.0.1",
-		Port:        18080,
-		ServiceName: "alpha",
-		ClusterName: "DEFAULT",
-		Metadata:    map[string]string{},
-	}
-
-	first := generateEndpoint(instance).ID
-	second := generateEndpoint(instance).ID
-	assert.Equal(t, first, second)
-	assert.Contains(t, first, nacosMissingClusterFallbackPrefix)
+	assert.Equal(t, endpoint.ID, generateEndpoint(collidingInstance).ID,
+		"two instances missing metadata[\"cluster\"] at the same address will alias here; "+
+			"disambiguation is the adapter's job (currently: drop)")
 }
 
 func TestLifecycle(t *testing.T) {
