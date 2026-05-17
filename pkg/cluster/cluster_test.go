@@ -81,7 +81,15 @@ func TestClusterEndpointSnapshotEndpointCountIsNilSafe(t *testing.T) {
 	assert.Zero(t, snapshot.EndpointCount())
 }
 
-func TestClusterEndpointSnapshotForPickAccessorsAliasInternalStorage(t *testing.T) {
+// TestClusterEndpointSnapshotForPickAccessorsExposeStableView locks the
+// per-call semantic contract of HealthyEndpointsForPick / AllEndpointsForPick,
+// without locking the implementation detail of returning the same backing
+// slice. Concretely: repeated calls return slices of the same length, same
+// IDs in the same order, and the same endpoint *pointers* per slot (so
+// snapshot consumers can compare by identity). This deliberately stops
+// short of asserting that callers see the snapshot's internal slice header
+// itself, leaving room for future lazy-build / metric / hook indirections.
+func TestClusterEndpointSnapshotForPickAccessorsExposeStableView(t *testing.T) {
 	first := testEndpoint("ep-1", "127.0.0.1", 18080)
 	second := testEndpoint("ep-2", "127.0.0.1", 18081)
 
@@ -91,13 +99,23 @@ func TestClusterEndpointSnapshotForPickAccessorsAliasInternalStorage(t *testing.
 	healthy1 := snapshot.HealthyEndpointsForPick()
 	healthy2 := snapshot.HealthyEndpointsForPick()
 	if assert.Len(t, healthy1, 2) && assert.Len(t, healthy2, 2) {
-		assert.Same(t, &healthy1[0], &healthy2[0])
+		assert.Equal(t, healthy1[0].ID, healthy2[0].ID)
+		assert.Equal(t, healthy1[1].ID, healthy2[1].ID)
+		// Same endpoint identity per slot: snapshot guarantees the for-pick
+		// accessors are stable for the snapshot's lifetime. We compare the
+		// endpoint pointer (zero-copy view of the snapshot's owned endpoint)
+		// rather than the slice header address.
+		assert.Same(t, healthy1[0], healthy2[0])
+		assert.Same(t, healthy1[1], healthy2[1])
 	}
 
 	all1 := snapshot.AllEndpointsForPick()
 	all2 := snapshot.AllEndpointsForPick()
 	if assert.Len(t, all1, 2) && assert.Len(t, all2, 2) {
-		assert.Same(t, &all1[0], &all2[0])
+		assert.Equal(t, all1[0].ID, all2[0].ID)
+		assert.Equal(t, all1[1].ID, all2[1].ID)
+		assert.Same(t, all1[0], all2[0])
+		assert.Same(t, all1[1], all2[1])
 	}
 
 	var nilSnapshot *EndpointSnapshot
