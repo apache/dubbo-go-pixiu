@@ -73,7 +73,6 @@ type EndpointChecker struct {
 	checkTimeout  *gxtime.Timer
 	unHealthCount uint32
 	healthCount   uint32
-	threshold     uint32
 
 	once sync.Once
 }
@@ -326,28 +325,46 @@ func (c *EndpointChecker) Stop() {
 	})
 }
 
+// HandleSuccess records a healthy probe result. The endpoint is only
+// flipped to healthy after healthyThreshold consecutive successes — see
+// the CHANGELOG for the v1.2 behavior change that made this configured
+// threshold actually take effect (previously the counter compared
+// against an uninitialized field that was always 0, so the first probe
+// flipped state).
 func (c *EndpointChecker) HandleSuccess() {
 	c.unHealthCount = 0
 	c.healthCount++
-	if c.healthCount > c.threshold {
+	if c.healthCount >= c.HealthChecker.healthyThreshold {
 		c.handleHealth()
 	}
 }
 
+// HandleFailure records an unhealthy probe result. timeout=true means
+// the probe never returned within the configured timeout; timeout=false
+// means the probe returned a negative answer. Both feed the same
+// unhealthy counter so the configured unhealthyThreshold governs the
+// flip from healthy to unhealthy regardless of how the failure
+// manifested. Prior to v1.2, timeout=false flipped state immediately
+// (no counter at all) and timeout=true compared against an
+// uninitialized threshold field — see CHANGELOG.
+//
+// The timeout flag is accepted for API symmetry with the Start loop
+// (which already logs the timeout separately) but does not change the
+// counter logic.
 func (c *EndpointChecker) HandleFailure(timeout bool) {
-	if timeout {
-		c.HandleTimeout()
-	} else {
+	_ = timeout
+	c.healthCount = 0
+	c.unHealthCount++
+	if c.unHealthCount >= c.HealthChecker.unhealthyThreshold {
 		c.handleUnHealth()
 	}
 }
 
+// HandleTimeout is preserved for backward compatibility with external
+// Checker implementations that called it directly. Internally we route
+// through HandleFailure(true).
 func (c *EndpointChecker) HandleTimeout() {
-	c.healthCount = 0
-	c.unHealthCount++
-	if c.unHealthCount > c.threshold {
-		c.handleUnHealth()
-	}
+	c.HandleFailure(true)
 }
 
 func (c *EndpointChecker) handleHealth() {
