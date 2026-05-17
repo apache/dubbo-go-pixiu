@@ -119,6 +119,15 @@ func BenchmarkClusterLoadBalancerHotPathSerial(b *testing.B) {
 	}
 }
 
+// BenchmarkClusterHealthySnapshotLoad measures the per-request endpoint
+// retrieval cost on the snapshot pick path. The request path uses
+// HealthyEndpointsForPick (zero-copy: returns the snapshot-owned slice),
+// not HealthyEndpoints (defensive deep copy). This is the bench that
+// backs the CHANGELOG claim "O(1) on the healthy view".
+//
+// HealthyEndpoints is also benchmarked below for comparison — it is what
+// external code that needs an isolated slice should use, and it shows
+// the cost of the defensive copy (allocation = endpointCount + maps).
 func BenchmarkClusterHealthySnapshotLoad(b *testing.B) {
 	for _, endpointCount := range []int{8, 64, 512} {
 		for _, healthyRatio := range []int{100, 50, 0} {
@@ -129,11 +138,37 @@ func BenchmarkClusterHealthySnapshotLoad(b *testing.B) {
 					clusterConfig.Endpoints[i].UnHealthy = true
 				}
 				runtimeCluster := cluster.NewCluster(clusterConfig)
+				snapshot := runtimeCluster.EndpointSnapshot()
 
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					benchmarkEndpointsSink = runtimeCluster.EndpointSnapshot().HealthyEndpoints()
+					benchmarkEndpointsSink = snapshot.HealthyEndpointsForPick()
+				}
+			})
+		}
+	}
+}
+
+// BenchmarkClusterHealthySnapshotDefensiveCopy measures the cost of the
+// defensive HealthyEndpoints accessor. Reported separately so external
+// callers that need an isolated slice see the price.
+func BenchmarkClusterHealthySnapshotDefensiveCopy(b *testing.B) {
+	for _, endpointCount := range []int{8, 64, 512} {
+		for _, healthyRatio := range []int{100, 50, 0} {
+			b.Run(fmt.Sprintf("endpoints=%d/healthy=%d", endpointCount, healthyRatio), func(b *testing.B) {
+				clusterConfig := benchmarkClusterConfig("healthy-snapshot-copy", model.LoadBalancerRoundRobin, endpointCount, 0)
+				healthyCount := endpointCount * healthyRatio / 100
+				for i := healthyCount; i < len(clusterConfig.Endpoints); i++ {
+					clusterConfig.Endpoints[i].UnHealthy = true
+				}
+				runtimeCluster := cluster.NewCluster(clusterConfig)
+				snapshot := runtimeCluster.EndpointSnapshot()
+
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					benchmarkEndpointsSink = snapshot.HealthyEndpoints()
 				}
 			})
 		}
