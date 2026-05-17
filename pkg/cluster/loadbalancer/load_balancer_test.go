@@ -18,6 +18,7 @@
 package loadbalancer
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -663,6 +664,24 @@ func TestHealthyEndpointFromSnapshotAcceptsResolvedAddressForBlankPlaceholder(t 
 	assert.NotSame(t, snapshotPlaceholder, got, "returned endpoint must be a clone, not the snapshot pointer")
 }
 
+func TestHealthyEndpointFromSnapshotPointerFastPathReturnsClone(t *testing.T) {
+	endpoint := &model.Endpoint{
+		ID: "zero-copy-id",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    8080,
+		},
+	}
+
+	got := healthyEndpointFromSnapshot(endpoint, []*model.Endpoint{endpoint})
+
+	if !assert.NotNil(t, got) {
+		return
+	}
+	assert.Equal(t, endpoint, got)
+	assert.NotSame(t, endpoint, got, "request path must not return the snapshot-owned endpoint pointer")
+}
+
 // TestHealthyEndpointFromSnapshotRejectsMismatchedRealAddress ensures the
 // wildcard is not a free pass: when the snapshot has a real address and
 // the balancer returns a different real address for the same ID, the
@@ -682,4 +701,36 @@ func TestHealthyEndpointFromSnapshotRejectsMismatchedRealAddress(t *testing.T) {
 
 	got := healthyEndpointFromSnapshot(balancerReturn, healthyEndpoints)
 	assert.Nil(t, got, "real-address mismatch must not match even when IDs agree")
+}
+
+func BenchmarkHealthyEndpointFromSnapshot(b *testing.B) {
+	const endpointCount = 1024
+	healthyEndpoints := make([]*model.Endpoint, endpointCount)
+	for i := range healthyEndpoints {
+		healthyEndpoints[i] = &model.Endpoint{
+			ID: fmt.Sprintf("ep-%d", i),
+			Address: model.SocketAddress{
+				Address: "127.0.0.1",
+				Port:    10000 + i,
+			},
+		}
+	}
+	zeroCopyEndpoint := healthyEndpoints[endpointCount-1]
+	defensiveCopyEndpoint := model.CloneEndpoint(zeroCopyEndpoint)
+
+	b.Run("pointer-eq-fast-path", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if healthyEndpointFromSnapshot(zeroCopyEndpoint, healthyEndpoints) == nil {
+				b.Fatal("expected match")
+			}
+		}
+	})
+
+	b.Run("identity-scan", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if healthyEndpointFromSnapshot(defensiveCopyEndpoint, healthyEndpoints) == nil {
+				b.Fatal("expected match")
+			}
+		}
+	})
 }

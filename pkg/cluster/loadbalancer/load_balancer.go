@@ -210,6 +210,11 @@ func healthyEndpointFromSnapshot(endpoint *model.Endpoint, healthyEndpoints []*m
 		return nil
 	}
 	for _, candidate := range healthyEndpoints {
+		if candidate == endpoint {
+			return model.CloneEndpoint(candidate)
+		}
+	}
+	for _, candidate := range healthyEndpoints {
 		if sameEndpointIdentity(candidate, endpoint) {
 			return model.CloneEndpoint(candidate)
 		}
