@@ -516,63 +516,67 @@ func waitClosed(t *testing.T, done <-chan struct{}) {
 }
 
 // TestSameEndpointIdentityBlankDomainWildcard locks the narrow placeholder
-// wildcard in sameEndpointIdentity: only a SocketAddress whose every field
-// is zero-valued except a single blank-domain marker accepts any candidate
-// by ID. Any non-zero address field (e.g. Domains containing a real domain,
-// or Address/Port set alongside Domains=[""]) revokes the wildcard so a
-// stray blank domain in a config does not silently widen the trust
-// boundary. See the contract comment on sameEndpointIdentity for the trust
-// model.
+// wildcard in sameEndpointIdentity. The wildcard fires when the SNAPSHOT
+// endpoint (first argument, per call-site convention in
+// healthyEndpointFromSnapshot) has a fully-empty SocketAddress — a single
+// blank-domain marker with no IP/port. Any non-zero address field on the
+// snapshot side revokes the wildcard so a stray blank domain in a config
+// does not silently widen the trust boundary. See the contract comment on
+// sameEndpointIdentity for the trust model.
+//
+// Field names below match the function signature exactly (snapshot is
+// `candidate`, balancer return is `endpoint`) so a reader cannot lose
+// track of which side carries the placeholder.
 func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
 	cases := []struct {
-		name       string
-		snapshotEP *model.Endpoint
-		candidate  *model.Endpoint
-		want       bool
-		why        string
+		name           string
+		snapshot       *model.Endpoint // function param: candidate
+		balancerReturn *model.Endpoint // function param: endpoint
+		want           bool
+		why            string
 	}{
 		{
-			name: "matching_id_with_placeholder_address_accepts_any_candidate_address",
-			snapshotEP: &model.Endpoint{
+			name: "snapshot_placeholder_accepts_resolved_balancer_address",
+			snapshot: &model.Endpoint{
 				ID:      "shared-id",
 				Address: model.SocketAddress{Domains: []string{""}},
 			},
-			candidate: &model.Endpoint{
+			balancerReturn: &model.Endpoint{
 				ID:      "shared-id",
 				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
 			},
 			want: true,
-			why:  "fully-empty placeholder (Domains=[\"\"], no IP, no port) wildcards on ID",
+			why:  "snapshot side is the fully-empty placeholder; legacy resolver wildcard fires on ID alone",
 		},
 		{
-			name: "matching_id_with_real_domain_requires_address_equality",
-			snapshotEP: &model.Endpoint{
+			name: "snapshot_real_domain_requires_address_equality_even_with_matching_id",
+			snapshot: &model.Endpoint{
 				ID:      "shared-id",
 				Address: model.SocketAddress{Domains: []string{"openai.com"}},
 			},
-			candidate: &model.Endpoint{
+			balancerReturn: &model.Endpoint{
 				ID:      "shared-id",
 				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
 			},
 			want: false,
-			why:  "real-domain snapshot endpoint must match address too",
+			why:  "snapshot side is a real domain, not a placeholder; address must match",
 		},
 		{
-			name: "different_id_with_placeholder_address_is_not_a_match",
-			snapshotEP: &model.Endpoint{
+			name: "different_id_with_snapshot_placeholder_is_not_a_match",
+			snapshot: &model.Endpoint{
 				ID:      "snapshot-id",
 				Address: model.SocketAddress{Domains: []string{""}},
 			},
-			candidate: &model.Endpoint{
-				ID:      "candidate-id",
+			balancerReturn: &model.Endpoint{
+				ID:      "different-id",
 				Address: model.SocketAddress{Domains: []string{""}},
 			},
 			want: false,
 			why:  "ID is the trust boundary; placeholder address does not paper over an ID mismatch",
 		},
 		{
-			name: "blank_domain_alongside_real_port_revokes_wildcard",
-			snapshotEP: &model.Endpoint{
+			name: "snapshot_blank_domain_with_real_port_revokes_wildcard",
+			snapshot: &model.Endpoint{
 				ID: "shared-id",
 				Address: model.SocketAddress{
 					Domains: []string{""},
@@ -580,34 +584,102 @@ func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
 					Port:    8080,
 				},
 			},
-			candidate: &model.Endpoint{
+			balancerReturn: &model.Endpoint{
 				ID:      "shared-id",
 				Address: model.SocketAddress{Address: "10.0.0.2", Port: 8080},
 			},
 			want: false,
-			why:  "address fields are populated, so this is not a placeholder; address must match",
+			why:  "snapshot address fields are populated, so this is not a placeholder; address must match",
 		},
 		{
-			name: "blank_domain_alongside_real_address_revokes_wildcard",
-			snapshotEP: &model.Endpoint{
+			name: "snapshot_with_two_domains_including_blank_revokes_wildcard",
+			snapshot: &model.Endpoint{
 				ID: "shared-id",
 				Address: model.SocketAddress{
 					Domains: []string{"", "fallback.example.com"},
 				},
 			},
-			candidate: &model.Endpoint{
+			balancerReturn: &model.Endpoint{
 				ID:      "shared-id",
 				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
 			},
 			want: false,
-			why:  "Domains contains more than one entry, so this is not the placeholder form",
+			why:  "snapshot Domains has more than one entry, so this is not the placeholder form",
+		},
+		{
+			name: "balancer_return_placeholder_does_NOT_trigger_wildcard_when_snapshot_is_real",
+			snapshot: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
+			},
+			balancerReturn: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Domains: []string{""}},
+			},
+			want: false,
+			why:  "wildcard is keyed on the SNAPSHOT side, not the balancer return; reversing roles is a no-op",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := sameEndpointIdentity(tc.candidate, tc.snapshotEP)
+			// Call-site convention from healthyEndpointFromSnapshot:
+			//   sameEndpointIdentity(candidate /* snapshot */, endpoint /* return */)
+			got := sameEndpointIdentity(tc.snapshot, tc.balancerReturn)
 			assert.Equal(t, tc.want, got, tc.why)
 		})
 	}
+}
+
+// TestHealthyEndpointFromSnapshotAcceptsResolvedAddressForBlankPlaceholder
+// is the integration test for the wildcard. It exercises the real call
+// path (healthyEndpointFromSnapshot iterating the healthy snapshot slice)
+// so the parameter-order contract between the caller and
+// sameEndpointIdentity is verified end-to-end. A previous regression
+// passed the unit test by reversing the args; this test would have
+// caught it because there is no way to mis-name the arguments when they
+// come from a real snapshot.
+func TestHealthyEndpointFromSnapshotAcceptsResolvedAddressForBlankPlaceholder(t *testing.T) {
+	// Snapshot holds a legacy resolver placeholder: ID set, address absent.
+	snapshotPlaceholder := &model.Endpoint{
+		ID:      "legacy-resolver-id",
+		Address: model.SocketAddress{Domains: []string{""}},
+	}
+	healthyEndpoints := []*model.Endpoint{snapshotPlaceholder}
+
+	// Balancer (or downstream resolver) returns the resolved real address
+	// for the same ID. The healthy lookup MUST accept this and return a
+	// clone of the snapshot entry.
+	balancerReturn := &model.Endpoint{
+		ID:      "legacy-resolver-id",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
+	}
+
+	got := healthyEndpointFromSnapshot(balancerReturn, healthyEndpoints)
+	if !assert.NotNil(t, got, "balancer return with same ID as snapshot placeholder must match via wildcard") {
+		return
+	}
+	assert.Equal(t, snapshotPlaceholder.ID, got.ID)
+	assert.NotSame(t, snapshotPlaceholder, got, "returned endpoint must be a clone, not the snapshot pointer")
+}
+
+// TestHealthyEndpointFromSnapshotRejectsMismatchedRealAddress ensures the
+// wildcard is not a free pass: when the snapshot has a real address and
+// the balancer returns a different real address for the same ID, the
+// lookup must reject so the pick path returns nil instead of a stale
+// hostname/port.
+func TestHealthyEndpointFromSnapshotRejectsMismatchedRealAddress(t *testing.T) {
+	snapshot := &model.Endpoint{
+		ID:      "shared-id",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
+	}
+	healthyEndpoints := []*model.Endpoint{snapshot}
+
+	balancerReturn := &model.Endpoint{
+		ID:      "shared-id",
+		Address: model.SocketAddress{Address: "10.0.0.1", Port: 9090},
+	}
+
+	got := healthyEndpointFromSnapshot(balancerReturn, healthyEndpoints)
+	assert.Nil(t, got, "real-address mismatch must not match even when IDs agree")
 }

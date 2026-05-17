@@ -222,31 +222,43 @@ func healthyEndpointFromSnapshot(endpoint *model.Endpoint, healthyEndpoints []*m
 // balancer chose a still-healthy entry before handing it back to the request
 // path.
 //
+// Parameter convention (load-bearing): the FIRST argument is the snapshot
+// healthy-set member, the SECOND is the balancer return. The wildcard in
+// rule (2) is keyed off the SNAPSHOT side because that is where legacy
+// resolvers produce placeholder endpoints. Crossing the arguments will
+// silently invert rule (2) and reject valid picks that should match by ID.
+// Call-site convention enforced by healthyEndpointFromSnapshot:
+//
+//	sameEndpointIdentity(candidate /* snapshot */, endpoint /* return */)
+//
 // Rules:
 //
 //  1. When either side carries a non-empty ID, IDs must match. ID is the
 //     authoritative identity since PR-2 (deterministic generation) and is
 //     immune to address drift caused by DNS or service-discovery refreshes.
-//  2. With IDs matched, when the snapshot endpoint's address is fully empty
-//     (Domains == [""] AND Address == "" AND Port == 0 — i.e. SocketAddress
-//     is at its zero value bar the single blank domain marker), any
-//     candidate address is accepted. This is a narrow wildcard for legacy
-//     resolvers that produce placeholder endpoints whose address is
-//     intentionally absent and is reconciled via ID. Any non-zero address
-//     field forfeits the wildcard so an operator cannot accidentally widen
-//     the trust boundary by typing one blank domain entry next to a real
-//     port.
+//  2. With IDs matched, when the SNAPSHOT endpoint's (candidate) address is
+//     fully empty (Domains == [""] AND Address == "" AND Port == 0 — i.e.
+//     SocketAddress is at its zero value bar the single blank domain
+//     marker), any balancer return address is accepted. This is a narrow
+//     wildcard for legacy resolvers that publish placeholder endpoints
+//     whose address is intentionally absent and is reconciled via ID; the
+//     balancer (or a downstream resolver) supplies the resolved address.
+//     Any non-zero address field on the snapshot side forfeits the
+//     wildcard so an operator cannot accidentally widen the trust
+//     boundary by typing one blank domain entry next to a real port.
 //  3. Otherwise (or when neither side has an ID), addresses must compare
 //     equal via SocketAddress.Equal — no string formatting, no allocation.
 //
 // Risk: rule (2) means anyone with the right ID matches the placeholder
-// endpoint regardless of where the candidate points. The ID is therefore
-// treated as a trust boundary and must remain operator-controlled or
-// system-generated. The fully-empty-address gate keeps the wildcard from
-// catching real addresses that happen to share an ID via misconfiguration.
+// endpoint regardless of where the balancer routed them. The ID is
+// therefore treated as a trust boundary and must remain operator-controlled
+// or system-generated. The fully-empty-address gate keeps the wildcard
+// from catching real snapshot addresses that happen to share an ID via
+// misconfiguration.
 //
-// Locked by TestSameEndpointIdentityBlankDomainWildcard in
-// load_balancer_test.go.
+// Locked by TestSameEndpointIdentityBlankDomainWildcard (unit) and
+// TestHealthyEndpointFromSnapshotAcceptsResolvedAddressForBlankPlaceholder
+// (integration through the real pick path) in load_balancer_test.go.
 func sameEndpointIdentity(candidate, endpoint *model.Endpoint) bool {
 	if candidate == nil || endpoint == nil {
 		return false
@@ -255,7 +267,7 @@ func sameEndpointIdentity(candidate, endpoint *model.Endpoint) bool {
 		if candidate.ID != endpoint.ID {
 			return false
 		}
-		if isBlankDomainPlaceholderAddress(endpoint.Address) {
+		if isBlankDomainPlaceholderAddress(candidate.Address) {
 			return true
 		}
 		return candidate.Address.Equal(endpoint.Address)
