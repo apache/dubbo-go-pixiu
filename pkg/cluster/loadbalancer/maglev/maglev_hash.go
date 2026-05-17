@@ -41,7 +41,7 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 		return h
 	}
 
-	logger.Infof("[dubbo-go-pixiu] maglev hash load balancing fail: %v, using ring hash instead", err)
+	logger.Warnf("[dubbo-go-pixiu] maglev hash load balancing fail: %v, using ring hash instead", err)
 	if config.ReplicaNum == 0 {
 		config.ReplicaNum = 2 * len(endpoints)
 	}

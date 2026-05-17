@@ -239,8 +239,11 @@ var emptyEndpointSnapshot = &EndpointSnapshot{
 //     mutate or retain anything beyond a single pick.
 //   - withEndpointHealthForIDs derives a successor snapshot that REUSES
 //     unchanged *Endpoint pointers and the prior addressByID map for
-//     allocation efficiency. This is safe only because *Endpoint and
-//     the underlying maps are treated as read-only after publication.
+//     allocation efficiency. addressByID is safe to share only because it
+//     maps immutable endpoint IDs to immutable GetAddress strings and is
+//     never mutated after the original snapshot is published. This is safe
+//     only because *Endpoint and the underlying maps are treated as
+//     read-only after publication.
 //     Any code path that mutates them in place will leak state across
 //     all snapshots alive at the time of the mutation. The
 //     ZeroCopySnapshotLoadBalancer marker on load balancers exists

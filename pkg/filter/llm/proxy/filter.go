@@ -45,9 +45,10 @@ const (
 	Kind         = constant.LLMProxyFilter
 	APIKeyPrefix = "Bearer"
 	// maxCooldownStoreEntries bounds process-wide cooldown state under registry churn.
-	maxCooldownStoreEntries = 1024
-	cooldownStoreSweepAfter = time.Second
-	cooldownStoreSweepAt    = maxCooldownStoreEntries * 9 / 10
+	maxCooldownStoreEntries             = 1024
+	cooldownStoreSweepLoadFactorPercent = 90
+	cooldownStoreSweepAfter             = time.Second
+	cooldownStoreSweepAt                = maxCooldownStoreEntries * cooldownStoreSweepLoadFactorPercent / 100
 	// LLMUnhealthyKey is kept for downstream compatibility.
 	//
 	// Deprecated: runtime LLM health is now tracked outside endpoint metadata.
