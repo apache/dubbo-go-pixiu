@@ -214,25 +214,26 @@ func healthyEndpointFromSnapshot(endpoint *model.Endpoint, healthyEndpoints []*m
 //  1. When either side carries a non-empty ID, IDs must match. ID is the
 //     authoritative identity since PR-2 (deterministic generation) and is
 //     immune to address drift caused by DNS or service-discovery refreshes.
-//  2. With IDs matched, when the snapshot endpoint's address declares a
-//     single blank domain (Domains == [""], so GetAddress() == ""), any
-//     candidate address is accepted. This preserves a long-standing legacy
-//     resolver behavior: certain dynamic backends produce endpoints whose
-//     literal address is intentionally blank and the resolver is expected to
-//     reconcile via ID. Stripping this wildcard would regress those
-//     deployments.
+//  2. With IDs matched, when the snapshot endpoint's address is fully empty
+//     (Domains == [""] AND Address == "" AND Port == 0 — i.e. SocketAddress
+//     is at its zero value bar the single blank domain marker), any
+//     candidate address is accepted. This is a narrow wildcard for legacy
+//     resolvers that produce placeholder endpoints whose address is
+//     intentionally absent and is reconciled via ID. Any non-zero address
+//     field forfeits the wildcard so an operator cannot accidentally widen
+//     the trust boundary by typing one blank domain entry next to a real
+//     port.
 //  3. Otherwise (or when neither side has an ID), addresses must compare
 //     equal via SocketAddress.Equal — no string formatting, no allocation.
 //
-// Risk: rule (2) is only safe because IDs are now deterministic and
-// non-empty by default (see model.GenerateEndpointID). If an attacker could
-// inject an endpoint with the same ID and a blank-domain address it would
-// match regardless of where the candidate points. The ID is therefore
+// Risk: rule (2) means anyone with the right ID matches the placeholder
+// endpoint regardless of where the candidate points. The ID is therefore
 // treated as a trust boundary and must remain operator-controlled or
-// system-generated.
+// system-generated. The fully-empty-address gate keeps the wildcard from
+// catching real addresses that happen to share an ID via misconfiguration.
 //
-// This wildcard's behavior is locked by
-// TestSameEndpointIdentityBlankDomainWildcard in load_balancer_test.go.
+// Locked by TestSameEndpointIdentityBlankDomainWildcard in
+// load_balancer_test.go.
 func sameEndpointIdentity(candidate, endpoint *model.Endpoint) bool {
 	if candidate == nil || endpoint == nil {
 		return false
@@ -241,12 +242,23 @@ func sameEndpointIdentity(candidate, endpoint *model.Endpoint) bool {
 		if candidate.ID != endpoint.ID {
 			return false
 		}
-		if len(endpoint.Address.Domains) > 0 && endpoint.Address.Domains[0] == "" {
+		if isBlankDomainPlaceholderAddress(endpoint.Address) {
 			return true
 		}
 		return candidate.Address.Equal(endpoint.Address)
 	}
 	return candidate.Address.Equal(endpoint.Address)
+}
+
+// isBlankDomainPlaceholderAddress reports whether addr is the narrow
+// "address-absent placeholder" form: exactly one blank domain entry and
+// zero values everywhere else. Used by sameEndpointIdentity to bound the
+// blank-domain wildcard.
+func isBlankDomainPlaceholderAddress(addr model.SocketAddress) bool {
+	return len(addr.Domains) == 1 &&
+		addr.Domains[0] == "" &&
+		addr.Address == "" &&
+		addr.Port == 0
 }
 
 func RegisterConsistentHashInit(name model.LbPolicyType, function model.ConsistentHashInitFunc) {

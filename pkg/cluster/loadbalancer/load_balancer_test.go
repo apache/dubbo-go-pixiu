@@ -515,13 +515,14 @@ func waitClosed(t *testing.T, done <-chan struct{}) {
 	}
 }
 
-// TestSameEndpointIdentityBlankDomainWildcard locks the legacy resolver
-// behavior in sameEndpointIdentity: when a snapshot endpoint declares a
-// single blank domain (Domains == [""], so GetAddress() == ""), it
-// matches any candidate by ID alone. This wildcard is preserved
-// intentionally — see the contract comment on sameEndpointIdentity for
-// why, and the risk it introduces (IDs must be operator-controlled or
-// system-generated).
+// TestSameEndpointIdentityBlankDomainWildcard locks the narrow placeholder
+// wildcard in sameEndpointIdentity: only a SocketAddress whose every field
+// is zero-valued except a single blank-domain marker accepts any candidate
+// by ID. Any non-zero address field (e.g. Domains containing a real domain,
+// or Address/Port set alongside Domains=[""]) revokes the wildcard so a
+// stray blank domain in a config does not silently widen the trust
+// boundary. See the contract comment on sameEndpointIdentity for the trust
+// model.
 func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -531,7 +532,7 @@ func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
 		why        string
 	}{
 		{
-			name: "matching_id_with_blank_domain_accepts_any_candidate_address",
+			name: "matching_id_with_placeholder_address_accepts_any_candidate_address",
 			snapshotEP: &model.Endpoint{
 				ID:      "shared-id",
 				Address: model.SocketAddress{Domains: []string{""}},
@@ -541,7 +542,7 @@ func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
 				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
 			},
 			want: true,
-			why:  "blank-domain snapshot endpoint wildcards on ID",
+			why:  "fully-empty placeholder (Domains=[\"\"], no IP, no port) wildcards on ID",
 		},
 		{
 			name: "matching_id_with_real_domain_requires_address_equality",
@@ -557,7 +558,7 @@ func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
 			why:  "real-domain snapshot endpoint must match address too",
 		},
 		{
-			name: "different_id_with_blank_domain_is_not_a_match",
+			name: "different_id_with_placeholder_address_is_not_a_match",
 			snapshotEP: &model.Endpoint{
 				ID:      "snapshot-id",
 				Address: model.SocketAddress{Domains: []string{""}},
@@ -567,7 +568,39 @@ func TestSameEndpointIdentityBlankDomainWildcard(t *testing.T) {
 				Address: model.SocketAddress{Domains: []string{""}},
 			},
 			want: false,
-			why:  "ID is the trust boundary; blank domain does not paper over an ID mismatch",
+			why:  "ID is the trust boundary; placeholder address does not paper over an ID mismatch",
+		},
+		{
+			name: "blank_domain_alongside_real_port_revokes_wildcard",
+			snapshotEP: &model.Endpoint{
+				ID: "shared-id",
+				Address: model.SocketAddress{
+					Domains: []string{""},
+					Address: "10.0.0.1",
+					Port:    8080,
+				},
+			},
+			candidate: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Address: "10.0.0.2", Port: 8080},
+			},
+			want: false,
+			why:  "address fields are populated, so this is not a placeholder; address must match",
+		},
+		{
+			name: "blank_domain_alongside_real_address_revokes_wildcard",
+			snapshotEP: &model.Endpoint{
+				ID: "shared-id",
+				Address: model.SocketAddress{
+					Domains: []string{"", "fallback.example.com"},
+				},
+			},
+			candidate: &model.Endpoint{
+				ID:      "shared-id",
+				Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
+			},
+			want: false,
+			why:  "Domains contains more than one entry, so this is not the placeholder form",
 		},
 	}
 
