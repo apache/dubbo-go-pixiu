@@ -129,35 +129,25 @@ func BenchmarkClusterLoadBalancerHotPathSerial(b *testing.B) {
 // external code that needs an isolated slice should use, and it shows
 // the cost of the defensive copy (allocation = endpointCount + maps).
 func BenchmarkClusterHealthySnapshotLoad(b *testing.B) {
-	for _, endpointCount := range []int{8, 64, 512} {
-		for _, healthyRatio := range []int{100, 50, 0} {
-			b.Run(fmt.Sprintf("endpoints=%d/healthy=%d", endpointCount, healthyRatio), func(b *testing.B) {
-				clusterConfig := benchmarkClusterConfig("healthy-snapshot", model.LoadBalancerRoundRobin, endpointCount, 0)
-				healthyCount := endpointCount * healthyRatio / 100
-				for i := healthyCount; i < len(clusterConfig.Endpoints); i++ {
-					clusterConfig.Endpoints[i].UnHealthy = true
-				}
-				runtimeCluster := cluster.NewCluster(clusterConfig)
-				snapshot := runtimeCluster.EndpointSnapshot()
-
-				b.ReportAllocs()
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					benchmarkEndpointsSink = snapshot.HealthyEndpointsForPick()
-				}
-			})
-		}
-	}
+	benchmarkHealthySnapshotAccessor(b, "healthy-snapshot", (*cluster.EndpointSnapshot).HealthyEndpointsForPick)
 }
 
 // BenchmarkClusterHealthySnapshotDefensiveCopy measures the cost of the
 // defensive HealthyEndpoints accessor. Reported separately so external
 // callers that need an isolated slice see the price.
 func BenchmarkClusterHealthySnapshotDefensiveCopy(b *testing.B) {
+	benchmarkHealthySnapshotAccessor(b, "healthy-snapshot-copy", (*cluster.EndpointSnapshot).HealthyEndpoints)
+}
+
+func benchmarkHealthySnapshotAccessor(
+	b *testing.B,
+	clusterName string,
+	accessor func(*cluster.EndpointSnapshot) []*model.Endpoint,
+) {
 	for _, endpointCount := range []int{8, 64, 512} {
 		for _, healthyRatio := range []int{100, 50, 0} {
 			b.Run(fmt.Sprintf("endpoints=%d/healthy=%d", endpointCount, healthyRatio), func(b *testing.B) {
-				clusterConfig := benchmarkClusterConfig("healthy-snapshot-copy", model.LoadBalancerRoundRobin, endpointCount, 0)
+				clusterConfig := benchmarkClusterConfig(clusterName, model.LoadBalancerRoundRobin, endpointCount, 0)
 				healthyCount := endpointCount * healthyRatio / 100
 				for i := healthyCount; i < len(clusterConfig.Endpoints); i++ {
 					clusterConfig.Endpoints[i].UnHealthy = true
@@ -168,7 +158,7 @@ func BenchmarkClusterHealthySnapshotDefensiveCopy(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					benchmarkEndpointsSink = snapshot.HealthyEndpoints()
+					benchmarkEndpointsSink = accessor(snapshot)
 				}
 			})
 		}
