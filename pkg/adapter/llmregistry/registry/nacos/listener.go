@@ -19,6 +19,7 @@ package nacos
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -317,6 +318,18 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 	return ret
 }
 
+// nacosEndpointID resolves a stable endpoint ID for a nacos instance.
+// Lookup order:
+//  1. instance.Metadata["id"] (operator override)
+//  2. instance.InstanceId (nacos-assigned identity, stable for a registration)
+//  3. model.GenerateEndpointID(metadata["cluster"], endpoint)
+//  4. fallback when cluster metadata is missing: a deterministic key built
+//     from ServiceName + ClusterName + address, prefixed with the constant
+//     nacosMissingClusterFallbackPrefix so the synthesized identity is
+//     visible in logs/dashboards. A warn is logged once per call so an
+//     operator can fix the metadata; without it, two instances at the
+//     same address from different services would alias to the same
+//     generated- ID (clusterName == "" in the hash material).
 func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) string {
 	if id := strings.TrimSpace(instance.Metadata["id"]); id != "" {
 		return id
@@ -324,12 +337,33 @@ func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) str
 	if instanceID := strings.TrimSpace(instance.InstanceId); instanceID != "" {
 		return instanceID
 	}
-	clusterName := strings.TrimSpace(instance.Metadata["cluster"])
-	if clusterName == "" {
-		clusterName = strings.TrimSpace(instance.ClusterName)
+	clusterMeta := strings.TrimSpace(instance.Metadata["cluster"])
+	if clusterMeta != "" {
+		return model.GenerateEndpointID(clusterMeta, endpoint)
 	}
-	return model.GenerateEndpointID(clusterName, endpoint)
+	address := ""
+	if endpoint != nil {
+		address = endpoint.Address.GetAddress()
+	}
+	fallback := fmt.Sprintf("%s%s/%s/%s",
+		nacosMissingClusterFallbackPrefix,
+		instance.ServiceName,
+		instance.ClusterName,
+		address,
+	)
+	logger.Warnf(
+		"[dubbo-go-pixiu] nacos instance %q (service=%s, cluster=%s, addr=%s) is missing metadata[\"cluster\"]; "+
+			"endpoint ID falls back to %q. Set metadata[\"cluster\"] (or metadata[\"id\"]) so cross-cluster instances "+
+			"at the same address do not alias.",
+		instance.InstanceId, instance.ServiceName, instance.ClusterName, address, fallback,
+	)
+	return fallback
 }
+
+// nacosMissingClusterFallbackPrefix marks endpoint IDs synthesized by
+// nacosEndpointID when the nacos instance lacks metadata["cluster"]. The
+// prefix lets operators grep for misconfigured registrations.
+const nacosMissingClusterFallbackPrefix = "nacos-no-cluster-"
 
 func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {
 	return nacosModel.Instance{

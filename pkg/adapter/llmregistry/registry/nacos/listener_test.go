@@ -490,6 +490,60 @@ func TestServiceCallbackKeepsNacosInstancesWithoutMetadataIDDistinct(t *testing.
 	assert.Contains(t, adapterListener.removedEndpoints, "nacos-instance-a")
 }
 
+// TestNacosEndpointIDFallbackDifferentiatesServicesWithoutClusterMetadata
+// covers the case where nacosEndpointID has neither metadata["id"], nor an
+// InstanceId, nor metadata["cluster"] to feed into the deterministic hash.
+// Two such instances at the same address (e.g. registered against different
+// nacos services in the same DC) must not alias to the same endpoint ID. The
+// fallback derives identity from ServiceName + ClusterName + address.
+func TestNacosEndpointIDFallbackDifferentiatesServicesWithoutClusterMetadata(t *testing.T) {
+	// Instance A: service "alpha", cluster "DEFAULT", same IP/port as B.
+	instanceA := nacosModel.Instance{
+		// InstanceId intentionally empty; metadata has neither "id" nor "cluster".
+		Ip:          "10.0.0.1",
+		Port:        18080,
+		ServiceName: "alpha",
+		ClusterName: "DEFAULT",
+		Metadata:    map[string]string{"llm-meta.api_key": "key-shared"},
+	}
+	endpointA := generateEndpoint(instanceA)
+
+	// Instance B: different service, same address + credential.
+	instanceB := nacosModel.Instance{
+		Ip:          "10.0.0.1",
+		Port:        18080,
+		ServiceName: "bravo",
+		ClusterName: "DEFAULT",
+		Metadata:    map[string]string{"llm-meta.api_key": "key-shared"},
+	}
+	endpointB := generateEndpoint(instanceB)
+
+	assert.NotEqual(t, endpointA.ID, endpointB.ID,
+		"nacos instances at the same address but registered against different services "+
+			"must not alias to the same generated- ID just because metadata[\"cluster\"] is missing")
+	assert.Contains(t, endpointA.ID, nacosMissingClusterFallbackPrefix,
+		"fallback ID must be visibly tagged so misconfigured registrations are greppable")
+	assert.Contains(t, endpointB.ID, nacosMissingClusterFallbackPrefix)
+}
+
+// TestNacosEndpointIDFallbackStableForSameInstance ensures the fallback
+// ID is deterministic: re-generating from the same nacos instance returns
+// the same ID, so dashboards and snapshot inheritance keep working.
+func TestNacosEndpointIDFallbackStableForSameInstance(t *testing.T) {
+	instance := nacosModel.Instance{
+		Ip:          "10.0.0.1",
+		Port:        18080,
+		ServiceName: "alpha",
+		ClusterName: "DEFAULT",
+		Metadata:    map[string]string{},
+	}
+
+	first := generateEndpoint(instance).ID
+	second := generateEndpoint(instance).ID
+	assert.Equal(t, first, second)
+	assert.Contains(t, first, nacosMissingClusterFallbackPrefix)
+}
+
 func TestLifecycle(t *testing.T) {
 	l, _, _ := testSetup()
 
