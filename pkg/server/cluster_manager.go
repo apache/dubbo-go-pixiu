@@ -331,24 +331,14 @@ func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
 // assembleClusterEndpoints assembles the cluster endpoints by formatting the
 // ID, name and domains for each endpoint. If endpoint.LLMMeta is not nil, the
 // assimilation of name and domain is based on the LLM provider denoted in the
-// endpoint LLMMeta.
-//
-// CAVEAT (issue #905 follow-up): this function MUTATES the operator's
-// *model.Endpoint values in place — it writes endpoint.ID and endpoint.Name
-// when they are empty, and rewrites endpoint.ID when it collides with a
-// sibling. Callers that retain pointers into c.Endpoints (e.g. registry
-// callbacks, dynamic config) will observe these writes. The runtime
-// snapshot path is unaffected (snapshots deep-clone via model.CloneEndpoint
-// before publication); only the desired-state config is touched.
-//
-// Refactor to clone-then-mutate is tracked as a follow-up; until then,
-// callers that need an untouched copy should clone before passing into
-// AddCluster / UpdateCluster / SetEndpoint.
+// endpoint LLMMeta. The store first deep-clones c.Endpoints, so ID/name
+// defaulting never mutates operator-supplied *model.Endpoint values.
 func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
 	}
 
+	c.Endpoints = model.CloneEndpoints(c.Endpoints)
 	endpointIDs := make(map[string]struct{}, len(c.Endpoints))
 	for i, endpoint := range c.Endpoints {
 		if endpoint == nil {
@@ -585,6 +575,11 @@ func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 }
 
 func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
+	endpoint = model.CloneEndpoint(endpoint)
+	if endpoint == nil {
+		return
+	}
+
 	clusterConfig := s.findClusterConfig(clusterName)
 	if clusterConfig == nil {
 		c := &model.ClusterConfig{Name: clusterName, LbStr: model.LoadBalancerRoundRobin, Endpoints: []*model.Endpoint{}}

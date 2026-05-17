@@ -457,7 +457,8 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 	assert.NotSame(t, staleRuntime, runtime)
 	assert.Same(t, config, runtime.Config)
 	if assert.Len(t, config.Endpoints, 1) {
-		assert.Same(t, remainingEndpoint, config.Endpoints[0])
+		assert.Equal(t, remainingEndpoint, config.Endpoints[0])
+		assert.NotSame(t, remainingEndpoint, config.Endpoints[0])
 	}
 
 	hash := config.ConsistentHash.Hash
@@ -536,6 +537,51 @@ func TestClusterManager_AssembleEndpointsAssignsDeterministicID(t *testing.T) {
 
 	// Endpoints differing only by port must not collide within the same cluster.
 	assert.NotEqual(t, firstEPs[0].ID, firstEPs[1].ID)
+}
+
+func TestClusterManager_AddClusterDoesNotMutateUserSuppliedEndpoint(t *testing.T) {
+	endpoint := &model.Endpoint{
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    21079,
+		},
+	}
+	cluster := &model.ClusterConfig{
+		Name:      "add-clone-boundary",
+		LbStr:     model.LoadBalancerRoundRobin,
+		Endpoints: []*model.Endpoint{endpoint},
+	}
+
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	assert.Empty(t, endpoint.ID)
+	assert.Empty(t, endpoint.Name)
+	assert.NotSame(t, endpoint, cm.store.Config[0].Endpoints[0])
+	assert.NotEmpty(t, cm.store.Config[0].Endpoints[0].ID)
+	assert.NotEmpty(t, cm.store.Config[0].Endpoints[0].Name)
+}
+
+func TestClusterManager_SetEndpointDoesNotMutateInputEndpoint(t *testing.T) {
+	cm := testClusterManager(testCluster("set-clone-boundary", model.LoadBalancerRoundRobin, nil))
+	defer stopStoreRuntimes(cm.store)
+
+	endpoint := &model.Endpoint{
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    21078,
+		},
+	}
+
+	cm.SetEndpoint("set-clone-boundary", endpoint)
+
+	assert.Empty(t, endpoint.ID)
+	assert.Empty(t, endpoint.Name)
+	if assert.Len(t, cm.store.Config[0].Endpoints, 1) {
+		assert.NotSame(t, endpoint, cm.store.Config[0].Endpoints[0])
+		assert.NotEmpty(t, cm.store.Config[0].Endpoints[0].ID)
+		assert.NotEmpty(t, cm.store.Config[0].Endpoints[0].Name)
+	}
 }
 
 func TestClusterManager_AssembleEndpointsPreservesExplicitID(t *testing.T) {
