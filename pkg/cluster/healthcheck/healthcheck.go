@@ -19,6 +19,7 @@ package healthcheck
 
 import (
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -117,10 +118,12 @@ func CreateHealthCheckWithCallback(
 		interval = DefaultInterval
 	}
 
-	initialDelay, err := time.ParseDuration(cfg.IntervalConfig)
+	initialDelay := DefaultFirstInterval
+	initialDelaySeconds, err := strconv.Atoi(cfg.InitialDelaySeconds)
 	if err != nil {
-		logger.Infof("[health check] initialDelay parse duration error %s", err)
-		initialDelay = DefaultFirstInterval
+		logger.Infof("[health check] initialDelay parse seconds error %s", err)
+	} else {
+		initialDelay = time.Duration(initialDelaySeconds) * time.Second
 	}
 
 	unhealthyThreshold := cfg.UnhealthyThreshold

@@ -23,6 +23,10 @@ import (
 	"time"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
 func TestNormalizeAddress(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -177,6 +181,33 @@ func TestCheckTcpConn(t *testing.T) {
 	})
 }
 
+func TestCreateHealthCheckParsesInitialDelaySeconds(t *testing.T) {
+	hc := CreateHealthCheck(&model.ClusterConfig{}, model.HealthCheckConfig{
+		TimeoutConfig:       "1s",
+		IntervalConfig:      "30s",
+		InitialDelaySeconds: "10",
+		HealthyThreshold:    1,
+		UnhealthyThreshold:  1,
+	})
+
+	if hc.initialDelay != 10*time.Second {
+		t.Fatalf("initialDelay = %s, want 10s", hc.initialDelay)
+	}
+}
+
+func TestCreateHealthCheckDefaultsInitialDelayWhenUnset(t *testing.T) {
+	hc := CreateHealthCheck(&model.ClusterConfig{}, model.HealthCheckConfig{
+		TimeoutConfig:      "1s",
+		IntervalConfig:     "30s",
+		HealthyThreshold:   1,
+		UnhealthyThreshold: 1,
+	})
+
+	if hc.initialDelay != DefaultFirstInterval {
+		t.Fatalf("initialDelay = %s, want %s", hc.initialDelay, DefaultFirstInterval)
+	}
+}
+
 // newTestChecker builds an EndpointChecker driving a stub HealthChecker
 // with the supplied thresholds and an event-capture callback. No
 // goroutines are started — the test drives HandleSuccess / HandleFailure
@@ -257,9 +288,9 @@ func TestHandleFailureHonorsUnhealthyThresholdForBothFailureModes(t *testing.T) 
 func TestHandleSuccessAndFailureResetEachOtherCounters(t *testing.T) {
 	c, events := newTestChecker(2, 2)
 
-	c.HandleSuccess() // healthy=1
+	c.HandleSuccess()      // healthy=1
 	c.HandleFailure(false) // unhealthy=1, healthy reset to 0
-	c.HandleSuccess() // healthy=1 (not 2, because failure reset it)
+	c.HandleSuccess()      // healthy=1 (not 2, because failure reset it)
 	if len(*events) != 0 {
 		t.Fatalf("expected no events yet (each counter at 1, threshold 2); got %d", len(*events))
 	}
