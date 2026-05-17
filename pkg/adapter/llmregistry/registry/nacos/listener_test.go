@@ -209,6 +209,28 @@ func TestGenerateEndpoint(t *testing.T) {
 		assert.Contains(t, first.ID, "generated-")
 		assert.NotContains(t, first.ID, "key-a")
 	})
+
+	t.Run("Missing metadata cluster falls back to Nacos cluster name", func(t *testing.T) {
+		build := func(clusterName string) nacosModel.Instance {
+			return nacosModel.Instance{
+				Ip:          "127.0.0.1",
+				Port:        8080,
+				ClusterName: clusterName,
+				Metadata: map[string]string{
+					"name":             "shared-llm",
+					"llm-meta.api_key": "key-a",
+				},
+			}
+		}
+
+		clusterA := generateEndpoint(build("cluster-a"))
+		clusterB := generateEndpoint(build("cluster-b"))
+
+		assert.NotNil(t, clusterA)
+		assert.NotNil(t, clusterB)
+		assert.Contains(t, clusterA.ID, "generated-")
+		assert.NotEqual(t, clusterA.ID, clusterB.ID)
+	})
 }
 
 func TestDiscoverAndSubscribe(t *testing.T) {

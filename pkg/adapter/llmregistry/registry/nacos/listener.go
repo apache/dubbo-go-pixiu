@@ -324,7 +324,11 @@ func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) str
 	if instanceID := strings.TrimSpace(instance.InstanceId); instanceID != "" {
 		return instanceID
 	}
-	return model.GenerateEndpointID(instance.Metadata["cluster"], endpoint)
+	clusterName := strings.TrimSpace(instance.Metadata["cluster"])
+	if clusterName == "" {
+		clusterName = strings.TrimSpace(instance.ClusterName)
+	}
+	return model.GenerateEndpointID(clusterName, endpoint)
 }
 
 func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {
