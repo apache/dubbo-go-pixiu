@@ -158,6 +158,19 @@ func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locke
 	// Legacy balancers only understand ClusterConfig. Serialize this
 	// compatibility path so cursor-style state reconciles predictably;
 	// custom mutable state should move to SnapshotLoadBalancer instead.
+	//
+	// RR cursor fairness caveat (issue #905): the cursor delta-apply
+	// below uses atomic.AddUint32 on context.Config.PrePickEndpointIndex.
+	// If a snapshot-path RoundRobin picks against the SAME *ClusterConfig
+	// concurrently (also via atomic.AddUint32), the two paths compete on
+	// the same counter and the legacy delta may overshoot or undershoot
+	// the snapshot increment. This is not a data race (both are atomic)
+	// and not a correctness regression (the picked endpoint is still
+	// valid), but the visit order may skip / repeat one slot during the
+	// race window. In practice a single cluster registers a single
+	// LbStr, so legacy and snapshot RR do not coexist; if a future
+	// deployment mixes them, accept the fairness skew or migrate the
+	// legacy plugin to SnapshotLoadBalancer.
 	lock := legacyPickLockFor(balancer, legacyPickLock)
 	lock.Lock()
 	defer lock.Unlock()

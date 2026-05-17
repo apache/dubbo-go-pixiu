@@ -204,6 +204,13 @@ func CloneEndpoints(endpoints []*Endpoint) []*Endpoint {
 // Metadata, and LLMMeta. Returns nil for nil input. Snapshot consumers clone
 // before handing endpoints to callers so downstream mutation does not leak
 // back into the runtime snapshot.
+//
+// Cost: O(depth) — LLMMeta.RetryPolicy.Config is recursively cloned via
+// cloneAnyMap, which allocates per nested map/slice. The request path
+// should clone at most once per pick (typically when returning the chosen
+// endpoint to the caller); avoid CloneEndpoint inside per-iteration loops
+// over a snapshot's endpoint slice. Use HealthyEndpointsForPick to scan
+// without cloning, then clone the single chosen endpoint.
 func CloneEndpoint(endpoint *Endpoint) *Endpoint {
 	if endpoint == nil {
 		return nil

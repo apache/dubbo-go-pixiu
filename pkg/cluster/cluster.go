@@ -227,6 +227,25 @@ var emptyEndpointSnapshot = &EndpointSnapshot{
 	healthyByAddress:    map[string]bool{},
 }
 
+// newEndpointSnapshot builds an EndpointSnapshot from config plus the
+// previous snapshot it should inherit runtime state from. Endpoints are
+// deep-cloned, so any subsequent mutation on the config side stays
+// invisible to the request path.
+//
+// Sharing contract (issue #905):
+//
+//   - The returned snapshot owns its endpoints, addressByID, and
+//     healthyBy* maps. Callers reading via *ForPick accessors must not
+//     mutate or retain anything beyond a single pick.
+//   - withEndpointHealthForIDs derives a successor snapshot that REUSES
+//     unchanged *Endpoint pointers and the prior addressByID map for
+//     allocation efficiency. This is safe only because *Endpoint and
+//     the underlying maps are treated as read-only after publication.
+//     Any code path that mutates them in place will leak state across
+//     all snapshots alive at the time of the mutation. The
+//     ZeroCopySnapshotLoadBalancer marker on load balancers exists
+//     precisely to opt into this contract; do not introduce new
+//     in-place mutation on snapshot-owned objects.
 func newEndpointSnapshot(config *model.ClusterConfig, previous *EndpointSnapshot, inheritRuntimeHealth bool) *EndpointSnapshot {
 	var endpoints []*model.Endpoint
 	clusterName := ""
