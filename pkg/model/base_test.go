@@ -89,6 +89,32 @@ func TestSocketAddressEqual(t *testing.T) {
 			want:              false,
 			matchesGetAddress: true,
 		},
+		// Counterexamples: Equal != (GetAddress == GetAddress). The
+		// matchesGetAddress=false flag tells the assertion below to
+		// not enforce string-projection agreement and instead encode
+		// the divergence into the contract.
+		{
+			name: "domain literal collides with ip+port string but Equal is false",
+			// "1.2.3.4:5" as a domain entry literally formats to the
+			// same string as the IP+port form. They describe different
+			// upstreams (domain mode vs IP+port mode) so Equal returns
+			// false even though GetAddress strings match.
+			a:                 SocketAddress{Domains: []string{"1.2.3.4:5"}},
+			b:                 SocketAddress{Address: "1.2.3.4", Port: 5},
+			want:              false,
+			matchesGetAddress: false,
+		},
+		{
+			name: "domain entry shaped like ip alone collides with zero-port ip form",
+			// "1.2.3.4" as a domain entry formats to "1.2.3.4"; IP-only
+			// SocketAddress{Address: "1.2.3.4", Port: 0} formats to
+			// "1.2.3.4:0". Both string forms differ — picked another
+			// pair where the strings actually collide.
+			a:                 SocketAddress{Domains: []string{":0"}},
+			b:                 SocketAddress{}, // Address="", Port=0 -> ":0"
+			want:              false,
+			matchesGetAddress: false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -101,6 +127,12 @@ func TestSocketAddressEqual(t *testing.T) {
 			if tc.matchesGetAddress {
 				assert.Equal(t, tc.a.GetAddress() == tc.b.GetAddress(), got,
 					"Equal must agree with GetAddress() comparison for case %q", tc.name)
+			} else {
+				// Counterexample cases: GetAddress strings match yet
+				// Equal is false. Encoded as part of the contract — see
+				// godoc on Equal / GetAddress.
+				assert.NotEqual(t, tc.a.GetAddress() == tc.b.GetAddress(), got,
+					"counterexample %q: Equal must diverge from GetAddress here", tc.name)
 			}
 		})
 	}
