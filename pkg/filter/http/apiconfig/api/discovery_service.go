@@ -35,6 +35,7 @@ type APIDiscoveryService interface {
 	InitAPIsFromConfig(apiConfig config.APIConfig) error
 	AddAPI(router.API) error
 	AddOrUpdateAPI(router.API) error
+	MergeAPI(router.API) error
 	ClearAPI() error
 	GetAPI(string, string) (router.API, error)
 	MatchAPI(string, string) (router.API, error)
@@ -63,6 +64,11 @@ func (l *LocalMemoryAPIDiscoveryService) AddAPI(api router.API) error {
 // AddOrUpdateAPI adds or updates a method to the router tree
 func (l *LocalMemoryAPIDiscoveryService) AddOrUpdateAPI(api router.API) error {
 	return l.router.PutOrUpdateAPI(api)
+}
+
+// MergeAPI merges metadata into an existing route without registering a new route.
+func (l *LocalMemoryAPIDiscoveryService) MergeAPI(api router.API) error {
+	return l.router.MergeAPI(api)
 }
 
 // GetAPI returns the method to the caller

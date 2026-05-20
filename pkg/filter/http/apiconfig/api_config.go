@@ -18,6 +18,10 @@
 package apiconfig
 
 import (
+	"os"
+)
+
+import (
 	"github.com/pkg/errors"
 )
 
@@ -27,6 +31,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/api"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/http/apiconfig/openapi"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -69,17 +74,34 @@ func (factory *FilterFactory) Config() any {
 func (factory *FilterFactory) Apply() error {
 	factory.apiService = api.NewLocalMemoryAPIDiscoveryService()
 
+	if factory.cfg.Dynamic && (factory.cfg.EnableOpenAPIValidation || factory.cfg.OpenAPIPath != "") {
+		return errors.New("dynamic api config does not support openapi validation")
+	}
+
 	if factory.cfg.Dynamic {
 		server.GetApiConfigManager().AddApiConfigListener(factory.cfg.DynamicAdapter, factory)
 		return nil
 	}
 
+	if factory.cfg.Path == "" && factory.cfg.APIMetaConfig == nil {
+		if factory.cfg.EnableOpenAPIValidation && factory.cfg.OpenAPIPath != "" {
+			logger.Warn("openapi validation is configured without api config; skip openapi validation")
+		}
+		return nil
+	}
+
 	config, err := initApiConfig(factory.cfg)
 	if err != nil {
-		logger.Errorf("Get ApiConfig fail: %v", err)
+		return err
 	}
 	if err := factory.apiService.InitAPIsFromConfig(*config); err != nil {
-		logger.Errorf("InitAPIsFromConfig fail: %v", err)
+		return err
+	}
+
+	if factory.cfg.EnableOpenAPIValidation && factory.cfg.OpenAPIPath != "" {
+		if err := factory.mergeOpenAPIFromFile(factory.cfg.OpenAPIPath); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -124,12 +146,52 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 		logger.Debug(e.Error())
 		return filter.Stop
 	}
+
+	if plan := openapi.ExtractValidationPlan(v); plan != nil {
+		if err := openapi.ValidateRequest(req, plan); err != nil {
+			errResp := contexthttp.BadRequest.WithError(err)
+			ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+			logger.Debug(errResp.Error())
+			return filter.Stop
+		}
+	}
 	ctx.API(v)
 	return filter.Continue
 }
 
 func (factory *FilterFactory) GetApiService() api.APIDiscoveryService {
 	return factory.apiService
+}
+
+func (factory *FilterFactory) mergeOpenAPIFromFile(path string) error {
+	spec, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	doc, err := openapi.LoadDocumentFromBytes(spec)
+	if err != nil {
+		return err
+	}
+
+	compiledRoutes, err := openapi.CompileRoutes(doc)
+	if err != nil {
+		return err
+	}
+	for _, compiled := range compiledRoutes {
+		if _, err := factory.apiService.GetAPI(compiled.Route.URLPattern, compiled.Route.HTTPVerb); err != nil {
+			logger.Warnf(
+				"skip openapi validation for %s %s because api config route does not exist",
+				compiled.Route.HTTPVerb,
+				compiled.Route.URLPattern,
+			)
+			continue
+		}
+		if err := factory.apiService.MergeAPI(compiled.Route); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // initApiConfig return value of the bool is for the judgment of whether is a api meta data error, a kind of silly (?)

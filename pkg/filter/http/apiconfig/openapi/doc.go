@@ -15,18 +15,6 @@
  * limitations under the License.
  */
 
-package apiconfig
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-)
-
-// ApiConfigConfig the config for api_config filter
-type ApiConfigConfig struct {
-	APIMetaConfig           *model.APIMetaConfig `yaml:"api_meta_config" json:"api_meta_config,omitempty"`
-	Path                    string               `yaml:"path" json:"path,omitempty"`
-	Dynamic                 bool                 `yaml:"dynamic" json:"dynamic,omitempty"`
-	DynamicAdapter          string               `yaml:"dynamic_adapter" json:"dynamic_adapter,omitempty"`
-	OpenAPIPath             string               `yaml:"openapi_path" json:"openapi_path,omitempty"`
-	EnableOpenAPIValidation bool                 `yaml:"enable_openapi_validation" json:"enable_openapi_validation,omitempty"`
-}
+// Package openapi provides OpenAPI parsing and compilation helpers for the
+// api config filter.
+package openapi
