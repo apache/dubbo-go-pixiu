@@ -54,7 +54,7 @@
    `generated-<sha8>`。
 
 三种形式在 pixiu 重启之间都保持稳定，只要底层属性没有变化，所以
-`LMCache instance_id ↔ pixiu endpoint.id` 这条契约长期成立。
+`LMCache instance_id ↔ pixiu endpoint.id` 这样定义长期成立。
 
 #### 升级说明
 
