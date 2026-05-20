@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: pixiu users api
+  version: "1.0.0"
+paths:
+  /users/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trace-id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+  /users:
+    post:
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - web
+              - app
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - role
+              properties:
+                name:
+                  type: string
+                  maxLength: 32
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - member
+                age:
+                  type: integer
+                  minimum: 0
+      responses:
+        "200":
+          description: ok
