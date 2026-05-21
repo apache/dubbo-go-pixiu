@@ -16,6 +16,15 @@ Generate a complete or embeddable LLM gateway `conf.yaml` that configures Pixiu 
   - MCP gateway, HTTP-to-Dubbo routes, or implementing new LLM-related filters.
 
 ## Inputs
+
+<HARD-GATE>
+Do not generate YAML, write code, create files, or take any implementation action until the user has provided all required inputs. This is a first principle.
+
+If any required input is missing, this turn must only ask for the missing fields in the current input group; do not generate examples, defaults, YAML, code, or final output.
+
+Even if configuration information seems inferable, obvious, or implied by context, you must still ask the user to confirm it. Do not proceed until the user confirms it.
+</HARD-GATE>
+
 - Choose upstream mode (required):
   - Required:
     - `upstream_mode`: `static` or `registry`
@@ -98,18 +107,18 @@ Generate a complete or embeddable LLM gateway `conf.yaml` that configures Pixiu 
     - `config.circuit_breaker.half_open_max_calls: 2`
 
 ## Workflow
-1. Read current source before generating YAML:
-   - `pkg/common/constant/key.go`.
-   - `pkg/filter/llm/proxy/filter.go`.
-   - `pkg/filter/llm/tokenizer/tokenizer.go`.
-   - `pkg/filter/ai/kvcache/config.go` and `pkg/filter/ai/kvcache/handlers.go`.
-   - `pkg/model/llm.go`, `pkg/model/cluster.go`, and `pkg/model/base.go`.
-2. Guide and read user input:
+1. Check required Inputs first:
    1. Read existing config and already provided user information first; do not ask again for information already present or stated.
    2. Ask one `Inputs` group at a time. Each time, output only that group's required fields, with a short explanation after each field.
    3. If the current group's required fields are incomplete, ask only for the missing fields and do not move to the next group.
    4. After the current group's required fields are complete, ask whether to fill that group's optional fields; if yes, list those optional fields with short explanations.
    5. After optional fields are skipped or completed, apply that group's defaults and output default-value information; defaults must not override existing config or user input.
+2. Read current source before generating YAML:
+   - `pkg/common/constant/key.go`.
+   - `pkg/filter/llm/proxy/filter.go`.
+   - `pkg/filter/llm/tokenizer/tokenizer.go`.
+   - `pkg/filter/ai/kvcache/config.go` and `pkg/filter/ai/kvcache/handlers.go`.
+   - `pkg/model/llm.go`, `pkg/model/cluster.go`, and `pkg/model/base.go`.
 3. Choose static or registry path by `upstream_mode`: static uses `static_resources.clusters[]`; registry uses the LLM registry adapter.
 4. Generate listener, route, and filters: use HCM to carry the LLM route and HTTP filters; add `dgp.filter.ai.kvcache`, tokenizer, and `dgp.filter.llm.proxy` as needed.
 5. Generate LLM upstream: static endpoints go under `socket_address` and `llm_meta`; ensure the LLM cluster does not mix in ordinary HTTP endpoints.

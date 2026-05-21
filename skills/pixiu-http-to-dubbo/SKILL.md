@@ -16,6 +16,15 @@ Generate a complete or embeddable `api_config.yaml`, and add the required compan
   - New registry adapter implementation or non-Dubbo HTTP proxy routes.
 
 ## Inputs
+
+<HARD-GATE>
+Do not generate YAML, write code, create files, or take any implementation action until the user has provided all required inputs. This is a first principle.
+
+If any required input is missing, this turn must only ask for the missing fields in the current input group; do not generate examples, defaults, YAML, code, or final output.
+
+Even if configuration information seems inferable, obvious, or implied by context, you must still ask the user to confirm it. Do not proceed until the user confirms it.
+</HARD-GATE>
+
 - Choose Dubbo provider mode (required):
   - Required:
     - `provider_mode`: `registry` or `direct`
@@ -90,16 +99,16 @@ Generate a complete or embeddable `api_config.yaml`, and add the required compan
     - `integrationRequest.serialization: hessian2`
 
 ## Workflow
-1. Read current source before editing YAML:
-   - `pkg/config/api_config.go`.
-   - `pkg/filter/http/remote/dubbo_handler.go`.
-   - `pkg/client/dubbo/types.go`, `pkg/client/dubbo/typeconv.go`, and `pkg/client/dubbo/dubbo.go`.
-2. Guide and read user input:
+1. Check required Inputs first:
    1. Read existing config and already provided user information first; do not ask again for information already present or stated.
    2. Ask one `Inputs` group at a time. Each time, output only that group's required fields, with a short explanation after each field.
    3. If the current group's required fields are incomplete, ask only for the missing fields and do not move to the next group.
    4. After the current group's required fields are complete, ask whether to fill that group's optional fields; if yes, list those optional fields with short explanations.
    5. After optional fields are skipped or completed, apply that group's defaults and output default-value information; defaults must not override existing config or user input.
+2. Read current source before editing YAML:
+   - `pkg/config/api_config.go`.
+   - `pkg/filter/http/remote/dubbo_handler.go`.
+   - `pkg/client/dubbo/types.go`, `pkg/client/dubbo/typeconv.go`, and `pkg/client/dubbo/dubbo.go`.
 3. Choose registry or direct path by `provider_mode`:
    - Registry uses the registry config in `dgp.filter.http.dubboproxy`.
    - Direct uses `integrationRequest.url`.
