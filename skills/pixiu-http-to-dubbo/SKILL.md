@@ -67,13 +67,13 @@ Even if configuration information seems inferable, obvious, or implied by contex
     - `integrationRequest.requestType: dubbo`
 - Dubbo method parameters (required when the method has parameters):
   - Required:
-    - `mappingParams[]` (common usage: map `opt.values` and `opt.types`)
-    - `opt.values` (Dubbo generic invoke argument value list)
-    - `opt.types` (Java type list aligned with `opt.values`)
+    - `mappingParams[]` using exactly one argument style:
+      - positional mappings: `mappingParams[].mapTo: "0"`, `"1"`, ...
+      - `opt.values` mappings: map request fields to `opt.values`, and map or declare Java types separately when needed
   - Conditionally required:
+    - `opt.types` when using `opt.values` and Java types cannot be inferred or must be explicit.
+    - `parameterTypes[]` for direct-mode positional mappings, or whenever Java types must override inferred types.
     - When method parameters contain POJOs, nested objects, or collections, provide the corresponding Java class names and field types.
-  - Optional:
-    - `parameterTypes[]` (use when Java types must be declared explicitly or override `opt.types`)
 - Registry provider (required when `provider_mode: registry`; defaults use Zookeeper, Nacos can also be chosen, examples below use Zookeeper):
   - Required:
     - `dubboProxyConfig.registries.zookeeper.address`
@@ -112,16 +112,17 @@ Even if configuration information seems inferable, obvious, or implied by contex
 3. Choose registry or direct path by `provider_mode`:
    - Registry uses the registry config in `dgp.filter.http.dubboproxy`.
    - Direct uses `integrationRequest.url`.
-4. Generate `api_config.yaml`: write `resources[].methods[]` for each HTTP API, and use `opt.values`/`opt.types` to organize Dubbo arguments.
+4. Generate `api_config.yaml`: write `resources[].methods[]` for each HTTP API, and use either positional `mappingParams` or `opt.values`/`opt.types` to organize Dubbo arguments.
 5. Complete `conf.yaml`: use HCM for route and filters, and ensure `dgp.filter.http.apiconfig` is before the Dubbo proxy.
 
 ## Output format
 - Show the relevant YAML fragments.
 
 ## Validation
-- Verify `mappingParams[].mapTo` indexes match the `parameterTypes[]` list order exactly.
+- When using positional mappings, verify `mappingParams[].mapTo` indexes match the declared Java type order exactly.
+- Verify positional mappings and `opt.values` are not mixed in the same method.
 - Verify `dgp.filter.http.apiconfig` is ordered before `dgp.filter.http.dubboproxy`.
-- Verify `mapType` uses the lowercase values from `pkg/common/constant/jtypes.go` (`string`/`int`/`long`/`boolean`, etc.), not Java-style `String`/`Boolean`.
+- Verify `mapType` is supported by `client/dubbo.MapTypes` after normalization against `constant.JTypeMapper`: lowercase primitives and supported fully-qualified Java type aliases such as `java.lang.String`/`java.lang.Integer` are valid; short uppercase aliases such as `String`/`Boolean` are not.
 - Verify POJO arguments have a `class` field in the corresponding JSON body, such as `{"class":"com.example.User", ...}`.
 
 ## Examples
@@ -176,7 +177,7 @@ http_filters:
         retries: "3"
 ```
 
-Registry mode (`api_conf.yaml`):
+Registry mode (`api_config.yaml`):
 
 ```yaml
 integrationRequest:

@@ -84,7 +84,11 @@ Even if configuration information seems inferable, obvious, or implied by contex
     - `resources[].name`
     - `resources[].uri`
     - `resources[].source.type`
-    - `resources[].source.content`
+  - Conditionally required by `resources[].source.type`:
+    - `resources[].source.content` for `inline`
+    - `resources[].source.path` for `file`
+    - `resources[].source.url` for `url`
+    - `resources[].source.template` for `template`
   - Optional:
     - `resources[].description`
     - `resources[].mime_type`
@@ -174,7 +178,7 @@ static_resources:
                 - name: dgp.filter.http.auth.mcp
                   config:
                     resource_metadata:
-                      path: /.well-known/oauth-protected-resource/mcp
+                      path: /.well-known/oauth-protected-resource
                       resource: http://localhost:8888/mcp
                       authorization_servers:
                         - http://localhost:9000
