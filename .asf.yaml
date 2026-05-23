@@ -17,6 +17,8 @@
 
 github:
   protected_branches:
+    master: {}     # only disable force push
+    develop: {}     # only disable force push
   features:
     # Enable wiki for documentation
     wiki: true
