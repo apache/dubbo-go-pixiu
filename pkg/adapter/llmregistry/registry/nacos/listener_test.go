@@ -206,7 +206,7 @@ func TestGenerateEndpoint(t *testing.T) {
 		assert.NotNil(t, first)
 		assert.Equal(t, first.ID, second.ID)
 		assert.NotEqual(t, first.ID, generateEndpoint(changedCredential).ID)
-		assert.Contains(t, first.ID, "generated-")
+		assert.Contains(t, first.ID, "pixiu-generated-endpoint-")
 		assert.NotContains(t, first.ID, "key-a")
 	})
 
@@ -228,7 +228,7 @@ func TestGenerateEndpoint(t *testing.T) {
 
 		assert.NotNil(t, clusterA)
 		assert.NotNil(t, clusterB)
-		assert.Contains(t, clusterA.ID, "generated-")
+		assert.Contains(t, clusterA.ID, "pixiu-generated-endpoint-")
 		assert.NotEqual(t, clusterA.ID, clusterB.ID)
 	})
 }

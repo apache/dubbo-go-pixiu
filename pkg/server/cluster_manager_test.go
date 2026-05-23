@@ -532,7 +532,7 @@ func TestClusterManager_AssembleEndpointsAssignsDeterministicID(t *testing.T) {
 
 	// Generated prefix indicates the deterministic helper, not the legacy
 	// random UUID fallback.
-	assert.Contains(t, firstEPs[0].ID, "generated-")
+	assert.Contains(t, firstEPs[0].ID, "pixiu-generated-endpoint-")
 
 	// Endpoints differing only by port must not collide within the same cluster.
 	assert.NotEqual(t, firstEPs[0].ID, firstEPs[1].ID)
@@ -582,7 +582,7 @@ func TestClusterManager_AssembleEndpointsCollapseDuplicateGenerated(t *testing.T
 	// share the same generated identifier.
 	assert.Equal(t, endpoints[0].ID, endpoints[1].ID,
 		"endpoints with identical hash material must collapse to the same ID")
-	assert.Contains(t, endpoints[0].ID, "generated-")
+	assert.Contains(t, endpoints[0].ID, "pixiu-generated-endpoint-")
 }
 
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {

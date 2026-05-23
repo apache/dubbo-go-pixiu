@@ -118,7 +118,8 @@ func TestGenerateEndpointIDIsDeterministic(t *testing.T) {
 
 	assert.Equal(t, first, second, "same material must produce same ID")
 	assert.NotEqual(t, first, other, "different credential must produce different ID")
-	assert.True(t, strings.HasPrefix(first, "generated-"), "ID must use generated- prefix")
+	assert.True(t, strings.HasPrefix(first, "pixiu-generated-endpoint-"),
+		"ID must use pixiu-generated-endpoint- prefix")
 	assert.NotContains(t, first, "key-a", "raw API key must not leak into the ID")
 }
 
@@ -170,6 +171,6 @@ func TestGenerateEndpointIDSeparatesAddresses(t *testing.T) {
 func TestGenerateEndpointIDHandlesNilEndpoint(t *testing.T) {
 	a := model.GenerateEndpointID("cluster-a", nil)
 	b := model.GenerateEndpointID("cluster-b", nil)
-	assert.True(t, strings.HasPrefix(a, "generated-"))
+	assert.True(t, strings.HasPrefix(a, "pixiu-generated-endpoint-"))
 	assert.NotEqual(t, a, b)
 }

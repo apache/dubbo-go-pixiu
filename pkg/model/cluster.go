@@ -22,6 +22,8 @@ import (
 	"fmt"
 )
 
+const generatedEndpointIDPrefix = "pixiu-generated-endpoint-"
+
 const (
 	Static DiscoveryType = iota
 	StrictDNS
@@ -140,6 +142,9 @@ func (e Endpoint) GetHost() string {
 //   - The output is sha256(material) truncated to the first 8 bytes (64 bits).
 //     Birthday-collision probability becomes meaningful only around 2^32
 //     endpoints, far above any realistic per-cluster scale.
+//   - The output uses the pixiu-generated-endpoint- prefix so generated IDs
+//     are recognizable in logs and dashboards without implying they only come
+//     from the LLM registry path. Static-config endpoints use this helper too.
 //   - clusterName is part of the material so endpoints in different clusters
 //     never alias. Callers from the Nacos LLM path supply
 //     instance.Metadata["cluster"]; if that metadata is missing the value is
@@ -150,11 +155,12 @@ func (e Endpoint) GetHost() string {
 //     output is one-way (sha256), so the raw key never appears in the ID.
 func GenerateEndpointID(clusterName string, endpoint *Endpoint) string {
 	sum := sha256.Sum256([]byte(endpointIDMaterial(clusterName, endpoint)))
-	return fmt.Sprintf("generated-%x", sum[:8])
+	return fmt.Sprintf("%s%x", generatedEndpointIDPrefix, sum[:8])
 }
 
 // endpointIDMaterial builds the byte string fed into the hash inside
-// GenerateEndpointID.
+// GenerateEndpointID. Each component is tagged and length-prefixed so field
+// boundaries remain unambiguous even if values contain punctuation or newlines.
 //
 // Contract: this function MUST NOT depend on endpoint.Name. Callers
 // (notably ClusterStore.assembleClusterEndpoints) rely on being able to
@@ -162,17 +168,22 @@ func GenerateEndpointID(clusterName string, endpoint *Endpoint) string {
 // material would also break the rename-invariance guarantee asserted by
 // TestGenerateEndpointIDIgnoresEndpointName.
 func endpointIDMaterial(clusterName string, endpoint *Endpoint) string {
-	if endpoint == nil {
-		return clusterName
-	}
+	address := ""
 	provider := ""
 	apiKey := ""
-	if endpoint.LLMMeta != nil {
+	if endpoint != nil {
+		address = endpoint.Address.GetAddress()
+	}
+	if endpoint != nil && endpoint.LLMMeta != nil {
 		provider = endpoint.LLMMeta.Provider
 		apiKey = endpoint.LLMMeta.APIKey
 	}
-	return clusterName + "\x00" +
-		endpoint.Address.GetAddress() + "\x00" +
-		provider + "\x00" +
-		apiKey
+	return endpointIDMaterialField("cluster", clusterName) +
+		endpointIDMaterialField("address", address) +
+		endpointIDMaterialField("llm_provider", provider) +
+		endpointIDMaterialField("llm_api_key", apiKey)
+}
+
+func endpointIDMaterialField(name, value string) string {
+	return fmt.Sprintf("%s:%d:%s\n", name, len(value), value)
 }

@@ -51,7 +51,7 @@ value wins:
 1. `metadata["id"]` on the registry instance (Nacos LLM registry), or
    the `id:` field on a static-config endpoint.
 2. The Nacos `InstanceId` if present.
-3. A deterministic `generated-<sha8>` hash derived from
+3. A deterministic `pixiu-generated-endpoint-<sha8>` hash derived from
    `(cluster_name, address, provider, api_key)`.
 
 All three forms are stable across pixiu restarts as long as the underlying

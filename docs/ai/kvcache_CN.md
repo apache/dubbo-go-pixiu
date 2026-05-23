@@ -51,7 +51,7 @@
    或静态配置 endpoint 上的 `id:` 字段。
 2. Nacos 的 `InstanceId`（若存在）。
 3. 由 `(cluster_name, address, provider, api_key)` 派生的确定性哈希
-   `generated-<sha8>`。
+   `pixiu-generated-endpoint-<sha8>`。
 
 三种形式在 pixiu 重启之间都保持稳定，只要底层属性没有变化，所以
 `LMCache instance_id ↔ pixiu endpoint.id` 这样定义长期成立。
