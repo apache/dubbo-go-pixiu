@@ -211,7 +211,7 @@ func TestGenerateEndpoint(t *testing.T) {
 		assert.NotContains(t, first.ID, "key-a")
 	})
 
-	t.Run("Missing metadata cluster falls back to Nacos cluster name", func(t *testing.T) {
+	t.Run("Missing metadata cluster falls back to empty cluster hash", func(t *testing.T) {
 		build := func(clusterName string) nacosModel.Instance {
 			return nacosModel.Instance{
 				Ip:          "127.0.0.1",
@@ -230,7 +230,7 @@ func TestGenerateEndpoint(t *testing.T) {
 		assert.NotNil(t, clusterA)
 		assert.NotNil(t, clusterB)
 		assert.Contains(t, clusterA.ID, "pixiu-generated-endpoint-")
-		assert.NotEqual(t, clusterA.ID, clusterB.ID)
+		assert.Equal(t, clusterA.ID, clusterB.ID)
 	})
 }
 
@@ -510,7 +510,7 @@ func TestNacosEndpointIDMissingClusterFallsBackToEmptyClusterHash(t *testing.T) 
 	}
 
 	endpoint := generateEndpoint(instance)
-	assert.True(t, strings.HasPrefix(endpoint.ID, "generated-"),
+	assert.True(t, strings.HasPrefix(endpoint.ID, "pixiu-generated-endpoint-"),
 		"missing metadata[\"cluster\"] falls through to model.GenerateEndpointID with empty cluster")
 
 	// Deterministic: re-generating from the same instance returns the same ID.
