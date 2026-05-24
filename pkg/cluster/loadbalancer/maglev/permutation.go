@@ -187,7 +187,7 @@ func (t *LookUpTable) removePerm(dst int) {
 
 // Hash the input key.
 func (t *LookUpTable) Hash(key string) uint32 {
-	return _requestHash(key)
+	return requestHash(key)
 }
 
 // Get a slot by hashing the input key.
@@ -275,7 +275,7 @@ func (t *LookUpTable) remove(host string) bool {
 	return false
 }
 
-func _requestHash(key string) uint32 {
+func requestHash(key string) uint32 {
 	return uint32(xxhash.Sum64String(key))
 }
 

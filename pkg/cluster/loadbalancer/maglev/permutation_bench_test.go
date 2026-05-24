@@ -47,7 +47,7 @@ func BenchmarkLookUpTableHash(b *testing.B) {
 
 	b.Run("xxhash", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			benchmarkHashSink = _requestHash(key)
+			benchmarkHashSink = requestHash(key)
 		}
 	})
 }

@@ -153,7 +153,7 @@ func TestLookUpTable_HashIsDeterministic(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		assert.Equal(t, want, table.Hash(key), "Hash should be stable for the same request key")
 	}
-	assert.Equal(t, _requestHash(key), want, "Hash should use the request-key hash")
+	assert.Equal(t, requestHash(key), want, "Hash should use the request-key hash")
 }
 
 func TestLookUpTable_GetHashNormalizesHashedKey(t *testing.T) {
