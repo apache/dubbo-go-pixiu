@@ -584,6 +584,27 @@ func TestClusterManager_SetEndpointDoesNotMutateInputEndpoint(t *testing.T) {
 	}
 }
 
+func TestClusterManager_SetEndpointUpdateDoesNotShareOldLLMMeta(t *testing.T) {
+	oldEndpoint := testEndpoint("ep-1", "127.0.0.1", 21077)
+	oldEndpoint.LLMMeta = &model.LLMMeta{APIKey: "old-key"}
+	config := testCluster("set-llm-meta-clone", model.LoadBalancerRoundRobin, []*model.Endpoint{oldEndpoint})
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	storedOld := cm.store.Config[0].Endpoints[0]
+	incoming := testEndpoint("ep-1", "127.0.0.2", 21078)
+
+	cm.SetEndpoint(config.Name, incoming)
+
+	updated := cm.store.Config[0].Endpoints[0]
+	if assert.NotNil(t, updated.LLMMeta) && assert.NotNil(t, storedOld.LLMMeta) {
+		assert.NotSame(t, storedOld.LLMMeta, updated.LLMMeta)
+		updated.LLMMeta.APIKey = "mutated-key"
+		assert.Equal(t, "old-key", storedOld.LLMMeta.APIKey)
+	}
+	assert.Nil(t, incoming.LLMMeta)
+}
+
 func TestClusterManager_AssembleEndpointsPreservesExplicitID(t *testing.T) {
 	cluster := &model.ClusterConfig{
 		Name:  "explicit-id",

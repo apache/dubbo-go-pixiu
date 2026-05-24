@@ -198,14 +198,16 @@ func (cm *ClusterManager) PickNextEndpoint(clusterName, curEndpointID string) *m
 		return nil
 	}
 
-	return pickNextHealthyEndpoint(runtimeCluster.EndpointSnapshot(), curEndpointID)
+	return runtimeCluster.EndpointSnapshot().NextHealthyEndpoint(curEndpointID)
 }
 
-func pickNextHealthyEndpoint(snapshot *cluster.EndpointSnapshot, curEndpointID string) *model.Endpoint {
-	return snapshot.NextHealthyEndpoint(curEndpointID)
-}
-
-// GetEndpointByID returns the healthy runtime endpoint by ID in the given cluster.
+// GetEndpointByID returns the healthy runtime endpoint by ID in the given
+// cluster.
+//
+// Deprecated: kept as an alias for backward compatibility with v1.x callers.
+// New code should call GetHealthyEndpointByID directly to make the
+// healthy-only semantic explicit, or GetAnyEndpointByID when the caller also
+// wants to observe runtime-unhealthy endpoints.
 func (cm *ClusterManager) GetEndpointByID(clusterName, endpointID string) *model.Endpoint {
 	return cm.GetHealthyEndpointByID(clusterName, endpointID)
 }
@@ -257,7 +259,6 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 	healthyEndpoints := snapshot.HealthyEndpointsForPick()
 
 	c := runtimeCluster.Config
-	legacyPickLock := runtimeCluster.LegacyPickLock()
 	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
 	if !ok {
 		loadBalancer = loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand]
@@ -268,7 +269,7 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 		allEndpoints = snapshot.AllEndpointsForPick()
 	}
 
-	return loadbalancer.PickEndpointWithLegacyLock(loadBalancer, legacyPickLock, loadbalancer.PickContext{
+	return loadbalancer.PickEndpoint(loadBalancer, loadbalancer.PickContext{
 		Config:                c,
 		HealthyConsistentHash: snapshot.HealthyConsistentHash(),
 		AllEndpoints:          allEndpoints,
@@ -620,7 +621,7 @@ func mergeEndpointForSet(oldEndpoint, incoming *model.Endpoint) *model.Endpoint 
 		return incoming
 	}
 
-	merged := *oldEndpoint
+	merged := model.CloneEndpoint(oldEndpoint)
 	merged.ID = incoming.ID
 	merged.Name = incoming.Name
 	merged.Address = incoming.Address
@@ -628,7 +629,7 @@ func mergeEndpointForSet(oldEndpoint, incoming *model.Endpoint) *model.Endpoint 
 	if incoming.LLMMeta != nil {
 		merged.LLMMeta = incoming.LLMMeta
 	}
-	return &merged
+	return merged
 }
 
 func stableEndpointIDForSet(clusterName string, endpoint *model.Endpoint, endpoints []*model.Endpoint) string {

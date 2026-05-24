@@ -471,11 +471,6 @@ func newCooldownStore() *cooldownStore {
 	}
 }
 
-func (s *cooldownStore) lastFailure(clusterName string, endpoint *model.Endpoint) (time.Time, bool) {
-	lastFailure, _, ok := s.lastFailureWithCurrentTTL(clusterName, endpoint)
-	return lastFailure, ok
-}
-
 func (s *cooldownStore) lastFailureWithCurrentTTL(clusterName string, endpoint *model.Endpoint) (time.Time, time.Duration, bool) {
 	if s == nil || endpoint == nil {
 		return time.Time{}, 0, false
@@ -595,6 +590,15 @@ func endpointCredentialHash(endpoint *model.Endpoint) string {
 	return fmt.Sprintf("%x", sum)
 }
 
+// endpointCooldownInterval returns the per-endpoint cooldown TTL derived from
+// LLMMeta.HealthCheckInterval in milliseconds.
+//
+// Returning 0 is meaningful: an endpoint whose HealthCheckInterval is unset or
+// explicitly 0 is recorded on failure, but endpointInCooldown always reports
+// false because time.Since(lastFailure) < 0 is always false. The sweep loop
+// then evicts the entry on its next pass. This is "cooldown disabled"
+// semantics, not a bug; set HealthCheckInterval to a positive value to enable
+// cooldown.
 func endpointCooldownInterval(endpoint *model.Endpoint) time.Duration {
 	if endpoint == nil || endpoint.LLMMeta == nil {
 		return 0

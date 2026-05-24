@@ -77,16 +77,6 @@ type ZeroCopySnapshotLoadBalancer interface {
 	UseZeroCopySnapshot() bool
 }
 
-// ClusterScopedLegacyLoadBalancer lets a legacy load balancer opt in to
-// runtime-cluster scoped serialization. Legacy balancers that do not
-// implement this interface keep the package-level compatibility lock because
-// strategy instances are shared globally. Implementations must ensure the
-// same balancer instance can run Handler concurrently across different
-// clusters.
-type ClusterScopedLegacyLoadBalancer interface {
-	UseClusterScopedLegacyLock() bool
-}
-
 // LoadBalancerStrategy load balancer strategy mode
 var LoadBalancerStrategy = map[model.LbPolicyType]LoadBalancer{}
 
@@ -106,15 +96,7 @@ func RegisterLoadBalancer(name model.LbPolicyType, balancer LoadBalancer) {
 // from snapshot-published pick paths. Legacy balancers fall back to the
 // package-level compatibility lock automatically.
 func PickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPolicy) *model.Endpoint {
-	return pickEndpointWithLegacyLock(balancer, nil, context, policy)
-}
-
-// PickEndpointWithLegacyLock serializes legacy balancers. The caller-provided
-// runtime lock is used only when the balancer explicitly opts in to scoped
-// serialization; other legacy balancers keep the package-level compatibility
-// lock.
-func PickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locker, context PickContext, policy model.LbPolicy) *model.Endpoint {
-	return pickEndpointWithLegacyLock(balancer, legacyPickLock, context, policy)
+	return pickEndpoint(balancer, context, policy)
 }
 
 // NeedsAllEndpoints reports whether a snapshot-aware balancer should receive
@@ -141,7 +123,7 @@ func ConsistentHashForHealthyEndpoints(context PickContext) model.LbConsistentHa
 	return model.ReadOnlyConsistentHash(context.Config.ConsistentHash.Hash)
 }
 
-func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locker, context PickContext, policy model.LbPolicy) *model.Endpoint {
+func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPolicy) *model.Endpoint {
 	if balancer == nil || context.Config == nil {
 		return nil
 	}
@@ -171,9 +153,19 @@ func pickEndpointWithLegacyLock(balancer LoadBalancer, legacyPickLock sync.Locke
 	// LbStr, so legacy and snapshot RR do not coexist; if a future
 	// deployment mixes them, accept the fairness skew or migrate the
 	// legacy plugin to SnapshotLoadBalancer.
-	lock := legacyPickLockFor(balancer, legacyPickLock)
-	lock.Lock()
-	defer lock.Unlock()
+	//
+	// Shared-pointer hazard: config := *context.Config is a shallow copy.
+	// config.Endpoints is replaced with a clone below, but other
+	// pointer-bearing fields on ClusterConfig (ConsistentHash.Hash,
+	// operator-supplied Metadata, etc.) stay shared with context.Config.
+	// The package lock above serializes legacy picks, but it does not
+	// serialize legacy picks against concurrent ClusterStore mutations that
+	// touch those fields. In-tree this is safe because all ClusterStore
+	// mutators hold ClusterManager.rw and PickEndpoint takes
+	// ClusterManager.rw.RLock; external legacy plugins must observe the same
+	// rule.
+	legacyPickMu.Lock()
+	defer legacyPickMu.Unlock()
 
 	allEndpoints := context.AllEndpoints
 	if allEndpoints == nil {
@@ -196,13 +188,6 @@ func defensiveSnapshotPickContext(context PickContext) PickContext {
 	defensive.AllEndpoints = model.CloneEndpoints(context.AllEndpoints)
 	defensive.HealthyEndpoints = model.CloneEndpoints(context.HealthyEndpoints)
 	return defensive
-}
-
-func legacyPickLockFor(balancer LoadBalancer, legacyPickLock sync.Locker) sync.Locker {
-	if scoped, ok := balancer.(ClusterScopedLegacyLoadBalancer); ok && scoped.UseClusterScopedLegacyLock() && legacyPickLock != nil {
-		return legacyPickLock
-	}
-	return &legacyPickMu
 }
 
 func healthyEndpointFromSnapshot(endpoint *model.Endpoint, healthyEndpoints []*model.Endpoint) *model.Endpoint {

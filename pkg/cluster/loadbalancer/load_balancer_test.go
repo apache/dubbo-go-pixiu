@@ -52,17 +52,6 @@ type blockingLegacyLoadBalancer struct {
 	calls   int32
 }
 
-type clusterScopedBlockingLegacyLoadBalancer struct {
-	*blockingLegacyLoadBalancer
-}
-
-type observableLocker struct {
-	mu      sync.Mutex
-	waiter  chan struct{}
-	locked  bool
-	blocked chan struct{}
-}
-
 type legacyPickHarness struct {
 	t           *testing.T
 	balancer    LoadBalancer
@@ -148,45 +137,7 @@ func (b *blockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbP
 	return c.Endpoints[0]
 }
 
-func (b *clusterScopedBlockingLegacyLoadBalancer) UseClusterScopedLegacyLock() bool {
-	return true
-}
-
-func newObservableLocker() *observableLocker {
-	return &observableLocker{
-		blocked: make(chan struct{}, 1),
-	}
-}
-
-func (l *observableLocker) Lock() {
-	l.mu.Lock()
-	if !l.locked {
-		l.locked = true
-		l.mu.Unlock()
-		return
-	}
-	waiter := make(chan struct{})
-	l.waiter = waiter
-	l.blocked <- struct{}{}
-	l.mu.Unlock()
-	<-waiter
-
-	l.mu.Lock()
-	l.locked = true
-	l.mu.Unlock()
-}
-
-func (l *observableLocker) Unlock() {
-	l.mu.Lock()
-	l.locked = false
-	if l.waiter != nil {
-		close(l.waiter)
-		l.waiter = nil
-	}
-	l.mu.Unlock()
-}
-
-func newLegacyPickHarness(t *testing.T, scoped bool) *legacyPickHarness {
+func newLegacyPickHarness(t *testing.T) *legacyPickHarness {
 	t.Helper()
 	blocking := &blockingLegacyLoadBalancer{
 		entered: make(chan int, 2),
@@ -196,11 +147,6 @@ func newLegacyPickHarness(t *testing.T, scoped bool) *legacyPickHarness {
 		t:        t,
 		balancer: blocking,
 		blocking: blocking,
-	}
-	if scoped {
-		harness.balancer = &clusterScopedBlockingLegacyLoadBalancer{
-			blockingLegacyLoadBalancer: blocking,
-		}
 	}
 	t.Cleanup(harness.release)
 	return harness
@@ -217,22 +163,12 @@ func newLegacyPickContext(clusterName, endpointID string) PickContext {
 	}
 }
 
-func (h *legacyPickHarness) startDirectPick(context PickContext) <-chan struct{} {
+func (h *legacyPickHarness) startPick(context PickContext) <-chan struct{} {
 	h.t.Helper()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		_ = PickEndpoint(h.balancer, context, nil)
-	}()
-	return done
-}
-
-func (h *legacyPickHarness) startLockedPick(lock sync.Locker, context PickContext) <-chan struct{} {
-	h.t.Helper()
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_ = PickEndpointWithLegacyLock(h.balancer, lock, context, nil)
 	}()
 	return done
 }
@@ -392,13 +328,13 @@ func TestNeedsAllEndpointsKeepsCompatibilityForUnmarkedSnapshotLoadBalancer(t *t
 }
 
 func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {
-	harness := newLegacyPickHarness(t, false)
+	harness := newLegacyPickHarness(t)
 	pickContext := newLegacyPickContext("blocking-legacy-load-balancer", "first")
 
-	firstDone := harness.startDirectPick(pickContext)
+	firstDone := harness.startPick(pickContext)
 	assert.Equal(t, 1, harness.waitEntry())
 
-	secondDone := harness.startDirectPick(pickContext)
+	secondDone := harness.startPick(pickContext)
 	harness.assertNoEntry()
 
 	harness.release()
@@ -407,73 +343,19 @@ func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {
 	waitClosed(t, secondDone)
 }
 
-func TestPickEndpointKeepsCompatibilityLockForOptInLegacyLoadBalancer(t *testing.T) {
-	harness := newLegacyPickHarness(t, true)
-	firstContext := newLegacyPickContext("blocking-legacy-load-balancer-first-direct-pick", "first")
-	secondContext := newLegacyPickContext("blocking-legacy-load-balancer-second-direct-pick", "second")
+func TestPickEndpointSerializesLegacyHandlersThroughPackageLock(t *testing.T) {
+	harness := newLegacyPickHarness(t)
+	firstContext := newLegacyPickContext("blocking-legacy-load-balancer-first-context", "first")
+	secondContext := newLegacyPickContext("blocking-legacy-load-balancer-second-context", "second")
 
-	firstDone := harness.startDirectPick(firstContext)
+	firstDone := harness.startPick(firstContext)
 	assert.Equal(t, 1, harness.waitEntry())
 
-	secondDone := harness.startDirectPick(secondContext)
+	secondDone := harness.startPick(secondContext)
 	harness.assertNoEntry()
 
 	harness.release()
 	assert.Equal(t, 2, harness.waitEntry())
-	waitClosed(t, firstDone)
-	waitClosed(t, secondDone)
-}
-
-func TestPickEndpointWithLegacyLockSerializesOptInLegacyLoadBalancerHandlersWithSameLock(t *testing.T) {
-	harness := newLegacyPickHarness(t, true)
-	legacyPickLock := newObservableLocker()
-	pickContext := newLegacyPickContext("blocking-legacy-load-balancer-same-lock", "first")
-
-	firstDone := harness.startLockedPick(legacyPickLock, pickContext)
-	assert.Equal(t, 1, harness.waitEntry())
-
-	secondDone := harness.startLockedPick(legacyPickLock, pickContext)
-	waitLegacyLockBlocked(t, legacyPickLock.blocked)
-
-	harness.release()
-	assert.Equal(t, 2, harness.waitEntry())
-	waitClosed(t, firstDone)
-	waitClosed(t, secondDone)
-}
-
-func TestPickEndpointWithLegacyLockSerializesNonOptInLegacyLoadBalancerHandlersAcrossDifferentLocks(t *testing.T) {
-	harness := newLegacyPickHarness(t, false)
-	firstContext := newLegacyPickContext("blocking-legacy-load-balancer-first-lock", "first")
-	secondContext := newLegacyPickContext("blocking-legacy-load-balancer-second-lock", "second")
-	var firstLock sync.Mutex
-	var secondLock sync.Mutex
-
-	firstDone := harness.startLockedPick(&firstLock, firstContext)
-	assert.Equal(t, 1, harness.waitEntry())
-
-	secondDone := harness.startLockedPick(&secondLock, secondContext)
-	harness.assertNoEntry()
-
-	harness.release()
-	assert.Equal(t, 2, harness.waitEntry())
-	waitClosed(t, firstDone)
-	waitClosed(t, secondDone)
-}
-
-func TestPickEndpointWithLegacyLockAllowsOptInLegacyLoadBalancerHandlersWithDifferentLocksToRunConcurrently(t *testing.T) {
-	harness := newLegacyPickHarness(t, true)
-	firstContext := newLegacyPickContext("blocking-legacy-load-balancer-first-lock", "first")
-	secondContext := newLegacyPickContext("blocking-legacy-load-balancer-second-lock", "second")
-	var firstLock sync.Mutex
-	var secondLock sync.Mutex
-
-	firstDone := harness.startLockedPick(&firstLock, firstContext)
-	assert.Equal(t, 1, harness.waitEntry())
-
-	secondDone := harness.startLockedPick(&secondLock, secondContext)
-	assert.Equal(t, 2, harness.waitEntry())
-
-	harness.release()
 	waitClosed(t, firstDone)
 	waitClosed(t, secondDone)
 }
@@ -495,15 +377,6 @@ func assertNoLegacyHandlerEntry(t *testing.T, entered <-chan int) {
 	case call := <-entered:
 		t.Fatalf("legacy handler call %d entered before the first call returned", call)
 	case <-time.After(50 * time.Millisecond):
-	}
-}
-
-func waitLegacyLockBlocked(t *testing.T, blocked <-chan struct{}) {
-	t.Helper()
-	select {
-	case <-blocked:
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for legacy pick to block on the runtime lock")
 	}
 }
 

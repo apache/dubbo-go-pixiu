@@ -39,7 +39,6 @@ type Cluster struct {
 	// without health checks.
 	Config             *model.ClusterConfig
 	healthMu           sync.Mutex
-	legacyPickMu       sync.Mutex
 	acceptHealthEvents bool
 	endpoints          atomic.Pointer[EndpointSnapshot]
 }
@@ -85,20 +84,8 @@ func (c *Cluster) AddEndpoint(endpoint *model.Endpoint) {
 	}
 }
 
-// LegacyPickLock returns the runtime-scoped lock for legacy load balancer picks.
-func (c *Cluster) LegacyPickLock() sync.Locker {
-	if c == nil {
-		return nil
-	}
-	return &c.legacyPickMu
-}
-
 func (c *Cluster) EndpointSnapshot() *EndpointSnapshot {
-	snapshot := c.endpoints.Load()
-	if snapshot == nil {
-		return emptyEndpointSnapshot
-	}
-	return snapshot
+	return c.endpoints.Load()
 }
 
 func (c *Cluster) RefreshEndpoints() {
@@ -179,9 +166,6 @@ func (c *Cluster) UpdateEndpointAddressHealth(endpointAddress string, healthy bo
 // SnapshotForRuntimeReplacement freezes health updates on this runtime and
 // returns the final snapshot that a replacement runtime should inherit.
 func (c *Cluster) SnapshotForRuntimeReplacement() *EndpointSnapshot {
-	if c == nil {
-		return nil
-	}
 	c.healthMu.Lock()
 	defer c.healthMu.Unlock()
 	c.acceptHealthEvents = false
@@ -215,16 +199,6 @@ type EndpointSnapshot struct {
 	consistentHashOnce   sync.Once
 	consistentHash       model.LbConsistentHashView
 	consistentHashConfig model.ConsistentHash
-}
-
-var emptyEndpointSnapshot = &EndpointSnapshot{
-	all:                 []*model.Endpoint{},
-	healthy:             []*model.Endpoint{},
-	endpointByID:        map[string]*model.Endpoint{},
-	healthyEndpointByID: map[string]*model.Endpoint{},
-	addressByID:         map[string]string{},
-	healthyByID:         map[string]bool{},
-	healthyByAddress:    map[string]bool{},
 }
 
 // newEndpointSnapshot builds an EndpointSnapshot from config plus the

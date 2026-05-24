@@ -45,6 +45,15 @@ const (
 )
 
 type HealthChecker struct {
+	// checkers is the live set of per-address health-check sessions.
+	//
+	// Concurrency contract: mutated only from ClusterStore mutation paths
+	// (AddCluster, UpdateCluster, SetEndpoint, DeleteEndpoint, and
+	// ensureRuntimeClusters), all of which hold ClusterManager.rw for write.
+	// EndpointChecker goroutines never read or mutate this map; they only
+	// touch their own captured fields. The map is therefore unlocked by
+	// design. Do not call Start, Stop, StartOne, or StopOne from a goroutine
+	// that does not hold the ClusterManager write lock.
 	checkers      map[string]*EndpointChecker
 	sessionConfig map[string]any
 	// check config
@@ -342,18 +351,17 @@ func (c *EndpointChecker) HandleSuccess() {
 	}
 }
 
-// HandleFailure records an unhealthy probe result. timeout=true means
-// the probe never returned within the configured timeout; timeout=false
-// means the probe returned a negative answer. Both feed the same
-// unhealthy counter so the configured unhealthyThreshold governs the
-// flip from healthy to unhealthy regardless of how the failure
-// manifested. Prior to v1.2, timeout=false flipped state immediately
-// (no counter at all) and timeout=true compared against an
-// uninitialized threshold field — see CHANGELOG.
+// HandleFailure records an unhealthy probe result. Both negative probe
+// responses and timeouts feed the same unhealthy counter, so the configured
+// unhealthyThreshold governs the flip from healthy to unhealthy regardless of
+// how the failure manifested. Prior to v1.2, timeout=false flipped state
+// immediately and timeout=true compared against an uninitialized threshold
+// field; see CHANGELOG.
 //
-// The timeout flag is accepted for API symmetry with the Start loop
-// (which already logs the timeout separately) but does not change the
-// counter logic.
+// Deprecated: the timeout argument is ignored. It is retained only because
+// HandleFailure was exported in v1.x and external Checker implementations may
+// still pass it. New code should call this method with false; the next major
+// release will collapse the signature to HandleFailure().
 func (c *EndpointChecker) HandleFailure(timeout bool) {
 	_ = timeout
 	c.healthCount = 0
@@ -363,9 +371,11 @@ func (c *EndpointChecker) HandleFailure(timeout bool) {
 	}
 }
 
-// HandleTimeout is preserved for backward compatibility with external
-// Checker implementations that called it directly. Internally we route
-// through HandleFailure(true).
+// HandleTimeout is preserved for backward compatibility with external Checker
+// implementations that called it directly.
+//
+// Deprecated: routes to HandleFailure(true). Will be removed in the next major
+// release.
 func (c *EndpointChecker) HandleTimeout() {
 	c.HandleFailure(true)
 }
@@ -384,8 +394,12 @@ func (c *EndpointChecker) handleUnHealth() {
 
 func (c *EndpointChecker) emitHealth(healthy bool) {
 	if c.HealthChecker.onEndpointHealth == nil {
-		// Direct CreateHealthCheck callers still observe health through
-		// Endpoint.UnHealthy; runtime clusters install a snapshot callback.
+		// Direct CreateHealthCheck (no-callback) path. In-tree this branch is
+		// unreachable: all in-tree HealthCheckers are constructed via
+		// CreateHealthCheckWithCallback (see pkg/cluster/cluster.go). The
+		// mutation below is preserved for external consumers that import
+		// healthcheck directly. The cluster snapshot does not observe this
+		// mutation; in-tree health flows go through the callback above.
 		if !c.HealthChecker.setEndpointAddressHealth(c.endpointAddr, healthy) {
 			c.endpoint.UnHealthy = !healthy
 		}

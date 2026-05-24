@@ -137,7 +137,7 @@ func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(
 
 	for _, endpoint := range endpoints {
 		assert.Equal(t, map[string]string{"static": "value"}, endpoint.Metadata)
-		lastFailure, ok := filter.cooldowns.lastFailure(clusterName, endpoint)
+		lastFailure, _, ok := filter.cooldowns.lastFailureWithCurrentTTL(clusterName, endpoint)
 		assert.True(t, ok)
 		assert.False(t, lastFailure.IsZero())
 	}
@@ -155,7 +155,7 @@ func TestRequestExecutorEndpointInCooldownClearsExpiredCooldownFromProxyStore(t 
 
 	assert.False(t, executor.endpointInCooldown(endpoint))
 
-	_, ok := store.lastFailure(clusterName, endpoint)
+	_, _, ok := store.lastFailureWithCurrentTTL(clusterName, endpoint)
 	assert.False(t, ok)
 }
 
@@ -170,7 +170,7 @@ func TestRequestExecutorMarkEndpointCooldownStoresCooldownInProxyStore(t *testin
 
 	executor.markEndpointCooldown(endpoint)
 
-	lastFailure, ok := store.lastFailure(clusterName, endpoint)
+	lastFailure, _, ok := store.lastFailureWithCurrentTTL(clusterName, endpoint)
 	assert.True(t, ok)
 	assert.False(t, lastFailure.IsZero())
 }
@@ -189,7 +189,7 @@ func TestRequestExecutorCooldownIsIsolatedByEndpointAddress(t *testing.T) {
 
 	assert.True(t, executor.endpointInCooldown(oldEndpoint))
 	assert.False(t, executor.endpointInCooldown(movedEndpoint))
-	_, ok := store.lastFailure(clusterName, movedEndpoint)
+	_, _, ok := store.lastFailureWithCurrentTTL(clusterName, movedEndpoint)
 	assert.False(t, ok)
 }
 
@@ -207,7 +207,7 @@ func TestRequestExecutorCooldownIsIsolatedByEndpointCredential(t *testing.T) {
 
 	assert.True(t, executor.endpointInCooldown(oldEndpoint))
 	assert.False(t, executor.endpointInCooldown(replacement))
-	_, ok := store.lastFailure(clusterName, replacement)
+	_, _, ok := store.lastFailureWithCurrentTTL(clusterName, replacement)
 	assert.False(t, ok)
 }
 
@@ -254,7 +254,7 @@ func TestCooldownStoreLazySweepKeepsEntryAfterEndpointIntervalExtends(t *testing
 	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-50*time.Millisecond))
 
 	assert.True(t, executor.endpointInCooldown(replacement))
-	_, _ = store.lastFailure(clusterName, activeEndpoint)
+	_, _, _ = store.lastFailureWithCurrentTTL(clusterName, activeEndpoint)
 	store.mu.Lock()
 	_, ok := store.lastFailureByEndpoint[newCooldownKey(clusterName, replacement)]
 	store.mu.Unlock()
@@ -286,7 +286,7 @@ func TestCooldownStoreLazySweepRemovesExpiredChurnedEndpointEntry(t *testing.T) 
 	store.mu.Lock()
 	store.lastSweep = time.Now().Add(-cooldownStoreSweepAfter - time.Millisecond)
 	store.mu.Unlock()
-	store.lastFailure(clusterName, activeEndpoint)
+	store.lastFailureWithCurrentTTL(clusterName, activeEndpoint)
 
 	store.mu.Lock()
 	_, oldExistsAfterUnrelatedSweep := store.lastFailureByEndpoint[newCooldownKey(clusterName, oldEndpoint)]
@@ -303,7 +303,7 @@ func TestCooldownStoreLazySweepRemovesExpiredEndpointFromDifferentCluster(t *tes
 	store.mu.Lock()
 	store.lastSweep = time.Now().Add(-cooldownStoreSweepAfter - time.Millisecond)
 	store.mu.Unlock()
-	store.lastFailure("active-cluster", activeEndpoint)
+	store.lastFailureWithCurrentTTL("active-cluster", activeEndpoint)
 
 	store.mu.Lock()
 	_, expiredExists := store.lastFailureByEndpoint[newCooldownKey("old-cluster", expiredEndpoint)]
