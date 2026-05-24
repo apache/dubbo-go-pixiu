@@ -18,8 +18,11 @@
 package model
 
 import (
+	"crypto/sha256"
 	"fmt"
 )
+
+const generatedEndpointIDPrefix = "pixiu-generated-endpoint-"
 
 const (
 	Static DiscoveryType = iota
@@ -127,4 +130,60 @@ func (c *ClusterConfig) CreateConsistentHash() {
 
 func (e Endpoint) GetHost() string {
 	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
+}
+
+// GenerateEndpointID returns a deterministic runtime identity for endpoints
+// that do not provide an explicit ID. The hash material includes cluster name,
+// endpoint address, and (when present) LLM provider + API key, so endpoints
+// that differ only by credential do not collide and the same endpoint hashes
+// to the same ID across process restarts.
+//
+// Design notes:
+//   - The output is sha256(material) truncated to the first 8 bytes (64 bits).
+//     Birthday-collision probability becomes meaningful only around 2^32
+//     endpoints, far above any realistic per-cluster scale.
+//   - The output uses the pixiu-generated-endpoint- prefix so generated IDs
+//     are recognizable in logs and dashboards without implying they only come
+//     from the LLM registry path. Static-config endpoints use this helper too.
+//   - clusterName is part of the material so endpoints in different clusters
+//     never alias. Callers from the Nacos LLM path supply
+//     instance.Metadata["cluster"]; if that metadata is missing the value is
+//     the empty string, and identity is then determined by address +
+//     credential only.
+//   - The LLM API key is included on purpose so two endpoints that share an
+//     address but use different credentials never alias to the same ID. The
+//     output is one-way (sha256), so the raw key never appears in the ID.
+func GenerateEndpointID(clusterName string, endpoint *Endpoint) string {
+	sum := sha256.Sum256([]byte(endpointIDMaterial(clusterName, endpoint)))
+	return fmt.Sprintf("%s%x", generatedEndpointIDPrefix, sum[:8])
+}
+
+// endpointIDMaterial builds the byte string fed into the hash inside
+// GenerateEndpointID. Each component is tagged and length-prefixed so field
+// boundaries remain unambiguous even if values contain punctuation or newlines.
+//
+// Contract: this function MUST NOT depend on endpoint.Name. Callers
+// (notably ClusterStore.assembleClusterEndpoints) rely on being able to
+// derive the ID before assigning a default Name. Adding Name into the
+// material would also break the rename-invariance guarantee asserted by
+// TestGenerateEndpointIDIgnoresEndpointName.
+func endpointIDMaterial(clusterName string, endpoint *Endpoint) string {
+	address := ""
+	provider := ""
+	apiKey := ""
+	if endpoint != nil {
+		address = endpoint.Address.GetAddress()
+	}
+	if endpoint != nil && endpoint.LLMMeta != nil {
+		provider = endpoint.LLMMeta.Provider
+		apiKey = endpoint.LLMMeta.APIKey
+	}
+	return endpointIDMaterialField("cluster", clusterName) +
+		endpointIDMaterialField("address", address) +
+		endpointIDMaterialField("llm_provider", provider) +
+		endpointIDMaterialField("llm_api_key", apiKey)
+}
+
+func endpointIDMaterialField(name, value string) string {
+	return fmt.Sprintf("%s:%d:%s\n", name, len(value), value)
 }
