@@ -25,6 +25,7 @@ import (
 )
 
 import (
+	"github.com/cespare/xxhash/v2"
 	"github.com/pkg/errors"
 
 	"golang.org/x/crypto/blake2b"
@@ -186,7 +187,7 @@ func (t *LookUpTable) removePerm(dst int) {
 
 // Hash the input key.
 func (t *LookUpTable) Hash(key string) uint32 {
-	return _hash1(key)
+	return _requestHash(key)
 }
 
 // Get a slot by hashing the input key.
@@ -219,7 +220,7 @@ func (t *LookUpTable) GetHash(key uint32) (string, error) {
 		return "", errors.New("no host added")
 	}
 
-	return t.slots[key], nil
+	return t.slots[key%uint32(t.size)], nil
 }
 
 // Add one endpoint into lookup table.
@@ -272,6 +273,10 @@ func (t *LookUpTable) remove(host string) bool {
 	}
 
 	return false
+}
+
+func _requestHash(key string) uint32 {
+	return uint32(xxhash.Sum64String(key))
 }
 
 func _hash1(key string) uint32 {
