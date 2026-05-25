@@ -19,13 +19,14 @@ package maglev
 
 import (
 	"encoding/binary"
-	"hash/maphash"
 	"math"
 	"math/big"
 	"sync"
 )
 
 import (
+	"github.com/cespare/xxhash/v2"
+
 	"github.com/pkg/errors"
 
 	"golang.org/x/crypto/blake2b"
@@ -187,10 +188,7 @@ func (t *LookUpTable) removePerm(dst int) {
 
 // Hash the input key.
 func (t *LookUpTable) Hash(key string) uint32 {
-	var h maphash.Hash
-	h.SetSeed(maphash.MakeSeed())
-	h.WriteString(key)
-	return uint32(h.Sum64())
+	return requestHash(key)
 }
 
 // Get a slot by hashing the input key.
@@ -223,7 +221,7 @@ func (t *LookUpTable) GetHash(key uint32) (string, error) {
 		return "", errors.New("no host added")
 	}
 
-	return t.slots[key], nil
+	return t.slots[key%uint32(t.size)], nil
 }
 
 // Add one endpoint into lookup table.
@@ -276,6 +274,10 @@ func (t *LookUpTable) remove(host string) bool {
 	}
 
 	return false
+}
+
+func requestHash(key string) uint32 {
+	return uint32(xxhash.Sum64String(key))
 }
 
 func _hash1(key string) uint32 {
