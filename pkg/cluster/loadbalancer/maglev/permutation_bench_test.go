@@ -18,13 +18,10 @@
 package maglev
 
 import (
+	"crypto/sha3"
 	"encoding/binary"
 	"hash/maphash"
 	"testing"
-)
-
-import (
-	"golang.org/x/crypto/sha3"
 )
 
 var benchmarkHashSink uint32
