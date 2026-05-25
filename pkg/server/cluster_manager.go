@@ -24,10 +24,6 @@ import (
 )
 
 import (
-	"github.com/hashicorp/go-uuid"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
@@ -316,10 +312,27 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 		return
 	}
 
+	// generatedIDIndex tracks the slice position where each generated ID was
+	// first observed within this cluster. A duplicate means two endpoints
+	// share (cluster_name, address, provider, api_key) and collapse onto a
+	// single identifier, which is silent in the runtime path; warn loudly so
+	// the operator can disambiguate by setting an explicit `id:`.
+	generatedIDIndex := make(map[string]int, len(c.Endpoints))
+
 	for i, endpoint := range c.Endpoints {
-		// If the endpoint ID is not set, set it to the index + 1
+		// If the endpoint ID is not set, derive a deterministic one so the same
+		// endpoint hashes to the same ID across process restarts. Identifiers
+		// must be stable for metrics/log correlation and runtime lookups
+		// (PickNextEndpoint, GetEndpointByID, DeleteEndpoint).
 		if endpoint.ID == "" {
-			endpoint.ID, _ = uuid.GenerateUUID()
+			endpoint.ID = model.GenerateEndpointID(c.Name, endpoint)
+			if prev, dup := generatedIDIndex[endpoint.ID]; dup {
+				logger.Warnf("[cluster=%s] endpoints[%d] and endpoints[%d] share generated ID %s; "+
+					"set an explicit `id:` on one of them to keep them distinct",
+					c.Name, prev, i, endpoint.ID)
+			} else {
+				generatedIDIndex[endpoint.ID] = i
+			}
 		}
 
 		// If the endpoint has no name, set a default name

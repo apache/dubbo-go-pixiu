@@ -31,8 +31,6 @@ import (
 
 	"github.com/creasty/defaults"
 
-	"github.com/hashicorp/go-uuid"
-
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
@@ -275,6 +273,9 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 		return nil
 	}
 
+	ret.Address.Address = instance.Ip
+	ret.Address.Port = int(instance.Port)
+
 	if ip, ok := instance.Metadata["ip"]; ok {
 		ret.Address.Address = ip
 	}
@@ -283,14 +284,9 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 		p, err := strconv.Atoi(port)
 		if err != nil {
 			logger.Warnf("Invalid port in metadata: %s, error: %v", port, err)
+		} else {
+			ret.Address.Port = p
 		}
-		ret.Address.Port = p
-	}
-
-	if id, ok := instance.Metadata["id"]; ok {
-		ret.ID = id
-	} else {
-		ret.ID, _ = uuid.GenerateUUID()
 	}
 
 	if name, ok := instance.Metadata["name"]; ok {
@@ -316,8 +312,23 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 	}
 
 	ret.Metadata = instance.Metadata
+	ret.ID = nacosEndpointID(instance, ret)
 
 	return ret
+}
+
+func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) string {
+	if id := strings.TrimSpace(instance.Metadata["id"]); id != "" {
+		return id
+	}
+	if instanceID := strings.TrimSpace(instance.InstanceId); instanceID != "" {
+		return instanceID
+	}
+	clusterName := strings.TrimSpace(instance.Metadata["cluster"])
+	if clusterName == "" {
+		clusterName = strings.TrimSpace(instance.ClusterName)
+	}
+	return model.GenerateEndpointID(clusterName, endpoint)
 }
 
 func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {

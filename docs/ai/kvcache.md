@@ -43,6 +43,30 @@ So for routing to work:
 
 If no match exists, the request falls back to normal load-balancing behavior.
 
+#### How `pixiu cluster endpoint.id` is derived
+
+Pixiu picks the endpoint identifier in three-tier order. The first non-empty
+value wins:
+
+1. `metadata["id"]` on the registry instance (Nacos LLM registry), or
+   the `id:` field on a static-config endpoint.
+2. The Nacos `InstanceId` if present.
+3. A deterministic `pixiu-generated-endpoint-<sha8>` hash derived from
+   `(cluster_name, address, provider, api_key)`.
+
+All three forms are stable across pixiu restarts as long as the underlying
+attributes are unchanged, so the `LMCache instance_id ↔ pixiu endpoint.id`
+contract holds long-term.
+
+#### Upgrade note
+
+Earlier pixiu versions used a random UUID for tiers 2 and 3, which made
+`endpoint.id` change on every restart and re-subscription. The current
+version is deterministic; LMCache deployments whose `instance_id` values
+were derived from those random UUIDs will see a one-time ID-shape
+transition on upgrade. After the transition, LMCache only needs to
+relearn the `instance_id` once per endpoint; routing then stays stable.
+
 Note:
 
 - Current implementation does **not** call LMCache `/query_worker_info`.

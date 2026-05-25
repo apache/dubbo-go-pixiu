@@ -145,6 +145,33 @@ func TestLookUpTable_Get(t *testing.T) {
 	assert.NotEqual(t, "", ep, "Wrong endpoint")
 }
 
+func TestLookUpTable_HashIsDeterministic(t *testing.T) {
+	table := createTableWithNodes(1033, 10)
+	key := "/this/is/a/test"
+
+	want := table.Hash(key)
+	for i := 0; i < 100; i++ {
+		assert.Equal(t, want, table.Hash(key), "Hash should be stable for the same request key")
+	}
+	assert.Equal(t, requestHash(key), want, "Hash should use the request-key hash")
+}
+
+func TestLookUpTable_GetHashNormalizesHashedKey(t *testing.T) {
+	table := createTableWithNodes(1033, 10)
+
+	_, err := table.GetHash(0)
+	assert.NotNil(t, err, "Got endpoint before populating")
+
+	table.Populate()
+
+	key := uint32(table.size*3 + 17)
+	want := table.slots[int(key%uint32(table.size))]
+
+	got, err := table.GetHash(key)
+	assert.Nil(t, err, "Fail to get endpoint by hashed key")
+	assert.Equal(t, want, got)
+}
+
 func TestLookUpTable_Add(t *testing.T) {
 	testCases := []struct {
 		nodeCount int
