@@ -1,5 +1,7 @@
 # Admin OPA → Gateway OPA Full-Link E2E
 
+**English** | [中文](README_CN.md)
+
 ## What the suite verifies
 
 The harness stands up:
