@@ -6,35 +6,32 @@
 
 ## 概述
 
-Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x 文件，并把每个 operation 的
-`ValidationPlan` 合并到 `api_config` 里已经存在的同名路由上。
+Pixiu 可以在 `dgp.filter.http.openapi` 中加载本地 OpenAPI 3.0/3.1/3.2 文件，并在请求转发到上游之前校验命中的请求。
 
-当请求命中 API 后，Pixiu 会在转发到上游之前先执行请求校验。
+官方参考：
 
-如果校验失败，Pixiu 会直接返回 `400 Bad Request`，并停止后续过滤链。
+- [libopenapi](https://github.com/pb33f/libopenapi)
+- [libopenapi validation](https://pb33f.io/libopenapi/validation/)
+- [libopenapi validator](https://github.com/pb33f/libopenapi-validator)
 
-## 第一版支持范围
+如果校验失败，Pixiu 会直接返回本地 `400 Bad Request`，并停止后续过滤链。
 
-- 本地 OpenAPI 3.x 文件加载
-- path 参数提取
-- query 参数校验
-- header 校验
+## 当前 filter 已接入
+
+- 本地 OpenAPI 3.0/3.1/3.2 文件加载
+- 按 OpenAPI path 和 method 匹配请求，包括 `/users/{id}` 这类模板路径
+- path、query、header 参数校验
 - JSON request body 校验
-- `required`
-- `type`
-- `enum`
-- `minimum`
-- `maximum`
-- `minLength`
-- `maxLength`
+- 由 SDK 执行的 OpenAPI schema 约束，包括 `required`、`type`、`enum`、`minimum`、`maximum`、`minLength`、`maxLength`
 
-## 第一版暂不支持
+当前这个 filter 使用 `libopenapi` 解析 OpenAPI 文档，并使用 `libopenapi-validator` 校验进入过滤器的请求。
+
+## 当前 filter 未接入
 
 - response validation
-- 远程 `$ref`
-- `oneOf` / `allOf` / `anyOf`
+- 路由创建或 `api_config` 路由匹配
+- OpenAPI `security` 校验；鉴权请使用专门的认证或授权 filter
 - admin 或配置中心分发 OpenAPI 文件
-- `dynamic + openapi_path` 组合配置
 
 ## 配置示例
 
@@ -42,28 +39,36 @@ Pixiu 可以在 `dgp.filter.http.apiconfig` 初始化阶段加载 OpenAPI 3.x �
 - name: dgp.filter.http.apiconfig
   config:
     path: configs/api_config.yaml
-    openapi_path: configs/openapi_users.yaml
-    enable_openapi_validation: true
+
+- name: dgp.filter.http.openapi
+  config:
+    path: configs/openapi_users.yaml
 ```
 
-OpenAPI 校验不会单独创建路由，目标路由必须已经存在于 `api_config` 中。
+`dgp.filter.http.apiconfig` 和 `dgp.filter.http.openapi` 是两个独立 filter。`apiconfig` 负责匹配 Pixiu API 路由，并把
+API 元信息写入请求上下文；`openapi` 只校验 OpenAPI 文件中声明过的 operation。
+
+如果请求的 path 和 method 没有在 OpenAPI 文件中声明，这个 filter 会跳过校验并放行请求。如果 operation 已声明但请求
+不满足参数或 body schema，Pixiu 会返回 `400 Bad Request`。
 
 ## 说明
 
-- 参数级校验现在覆盖 `path`、`query`、`header` 上常见的标量类型约束。
-- 第一版不支持在同一个 filter 配置里同时使用 `dynamic` 和 `openapi_path`。
+- `libopenapi-validator` 是独立的可选模块，`libopenapi` 负责解析和建模。
+- 参数级校验覆盖 `path`、`query`、`header` 上常见的标量类型约束。
+- 上面这些关键词来自 OpenAPI schema，是由 SDK 路径执行的，不是仓库里再自定义一套验证器。
+- 当前 filter 关闭了 OpenAPI `security` 校验，鉴权仍由 JWT、OPA、SAML 或其他专门的认证/授权 filter 负责。
+- OpenAPI 文件里的相对引用会按文件所在目录解析，所以使用本地文件加载时可以保留本地 `$ref` 路径。
+- `libopenapi-validator` 也提供响应和文档校验 API，但当前这个 filter 只调用了请求校验入口。
 
 ## 运行流程
 
-1. Pixiu 在 `apiconfig.Apply()` 阶段先加载 `api_config`。
-2. Pixiu 再加载 OpenAPI 文件并编译校验计划。
-3. 每个编译结果的 `ValidationPlan` 会合并到匹配的 `router.API.Metadata` 中。
-4. 请求进入 `apiconfig.Decode()`。
-5. Pixiu 先按 path 和 method 匹配 API。
-6. 从命中的 API metadata 中取出 `ValidationPlan`。
-7. Pixiu 执行请求校验。
-8. 校验通过，请求继续流向后续代理过滤器。
-9. 校验失败，Pixiu 直接返回 `400 Bad Request`。
+1. Pixiu 在 `openapi.Apply()` 阶段加载 OpenAPI 文件并构建 SDK 校验器。
+2. 请求进入 `openapi.Decode()`。
+3. Pixiu 检查 OpenAPI 文档是否声明了请求 path 和 method。
+4. 如果 operation 未声明，跳过校验并继续后续过滤链。
+5. 如果 operation 已声明，Pixiu 通过 `libopenapi-validator` 执行请求校验。
+6. 校验通过，请求继续流向后续 filter。
+7. 校验失败，Pixiu 直接返回 `400 Bad Request`。
 
 ## 请求示例
 

@@ -6,35 +6,33 @@ English | [中文](openapi_CN.md)
 
 ## Overview
 
-Pixiu can load an OpenAPI 3.x file during `dgp.filter.http.apiconfig` initialization and merge each operation's
-`ValidationPlan` into the matching route that is already defined by `api_config`.
+Pixiu can load a local OpenAPI 3.0/3.1/3.2 file in `dgp.filter.http.openapi` and validate matching requests before they
+are forwarded upstream.
 
-When a request matches an API, Pixiu validates the request before it is forwarded upstream.
+Official references:
 
-If validation fails, Pixiu returns a `400 Bad Request` locally and stops the filter chain.
+- [libopenapi](https://github.com/pb33f/libopenapi)
+- [libopenapi validation](https://pb33f.io/libopenapi/validation/)
+- [libopenapi validator](https://github.com/pb33f/libopenapi-validator)
 
-## Supported In V1
+If validation fails, Pixiu returns a local `400 Bad Request` and stops the filter chain.
 
-- local OpenAPI 3.x file loading
-- path parameter extraction
-- query parameter validation
-- header validation
+## Wired In This Filter
+
+- local OpenAPI 3.0/3.1/3.2 file loading
+- request matching by OpenAPI path and method, including templated paths such as `/users/{id}`
+- path, query, and header parameter validation
 - JSON request body validation
-- `required`
-- `type`
-- `enum`
-- `minimum`
-- `maximum`
-- `minLength`
-- `maxLength`
+- OpenAPI schema constraints enforced by the SDK, including `required`, `type`, `enum`, `minimum`, `maximum`, `minLength`, and `maxLength`
 
-## Not Included In V1
+This filter uses `libopenapi` to parse the spec and `libopenapi-validator` to validate incoming requests.
+
+## Not Wired In This Filter
 
 - response validation
-- remote `$ref`
-- `oneOf` / `allOf` / `anyOf`
+- route creation or `api_config` route matching
+- OpenAPI `security` validation; use dedicated authentication or authorization filters for auth checks
 - admin or config-center distribution of OpenAPI files
-- `dynamic + openapi_path` combined configuration
 
 ## Example Filter Config
 
@@ -42,28 +40,38 @@ If validation fails, Pixiu returns a `400 Bad Request` locally and stops the fil
 - name: dgp.filter.http.apiconfig
   config:
     path: configs/api_config.yaml
-    openapi_path: configs/openapi_users.yaml
-    enable_openapi_validation: true
+
+- name: dgp.filter.http.openapi
+  config:
+    path: configs/openapi_users.yaml
 ```
 
-OpenAPI validation does not create standalone routes. The route must already exist in `api_config`.
+`dgp.filter.http.apiconfig` and `dgp.filter.http.openapi` are independent filters. `apiconfig` matches Pixiu API routes
+and writes API metadata into the request context. `openapi` validates only the operations declared in the OpenAPI file.
+
+If a request path and method are not declared in the OpenAPI file, this filter skips validation and lets the request
+continue. If the operation is declared but the request violates parameters or body schema, Pixiu returns
+`400 Bad Request`.
 
 ## Notes
 
+- `libopenapi-validator` is an opt-in companion module; `libopenapi` handles parsing and model building.
 - Parameter-level validation covers common scalar constraints for `path`, `query`, and `header` parameters.
-- V1 does not support using `dynamic` together with `openapi_path` in the same filter config.
+- The keywords listed above come from the OpenAPI schema and are enforced by the SDK path, not by custom in-repo validators.
+- OpenAPI `security` validation is disabled for this filter, so auth remains the responsibility of filters such as JWT,
+  OPA, SAML, or other dedicated authentication and authorization filters.
+- Relative file references are resolved from the OpenAPI file location, so file-based loading keeps local `$ref` paths intact.
+- The validator package also exposes response and document validation APIs, but this filter only calls the request-validation path.
 
 ## Runtime Flow
 
-1. Pixiu loads `api_config` during `apiconfig.Apply()`.
-2. Pixiu loads the OpenAPI file and compiles validation plans.
-3. Each compiled `ValidationPlan` is merged into the matching `router.API.Metadata`.
-4. A request enters `apiconfig.Decode()`.
-5. Pixiu matches the request path and method.
-6. Pixiu extracts the `ValidationPlan` from the matched API metadata.
-7. Pixiu validates the request.
-8. If validation succeeds, the request continues to later proxy filters.
-9. If validation fails, Pixiu responds with `400 Bad Request`.
+1. Pixiu loads the OpenAPI file during `openapi.Apply()` and builds an SDK validator.
+2. A request enters `openapi.Decode()`.
+3. Pixiu checks whether the OpenAPI document declares the request path and method.
+4. If the operation is not declared, validation is skipped and the request continues.
+5. If the operation is declared, Pixiu validates the request through `libopenapi-validator`.
+6. If validation succeeds, the request continues to later filters.
+7. If validation fails, Pixiu responds with `400 Bad Request`.
 
 ## Example Requests
 
