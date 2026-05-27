@@ -60,7 +60,11 @@ continue. If the operation is declared but the request violates parameters or bo
 - The keywords listed above come from the OpenAPI schema and are enforced by the SDK path, not by custom in-repo validators.
 - OpenAPI `security` validation is disabled for this filter, so auth remains the responsibility of filters such as JWT,
   OPA, SAML, or other dedicated authentication and authorization filters.
+- The configured OpenAPI `path` must be relative. Absolute paths, parent-directory segments such as `..`, and sensitive
+  base directories are rejected during filter startup.
 - Relative file references are resolved from the OpenAPI file location, so file-based loading keeps local `$ref` paths intact.
+- Invalid OpenAPI documents, including unresolved `$ref` targets, fail during filter startup instead of running with a
+  partial validator model.
 - The validator package also exposes response and document validation APIs, but this filter only calls the request-validation path.
 
 ## Runtime Flow

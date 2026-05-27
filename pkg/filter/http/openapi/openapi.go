@@ -85,9 +85,9 @@ func (factory *FilterFactory) Config() any {
 }
 
 func (factory *FilterFactory) Apply() error {
-	path := strings.TrimSpace(factory.cfg.Path)
-	if path == "" {
-		return errors.New("openapi path is required")
+	path, err := cleanOpenAPIPath(factory.cfg.Path)
+	if err != nil {
+		return err
 	}
 	factory.cfg.Path = path
 
@@ -121,9 +121,10 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	if valid, validationErrs := f.validator.ValidateHttpRequestSyncWithPathItem(req, pathItem, foundPath); !valid {
-		errResp := contexthttp.BadRequest.WithError(errors.New(formatValidationErrors(validationErrs)))
+		validationDetails := formatValidationErrors(validationErrs)
+		errResp := contexthttp.BadRequest.WithError(errors.New("openapi request validation failed"))
 		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
-		logger.Debug(errResp.Error())
+		logger.Debugf("openapi request validation failed: %s", validationDetails)
 		return filter.Stop
 	}
 	return filter.Continue
@@ -131,7 +132,11 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 
 func (f *Filter) findRequestOperation(req *http.Request) (*v3.PathItem, string, bool) {
 	pathItem, validationErrs, foundPath := validatorPaths.FindPath(req, f.model, nil)
-	if len(validationErrs) > 0 || pathItem == nil {
+	if len(validationErrs) > 0 {
+		logger.Debugf("openapi path lookup errors for %s %s: %s", req.Method, req.URL.Path, formatValidationErrors(validationErrs))
+		return nil, "", false
+	}
+	if pathItem == nil {
 		return nil, "", false
 	}
 	if !hasRequestOperation(req, pathItem) {
@@ -167,19 +172,19 @@ func hasRequestOperation(req *http.Request, pathItem *v3.PathItem) bool {
 func loadValidatorFromFile(path string) (openapiValidator.Validator, *v3.Document, error) {
 	spec, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "read openapi file")
 	}
 
 	doc, err := libopenapi.NewDocumentWithConfiguration(spec, &datamodel.DocumentConfiguration{
 		BasePath: filepath.Dir(path),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "parse openapi document")
 	}
 
 	model, err := doc.BuildV3Model()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "build openapi model")
 	}
 
 	validator := openapiValidator.NewValidatorFromV3Model(&model.Model, validatorConfig.WithoutSecurityValidation())
@@ -187,6 +192,70 @@ func loadValidatorFromFile(path string) (openapiValidator.Validator, *v3.Documen
 		return nil, nil, errors.New("load openapi validator: validator is nil")
 	}
 	return validator, &model.Model, nil
+}
+
+func cleanOpenAPIPath(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", errors.New("openapi path is required")
+	}
+	if filepath.IsAbs(path) {
+		return "", errors.Errorf("openapi path must be relative: %s", path)
+	}
+	if containsParentDirectory(path) {
+		return "", errors.Errorf("openapi path must not contain parent directory: %s", path)
+	}
+
+	cleanPath := filepath.Clean(path)
+	if cleanPath == "." {
+		return "", errors.New("openapi path is required")
+	}
+
+	basePath, err := filepath.Abs(filepath.Dir(cleanPath))
+	if err != nil {
+		return "", errors.Wrap(err, "resolve openapi path base")
+	}
+	if isSensitiveOpenAPIBasePath(basePath) {
+		return "", errors.Errorf("openapi path base directory is not allowed: %s", basePath)
+	}
+	return cleanPath, nil
+}
+
+func containsParentDirectory(path string) bool {
+	for _, part := range strings.Split(filepath.ToSlash(path), "/") {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+func isSensitiveOpenAPIBasePath(path string) bool {
+	path = filepath.Clean(path)
+	if path == filepath.Clean(string(filepath.Separator)) {
+		return true
+	}
+
+	sensitivePaths := []string{"/etc", "/proc", "/sys", "/dev", "/run", "/var/run"}
+	for _, sensitivePath := range sensitivePaths {
+		if isPathWithin(path, sensitivePath) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPathWithin(path string, base string) bool {
+	base = filepath.Clean(base)
+	if path == base {
+		return true
+	}
+
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func formatValidationErrors(errs []*validatorErrors.ValidationError) string {

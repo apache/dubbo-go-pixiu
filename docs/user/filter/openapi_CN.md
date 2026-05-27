@@ -57,7 +57,9 @@ API 元信息写入请求上下文；`openapi` 只校验 OpenAPI 文件中声明
 - 参数级校验覆盖 `path`、`query`、`header` 上常见的标量类型约束。
 - 上面这些关键词来自 OpenAPI schema，是由 SDK 路径执行的，不是仓库里再自定义一套验证器。
 - 当前 filter 关闭了 OpenAPI `security` 校验，鉴权仍由 JWT、OPA、SAML 或其他专门的认证/授权 filter 负责。
+- OpenAPI `path` 配置必须使用相对路径。绝对路径、`..` 父目录跳转和敏感 base 目录会在 filter 启动阶段被拒绝。
 - OpenAPI 文件里的相对引用会按文件所在目录解析，所以使用本地文件加载时可以保留本地 `$ref` 路径。
+- 无效 OpenAPI 文档，包括无法解析的 `$ref`，会在 filter 启动阶段失败，不会继续使用部分构建出来的 validator model。
 - `libopenapi-validator` 也提供响应和文档校验 API，但当前这个 filter 只调用了请求校验入口。
 
 ## 运行流程

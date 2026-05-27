@@ -51,6 +51,21 @@ func TestDecode_StopsOnOpenAPIValidationFailure(t *testing.T) {
 	assert.True(t, ctx.LocalReply())
 }
 
+func TestDecode_HidesOpenAPIValidationDetailsFromClient(t *testing.T) {
+	filterInstance := newOpenAPIFilter(t, usersSpecWithQueryAndBody())
+	req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"name":"tom"}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	ctx := &contexthttp.HttpContext{Request: req, Writer: recorder}
+
+	status := filterInstance.Decode(ctx)
+
+	assert.Equal(t, extfilter.Stop, status)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "openapi request validation failed")
+	assert.NotContains(t, recorder.Body.String(), "source")
+}
+
 func TestDecode_ContinuesOnOpenAPIValidationSuccess(t *testing.T) {
 	filterInstance := newOpenAPIFilter(t, usersSpecWithQueryAndBody())
 	req := httptest.NewRequest(http.MethodPost, "/users?source=web", strings.NewReader(`{"name":"tom"}`))
@@ -137,6 +152,70 @@ paths:
 
 	assert.Equal(t, extfilter.Continue, status)
 	assert.False(t, ctx.LocalReply())
+}
+
+func TestApply_RejectsInvalidOpenAPIModel(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.WriteFile("openapi.yaml", []byte(`
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+      responses:
+        "200":
+          description: ok
+components:
+  schemas:
+    User:
+      $ref: "#/components/schemas/User2"
+`), 0o600))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "openapi.yaml",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build openapi model")
+}
+
+func TestApply_RejectsAbsoluteOpenAPIPath(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "/etc/passwd",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openapi path must be relative")
+}
+
+func TestApply_RejectsParentDirectoryOpenAPIPath(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "../openapi.yaml",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openapi path must not contain parent directory")
 }
 
 func TestDecode_ValidatesTemplatedPaths(t *testing.T) {
@@ -325,8 +404,9 @@ func newOpenAPIFilter(t *testing.T, spec string) *Filter {
 	t.Helper()
 
 	dir := t.TempDir()
-	specPath := filepath.Join(dir, "openapi.yaml")
-	require.NoError(t, os.WriteFile(specPath, []byte(spec), 0o600))
+	t.Chdir(dir)
+	specPath := "openapi.yaml"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, specPath), []byte(spec), 0o600))
 
 	factory := &FilterFactory{
 		cfg: &Config{
