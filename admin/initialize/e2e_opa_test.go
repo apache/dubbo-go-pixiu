@@ -374,8 +374,8 @@ allow if input.headers["X-Role"][0] == "admin"
 `
 )
 
-// 1. Admin PUTs an "allow GET" policy. Gateway GET request is allowed
-//    end-to-end: filter returns Continue, no local reply written.
+//  1. Admin PUTs an "allow GET" policy. Gateway GET request is allowed
+//     end-to-end: filter returns Continue, no local reply written.
 func TestE2E_AllowedThroughFullChain(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
@@ -403,9 +403,9 @@ func TestE2E_AllowedThroughFullChain(t *testing.T) {
 	}
 }
 
-// 2. Same policy, gateway POST is denied — proves the deny path returns
-//    filter.Stop with 403 and that the gateway short-circuits before reaching
-//    any upstream.
+//  2. Same policy, gateway POST is denied — proves the deny path returns
+//     filter.Stop with 403 and that the gateway short-circuits before reaching
+//     any upstream.
 func TestE2E_DeniedThroughFullChain(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
@@ -426,9 +426,9 @@ func TestE2E_DeniedThroughFullChain(t *testing.T) {
 	}
 }
 
-// 3. "default allow := false" with no allow rule — every method/path denied.
-//    Subtests share one mock+filter to confirm the deny is policy-driven, not
-//    request-shape-dependent.
+//  3. "default allow := false" with no allow rule — every method/path denied.
+//     Subtests share one mock+filter to confirm the deny is policy-driven, not
+//     request-shape-dependent.
 func TestE2E_DefaultDenyForAllRequests(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
@@ -459,9 +459,9 @@ func TestE2E_DefaultDenyForAllRequests(t *testing.T) {
 	}
 }
 
-// 4. Policy hot-reload through the admin REST API — gateway sees the new
-//    decision on the *next* request, with no restart. This is the key value
-//    proposition of OPA server mode vs. embedded mode.
+//  4. Policy hot-reload through the admin REST API — gateway sees the new
+//     decision on the *next* request, with no restart. This is the key value
+//     proposition of OPA server mode vs. embedded mode.
 func TestE2E_PolicyHotReload(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
@@ -494,9 +494,9 @@ allow if input.method == "POST"
 	}
 }
 
-// 5. After DELETE, no rules are loaded → mock OPA returns a body with no
-//    "result" field, the gateway filter must fail closed with BadGateway.
-//    This locks in the §6.6 invariant from test_opa.md.
+//  5. After DELETE, no rules are loaded → mock OPA returns a body with no
+//     "result" field, the gateway filter must fail closed with BadGateway.
+//     This locks in the §6.6 invariant from test_opa.md.
 func TestE2E_DeleteCausesMissingResultFailClosed(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
@@ -523,9 +523,9 @@ func TestE2E_DeleteCausesMissingResultFailClosed(t *testing.T) {
 	}
 }
 
-// 6. Header-based policy: gateway forwards input.headers to OPA, and headers
-//    are canonicalised by net/http to the Title-Case form
-//    (X-Role, not x-role). This proves the gateway request shape contract.
+//  6. Header-based policy: gateway forwards input.headers to OPA, and headers
+//     are canonicalised by net/http to the Title-Case form
+//     (X-Role, not x-role). This proves the gateway request shape contract.
 func TestE2E_HeaderBasedAllowDeny(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
@@ -562,9 +562,9 @@ func TestE2E_HeaderBasedAllowDeny(t *testing.T) {
 	})
 }
 
-// 7. Slow mock OPA + short gateway timeout → gateway returns 504 GatewayTimeout
-//    on the next decision. Verifies the gateway-side timeout config really
-//    fires under network slowness, matching the §6.4 manual finding.
+//  7. Slow mock OPA + short gateway timeout → gateway returns 504 GatewayTimeout
+//     on the next decision. Verifies the gateway-side timeout config really
+//     fires under network slowness, matching the §6.4 manual finding.
 func TestE2E_GatewayTimeoutFailClosed(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
@@ -593,10 +593,10 @@ func TestE2E_GatewayTimeoutFailClosed(t *testing.T) {
 	}
 }
 
-// 8. PUT a policy with a different policy_id via the admin REST form override,
-//    then point the gateway's decision path at the rule of *that* policy. This
-//    proves the override flag in PR1's controller propagates all the way
-//    through to a working gateway decision.
+//  8. PUT a policy with a different policy_id via the admin REST form override,
+//     then point the gateway's decision path at the rule of *that* policy. This
+//     proves the override flag in PR1's controller propagates all the way
+//     through to a working gateway decision.
 func TestE2E_PolicyIDOverrideRoutesThroughGateway(t *testing.T) {
 	mock := newRegoMockOPA(t)
 	r := installAdminRouterWithRegoMock(t, mock, adminconfig.OPAConfig{
