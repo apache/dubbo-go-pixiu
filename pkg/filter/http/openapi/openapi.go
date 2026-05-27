@@ -25,6 +25,14 @@ import (
 )
 
 import (
+	"github.com/pb33f/libopenapi"
+	openapiValidator "github.com/pb33f/libopenapi-validator"
+	validatorConfig "github.com/pb33f/libopenapi-validator/config"
+	validatorErrors "github.com/pb33f/libopenapi-validator/errors"
+	validatorPaths "github.com/pb33f/libopenapi-validator/paths"
+	"github.com/pb33f/libopenapi/datamodel"
+	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+
 	"github.com/pkg/errors"
 )
 
@@ -33,13 +41,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-	"github.com/pb33f/libopenapi"
-	openapiValidator "github.com/pb33f/libopenapi-validator"
-	validatorConfig "github.com/pb33f/libopenapi-validator/config"
-	validatorErrors "github.com/pb33f/libopenapi-validator/errors"
-	validatorPaths "github.com/pb33f/libopenapi-validator/paths"
-	"github.com/pb33f/libopenapi/datamodel"
-	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 )
 
 const (
@@ -133,7 +134,34 @@ func (f *Filter) findRequestOperation(req *http.Request) (*v3.PathItem, string, 
 	if len(validationErrs) > 0 || pathItem == nil {
 		return nil, "", false
 	}
+	if !hasRequestOperation(req, pathItem) {
+		return nil, "", false
+	}
 	return pathItem, foundPath, true
+}
+
+func hasRequestOperation(req *http.Request, pathItem *v3.PathItem) bool {
+	switch req.Method {
+	case http.MethodGet:
+		return pathItem.Get != nil
+	case http.MethodPost:
+		return pathItem.Post != nil
+	case http.MethodPut:
+		return pathItem.Put != nil
+	case http.MethodDelete:
+		return pathItem.Delete != nil
+	case http.MethodOptions:
+		return pathItem.Options != nil
+	case http.MethodHead:
+		return pathItem.Head != nil || pathItem.Get != nil
+	case http.MethodPatch:
+		return pathItem.Patch != nil
+	case http.MethodTrace:
+		return pathItem.Trace != nil
+	default:
+		operations := pathItem.GetOperations()
+		return operations != nil && operations.GetOrZero(strings.ToLower(req.Method)) != nil
+	}
 }
 
 func loadValidatorFromFile(path string) (openapiValidator.Validator, *v3.Document, error) {

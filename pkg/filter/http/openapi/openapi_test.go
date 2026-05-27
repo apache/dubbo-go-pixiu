@@ -115,6 +115,30 @@ func TestDecode_SkipsRoutesNotDeclaredInOpenAPI(t *testing.T) {
 	assert.False(t, ctx.LocalReply())
 }
 
+func TestDecode_SkipsMethodsNotDeclaredInOpenAPI(t *testing.T) {
+	filterInstance := newOpenAPIFilter(t, `
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: ok
+`)
+	req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"name":"tom"}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	ctx := &contexthttp.HttpContext{Request: req, Writer: recorder}
+
+	status := filterInstance.Decode(ctx)
+
+	assert.Equal(t, extfilter.Continue, status)
+	assert.False(t, ctx.LocalReply())
+}
+
 func TestDecode_ValidatesTemplatedPaths(t *testing.T) {
 	filterInstance := newOpenAPIFilter(t, `
 openapi: 3.0.3
