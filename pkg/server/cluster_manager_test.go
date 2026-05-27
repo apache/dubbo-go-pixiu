@@ -395,7 +395,14 @@ func TestClusterStore_EnsureRuntimeClustersRepairsRuntimeMap(t *testing.T) {
 	})
 }
 
-func TestClusterManager_SetEndpointUpdateRebuildsConsistentHash(t *testing.T) {
+// TestClusterManager_SetEndpointSuffixAppendRebuildsConsistentHash locks the
+// invariant that when a SetEndpoint call collides on explicit ID with an
+// existing endpoint but differs in routing identity, BOTH endpoints survive
+// (the second gets a -2 suffix) and the consistent hash reflects both hosts.
+// Previously the colliding call silently overwrote the original endpoint,
+// which made the PR-3 dedup rule effective only for static assembly and not
+// for the dynamic LLM/Nacos registration path.
+func TestClusterManager_SetEndpointSuffixAppendRebuildsConsistentHash(t *testing.T) {
 	tests := []model.LbPolicyType{
 		model.LoadBalancerRingHashing,
 		model.LoadBalancerMaglevHashing,
@@ -413,18 +420,25 @@ func TestClusterManager_SetEndpointUpdateRebuildsConsistentHash(t *testing.T) {
 			newHost := newEndpoint.GetHost()
 			cm.SetEndpoint(config.Name, newEndpoint)
 
+			endpoints := cm.store.Config[0].Endpoints
+			if !assert.Len(t, endpoints, 2, "duplicate explicit ID must produce a suffixed sibling, not overwrite") {
+				return
+			}
+			assert.Equal(t, "ep-1", endpoints[0].ID)
+			assert.Equal(t, "ep-1-2", endpoints[1].ID)
+
 			hash := cm.store.Config[0].ConsistentHash.Hash
 			if !assert.NotNil(t, hash) {
 				return
 			}
 			if hostList, ok := hash.(interface{ Hosts() []string }); ok {
 				hosts := hostList.Hosts()
-				assert.NotContains(t, hosts, oldHost)
-				assert.Contains(t, hosts, newHost)
+				assert.Contains(t, hosts, oldHost, "old host stays in the hash because the slot is preserved")
+				assert.Contains(t, hosts, newHost, "new host is rebuilt into the hash because the slot is appended")
 				return
 			}
-			assert.False(t, hash.Remove(oldHost))
-			assert.True(t, hash.Remove(newHost))
+			assert.True(t, hash.Remove(oldHost), "old host stays in the hash because the slot is preserved")
+			assert.True(t, hash.Remove(newHost), "new host is rebuilt into the hash because the slot is appended")
 		})
 	}
 }
@@ -584,7 +598,13 @@ func TestClusterManager_SetEndpointDoesNotMutateInputEndpoint(t *testing.T) {
 	}
 }
 
-func TestClusterManager_SetEndpointUpdateDoesNotShareOldLLMMeta(t *testing.T) {
+// TestClusterManager_SetEndpointSuffixAppendKeepsOldLLMMeta verifies that
+// when an incoming SetEndpoint call collides on explicit ID but differs in
+// routing identity, the original endpoint's LLMMeta is left untouched
+// because the new endpoint is appended with a -2 suffix instead of merged
+// into the old slot. This is the dynamic-path counterpart to the static
+// dedup test TestAssembleEndpointsDeduplicatesExplicitID.
+func TestClusterManager_SetEndpointSuffixAppendKeepsOldLLMMeta(t *testing.T) {
 	oldEndpoint := testEndpoint("ep-1", "127.0.0.1", 21077)
 	oldEndpoint.LLMMeta = &model.LLMMeta{APIKey: "old-key"}
 	config := testCluster("set-llm-meta-clone", model.LoadBalancerRoundRobin, []*model.Endpoint{oldEndpoint})
@@ -596,13 +616,176 @@ func TestClusterManager_SetEndpointUpdateDoesNotShareOldLLMMeta(t *testing.T) {
 
 	cm.SetEndpoint(config.Name, incoming)
 
-	updated := cm.store.Config[0].Endpoints[0]
-	if assert.NotNil(t, updated.LLMMeta) && assert.NotNil(t, storedOld.LLMMeta) {
-		assert.NotSame(t, storedOld.LLMMeta, updated.LLMMeta)
-		updated.LLMMeta.APIKey = "mutated-key"
-		assert.Equal(t, "old-key", storedOld.LLMMeta.APIKey)
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 2,
+		"same explicit ID + different address must append a suffixed endpoint, not overwrite") {
+		return
 	}
-	assert.Nil(t, incoming.LLMMeta)
+	assert.Equal(t, "ep-1", endpoints[0].ID)
+	assert.Equal(t, "ep-1-2", endpoints[1].ID)
+
+	if assert.NotNil(t, endpoints[0].LLMMeta) {
+		assert.Equal(t, "old-key", endpoints[0].LLMMeta.APIKey,
+			"the old slot's LLMMeta survives an additive SetEndpoint untouched")
+	}
+	assert.Equal(t, storedOld.Address, endpoints[0].Address,
+		"the old slot's address must not be overwritten by the colliding call")
+	assert.Nil(t, endpoints[1].LLMMeta, "the appended endpoint inherits nothing from the old slot")
+	assert.Nil(t, incoming.LLMMeta, "input endpoint is not mutated")
+}
+
+// TestClusterManager_SetEndpointExplicitSameIDDifferentAddressAppendsSuffix
+// is the reviewer's direct repro for PR-3 dynamic-path dedup. Two
+// SetEndpoint calls that share an explicit ID but route to different
+// addresses must produce two endpoints (the second suffixed -2), not a
+// silent merge.
+func TestClusterManager_SetEndpointExplicitSameIDDifferentAddressAppendsSuffix(t *testing.T) {
+	cm := testClusterManager(testCluster("c", model.LoadBalancerRoundRobin, nil))
+	defer stopStoreRuntimes(cm.store)
+
+	cm.SetEndpoint("c", testEndpoint("foo", "127.0.0.1", 21100))
+	cm.SetEndpoint("c", testEndpoint("foo", "127.0.0.2", 21101))
+
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 2,
+		"two SetEndpoint calls with the same explicit ID but different addresses "+
+			"must keep both endpoints, not silently overwrite the first") {
+		return
+	}
+	assert.Equal(t, "foo", endpoints[0].ID)
+	assert.Equal(t, "foo-2", endpoints[1].ID)
+	assert.Equal(t, "127.0.0.1", endpoints[0].Address.Address)
+	assert.Equal(t, "127.0.0.2", endpoints[1].Address.Address)
+}
+
+// TestClusterManager_SetEndpointExplicitSameIDSameContentIsIdempotent locks
+// the other side of the dedup contract: when two calls share the same
+// explicit ID AND the same routing-relevant content, the second call is a
+// re-registration (idempotent), not a duplicate that should accumulate.
+// This is the safety net so Nacos heartbeats don't grow the endpoint slice.
+func TestClusterManager_SetEndpointExplicitSameIDSameContentIsIdempotent(t *testing.T) {
+	cm := testClusterManager(testCluster("c", model.LoadBalancerRoundRobin, nil))
+	defer stopStoreRuntimes(cm.store)
+
+	cm.SetEndpoint("c", testEndpoint("foo", "127.0.0.1", 21110))
+	cm.SetEndpoint("c", testEndpoint("foo", "127.0.0.1", 21110))
+
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 1,
+		"same-content re-registration must be idempotent, never accumulate -N entries") {
+		return
+	}
+	assert.Equal(t, "foo", endpoints[0].ID)
+}
+
+// TestClusterManager_SetEndpointEmptyIDHashCollisionDifferentContentSuffixes
+// covers the empty-ID variant of the dedup contract. Two SetEndpoint calls
+// with empty IDs and the same hash material (so they resolve to the same
+// generated-* ID) but different non-hash content (Metadata) must produce
+// two endpoints — the second suffixed -2 — to stay consistent with how
+// assembleClusterEndpoints handles two static entries with identical hash
+// material.
+func TestClusterManager_SetEndpointEmptyIDHashCollisionDifferentContentSuffixes(t *testing.T) {
+	cm := testClusterManager(testCluster("c", model.LoadBalancerRoundRobin, nil))
+	defer stopStoreRuntimes(cm.store)
+
+	addr := model.SocketAddress{Address: "127.0.0.1", Port: 21120}
+	cm.SetEndpoint("c", &model.Endpoint{
+		Address:  addr,
+		Metadata: map[string]string{"region": "us-east"},
+	})
+	cm.SetEndpoint("c", &model.Endpoint{
+		Address:  addr,
+		Metadata: map[string]string{"region": "us-west"},
+	})
+
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 2,
+		"empty-ID calls with matching hash but differing Metadata must survive as siblings") {
+		return
+	}
+	baseID := model.GenerateEndpointID("c", &model.Endpoint{Address: addr})
+	assert.Equal(t, baseID, endpoints[0].ID)
+	assert.Equal(t, baseID+"-2", endpoints[1].ID)
+}
+
+// TestClusterManager_SetEndpointEmptyIDSameContentIsIdempotent guarantees
+// the natural idempotency of dynamic re-registration when callers leave the
+// ID empty: two byte-equal empty-ID SetEndpoint calls collapse to one
+// runtime endpoint, just like an explicit-ID idempotent call would.
+func TestClusterManager_SetEndpointEmptyIDSameContentIsIdempotent(t *testing.T) {
+	cm := testClusterManager(testCluster("c", model.LoadBalancerRoundRobin, nil))
+	defer stopStoreRuntimes(cm.store)
+
+	addr := model.SocketAddress{Address: "127.0.0.1", Port: 21130}
+	cm.SetEndpoint("c", &model.Endpoint{Address: addr})
+	cm.SetEndpoint("c", &model.Endpoint{Address: addr})
+
+	endpoints := cm.store.Config[0].Endpoints
+	assert.Len(t, endpoints, 1,
+		"empty-ID re-registration with identical content must collapse to one entry")
+}
+
+// TestClusterManager_SetEndpointEmptyIDReusesOperatorPinnedID locks truth-
+// table row 3: when an empty-ID SetEndpoint call hash-matches an existing
+// endpoint that carries an operator-pinned (non-generated) ID and is
+// content-equal, the pinned ID is reused — the dynamic path does NOT
+// override the operator's choice with a generated-* hash. Without this
+// test the empty-ID branch of resolveSetEndpointSlot could be silently
+// regressed to `return incomingHash, true` in a future refactor.
+//
+// Non-obvious dependency: assembleClusterEndpoints defaults the existing
+// pinned slot's Name to "endpoint-1" on first load while the incoming
+// arrives with Name="". The test passes because endpointContentEqualForSet
+// excludes Name from the equality check — see that helper's godoc. A
+// refactor that re-includes Name in equality would make this test fail
+// for a confusing reason (apparent content mismatch even though Address
+// and LLMMeta are identical); update endpointContentEqualForSet's
+// contract first if you change that.
+func TestClusterManager_SetEndpointEmptyIDReusesOperatorPinnedID(t *testing.T) {
+	addr := model.SocketAddress{Address: "127.0.0.1", Port: 21140}
+	pinned := &model.Endpoint{ID: "operator-pinned", Address: addr}
+	cm := testClusterManager(testCluster("c", model.LoadBalancerRoundRobin, []*model.Endpoint{pinned}))
+	defer stopStoreRuntimes(cm.store)
+
+	cm.SetEndpoint("c", &model.Endpoint{Address: addr})
+
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 1,
+		"empty-ID call with matching hash and content must reuse the pinned slot, not append") {
+		return
+	}
+	assert.Equal(t, "operator-pinned", endpoints[0].ID,
+		"the operator's pinned ID must survive empty-ID re-registration")
+}
+
+// TestClusterManager_SetEndpointNameOnlyChangeIsIdempotent locks the
+// deliberate trade-off documented on ClusterManager.SetEndpoint: Name is
+// excluded from the dedup content check, so a SetEndpoint call whose only
+// difference from an existing slot is Name is treated as an idempotent
+// re-registration. The original Name stays in place. Callers that need to
+// rename must DeleteEndpoint + SetEndpoint, or update the cluster config.
+//
+// Without this test we cannot tell whether the Name-not-applied behavior
+// is a deliberate contract or a latent bug, and the next refactor could
+// flip it silently.
+func TestClusterManager_SetEndpointNameOnlyChangeIsIdempotent(t *testing.T) {
+	addr := model.SocketAddress{Address: "127.0.0.1", Port: 21150}
+	original := &model.Endpoint{ID: "ep-1", Name: "original-name", Address: addr}
+	cm := testClusterManager(testCluster("c", model.LoadBalancerRoundRobin, []*model.Endpoint{original}))
+	defer stopStoreRuntimes(cm.store)
+
+	cm.SetEndpoint("c", &model.Endpoint{ID: "ep-1", Name: "renamed", Address: addr})
+
+	endpoints := cm.store.Config[0].Endpoints
+	if !assert.Len(t, endpoints, 1,
+		"Name-only change must NOT append a -2 sibling — that would grow the slice on harmless renames") {
+		return
+	}
+	assert.Equal(t, "ep-1", endpoints[0].ID)
+	assert.Equal(t, "original-name", endpoints[0].Name,
+		"the SetEndpoint godoc commits to not applying Name-only updates; "+
+			"if this assertion ever flips, update the SetEndpoint contract documentation too")
 }
 
 func TestClusterManager_AssembleEndpointsPreservesExplicitID(t *testing.T) {

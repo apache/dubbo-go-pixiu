@@ -19,6 +19,7 @@ package server
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 	"sync/atomic"
 )
@@ -98,6 +99,31 @@ func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 	cm.store.UpdateCluster(new)
 }
 
+// SetEndpoint registers or refreshes a single endpoint in the named
+// cluster, creating the cluster on first use.
+//
+// Dedup contract — follows the same collision rules as
+// assembleClusterEndpoints (ID match → hash match → suffix on content
+// mismatch) so static and dynamic registrations agree on outcomes, with
+// one deliberate divergence around Name documented below:
+//
+//   - When the incoming endpoint matches an existing slot's routing
+//     identity AND its content (Address, Metadata, LLMMeta — see
+//     endpointContentEqualForSet), the call is idempotent. The existing
+//     slot stays in place; this is the safety net for replayed Nacos
+//     instance events.
+//   - When the incoming endpoint collides on explicit ID or generated hash
+//     with an existing slot but differs in content, the new endpoint is
+//     appended with a -2/-3/... suffix (a WARN is emitted, mirroring
+//     assembleClusterEndpoints).
+//   - Otherwise the endpoint is appended with its explicit or generated ID.
+//
+// Name is intentionally NOT part of the content equality check (see
+// endpointContentEqualForSet's godoc). As a consequence, Name-only updates
+// (same Address/LLMMeta/Metadata, different Name) are absorbed by the
+// idempotent path and the cluster keeps the original Name. Callers that
+// need to rename an endpoint must DeleteEndpoint + SetEndpoint, or replace
+// the whole cluster config via AddCluster/UpdateCluster.
 func (cm *ClusterManager) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
@@ -594,62 +620,184 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 		runtimeCluster = s.clustersMap[clusterName]
 	}
 
-	if endpoint.ID == "" {
-		endpoint.ID = stableEndpointIDForSet(clusterName, endpoint, clusterConfig.Endpoints)
+	targetID, idempotent := resolveSetEndpointSlot(clusterName, endpoint, clusterConfig.Endpoints)
+	endpoint.ID = targetID
+	if idempotent {
+		// A content-equal endpoint already occupies this slot, so the cluster
+		// state, consistent hash, and runtime health-check registration are
+		// already correct. Returning here keeps re-registration idempotent —
+		// the LLM/Nacos path can replay the same instance event without
+		// growing the endpoint slice.
+		return
 	}
 
-	for i, e := range clusterConfig.Endpoints {
-		if e.ID == endpoint.ID {
-			// Remove before replacing the endpoint because healthcheck keys by address.
-			runtimeCluster.RemoveEndpoint(e)
-			mergedEndpoint := mergeEndpointForSet(e, endpoint)
-			clusterConfig.Endpoints[i] = mergedEndpoint
-			s.prepareClusterConfig(clusterConfig)
-			runtimeCluster.RefreshEndpoints()
-			runtimeCluster.AddEndpoint(mergedEndpoint)
-			return
-		}
-	}
 	clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
 	s.prepareClusterConfig(clusterConfig)
 	runtimeCluster.RefreshEndpoints()
 	runtimeCluster.AddEndpoint(endpoint)
 }
 
-func mergeEndpointForSet(oldEndpoint, incoming *model.Endpoint) *model.Endpoint {
-	if oldEndpoint == nil || incoming == nil {
-		return incoming
+// resolveSetEndpointSlot enforces the same dedup invariant as
+// assembleClusterEndpoints on the dynamic SetEndpoint path: an endpoint ID
+// identifies exactly one runtime endpoint at a time, and two registrations
+// that differ in routing-relevant content must both survive (suffixed -2,
+// -3, ...) instead of one silently overwriting the other.
+//
+// It returns the ID the incoming endpoint should be stored under and whether
+// the call is an idempotent re-registration (an existing slot already has
+// matching content). When idempotent is false the caller should append a
+// fresh endpoint with the returned ID.
+//
+// Decision tree:
+//
+//  1. Explicit ID matches an existing slot → idempotent iff content equal,
+//     otherwise return a -2/-3/... suffix off the explicit ID.
+//  2. Empty ID, hash matches an existing slot → idempotent iff content
+//     equal, otherwise return a suffix off the generated hash.
+//  3. No collision → use the explicit ID, or the generated hash for empty
+//     IDs.
+//
+// Share this helper across new entry points (admin API, xDS, gRPC
+// reflection, ...) to keep the dedup contract uniform; reimplementing the
+// branches in each caller is how the static and dynamic paths drifted
+// apart in the first place.
+func resolveSetEndpointSlot(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) (string, bool) {
+	if incoming == nil {
+		return "", false
+	}
+	incomingHash := model.GenerateEndpointID(clusterName, incoming)
+
+	if incoming.ID != "" {
+		for _, e := range existing {
+			if e == nil || e.ID != incoming.ID {
+				continue
+			}
+			if endpointContentEqualForSet(e, incoming) {
+				return incoming.ID, true
+			}
+			suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
+			logSetEndpointSuffix(clusterName, incoming.ID, suffixedID)
+			return suffixedID, false
+		}
+		return incoming.ID, false
 	}
 
-	merged := model.CloneEndpoint(oldEndpoint)
-	merged.ID = incoming.ID
-	merged.Name = incoming.Name
-	merged.Address = incoming.Address
-	merged.Metadata = incoming.Metadata
-	if incoming.LLMMeta != nil {
-		merged.LLMMeta = incoming.LLMMeta
-	}
-	return merged
-}
-
-func stableEndpointIDForSet(clusterName string, endpoint *model.Endpoint, endpoints []*model.Endpoint) string {
-	generatedID := model.GenerateEndpointID(clusterName, endpoint)
-	if existingEndpointMatchesGeneratedID(clusterName, generatedID, endpoints) {
-		return generatedID
-	}
-	return nextStableEndpointID(clusterName, endpoint, existingEndpointIDs(endpoints))
-}
-
-func existingEndpointMatchesGeneratedID(clusterName, generatedID string, endpoints []*model.Endpoint) bool {
-	for _, existing := range endpoints {
-		if existing == nil || existing.ID != generatedID {
+	for _, e := range existing {
+		if e == nil {
 			continue
 		}
-		if model.GenerateEndpointID(clusterName, existing) == generatedID {
-			return true
+		if model.GenerateEndpointID(clusterName, e) != incomingHash {
+			continue
+		}
+		if endpointContentEqualForSet(e, incoming) {
+			return e.ID, true
+		}
+		suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
+		logSetEndpointSuffix(clusterName, incomingHash, suffixedID)
+		return suffixedID, false
+	}
+	return incomingHash, false
+}
+
+// logSetEndpointSuffix uses the same WARN format as
+// assembleClusterEndpoints (pkg/server/cluster_manager.go) so operators
+// tail one log line whether a duplicate came from static YAML or from a
+// runtime SetEndpoint call. Note: the dynamic path additionally logs
+// empty-ID hash collisions (when two SetEndpoint calls hash-collide but
+// differ in content), which assemble currently leaves silent — operator
+// visibility was the explicit motivation for adding this log on the
+// dynamic path.
+//
+// This log is intentionally NOT pinned by a test. The contractual floor
+// is that suffix decisions actually happen (locked by the
+// *AppendsSuffix tests); the WARN is operator-visibility supplement.
+// Pinning the exact log line via stderr capture would couple the tests
+// to log formatting and offer little benefit. If a refactor accidentally
+// drops the call site, the suffix tests still pass — the regression
+// shows up as operators not seeing collision warnings they were
+// previously relying on, which is a separate signal worth treating as
+// such.
+func logSetEndpointSuffix(clusterName, collidingID, assignedID string) {
+	logger.Warnf(
+		"[dubbo-go-pixiu] duplicate endpoint ID %s in cluster %s, assigned endpoint ID %s",
+		collidingID,
+		clusterName,
+		assignedID,
+	)
+}
+
+// endpointContentEqualForSet reports whether the incoming SetEndpoint
+// payload represents the same endpoint as an existing slot for the purposes
+// of dedup. It compares the routing-relevant content — Address (full
+// SocketAddress including Domains), Metadata, and LLMMeta — but
+// deliberately excludes ID (the dedup contract uses the ID as the collision
+// key, not as a content field), Name (assembleClusterEndpoints defaults
+// missing names to "endpoint-<index>" between calls, so comparing Name
+// would treat re-registration with no name as a duplicate-content case),
+// and runtime-only state.
+//
+// nil and zero-length maps/slices are treated as equal: callers building
+// endpoints from different code paths (static YAML vs. Nacos metadata) often
+// produce one or the other for the same logical "no metadata" state.
+func endpointContentEqualForSet(a, b *model.Endpoint) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if !socketAddressContentEqual(a.Address, b.Address) {
+		return false
+	}
+	if !stringMapEqualForSet(a.Metadata, b.Metadata) {
+		return false
+	}
+	return llmMetaEqualForSet(a.LLMMeta, b.LLMMeta)
+}
+
+// socketAddressContentEqual is a deliberately stricter equality oracle than
+// model.SocketAddress.Equal. SocketAddress.Equal (see its godoc) is the
+// identity oracle used by load-balancer routing, which only compares
+// Address+Port (or Domains[0]) and ignores ResolverName, CertsDir, and
+// Domains beyond the first element. That is the right semantic for "pick
+// an endpoint by address" but too lax for SetEndpoint dedup: two endpoints
+// that differ only in CertsDir or Domains list ordering are distinct
+// configurations and must not be silently treated as one. So we compare
+// every field here, with the nil/empty-Domains normalization callers
+// expect.
+func socketAddressContentEqual(a, b model.SocketAddress) bool {
+	if a.Address != b.Address || a.Port != b.Port {
+		return false
+	}
+	if a.ResolverName != b.ResolverName || a.CertsDir != b.CertsDir {
+		return false
+	}
+	if len(a.Domains) != len(b.Domains) {
+		return false
+	}
+	for i := range a.Domains {
+		if a.Domains[i] != b.Domains[i] {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+func stringMapEqualForSet(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		bv, ok := b[k]
+		if !ok || bv != v {
+			return false
+		}
+	}
+	return true
+}
+
+func llmMetaEqualForSet(a, b *model.LLMMeta) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return reflect.DeepEqual(*a, *b)
 }
 
 func existingEndpointIDs(endpoints []*model.Endpoint) map[string]struct{} {
