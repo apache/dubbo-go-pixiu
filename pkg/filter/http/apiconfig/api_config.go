@@ -69,6 +69,10 @@ func (factory *FilterFactory) Config() any {
 func (factory *FilterFactory) Apply() error {
 	factory.apiService = api.NewLocalMemoryAPIDiscoveryService()
 
+	if factory.cfg.OpenAPIPath != "" || factory.cfg.EnableOpenAPIValidation {
+		return errors.New("openapi_path and enable_openapi_validation have moved out of apiconfig; configure dgp.filter.http.openapi instead")
+	}
+
 	if factory.cfg.Dynamic {
 		server.GetApiConfigManager().AddApiConfigListener(factory.cfg.DynamicAdapter, factory)
 		return nil

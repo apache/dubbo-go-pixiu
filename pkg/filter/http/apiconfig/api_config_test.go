@@ -137,6 +137,20 @@ resources:
 	assert.Equal(t, "/users/:id", pathMatched.URLPattern)
 }
 
+func TestApply_RejectsDeprecatedOpenAPIConfig(t *testing.T) {
+	factory := &FilterFactory{
+		cfg: &ApiConfigConfig{
+			OpenAPIPath:             "configs/openapi.yaml",
+			EnableOpenAPIValidation: true,
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dgp.filter.http.openapi")
+}
+
 func newAPIConfigFactory(t *testing.T, apiConfig string) *FilterFactory {
 	t.Helper()
 
