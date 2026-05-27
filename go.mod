@@ -73,6 +73,8 @@ require (
 	v.marlon.life/toolkit v0.0.0-20211025131614-e4a91730b4ab
 )
 
+// Pin v2.0.2 to match github.com/go-openapi/spec v0.22.1 test dependencies
+// pulled through swaggo/swag; newer testify/v2 versions are not compatible with that test tree.
 replace github.com/go-openapi/testify/v2 => github.com/go-openapi/testify/v2 v2.0.2
 
 require (
