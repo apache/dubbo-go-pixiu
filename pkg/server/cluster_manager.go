@@ -665,23 +665,40 @@ func resolveSetEndpointSlot(clusterName string, incoming *model.Endpoint, existi
 	if incoming == nil {
 		return "", false
 	}
-	incomingHash := model.GenerateEndpointID(clusterName, incoming)
-
 	if incoming.ID != "" {
-		for _, e := range existing {
-			if e == nil || e.ID != incoming.ID {
-				continue
-			}
-			if endpointContentEqualForSet(e, incoming) {
-				return incoming.ID, true
-			}
-			suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
-			logSetEndpointSuffix(clusterName, incoming.ID, suffixedID)
-			return suffixedID, false
-		}
-		return incoming.ID, false
+		return resolveSetEndpointSlotByID(clusterName, incoming, existing)
 	}
+	return resolveSetEndpointSlotByHash(clusterName, incoming, existing)
+}
 
+// resolveSetEndpointSlotByID handles the explicit-ID branch of the decision
+// tree documented on resolveSetEndpointSlot. Probing the existing slice by
+// ID equality keeps the operator's pinned ID readable in the suffix on a
+// content mismatch (foo → foo-2, not foo → generated-...-2).
+func resolveSetEndpointSlotByID(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) (string, bool) {
+	for _, e := range existing {
+		if e == nil {
+			continue
+		}
+		if e.ID != incoming.ID {
+			continue
+		}
+		if endpointContentEqualForSet(e, incoming) {
+			return incoming.ID, true
+		}
+		suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
+		logSetEndpointSuffix(clusterName, incoming.ID, suffixedID)
+		return suffixedID, false
+	}
+	return incoming.ID, false
+}
+
+// resolveSetEndpointSlotByHash handles the empty-ID branch of the decision
+// tree documented on resolveSetEndpointSlot. Probing by generated hash —
+// not by ID — is what lets an empty-ID call reuse an operator-pinned slot
+// (truth-table row 3) instead of inventing a parallel generated-* entry.
+func resolveSetEndpointSlotByHash(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) (string, bool) {
+	incomingHash := model.GenerateEndpointID(clusterName, incoming)
 	for _, e := range existing {
 		if e == nil {
 			continue
