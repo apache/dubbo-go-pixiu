@@ -102,21 +102,28 @@ func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 // SetEndpoint registers or refreshes a single endpoint in the named
 // cluster, creating the cluster on first use.
 //
-// Dedup contract — follows the same collision rules as
-// assembleClusterEndpoints (ID match → hash match → suffix on content
-// mismatch) so static and dynamic registrations agree on outcomes, with
-// one deliberate divergence around Name documented below:
+// Dedup contract — explicit-ID and empty-ID paths diverge on purpose,
+// because the two callers have different intent:
 //
-//   - When the incoming endpoint matches an existing slot's routing
-//     identity AND its content (Address, Metadata, LLMMeta — see
-//     endpointContentEqualForSet), the call is idempotent. The existing
-//     slot stays in place; this is the safety net for replayed Nacos
-//     instance events.
-//   - When the incoming endpoint collides on explicit ID or generated hash
-//     with an existing slot but differs in content, the new endpoint is
-//     appended with a -2/-3/... suffix (a WARN is emitted, mirroring
-//     assembleClusterEndpoints).
-//   - Otherwise the endpoint is appended with its explicit or generated ID.
+//   - Explicit ID is the registry-update path (Nacos / SpringCloud /
+//     Dubbo / LLM adapters typically pass an instance ID; an adapter
+//     that omits ID falls through to the empty-ID branch below). The
+//     ID identifies the same instance across calls, so a second call
+//     with the same ID is "this instance changed". Action: replace the
+//     existing slot in place. Address-equal updates inherit the runtime
+//     health verdict from the prior snapshot — the incoming
+//     Endpoint.UnHealthy field is ignored on this path, so a
+//     known-unhealthy verdict survives a metadata flip until the
+//     healthcheck probes again. Address-changing updates stop the old
+//     address's healthcheck and start a fresh one against the new
+//     address; the new endpoint enters the snapshot at its declared
+//     health (default: healthy) until the first probe lands.
+//   - Empty ID is the ad-hoc-add path (no instance identity claimed).
+//     The deterministic hash is used as the slot key, and a hash
+//     collision with differing content is treated as a static-style
+//     duplicate (suffix -2/-3, both endpoints survive).
+//   - Same ID + same content is always idempotent — the safety net for
+//     replayed Nacos heartbeats.
 //
 // Name is intentionally NOT part of the content equality check (see
 // endpointContentEqualForSet's godoc). As a consequence, Name-only updates
@@ -620,63 +627,137 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 		runtimeCluster = s.clustersMap[clusterName]
 	}
 
-	targetID, idempotent := resolveSetEndpointSlot(clusterName, endpoint, clusterConfig.Endpoints)
-	endpoint.ID = targetID
-	if idempotent {
+	outcome := resolveSetEndpointSlot(clusterName, endpoint, clusterConfig.Endpoints)
+	endpoint.ID = outcome.targetID
+
+	switch outcome.action {
+	case setEndpointIdempotent:
 		// A content-equal endpoint already occupies this slot, so the cluster
 		// state, consistent hash, and runtime health-check registration are
 		// already correct. Returning here keeps re-registration idempotent —
 		// the LLM/Nacos path can replay the same instance event without
 		// growing the endpoint slice.
 		return
+	case setEndpointReplace:
+		s.replaceEndpointAt(clusterConfig, runtimeCluster, outcome.replaceIdx, endpoint)
+	case setEndpointAppend:
+		clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
+		s.prepareClusterConfig(clusterConfig)
+		runtimeCluster.RefreshEndpoints()
+		runtimeCluster.AddEndpoint(endpoint)
 	}
-
-	clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
-	s.prepareClusterConfig(clusterConfig)
-	runtimeCluster.RefreshEndpoints()
-	runtimeCluster.AddEndpoint(endpoint)
 }
 
-// resolveSetEndpointSlot enforces the same dedup invariant as
-// assembleClusterEndpoints on the dynamic SetEndpoint path: an endpoint ID
-// identifies exactly one runtime endpoint at a time, and two registrations
-// that differ in routing-relevant content must both survive (suffixed -2,
-// -3, ...) instead of one silently overwriting the other.
+// replaceEndpointAt overwrites the cluster slot at idx with the incoming
+// endpoint and reconciles runtime state. Address-equal replacements
+// (metadata-only updates) skip the healthcheck restart so the existing
+// health verdict survives; address-changing replacements stop the old
+// address's checker and start a fresh one against the new address. The
+// snapshot CAS republish happens in RefreshEndpoints, and
+// endpointSnapshotHealth carries health forward by ID when the address
+// is unchanged (see pkg/cluster/cluster.go).
 //
-// It returns the ID the incoming endpoint should be stored under and whether
-// the call is an idempotent re-registration (an existing slot already has
-// matching content). When idempotent is false the caller should append a
-// fresh endpoint with the returned ID.
+// Removal order mirrors DeleteEndpoint (RemoveEndpoint before slice
+// mutation): healthcheck.hasOtherEndpointWithAddress iterates
+// clusterConfig.Endpoints during StopOne, so the slot must still hold
+// the old endpoint at that point. The operator-visibility WARN fires
+// only on address-changing replaces — metadata-only updates are a
+// routine registry path, not something worth tailing for.
+func (s *ClusterStore) replaceEndpointAt(
+	clusterConfig *model.ClusterConfig,
+	runtimeCluster *cluster.Cluster,
+	idx int,
+	endpoint *model.Endpoint,
+) {
+	old := clusterConfig.Endpoints[idx]
+	addressChanged := old.Address.GetAddress() != endpoint.Address.GetAddress()
+
+	if addressChanged {
+		runtimeCluster.RemoveEndpoint(old)
+		logSetEndpointOverwrite(clusterConfig.Name, endpoint.ID, old, endpoint)
+	}
+	clusterConfig.Endpoints[idx] = endpoint
+	s.prepareClusterConfig(clusterConfig)
+	runtimeCluster.RefreshEndpoints()
+	if addressChanged {
+		runtimeCluster.AddEndpoint(endpoint)
+	}
+}
+
+// setEndpointAction discriminates the three outcomes the SetEndpoint
+// dispatcher can take. See resolveSetEndpointSlot for the decision tree.
+type setEndpointAction int
+
+const (
+	// setEndpointIdempotent: an existing slot already holds content-equal
+	// state. SetEndpoint returns without touching config or runtime.
+	setEndpointIdempotent setEndpointAction = iota
+	// setEndpointReplace: an existing slot holds an endpoint with the same
+	// explicit ID but different content. SetEndpoint overwrites the slot
+	// at replaceIdx and reconciles healthcheck/snapshot accordingly.
+	setEndpointReplace
+	// setEndpointAppend: no existing slot collides, or an empty-ID hash
+	// collision occurred with differing content. SetEndpoint appends a
+	// new endpoint at targetID (suffixed when needed).
+	setEndpointAppend
+)
+
+// setEndpointOutcome captures the routing decision for one SetEndpoint call.
+// replaceIdx is only meaningful when action == setEndpointReplace.
+type setEndpointOutcome struct {
+	targetID   string
+	action     setEndpointAction
+	replaceIdx int
+}
+
+// resolveSetEndpointSlot decides how the dynamic SetEndpoint path should
+// reconcile an incoming endpoint against the cluster's existing slice.
+// The explicit-ID and empty-ID branches use different rules on purpose;
+// see the SetEndpoint godoc for the rationale.
 //
 // Decision tree:
 //
-//  1. Explicit ID matches an existing slot → idempotent iff content equal,
-//     otherwise return a -2/-3/... suffix off the explicit ID.
-//  2. Empty ID, hash matches an existing slot → idempotent iff content
-//     equal, otherwise return a suffix off the generated hash.
-//  3. No collision → use the explicit ID, or the generated hash for empty
-//     IDs.
+//  1. incoming.ID != "":
+//     a. ID matches an existing slot:
+//        - content equal → idempotent
+//        - content differs → replace slot in place (WARN logged by the
+//          caller when the replace actually changes the address)
+//     b. ID does not match → append with incoming.ID
+//  2. incoming.ID == "":
+//     a. Generated hash matches an existing slot:
+//        - content equal → idempotent (reuse matched slot's ID)
+//        - content differs → append with a -2/-3 suffix (WARN logged)
+//     b. No hash match → append with the generated hash as ID
 //
-// Share this helper across new entry points (admin API, xDS, gRPC
-// reflection, ...) to keep the dedup contract uniform; reimplementing the
-// branches in each caller is how the static and dynamic paths drifted
-// apart in the first place.
-func resolveSetEndpointSlot(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) (string, bool) {
-	if incoming == nil {
-		return "", false
-	}
+// The empty-ID branch keeps the suffix-append behavior because callers
+// without an explicit ID have not claimed instance identity — two
+// hash-colliding empty-ID payloads with differing content are treated
+// as two distinct entries (same rule as static assemble).
+//
+// Caller invariant: ClusterStore.SetEndpoint guards nil before calling
+// here, so incoming is never nil. The function is a pure decision; any
+// operator-visibility logging happens in the caller (explicit-ID
+// overwrite) or in the hash-collision branch itself (suffix append).
+func resolveSetEndpointSlot(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) setEndpointOutcome {
 	if incoming.ID != "" {
-		return resolveSetEndpointSlotByID(clusterName, incoming, existing)
+		return resolveSetEndpointSlotByID(incoming, existing)
 	}
 	return resolveSetEndpointSlotByHash(clusterName, incoming, existing)
 }
 
-// resolveSetEndpointSlotByID handles the explicit-ID branch of the decision
-// tree documented on resolveSetEndpointSlot. Probing the existing slice by
-// ID equality keeps the operator's pinned ID readable in the suffix on a
-// content mismatch (foo → foo-2, not foo → generated-...-2).
-func resolveSetEndpointSlotByID(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) (string, bool) {
-	for _, e := range existing {
+// resolveSetEndpointSlotByID handles the explicit-ID branch. An ID match
+// is treated as "this is the same instance" — content-equal calls are
+// idempotent, content-differing calls overwrite the existing slot. This
+// is what every registry adapter (Nacos, SpringCloud, Dubbo, LLM) needs
+// for OnUpdate events; the previous "append -2" behavior caused
+// endpoint accumulation on every address change.
+//
+// clusterName is unused on this branch because no suffix needs to be
+// generated; the caller logs the address-changing overwrite once the
+// runtime side has decided whether the replace actually changes the
+// healthcheck registration.
+func resolveSetEndpointSlotByID(incoming *model.Endpoint, existing []*model.Endpoint) setEndpointOutcome {
+	for i, e := range existing {
 		if e == nil {
 			continue
 		}
@@ -684,20 +765,19 @@ func resolveSetEndpointSlotByID(clusterName string, incoming *model.Endpoint, ex
 			continue
 		}
 		if endpointContentEqualForSet(e, incoming) {
-			return incoming.ID, true
+			return setEndpointOutcome{targetID: incoming.ID, action: setEndpointIdempotent, replaceIdx: -1}
 		}
-		suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
-		logSetEndpointSuffix(clusterName, incoming.ID, suffixedID)
-		return suffixedID, false
+		return setEndpointOutcome{targetID: incoming.ID, action: setEndpointReplace, replaceIdx: i}
 	}
-	return incoming.ID, false
+	return setEndpointOutcome{targetID: incoming.ID, action: setEndpointAppend, replaceIdx: -1}
 }
 
-// resolveSetEndpointSlotByHash handles the empty-ID branch of the decision
-// tree documented on resolveSetEndpointSlot. Probing by generated hash —
-// not by ID — is what lets an empty-ID call reuse an operator-pinned slot
-// (truth-table row 3) instead of inventing a parallel generated-* entry.
-func resolveSetEndpointSlotByHash(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) (string, bool) {
+// resolveSetEndpointSlotByHash handles the empty-ID branch. Probing by
+// generated hash — not by ID — lets an empty-ID call reuse an
+// operator-pinned slot when their hash material matches. A hash
+// collision with differing content keeps the static-style suffix-append
+// rule so neither entry is silently lost.
+func resolveSetEndpointSlotByHash(clusterName string, incoming *model.Endpoint, existing []*model.Endpoint) setEndpointOutcome {
 	incomingHash := model.GenerateEndpointID(clusterName, incoming)
 	for _, e := range existing {
 		if e == nil {
@@ -707,39 +787,56 @@ func resolveSetEndpointSlotByHash(clusterName string, incoming *model.Endpoint, 
 			continue
 		}
 		if endpointContentEqualForSet(e, incoming) {
-			return e.ID, true
+			return setEndpointOutcome{targetID: e.ID, action: setEndpointIdempotent, replaceIdx: -1}
 		}
 		suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
 		logSetEndpointSuffix(clusterName, incomingHash, suffixedID)
-		return suffixedID, false
+		return setEndpointOutcome{targetID: suffixedID, action: setEndpointAppend, replaceIdx: -1}
 	}
-	return incomingHash, false
+	return setEndpointOutcome{targetID: incomingHash, action: setEndpointAppend, replaceIdx: -1}
 }
 
 // logSetEndpointSuffix uses the same WARN format as
 // assembleClusterEndpoints (pkg/server/cluster_manager.go) so operators
 // tail one log line whether a duplicate came from static YAML or from a
-// runtime SetEndpoint call. Note: the dynamic path additionally logs
-// empty-ID hash collisions (when two SetEndpoint calls hash-collide but
-// differ in content), which assemble currently leaves silent — operator
-// visibility was the explicit motivation for adding this log on the
-// dynamic path.
+// runtime SetEndpoint call. The empty-ID hash collision path is the only
+// dynamic-side caller of this format after the explicit-ID semantics
+// switched to in-place replace (see logSetEndpointOverwrite for that path).
 //
 // This log is intentionally NOT pinned by a test. The contractual floor
-// is that suffix decisions actually happen (locked by the
-// *AppendsSuffix tests); the WARN is operator-visibility supplement.
-// Pinning the exact log line via stderr capture would couple the tests
-// to log formatting and offer little benefit. If a refactor accidentally
-// drops the call site, the suffix tests still pass — the regression
-// shows up as operators not seeing collision warnings they were
-// previously relying on, which is a separate signal worth treating as
-// such.
+// is that the empty-ID suffix decision actually happens (locked by
+// TestClusterManager_SetEndpointEmptyIDHashCollisionDifferentContentSuffixes);
+// the WARN is operator-visibility supplement. Pinning the exact log line
+// via stderr capture would couple the test to log formatting and offer
+// little benefit. If a refactor accidentally drops the call site, the
+// suffix test still passes — the regression shows up as operators not
+// seeing collision warnings they were previously relying on, which is a
+// separate signal worth treating as such.
 func logSetEndpointSuffix(clusterName, collidingID, assignedID string) {
 	logger.Warnf(
 		"[dubbo-go-pixiu] duplicate endpoint ID %s in cluster %s, assigned endpoint ID %s",
 		collidingID,
 		clusterName,
 		assignedID,
+	)
+}
+
+// logSetEndpointOverwrite is the explicit-ID path's operator-visibility
+// hook. Same intent as logSetEndpointSuffix but with the different
+// outcome (slot replaced, not appended). Surfaces both addresses so an
+// operator can tell whether the call was a legitimate registry update
+// (e.g. instance migrated to a new IP) or an adapter bug clobbering
+// someone else's endpoint.
+//
+// Same testing rationale as logSetEndpointSuffix: not pinned by a test
+// to avoid coupling tests to log formatting.
+func logSetEndpointOverwrite(clusterName, endpointID string, old, incoming *model.Endpoint) {
+	logger.Warnf(
+		"[dubbo-go-pixiu] endpoint %s in cluster %s overwritten by SetEndpoint (address %s -> %s)",
+		endpointID,
+		clusterName,
+		old.Address.GetAddress(),
+		incoming.Address.GetAddress(),
 	)
 }
 
