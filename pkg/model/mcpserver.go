@@ -30,6 +30,9 @@ type McpServerConfig struct {
 	Resources         []ResourceConfig         `yaml:"resources,omitempty" json:"resources,omitempty"`
 	ResourceTemplates []ResourceTemplateConfig `yaml:"resource_templates,omitempty" json:"resource_templates,omitempty"`
 	Prompts           []PromptConfig           `yaml:"prompts,omitempty" json:"prompts,omitempty"`
+	// Router holds optional intelligent tool routing configuration (issue #937).
+	// When nil or disabled the server behaves identically to the pre-router build.
+	Router *RouterConfig `yaml:"router,omitempty" json:"router,omitempty"`
 }
 
 // ServerInfo server information
@@ -48,6 +51,9 @@ type ToolConfig struct {
 	BackendURL  string        `yaml:"backend_url,omitempty" json:"backend_url,omitempty"`
 	Request     RequestConfig `yaml:"request" json:"request"`
 	Args        []ArgConfig   `yaml:"args,omitempty" json:"args,omitempty"`
+	// Meta holds optional routing metadata consumed by the tool router (issue #937).
+	// Omitting it leaves the tool fully exposed, preserving backward compatibility.
+	Meta *ToolMeta `yaml:"meta,omitempty" json:"meta,omitempty"`
 }
 
 // RequestConfig request configuration
@@ -67,6 +73,117 @@ type ArgConfig struct {
 	Required    bool     `yaml:"required,omitempty" json:"required,omitempty"`
 	Default     any      `yaml:"default,omitempty" json:"default,omitempty"`
 	Enum        []string `yaml:"enum,omitempty" json:"enum,omitempty"`
+}
+
+// ToolMeta carries optional routing metadata for a tool (issue #937).
+// All fields are optional; an absent ToolMeta means the tool is fully exposed.
+type ToolMeta struct {
+	// Tags are free-form labels used by policy allow/deny lists and schema matching.
+	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	// Capabilities are coarse capability identifiers (e.g. "user.read").
+	Capabilities []string `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	// Workflows lists the workflow bundles this tool belongs to.
+	Workflows []string `yaml:"workflows,omitempty" json:"workflows,omitempty"`
+	// Risk is one of "low" | "medium" | "high"; empty is treated as "low".
+	Risk string `yaml:"risk,omitempty" json:"risk,omitempty"`
+	// DiscoveryVisibility, when explicitly false, hides the tool from tools/list
+	// while still allowing tools/call. A nil pointer means visible (default true).
+	DiscoveryVisibility *bool `yaml:"discovery_visibility,omitempty" json:"discovery_visibility,omitempty"`
+	// ProgressiveTier groups tools for progressive disclosure (lower = earlier).
+	ProgressiveTier int `yaml:"progressive_tier,omitempty" json:"progressive_tier,omitempty"`
+}
+
+// RouterConfig configures the intelligent tool router (issue #937).
+// When Enabled is false (the default) the router is a no-op.
+type RouterConfig struct {
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// Fallback is "bundle_default" (default) or "fail_closed".
+	Fallback string `yaml:"fallback,omitempty" json:"fallback,omitempty"`
+	// DefaultBundle names the workflow used when Fallback is "bundle_default".
+	DefaultBundle string `yaml:"default_bundle,omitempty" json:"default_bundle,omitempty"`
+	// EnforceOnCall, when true (default), rejects tools/call for tools that are
+	// not part of the session's selection plan.
+	EnforceOnCall *bool `yaml:"enforce_on_call,omitempty" json:"enforce_on_call,omitempty"`
+
+	Stages      RouterStages      `yaml:"stages,omitempty" json:"stages,omitempty"`
+	Policy      PolicyConfig      `yaml:"policy,omitempty" json:"policy,omitempty"`
+	Workflows   []WorkflowConfig  `yaml:"workflows,omitempty" json:"workflows,omitempty"`
+	Schema      SchemaConfig      `yaml:"schema,omitempty" json:"schema,omitempty"`
+	Progressive ProgressiveConfig `yaml:"progressive,omitempty" json:"progressive,omitempty"`
+	Audit       AuditConfig       `yaml:"audit,omitempty" json:"audit,omitempty"`
+}
+
+// AuditConfig controls decision logging and the admin debug endpoint.
+type AuditConfig struct {
+	// SampleRate is the fraction (0..1) of selections to emit a decision log
+	// for. Zero is treated as 1.0 (log every decision).
+	SampleRate float64 `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty"`
+	// PayloadLogging, when true, opts into detailed logging and enables the
+	// admin plan-inspection endpoint. It must never be enabled in production
+	// without access controls, as plans reveal authorization state.
+	PayloadLogging bool `yaml:"payload_logging,omitempty" json:"payload_logging,omitempty"`
+}
+
+// RouterStages toggles individual pipeline stages. The pipeline order is fixed
+// (policy -> workflow -> schema -> progressive -> rerank); only enablement varies.
+type RouterStages struct {
+	Policy      *bool `yaml:"policy,omitempty" json:"policy,omitempty"`           // default true
+	Workflow    *bool `yaml:"workflow,omitempty" json:"workflow,omitempty"`       // default true
+	Schema      bool  `yaml:"schema,omitempty" json:"schema,omitempty"`           // default false
+	Progressive bool  `yaml:"progressive,omitempty" json:"progressive,omitempty"` // default false
+	Rerank      bool  `yaml:"rerank,omitempty" json:"rerank,omitempty"`           // interface only in MVP
+}
+
+// PolicyConfig holds hard-filter rules.
+type PolicyConfig struct {
+	Rules []PolicyRule `yaml:"rules,omitempty" json:"rules,omitempty"`
+}
+
+// PolicyRule is a single hard-filter rule. A rule applies when its When clause
+// matches the selection context; matching rules constrain the candidate set.
+type PolicyRule struct {
+	Name      string      `yaml:"name,omitempty" json:"name,omitempty"`
+	When      PolicyMatch `yaml:"when,omitempty" json:"when,omitempty"`
+	AllowTags []string    `yaml:"allow_tags,omitempty" json:"allow_tags,omitempty"`
+	DenyTags  []string    `yaml:"deny_tags,omitempty" json:"deny_tags,omitempty"`
+	MaxRisk   string      `yaml:"max_risk,omitempty" json:"max_risk,omitempty"`
+}
+
+// PolicyMatch describes when a policy rule applies. An empty match always applies.
+type PolicyMatch struct {
+	Claim        string   `yaml:"claim,omitempty" json:"claim,omitempty"`
+	Equals       string   `yaml:"equals,omitempty" json:"equals,omitempty"`
+	In           []string `yaml:"in,omitempty" json:"in,omitempty"`
+	Regex        string   `yaml:"regex,omitempty" json:"regex,omitempty"`
+	MissingClaim string   `yaml:"missing_claim,omitempty" json:"missing_claim,omitempty"`
+}
+
+// WorkflowConfig defines a named bundle of tools selected together.
+type WorkflowConfig struct {
+	Name        string      `yaml:"name" json:"name"`
+	Description string      `yaml:"description,omitempty" json:"description,omitempty"`
+	Tools       []string    `yaml:"tools,omitempty" json:"tools,omitempty"`
+	When        PolicyMatch `yaml:"when,omitempty" json:"when,omitempty"`
+}
+
+// SchemaConfig configures weighted schema-based ranking (sorting only).
+type SchemaConfig struct {
+	Weights SchemaWeights `yaml:"weights,omitempty" json:"weights,omitempty"`
+	TopK    int           `yaml:"top_k,omitempty" json:"top_k,omitempty"`
+}
+
+// SchemaWeights weights the contribution of each match dimension.
+type SchemaWeights struct {
+	TagMatch         float64 `yaml:"tag_match,omitempty" json:"tag_match,omitempty"`
+	CapabilityMatch  float64 `yaml:"capability_match,omitempty" json:"capability_match,omitempty"`
+	DescriptionMatch float64 `yaml:"description_match,omitempty" json:"description_match,omitempty"`
+}
+
+// ProgressiveConfig configures session-level progressive disclosure.
+type ProgressiveConfig struct {
+	InitialBundle     string `yaml:"initial_bundle,omitempty" json:"initial_bundle,omitempty"`
+	ExpandAfterCalls  int    `yaml:"expand_after_calls,omitempty" json:"expand_after_calls,omitempty"`
+	ExpansionStrategy string `yaml:"expansion_strategy,omitempty" json:"expansion_strategy,omitempty"`
 }
 
 // ResourceConfig resource configuration
@@ -262,6 +379,9 @@ func (config *McpServerConfig) DeepCopy() *McpServerConfig {
 		}
 	}
 
+	// Deep copy Router
+	cpConfig.Router = config.Router.DeepCopy()
+
 	return &cpConfig
 }
 
@@ -282,7 +402,102 @@ func (toolConfig *ToolConfig) DeepCopy() *ToolConfig {
 		}
 	}
 
+	cpConfig.Meta = toolConfig.Meta.DeepCopy()
+
 	return &cpConfig
+}
+
+// DeepCopy returns a new independent copy of ToolMeta.
+func (m *ToolMeta) DeepCopy() *ToolMeta {
+	if m == nil {
+		return nil
+	}
+	cp := *m
+	if m.Tags != nil {
+		cp.Tags = make([]string, len(m.Tags))
+		copy(cp.Tags, m.Tags)
+	}
+	if m.Capabilities != nil {
+		cp.Capabilities = make([]string, len(m.Capabilities))
+		copy(cp.Capabilities, m.Capabilities)
+	}
+	if m.Workflows != nil {
+		cp.Workflows = make([]string, len(m.Workflows))
+		copy(cp.Workflows, m.Workflows)
+	}
+	if m.DiscoveryVisibility != nil {
+		v := *m.DiscoveryVisibility
+		cp.DiscoveryVisibility = &v
+	}
+	return &cp
+}
+
+// DeepCopy returns a new independent copy of RouterConfig.
+func (rc *RouterConfig) DeepCopy() *RouterConfig {
+	if rc == nil {
+		return nil
+	}
+	cp := *rc
+
+	if rc.EnforceOnCall != nil {
+		v := *rc.EnforceOnCall
+		cp.EnforceOnCall = &v
+	}
+
+	cp.Stages = rc.Stages
+	if rc.Stages.Policy != nil {
+		v := *rc.Stages.Policy
+		cp.Stages.Policy = &v
+	}
+	if rc.Stages.Workflow != nil {
+		v := *rc.Stages.Workflow
+		cp.Stages.Workflow = &v
+	}
+
+	if rc.Policy.Rules != nil {
+		cp.Policy.Rules = make([]PolicyRule, len(rc.Policy.Rules))
+		for i := range rc.Policy.Rules {
+			cp.Policy.Rules[i] = rc.Policy.Rules[i].deepCopy()
+		}
+	}
+
+	if rc.Workflows != nil {
+		cp.Workflows = make([]WorkflowConfig, len(rc.Workflows))
+		for i := range rc.Workflows {
+			w := rc.Workflows[i]
+			if w.Tools != nil {
+				tools := make([]string, len(w.Tools))
+				copy(tools, w.Tools)
+				w.Tools = tools
+			}
+			if w.When.In != nil {
+				in := make([]string, len(w.When.In))
+				copy(in, w.When.In)
+				w.When.In = in
+			}
+			cp.Workflows[i] = w
+		}
+	}
+
+	return &cp
+}
+
+// deepCopy returns an independent copy of a PolicyRule.
+func (r PolicyRule) deepCopy() PolicyRule {
+	cp := r
+	if r.AllowTags != nil {
+		cp.AllowTags = make([]string, len(r.AllowTags))
+		copy(cp.AllowTags, r.AllowTags)
+	}
+	if r.DenyTags != nil {
+		cp.DenyTags = make([]string, len(r.DenyTags))
+		copy(cp.DenyTags, r.DenyTags)
+	}
+	if r.When.In != nil {
+		cp.When.In = make([]string, len(r.When.In))
+		copy(cp.When.In, r.When.In)
+	}
+	return cp
 }
 
 // DeepCopy returns a new independent copy of Config

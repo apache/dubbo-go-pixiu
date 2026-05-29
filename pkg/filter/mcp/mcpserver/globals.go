@@ -22,6 +22,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -31,11 +32,13 @@ var (
 	globalRegistry       *ToolRegistry
 	globalDynamic        *DynamicConsumer
 	globalSessionManager *transport.SessionManager
+	globalPlanStore      *router.SessionPlanStore
 
 	// sync.Once variables for thread-safe singleton initialization
 	registryOnce       sync.Once
 	dynamicOnce        sync.Once
 	sessionManagerOnce sync.Once
+	planStoreOnce      sync.Once
 )
 
 // GetOrInitRegistry returns the global tool registry singleton
@@ -68,6 +71,15 @@ func GetOrInitSessionManager() *transport.SessionManager {
 	return globalSessionManager
 }
 
+// GetOrInitPlanStore returns the global router session plan store singleton.
+func GetOrInitPlanStore() *router.SessionPlanStore {
+	planStoreOnce.Do(func() {
+		globalPlanStore = router.NewSessionPlanStore()
+		logger.Infof("[dubbo-go-pixiu] mcp server initialized global router plan store")
+	})
+	return globalPlanStore
+}
+
 // ResetGlobalState resets all global singletons (for testing)
 func ResetGlobalState() {
 	globalRegistry = nil
@@ -76,10 +88,15 @@ func ResetGlobalState() {
 		globalSessionManager.Stop()
 	}
 	globalSessionManager = nil
+	if globalPlanStore != nil {
+		globalPlanStore.Stop()
+	}
+	globalPlanStore = nil
 
 	registryOnce = sync.Once{}
 	dynamicOnce = sync.Once{}
 	sessionManagerOnce = sync.Once{}
+	planStoreOnce = sync.Once{}
 
 	logger.Debugf("[dubbo-go-pixiu] mcp server global state reset")
 }

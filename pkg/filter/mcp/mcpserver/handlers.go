@@ -117,19 +117,43 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 	logger.Infof("[dubbo-go-pixiu] mcp server created session for client: %s", session.ID)
 
+	// Router hookpoint: best-effort pre-compute of the session's base plan.
+	// Errors are non-fatal; tools/list will compute the plan on demand.
+	if f.selector != nil {
+		ctx.SetSessionID(session.ID)
+		sc := f.buildSelectionContext(ctx, string(mcp.MethodInitialize), "")
+		sc.AgentID = initParams.ClientInfo.Name
+		if err := f.selector.OnInitialize(ctx.Ctx, sc, f.registry.ListTools()); err != nil {
+			logger.Warnf("[dubbo-go-pixiu] mcp tool router OnInitialize failed: %v", err)
+		}
+	}
+
 	return f.sendJSONResponse(ctx, response)
 }
 
 // handleToolsList handles the tools/list method using mcp-go APIs
 func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
-	response := f.buildToolsListResponseObject(req)
+	response := f.buildToolsListResponseObject(ctx, req)
 	return f.sendResponseWithFormat(ctx, response, responseFormat)
 }
 
 // buildToolsListResponseObject builds the tools/list response object (for SSE)
-func (f *MCPServerFilter) buildToolsListResponseObject(req mcp.JSONRPCRequest) mcp.JSONRPCResponse {
+func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.JSONRPCRequest) mcp.JSONRPCResponse {
 	// Read tools from registry to reflect dynamic updates
 	toolCfgs := f.registry.ListTools()
+
+	// Router hookpoint: trim the candidate set to a session-scoped plan.
+	// On error, fall back to the full set so discovery never breaks.
+	if f.selector != nil {
+		sc := f.buildSelectionContext(ctx, string(mcp.MethodToolsList), "")
+		plan, err := f.selector.Select(ctx.Ctx, sc, toolCfgs)
+		if err != nil {
+			logger.Warnf("[dubbo-go-pixiu] mcp tool router Select failed: %v (serving full tool set)", err)
+		} else {
+			toolCfgs = filterByPlan(toolCfgs, plan)
+		}
+	}
+
 	tools := make([]mcp.Tool, 0, len(toolCfgs))
 
 	// Build tools using mcp-go API for standard compliance
@@ -423,6 +447,17 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 	if !exists {
 		logger.Warnf("[dubbo-go-pixiu] mcp server tool not found: %s", params.Name)
 		return f.errorHandler.SendToolCallError(ctx, req.ID, fmt.Sprintf("tool not found: %s", params.Name))
+	}
+
+	// Router hookpoint: enforce that the tool is authorized for this session.
+	// This implements discovery/execution separation: even a tool name learned
+	// out-of-band cannot be invoked unless it is part of the session plan.
+	if f.selector != nil {
+		sc := f.buildSelectionContext(ctx, string(mcp.MethodToolsCall), params.Name)
+		if err := f.selector.AuthorizeCall(ctx.Ctx, sc); err != nil {
+			logger.Warnf("[dubbo-go-pixiu] mcp tool router denied tool call '%s': %v", params.Name, err)
+			return f.errorHandler.SendToolCallError(ctx, req.ID, "tool not authorized for this session")
+		}
 	}
 
 	// Build backend request

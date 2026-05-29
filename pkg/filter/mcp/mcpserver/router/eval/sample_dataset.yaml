@@ -1,0 +1,68 @@
+# Sample evaluation dataset for the MCP tool router SchemaMatcher.
+# Each tool carries Meta tags/capabilities that the matcher scores against
+# query tokens. Cases label which tools *should* surface for a given query.
+tools:
+  - name: search_knowledge_base
+    description: Search the support knowledge base for articles
+    cluster: kb
+    meta:
+      tags: ["search", "knowledge", "support"]
+      capabilities: ["kb.read"]
+  - name: create_ticket
+    description: Create a new customer support ticket
+    cluster: tickets
+    meta:
+      tags: ["ticket", "support", "write"]
+      capabilities: ["ticket.create"]
+  - name: get_user
+    description: Get a user profile by id
+    cluster: users
+    meta:
+      tags: ["user", "read"]
+      capabilities: ["user.read"]
+  - name: update_user
+    description: Update a user profile
+    cluster: users
+    meta:
+      tags: ["user", "write"]
+      capabilities: ["user.update"]
+  - name: list_invoices
+    description: List invoices for a customer account
+    cluster: billing
+    meta:
+      tags: ["invoice", "billing", "read"]
+      capabilities: ["invoice.read"]
+  - name: create_invoice
+    description: Create a new invoice for a customer
+    cluster: billing
+    meta:
+      tags: ["invoice", "billing", "write"]
+      capabilities: ["invoice.create"]
+  - name: send_email
+    description: Send a transactional email to a user
+    cluster: notify
+    meta:
+      tags: ["email", "notify"]
+      capabilities: ["email.send"]
+  - name: generate_report
+    description: Generate an analytics report with charts
+    cluster: analytics
+    meta:
+      tags: ["report", "analytics"]
+      capabilities: ["report.generate"]
+
+cases:
+  - query: "search the knowledge base for a support article"
+    expected_tools: ["search_knowledge_base"]
+  - query: "create a support ticket for the customer"
+    expected_tools: ["create_ticket"]
+  - query: "read the user profile"
+    expected_tools: ["get_user"]
+  - query: "update user details"
+    expected_tools: ["update_user"]
+  - query: "list invoices and create an invoice for billing"
+    expected_tools: ["list_invoices", "create_invoice"]
+  - query: "send an email notification to the user"
+    expected_tools: ["send_email"]
+  - query: "generate an analytics report"
+    expected_tools: ["generate_report"]

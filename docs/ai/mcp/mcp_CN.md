@@ -97,6 +97,130 @@ args:
 
 ---
 
+### 智能工具路由 (`router`) 配置
+
+当 MCP server 暴露大量工具时，每次 `tools/list` 都把全部工具发给 LLM 会导致工具过载、上下文膨胀、暴露面不可控。可选的 `router` 配置块增加一层治理：按 session 裁剪 `tools/list`，并在 `tools/call` 时强制校验裁剪结果。
+
+**路由器默认关闭。** 不写 `router` 块（或 `router.enabled: false`）时行为与未引入路由前完全一致：列出全部工具、转发全部调用。
+
+两条核心原则：
+
+1. **发现面与执行面分离** —— `tools/list` 裁剪 *并且* `tools/call` 二次校验，因此即使通过其它渠道得到工具名，只要不在 session plan 内就无法调用。
+2. **确定性优先于语义** —— 由 policy 规则和 workflow 捆绑决定授权；schema 匹配只做重排序，不作为黑盒授权器。
+
+选择流水线顺序固定，每个阶段可独立开关：
+
+```
+policy  ->  workflow  ->  schema  ->  progressive
+```
+
+```yaml
+- name: "dgp.filter.mcp.mcpserver"
+  config:
+    server_info: { name: "Pixiu MCP Server", version: "1.0.0" }
+    endpoint: "/mcp"
+    router:
+      enabled: true
+      fallback: "bundle_default"      # bundle_default（默认）| fail_closed
+      default_bundle: "safe-minimal"  # 选择结果为空时使用的 bundle
+      enforce_on_call: true           # 默认 true：拒绝 plan 之外的调用
+      stages:
+        policy: true                  # 默认 true
+        workflow: true                # 默认 true
+        schema: false                 # 默认 false（需要 tool meta + prompt）
+        progressive: false            # 默认 false
+      policy:
+        rules:
+          - name: "tenant-isolation"
+            when: { claim: "tenant", equals: "acme" }
+            allow_tags: ["acme", "shared"]
+            deny_tags: ["internal", "admin"]
+          - name: "low-risk-for-anonymous"
+            when: { missing_claim: "sub" }
+            max_risk: "low"           # low | medium | high
+      workflows:
+        - name: "support-agent"
+          tools: ["search_kb", "create_ticket", "get_user"]
+          when: { claim: "agent_role", equals: "support" }
+        - name: "safe-minimal"        # 仅按名引用的 bundle（无 when）
+          tools: ["ping", "health_check"]
+      schema:
+        weights: { tag_match: 2.0, capability_match: 3.0, description_match: 1.0 }
+        top_k: 20
+      progressive:
+        initial_bundle: "safe-minimal"
+        expand_after_calls: 1
+      audit:
+        sample_rate: 1.0              # 决策日志采样率（0 表示全量）
+        payload_logging: false        # 显式开启；同时启用 admin 端点
+```
+
+#### 工具元数据 (`tools[].meta`)
+
+路由各阶段基于可选的单工具元数据工作。没有 `meta` 的工具被视为无标签、低风险、可见 —— 因此现有配置无需改动即可继续工作。
+
+```yaml
+tools:
+  - name: "get_user"
+    description: "Get user information by ID"
+    cluster: "user-svc"
+    request: { method: "GET", path: "/api/users/{id}" }
+    meta:
+      tags: ["user", "read"]
+      capabilities: ["user.read"]
+      workflows: ["support-agent"]
+      risk: "low"                     # low | medium | high（默认 low）
+      discovery_visibility: true      # false => 不在 tools/list 暴露，但仍可调用
+      progressive_tier: 1
+```
+
+#### 流水线阶段
+
+| 阶段 | 作用 |
+|-------|--------------|
+| **policy** | 基于 JWT claims 的硬过滤。`when` 匹配时规则生效：`allow_tags`（只保留标签有交集的工具）、`deny_tags`（命中即丢弃）、`max_risk`（丢弃超过风险上限的工具）。 |
+| **workflow** | 第一个 `when` 匹配的 workflow 只保留其 bundle 内工具。无 `when` 的 bundle 仅可按名引用（供 fallback / progressive 使用）。 |
+| **schema** | 按用户 prompt 与工具 `tags` / `capabilities` / `description` 的词法相关度重排序，再截断到 `top_k`。排序不会因授权原因丢弃工具。 |
+| **progressive** | 新 session 只看到 `initial_bundle`；成功调用 `expand_after_calls` 次后展开为完整裁剪集合。 |
+
+`when` 子句（policy 规则和 workflow 共用）支持：`claim` + `equals`、`claim` + `in: [...]`、`claim` + `regex`、`missing_claim`，或仅 `claim`（存在性检查）。`sub` 与 `tenant` 会从已校验的 JWT 中提升以便匹配。Claims 来自 [MCP 认证过滤器](#mcp-认证过滤器-dgpfilterhttpauthmcp-配置)；路由器消费已校验的 claims，不重复校验 token。
+
+#### 回退（Fallback）
+
+若流水线产生空选择（例如规则过严），由 `fallback` 决定结果：
+
+- **`bundle_default`**（默认）：暴露 `default_bundle` workflow（与当前工具集求交）。该 bundle 必须存在，否则网关启动失败。
+- **`fail_closed`**：不返回任何工具。刻意不提供 `fail_open` —— 治理层故障绝不能反向 *扩大* 暴露面。
+
+#### `tools/call` 强制校验
+
+`enforce_on_call: true`（默认）时，对不在 session plan 内的工具发起 `tools/call` 会返回 tool-call 错误。完全跳过 `tools/list` 的客户端没有 plan，因此被拒绝（原因 `no_session_plan`）。设为 `false` 则允许调用，但仍记录拒绝指标。
+
+#### 可观测性
+
+路由器启用时在 `pixiu_mcp_tool_router_*` 命名空间下发布 Prometheus 指标：
+
+| 指标 | 类型 | 标签 |
+|--------|------|--------|
+| `select_total` | counter | `result`（ok/fallback/cached）、`mode` |
+| `selection_latency_ms` | histogram | `stage` |
+| `candidates_count` / `selected_count` | histogram | — |
+| `fallback_total` | counter | `reason` |
+| `call_denied_total` | counter | `reason`（no_session_plan / not_in_plan） |
+| `plans_active` | gauge | — |
+
+每次选择还会输出一条脱敏的结构化决策日志（`event: mcp_router_decision`），包含计数、mode、各阶段丢弃数、以及有上限的被拒工具名样本 —— 绝不记录 prompt 原文或参数值。`audit.sample_rate` 控制输出频率。
+
+#### Admin 调试端点
+
+当 `audit.payload_logging: true` 时，网关提供 `GET /__mcp/router/plan/{session_id}`，以 JSON 返回该 session 当前 plan（选中工具名、决策轨迹、版本、mode）。关闭 payload logging 时返回 `404`，因此生产环境默认不可探知其存在。由于 plan 会暴露授权状态，请仅在有访问控制的前提下开启。
+
+#### 多实例说明
+
+Session plan 存储在进程内。多 Pixiu 实例时，应将同一 `Mcp-Session-Id` 路由到同一实例（粘性会话，例如对该 header 做负载均衡 hash），以保证同一 session 看到一致的 plan。共享/分布式 plan 存储是后续规划的增强项。
+
+---
+
 ### MCP 认证过滤器 (`dgp.filter.http.auth.mcp`) 配置
 
 此过滤器为您的 MCP 端点增加了一个安全层，确保只有经过身份验证和授权的客户端才能调用工具。它根据配置的身份提供者验证客户端提供的 JWT。

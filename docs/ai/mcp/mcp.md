@@ -97,6 +97,130 @@ Each argument object contains the following fields:
 
 ---
 
+### Intelligent Tool Routing (`router`) Configuration
+
+When an MCP server exposes a large catalog of tools, sending all of them to an LLM on every `tools/list` causes tool overload, context bloat, and an uncontrolled exposure surface. The optional `router` block adds a governance layer that trims `tools/list` per session and enforces the trimmed set at `tools/call`.
+
+**The router is disabled by default.** Omitting the `router` block — or setting `router.enabled: false` — preserves the exact pre-router behavior: every tool is listed and every call is forwarded.
+
+Two principles shape the design:
+
+1. **Discovery vs. execution separation** — tools are trimmed at `tools/list` *and* re-validated at `tools/call`, so a tool name learned out-of-band still cannot be invoked unless it is part of the session's plan.
+2. **Deterministic before semantic** — policy rules and workflow bundles decide authorization; schema matching only re-ranks. No black-box model gates access.
+
+The selection pipeline runs in a fixed order; each stage is independently toggleable:
+
+```
+policy  ->  workflow  ->  schema  ->  progressive
+```
+
+```yaml
+- name: "dgp.filter.mcp.mcpserver"
+  config:
+    server_info: { name: "Pixiu MCP Server", version: "1.0.0" }
+    endpoint: "/mcp"
+    router:
+      enabled: true
+      fallback: "bundle_default"      # bundle_default (default) | fail_closed
+      default_bundle: "safe-minimal"  # bundle used when a selection is empty
+      enforce_on_call: true           # default true: reject calls outside the plan
+      stages:
+        policy: true                  # default true
+        workflow: true                # default true
+        schema: false                 # default false (needs tool meta + prompt)
+        progressive: false            # default false
+      policy:
+        rules:
+          - name: "tenant-isolation"
+            when: { claim: "tenant", equals: "acme" }
+            allow_tags: ["acme", "shared"]
+            deny_tags: ["internal", "admin"]
+          - name: "low-risk-for-anonymous"
+            when: { missing_claim: "sub" }
+            max_risk: "low"           # low | medium | high
+      workflows:
+        - name: "support-agent"
+          tools: ["search_kb", "create_ticket", "get_user"]
+          when: { claim: "agent_role", equals: "support" }
+        - name: "safe-minimal"        # name-addressable bundle (no `when`)
+          tools: ["ping", "health_check"]
+      schema:
+        weights: { tag_match: 2.0, capability_match: 3.0, description_match: 1.0 }
+        top_k: 20
+      progressive:
+        initial_bundle: "safe-minimal"
+        expand_after_calls: 1
+      audit:
+        sample_rate: 1.0              # fraction of decisions to log (0 => all)
+        payload_logging: false        # opt-in; also enables the admin endpoint
+```
+
+#### Tool Metadata (`tools[].meta`)
+
+Routing stages act on optional per-tool metadata. Tools without `meta` are treated as untagged, low-risk, and visible — so existing configs keep working unchanged.
+
+```yaml
+tools:
+  - name: "get_user"
+    description: "Get user information by ID"
+    cluster: "user-svc"
+    request: { method: "GET", path: "/api/users/{id}" }
+    meta:
+      tags: ["user", "read"]
+      capabilities: ["user.read"]
+      workflows: ["support-agent"]
+      risk: "low"                     # low | medium | high (default low)
+      discovery_visibility: true      # false => hidden from tools/list, still callable
+      progressive_tier: 1
+```
+
+#### Pipeline Stages
+
+| Stage | What it does |
+|-------|--------------|
+| **policy** | Hard filter on JWT claims. A rule applies when its `when` clause matches; matching rules enforce `allow_tags` (keep only intersecting tags), `deny_tags` (drop any match), and `max_risk` (drop tools above the risk ceiling). |
+| **workflow** | The first workflow whose `when` clause matches keeps only that bundle's tools. Bundles without a `when` clause are name-addressable only (used by fallback / progressive). |
+| **schema** | Re-ranks candidates by lexical relevance of the user prompt to tool `tags` / `capabilities` / `description`, then truncates to `top_k`. Ranking never drops a tool for authorization reasons. |
+| **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful calls, the full filtered set is revealed. |
+
+`when` clauses (used by both policy rules and workflows) support: `claim` + `equals`, `claim` + `in: [...]`, `claim` + `regex`, `missing_claim`, or `claim` alone (presence check). The `sub` and `tenant` claims are promoted from the validated JWT for convenient matching. Claims come from the [MCP Auth Filter](#mcp-auth-filter-dgpfilterhttpauthmcp-configuration); the router consumes already-validated claims and never re-validates tokens.
+
+#### Fallback
+
+If the pipeline produces an empty selection (e.g. overly strict rules), the `fallback` strategy decides the outcome:
+
+- **`bundle_default`** (default): expose the `default_bundle` workflow (intersected with the live catalog). The named bundle must exist, or the gateway fails to start.
+- **`fail_closed`**: return no tools. There is intentionally no `fail_open` — a governance-layer failure must never *widen* the exposure surface.
+
+#### Enforcement at `tools/call`
+
+With `enforce_on_call: true` (default), a `tools/call` for a tool not in the session's plan is rejected with a tool-call error. A client that skips `tools/list` entirely has no plan and is therefore denied (reason `no_session_plan`). Set `enforce_on_call: false` to allow calls while still recording denial metrics.
+
+#### Observability
+
+When the router is enabled it publishes Prometheus metrics under the `pixiu_mcp_tool_router_*` namespace:
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `select_total` | counter | `result` (ok/fallback/cached), `mode` |
+| `selection_latency_ms` | histogram | `stage` |
+| `candidates_count` / `selected_count` | histogram | — |
+| `fallback_total` | counter | `reason` |
+| `call_denied_total` | counter | `reason` (no_session_plan / not_in_plan) |
+| `plans_active` | gauge | — |
+
+Each selection also emits a structured, PII-safe decision log (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and a bounded sample of denied tool names — never prompt text or argument values. `audit.sample_rate` controls how often these are emitted.
+
+#### Admin Debug Endpoint
+
+When `audit.payload_logging: true`, the gateway serves `GET /__mcp/router/plan/{session_id}`, returning the session's current plan (selected tool names, decision traces, version, mode) as JSON. When payload logging is off the endpoint returns `404`, so its existence is not observable in production by default. Because plans reveal authorization state, only enable this behind access controls.
+
+#### Multi-Instance Note
+
+Session plans are stored in-process. Across multiple Pixiu instances, route the same `Mcp-Session-Id` to the same instance (sticky session, e.g. a load-balancer hash on the header) so a session sees a consistent plan. A shared/distributed plan store is a planned future enhancement.
+
+---
+
 ### MCP Auth Filter (`dgp.filter.http.auth.mcp`) Configuration
 
 This filter adds a layer of security to your MCP endpoint, ensuring that only authenticated and authorized clients can invoke the tools. It validates JWTs provided by clients against a configured identity provider.

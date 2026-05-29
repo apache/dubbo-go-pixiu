@@ -33,6 +33,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -44,6 +45,7 @@ type (
 	FilterFactory struct {
 		cfg      *model.McpServerConfig
 		registry *ToolRegistry
+		selector router.ToolSelector
 	}
 
 	// MCPServerFilter is a filter that handles MCP protocol.
@@ -55,6 +57,7 @@ type (
 		sessionManager    *transport.SessionManager
 		sseHandler        *transport.SSEHandler
 		contentNegotiator *transport.ContentNegotiator
+		selector          router.ToolSelector
 	}
 )
 
@@ -93,6 +96,14 @@ func (f *FilterFactory) Apply() error {
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered prompt '%s'", prompt.Name)
 	}
 
+	// Build the tool selector from router config (nil when routing is disabled,
+	// which preserves the pre-router passthrough behavior with zero overhead).
+	selector, err := router.Build(f.cfg.Router, GetOrInitPlanStore())
+	if err != nil {
+		return fmt.Errorf("failed to build mcp tool router: %v", err)
+	}
+	f.selector = selector
+
 	return nil
 }
 
@@ -117,6 +128,7 @@ func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain fil
 		sessionManager:    sessionManager,
 		sseHandler:        sseHandler,
 		contentNegotiator: contentNegotiator,
+		selector:          f.selector,
 	}
 	chain.AppendDecodeFilters(mcpFilter)
 	chain.AppendEncodeFilters(mcpFilter) // Add to Encode chain
@@ -125,6 +137,12 @@ func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain fil
 
 // Decode processes incoming HTTP requests for MCP protocol.
 func (f *MCPServerFilter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
+	// Admin debug endpoint for inspecting a session's router plan. Only served
+	// when the router is enabled with audit.payload_logging; otherwise 404.
+	if f.isRouterAdminRequest(ctx) {
+		return f.handleRouterAdmin(ctx)
+	}
+
 	// Check if it's an MCP request
 	if !f.isMCPRequest(ctx) {
 		return filter.Continue
