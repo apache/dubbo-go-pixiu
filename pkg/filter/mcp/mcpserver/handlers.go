@@ -613,6 +613,7 @@ func (f *MCPServerFilter) sendMCPResponse(ctx *MCPContext, response mcp.JSONRPCR
 	ctx.TargetResp = &client.UnaryResponse{Data: mcpResponseBody}
 	ctx.StatusCode(http.StatusOK)
 	ctx.AddHeader(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
+	ctx.ClearContentLengthHeader()
 
 	logger.Debugf("[dubbo-go-pixiu] mcp server successfully wrapped backend response in MCP format")
 	return filter.Continue
