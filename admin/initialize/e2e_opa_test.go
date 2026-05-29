@@ -45,26 +45,24 @@ import (
 // This file is the PR2 deliverable: a CI-runnable end-to-end test that exercises
 // the full admin → OPA Server → gateway filter chain in a single process.
 //
-//     admin REST PUT /config/api/opa/policy
-//          → JWT auth → controller → logic → HTTP PUT /v1/policies/<id>
-//              ↓
-//          regoMockOPA (httptest) — stores rego module text AND compiles it
-//              ↑
-//     gateway OPA filter POST {server_url}/v1/data/<path>
-//          ← input(method, path, headers, ...) → rego evaluation
-//          → filter.Continue (allow) | filter.Stop+403 (deny)
+//	admin REST PUT /config/api/opa/policy
+//	     → JWT auth → controller → logic → HTTP PUT /v1/policies/<id>
+//	         ↓
+//	     regoMockOPA (httptest) — stores rego module text AND compiles it
+//	         ↑
+//	gateway OPA filter POST {server_url}/v1/data/<path>
+//	     ← input(method, path, headers, ...) → rego evaluation
+//	     → filter.Continue (allow) | filter.Stop+403 (deny)
 //
 // The mock OPA is "smart" — it uses the real github.com/open-policy-agent/opa
 // rego library that pkg/filter/opa already depends on, so the policy
 // evaluation in the test is identical to what a real OPA server would do.
 // No docker, no etcd, no external process needed.
-
 // ---------------------------------------------------------------------------
 // regoMockOPA: an in-process OPA server that speaks the subset of the OPA REST
 // API exercised by the admin + gateway: PUT/GET/DELETE /v1/policies/{id} and
 // POST /v1/data/<any/path>.
 // ---------------------------------------------------------------------------
-
 type regoMockOPA struct {
 	srv *httptest.Server
 
@@ -107,7 +105,7 @@ func (m *regoMockOPA) handlePolicy(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPut:
 		// Sanity-check the rego compiles before accepting; mirrors real OPA's
-		// behaviour of returning 400 with a compile error transcript.
+		// behavior of returning 400 with a compile error transcript.
 		if _, err := rego.New(
 			rego.Query("data"),
 			rego.Module(id, string(body)),
@@ -208,7 +206,7 @@ func (m *regoMockOPA) handleDecision(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{}
 	// No rules matched → omit "result" entirely. This is exactly what real
 	// OPA does, and it triggers the gateway's "missing 'result' field" branch
-	// — the same fail-closed behaviour documented in test_opa.md §6.6.
+	// — the same fail-closed behavior documented in test_opa.md §6.6.
 	if len(results) > 0 && len(results[0].Expressions) > 0 {
 		resp["result"] = results[0].Expressions[0].Value
 	}
