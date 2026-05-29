@@ -44,19 +44,17 @@ import (
 // This file is the only place in the test suite that exercises the full
 // admin startup pipeline that handles OPA requests:
 //
-//   YAML → adminconfig.Bootstrap.OPA
-//          → initialize.Routers() registers /config/api/opa/policy
-//          → auth.JWTAuth() middleware validates "token" header
-//          → opa.PutOPAPolicy/GetOPAPolicy/DeleteOPAPolicy handlers
-//          → logic.BizPut/Get/Delete... → real HTTP call to OPA server
+//	YAML → adminconfig.Bootstrap.OPA
+//	       → initialize.Routers() registers /config/api/opa/policy
+//	       → auth.JWTAuth() middleware validates "token" header
+//	       → opa.PutOPAPolicy/GetOPAPolicy/DeleteOPAPolicy handlers
+//	       → logic.BizPut/Get/Delete... → real HTTP call to OPA server
 //
 // We stand up an httptest server as the OPA backend, point
 // adminconfig.Bootstrap.OPA.ServerURL at it, and sign JWTs with the
 // SAME hardcoded SignKey ("dubbo-go-pixiu") the middleware reads from
 // admin/controller/auth/auth.go:83.
-
 // ----- helpers ---------------------------------------------------------------
-
 type recordedRequest struct {
 	method string
 	path   string
