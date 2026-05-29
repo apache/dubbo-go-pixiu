@@ -886,7 +886,6 @@ func TestClusterManager_SetEndpointCertsDirChangeReplacesWithoutHealthcheckResta
 			"reason (TLS cert dir is irrelevant to L4 reachability)")
 }
 
-
 // runtime side of the address-changing replace case. When SetEndpoint
 // overwrites a slot with a new address, the old address's healthcheck
 // must stop (no goroutine leak) and a fresh checker must start against

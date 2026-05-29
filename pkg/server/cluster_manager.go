@@ -717,17 +717,17 @@ type setEndpointOutcome struct {
 //
 // Decision tree:
 //
-//  1. incoming.ID != "":
-//     a. ID matches an existing slot:
-//        - content equal → idempotent
-//        - content differs → replace slot in place (WARN logged by the
-//          caller when the replace actually changes the address)
-//     b. ID does not match → append with incoming.ID
-//  2. incoming.ID == "":
-//     a. Generated hash matches an existing slot:
-//        - content equal → idempotent (reuse matched slot's ID)
-//        - content differs → append with a -2/-3 suffix (WARN logged)
-//     b. No hash match → append with the generated hash as ID
+//	incoming.ID != "":
+//	   a. ID matches an existing slot:
+//	      content equal → idempotent
+//	      content differs → replace slot in place (WARN logged by the
+//	        caller when the replace actually changes the address)
+//	   b. ID does not match → append with incoming.ID
+//	incoming.ID == "":
+//	   a. Generated hash matches an existing slot:
+//	      content equal → idempotent (reuse matched slot's ID)
+//	      content differs → append with a -2/-3 suffix (WARN logged)
+//	   b. No hash match → append with the generated hash as ID
 //
 // The empty-ID branch keeps the suffix-append behavior because callers
 // without an explicit ID have not claimed instance identity — two
