@@ -439,40 +439,47 @@ func (rc *RouterConfig) DeepCopy() *RouterConfig {
 	}
 
 	if rc.Workflows != nil {
-		cp.Workflows = make([]WorkflowConfig, len(rc.Workflows))
-		for i := range rc.Workflows {
-			w := rc.Workflows[i]
-			if w.Tools != nil {
-				tools := make([]string, len(w.Tools))
-				copy(tools, w.Tools)
-				w.Tools = tools
-			}
-			if w.When.In != nil {
-				in := make([]string, len(w.When.In))
-				copy(in, w.When.In)
-				w.When.In = in
-			}
-			cp.Workflows[i] = w
-		}
+		cp.Workflows = deepCopyWorkflows(rc.Workflows)
 	}
 
 	return &cp
+}
+
+func deepCopyWorkflows(workflows []WorkflowConfig) []WorkflowConfig {
+	copyWorkflows := make([]WorkflowConfig, len(workflows))
+	for i := range workflows {
+		copyWorkflows[i] = workflows[i].deepCopy()
+	}
+	return copyWorkflows
+}
+
+func (w WorkflowConfig) deepCopy() WorkflowConfig {
+	cp := w
+	cp.Tools = copyStringSlice(w.Tools)
+	cp.When.In = copyStringSlice(w.When.In)
+	return cp
+}
+
+func copyStringSlice(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	cp := make([]string, len(values))
+	copy(cp, values)
+	return cp
 }
 
 // deepCopy returns an independent copy of a PolicyRule.
 func (r PolicyRule) deepCopy() PolicyRule {
 	cp := r
 	if r.AllowTags != nil {
-		cp.AllowTags = make([]string, len(r.AllowTags))
-		copy(cp.AllowTags, r.AllowTags)
+		cp.AllowTags = copyStringSlice(r.AllowTags)
 	}
 	if r.DenyTags != nil {
-		cp.DenyTags = make([]string, len(r.DenyTags))
-		copy(cp.DenyTags, r.DenyTags)
+		cp.DenyTags = copyStringSlice(r.DenyTags)
 	}
 	if r.When.In != nil {
-		cp.When.In = make([]string, len(r.When.In))
-		copy(cp.When.In, r.When.In)
+		cp.When.In = copyStringSlice(r.When.In)
 	}
 	return cp
 }

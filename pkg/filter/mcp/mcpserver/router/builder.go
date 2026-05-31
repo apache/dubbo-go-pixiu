@@ -67,75 +67,105 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 		ConfigHash:    configHash(cfg),
 	}
 
-	// Workflow selector is needed both as a pipeline stage and to resolve named
-	// bundles for fallback/progressive, so build it up front.
-	var wf *WorkflowSelector
-	if len(cfg.Workflows) > 0 {
-		var err error
-		wf, err = NewWorkflowSelector(cfg.Workflows)
-		if err != nil {
-			return nil, err
-		}
-		opts.Bundles = wf
+	wf, err := buildWorkflowSelector(cfg, &opts)
+	if err != nil {
+		return nil, err
 	}
-
-	if stageEnabled(cfg.Stages.Policy, true) && len(cfg.Policy.Rules) > 0 {
-		pf, err := NewPolicyFilter(cfg.Policy)
-		if err != nil {
-			return nil, err
-		}
-		opts.Policy = pf
+	if err := buildPolicyFilter(cfg, &opts); err != nil {
+		return nil, err
 	}
-
-	if stageEnabled(cfg.Stages.Workflow, true) {
-		opts.Workflow = wf
+	if err := buildProgressiveGate(cfg, wf, &opts); err != nil {
+		return nil, err
 	}
-
-	if cfg.Stages.Progressive {
-		initialBundle := strings.TrimSpace(cfg.Progressive.InitialBundle)
-		if initialBundle == "" {
-			return nil, fmt.Errorf("router progressive.initial_bundle is required when progressive stage is enabled")
-		}
-		progressiveCfg := cfg.Progressive
-		progressiveCfg.InitialBundle = initialBundle
-		opts.Progressive = NewProgressiveGate(progressiveCfg, wf)
-	}
-
-	// Validate that a bundle_default fallback references a real non-empty workflow
-	// bundle. This avoids silently producing an empty "fallback" plan.
-	if opts.Fallback == "" || opts.Fallback == FallbackBundleDefault {
-		defaultBundle := strings.TrimSpace(cfg.DefaultBundle)
-		if defaultBundle == "" {
-			return nil, fmt.Errorf("router default_bundle is required when fallback is %q", FallbackBundleDefault)
-		}
-		if wf == nil {
-			return nil, fmt.Errorf("router default_bundle %q set but no workflows defined", defaultBundle)
-		}
-		bundle, ok := wf.bundleTools(defaultBundle)
-		if !ok {
-			return nil, fmt.Errorf("router default_bundle %q does not match any workflow", defaultBundle)
-		}
-		if len(bundle) == 0 {
-			return nil, fmt.Errorf("router default_bundle %q references an empty workflow", defaultBundle)
-		}
-	}
-
-	// Validate that progressive.initial_bundle references a real workflow bundle.
-	// A misconfigured bundle would otherwise fail open (reveal all tools) at
-	// runtime, defeating the purpose of limiting the initial exposure surface.
-	if cfg.Stages.Progressive {
-		if wf == nil {
-			return nil, fmt.Errorf("router progressive.initial_bundle %q set but no workflows defined", cfg.Progressive.InitialBundle)
-		}
-		if _, ok := wf.bundleTools(cfg.Progressive.InitialBundle); !ok {
-			return nil, fmt.Errorf("router progressive.initial_bundle %q does not match any workflow", cfg.Progressive.InitialBundle)
-		}
+	if err := validateDefaultFallback(cfg, wf, opts.Fallback); err != nil {
+		return nil, err
 	}
 
 	logger.Infof("[dubbo-go-pixiu] mcp tool router enabled (policy=%v workflow=%v progressive=%v enforce_on_call=%v fallback=%s)",
 		opts.Policy != nil, opts.Workflow != nil, opts.Progressive != nil, opts.EnforceOnCall, firstNonEmpty(opts.Fallback, FallbackBundleDefault))
 
 	return NewCompositeSelector(opts), nil
+}
+
+// buildWorkflowSelector creates the shared workflow selector used by workflow,
+// fallback, and progressive stages.
+func buildWorkflowSelector(cfg *model.RouterConfig, opts *CompositeOptions) (*WorkflowSelector, error) {
+	if len(cfg.Workflows) == 0 {
+		return nil, nil
+	}
+	wf, err := NewWorkflowSelector(cfg.Workflows)
+	if err != nil {
+		return nil, err
+	}
+	opts.Bundles = wf
+	if stageEnabled(cfg.Stages.Workflow, true) {
+		opts.Workflow = wf
+	}
+	return wf, nil
+}
+
+func buildPolicyFilter(cfg *model.RouterConfig, opts *CompositeOptions) error {
+	if !stageEnabled(cfg.Stages.Policy, true) || len(cfg.Policy.Rules) == 0 {
+		return nil
+	}
+	pf, err := NewPolicyFilter(cfg.Policy)
+	if err != nil {
+		return err
+	}
+	opts.Policy = pf
+	return nil
+}
+
+func buildProgressiveGate(cfg *model.RouterConfig, wf *WorkflowSelector, opts *CompositeOptions) error {
+	if !cfg.Stages.Progressive {
+		return nil
+	}
+	initialBundle := strings.TrimSpace(cfg.Progressive.InitialBundle)
+	if err := validateProgressiveBundle(initialBundle, wf); err != nil {
+		return err
+	}
+	progressiveCfg := cfg.Progressive
+	progressiveCfg.InitialBundle = initialBundle
+	opts.Progressive = NewProgressiveGate(progressiveCfg, wf)
+	return nil
+}
+
+// validateDefaultFallback verifies bundle_default references a real non-empty
+// workflow bundle, avoiding an empty fallback plan at runtime.
+func validateDefaultFallback(cfg *model.RouterConfig, wf *WorkflowSelector, fallback string) error {
+	if fallback != "" && fallback != FallbackBundleDefault {
+		return nil
+	}
+	defaultBundle := strings.TrimSpace(cfg.DefaultBundle)
+	if defaultBundle == "" {
+		return fmt.Errorf("router default_bundle is required when fallback is %q", FallbackBundleDefault)
+	}
+	if wf == nil {
+		return fmt.Errorf("router default_bundle %q set but no workflows defined", defaultBundle)
+	}
+	bundle, ok := wf.bundleTools(defaultBundle)
+	if !ok {
+		return fmt.Errorf("router default_bundle %q does not match any workflow", defaultBundle)
+	}
+	if len(bundle) == 0 {
+		return fmt.Errorf("router default_bundle %q references an empty workflow", defaultBundle)
+	}
+	return nil
+}
+
+// validateProgressiveBundle verifies the initial bundle before progressive
+// disclosure starts, so a typo cannot reveal all tools by accident.
+func validateProgressiveBundle(initialBundle string, wf *WorkflowSelector) error {
+	if initialBundle == "" {
+		return fmt.Errorf("router progressive.initial_bundle is required when progressive stage is enabled")
+	}
+	if wf == nil {
+		return fmt.Errorf("router progressive.initial_bundle %q set but no workflows defined", initialBundle)
+	}
+	if _, ok := wf.bundleTools(initialBundle); !ok {
+		return fmt.Errorf("router progressive.initial_bundle %q does not match any workflow", initialBundle)
+	}
+	return nil
 }
 
 // enforceOnCall resolves the enforce_on_call setting, defaulting to true.

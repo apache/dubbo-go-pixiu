@@ -191,19 +191,38 @@ func (c *CompositeSelector) applyFallback(sc SelectionContext, allowed []model.T
 	// bundle_default: expose the named safe bundle (intersected with the
 	// policy-allowed set).
 	plan.Mode = ModeFallbackBundle
-	if c.bundles != nil && c.defaultBundle != "" {
-		if bundle, ok := c.bundles.bundleTools(c.defaultBundle); ok {
-			for _, t := range allowed {
-				if _, in := bundle[t.Name]; in {
-					plan.ToolNames = append(plan.ToolNames, t.Name)
-					if t.Meta == nil || t.Meta.DiscoveryVisibility == nil || *t.Meta.DiscoveryVisibility {
-						plan.VisibleToolNames = append(plan.VisibleToolNames, t.Name)
-					}
-				}
-			}
+	bundle, ok := c.defaultBundleTools()
+	if !ok {
+		return plan
+	}
+	plan.ToolNames, plan.VisibleToolNames = fallbackBundleToolNames(allowed, bundle)
+	return plan
+}
+
+func (c *CompositeSelector) defaultBundleTools() (map[string]struct{}, bool) {
+	if c.bundles == nil || c.defaultBundle == "" {
+		return nil, false
+	}
+	return c.bundles.bundleTools(c.defaultBundle)
+}
+
+func fallbackBundleToolNames(allowed []model.ToolConfig, bundle map[string]struct{}) ([]string, []string) {
+	toolNames := make([]string, 0, len(allowed))
+	visibleToolNames := make([]string, 0, len(allowed))
+	for _, t := range allowed {
+		if _, in := bundle[t.Name]; !in {
+			continue
+		}
+		toolNames = append(toolNames, t.Name)
+		if toolVisible(t) {
+			visibleToolNames = append(visibleToolNames, t.Name)
 		}
 	}
-	return plan
+	return toolNames, visibleToolNames
+}
+
+func toolVisible(t model.ToolConfig) bool {
+	return t.Meta == nil || t.Meta.DiscoveryVisibility == nil || *t.Meta.DiscoveryVisibility
 }
 
 // AuthorizeCall enforces that the requested tool is part of the current session

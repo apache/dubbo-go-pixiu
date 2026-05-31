@@ -31,10 +31,12 @@ MCP="$BASE/mcp"
 SESSION="sess-demo"
 
 post() {
+  local payload="$1"
+
   curl -s -X POST "$MCP" \
     -H "Content-Type: application/json" \
     -H "Mcp-Session-Id: $SESSION" \
-    -d "$1"
+    -d "$payload"
 }
 
 echo "== 1. initialize =="

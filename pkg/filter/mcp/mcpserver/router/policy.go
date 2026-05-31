@@ -25,6 +25,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const policyRuleErrorFormat = "policy rule %q: %w"
+
 // ValidateTools validates routing metadata on configured tools.
 func ValidateTools(tools []model.ToolConfig) error {
 	for _, tool := range tools {
@@ -53,7 +55,7 @@ func ValidateRisk(risk string) error {
 func validatePolicyRisks(cfg model.PolicyConfig) error {
 	for _, r := range cfg.Rules {
 		if _, err := maxRiskOrdinal(r.MaxRisk); err != nil {
-			return fmt.Errorf("policy rule %q: %w", r.Name, err)
+			return fmt.Errorf(policyRuleErrorFormat, r.Name, err)
 		}
 	}
 	return nil
@@ -100,11 +102,11 @@ func NewPolicyFilter(cfg model.PolicyConfig) (*PolicyFilter, error) {
 	for _, r := range cfg.Rules {
 		m, err := newMatcher(r.When)
 		if err != nil {
-			return nil, fmt.Errorf("policy rule %q: %w", r.Name, err)
+			return nil, fmt.Errorf(policyRuleErrorFormat, r.Name, err)
 		}
 		maxRisk, err := maxRiskOrdinal(r.MaxRisk)
 		if err != nil {
-			return nil, fmt.Errorf("policy rule %q: %w", r.Name, err)
+			return nil, fmt.Errorf(policyRuleErrorFormat, r.Name, err)
 		}
 		rules = append(rules, compiledRule{
 			name:      r.Name,

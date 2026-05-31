@@ -37,6 +37,8 @@ import (
 // routerAdminPathPrefix is the base path for the router plan inspection endpoint.
 const routerAdminPathPrefix = "/__mcp/router/plan/"
 
+var routerAdminNotFoundBody = []byte("not found")
+
 // buildSelectionContext assembles the router input from the MCP request context.
 // It extracts session, method, the requested tool name (for tools/call), and the
 // JWT claims propagated by the auth/mcp filter (with sub/tenant promoted for
@@ -109,7 +111,7 @@ func (f *MCPServerFilter) isRouterAdminRequest(ctx *contexthttp.HttpContext) boo
 // additional routing-layer restrictions should be applied.
 func (f *MCPServerFilter) handleRouterAdmin(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	if !f.routerAuditEnabled() {
-		ctx.SendLocalReply(http.StatusNotFound, []byte("not found"))
+		ctx.SendLocalReply(http.StatusNotFound, routerAdminNotFoundBody)
 		return filter.Stop
 	}
 
@@ -118,7 +120,7 @@ func (f *MCPServerFilter) handleRouterAdmin(ctx *contexthttp.HttpContext) filter
 	// port-forward use cases. We trust only the TCP peer address (RemoteAddr),
 	// never X-Forwarded-For, to avoid trivial bypass.
 	if !isLoopback(ctx.Request.RemoteAddr) {
-		ctx.SendLocalReply(http.StatusNotFound, []byte("not found"))
+		ctx.SendLocalReply(http.StatusNotFound, routerAdminNotFoundBody)
 		return filter.Stop
 	}
 
@@ -130,7 +132,7 @@ func (f *MCPServerFilter) handleRouterAdmin(ctx *contexthttp.HttpContext) filter
 
 	inspector, ok := f.selector.(router.PlanInspector)
 	if !ok {
-		ctx.SendLocalReply(http.StatusNotFound, []byte("not found"))
+		ctx.SendLocalReply(http.StatusNotFound, routerAdminNotFoundBody)
 		return filter.Stop
 	}
 
