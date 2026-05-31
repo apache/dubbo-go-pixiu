@@ -18,8 +18,9 @@
 package router
 
 import (
+	cryptorand "crypto/rand"
+	"encoding/binary"
 	"encoding/json"
-	"math/rand"
 )
 
 import (
@@ -106,7 +107,18 @@ func (d *DecisionLogger) shouldSample() bool {
 	if d.sampleRate >= 1 {
 		return true
 	}
-	return rand.Float64() < d.sampleRate
+	sample, ok := secureRandomFloat64()
+	return ok && sample < d.sampleRate
+}
+
+func secureRandomFloat64() (float64, bool) {
+	var b [8]byte
+	if _, err := cryptorand.Read(b[:]); err != nil {
+		return 0, false
+	}
+	// Keep the top 53 bits so the value fits exactly in a float64 mantissa.
+	n := binary.BigEndian.Uint64(b[:]) >> 11
+	return float64(n) / (1 << 53), true
 }
 
 // stageDropCounts tallies how many tools each stage dropped.
