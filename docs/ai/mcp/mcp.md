@@ -176,6 +176,13 @@ tools:
 | **workflow** | The first workflow whose `when` clause matches keeps only that bundle's tools. Bundles without a `when` clause are name-addressable only (used by fallback / progressive). |
 | **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful completed tool calls, the full filtered set is revealed. Authorization checks and backend failures do not advance the counter. When this stage is enabled, `progressive.initial_bundle` is required and must reference a defined workflow bundle. |
 
+> **⚠️ Policy Rule Combination Semantics**  
+> When multiple policy rules apply to a request, they are combined with **logical AND**: a tool is kept only if **every** applicable rule allows it.
+> 
+> Example: If Rule A requires `allow_tags: [read]` and Rule B requires `allow_tags: [public]`, a tool must have **both** tags to pass. Satisfying only one rule is not enough.
+> 
+> This defense-in-depth approach ensures that adding a new restrictive rule cannot accidentally weaken existing restrictions.
+
 `when` clauses (used by both policy rules and workflows) support: `claim` + `equals`, `claim` + `in: [...]`, `claim` + `regex`, `missing_claim`, or `claim` alone (presence check). The `sub` and `tenant` claims are promoted from the validated JWT for convenient matching. Claims come from the [MCP Auth Filter](#mcp-auth-filter-dgpfilterhttpauthmcp-configuration); without that filter in the chain, claim-based rules simply do not match. The router consumes already-validated claims and never re-validates tokens. Workflow names must be non-empty and unique because fallback and progressive disclosure address bundles by name.
 
 #### Fallback
@@ -210,7 +217,16 @@ Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` 
 
 #### Admin Debug Endpoint
 
-When `audit.payload_logging: true`, the gateway serves `GET /__mcp/router/plan/{session_id}` to loopback clients, returning the session's current plan (selected tool names, decision traces, version, mode) as JSON. Non-loopback clients and configurations with payload logging off receive `404`, so its existence is not observable in production by default. Because plans reveal authorization state, only enable this behind access controls.
+When `audit.payload_logging: true`, the gateway serves `GET /__mcp/router/plan/{session_id}` to loopback clients, returning the session's current plan (selected tool names, decision traces, version, mode) as JSON.
+
+> **🔒 Security Warning: Proxy/Sidecar Deployments**  
+> The endpoint restricts access to loopback peers by checking `RemoteAddr` (never `X-Forwarded-For`). However, in proxy/sidecar deployments where the proxy runs on localhost, `RemoteAddr` will be the proxy's loopback address, making the endpoint accessible to all clients behind the proxy.
+> 
+> **Mitigation**: In such deployments, apply additional routing-layer restrictions (e.g., Envoy RBAC, Istio AuthorizationPolicy) to prevent unauthorized access. Do not rely solely on the built-in loopback check.
+> 
+> **Best Practice**: Keep `audit.payload_logging: false` (default) in production unless you have explicit access controls in place.
+
+Non-loopback clients and configurations with payload logging off receive `404`, so the endpoint's existence is not observable by default. Because plans reveal authorization state, only enable this behind proper access controls.
 
 #### Multi-Instance Note
 

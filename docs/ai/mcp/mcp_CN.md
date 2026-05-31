@@ -176,6 +176,13 @@ tools:
 | **workflow** | 第一个 `when` 匹配的 workflow 只保留其 bundle 内工具。无 `when` 的 bundle 仅可按名引用（供 fallback / progressive 使用）。 |
 | **progressive** | 新 session 只看到 `initial_bundle`；成功完成 `expand_after_calls` 次 tool call 后展开为完整裁剪集合。仅授权通过或后端失败不会推进计数。启用该阶段时，`progressive.initial_bundle` 必须配置，且必须引用已定义的 workflow bundle。 |
 
+> **⚠️ Policy 规则组合语义**  
+> 当多个 policy 规则适用于一个请求时，它们以**逻辑 AND** 组合：工具仅在**所有**适用规则都允许时才被保留。
+> 
+> 示例：如果规则 A 要求 `allow_tags: [read]`，规则 B 要求 `allow_tags: [public]`，工具必须**同时**拥有两个标签才能通过。仅满足一个规则是不够的。
+> 
+> 这种纵深防御方法确保添加新的限制性规则不会意外削弱现有限制。
+
 `when` 子句（policy 规则和 workflow 共用）支持：`claim` + `equals`、`claim` + `in: [...]`、`claim` + `regex`、`missing_claim`，或仅 `claim`（存在性检查）。`sub` 与 `tenant` 会从已校验的 JWT 中提升以便匹配。Claims 来自 [MCP 认证过滤器](#mcp-认证过滤器-dgpfilterhttpauthmcp-配置)；如果链路中没有该过滤器，依赖 claim 的规则不会匹配。路由器消费已校验的 claims，不重复校验 token。Workflow 名必须非空且唯一，因为 fallback 和 progressive disclosure 会按名称引用 bundle。
 
 #### 回退（Fallback）
@@ -210,7 +217,16 @@ tools:
 
 #### Admin 调试端点
 
-当 `audit.payload_logging: true` 时，网关仅向 loopback 客户端提供 `GET /__mcp/router/plan/{session_id}`，以 JSON 返回该 session 当前 plan（选中工具名、决策轨迹、版本、mode）。非 loopback 客户端或关闭 payload logging 时都会返回 `404`，因此生产环境默认不可探知其存在。由于 plan 会暴露授权状态，请仅在有访问控制的前提下开启。
+当 `audit.payload_logging: true` 时，网关仅向 loopback 客户端提供 `GET /__mcp/router/plan/{session_id}`，以 JSON 返回该 session 当前 plan（选中工具名、决策轨迹、版本、mode）。
+
+> **🔒 安全警告：代理/Sidecar 部署**  
+> 该端点通过检查 `RemoteAddr`（从不检查 `X-Forwarded-For`）限制对 loopback 对等方的访问。但是，在代理/sidecar 部署中，如果代理运行在 localhost 上，`RemoteAddr` 将是代理的 loopback 地址，使得端点对代理后面的所有客户端可访问。
+> 
+> **缓解措施**：在此类部署中，应用额外的路由层限制（例如 Envoy RBAC、Istio AuthorizationPolicy）以防止未经授权的访问。不要仅依赖内置的 loopback 检查。
+> 
+> **最佳实践**：在生产环境中保持 `audit.payload_logging: false`（默认），除非您有明确的访问控制措施。
+
+非 loopback 客户端或关闭 payload logging 时都会返回 `404`，因此端点的存在默认不可探知。由于 plan 会暴露授权状态，请仅在有适当访问控制的前提下开启。
 
 #### 多实例说明
 

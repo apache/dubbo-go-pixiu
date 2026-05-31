@@ -183,6 +183,7 @@ func validateSampleRate(rate float64) error {
 func configHash(cfg *model.RouterConfig) string {
 	data, err := json.Marshal(cfg)
 	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] mcp router config hash failed: %v (plan reuse disabled)", err)
 		return ""
 	}
 	sum := sha256.Sum256(data)
