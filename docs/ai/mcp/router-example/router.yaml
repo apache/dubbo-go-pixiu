@@ -44,8 +44,8 @@ static_resources:
                       policy:
                         rules:
                           # Always applies (no `when`): privileged tools are never
-                          # exposed. This works without the auth filter because it
-                          # does not depend on JWT claims.
+                          # exposed by the normal pipeline. This works without the
+                          # auth filter because it does not depend on JWT claims.
                           - name: "block-privileged"
                             deny_tags: ["internal", "admin"]
                           # Claim-based isolation. Requires the MCP auth filter to
@@ -56,8 +56,8 @@ static_resources:
                             allow_tags: ["acme", "shared"]
                       workflows:
                         # Requires the `agent_role` claim (auth filter). Without it,
-                        # no workflow auto-matches and the bundle stays addressable
-                        # by name only (e.g. as default_bundle).
+                        # no workflow auto-matches and the uniquely named bundle
+                        # stays addressable by name only (e.g. as default_bundle).
                         - name: "support-agent"
                           tools: ["search_kb", "create_ticket"]
                           when: { claim: "agent_role", equals: "support" }
@@ -65,7 +65,7 @@ static_resources:
                           tools: ["health_check"]
                       audit:
                         sample_rate: 1.0
-                        payload_logging: true   # enables GET /__mcp/router/plan/{id}
+                        payload_logging: true   # enables loopback GET /__mcp/router/plan/{id}
 
                     tools:
                       - name: "search_kb"
@@ -81,7 +81,6 @@ static_resources:
                         meta:
                           tags: ["acme", "support", "read"]
                           capabilities: ["kb.read"]
-                          workflows: ["support-agent"]
                           risk: "low"
 
                       - name: "create_ticket"
@@ -97,7 +96,6 @@ static_resources:
                         meta:
                           tags: ["acme", "support", "write"]
                           capabilities: ["ticket.create"]
-                          workflows: ["support-agent"]
                           risk: "medium"
 
                       - name: "internal_dump"

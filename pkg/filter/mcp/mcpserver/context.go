@@ -18,6 +18,10 @@
 package mcpserver
 
 import (
+	"strings"
+)
+
+import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -34,6 +38,8 @@ type MCPData struct {
 	Method string
 	// RequestID stores JSON-RPC request ID
 	RequestID any
+	// ToolName stores the requested tool name for tools/call requests
+	ToolName string
 	// SessionID stores MCP session ID for SSE connections
 	SessionID string
 	// AcceptSSE indicates if client accepts text/event-stream
@@ -81,6 +87,16 @@ func (ctx *MCPContext) SetMCPRequestID(id any) {
 // McpRequestID gets JSON-RPC request ID
 func (ctx *MCPContext) McpRequestID() any {
 	return ctx.mcpData.RequestID
+}
+
+// SetMCPToolName stores the current tools/call tool name.
+func (ctx *MCPContext) SetMCPToolName(name string) {
+	ctx.mcpData.ToolName = name
+}
+
+// McpToolName gets the current tools/call tool name.
+func (ctx *MCPContext) McpToolName() string {
+	return ctx.mcpData.ToolName
 }
 
 // IsMCPToolCall checks if it's a tool call request (by method name)
@@ -173,13 +189,13 @@ func (ctx *MCPContext) ProtocolVersion() string {
 func (ctx *MCPContext) ParseAndSetAcceptHeader() {
 	acceptHeader := ctx.Request.Header.Get(constant.HeaderKeyAccept)
 	ctx.mcpData.AcceptJSON = acceptHeader == "" || // Default to JSON for backward compatibility
-		containsMediaType(acceptHeader, constant.HeaderValueApplicationJson) ||
-		containsMediaType(acceptHeader, constant.MediaTypeApplicationWild) ||
-		containsMediaType(acceptHeader, constant.MediaTypeWildcard)
+		strings.Contains(acceptHeader, constant.HeaderValueApplicationJson) ||
+		strings.Contains(acceptHeader, constant.MediaTypeApplicationWild) ||
+		strings.Contains(acceptHeader, constant.MediaTypeWildcard)
 
-	ctx.mcpData.AcceptSSE = containsMediaType(acceptHeader, constant.HeaderValueTextEventStream) ||
-		containsMediaType(acceptHeader, constant.MediaTypeTextWild) ||
-		containsMediaType(acceptHeader, constant.MediaTypeWildcard)
+	ctx.mcpData.AcceptSSE = strings.Contains(acceptHeader, constant.HeaderValueTextEventStream) ||
+		strings.Contains(acceptHeader, constant.MediaTypeTextWild) ||
+		strings.Contains(acceptHeader, constant.MediaTypeWildcard)
 }
 
 // ParseAndSetSessionHeader parses Mcp-Session-Id header and sets session ID
@@ -192,26 +208,4 @@ func (ctx *MCPContext) ParseAndSetSessionHeader() {
 func (ctx *MCPContext) ParseAndSetProtocolVersionHeader() {
 	version := ctx.Request.Header.Get(constant.HeaderKeyMCPProtocolVersion)
 	ctx.mcpData.ProtocolVersion = version
-}
-
-// containsMediaType checks if the Accept header contains the specified media type
-func containsMediaType(acceptHeader, mediaType string) bool {
-	if acceptHeader == "" {
-		return false
-	}
-	// Simple contains check - could be enhanced with proper media type parsing
-	return len(acceptHeader) > 0 && (acceptHeader == mediaType ||
-		len(acceptHeader) >= len(mediaType) && (acceptHeader[:len(mediaType)] == mediaType ||
-			acceptHeader[len(acceptHeader)-len(mediaType):] == mediaType ||
-			containsSubstring(acceptHeader, mediaType)))
-}
-
-// containsSubstring is a helper function for media type checking
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

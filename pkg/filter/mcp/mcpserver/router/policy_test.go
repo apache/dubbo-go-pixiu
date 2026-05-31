@@ -107,6 +107,31 @@ func TestPolicyFilter_MaxRisk(t *testing.T) {
 	assert.ElementsMatch(t, []string{"low1", "med1", "untagged"}, keptNames(out2))
 }
 
+func TestPolicyFilter_InvalidMaxRiskFailsFast(t *testing.T) {
+	_, err := NewPolicyFilter(model.PolicyConfig{Rules: []model.PolicyRule{
+		{Name: "bad-risk", MaxRisk: "hihg"},
+	}})
+	assert.ErrorContains(t, err, "max_risk")
+	assert.ErrorContains(t, err, "unsupported risk")
+}
+
+func TestValidateTools_RiskEnum(t *testing.T) {
+	valid := []model.ToolConfig{
+		toolWithMeta("empty", &model.ToolMeta{}),
+		toolWithMeta("low", &model.ToolMeta{Risk: "low"}),
+		toolWithMeta("medium", &model.ToolMeta{Risk: "medium"}),
+		toolWithMeta("high", &model.ToolMeta{Risk: "high"}),
+		{Name: "no-meta"},
+	}
+	require.NoError(t, ValidateTools(valid))
+
+	err := ValidateTools([]model.ToolConfig{
+		toolWithMeta("typo", &model.ToolMeta{Risk: "hihg"}),
+	})
+	assert.ErrorContains(t, err, `tool "typo" meta.risk`)
+	assert.ErrorContains(t, err, "unsupported risk")
+}
+
 func TestPolicyFilter_WhenClaimEquals(t *testing.T) {
 	pf, err := NewPolicyFilter(model.PolicyConfig{Rules: []model.PolicyRule{
 		{
@@ -136,6 +161,39 @@ func TestPolicyFilter_InvalidRegexFailsFast(t *testing.T) {
 		{Name: "bad", When: model.PolicyMatch{Claim: "x", Regex: "([a-z"}},
 	}})
 	assert.Error(t, err)
+}
+
+func TestPolicyFilter_InvalidMatchFailsFast(t *testing.T) {
+	tests := []struct {
+		name    string
+		match   model.PolicyMatch
+		wantErr string
+	}{
+		{
+			name:    "operator without claim",
+			match:   model.PolicyMatch{Equals: "admin"},
+			wantErr: "claim is required",
+		},
+		{
+			name:    "multiple operators",
+			match:   model.PolicyMatch{Claim: "role", Equals: "admin", Regex: "^admin"},
+			wantErr: "only one of equals, in, or regex",
+		},
+		{
+			name:    "missing claim combined with claim",
+			match:   model.PolicyMatch{MissingClaim: "sub", Claim: "role"},
+			wantErr: "missing_claim cannot be combined",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewPolicyFilter(model.PolicyConfig{Rules: []model.PolicyRule{
+				{Name: "bad", When: tt.match},
+			}})
+			assert.ErrorContains(t, err, tt.wantErr)
+		})
+	}
 }
 
 func TestPolicyFilter_RegexMatch(t *testing.T) {

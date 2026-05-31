@@ -64,17 +64,16 @@ func TestDecisionLogger_NilSafe(t *testing.T) {
 	var d *DecisionLogger
 	// Must not panic on a nil logger or nil plan.
 	d.Log(SelectionContext{}, nil, 0)
-	NewDecisionLogger(1.0).Log(SelectionContext{SessionID: "s"}, nil, 0)
+	NewDecisionLogger(1.0, false).Log(SelectionContext{SessionID: "s"}, nil, 0)
 }
 
 func TestDecisionLogger_ShouldSample(t *testing.T) {
-	assert.True(t, NewDecisionLogger(0).shouldSample()) // 0 => always
-	assert.True(t, NewDecisionLogger(1).shouldSample()) // 1 => always
-	assert.True(t, NewDecisionLogger(2).shouldSample()) // >1 => always
+	assert.False(t, NewDecisionLogger(0, false).shouldSample()) // 0 => disabled
+	assert.True(t, NewDecisionLogger(1, false).shouldSample())  // 1 => always
 }
 
 func TestDecisionLogger_LogEmitsWithoutPanic(t *testing.T) {
-	d := NewDecisionLogger(1.0)
+	d := NewDecisionLogger(1.0, false)
 	plan := &SelectionPlan{
 		SessionID: "s1",
 		ToolNames: []string{"a"},
@@ -85,6 +84,24 @@ func TestDecisionLogger_LogEmitsWithoutPanic(t *testing.T) {
 		},
 	}
 	d.Log(SelectionContext{SessionID: "s1", Tenant: "acme", Method: "tools/list"}, plan, 2)
+}
+
+func TestDecisionLogger_RecordOmitsDeniedSamplesUnlessPayloadLogging(t *testing.T) {
+	plan := &SelectionPlan{
+		SessionID: "s1",
+		ToolNames: []string{"a"},
+		Mode:      ModeHybrid,
+		Version:   "v1",
+		Reasons: []DecisionTrace{
+			{Tool: "b", Kept: false, Stage: StagePolicy},
+		},
+	}
+
+	normal := NewDecisionLogger(1.0, false).record(SelectionContext{SessionID: "s1"}, plan, 2)
+	assert.Empty(t, normal.DeniedSamples)
+
+	detailed := NewDecisionLogger(1.0, true).record(SelectionContext{SessionID: "s1"}, plan, 2)
+	assert.Equal(t, []string{"b"}, detailed.DeniedSamples)
 }
 
 func TestMetricHelpers_NilSafeBeforeInit(t *testing.T) {

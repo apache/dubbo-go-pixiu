@@ -106,12 +106,12 @@ When an MCP server exposes a large catalog of tools, sending all of them to an L
 Two principles shape the design:
 
 1. **Discovery vs. execution separation** — tools are trimmed at `tools/list` *and* re-validated at `tools/call`, so a tool name learned out-of-band still cannot be invoked unless it is part of the session's plan.
-2. **Deterministic before semantic** — policy rules and workflow bundles decide authorization; schema matching only re-ranks. No black-box model gates access.
+2. **Deterministic before semantic** — policy rules and workflow bundles decide authorization. No black-box model gates access.
 
 The selection pipeline runs in a fixed order; each stage is independently toggleable:
 
 ```
-policy  ->  workflow  ->  schema  ->  progressive
+policy  ->  workflow  ->  progressive
 ```
 
 ```yaml
@@ -127,7 +127,6 @@ policy  ->  workflow  ->  schema  ->  progressive
       stages:
         policy: true                  # default true
         workflow: true                # default true
-        schema: false                 # default false (needs tool meta + prompt)
         progressive: false            # default false
       policy:
         rules:
@@ -139,25 +138,22 @@ policy  ->  workflow  ->  schema  ->  progressive
             when: { missing_claim: "sub" }
             max_risk: "low"           # low | medium | high
       workflows:
-        - name: "support-agent"
+        - name: "support-agent"       # workflow names must be non-empty and unique
           tools: ["search_kb", "create_ticket", "get_user"]
           when: { claim: "agent_role", equals: "support" }
         - name: "safe-minimal"        # name-addressable bundle (no `when`)
           tools: ["ping", "health_check"]
-      schema:
-        weights: { tag_match: 2.0, capability_match: 3.0, description_match: 1.0 }
-        top_k: 20
       progressive:
         initial_bundle: "safe-minimal"
         expand_after_calls: 1
       audit:
-        sample_rate: 1.0              # fraction of decisions to log (0 => all)
+        sample_rate: 0.0              # 0 disables decision logs; (0,1] samples
         payload_logging: false        # opt-in; also enables the admin endpoint
 ```
 
 #### Tool Metadata (`tools[].meta`)
 
-Routing stages act on optional per-tool metadata. Tools without `meta` are treated as untagged, low-risk, and visible — so existing configs keep working unchanged.
+Routing stages act on optional per-tool metadata. Tools without `meta` are treated as untagged, low-risk, and visible — so existing configs keep working unchanged. Unknown `meta.risk` or `policy.max_risk` values are configuration errors and fail fast on startup or dynamic update.
 
 ```yaml
 tools:
@@ -168,10 +164,8 @@ tools:
     meta:
       tags: ["user", "read"]
       capabilities: ["user.read"]
-      workflows: ["support-agent"]
       risk: "low"                     # low | medium | high (default low)
-      discovery_visibility: true      # false => hidden from tools/list, still callable
-      progressive_tier: 1
+      discovery_visibility: true      # false => hidden from tools/list, still authorized/callable when selected
 ```
 
 #### Pipeline Stages
@@ -180,21 +174,24 @@ tools:
 |-------|--------------|
 | **policy** | Hard filter on JWT claims. A rule applies when its `when` clause matches; matching rules enforce `allow_tags` (keep only intersecting tags), `deny_tags` (drop any match), and `max_risk` (drop tools above the risk ceiling). |
 | **workflow** | The first workflow whose `when` clause matches keeps only that bundle's tools. Bundles without a `when` clause are name-addressable only (used by fallback / progressive). |
-| **schema** | Re-ranks candidates by lexical relevance of the user prompt to tool `tags` / `capabilities` / `description`, then truncates to `top_k`. Ranking never drops a tool for authorization reasons. |
-| **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful calls, the full filtered set is revealed. |
+| **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful completed tool calls, the full filtered set is revealed. Authorization checks and backend failures do not advance the counter. When this stage is enabled, `progressive.initial_bundle` is required and must reference a defined workflow bundle. |
 
-`when` clauses (used by both policy rules and workflows) support: `claim` + `equals`, `claim` + `in: [...]`, `claim` + `regex`, `missing_claim`, or `claim` alone (presence check). The `sub` and `tenant` claims are promoted from the validated JWT for convenient matching. Claims come from the [MCP Auth Filter](#mcp-auth-filter-dgpfilterhttpauthmcp-configuration); the router consumes already-validated claims and never re-validates tokens.
+`when` clauses (used by both policy rules and workflows) support: `claim` + `equals`, `claim` + `in: [...]`, `claim` + `regex`, `missing_claim`, or `claim` alone (presence check). The `sub` and `tenant` claims are promoted from the validated JWT for convenient matching. Claims come from the [MCP Auth Filter](#mcp-auth-filter-dgpfilterhttpauthmcp-configuration); without that filter in the chain, claim-based rules simply do not match. The router consumes already-validated claims and never re-validates tokens. Workflow names must be non-empty and unique because fallback and progressive disclosure address bundles by name.
 
 #### Fallback
 
 If the pipeline produces an empty selection (e.g. overly strict rules), the `fallback` strategy decides the outcome:
 
-- **`bundle_default`** (default): expose the `default_bundle` workflow (intersected with the live catalog). The named bundle must exist, or the gateway fails to start.
+- **`bundle_default`** (default): expose the `default_bundle` workflow (intersected with the policy-allowed live catalog). `default_bundle` must be non-empty, the workflow list must exist, and the named workflow must contain at least one tool name, or the gateway fails to start.
 - **`fail_closed`**: return no tools. There is intentionally no `fail_open` — a governance-layer failure must never *widen* the exposure surface.
+
+> **Note — fallback does not distinguish "denied" from "over-filtered".** The pipeline treats *any* empty result as the fallback trigger, whether it came from overly strict rules or from a rule that *intentionally* denies every tool for a subject. With `fallback: bundle_default`, a subject you meant to fully lock out will therefore still see the `default_bundle` (intersected with candidates). If you want "deny means an empty tool set," use `fallback: fail_closed`; the `default_bundle` is only ever a safety net, not an authorization boundary.
 
 #### Enforcement at `tools/call`
 
-With `enforce_on_call: true` (default), a `tools/call` for a tool not in the session's plan is rejected with a tool-call error. A client that skips `tools/list` entirely has no plan and is therefore denied (reason `no_session_plan`). Set `enforce_on_call: false` to allow calls while still recording denial metrics.
+With `enforce_on_call: true` (default), a `tools/call` for a tool not in the session's plan is rejected with a tool-call error. The router re-validates the plan against the current claims, router config version, and live tool catalog before authorizing the call, so stale plans are recomputed instead of treated as long-lived credentials. A client that skips `tools/list` entirely has no plan and is therefore denied (reason `no_session_plan`). Set `enforce_on_call: false` to allow calls without plan enforcement.
+
+Tools with `meta.discovery_visibility: false` are omitted from the plan's `visible_tool_names` / `tools/list` view but remain in the authorized `tool_names` set when selected by policy, workflow, or progressive stages. This supports hidden-but-callable tools for clients that already know the tool name while keeping discovery quieter.
 
 #### Observability
 
@@ -206,14 +203,14 @@ When the router is enabled it publishes Prometheus metrics under the `pixiu_mcp_
 | `selection_latency_ms` | histogram | `stage` |
 | `candidates_count` / `selected_count` | histogram | — |
 | `fallback_total` | counter | `reason` |
-| `call_denied_total` | counter | `reason` (no_session_plan / not_in_plan) |
+| `call_denied_total` | counter | `reason` (no_session_plan / not_in_plan / stale_plan_recompute_failed) |
 | `plans_active` | gauge | — |
 
-Each selection also emits a structured, PII-safe decision log (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and a bounded sample of denied tool names — never prompt text or argument values. `audit.sample_rate` controls how often these are emitted.
+Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and metadata version. Bounded denied-tool samples are included only when `audit.payload_logging: true`.
 
 #### Admin Debug Endpoint
 
-When `audit.payload_logging: true`, the gateway serves `GET /__mcp/router/plan/{session_id}`, returning the session's current plan (selected tool names, decision traces, version, mode) as JSON. When payload logging is off the endpoint returns `404`, so its existence is not observable in production by default. Because plans reveal authorization state, only enable this behind access controls.
+When `audit.payload_logging: true`, the gateway serves `GET /__mcp/router/plan/{session_id}` to loopback clients, returning the session's current plan (selected tool names, decision traces, version, mode) as JSON. Non-loopback clients and configurations with payload logging off receive `404`, so its existence is not observable in production by default. Because plans reveal authorization state, only enable this behind access controls.
 
 #### Multi-Instance Note
 

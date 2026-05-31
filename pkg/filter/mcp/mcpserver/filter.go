@@ -66,6 +66,10 @@ func (f *FilterFactory) Apply() error {
 	// Initialize tool registry (singleton)
 	f.registry = GetOrInitRegistry()
 
+	if err := router.ValidateTools(f.cfg.Tools); err != nil {
+		return fmt.Errorf("invalid mcp tool router metadata: %v", err)
+	}
+
 	// Sync statically configured tools into registry (full replace)
 	f.registry.ReplaceAllTools(f.cfg.Tools)
 	for _, tool := range f.cfg.Tools {
@@ -96,13 +100,16 @@ func (f *FilterFactory) Apply() error {
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered prompt '%s'", prompt.Name)
 	}
 
-	// Build the tool selector from router config (nil when routing is disabled,
-	// which preserves the pre-router passthrough behavior with zero overhead).
-	selector, err := router.Build(f.cfg.Router, GetOrInitPlanStore())
-	if err != nil {
-		return fmt.Errorf("failed to build mcp tool router: %v", err)
+	f.selector = nil
+	if f.cfg.Router != nil && f.cfg.Router.Enabled {
+		// Build the tool selector lazily so disabled routing preserves the
+		// pre-router passthrough behavior with zero plan-store overhead.
+		selector, err := router.Build(f.cfg.Router, GetOrInitPlanStore())
+		if err != nil {
+			return fmt.Errorf("failed to build mcp tool router: %v", err)
+		}
+		f.selector = selector
 	}
-	f.selector = selector
 
 	return nil
 }
@@ -317,7 +324,7 @@ func (f *MCPServerFilter) handlePostRequest(ctx *MCPContext) filter.FilterStatus
 	if f.isTerminalMethod(jsonrpcReq.Method) {
 		return f.handleTerminalMethodWithNegotiation(ctx, jsonrpcReq, responseFormat)
 	} else if jsonrpcReq.Method == string(mcp.MethodToolsCall) {
-		return f.handleToolCallWithNegotiation(ctx, jsonrpcReq, responseFormat)
+		return f.handleToolCall(ctx, jsonrpcReq)
 	} else {
 		// Unknown method
 		logger.Warnf("[dubbo-go-pixiu] mcp server unsupported method: %s", jsonrpcReq.Method)
@@ -361,19 +368,6 @@ func (f *MCPServerFilter) handleTerminalMethodWithNegotiation(ctx *MCPContext, r
 	}
 }
 
-// handleToolCallWithNegotiation handles tool calls with response format negotiation
-func (f *MCPServerFilter) handleToolCallWithNegotiation(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
-	// For notifications (no response needed), send 202 Accepted immediately
-	if responseFormat == transport.ResponseFormatAccepted {
-		ctx.SendLocalReply(http.StatusAccepted, nil)
-		return filter.Stop
-	}
-
-	// For tool calls, we need to forward to backend, so continue with existing logic
-	// but store the response format for use in Encode stage
-	return f.handleToolCall(ctx, req)
-}
-
 // sendResponseWithFormat sends response in the negotiated format
 func (f *MCPServerFilter) sendResponseWithFormat(ctx *MCPContext, response any, format transport.ResponseFormat) filter.FilterStatus {
 	switch format {
@@ -381,9 +375,6 @@ func (f *MCPServerFilter) sendResponseWithFormat(ctx *MCPContext, response any, 
 		return f.sendJSONResponse(ctx, response)
 	case transport.ResponseFormatSSE:
 		return f.sendSSEResponse(ctx, response)
-	case transport.ResponseFormatAccepted:
-		ctx.SendLocalReply(http.StatusAccepted, nil)
-		return filter.Stop
 	default:
 		return f.sendJSONResponse(ctx, response)
 	}

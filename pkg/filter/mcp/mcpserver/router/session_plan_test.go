@@ -52,6 +52,17 @@ func TestSessionPlanStore_SetIgnoresEmpty(t *testing.T) {
 	assert.Equal(t, 0, s.Len())
 }
 
+func TestSessionPlanStore_LenIgnoresBookkeepingOnlyEntries(t *testing.T) {
+	s := NewSessionPlanStoreWithTTL(time.Minute)
+	defer s.Stop()
+
+	s.SetAgentID("s1", "agent")
+	assert.Equal(t, 0, s.Len())
+
+	s.Set(&SelectionPlan{SessionID: "s1"})
+	assert.Equal(t, 1, s.Len())
+}
+
 func TestSessionPlanStore_CallCountPreservedAcrossSet(t *testing.T) {
 	s := NewSessionPlanStoreWithTTL(time.Minute)
 	defer s.Stop()

@@ -46,7 +46,8 @@ func benchTools(n int) []model.ToolConfig {
 
 func benchSelector(b *testing.B) (*CompositeSelector, *SessionPlanStore) {
 	cfg := &model.RouterConfig{
-		Enabled: true,
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme", "shared"}},
 		}},

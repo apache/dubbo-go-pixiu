@@ -230,11 +230,6 @@ func TestGetPreferredContentType(t *testing.T) {
 			format: ResponseFormatSSE,
 			want:   "text/event-stream",
 		},
-		{
-			name:   "Accepted format",
-			format: ResponseFormatAccepted,
-			want:   "application/json",
-		},
 	}
 
 	for _, tt := range tests {

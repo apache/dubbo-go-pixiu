@@ -78,19 +78,15 @@ type ArgConfig struct {
 // ToolMeta carries optional routing metadata for a tool (issue #937).
 // All fields are optional; an absent ToolMeta means the tool is fully exposed.
 type ToolMeta struct {
-	// Tags are free-form labels used by policy allow/deny lists and schema matching.
+	// Tags are free-form labels used by policy allow/deny lists and offline schema matching.
 	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 	// Capabilities are coarse capability identifiers (e.g. "user.read").
 	Capabilities []string `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
-	// Workflows lists the workflow bundles this tool belongs to.
-	Workflows []string `yaml:"workflows,omitempty" json:"workflows,omitempty"`
 	// Risk is one of "low" | "medium" | "high"; empty is treated as "low".
 	Risk string `yaml:"risk,omitempty" json:"risk,omitempty"`
 	// DiscoveryVisibility, when explicitly false, hides the tool from tools/list
 	// while still allowing tools/call. A nil pointer means visible (default true).
 	DiscoveryVisibility *bool `yaml:"discovery_visibility,omitempty" json:"discovery_visibility,omitempty"`
-	// ProgressiveTier groups tools for progressive disclosure (lower = earlier).
-	ProgressiveTier int `yaml:"progressive_tier,omitempty" json:"progressive_tier,omitempty"`
 }
 
 // RouterConfig configures the intelligent tool router (issue #937).
@@ -108,7 +104,6 @@ type RouterConfig struct {
 	Stages      RouterStages      `yaml:"stages,omitempty" json:"stages,omitempty"`
 	Policy      PolicyConfig      `yaml:"policy,omitempty" json:"policy,omitempty"`
 	Workflows   []WorkflowConfig  `yaml:"workflows,omitempty" json:"workflows,omitempty"`
-	Schema      SchemaConfig      `yaml:"schema,omitempty" json:"schema,omitempty"`
 	Progressive ProgressiveConfig `yaml:"progressive,omitempty" json:"progressive,omitempty"`
 	Audit       AuditConfig       `yaml:"audit,omitempty" json:"audit,omitempty"`
 }
@@ -116,7 +111,7 @@ type RouterConfig struct {
 // AuditConfig controls decision logging and the admin debug endpoint.
 type AuditConfig struct {
 	// SampleRate is the fraction (0..1) of selections to emit a decision log
-	// for. Zero is treated as 1.0 (log every decision).
+	// for. Zero disables decision logs.
 	SampleRate float64 `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty"`
 	// PayloadLogging, when true, opts into detailed logging and enables the
 	// admin plan-inspection endpoint. It must never be enabled in production
@@ -125,13 +120,11 @@ type AuditConfig struct {
 }
 
 // RouterStages toggles individual pipeline stages. The pipeline order is fixed
-// (policy -> workflow -> schema -> progressive -> rerank); only enablement varies.
+// (policy -> workflow -> progressive); only enablement varies.
 type RouterStages struct {
 	Policy      *bool `yaml:"policy,omitempty" json:"policy,omitempty"`           // default true
 	Workflow    *bool `yaml:"workflow,omitempty" json:"workflow,omitempty"`       // default true
-	Schema      bool  `yaml:"schema,omitempty" json:"schema,omitempty"`           // default false
 	Progressive bool  `yaml:"progressive,omitempty" json:"progressive,omitempty"` // default false
-	Rerank      bool  `yaml:"rerank,omitempty" json:"rerank,omitempty"`           // interface only in MVP
 }
 
 // PolicyConfig holds hard-filter rules.
@@ -166,24 +159,12 @@ type WorkflowConfig struct {
 	When        PolicyMatch `yaml:"when,omitempty" json:"when,omitempty"`
 }
 
-// SchemaConfig configures weighted schema-based ranking (sorting only).
-type SchemaConfig struct {
-	Weights SchemaWeights `yaml:"weights,omitempty" json:"weights,omitempty"`
-	TopK    int           `yaml:"top_k,omitempty" json:"top_k,omitempty"`
-}
-
-// SchemaWeights weights the contribution of each match dimension.
-type SchemaWeights struct {
-	TagMatch         float64 `yaml:"tag_match,omitempty" json:"tag_match,omitempty"`
-	CapabilityMatch  float64 `yaml:"capability_match,omitempty" json:"capability_match,omitempty"`
-	DescriptionMatch float64 `yaml:"description_match,omitempty" json:"description_match,omitempty"`
-}
-
 // ProgressiveConfig configures session-level progressive disclosure.
 type ProgressiveConfig struct {
-	InitialBundle     string `yaml:"initial_bundle,omitempty" json:"initial_bundle,omitempty"`
-	ExpandAfterCalls  int    `yaml:"expand_after_calls,omitempty" json:"expand_after_calls,omitempty"`
-	ExpansionStrategy string `yaml:"expansion_strategy,omitempty" json:"expansion_strategy,omitempty"`
+	InitialBundle string `yaml:"initial_bundle,omitempty" json:"initial_bundle,omitempty"`
+	// ExpandAfterCalls is the number of successful tool calls before the full
+	// filtered set is revealed. Values <= 0 default to 1.
+	ExpandAfterCalls int `yaml:"expand_after_calls,omitempty" json:"expand_after_calls,omitempty"`
 }
 
 // ResourceConfig resource configuration
@@ -420,10 +401,6 @@ func (m *ToolMeta) DeepCopy() *ToolMeta {
 	if m.Capabilities != nil {
 		cp.Capabilities = make([]string, len(m.Capabilities))
 		copy(cp.Capabilities, m.Capabilities)
-	}
-	if m.Workflows != nil {
-		cp.Workflows = make([]string, len(m.Workflows))
-		copy(cp.Workflows, m.Workflows)
 	}
 	if m.DiscoveryVisibility != nil {
 		v := *m.DiscoveryVisibility

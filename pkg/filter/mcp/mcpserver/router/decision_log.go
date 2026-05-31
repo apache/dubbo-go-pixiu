@@ -31,16 +31,19 @@ import (
 const maxDeniedSamples = 10
 
 // DecisionLogger emits a structured, PII-safe record for each selection. It
-// never logs prompt text or tool arguments; only counts, the mode, per-stage
-// in/out tallies, and a bounded sample of denied tool names.
+// never logs prompt text or tool arguments; only counts, the mode, and per-stage
+// in/out tallies are emitted by default. Denied tool samples require explicit
+// payload logging.
 type DecisionLogger struct {
-	sampleRate float64
+	sampleRate     float64
+	payloadLogging bool
 }
 
-// NewDecisionLogger builds a logger. A sampleRate <= 0 logs every decision; a
-// rate >= 1 also logs every decision; values in between sample probabilistically.
-func NewDecisionLogger(sampleRate float64) *DecisionLogger {
-	return &DecisionLogger{sampleRate: sampleRate}
+// NewDecisionLogger builds a logger. A sampleRate of 0 disables decision logs;
+// values in (0,1] sample probabilistically/all. Detailed denied samples are
+// emitted only when payload logging is explicitly enabled.
+func NewDecisionLogger(sampleRate float64, payloadLogging bool) *DecisionLogger {
+	return &DecisionLogger{sampleRate: sampleRate, payloadLogging: payloadLogging}
 }
 
 // decisionRecord is the JSON shape emitted to the log.
@@ -67,6 +70,16 @@ func (d *DecisionLogger) Log(sc SelectionContext, plan *SelectionPlan, candidate
 		return
 	}
 
+	rec := d.record(sc, plan, candidates)
+
+	payload, err := json.Marshal(rec)
+	if err != nil {
+		return
+	}
+	logger.Infof("[dubbo-go-pixiu] %s", string(payload))
+}
+
+func (d *DecisionLogger) record(sc SelectionContext, plan *SelectionPlan, candidates int) decisionRecord {
 	rec := decisionRecord{
 		Event:           "mcp_router_decision",
 		SessionID:       sc.SessionID,
@@ -78,19 +91,19 @@ func (d *DecisionLogger) Log(sc SelectionContext, plan *SelectionPlan, candidate
 		Selected:        len(plan.ToolNames),
 		Mode:            plan.Mode,
 		Stages:          stageDropCounts(plan.Reasons),
-		DeniedSamples:   deniedSamples(plan.Reasons),
 	}
-
-	payload, err := json.Marshal(rec)
-	if err != nil {
-		return
+	if d.payloadLogging {
+		rec.DeniedSamples = deniedSamples(plan.Reasons)
 	}
-	logger.Infof("[dubbo-go-pixiu] %s", string(payload))
+	return rec
 }
 
 // shouldSample reports whether this decision should be logged.
 func (d *DecisionLogger) shouldSample() bool {
-	if d.sampleRate <= 0 || d.sampleRate >= 1 {
+	if d.sampleRate <= 0 {
+		return false
+	}
+	if d.sampleRate >= 1 {
 		return true
 	}
 	return rand.Float64() < d.sampleRate

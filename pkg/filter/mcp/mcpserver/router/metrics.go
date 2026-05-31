@@ -41,7 +41,10 @@ var (
 	plansActive      prometheus.Gauge
 )
 
-const metricsSubsystem = "mcp_tool_router"
+const (
+	metricsNamespace = "pixiu"
+	metricsSubsystem = "mcp_tool_router"
+)
 
 // initMetrics registers the metric collectors exactly once. promauto registers
 // against the default registry; AlreadyRegisteredError is impossible here
@@ -50,12 +53,14 @@ const metricsSubsystem = "mcp_tool_router"
 func initMetrics() {
 	metricsOnce.Do(func() {
 		selectTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "select_total",
 			Help:      "Total tool selections, partitioned by result and mode.",
 		}, []string{"result", "mode"})
 
 		selectionLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "selection_latency_ms",
 			Help:      "Tool selection latency in milliseconds.",
@@ -63,6 +68,7 @@ func initMetrics() {
 		}, []string{"stage"})
 
 		candidatesCount = promauto.NewHistogram(prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "candidates_count",
 			Help:      "Number of candidate tools before selection.",
@@ -70,6 +76,7 @@ func initMetrics() {
 		})
 
 		selectedCount = promauto.NewHistogram(prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "selected_count",
 			Help:      "Number of tools selected after the pipeline.",
@@ -77,18 +84,21 @@ func initMetrics() {
 		})
 
 		fallbackTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "fallback_total",
 			Help:      "Total fallback activations, partitioned by reason.",
 		}, []string{"reason"})
 
 		callDeniedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "call_denied_total",
 			Help:      "Total tools/call denials, partitioned by reason.",
 		}, []string{"reason"})
 
 		plansActive = promauto.NewGauge(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "plans_active",
 			Help:      "Current number of cached session plans.",

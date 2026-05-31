@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -39,50 +38,6 @@ func testTools(names ...string) []model.ToolConfig {
 	return tools
 }
 
-func TestPassthroughSelector_SelectReturnsAllTools(t *testing.T) {
-	s := NewPassthroughSelector()
-	candidates := testTools("a", "b", "c")
-
-	plan, err := s.Select(context.Background(), SelectionContext{SessionID: "sess-1"}, candidates)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, plan)
-	assert.Equal(t, "sess-1", plan.SessionID)
-	assert.Equal(t, ModePassthrough, plan.Mode)
-	assert.Equal(t, []string{"a", "b", "c"}, plan.ToolNames)
-	assert.Positive(t, plan.CreatedAt)
-}
-
-func TestPassthroughSelector_SelectEmptyCandidates(t *testing.T) {
-	s := NewPassthroughSelector()
-
-	plan, err := s.Select(context.Background(), SelectionContext{SessionID: "sess-2"}, nil)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, plan)
-	assert.Empty(t, plan.ToolNames)
-}
-
-func TestPassthroughSelector_AuthorizeCallAlwaysAllows(t *testing.T) {
-	s := NewPassthroughSelector()
-
-	err := s.AuthorizeCall(context.Background(), SelectionContext{Requested: "anything"})
-
-	assert.NoError(t, err)
-}
-
-func TestPassthroughSelector_OnInitializeNoop(t *testing.T) {
-	s := NewPassthroughSelector()
-
-	err := s.OnInitialize(context.Background(), SelectionContext{}, testTools("a"))
-
-	assert.NoError(t, err)
-}
-
-func TestPassthroughSelector_Name(t *testing.T) {
-	assert.Equal(t, ModePassthrough, NewPassthroughSelector().Name())
-}
-
 func TestSelectionPlan_Contains(t *testing.T) {
 	plan := &SelectionPlan{ToolNames: []string{"x", "y"}}
 
@@ -92,6 +47,18 @@ func TestSelectionPlan_Contains(t *testing.T) {
 
 	var nilPlan *SelectionPlan
 	assert.False(t, nilPlan.Contains("x"))
+}
+
+func TestSelectionPlan_VisibleNamesDefaultsToAuthorizedNames(t *testing.T) {
+	plan := &SelectionPlan{ToolNames: []string{"x", "y"}}
+
+	assert.Equal(t, []string{"x", "y"}, plan.VisibleNames())
+
+	plan.VisibleToolNames = []string{"x"}
+	assert.Equal(t, []string{"x"}, plan.VisibleNames())
+
+	var nilPlan *SelectionPlan
+	assert.Nil(t, nilPlan.VisibleNames())
 }
 
 func TestBuild_NilConfigReturnsNilSelector(t *testing.T) {
@@ -109,7 +76,9 @@ func TestBuild_DisabledReturnsNilSelector(t *testing.T) {
 func TestBuild_EnabledReturnsComposite(t *testing.T) {
 	store := NewSessionPlanStoreWithTTL(time.Minute)
 	defer store.Stop()
-	s, err := Build(&model.RouterConfig{Enabled: true}, store)
+
+	s, err := Build(&model.RouterConfig{Enabled: true, Fallback: FallbackFailClosed}, store)
+
 	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	assert.Equal(t, "composite", s.Name())
@@ -118,4 +87,14 @@ func TestBuild_EnabledReturnsComposite(t *testing.T) {
 func TestToolNames(t *testing.T) {
 	assert.Equal(t, []string{"a", "b"}, toolNames(testTools("a", "b")))
 	assert.Empty(t, toolNames(nil))
+}
+
+func TestVisibleToolNamesSkipsHiddenDiscovery(t *testing.T) {
+	hidden := false
+	tools := []model.ToolConfig{
+		{Name: "visible"},
+		{Name: "hidden", Meta: &model.ToolMeta{DiscoveryVisibility: &hidden}},
+	}
+
+	assert.Equal(t, []string{"visible"}, visibleToolNames(tools))
 }

@@ -18,9 +18,14 @@ This directory demonstrates the MCP intelligent tool router added for
 2. **`tools/call` enforcement** — calling `internal_dump` is denied because it
    is not in the session's plan, even though the client knows its name.
 3. **Allowed call** — `search_kb` is in the plan and is forwarded to the backend.
-4. **Admin inspection** — `GET /__mcp/router/plan/{session_id}` returns the
-   session's plan (selected tools, decision traces, version, mode), available
-   because `audit.payload_logging: true`.
+4. **Admin inspection** — from loopback, `GET /__mcp/router/plan/{session_id}`
+   returns the session's plan (selected tools, decision traces, version, mode),
+   available because `audit.payload_logging: true`.
+
+The example uses `fallback: bundle_default` so an empty selection falls back to
+the `safe-minimal` bundle. Treat that as a discovery safety net, not an
+authorization boundary; use `fallback: fail_closed` when a denied subject should
+see no tools.
 
 ## Running
 
@@ -43,14 +48,3 @@ bash docs/ai/mcp/router-example/demo.sh
 is in the chain and populates JWT claims — the router consumes already-validated
 claims and never re-validates tokens. The always-on `block-privileged` rule
 needs no claims, so the demo works standalone.
-
-## Offline schema evaluation
-
-To validate schema-matching quality (Recall@K / Precision@K) without a running
-gateway, use the offline evaluator:
-
-```bash
-go run ./pkg/filter/mcp/mcpserver/router/eval/cmd \
-  -dataset pkg/filter/mcp/mcpserver/router/eval/sample_dataset.yaml \
-  -k 1,3,5
-```

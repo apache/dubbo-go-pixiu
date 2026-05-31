@@ -59,9 +59,7 @@ func (g *ProgressiveGate) Apply(tools []model.ToolConfig, sc SelectionContext, s
 	// Before expansion, only the initial bundle is visible.
 	bundle, ok := g.bundleSet()
 	if !ok {
-		// No usable initial bundle configured: behave as passthrough so a
-		// misconfiguration never hides every tool.
-		return tools, nil
+		return nil, []DecisionTrace{{Stage: StageProgressive, Detail: "missing_initial_bundle"}}
 	}
 
 	kept := make([]model.ToolConfig, 0, len(bundle))

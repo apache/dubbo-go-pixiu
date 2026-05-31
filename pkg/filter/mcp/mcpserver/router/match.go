@@ -36,6 +36,9 @@ type matcher struct {
 // newMatcher compiles a PolicyMatch. It returns an error only for an invalid
 // regex, so configuration mistakes surface at startup rather than per-request.
 func newMatcher(m model.PolicyMatch) (*matcher, error) {
+	if err := validatePolicyMatch(m); err != nil {
+		return nil, err
+	}
 	mt := &matcher{match: m}
 	if m.Regex != "" {
 		re, err := regexp.Compile(m.Regex)
@@ -45,6 +48,34 @@ func newMatcher(m model.PolicyMatch) (*matcher, error) {
 		mt.re = re
 	}
 	return mt, nil
+}
+
+func validatePolicyMatch(m model.PolicyMatch) error {
+	operators := 0
+	if m.Equals != "" {
+		operators++
+	}
+	if len(m.In) > 0 {
+		operators++
+	}
+	if m.Regex != "" {
+		operators++
+	}
+
+	if m.MissingClaim != "" {
+		if m.Claim != "" || operators > 0 {
+			return fmt.Errorf("missing_claim cannot be combined with claim, equals, in, or regex")
+		}
+		return nil
+	}
+
+	if operators > 1 {
+		return fmt.Errorf("only one of equals, in, or regex may be configured")
+	}
+	if operators > 0 && m.Claim == "" {
+		return fmt.Errorf("claim is required when equals, in, or regex is configured")
+	}
+	return nil
 }
 
 // alwaysMatches reports whether the match clause is empty (applies to all).

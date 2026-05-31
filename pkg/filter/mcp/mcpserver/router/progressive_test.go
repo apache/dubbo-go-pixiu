@@ -55,7 +55,7 @@ func TestProgressiveGate_InitialBundleThenExpand(t *testing.T) {
 	assert.Len(t, out2, 4)
 }
 
-func TestProgressiveGate_NoBundlePassthrough(t *testing.T) {
+func TestProgressiveGate_MissingBundleFailsClosed(t *testing.T) {
 	wf, _ := NewWorkflowSelector(nil)
 	gate := NewProgressiveGate(model.ProgressiveConfig{InitialBundle: "missing"}, wf)
 	store := NewSessionPlanStoreWithTTL(time.Minute)
@@ -63,14 +63,17 @@ func TestProgressiveGate_NoBundlePassthrough(t *testing.T) {
 	store.Set(&SelectionPlan{SessionID: "s1"})
 
 	tools := testTools("a", "b")
-	out, _ := gate.Apply(tools, SelectionContext{SessionID: "s1"}, store)
-	assert.Equal(t, tools, out)
+	out, traces := gate.Apply(tools, SelectionContext{SessionID: "s1"}, store)
+	assert.Nil(t, out)
+	require.Len(t, traces, 1)
+	assert.Equal(t, "missing_initial_bundle", traces[0].Detail)
 }
 
 func TestProgressiveGate_ViaCompositeExpands(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled: true,
-		Stages:  model.RouterStages{Progressive: true},
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
 			{Name: "starter", Tools: []string{"t0"}},
 		},
@@ -88,10 +91,12 @@ func TestProgressiveGate_ViaCompositeExpands(t *testing.T) {
 	p1, _ := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 	assert.Equal(t, []string{"t0"}, p1.ToolNames)
 
-	// Authorize + call t0 to bump the counter.
-	require.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"}))
+	// Authorization alone does not bump the counter; only a completed call does.
+	require.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"}, tools))
+	require.NoError(t, cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"}))
 
-	// Add a tool to force version change so the plan recomputes, then expand.
-	p2, _ := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, append(tools, model.ToolConfig{Name: "t3"}))
-	assert.Len(t, p2.ToolNames, 4)
+	// Second tools/list with same tools: crossing the threshold invalidates cache, full set revealed.
+	p2, _ := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
+	assert.Len(t, p2.ToolNames, 3, "after crossing expand threshold, all tools should be visible")
+	assert.ElementsMatch(t, []string{"t0", "t1", "t2"}, p2.ToolNames)
 }

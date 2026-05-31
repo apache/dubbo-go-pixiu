@@ -25,8 +25,42 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// riskLevel maps a risk string to an ordinal for max_risk comparison. An empty
-// or unknown value is treated as low so untagged tools are never over-blocked.
+// ValidateTools validates routing metadata on configured tools.
+func ValidateTools(tools []model.ToolConfig) error {
+	for _, tool := range tools {
+		if tool.Meta == nil {
+			continue
+		}
+		if err := ValidateRisk(tool.Meta.Risk); err != nil {
+			return fmt.Errorf("tool %q meta.risk: %w", tool.Name, err)
+		}
+	}
+	return nil
+}
+
+// ValidateRisk checks the public risk enum. Empty is allowed and treated as low.
+func ValidateRisk(risk string) error {
+	switch risk {
+	case "", "low", "medium", "high":
+		return nil
+	default:
+		return fmt.Errorf("unsupported risk %q (allowed: low, medium, high)", risk)
+	}
+}
+
+// validatePolicyRisks validates max_risk values even when the policy stage is
+// disabled, because an unknown risk enum is a configuration error.
+func validatePolicyRisks(cfg model.PolicyConfig) error {
+	for _, r := range cfg.Rules {
+		if _, err := maxRiskOrdinal(r.MaxRisk); err != nil {
+			return fmt.Errorf("policy rule %q: %w", r.Name, err)
+		}
+	}
+	return nil
+}
+
+// riskLevel maps a validated risk string to an ordinal for max_risk comparison.
+// Empty means low so untagged tools stay backward compatible.
 func riskLevel(risk string) int {
 	switch risk {
 	case "high":
@@ -36,7 +70,9 @@ func riskLevel(risk string) int {
 	case "low", "":
 		return 1
 	default:
-		return 1
+		// Callers validate configured risk values before reaching runtime. Keep
+		// this defensive fallback conservative if future inputs bypass validation.
+		return 3
 	}
 }
 
@@ -66,23 +102,30 @@ func NewPolicyFilter(cfg model.PolicyConfig) (*PolicyFilter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("policy rule %q: %w", r.Name, err)
 		}
+		maxRisk, err := maxRiskOrdinal(r.MaxRisk)
+		if err != nil {
+			return nil, fmt.Errorf("policy rule %q: %w", r.Name, err)
+		}
 		rules = append(rules, compiledRule{
 			name:      r.Name,
 			when:      m,
 			allowTags: toSet(r.AllowTags),
 			denyTags:  toSet(r.DenyTags),
-			maxRisk:   maxRiskOrdinal(r.MaxRisk),
+			maxRisk:   maxRisk,
 		})
 	}
 	return &PolicyFilter{rules: rules}, nil
 }
 
 // maxRiskOrdinal converts a configured max_risk to an ordinal, 0 meaning unset.
-func maxRiskOrdinal(risk string) int {
+func maxRiskOrdinal(risk string) (int, error) {
 	if risk == "" {
-		return 0
+		return 0, nil
 	}
-	return riskLevel(risk)
+	if err := ValidateRisk(risk); err != nil {
+		return 0, fmt.Errorf("max_risk: %w", err)
+	}
+	return riskLevel(risk), nil
 }
 
 // Filter returns the subset of tools allowed by all applicable rules, along
@@ -125,6 +168,11 @@ func (p *PolicyFilter) Filter(tools []model.ToolConfig, sc SelectionContext) ([]
 
 // denyReason returns the first rule name and reason that denies the tool, or an
 // empty reason if every applicable rule allows it.
+//
+// Note the combination semantics: every applicable rule must allow the tool for
+// it to be kept (logical AND). In particular, if two rules both specify
+// allow_tags, the tool must carry a tag matching each rule's allow_tags set;
+// satisfying only one rule is not enough.
 func denyReason(rules []compiledRule, tool model.ToolConfig) (string, string) {
 	tags := toolTags(tool)
 	risk := toolRisk(tool)

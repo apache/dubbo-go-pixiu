@@ -71,6 +71,14 @@ func createTestMcpServerConfig(tools []model.ToolConfig) *model.McpServerConfig 
 	}
 }
 
+func toolConfigNames(tools []model.ToolConfig) []string {
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+	return names
+}
+
 // =============================================================================
 // Singleton Tests
 // =============================================================================
@@ -183,6 +191,40 @@ func TestApplyMcpServerConfig(t *testing.T) {
 		toolNames := []string{tools[0].Name, tools[1].Name}
 		assert.ElementsMatch(t, []string{"tool2", "tool3"}, toolNames)
 	})
+}
+
+func TestToolRegistryListToolsPreservesReplaceOrder(t *testing.T) {
+	registry := NewToolRegistry()
+	registry.ReplaceAllTools([]model.ToolConfig{
+		createTestToolConfig("tool2", "Second tool"),
+		createTestToolConfig("tool1", "First tool"),
+		createTestToolConfig("tool3", "Third tool"),
+	})
+
+	assert.Equal(t, []string{"tool2", "tool1", "tool3"}, toolConfigNames(registry.ListTools()))
+}
+
+func TestDynamicConsumerMergedToolsStableByServerIDAndConfigOrder(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
+	consumer.SetDebounceTime(0)
+
+	err := consumer.ApplyMcpServerConfigByServer("server-b", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("b2", "B2"),
+		createTestToolConfig("b1", "B1"),
+	}))
+	require.NoError(t, err)
+
+	err = consumer.ApplyMcpServerConfigByServer("server-a", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("a1", "A1"),
+		createTestToolConfig("a2", "A2"),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"a1", "a2", "b2", "b1"}, toolConfigNames(registry.ListTools()))
 }
 
 func TestApplyMcpServerConfigConcurrent(t *testing.T) {
@@ -369,6 +411,92 @@ func TestFingerprintCalculation(t *testing.T) {
 	// Same tool should have same fingerprint
 	fingerprint6 := consumer.calculateFingerprint([]model.ToolConfig{tool1})
 	assert.Equal(t, fingerprint2, fingerprint6, "Same tool should have same fingerprint")
+
+	// Duplicate identities should still be order-independent because the full
+	// serialized body is part of the sort key.
+	duplicateA := createTestToolConfig("dup", "First duplicate")
+	duplicateB := createTestToolConfig("dup", "Second duplicate")
+	assert.Equal(t,
+		consumer.calculateFingerprint([]model.ToolConfig{duplicateA, duplicateB}),
+		consumer.calculateFingerprint([]model.ToolConfig{duplicateB, duplicateA}),
+		"Duplicate tool identities should still hash deterministically")
+
+	// Metadata-only changes must affect the fingerprint so dynamic updates are
+	// not skipped when routing tags/risk change.
+	toolWithLowRisk := createTestToolConfig("tool1", "First tool")
+	toolWithLowRisk.Meta = &model.ToolMeta{Risk: "low", Tags: []string{"safe"}}
+	toolWithHighRisk := createTestToolConfig("tool1", "First tool")
+	toolWithHighRisk.Meta = &model.ToolMeta{Risk: "high", Tags: []string{"admin"}}
+	assert.NotEqual(t,
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithLowRisk}),
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithHighRisk}),
+		"Meta changes should affect fingerprint")
+
+	// Request and argument shape changes also affect backend behavior and must
+	// be part of the dynamic configuration hash.
+	toolWithPathA := createTestToolConfig("tool1", "First tool")
+	toolWithPathB := createTestToolConfig("tool1", "First tool")
+	toolWithPathB.Request.Path = "/api/other/{param}"
+	assert.NotEqual(t,
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithPathA}),
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithPathB}),
+		"Request path changes should affect fingerprint")
+
+	toolWithArgA := createTestToolConfig("tool1", "First tool")
+	toolWithArgB := createTestToolConfig("tool1", "First tool")
+	toolWithArgB.Args[0].Required = false
+	assert.NotEqual(t,
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithArgA}),
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithArgB}),
+		"Argument changes should affect fingerprint")
+}
+
+func TestApplyMcpServerConfig_InvalidRiskRejected(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
+
+	validTool := createTestToolConfig("tool1", "First tool")
+	validTool.Meta = &model.ToolMeta{Risk: "low"}
+	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{validTool}))
+	require.NoError(t, err)
+	require.Len(t, registry.ListTools(), 1)
+
+	invalidTool := createTestToolConfig("tool2", "Second tool")
+	invalidTool.Meta = &model.ToolMeta{Risk: "hihg"}
+	err = consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{invalidTool}))
+	assert.ErrorContains(t, err, "invalid mcp tool router metadata")
+	assert.ErrorContains(t, err, "unsupported risk")
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	assert.Equal(t, "tool1", tools[0].Name)
+}
+
+func TestApplyMcpServerConfig_MetadataChangeIsNotSkipped(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
+	consumer.SetDebounceTime(0)
+
+	lowRiskTool := createTestToolConfig("tool1", "First tool")
+	lowRiskTool.Meta = &model.ToolMeta{Risk: "low"}
+	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{lowRiskTool}))
+	require.NoError(t, err)
+
+	highRiskTool := createTestToolConfig("tool1", "First tool")
+	highRiskTool.Meta = &model.ToolMeta{Risk: "high"}
+	err = consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{highRiskTool}))
+	require.NoError(t, err)
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	require.NotNil(t, tools[0].Meta)
+	assert.Equal(t, "high", tools[0].Meta.Risk)
 }
 
 // =============================================================================

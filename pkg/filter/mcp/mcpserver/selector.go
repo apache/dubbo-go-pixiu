@@ -20,6 +20,7 @@ package mcpserver
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -36,16 +37,15 @@ import (
 // routerAdminPathPrefix is the base path for the router plan inspection endpoint.
 const routerAdminPathPrefix = "/__mcp/router/plan/"
 
-// buildSelectionContext assembles the router input from the MCP request
-// context. It extracts session, method, the requested tool name (for
-// tools/call), a sanitized header snapshot, and the JWT claims propagated by
-// the auth/mcp filter (with sub/tenant promoted for convenient policy access).
+// buildSelectionContext assembles the router input from the MCP request context.
+// It extracts session, method, the requested tool name (for tools/call), and the
+// JWT claims propagated by the auth/mcp filter (with sub/tenant promoted for
+// convenient policy access).
 func (f *MCPServerFilter) buildSelectionContext(ctx *MCPContext, method, requested string) router.SelectionContext {
 	sc := router.SelectionContext{
 		SessionID: ctx.SessionID(),
 		Method:    method,
 		Requested: requested,
-		Headers:   sanitizeHeaders(ctx),
 	}
 
 	if claims := mcpAuthClaims(ctx); claims != nil {
@@ -75,34 +75,8 @@ func claimStr(claims map[string]any, key string) string {
 	return ""
 }
 
-// sensitiveHeaders are never copied into the SelectionContext to avoid leaking
-// credentials into decision logs or plan state.
-var sensitiveHeaders = map[string]struct{}{
-	"Authorization": {},
-	"Cookie":        {},
-	"Set-Cookie":    {},
-}
-
-// sanitizeHeaders returns a copy of the request headers with sensitive entries
-// removed. It returns nil when there are no headers to copy.
-func sanitizeHeaders(ctx *MCPContext) map[string]string {
-	if ctx.Request == nil || len(ctx.Request.Header) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(ctx.Request.Header))
-	for k, v := range ctx.Request.Header {
-		if _, blocked := sensitiveHeaders[k]; blocked {
-			continue
-		}
-		if len(v) > 0 {
-			out[k] = v[0]
-		}
-	}
-	return out
-}
-
-// filterByPlan returns the subset of toolCfgs whose names appear in the plan,
-// preserving the plan's ordering for stable client behavior.
+// filterByPlan returns the tools/list subset whose names appear in the plan's
+// visible view, preserving plan order for stable client behavior.
 func filterByPlan(toolCfgs []model.ToolConfig, plan *router.SelectionPlan) []model.ToolConfig {
 	if plan == nil {
 		return toolCfgs
@@ -111,8 +85,9 @@ func filterByPlan(toolCfgs []model.ToolConfig, plan *router.SelectionPlan) []mod
 	for _, t := range toolCfgs {
 		byName[t.Name] = t
 	}
-	out := make([]model.ToolConfig, 0, len(plan.ToolNames))
-	for _, name := range plan.ToolNames {
+	visibleNames := plan.VisibleNames()
+	out := make([]model.ToolConfig, 0, len(visibleNames))
+	for _, name := range visibleNames {
 		if t, ok := byName[name]; ok {
 			out = append(out, t)
 		}
@@ -128,10 +103,21 @@ func (f *MCPServerFilter) isRouterAdminRequest(ctx *contexthttp.HttpContext) boo
 }
 
 // handleRouterAdmin serves GET /__mcp/router/plan/{session_id}. It is gated by
-// audit.payload_logging: when that is off (or the router is disabled) it returns
-// 404 so the endpoint's existence is not observable in production by default.
+// audit.payload_logging (off by default) and restricted to loopback clients only,
+// so the endpoint is not reachable from real clients even when logging is enabled.
+// In proxy/sidecar deployments where RemoteAddr is the proxy's loopback address,
+// additional routing-layer restrictions should be applied.
 func (f *MCPServerFilter) handleRouterAdmin(ctx *contexthttp.HttpContext) filter.FilterStatus {
 	if !f.routerAuditEnabled() {
+		ctx.SendLocalReply(http.StatusNotFound, []byte("not found"))
+		return filter.Stop
+	}
+
+	// Restrict to loopback clients only. This prevents accidental exposure when
+	// payload_logging is enabled, while preserving local debugging and kubectl
+	// port-forward use cases. We trust only the TCP peer address (RemoteAddr),
+	// never X-Forwarded-For, to avoid trivial bypass.
+	if !isLoopback(ctx.Request.RemoteAddr) {
 		ctx.SendLocalReply(http.StatusNotFound, []byte("not found"))
 		return filter.Stop
 	}
@@ -179,4 +165,25 @@ func (f *MCPServerFilter) routerAuditEnabled() bool {
 		f.cfg.Router != nil &&
 		f.cfg.Router.Enabled &&
 		f.cfg.Router.Audit.PayloadLogging
+}
+
+// isLoopback reports whether the remote address is a loopback (localhost) peer.
+// It parses the host portion of "host:port" and checks for IPv4 127.0.0.0/8,
+// IPv6 ::1, or the literal "localhost". Returns false on parse errors to fail
+// closed (deny non-parseable addresses).
+func isLoopback(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// RemoteAddr should always be "host:port", but if parsing fails treat
+		// it as non-loopback to fail closed.
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback()
 }

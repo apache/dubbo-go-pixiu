@@ -35,6 +35,7 @@ import (
 type ToolRegistry struct {
 	mu                sync.RWMutex
 	tools             map[string]model.ToolConfig
+	toolOrder         []string
 	resources         map[string]model.ResourceConfig         // indexed by URI
 	resourceTemplates map[string]model.ResourceTemplateConfig // indexed by name
 	prompts           map[string]model.PromptConfig
@@ -60,6 +61,7 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 	}
 
 	r.tools[tool.Name] = tool
+	r.toolOrder = append(r.toolOrder, tool.Name)
 	return nil
 }
 
@@ -69,10 +71,17 @@ func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) {
 	defer r.mu.Unlock()
 
 	newMap := make(map[string]model.ToolConfig, len(tools))
+	newOrder := make([]string, 0, len(tools))
+	seen := make(map[string]struct{}, len(tools))
 	for _, t := range tools {
+		if _, ok := seen[t.Name]; !ok {
+			newOrder = append(newOrder, t.Name)
+			seen[t.Name] = struct{}{}
+		}
 		newMap[t.Name] = t
 	}
 	r.tools = newMap
+	r.toolOrder = newOrder
 }
 
 // RegisterResource registers a resource (indexed by URI as per MCP specification)
@@ -148,8 +157,10 @@ func (r *ToolRegistry) ListTools() []model.ToolConfig {
 	defer r.mu.RUnlock()
 
 	tools := make([]model.ToolConfig, 0, len(r.tools))
-	for _, tool := range r.tools {
-		tools = append(tools, tool)
+	for _, name := range r.toolOrder {
+		if tool, ok := r.tools[name]; ok {
+			tools = append(tools, tool)
+		}
 	}
 	return tools
 }

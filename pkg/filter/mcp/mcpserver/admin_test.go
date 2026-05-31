@@ -44,7 +44,8 @@ func newAdminFilter(t *testing.T, payloadLogging bool) *MCPServerFilter {
 			{Name: "acme_a", Cluster: "c", Meta: &model.ToolMeta{Tags: []string{"acme"}}},
 		},
 		Router: &model.RouterConfig{
-			Enabled: true,
+			Enabled:  true,
+			Fallback: router.FallbackFailClosed,
 			Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 				{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
 			}},
@@ -98,6 +99,7 @@ func TestAdmin_EnabledReturnsPlan(t *testing.T) {
 
 	// Now query the admin endpoint.
 	req := httptest.NewRequest("GET", "/__mcp/router/plan/sess-admin", nil)
+	req.RemoteAddr = "127.0.0.1:12345"
 	rec := httptest.NewRecorder()
 	ctx := createTestContext(req, rec)
 
@@ -117,6 +119,7 @@ func TestAdmin_UnknownSessionReturns404(t *testing.T) {
 	f := newAdminFilter(t, true)
 
 	req := httptest.NewRequest("GET", "/__mcp/router/plan/ghost", nil)
+	req.RemoteAddr = "127.0.0.1:12345"
 	rec := httptest.NewRecorder()
 	ctx := createTestContext(req, rec)
 
@@ -131,9 +134,25 @@ func TestAdmin_PostReturns405(t *testing.T) {
 	f := newAdminFilter(t, true)
 
 	req := httptest.NewRequest("POST", "/__mcp/router/plan/x", nil)
+	req.RemoteAddr = "127.0.0.1:12345"
 	rec := httptest.NewRecorder()
 	ctx := createTestContext(req, rec)
 
 	f.Decode(ctx)
 	assert.Equal(t, 405, rec.Code)
+}
+
+func TestAdmin_NonLoopbackReturns404(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	f := newAdminFilter(t, true)
+
+	req := httptest.NewRequest("GET", "/__mcp/router/plan/x", nil)
+	req.RemoteAddr = "203.0.113.10:12345"
+	rec := httptest.NewRecorder()
+	ctx := createTestContext(req, rec)
+
+	f.Decode(ctx)
+	assert.Equal(t, 404, rec.Code)
 }

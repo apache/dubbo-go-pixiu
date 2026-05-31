@@ -64,6 +64,7 @@ func newRoutedFilter(t *testing.T, tools []model.ToolConfig) *MCPServerFilter {
 		Tools:      tools,
 		Router: &model.RouterConfig{
 			Enabled:       true,
+			Fallback:      router.FallbackFailClosed,
 			EnforceOnCall: &enforce,
 			Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 				{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
@@ -182,6 +183,4 @@ func TestIntegration_RouterDisabledIsPassthrough(t *testing.T) {
 	factory := &FilterFactory{cfg: cfg}
 	require.NoError(t, factory.Apply())
 	assert.Nil(t, factory.selector, "no router config => nil selector => passthrough")
-
-	_ = router.ModePassthrough // keep router import referenced
 }

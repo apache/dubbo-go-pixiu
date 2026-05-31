@@ -22,6 +22,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 )
 
 import (
@@ -40,13 +42,25 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 	if cfg == nil || !cfg.Enabled {
 		return nil, nil
 	}
+	if store == nil {
+		return nil, fmt.Errorf("router enabled but session plan store is nil")
+	}
+	if err := validateFallback(cfg.Fallback); err != nil {
+		return nil, err
+	}
+	if err := validateSampleRate(cfg.Audit.SampleRate); err != nil {
+		return nil, err
+	}
+	if err := validatePolicyRisks(cfg.Policy); err != nil {
+		return nil, err
+	}
 
 	// Register Prometheus collectors on first enabled build.
 	initMetrics()
 
 	opts := CompositeOptions{
 		Store:         store,
-		Log:           NewDecisionLogger(cfg.Audit.SampleRate),
+		Log:           NewDecisionLogger(cfg.Audit.SampleRate, cfg.Audit.PayloadLogging),
 		Fallback:      cfg.Fallback,
 		DefaultBundle: cfg.DefaultBundle,
 		EnforceOnCall: enforceOnCall(cfg),
@@ -62,6 +76,7 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 		if err != nil {
 			return nil, err
 		}
+		opts.Bundles = wf
 	}
 
 	if stageEnabled(cfg.Stages.Policy, true) && len(cfg.Policy.Rules) > 0 {
@@ -76,28 +91,49 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 		opts.Workflow = wf
 	}
 
-	if cfg.Stages.Schema {
-		opts.Schema = NewSchemaMatcher(cfg.Schema)
-	}
-
 	if cfg.Stages.Progressive {
-		opts.Progressive = NewProgressiveGate(cfg.Progressive, wf)
+		initialBundle := strings.TrimSpace(cfg.Progressive.InitialBundle)
+		if initialBundle == "" {
+			return nil, fmt.Errorf("router progressive.initial_bundle is required when progressive stage is enabled")
+		}
+		progressiveCfg := cfg.Progressive
+		progressiveCfg.InitialBundle = initialBundle
+		opts.Progressive = NewProgressiveGate(progressiveCfg, wf)
 	}
 
-	// Validate that a bundle_default fallback references a real workflow bundle.
+	// Validate that a bundle_default fallback references a real non-empty workflow
+	// bundle. This avoids silently producing an empty "fallback" plan.
 	if opts.Fallback == "" || opts.Fallback == FallbackBundleDefault {
-		if cfg.DefaultBundle != "" {
-			if wf == nil {
-				return nil, fmt.Errorf("router default_bundle %q set but no workflows defined", cfg.DefaultBundle)
-			}
-			if _, ok := wf.bundleTools(cfg.DefaultBundle); !ok {
-				return nil, fmt.Errorf("router default_bundle %q does not match any workflow", cfg.DefaultBundle)
-			}
+		defaultBundle := strings.TrimSpace(cfg.DefaultBundle)
+		if defaultBundle == "" {
+			return nil, fmt.Errorf("router default_bundle is required when fallback is %q", FallbackBundleDefault)
+		}
+		if wf == nil {
+			return nil, fmt.Errorf("router default_bundle %q set but no workflows defined", defaultBundle)
+		}
+		bundle, ok := wf.bundleTools(defaultBundle)
+		if !ok {
+			return nil, fmt.Errorf("router default_bundle %q does not match any workflow", defaultBundle)
+		}
+		if len(bundle) == 0 {
+			return nil, fmt.Errorf("router default_bundle %q references an empty workflow", defaultBundle)
 		}
 	}
 
-	logger.Infof("[dubbo-go-pixiu] mcp tool router enabled (policy=%v workflow=%v schema=%v progressive=%v enforce_on_call=%v fallback=%s)",
-		opts.Policy != nil, opts.Workflow != nil, opts.Schema != nil, opts.Progressive != nil, opts.EnforceOnCall, firstNonEmpty(opts.Fallback, FallbackBundleDefault))
+	// Validate that progressive.initial_bundle references a real workflow bundle.
+	// A misconfigured bundle would otherwise fail open (reveal all tools) at
+	// runtime, defeating the purpose of limiting the initial exposure surface.
+	if cfg.Stages.Progressive {
+		if wf == nil {
+			return nil, fmt.Errorf("router progressive.initial_bundle %q set but no workflows defined", cfg.Progressive.InitialBundle)
+		}
+		if _, ok := wf.bundleTools(cfg.Progressive.InitialBundle); !ok {
+			return nil, fmt.Errorf("router progressive.initial_bundle %q does not match any workflow", cfg.Progressive.InitialBundle)
+		}
+	}
+
+	logger.Infof("[dubbo-go-pixiu] mcp tool router enabled (policy=%v workflow=%v progressive=%v enforce_on_call=%v fallback=%s)",
+		opts.Policy != nil, opts.Workflow != nil, opts.Progressive != nil, opts.EnforceOnCall, firstNonEmpty(opts.Fallback, FallbackBundleDefault))
 
 	return NewCompositeSelector(opts), nil
 }
@@ -123,6 +159,22 @@ func firstNonEmpty(a, b string) string {
 		return a
 	}
 	return b
+}
+
+func validateFallback(fallback string) error {
+	switch fallback {
+	case "", FallbackBundleDefault, FallbackFailClosed:
+		return nil
+	default:
+		return fmt.Errorf("router fallback %q is not supported", fallback)
+	}
+}
+
+func validateSampleRate(rate float64) error {
+	if math.IsNaN(rate) || rate < 0 || rate > 1 {
+		return fmt.Errorf("router audit.sample_rate must be between 0 and 1")
+	}
+	return nil
 }
 
 // configHash produces a stable hash of the router config so plans recompute

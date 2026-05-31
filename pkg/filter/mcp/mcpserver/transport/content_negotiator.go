@@ -29,9 +29,8 @@ import (
 type ResponseFormat int
 
 const (
-	ResponseFormatJSON     ResponseFormat = iota // Traditional JSON response
-	ResponseFormatSSE                            // Server-Sent Events response
-	ResponseFormatAccepted                       // 202 Accepted (no immediate response)
+	ResponseFormatJSON ResponseFormat = iota // Traditional JSON response
+	ResponseFormatSSE                        // Server-Sent Events response
 )
 
 // ContentNegotiator handles HTTP content negotiation for MCP responses
@@ -98,7 +97,7 @@ func (cn *ContentNegotiator) GetPreferredContentType(format ResponseFormat) stri
 	switch format {
 	case ResponseFormatSSE:
 		return constant.HeaderValueTextEventStream
-	case ResponseFormatJSON, ResponseFormatAccepted:
+	case ResponseFormatJSON:
 		return constant.HeaderValueApplicationJson
 	default:
 		return constant.HeaderValueApplicationJson

@@ -19,6 +19,7 @@ package router
 
 import (
 	"fmt"
+	"strings"
 )
 
 import (
@@ -52,19 +53,26 @@ func NewWorkflowSelector(cfgs []model.WorkflowConfig) (*WorkflowSelector, error)
 		workflows: make([]compiledWorkflow, 0, len(cfgs)),
 		byName:    make(map[string]compiledWorkflow, len(cfgs)),
 	}
-	for _, c := range cfgs {
+	for i, c := range cfgs {
+		name := strings.TrimSpace(c.Name)
+		if name == "" {
+			return nil, fmt.Errorf("workflow at index %d: name is required", i)
+		}
+		if _, exists := ws.byName[name]; exists {
+			return nil, fmt.Errorf("workflow %q is defined more than once", name)
+		}
 		m, err := newMatcher(c.When)
 		if err != nil {
-			return nil, fmt.Errorf("workflow %q: %w", c.Name, err)
+			return nil, fmt.Errorf("workflow %q: %w", name, err)
 		}
 		cw := compiledWorkflow{
-			name:    c.Name,
+			name:    name,
 			when:    m,
 			tools:   toSet(c.Tools),
 			hasWhen: !m.alwaysMatches(),
 		}
 		ws.workflows = append(ws.workflows, cw)
-		ws.byName[c.Name] = cw
+		ws.byName[name] = cw
 	}
 	return ws, nil
 }
@@ -108,7 +116,7 @@ func (w *WorkflowSelector) matchWorkflow(sc SelectionContext) (compiledWorkflow,
 // bundleTools returns the tool-name set for a named workflow bundle, used by
 // fallback and progressive disclosure. The second return is false if unknown.
 func (w *WorkflowSelector) bundleTools(name string) (map[string]struct{}, bool) {
-	wf, ok := w.byName[name]
+	wf, ok := w.byName[strings.TrimSpace(name)]
 	if !ok {
 		return nil, false
 	}

@@ -33,6 +33,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -117,7 +118,7 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 	logger.Infof("[dubbo-go-pixiu] mcp server created session for client: %s", session.ID)
 
-	// Router hookpoint: best-effort pre-compute of the session's base plan.
+	// Router hookpoint: store initialize-time metadata for later decisions/logs.
 	// Errors are non-fatal; tools/list will compute the plan on demand.
 	if f.selector != nil {
 		ctx.SetSessionID(session.ID)
@@ -442,8 +443,10 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 		return f.errorHandler.SendInvalidParams(ctx, req.ID, "invalid tool call parameters")
 	}
 
-	// Find tool configuration
-	toolConfig, exists := f.registry.GetTool(params.Name)
+	// Read a single live tool snapshot and use it for both lookup and router
+	// authorization so tools/call cannot authorize against stale metadata.
+	toolCfgs := f.registry.ListTools()
+	toolConfig, exists := findToolByName(toolCfgs, params.Name)
 	if !exists {
 		logger.Warnf("[dubbo-go-pixiu] mcp server tool not found: %s", params.Name)
 		return f.errorHandler.SendToolCallError(ctx, req.ID, fmt.Sprintf("tool not found: %s", params.Name))
@@ -454,8 +457,11 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 	// out-of-band cannot be invoked unless it is part of the session plan.
 	if f.selector != nil {
 		sc := f.buildSelectionContext(ctx, string(mcp.MethodToolsCall), params.Name)
-		if err := f.selector.AuthorizeCall(ctx.Ctx, sc); err != nil {
+		if err := f.selector.AuthorizeCall(ctx.Ctx, sc, toolCfgs); err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router denied tool call '%s': %v", params.Name, err)
+			// The client-facing message is intentionally generic and decoupled from
+			// the internal error: it does not reveal whether the tool exists, only
+			// that it is not callable in this session.
 			return f.errorHandler.SendToolCallError(ctx, req.ID, "tool not authorized for this session")
 		}
 	}
@@ -476,6 +482,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 		params.Name, toolConfig.Request.Method, ctx.Request.URL.Path, toolConfig.Cluster)
 
 	// Store MCP data for Encode stage processing
+	ctx.SetMCPToolName(params.Name)
 	ctx.StoreMCPDataInParams()
 
 	ctx.Route = &model.RouteAction{
@@ -484,6 +491,15 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 
 	// Continue to next filter for backend forwarding
 	return filter.Continue
+}
+
+func findToolByName(toolCfgs []model.ToolConfig, name string) (model.ToolConfig, bool) {
+	for _, toolCfg := range toolCfgs {
+		if toolCfg.Name == name {
+			return toolCfg, true
+		}
+	}
+	return model.ToolConfig{}, false
 }
 
 // buildBackendRequest builds the complete backend request including path, body, and headers
@@ -614,7 +630,23 @@ func (f *MCPServerFilter) processToolCallResponse(ctx *MCPContext, requestID any
 	// Build successful response using ToolCallSuccess method
 	content := strings.TrimSpace(string(responseBody))
 	mcpResponse := f.responseBuilder.ToolCallSuccess(requestID, content)
+	f.recordToolCallSuccess(ctx)
 	return f.sendMCPResponse(ctx, mcpResponse)
+}
+
+func (f *MCPServerFilter) recordToolCallSuccess(ctx *MCPContext) {
+	recorder, ok := f.selector.(router.CallSuccessRecorder)
+	if !ok {
+		return
+	}
+	toolName := ctx.McpToolName()
+	if toolName == "" {
+		return
+	}
+	sc := f.buildSelectionContext(ctx, string(mcp.MethodToolsCall), toolName)
+	if err := recorder.RecordCallSuccess(ctx.Ctx, sc); err != nil {
+		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to record successful tool call '%s': %v", toolName, err)
+	}
 }
 
 // sendMCPResponse sends an MCP response and updates the target response

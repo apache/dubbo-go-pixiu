@@ -81,6 +81,52 @@ func TestWorkflowSelector_BundleWithoutWhenNotAutoMatched(t *testing.T) {
 	assert.True(t, hasPing)
 }
 
+func TestWorkflowSelector_EmptyNameFails(t *testing.T) {
+	_, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: " ", Tools: []string{"ping"}},
+	})
+
+	assert.ErrorContains(t, err, "name is required")
+}
+
+func TestWorkflowSelector_DuplicateNameFails(t *testing.T) {
+	_, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: "support", Tools: []string{"search"}},
+		{Name: "support", Tools: []string{"ticket"}},
+	})
+
+	assert.ErrorContains(t, err, "defined more than once")
+}
+
+func TestWorkflowSelector_DuplicateNameFailsAfterTrim(t *testing.T) {
+	_, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: "support", Tools: []string{"search"}},
+		{Name: " support ", Tools: []string{"ticket"}},
+	})
+
+	assert.ErrorContains(t, err, "defined more than once")
+}
+
+func TestWorkflowSelector_InvalidMatchFailsFast(t *testing.T) {
+	_, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: "support", Tools: []string{"search"}, When: model.PolicyMatch{In: []string{"support"}}},
+	})
+
+	assert.ErrorContains(t, err, "claim is required")
+}
+
+func TestWorkflowSelector_BundleLookupTrimsName(t *testing.T) {
+	ws, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: " support ", Tools: []string{"search"}},
+	})
+	require.NoError(t, err)
+
+	bundle, ok := ws.bundleTools("support")
+	require.True(t, ok)
+	_, hasSearch := bundle["search"]
+	assert.True(t, hasSearch)
+}
+
 func TestWorkflowSelector_FirstMatchWins(t *testing.T) {
 	ws, err := NewWorkflowSelector([]model.WorkflowConfig{
 		{Name: "first", Tools: []string{"a"}, When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}},

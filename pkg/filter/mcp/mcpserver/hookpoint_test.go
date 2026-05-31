@@ -18,6 +18,7 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http/httptest"
@@ -25,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,10 +40,12 @@ import (
 
 // stubSelector is a controllable ToolSelector for hookpoint tests.
 type stubSelector struct {
-	keep         []string // tool names to keep in Select; nil = keep all
-	authorizeErr error    // returned by AuthorizeCall
-	onInitCalled bool
-	selectCalled bool
+	keep                []string // tool names to keep in Select; nil = keep all
+	authorizeErr        error    // returned by AuthorizeCall
+	onInitCalled        bool
+	selectCalled        bool
+	authorizeCandidates []model.ToolConfig
+	recordSuccessCalls  []router.SelectionContext
 }
 
 func (s *stubSelector) Select(_ context.Context, sc router.SelectionContext, candidates []model.ToolConfig) (*router.SelectionPlan, error) {
@@ -53,15 +57,21 @@ func (s *stubSelector) Select(_ context.Context, sc router.SelectionContext, can
 			names[i] = c.Name
 		}
 	}
-	return &router.SelectionPlan{SessionID: sc.SessionID, ToolNames: names, Mode: router.ModePolicy}, nil
+	return &router.SelectionPlan{SessionID: sc.SessionID, ToolNames: names, Mode: router.ModeHybrid}, nil
 }
 
-func (s *stubSelector) AuthorizeCall(_ context.Context, _ router.SelectionContext) error {
+func (s *stubSelector) AuthorizeCall(_ context.Context, _ router.SelectionContext, candidates []model.ToolConfig) error {
+	s.authorizeCandidates = candidates
 	return s.authorizeErr
 }
 
 func (s *stubSelector) OnInitialize(_ context.Context, _ router.SelectionContext, _ []model.ToolConfig) error {
 	s.onInitCalled = true
+	return nil
+}
+
+func (s *stubSelector) RecordCallSuccess(_ context.Context, sc router.SelectionContext) error {
+	s.recordSuccessCalls = append(s.recordSuccessCalls, sc)
 	return nil
 }
 
@@ -95,20 +105,17 @@ func TestFilterByPlan_UnknownNamesIgnored(t *testing.T) {
 	assert.Equal(t, "a", out[0].Name)
 }
 
-func TestSanitizeHeaders_StripsSensitive(t *testing.T) {
-	req := httptest.NewRequest("POST", "/mcp", nil)
-	req.Header.Set("Authorization", "Bearer secret")
-	req.Header.Set("Cookie", "sid=abc")
-	req.Header.Set("X-Tenant", "acme")
+func TestFilterByPlan_UsesVisibleToolNames(t *testing.T) {
+	tools := []model.ToolConfig{{Name: "visible"}, {Name: "hidden"}}
+	plan := &router.SelectionPlan{
+		ToolNames:        []string{"visible", "hidden"},
+		VisibleToolNames: []string{"visible"},
+	}
 
-	ctx := NewMCPContext(createTestContext(req, httptest.NewRecorder()))
-	headers := sanitizeHeaders(ctx)
+	out := filterByPlan(tools, plan)
 
-	assert.Equal(t, "acme", headers["X-Tenant"])
-	_, hasAuth := headers["Authorization"]
-	assert.False(t, hasAuth)
-	_, hasCookie := headers["Cookie"]
-	assert.False(t, hasCookie)
+	require.Len(t, out, 1)
+	assert.Equal(t, "visible", out[0].Name)
 }
 
 func TestBuildSelectionContext_PopulatesFields(t *testing.T) {
@@ -144,6 +151,66 @@ func TestToolsList_NilSelectorReturnsAll(t *testing.T) {
 	result, ok := resp.Result.(*mcp.ListToolsResult)
 	require.True(t, ok)
 	assert.Len(t, result.Tools, 2)
+}
+
+func TestFilterFactory_RouterDisabledDoesNotInitPlanStore(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools: []model.ToolConfig{
+			createTestToolConfig("alpha", "A"),
+		},
+	}
+	factory := &FilterFactory{cfg: cfg}
+
+	require.NoError(t, factory.Apply())
+	assert.Nil(t, factory.selector)
+	assert.Nil(t, globalPlanStore)
+
+	cfg.Router = &model.RouterConfig{Enabled: false}
+	require.NoError(t, factory.Apply())
+	assert.Nil(t, factory.selector)
+	assert.Nil(t, globalPlanStore)
+}
+
+func TestFilterFactory_RouterEnabledInitializesPlanStore(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools: []model.ToolConfig{
+			createTestToolConfig("alpha", "A"),
+		},
+		Router: &model.RouterConfig{Enabled: true, Fallback: router.FallbackFailClosed},
+	}
+	factory := &FilterFactory{cfg: cfg}
+
+	require.NoError(t, factory.Apply())
+	assert.NotNil(t, factory.selector)
+	assert.NotNil(t, globalPlanStore)
+}
+
+func TestFilterFactory_InvalidToolRiskFailsFast(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	tool := createTestToolConfig("alpha", "A")
+	tool.Meta = &model.ToolMeta{Risk: "hihg"}
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools:      []model.ToolConfig{tool},
+	}
+	factory := &FilterFactory{cfg: cfg}
+
+	err := factory.Apply()
+	assert.ErrorContains(t, err, "invalid mcp tool router metadata")
+	assert.ErrorContains(t, err, "unsupported risk")
 }
 
 // TestToolsList_SelectorTrimsTools confirms the Select hookpoint trims the set.
@@ -193,11 +260,36 @@ func TestToolCall_SelectorDeniesUnauthorized(t *testing.T) {
 	assert.Nil(t, ctx.Route)
 }
 
+func TestPostToolCall_WithSSEAcceptStillAuthorizes(t *testing.T) {
+	f := createTestFilter(t)
+	sel := &stubSelector{authorizeErr: errors.New("denied")}
+	f.selector = sel
+	f.registry.ReplaceAllTools([]model.ToolConfig{
+		createTestToolConfig("get_user", "get user"),
+	})
+	session, _ := f.sessionManager.EnsureSession("")
+
+	reqBody := []byte(`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"get_user","arguments":{}}}`)
+	httpReq := httptest.NewRequest("POST", "/mcp", bytes.NewReader(reqBody))
+	httpReq.Header.Set(constant.HeaderKeyMCPSessionId, session.ID)
+	httpReq.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+	ctx.ParseAndSetSessionHeader()
+
+	status := f.handlePostRequest(ctx)
+
+	assert.Equal(t, filter.Stop, status)
+	assert.Nil(t, ctx.Route)
+	require.Len(t, sel.authorizeCandidates, 1)
+	assert.Equal(t, "get_user", sel.authorizeCandidates[0].Name)
+}
+
 // TestToolCall_SelectorAllowsAuthorized confirms an allowed call proceeds to
 // backend forwarding (filter.Continue with a route set).
 func TestToolCall_SelectorAllowsAuthorized(t *testing.T) {
 	f := createTestFilter(t)
-	f.selector = &stubSelector{} // authorizeErr nil = allow
+	sel := &stubSelector{} // authorizeErr nil = allow
+	f.selector = sel
 	f.registry.ReplaceAllTools([]model.ToolConfig{
 		createTestToolConfig("get_user", "get user"),
 	})
@@ -214,4 +306,47 @@ func TestToolCall_SelectorAllowsAuthorized(t *testing.T) {
 
 	require.NotNil(t, ctx.Route)
 	assert.Equal(t, "test-cluster", ctx.Route.Cluster)
+	require.Len(t, sel.authorizeCandidates, 1)
+	assert.Equal(t, "get_user", sel.authorizeCandidates[0].Name)
+}
+
+func TestProcessToolCallResponse_BackendErrorDoesNotRecordSuccess(t *testing.T) {
+	f := createTestFilter(t)
+	sel := &stubSelector{}
+	f.selector = sel
+
+	reqID := mcp.NewRequestId(int64(9))
+	httpReq := httptest.NewRequest("POST", "/mcp", nil)
+	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+	ctx.SetMCPMethod(string(mcp.MethodToolsCall))
+	ctx.SetMCPRequestID(reqID)
+	ctx.SetMCPToolName("get_user")
+	ctx.SetSessionID("s1")
+
+	status := f.processToolCallResponse(ctx, reqID, []byte("backend failed"), 500)
+
+	assert.Equal(t, filter.Stop, status)
+	assert.Empty(t, sel.recordSuccessCalls)
+}
+
+func TestProcessToolCallResponse_SuccessRecordsToolCall(t *testing.T) {
+	f := createTestFilter(t)
+	sel := &stubSelector{}
+	f.selector = sel
+
+	reqID := mcp.NewRequestId(int64(10))
+	httpReq := httptest.NewRequest("POST", "/mcp", nil)
+	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+	ctx.SetMCPMethod(string(mcp.MethodToolsCall))
+	ctx.SetMCPRequestID(reqID)
+	ctx.SetMCPToolName("get_user")
+	ctx.SetSessionID("s1")
+
+	status := f.processToolCallResponse(ctx, reqID, []byte("ok"), 200)
+
+	assert.Equal(t, filter.Continue, status)
+	require.Len(t, sel.recordSuccessCalls, 1)
+	assert.Equal(t, "s1", sel.recordSuccessCalls[0].SessionID)
+	assert.Equal(t, string(mcp.MethodToolsCall), sel.recordSuccessCalls[0].Method)
+	assert.Equal(t, "get_user", sel.recordSuccessCalls[0].Requested)
 }

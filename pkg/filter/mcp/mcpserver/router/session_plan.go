@@ -23,10 +23,12 @@ import (
 )
 
 // sessionEntry bundles a session's current plan with its progressive-disclosure
-// bookkeeping (successful call count and last-touch time for cleanup).
+// bookkeeping (successful call count and last-touch time for cleanup), plus the
+// agent identifier for audit logs.
 type sessionEntry struct {
 	plan      *SelectionPlan
 	callCount int
+	agentID   string
 	updatedAt time.Time
 }
 
@@ -67,7 +69,9 @@ func NewSessionPlanStoreWithTTL(ttl time.Duration) *SessionPlanStore {
 	return s
 }
 
-// Get returns the plan for a session, or (nil, false) if absent.
+// Get returns the plan for a session, or (nil, false) if absent. An entry that
+// exists only for agentID/callCount bookkeeping (no plan yet) is treated as
+// absent so callers can rely on a non-nil plan when ok is true.
 func (s *SessionPlanStore) Get(sessionID string) (*SelectionPlan, bool) {
 	if sessionID == "" {
 		return nil, false
@@ -75,7 +79,7 @@ func (s *SessionPlanStore) Get(sessionID string) (*SelectionPlan, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	e, ok := s.entries[sessionID]
-	if !ok {
+	if !ok || e.plan == nil {
 		return nil, false
 	}
 	return e.plan, true
@@ -132,11 +136,45 @@ func (s *SessionPlanStore) CallCount(sessionID string) int {
 	return 0
 }
 
-// Len returns the number of tracked sessions (for metrics/tests).
+// Len returns the number of sessions with an active plan (for metrics/tests).
+// Bookkeeping-only entries created by initialize are intentionally excluded.
 func (s *SessionPlanStore) Len() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return len(s.entries)
+	n := 0
+	for _, e := range s.entries {
+		if e.plan != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// SetAgentID stores the agent identifier for a session. It is called during
+// initialize to preserve the clientInfo.name for later decision logs.
+func (s *SessionPlanStore) SetAgentID(sessionID, agentID string) {
+	if sessionID == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.entries[sessionID]
+	if !ok {
+		e = &sessionEntry{}
+		s.entries[sessionID] = e
+	}
+	e.agentID = agentID
+	e.updatedAt = time.Now()
+}
+
+// AgentID returns the stored agent identifier for a session, or "" if unknown.
+func (s *SessionPlanStore) AgentID(sessionID string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if e, ok := s.entries[sessionID]; ok {
+		return e.agentID
+	}
+	return ""
 }
 
 // Stop terminates the cleanup goroutine. Safe to call multiple times.

@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -74,6 +75,9 @@ func NewDynamicConsumer(reg *ToolRegistry, sm *transport.SessionManager, sseHand
 func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *model.McpServerConfig) error {
 	if cfg == nil {
 		return d.removeServerConfig(serverId)
+	}
+	if err := router.ValidateTools(cfg.Tools); err != nil {
+		return fmt.Errorf("invalid mcp tool router metadata: %w", err)
 	}
 
 	d.mu.Lock()
@@ -137,21 +141,41 @@ func (d *DynamicConsumer) calculateFingerprint(tools []model.ToolConfig) string 
 		return EmptyFingerprint
 	}
 
-	// Create a sorted list of tools for consistent hashing
-	sortedTools := make([]model.ToolConfig, len(tools))
-	copy(sortedTools, tools)
-	sort.Slice(sortedTools, func(i, j int) bool {
-		if sortedTools[i].Name != sortedTools[j].Name {
-			return sortedTools[i].Name < sortedTools[j].Name
+	type fingerprintTool struct {
+		name    string
+		cluster string
+		data    string
+	}
+
+	items := make([]fingerprintTool, len(tools))
+	for i, tool := range tools {
+		data, err := json.Marshal(tool)
+		if err != nil {
+			data = []byte(fmt.Sprintf("%#v", tool))
 		}
-		return sortedTools[i].Cluster < sortedTools[j].Cluster
+		items[i] = fingerprintTool{
+			name:    tool.Name,
+			cluster: tool.Cluster,
+			data:    string(data),
+		}
+	}
+
+	// Sort by stable identity fields and then the full serialized tool body so
+	// duplicate names/clusters still produce order-independent fingerprints.
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].name != items[j].name {
+			return items[i].name < items[j].name
+		}
+		if items[i].cluster != items[j].cluster {
+			return items[i].cluster < items[j].cluster
+		}
+		return items[i].data < items[j].data
 	})
 
-	// Build hash input string
 	hash := sha256.New()
-	for _, tool := range sortedTools {
-		_, _ = fmt.Fprintf(hash, "name:%s;cluster:%s;args:%d;", tool.Name, tool.Cluster, len(tool.Args))
-
+	for _, item := range items {
+		_, _ = hash.Write([]byte(item.data))
+		_, _ = hash.Write([]byte{0})
 	}
 
 	// Return first 8 characters of hex encoded hash
@@ -224,9 +248,14 @@ func (d *DynamicConsumer) removeServerConfig(serverId string) error {
 func (d *DynamicConsumer) calculateCurrentMergedTools() []model.ToolConfig {
 	var allTools []model.ToolConfig
 
-	// Simply accumulate tools from all servers
-	for _, config := range d.serverConfigs {
-		allTools = append(allTools, config.Tools...)
+	serverIDs := make([]string, 0, len(d.serverConfigs))
+	for serverID := range d.serverConfigs {
+		serverIDs = append(serverIDs, serverID)
+	}
+	sort.Strings(serverIDs)
+
+	for _, serverID := range serverIDs {
+		allTools = append(allTools, d.serverConfigs[serverID].Tools...)
 	}
 
 	return allTools
