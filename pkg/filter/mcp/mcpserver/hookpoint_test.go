@@ -77,6 +77,29 @@ func (s *stubSelector) RecordCallSuccess(_ context.Context, sc router.SelectionC
 
 func (s *stubSelector) Name() string { return "stub" }
 
+func buildToolsListResult(t *testing.T, f *MCPServerFilter, tools []model.ToolConfig) *mcp.ListToolsResult {
+	t.Helper()
+	f.registry.ReplaceAllTools(tools)
+
+	req := mcp.JSONRPCRequest{}
+	req.ID = mcp.NewRequestId(int64(1))
+
+	httpReq := httptest.NewRequest("POST", "/mcp", nil)
+	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+
+	resp := f.buildToolsListResponseObject(ctx, req)
+	result, ok := resp.Result.(*mcp.ListToolsResult)
+	require.True(t, ok)
+	return result
+}
+
+func alphaBetaTools() []model.ToolConfig {
+	return []model.ToolConfig{
+		createTestToolConfig("alpha", "A"),
+		createTestToolConfig("beta", "B"),
+	}
+}
+
 func TestFilterByPlan_KeepsPlanOrder(t *testing.T) {
 	tools := []model.ToolConfig{
 		{Name: "a"}, {Name: "b"}, {Name: "c"},
@@ -135,21 +158,7 @@ func TestBuildSelectionContext_PopulatesFields(t *testing.T) {
 // tools/list response contains every registered tool (passthrough behavior).
 func TestToolsList_NilSelectorReturnsAll(t *testing.T) {
 	f := createTestFilter(t)
-	f.registry.ReplaceAllTools([]model.ToolConfig{
-		createTestToolConfig("alpha", "A"),
-		createTestToolConfig("beta", "B"),
-	})
-
-	req := mcp.JSONRPCRequest{}
-	req.ID = mcp.NewRequestId(int64(1))
-
-	httpReq := httptest.NewRequest("POST", "/mcp", nil)
-	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
-
-	resp := f.buildToolsListResponseObject(ctx, req)
-
-	result, ok := resp.Result.(*mcp.ListToolsResult)
-	require.True(t, ok)
+	result := buildToolsListResult(t, f, alphaBetaTools())
 	assert.Len(t, result.Tools, 2)
 }
 
@@ -217,21 +226,7 @@ func TestFilterFactory_InvalidToolRiskFailsFast(t *testing.T) {
 func TestToolsList_SelectorTrimsTools(t *testing.T) {
 	f := createTestFilter(t)
 	f.selector = &stubSelector{keep: []string{"alpha"}}
-	f.registry.ReplaceAllTools([]model.ToolConfig{
-		createTestToolConfig("alpha", "A"),
-		createTestToolConfig("beta", "B"),
-	})
-
-	req := mcp.JSONRPCRequest{}
-	req.ID = mcp.NewRequestId(int64(1))
-
-	httpReq := httptest.NewRequest("POST", "/mcp", nil)
-	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
-
-	resp := f.buildToolsListResponseObject(ctx, req)
-
-	result, ok := resp.Result.(*mcp.ListToolsResult)
-	require.True(t, ok)
+	result := buildToolsListResult(t, f, alphaBetaTools())
 	require.Len(t, result.Tools, 1)
 	assert.Equal(t, "alpha", result.Tools[0].Name)
 }
