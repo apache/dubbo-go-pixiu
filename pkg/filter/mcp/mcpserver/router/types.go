@@ -54,13 +54,13 @@ const (
 // MCP context and request body. Fields are best-effort; an empty field simply
 // means the corresponding signal was unavailable.
 type SelectionContext struct {
-	SessionID  string         // Mcp-Session-Id
-	Method     string         // "initialize" | "tools/list" | "tools/call"
-	AgentID    string         // from initialize.clientInfo.name or header
-	UserID     string         // from claims.sub
-	Tenant     string         // from claims.tenant
-	Claims     map[string]any // JWT claims already validated by the auth/mcp filter
-	Requested  string         // target tool name on tools/call
+	SessionID string         // Mcp-Session-Id
+	Method    string         // "initialize" | "tools/list" | "tools/call"
+	AgentID   string         // from initialize.clientInfo.name or header
+	UserID    string         // from claims.sub
+	Tenant    string         // from claims.tenant
+	Claims    map[string]any // JWT claims already validated by the auth/mcp filter
+	Requested string         // target tool name on tools/call
 }
 
 // SelectionPlan is the final result of one selection, bound to a session.
