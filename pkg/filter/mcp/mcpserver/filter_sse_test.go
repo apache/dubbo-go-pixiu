@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -378,5 +379,49 @@ func createTestContext(req *http.Request, recorder *httptest.ResponseRecorder) *
 		Writer:  recorder,
 		Ctx:     context.Background(),
 		Params:  make(map[string]any),
+	}
+}
+
+// TestSendMCPResponse_ClearsContentLength verifies that sendMCPResponse
+// clears the stale Content-Length header (which was copied from the backend
+// response by buildTargetResponse) before returning filter.Continue on the
+// JSON path. Without this, the larger MCP-wrapped body would exceed the
+// declared Content-Length and Go's net/http would abort the connection.
+func TestSendMCPResponse_ClearsContentLength(t *testing.T) {
+	mcpFilter := createTestFilter(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	rec := httptest.NewRecorder()
+	ctx := createTestContext(req, rec)
+	mcpCtx := NewMCPContext(ctx)
+
+	// Simulate what buildTargetResponse does: set a stale Content-Length
+	// from a hypothetical backend response (e.g. backend returned 47 bytes).
+	rec.Header().Set("Content-Length", "47")
+
+	// Build a response whose wrapped JSON body will be larger than 47 bytes.
+	resp := mcpFilter.responseBuilder.ToolCallSuccess(
+		"test-id",
+		`{"name":"test","age":30}`,
+	)
+
+	status := mcpFilter.sendMCPResponse(mcpCtx, resp)
+
+	// Must return Continue for the JSON path (no active SSE session).
+	if status != filter.Continue {
+		t.Fatalf("expected filter.Continue, got %v", status)
+	}
+
+	// The stale Content-Length header must be cleared.
+	if cl := rec.Header().Get("Content-Length"); cl != "" {
+		t.Errorf("Content-Length should have been cleared, but got %q", cl)
+	}
+
+	// Sanity: the wrapped body must be larger than the old Content-Length,
+	// otherwise the test scenario is not meaningful.
+	if unary, ok := ctx.TargetResp.(*client.UnaryResponse); ok {
+		if len(unary.Data) <= 47 {
+			t.Errorf("wrapped body too short for test (%d bytes)", len(unary.Data))
+		}
 	}
 }

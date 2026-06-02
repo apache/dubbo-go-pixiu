@@ -18,6 +18,7 @@
 package maglev
 
 import (
+	"crypto/sha3"
 	"encoding/binary"
 	"math"
 	"math/big"
@@ -30,7 +31,6 @@ import (
 	"github.com/pkg/errors"
 
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/sha3"
 )
 
 // Default table size support maximum 10,000 endpoints
