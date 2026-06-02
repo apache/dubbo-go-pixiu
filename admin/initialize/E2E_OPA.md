@@ -1,6 +1,6 @@
 # Admin OPA → Gateway OPA Full-Link E2E
 
-**English** | [中文](README_CN.md)
+**English** | [中文](E2E_OPA_CN.md)
 
 ## What the suite verifies
 
@@ -33,13 +33,13 @@ more HTTP requests through the gateway filter and asserts the decision.
 
 ```bash
 # Default — all PR2 cases, no -v
-./test/e2e/opa/run.sh
+./admin/initialize/run.sh
 
 # Verbose
-VERBOSE=1 ./test/e2e/opa/run.sh
+VERBOSE=1 ./admin/initialize/run.sh
 
 # Subset by name
-./test/e2e/opa/run.sh -run AllowedThroughFullChain
+./admin/initialize/run.sh -run AllowedThroughFullChain
 
 # Or directly:
 go test -count=1 -run TestE2E_ -v ./admin/initialize/

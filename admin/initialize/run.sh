@@ -25,9 +25,9 @@
 # the gateway OPA filter against the same mock to verify allow/deny decisions.
 #
 # Usage:
-#     ./test/e2e/opa/run.sh            # run all PR2 E2E cases
-#     ./test/e2e/opa/run.sh -run Allow # filter cases by name
-#     VERBOSE=1 ./test/e2e/opa/run.sh  # add -v
+#     ./admin/initialize/run.sh            # run all PR2 E2E cases
+#     ./admin/initialize/run.sh -run Allow # filter cases by name
+#     VERBOSE=1 ./admin/initialize/run.sh  # add -v
 #
 # Requirements:
 #     - Go toolchain (matches go.mod's version directive)
@@ -35,7 +35,7 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/../.."
 
 ARGS=("-count=1" "-run" "TestE2E_")
 if [[ "${VERBOSE:-0}" == "1" ]]; then

@@ -1,6 +1,6 @@
 # PR2：Admin OPA → Gateway OPA 全链路 E2E 测试
 
-[English](README.md) | **中文**
+[English](E2E_OPA.md) | **中文**
 
 ## 测试套件验证的内容
 
@@ -32,13 +32,13 @@
 
 ```bash
 # 默认 —— 运行全部 PR2 用例，非 verbose
-./test/e2e/opa/run.sh
+./admin/initialize/run.sh
 
 # 详细输出
-VERBOSE=1 ./test/e2e/opa/run.sh
+VERBOSE=1 ./admin/initialize/run.sh
 
 # 按名称筛选用例
-./test/e2e/opa/run.sh -run AllowedThroughFullChain
+./admin/initialize/run.sh -run AllowedThroughFullChain
 
 # 或直接运行：
 go test -count=1 -run TestE2E_ -v ./admin/initialize/
