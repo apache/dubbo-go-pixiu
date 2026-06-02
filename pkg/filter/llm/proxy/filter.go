@@ -19,12 +19,14 @@ package proxy
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -40,9 +42,20 @@ import (
 )
 
 const (
-	Kind                = constant.LLMProxyFilter
-	APIKeyPrefix        = "Bearer"
-	LLMUnhealthyKey     = "LLMUnhealthy"
+	Kind         = constant.LLMProxyFilter
+	APIKeyPrefix = "Bearer"
+	// maxCooldownStoreEntries bounds process-wide cooldown state under registry churn.
+	maxCooldownStoreEntries             = 1024
+	cooldownStoreSweepLoadFactorPercent = 90
+	cooldownStoreSweepAfter             = time.Second
+	cooldownStoreSweepAt                = maxCooldownStoreEntries * cooldownStoreSweepLoadFactorPercent / 100
+	// LLMUnhealthyKey is kept for downstream compatibility.
+	//
+	// Deprecated: runtime LLM health is now tracked outside endpoint metadata.
+	LLMUnhealthyKey = "LLMUnhealthy"
+	// HealthyCheckTimeKey is kept for downstream compatibility.
+	//
+	// Deprecated: runtime LLM health is now tracked outside endpoint metadata.
 	HealthyCheckTimeKey = "HealthyCheckTime"
 	// Context key to pass attempt data from proxy to downstream filters
 	LLMUpstreamAttemptsKey    = "llm_upstream_attempts"
@@ -69,8 +82,9 @@ type (
 
 	// FilterFactory creates filter instances.
 	FilterFactory struct {
-		cfg    *Config
-		client http.Client
+		cfg       *Config
+		client    http.Client
+		cooldowns *cooldownStore
 	}
 
 	// Filter is the processing entity for each request.
@@ -79,6 +93,7 @@ type (
 		scheme         string
 		strategy       *Strategy
 		clusterManager *server.ClusterManager
+		cooldowns      *cooldownStore
 	}
 
 	// Config describes the top-level configuration for the filter.
@@ -96,8 +111,31 @@ type (
 		filter         *Filter
 		clusterName    string
 		clusterManager *server.ClusterManager
+		cooldowns      *cooldownStore
+	}
+
+	cooldownKey struct {
+		clusterName     string
+		endpointID      string
+		endpointAddress string
+		credentialHash  string
+	}
+
+	cooldownStore struct {
+		mu                    sync.Mutex
+		lastFailureByEndpoint map[cooldownKey]cooldownEntry
+		lastSweep             time.Time
+	}
+
+	cooldownEntry struct {
+		lastFailure time.Time
+		ttl         time.Duration
 	}
 )
+
+// sharedCooldownStore keeps endpoint cooldowns process-wide so filter reloads
+// and multiple LLM proxy factories do not reset runtime failure state.
+var sharedCooldownStore = newCooldownStore()
 
 func getPreferredEndpointID(hc *contexthttp.HttpContext) string {
 	if hc == nil || hc.Params == nil {
@@ -156,6 +194,7 @@ func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, cha
 		scheme:         factory.cfg.Scheme,
 		strategy:       &Strategy{},
 		clusterManager: server.GetClusterManager(),
+		cooldowns:      factory.cooldownStore(),
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
@@ -185,6 +224,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		filter:         f,
 		clusterName:    rEntry.Cluster,
 		clusterManager: f.clusterManager,
+		cooldowns:      f.cooldowns,
 	}
 
 	// Delegate the complex execution logic to the strategy
@@ -282,37 +322,24 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 	// 1. Pick initial endpoint from the cluster based on load balancing.
 	endpoint := executor.clusterManager.PickEndpoint(executor.clusterName, executor.hc)
 	if preferred := getPreferredEndpointID(executor.hc); preferred != "" {
-		if target := executor.clusterManager.GetEndpointByID(executor.clusterName, preferred); target != nil {
+		if target := executor.clusterManager.GetHealthyEndpointByID(executor.clusterName, preferred); target != nil {
 			endpoint = target
 		}
 	}
 
 	// 2. The main fallback loop. It continues as long as we have a valid endpoint to try.
 	for endpoint != nil {
-		if endpoint.Metadata == nil {
-			endpoint.Metadata = make(map[string]string)
-		}
 		if executor.hc.Params == nil {
 			executor.hc.Params = make(map[string]any)
 		}
 
 		logger.Debugf("[dubbo-go-pixiu] client attempting endpoint [%s: %v]", endpoint.ID, endpoint.Address.GetAddress())
 
-		// 3. Check the health of current endpoint,
-		if unhealthy, ok := endpoint.Metadata[LLMUnhealthyKey]; ok && unhealthy == "true" {
-			// check the health cooldown time
-			if t, ok := endpoint.Metadata[HealthyCheckTimeKey]; ok {
-				lt, err := time.Parse(time.RFC3339, t)
-				if err == nil && time.Since(lt) < time.Millisecond*time.Duration(endpoint.LLMMeta.HealthCheckInterval) {
-					logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] is still in unhealthy cooldown period. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress())
-					endpoint = getNextFallbackEndpoint(endpoint, executor)
-					continue
-				}
-				// The Cooldown period has passed, ready for a new attempt
-				delete(endpoint.Metadata, LLMUnhealthyKey)
-				delete(endpoint.Metadata, HealthyCheckTimeKey)
-				logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] cooldown period passed. Retrying this endpoint.", endpoint.ID, endpoint.Address.GetAddress())
-			}
+		// 3. Check the runtime health cooldown of current endpoint.
+		if executor.endpointInCooldown(endpoint) {
+			logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] is still in unhealthy cooldown period. Skipping to next endpoint.", endpoint.ID, endpoint.Address.GetAddress())
+			endpoint = getNextFallbackEndpoint(endpoint, executor)
+			continue
 		}
 
 		// 4. Dynamically load the retry policy for the current endpoint
@@ -373,8 +400,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 
 		// 6. If we are here, all retries for the current endpoint are exhausted.
 		// Get the next endpoint for fallback. The loop will terminate if it's nil.
-		endpoint.Metadata[LLMUnhealthyKey] = "true"
-		endpoint.Metadata[HealthyCheckTimeKey] = time.Now().Format(time.RFC3339)
+		executor.markEndpointCooldown(endpoint)
 		endpoint = getNextFallbackEndpoint(endpoint, executor)
 	}
 
@@ -388,6 +414,196 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 		problems = append(problems, errors.New("all retries and fallbacks failed without a definitive error or response"))
 	}
 	return resp, errors.Join(problems...)
+}
+
+func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bool {
+	store := executor.cooldownStore()
+	if store == nil || endpoint == nil {
+		return false
+	}
+
+	lastFailure, ttl, ok := store.lastFailureWithCurrentTTL(executor.clusterName, endpoint)
+	if !ok {
+		return false
+	}
+
+	if time.Since(lastFailure) < ttl {
+		return true
+	}
+
+	if store.deleteLastFailureIfMatches(executor.clusterName, endpoint, lastFailure) {
+		logger.Debugf("[dubbo-go-pixiu] endpoint [%s: %v] cooldown period passed. Retrying this endpoint.", endpoint.ID, endpoint.Address.GetAddress())
+	}
+	return false
+}
+
+func (executor *RequestExecutor) markEndpointCooldown(endpoint *model.Endpoint) {
+	store := executor.cooldownStore()
+	if store == nil || endpoint == nil {
+		return
+	}
+	store.markFailure(executor.clusterName, endpoint, time.Now())
+}
+
+func (executor *RequestExecutor) cooldownStore() *cooldownStore {
+	if executor == nil {
+		return nil
+	}
+	if executor.cooldowns != nil {
+		return executor.cooldowns
+	}
+	if executor.filter != nil && executor.filter.cooldowns != nil {
+		return executor.filter.cooldowns
+	}
+	return sharedCooldownStore
+}
+
+func (factory *FilterFactory) cooldownStore() *cooldownStore {
+	if factory == nil || factory.cooldowns == nil {
+		return sharedCooldownStore
+	}
+	return factory.cooldowns
+}
+
+func newCooldownStore() *cooldownStore {
+	return &cooldownStore{
+		lastFailureByEndpoint: map[cooldownKey]cooldownEntry{},
+	}
+}
+
+func (s *cooldownStore) lastFailureWithCurrentTTL(clusterName string, endpoint *model.Endpoint) (time.Time, time.Duration, bool) {
+	if s == nil || endpoint == nil {
+		return time.Time{}, 0, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := newCooldownKey(clusterName, endpoint)
+	now := time.Now()
+	s.sweepExpiredIfNeededLocked(now, key)
+	entry, ok := s.lastFailureByEndpoint[key]
+	if !ok {
+		return time.Time{}, 0, false
+	}
+	currentTTL := endpointCooldownInterval(endpoint)
+	if entry.ttl != currentTTL {
+		entry.ttl = currentTTL
+		s.lastFailureByEndpoint[key] = entry
+	}
+	return entry.lastFailure, entry.ttl, true
+}
+
+func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint, lastFailure time.Time) {
+	if s == nil || endpoint == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := newCooldownKey(clusterName, endpoint)
+	s.sweepExpiredIfNeededLocked(time.Now(), key)
+	if _, ok := s.lastFailureByEndpoint[key]; !ok {
+		s.evictOldestIfFullLocked(key)
+	}
+	s.lastFailureByEndpoint[key] = cooldownEntry{
+		lastFailure: lastFailure,
+		ttl:         endpointCooldownInterval(endpoint),
+	}
+}
+
+func (s *cooldownStore) deleteLastFailureIfMatches(clusterName string, endpoint *model.Endpoint, expected time.Time) bool {
+	if s == nil || endpoint == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := newCooldownKey(clusterName, endpoint)
+	current, ok := s.lastFailureByEndpoint[key]
+	if !ok || current.lastFailure != expected {
+		return false
+	}
+	delete(s.lastFailureByEndpoint, key)
+	return true
+}
+
+func (s *cooldownStore) sweepExpiredIfNeededLocked(now time.Time, current cooldownKey) {
+	if len(s.lastFailureByEndpoint) < cooldownStoreSweepAt &&
+		!s.lastSweep.IsZero() &&
+		now.Sub(s.lastSweep) < cooldownStoreSweepAfter {
+		return
+	}
+	s.lastSweep = now
+	s.sweepExpiredExceptLocked(now, current)
+}
+
+func (s *cooldownStore) sweepExpiredExceptLocked(now time.Time, current cooldownKey) {
+	for key, entry := range s.lastFailureByEndpoint {
+		if key == current {
+			continue
+		}
+		if now.Sub(entry.lastFailure) >= entry.ttl {
+			delete(s.lastFailureByEndpoint, key)
+		}
+	}
+}
+
+func (s *cooldownStore) evictOldestIfFullLocked(current cooldownKey) {
+	if len(s.lastFailureByEndpoint) < maxCooldownStoreEntries {
+		return
+	}
+
+	var (
+		oldestKey   cooldownKey
+		oldestEntry cooldownEntry
+		found       bool
+	)
+	for key, entry := range s.lastFailureByEndpoint {
+		if key == current {
+			continue
+		}
+		if !found || entry.lastFailure.Before(oldestEntry.lastFailure) {
+			oldestKey = key
+			oldestEntry = entry
+			found = true
+		}
+	}
+	if found {
+		delete(s.lastFailureByEndpoint, oldestKey)
+	}
+}
+
+func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {
+	if endpoint == nil {
+		return cooldownKey{clusterName: clusterName}
+	}
+	return cooldownKey{
+		clusterName:     clusterName,
+		endpointID:      endpoint.ID,
+		endpointAddress: endpoint.Address.GetAddress(),
+		credentialHash:  endpointCredentialHash(endpoint),
+	}
+}
+
+func endpointCredentialHash(endpoint *model.Endpoint) string {
+	if endpoint == nil || endpoint.LLMMeta == nil || endpoint.LLMMeta.APIKey == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(endpoint.LLMMeta.APIKey))
+	return fmt.Sprintf("%x", sum)
+}
+
+// endpointCooldownInterval returns the per-endpoint cooldown TTL derived from
+// LLMMeta.HealthCheckInterval in milliseconds.
+//
+// Returning 0 is meaningful: an endpoint whose HealthCheckInterval is unset or
+// explicitly 0 is recorded on failure, but endpointInCooldown always reports
+// false because time.Since(lastFailure) < 0 is always false. The sweep loop
+// then evicts the entry on its next pass. This is "cooldown disabled"
+// semantics, not a bug; set HealthCheckInterval to a positive value to enable
+// cooldown.
+func endpointCooldownInterval(endpoint *model.Endpoint) time.Duration {
+	if endpoint == nil || endpoint.LLMMeta == nil {
+		return 0
+	}
+	return time.Millisecond * time.Duration(endpoint.LLMMeta.HealthCheckInterval)
 }
 
 // getNextFallbackEndpoint checks if fallback is enabled and returns the next endpoint.

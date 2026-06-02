@@ -23,6 +23,10 @@ import (
 	"time"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
 func TestNormalizeAddress(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -175,4 +179,140 @@ func TestCheckTcpConn(t *testing.T) {
 			t.Errorf("CheckTcpConn(%q, %q, ...) should return true when port is empty and address has port", addr, "")
 		}
 	})
+}
+
+func TestCreateHealthCheckParsesInitialDelaySeconds(t *testing.T) {
+	hc := CreateHealthCheck(&model.ClusterConfig{}, model.HealthCheckConfig{
+		TimeoutConfig:       "1s",
+		IntervalConfig:      "30s",
+		InitialDelaySeconds: "10",
+		HealthyThreshold:    1,
+		UnhealthyThreshold:  1,
+	})
+
+	if hc.initialDelay != 10*time.Second {
+		t.Fatalf("initialDelay = %s, want 10s", hc.initialDelay)
+	}
+}
+
+func TestCreateHealthCheckDefaultsInitialDelayWhenUnset(t *testing.T) {
+	hc := CreateHealthCheck(&model.ClusterConfig{}, model.HealthCheckConfig{
+		TimeoutConfig:      "1s",
+		IntervalConfig:     "30s",
+		HealthyThreshold:   1,
+		UnhealthyThreshold: 1,
+	})
+
+	if hc.initialDelay != DefaultFirstInterval {
+		t.Fatalf("initialDelay = %s, want %s", hc.initialDelay, DefaultFirstInterval)
+	}
+}
+
+// newTestChecker builds an EndpointChecker driving a stub HealthChecker
+// with the supplied thresholds and an event-capture callback. No
+// goroutines are started — the test drives HandleSuccess / HandleFailure
+// directly, so behavior is deterministic and isolated from the timer
+// loop.
+func newTestChecker(healthyThreshold, unhealthyThreshold uint32) (*EndpointChecker, *[]EndpointHealthEvent) {
+	events := make([]EndpointHealthEvent, 0)
+	eventsPtr := &events
+	hc := &HealthChecker{
+		healthyThreshold:   healthyThreshold,
+		unhealthyThreshold: unhealthyThreshold,
+		onEndpointHealth: func(ev EndpointHealthEvent) {
+			*eventsPtr = append(*eventsPtr, ev)
+		},
+	}
+	c := &EndpointChecker{
+		HealthChecker: hc,
+		endpointID:    "test-ep",
+		endpointAddr:  "127.0.0.1:18080",
+	}
+	return c, eventsPtr
+}
+
+// TestHandleSuccessHonorsHealthyThreshold proves the configured
+// healthyThreshold actually takes effect. Prior to v1.2 the threshold
+// was compared against an uninitialized uint32 field that was always
+// zero, so the first success flipped state regardless of config.
+func TestHandleSuccessHonorsHealthyThreshold(t *testing.T) {
+	c, events := newTestChecker(3, 5)
+
+	// First two successes must NOT emit a healthy event.
+	c.HandleSuccess()
+	c.HandleSuccess()
+	if len(*events) != 0 {
+		t.Fatalf("expected no health events before threshold; got %d", len(*events))
+	}
+
+	// Third success crosses the threshold (>= 3).
+	c.HandleSuccess()
+	if len(*events) != 1 {
+		t.Fatalf("expected exactly one healthy event at threshold; got %d", len(*events))
+	}
+	if !(*events)[0].Healthy {
+		t.Fatalf("expected first event to be healthy=true; got %+v", (*events)[0])
+	}
+}
+
+// TestHandleFailureHonorsUnhealthyThresholdForBothFailureModes proves
+// the configured unhealthyThreshold takes effect AND that both
+// HandleFailure(false) and HandleFailure(true) feed the same counter.
+// Prior to v1.2 the false branch flipped state immediately (no counter)
+// and the true branch compared against an uninitialized threshold.
+func TestHandleFailureHonorsUnhealthyThresholdForBothFailureModes(t *testing.T) {
+	c, events := newTestChecker(3, 4)
+
+	// Mix two non-timeout failures and one timeout — still below threshold.
+	c.HandleFailure(false)
+	c.HandleFailure(false)
+	c.HandleFailure(true)
+	if len(*events) != 0 {
+		t.Fatalf("expected no unhealthy event below threshold; got %d", len(*events))
+	}
+
+	// Fourth failure (any mode) crosses the threshold (>= 4).
+	c.HandleFailure(false)
+	if len(*events) != 1 {
+		t.Fatalf("expected exactly one unhealthy event at threshold; got %d", len(*events))
+	}
+	if (*events)[0].Healthy {
+		t.Fatalf("expected first event to be healthy=false; got %+v", (*events)[0])
+	}
+}
+
+// TestHandleSuccessAndFailureResetEachOtherCounters keeps the existing
+// reset behavior locked: a success run clears unHealthCount, a failure
+// run clears healthCount, so transitions require fresh consecutive
+// signals after a flap.
+func TestHandleSuccessAndFailureResetEachOtherCounters(t *testing.T) {
+	c, events := newTestChecker(2, 2)
+
+	c.HandleSuccess()      // healthy=1
+	c.HandleFailure(false) // unhealthy=1, healthy reset to 0
+	c.HandleSuccess()      // healthy=1 (not 2, because failure reset it)
+	if len(*events) != 0 {
+		t.Fatalf("expected no events yet (each counter at 1, threshold 2); got %d", len(*events))
+	}
+
+	c.HandleSuccess() // healthy=2 -> flip
+	if len(*events) != 1 || !(*events)[0].Healthy {
+		t.Fatalf("expected one healthy event after two consecutive successes; got %+v", *events)
+	}
+}
+
+// TestHandleTimeoutRoutesThroughHandleFailure ensures the legacy
+// HandleTimeout entry point still works for external Checker
+// implementations and feeds the unified failure counter.
+func TestHandleTimeoutRoutesThroughHandleFailure(t *testing.T) {
+	c, events := newTestChecker(3, 2)
+
+	c.HandleTimeout()
+	if len(*events) != 0 {
+		t.Fatalf("expected no event below threshold; got %d", len(*events))
+	}
+	c.HandleTimeout()
+	if len(*events) != 1 || (*events)[0].Healthy {
+		t.Fatalf("expected unhealthy event after two timeouts; got %+v", *events)
+	}
 }

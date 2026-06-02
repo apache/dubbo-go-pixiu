@@ -40,13 +40,43 @@ type LbPolicy interface {
 	GenerateHash() string
 }
 
-// LbConsistentHash supports consistent hash load balancing
-type LbConsistentHash interface {
+// LbConsistentHashView supports read-only consistent hash lookups.
+type LbConsistentHashView interface {
 	Hash(key string) uint32
-	Add(host string)
 	Get(key string) (string, error)
 	GetHash(key uint32) (string, error)
+}
+
+// LbConsistentHash supports mutable consistent hash load balancing.
+type LbConsistentHash interface {
+	LbConsistentHashView
+	Add(host string)
 	Remove(host string) bool
+}
+
+type readOnlyConsistentHash struct {
+	hash LbConsistentHash
+}
+
+func (h readOnlyConsistentHash) Hash(key string) uint32 {
+	return h.hash.Hash(key)
+}
+
+func (h readOnlyConsistentHash) Get(key string) (string, error) {
+	return h.hash.Get(key)
+}
+
+func (h readOnlyConsistentHash) GetHash(key uint32) (string, error) {
+	return h.hash.GetHash(key)
+}
+
+// ReadOnlyConsistentHash wraps an LbConsistentHash so callers on the request
+// path cannot mutate it. Returns nil if hash is nil.
+func ReadOnlyConsistentHash(hash LbConsistentHash) LbConsistentHashView {
+	if hash == nil {
+		return nil
+	}
+	return readOnlyConsistentHash{hash: hash}
 }
 
 type ConsistentHashInitFunc = func(ConsistentHash, []*Endpoint) LbConsistentHash

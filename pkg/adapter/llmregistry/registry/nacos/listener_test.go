@@ -19,6 +19,7 @@ package nacos
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -210,7 +211,7 @@ func TestGenerateEndpoint(t *testing.T) {
 		assert.NotContains(t, first.ID, "key-a")
 	})
 
-	t.Run("Missing metadata cluster falls back to Nacos cluster name", func(t *testing.T) {
+	t.Run("Missing metadata cluster falls back to empty cluster hash", func(t *testing.T) {
 		build := func(clusterName string) nacosModel.Instance {
 			return nacosModel.Instance{
 				Ip:          "127.0.0.1",
@@ -229,7 +230,7 @@ func TestGenerateEndpoint(t *testing.T) {
 		assert.NotNil(t, clusterA)
 		assert.NotNil(t, clusterB)
 		assert.Contains(t, clusterA.ID, "pixiu-generated-endpoint-")
-		assert.NotEqual(t, clusterA.ID, clusterB.ID)
+		assert.Equal(t, clusterA.ID, clusterB.ID)
 	})
 }
 
@@ -488,6 +489,47 @@ func TestServiceCallbackKeepsNacosInstancesWithoutMetadataIDDistinct(t *testing.
 
 	assert.Empty(t, adapterListener.addedEndpoints)
 	assert.Contains(t, adapterListener.removedEndpoints, "nacos-instance-a")
+}
+
+// TestNacosEndpointIDMissingClusterFallsBackToEmptyClusterHash ensures that
+// when a nacos instance has no metadata["id"], no InstanceId, and no
+// metadata["cluster"], nacosEndpointID returns a generated- ID derived
+// with an empty cluster name. The downstream LLM registry adapter
+// (Adapter.OnAddEndpoint) drops such endpoints, so we do not attempt to
+// disambiguate cross-service collisions here. The contract this test
+// locks: the function does not invent a synthesized fallback prefix and
+// does not pretend an unreachable endpoint will be admitted.
+func TestNacosEndpointIDMissingClusterFallsBackToEmptyClusterHash(t *testing.T) {
+	instance := nacosModel.Instance{
+		// InstanceId intentionally empty; metadata has neither "id" nor "cluster".
+		Ip:          "10.0.0.1",
+		Port:        18080,
+		ServiceName: "alpha",
+		ClusterName: "DEFAULT",
+		Metadata:    map[string]string{"llm-meta.api_key": "key-shared"},
+	}
+
+	endpoint := generateEndpoint(instance)
+	assert.True(t, strings.HasPrefix(endpoint.ID, "pixiu-generated-endpoint-"),
+		"missing metadata[\"cluster\"] falls through to model.GenerateEndpointID with empty cluster")
+
+	// Deterministic: re-generating from the same instance returns the same ID.
+	assert.Equal(t, endpoint.ID, generateEndpoint(instance).ID)
+
+	// Acknowledged limitation: at this code level we cannot tell two
+	// instances apart that share address+credential and both lack
+	// metadata["cluster"]. They alias to the same generated- ID. The LLM
+	// registry adapter skips them before the alias has any runtime effect.
+	collidingInstance := nacosModel.Instance{
+		Ip:          instance.Ip,
+		Port:        instance.Port,
+		ServiceName: "bravo", // different service, but the adapter ignores ServiceName for ID
+		ClusterName: instance.ClusterName,
+		Metadata:    instance.Metadata,
+	}
+	assert.Equal(t, endpoint.ID, generateEndpoint(collidingInstance).ID,
+		"two instances missing metadata[\"cluster\"] at the same address will alias here; "+
+			"disambiguation is the adapter's job (currently: drop)")
 }
 
 func TestLifecycle(t *testing.T) {

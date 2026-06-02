@@ -41,7 +41,7 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 		return h
 	}
 
-	logger.Infof("[dubbo-go-pixiu] maglev hash load balancing fail: %v, using ring hash instead", err)
+	logger.Warnf("[dubbo-go-pixiu] maglev hash load balancing fail: %v, using ring hash instead", err)
 	if config.ReplicaNum == 0 {
 		config.ReplicaNum = 2 * len(endpoints)
 	}
@@ -50,24 +50,47 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 
 type MaglevHash struct{}
 
+func (MaglevHash) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (MaglevHash) UseZeroCopySnapshot() bool {
+	return true
+}
+
 func (m MaglevHash) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
-	dst, err := c.ConsistentHash.Hash.Get(policy.GenerateHash())
+	if c == nil {
+		return nil
+	}
+	endpoints := c.GetEndpoint(true)
+	hashView := model.ReadOnlyConsistentHash(c.ConsistentHash.Hash)
+	if hashView == nil && len(endpoints) > 0 {
+		hashView = model.ReadOnlyConsistentHash(NewMaglevHash(c.ConsistentHash, endpoints))
+	}
+	return m.HandlerWithSnapshot(loadbalancer.PickContext{
+		Config:                c,
+		HealthyConsistentHash: hashView,
+		HealthyEndpoints:      endpoints,
+	}, policy)
+}
+
+func (m MaglevHash) HandlerWithSnapshot(c loadbalancer.PickContext, policy model.LbPolicy) *model.Endpoint {
+	endpoints := c.HealthyEndpoints
+	hashView := loadbalancer.ConsistentHashForHealthyEndpoints(c)
+	if len(endpoints) == 0 || hashView == nil || policy == nil {
+		return nil
+	}
+
+	dst, err := hashView.Get(policy.GenerateHash())
 	if err != nil {
 		logger.Warnf("[dubbo-go-pixiu] error of getting from maglev hash: %v", err)
 		return nil
 	}
-
-	endpoints := c.GetEndpoint(true)
 
 	for _, endpoint := range endpoints {
 		if endpoint.GetHost() == dst {
 			return endpoint
 		}
 	}
-
-	if len(endpoints) == 0 {
-		return nil
-	}
-
 	return endpoints[0]
 }

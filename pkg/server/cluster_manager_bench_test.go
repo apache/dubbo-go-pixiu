@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for benchmark coverage.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for benchmark coverage.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for benchmark coverage.
@@ -106,32 +107,58 @@ func BenchmarkClusterLoadBalancerHotPathSerial(b *testing.B) {
 		for _, endpointCount := range []int{4, 64, 512} {
 			b.Run(fmt.Sprintf("%s/endpoints=%d", lbType, endpointCount), func(b *testing.B) {
 				cm := &ClusterManager{}
-				cluster := benchmarkClusterConfig("lb-hot-path", lbType, endpointCount, 0)
+				runtimeCluster := cluster.NewCluster(benchmarkClusterConfig("lb-hot-path", lbType, endpointCount, 0))
 
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					benchmarkEndpointSink = cm.pickOneEndpoint(cluster, nil)
+					benchmarkEndpointSink = cm.pickOneEndpoint(runtimeCluster, nil)
 				}
 			})
 		}
 	}
 }
 
-func BenchmarkClusterHealthyFilterCost(b *testing.B) {
+// BenchmarkClusterHealthySnapshotLoad measures the per-request endpoint
+// retrieval cost on the snapshot pick path. The request path uses
+// HealthyEndpointsForPick (zero-copy: returns the snapshot-owned slice),
+// not HealthyEndpoints (defensive deep copy). This is the bench that
+// backs the CHANGELOG claim "O(1) on the healthy view".
+//
+// HealthyEndpoints is also benchmarked below for comparison — it is what
+// external code that needs an isolated slice should use, and it shows
+// the cost of the defensive copy (allocation = endpointCount + maps).
+func BenchmarkClusterHealthySnapshotLoad(b *testing.B) {
+	benchmarkHealthySnapshotAccessor(b, "healthy-snapshot", (*cluster.EndpointSnapshot).HealthyEndpointsForPick)
+}
+
+// BenchmarkClusterHealthySnapshotDefensiveCopy measures the cost of the
+// defensive HealthyEndpoints accessor. Reported separately so external
+// callers that need an isolated slice see the price.
+func BenchmarkClusterHealthySnapshotDefensiveCopy(b *testing.B) {
+	benchmarkHealthySnapshotAccessor(b, "healthy-snapshot-copy", (*cluster.EndpointSnapshot).HealthyEndpoints)
+}
+
+func benchmarkHealthySnapshotAccessor(
+	b *testing.B,
+	clusterName string,
+	accessor func(*cluster.EndpointSnapshot) []*model.Endpoint,
+) {
 	for _, endpointCount := range []int{8, 64, 512} {
 		for _, healthyRatio := range []int{100, 50, 0} {
 			b.Run(fmt.Sprintf("endpoints=%d/healthy=%d", endpointCount, healthyRatio), func(b *testing.B) {
-				cluster := benchmarkClusterConfig("healthy-filter", model.LoadBalancerRoundRobin, endpointCount, 0)
+				clusterConfig := benchmarkClusterConfig(clusterName, model.LoadBalancerRoundRobin, endpointCount, 0)
 				healthyCount := endpointCount * healthyRatio / 100
-				for i := healthyCount; i < len(cluster.Endpoints); i++ {
-					cluster.Endpoints[i].UnHealthy = true
+				for i := healthyCount; i < len(clusterConfig.Endpoints); i++ {
+					clusterConfig.Endpoints[i].UnHealthy = true
 				}
+				runtimeCluster := cluster.NewCluster(clusterConfig)
+				snapshot := runtimeCluster.EndpointSnapshot()
 
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					benchmarkEndpointsSink = cluster.GetEndpoint(true)
+					benchmarkEndpointsSink = accessor(snapshot)
 				}
 			})
 		}

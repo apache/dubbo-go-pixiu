@@ -174,9 +174,46 @@ type (
 	}
 )
 
+// GetAddress returns the string form used as a map key by health-check
+// state, the cluster snapshot's addressByID, and external observability
+// surfaces. Domain-mode addresses (Domains is non-empty) format as
+// Domains[0]; bare-IP addresses format as "ip:port".
+//
+// Note: GetAddress() is NOT the string projection of Equal(). It is
+// possible for two SocketAddresses with different identity (one
+// domain-mode, one IP-mode) to format to the same string and still be
+// !Equal — for example, SocketAddress{Domains: ["1.2.3.4:5"]} and
+// SocketAddress{Address: "1.2.3.4", Port: 5} both produce "1.2.3.4:5"
+// but compare unequal. Callers that need identity comparison must use
+// Equal; callers that need a key for address-keyed runtime state (e.g.
+// healthcheck deduplication by network endpoint) must use GetAddress
+// consistently. Mixing the two within a single subsystem will produce
+// the equivalence-class skew described in the cluster snapshot docs.
 func (a SocketAddress) GetAddress() string {
 	if len(a.Domains) > 0 {
 		return a.Domains[0]
 	}
 	return fmt.Sprintf("%s:%v", a.Address, a.Port)
+}
+
+// Equal reports whether two SocketAddresses refer to the same upstream
+// identity without allocating the formatted "address:port" string.
+// Domain-mode addresses (Domains non-empty) compare on Domains[0];
+// bare-IP addresses compare on Address+Port. Mixed-mode pairs (one
+// domain, one IP+port) are reported unequal because they describe
+// different upstreams even when their formatted forms collide.
+//
+// Equal is NOT a == over GetAddress(). See GetAddress godoc for the
+// rationale and known divergence cases. Subsystems should pick one of
+// {Equal, GetAddress} as their identity oracle and stick with it.
+func (a SocketAddress) Equal(b SocketAddress) bool {
+	aHasDomain := len(a.Domains) > 0
+	bHasDomain := len(b.Domains) > 0
+	if aHasDomain != bHasDomain {
+		return false
+	}
+	if aHasDomain {
+		return a.Domains[0] == b.Domains[0]
+	}
+	return a.Address == b.Address && a.Port == b.Port
 }

@@ -317,6 +317,23 @@ func generateEndpoint(instance nacosModel.Instance) *model.Endpoint {
 	return ret
 }
 
+// nacosEndpointID resolves a stable endpoint ID for a nacos instance.
+// Lookup order:
+//  1. instance.Metadata["id"] (operator override)
+//  2. instance.InstanceId (nacos-assigned identity, stable for a registration)
+//  3. model.GenerateEndpointID(metadata["cluster"], endpoint) — covers the
+//     normal LLM registry flow where adapter routes by metadata["cluster"]
+//
+// When metadata["cluster"] is missing, this function still returns the
+// generated- ID with an empty cluster name in the hash, but logs a warn
+// pointing the operator at the downstream behavior: the LLM registry
+// adapter (Adapter.OnAddEndpoint) explicitly skips endpoints that lack
+// metadata["cluster"] (see pkg/adapter/llmregistry/registrycenter.go).
+// In other words, an endpoint reaching this branch will not be admitted
+// into any runtime cluster regardless of the ID we synthesize, so we do
+// not try to disambiguate cross-service collisions here — the
+// disambiguation is the adapter's job and currently is "drop". If that
+// adapter contract relaxes, this function will need a real fallback.
 func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) string {
 	if id := strings.TrimSpace(instance.Metadata["id"]); id != "" {
 		return id
@@ -324,11 +341,20 @@ func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) str
 	if instanceID := strings.TrimSpace(instance.InstanceId); instanceID != "" {
 		return instanceID
 	}
-	clusterName := strings.TrimSpace(instance.Metadata["cluster"])
-	if clusterName == "" {
-		clusterName = strings.TrimSpace(instance.ClusterName)
+	clusterMeta := strings.TrimSpace(instance.Metadata["cluster"])
+	if clusterMeta == "" {
+		address := ""
+		if endpoint != nil {
+			address = endpoint.Address.GetAddress()
+		}
+		logger.Warnf(
+			"[dubbo-go-pixiu] nacos instance (service=%s, cluster=%s, addr=%s) is missing metadata[\"cluster\"]; "+
+				"the LLM registry adapter will skip this endpoint. Set metadata[\"cluster\"] (or "+
+				"metadata[\"id\"]) on the nacos registration to admit it into a runtime cluster.",
+			instance.ServiceName, instance.ClusterName, address,
+		)
 	}
-	return model.GenerateEndpointID(clusterName, endpoint)
+	return model.GenerateEndpointID(clusterMeta, endpoint)
 }
 
 func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {

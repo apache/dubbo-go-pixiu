@@ -32,12 +32,27 @@ func init() {
 
 type RoundRobin struct{}
 
-func (RoundRobin) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
-	endpoints := c.GetEndpoint(true)
+func (RoundRobin) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (RoundRobin) UseZeroCopySnapshot() bool {
+	return true
+}
+
+func (r RoundRobin) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
+	return r.HandlerWithSnapshot(loadbalancer.PickContext{
+		Config:           c,
+		HealthyEndpoints: c.GetEndpoint(true),
+	}, policy)
+}
+
+func (RoundRobin) HandlerWithSnapshot(c loadbalancer.PickContext, _ model.LbPolicy) *model.Endpoint {
+	endpoints := c.HealthyEndpoints
 	if len(endpoints) == 0 {
 		return nil
 	}
 	// AddUint32 returns the incremented value, so subtract 1 for a zero-based index.
-	index := atomic.AddUint32(&c.PrePickEndpointIndex, 1) - 1
+	index := atomic.AddUint32(&c.Config.PrePickEndpointIndex, 1) - 1
 	return endpoints[int(index%uint32(len(endpoints)))]
 }
