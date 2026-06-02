@@ -34,7 +34,7 @@ import (
 // Build constructs a ToolSelector from the router configuration and a shared
 // session plan store.
 //
-// It returns (nil, nil) when routing is disabled or unconfigured, signalling
+// It returns (nil, nil) when routing is disabled or unconfigured, signaling
 // the MCP server filter to keep its passthrough behavior with zero overhead.
 // Configuration errors (invalid regex, unknown default bundle) fail fast so a
 // broken policy chain never silently degrades to the wrong default.
@@ -209,7 +209,7 @@ func validateSampleRate(rate float64) error {
 
 // configHash produces a stable hash of the router config so plans recompute
 // when the config changes (e.g. a dynamic update). It is best-effort: a
-// marshalling failure falls back to an empty hash, which simply disables reuse.
+// marshaling failure falls back to an empty hash, which simply disables reuse.
 func configHash(cfg *model.RouterConfig) string {
 	data, err := json.Marshal(cfg)
 	if err != nil {
