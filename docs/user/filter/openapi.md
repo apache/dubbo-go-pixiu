@@ -44,10 +44,14 @@ This filter uses `libopenapi` to parse the spec and `libopenapi-validator` to va
 - name: dgp.filter.http.openapi
   config:
     path: configs/openapi_users.yaml
+    # Optional. Defaults to 1048576 bytes.
+    max_request_body_bytes: 1048576
 ```
 
 `dgp.filter.http.apiconfig` and `dgp.filter.http.openapi` are independent filters. `apiconfig` matches Pixiu API routes
 and writes API metadata into the request context. `openapi` validates only the operations declared in the OpenAPI file.
+Deprecated OpenAPI validation keys in `apiconfig`, including `openapi_path` and `enable_openapi_validation`, are rejected
+when present, even when set to `""` or `false`. Configure `dgp.filter.http.openapi` instead.
 
 If a request path and method are not declared in the OpenAPI file, this filter skips validation and lets the request
 continue. If the operation is declared but the request violates parameters or body schema, Pixiu returns
@@ -62,6 +66,9 @@ continue. If the operation is declared but the request violates parameters or bo
   OPA, SAML, or other dedicated authentication and authorization filters.
 - The configured OpenAPI `path` must be relative. Absolute paths, parent-directory segments such as `..`, and sensitive
   base directories are rejected during filter startup.
+- Request bodies are capped by `max_request_body_bytes` before schema validation. This prevents the validator from
+  reading unbounded JSON or chunked bodies in the gateway hot path.
+- Omit `max_request_body_bytes` or set it to `0` to use the default `1048576` byte limit.
 - Relative file references are resolved from the OpenAPI file location, so file-based loading keeps local `$ref` paths intact.
 - Invalid OpenAPI documents, including unresolved `$ref` targets, fail during filter startup instead of running with a
   partial validator model.

@@ -66,6 +66,39 @@ func TestDecode_HidesOpenAPIValidationDetailsFromClient(t *testing.T) {
 	assert.NotContains(t, recorder.Body.String(), "source")
 }
 
+func TestDecode_RejectsOpenAPIRequestBodyLargerThanLimit(t *testing.T) {
+	filterInstance := newOpenAPIFilterWithConfig(t, usersSpecWithQueryAndBody(), func(cfg *Config) {
+		cfg.MaxRequestBodyBytes = 8
+	})
+	req := httptest.NewRequest(http.MethodPost, "/users?source=web", strings.NewReader(`{"name":"tom"}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	ctx := &contexthttp.HttpContext{Request: req, Writer: recorder}
+
+	status := filterInstance.Decode(ctx)
+
+	assert.Equal(t, extfilter.Stop, status)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "openapi request body too large")
+}
+
+func TestDecode_RejectsChunkedOpenAPIRequestBodyLargerThanLimit(t *testing.T) {
+	filterInstance := newOpenAPIFilterWithConfig(t, usersSpecWithQueryAndBody(), func(cfg *Config) {
+		cfg.MaxRequestBodyBytes = 8
+	})
+	req := httptest.NewRequest(http.MethodPost, "/users?source=web", io.NopCloser(strings.NewReader(`{"name":"tom"}`)))
+	req.ContentLength = -1
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	ctx := &contexthttp.HttpContext{Request: req, Writer: recorder}
+
+	status := filterInstance.Decode(ctx)
+
+	assert.Equal(t, extfilter.Stop, status)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "openapi request body too large")
+}
+
 func TestDecode_ContinuesOnOpenAPIValidationSuccess(t *testing.T) {
 	filterInstance := newOpenAPIFilter(t, usersSpecWithQueryAndBody())
 	req := httptest.NewRequest(http.MethodPost, "/users?source=web", strings.NewReader(`{"name":"tom"}`))
@@ -216,6 +249,52 @@ func TestApply_RejectsParentDirectoryOpenAPIPath(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "openapi path must not contain parent directory")
+}
+
+func TestApply_RejectsNegativeMaxRequestBodyBytes(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.WriteFile("openapi.yaml", []byte(usersSpecWithQueryAndBody()), 0o600))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path:                "openapi.yaml",
+			MaxRequestBodyBytes: -1,
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "max_request_body_bytes must not be negative")
+}
+
+func TestApply_UsesDefaultMaxRequestBodyBytesForZeroValue(t *testing.T) {
+	factory := newOpenAPIFactory(t, usersSpecWithQueryAndBody(), func(cfg *Config) {
+		cfg.MaxRequestBodyBytes = 0
+	})
+
+	assert.Equal(t, int64(defaultMaxRequestBodyBytes), factory.maxRequestBody)
+}
+
+func TestApply_BuildsReusablePathLookupOptions(t *testing.T) {
+	factory := newOpenAPIFactory(t, usersSpecWithQueryAndBody(), nil)
+
+	require.NotNil(t, factory.validationOptions)
+	require.NotNil(t, factory.validationOptions.PathTree)
+
+	filterInstance := &Filter{
+		validator:         factory.validator,
+		model:             factory.model,
+		validationOptions: factory.validationOptions,
+	}
+	req := httptest.NewRequest(http.MethodPost, "/users?source=web", strings.NewReader(`{"name":"tom"}`))
+
+	pathItem, foundPath, ok := filterInstance.findRequestOperation(req)
+
+	require.True(t, ok)
+	require.NotNil(t, pathItem)
+	assert.Equal(t, "/users", foundPath)
 }
 
 func TestDecode_ValidatesTemplatedPaths(t *testing.T) {
@@ -402,23 +481,47 @@ func TestDecode_ValidatesRequestBodyMinimumAndMaximum(t *testing.T) {
 
 func newOpenAPIFilter(t *testing.T, spec string) *Filter {
 	t.Helper()
+	factory := newOpenAPIFactory(t, spec, nil)
+	return &Filter{
+		validator:         factory.validator,
+		model:             factory.model,
+		validationOptions: factory.validationOptions,
+		maxRequestBody:    factory.maxRequestBody,
+	}
+}
+
+func newOpenAPIFilterWithConfig(t *testing.T, spec string, configure func(*Config)) *Filter {
+	t.Helper()
+	factory := newOpenAPIFactory(t, spec, configure)
+	return &Filter{
+		validator:         factory.validator,
+		model:             factory.model,
+		validationOptions: factory.validationOptions,
+		maxRequestBody:    factory.maxRequestBody,
+	}
+}
+
+func newOpenAPIFactory(t *testing.T, spec string, configure func(*Config)) *FilterFactory {
+	t.Helper()
 
 	dir := t.TempDir()
 	t.Chdir(dir)
 	specPath := "openapi.yaml"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, specPath), []byte(spec), 0o600))
 
+	cfg := &Config{
+		Path: specPath,
+	}
+	if configure != nil {
+		configure(cfg)
+	}
+
 	factory := &FilterFactory{
-		cfg: &Config{
-			Path: specPath,
-		},
+		cfg: cfg,
 	}
 	require.NoError(t, factory.Apply())
 
-	return &Filter{
-		validator: factory.validator,
-		model:     factory.model,
-	}
+	return factory
 }
 
 func usersSpecWithQueryAndBody() string {

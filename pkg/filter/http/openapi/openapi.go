@@ -18,6 +18,8 @@
 package openapi
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,6 +32,7 @@ import (
 	validatorConfig "github.com/pb33f/libopenapi-validator/config"
 	validatorErrors "github.com/pb33f/libopenapi-validator/errors"
 	validatorPaths "github.com/pb33f/libopenapi-validator/paths"
+	validatorRadix "github.com/pb33f/libopenapi-validator/radix"
 	"github.com/pb33f/libopenapi/datamodel"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
@@ -46,7 +49,11 @@ import (
 const (
 	// Kind is the kind of OpenAPI validation filter.
 	Kind = constant.HTTPOpenAPIFilter
+
+	defaultMaxRequestBodyBytes = 1 << 20
 )
+
+var errOpenAPIRequestBodyTooLarge = errors.New("openapi request body too large")
 
 func init() {
 	filter.RegisterHttpFilter(&Plugin{})
@@ -57,18 +64,25 @@ type (
 	}
 
 	FilterFactory struct {
-		cfg       *Config
-		validator openapiValidator.Validator
-		model     *v3.Document
+		cfg               *Config
+		validator         openapiValidator.Validator
+		model             *v3.Document
+		validationOptions *validatorConfig.ValidationOptions
+		maxRequestBody    int64
 	}
 
 	Filter struct {
-		validator openapiValidator.Validator
-		model     *v3.Document
+		validator         openapiValidator.Validator
+		model             *v3.Document
+		validationOptions *validatorConfig.ValidationOptions
+		maxRequestBody    int64
 	}
 
 	Config struct {
 		Path string `yaml:"path" json:"path,omitempty"`
+		// MaxRequestBodyBytes limits how much request body data OpenAPI validation may read.
+		// Zero uses the default limit.
+		MaxRequestBodyBytes int64 `yaml:"max_request_body_bytes" json:"max_request_body_bytes,omitempty"`
 	}
 )
 
@@ -91,19 +105,28 @@ func (factory *FilterFactory) Apply() error {
 	}
 	factory.cfg.Path = path
 
-	validator, model, err := loadValidatorFromFile(path)
+	maxRequestBody, err := factory.cfg.effectiveMaxRequestBodyBytes()
+	if err != nil {
+		return err
+	}
+
+	validator, model, validationOptions, err := loadValidatorFromFile(path)
 	if err != nil {
 		return err
 	}
 	factory.validator = validator
 	factory.model = model
+	factory.validationOptions = validationOptions
+	factory.maxRequestBody = maxRequestBody
 	return nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {
 	f := &Filter{
-		validator: factory.validator,
-		model:     factory.model,
+		validator:         factory.validator,
+		model:             factory.model,
+		validationOptions: factory.validationOptions,
+		maxRequestBody:    factory.maxRequestBody,
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
@@ -120,6 +143,19 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 		return filter.Continue
 	}
 
+	if err := f.prepareRequestBodyForValidation(req); err != nil {
+		if err == errOpenAPIRequestBodyTooLarge {
+			errResp := contexthttp.PayloadTooLarge.WithError(err)
+			ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+			logger.Debug(errResp.Error())
+			return filter.Stop
+		}
+		errResp := contexthttp.BadRequest.WithError(errors.New("openapi request body read failed"))
+		ctx.SendLocalReply(errResp.Status, errResp.ToJSON())
+		logger.Debugf("openapi request body read failed: %v", err)
+		return filter.Stop
+	}
+
 	if valid, validationErrs := f.validator.ValidateHttpRequestSyncWithPathItem(req, pathItem, foundPath); !valid {
 		validationDetails := formatValidationErrors(validationErrs)
 		errResp := contexthttp.BadRequest.WithError(errors.New("openapi request validation failed"))
@@ -131,7 +167,7 @@ func (f *Filter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
 }
 
 func (f *Filter) findRequestOperation(req *http.Request) (*v3.PathItem, string, bool) {
-	pathItem, validationErrs, foundPath := validatorPaths.FindPath(req, f.model, nil)
+	pathItem, validationErrs, foundPath := validatorPaths.FindPath(req, f.model, f.validationOptions)
 	if len(validationErrs) > 0 {
 		logger.Debugf("openapi path lookup errors for %s %s: %s", req.Method, req.URL.Path, formatValidationErrors(validationErrs))
 		return nil, "", false
@@ -169,29 +205,68 @@ func hasRequestOperation(req *http.Request, pathItem *v3.PathItem) bool {
 	}
 }
 
-func loadValidatorFromFile(path string) (openapiValidator.Validator, *v3.Document, error) {
+func (f *Filter) prepareRequestBodyForValidation(req *http.Request) error {
+	if req.Body == nil || req.Body == http.NoBody {
+		return nil
+	}
+	if f.maxRequestBody <= 0 {
+		return nil
+	}
+	if req.ContentLength > f.maxRequestBody {
+		return errOpenAPIRequestBodyTooLarge
+	}
+
+	body, err := readRequestBodyWithinLimit(req.Body, f.maxRequestBody)
+	if err != nil {
+		return err
+	}
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	req.ContentLength = int64(len(body))
+	return nil
+}
+
+func readRequestBodyWithinLimit(body io.ReadCloser, limit int64) ([]byte, error) {
+	// The original body is replaced by the caller after this bounded read.
+	defer body.Close()
+
+	data, err := io.ReadAll(io.LimitReader(body, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, errOpenAPIRequestBodyTooLarge
+	}
+	return data, nil
+}
+
+func loadValidatorFromFile(path string) (openapiValidator.Validator, *v3.Document, *validatorConfig.ValidationOptions, error) {
 	spec, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "read openapi file")
+		return nil, nil, nil, errors.Wrap(err, "read openapi file")
 	}
 
 	doc, err := libopenapi.NewDocumentWithConfiguration(spec, &datamodel.DocumentConfiguration{
 		BasePath: filepath.Dir(path),
 	})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "parse openapi document")
+		return nil, nil, nil, errors.Wrap(err, "parse openapi document")
 	}
 
 	model, err := doc.BuildV3Model()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "build openapi model")
+		return nil, nil, nil, errors.Wrap(err, "build openapi model")
 	}
 
-	validator := openapiValidator.NewValidatorFromV3Model(&model.Model, validatorConfig.WithoutSecurityValidation())
-	if validator == nil {
-		return nil, nil, errors.New("load openapi validator: validator is nil")
+	validationOptions := validatorConfig.NewValidationOptions(validatorConfig.WithoutSecurityValidation())
+	if validationOptions.PathTree == nil && !validationOptions.IsPathTreeDisabled() {
+		validationOptions.PathTree = validatorRadix.BuildPathTree(&model.Model)
 	}
-	return validator, &model.Model, nil
+
+	validator := openapiValidator.NewValidatorFromV3Model(&model.Model, validatorConfig.WithExistingOpts(validationOptions))
+	if validator == nil {
+		return nil, nil, nil, errors.New("load openapi validator: validator is nil")
+	}
+	return validator, &model.Model, validationOptions, nil
 }
 
 func cleanOpenAPIPath(path string) (string, error) {
@@ -219,6 +294,16 @@ func cleanOpenAPIPath(path string) (string, error) {
 		return "", errors.Errorf("openapi path base directory is not allowed: %s", basePath)
 	}
 	return cleanPath, nil
+}
+
+func (c *Config) effectiveMaxRequestBodyBytes() (int64, error) {
+	if c.MaxRequestBodyBytes < 0 {
+		return 0, errors.New("max_request_body_bytes must not be negative")
+	}
+	if c.MaxRequestBodyBytes == 0 {
+		return defaultMaxRequestBodyBytes, nil
+	}
+	return c.MaxRequestBodyBytes, nil
 }
 
 func containsParentDirectory(path string) bool {

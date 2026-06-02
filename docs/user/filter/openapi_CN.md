@@ -43,10 +43,14 @@ Pixiu 可以在 `dgp.filter.http.openapi` 中加载本地 OpenAPI 3.0/3.1/3.2 �
 - name: dgp.filter.http.openapi
   config:
     path: configs/openapi_users.yaml
+    # 可选，默认 1048576 字节。
+    max_request_body_bytes: 1048576
 ```
 
 `dgp.filter.http.apiconfig` 和 `dgp.filter.http.openapi` 是两个独立 filter。`apiconfig` 负责匹配 Pixiu API 路由，并把
 API 元信息写入请求上下文；`openapi` 只校验 OpenAPI 文件中声明过的 operation。
+`apiconfig` 中已废弃的 OpenAPI 校验配置键，包括 `openapi_path` 和 `enable_openapi_validation`，只要出现就会被拒绝；
+即使配置为 `""` 或 `false` 也一样。请改用独立的 `dgp.filter.http.openapi` filter。
 
 如果请求的 path 和 method 没有在 OpenAPI 文件中声明，这个 filter 会跳过校验并放行请求。如果 operation 已声明但请求
 不满足参数或 body schema，Pixiu 会返回 `400 Bad Request`。
@@ -58,6 +62,8 @@ API 元信息写入请求上下文；`openapi` 只校验 OpenAPI 文件中声明
 - 上面这些关键词来自 OpenAPI schema，是由 SDK 路径执行的，不是仓库里再自定义一套验证器。
 - 当前 filter 关闭了 OpenAPI `security` 校验，鉴权仍由 JWT、OPA、SAML 或其他专门的认证/授权 filter 负责。
 - OpenAPI `path` 配置必须使用相对路径。绝对路径、`..` 父目录跳转和敏感 base 目录会在 filter 启动阶段被拒绝。
+- request body 在 schema 校验前会受 `max_request_body_bytes` 限制，避免 validator 在网关热路径上读取无上限 JSON 或 chunked body。
+- 不配置 `max_request_body_bytes` 或配置为 `0` 时，会使用默认的 `1048576` 字节限制。
 - OpenAPI 文件里的相对引用会按文件所在目录解析，所以使用本地文件加载时可以保留本地 `$ref` 路径。
 - 无效 OpenAPI 文档，包括无法解析的 `$ref`，会在 filter 启动阶段失败，不会继续使用部分构建出来的 validator model。
 - `libopenapi-validator` 也提供响应和文档校验 API，但当前这个 filter 只调用了请求校验入口。

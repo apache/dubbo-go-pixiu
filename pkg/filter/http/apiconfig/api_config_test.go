@@ -28,6 +28,7 @@ import (
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -149,6 +150,41 @@ func TestApply_RejectsDeprecatedOpenAPIConfig(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dgp.filter.http.openapi")
+}
+
+func TestApply_RejectsDeprecatedOpenAPIConfigPresence(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+	}{
+		{
+			name: "empty openapi path",
+			yaml: `
+path: configs/api_config.yaml
+openapi_path: ""
+`,
+		},
+		{
+			name: "disabled openapi validation",
+			yaml: `
+path: configs/api_config.yaml
+enable_openapi_validation: false
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ApiConfigConfig{}
+			require.NoError(t, yaml.Unmarshal([]byte(tt.yaml), cfg))
+			factory := &FilterFactory{cfg: cfg}
+
+			err := factory.Apply()
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "dgp.filter.http.openapi")
+		})
+	}
 }
 
 func newAPIConfigFactory(t *testing.T, apiConfig string) *FilterFactory {
