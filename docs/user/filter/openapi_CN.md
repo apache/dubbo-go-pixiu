@@ -61,7 +61,7 @@ API 元信息写入请求上下文；`openapi` 只校验 OpenAPI 文件中声明
 - 参数级校验覆盖 `path`、`query`、`header` 上常见的标量类型约束。
 - 上面这些关键词来自 OpenAPI schema，是由 SDK 路径执行的，不是仓库里再自定义一套验证器。
 - 当前 filter 关闭了 OpenAPI `security` 校验，鉴权仍由 JWT、OPA、SAML 或其他专门的认证/授权 filter 负责。
-- OpenAPI `path` 配置必须使用相对路径。绝对路径、`..` 父目录跳转和敏感 base 目录会在 filter 启动阶段被拒绝。
+- OpenAPI `path` 配置必须使用相对路径。绝对路径、`..` 父目录跳转和敏感 base 目录会在 filter 启动阶段被拒绝。启动时会解析符号链接（symlink），防止通过相对路径 + 符号链接绕过敏感目录检查。
 - request body 在 schema 校验前会受 `max_request_body_bytes` 限制，避免 validator 在网关热路径上读取无上限 JSON 或 chunked body。
 - 不配置 `max_request_body_bytes` 或配置为 `0` 时，会使用默认的 `1048576` 字节限制。
 - OpenAPI 文件里的相对引用会按文件所在目录解析，所以使用本地文件加载时可以保留本地 `$ref` 路径。
@@ -77,6 +77,11 @@ API 元信息写入请求上下文；`openapi` 只校验 OpenAPI 文件中声明
 5. 如果 operation 已声明，Pixiu 通过 `libopenapi-validator` 执行请求校验。
 6. 校验通过，请求继续流向后续 filter。
 7. 校验失败，Pixiu 直接返回 `400 Bad Request`。
+
+### HEAD 请求
+
+OpenAPI spec 不把 HEAD 视为标准 HTTP 方法。当路径只声明了 `GET`（没有显式 `head` operation）时，SDK 的 `FindPath` 会把 HEAD 当作未声明方法处理，filter 跳过校验并放行。
+如果需要对 HEAD 请求做校验，可以在 OpenAPI spec 中显式声明 `head` operation。
 
 ## 请求示例
 

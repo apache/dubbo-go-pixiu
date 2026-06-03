@@ -28,13 +28,11 @@ import (
 )
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-import (
 	extfilter "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDecode_StopsOnOpenAPIValidationFailure(t *testing.T) {
@@ -187,6 +185,53 @@ paths:
 	assert.False(t, ctx.LocalReply())
 }
 
+func TestDecode_SkipsHeadWhenOnlyGetDeclared(t *testing.T) {
+	// When only GET is declared (no HEAD), the SDK FindPath treats HEAD as
+	// an undeclared method and returns nil. The filter skips validation and
+	// lets the request continue to downstream filters / handlers.
+	filterInstance := newOpenAPIFilter(t, `
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    get:
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [web, app]
+      responses:
+        "200":
+          description: ok
+`)
+
+	t.Run("HEAD without required query param is skipped", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodHead, "/users", nil)
+		recorder := httptest.NewRecorder()
+		ctx := &contexthttp.HttpContext{Request: req, Writer: recorder}
+
+		status := filterInstance.Decode(ctx)
+
+		assert.Equal(t, extfilter.Continue, status)
+		assert.False(t, ctx.LocalReply())
+	})
+
+	t.Run("HEAD with valid query param is also skipped", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodHead, "/users?source=web", nil)
+		recorder := httptest.NewRecorder()
+		ctx := &contexthttp.HttpContext{Request: req, Writer: recorder}
+
+		status := filterInstance.Decode(ctx)
+
+		assert.Equal(t, extfilter.Continue, status)
+		assert.False(t, ctx.LocalReply())
+	})
+}
+
 func TestApply_RejectsInvalidOpenAPIModel(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -249,6 +294,26 @@ func TestApply_RejectsParentDirectoryOpenAPIPath(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "openapi path must not contain parent directory")
+}
+
+func TestApply_RejectsSymlinkPointingToSensitiveDirectory(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	// Create a symlink: specs/current -> /etc
+	require.NoError(t, os.MkdirAll("specs", 0o700))
+	require.NoError(t, os.Symlink("/etc", filepath.Join(dir, "specs", "current")))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "specs/current/passwd",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openapi path base directory is not allowed")
 }
 
 func TestApply_RejectsNegativeMaxRequestBodyBytes(t *testing.T) {

@@ -18,10 +18,6 @@
 package apiconfig
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -30,6 +26,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
+
+	"github.com/pkg/errors"
 )
 
 const (

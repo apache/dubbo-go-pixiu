@@ -27,6 +27,11 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+
 	"github.com/pb33f/libopenapi"
 	openapiValidator "github.com/pb33f/libopenapi-validator"
 	validatorConfig "github.com/pb33f/libopenapi-validator/config"
@@ -37,13 +42,6 @@ import (
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (
@@ -286,7 +284,15 @@ func cleanOpenAPIPath(path string) (string, error) {
 		return "", errors.New("openapi path is required")
 	}
 
-	basePath, err := filepath.Abs(filepath.Dir(cleanPath))
+	// Resolve symlinks so that a relative path like "specs/current/passwd"
+	// cannot bypass the sensitive-directory check when "specs/current" is
+	// a symlink pointing to /etc.
+	resolved, err := filepath.EvalSymlinks(cleanPath)
+	if err != nil {
+		return "", errors.Wrap(err, "resolve openapi path symlinks")
+	}
+
+	basePath, err := filepath.Abs(filepath.Dir(resolved))
 	if err != nil {
 		return "", errors.Wrap(err, "resolve openapi path base")
 	}
@@ -316,18 +322,56 @@ func containsParentDirectory(path string) bool {
 }
 
 func isSensitiveOpenAPIBasePath(path string) bool {
-	path = filepath.Clean(path)
-	if path == filepath.Clean(string(filepath.Separator)) {
+	// Resolve symlinks on the candidate path so that macOS /private/etc
+	// matches against the sensitive entry /etc.
+	resolved := resolveExistingAncestor(path)
+
+	if resolved == filepath.Clean(string(filepath.Separator)) {
 		return true
 	}
 
 	sensitivePaths := []string{"/etc", "/proc", "/sys", "/dev", "/run", "/var/run"}
 	for _, sensitivePath := range sensitivePaths {
-		if isPathWithin(path, sensitivePath) {
+		// Resolve symlinks on the sensitive path too (macOS: /etc -> /private/etc).
+		resolvedSensitive := resolveExistingAncestor(sensitivePath)
+		if isPathWithin(resolved, resolvedSensitive) {
 			return true
 		}
 	}
 	return false
+}
+
+// resolveExistingAncestor resolves symlinks on the longest existing ancestor
+// of path, then appends any remaining non-existent components. This avoids
+// EvalSymlinks failing on paths whose leaf does not yet exist on disk.
+func resolveExistingAncestor(path string) string {
+	path = filepath.Clean(path)
+
+	// Walk up until we find an existing component.
+	candidate := path
+	var tail []string
+	for {
+		_, err := os.Lstat(candidate)
+		if err == nil {
+			break
+		}
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			// Reached root without finding an existing component.
+			return path
+		}
+		tail = append([]string{filepath.Base(candidate)}, tail...)
+		candidate = parent
+	}
+
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		return path
+	}
+	if len(tail) == 0 {
+		return resolved
+	}
+	return filepath.Join(append([]string{resolved}, tail...)...)
 }
 
 func isPathWithin(path string, base string) bool {

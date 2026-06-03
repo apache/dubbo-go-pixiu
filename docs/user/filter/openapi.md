@@ -65,7 +65,8 @@ continue. If the operation is declared but the request violates parameters or bo
 - OpenAPI `security` validation is disabled for this filter, so auth remains the responsibility of filters such as JWT,
   OPA, SAML, or other dedicated authentication and authorization filters.
 - The configured OpenAPI `path` must be relative. Absolute paths, parent-directory segments such as `..`, and sensitive
-  base directories are rejected during filter startup.
+  base directories are rejected during filter startup. Symlinks are resolved before the check so that a relative path
+  cannot bypass the sensitive-directory guard via a symbolic link.
 - Request bodies are capped by `max_request_body_bytes` before schema validation. This prevents the validator from
   reading unbounded JSON or chunked bodies in the gateway hot path.
 - Omit `max_request_body_bytes` or set it to `0` to use the default `1048576` byte limit.
@@ -83,6 +84,13 @@ continue. If the operation is declared but the request violates parameters or bo
 5. If the operation is declared, Pixiu validates the request through `libopenapi-validator`.
 6. If validation succeeds, the request continues to later filters.
 7. If validation fails, Pixiu responds with `400 Bad Request`.
+
+### HEAD requests
+
+The OpenAPI spec does not treat HEAD as a standard HTTP method. When only `GET` is declared for a path
+(without an explicit `head` operation), the SDK's `FindPath` treats HEAD as an undeclared method.
+The filter therefore skips validation and lets the HEAD request continue to downstream handlers.
+If you need HEAD requests to be validated, declare an explicit `head` operation in the OpenAPI spec.
 
 ## Example Requests
 
