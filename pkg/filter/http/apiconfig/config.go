@@ -18,9 +18,11 @@
 package apiconfig
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
-
 	"gopkg.in/yaml.v3"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // ApiConfigConfig the config for api_config filter

@@ -27,11 +27,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
-
 	"github.com/pb33f/libopenapi"
 	openapiValidator "github.com/pb33f/libopenapi-validator"
 	validatorConfig "github.com/pb33f/libopenapi-validator/config"
@@ -42,6 +37,13 @@ import (
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 const (

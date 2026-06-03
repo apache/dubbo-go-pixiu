@@ -26,13 +26,15 @@ import (
 )
 
 import (
-	extfilter "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
-	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gopkg.in/yaml.v3"
+)
+
+import (
+	extfilter "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
 func TestDecode_ContinuesWhenRouteMatches(t *testing.T) {
