@@ -34,9 +34,10 @@ import (
 
 var (
 	// Keep benchmark results live so the compiler cannot optimize the hot path away.
-	benchmarkEndpointSink  *model.Endpoint
-	benchmarkEndpointsSink []*model.Endpoint
-	benchmarkClusterSink   *model.ClusterConfig
+	benchmarkEndpointSink       *model.Endpoint
+	benchmarkEndpointsSink      []*model.Endpoint
+	benchmarkClusterSink        *model.ClusterConfig
+	benchmarkConsistentHashSink model.LbConsistentHashView
 )
 
 type benchmarkHashPolicy string
@@ -205,6 +206,44 @@ func BenchmarkClusterConsistentHashResolve(b *testing.B) {
 				benchmarkEndpointSink = cm.PickEndpoint(clusterName, keys[i%len(keys)])
 			}
 		})
+	}
+}
+
+func BenchmarkClusterConsistentHashSnapshotRefreshUnchangedHealthySet(b *testing.B) {
+	for _, lbType := range []model.LbPolicyType{model.LoadBalancerRingHashing, model.LoadBalancerMaglevHashing} {
+		for _, endpointCount := range []int{1, 32, 256, 1024} {
+			b.Run(fmt.Sprintf("%s/endpoints=%d", lbType, endpointCount), func(b *testing.B) {
+				for _, cachedPrevious := range []bool{true, false} {
+					name := "rebuild-uncached-previous"
+					if cachedPrevious {
+						name = "reuse-cached-previous"
+					}
+
+					b.Run(name, func(b *testing.B) {
+						config := benchmarkClusterConfig("consistent-hash-refresh", lbType, endpointCount, 0)
+						previous := cluster.NewCluster(config).EndpointSnapshot()
+						if cachedPrevious {
+							benchmarkConsistentHashSink = previous.HealthyConsistentHash()
+							if benchmarkConsistentHashSink == nil {
+								b.Fatal("expected previous consistent hash")
+							}
+						}
+
+						b.ReportAllocs()
+						b.ResetTimer()
+						for i := 0; i < b.N; i++ {
+							runtimeCluster := cluster.NewClusterWithEndpointSnapshot(config, previous)
+							next := runtimeCluster.EndpointSnapshot()
+							benchmarkConsistentHashSink = next.HealthyConsistentHash()
+						}
+						b.StopTimer()
+						if benchmarkConsistentHashSink == nil {
+							b.Fatal("expected consistent hash")
+						}
+					})
+				}
+			})
+		}
 	}
 }
 
