@@ -34,9 +34,10 @@ import (
 
 var (
 	// Keep benchmark results live so the compiler cannot optimize the hot path away.
-	benchmarkEndpointSink  *model.Endpoint
-	benchmarkEndpointsSink []*model.Endpoint
-	benchmarkClusterSink   *model.ClusterConfig
+	benchmarkEndpointSink       *model.Endpoint
+	benchmarkEndpointsSink      []*model.Endpoint
+	benchmarkClusterSink        *model.ClusterConfig
+	benchmarkConsistentHashSink model.LbConsistentHashView
 )
 
 type benchmarkHashPolicy string
@@ -205,6 +206,50 @@ func BenchmarkClusterConsistentHashResolve(b *testing.B) {
 				benchmarkEndpointSink = cm.PickEndpoint(clusterName, keys[i%len(keys)])
 			}
 		})
+	}
+}
+
+func BenchmarkClusterConsistentHashSnapshotRefreshUnchangedHealthySet(b *testing.B) {
+	for _, lbType := range []model.LbPolicyType{model.LoadBalancerRingHashing, model.LoadBalancerMaglevHashing} {
+		for _, endpointCount := range []int{1, 32, 256, 1024} {
+			name := fmt.Sprintf("%s/endpoints=%d", lbType, endpointCount)
+			b.Run(name, func(b *testing.B) {
+				b.Run("reuse-cached-previous", func(b *testing.B) {
+					benchmarkConsistentHashSnapshotRefresh(b, lbType, endpointCount, true)
+				})
+				b.Run("rebuild-uncached-previous", func(b *testing.B) {
+					benchmarkConsistentHashSnapshotRefresh(b, lbType, endpointCount, false)
+				})
+			})
+		}
+	}
+}
+
+func benchmarkConsistentHashSnapshotRefresh(
+	b *testing.B,
+	lbType model.LbPolicyType,
+	endpointCount int,
+	previousHashBuilt bool,
+) {
+	config := benchmarkClusterConfig("consistent-hash-refresh", lbType, endpointCount, 0)
+	previous := cluster.NewCluster(config).EndpointSnapshot()
+	if previousHashBuilt {
+		benchmarkConsistentHashSink = previous.HealthyConsistentHash()
+		if benchmarkConsistentHashSink == nil {
+			b.Fatal("expected previous consistent hash")
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runtimeCluster := cluster.NewClusterWithEndpointSnapshot(config, previous)
+		next := runtimeCluster.EndpointSnapshot()
+		benchmarkConsistentHashSink = next.HealthyConsistentHash()
+	}
+	b.StopTimer()
+	if benchmarkConsistentHashSink == nil {
+		b.Fatal("expected consistent hash")
 	}
 }
 
