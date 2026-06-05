@@ -356,8 +356,23 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(c.Name, c)})
 }
 
-// prepareClusterConfig rebuilds endpoint defaults and hash from current endpoints.
+// prepareClusterConfig clones operator-supplied endpoints, then rebuilds
+// endpoint defaults and hash from current endpoints.
 func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
+	if c == nil {
+		return
+	}
+	c.Endpoints = model.CloneEndpoints(c.Endpoints)
+	s.prepareOwnedClusterConfig(c)
+}
+
+// prepareOwnedClusterConfig rebuilds endpoint defaults and hash for endpoints
+// already owned by ClusterStore. Callers must not pass operator-owned endpoint
+// pointers here; use prepareClusterConfig at external input boundaries.
+func (s *ClusterStore) prepareOwnedClusterConfig(c *model.ClusterConfig) {
+	if c == nil {
+		return
+	}
 	s.assembleClusterEndpoints(c)
 	c.CreateConsistentHash()
 }
@@ -365,14 +380,15 @@ func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
 // assembleClusterEndpoints assembles the cluster endpoints by formatting the
 // ID, name and domains for each endpoint. If endpoint.LLMMeta is not nil, the
 // assimilation of name and domain is based on the LLM provider denoted in the
-// endpoint LLMMeta. The store first deep-clones c.Endpoints, so ID/name
-// defaulting never mutates operator-supplied *model.Endpoint values.
+// endpoint LLMMeta. Callers choose the ownership boundary before invoking this
+// helper: external input paths clone endpoints in prepareClusterConfig, while
+// store-owned mutation paths call prepareOwnedClusterConfig to avoid a second
+// full endpoint clone before snapshot publication.
 func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
 	}
 
-	c.Endpoints = model.CloneEndpoints(c.Endpoints)
 	endpointIDs := make(map[string]struct{}, len(c.Endpoints))
 	for i, endpoint := range c.Endpoints {
 		if endpoint == nil {
@@ -642,7 +658,7 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 		s.replaceEndpointAt(clusterConfig, runtimeCluster, outcome.replaceIdx, endpoint)
 	case setEndpointAppend:
 		clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
-		s.prepareClusterConfig(clusterConfig)
+		s.prepareOwnedClusterConfig(clusterConfig)
 		runtimeCluster.RefreshEndpoints()
 		runtimeCluster.AddEndpoint(endpoint)
 	}
@@ -677,7 +693,7 @@ func (s *ClusterStore) replaceEndpointAt(
 		logSetEndpointOverwrite(clusterConfig.Name, endpoint.ID, old, endpoint)
 	}
 	clusterConfig.Endpoints[idx] = endpoint
-	s.prepareClusterConfig(clusterConfig)
+	s.prepareOwnedClusterConfig(clusterConfig)
 	runtimeCluster.RefreshEndpoints()
 	if addressChanged {
 		runtimeCluster.AddEndpoint(endpoint)
@@ -942,7 +958,7 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 		if e.ID == endpointID {
 			runtimeCluster.RemoveEndpoint(e)
 			clusterConfig.Endpoints = append(clusterConfig.Endpoints[:i], clusterConfig.Endpoints[i+1:]...)
-			s.prepareClusterConfig(clusterConfig)
+			s.prepareOwnedClusterConfig(clusterConfig)
 			runtimeCluster.RefreshEndpoints()
 			return
 		}
