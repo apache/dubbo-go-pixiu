@@ -165,6 +165,39 @@ func benchmarkHealthySnapshotAccessor(
 	}
 }
 
+func BenchmarkClusterSetEndpointMembershipChurn(b *testing.B) {
+	endpointCount := 1000
+	clusterName := "endpoint-churn"
+
+	clusterConfig := benchmarkClusterConfig(clusterName, model.LoadBalancerRoundRobin, endpointCount, 0)
+	for _, endpoint := range clusterConfig.Endpoints {
+		endpoint.Metadata = map[string]string{
+			"first":  "0",
+			"second": "0",
+			"third":  "0",
+		}
+	}
+
+	cm := testClusterManager(clusterConfig)
+	endpoints := cm.store.Config[0].Endpoints
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		endpoint := endpoints[i%len(endpoints)]
+
+		cm.SetEndpoint(clusterName, &model.Endpoint{
+			ID:      endpoint.ID,
+			Address: endpoint.Address,
+			Metadata: map[string]string{
+				"first":  fmt.Sprintf("%d", i),
+				"second": fmt.Sprintf("%d", i),
+				"third":  fmt.Sprintf("%d", i),
+			},
+		})
+	}
+}
+
 func BenchmarkClusterCompareAndSetStoreMixed(b *testing.B) {
 	cm, names := benchmarkClusterManager(128, 4, model.LoadBalancerRoundRobin)
 	readIndex := 0
