@@ -359,9 +359,6 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 // prepareClusterConfig clones operator-supplied endpoints, then rebuilds
 // endpoint defaults and hash from current endpoints.
 func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
-	if c == nil {
-		return
-	}
 	c.Endpoints = model.CloneEndpoints(c.Endpoints)
 	s.prepareOwnedClusterConfig(c)
 }
@@ -370,20 +367,17 @@ func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
 // already owned by ClusterStore. Callers must not pass operator-owned endpoint
 // pointers here; use prepareClusterConfig at external input boundaries.
 func (s *ClusterStore) prepareOwnedClusterConfig(c *model.ClusterConfig) {
-	if c == nil {
-		return
-	}
 	s.assembleClusterEndpoints(c)
 	c.CreateConsistentHash()
 }
 
-// assembleClusterEndpoints assembles the cluster endpoints by formatting the
-// ID, name and domains for each endpoint. If endpoint.LLMMeta is not nil, the
-// assimilation of name and domain is based on the LLM provider denoted in the
-// endpoint LLMMeta. Callers choose the ownership boundary before invoking this
-// helper: external input paths clone endpoints in prepareClusterConfig, while
-// store-owned mutation paths call prepareOwnedClusterConfig to avoid a second
-// full endpoint clone before snapshot publication.
+// assembleClusterEndpoints assembles the cluster endpoints by assigning stable
+// unique IDs and default names for each endpoint. If endpoint.LLMMeta is not nil,
+// the default endpoint name is based on the LLM provider denoted in the endpoint
+// LLMMeta. Callers choose the ownership boundary before invoking this helper:
+// external input paths clone endpoints in prepareClusterConfig, while store-owned
+// mutation paths call prepareOwnedClusterConfig to avoid a second full endpoint
+// clone before snapshot publication.
 func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
