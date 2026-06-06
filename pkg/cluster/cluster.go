@@ -630,13 +630,24 @@ func sameEndpointForConsistentHash(a, b *model.Endpoint) bool {
 	if a.ID != b.ID {
 		return false
 	}
-	if a.Address.GetAddress() != b.Address.GetAddress() {
-		return false
-	}
-	if a.GetHost() != b.GetHost() {
+	if !sameEndpointAddressForConsistentHash(a.Address, b.Address) {
 		return false
 	}
 	return sameHashRelevantMetadata(a.Metadata, b.Metadata)
+}
+
+func sameEndpointAddressForConsistentHash(a, b model.SocketAddress) bool {
+	aHasDomain := len(a.Domains) > 0
+	bHasDomain := len(b.Domains) > 0
+	if aHasDomain != bHasDomain {
+		return false
+	}
+
+	if aHasDomain && a.Domains[0] != b.Domains[0] {
+		return false
+	}
+
+	return a.Address == b.Address && a.Port == b.Port
 }
 
 func sameHashRelevantMetadata(a, b map[string]string) bool {
