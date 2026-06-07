@@ -412,3 +412,26 @@ func testLLMEndpoint(id string, port int) *model.Endpoint {
 		},
 	}
 }
+
+func BenchmarkCooldown_EndpointInCooldown(b *testing.B) {
+	const clusterName = "llm-cooldown-bench"
+	const endpointCount = 100
+	store := newCooldownStore()
+	executor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   store,
+	}
+	endpoints := make([]*model.Endpoint, endpointCount)
+	for i := range endpoints {
+		endpoint := testLLMEndpoint(fmt.Sprintf("ep-%d", i), 19000+i)
+		endpoint.LLMMeta.APIKey = fmt.Sprintf("api-key-%d", i)
+		endpoints[i] = endpoint
+		store.markFailure(clusterName, endpoint, time.Now())
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		executor.endpointInCooldown(endpoints[i%endpointCount])
+	}
+}
