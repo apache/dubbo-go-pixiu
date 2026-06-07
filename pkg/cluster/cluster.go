@@ -447,6 +447,20 @@ func (s *EndpointSnapshot) HealthyEndpointByID(endpointID string) *model.Endpoin
 	return model.CloneEndpoint(s.healthyEndpointByID[endpointID])
 }
 
+// HealthyEndpointByIDForPick returns the snapshot-internal healthy endpoint for
+// endpointID without cloning, or nil when no healthy endpoint carries that ID.
+// Like HealthyEndpointsForPick, the returned endpoint is owned by the snapshot:
+// callers MUST NOT mutate or retain it past the current pick. This O(1) lookup
+// backs the request-path recheck that validates a balancer's pick by ID instead
+// of scanning the healthy slice; external callers should use HealthyEndpointByID
+// (defensive clone).
+func (s *EndpointSnapshot) HealthyEndpointByIDForPick(endpointID string) *model.Endpoint {
+	if s == nil {
+		return nil
+	}
+	return s.healthyEndpointByID[endpointID]
+}
+
 func (s *EndpointSnapshot) withEndpointHealth(
 	endpointID, endpointAddress string,
 	healthy bool,

@@ -307,6 +307,7 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 		HealthyConsistentHash: snapshot.HealthyConsistentHash(),
 		AllEndpoints:          allEndpoints,
 		HealthyEndpoints:      healthyEndpoints,
+		HealthyByID:           snapshot,
 	}, policy)
 }
 
