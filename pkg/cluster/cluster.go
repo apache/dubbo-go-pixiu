@@ -101,6 +101,7 @@ func (c *Cluster) RefreshEndpointsFrom(previous *EndpointSnapshot) {
 		}
 		next := newEndpointSnapshot(c.Config, source, len(c.Config.HealthChecks) != 0)
 		if c.endpoints.CompareAndSwap(current, next) {
+			recordSnapshotPublish(c.clusterName(), next)
 			return
 		}
 	}
@@ -128,6 +129,7 @@ func (c *Cluster) UpdateEndpointHealth(endpointID, endpointAddress string, healt
 			return true
 		}
 		if c.endpoints.CompareAndSwap(current, next) {
+			recordSnapshotPublish(c.clusterName(), next)
 			return true
 		}
 	}
@@ -158,6 +160,7 @@ func (c *Cluster) UpdateEndpointAddressHealth(endpointAddress string, healthy bo
 			return true
 		}
 		if c.endpoints.CompareAndSwap(current, next) {
+			recordSnapshotPublish(c.clusterName(), next)
 			return true
 		}
 	}
