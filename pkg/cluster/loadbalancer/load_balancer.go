@@ -167,6 +167,11 @@ func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	legacyPickMu.Lock()
 	defer legacyPickMu.Unlock()
 
+	// Build the Config-level consistent hash lazily on the first legacy pick.
+	// prepareClusterConfig no longer rebuilds it eagerly; snapshot balancers
+	// never read it. Safe under legacyPickMu, which serializes this path.
+	context.Config.EnsureConsistentHash()
+
 	allEndpoints := context.AllEndpoints
 	if allEndpoints == nil {
 		allEndpoints = context.HealthyEndpoints

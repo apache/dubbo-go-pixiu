@@ -208,6 +208,37 @@ func BenchmarkClusterConsistentHashResolve(b *testing.B) {
 	}
 }
 
+// BenchmarkSetEndpoint measures the per-mutation cost of a registry update on a
+// Maglev cluster with a large lookup table. Before deferring the Config-level
+// consistent-hash rebuild, every SetEndpoint repopulated the whole table; now
+// the snapshot path skips that work entirely, so this benchmark isolates the
+// remaining assemble/refresh cost. The updates keep each endpoint's address
+// fixed and only flip metadata, mirroring a high-churn discovery environment
+// re-registering the same instances (and avoiding healthcheck restarts).
+func BenchmarkSetEndpoint(b *testing.B) {
+	const endpointCount = 64
+	cluster := testCluster("set-endpoint-maglev", model.LoadBalancerMaglevHashing, nil)
+	cluster.ConsistentHash = model.ConsistentHash{MaglevTableSize: 65537}
+	for i := 0; i < endpointCount; i++ {
+		cluster.Endpoints = append(cluster.Endpoints, testEndpoint(fmt.Sprintf("ep-%d", i), "127.0.0.1", 20000+i))
+	}
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	updates := make([]*model.Endpoint, endpointCount)
+	for i := range updates {
+		endpoint := testEndpoint(fmt.Sprintf("ep-%d", i), "127.0.0.1", 20000+i)
+		endpoint.Metadata = map[string]string{"generation": "next"}
+		updates[i] = endpoint
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cm.SetEndpoint(cluster.Name, updates[i%endpointCount])
+	}
+}
+
 func benchmarkClusterManager(clusterCount int, endpointCount int, lbType model.LbPolicyType) (*ClusterManager, []string) {
 	clusters := make([]*model.ClusterConfig, 0, clusterCount)
 	names := make([]string, 0, clusterCount)
