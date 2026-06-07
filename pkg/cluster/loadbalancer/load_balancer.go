@@ -170,6 +170,13 @@ func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	// Build the Config-level consistent hash lazily on the first legacy pick.
 	// prepareClusterConfig no longer rebuilds it eagerly; snapshot balancers
 	// never read it. Safe under legacyPickMu, which serializes this path.
+	//
+	// In-tree this branch is currently unreached: every bundled balancer
+	// implements HandlerWithSnapshot and is dispatched above. The actual win
+	// is dropping the eager rebuild from prepareClusterConfig; EnsureConsistentHash
+	// exists so an out-of-tree balancer that only implements the legacy Handler
+	// still observes a non-nil Config.ConsistentHash.Hash, preserving the old
+	// contract.
 	context.Config.EnsureConsistentHash()
 
 	allEndpoints := context.AllEndpoints
