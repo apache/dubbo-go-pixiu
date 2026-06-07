@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"bytes"
+	"container/list"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -127,12 +128,20 @@ type (
 	}
 
 	cooldownStore struct {
-		mu                    sync.Mutex
-		lastFailureByEndpoint map[cooldownKey]cooldownEntry
-		lastSweep             time.Time
+		mu sync.Mutex
+		// lastFailureByEndpoint indexes each tracked endpoint to its node in
+		// recencyOrder, so lookups stay O(1) and the node can be repositioned
+		// or removed without scanning.
+		lastFailureByEndpoint map[cooldownKey]*list.Element
+		// recencyOrder holds *cooldownEntry values ordered oldest-at-front,
+		// newest-at-back. Eviction pops the front in O(1); refreshing an entry
+		// moves its node to the back.
+		recencyOrder *list.List
+		lastSweep    time.Time
 	}
 
 	cooldownEntry struct {
+		key         cooldownKey
 		lastFailure time.Time
 		ttl         time.Duration
 	}
@@ -464,7 +473,8 @@ func (executor *RequestExecutor) markEndpointCooldown(endpoint *model.Endpoint) 
 
 func newCooldownStore() *cooldownStore {
 	return &cooldownStore{
-		lastFailureByEndpoint: map[cooldownKey]cooldownEntry{},
+		lastFailureByEndpoint: map[cooldownKey]*list.Element{},
+		recencyOrder:          list.New(),
 	}
 }
 
@@ -477,14 +487,14 @@ func (s *cooldownStore) lastFailureWithCurrentTTL(clusterName string, endpoint *
 	key := newCooldownKey(clusterName, endpoint)
 	now := time.Now()
 	s.sweepExpiredIfNeededLocked(now, key)
-	entry, ok := s.lastFailureByEndpoint[key]
+	element, ok := s.lastFailureByEndpoint[key]
 	if !ok {
 		return time.Time{}, 0, false
 	}
+	entry := element.Value.(*cooldownEntry)
 	currentTTL := endpointCooldownInterval(endpoint)
 	if entry.ttl != currentTTL {
 		entry.ttl = currentTTL
-		s.lastFailureByEndpoint[key] = entry
 	}
 	return entry.lastFailure, entry.ttl, true
 }
@@ -497,13 +507,20 @@ func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint
 	defer s.mu.Unlock()
 	key := newCooldownKey(clusterName, endpoint)
 	s.sweepExpiredIfNeededLocked(time.Now(), key)
-	if _, ok := s.lastFailureByEndpoint[key]; !ok {
-		s.evictOldestIfFullLocked(key)
+	ttl := endpointCooldownInterval(endpoint)
+	if element, ok := s.lastFailureByEndpoint[key]; ok {
+		entry := element.Value.(*cooldownEntry)
+		entry.lastFailure = lastFailure
+		entry.ttl = ttl
+		s.recencyOrder.MoveToBack(element)
+		return
 	}
-	s.lastFailureByEndpoint[key] = cooldownEntry{
+	s.evictOldestIfFullLocked(key)
+	s.lastFailureByEndpoint[key] = s.recencyOrder.PushBack(&cooldownEntry{
+		key:         key,
 		lastFailure: lastFailure,
-		ttl:         endpointCooldownInterval(endpoint),
-	}
+		ttl:         ttl,
+	})
 }
 
 func (s *cooldownStore) deleteLastFailureIfMatches(clusterName string, endpoint *model.Endpoint, expected time.Time) bool {
@@ -513,12 +530,19 @@ func (s *cooldownStore) deleteLastFailureIfMatches(clusterName string, endpoint 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := newCooldownKey(clusterName, endpoint)
-	current, ok := s.lastFailureByEndpoint[key]
-	if !ok || current.lastFailure != expected {
+	element, ok := s.lastFailureByEndpoint[key]
+	if !ok || element.Value.(*cooldownEntry).lastFailure != expected {
 		return false
 	}
-	delete(s.lastFailureByEndpoint, key)
+	s.removeLocked(key, element)
 	return true
+}
+
+// removeLocked drops one entry from both the map and the recency list,
+// keeping the two structures in sync. Callers must hold s.mu.
+func (s *cooldownStore) removeLocked(key cooldownKey, element *list.Element) {
+	delete(s.lastFailureByEndpoint, key)
+	s.recencyOrder.Remove(element)
 }
 
 func (s *cooldownStore) sweepExpiredIfNeededLocked(now time.Time, current cooldownKey) {
@@ -532,39 +556,35 @@ func (s *cooldownStore) sweepExpiredIfNeededLocked(now time.Time, current cooldo
 }
 
 func (s *cooldownStore) sweepExpiredExceptLocked(now time.Time, current cooldownKey) {
-	for key, entry := range s.lastFailureByEndpoint {
+	for key, element := range s.lastFailureByEndpoint {
 		if key == current {
 			continue
 		}
+		entry := element.Value.(*cooldownEntry)
 		if now.Sub(entry.lastFailure) >= entry.ttl {
-			delete(s.lastFailureByEndpoint, key)
+			s.removeLocked(key, element)
 		}
 	}
 }
 
+// evictOldestIfFullLocked removes the least-recently-failed entry when the
+// store is at capacity, in O(1) via the front of the recency list. current is
+// the key about to be inserted; it is never in the list yet on this path, but
+// the guard keeps the invariant explicit so a future caller cannot evict the
+// entry it is in the middle of writing.
 func (s *cooldownStore) evictOldestIfFullLocked(current cooldownKey) {
 	if len(s.lastFailureByEndpoint) < maxCooldownStoreEntries {
 		return
 	}
-
-	var (
-		oldestKey   cooldownKey
-		oldestEntry cooldownEntry
-		found       bool
-	)
-	for key, entry := range s.lastFailureByEndpoint {
-		if key == current {
-			continue
-		}
-		if !found || entry.lastFailure.Before(oldestEntry.lastFailure) {
-			oldestKey = key
-			oldestEntry = entry
-			found = true
-		}
+	oldest := s.recencyOrder.Front()
+	if oldest == nil {
+		return
 	}
-	if found {
-		delete(s.lastFailureByEndpoint, oldestKey)
+	oldestKey := oldest.Value.(*cooldownEntry).key
+	if oldestKey == current {
+		return
 	}
+	s.removeLocked(oldestKey, oldest)
 }
 
 func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {

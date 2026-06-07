@@ -375,6 +375,87 @@ func TestCooldownStoreEvictsOldestEntryWhenCapacityExceeded(t *testing.T) {
 	assert.Equal(t, maxCooldownStoreEntries, entryCount)
 }
 
+// TestCooldownStoreRefreshUpdatesRecency verifies that re-failing an existing
+// endpoint moves it to the newest side of the LRU, so a later eviction drops a
+// genuinely older entry instead of the just-refreshed one.
+func TestCooldownStoreRefreshUpdatesRecency(t *testing.T) {
+	store := newCooldownStore()
+	now := time.Now()
+
+	first := testLLMEndpoint("ep-first", 19000)
+	second := testLLMEndpoint("ep-second", 19001)
+	store.markFailure("recency-cluster", first, now)
+	store.markFailure("recency-cluster", second, now.Add(time.Millisecond))
+
+	// Refresh the first endpoint so it becomes the most recently failed.
+	store.markFailure("recency-cluster", first, now.Add(2*time.Millisecond))
+
+	store.mu.Lock()
+	front := store.recencyOrder.Front().Value.(*cooldownEntry)
+	back := store.recencyOrder.Back().Value.(*cooldownEntry)
+	listLen := store.recencyOrder.Len()
+	mapLen := len(store.lastFailureByEndpoint)
+	store.mu.Unlock()
+
+	assert.Equal(t, newCooldownKey("recency-cluster", second), front.key, "least-recent should be the un-refreshed entry")
+	assert.Equal(t, newCooldownKey("recency-cluster", first), back.key, "most-recent should be the refreshed entry")
+	assert.Equal(t, 2, listLen)
+	assert.Equal(t, mapLen, listLen, "map and recency list must stay in sync")
+}
+
+// TestCooldownStoreSweepRemovesMapAndListState verifies the lazy TTL sweep
+// drops an expired entry from both the map and the recency list, leaving no
+// stale list element behind.
+func TestCooldownStoreSweepRemovesMapAndListState(t *testing.T) {
+	clusterName := "sweep-cluster"
+	expiredEndpoint := testLLMEndpoint("ep-expired", 19000)
+	activeEndpoint := testLLMEndpoint("ep-active", 19001)
+	store := newCooldownStore()
+
+	store.markFailure(clusterName, expiredEndpoint, time.Now().Add(-time.Hour))
+	store.mu.Lock()
+	store.lastSweep = time.Now().Add(-cooldownStoreSweepAfter - time.Millisecond)
+	store.mu.Unlock()
+
+	// Touching an unrelated endpoint triggers the lazy sweep.
+	store.lastFailureWithCurrentTTL(clusterName, activeEndpoint)
+
+	store.mu.Lock()
+	_, expiredExists := store.lastFailureByEndpoint[newCooldownKey(clusterName, expiredEndpoint)]
+	listLen := store.recencyOrder.Len()
+	mapLen := len(store.lastFailureByEndpoint)
+	store.mu.Unlock()
+
+	assert.False(t, expiredExists)
+	assert.Equal(t, 0, listLen, "expired entry must be removed from the recency list, not just the map")
+	assert.Equal(t, mapLen, listLen, "map and recency list must stay in sync")
+}
+
+// TestCooldownStoreDeleteExpiredLeavesNoStaleListElement verifies that clearing
+// an expired cooldown via the request path removes both the map entry and its
+// recency list element.
+func TestCooldownStoreDeleteExpiredLeavesNoStaleListElement(t *testing.T) {
+	clusterName := "delete-expired-cluster"
+	endpoint := testLLMEndpoint("ep-1", 19000)
+	store := newCooldownStore()
+	executor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   store,
+	}
+	store.markFailure(clusterName, endpoint, time.Now().Add(-time.Hour))
+
+	// endpointInCooldown observes the entry as expired and deletes it.
+	assert.False(t, executor.endpointInCooldown(endpoint))
+
+	store.mu.Lock()
+	mapLen := len(store.lastFailureByEndpoint)
+	listLen := store.recencyOrder.Len()
+	store.mu.Unlock()
+
+	assert.Equal(t, 0, mapLen)
+	assert.Equal(t, 0, listLen, "deleting an expired cooldown must not leave a stale list element")
+}
+
 func TestStrategyExecuteIgnoresUnhealthyPreferredEndpoint(t *testing.T) {
 	clusterName := "llm-preferred-health"
 	healthyEndpoint := testLLMEndpoint("ep-1", 18086)
@@ -468,7 +549,7 @@ func BenchmarkCooldown_EndpointInCooldown(b *testing.B) {
 		endpoint.LLMMeta.APIKey = fmt.Sprintf("api-key-%d", i)
 		endpoint.LLMMeta.HealthCheckInterval = cooldownTTLMillis
 		endpoints[i] = endpoint
-		store.markFailure(clusterName, endpoint, time.Now())
+		store.markFailure(clusterName, endpoint)
 	}
 
 	b.ReportAllocs()
