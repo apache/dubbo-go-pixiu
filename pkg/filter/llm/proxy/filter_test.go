@@ -45,7 +45,7 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestFilterFactoriesShareRuntimeCooldownStore(t *testing.T) {
-	plugin := &Plugin{}
+	plugin := newPlugin()
 	firstFactory, err := plugin.CreateFilterFactory()
 	if !assert.NoError(t, err) {
 		return
@@ -78,8 +78,8 @@ func TestFilterFactoriesShareRuntimeCooldownStore(t *testing.T) {
 }
 
 func TestIndependentPluginsDoNotShareCooldownState(t *testing.T) {
-	firstPlugin := &Plugin{}
-	secondPlugin := &Plugin{}
+	firstPlugin := newPlugin()
+	secondPlugin := newPlugin()
 
 	firstFactory, err := firstPlugin.CreateFilterFactory()
 	if !assert.NoError(t, err) {
