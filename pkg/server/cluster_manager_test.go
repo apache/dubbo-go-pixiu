@@ -18,6 +18,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -27,6 +28,12 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 import (
@@ -1110,4 +1117,119 @@ func healthCheckerAddresses(runtime *cluster.Cluster) []string {
 		addrs = append(addrs, iter.Key().String())
 	}
 	return addrs
+}
+
+// TestStaticClusterSnapshotMetricsRecordedAtStartup verifies that snapshot
+// publication metrics emitted during static cluster initialization land on the
+// real meter provider. This test models production startup ordering: clusters
+// are created during CreateDefaultClusterManager (called from initialize), and
+// the OTel provider must be installed BEFORE that point so the initial snapshot
+// publish (the only guaranteed emission for steady-state clusters) is recorded.
+//
+// Regression guard for: if registerOtelMetricMeter is moved back after cluster
+// construction, static clusters' initial publish lands on the no-op delegating
+// provider, and the counter/gauges remain empty in steady state.
+func TestStaticClusterSnapshotMetricsRecordedAtStartup(t *testing.T) {
+	// Step 1: Install a ManualReader meter provider BEFORE cluster construction.
+	// This models the corrected startup order: registerOtelMetricMeter(bs.Metric)
+	// is called in Start(bs) before server.initialize(bs).
+	reader := installClusterSnapshotMetricsReader(t)
+
+	// Step 2: Construct a cluster manager with static clusters, simulating what
+	// happens during initialize → CreateDefaultClusterManager.
+	staticCluster := testCluster("static-metrics-test", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19001),
+		testEndpoint("ep-2", "127.0.0.1", 19002),
+	})
+	_ = CreateDefaultClusterManager(&model.Bootstrap{
+		StaticResources: model.StaticResources{
+			Clusters: []*model.ClusterConfig{staticCluster},
+		},
+	})
+
+	// Step 3: Verify the initial snapshot publish was recorded. NewCluster calls
+	// RefreshEndpointsFrom, which publishes once. That single emission must land
+	// on the real provider for steady-state clusters (those with no health flips
+	// or registry churn) to have any recorded metrics at all.
+	metrics := collectClusterSnapshotMetrics(t, reader)
+
+	publishTotal, ok := metrics["pixiu_cluster_snapshot_publish_total"]
+	assert.True(t, ok, "publish total metric missing")
+	assert.Equal(t, int64(1), sumForClusterMetric(t, publishTotal, "static-metrics-test"),
+		"static cluster initial publish must increment the counter")
+
+	endpointCount, ok := metrics["pixiu_cluster_snapshot_endpoint_count"]
+	assert.True(t, ok, "endpoint count gauge missing")
+	assert.Equal(t, int64(2), gaugeForClusterMetric(t, endpointCount, "static-metrics-test"),
+		"endpoint count gauge must reflect the initial snapshot size")
+
+	healthyCount, ok := metrics["pixiu_cluster_snapshot_healthy_endpoint_count"]
+	assert.True(t, ok, "healthy endpoint count gauge missing")
+	assert.Equal(t, int64(2), gaugeForClusterMetric(t, healthyCount, "static-metrics-test"),
+		"healthy endpoint count gauge must reflect the initial snapshot size")
+}
+
+// installClusterSnapshotMetricsReader installs a ManualReader meter provider
+// for snapshot metrics testing and resets the global instrument state on cleanup.
+// This helper mutates process-global state (otel.SetMeterProvider and the
+// pkg/cluster instrument variables), so tests using it must not call t.Parallel().
+func installClusterSnapshotMetricsReader(t *testing.T) *sdkmetric.ManualReader {
+	t.Helper()
+
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	prevProvider := otel.GetMeterProvider()
+
+	otel.SetMeterProvider(provider)
+
+	t.Cleanup(func() {
+		otel.SetMeterProvider(prevProvider)
+	})
+
+	return reader
+}
+
+// collectClusterSnapshotMetrics collects metrics from the reader and returns
+// them as a map keyed by metric name.
+func collectClusterSnapshotMetrics(t *testing.T, reader *sdkmetric.ManualReader) map[string]metricdata.Metrics {
+	t.Helper()
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+
+	out := make(map[string]metricdata.Metrics)
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			out[m.Name] = m
+		}
+	}
+	return out
+}
+
+// sumForClusterMetric extracts the counter value for the given cluster label.
+func sumForClusterMetric(t *testing.T, m metricdata.Metrics, clusterName string) int64 {
+	t.Helper()
+	data, ok := m.Data.(metricdata.Sum[int64])
+	require.True(t, ok, "metric %s is not an int64 Sum", m.Name)
+	for _, dp := range data.DataPoints {
+		if v, ok := dp.Attributes.Value(attribute.Key("cluster")); ok && v.AsString() == clusterName {
+			return dp.Value
+		}
+	}
+	t.Fatalf("no data point for cluster %q in metric %s", clusterName, m.Name)
+	return 0
+}
+
+// gaugeForClusterMetric extracts the gauge value for the given cluster label.
+func gaugeForClusterMetric(t *testing.T, m metricdata.Metrics, clusterName string) int64 {
+	t.Helper()
+	data, ok := m.Data.(metricdata.Gauge[int64])
+	require.True(t, ok, "metric %s is not an int64 Gauge", m.Name)
+	for _, dp := range data.DataPoints {
+		if v, ok := dp.Attributes.Value(attribute.Key("cluster")); ok && v.AsString() == clusterName {
+			return dp.Value
+		}
+	}
+	t.Fatalf("no data point for cluster %q in metric %s", clusterName, m.Name)
+	return 0
 }

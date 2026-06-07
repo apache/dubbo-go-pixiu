@@ -38,7 +38,11 @@ import (
 // global provider and instrument state on cleanup so later callers rebind.
 //
 // It mutates package-global instruments and the process-global MeterProvider,
-// so tests that use it must not call t.Parallel().
+// so tests that use it must not call t.Parallel(). Additionally, any test in
+// this package that constructs a cluster (even without calling this helper)
+// will trigger recordSnapshotPublish → initSnapshotMetrics, so tests that
+// construct clusters must also not call t.Parallel() to avoid racing on the
+// sync.Once and global instrument variables.
 func installSnapshotMetricsReader(t *testing.T) *sdkmetric.ManualReader {
 	t.Helper()
 
