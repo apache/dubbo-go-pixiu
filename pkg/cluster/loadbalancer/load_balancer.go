@@ -64,6 +64,24 @@ type SnapshotLoadBalancer interface {
 	HandlerWithSnapshot(c PickContext, policy model.LbPolicy) *model.Endpoint
 }
 
+// HealthyOnlySnapshotLoadBalancer is retained for source compatibility with
+// callers that referenced the old marker contract.
+//
+// Deprecated: runtime fast-path decisions ignore this interface. Only trusted
+// in-tree balancers can opt in via SnapshotOptIn returning snapshotopt.Token.
+type HealthyOnlySnapshotLoadBalancer interface {
+	UseHealthyEndpointsOnly() bool
+}
+
+// ZeroCopySnapshotLoadBalancer is retained for source compatibility with
+// callers that referenced the old marker contract.
+//
+// Deprecated: runtime fast-path decisions ignore this interface. Only trusted
+// in-tree balancers can opt in via SnapshotOptIn returning snapshotopt.Token.
+type ZeroCopySnapshotLoadBalancer interface {
+	UseZeroCopySnapshot() bool
+}
+
 // snapshotOptInBalancer is the internal opt-in surface for trusted, in-tree
 // snapshot balancers. The method returns snapshotopt.Token, whose type lives in
 // an internal package, so only balancers under pkg/cluster/loadbalancer can

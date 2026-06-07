@@ -51,20 +51,31 @@ type healthyOnlySnapshotLoadBalancer struct{}
 // token, these methods grant no fast path: the balancer must be treated as
 // untrusted (defensive copy, full snapshot). It also mutates the endpoints it
 // receives so the test can prove it got a copy.
-type externalLikeSnapshotLoadBalancer struct{}
+type externalLikeSnapshotLoadBalancer struct {
+	seenAllEndpoints     []*model.Endpoint
+	seenHealthyEndpoints []*model.Endpoint
+}
 
-func (externalLikeSnapshotLoadBalancer) UseZeroCopySnapshot() bool     { return true }
-func (externalLikeSnapshotLoadBalancer) UseHealthyEndpointsOnly() bool { return true }
+var _ HealthyOnlySnapshotLoadBalancer = (*externalLikeSnapshotLoadBalancer)(nil)
+var _ ZeroCopySnapshotLoadBalancer = (*externalLikeSnapshotLoadBalancer)(nil)
 
-func (externalLikeSnapshotLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+func (*externalLikeSnapshotLoadBalancer) UseZeroCopySnapshot() bool     { return true }
+func (*externalLikeSnapshotLoadBalancer) UseHealthyEndpointsOnly() bool { return true }
+
+func (*externalLikeSnapshotLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
 	return nil
 }
 
-func (externalLikeSnapshotLoadBalancer) HandlerWithSnapshot(c PickContext, _ model.LbPolicy) *model.Endpoint {
+func (b *externalLikeSnapshotLoadBalancer) HandlerWithSnapshot(c PickContext, _ model.LbPolicy) *model.Endpoint {
+	b.seenAllEndpoints = c.AllEndpoints
+	b.seenHealthyEndpoints = c.HealthyEndpoints
 	if len(c.HealthyEndpoints) == 0 {
 		return nil
 	}
 	c.HealthyEndpoints[0].Metadata["weight"] = "mutated"
+	if len(c.AllEndpoints) > 1 {
+		c.AllEndpoints[1].Metadata["weight"] = "mutated-unhealthy"
+	}
 	return c.HealthyEndpoints[0]
 }
 
@@ -357,20 +368,26 @@ func TestNeedsAllEndpointsKeepsCompatibilityForUnmarkedSnapshotLoadBalancer(t *t
 // untrusted: it receives the full snapshot (NeedsAllEndpoints true) and a
 // defensive copy (its mutation must not escape to the caller's endpoints).
 func TestExternalLikeBalancerCannotOptIntoFastPaths(t *testing.T) {
-	assert.True(t, NeedsAllEndpoints(externalLikeSnapshotLoadBalancer{}),
+	balancer := &externalLikeSnapshotLoadBalancer{}
+	assert.True(t, NeedsAllEndpoints(balancer),
 		"external-like balancer must not opt out of AllEndpoints via the old method name")
 
 	healthy := &model.Endpoint{
 		ID:       "healthy",
 		Metadata: map[string]string{"weight": "1"},
 	}
+	unhealthy := &model.Endpoint{
+		ID:        "unhealthy",
+		Metadata:  map[string]string{"weight": "2"},
+		UnHealthy: true,
+	}
 	cluster := &model.ClusterConfig{
 		Name:      "external-like-trust-boundary",
-		Endpoints: []*model.Endpoint{healthy},
+		Endpoints: []*model.Endpoint{healthy, unhealthy},
 	}
 
-	got := PickEndpoint(externalLikeSnapshotLoadBalancer{}, PickContext{
-		AllEndpoints:     []*model.Endpoint{healthy},
+	got := PickEndpoint(balancer, PickContext{
+		AllEndpoints:     []*model.Endpoint{healthy, unhealthy},
 		Config:           cluster,
 		HealthyEndpoints: []*model.Endpoint{healthy},
 	}, nil)
@@ -378,8 +395,19 @@ func TestExternalLikeBalancerCannotOptIntoFastPaths(t *testing.T) {
 	if assert.NotNil(t, got) {
 		assert.NotSame(t, healthy, got, "untrusted balancer must receive a defensive copy")
 	}
+	if assert.Len(t, balancer.seenAllEndpoints, 2, "untrusted balancer must receive the full snapshot") {
+		assert.NotSame(t, healthy, balancer.seenAllEndpoints[0])
+		assert.NotSame(t, unhealthy, balancer.seenAllEndpoints[1])
+		assert.Equal(t, "healthy", balancer.seenAllEndpoints[0].ID)
+		assert.Equal(t, "unhealthy", balancer.seenAllEndpoints[1].ID)
+	}
+	if assert.Len(t, balancer.seenHealthyEndpoints, 1) {
+		assert.NotSame(t, healthy, balancer.seenHealthyEndpoints[0])
+	}
 	assert.Equal(t, map[string]string{"weight": "1"}, healthy.Metadata,
 		"untrusted balancer mutation must not escape to the snapshot-owned endpoint")
+	assert.Equal(t, map[string]string{"weight": "2"}, unhealthy.Metadata,
+		"untrusted balancer mutation must not escape to the full snapshot endpoint")
 }
 
 func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {

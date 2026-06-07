@@ -59,8 +59,19 @@ func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model
 
 type RingHashing struct{}
 
+var _ loadbalancer.HealthyOnlySnapshotLoadBalancer = RingHashing{}
+var _ loadbalancer.ZeroCopySnapshotLoadBalancer = RingHashing{}
+
 func (RingHashing) SnapshotOptIn() snapshotopt.Token {
 	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
+}
+
+func (RingHashing) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (RingHashing) UseZeroCopySnapshot() bool {
+	return true
 }
 
 func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {

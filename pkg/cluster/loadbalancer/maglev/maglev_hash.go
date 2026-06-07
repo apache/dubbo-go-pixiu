@@ -51,8 +51,19 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 
 type MaglevHash struct{}
 
+var _ loadbalancer.HealthyOnlySnapshotLoadBalancer = MaglevHash{}
+var _ loadbalancer.ZeroCopySnapshotLoadBalancer = MaglevHash{}
+
 func (MaglevHash) SnapshotOptIn() snapshotopt.Token {
 	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
+}
+
+func (MaglevHash) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (MaglevHash) UseZeroCopySnapshot() bool {
+	return true
 }
 
 func (m MaglevHash) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
