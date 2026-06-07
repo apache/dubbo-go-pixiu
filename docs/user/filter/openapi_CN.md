@@ -6,7 +6,8 @@
 
 ## 概述
 
-Pixiu 可以在 `dgp.filter.http.openapi` 中加载本地 OpenAPI 3.0/3.1/3.2 文件，并在请求转发到上游之前校验命中的请求。
+Pixiu 可以在 `dgp.filter.http.openapi` 中加载本地 OpenAPI 3.0/3.1 文件，并在请求转发到上游之前校验命中的请求。对于
+OpenAPI 3.2 文档，当前仅覆盖这个 filter 已接入的标准 HTTP operation。
 
 官方参考：
 
@@ -18,7 +19,7 @@ Pixiu 可以在 `dgp.filter.http.openapi` 中加载本地 OpenAPI 3.0/3.1/3.2 �
 
 ## 当前 filter 已接入
 
-- 本地 OpenAPI 3.0/3.1/3.2 文件加载
+- 本地 OpenAPI 3.0/3.1 文件加载，以及使用标准 HTTP operation 的 OpenAPI 3.2 文档
 - 按 OpenAPI path 和 method 匹配请求，包括 `/users/{id}` 这类模板路径
 - path、query、header 参数校验
 - JSON request body 校验
@@ -31,6 +32,7 @@ Pixiu 可以在 `dgp.filter.http.openapi` 中加载本地 OpenAPI 3.0/3.1/3.2 �
 - response validation
 - 路由创建或 `api_config` 路由匹配
 - OpenAPI `security` 校验；鉴权请使用专门的认证或授权 filter
+- OpenAPI 3.2 中超出当前标准 HTTP request method 覆盖范围的 operation
 - admin 或配置中心分发 OpenAPI 文件
 
 ## 配置示例

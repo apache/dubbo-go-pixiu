@@ -28,6 +28,8 @@ import (
 )
 
 import (
+	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -234,6 +236,17 @@ paths:
 	})
 }
 
+func TestHasRequestOperation_HeadRequiresExplicitHeadOperation(t *testing.T) {
+	req := httptest.NewRequest(http.MethodHead, "/users", nil)
+
+	assert.False(t, hasRequestOperation(req, &v3.PathItem{
+		Get: &v3.Operation{},
+	}))
+	assert.True(t, hasRequestOperation(req, &v3.PathItem{
+		Head: &v3.Operation{},
+	}))
+}
+
 func TestApply_RejectsInvalidOpenAPIModel(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -316,6 +329,197 @@ func TestApply_RejectsSymlinkPointingToSensitiveDirectory(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "openapi path base directory is not allowed")
+}
+
+func TestApply_AllowsNestedLocalExternalRefs(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.MkdirAll("specs/schemas", 0o700))
+	require.NoError(t, os.WriteFile("specs/openapi.yaml", []byte(`
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/user.yaml#/User
+      responses:
+        "200":
+          description: ok
+`), 0o600))
+	require.NoError(t, os.WriteFile("specs/schemas/user.yaml", []byte(`
+User:
+  type: object
+  required: [name]
+  properties:
+    name:
+      $ref: ./name.yaml#/Name
+`), 0o600))
+	require.NoError(t, os.WriteFile("specs/schemas/name.yaml", []byte(`
+Name:
+  type: string
+  minLength: 3
+`), 0o600))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "specs/openapi.yaml",
+		},
+	}
+
+	require.NoError(t, factory.Apply())
+}
+
+func TestApply_RejectsExternalRefWithParentDirectory(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.MkdirAll("specs", 0o700))
+	require.NoError(t, os.WriteFile("specs/openapi.yaml", []byte(`
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/user.yaml#/User
+      responses:
+        "200":
+          description: ok
+`), 0o600))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "specs/openapi.yaml",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openapi external ref must not contain parent directory")
+}
+
+func TestApply_RejectsAbsoluteExternalRef(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.WriteFile("openapi.yaml", []byte(`
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: /etc/passwd#/User
+      responses:
+        "200":
+          description: ok
+`), 0o600))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "openapi.yaml",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openapi external ref must be relative")
+}
+
+func TestApply_RejectsRemoteExternalRef(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.WriteFile("openapi.yaml", []byte(`
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://example.com/schemas/user.yaml#/User
+      responses:
+        "200":
+          description: ok
+`), 0o600))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "openapi.yaml",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openapi external ref must be relative")
+}
+
+func TestApply_RejectsNestedExternalRefEscapingAllowedDirectoryViaSymlink(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.MkdirAll("specs/schemas", 0o700))
+	require.NoError(t, os.Symlink("/etc", filepath.Join(dir, "specs", "schemas", "current")))
+	require.NoError(t, os.WriteFile("specs/openapi.yaml", []byte(`
+openapi: 3.0.3
+info:
+  title: users
+  version: "1.0.0"
+paths:
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/user.yaml#/User
+      responses:
+        "200":
+          description: ok
+`), 0o600))
+	require.NoError(t, os.WriteFile("specs/schemas/user.yaml", []byte(`
+User:
+  type: object
+  properties:
+    name:
+      $ref: ./current/passwd#/Name
+`), 0o600))
+
+	factory := &FilterFactory{
+		cfg: &Config{
+			Path: "specs/openapi.yaml",
+		},
+	}
+
+	err := factory.Apply()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openapi external ref escapes allowed directory")
 }
 
 func TestApply_RejectsNegativeMaxRequestBodyBytes(t *testing.T) {

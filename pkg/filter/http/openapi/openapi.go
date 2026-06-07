@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,8 @@ import (
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 
 	"github.com/pkg/errors"
+
+	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -194,7 +197,7 @@ func hasRequestOperation(req *http.Request, pathItem *v3.PathItem) bool {
 	case http.MethodOptions:
 		return pathItem.Options != nil
 	case http.MethodHead:
-		return pathItem.Head != nil || pathItem.Get != nil
+		return pathItem.Head != nil
 	case http.MethodPatch:
 		return pathItem.Patch != nil
 	case http.MethodTrace:
@@ -240,6 +243,10 @@ func readRequestBodyWithinLimit(body io.ReadCloser, limit int64) ([]byte, error)
 }
 
 func loadValidatorFromFile(path string) (openapiValidator.Validator, *v3.Document, *validatorConfig.ValidationOptions, error) {
+	if err := validateExternalRefs(path); err != nil {
+		return nil, nil, nil, err
+	}
+
 	spec, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "read openapi file")
@@ -302,6 +309,151 @@ func cleanOpenAPIPath(path string) (string, error) {
 		return "", errors.Errorf("openapi path base directory is not allowed: %s", basePath)
 	}
 	return cleanPath, nil
+}
+
+func validateExternalRefs(rootPath string) error {
+	rootPath = filepath.Clean(rootPath)
+	rootDir := filepath.Dir(rootPath)
+	visited := map[string]struct{}{}
+	return validateExternalRefsInFile(rootPath, rootDir, visited)
+}
+
+func validateExternalRefsInFile(path string, rootDir string, visited map[string]struct{}) error {
+	path = filepath.Clean(path)
+	if _, ok := visited[path]; ok {
+		return nil
+	}
+	visited[path] = struct{}{}
+
+	spec, err := os.ReadFile(path)
+	if err != nil {
+		return errors.Wrap(err, "read openapi file for ref validation")
+	}
+
+	var raw any
+	if err := yaml.Unmarshal(spec, &raw); err != nil {
+		return errors.Wrap(err, "parse openapi file for ref validation")
+	}
+
+	refs := collectExternalRefs(raw, nil)
+	for _, ref := range refs {
+		if err := validateExternalRefPath(path, rootDir, ref); err != nil {
+			return err
+		}
+
+		refPath, _, ok := splitRefTarget(ref)
+		if !ok {
+			continue
+		}
+		if filepath.Ext(refPath) == "" && strings.HasSuffix(refPath, "/") {
+			continue
+		}
+		resolvedRefPath, err := resolveSafeReferencePath(filepath.Dir(path), refPath, rootDir)
+		if err != nil {
+			return err
+		}
+		if err := validateExternalRefsInFile(resolvedRefPath, rootDir, visited); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func collectExternalRefs(value any, refs []string) []string {
+	switch v := value.(type) {
+	case map[string]any:
+		for key, child := range v {
+			if key == "$ref" {
+				if ref, ok := child.(string); ok && ref != "" && !strings.HasPrefix(ref, "#") {
+					refs = append(refs, ref)
+				}
+				continue
+			}
+			refs = collectExternalRefs(child, refs)
+		}
+	case []any:
+		for _, child := range v {
+			refs = collectExternalRefs(child, refs)
+		}
+	}
+	return refs
+}
+
+func splitRefTarget(ref string) (string, string, bool) {
+	if ref == "" {
+		return "", "", false
+	}
+	if strings.HasPrefix(ref, "#") {
+		return "", ref, false
+	}
+	parsed, err := url.Parse(ref)
+	if err != nil {
+		return "", "", false
+	}
+	if parsed.Scheme != "" && parsed.Scheme != "file" {
+		return "", "", false
+	}
+	target := parsed.Path
+	if target == "" {
+		target = parsed.Opaque
+	}
+	fragment := parsed.Fragment
+	if idx := strings.Index(target, "#"); idx >= 0 {
+		fragment = target[idx+1:]
+		target = target[:idx]
+	}
+	return target, fragment, true
+}
+
+func validateExternalRefPath(currentFile string, rootDir string, ref string) error {
+	if ref == "" || strings.HasPrefix(ref, "#") {
+		return nil
+	}
+	parsed, err := url.Parse(ref)
+	if err != nil {
+		return errors.Wrap(err, "parse openapi external ref")
+	}
+	if parsed.Scheme != "" || parsed.Host != "" {
+		return errors.Errorf("openapi external ref must be relative: %s", ref)
+	}
+
+	refPath, _, ok := splitRefTarget(ref)
+	if !ok {
+		return nil
+	}
+	if filepath.IsAbs(refPath) {
+		return errors.Errorf("openapi external ref must be relative: %s", ref)
+	}
+	if containsParentDirectory(refPath) {
+		return errors.Errorf("openapi external ref must not contain parent directory: %s", ref)
+	}
+	_, err = resolveSafeReferencePath(filepath.Dir(currentFile), refPath, rootDir)
+	return err
+}
+
+func resolveSafeReferencePath(baseDir string, refPath string, rootDir string) (string, error) {
+	candidate := filepath.Clean(filepath.Join(baseDir, refPath))
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		return "", errors.Wrap(err, "resolve openapi external ref symlinks")
+	}
+	if !isWithinBaseDir(resolved, rootDir) {
+		return "", errors.Errorf("openapi external ref escapes allowed directory: %s", resolved)
+	}
+	return resolved, nil
+}
+
+func isWithinBaseDir(path string, baseDir string) bool {
+	path = filepath.Clean(path)
+	baseDir = filepath.Clean(baseDir)
+	if path == baseDir {
+		return true
+	}
+	rel, err := filepath.Rel(baseDir, path)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func (c *Config) effectiveMaxRequestBodyBytes() (int64, error) {

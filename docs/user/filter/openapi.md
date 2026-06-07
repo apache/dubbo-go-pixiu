@@ -6,8 +6,8 @@ English | [中文](openapi_CN.md)
 
 ## Overview
 
-Pixiu can load a local OpenAPI 3.0/3.1/3.2 file in `dgp.filter.http.openapi` and validate matching requests before they
-are forwarded upstream.
+Pixiu can load a local OpenAPI 3.0/3.1 file in `dgp.filter.http.openapi` and validate matching requests before they
+are forwarded upstream. OpenAPI 3.2 documents are supported for the standard HTTP operations wired by this filter.
 
 Official references:
 
@@ -19,7 +19,7 @@ If validation fails, Pixiu returns a local `400 Bad Request` and stops the filte
 
 ## Wired In This Filter
 
-- local OpenAPI 3.0/3.1/3.2 file loading
+- local OpenAPI 3.0/3.1 file loading, plus OpenAPI 3.2 documents that use standard HTTP operations
 - request matching by OpenAPI path and method, including templated paths such as `/users/{id}`
 - path, query, and header parameter validation
 - JSON request body validation
@@ -32,6 +32,7 @@ This filter uses `libopenapi` to parse the spec and `libopenapi-validator` to va
 - response validation
 - route creation or `api_config` route matching
 - OpenAPI `security` validation; use dedicated authentication or authorization filters for auth checks
+- OpenAPI 3.2 operations outside the standard HTTP request methods wired by this filter
 - admin or config-center distribution of OpenAPI files
 
 ## Example Filter Config
