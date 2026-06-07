@@ -201,6 +201,7 @@ func defensiveSnapshotPickContext(context PickContext) PickContext {
 	defensive := context
 	defensive.AllEndpoints = model.CloneEndpoints(context.AllEndpoints)
 	defensive.HealthyEndpoints = model.CloneEndpoints(context.HealthyEndpoints)
+	defensive.HealthyByID = nil
 	return defensive
 }
 

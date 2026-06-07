@@ -357,6 +357,21 @@ func TestNeedsAllEndpointsKeepsCompatibilityForUnmarkedSnapshotLoadBalancer(t *t
 	assert.False(t, NeedsAllEndpoints(healthyOnlySnapshotLoadBalancer{}))
 }
 
+func TestDefensiveSnapshotPickContextClearsHealthyByID(t *testing.T) {
+	healthy := []*model.Endpoint{
+		{ID: "ep-1", Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080}},
+	}
+	originalContext := PickContext{
+		HealthyEndpoints: healthy,
+		HealthyByID:      newHealthyByIDIndex(healthy),
+	}
+
+	defensive := defensiveSnapshotPickContext(originalContext)
+
+	assert.Nil(t, defensive.HealthyByID, "defensive context must not expose live snapshot pointers")
+	assert.NotNil(t, originalContext.HealthyByID, "original context must be unchanged")
+}
+
 func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {
 	harness := newLegacyPickHarness(t)
 	pickContext := newLegacyPickContext("blocking-legacy-load-balancer", "first")
