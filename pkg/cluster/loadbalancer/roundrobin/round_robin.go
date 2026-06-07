@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -32,12 +33,8 @@ func init() {
 
 type RoundRobin struct{}
 
-func (RoundRobin) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (RoundRobin) UseZeroCopySnapshot() bool {
-	return true
+func (RoundRobin) SnapshotOptIn() snapshotopt.Token {
+	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
 }
 
 func (r RoundRobin) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {

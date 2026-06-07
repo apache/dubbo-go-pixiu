@@ -219,10 +219,10 @@ type EndpointSnapshot struct {
 //     only because *Endpoint and the underlying maps are treated as
 //     read-only after publication.
 //     Any code path that mutates them in place will leak state across
-//     all snapshots alive at the time of the mutation. The
-//     ZeroCopySnapshotLoadBalancer marker on load balancers exists
-//     precisely to opt into this contract; do not introduce new
-//     in-place mutation on snapshot-owned objects.
+//     all snapshots alive at the time of the mutation. The zero-copy
+//     opt-in on load balancers (snapshotopt.Token.ZeroCopy, set via
+//     SnapshotOptIn) exists precisely to opt into this contract; do not
+//     introduce new in-place mutation on snapshot-owned objects.
 func newEndpointSnapshot(config *model.ClusterConfig, previous *EndpointSnapshot, inheritRuntimeHealth bool) *EndpointSnapshot {
 	var endpoints []*model.Endpoint
 	clusterName := ""

@@ -30,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -43,6 +44,29 @@ type unhealthyLegacyLoadBalancer struct{}
 type mutatingSnapshotLoadBalancer struct{}
 type unhealthySnapshotLoadBalancer struct{}
 type healthyOnlySnapshotLoadBalancer struct{}
+
+// externalLikeSnapshotLoadBalancer mimics an out-of-tree plugin that copied the
+// pre-#941 marker method names (UseZeroCopySnapshot / UseHealthyEndpointsOnly).
+// Because the opt-in now flows through SnapshotOptIn returning an internal-only
+// token, these methods grant no fast path: the balancer must be treated as
+// untrusted (defensive copy, full snapshot). It also mutates the endpoints it
+// receives so the test can prove it got a copy.
+type externalLikeSnapshotLoadBalancer struct{}
+
+func (externalLikeSnapshotLoadBalancer) UseZeroCopySnapshot() bool     { return true }
+func (externalLikeSnapshotLoadBalancer) UseHealthyEndpointsOnly() bool { return true }
+
+func (externalLikeSnapshotLoadBalancer) Handler(_ *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (externalLikeSnapshotLoadBalancer) HandlerWithSnapshot(c PickContext, _ model.LbPolicy) *model.Endpoint {
+	if len(c.HealthyEndpoints) == 0 {
+		return nil
+	}
+	c.HealthyEndpoints[0].Metadata["weight"] = "mutated"
+	return c.HealthyEndpoints[0]
+}
 
 var _ LoadBalancer = (*legacyLoadBalancer)(nil)
 
@@ -123,8 +147,8 @@ func (healthyOnlySnapshotLoadBalancer) HandlerWithSnapshot(_ PickContext, _ mode
 	return nil
 }
 
-func (healthyOnlySnapshotLoadBalancer) UseHealthyEndpointsOnly() bool {
-	return true
+func (healthyOnlySnapshotLoadBalancer) SnapshotOptIn() snapshotopt.Token {
+	return snapshotopt.Token{HealthyOnly: true}
 }
 
 func (b *blockingLegacyLoadBalancer) Handler(c *model.ClusterConfig, _ model.LbPolicy) *model.Endpoint {
@@ -325,6 +349,37 @@ func TestPickEndpointRejectsUnhealthySnapshotReturn(t *testing.T) {
 func TestNeedsAllEndpointsKeepsCompatibilityForUnmarkedSnapshotLoadBalancer(t *testing.T) {
 	assert.True(t, NeedsAllEndpoints(mutatingSnapshotLoadBalancer{}))
 	assert.False(t, NeedsAllEndpoints(healthyOnlySnapshotLoadBalancer{}))
+}
+
+// TestExternalLikeBalancerCannotOptIntoFastPaths is the trust-boundary
+// regression for issue #941. A balancer that reproduces the old marker method
+// names but cannot produce the internal opt-in token must be treated as
+// untrusted: it receives the full snapshot (NeedsAllEndpoints true) and a
+// defensive copy (its mutation must not escape to the caller's endpoints).
+func TestExternalLikeBalancerCannotOptIntoFastPaths(t *testing.T) {
+	assert.True(t, NeedsAllEndpoints(externalLikeSnapshotLoadBalancer{}),
+		"external-like balancer must not opt out of AllEndpoints via the old method name")
+
+	healthy := &model.Endpoint{
+		ID:       "healthy",
+		Metadata: map[string]string{"weight": "1"},
+	}
+	cluster := &model.ClusterConfig{
+		Name:      "external-like-trust-boundary",
+		Endpoints: []*model.Endpoint{healthy},
+	}
+
+	got := PickEndpoint(externalLikeSnapshotLoadBalancer{}, PickContext{
+		AllEndpoints:     []*model.Endpoint{healthy},
+		Config:           cluster,
+		HealthyEndpoints: []*model.Endpoint{healthy},
+	}, nil)
+
+	if assert.NotNil(t, got) {
+		assert.NotSame(t, healthy, got, "untrusted balancer must receive a defensive copy")
+	}
+	assert.Equal(t, map[string]string{"weight": "1"}, healthy.Metadata,
+		"untrusted balancer mutation must not escape to the snapshot-owned endpoint")
 }
 
 func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {

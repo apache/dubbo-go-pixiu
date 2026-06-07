@@ -23,6 +23,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -63,18 +64,25 @@ type SnapshotLoadBalancer interface {
 	HandlerWithSnapshot(c PickContext, policy model.LbPolicy) *model.Endpoint
 }
 
-// HealthyOnlySnapshotLoadBalancer marks snapshot-aware balancers that do not
-// need PickContext.AllEndpoints. Unmarked snapshot balancers keep receiving
-// the full snapshot for compatibility with custom implementations.
-type HealthyOnlySnapshotLoadBalancer interface {
-	UseHealthyEndpointsOnly() bool
+// snapshotOptInBalancer is the internal opt-in surface for trusted, in-tree
+// snapshot balancers. The method returns snapshotopt.Token, whose type lives in
+// an internal package, so only balancers under pkg/cluster/loadbalancer can
+// implement this interface. External plugins cannot name the return type and
+// therefore always fall through to the safe default (full snapshot, defensively
+// copied). This is the trust boundary described in issue #941.
+type snapshotOptInBalancer interface {
+	SnapshotOptIn() snapshotopt.Token
 }
 
-// ZeroCopySnapshotLoadBalancer marks trusted balancers that never mutate or
-// retain snapshot endpoints. Other snapshot balancers receive defensive
-// copies.
-type ZeroCopySnapshotLoadBalancer interface {
-	UseZeroCopySnapshot() bool
+// snapshotOptIn resolves a balancer's opt-in flags. Balancers that do not opt
+// in (including every external plugin, which cannot construct a Token) get the
+// zero value: no zero-copy, full snapshot.
+func snapshotOptIn(balancer LoadBalancer) snapshotopt.Token {
+	optIn, ok := balancer.(snapshotOptInBalancer)
+	if !ok {
+		return snapshotopt.Token{}
+	}
+	return optIn.SnapshotOptIn()
 }
 
 // LoadBalancerStrategy load balancer strategy mode
@@ -100,10 +108,10 @@ func PickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 }
 
 // NeedsAllEndpoints reports whether a snapshot-aware balancer should receive
-// PickContext.AllEndpoints on the request path.
+// PickContext.AllEndpoints on the request path. Only trusted in-tree balancers
+// can opt out (HealthyOnly); external plugins always receive the full snapshot.
 func NeedsAllEndpoints(balancer LoadBalancer) bool {
-	healthyOnly, ok := balancer.(HealthyOnlySnapshotLoadBalancer)
-	return !ok || !healthyOnly.UseHealthyEndpointsOnly()
+	return !snapshotOptIn(balancer).HealthyOnly
 }
 
 // ConsistentHashForHealthyEndpoints returns a consistent hash view that only
@@ -129,8 +137,7 @@ func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	}
 	if snapshotBalancer, ok := balancer.(SnapshotLoadBalancer); ok {
 		snapshotContext := context
-		zeroCopy, ok := balancer.(ZeroCopySnapshotLoadBalancer)
-		if !ok || !zeroCopy.UseZeroCopySnapshot() {
+		if !snapshotOptIn(balancer).ZeroCopy {
 			snapshotContext = defensiveSnapshotPickContext(context)
 		}
 		endpoint := snapshotBalancer.HandlerWithSnapshot(snapshotContext, policy)
