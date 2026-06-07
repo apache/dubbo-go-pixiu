@@ -18,7 +18,6 @@
 package cluster
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -242,7 +241,7 @@ func newEndpointSnapshot(config *model.ClusterConfig, previous *EndpointSnapshot
 			continue
 		}
 		snapshotEndpoint := model.CloneEndpoint(endpoint)
-		snapshotEndpoint.ID = uniqueSnapshotEndpointID(clusterName, snapshotEndpoint, endpointIDs)
+		snapshotEndpoint.ID = model.StableUniqueEndpointID(clusterName, snapshotEndpoint, endpointIDs)
 		endpointIDs[snapshotEndpoint.ID] = struct{}{}
 		address := snapshotEndpoint.Address.GetAddress()
 		healthy := endpointSnapshotHealth(snapshotEndpoint, address, previous, inheritRuntimeHealth)
@@ -260,31 +259,6 @@ func newEndpointSnapshotIndex(endpointCount int) *EndpointSnapshot {
 		addressByID:         make(map[string]string, endpointCount),
 		healthyByID:         make(map[string]bool, endpointCount),
 		healthyByAddress:    make(map[string]bool, endpointCount),
-	}
-}
-
-// uniqueSnapshotEndpointID resolves a stable runtime ID for one endpoint in
-// the snapshot's per-cluster dedup set. The operator's explicit endpoint.ID
-// wins unless it collides; collisions append -2, -3, ... so an operator who
-// wrote id: foo twice sees foo and foo-2 (not generated-<hash>-2). When the
-// operator did not supply an ID, the deterministic hash from PR-2 is used as
-// the base and collisions on that synthesized base also append -2, -3, ...
-func uniqueSnapshotEndpointID(clusterName string, endpoint *model.Endpoint, endpointIDs map[string]struct{}) string {
-	id := ""
-	if endpoint != nil {
-		id = endpoint.ID
-	}
-	if id == "" {
-		id = model.GenerateEndpointID(clusterName, endpoint)
-	}
-	if _, exists := endpointIDs[id]; !exists {
-		return id
-	}
-	for suffix := 2; ; suffix++ {
-		candidate := fmt.Sprintf("%s-%d", id, suffix)
-		if _, exists := endpointIDs[candidate]; !exists {
-			return candidate
-		}
 	}
 }
 

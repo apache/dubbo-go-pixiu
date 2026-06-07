@@ -1037,6 +1037,71 @@ func TestAssembleEndpointsDeduplicatesExplicitID(t *testing.T) {
 			"not the generated- hash, so the operator's choice stays readable")
 }
 
+// TestEndpointIDAssemblyAndSnapshotRebuildAgree locks issue #969: the config
+// assembly path (ClusterStore.assembleClusterEndpoints, used for static/dynamic
+// config) and the snapshot-rebuild path (cluster.NewCluster -> newEndpointSnapshot)
+// must assign byte-identical endpoint IDs for the same cluster. The endpoint ID
+// is the runtime health/cooldown key, so if the two -2/-3 suffix algorithms ever
+// drift, the same endpoint would get a different ID on a snapshot rebuild and
+// split its health state. Both paths now route through model.StableUniqueEndpointID;
+// this test fails if a future change reintroduces a second, diverging copy.
+func TestEndpointIDAssemblyAndSnapshotRebuildAgree(t *testing.T) {
+	const clusterName = "id-agreement"
+
+	idsOf := func(endpoints []*model.Endpoint) []string {
+		ids := make([]string, len(endpoints))
+		for i, endpoint := range endpoints {
+			ids[i] = endpoint.ID
+		}
+		return ids
+	}
+
+	tests := []struct {
+		name      string
+		endpoints func() []*model.Endpoint
+	}{
+		{
+			// Operator wrote the same id: twice — base is the operator ID.
+			name: "explicit duplicate ID",
+			endpoints: func() []*model.Endpoint {
+				return []*model.Endpoint{
+					{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 22001}},
+					{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 22002}},
+				}
+			},
+		},
+		{
+			// No IDs and identical hash material — base is the generated hash.
+			name: "anonymous endpoints with identical hash material",
+			endpoints: func() []*model.Endpoint {
+				return []*model.Endpoint{
+					{Address: model.SocketAddress{Address: "127.0.0.1", Port: 22010}},
+					{Address: model.SocketAddress{Address: "127.0.0.1", Port: 22010}},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assembled := &model.ClusterConfig{Name: clusterName, Endpoints: tt.endpoints()}
+			(&ClusterStore{}).assembleClusterEndpoints(assembled)
+			assembledIDs := idsOf(assembled.Endpoints)
+
+			runtime := cluster.NewCluster(&model.ClusterConfig{Name: clusterName, Endpoints: tt.endpoints()})
+			snapshotIDs := idsOf(runtime.EndpointSnapshot().AllEndpoints())
+
+			assert.Equal(t, assembledIDs, snapshotIDs,
+				"config assembly and snapshot rebuild must assign identical endpoint IDs")
+
+			if assert.Len(t, assembledIDs, 2) {
+				assert.Equal(t, assembledIDs[0]+"-2", assembledIDs[1],
+					"both paths must suffix the colliding second endpoint with -2, not collapse it")
+			}
+		})
+	}
+}
+
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
 	return CreateDefaultClusterManager(&model.Bootstrap{
 		StaticResources: model.StaticResources{
