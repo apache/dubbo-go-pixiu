@@ -56,9 +56,6 @@ type externalLikeSnapshotLoadBalancer struct {
 	seenHealthyEndpoints []*model.Endpoint
 }
 
-var _ HealthyOnlySnapshotLoadBalancer = (*externalLikeSnapshotLoadBalancer)(nil)
-var _ ZeroCopySnapshotLoadBalancer = (*externalLikeSnapshotLoadBalancer)(nil)
-
 func (*externalLikeSnapshotLoadBalancer) UseZeroCopySnapshot() bool     { return true }
 func (*externalLikeSnapshotLoadBalancer) UseHealthyEndpointsOnly() bool { return true }
 

@@ -18,6 +18,8 @@
 package loadbalancer
 
 import (
+	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -64,24 +66,6 @@ type SnapshotLoadBalancer interface {
 	HandlerWithSnapshot(c PickContext, policy model.LbPolicy) *model.Endpoint
 }
 
-// HealthyOnlySnapshotLoadBalancer is retained for source compatibility with
-// callers that referenced the old marker contract.
-//
-// Deprecated: runtime fast-path decisions ignore this interface. Only trusted
-// in-tree balancers can opt in via SnapshotOptIn returning snapshotopt.Token.
-type HealthyOnlySnapshotLoadBalancer interface {
-	UseHealthyEndpointsOnly() bool
-}
-
-// ZeroCopySnapshotLoadBalancer is retained for source compatibility with
-// callers that referenced the old marker contract.
-//
-// Deprecated: runtime fast-path decisions ignore this interface. Only trusted
-// in-tree balancers can opt in via SnapshotOptIn returning snapshotopt.Token.
-type ZeroCopySnapshotLoadBalancer interface {
-	UseZeroCopySnapshot() bool
-}
-
 // snapshotOptInBalancer is the internal opt-in surface for trusted, in-tree
 // snapshot balancers. The method returns snapshotopt.Token, whose type lives in
 // an internal package, so only balancers under pkg/cluster/loadbalancer can
@@ -92,15 +76,38 @@ type snapshotOptInBalancer interface {
 	SnapshotOptIn() snapshotopt.Token
 }
 
+// inTreeLoadBalancerPkg is the package prefix that scopes trusted balancers.
+const inTreeLoadBalancerPkg = "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+
 // snapshotOptIn resolves a balancer's opt-in flags. Balancers that do not opt
 // in (including every external plugin, which cannot construct a Token) get the
 // zero value: no zero-copy, full snapshot.
+//
+// The internal return type already keeps out-of-tree code from declaring
+// SnapshotOptIn directly. The trust check additionally rejects external types
+// that gain the method via embedding an in-tree balancer (method promotion
+// would otherwise let them satisfy snapshotOptInBalancer).
 func snapshotOptIn(balancer LoadBalancer) snapshotopt.Token {
 	optIn, ok := balancer.(snapshotOptInBalancer)
-	if !ok {
+	if !ok || !isInTreeBalancer(balancer) {
 		return snapshotopt.Token{}
 	}
 	return optIn.SnapshotOptIn()
+}
+
+// isInTreeBalancer reports whether the balancer's concrete type is defined
+// under the in-tree load-balancer package tree. An external plugin that embeds
+// an in-tree balancer keeps its own package path here, so it is rejected.
+func isInTreeBalancer(balancer LoadBalancer) bool {
+	t := reflect.TypeOf(balancer)
+	for t != nil && t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t == nil {
+		return false
+	}
+	pkg := t.PkgPath()
+	return pkg == inTreeLoadBalancerPkg || strings.HasPrefix(pkg, inTreeLoadBalancerPkg+"/")
 }
 
 // LoadBalancerStrategy load balancer strategy mode

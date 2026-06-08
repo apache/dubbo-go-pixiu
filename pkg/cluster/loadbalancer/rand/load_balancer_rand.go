@@ -33,19 +33,8 @@ func init() {
 
 type Rand struct{}
 
-var _ loadbalancer.HealthyOnlySnapshotLoadBalancer = Rand{}
-var _ loadbalancer.ZeroCopySnapshotLoadBalancer = Rand{}
-
 func (Rand) SnapshotOptIn() snapshotopt.Token {
 	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
-}
-
-func (Rand) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (Rand) UseZeroCopySnapshot() bool {
-	return true
 }
 
 // randIntn lets tests replace randomness with deterministic choices.

@@ -33,19 +33,8 @@ func init() {
 
 type RoundRobin struct{}
 
-var _ loadbalancer.HealthyOnlySnapshotLoadBalancer = RoundRobin{}
-var _ loadbalancer.ZeroCopySnapshotLoadBalancer = RoundRobin{}
-
 func (RoundRobin) SnapshotOptIn() snapshotopt.Token {
 	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
-}
-
-func (RoundRobin) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (RoundRobin) UseZeroCopySnapshot() bool {
-	return true
 }
 
 func (r RoundRobin) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
