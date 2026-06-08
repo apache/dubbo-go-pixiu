@@ -515,7 +515,7 @@ func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint
 		s.recencyOrder.MoveToBack(element)
 		return
 	}
-	s.evictOldestIfFullLocked(key)
+	s.evictOldestIfFullLocked()
 	s.lastFailureByEndpoint[key] = s.recencyOrder.PushBack(&cooldownEntry{
 		key:         key,
 		lastFailure: lastFailure,
@@ -568,11 +568,8 @@ func (s *cooldownStore) sweepExpiredExceptLocked(now time.Time, current cooldown
 }
 
 // evictOldestIfFullLocked removes the least-recently-failed entry when the
-// store is at capacity, in O(1) via the front of the recency list. current is
-// the key about to be inserted; it is never in the list yet on this path, but
-// the guard keeps the invariant explicit so a future caller cannot evict the
-// entry it is in the middle of writing.
-func (s *cooldownStore) evictOldestIfFullLocked(current cooldownKey) {
+// store is at capacity, in O(1) via the front of the recency list.
+func (s *cooldownStore) evictOldestIfFullLocked() {
 	if len(s.lastFailureByEndpoint) < maxCooldownStoreEntries {
 		return
 	}
@@ -580,11 +577,7 @@ func (s *cooldownStore) evictOldestIfFullLocked(current cooldownKey) {
 	if oldest == nil {
 		return
 	}
-	oldestKey := oldest.Value.(*cooldownEntry).key
-	if oldestKey == current {
-		return
-	}
-	s.removeLocked(oldestKey, oldest)
+	s.removeLocked(oldest.Value.(*cooldownEntry).key, oldest)
 }
 
 func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {
