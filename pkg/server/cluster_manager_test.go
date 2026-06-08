@@ -1170,9 +1170,9 @@ func TestStaticClusterSnapshotMetricsRecordedAtStartup(t *testing.T) {
 }
 
 // installClusterSnapshotMetricsReader installs a ManualReader meter provider
-// for snapshot metrics testing and resets the global instrument state on cleanup.
-// This helper mutates process-global state (otel.SetMeterProvider and the
-// pkg/cluster instrument variables), so tests using it must not call t.Parallel().
+// for snapshot metrics testing and restores the previous provider on cleanup.
+// This helper mutates the process-global MeterProvider, so tests using it must
+// not call t.Parallel().
 func installClusterSnapshotMetricsReader(t *testing.T) *sdkmetric.ManualReader {
 	t.Helper()
 
