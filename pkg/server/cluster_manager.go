@@ -357,17 +357,21 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 }
 
 // prepareClusterConfig rebuilds endpoint defaults from current endpoints and
-// invalidates the Config-level consistent hash. The hash is only read by the
-// legacy (non-snapshot) pick path and is rebuilt lazily there via
-// ClusterConfig.EnsureConsistentHash, so eagerly rebuilding it on every
-// AddCluster/UpdateCluster/SetEndpoint/DeleteEndpoint is dead work for the
-// common snapshot path (and expensive for large Maglev tables under
-// service-discovery churn). Setting it to nil here keeps the legacy path
+// invalidates the Config-level consistent hash when the policy has a registered
+// factory. The hash is only read by the legacy (non-snapshot) pick path and is
+// rebuilt lazily there via ClusterConfig.EnsureConsistentHash, so eagerly
+// rebuilding it on every AddCluster/UpdateCluster/SetEndpoint/DeleteEndpoint is
+// dead work for the common snapshot path (and expensive for large Maglev tables
+// under service-discovery churn). Setting it to nil here keeps the legacy path
 // correct after endpoint changes: the next legacy pick rebuilds from the
-// current endpoints instead of serving a stale ring.
+// current endpoints instead of serving a stale ring. For unregistered/custom
+// policies, preserve any programmatically supplied hash because there is no
+// factory available to rebuild it later.
 func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
 	s.assembleClusterEndpoints(c)
-	c.ConsistentHash.Hash = nil
+	if c.HasConsistentHashFactory() {
+		c.ConsistentHash.Hash = nil
+	}
 }
 
 // assembleClusterEndpoints assembles the cluster endpoints by formatting the

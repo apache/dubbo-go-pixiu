@@ -77,6 +77,37 @@ func TestClusterConfig_CreateConsistentHashRegistersHash(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:20880", hash)
 }
 
+func TestClusterConfig_HasConsistentHashFactory(t *testing.T) {
+	assert.True(t, (&model.ClusterConfig{LbStr: model.LoadBalancerRingHashing}).HasConsistentHashFactory())
+	assert.False(t, (&model.ClusterConfig{LbStr: model.LbPolicyType("CustomHash")}).HasConsistentHashFactory())
+}
+
+func TestClusterConfig_EnsureConsistentHashBuildsOnce(t *testing.T) {
+	cluster := &model.ClusterConfig{
+		LbStr: model.LoadBalancerRingHashing,
+		ConsistentHash: model.ConsistentHash{
+			ReplicaNum:  32,
+			MaxVnodeNum: 1023,
+		},
+		Endpoints: []*model.Endpoint{
+			{
+				ID: "ep-1",
+				Address: model.SocketAddress{
+					Address: "127.0.0.1",
+					Port:    20880,
+				},
+			},
+		},
+	}
+
+	cluster.EnsureConsistentHash()
+	first := cluster.ConsistentHash.Hash
+	cluster.EnsureConsistentHash()
+
+	require.NotNil(t, first)
+	assert.Same(t, first, cluster.ConsistentHash.Hash)
+}
+
 func TestClusterConfig_PrePickEndpointIndexIsRuntimeOnly(t *testing.T) {
 	cluster := &model.ClusterConfig{
 		Name:                 "runtime-cursor",

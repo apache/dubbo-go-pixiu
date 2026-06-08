@@ -538,6 +538,22 @@ func TestClusterManager_SetEndpointDefersConsistentHashRebuild(t *testing.T) {
 	assert.Equal(t, int32(1), atomic.LoadInt32(&buildCount), "legacy path must build the hash exactly once and reuse it")
 }
 
+func TestClusterManager_PrepareClusterConfigPreservesCustomHashWithoutFactory(t *testing.T) {
+	customHash := &countingFixedHash{}
+	config := testCluster("custom-hash-preserve", model.LbPolicyType("UnregisteredConsistentHash"), []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19370),
+	})
+	config.ConsistentHash.Hash = customHash
+
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+
+	cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19371))
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+}
+
 func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
 	cluster := testCluster("race-round-robin", model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-1", "127.0.0.1", 19100),

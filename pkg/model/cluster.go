@@ -128,6 +128,13 @@ func (c *ClusterConfig) CreateConsistentHash() {
 	}
 }
 
+// HasConsistentHashFactory reports whether this cluster's load-balancer policy
+// can rebuild Config-level consistent-hash state from endpoints.
+func (c *ClusterConfig) HasConsistentHashFactory() bool {
+	_, ok := ConsistentHashInitMap[c.LbStr]
+	return ok
+}
+
 // EnsureConsistentHash lazily builds the Config-level consistent hash on first
 // use and reuses it afterwards. It exists only for the legacy (non-snapshot)
 // pick path: snapshot-aware balancers ignore Config.ConsistentHash.Hash and
