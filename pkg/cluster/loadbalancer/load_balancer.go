@@ -212,11 +212,12 @@ func defensiveSnapshotPickContext(context PickContext) PickContext {
 // Resolution order:
 //
 //  1. O(1) by-ID recheck: when the pick carries an ID and the context exposes
-//     the snapshot's healthy-by-ID index, resolve the single indexed candidate
-//     and apply sameEndpointIdentity to it. Every snapshot endpoint carries a
-//     unique non-empty ID, so for an ID-bearing pick this is exactly the
-//     candidate the scan below would have found — without the O(N) walk
-//     (including the per-element SocketAddress.Equal in sameEndpointIdentity).
+//     the snapshot's healthy-by-ID index, resolve the single indexed candidate.
+//     If the indexed candidate is the exact balancer return, keep the zero-copy
+//     pointer fast path; otherwise apply sameEndpointIdentity to it. Every
+//     snapshot endpoint carries a unique non-empty ID, so for an ID-bearing pick
+//     this is exactly the candidate the scan below would have found — without
+//     the O(N) walk.
 //  2. Fallback scan: used when there is no ID index (e.g. a hand-built context)
 //     or the pick has no ID. Keeps the pointer-equality fast path for zero-copy
 //     balancers and the sameEndpointIdentity slow path (including the
@@ -230,7 +231,13 @@ func healthyEndpointFromSnapshot(endpoint *model.Endpoint, context PickContext) 
 	}
 	if endpoint.ID != "" && context.HealthyByID != nil {
 		candidate := context.HealthyByID.HealthyEndpointByIDForPick(endpoint.ID)
-		if candidate != nil && sameEndpointIdentity(candidate, endpoint) {
+		if candidate == nil {
+			return nil
+		}
+		if candidate == endpoint {
+			return model.CloneEndpoint(candidate)
+		}
+		if sameEndpointIdentity(candidate, endpoint) {
 			return model.CloneEndpoint(candidate)
 		}
 		return nil

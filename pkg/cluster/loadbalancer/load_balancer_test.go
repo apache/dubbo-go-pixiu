@@ -602,6 +602,24 @@ func TestHealthyEndpointFromSnapshotPointerFastPathReturnsClone(t *testing.T) {
 	assert.NotSame(t, endpoint, got, "request path must not return the snapshot-owned endpoint pointer")
 }
 
+func TestHealthyEndpointFromSnapshotByIDPointerFastPathReturnsClone(t *testing.T) {
+	endpoint := &model.Endpoint{
+		ID: "zero-copy-id",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    8080,
+		},
+	}
+
+	got := healthyEndpointFromSnapshot(endpoint, snapshotRecheckContext([]*model.Endpoint{endpoint}))
+
+	if !assert.NotNil(t, got) {
+		return
+	}
+	assert.Equal(t, endpoint, got)
+	assert.NotSame(t, endpoint, got, "request path must not return the snapshot-owned endpoint pointer")
+}
+
 // TestHealthyEndpointFromSnapshotRejectsMismatchedRealAddress ensures the
 // wildcard is not a free pass: when the snapshot has a real address and
 // the balancer returns a different real address for the same ID, the
