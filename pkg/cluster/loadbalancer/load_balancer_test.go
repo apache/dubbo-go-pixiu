@@ -719,29 +719,26 @@ func BenchmarkHealthyEndpointFromSnapshot(b *testing.B) {
 	// Zero-copy balancers hit the pointer-equality fast path; the index does
 	// not change that branch, but measure it to confirm no regression.
 	b.Run("pointer-eq-fast-path", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if healthyEndpointFromSnapshot(zeroCopyEndpoint, scanContext) == nil {
-				b.Fatal("expected match")
-			}
-		}
+		benchmarkHealthyEndpointFromSnapshot(b, zeroCopyEndpoint, scanContext)
 	})
 
 	// Non-zero-copy balancers return a cloned endpoint whose pointer is not in
 	// the snapshot slice. Without an ID index this falls through to the full
 	// O(N) sameEndpointIdentity scan; the index turns it into an O(1) lookup.
 	b.Run("identity-scan-without-index", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if healthyEndpointFromSnapshot(defensiveCopyEndpoint, scanContext) == nil {
-				b.Fatal("expected match")
-			}
-		}
+		benchmarkHealthyEndpointFromSnapshot(b, defensiveCopyEndpoint, scanContext)
 	})
 
 	b.Run("identity-recheck-with-index", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if healthyEndpointFromSnapshot(defensiveCopyEndpoint, indexContext) == nil {
-				b.Fatal("expected match")
-			}
-		}
+		benchmarkHealthyEndpointFromSnapshot(b, defensiveCopyEndpoint, indexContext)
 	})
+}
+
+func benchmarkHealthyEndpointFromSnapshot(b *testing.B, endpoint *model.Endpoint, context PickContext) {
+	b.Helper()
+	for i := 0; i < b.N; i++ {
+		if healthyEndpointFromSnapshot(endpoint, context) == nil {
+			b.Fatal("expected match")
+		}
+	}
 }

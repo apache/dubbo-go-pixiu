@@ -54,14 +54,14 @@ type PickContext struct {
 	// when nil (e.g. a hand-built context in a test), the recheck falls back to
 	// scanning HealthyEndpoints. The returned endpoint is snapshot-owned and
 	// must not be mutated or retained.
-	HealthyByID HealthyEndpointByIDLookup
+	HealthyByID HealthyEndpointByIDForPicker
 }
 
-// HealthyEndpointByIDLookup is the O(1) healthy-by-ID accessor the request path
+// HealthyEndpointByIDForPicker is the O(1) healthy-by-ID accessor the request path
 // uses to recheck a balancer's pick without scanning the healthy slice. It is
 // satisfied by *cluster.EndpointSnapshot (HealthyEndpointByIDForPick); declaring
 // it here keeps loadbalancer free of a dependency on the cluster package.
-type HealthyEndpointByIDLookup interface {
+type HealthyEndpointByIDForPicker interface {
 	HealthyEndpointByIDForPick(endpointID string) *model.Endpoint
 }
 
