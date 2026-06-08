@@ -73,7 +73,7 @@ type UpstreamAttempt struct {
 }
 
 func init() {
-	filter.RegisterHttpFilter(newPlugin())
+	filter.RegisterHttpFilter(&Plugin{})
 }
 
 type (
@@ -81,6 +81,7 @@ type (
 	// and lives for the whole process, so it owns the cooldown store that must
 	// outlive individual filter factory reloads.
 	Plugin struct {
+		initOnce  sync.Once
 		cooldowns *cooldownStore
 	}
 
@@ -144,6 +145,13 @@ func newPlugin() *Plugin {
 	return &Plugin{cooldowns: newCooldownStore()}
 }
 
+func (p *Plugin) cooldownStore() *cooldownStore {
+	p.initOnce.Do(func() {
+		p.cooldowns = newCooldownStore()
+	})
+	return p.cooldowns
+}
+
 func getPreferredEndpointID(hc *contexthttp.HttpContext) string {
 	if hc == nil || hc.Params == nil {
 		return ""
@@ -168,7 +176,7 @@ func (p *Plugin) Kind() string {
 // plugin-owned cooldown store is injected here so every factory and the
 // request executors it builds share one explicit store with no global fallback.
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &Config{}, cooldowns: p.cooldowns}, nil
+	return &FilterFactory{cfg: &Config{}, cooldowns: p.cooldownStore()}, nil
 }
 
 // Config returns the configuration struct for the factory.
