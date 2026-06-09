@@ -20,6 +20,7 @@ package server
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -951,7 +952,7 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 	for i, e := range clusterConfig.Endpoints {
 		if e.ID == endpointID {
 			runtimeCluster.RemoveEndpoint(e)
-			clusterConfig.Endpoints = append(clusterConfig.Endpoints[:i], clusterConfig.Endpoints[i+1:]...)
+			clusterConfig.Endpoints = slices.Delete(clusterConfig.Endpoints, i, i+1)
 			s.prepareOwnedClusterConfig(clusterConfig)
 			runtimeCluster.RefreshEndpoints()
 			return
