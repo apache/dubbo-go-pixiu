@@ -202,6 +202,16 @@ func (c *Cluster) clusterName() string {
 	return c.config.Name
 }
 
+// SyncConfigEndpoints updates the runtime's config endpoints to match the
+// store's authoritative copy. Required before RefreshEndpoints when the store
+// mutates endpoints through SetEndpoint or replaceEndpointAt.
+func (c *Cluster) SyncConfigEndpoints(endpoints []*model.Endpoint) {
+	if c == nil {
+		return
+	}
+	c.config.Endpoints = endpoints
+}
+
 // Config returns the cluster configuration this runtime was built from.
 // Callers must treat the returned pointer as read-only; the runtime owns the
 // config and never mutates it after construction.
