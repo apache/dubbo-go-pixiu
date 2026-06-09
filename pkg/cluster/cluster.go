@@ -616,48 +616,16 @@ func sameHealthyEndpointsForConsistentHash(previous, next *EndpointSnapshot) boo
 		return false
 	}
 	for i := range previous.healthy {
-		if !sameEndpointForConsistentHash(previous.healthy[i], next.healthy[i]) {
+		if !sameEndpointHostForConsistentHash(previous.healthy[i], next.healthy[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-func sameEndpointForConsistentHash(a, b *model.Endpoint) bool {
+func sameEndpointHostForConsistentHash(a, b *model.Endpoint) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
-	if a.ID != b.ID {
-		return false
-	}
-	if !sameEndpointAddressForConsistentHash(a.Address, b.Address) {
-		return false
-	}
-	return sameHashRelevantMetadata(a.Metadata, b.Metadata)
-}
-
-func sameEndpointAddressForConsistentHash(a, b model.SocketAddress) bool {
-	aHasDomain := len(a.Domains) > 0
-	bHasDomain := len(b.Domains) > 0
-	if aHasDomain != bHasDomain {
-		return false
-	}
-
-	if aHasDomain && a.Domains[0] != b.Domains[0] {
-		return false
-	}
-
-	return a.Address == b.Address && a.Port == b.Port
-}
-
-func sameHashRelevantMetadata(a, b map[string]string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for key, aValue := range a {
-		if b[key] != aValue {
-			return false
-		}
-	}
-	return true
+	return a.Address.Address == b.Address.Address && a.Address.Port == b.Address.Port
 }
