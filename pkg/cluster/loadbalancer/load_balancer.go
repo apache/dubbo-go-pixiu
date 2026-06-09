@@ -186,7 +186,11 @@ func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	endpoint := balancer.Handler(&config, policy)
 	cursorAfter = atomic.LoadUint32(&config.PrePickEndpointIndex)
 	if cursorAfter != cursorBefore {
-		atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
+		if context.RoundRobinCursor != nil {
+			context.RoundRobinCursor.Add(cursorAfter - cursorBefore)
+		} else {
+			atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
+		}
 	}
 	return healthyEndpointFromSnapshot(endpoint, context.HealthyEndpoints)
 }
