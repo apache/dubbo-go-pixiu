@@ -36,6 +36,7 @@ import (
 // generate cluster name for unnamed cluster
 var (
 	clusterIndex int32 = 1
+	configIDSeq  uint64
 )
 
 type (
@@ -271,15 +272,6 @@ func (cm *ClusterManager) GetHealthyEndpointByID(clusterName, endpointID string)
 	return runtimeCluster.EndpointSnapshot().HealthyEndpointByID(endpointID)
 }
 
-// getCluster returns the cluster configuration by its name.
-func (cm *ClusterManager) getCluster(clusterName string) *model.ClusterConfig {
-	runtimeCluster := cm.getRuntimeCluster(clusterName)
-	if runtimeCluster == nil {
-		return nil
-	}
-	return runtimeCluster.Config
-}
-
 func (cm *ClusterManager) getRuntimeCluster(clusterName string) *cluster.Cluster {
 	return cm.store.clustersMap[clusterName]
 }
@@ -291,7 +283,7 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 	}
 	healthyEndpoints := snapshot.HealthyEndpointsForPick()
 
-	c := runtimeCluster.Config
+	c := runtimeCluster.Config()
 	loadBalancer, ok := loadbalancer.LoadBalancerStrategy[c.LbStr]
 	if !ok {
 		loadBalancer = loadbalancer.LoadBalancerStrategy[model.LoadBalancerRand]
@@ -307,6 +299,7 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 		HealthyConsistentHash: snapshot.HealthyConsistentHash(),
 		AllEndpoints:          allEndpoints,
 		HealthyEndpoints:      healthyEndpoints,
+		RoundRobinCursor:      runtimeCluster.RoundRobinCursor(),
 	}, policy)
 }
 
@@ -357,7 +350,12 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 }
 
 // prepareClusterConfig rebuilds endpoint defaults and hash from current endpoints.
+// Assigns a stable configID on first call so callers can detect config-object
+// identity changes without pointer equality.
 func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
+	if c.ConfigID == 0 {
+		c.ConfigID = atomic.AddUint64(&configIDSeq, 1)
+	}
 	s.assembleClusterEndpoints(c)
 	c.CreateConsistentHash()
 }
@@ -445,7 +443,11 @@ func (s *ClusterStore) replaceClusterRuntimeWithSnapshot(
 	s.ensureRuntimeClusterMap()
 
 	oldRuntime := s.clustersMap[name]
-	s.clustersMap[name] = cluster.NewClusterWithEndpointSnapshot(config, previous)
+	// Deep-clone so the runtime owns its config copy. Mutations to
+	// store.Config[i] no longer affect the running cluster until the next
+	// explicit update.
+	cloned := model.CloneClusterConfig(config)
+	s.clustersMap[name] = cluster.NewClusterWithEndpointSnapshot(cloned, previous)
 	return oldRuntime
 }
 
@@ -472,7 +474,7 @@ func (s *ClusterStore) ensureRuntimeClusters() []*cluster.Cluster {
 		configsByName[clusterConfig.Name] = clusterConfig
 
 		runtimeCluster := s.clustersMap[clusterConfig.Name]
-		if runtimeCluster == nil || runtimeCluster.Config != clusterConfig {
+		if runtimeCluster == nil || !runtimeCluster.ConfigIsIdenticalTo(clusterConfig) {
 			if oldRuntime := s.replaceClusterRuntime(clusterConfig.Name, clusterConfig); oldRuntime != nil {
 				replacedClusters = append(replacedClusters, oldRuntime)
 			}
@@ -519,7 +521,7 @@ func (s *ClusterStore) repairRuntimeClusterFromPrevious(
 	s.prepareClusterConfig(clusterConfig)
 	previous := snapshotForRuntimeReplacement(old, clusterConfig.Name)
 	runtimeCluster := s.clustersMap[clusterConfig.Name]
-	if runtimeCluster != nil && runtimeCluster.Config == clusterConfig && previous == nil {
+	if runtimeCluster != nil && runtimeCluster.ConfigIsIdenticalTo(clusterConfig) && previous == nil {
 		return clusterConfig.Name, nil
 	}
 	return clusterConfig.Name, s.replaceClusterRuntimeWithSnapshot(clusterConfig.Name, clusterConfig, previous)
@@ -596,12 +598,14 @@ func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 		}
 		if c.Name == new.Name {
 			s.prepareClusterConfig(new)
-			atomic.StoreUint32(
-				&new.PrePickEndpointIndex,
-				atomic.LoadUint32(&c.PrePickEndpointIndex),
-			)
+			oldRuntime := s.clustersMap[new.Name]
 			s.Config[i] = new
-			stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(new.Name, new)})
+			oldReplaced := s.replaceClusterRuntime(new.Name, new)
+			if oldRuntime != nil {
+				newRuntime := s.clustersMap[new.Name]
+				oldRuntime.CarryOverCursorTo(newRuntime)
+			}
+			stopClusters([]*cluster.Cluster{oldReplaced})
 			return
 		}
 	}
@@ -622,7 +626,7 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 	}
 
 	runtimeCluster := s.clustersMap[clusterName]
-	if runtimeCluster == nil || runtimeCluster.Config != clusterConfig {
+	if runtimeCluster == nil || !runtimeCluster.ConfigIsIdenticalTo(clusterConfig) {
 		stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(clusterName, clusterConfig)})
 		runtimeCluster = s.clustersMap[clusterName]
 	}
@@ -933,7 +937,7 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 	}
 
 	runtimeCluster := s.clustersMap[clusterName]
-	if runtimeCluster == nil || runtimeCluster.Config != clusterConfig {
+	if runtimeCluster == nil || !runtimeCluster.ConfigIsIdenticalTo(clusterConfig) {
 		stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(clusterName, clusterConfig)})
 		runtimeCluster = s.clustersMap[clusterName]
 	}
@@ -977,23 +981,18 @@ func (s *ClusterStore) carryOverRuntimeStateFrom(old *ClusterStore) {
 		return
 	}
 
-	oldConfigsByName := make(map[string]*model.ClusterConfig, len(old.Config))
-	for _, clusterConfig := range old.Config {
-		if clusterConfig != nil {
-			oldConfigsByName[clusterConfig.Name] = clusterConfig
-		}
-	}
-
-	// Preserve runtime-only load-balancer state when a rebuilt store is swapped in.
+	// Preserve runtime-only RoundRobin cursor when a rebuilt store is swapped in.
+	// The cursor lives on Cluster.runtimeState, not on ClusterConfig.
 	for _, clusterConfig := range s.Config {
 		if clusterConfig == nil {
 			continue
 		}
-		if oldConfig := oldConfigsByName[clusterConfig.Name]; oldConfig != nil {
-			atomic.StoreUint32(
-				&clusterConfig.PrePickEndpointIndex,
-				atomic.LoadUint32(&oldConfig.PrePickEndpointIndex),
-			)
+		newRuntime := s.clustersMap[clusterConfig.Name]
+		if newRuntime == nil {
+			continue
+		}
+		if oldRuntime := old.clustersMap[clusterConfig.Name]; oldRuntime != nil {
+			oldRuntime.CarryOverCursorTo(newRuntime)
 		}
 	}
 }

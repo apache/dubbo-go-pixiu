@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"testing"
 )
 
@@ -173,7 +172,9 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 	cm := testClusterManager(cluster)
 
 	const expectedCursor uint32 = 5
-	atomic.StoreUint32(&cm.store.Config[0].PrePickEndpointIndex, expectedCursor)
+	// Set cursor on the runtime, not the config.
+	oldRuntime := cm.store.clustersMap[cluster.Name]
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	oldStore, err := cm.CloneStore()
 	if !assert.NoError(t, err) {
@@ -187,7 +188,10 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 
 	assert.True(t, cm.CompareAndSetStore(newStore))
 	if assert.Len(t, cm.store.Config, 1) {
-		assert.Equal(t, expectedCursor, atomic.LoadUint32(&cm.store.Config[0].PrePickEndpointIndex))
+		newRuntime := cm.store.clustersMap[cluster.Name]
+		if assert.NotNil(t, newRuntime) {
+			assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
+		}
 	}
 
 	endpoint := cm.PickEndpoint(cluster.Name, nil)
@@ -207,11 +211,11 @@ func TestClusterManager_UpdateClusterRebuildsRuntimeCluster(t *testing.T) {
 	if !assert.NotNil(t, oldRuntime) {
 		return
 	}
-	assert.Same(t, oldConfig, oldRuntime.Config)
+	assert.True(t, oldRuntime.ConfigIsIdenticalTo(oldConfig))
 	assert.Greater(t, healthCheckersLen(oldRuntime), 0)
 
 	const expectedCursor uint32 = 11
-	atomic.StoreUint32(&oldConfig.PrePickEndpointIndex, expectedCursor)
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	newConfig := testCluster(oldConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-2", "127.0.0.1", 19301),
@@ -224,9 +228,9 @@ func TestClusterManager_UpdateClusterRebuildsRuntimeCluster(t *testing.T) {
 		return
 	}
 	assert.NotSame(t, oldRuntime, newRuntime)
-	assert.Same(t, newConfig, newRuntime.Config)
+	assert.True(t, newRuntime.ConfigIsIdenticalTo(newConfig))
 	assert.Same(t, newConfig, cm.store.Config[0])
-	assert.Equal(t, expectedCursor, atomic.LoadUint32(&newConfig.PrePickEndpointIndex))
+	assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
 	assert.Equal(t, 0, healthCheckersLen(oldRuntime))
 	assert.Greater(t, healthCheckersLen(newRuntime), 0)
 }
@@ -272,7 +276,7 @@ func TestClusterManager_CompareAndSetStoreEnsuresRuntimeAndStopsOld(t *testing.T
 	assert.Greater(t, healthCheckersLen(oldRuntime), 0)
 
 	const expectedCursor uint32 = 17
-	atomic.StoreUint32(&oldConfig.PrePickEndpointIndex, expectedCursor)
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	newConfig := testCluster(oldConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-2", "127.0.0.1", 19321),
@@ -291,8 +295,8 @@ func TestClusterManager_CompareAndSetStoreEnsuresRuntimeAndStopsOld(t *testing.T
 	}
 	assert.Same(t, candidate, cm.store)
 	assert.NotSame(t, oldRuntime, newRuntime)
-	assert.Same(t, newConfig, newRuntime.Config)
-	assert.Equal(t, expectedCursor, atomic.LoadUint32(&newConfig.PrePickEndpointIndex))
+	assert.True(t, newRuntime.ConfigIsIdenticalTo(newConfig))
+	assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
 	assert.Equal(t, 0, healthCheckersLen(oldRuntime))
 	assert.Greater(t, healthCheckersLen(newRuntime), 0)
 }
@@ -332,7 +336,7 @@ func TestClusterStore_EnsureRuntimeClustersRepairsRuntimeMap(t *testing.T) {
 
 		assert.Empty(t, replaced)
 		if assert.NotNil(t, store.clustersMap[config.Name]) {
-			assert.Same(t, config, store.clustersMap[config.Name].Config)
+			assert.True(t, store.clustersMap[config.Name].ConfigIsIdenticalTo(config))
 		}
 	})
 
@@ -373,13 +377,13 @@ func TestClusterStore_EnsureRuntimeClustersRepairsRuntimeMap(t *testing.T) {
 		replaced := store.ensureRuntimeClusters()
 		stopClusters(replaced)
 
-		assert.Same(t, correctRuntime, store.clustersMap[correctConfig.Name])
+		assert.True(t, store.clustersMap[correctConfig.Name].ConfigIsIdenticalTo(correctConfig))
 		if assert.NotNil(t, store.clustersMap[missingConfig.Name]) {
-			assert.Same(t, missingConfig, store.clustersMap[missingConfig.Name].Config)
+			assert.True(t, store.clustersMap[missingConfig.Name].ConfigIsIdenticalTo(missingConfig))
 		}
 		if assert.NotNil(t, store.clustersMap[newMismatchedConfig.Name]) {
 			assert.NotSame(t, mismatchedRuntime, store.clustersMap[newMismatchedConfig.Name])
-			assert.Same(t, newMismatchedConfig, store.clustersMap[newMismatchedConfig.Name].Config)
+			assert.True(t, store.clustersMap[newMismatchedConfig.Name].ConfigIsIdenticalTo(newMismatchedConfig))
 		}
 		assert.NotContains(t, store.clustersMap, staleConfig.Name)
 		assert.Contains(t, replaced, mismatchedRuntime)
@@ -468,7 +472,7 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 		return
 	}
 	assert.NotSame(t, staleRuntime, runtime)
-	assert.Same(t, config, runtime.Config)
+	assert.True(t, runtime.ConfigIsIdenticalTo(config))
 	if assert.Len(t, config.Endpoints, 1) {
 		assert.Equal(t, remainingEndpoint, config.Endpoints[0])
 		assert.NotSame(t, remainingEndpoint, config.Endpoints[0])

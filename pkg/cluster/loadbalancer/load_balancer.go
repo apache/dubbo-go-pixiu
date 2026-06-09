@@ -49,6 +49,9 @@ type PickContext struct {
 	// Snapshot-aware balancers must treat endpoints as read-only and return
 	// the chosen endpoint without mutating or retaining it.
 	HealthyEndpoints []*model.Endpoint
+	// RoundRobinCursor is the runtime-owned atomic RR cursor. Snapshot-aware
+	// RoundRobin balancers should use this instead of Config.PrePickEndpointIndex.
+	RoundRobinCursor *atomic.Uint32
 }
 
 type LoadBalancer interface {
@@ -173,10 +176,15 @@ func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	}
 	config := *context.Config
 	config.Endpoints = model.CloneEndpoints(allEndpoints)
-	cursorBefore := atomic.LoadUint32(&context.Config.PrePickEndpointIndex)
+	var cursorBefore, cursorAfter uint32
+	if context.RoundRobinCursor != nil {
+		cursorBefore = context.RoundRobinCursor.Load()
+	} else {
+		cursorBefore = atomic.LoadUint32(&context.Config.PrePickEndpointIndex)
+	}
 	atomic.StoreUint32(&config.PrePickEndpointIndex, cursorBefore)
 	endpoint := balancer.Handler(&config, policy)
-	cursorAfter := atomic.LoadUint32(&config.PrePickEndpointIndex)
+	cursorAfter = atomic.LoadUint32(&config.PrePickEndpointIndex)
 	if cursorAfter != cursorBefore {
 		atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
 	}

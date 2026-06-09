@@ -52,7 +52,11 @@ func (RoundRobin) HandlerWithSnapshot(c loadbalancer.PickContext, _ model.LbPoli
 	if len(endpoints) == 0 {
 		return nil
 	}
-	// AddUint32 returns the incremented value, so subtract 1 for a zero-based index.
-	index := atomic.AddUint32(&c.Config.PrePickEndpointIndex, 1) - 1
+	var index uint32
+	if c.RoundRobinCursor != nil {
+		index = c.RoundRobinCursor.Add(1) - 1
+	} else {
+		index = atomic.AddUint32(&c.Config.PrePickEndpointIndex, 1) - 1
+	}
 	return endpoints[int(index%uint32(len(endpoints)))]
 }

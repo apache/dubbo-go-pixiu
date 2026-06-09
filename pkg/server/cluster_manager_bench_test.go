@@ -70,7 +70,10 @@ func BenchmarkClusterLookupSerial(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				cm.rw.RLock()
-				benchmarkClusterSink = cm.getCluster(names[i%len(names)])
+				runtimeCluster := cm.getRuntimeCluster(names[i%len(names)])
+				if runtimeCluster != nil {
+					benchmarkClusterSink = runtimeCluster.Config()
+				}
 				cm.rw.RUnlock()
 			}
 		})
