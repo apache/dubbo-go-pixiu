@@ -61,16 +61,20 @@ func NewCluster(clusterConfig *model.ClusterConfig) *Cluster {
 }
 
 func NewClusterWithEndpointSnapshot(clusterConfig *model.ClusterConfig, previous *EndpointSnapshot) *Cluster {
+	configID := uint64(0)
+	if clusterConfig != nil {
+		configID = clusterConfig.ConfigID
+	}
 	c := &Cluster{
 		config:             clusterConfig,
-		configID:           clusterConfig.ConfigID,
+		configID:           configID,
 		runtimeState:       &RuntimeState{},
 		acceptHealthEvents: true,
 	}
 	c.RefreshEndpointsFrom(previous)
 
 	// only handle one health checker
-	if len(c.config.HealthChecks) != 0 {
+	if clusterConfig != nil && len(clusterConfig.HealthChecks) != 0 {
 		c.HealthCheck = healthcheck.CreateHealthCheckWithCallback(
 			clusterConfig,
 			c.config.HealthChecks[0],
