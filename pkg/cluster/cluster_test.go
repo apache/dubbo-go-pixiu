@@ -189,6 +189,8 @@ func TestClusterEndpointSnapshotExposesReadOnlyConsistentHash(t *testing.T) {
 func TestClusterEndpointSnapshotBuildsConsistentHashLazily(t *testing.T) {
 	var builds int32
 	lbPolicy := model.LbPolicyType("test-lazy-hash")
+	// Mutates the global ConsistentHashInitMap; keep usage serial
+	// and do not add t.Parallel.
 	previousInit, hadPreviousInit := model.ConsistentHashInitMap[lbPolicy]
 	model.ConsistentHashInitMap[lbPolicy] = func(_ model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
 		atomic.AddInt32(&builds, 1)
@@ -371,7 +373,7 @@ func TestClusterEndpointSnapshotDoesNotReuseConsistentHashWhenHashConfigChanges(
 		"hash config change must force a fresh consistent hash")
 }
 
-func TestClusterEndpointSnapshotDoesNotReuseConsistentHashWhenMetadataChanges(t *testing.T) {
+func TestClusterEndpointSnapshotReusesConsistentHashWhenMetadataChanges(t *testing.T) {
 	var builds int32
 	lbPolicy := registerCountingConsistentHash(t, "test-reuse-hash-metadata-change", &builds)
 
@@ -389,8 +391,8 @@ func TestClusterEndpointSnapshotDoesNotReuseConsistentHashWhenMetadataChanges(t 
 	config.Endpoints[0] = movedWeight
 	next := newEndpointSnapshot(config, previous, false)
 	assert.NotNil(t, next.HealthyConsistentHash())
-	assert.Equal(t, int32(2), atomic.LoadInt32(&builds),
-		"metadata change must force a fresh consistent hash")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds),
+		"metadata-only change with unchanged hosts must reuse the previous consistent hash instead of rebuilding")
 }
 
 func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
@@ -705,6 +707,8 @@ func testSnapshotEndpointWithLLMMeta() *model.Endpoint {
 	return endpoint
 }
 
+// Mutates the global ConsistentHashInitMap; keep usage serial
+// and do not add t.Parallel.
 func registerCountingConsistentHash(t *testing.T, name string, builds *int32) model.LbPolicyType {
 	t.Helper()
 
