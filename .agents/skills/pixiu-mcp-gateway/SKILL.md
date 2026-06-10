@@ -151,6 +151,7 @@ Even if configuration information seems inferable, obvious, or implied by contex
 - Verify MCP filter-chain order: `dgp.filter.http.auth.mcp` -> `dgp.filter.mcp.mcpserver` -> `dgp.filter.http.httpproxy`; ignore missing filters within this order chain.
 - Verify every static tool `cluster` has a same-name cluster declaration under `static_resources.clusters[]`.
 - Verify `dgp.filter.mcp.mcpserver.config.endpoint` exactly matches the path in the client call URL.
+- When `resources[]` is configured, verify the user has been told about the current `resources/read` runtime limitation: it returns placeholder content and does not read real data from `source`; do not claim clients can read actual content from `source.content/path/url/template`.
 
 ## Examples
 Static mode (`conf.yaml`):

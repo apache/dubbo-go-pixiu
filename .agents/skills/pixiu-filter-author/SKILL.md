@@ -59,12 +59,13 @@ Even if configuration information seems inferable, obvious, or implied by contex
    - Network filter example: `pkg/filter/network/dubboproxy/`.
 3. Choose package shape by `filter_type`: HTTP filters go under `pkg/filter/<name>/` or `pkg/filter/http/<name>/`; Network filters go under `pkg/filter/network/<name>/`.
 4. Implement the matching SPI: HTTP defines `Kind`, `Plugin`, `FilterFactory`, `Filter`, and `Config`; Network defines `Kind`, `Plugin`, `Filter`, and `Config`.
-5. Finish registration and mounting: add a blank import in `pkg/pluginregistry/registry.go`, then mount according to filter type under HCM or the listener filter-chain.
+5. Finish registration and mounting: in the filter package's `init()`, call the registration function — `filter.RegisterHttpFilter(&Plugin{})` for an HTTP filter, `filter.RegisterNetworkFilterPlugin(&Plugin{})` for a Network filter; add a blank import in `pkg/pluginregistry/registry.go`; then mount according to filter type under HCM or the listener filter-chain.
 
 ## Output format
 - Show the relevant YAML fragment.
 
 ## Validation
+- Verify the filter package's `init()` actually calls `filter.RegisterHttpFilter(&Plugin{})` (HTTP) or `filter.RegisterNetworkFilterPlugin(&Plugin{})` (Network).
 - Verify `pkg/pluginregistry/registry.go` blank-imports the new package.
 - Verify HTTP filters are nested under HCM `http_filters[]`, and Network filters are under listener `filter_chains.filters[]`.
 - Verify `PrepareFilterChain` deep-copies `factory.cfg` fields into each per-request Filter instance and does not share pointers.
