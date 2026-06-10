@@ -60,3 +60,17 @@ func TestMaglevHash(t *testing.T) {
 	}
 
 }
+
+func TestLookUpTableHashIsStableForSameKey(t *testing.T) {
+	table, err := NewLookUpTable(521, []string{"127.0.0.1:18080", "127.0.0.1:18081"})
+	if err != nil {
+		t.Fatalf("NewLookUpTable() error = %v", err)
+	}
+
+	first := table.Hash("same-request-key")
+	for i := 0; i < 20; i++ {
+		if got := table.Hash("same-request-key"); got != first {
+			t.Fatalf("Hash() = %d, want stable %d", got, first)
+		}
+	}
+}

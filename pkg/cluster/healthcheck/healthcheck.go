@@ -19,6 +19,7 @@ package healthcheck
 
 import (
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -44,6 +45,15 @@ const (
 )
 
 type HealthChecker struct {
+	// checkers is the live set of per-address health-check sessions.
+	//
+	// Concurrency contract: mutated only from ClusterStore mutation paths
+	// (AddCluster, UpdateCluster, SetEndpoint, DeleteEndpoint, and
+	// ensureRuntimeClusters), all of which hold ClusterManager.rw for write.
+	// EndpointChecker goroutines never read or mutate this map; they only
+	// touch their own captured fields. The map is therefore unlocked by
+	// design. Do not call Start, Stop, StartOne, or StopOne from a goroutine
+	// that does not hold the ClusterManager write lock.
 	checkers      map[string]*EndpointChecker
 	sessionConfig map[string]any
 	// check config
@@ -54,11 +64,14 @@ type HealthChecker struct {
 	cluster            *model.ClusterConfig
 	unhealthyThreshold uint32
 	protocol           string
+	onEndpointHealth   EndpointHealthListener
 }
 
 // EndpointChecker is a wrapper of types.HealthCheckSession for health check
 type EndpointChecker struct {
 	endpoint      *model.Endpoint
+	endpointID    string
+	endpointAddr  string
 	HealthChecker *HealthChecker
 	// checker, todo can extend to TCP, http, grpc, dubbo or other protocol checker
 	checker       Checker
@@ -70,7 +83,6 @@ type EndpointChecker struct {
 	checkTimeout  *gxtime.Timer
 	unHealthCount uint32
 	healthCount   uint32
-	threshold     uint32
 
 	once sync.Once
 }
@@ -80,12 +92,28 @@ type Checker interface {
 	OnTimeout()
 }
 
+type EndpointHealthEvent struct {
+	EndpointID      string
+	EndpointAddress string
+	Healthy         bool
+}
+
+type EndpointHealthListener func(EndpointHealthEvent)
+
 type checkResponse struct {
 	ID      uint64
 	Healthy bool
 }
 
 func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig) *HealthChecker {
+	return CreateHealthCheckWithCallback(cluster, cfg, nil)
+}
+
+func CreateHealthCheckWithCallback(
+	cluster *model.ClusterConfig,
+	cfg model.HealthCheckConfig,
+	onEndpointHealth EndpointHealthListener,
+) *HealthChecker {
 
 	timeout, err := time.ParseDuration(cfg.TimeoutConfig)
 	if err != nil {
@@ -99,10 +127,12 @@ func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig
 		interval = DefaultInterval
 	}
 
-	initialDelay, err := time.ParseDuration(cfg.IntervalConfig)
+	initialDelay := DefaultFirstInterval
+	initialDelaySeconds, err := strconv.Atoi(cfg.InitialDelaySeconds)
 	if err != nil {
-		logger.Infof("[health check] initialDelay parse duration error %s", err)
-		initialDelay = DefaultFirstInterval
+		logger.Infof("[health check] initialDelay parse seconds error %s", err)
+	} else {
+		initialDelay = time.Duration(initialDelaySeconds) * time.Second
 	}
 
 	unhealthyThreshold := cfg.UnhealthyThreshold
@@ -124,6 +154,7 @@ func CreateHealthCheck(cluster *model.ClusterConfig, cfg model.HealthCheckConfig
 		unhealthyThreshold: unhealthyThreshold,
 		initialDelay:       initialDelay,
 		checkers:           make(map[string]*EndpointChecker),
+		onEndpointHealth:   onEndpointHealth,
 	}
 
 	return hc
@@ -137,8 +168,10 @@ func (hc *HealthChecker) Start() {
 }
 
 func (hc *HealthChecker) Stop() {
-	for _, h := range hc.cluster.Endpoints {
-		hc.stopCheck(h)
+	for addr, h := range hc.checkers {
+		h.Stop()
+		delete(hc.checkers, addr)
+		logger.Infof("[health check] stop a health check session for %s", addr)
 	}
 }
 
@@ -151,6 +184,9 @@ func (hc *HealthChecker) StartOne(endpoint *model.Endpoint) {
 }
 
 func (hc *HealthChecker) startCheck(endpoint *model.Endpoint) {
+	if endpoint == nil {
+		return
+	}
 	addr := endpoint.Address.GetAddress()
 	if _, ok := hc.checkers[addr]; !ok {
 		c := newChecker(endpoint, hc)
@@ -161,12 +197,36 @@ func (hc *HealthChecker) startCheck(endpoint *model.Endpoint) {
 }
 
 func (hc *HealthChecker) stopCheck(endpoint *model.Endpoint) {
+	if endpoint == nil {
+		return
+	}
 	addr := endpoint.Address.GetAddress()
+	if hc.hasOtherEndpointWithAddress(endpoint, addr) {
+		return
+	}
 	if c, ok := hc.checkers[addr]; ok {
 		c.Stop()
 		delete(hc.checkers, addr)
-		logger.Infof("[health check] create a health check session for %s", addr)
+		logger.Infof("[health check] stop a health check session for %s", addr)
 	}
+}
+
+func (hc *HealthChecker) hasOtherEndpointWithAddress(endpoint *model.Endpoint, addr string) bool {
+	if hc.cluster == nil {
+		return false
+	}
+	for _, candidate := range hc.cluster.Endpoints {
+		if candidate == nil || candidate == endpoint {
+			continue
+		}
+		if endpoint.ID != "" && candidate.ID == endpoint.ID {
+			continue
+		}
+		if candidate.Address.GetAddress() == addr {
+			return true
+		}
+	}
+	return false
 }
 
 func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
@@ -197,8 +257,12 @@ func newChecker(endpoint *model.Endpoint, hc *HealthChecker) *EndpointChecker {
 	}
 
 	c := &EndpointChecker{
-		checker:       checker,
-		endpoint:      endpoint,
+		checker:  checker,
+		endpoint: endpoint,
+		// Capture stable event identity when the checker starts; endpoint
+		// objects can be replaced while old checker events are still in flight.
+		endpointID:    endpoint.ID,
+		endpointAddr:  endpoint.Address.GetAddress(),
 		HealthChecker: hc,
 		resp:          make(chan checkResponse),
 		timeout:       make(chan bool),
@@ -273,40 +337,94 @@ func (c *EndpointChecker) Stop() {
 	})
 }
 
+// HandleSuccess records a healthy probe result. The endpoint is only
+// flipped to healthy after healthyThreshold consecutive successes — see
+// the CHANGELOG for the v1.2 behavior change that made this configured
+// threshold actually take effect (previously the counter compared
+// against an uninitialized field that was always 0, so the first probe
+// flipped state).
 func (c *EndpointChecker) HandleSuccess() {
 	c.unHealthCount = 0
 	c.healthCount++
-	if c.healthCount > c.threshold {
+	if c.healthCount >= c.HealthChecker.healthyThreshold {
 		c.handleHealth()
 	}
 }
 
+// HandleFailure records an unhealthy probe result. Both negative probe
+// responses and timeouts feed the same unhealthy counter, so the configured
+// unhealthyThreshold governs the flip from healthy to unhealthy regardless of
+// how the failure manifested. Prior to v1.2, timeout=false flipped state
+// immediately and timeout=true compared against an uninitialized threshold
+// field; see CHANGELOG.
+//
+// Deprecated: the timeout argument is ignored. It is retained only because
+// HandleFailure was exported in v1.x and external Checker implementations may
+// still pass it. New code should call this method with false; the next major
+// release will collapse the signature to HandleFailure().
 func (c *EndpointChecker) HandleFailure(timeout bool) {
-	if timeout {
-		c.HandleTimeout()
-	} else {
+	_ = timeout
+	c.healthCount = 0
+	c.unHealthCount++
+	if c.unHealthCount >= c.HealthChecker.unhealthyThreshold {
 		c.handleUnHealth()
 	}
 }
 
+// HandleTimeout is preserved for backward compatibility with external Checker
+// implementations that called it directly.
+//
+// Deprecated: routes to HandleFailure(true). Will be removed in the next major
+// release.
 func (c *EndpointChecker) HandleTimeout() {
-	c.healthCount = 0
-	c.unHealthCount++
-	if c.unHealthCount > c.threshold {
-		c.handleUnHealth()
-	}
+	c.HandleFailure(true)
 }
 
 func (c *EndpointChecker) handleHealth() {
 	c.healthCount = 0
 	c.unHealthCount = 0
-	c.endpoint.UnHealthy = false
+	c.emitHealth(true)
 }
 
 func (c *EndpointChecker) handleUnHealth() {
 	c.healthCount = 0
 	c.unHealthCount = 0
-	c.endpoint.UnHealthy = true
+	c.emitHealth(false)
+}
+
+func (c *EndpointChecker) emitHealth(healthy bool) {
+	if c.HealthChecker.onEndpointHealth == nil {
+		// Direct CreateHealthCheck (no-callback) path. In-tree this branch is
+		// unreachable: all in-tree HealthCheckers are constructed via
+		// CreateHealthCheckWithCallback (see pkg/cluster/cluster.go). The
+		// mutation below is preserved for external consumers that import
+		// healthcheck directly. The cluster snapshot does not observe this
+		// mutation; in-tree health flows go through the callback above.
+		if !c.HealthChecker.setEndpointAddressHealth(c.endpointAddr, healthy) {
+			c.endpoint.UnHealthy = !healthy
+		}
+		return
+	}
+	c.HealthChecker.onEndpointHealth(EndpointHealthEvent{
+		EndpointID:      c.endpointID,
+		EndpointAddress: c.endpointAddr,
+		Healthy:         healthy,
+	})
+}
+
+func (hc *HealthChecker) setEndpointAddressHealth(addr string, healthy bool) bool {
+	if hc.cluster == nil {
+		return false
+	}
+	updated := false
+	for _, endpoint := range hc.cluster.Endpoints {
+		if endpoint == nil || endpoint.Address.GetAddress() != addr {
+			continue
+		}
+		endpoint.UnHealthy = !healthy
+		updated = true
+	}
+	return updated
 }
 
 func (c *EndpointChecker) OnCheck() {

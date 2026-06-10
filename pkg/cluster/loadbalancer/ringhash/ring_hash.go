@@ -58,25 +58,48 @@ func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model
 
 type RingHashing struct{}
 
+func (RingHashing) UseHealthyEndpointsOnly() bool {
+	return true
+}
+
+func (RingHashing) UseZeroCopySnapshot() bool {
+	return true
+}
+
 func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
-	u := c.ConsistentHash.Hash.Hash(policy.GenerateHash())
-	hash, err := c.ConsistentHash.Hash.GetHash(u)
+	if c == nil {
+		return nil
+	}
+	endpoints := c.GetEndpoint(true)
+	hashView := model.ReadOnlyConsistentHash(c.ConsistentHash.Hash)
+	if hashView == nil && len(endpoints) > 0 {
+		hashView = model.ReadOnlyConsistentHash(NewRingHash(c.ConsistentHash, endpoints))
+	}
+	return r.HandlerWithSnapshot(loadbalancer.PickContext{
+		Config:                c,
+		HealthyConsistentHash: hashView,
+		HealthyEndpoints:      endpoints,
+	}, policy)
+}
+
+func (r RingHashing) HandlerWithSnapshot(c loadbalancer.PickContext, policy model.LbPolicy) *model.Endpoint {
+	endpoints := c.HealthyEndpoints
+	hashView := loadbalancer.ConsistentHashForHealthyEndpoints(c)
+	if len(endpoints) == 0 || hashView == nil || policy == nil {
+		return nil
+	}
+
+	u := hashView.Hash(policy.GenerateHash())
+	host, err := hashView.GetHash(u)
 	if err != nil {
 		logger.Warnf("[dubbo-go-pixiu] error of getting from ring hash: %v", err)
 		return nil
 	}
 
-	endpoints := c.GetEndpoint(true)
-
 	for _, endpoint := range endpoints {
-		if endpoint.GetHost() == hash {
+		if endpoint.GetHost() == host {
 			return endpoint
 		}
 	}
-
-	if len(endpoints) == 0 {
-		return nil
-	}
-
 	return endpoints[0]
 }

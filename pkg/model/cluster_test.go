@@ -102,3 +102,75 @@ func TestEndpoint_GetHost(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.1:20880", endpoint.GetHost())
 }
+
+func TestGenerateEndpointIDIsDeterministic(t *testing.T) {
+	build := func(apiKey string) *model.Endpoint {
+		return &model.Endpoint{
+			Name:    "shared-llm",
+			Address: model.SocketAddress{Address: "127.0.0.1", Port: 20880},
+			LLMMeta: &model.LLMMeta{Provider: "openai", APIKey: apiKey},
+		}
+	}
+
+	first := model.GenerateEndpointID("cluster-a", build("key-a"))
+	second := model.GenerateEndpointID("cluster-a", build("key-a"))
+	other := model.GenerateEndpointID("cluster-a", build("key-b"))
+
+	assert.Equal(t, first, second, "same material must produce same ID")
+	assert.NotEqual(t, first, other, "different credential must produce different ID")
+	assert.True(t, strings.HasPrefix(first, "pixiu-generated-endpoint-"),
+		"ID must use pixiu-generated-endpoint- prefix")
+	assert.NotContains(t, first, "key-a", "raw API key must not leak into the ID")
+}
+
+func TestGenerateEndpointIDIgnoresEndpointName(t *testing.T) {
+	base := &model.Endpoint{
+		Name:    "old-name",
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 20880},
+		LLMMeta: &model.LLMMeta{Provider: "openai", APIKey: "k"},
+	}
+	renamed := *base
+	renamed.Name = "new-name"
+
+	assert.Equal(t,
+		model.GenerateEndpointID("cluster-a", base),
+		model.GenerateEndpointID("cluster-a", &renamed),
+	)
+}
+
+func TestGenerateEndpointIDSeparatesClusters(t *testing.T) {
+	endpoint := &model.Endpoint{
+		Address: model.SocketAddress{Address: "127.0.0.1", Port: 20880},
+		LLMMeta: &model.LLMMeta{Provider: "openai", APIKey: "k"},
+	}
+
+	a := model.GenerateEndpointID("cluster-a", endpoint)
+	b := model.GenerateEndpointID("cluster-b", endpoint)
+
+	assert.NotEqual(t, a, b, "different cluster names must produce different IDs for the same endpoint")
+}
+
+func TestGenerateEndpointIDSeparatesAddresses(t *testing.T) {
+	build := func(host string, port int) *model.Endpoint {
+		return &model.Endpoint{
+			Address: model.SocketAddress{Address: host, Port: port},
+			LLMMeta: &model.LLMMeta{Provider: "openai", APIKey: "k"},
+		}
+	}
+
+	base := model.GenerateEndpointID("cluster-a", build("127.0.0.1", 20880))
+
+	assert.NotEqual(t, base,
+		model.GenerateEndpointID("cluster-a", build("127.0.0.2", 20880)),
+		"different host must produce different ID")
+	assert.NotEqual(t, base,
+		model.GenerateEndpointID("cluster-a", build("127.0.0.1", 20881)),
+		"different port must produce different ID")
+}
+
+func TestGenerateEndpointIDHandlesNilEndpoint(t *testing.T) {
+	a := model.GenerateEndpointID("cluster-a", nil)
+	b := model.GenerateEndpointID("cluster-b", nil)
+	assert.True(t, strings.HasPrefix(a, "pixiu-generated-endpoint-"))
+	assert.NotEqual(t, a, b)
+}

@@ -19,6 +19,7 @@ package nacos
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -154,10 +155,82 @@ func TestGenerateEndpoint(t *testing.T) {
 	})
 
 	t.Run("Invalid port", func(t *testing.T) {
-		instance := nacosModel.Instance{Metadata: map[string]string{"port": "not-a-number"}}
+		instance := nacosModel.Instance{
+			Port:     8080,
+			Metadata: map[string]string{"port": "not-a-number"},
+		}
 		endpoint := generateEndpoint(instance)
 		assert.NotNil(t, endpoint)
-		assert.Equal(t, 0, endpoint.Address.Port)
+		assert.Equal(t, 8080, endpoint.Address.Port)
+	})
+
+	t.Run("Missing metadata ID uses Nacos instance identity", func(t *testing.T) {
+		instance := nacosModel.Instance{
+			InstanceId: "nacos-instance-1",
+			Ip:         "10.0.0.1",
+			Port:       18080,
+			Metadata: map[string]string{
+				"cluster": "llm-cluster",
+				"name":    "shared-llm",
+			},
+		}
+
+		endpoint := generateEndpoint(instance)
+		assert.NotNil(t, endpoint)
+		assert.Equal(t, "nacos-instance-1", endpoint.ID)
+		assert.Equal(t, "10.0.0.1", endpoint.Address.Address)
+		assert.Equal(t, 18080, endpoint.Address.Port)
+	})
+
+	t.Run("Missing ID uses stable generated endpoint ID", func(t *testing.T) {
+		instance := nacosModel.Instance{
+			Metadata: map[string]string{
+				"cluster":          "llm-cluster",
+				"name":             "shared-llm",
+				"ip":               "127.0.0.1",
+				"port":             "8080",
+				"llm-meta.api_key": "key-a",
+			},
+		}
+
+		first := generateEndpoint(instance)
+		second := generateEndpoint(instance)
+		changedCredential := instance
+		changedCredential.Metadata = map[string]string{
+			"cluster":          "llm-cluster",
+			"name":             "shared-llm",
+			"ip":               "127.0.0.1",
+			"port":             "8080",
+			"llm-meta.api_key": "key-b",
+		}
+
+		assert.NotNil(t, first)
+		assert.Equal(t, first.ID, second.ID)
+		assert.NotEqual(t, first.ID, generateEndpoint(changedCredential).ID)
+		assert.Contains(t, first.ID, "pixiu-generated-endpoint-")
+		assert.NotContains(t, first.ID, "key-a")
+	})
+
+	t.Run("Missing metadata cluster falls back to empty cluster hash", func(t *testing.T) {
+		build := func(clusterName string) nacosModel.Instance {
+			return nacosModel.Instance{
+				Ip:          "127.0.0.1",
+				Port:        8080,
+				ClusterName: clusterName,
+				Metadata: map[string]string{
+					"name":             "shared-llm",
+					"llm-meta.api_key": "key-a",
+				},
+			}
+		}
+
+		clusterA := generateEndpoint(build("cluster-a"))
+		clusterB := generateEndpoint(build("cluster-b"))
+
+		assert.NotNil(t, clusterA)
+		assert.NotNil(t, clusterB)
+		assert.Contains(t, clusterA.ID, "pixiu-generated-endpoint-")
+		assert.Equal(t, clusterA.ID, clusterB.ID)
 	})
 }
 
@@ -271,6 +344,192 @@ func TestServiceCallback(t *testing.T) {
 		assert.Empty(t, adapterListener.addedEndpoints, "Should not trigger add for unchanged instance")
 		assert.Empty(t, adapterListener.removedEndpoints, "Should not trigger remove for unchanged instance")
 	})
+}
+
+func TestServiceCallbackUsesStableGeneratedEndpointID(t *testing.T) {
+	l, client, adapterListener := testSetup()
+
+	_ = client.Subscribe(&vo.SubscribeParam{
+		ServiceName:       "service-generated",
+		SubscribeCallback: l.serviceCallback,
+	})
+
+	instance1 := nacosModel.SubscribeService{
+		ServiceName: "service-generated",
+		Enable:      true,
+		Healthy:     true,
+		Metadata: map[string]string{
+			"cluster":          "llm-cluster",
+			"name":             "shared-llm-a",
+			"ip":               "127.0.0.1",
+			"port":             "8080",
+			"llm-meta.api_key": "key-a",
+		},
+	}
+	instance2 := nacosModel.SubscribeService{
+		ServiceName: "service-generated",
+		Enable:      true,
+		Healthy:     true,
+		Metadata: map[string]string{
+			"cluster":          "llm-cluster",
+			"name":             "shared-llm-b",
+			"ip":               "127.0.0.1",
+			"port":             "8080",
+			"llm-meta.api_key": "key-b",
+		},
+	}
+
+	client.subscribeCallback([]nacosModel.SubscribeService{instance1, instance2}, nil)
+	assert.Len(t, adapterListener.addedEndpoints, 2)
+
+	var removedID string
+	for id, endpoint := range adapterListener.addedEndpoints {
+		if endpoint.Name == "shared-llm-a" {
+			removedID = id
+		}
+	}
+	assert.NotEmpty(t, removedID)
+
+	adapterListener.reset()
+	client.subscribeCallback([]nacosModel.SubscribeService{instance2}, nil)
+
+	assert.Empty(t, adapterListener.addedEndpoints)
+	assert.Contains(t, adapterListener.removedEndpoints, removedID)
+}
+
+func TestServiceCallbackKeepsGeneratedEndpointIDWhenNameChanges(t *testing.T) {
+	l, client, adapterListener := testSetup()
+
+	_ = client.Subscribe(&vo.SubscribeParam{
+		ServiceName:       "service-rename",
+		SubscribeCallback: l.serviceCallback,
+	})
+
+	instance := nacosModel.SubscribeService{
+		ServiceName: "service-rename",
+		Ip:          "127.0.0.1",
+		Port:        8080,
+		Enable:      true,
+		Healthy:     true,
+		Metadata: map[string]string{
+			"cluster":          "llm-cluster",
+			"name":             "shared-llm-old",
+			"llm-meta.api_key": "key-a",
+		},
+	}
+
+	client.subscribeCallback([]nacosModel.SubscribeService{instance}, nil)
+	assert.Len(t, adapterListener.addedEndpoints, 1)
+
+	var endpointID string
+	for id := range adapterListener.addedEndpoints {
+		endpointID = id
+	}
+	assert.NotEmpty(t, endpointID)
+
+	renamed := instance
+	renamed.Metadata = map[string]string{
+		"cluster":          "llm-cluster",
+		"name":             "shared-llm-new",
+		"llm-meta.api_key": "key-a",
+	}
+
+	adapterListener.reset()
+	client.subscribeCallback([]nacosModel.SubscribeService{renamed}, nil)
+
+	assert.Empty(t, adapterListener.removedEndpoints)
+	if assert.Contains(t, adapterListener.addedEndpoints, endpointID) {
+		assert.Equal(t, "shared-llm-new", adapterListener.addedEndpoints[endpointID].Name)
+	}
+}
+
+func TestServiceCallbackKeepsNacosInstancesWithoutMetadataIDDistinct(t *testing.T) {
+	l, client, adapterListener := testSetup()
+
+	_ = client.Subscribe(&vo.SubscribeParam{
+		ServiceName:       "service-instance-id",
+		SubscribeCallback: l.serviceCallback,
+	})
+
+	instance1 := nacosModel.SubscribeService{
+		InstanceId:  "nacos-instance-a",
+		ServiceName: "service-instance-id",
+		Ip:          "10.0.0.1",
+		Port:        18080,
+		Enable:      true,
+		Healthy:     true,
+		Metadata: map[string]string{
+			"cluster":          "llm-cluster",
+			"name":             "shared-llm",
+			"llm-meta.api_key": "same-key",
+		},
+	}
+	instance2 := nacosModel.SubscribeService{
+		InstanceId:  "nacos-instance-b",
+		ServiceName: "service-instance-id",
+		Ip:          "10.0.0.2",
+		Port:        18081,
+		Enable:      true,
+		Healthy:     true,
+		Metadata: map[string]string{
+			"cluster":          "llm-cluster",
+			"name":             "shared-llm",
+			"llm-meta.api_key": "same-key",
+		},
+	}
+
+	client.subscribeCallback([]nacosModel.SubscribeService{instance1, instance2}, nil)
+
+	assert.Len(t, adapterListener.addedEndpoints, 2)
+	assert.Contains(t, adapterListener.addedEndpoints, "nacos-instance-a")
+	assert.Contains(t, adapterListener.addedEndpoints, "nacos-instance-b")
+
+	adapterListener.reset()
+	client.subscribeCallback([]nacosModel.SubscribeService{instance2}, nil)
+
+	assert.Empty(t, adapterListener.addedEndpoints)
+	assert.Contains(t, adapterListener.removedEndpoints, "nacos-instance-a")
+}
+
+// TestNacosEndpointIDMissingClusterFallsBackToEmptyClusterHash ensures that
+// when a nacos instance has no metadata["id"], no InstanceId, and no
+// metadata["cluster"], nacosEndpointID returns a generated- ID derived
+// with an empty cluster name. The downstream LLM registry adapter
+// (Adapter.OnAddEndpoint) drops such endpoints, so we do not attempt to
+// disambiguate cross-service collisions here. The contract this test
+// locks: the function does not invent a synthesized fallback prefix and
+// does not pretend an unreachable endpoint will be admitted.
+func TestNacosEndpointIDMissingClusterFallsBackToEmptyClusterHash(t *testing.T) {
+	instance := nacosModel.Instance{
+		// InstanceId intentionally empty; metadata has neither "id" nor "cluster".
+		Ip:          "10.0.0.1",
+		Port:        18080,
+		ServiceName: "alpha",
+		ClusterName: "DEFAULT",
+		Metadata:    map[string]string{"llm-meta.api_key": "key-shared"},
+	}
+
+	endpoint := generateEndpoint(instance)
+	assert.True(t, strings.HasPrefix(endpoint.ID, "pixiu-generated-endpoint-"),
+		"missing metadata[\"cluster\"] falls through to model.GenerateEndpointID with empty cluster")
+
+	// Deterministic: re-generating from the same instance returns the same ID.
+	assert.Equal(t, endpoint.ID, generateEndpoint(instance).ID)
+
+	// Acknowledged limitation: at this code level we cannot tell two
+	// instances apart that share address+credential and both lack
+	// metadata["cluster"]. They alias to the same generated- ID. The LLM
+	// registry adapter skips them before the alias has any runtime effect.
+	collidingInstance := nacosModel.Instance{
+		Ip:          instance.Ip,
+		Port:        instance.Port,
+		ServiceName: "bravo", // different service, but the adapter ignores ServiceName for ID
+		ClusterName: instance.ClusterName,
+		Metadata:    instance.Metadata,
+	}
+	assert.Equal(t, endpoint.ID, generateEndpoint(collidingInstance).ID,
+		"two instances missing metadata[\"cluster\"] at the same address will alias here; "+
+			"disambiguation is the adapter's job (currently: drop)")
 }
 
 func TestLifecycle(t *testing.T) {

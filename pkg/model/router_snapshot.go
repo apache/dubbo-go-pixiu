@@ -58,7 +58,9 @@ func MethodAllowed(methods []string, m string) bool {
 		return true
 	}
 	for _, x := range methods {
-		if x == m {
+		// "*" matches any method (wildcard semantics, important for non-HTTP
+		// scenarios like Dubbo/Triple RPC method matching).
+		if x == "*" || x == m {
 			return true
 		}
 	}
