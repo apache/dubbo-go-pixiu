@@ -98,17 +98,17 @@ func (h *ReloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Try to read from body first (handles chunked encoding where ContentLength == -1)
 	// If body is empty, fallback to file reload
 	if r.Body != nil {
-		content, readErr := io.ReadAll(io.LimitReader(r.Body, maxReloadBodyBytes+1))
+		r.Body = http.MaxBytesReader(w, r.Body, maxReloadBodyBytes)
+		content, readErr := io.ReadAll(r.Body)
 
 		if readErr != nil {
+			if _, ok := readErr.(*http.MaxBytesError); ok {
+				logger.Warnf("Reload request body from %s exceeded %d bytes", r.RemoteAddr, maxReloadBodyBytes)
+				http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+				return
+			}
 			logger.Errorf("Failed to read request body: %v", readErr)
 			http.Error(w, fmt.Sprintf("Failed to read request body: %v", readErr), http.StatusBadRequest)
-			return
-		}
-
-		if len(content) > maxReloadBodyBytes {
-			logger.Warnf("Reload request body from %s exceeded %d bytes", r.RemoteAddr, maxReloadBodyBytes)
-			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
 			return
 		}
 

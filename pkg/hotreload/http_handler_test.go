@@ -29,11 +29,7 @@ import (
 )
 
 func TestReloadHandlerRejectsOversizedBody(t *testing.T) {
-	oldSecret := reloadSecret
-	reloadSecret = "test-secret"
-	t.Cleanup(func() {
-		reloadSecret = oldSecret
-	})
+	withReloadSecret(t, "test-secret")
 
 	req := httptest.NewRequest(http.MethodPost, "/-/reload", strings.NewReader(strings.Repeat("a", maxReloadBodyBytes+1)))
 	req.RemoteAddr = "192.0.2.1:12345"
@@ -43,4 +39,47 @@ func TestReloadHandlerRejectsOversizedBody(t *testing.T) {
 	(&ReloadHandler{}).ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusRequestEntityTooLarge, rr.Code)
+}
+
+func TestReloadHandlerAllowsBodyAtSizeLimit(t *testing.T) {
+	withReloadSecret(t, "test-secret")
+
+	req := httptest.NewRequest(http.MethodPost, "/-/reload", strings.NewReader(strings.Repeat("a", maxReloadBodyBytes)))
+	req.RemoteAddr = "192.0.2.1:12345"
+	req.Header.Set("X-Reload-Token", "test-secret")
+
+	rr := httptest.NewRecorder()
+	(&ReloadHandler{}).ServeHTTP(rr, req)
+
+	assert.NotEqual(t, http.StatusRequestEntityTooLarge, rr.Code)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+}
+
+func TestReloadHandlerEmptyBodyFallsBackToFileReload(t *testing.T) {
+	withReloadSecret(t, "test-secret")
+	oldConfigPath := configPath
+	configPath = ""
+	t.Cleanup(func() {
+		configPath = oldConfigPath
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/-/reload", strings.NewReader(""))
+	req.RemoteAddr = "192.0.2.1:12345"
+	req.Header.Set("X-Reload-Token", "test-secret")
+
+	rr := httptest.NewRecorder()
+	(&ReloadHandler{}).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), "config path not set")
+}
+
+func withReloadSecret(t *testing.T, secret string) {
+	t.Helper()
+
+	oldSecret := reloadSecret
+	reloadSecret = secret
+	t.Cleanup(func() {
+		reloadSecret = oldSecret
+	})
 }
