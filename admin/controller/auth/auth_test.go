@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/golang-jwt/jwt/v4"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
