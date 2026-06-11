@@ -19,6 +19,7 @@ package auth
 
 import (
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -99,6 +100,9 @@ func NewJWT() *JWT {
 
 // get signKey
 func GetSignKey() string {
+	if key := os.Getenv("DUBBOGO_PIXIU_JWT_SIGN_KEY"); key != "" {
+		return key
+	}
 	return SignKey
 }
 
@@ -115,6 +119,9 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 	// Input: token string, custom Claims structure object, custom function
 	// Parse the token string into jwt's Token structure pointer
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, TokenInvalid
+		}
 		return j.SigningKey, nil
 	})
 	if err != nil {
@@ -145,6 +152,9 @@ func (j *JWT) RefreshToken(tokenString string) (string, error) {
 		return time.Unix(0, 0)
 	}
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, TokenInvalid
+		}
 		return j.SigningKey, nil
 	})
 	if err != nil {
