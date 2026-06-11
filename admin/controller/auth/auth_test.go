@@ -46,7 +46,7 @@ func TestParseTokenRejectsUnexpectedSigningMethod(t *testing.T) {
 }
 
 func TestGetSignKeyUsesEnvironmentOverride(t *testing.T) {
-	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "from-env")
+	t.Setenv(jwtSignKeyEnv, "from-env")
 
 	assert.Equal(t, "from-env", GetSignKey())
 }

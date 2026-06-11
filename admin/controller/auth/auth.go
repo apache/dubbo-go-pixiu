@@ -75,6 +75,8 @@ type JWT struct {
 	SigningKey []byte
 }
 
+const jwtSignKeyEnv = "DUBBOGO_PIXIU_JWT_SIGN_KEY"
+
 // Constant
 var (
 	TokenExpired     error  = errors.New("Token is expired")
@@ -100,7 +102,7 @@ func NewJWT() *JWT {
 
 // get signKey
 func GetSignKey() string {
-	if key := os.Getenv("DUBBOGO_PIXIU_JWT_SIGN_KEY"); key != "" {
+	if key := os.Getenv(jwtSignKeyEnv); key != "" {
 		return key
 	}
 	return SignKey
@@ -114,16 +116,18 @@ func (j *JWT) CreateToken(claims CustomClaims) (string, error) {
 	return token.SignedString(j.SigningKey)
 }
 
+func (j *JWT) keyFunc(token *jwt.Token) (any, error) {
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, TokenInvalid
+	}
+	return j.SigningKey, nil
+}
+
 // ParseToken
 func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 	// Input: token string, custom Claims structure object, custom function
 	// Parse the token string into jwt's Token structure pointer
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, TokenInvalid
-		}
-		return j.SigningKey, nil
-	})
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, j.keyFunc)
 	if err != nil {
 		if ve, ok := err.(jwt.ValidationError); ok {
 			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
@@ -151,12 +155,7 @@ func (j *JWT) RefreshToken(tokenString string) (string, error) {
 	jwt.TimeFunc = func() time.Time {
 		return time.Unix(0, 0)
 	}
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, TokenInvalid
-		}
-		return j.SigningKey, nil
-	})
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, j.keyFunc)
 	if err != nil {
 		return "", err
 	}
