@@ -187,3 +187,103 @@ func endpointIDMaterial(clusterName string, endpoint *Endpoint) string {
 func endpointIDMaterialField(name, value string) string {
 	return fmt.Sprintf("%s:%d:%s\n", name, len(value), value)
 }
+
+// CloneEndpoints returns a deep copy of endpoints. Nil input is preserved.
+func CloneEndpoints(endpoints []*Endpoint) []*Endpoint {
+	if endpoints == nil {
+		return nil
+	}
+	cloned := make([]*Endpoint, len(endpoints))
+	for i, endpoint := range endpoints {
+		cloned[i] = CloneEndpoint(endpoint)
+	}
+	return cloned
+}
+
+// CloneEndpoint returns a deep copy of endpoint with independent Address,
+// Metadata, and LLMMeta. Returns nil for nil input. Snapshot consumers clone
+// before handing endpoints to callers so downstream mutation does not leak
+// back into the runtime snapshot.
+//
+// Cost: O(depth) — LLMMeta.RetryPolicy.Config is recursively cloned via
+// cloneAnyMap, which allocates per nested map/slice. The request path
+// should clone at most once per pick (typically when returning the chosen
+// endpoint to the caller); avoid CloneEndpoint inside per-iteration loops
+// over a snapshot's endpoint slice. Use HealthyEndpointsForPick to scan
+// without cloning, then clone the single chosen endpoint.
+func CloneEndpoint(endpoint *Endpoint) *Endpoint {
+	if endpoint == nil {
+		return nil
+	}
+	cloned := *endpoint
+	cloned.Address = cloneSocketAddress(endpoint.Address)
+	cloned.Metadata = cloneMetadata(endpoint.Metadata)
+	cloned.LLMMeta = cloneLLMMeta(endpoint.LLMMeta)
+	return &cloned
+}
+
+func cloneSocketAddress(address SocketAddress) SocketAddress {
+	cloned := address
+	if address.Domains != nil {
+		cloned.Domains = append([]string(nil), address.Domains...)
+	}
+	return cloned
+}
+
+func cloneMetadata(metadata map[string]string) map[string]string {
+	if metadata == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(metadata))
+	for key, value := range metadata {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
+	if meta == nil {
+		return nil
+	}
+	cloned := *meta
+	cloned.RetryPolicy.Config = cloneAnyMap(meta.RetryPolicy.Config)
+	return &cloned
+}
+
+func cloneAnyMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(input))
+	for key, value := range input {
+		cloned[key] = cloneAnyValue(value)
+	}
+	return cloned
+}
+
+func cloneAnyValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(typed)
+	case []any:
+		cloned := make([]any, len(typed))
+		for i, item := range typed {
+			cloned[i] = cloneAnyValue(item)
+		}
+		return cloned
+	case []string:
+		return append([]string(nil), typed...)
+	case []int:
+		return append([]int(nil), typed...)
+	case []int64:
+		return append([]int64(nil), typed...)
+	case []float64:
+		return append([]float64(nil), typed...)
+	case []bool:
+		return append([]bool(nil), typed...)
+	case map[string]string:
+		return cloneMetadata(typed)
+	default:
+		return value
+	}
+}
