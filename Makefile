@@ -68,10 +68,13 @@ test:
 	sh before_ut.sh
 	go test ./pkg/...  -gcflags=-l -coverprofile=coverage.txt -covermode=atomic
 
-lint:check-lint
+.PHONY: lint check-lint
+
+lint: check-lint
 	@golangci-lint run
+
 check-lint:
-	@type golangci-lint >/dev/null 2>&1 || echo "golangci-lint is not installed, please install it first by run 'go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0'"
+	@type golangci-lint >/dev/null 2>&1 || (echo "golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0"; exit 1)
 
 integrate-test:
 	sh start_integrate_test.sh
