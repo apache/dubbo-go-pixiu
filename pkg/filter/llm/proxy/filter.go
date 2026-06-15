@@ -118,7 +118,7 @@ type (
 		clusterName     string
 		endpointID      string
 		endpointAddress string
-		credentialHash  string
+		credentialHash  [32]byte
 	}
 
 	cooldownStore struct {
@@ -582,12 +582,11 @@ func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {
 	}
 }
 
-func endpointCredentialHash(endpoint *model.Endpoint) string {
+func endpointCredentialHash(endpoint *model.Endpoint) [32]byte {
 	if endpoint == nil || endpoint.LLMMeta == nil || endpoint.LLMMeta.APIKey == "" {
-		return ""
+		return [32]byte{}
 	}
-	sum := sha256.Sum256([]byte(endpoint.LLMMeta.APIKey))
-	return fmt.Sprintf("%x", sum)
+	return sha256.Sum256([]byte(endpoint.LLMMeta.APIKey))
 }
 
 // endpointCooldownInterval returns the per-endpoint cooldown TTL derived from
