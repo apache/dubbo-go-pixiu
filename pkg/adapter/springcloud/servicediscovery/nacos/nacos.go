@@ -121,13 +121,13 @@ func (n *nacosServiceDiscovery) Callback(services []xdsmodel.Instance, err error
 		// v2 subscribe callback receives Instance directly (was SubscribeService in v1)
 		// ServiceName may contain group prefix like "DEFAULT_GROUP@@service-name", strip it
 		serviceName := service.ServiceName
-		if tmp := strings.Split(serviceName, "@@"); len(tmp) == 2 {
-			serviceName = tmp[1]
+		if _, after, ok := strings.Cut(serviceName, "@@"); ok {
+			serviceName = after
 		}
 
 		instance := fromInstanceToServiceInstance(serviceName, service)
 		key := instance.GetUniqKey()
-		newInstanceMap[instance.GetUniqKey()] = instance
+		newInstanceMap[key] = instance
 		if old, ok := n.instanceMap[key]; !ok {
 			// instance does not exist in cache, add it to cache
 			addInstances = append(addInstances, instance)
