@@ -22,10 +22,12 @@ import (
 )
 
 import (
+	gomock "go.uber.org/mock/gomock"
+)
+
+import (
 	model "github.com/apache/dubbo-go-pixiu/pkg/model"
 	controls "github.com/apache/dubbo-go-pixiu/pkg/server/controls"
-
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClusterManager is a mock of ClusterManager interface.
