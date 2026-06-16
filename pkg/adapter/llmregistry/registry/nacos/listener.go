@@ -356,4 +356,3 @@ func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) str
 	}
 	return model.GenerateEndpointID(clusterMeta, endpoint)
 }
-

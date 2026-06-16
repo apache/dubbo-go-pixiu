@@ -208,4 +208,3 @@ func generateURL(instance nacosModel.Instance) *dubboCommon.URL {
 		dubboCommon.WithPath(path),
 	)
 }
-

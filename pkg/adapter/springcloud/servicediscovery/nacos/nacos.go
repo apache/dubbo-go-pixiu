@@ -256,4 +256,3 @@ func fromInstanceToServiceInstance(serviceName string, instance xdsmodel.Instanc
 		Metadata:    instance.Metadata,
 	}
 }
-
