@@ -55,7 +55,7 @@ func (n *NacosRegistry) DoSubscribe() error {
 }
 
 func (n *NacosRegistry) DoUnsubscribe() error {
-	panic("implement me")
+	return errors.New("NacosRegistry: DoUnsubscribe not implemented")
 }
 
 var _ registry.Registry = new(NacosRegistry)

@@ -157,41 +157,41 @@ var (
 
 // OnDecode empty implement
 func (enf *EmptyNetworkFilter) OnDecode(data []byte) (any, int, error) {
-	panic("OnDecode is not implemented")
+	return nil, 0, errors.New("EmptyNetworkFilter: OnDecode not implemented")
 }
 
 // OnEncode empty implement
 func (enf *EmptyNetworkFilter) OnEncode(p any) ([]byte, error) {
-	panic("OnEncode is not implemented")
+	return nil, errors.New("EmptyNetworkFilter: OnEncode not implemented")
 }
 
 // OnData receive data from listener
 func (enf *EmptyNetworkFilter) OnData(data any) (any, error) {
-	panic("OnData is not implemented")
+	return nil, errors.New("EmptyNetworkFilter: OnData not implemented")
 }
 
 // OnTripleData empty implement
 func (enf *EmptyNetworkFilter) OnTripleData(ctx context.Context, methodName string, arguments []any) (any, error) {
-	panic("OnTripleData is not implemented")
+	return nil, errors.New("EmptyNetworkFilter: OnTripleData not implemented")
 }
 
 // OnUnaryRPC empty implement
 func (enf *EmptyNetworkFilter) OnUnaryRPC(ctx context.Context, fullMethod string, req any) (any, error) {
-	panic("OnUnaryRPC is not implemented")
+	return nil, errors.New("EmptyNetworkFilter: OnUnaryRPC not implemented")
 }
 
 // OnStreamRPC empty implement
 func (enf *EmptyNetworkFilter) OnStreamRPC(stream model.RPCStream, info *model.RPCStreamInfo) error {
-	panic("OnStreamRPC is not implemented")
+	return errors.New("EmptyNetworkFilter: OnStreamRPC not implemented")
 }
 
 // ServeHTTP empty implement
 func (enf *EmptyNetworkFilter) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
-	panic("ServeHTTP is not implemented")
+	stdHttp.Error(w, "EmptyNetworkFilter: ServeHTTP not implemented", stdHttp.StatusNotImplemented)
 }
 
 func (enf *EmptyNetworkFilter) Close() error {
-	panic("Close is not implemented")
+	return nil
 }
 
 // Register registers filter plugin.

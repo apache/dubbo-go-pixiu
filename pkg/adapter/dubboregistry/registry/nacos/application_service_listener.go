@@ -66,7 +66,8 @@ func newNacosAppSrvListener(client naming_client.INamingClient, adapterListener 
 }
 
 func (l *appServiceListener) WatchAndHandle() {
-	panic("implement me")
+	// TODO: implement WatchAndHandle for application-level service discovery
+	logger.Warnf("appServiceListener: WatchAndHandle not implemented")
 }
 
 func (l *appServiceListener) Close() {

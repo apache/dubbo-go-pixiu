@@ -55,7 +55,8 @@ type serviceListener struct {
 
 // WatchAndHandle todo WatchAndHandle is useless for service listener
 func (z *serviceListener) WatchAndHandle() {
-	panic("implement me")
+	// WatchAndHandle is not used by service listener; subscription uses Callback instead.
+	logger.Warnf("serviceListener: WatchAndHandle not implemented")
 }
 
 // newNacosSrvListener creates a new zk service listener

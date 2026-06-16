@@ -133,8 +133,8 @@ func (d *DefaultDeployer) start() error {
 }
 
 func (d *DefaultDeployer) stop() error {
-	// TODO implement me
-	panic("implement me")
+	// TODO: implement graceful shutdown
+	return fmt.Errorf("stop: not implemented")
 }
 
 // initDefaultValue If not set both in args and env, set default values

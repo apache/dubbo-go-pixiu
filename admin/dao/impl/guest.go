@@ -87,5 +87,5 @@ func (d *GuestDao) Register(username, password string) error {
 }
 
 func (d *GuestDao) CheckLogin() {
-	panic("implement me")
+	// TODO: implement login session validation
 }
