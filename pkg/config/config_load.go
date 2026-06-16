@@ -31,7 +31,7 @@ import (
 
 	"github.com/creasty/defaults"
 
-	"github.com/goinggo/mapstructure"
+	"github.com/mitchellh/mapstructure"
 
 	"gopkg.in/yaml.v3"
 )
