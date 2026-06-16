@@ -25,10 +25,10 @@ import (
 )
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients/cache"
-	xdsmodel "github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/util"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/cache"
+	xdsmodel "github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/util"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	perrors "github.com/pkg/errors"
 )
@@ -102,7 +102,7 @@ func (n *nacosServiceDiscovery) Unsubscribe() error {
 	return nil
 }
 
-func (n *nacosServiceDiscovery) Callback(services []xdsmodel.SubscribeService, err error) {
+func (n *nacosServiceDiscovery) Callback(services []xdsmodel.Instance, err error) {
 
 	addInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
 	delInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
@@ -118,7 +118,14 @@ func (n *nacosServiceDiscovery) Callback(services []xdsmodel.SubscribeService, e
 			continue
 		}
 
-		instance := fromSubscribeServiceToServiceInstance(service)
+		// v2 subscribe callback receives Instance directly (was SubscribeService in v1)
+		// ServiceName may contain group prefix like "DEFAULT_GROUP@@service-name", strip it
+		serviceName := service.ServiceName
+		if tmp := strings.Split(serviceName, "@@"); len(tmp) == 2 {
+			serviceName = tmp[1]
+		}
+
+		instance := fromInstanceToServiceInstance(serviceName, service)
 		key := instance.GetUniqKey()
 		newInstanceMap[instance.GetUniqKey()] = instance
 		if old, ok := n.instanceMap[key]; !ok {
@@ -250,26 +257,3 @@ func fromInstanceToServiceInstance(serviceName string, instance xdsmodel.Instanc
 	}
 }
 
-func fromSubscribeServiceToServiceInstance(instance xdsmodel.SubscribeService) servicediscovery.ServiceInstance {
-	addr := instance.Ip + ":" + fmt.Sprint(instance.Port)
-	// because it value is DEFAULT_GROUP@@user-service, so split it with @@, and get service name
-	serviceName := instance.ServiceName
-	tmp := strings.Split(serviceName, "@@")
-	if len(tmp) == 2 {
-		serviceName = tmp[1]
-	}
-
-	return servicediscovery.ServiceInstance{
-		// nacos sdk return empty instanceId, so use addr
-		//ID: instance.InstanceId,
-		ID:          addr,
-		ServiceName: serviceName,
-		Host:        instance.Ip,
-		Port:        int(instance.Port),
-		// subscribe callback service should be healthy
-		Healthy:     true,
-		Enable:      instance.Enable,
-		CLusterName: instance.ClusterName,
-		Metadata:    instance.Metadata,
-	}
-}

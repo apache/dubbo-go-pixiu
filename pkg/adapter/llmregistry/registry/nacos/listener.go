@@ -31,9 +31,9 @@ import (
 
 	"github.com/creasty/defaults"
 
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 import (
@@ -152,7 +152,7 @@ func (l *listener) discoverAndSubscribe() {
 
 // serviceCallback is the function that Nacos SDK invokes when there's a change
 // in the instances of a subscribed service. This is the injected callback.
-func (l *listener) serviceCallback(services []nacosModel.SubscribeService, err error) {
+func (l *listener) serviceCallback(services []nacosModel.Instance, err error) {
 	if err != nil {
 		logger.Errorf("Nacos subscribe callback received an error: %v", err)
 		return
@@ -179,7 +179,7 @@ func (l *listener) serviceCallback(services []nacosModel.SubscribeService, err e
 		if !services[i].Enable || !services[i].Healthy {
 			continue
 		}
-		instance := generateInstance(services[i])
+		instance := services[i]
 		endpoint := generateEndpoint(instance)
 		if endpoint == nil {
 			continue
@@ -357,17 +357,3 @@ func nacosEndpointID(instance nacosModel.Instance, endpoint *model.Endpoint) str
 	return model.GenerateEndpointID(clusterMeta, endpoint)
 }
 
-func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {
-	return nacosModel.Instance{
-		InstanceId:  ss.InstanceId,
-		Ip:          ss.Ip,
-		Port:        ss.Port,
-		ServiceName: ss.ServiceName,
-		Valid:       ss.Valid,
-		Enable:      ss.Enable,
-		Weight:      ss.Weight,
-		Metadata:    ss.Metadata,
-		ClusterName: ss.ClusterName,
-		Healthy:     ss.Healthy,
-	}
-}
