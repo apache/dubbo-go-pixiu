@@ -190,6 +190,7 @@ func (enf *EmptyNetworkFilter) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Re
 	stdHttp.Error(w, "EmptyNetworkFilter: ServeHTTP not implemented", stdHttp.StatusNotImplemented)
 }
 
+// Close returns nil because EmptyNetworkFilter holds no resources to release.
 func (enf *EmptyNetworkFilter) Close() error {
 	return nil
 }
