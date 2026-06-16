@@ -32,8 +32,6 @@ import (
 
 	"github.com/dubbogo/grpc-go/metadata"
 
-	"github.com/go-errors/errors"
-
 	perrors "github.com/pkg/errors"
 )
 
@@ -118,7 +116,7 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 	ra, err := dcm.routerCoordinator.RouteByPathAndName(interfaceName, methodName)
 
 	if err != nil {
-		return nil, errors.Errorf("Requested dubbo rpc invocation route not found")
+		return nil, perrors.Errorf("Requested dubbo rpc invocation route not found")
 	}
 
 	len := len(arguments)
@@ -163,7 +161,7 @@ func (dcm *DubboProxyConnectionManager) OnData(data any) (any, error) {
 	ra, err := dcm.routerCoordinator.RouteByPathAndName(path, old_invoc.MethodName())
 
 	if err != nil {
-		return nil, errors.Errorf("Requested dubbo rpc invocation route not found")
+		return nil, perrors.Errorf("Requested dubbo rpc invocation route not found")
 	}
 
 	ctx := &dubbo2.RpcContext{}
@@ -182,7 +180,7 @@ func (dcm *DubboProxyConnectionManager) handleRpcInvocation(c *dubbo2.RpcContext
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Warnf("[dubbo-go-pixiu] Occur An Unexpected Err: %+v", err)
-			c.SetError(errors.Errorf("Occur An Unexpected Err: %v", err))
+			c.SetError(perrors.Errorf("Occur An Unexpected Err: %v", err))
 		}
 	}()
 

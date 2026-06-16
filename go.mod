@@ -21,7 +21,6 @@ require (
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240621013728-1eb8caab5155
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.10.1
-	github.com/go-errors/errors v1.0.1
 	github.com/go-playground/assert/v2 v2.2.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/go-sql-driver/mysql v1.9.2
@@ -134,6 +133,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
+	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
