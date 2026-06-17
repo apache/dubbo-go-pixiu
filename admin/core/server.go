@@ -20,11 +20,11 @@ package core
 import (
 	"fmt"
 	"net/http"
+	"sync"
 )
 
 import (
 	"go.uber.org/zap"
-	"sync"
 )
 
 import (
