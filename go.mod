@@ -71,7 +71,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/gorm v1.30.0
 	mosn.io/proxy-wasm-go-host v0.1.0
-	v.marlon.life/toolkit v0.0.0-20211025131614-e4a91730b4ab
 )
 
 require (

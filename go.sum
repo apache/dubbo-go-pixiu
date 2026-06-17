@@ -1799,5 +1799,3 @@ sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
 sigs.k8s.io/yaml v1.3.0 h1:a2VclLzOGrwOHDiV8EfBGhvjHvP46CtW5j6POvhYGGo=
 sigs.k8s.io/yaml v1.3.0/go.mod h1:GeOyir5tyXNByN85N/dRIT9es5UQNerPYEKK56eTBm8=
 sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0/go.mod h1:hI742Nqp5OhwiqlzhgfbWU4mW4yO10fP+LoT9WOswdU=
-v.marlon.life/toolkit v0.0.0-20211025131614-e4a91730b4ab h1:a6cEnTfYq9TiNuFyvtyGsQ/05FfG6W1FkR61o4sWfMk=
-v.marlon.life/toolkit v0.0.0-20211025131614-e4a91730b4ab/go.mod h1:v4RzgEKUNEmIL9GEsV1AbChohLekk/qSK+Ed2Ho0R84=
