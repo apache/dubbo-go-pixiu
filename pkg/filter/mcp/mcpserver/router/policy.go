@@ -136,7 +136,7 @@ func maxRiskOrdinal(risk string) (int, error) {
 }
 
 // Filter returns the subset of tools allowed by all applicable rules, along
-// with a DecisionTrace for every dropped tool.
+// with bounded DecisionTrace samples for dropped tools.
 func (p *PolicyFilter) Filter(tools []model.ToolConfig, sc SelectionContext) ([]model.ToolConfig, []DecisionTrace) {
 	if len(p.rules) == 0 {
 		return tools, nil
@@ -158,13 +158,14 @@ func (p *PolicyFilter) Filter(tools []model.ToolConfig, sc SelectionContext) ([]
 
 	for _, tool := range tools {
 		if rule, reason := denyReason(applicable, tool); reason != "" {
-			traces = append(traces, DecisionTrace{
-				Tool:   tool.Name,
-				Kept:   false,
-				Stage:  StagePolicy,
-				Rule:   rule,
-				Detail: reason,
-			})
+			if len(traces) < maxDecisionTraceSamples {
+				traces = append(traces, DecisionTrace{
+					Tool:   tool.Name,
+					Stage:  StagePolicy,
+					Rule:   rule,
+					Detail: reason,
+				})
+			}
 			continue
 		}
 		kept = append(kept, tool)

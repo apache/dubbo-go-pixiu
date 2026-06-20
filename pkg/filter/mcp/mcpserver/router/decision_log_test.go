@@ -29,10 +29,9 @@ import (
 
 func TestStageDropCounts(t *testing.T) {
 	traces := []DecisionTrace{
-		{Tool: "a", Kept: false, Stage: StagePolicy},
-		{Tool: "b", Kept: false, Stage: StagePolicy},
-		{Tool: "c", Kept: false, Stage: StageWorkflow},
-		{Tool: "d", Kept: true, Stage: StagePolicy},
+		{Tool: "a", Stage: StagePolicy},
+		{Tool: "b", Stage: StagePolicy},
+		{Tool: "c", Stage: StageWorkflow},
 	}
 
 	counts := stageDropCounts(traces)
@@ -40,23 +39,21 @@ func TestStageDropCounts(t *testing.T) {
 	assert.Equal(t, 1, counts[StageWorkflow])
 }
 
-func TestStageDropCounts_AllKept(t *testing.T) {
-	traces := []DecisionTrace{{Tool: "a", Kept: true, Stage: StagePolicy}}
-	assert.Nil(t, stageDropCounts(traces))
+func TestStageDropCounts_Empty(t *testing.T) {
+	assert.Nil(t, stageDropCounts(nil))
 }
 
 func TestDeniedSamples_Capped(t *testing.T) {
 	traces := make([]DecisionTrace, 0, 20)
 	for i := 0; i < 20; i++ {
-		traces = append(traces, DecisionTrace{Tool: "t", Kept: false, Stage: StagePolicy})
+		traces = append(traces, DecisionTrace{Tool: "t", Stage: StagePolicy})
 	}
 	assert.Len(t, deniedSamples(traces), maxDeniedSamples)
 }
 
 func TestDeniedSamples_OnlyDropped(t *testing.T) {
 	traces := []DecisionTrace{
-		{Tool: "kept", Kept: true},
-		{Tool: "dropped", Kept: false},
+		{Tool: "dropped"},
 	}
 	samples := deniedSamples(traces)
 	assert.Equal(t, []string{"dropped"}, samples)
@@ -79,10 +76,10 @@ func TestDecisionLogger_LogEmitsWithoutPanic(t *testing.T) {
 	plan := &SelectionPlan{
 		SessionID: "s1",
 		ToolNames: []string{"a"},
-		Mode:      ModeHybrid,
+		Mode:      ModeSelected,
 		Version:   "v1",
 		Reasons: []DecisionTrace{
-			{Tool: "b", Kept: false, Stage: StagePolicy, Detail: "deny_tag:x"},
+			{Tool: "b", Stage: StagePolicy, Detail: "deny_tag:x"},
 		},
 	}
 	d.Log(SelectionContext{SessionID: "s1", Tenant: "acme", Method: "tools/list"}, plan, 2)
@@ -92,10 +89,10 @@ func TestDecisionLogger_RecordOmitsDeniedSamplesUnlessPayloadLogging(t *testing.
 	plan := &SelectionPlan{
 		SessionID: "s1",
 		ToolNames: []string{"a"},
-		Mode:      ModeHybrid,
+		Mode:      ModeSelected,
 		Version:   "v1",
 		Reasons: []DecisionTrace{
-			{Tool: "b", Kept: false, Stage: StagePolicy},
+			{Tool: "b", Stage: StagePolicy},
 		},
 	}
 
@@ -110,10 +107,10 @@ func TestDecisionLogger_RecordDoesNotSerializeIdentityOrPayload(t *testing.T) {
 	plan := &SelectionPlan{
 		SessionID: "raw-session-id",
 		ToolNames: []string{"allowed"},
-		Mode:      ModeHybrid,
+		Mode:      ModeSelected,
 		Version:   "metadata-version",
 		Reasons: []DecisionTrace{
-			{Tool: "hidden_tool", Kept: false, Stage: StagePolicy, Rule: "tenant-rule", Detail: "no_allow_tag"},
+			{Tool: "hidden_tool", Stage: StagePolicy, Rule: "tenant-rule", Detail: "no_allow_tag"},
 		},
 	}
 	sc := SelectionContext{
@@ -152,8 +149,8 @@ func TestMetricHelpers_NilSafeBeforeInit(t *testing.T) {
 	// These must be no-ops if initMetrics has not run (defensive).
 	// We cannot un-init, so just ensure calling them after init is safe.
 	initMetrics()
-	recordSelection("ok", ModeHybrid, 10, 3, 1.5)
-	recordFallback("empty")
+	recordSelection("ok", ModeSelected, 10, 3, 1.5)
+	recordFallback(SelectionOutcomeNoMatch)
 	recordCallDenied("not_in_plan")
 	setPlansActive(5)
 }

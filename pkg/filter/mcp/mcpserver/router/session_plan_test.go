@@ -59,6 +59,10 @@ func newTestPlanStore(clock *fakeClock, maxEntries int) *SessionPlanStore {
 	})
 }
 
+func testPlanKey(sessionID string) PlanKey {
+	return NewPlanKey("router-test", sessionID)
+}
+
 func TestSessionPlanStore_SetGet(t *testing.T) {
 	clock := newFakeClock()
 	s := newTestPlanStore(clock, 10)
@@ -68,18 +72,18 @@ func TestSessionPlanStore_SetGet(t *testing.T) {
 		SessionID:        "s1",
 		ToolNames:        []string{"a"},
 		VisibleToolNames: []string{"a"},
-		Reasons:          []DecisionTrace{{Tool: "b", Kept: false}},
+		Reasons:          []DecisionTrace{{Tool: "b"}},
 		Version:          "v1",
 	}
-	s.Set(plan)
+	s.Set(testPlanKey("s1"), plan)
 
-	got, ok := s.Get("s1")
+	got, ok := s.Get(testPlanKey("s1"))
 	require.True(t, ok)
 	assert.Equal(t, []string{"a"}, got.ToolNames)
 	assert.Equal(t, []string{"a"}, got.VisibleToolNames)
 	assert.Nil(t, got.Reasons, "stored plans do not retain decision traces")
 
-	_, ok = s.Get("missing")
+	_, ok = s.Get(testPlanKey("missing"))
 	assert.False(t, ok)
 }
 
@@ -88,8 +92,8 @@ func TestSessionPlanStore_SetIgnoresEmpty(t *testing.T) {
 	s := newTestPlanStore(clock, 10)
 	defer s.Stop()
 
-	s.Set(nil)
-	s.Set(&SelectionPlan{SessionID: ""})
+	s.Set(testPlanKey("ignored"), nil)
+	s.Set(testPlanKey(""), &SelectionPlan{SessionID: ""})
 	assert.Equal(t, 0, s.Len())
 }
 
@@ -99,18 +103,18 @@ func TestSessionPlanStore_MutationIsolation(t *testing.T) {
 	defer s.Stop()
 
 	plan := &SelectionPlan{SessionID: "s1", ToolNames: []string{"a", "b"}, VisibleToolNames: []string{"a"}}
-	s.Set(plan)
+	s.Set(testPlanKey("s1"), plan)
 	plan.ToolNames[0] = "mutated"
 	plan.VisibleToolNames[0] = "mutated"
 
-	got, ok := s.Get("s1")
+	got, ok := s.Get(testPlanKey("s1"))
 	require.True(t, ok)
 	assert.Equal(t, []string{"a", "b"}, got.ToolNames)
 	assert.Equal(t, []string{"a"}, got.VisibleToolNames)
 
 	got.ToolNames[0] = "caller-mutated"
 	got.VisibleToolNames[0] = "caller-mutated"
-	got2, ok := s.Get("s1")
+	got2, ok := s.Get(testPlanKey("s1"))
 	require.True(t, ok)
 	assert.Equal(t, []string{"a", "b"}, got2.ToolNames)
 	assert.Equal(t, []string{"a"}, got2.VisibleToolNames)
@@ -121,16 +125,17 @@ func TestSessionPlanStore_CallCountPreservedAndResetByIdentity(t *testing.T) {
 	s := newTestPlanStore(clock, 10)
 	defer s.Stop()
 
-	s.Set(&SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, IdentityHash: "tenant-a", ProgressiveHash: "p1"})
-	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess("s1", "a", 3))
-	assert.Equal(t, CallSuccessResult{Count: 2}, s.RecordCallSuccess("s1", "a", 3))
+	key := testPlanKey("s1")
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, IdentityHash: "tenant-a", ProgressiveHash: "p1"})
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(key, "a", 3))
+	assert.Equal(t, CallSuccessResult{Count: 2}, s.RecordCallSuccess(key, "a", 3))
 
-	s.Set(&SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v2", IdentityHash: "tenant-a", ProgressiveHash: "p1"})
-	assert.Equal(t, int64(2), s.CallCount("s1"))
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v2", IdentityHash: "tenant-a", ProgressiveHash: "p1"})
+	assert.Equal(t, int64(2), s.CallCount(key))
 
-	s.Set(&SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v3", IdentityHash: "tenant-b", ProgressiveHash: "p1"})
-	assert.Equal(t, int64(0), s.CallCount("s1"))
-	_, expanded := s.CallState("s1", "tenant-b", "p1")
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v3", IdentityHash: "tenant-b", ProgressiveHash: "p1"})
+	assert.Equal(t, int64(0), s.CallCount(key))
+	_, expanded := s.CallState(key, "tenant-b", "p1")
 	assert.False(t, expanded)
 }
 
@@ -139,12 +144,13 @@ func TestSessionPlanStore_RecordCallSuccessTransitionOnce(t *testing.T) {
 	s := newTestPlanStore(clock, 10)
 	defer s.Stop()
 
-	s.Set(&SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}})
-	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess("s1", "a", 2))
-	assert.Equal(t, CallSuccessResult{Count: 2, Transitioned: true}, s.RecordCallSuccess("s1", "a", 2))
-	assert.Equal(t, CallSuccessResult{Count: 3}, s.RecordCallSuccess("s1", "a", 2))
+	key := testPlanKey("s1")
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}})
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(key, "a", 2))
+	assert.Equal(t, CallSuccessResult{Count: 2, Transitioned: true}, s.RecordCallSuccess(key, "a", 2))
+	assert.Equal(t, CallSuccessResult{Count: 3}, s.RecordCallSuccess(key, "a", 2))
 
-	got, ok := s.Get("s1")
+	got, ok := s.Get(key)
 	require.True(t, ok)
 	assert.True(t, got.Expanded)
 }
@@ -154,10 +160,11 @@ func TestSessionPlanStore_RecordCallSuccessIgnoresUnknownOrOutsidePlan(t *testin
 	s := newTestPlanStore(clock, 10)
 	defer s.Stop()
 
-	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess("missing", "a", 1))
-	s.Set(&SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}})
-	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess("s1", "ghost", 1))
-	assert.Equal(t, int64(0), s.CallCount("s1"))
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(testPlanKey("missing"), "a", 1))
+	key := testPlanKey("s1")
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}})
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(key, "ghost", 1))
+	assert.Equal(t, int64(0), s.CallCount(key))
 }
 
 func TestSessionPlanStore_Delete(t *testing.T) {
@@ -165,10 +172,56 @@ func TestSessionPlanStore_Delete(t *testing.T) {
 	s := newTestPlanStore(clock, 10)
 	defer s.Stop()
 
-	s.Set(&SelectionPlan{SessionID: "s1"})
-	s.Delete("s1")
-	_, ok := s.Get("s1")
+	key := testPlanKey("s1")
+	s.Set(key, &SelectionPlan{SessionID: "s1"})
+	s.Delete(key)
+	_, ok := s.Get(key)
 	assert.False(t, ok)
+}
+
+func TestSessionPlanStore_IsolatesSameSessionAcrossRouters(t *testing.T) {
+	clock := newFakeClock()
+	s := newTestPlanStore(clock, 10)
+	defer s.Stop()
+
+	keyA := NewPlanKey("router-a", "shared-session")
+	keyB := NewPlanKey("router-b", "shared-session")
+	s.Set(keyA, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"a"}})
+	s.Set(keyB, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"b"}})
+
+	gotA, ok := s.Get(keyA)
+	require.True(t, ok)
+	assert.Equal(t, []string{"a"}, gotA.ToolNames)
+
+	gotB, ok := s.Get(keyB)
+	require.True(t, ok)
+	assert.Equal(t, []string{"b"}, gotB.ToolNames)
+
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(keyA, "a", 3))
+	assert.Equal(t, int64(1), s.CallCount(keyA))
+	assert.Equal(t, int64(0), s.CallCount(keyB))
+
+	s.DeleteSession("shared-session")
+	assert.Equal(t, 0, s.Len())
+}
+
+func TestSessionPlanStore_DeleteOneRouterKeepsOtherRouter(t *testing.T) {
+	clock := newFakeClock()
+	s := newTestPlanStore(clock, 10)
+	defer s.Stop()
+
+	keyA := NewPlanKey("router-a", "shared-session")
+	keyB := NewPlanKey("router-b", "shared-session")
+	s.Set(keyA, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"a"}})
+	s.Set(keyB, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"b"}})
+
+	s.Delete(keyA)
+
+	_, ok := s.Get(keyA)
+	assert.False(t, ok)
+	gotB, ok := s.Get(keyB)
+	require.True(t, ok)
+	assert.Equal(t, []string{"b"}, gotB.ToolNames)
 }
 
 func TestSessionPlanStore_EvictExpiredWithFakeClock(t *testing.T) {
@@ -181,7 +234,7 @@ func TestSessionPlanStore_EvictExpiredWithFakeClock(t *testing.T) {
 	})
 	defer s.Stop()
 
-	s.Set(&SelectionPlan{SessionID: "s1"})
+	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"})
 	clock.Advance(time.Minute)
 	s.EvictExpired()
 	assert.Equal(t, 1, s.Len(), "entry expires only after TTL, not exactly at boundary")
@@ -196,15 +249,15 @@ func TestSessionPlanStore_CapacityEvictsOldestDeterministically(t *testing.T) {
 	s := newTestPlanStore(clock, 2)
 	defer s.Stop()
 
-	s.Set(&SelectionPlan{SessionID: "s2"})
-	s.Set(&SelectionPlan{SessionID: "s1"})
-	s.Set(&SelectionPlan{SessionID: "s3"})
+	s.Set(testPlanKey("s2"), &SelectionPlan{SessionID: "s2"})
+	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"})
+	s.Set(testPlanKey("s3"), &SelectionPlan{SessionID: "s3"})
 
-	_, ok := s.Get("s1")
+	_, ok := s.Get(testPlanKey("s1"))
 	assert.False(t, ok, "same timestamp ties evict lexicographically oldest session")
-	_, ok = s.Get("s2")
+	_, ok = s.Get(testPlanKey("s2"))
 	assert.True(t, ok)
-	_, ok = s.Get("s3")
+	_, ok = s.Get(testPlanKey("s3"))
 	assert.True(t, ok)
 }
 
@@ -213,12 +266,12 @@ func TestSessionPlanStore_ExpiredEntriesEvictedBeforeCapacity(t *testing.T) {
 	s := newTestPlanStore(clock, 2)
 	defer s.Stop()
 
-	s.Set(&SelectionPlan{SessionID: "expired"})
+	s.Set(testPlanKey("expired"), &SelectionPlan{SessionID: "expired"})
 	clock.Advance(2 * time.Minute)
-	s.Set(&SelectionPlan{SessionID: "fresh"})
-	s.Set(&SelectionPlan{SessionID: "new"})
+	s.Set(testPlanKey("fresh"), &SelectionPlan{SessionID: "fresh"})
+	s.Set(testPlanKey("new"), &SelectionPlan{SessionID: "new"})
 
-	_, ok := s.Get("expired")
+	_, ok := s.Get(testPlanKey("expired"))
 	assert.False(t, ok)
 	assert.Equal(t, 2, s.Len())
 }
@@ -229,7 +282,8 @@ func TestSessionPlanStore_SetMaxEntries(t *testing.T) {
 	defer s.Stop()
 
 	for i := 0; i < 5; i++ {
-		s.Set(&SelectionPlan{SessionID: fmt.Sprintf("s%d", i)})
+		sessionID := fmt.Sprintf("s%d", i)
+		s.Set(testPlanKey(sessionID), &SelectionPlan{SessionID: sessionID})
 	}
 	s.SetMaxEntries(2)
 	assert.Equal(t, 2, s.Len())
@@ -246,12 +300,13 @@ func TestSessionPlanStore_ConcurrentAccess(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			id := fmt.Sprintf("s%d", n%10)
-			s.Set(&SelectionPlan{SessionID: id, ToolNames: []string{"a"}, Version: "v"})
-			s.RecordCallSuccess(id, "a", 1000)
-			s.Get(id)
-			s.CallCount(id)
+			key := testPlanKey(id)
+			s.Set(key, &SelectionPlan{SessionID: id, ToolNames: []string{"a"}, Version: "v"})
+			s.RecordCallSuccess(key, "a", 1000)
+			s.Get(key)
+			s.CallCount(key)
 			if n%3 == 0 {
-				s.Delete(id)
+				s.Delete(key)
 			}
 		}(i)
 	}
@@ -263,7 +318,7 @@ func TestSessionPlanStore_ConcurrentAccess(t *testing.T) {
 func TestSessionPlanStore_StopIdempotentClearsEntries(t *testing.T) {
 	clock := newFakeClock()
 	s := newTestPlanStore(clock, 10)
-	s.Set(&SelectionPlan{SessionID: "s1"})
+	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"})
 
 	s.Stop()
 	s.Stop()

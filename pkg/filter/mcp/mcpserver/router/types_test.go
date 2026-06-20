@@ -81,7 +81,6 @@ func TestBuild_EnabledReturnsComposite(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, s)
-	assert.Equal(t, "composite", s.Name())
 }
 
 func TestToolNames(t *testing.T) {

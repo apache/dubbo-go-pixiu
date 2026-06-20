@@ -83,7 +83,7 @@ func benchmarkCompositeSelectorWarm(b *testing.B, size int) {
 	defer store.Stop()
 	cs := benchSelector(b, store)
 	tools := benchTools(size)
-	sc := SelectionContext{SessionID: "warm", Tenant: "acme"}
+	sc := SelectionContext{SessionID: "warm", Tenant: "acme", CatalogVersion: "bench-" + strconv.Itoa(size)}
 	plan, err := cs.Select(context.Background(), sc, tools)
 	if err != nil || plan == nil {
 		b.Fatalf("prewarm failed: plan=%v err=%v", plan, err)
@@ -109,9 +109,9 @@ func benchmarkCompositeSelectorCold(b *testing.B, size int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sessionID := "cold"
-		sc := SelectionContext{SessionID: sessionID, Tenant: "acme"}
+		sc := SelectionContext{SessionID: sessionID, Tenant: "acme", CatalogVersion: "bench-" + strconv.Itoa(size)}
 		benchPlan, benchErr = cs.Select(context.Background(), sc, tools)
-		store.Delete(sessionID)
+		store.Delete(cs.planKey(sessionID))
 	}
 	b.StopTimer()
 	requireBenchPlan(b, "cold", benchPlan, benchErr)
@@ -135,22 +135,24 @@ func requireBenchStoreSize(b *testing.B, name string, store *SessionPlanStore, w
 func BenchmarkSessionPlanStore_Set(b *testing.B) {
 	store := NewSessionPlanStoreWithTTL(time.Hour)
 	defer store.Stop()
+	key := NewPlanKey("bench", "s")
 	plan := &SelectionPlan{SessionID: "s", ToolNames: []string{"a", "b"}, Version: "v"}
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.Set(plan)
+		store.Set(key, plan)
 	}
 }
 
 func BenchmarkSessionPlanStore_Get(b *testing.B) {
 	store := NewSessionPlanStoreWithTTL(time.Hour)
 	defer store.Stop()
-	store.Set(&SelectionPlan{SessionID: "s", ToolNames: []string{"a", "b"}, Version: "v"})
+	key := NewPlanKey("bench", "s")
+	store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a", "b"}, Version: "v"})
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		benchPlan, benchOK = store.Get("s")
+		benchPlan, benchOK = store.Get(key)
 	}
 	if !benchOK || benchPlan == nil {
 		b.Fatal("expected cached plan")
@@ -160,12 +162,13 @@ func BenchmarkSessionPlanStore_Get(b *testing.B) {
 func BenchmarkSessionPlanStore_Delete(b *testing.B) {
 	store := NewSessionPlanStoreWithTTL(time.Hour)
 	defer store.Stop()
+	key := NewPlanKey("bench", "s")
 	plan := &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"}
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.Set(plan)
-		store.Delete("s")
+		store.Set(key, plan)
+		store.Delete(key)
 	}
 	if store.Len() != 0 {
 		b.Fatalf("store size = %d, want 0", store.Len())
@@ -175,23 +178,25 @@ func BenchmarkSessionPlanStore_Delete(b *testing.B) {
 func BenchmarkSessionPlanStore_RecordCallSuccess(b *testing.B) {
 	store := NewSessionPlanStoreWithTTL(time.Hour)
 	defer store.Stop()
-	store.Set(&SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"})
+	key := NewPlanKey("bench", "s")
+	store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"})
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = store.RecordCallSuccess("s", "a", b.N+1)
+		_ = store.RecordCallSuccess(key, "a", b.N+1)
 	}
 }
 
 func BenchmarkSessionPlanStore_ThresholdTransition(b *testing.B) {
 	store := NewSessionPlanStoreWithTTL(time.Hour)
 	defer store.Stop()
+	key := NewPlanKey("bench", "s")
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.Set(&SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"})
-		_ = store.RecordCallSuccess("s", "a", 1)
-		store.Delete("s")
+		store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"})
+		_ = store.RecordCallSuccess(key, "a", 1)
+		store.Delete(key)
 	}
 	if store.Len() != 0 {
 		b.Fatalf("store size = %d, want 0", store.Len())
@@ -201,13 +206,14 @@ func BenchmarkSessionPlanStore_ThresholdTransition(b *testing.B) {
 func BenchmarkSessionPlanStore_ConcurrentGetSet(b *testing.B) {
 	store := NewSessionPlanStoreWithTTL(time.Hour)
 	defer store.Stop()
+	key := NewPlanKey("bench", "s")
 	plan := &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"}
 
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			store.Set(plan)
-			benchPlan, benchOK = store.Get("s")
+			store.Set(key, plan)
+			benchPlan, benchOK = store.Get(key)
 		}
 	})
 	if !benchOK || benchPlan == nil {
@@ -224,7 +230,8 @@ func BenchmarkSessionPlanStore_CapacityEviction(b *testing.B) {
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.Set(&SelectionPlan{SessionID: fmt.Sprintf("s-%d", i), ToolNames: []string{"a"}, Version: "v"})
+		sessionID := fmt.Sprintf("s-%d", i)
+		store.Set(NewPlanKey("bench", sessionID), &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"})
 	}
 	if store.Len() > 64 {
 		b.Fatalf("store size = %d, want <= 64", store.Len())
@@ -241,7 +248,8 @@ func BenchmarkSessionPlanStore_TTLCleanup(b *testing.B) {
 	defer store.Stop()
 
 	for i := 0; i < 128; i++ {
-		store.Set(&SelectionPlan{SessionID: fmt.Sprintf("s-%d", i), ToolNames: []string{"a"}, Version: "v"})
+		sessionID := fmt.Sprintf("s-%d", i)
+		store.Set(NewPlanKey("bench", sessionID), &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"})
 	}
 	now = now.Add(2 * time.Second)
 

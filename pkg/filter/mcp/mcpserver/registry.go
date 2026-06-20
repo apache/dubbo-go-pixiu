@@ -18,7 +18,11 @@
 package mcpserver
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -36,19 +40,28 @@ type ToolRegistry struct {
 	mu                sync.RWMutex
 	tools             map[string]model.ToolConfig
 	toolOrder         []string
+	toolGeneration    uint64
+	toolFingerprint   string
+	toolVersion       string
 	resources         map[string]model.ResourceConfig         // indexed by URI
 	resourceTemplates map[string]model.ResourceTemplateConfig // indexed by name
 	prompts           map[string]model.PromptConfig
 }
 
+// EmptyFingerprint is the stable fingerprint for an empty tool catalog.
+const EmptyFingerprint = "00000000"
+
 // NewToolRegistry creates a new tool registry
 func NewToolRegistry() *ToolRegistry {
-	return &ToolRegistry{
+	r := &ToolRegistry{
 		tools:             make(map[string]model.ToolConfig),
+		toolFingerprint:   EmptyFingerprint,
+		toolVersion:       "0:" + EmptyFingerprint,
 		resources:         make(map[string]model.ResourceConfig),
 		resourceTemplates: make(map[string]model.ResourceTemplateConfig),
 		prompts:           make(map[string]model.PromptConfig),
 	}
+	return r
 }
 
 // RegisterTool registers a tool
@@ -62,6 +75,7 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 
 	r.tools[tool.Name] = tool
 	r.toolOrder = append(r.toolOrder, tool.Name)
+	r.refreshToolVersionLocked()
 	return nil
 }
 
@@ -69,6 +83,10 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 // It validates the full replacement first and leaves the current registry
 // unchanged when duplicate names are present.
 func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) error {
+	return r.replaceAllToolsWithFingerprint(tools, "")
+}
+
+func (r *ToolRegistry) replaceAllToolsWithFingerprint(tools []model.ToolConfig, fingerprint string) error {
 	newMap := make(map[string]model.ToolConfig, len(tools))
 	newOrder := make([]string, 0, len(tools))
 	seen := make(map[string]struct{}, len(tools))
@@ -80,11 +98,15 @@ func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) error {
 		newOrder = append(newOrder, t.Name)
 		newMap[t.Name] = t
 	}
+	if fingerprint == "" {
+		fingerprint = toolCatalogFingerprint(tools)
+	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.tools = newMap
 	r.toolOrder = newOrder
+	r.advanceToolVersionLocked(fingerprint)
 	return nil
 }
 
@@ -157,9 +179,21 @@ func (r *ToolRegistry) ListResourceTemplates() []model.ResourceTemplateConfig {
 
 // ListTools lists all tools
 func (r *ToolRegistry) ListTools() []model.ToolConfig {
+	tools, _ := r.ToolSnapshot()
+	return tools
+}
+
+// ToolSnapshot returns a stable ordered tool snapshot with the catalog version
+// computed on the last registry mutation.
+func (r *ToolRegistry) ToolSnapshot() ([]model.ToolConfig, string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	tools := r.toolsLocked()
+	return tools, r.toolVersion
+}
+
+func (r *ToolRegistry) toolsLocked() []model.ToolConfig {
 	tools := make([]model.ToolConfig, 0, len(r.tools))
 	for _, name := range r.toolOrder {
 		if tool, ok := r.tools[name]; ok {
@@ -167,6 +201,42 @@ func (r *ToolRegistry) ListTools() []model.ToolConfig {
 		}
 	}
 	return tools
+}
+
+func (r *ToolRegistry) refreshToolVersionLocked() {
+	r.advanceToolVersionLocked(toolCatalogFingerprint(r.toolsLocked()))
+}
+
+func (r *ToolRegistry) advanceToolVersionLocked(fingerprint string) {
+	if fingerprint == "" {
+		fingerprint = EmptyFingerprint
+	}
+	r.toolFingerprint = fingerprint
+	r.toolGeneration++
+	r.toolVersion = fmt.Sprintf("%d:%s", r.toolGeneration, fingerprint)
+}
+
+func toolCatalogFingerprint(tools []model.ToolConfig) string {
+	if len(tools) == 0 {
+		return EmptyFingerprint
+	}
+
+	items := make([]string, len(tools))
+	for i, tool := range tools {
+		data, err := json.Marshal(tool)
+		if err != nil {
+			data = []byte(fmt.Sprintf("%#v", tool))
+		}
+		items[i] = string(data)
+	}
+	sort.Strings(items)
+
+	hash := sha256.New()
+	for _, item := range items {
+		_, _ = hash.Write([]byte(item))
+		_, _ = hash.Write([]byte{0})
+	}
+	return hex.EncodeToString(hash.Sum(nil))[:8]
 }
 
 // ListResources lists all resources

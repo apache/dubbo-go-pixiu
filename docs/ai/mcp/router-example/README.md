@@ -1,7 +1,6 @@
 # MCP Intelligent Tool Router — Runnable Example
 
-This directory demonstrates the MCP intelligent tool router added for
-[issue #937](https://github.com/apache/dubbo-go-pixiu/issues/937).
+This directory demonstrates the MCP intelligent tool router.
 
 ## Files
 
@@ -26,10 +25,9 @@ This directory demonstrates the MCP intelligent tool router added for
    or dynamic catalog changes are reported with `notifications/tools/list_changed`
    when the visible tool set changes.
 
-The example uses `fallback: bundle_default` so an empty selection falls back to
-the `safe-minimal` bundle. Treat that as a discovery safety net, not an
-authorization boundary; use `fallback: fail_closed` when a denied subject should
-see no tools.
+The example uses `fallback: bundle_default`, so no workflow match or an internal
+router error falls back to the `safe-minimal` bundle after hard policy is
+applied. Explicit policy denial still returns no tools.
 
 ## Running
 

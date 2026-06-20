@@ -135,9 +135,10 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 	// Errors are non-fatal; tools/list will compute the plan on demand.
 	if f.selector != nil {
 		ctx.SetSessionID(session.ID)
-		sc := f.buildSelectionContext(ctx, string(mcp.MethodInitialize), "")
+		toolCfgs, catalogVersion := f.registry.ToolSnapshot()
+		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodInitialize), "", catalogVersion)
 		sc.AgentID = initParams.ClientInfo.Name
-		if err := f.selector.OnInitialize(ctx.Ctx, sc, f.registry.ListTools()); err != nil {
+		if err := f.selector.OnInitialize(ctx.Ctx, sc, toolCfgs); err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router OnInitialize failed: %v", err)
 		}
 	}
@@ -154,7 +155,7 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 // buildToolsListResponseObject builds the tools/list response object (for SSE)
 func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.JSONRPCRequest) mcp.JSONRPCResponse {
 	// Read tools from registry to reflect dynamic updates
-	toolCfgs := f.registry.ListTools()
+	toolCfgs, catalogVersion := f.registry.ToolSnapshot()
 
 	// Router hookpoint: trim the candidate set to a session-scoped plan.
 	// On internal error or invalid session, fail closed so governance failures
@@ -164,11 +165,11 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router rejected tools/list for invalid session")
 			return f.responseBuilder.Success(req.ID, mcp.NewListToolsResult(nil, ""))
 		}
-		sc := f.buildSelectionContext(ctx, string(mcp.MethodToolsList), "")
+		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsList), "", catalogVersion)
 		plan, err := f.selector.Select(ctx.Ctx, sc, toolCfgs)
 		if err != nil {
-			logger.Warnf("[dubbo-go-pixiu] mcp tool router Select failed: %v (serving empty tool set)", err)
-			return f.responseBuilder.Success(req.ID, mcp.NewListToolsResult(nil, ""))
+			logger.Warnf("[dubbo-go-pixiu] mcp tool router Select failed: %v", err)
+			toolCfgs = f.handleSelectionFailure(ctx, sc, toolCfgs, err)
 		} else {
 			toolCfgs = filterByPlan(toolCfgs, plan)
 		}
@@ -475,7 +476,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 
 	// Read a single live tool snapshot and use it for both lookup and router
 	// authorization so tools/call cannot authorize against stale metadata.
-	toolCfgs := f.registry.ListTools()
+	toolCfgs, catalogVersion := f.registry.ToolSnapshot()
 
 	// Router hookpoint: enforce that the tool is authorized for this session.
 	// This implements discovery/execution separation: even a tool name learned
@@ -485,7 +486,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router denied tool call for invalid session")
 			return f.errorHandler.SendToolCallError(ctx, req.ID, "tool not authorized for this session")
 		}
-		sc := f.buildSelectionContext(ctx, string(mcp.MethodToolsCall), params.Name)
+		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsCall), params.Name, catalogVersion)
 		if err := f.selector.AuthorizeCall(ctx.Ctx, sc, toolCfgs); err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router denied tool call: %v", err)
 			// The client-facing message is intentionally generic and decoupled from
@@ -682,7 +683,8 @@ func (f *MCPServerFilter) recordToolCallSuccess(ctx *MCPContext) bool {
 	if toolName == "" {
 		return false
 	}
-	sc := f.buildSelectionContext(ctx, string(mcp.MethodToolsCall), toolName)
+	toolCfgs, catalogVersion := f.registry.ToolSnapshot()
+	sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsCall), toolName, catalogVersion)
 	result, err := recorder.RecordCallSuccess(ctx.Ctx, sc)
 	if err != nil {
 		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to record successful tool call '%s': %v", toolName, err)
@@ -691,7 +693,7 @@ func (f *MCPServerFilter) recordToolCallSuccess(ctx *MCPContext) bool {
 	if !result.Transitioned {
 		return false
 	}
-	if _, err := f.selector.Select(ctx.Ctx, sc, f.registry.ListTools()); err != nil {
+	if _, err := f.selector.Select(ctx.Ctx, sc, toolCfgs); err != nil {
 		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to refresh expanded plan after transition: %v", err)
 		return false
 	}

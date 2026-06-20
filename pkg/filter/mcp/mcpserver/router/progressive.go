@@ -68,12 +68,13 @@ func (g *ProgressiveGate) Apply(tools []model.ToolConfig, expanded bool) ([]mode
 		if _, in := bundle[t.Name]; in {
 			kept = append(kept, t)
 		} else {
-			traces = append(traces, DecisionTrace{
-				Tool:   t.Name,
-				Kept:   false,
-				Stage:  StageProgressive,
-				Detail: "tier_locked",
-			})
+			if len(traces) < maxDecisionTraceSamples {
+				traces = append(traces, DecisionTrace{
+					Tool:   t.Name,
+					Stage:  StageProgressive,
+					Detail: "tier_locked",
+				})
+			}
 		}
 	}
 	return kept, traces

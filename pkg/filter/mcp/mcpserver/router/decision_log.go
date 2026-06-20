@@ -27,8 +27,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
-// maxDeniedSamples caps how many dropped tool names appear in a decision log to
-// keep log lines bounded regardless of catalog size.
+// maxDeniedSamples caps dropped tool names in a decision log.
 const maxDeniedSamples = 10
 
 // DecisionLogger emits a structured, PII-safe record for each selection. It
@@ -85,7 +84,7 @@ func (d *DecisionLogger) record(sc SelectionContext, plan *SelectionPlan, candid
 		Candidates:      candidates,
 		Selected:        len(plan.ToolNames),
 		Mode:            plan.Mode,
-		Stages:          stageDropCounts(plan.Reasons),
+		Stages:          stageDropCountsFromPlan(plan),
 	}
 	if d.payloadLogging {
 		rec.DeniedSamples = deniedSamples(plan.Reasons)
@@ -122,8 +121,26 @@ func stageDropCounts(traces []DecisionTrace) map[string]int {
 	}
 	counts := make(map[string]int)
 	for _, t := range traces {
-		if !t.Kept {
-			counts[t.Stage]++
+		counts[t.Stage]++
+	}
+	if len(counts) == 0 {
+		return nil
+	}
+	return counts
+}
+
+func stageDropCountsFromPlan(plan *SelectionPlan) map[string]int {
+	if plan == nil {
+		return nil
+	}
+	if len(plan.StageCounts) == 0 {
+		return stageDropCounts(plan.Reasons)
+	}
+	counts := make(map[string]int, len(plan.StageCounts))
+	for stage, count := range plan.StageCounts {
+		dropped := count.Input - count.Output
+		if dropped > 0 {
+			counts[stage] = dropped
 		}
 	}
 	if len(counts) == 0 {
@@ -138,9 +155,6 @@ func stageDropCounts(traces []DecisionTrace) map[string]int {
 func deniedSamples(traces []DecisionTrace) []string {
 	var out []string
 	for _, t := range traces {
-		if t.Kept {
-			continue
-		}
 		out = append(out, t.Tool)
 		if len(out) >= maxDeniedSamples {
 			break

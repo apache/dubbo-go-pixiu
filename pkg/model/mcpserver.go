@@ -30,7 +30,7 @@ type McpServerConfig struct {
 	Resources         []ResourceConfig         `yaml:"resources,omitempty" json:"resources,omitempty"`
 	ResourceTemplates []ResourceTemplateConfig `yaml:"resource_templates,omitempty" json:"resource_templates,omitempty"`
 	Prompts           []PromptConfig           `yaml:"prompts,omitempty" json:"prompts,omitempty"`
-	// Router holds optional intelligent tool routing configuration (issue #937).
+	// Router holds optional intelligent tool routing configuration.
 	// When nil or disabled the server behaves identically to the pre-router build.
 	Router *RouterConfig `yaml:"router,omitempty" json:"router,omitempty"`
 }
@@ -51,7 +51,7 @@ type ToolConfig struct {
 	BackendURL  string        `yaml:"backend_url,omitempty" json:"backend_url,omitempty"`
 	Request     RequestConfig `yaml:"request" json:"request"`
 	Args        []ArgConfig   `yaml:"args,omitempty" json:"args,omitempty"`
-	// Meta holds optional routing metadata consumed by the tool router (issue #937).
+	// Meta holds optional routing metadata consumed by the tool router.
 	// Omitting it leaves the tool fully exposed, preserving backward compatibility.
 	Meta *ToolMeta `yaml:"meta,omitempty" json:"meta,omitempty"`
 }
@@ -75,13 +75,11 @@ type ArgConfig struct {
 	Enum        []string `yaml:"enum,omitempty" json:"enum,omitempty"`
 }
 
-// ToolMeta carries optional routing metadata for a tool (issue #937).
+// ToolMeta carries optional routing metadata for a tool.
 // All fields are optional; an absent ToolMeta means the tool is fully exposed.
 type ToolMeta struct {
-	// Tags are free-form labels used by policy allow/deny lists and offline schema matching.
+	// Tags are free-form labels used by policy allow/deny lists.
 	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
-	// Capabilities are coarse capability identifiers (e.g. "user.read").
-	Capabilities []string `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
 	// Risk is one of "low" | "medium" | "high"; empty is treated as "low".
 	Risk string `yaml:"risk,omitempty" json:"risk,omitempty"`
 	// DiscoveryVisibility, when explicitly false, hides the tool from tools/list
@@ -89,7 +87,7 @@ type ToolMeta struct {
 	DiscoveryVisibility *bool `yaml:"discovery_visibility,omitempty" json:"discovery_visibility,omitempty"`
 }
 
-// RouterConfig configures the intelligent tool router (issue #937).
+// RouterConfig configures the intelligent tool router.
 // When Enabled is false (the default) the router is a no-op.
 type RouterConfig struct {
 	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
@@ -406,10 +404,6 @@ func (m *ToolMeta) DeepCopy() *ToolMeta {
 	if m.Tags != nil {
 		cp.Tags = make([]string, len(m.Tags))
 		copy(cp.Tags, m.Tags)
-	}
-	if m.Capabilities != nil {
-		cp.Capabilities = make([]string, len(m.Capabilities))
-		copy(cp.Capabilities, m.Capabilities)
 	}
 	if m.DiscoveryVisibility != nil {
 		v := *m.DiscoveryVisibility

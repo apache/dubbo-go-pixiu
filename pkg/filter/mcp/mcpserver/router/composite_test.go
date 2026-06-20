@@ -121,7 +121,7 @@ func TestComposite_EnforceOnCallAllowsInPlan(t *testing.T) {
 	cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 
 	assert.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}, tools))
-	assert.Equal(t, int64(0), store.CallCount("s1"), "authorization alone must not advance progressive disclosure")
+	assert.Equal(t, int64(0), store.CallCount(cs.planKey("s1")), "authorization alone must not advance progressive disclosure")
 	assert.ErrorIs(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"}, tools), ErrToolNotAuthorized)
 }
 
@@ -166,7 +166,7 @@ func TestComposite_RecordCallSuccessIncrementsCallCount(t *testing.T) {
 
 	assert.Equal(t, int64(1), result.Count)
 	assert.False(t, result.Transitioned)
-	assert.Equal(t, int64(1), store.CallCount("s1"))
+	assert.Equal(t, int64(1), store.CallCount(cs.planKey("s1")))
 }
 
 func TestComposite_RecordCallSuccessSkipsWithoutPlanOrOutsidePlan(t *testing.T) {
@@ -185,20 +185,20 @@ func TestComposite_RecordCallSuccessSkipsWithoutPlanOrOutsidePlan(t *testing.T) 
 	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "missing", Requested: "a"})
 	require.NoError(t, err)
 	assert.False(t, result.Transitioned)
-	assert.Equal(t, int64(0), store.CallCount("missing"))
+	assert.Equal(t, int64(0), store.CallCount(cs.planKey("missing")))
 
 	require.NoError(t, cs.OnInitialize(context.Background(), SelectionContext{SessionID: "init-only", AgentID: "agent"}, nil))
 	result, err = cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "init-only", Requested: "a"})
 	require.NoError(t, err)
 	assert.False(t, result.Transitioned)
-	assert.Equal(t, int64(0), store.CallCount("init-only"))
+	assert.Equal(t, int64(0), store.CallCount(cs.planKey("init-only")))
 
 	_, err = cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, testTools("a"))
 	require.NoError(t, err)
 	result, err = cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"})
 	require.NoError(t, err)
 	assert.False(t, result.Transitioned)
-	assert.Equal(t, int64(0), store.CallCount("s1"))
+	assert.Equal(t, int64(0), store.CallCount(cs.planKey("s1")))
 }
 
 func TestComposite_EnforceOnCallDisabledAllowsAll(t *testing.T) {
@@ -228,13 +228,83 @@ func TestComposite_FallbackBundleDefault(t *testing.T) {
 	defer store.Stop()
 
 	// acme-flow matches and keeps only acme_only, but acme_only is not in the
-	// candidate set, producing an empty selection -> fallback to safe-minimal.
+	// candidate set. An explicit empty workflow selection must not fall back.
 	plan, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1", Tenant: "acme"},
 		[]model.ToolConfig{toolWithMeta("ping", nil)})
 	require.NoError(t, err)
 
+	assert.Empty(t, plan.ToolNames)
+	assert.Equal(t, ModeSelected, plan.Mode)
+	assert.Equal(t, SelectionOutcomeEmptyByConfiguration, plan.Outcome)
+}
+
+func TestComposite_NoWorkflowMatchUsesDefaultBundle(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:       true,
+		DefaultBundle: "safe-minimal",
+		Workflows: []model.WorkflowConfig{
+			{Name: "safe-minimal", Tools: []string{"ping"}},
+			{Name: "support", Tools: []string{"ticket"}, When: model.PolicyMatch{Claim: "role", Equals: "support"}},
+		},
+	}
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	plan, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1", Claims: map[string]any{"role": "unknown"}},
+		[]model.ToolConfig{toolWithMeta("ping", nil), toolWithMeta("ticket", nil)})
+	require.NoError(t, err)
+
 	assert.Equal(t, []string{"ping"}, plan.ToolNames)
 	assert.Equal(t, ModeFallbackBundle, plan.Mode)
+	assert.Equal(t, SelectionOutcomeNoMatch, plan.Outcome)
+}
+
+func TestComposite_ExplicitPolicyDenyDoesNotUseDefaultBundle(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:       true,
+		DefaultBundle: "safe-minimal",
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "block-admin", DenyTags: []string{"admin"}},
+		}},
+		Workflows: []model.WorkflowConfig{
+			{Name: "safe-minimal", Tools: []string{"admin_tool"}},
+		},
+	}
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	plan, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1"},
+		[]model.ToolConfig{toolWithMeta("admin_tool", &model.ToolMeta{Tags: []string{"admin"}})})
+	require.NoError(t, err)
+
+	assert.Empty(t, plan.ToolNames)
+	assert.Equal(t, ModeSelected, plan.Mode)
+	assert.Equal(t, SelectionOutcomeExplicitDeny, plan.Outcome)
+}
+
+func TestComposite_SelectionFailureBundleDefaultRespectsPolicy(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:       true,
+		DefaultBundle: "safe-minimal",
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "block-admin", DenyTags: []string{"admin"}},
+		}},
+		Workflows: []model.WorkflowConfig{
+			{Name: "safe-minimal", Tools: []string{"ping", "admin_tool"}},
+		},
+	}
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	plan := cs.HandleSelectionFailure(context.Background(), SelectionContext{SessionID: "s1"},
+		[]model.ToolConfig{
+			toolWithMeta("ping", &model.ToolMeta{Tags: []string{"safe"}}),
+			toolWithMeta("admin_tool", &model.ToolMeta{Tags: []string{"admin"}}),
+		}, assert.AnError)
+
+	assert.Equal(t, []string{"ping"}, plan.ToolNames)
+	assert.Equal(t, ModeFallbackBundle, plan.Mode)
+	assert.Equal(t, SelectionOutcomeInternalError, plan.Outcome)
 }
 
 func TestComposite_FallbackBundleRespectsPolicyDeniedTools(t *testing.T) {
@@ -259,9 +329,10 @@ func TestComposite_FallbackBundleRespectsPolicyDeniedTools(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"ping"}, plan.ToolNames)
+	assert.Empty(t, plan.ToolNames)
 	assert.NotContains(t, plan.ToolNames, "admin_tool")
-	assert.Equal(t, ModeFallbackBundle, plan.Mode)
+	assert.Equal(t, ModeSelected, plan.Mode)
+	assert.Equal(t, SelectionOutcomeEmptyByConfiguration, plan.Outcome)
 }
 
 func TestComposite_FallbackBundleWorksWhenWorkflowStageDisabled(t *testing.T) {
@@ -286,8 +357,9 @@ func TestComposite_FallbackBundleWorksWhenWorkflowStageDisabled(t *testing.T) {
 		[]model.ToolConfig{toolWithMeta("ping", nil)})
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"ping"}, plan.ToolNames)
-	assert.Equal(t, ModeFallbackBundle, plan.Mode)
+	assert.Empty(t, plan.ToolNames)
+	assert.Equal(t, ModeSelected, plan.Mode)
+	assert.Equal(t, SelectionOutcomeEmptyByConfiguration, plan.Outcome)
 }
 
 func TestComposite_FallbackFailClosed(t *testing.T) {
@@ -307,7 +379,8 @@ func TestComposite_FallbackFailClosed(t *testing.T) {
 
 	assert.Empty(t, plan.ToolNames)
 	assert.Empty(t, plan.VisibleToolNames)
-	assert.Equal(t, ModeFailClosed, plan.Mode)
+	assert.Equal(t, ModeSelected, plan.Mode)
+	assert.Equal(t, SelectionOutcomeEmptyByConfiguration, plan.Outcome)
 }
 
 func TestBuild_DefaultBundleMustExist(t *testing.T) {
@@ -510,7 +583,7 @@ func TestComposite_AuthorizeCallRecomputesOnClaimChange(t *testing.T) {
 	err = cs.AuthorizeCall(context.Background(), billingCtx, tools)
 	assert.ErrorIs(t, err, ErrToolNotAuthorized)
 
-	got, ok := store.Get("s1")
+	got, ok := store.Get(cs.planKey("s1"))
 	require.True(t, ok)
 	assert.Equal(t, []string{"billing_search"}, got.ToolNames)
 }
@@ -543,7 +616,7 @@ func TestComposite_AuthorizeCallRecomputesOnToolDefinitionChange(t *testing.T) {
 	initialTools := testTools("export_data")
 	_, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, initialTools)
 	require.NoError(t, err)
-	before, ok := store.Get("s1")
+	before, ok := store.Get(cs.planKey("s1"))
 	require.True(t, ok)
 
 	updatedTools := testTools("export_data")
@@ -553,7 +626,7 @@ func TestComposite_AuthorizeCallRecomputesOnToolDefinitionChange(t *testing.T) {
 	err = cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "export_data"}, updatedTools)
 	require.NoError(t, err)
 
-	after, ok := store.Get("s1")
+	after, ok := store.Get(cs.planKey("s1"))
 	require.True(t, ok)
 	assert.NotEqual(t, before.Version, after.Version)
 }
@@ -571,7 +644,7 @@ func TestComposite_AuthorizeCallAllowsAfterStaleRecompute(t *testing.T) {
 	err = cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}, updatedTools)
 	assert.NoError(t, err)
 
-	got, ok := store.Get("s1")
+	got, ok := store.Get(cs.planKey("s1"))
 	require.True(t, ok)
 	assert.ElementsMatch(t, []string{"a", "b"}, got.ToolNames)
 }
@@ -710,6 +783,47 @@ func TestComposite_ProgressiveConcurrentTransitionOnce(t *testing.T) {
 	assert.Len(t, transitions, 1)
 }
 
+func TestComposite_ProgressiveCallCountIsRouterScoped(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"ping"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 1},
+	}
+	store := NewSessionPlanStoreWithTTL(time.Minute)
+	defer store.Stop()
+
+	selA, err := Build(cfg, store)
+	require.NoError(t, err)
+	selB, err := Build(cfg, store)
+	require.NoError(t, err)
+	csA := selA.(*CompositeSelector)
+	csB := selB.(*CompositeSelector)
+
+	tools := testTools("ping", "advanced")
+	sc := SelectionContext{SessionID: "shared"}
+	_, err = csA.Select(context.Background(), sc, tools)
+	require.NoError(t, err)
+	_, err = csB.Select(context.Background(), sc, tools)
+	require.NoError(t, err)
+
+	result, err := csA.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "shared", Requested: "ping"})
+	require.NoError(t, err)
+	assert.True(t, result.Transitioned)
+	assert.Equal(t, int64(1), store.CallCount(csA.planKey("shared")))
+	assert.Equal(t, int64(0), store.CallCount(csB.planKey("shared")))
+
+	expandedA, err := csA.Select(context.Background(), sc, tools)
+	require.NoError(t, err)
+	initialB, err := csB.Select(context.Background(), sc, tools)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"ping", "advanced"}, expandedA.ToolNames)
+	assert.Equal(t, []string{"ping"}, initialB.ToolNames)
+}
+
 func TestComposite_ClaimsChangeResetsProgressiveState(t *testing.T) {
 	cfg := &model.RouterConfig{
 		Enabled:  true,
@@ -747,5 +861,5 @@ func TestComposite_ClaimsChangeResetsProgressiveState(t *testing.T) {
 	reset, err := cs.Select(context.Background(), globex, tools)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ping"}, reset.ToolNames)
-	assert.Equal(t, int64(0), store.CallCount("s1"))
+	assert.Equal(t, int64(0), store.CallCount(cs.planKey("s1")))
 }

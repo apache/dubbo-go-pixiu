@@ -122,7 +122,7 @@ policy  ->  workflow  ->  progressive
     router:
       enabled: true
       fallback: "bundle_default"      # bundle_default（默认）| fail_closed
-      default_bundle: "safe-minimal"  # 选择结果为空时使用的 bundle
+      default_bundle: "safe-minimal"  # 无匹配/内部错误回退使用的 bundle
       enforce_on_call: true           # 默认 true：拒绝 plan 之外的调用
       stages:
         policy: true                  # 默认 true
@@ -165,7 +165,6 @@ tools:
     request: { method: "GET", path: "/api/users/{id}" }
     meta:
       tags: ["user", "read"]
-      capabilities: ["user.read"]
       risk: "low"                     # low | medium | high（默认 low）
       discovery_visibility: true      # false => 不在 tools/list 暴露，但被选中时仍授权/可调用
 ```
@@ -189,12 +188,12 @@ tools:
 
 #### 回退（Fallback）
 
-若流水线产生空选择（例如规则过严），由 `fallback` 决定结果：
+当没有 workflow 命中，或 selector 发生内部错误时，由 `fallback` 决定结果：
 
 - **`bundle_default`**（默认）：暴露 `default_bundle` workflow（与 policy 允许后的当前工具集求交）。`default_bundle` 必须非空，workflow 列表必须存在，且该 workflow 至少包含一个工具名，否则网关启动失败。
 - **`fail_closed`**：不返回任何工具。刻意不提供 `fail_open` —— 治理层故障绝不能反向 *扩大* 暴露面。
 
-> **注意 — fallback 不区分“被拒绝”和“过滤过严”。** 流水线只要产生空结果就会触发 fallback，无论这是规则过严，还是某条规则有意让某个主体看不到任何工具。使用 `fallback: bundle_default` 时，本想完全锁定的主体仍会看到 `default_bundle`（与候选工具求交）。如果希望“拒绝就是空工具集”，请使用 `fallback: fail_closed`；`default_bundle` 只是安全兜底，不是授权边界。
+显式空选择会保持为空：policy 拒绝、已命中的 workflow 没有 live tool、progressive 初始层没有 live tool，都不会回退到 default bundle。
 
 #### `tools/call` 强制校验
 
@@ -206,7 +205,7 @@ tools:
 
 `initialize` 总是创建新的 MCP session，并通过 `Mcp-Session-Id` 返回给客户端。客户端不应在 `initialize` 请求中携带 `Mcp-Session-Id`；Pixiu 会返回 `400`，不会采用调用方提供的 ID。后续 GET SSE stream 必须携带已存在的 session ID：缺失 header 返回 `400`，未知或过期 ID 返回 `404`。启用 router 强制的 POST 请求（`tools/list` 和 `tools/call`）也必须使用有效 session；未知或过期 ID 不会被静默替换成新 session。
 
-MCP session 持有 router plan、progressive 计数器和 pending notification 状态。SSE stream 只是挂载在 session 上的连接：断开、请求 context cancel、重连或新 stream 替换旧 stream，都不会终止 MCP session 或删除 plan。Session 与 plan 只会因 TTL 清理、server shutdown 或未来显式终止路径而删除。
+MCP session 持有 router plan、progressive 计数器和 pending notification 状态。SSE stream 只是挂载在 session 上的连接：断开、请求 context cancel、重连或新 stream 替换旧 stream，都不会终止 MCP session 或删除 plan。当 transport session 被移除时，Pixiu 会删除该 session 下所有 router 实例的 plan；TTL 清理只是异常路径下的兜底。
 
 Initialize response 会声明 `ServerCapabilities.tools.listChanged=true`。这是服务端能力；客户端不需要声明 `capabilities.tools.listChanged`。当某个 session 的可见工具集合发生变化时，Pixiu 会发送 `notifications/tools/list_changed` JSON-RPC notification，且不包含 `id`。Progressive 达到成功调用阈值并展开时只标记一次变化。客户端离线时，Pixiu 在 session 内保存有界的 pending version，并在 SSE reconnect 后发送最新变化。多次变化可以合并，但最终 pending 变化不会丢失。
 

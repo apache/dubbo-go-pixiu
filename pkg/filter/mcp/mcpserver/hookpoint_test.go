@@ -23,6 +23,7 @@ import (
 	"errors"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 import (
@@ -62,7 +63,7 @@ func (s *stubSelector) Select(_ context.Context, sc router.SelectionContext, can
 			names[i] = c.Name
 		}
 	}
-	return &router.SelectionPlan{SessionID: sc.SessionID, ToolNames: names, Mode: router.ModeHybrid}, nil
+	return &router.SelectionPlan{SessionID: sc.SessionID, ToolNames: names, Mode: router.ModeSelected}, nil
 }
 
 func (s *stubSelector) AuthorizeCall(_ context.Context, _ router.SelectionContext, candidates []model.ToolConfig) error {
@@ -80,7 +81,17 @@ func (s *stubSelector) RecordCallSuccess(_ context.Context, sc router.SelectionC
 	return router.CallSuccessResult{Count: int64(len(s.recordSuccessCalls))}, nil
 }
 
-func (s *stubSelector) Name() string { return "stub" }
+type failingSelectionSelector struct {
+	*router.CompositeSelector
+	err error
+}
+
+func (s *failingSelectionSelector) Select(_ context.Context, _ router.SelectionContext, _ []model.ToolConfig) (*router.SelectionPlan, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return nil, errors.New("selector failed")
+}
 
 func buildToolsListResult(t *testing.T, f *MCPServerFilter, tools []model.ToolConfig) *mcp.ListToolsResult {
 	t.Helper()
@@ -265,6 +276,41 @@ func TestToolsList_SelectorErrorFailClosed(t *testing.T) {
 	result := buildToolsListResult(t, f, alphaBetaTools())
 
 	require.Empty(t, result.Tools)
+}
+
+func TestToolsList_SelectorErrorBundleDefaultDoesNotExposeFullCatalog(t *testing.T) {
+	f := createTestFilter(t)
+	store := router.NewSessionPlanStoreWithTTL(time.Minute)
+	defer store.Stop()
+
+	sel, err := router.Build(&model.RouterConfig{
+		Enabled:       true,
+		Fallback:      router.FallbackBundleDefault,
+		DefaultBundle: "safe-minimal",
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "block-admin", DenyTags: []string{"admin"}},
+		}},
+		Workflows: []model.WorkflowConfig{
+			{Name: "safe-minimal", Tools: []string{"alpha", "beta"}},
+		},
+	}, store)
+	require.NoError(t, err)
+	f.selector = &failingSelectionSelector{
+		CompositeSelector: sel.(*router.CompositeSelector),
+		err:               errors.New("selector exploded"),
+	}
+
+	alpha := createTestToolConfig("alpha", "A")
+	alpha.Meta = &model.ToolMeta{Tags: []string{"safe"}}
+	beta := createTestToolConfig("beta", "B")
+	beta.Meta = &model.ToolMeta{Tags: []string{"admin"}}
+	gamma := createTestToolConfig("gamma", "G")
+	gamma.Meta = &model.ToolMeta{Tags: []string{"safe"}}
+
+	result := buildToolsListResult(t, f, []model.ToolConfig{alpha, beta, gamma})
+
+	require.Len(t, result.Tools, 1)
+	assert.Equal(t, "alpha", result.Tools[0].Name)
 }
 
 // TestToolCall_SelectorDeniesUnauthorized confirms AuthorizeCall rejection

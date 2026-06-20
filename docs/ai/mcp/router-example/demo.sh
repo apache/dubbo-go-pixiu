@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Demonstrates MCP intelligent tool routing (issue #937) against a Pixiu
+# Demonstrates MCP intelligent tool routing against a Pixiu
 # gateway started with router.yaml.
 #
 # The example router.yaml uses an always-on policy rule (no `when`) that denies

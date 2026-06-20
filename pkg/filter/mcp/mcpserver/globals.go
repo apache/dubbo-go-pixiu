@@ -84,7 +84,7 @@ func GetOrInitPlanStoreWithMaxEntries(maxEntries int) *router.SessionPlanStore {
 		globalPlanStore = router.NewSessionPlanStoreWithMaxEntries(maxEntries)
 		sm := GetOrInitSessionManager()
 		planStoreHookOnce.Do(func() {
-			sm.AddSessionRemovedHandler(globalPlanStore.Delete)
+			sm.AddSessionRemovedHandler(globalPlanStore.DeleteSession)
 		})
 		logger.Infof("[dubbo-go-pixiu] mcp server initialized global router plan store")
 	})

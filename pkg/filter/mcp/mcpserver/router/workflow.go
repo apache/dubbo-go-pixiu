@@ -47,6 +47,13 @@ type WorkflowSelector struct {
 	byName    map[string]compiledWorkflow
 }
 
+type workflowResult struct {
+	tools   []model.ToolConfig
+	traces  []DecisionTrace
+	matched bool
+	rule    string
+}
+
 // NewWorkflowSelector compiles the workflow definitions.
 func NewWorkflowSelector(cfgs []model.WorkflowConfig) (*WorkflowSelector, error) {
 	ws := &WorkflowSelector{
@@ -79,9 +86,14 @@ func NewWorkflowSelector(cfgs []model.WorkflowConfig) (*WorkflowSelector, error)
 
 // Filter keeps only tools belonging to the first matching workflow bundle.
 func (w *WorkflowSelector) Filter(tools []model.ToolConfig, sc SelectionContext) ([]model.ToolConfig, []DecisionTrace) {
+	result := w.filter(tools, sc)
+	return result.tools, result.traces
+}
+
+func (w *WorkflowSelector) filter(tools []model.ToolConfig, sc SelectionContext) workflowResult {
 	matched, ok := w.matchWorkflow(sc)
 	if !ok {
-		return tools, nil
+		return workflowResult{tools: tools}
 	}
 
 	kept := make([]model.ToolConfig, 0, len(matched.tools))
@@ -90,16 +102,17 @@ func (w *WorkflowSelector) Filter(tools []model.ToolConfig, sc SelectionContext)
 		if _, in := matched.tools[tool.Name]; in {
 			kept = append(kept, tool)
 		} else {
-			traces = append(traces, DecisionTrace{
-				Tool:   tool.Name,
-				Kept:   false,
-				Stage:  StageWorkflow,
-				Rule:   matched.name,
-				Detail: "not_in_workflow",
-			})
+			if len(traces) < maxDecisionTraceSamples {
+				traces = append(traces, DecisionTrace{
+					Tool:   tool.Name,
+					Stage:  StageWorkflow,
+					Rule:   matched.name,
+					Detail: "not_in_workflow",
+				})
+			}
 		}
 	}
-	return kept, traces
+	return workflowResult{tools: kept, traces: traces, matched: true, rule: matched.name}
 }
 
 // matchWorkflow returns the first workflow whose When clause matches. Workflows
@@ -111,6 +124,15 @@ func (w *WorkflowSelector) matchWorkflow(sc SelectionContext) (compiledWorkflow,
 		}
 	}
 	return compiledWorkflow{}, false
+}
+
+func (w *WorkflowSelector) hasMatchableWorkflows() bool {
+	for _, wf := range w.workflows {
+		if wf.hasWhen {
+			return true
+		}
+	}
+	return false
 }
 
 // bundleTools returns the tool-name set for a named workflow bundle, used by

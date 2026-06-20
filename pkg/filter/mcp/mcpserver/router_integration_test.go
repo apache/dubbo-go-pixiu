@@ -20,7 +20,9 @@ package mcpserver
 import (
 	"fmt"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 )
 
 import (
@@ -94,10 +96,14 @@ func newRoutedFilter(t *testing.T, tools []model.ToolConfig) *MCPServerFilter {
 // listToolsForTenant runs tools/list for a session bound to a tenant and
 // returns the visible tool names.
 func listToolsForTenant(f *MCPServerFilter, sessionID, tenant string) []string {
+	return listToolsWithClaims(f, sessionID, map[string]any{"tenant": tenant, "sub": "u-" + tenant})
+}
+
+func listToolsWithClaims(f *MCPServerFilter, sessionID string, claims map[string]any) []string {
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetSessionID(sessionID)
-	ctx.Params[constant.MCPAuthClaimsParamKey] = map[string]any{"tenant": tenant, "sub": "u-" + tenant}
+	ctx.Params[constant.MCPAuthClaimsParamKey] = claims
 
 	req := mcp.JSONRPCRequest{}
 	req.ID = mcp.NewRequestId(int64(1))
@@ -109,6 +115,27 @@ func listToolsForTenant(f *MCPServerFilter, sessionID, tenant string) []string {
 		names[i] = tool.Name
 	}
 	return names
+}
+
+func newIsolatedRouterFilter(t *testing.T, sm *transport.SessionManager, store *router.SessionPlanStore, tools []model.ToolConfig, routerCfg *model.RouterConfig) *MCPServerFilter {
+	t.Helper()
+
+	reg := NewToolRegistry()
+	require.NoError(t, reg.ReplaceAllTools(tools))
+	sel, err := router.Build(routerCfg, store)
+	require.NoError(t, err)
+	require.NotNil(t, sel)
+
+	return &MCPServerFilter{
+		cfg:               &model.McpServerConfig{ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"}, Endpoint: "/mcp", Tools: tools, Router: routerCfg},
+		registry:          reg,
+		errorHandler:      NewErrorHandler(),
+		responseBuilder:   NewResponseBuilder(),
+		sessionManager:    sm,
+		sseHandler:        transport.NewSSEHandler(sm),
+		contentNegotiator: transport.NewContentNegotiator(),
+		selector:          sel,
+	}
 }
 
 func TestIntegration_TenantIsolation_ListAndCall(t *testing.T) {
@@ -148,10 +175,14 @@ func TestIntegration_TenantIsolation_ListAndCall(t *testing.T) {
 
 // callTool runs tools/call for a session and returns the filter status.
 func callTool(f *MCPServerFilter, sessionID, toolName string) filter.FilterStatus {
+	return callToolWithClaims(f, sessionID, toolName, map[string]any{"tenant": "acme", "sub": "u-acme"})
+}
+
+func callToolWithClaims(f *MCPServerFilter, sessionID, toolName string, claims map[string]any) filter.FilterStatus {
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetSessionID(sessionID)
-	ctx.Params[constant.MCPAuthClaimsParamKey] = map[string]any{"tenant": "acme", "sub": "u-acme"}
+	ctx.Params[constant.MCPAuthClaimsParamKey] = claims
 
 	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsCall)}}
 	req.ID = mcp.NewRequestId(int64(2))
@@ -159,6 +190,57 @@ func callTool(f *MCPServerFilter, sessionID, toolName string) filter.FilterStatu
 	ctx.SetMCPRequestID(req.ID)
 
 	return f.handleToolCall(ctx, req)
+}
+
+func TestIntegration_CrossInstanceSameSessionConcurrentIsolation(t *testing.T) {
+	tools := []model.ToolConfig{
+		{Name: "acme_tool", Cluster: "test-cluster", Request: model.RequestConfig{Method: "GET", Path: "/api/acme"}, Meta: &model.ToolMeta{Tags: []string{"acme"}}},
+		{Name: "globex_tool", Cluster: "test-cluster", Request: model.RequestConfig{Method: "GET", Path: "/api/globex"}, Meta: &model.ToolMeta{Tags: []string{"globex"}}},
+	}
+	store := router.NewSessionPlanStoreWithTTL(time.Minute)
+	defer store.Stop()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	session, err := sm.CreateSession()
+	require.NoError(t, err)
+
+	acmeFilter := newIsolatedRouterFilter(t, sm, store, tools, &model.RouterConfig{
+		Enabled:  true,
+		Fallback: router.FallbackFailClosed,
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
+		}},
+	})
+	globexFilter := newIsolatedRouterFilter(t, sm, store, tools, &model.RouterConfig{
+		Enabled:  true,
+		Fallback: router.FallbackFailClosed,
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"globex"}},
+		}},
+	})
+
+	acmeClaims := map[string]any{"tenant": "acme", "sub": "u-acme"}
+	globexClaims := map[string]any{"tenant": "globex", "sub": "u-globex"}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			assert.Equal(t, []string{"acme_tool"}, listToolsWithClaims(acmeFilter, session.ID, acmeClaims))
+			assert.Equal(t, filter.Continue, callToolWithClaims(acmeFilter, session.ID, "acme_tool", acmeClaims))
+		}()
+		go func() {
+			defer wg.Done()
+			assert.Equal(t, []string{"globex_tool"}, listToolsWithClaims(globexFilter, session.ID, globexClaims))
+			assert.Equal(t, filter.Continue, callToolWithClaims(globexFilter, session.ID, "globex_tool", globexClaims))
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, filter.Stop, callToolWithClaims(acmeFilter, session.ID, "globex_tool", acmeClaims))
+	assert.Equal(t, filter.Stop, callToolWithClaims(globexFilter, session.ID, "acme_tool", globexClaims))
+	assert.Equal(t, 2, store.Len())
 }
 
 func TestIntegration_BypassListDirectCallDenied(t *testing.T) {

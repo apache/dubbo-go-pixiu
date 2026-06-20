@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// Package router implements intelligent MCP tool routing for issue #937.
+// Package router implements deterministic MCP tool routing.
 //
 // It provides a pluggable ToolSelector that the MCP server filter invokes at
 // three hookpoints: OnInitialize (session metadata capture), Select (tools/list
@@ -38,50 +38,77 @@ var ErrToolNotAuthorized = errors.New("tool not authorized for this session")
 
 // Selection mode labels used in plans, logs and metrics.
 const (
-	ModeHybrid         = "hybrid"
+	ModeSelected       = "selected"
 	ModeFallbackBundle = "fallback_bundle"
 	ModeFailClosed     = "fail_closed"
 )
 
 // Decision stage labels.
 const (
+	StageInternal    = "internal"
 	StagePolicy      = "policy"
 	StageWorkflow    = "workflow"
 	StageProgressive = "progressive"
+)
+
+// maxDecisionTraceSamples bounds in-memory drop samples per stage.
+const maxDecisionTraceSamples = 32
+
+// Selection outcome labels describe why the final selected set has its shape.
+const (
+	SelectionOutcomeSelected             = "selected"
+	SelectionOutcomeNoMatch              = "no_match"
+	SelectionOutcomeExplicitDeny         = "explicit_deny"
+	SelectionOutcomeEmptyByConfiguration = "empty_by_configuration"
+	SelectionOutcomeInternalError        = "internal_error"
 )
 
 // SelectionContext is the input to a selection decision, extracted from the
 // MCP context and request body. Fields are best-effort; an empty field simply
 // means the corresponding signal was unavailable.
 type SelectionContext struct {
-	SessionID string         // Mcp-Session-Id
-	Method    string         // "initialize" | "tools/list" | "tools/call"
-	AgentID   string         // from initialize.clientInfo.name or header
-	UserID    string         // from claims.sub
-	Tenant    string         // from claims.tenant
-	Claims    map[string]any // JWT claims already validated by the auth/mcp filter
-	Requested string         // target tool name on tools/call
+	SessionID      string         // Mcp-Session-Id
+	Method         string         // "initialize" | "tools/list" | "tools/call"
+	AgentID        string         // from initialize.clientInfo.name or header
+	UserID         string         // from claims.sub
+	Tenant         string         // from claims.tenant
+	Claims         map[string]any // JWT claims already validated by the auth/mcp filter
+	Requested      string         // target tool name on tools/call
+	CatalogVersion string         // immutable registry snapshot version for this request
+}
+
+// StageCount records bounded per-stage cardinality without retaining one trace
+// per candidate tool.
+type StageCount struct {
+	Input  int `json:"input"`
+	Output int `json:"output"`
 }
 
 // SelectionPlan is the final result of one selection, bound to a session.
 type SelectionPlan struct {
-	SessionID        string          `json:"session_id"`
-	ToolNames        []string        `json:"tool_names"`                   // authorized tool names, stable order
-	VisibleToolNames []string        `json:"visible_tool_names,omitempty"` // tools/list names; nil means same as ToolNames
-	Mode             string          `json:"mode"`                         // ModeHybrid | ModeFallbackBundle | ModeFailClosed
-	Reasons          []DecisionTrace `json:"reasons,omitempty"`            // per-candidate keep/drop reasons, for audit
-	Version          string          `json:"version"`                      // metadata snapshot version (registry + config hash)
-	CreatedAt        int64           `json:"created_at"`                   // unix nano
-	ExpiresAt        int64           `json:"expires_at,omitempty"`         // 0 = session-lifetime valid
-	IdentityHash     string          `json:"-"`                            // validated-claims fingerprint, never logged
-	ProgressiveHash  string          `json:"-"`                            // progressive config fingerprint
-	Expanded         bool            `json:"expanded,omitempty"`           // progressive state for tests/log-free inspection
+	SessionID        string                `json:"session_id"`
+	ToolNames        []string              `json:"tool_names"`                   // authorized tool names, stable order
+	VisibleToolNames []string              `json:"visible_tool_names,omitempty"` // tools/list names; nil means same as ToolNames
+	Mode             string                `json:"mode"`                         // ModeSelected | ModeFallbackBundle | ModeFailClosed
+	Outcome          string                `json:"outcome,omitempty"`            // SelectionOutcome*
+	StageCounts      map[string]StageCount `json:"stage_counts,omitempty"`
+	Reasons          []DecisionTrace       `json:"reasons,omitempty"`  // bounded dropped-tool samples
+	Version          string                `json:"version"`            // metadata snapshot version (registry + config hash)
+	CreatedAt        int64                 `json:"created_at"`         // unix nano
+	IdentityHash     string                `json:"-"`                  // validated-claims fingerprint, never logged
+	ProgressiveHash  string                `json:"-"`                  // progressive config fingerprint
+	Expanded         bool                  `json:"expanded,omitempty"` // progressive state for tests/log-free inspection
+	toolSet          map[string]struct{}   `json:"-"`
 }
 
 // Contains reports whether the plan authorizes the named tool.
 func (p *SelectionPlan) Contains(tool string) bool {
 	if p == nil {
 		return false
+	}
+	if p.toolSet != nil {
+		_, ok := p.toolSet[tool]
+		return ok
 	}
 	for _, t := range p.ToolNames {
 		if t == tool {
@@ -103,11 +130,10 @@ func (p *SelectionPlan) VisibleNames() []string {
 	return p.ToolNames
 }
 
-// DecisionTrace records why a single candidate was kept or dropped at a stage.
+// DecisionTrace records why a single candidate was dropped at a stage.
 // It must never contain PII (no prompt text, no argument values).
 type DecisionTrace struct {
 	Tool   string `json:"tool,omitempty"`
-	Kept   bool   `json:"kept"`
 	Stage  string `json:"stage,omitempty"`  // StagePolicy | StageWorkflow | StageProgressive
 	Rule   string `json:"rule,omitempty"`   // matched rule / workflow name
 	Detail string `json:"detail,omitempty"` // short, non-PII explanation
@@ -129,9 +155,12 @@ type ToolSelector interface {
 	// OnInitialize gives the selector a chance to capture session metadata.
 	// Implementations may treat this as a no-op.
 	OnInitialize(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig) error
+}
 
-	// Name returns the implementation name for logs and metrics.
-	Name() string
+// SelectionFailureHandler is optionally implemented by selectors that can
+// produce a safe fallback plan after Select returns an error.
+type SelectionFailureHandler interface {
+	HandleSelectionFailure(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig, cause error) *SelectionPlan
 }
 
 // CallSuccessResult describes the progressive-disclosure effect of one
@@ -154,6 +183,17 @@ func toolNames(tools []model.ToolConfig) []string {
 		names[i] = t.Name
 	}
 	return names
+}
+
+func toolNameSet(names []string) map[string]struct{} {
+	if len(names) == 0 {
+		return nil
+	}
+	set := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		set[name] = struct{}{}
+	}
+	return set
 }
 
 // visibleToolNames extracts the tools/list view from a candidate set. Tools

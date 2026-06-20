@@ -122,7 +122,7 @@ policy  ->  workflow  ->  progressive
     router:
       enabled: true
       fallback: "bundle_default"      # bundle_default (default) | fail_closed
-      default_bundle: "safe-minimal"  # bundle used when a selection is empty
+      default_bundle: "safe-minimal"  # bundle used for no-match/error fallback
       enforce_on_call: true           # default true: reject calls outside the plan
       stages:
         policy: true                  # default true
@@ -165,7 +165,6 @@ tools:
     request: { method: "GET", path: "/api/users/{id}" }
     meta:
       tags: ["user", "read"]
-      capabilities: ["user.read"]
       risk: "low"                     # low | medium | high (default low)
       discovery_visibility: true      # false => hidden from tools/list, still authorized/callable when selected
 ```
@@ -189,12 +188,12 @@ tools:
 
 #### Fallback
 
-If the pipeline produces an empty selection (e.g. overly strict rules), the `fallback` strategy decides the outcome:
+If no workflow matches, or the selector hits an internal error, the `fallback` strategy decides the outcome:
 
 - **`bundle_default`** (default): expose the `default_bundle` workflow (intersected with the policy-allowed live catalog). `default_bundle` must be non-empty, the workflow list must exist, and the named workflow must contain at least one tool name, or the gateway fails to start.
 - **`fail_closed`**: return no tools. There is intentionally no `fail_open` — a governance-layer failure must never *widen* the exposure surface.
 
-> **Note — fallback does not distinguish "denied" from "over-filtered".** The pipeline treats *any* empty result as the fallback trigger, whether it came from overly strict rules or from a rule that *intentionally* denies every tool for a subject. With `fallback: bundle_default`, a subject you meant to fully lock out will therefore still see the `default_bundle` (intersected with candidates). If you want "deny means an empty tool set," use `fallback: fail_closed`; the `default_bundle` is only ever a safety net, not an authorization boundary.
+Explicit empty selections stay empty: policy denial, a matched workflow with no live tools, or a locked progressive tier with no live tools does not fall back to the default bundle.
 
 #### Enforcement at `tools/call`
 
@@ -206,7 +205,7 @@ Tools with `meta.discovery_visibility: false` are omitted from the plan's `visib
 
 `initialize` always creates a fresh MCP session and returns it in `Mcp-Session-Id`. Clients must not send `Mcp-Session-Id` on `initialize`; Pixiu rejects that with `400` instead of adopting a caller-supplied ID. Later GET SSE streams require an existing session ID: a missing header returns `400`, and an unknown or expired ID returns `404`. Router-enforced POST requests (`tools/list` and `tools/call`) also require a valid session; unknown or expired IDs are never silently replaced with new sessions.
 
-The MCP session owns the router plan, progressive counter, and pending notification state. An SSE stream is only an attachment to that session: disconnecting, canceling the request context, reconnecting, or replacing the active stream does not terminate the MCP session or delete its plan. Sessions and plans are removed by TTL cleanup, server shutdown, or an explicit future termination path.
+The MCP session owns the router plan, progressive counter, and pending notification state. An SSE stream is only an attachment to that session: disconnecting, canceling the request context, reconnecting, or replacing the active stream does not terminate the MCP session or delete its plan. When the transport session is removed, Pixiu deletes all router-instance plans for that session; TTL cleanup is only a stale-entry safety net.
 
 The initialize response advertises `ServerCapabilities.tools.listChanged=true`. This is a server capability; clients do not need to declare `capabilities.tools.listChanged`. When a session's visible tool set changes, Pixiu sends `notifications/tools/list_changed` as a JSON-RPC notification without an `id`. Progressive expansion after the configured successful-call threshold marks a change exactly once. If the client is offline, Pixiu keeps a bounded per-session pending version and flushes the latest change after SSE reconnect. Multiple changes may be coalesced, but the final pending change is not lost.
 

@@ -1,4 +1,4 @@
-# Full Pixiu config demonstrating the MCP intelligent tool router (issue #937).
+# Full Pixiu config demonstrating the MCP intelligent tool router.
 #
 # This config exposes 4 tools across 2 workflows and a tenant-isolation policy.
 # With the router enabled, tools/list is trimmed per session and tools/call is
@@ -82,7 +82,6 @@ static_resources:
                             required: true
                         meta:
                           tags: ["acme", "support", "read"]
-                          capabilities: ["kb.read"]
                           risk: "low"
 
                       - name: "create_ticket"
@@ -97,7 +96,6 @@ static_resources:
                             required: true
                         meta:
                           tags: ["acme", "support", "write"]
-                          capabilities: ["ticket.create"]
                           risk: "medium"
 
                       - name: "internal_dump"

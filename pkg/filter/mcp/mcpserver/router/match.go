@@ -27,7 +27,8 @@ import (
 )
 
 // matcher evaluates a PolicyMatch against a SelectionContext. Regex is
-// precompiled once at construction so matching is allocation-free at runtime.
+// precompiled once at construction so request-time matching stays simple and
+// deterministic.
 type matcher struct {
 	match model.PolicyMatch
 	re    *regexp.Regexp

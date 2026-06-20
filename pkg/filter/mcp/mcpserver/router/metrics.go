@@ -64,7 +64,7 @@ func initMetrics() {
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "selection_latency_ms",
-			Help:      "Tool selection latency in milliseconds.",
+			Help:      "Tool router latency in milliseconds, including cache-hit lookup and pipeline execution.",
 			Buckets:   []float64{0.1, 0.5, 1, 2.5, 5, 10, 25, 50, 100},
 		}, []string{"stage"})
 
@@ -120,7 +120,11 @@ func recordSelection(result, mode string, candidates, selected int, totalMS floa
 		return
 	}
 	selectTotal.WithLabelValues(result, mode).Inc()
-	selectionLatency.WithLabelValues("total").Observe(totalMS)
+	stage := "pipeline"
+	if result == "cached" {
+		stage = "cache_hit"
+	}
+	selectionLatency.WithLabelValues(stage).Observe(totalMS)
 	candidatesCount.Observe(float64(candidates))
 	selectedCount.Observe(float64(selected))
 }

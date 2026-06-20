@@ -205,6 +205,29 @@ func TestToolRegistryListToolsPreservesReplaceOrder(t *testing.T) {
 	assert.Equal(t, []string{"tool2", "tool1", "tool3"}, toolConfigNames(registry.ListTools()))
 }
 
+func TestToolRegistryToolSnapshotVersionAdvancesOnRegistryMutation(t *testing.T) {
+	registry := NewToolRegistry()
+	_, emptyVersion := registry.ToolSnapshot()
+
+	tools := []model.ToolConfig{
+		createTestToolConfig("tool2", "Second tool"),
+		createTestToolConfig("tool1", "First tool"),
+	}
+	require.NoError(t, registry.ReplaceAllTools(tools))
+	snapshot, version1 := registry.ToolSnapshot()
+	assert.Equal(t, []string{"tool2", "tool1"}, toolConfigNames(snapshot))
+	assert.NotEqual(t, emptyVersion, version1)
+
+	require.NoError(t, registry.ReplaceAllTools([]model.ToolConfig{tools[1], tools[0]}))
+	_, version2 := registry.ToolSnapshot()
+	assert.NotEqual(t, version1, version2, "order-only registry replacements still change tools/list behavior")
+
+	tools[0].Description = "Changed"
+	require.NoError(t, registry.ReplaceAllTools(tools))
+	_, version3 := registry.ToolSnapshot()
+	assert.NotEqual(t, version2, version3)
+}
+
 func TestDynamicConsumerMergedToolsStableByServerIDAndConfigOrder(t *testing.T) {
 	registry := NewToolRegistry()
 	sm := transport.NewSessionManager()

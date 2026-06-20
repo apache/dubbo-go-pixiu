@@ -18,9 +18,6 @@
 package mcpserver
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"sync"
@@ -37,9 +34,6 @@ import (
 const (
 	// DefaultDebounceTime default debounce interval
 	DefaultDebounceTime = 500 * time.Millisecond
-
-	// EmptyFingerprint fingerprint value for empty configuration
-	EmptyFingerprint = "00000000"
 )
 
 var errDynamicRouterUpdateUnsupported = fmt.Errorf("dynamic MCP updates support tool catalog changes only; router changes require filter rebuild")
@@ -125,7 +119,8 @@ func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *mod
 
 	// 5. Recalculate merged tools from all servers and apply to registry
 	mergedTools := d.calculateCurrentMergedTools()
-	if err := d.applyMergedConfig(mergedTools); err != nil {
+	mergedFingerprint := d.calculateFingerprint(mergedTools)
+	if err := d.applyMergedConfig(mergedTools, mergedFingerprint); err != nil {
 		// Rollback
 		if oldConfig != nil {
 			d.serverConfigs[serverId] = oldConfig
@@ -148,52 +143,9 @@ func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *mod
 	return nil
 }
 
-// calculateFingerprint calculates a robust fingerprint for the configuration using SHA256
+// calculateFingerprint returns the registry-level tool catalog fingerprint.
 func (d *DynamicConsumer) calculateFingerprint(tools []model.ToolConfig) string {
-	if len(tools) == 0 {
-		return EmptyFingerprint
-	}
-
-	type fingerprintTool struct {
-		name    string
-		cluster string
-		data    string
-	}
-
-	items := make([]fingerprintTool, len(tools))
-	for i, tool := range tools {
-		data, err := json.Marshal(tool)
-		if err != nil {
-			data = []byte(fmt.Sprintf("%#v", tool))
-		}
-		items[i] = fingerprintTool{
-			name:    tool.Name,
-			cluster: tool.Cluster,
-			data:    string(data),
-		}
-	}
-
-	// Sort by stable identity fields and then the full serialized tool body so
-	// duplicate names/clusters still produce order-independent fingerprints.
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].name != items[j].name {
-			return items[i].name < items[j].name
-		}
-		if items[i].cluster != items[j].cluster {
-			return items[i].cluster < items[j].cluster
-		}
-		return items[i].data < items[j].data
-	})
-
-	hash := sha256.New()
-	for _, item := range items {
-		_, _ = hash.Write([]byte(item.data))
-		_, _ = hash.Write([]byte{0})
-	}
-
-	// Return first 8 characters of hex encoded hash
-	fullHash := hex.EncodeToString(hash.Sum(nil))
-	return fullHash[:8]
+	return toolCatalogFingerprint(tools)
 }
 
 // SetDebounceTime dynamically adjusts debounce time
@@ -228,9 +180,9 @@ func (d *DynamicConsumer) ResetDebounceState() {
 	logger.Debugf("[dubbo-go-pixiu] mcp dynamic debounce state reset")
 }
 
-// applyMergedConfig applies merged configuration to the registry
-func (d *DynamicConsumer) applyMergedConfig(tools []model.ToolConfig) error {
-	return d.registry.ReplaceAllTools(tools)
+// applyMergedConfig applies merged configuration to the registry.
+func (d *DynamicConsumer) applyMergedConfig(tools []model.ToolConfig, fingerprint string) error {
+	return d.registry.replaceAllToolsWithFingerprint(tools, fingerprint)
 }
 
 // removeServerConfig removes server configuration
@@ -247,7 +199,8 @@ func (d *DynamicConsumer) removeServerConfig(serverId string) error {
 
 	// Recalculate and apply merged configuration
 	mergedTools := d.calculateCurrentMergedTools()
-	if err := d.applyMergedConfig(mergedTools); err != nil {
+	mergedFingerprint := d.calculateFingerprint(mergedTools)
+	if err := d.applyMergedConfig(mergedTools, mergedFingerprint); err != nil {
 		d.serverConfigs[serverId] = oldConfig
 		d.mu.Unlock()
 		return err

@@ -24,12 +24,15 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync/atomic"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+var routerInstanceCounter uint64
 
 // Build constructs a ToolSelector from the router configuration and a shared
 // session plan store.
@@ -61,13 +64,15 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 	// Register Prometheus collectors on first enabled build.
 	initMetrics()
 
+	cfgHash := configHash(cfg)
 	opts := CompositeOptions{
 		Store:         store,
 		Log:           NewDecisionLogger(cfg.Audit.SampleRate, cfg.Audit.PayloadLogging),
 		Fallback:      cfg.Fallback,
 		DefaultBundle: cfg.DefaultBundle,
 		EnforceOnCall: enforceOnCall(cfg),
-		ConfigHash:    configHash(cfg),
+		ConfigHash:    cfgHash,
+		RouterID:      newRouterInstanceID(cfgHash),
 	}
 
 	wf, err := buildWorkflowSelector(cfg, &opts)
@@ -195,6 +200,14 @@ func firstNonEmpty(a, b string) string {
 		return a
 	}
 	return b
+}
+
+func newRouterInstanceID(cfgHash string) string {
+	n := atomic.AddUint64(&routerInstanceCounter, 1)
+	if cfgHash == "" {
+		return fmt.Sprintf("router-%d", n)
+	}
+	return fmt.Sprintf("router-%d-%s", n, cfgHash)
 }
 
 func validateFallback(fallback string) error {

@@ -92,7 +92,7 @@ func newLifecycleFilterWithSessionManager(t *testing.T, sm *transport.SessionMan
 	sel, err := router.Build(cfg.Router, store)
 	require.NoError(t, err)
 
-	sm.AddSessionRemovedHandler(store.Delete)
+	sm.AddSessionRemovedHandler(store.DeleteSession)
 	return &MCPServerFilter{
 		cfg:               cfg,
 		registry:          reg,
@@ -222,7 +222,8 @@ func TestInitializeWithSuppliedSessionIDRejected(t *testing.T) {
 	defer store.Stop()
 
 	existing, _ := f.sessionManager.CreateSession()
-	store.Set(&router.SelectionPlan{SessionID: existing.ID, ToolNames: []string{"ping"}})
+	manualKey := router.NewPlanKey("manual", existing.ID)
+	store.Set(manualKey, &router.SelectionPlan{SessionID: existing.ID, ToolNames: []string{"ping"}})
 
 	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`)
 	rec, status := postMCP(t, f, existing.ID, body)
@@ -230,7 +231,7 @@ func TestInitializeWithSuppliedSessionIDRejected(t *testing.T) {
 	require.Equal(t, filter.Stop, status)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Equal(t, 1, f.sessionManager.ActiveSessionCount())
-	_, ok := store.Get(existing.ID)
+	_, ok := store.Get(manualKey)
 	assert.True(t, ok, "rejected initialize must not overwrite the existing plan")
 }
 
@@ -301,7 +302,8 @@ func TestExpiredSessionReturns404AndDoesNotCreate(t *testing.T) {
 	defer store.Stop()
 
 	session, _ := f.sessionManager.CreateSession()
-	store.Set(&router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
+	manualKey := router.NewPlanKey("manual", session.ID)
+	store.Set(manualKey, &router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
 	clock.Advance(transport.SessionTimeout + time.Nanosecond)
 
 	getReq := httptest.NewRequest(http.MethodGet, "/mcp", nil)
@@ -319,7 +321,7 @@ func TestExpiredSessionReturns404AndDoesNotCreate(t *testing.T) {
 	require.Equal(t, filter.Stop, status)
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
-	_, ok := store.Get(session.ID)
+	_, ok := store.Get(manualKey)
 	assert.False(t, ok)
 }
 
@@ -360,12 +362,10 @@ func TestSessionPlanRemovedWithTransportSession(t *testing.T) {
 
 	sessionID := initializeSession(t, f)
 	assert.Equal(t, []string{"ping"}, buildToolsListForSession(t, f, sessionID))
-	_, ok := store.Get(sessionID)
-	require.True(t, ok)
+	require.Equal(t, 1, store.Len())
 
 	f.sessionManager.RemoveSession(sessionID)
-	_, ok = store.Get(sessionID)
-	assert.False(t, ok)
+	assert.Equal(t, 0, store.Len())
 
 	status := callTool(f, sessionID, "ping")
 	assert.Equal(t, filter.Stop, status, "removed transport session must not authorize old plan")
@@ -387,15 +387,16 @@ func TestTransportTTLExpiryDeletesPlan(t *testing.T) {
 		CleanupInterval: time.Hour,
 	})
 	defer store.Stop()
-	sm.AddSessionRemovedHandler(store.Delete)
+	sm.AddSessionRemovedHandler(store.DeleteSession)
 
 	session, _ := sm.CreateSession()
-	store.Set(&router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
+	manualKey := router.NewPlanKey("manual", session.ID)
+	store.Set(manualKey, &router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
 
 	clock.Advance(transport.SessionTimeout + time.Nanosecond)
 	_, exists := sm.Session(session.ID)
 	assert.False(t, exists)
-	_, ok := store.Get(session.ID)
+	_, ok := store.Get(manualKey)
 	assert.False(t, ok)
 }
 

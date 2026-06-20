@@ -47,6 +47,12 @@ func (f *MCPServerFilter) buildSelectionContext(ctx *MCPContext, method, request
 	return sc
 }
 
+func (f *MCPServerFilter) buildSelectionContextWithCatalog(ctx *MCPContext, method, requested, catalogVersion string) router.SelectionContext {
+	sc := f.buildSelectionContext(ctx, method, requested)
+	sc.CatalogVersion = catalogVersion
+	return sc
+}
+
 // mcpAuthClaims returns the JWT claims propagated by the auth/mcp filter, or
 // nil when no claims are present (e.g. auth filter not in the chain).
 func mcpAuthClaims(ctx *MCPContext) map[string]any {
@@ -83,4 +89,12 @@ func filterByPlan(toolCfgs []model.ToolConfig, plan *router.SelectionPlan) []mod
 		}
 	}
 	return out
+}
+
+func (f *MCPServerFilter) handleSelectionFailure(ctx *MCPContext, sc router.SelectionContext, candidates []model.ToolConfig, cause error) []model.ToolConfig {
+	if handler, ok := f.selector.(router.SelectionFailureHandler); ok {
+		plan := handler.HandleSelectionFailure(ctx.Ctx, sc, candidates, cause)
+		return filterByPlan(candidates, plan)
+	}
+	return nil
 }

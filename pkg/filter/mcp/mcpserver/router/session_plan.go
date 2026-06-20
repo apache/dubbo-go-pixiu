@@ -24,6 +24,21 @@ import (
 
 type nowFunc func() time.Time
 
+// PlanKey isolates cached plan state by router instance and MCP session.
+type PlanKey struct {
+	RouterID  string
+	SessionID string
+}
+
+// NewPlanKey constructs a key for one router instance/session pair.
+func NewPlanKey(routerID, sessionID string) PlanKey {
+	return PlanKey{RouterID: routerID, SessionID: sessionID}
+}
+
+func (k PlanKey) valid() bool {
+	return k.SessionID != ""
+}
+
 // sessionEntry bundles the immutable enforcement plan with the progressive
 // state that is safe to retain for the session lifetime.
 type sessionEntry struct {
@@ -43,13 +58,13 @@ type SessionPlanStoreOptions struct {
 	CleanupInterval time.Duration
 }
 
-// SessionPlanStore is an in-process, concurrency-safe store of per-session
-// selection plans keyed by Mcp-Session-Id. Transport session removal deletes
-// entries immediately through the mcpserver-registered hook; TTL is a safety
-// net for stale entries that survive abnormal shutdown paths.
+// SessionPlanStore is an in-process, concurrency-safe store of selection plans
+// keyed by router instance plus Mcp-Session-Id. Transport session removal
+// deletes entries immediately through the mcpserver-registered hook; TTL is a
+// safety net for stale entries that survive abnormal shutdown paths.
 type SessionPlanStore struct {
 	mu      sync.RWMutex
-	entries map[string]*sessionEntry
+	entries map[PlanKey]*sessionEntry
 	ttl     time.Duration
 	max     int
 	now     nowFunc
@@ -104,7 +119,7 @@ func NewSessionPlanStoreWithOptions(opts SessionPlanStoreOptions) *SessionPlanSt
 	}
 
 	s := &SessionPlanStore{
-		entries: make(map[string]*sessionEntry),
+		entries: make(map[PlanKey]*sessionEntry),
 		ttl:     ttl,
 		max:     maxEntries,
 		now:     now,
@@ -116,13 +131,13 @@ func NewSessionPlanStoreWithOptions(opts SessionPlanStoreOptions) *SessionPlanSt
 
 // Get returns an immutable copy of the plan for a session, or (nil, false) if
 // absent. Callers cannot mutate store-owned slices or maps through the result.
-func (s *SessionPlanStore) Get(sessionID string) (*SelectionPlan, bool) {
-	if sessionID == "" {
+func (s *SessionPlanStore) Get(key PlanKey) (*SelectionPlan, bool) {
+	if !key.valid() {
 		return nil, false
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	e, ok := s.entries[sessionID]
+	e, ok := s.entries[key]
 	if !ok || e.plan == nil {
 		return nil, false
 	}
@@ -132,22 +147,23 @@ func (s *SessionPlanStore) Get(sessionID string) (*SelectionPlan, bool) {
 // Set stores or replaces the plan for its session. Successful-call state is
 // preserved only while the verified identity and progressive config hashes are
 // unchanged; identity/config changes reset progressive disclosure.
-func (s *SessionPlanStore) Set(plan *SelectionPlan) {
-	if plan == nil || plan.SessionID == "" {
+func (s *SessionPlanStore) Set(key PlanKey, plan *SelectionPlan) {
+	if !key.valid() || plan == nil {
 		return
 	}
 	now := s.now()
 	stored := clonePlan(plan, false)
 	stored.Reasons = nil
+	stored.SessionID = key.SessionID
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	e, ok := s.entries[stored.SessionID]
+	e, ok := s.entries[key]
 	if !ok {
 		s.evictForInsertLocked(now)
 		e = &sessionEntry{}
-		s.entries[stored.SessionID] = e
+		s.entries[key] = e
 	} else if e.identityHash != stored.IdentityHash || e.progressiveHash != stored.ProgressiveHash {
 		e.callCount = 0
 		e.expanded = false
@@ -161,32 +177,54 @@ func (s *SessionPlanStore) Set(plan *SelectionPlan) {
 	s.publishActiveLocked()
 }
 
-// Delete removes a session's plan and progressive state. It is used by the
-// transport session removal hook as well as explicit test cleanup.
-func (s *SessionPlanStore) Delete(sessionID string) {
-	s.delete(sessionID, "session_end")
+// Delete removes one router instance's plan and progressive state.
+func (s *SessionPlanStore) Delete(key PlanKey) {
+	s.delete(key, "explicit")
 }
 
-func (s *SessionPlanStore) delete(sessionID, reason string) {
+func (s *SessionPlanStore) delete(key PlanKey, reason string) {
+	if !key.valid() {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.entries[key]; !ok {
+		return
+	}
+	delete(s.entries, key)
+	recordPlanEvicted(reason)
+	s.publishActiveLocked()
+}
+
+// DeleteSession removes all router-instance state for a transport session. It
+// is the method registered with SessionManager teardown callbacks.
+func (s *SessionPlanStore) DeleteSession(sessionID string) {
 	if sessionID == "" {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.entries[sessionID]; !ok {
-		return
+	removed := 0
+	for key := range s.entries {
+		if key.SessionID == sessionID {
+			delete(s.entries, key)
+			removed++
+		}
 	}
-	delete(s.entries, sessionID)
-	recordPlanEvicted(reason)
-	s.publishActiveLocked()
+	for i := 0; i < removed; i++ {
+		recordPlanEvicted("session_end")
+	}
+	if removed > 0 {
+		s.publishActiveLocked()
+	}
 }
 
 // RecordCallSuccess records a successful tool call and returns whether this
 // call crossed the progressive threshold. The threshold update and transition
 // check happen under one lock, so concurrent calls can observe at most one
 // transition.
-func (s *SessionPlanStore) RecordCallSuccess(sessionID, requested string, expandAfter int) CallSuccessResult {
-	if sessionID == "" || requested == "" || expandAfter <= 0 {
+func (s *SessionPlanStore) RecordCallSuccess(key PlanKey, requested string, expandAfter int) CallSuccessResult {
+	if !key.valid() || requested == "" || expandAfter <= 0 {
 		return CallSuccessResult{}
 	}
 	now := s.now()
@@ -194,7 +232,7 @@ func (s *SessionPlanStore) RecordCallSuccess(sessionID, requested string, expand
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	e, ok := s.entries[sessionID]
+	e, ok := s.entries[key]
 	if !ok || e.plan == nil || !e.plan.Contains(requested) {
 		return CallSuccessResult{}
 	}
@@ -214,10 +252,10 @@ func (s *SessionPlanStore) RecordCallSuccess(sessionID, requested string, expand
 // Mismatched identity or progressive config returns the reset state without
 // mutating the store; Set performs the reset atomically when the new plan is
 // published.
-func (s *SessionPlanStore) CallState(sessionID, identityHash, progressiveHash string) (int64, bool) {
+func (s *SessionPlanStore) CallState(key PlanKey, identityHash, progressiveHash string) (int64, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	e, ok := s.entries[sessionID]
+	e, ok := s.entries[key]
 	if !ok || e.identityHash != identityHash || e.progressiveHash != progressiveHash {
 		return 0, false
 	}
@@ -225,10 +263,10 @@ func (s *SessionPlanStore) CallState(sessionID, identityHash, progressiveHash st
 }
 
 // CallCount returns the recorded successful-call count for a session.
-func (s *SessionPlanStore) CallCount(sessionID string) int64 {
+func (s *SessionPlanStore) CallCount(key PlanKey) int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if e, ok := s.entries[sessionID]; ok {
+	if e, ok := s.entries[key]; ok {
 		return e.callCount
 	}
 	return 0
@@ -265,7 +303,7 @@ func (s *SessionPlanStore) Stop() {
 	s.once.Do(func() {
 		close(s.stopCh)
 		s.mu.Lock()
-		s.entries = make(map[string]*sessionEntry)
+		s.entries = make(map[PlanKey]*sessionEntry)
 		s.publishActiveLocked()
 		s.mu.Unlock()
 	})
@@ -302,28 +340,35 @@ func (s *SessionPlanStore) evictForInsertLocked(now time.Time) {
 
 func (s *SessionPlanStore) evictExpiredLocked(now time.Time) {
 	cutoff := now.Add(-s.ttl)
-	for id, e := range s.entries {
+	for key, e := range s.entries {
 		if e.updatedAt.Before(cutoff) {
-			delete(s.entries, id)
+			delete(s.entries, key)
 			recordPlanEvicted("ttl")
 		}
 	}
 }
 
 func (s *SessionPlanStore) evictOldestLocked(reason string) {
-	var oldestID string
+	var oldestKey PlanKey
 	var oldest time.Time
-	for id, e := range s.entries {
-		if oldestID == "" || e.updatedAt.Before(oldest) || (e.updatedAt.Equal(oldest) && id < oldestID) {
-			oldestID = id
+	for key, e := range s.entries {
+		if !oldestKey.valid() || e.updatedAt.Before(oldest) || (e.updatedAt.Equal(oldest) && planKeyLess(key, oldestKey)) {
+			oldestKey = key
 			oldest = e.updatedAt
 		}
 	}
-	if oldestID == "" {
+	if !oldestKey.valid() {
 		return
 	}
-	delete(s.entries, oldestID)
+	delete(s.entries, oldestKey)
 	recordPlanEvicted(reason)
+}
+
+func planKeyLess(a, b PlanKey) bool {
+	if a.RouterID != b.RouterID {
+		return a.RouterID < b.RouterID
+	}
+	return a.SessionID < b.SessionID
 }
 
 func (s *SessionPlanStore) publishActiveLocked() {
@@ -337,6 +382,8 @@ func clonePlan(plan *SelectionPlan, includeReasons bool) *SelectionPlan {
 	cp := *plan
 	cp.ToolNames = copyStrings(plan.ToolNames)
 	cp.VisibleToolNames = copyStrings(plan.VisibleToolNames)
+	cp.StageCounts = copyStageCounts(plan.StageCounts)
+	cp.toolSet = toolNameSet(cp.ToolNames)
 	if includeReasons {
 		cp.Reasons = copyDecisionTraces(plan.Reasons)
 	} else {
@@ -360,5 +407,16 @@ func copyDecisionTraces(values []DecisionTrace) []DecisionTrace {
 	}
 	cp := make([]DecisionTrace, len(values))
 	copy(cp, values)
+	return cp
+}
+
+func copyStageCounts(values map[string]StageCount) map[string]StageCount {
+	if values == nil {
+		return nil
+	}
+	cp := make(map[string]StageCount, len(values))
+	for k, v := range values {
+		cp[k] = v
+	}
 	return cp
 }
