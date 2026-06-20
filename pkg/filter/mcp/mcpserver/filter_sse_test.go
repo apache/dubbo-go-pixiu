@@ -562,35 +562,14 @@ func TestSendServerRequest(t *testing.T) {
 // Helper functions
 
 func createTestFilter(t *testing.T) *MCPServerFilter {
-	cfg := &model.McpServerConfig{
-		ServerInfo: model.ServerInfo{
-			Name:    "Test Server",
-			Version: "1.0.0",
-		},
-		Endpoint: "/mcp",
-		Tools:    []model.ToolConfig{},
-		Router:   &model.RouterConfig{},
-	}
-
-	factory := &FilterFactory{cfg: cfg}
-	if err := factory.Apply(); err != nil {
-		t.Fatalf("Failed to apply filter factory: %v", err)
-	}
-
-	return &MCPServerFilter{
-		cfg:               cfg,
-		registry:          factory.runtime.registry,
-		errorHandler:      NewErrorHandler(),
-		responseBuilder:   NewResponseBuilder(),
-		sessionManager:    factory.runtime.sessionManager,
-		sseHandler:        factory.runtime.sseHandler,
-		contentNegotiator: transport.NewContentNegotiator(),
-		selector:          factory.runtime.selector,
-		governanceEnabled: factory.runtime.governanceEnabled,
-	}
+	return createTestFilterWithRouter(t, &model.RouterConfig{})
 }
 
 func createNoRouterTestFilter(t *testing.T) *MCPServerFilter {
+	return createTestFilterWithRouter(t, nil)
+}
+
+func createTestFilterWithRouter(t *testing.T, routerCfg *model.RouterConfig) *MCPServerFilter {
 	cfg := &model.McpServerConfig{
 		ServerInfo: model.ServerInfo{
 			Name:    "Test Server",
@@ -598,6 +577,7 @@ func createNoRouterTestFilter(t *testing.T) *MCPServerFilter {
 		},
 		Endpoint: "/mcp",
 		Tools:    []model.ToolConfig{},
+		Router:   routerCfg,
 	}
 
 	factory := &FilterFactory{cfg: cfg}
