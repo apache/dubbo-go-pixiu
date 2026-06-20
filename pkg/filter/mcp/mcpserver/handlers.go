@@ -52,21 +52,29 @@ const (
 	toolsListChangedMethod = "notifications/tools/list_changed"
 )
 
+type initializeParams struct {
+	ProtocolVersion string                 `json:"protocolVersion"`
+	ClientInfo      initializeClientInfo   `json:"clientInfo"`
+	Capabilities    initializeCapabilities `json:"capabilities,omitempty"`
+}
+
+type initializeClientInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+type initializeCapabilities struct {
+	Tools *initializeToolsCapabilities `json:"tools,omitempty"`
+}
+
+type initializeToolsCapabilities struct {
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
 // handleInitialize handles the initialize method
 func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
 	// Parse client's protocol version from request params
-	var initParams struct {
-		ProtocolVersion string `json:"protocolVersion"`
-		ClientInfo      struct {
-			Name    string `json:"name"`
-			Version string `json:"version"`
-		} `json:"clientInfo"`
-		Capabilities struct {
-			Tools *struct {
-				ListChanged bool `json:"listChanged,omitempty"`
-			} `json:"tools,omitempty"`
-		} `json:"capabilities,omitempty"`
-	}
+	var initParams initializeParams
 
 	if req.Params != nil {
 		if paramsBytes, err := json.Marshal(req.Params); err == nil {

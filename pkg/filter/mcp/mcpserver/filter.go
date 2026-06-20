@@ -66,6 +66,23 @@ func (f *FilterFactory) Apply() error {
 	// Initialize tool registry (singleton)
 	f.registry = GetOrInitRegistry()
 
+	if err := f.registerConfiguredTools(); err != nil {
+		return err
+	}
+	if err := f.registerConfiguredResources(); err != nil {
+		return err
+	}
+	if err := f.registerConfiguredResourceTemplates(); err != nil {
+		return err
+	}
+	if err := f.registerConfiguredPrompts(); err != nil {
+		return err
+	}
+
+	return f.configureSelector()
+}
+
+func (f *FilterFactory) registerConfiguredTools() error {
 	if err := router.ValidateTools(f.cfg.Tools); err != nil {
 		return fmt.Errorf("invalid mcp tool router metadata: %v", err)
 	}
@@ -78,6 +95,10 @@ func (f *FilterFactory) Apply() error {
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered tool '%s' -> cluster:%s", tool.Name, tool.Cluster)
 	}
 
+	return nil
+}
+
+func (f *FilterFactory) registerConfiguredResources() error {
 	// Register statically configured resources
 	for _, resource := range f.cfg.Resources {
 		if err := f.registry.RegisterResource(resource); err != nil {
@@ -86,6 +107,10 @@ func (f *FilterFactory) Apply() error {
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered resource '%s' -> uri:%s", resource.Name, resource.URI)
 	}
 
+	return nil
+}
+
+func (f *FilterFactory) registerConfiguredResourceTemplates() error {
 	// Register statically configured resource templates
 	for _, template := range f.cfg.ResourceTemplates {
 		if err := f.registry.RegisterResourceTemplate(template); err != nil {
@@ -94,6 +119,10 @@ func (f *FilterFactory) Apply() error {
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered template '%s' -> pattern:%s", template.Name, template.URITemplate)
 	}
 
+	return nil
+}
+
+func (f *FilterFactory) registerConfiguredPrompts() error {
 	// Register statically configured prompts
 	for _, prompt := range f.cfg.Prompts {
 		if err := f.registry.RegisterPrompt(prompt); err != nil {
@@ -102,6 +131,10 @@ func (f *FilterFactory) Apply() error {
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered prompt '%s'", prompt.Name)
 	}
 
+	return nil
+}
+
+func (f *FilterFactory) configureSelector() error {
 	f.selector = nil
 	if f.cfg.Router != nil && f.cfg.Router.Enabled {
 		// Build the tool selector lazily so disabled routing preserves the
