@@ -42,7 +42,8 @@ import (
 // stubSelector is a controllable ToolSelector for hookpoint tests.
 type stubSelector struct {
 	keep                []string // tool names to keep in Select; nil = keep all
-	authorizeErr        error    // returned by AuthorizeCall
+	selectErr           error
+	authorizeErr        error // returned by AuthorizeCall
 	onInitCalled        bool
 	selectCalled        bool
 	authorizeCandidates []model.ToolConfig
@@ -51,6 +52,9 @@ type stubSelector struct {
 
 func (s *stubSelector) Select(_ context.Context, sc router.SelectionContext, candidates []model.ToolConfig) (*router.SelectionPlan, error) {
 	s.selectCalled = true
+	if s.selectErr != nil {
+		return nil, s.selectErr
+	}
 	names := s.keep
 	if names == nil {
 		names = make([]string, len(candidates))
@@ -71,22 +75,26 @@ func (s *stubSelector) OnInitialize(_ context.Context, _ router.SelectionContext
 	return nil
 }
 
-func (s *stubSelector) RecordCallSuccess(_ context.Context, sc router.SelectionContext) error {
+func (s *stubSelector) RecordCallSuccess(_ context.Context, sc router.SelectionContext) (router.CallSuccessResult, error) {
 	s.recordSuccessCalls = append(s.recordSuccessCalls, sc)
-	return nil
+	return router.CallSuccessResult{Count: int64(len(s.recordSuccessCalls))}, nil
 }
 
 func (s *stubSelector) Name() string { return "stub" }
 
 func buildToolsListResult(t *testing.T, f *MCPServerFilter, tools []model.ToolConfig) *mcp.ListToolsResult {
 	t.Helper()
-	f.registry.ReplaceAllTools(tools)
+	require.NoError(t, f.registry.ReplaceAllTools(tools))
 
 	req := mcp.JSONRPCRequest{}
 	req.ID = mcp.NewRequestId(int64(1))
 
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+	if f.selector != nil {
+		session, _ := f.sessionManager.EnsureSession("")
+		ctx.SetSessionID(session.ID)
+	}
 
 	resp := f.buildToolsListResponseObject(ctx, req)
 	result, ok := resp.Result.(*mcp.ListToolsResult)
@@ -223,6 +231,24 @@ func TestFilterFactory_InvalidToolRiskFailsFast(t *testing.T) {
 	assert.ErrorContains(t, err, "unsupported risk")
 }
 
+func TestFilterFactory_DuplicateStaticToolFailsFast(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools: []model.ToolConfig{
+			createTestToolConfig("dup", "A"),
+			createTestToolConfig("dup", "B"),
+		},
+	}
+	factory := &FilterFactory{cfg: cfg}
+
+	err := factory.Apply()
+	assert.ErrorContains(t, err, "duplicate tool name")
+}
+
 // TestToolsList_SelectorTrimsTools confirms the Select hookpoint trims the set.
 func TestToolsList_SelectorTrimsTools(t *testing.T) {
 	f := createTestFilter(t)
@@ -232,14 +258,23 @@ func TestToolsList_SelectorTrimsTools(t *testing.T) {
 	assert.Equal(t, "alpha", result.Tools[0].Name)
 }
 
+func TestToolsList_SelectorErrorFailClosed(t *testing.T) {
+	f := createTestFilter(t)
+	f.selector = &stubSelector{selectErr: errors.New("selector exploded")}
+
+	result := buildToolsListResult(t, f, alphaBetaTools())
+
+	require.Empty(t, result.Tools)
+}
+
 // TestToolCall_SelectorDeniesUnauthorized confirms AuthorizeCall rejection
 // produces a tool call error and the backend is never reached.
 func TestToolCall_SelectorDeniesUnauthorized(t *testing.T) {
 	f := createTestFilter(t)
 	f.selector = &stubSelector{authorizeErr: errors.New("denied")}
-	f.registry.ReplaceAllTools([]model.ToolConfig{
+	require.NoError(t, f.registry.ReplaceAllTools([]model.ToolConfig{
 		createTestToolConfig("get_user", "get user"),
-	})
+	}))
 
 	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsCall)}}
 	req.ID = mcp.NewRequestId(int64(7))
@@ -248,6 +283,8 @@ func TestToolCall_SelectorDeniesUnauthorized(t *testing.T) {
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPRequestID(req.ID)
+	session, _ := f.sessionManager.EnsureSession("")
+	ctx.SetSessionID(session.ID)
 
 	status := f.handleToolCall(ctx, req)
 
@@ -256,13 +293,35 @@ func TestToolCall_SelectorDeniesUnauthorized(t *testing.T) {
 	assert.Nil(t, ctx.Route)
 }
 
+func TestToolCall_InvalidRouterSessionDeniedBeforeLookup(t *testing.T) {
+	f := createTestFilter(t)
+	f.selector = &stubSelector{}
+	require.NoError(t, f.registry.ReplaceAllTools([]model.ToolConfig{
+		createTestToolConfig("get_user", "get user"),
+	}))
+
+	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsCall)}}
+	req.ID = mcp.NewRequestId(int64(17))
+	req.Params = map[string]any{"name": "get_user", "arguments": map[string]any{}}
+
+	httpReq := httptest.NewRequest("POST", "/mcp", nil)
+	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+	ctx.SetMCPRequestID(req.ID)
+	ctx.SetSessionID("unknown-session")
+
+	status := f.handleToolCall(ctx, req)
+
+	assert.Equal(t, filter.Stop, status)
+	assert.Nil(t, ctx.Route)
+}
+
 func TestPostToolCall_WithSSEAcceptStillAuthorizes(t *testing.T) {
 	f := createTestFilter(t)
 	sel := &stubSelector{authorizeErr: errors.New("denied")}
 	f.selector = sel
-	f.registry.ReplaceAllTools([]model.ToolConfig{
+	require.NoError(t, f.registry.ReplaceAllTools([]model.ToolConfig{
 		createTestToolConfig("get_user", "get user"),
-	})
+	}))
 	session, _ := f.sessionManager.EnsureSession("")
 
 	reqBody := []byte(`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"get_user","arguments":{}}}`)
@@ -286,9 +345,9 @@ func TestToolCall_SelectorAllowsAuthorized(t *testing.T) {
 	f := createTestFilter(t)
 	sel := &stubSelector{} // authorizeErr nil = allow
 	f.selector = sel
-	f.registry.ReplaceAllTools([]model.ToolConfig{
+	require.NoError(t, f.registry.ReplaceAllTools([]model.ToolConfig{
 		createTestToolConfig("get_user", "get user"),
-	})
+	}))
 
 	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsCall)}}
 	req.ID = mcp.NewRequestId(int64(8))
@@ -297,6 +356,8 @@ func TestToolCall_SelectorAllowsAuthorized(t *testing.T) {
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPRequestID(req.ID)
+	session, _ := f.sessionManager.EnsureSession("")
+	ctx.SetSessionID(session.ID)
 
 	f.handleToolCall(ctx, req)
 

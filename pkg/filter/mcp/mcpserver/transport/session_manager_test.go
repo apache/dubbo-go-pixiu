@@ -18,6 +18,8 @@
 package transport
 
 import (
+	"io"
+	"sync"
 	"testing"
 	"time"
 )
@@ -151,6 +153,90 @@ func TestRemoveSession(t *testing.T) {
 	sm.RemoveSession("non-existent-id")
 }
 
+func TestSessionRemovedHandlerCalledOutsideLock(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.EnsureSession("")
+	done := make(chan struct{})
+	sm.AddSessionRemovedHandler(func(string) {
+		// This would deadlock if the callback ran while the manager lock was held.
+		_ = sm.ActiveSessionCount()
+		close(done)
+	})
+
+	sm.RemoveSession(session.ID)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("session removal callback did not complete")
+	}
+}
+
+func TestSessionRemovedHandlerPanicDoesNotBreakCleanup(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.EnsureSession("")
+	called := make(chan string, 1)
+	sm.AddSessionRemovedHandler(func(string) {
+		panic("boom")
+	})
+	sm.AddSessionRemovedHandler(func(id string) {
+		called <- id
+	})
+
+	sm.RemoveSession(session.ID)
+
+	select {
+	case id := <-called:
+		if id != session.ID {
+			t.Fatalf("unexpected callback session id %s", id)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("second callback was not invoked after panic")
+	}
+}
+
+func TestRemoveSessionClosesBlockedSSEWrite(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.EnsureSession("")
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	session.SetPipeWriter(writer)
+
+	writeDone := make(chan error, 1)
+	go func() {
+		writeDone <- session.WriteSSEData([]byte("data: blocked\n\n"), time.Now())
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	removeDone := make(chan struct{})
+	go func() {
+		sm.RemoveSession(session.ID)
+		close(removeDone)
+	}()
+
+	select {
+	case <-removeDone:
+	case <-time.After(time.Second):
+		t.Fatal("RemoveSession blocked while an SSE write was pending")
+	}
+
+	select {
+	case err := <-writeDone:
+		if err == nil {
+			t.Fatal("blocked write should fail after session close")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("blocked write did not unblock after session close")
+	}
+}
+
 func TestSessionCleanup(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
@@ -171,6 +257,41 @@ func TestSessionCleanup(t *testing.T) {
 	_, exists := sm.Session(sessionID)
 	if exists {
 		t.Error("Expired session should be cleaned up")
+	}
+}
+
+func TestSessionExpiredLookupRemovesAndCallsHandler(t *testing.T) {
+	var mu sync.Mutex
+	now := time.Unix(100, 0)
+	sm := NewSessionManagerWithNow(func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		return now
+	})
+	defer sm.Stop()
+
+	session, _ := sm.EnsureSession("")
+	removed := make(chan string, 1)
+	sm.AddSessionRemovedHandler(func(id string) {
+		removed <- id
+	})
+
+	mu.Lock()
+	now = now.Add(SessionTimeout + time.Nanosecond)
+	mu.Unlock()
+
+	_, exists := sm.Session(session.ID)
+	if exists {
+		t.Fatal("expired session should not be returned")
+	}
+
+	select {
+	case id := <-removed:
+		if id != session.ID {
+			t.Fatalf("unexpected removed session id %s", id)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected removal callback for expired session")
 	}
 }
 
@@ -212,6 +333,33 @@ func TestSessionManager_Stop(t *testing.T) {
 		// Expected
 	default:
 		t.Error("stopCh should be closed")
+	}
+}
+
+func TestSessionManagerStopCallsRemovalHandlers(t *testing.T) {
+	sm := NewSessionManager()
+
+	session1, _ := sm.EnsureSession("")
+	session2, _ := sm.EnsureSession("")
+	removed := make(chan string, 2)
+	sm.AddSessionRemovedHandler(func(id string) {
+		removed <- id
+	})
+
+	sm.Stop()
+	sm.Stop()
+
+	got := map[string]bool{}
+	for i := 0; i < 2; i++ {
+		select {
+		case id := <-removed:
+			got[id] = true
+		case <-time.After(time.Second):
+			t.Fatal("expected removal callback on Stop")
+		}
+	}
+	if !got[session1.ID] || !got[session2.ID] {
+		t.Fatalf("missing stopped sessions in callback set: %#v", got)
 	}
 }
 

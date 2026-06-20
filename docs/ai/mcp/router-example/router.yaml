@@ -65,7 +65,7 @@ static_resources:
                           tools: ["health_check"]
                       audit:
                         sample_rate: 1.0
-                        payload_logging: true   # enables loopback GET /__mcp/router/plan/{id}
+                        payload_logging: true   # include bounded denied-tool samples in decision logs
 
                     tools:
                       - name: "search_kb"

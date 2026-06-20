@@ -50,9 +50,9 @@ func NewProgressiveGate(cfg model.ProgressiveConfig, wf *WorkflowSelector) *Prog
 
 // Apply restricts the candidate set to the initial bundle until the session has
 // accrued enough successful calls, after which the full set passes through.
-func (g *ProgressiveGate) Apply(tools []model.ToolConfig, sc SelectionContext, store *SessionPlanStore) ([]model.ToolConfig, []DecisionTrace) {
+func (g *ProgressiveGate) Apply(tools []model.ToolConfig, expanded bool) ([]model.ToolConfig, []DecisionTrace) {
 	// Once expanded, expose the full set.
-	if store.CallCount(sc.SessionID) >= g.expandAfter {
+	if expanded {
 		return tools, nil
 	}
 

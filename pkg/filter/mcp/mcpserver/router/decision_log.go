@@ -32,9 +32,9 @@ import (
 const maxDeniedSamples = 10
 
 // DecisionLogger emits a structured, PII-safe record for each selection. It
-// never logs prompt text or tool arguments; only counts, the mode, and per-stage
-// in/out tallies are emitted by default. Denied tool samples require explicit
-// payload logging.
+// never logs session IDs, identity claims, prompt text, tool arguments, or
+// request payloads. Only counts, the mode, and per-stage drop tallies are
+// emitted by default. Denied tool samples require explicit payload logging.
 type DecisionLogger struct {
 	sampleRate     float64
 	payloadLogging bool
@@ -50,9 +50,6 @@ func NewDecisionLogger(sampleRate float64, payloadLogging bool) *DecisionLogger 
 // decisionRecord is the JSON shape emitted to the log.
 type decisionRecord struct {
 	Event           string         `json:"event"`
-	SessionID       string         `json:"session_id"`
-	AgentID         string         `json:"agent_id,omitempty"`
-	Tenant          string         `json:"tenant,omitempty"`
 	Method          string         `json:"method"`
 	MetadataVersion string         `json:"metadata_version"`
 	Candidates      int            `json:"candidates"`
@@ -83,9 +80,6 @@ func (d *DecisionLogger) Log(sc SelectionContext, plan *SelectionPlan, candidate
 func (d *DecisionLogger) record(sc SelectionContext, plan *SelectionPlan, candidates int) decisionRecord {
 	rec := decisionRecord{
 		Event:           "mcp_router_decision",
-		SessionID:       sc.SessionID,
-		AgentID:         sc.AgentID,
-		Tenant:          sc.Tenant,
 		Method:          sc.Method,
 		MetadataVersion: plan.Version,
 		Candidates:      candidates,
@@ -139,7 +133,8 @@ func stageDropCounts(traces []DecisionTrace) map[string]int {
 }
 
 // deniedSamples returns up to maxDeniedSamples names of dropped tools. Tool
-// names are configuration identifiers, not PII, so they are safe to log.
+// names can disclose governance intent, so callers must only include them when
+// payload logging is explicitly enabled.
 func deniedSamples(traces []DecisionTrace) []string {
 	var out []string
 	for _, t := range traces {

@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -195,11 +196,11 @@ func TestApplyMcpServerConfig(t *testing.T) {
 
 func TestToolRegistryListToolsPreservesReplaceOrder(t *testing.T) {
 	registry := NewToolRegistry()
-	registry.ReplaceAllTools([]model.ToolConfig{
+	require.NoError(t, registry.ReplaceAllTools([]model.ToolConfig{
 		createTestToolConfig("tool2", "Second tool"),
 		createTestToolConfig("tool1", "First tool"),
 		createTestToolConfig("tool3", "Third tool"),
-	})
+	}))
 
 	assert.Equal(t, []string{"tool2", "tool1", "tool3"}, toolConfigNames(registry.ListTools()))
 }
@@ -497,6 +498,65 @@ func TestApplyMcpServerConfig_MetadataChangeIsNotSkipped(t *testing.T) {
 	require.Len(t, tools, 1)
 	require.NotNil(t, tools[0].Meta)
 	assert.Equal(t, "high", tools[0].Meta.Risk)
+}
+
+func TestApplyMcpServerConfig_RejectsDynamicRouterUpdateAtomically(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+
+	initial := createTestMcpServerConfig([]model.ToolConfig{createTestToolConfig("tool1", "First tool")})
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("default", initial))
+
+	routerOnly := createTestMcpServerConfig(nil)
+	routerOnly.Router = &model.RouterConfig{Enabled: true, Fallback: router.FallbackFailClosed}
+	err := consumer.ApplyMcpServerConfigByServer("default", routerOnly)
+	assert.ErrorContains(t, err, "tool catalog changes only")
+	assert.Equal(t, []string{"tool1"}, toolConfigNames(registry.ListTools()))
+
+	toolsAndRouter := createTestMcpServerConfig([]model.ToolConfig{createTestToolConfig("tool2", "Second tool")})
+	toolsAndRouter.Router = &model.RouterConfig{Enabled: true, Fallback: router.FallbackFailClosed}
+	err = consumer.ApplyMcpServerConfigByServer("default", toolsAndRouter)
+	assert.ErrorContains(t, err, "tool catalog changes only")
+	assert.Equal(t, []string{"tool1"}, toolConfigNames(registry.ListTools()))
+}
+
+func TestApplyMcpServerConfig_DuplicateToolRejectedAtomically(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+	consumer.SetDebounceTime(0)
+
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("safe", "Safe"),
+	})))
+
+	dupA := createTestToolConfig("dup", "First")
+	dupB := createTestToolConfig("dup", "Second")
+	dupB.Cluster = "other-cluster"
+	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{dupA, dupB}))
+	assert.ErrorContains(t, err, "duplicate tool name")
+	assert.Equal(t, []string{"safe"}, toolConfigNames(registry.ListTools()))
+}
+
+func TestApplyMcpServerConfig_DuplicateAcrossDynamicServersRejected(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+	consumer.SetDebounceTime(0)
+
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("server-a", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("shared", "A"),
+	})))
+
+	toolB := createTestToolConfig("shared", "B")
+	toolB.Meta = &model.ToolMeta{Tags: []string{"other"}}
+	err := consumer.ApplyMcpServerConfigByServer("server-b", createTestMcpServerConfig([]model.ToolConfig{toolB}))
+	assert.ErrorContains(t, err, "duplicate tool name")
+	assert.Equal(t, []string{"shared"}, toolConfigNames(registry.ListTools()))
 }
 
 // =============================================================================

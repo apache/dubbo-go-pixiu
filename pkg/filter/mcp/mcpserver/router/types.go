@@ -73,6 +73,9 @@ type SelectionPlan struct {
 	Version          string          `json:"version"`                      // metadata snapshot version (registry + config hash)
 	CreatedAt        int64           `json:"created_at"`                   // unix nano
 	ExpiresAt        int64           `json:"expires_at,omitempty"`         // 0 = session-lifetime valid
+	IdentityHash     string          `json:"-"`                            // validated-claims fingerprint, never logged
+	ProgressiveHash  string          `json:"-"`                            // progressive config fingerprint
+	Expanded         bool            `json:"expanded,omitempty"`           // progressive state for tests/log-free inspection
 }
 
 // Contains reports whether the plan authorizes the named tool.
@@ -131,16 +134,17 @@ type ToolSelector interface {
 	Name() string
 }
 
+// CallSuccessResult describes the progressive-disclosure effect of one
+// successful tools/call.
+type CallSuccessResult struct {
+	Count        int64
+	Transitioned bool
+}
+
 // CallSuccessRecorder is implemented by selectors that track successful
 // tools/call completions separately from authorization checks.
 type CallSuccessRecorder interface {
-	RecordCallSuccess(ctx context.Context, sc SelectionContext) error
-}
-
-// PlanInspector is optionally implemented by selectors that can surface a
-// session's current plan for the admin debug endpoint.
-type PlanInspector interface {
-	InspectPlan(sessionID string) (*SelectionPlan, bool)
+	RecordCallSuccess(ctx context.Context, sc SelectionContext) (CallSuccessResult, error)
 }
 
 // toolNames extracts the stable ordered name slice from a candidate set.

@@ -28,7 +28,15 @@
 set -euo pipefail
 BASE="${1:-http://localhost:8888}"
 MCP="$BASE/mcp"
-SESSION="sess-demo"
+SESSION=""
+HEADERS=""
+
+cleanup() {
+  if [[ -n "$HEADERS" ]]; then
+    rm -f "$HEADERS"
+  fi
+}
+trap cleanup EXIT
 
 post() {
   local payload="$1"
@@ -40,7 +48,19 @@ post() {
 }
 
 echo "== 1. initialize =="
-post '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"demo","version":"1.0"}}}'
+HEADERS="$(mktemp)"
+curl -s -D "$HEADERS" -X POST "$MCP" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"demo","version":"1.0"}}}'
+echo
+SESSION="$(awk 'tolower($1) == "mcp-session-id:" { gsub("\r", "", $2); print $2; exit }' "$HEADERS")"
+cleanup
+HEADERS=""
+if [[ -z "$SESSION" ]]; then
+  echo "initialize did not return Mcp-Session-Id" >&2
+  exit 1
+fi
+echo "session: $SESSION"
 echo
 
 echo "== 2. tools/list -> internal_dump (internal/admin tags) is filtered out =="
@@ -53,8 +73,4 @@ echo
 
 echo "== 4. tools/call search_kb -> ALLOWED =="
 post '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"search_kb","arguments":{"q":"reset password"}}}'
-echo
-
-echo "== 5. admin: inspect the session plan (audit.payload_logging=true) =="
-curl -s "$BASE/__mcp/router/plan/$SESSION"
 echo

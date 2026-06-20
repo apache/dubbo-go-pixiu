@@ -18,6 +18,8 @@
 package router
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -102,6 +104,48 @@ func TestDecisionLogger_RecordOmitsDeniedSamplesUnlessPayloadLogging(t *testing.
 
 	detailed := NewDecisionLogger(1.0, true).record(SelectionContext{SessionID: "s1"}, plan, 2)
 	assert.Equal(t, []string{"b"}, detailed.DeniedSamples)
+}
+
+func TestDecisionLogger_RecordDoesNotSerializeIdentityOrPayload(t *testing.T) {
+	plan := &SelectionPlan{
+		SessionID: "raw-session-id",
+		ToolNames: []string{"allowed"},
+		Mode:      ModeHybrid,
+		Version:   "metadata-version",
+		Reasons: []DecisionTrace{
+			{Tool: "hidden_tool", Kept: false, Stage: StagePolicy, Rule: "tenant-rule", Detail: "no_allow_tag"},
+		},
+	}
+	sc := SelectionContext{
+		SessionID: "raw-session-id",
+		Tenant:    "tenant-acme",
+		UserID:    "subject-123",
+		AgentID:   "agent-client",
+		Claims: map[string]any{
+			"tenant": "tenant-acme",
+			"sub":    "subject-123",
+			"token":  "secret-token",
+		},
+		Method:    "tools/list",
+		Requested: "hidden_tool",
+	}
+
+	normal := NewDecisionLogger(1.0, false).record(sc, plan, 2)
+	payload, err := json.Marshal(normal)
+	assert.NoError(t, err)
+	text := string(payload)
+	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token", "hidden_tool", "tenant-rule"} {
+		assert.False(t, strings.Contains(text, forbidden), "default decision log leaked %q: %s", forbidden, text)
+	}
+
+	detailed := NewDecisionLogger(1.0, true).record(sc, plan, 2)
+	payload, err = json.Marshal(detailed)
+	assert.NoError(t, err)
+	text = string(payload)
+	assert.Contains(t, text, "hidden_tool")
+	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token"} {
+		assert.False(t, strings.Contains(text, forbidden), "payload logging leaked identity %q: %s", forbidden, text)
+	}
 }
 
 func TestMetricHelpers_NilSafeBeforeInit(t *testing.T) {

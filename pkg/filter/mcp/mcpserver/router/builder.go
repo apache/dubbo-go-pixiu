@@ -51,6 +51,9 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 	if err := validateSampleRate(cfg.Audit.SampleRate); err != nil {
 		return nil, err
 	}
+	if err := validateSessionConfig(cfg.Session); err != nil {
+		return nil, err
+	}
 	if err := validatePolicyRisks(cfg.Policy); err != nil {
 		return nil, err
 	}
@@ -119,6 +122,9 @@ func buildPolicyFilter(cfg *model.RouterConfig, opts *CompositeOptions) error {
 func buildProgressiveGate(cfg *model.RouterConfig, wf *WorkflowSelector, opts *CompositeOptions) error {
 	if !cfg.Stages.Progressive {
 		return nil
+	}
+	if cfg.Progressive.ExpandAfterCalls <= 0 {
+		return fmt.Errorf("router progressive.expand_after_calls must be greater than 0")
 	}
 	initialBundle := strings.TrimSpace(cfg.Progressive.InitialBundle)
 	if err := validateProgressiveBundle(initialBundle, wf); err != nil {
@@ -201,8 +207,15 @@ func validateFallback(fallback string) error {
 }
 
 func validateSampleRate(rate float64) error {
-	if math.IsNaN(rate) || rate < 0 || rate > 1 {
+	if math.IsNaN(rate) || math.IsInf(rate, 0) || rate < 0 || rate > 1 {
 		return fmt.Errorf("router audit.sample_rate must be between 0 and 1")
+	}
+	return nil
+}
+
+func validateSessionConfig(cfg model.RouterSessionConfig) error {
+	if cfg.MaxEntries < 0 {
+		return fmt.Errorf("router session.max_entries must be greater than or equal to 0")
 	}
 	return nil
 }

@@ -29,7 +29,12 @@ const policyRuleErrorFormat = "policy rule %q: %w"
 
 // ValidateTools validates routing metadata on configured tools.
 func ValidateTools(tools []model.ToolConfig) error {
-	for _, tool := range tools {
+	seen := make(map[string]struct{}, len(tools))
+	for i, tool := range tools {
+		if _, ok := seen[tool.Name]; ok {
+			return fmt.Errorf("duplicate tool name %q at index %d", tool.Name, i)
+		}
+		seen[tool.Name] = struct{}{}
 		if tool.Meta == nil {
 			continue
 		}

@@ -19,6 +19,8 @@ package router
 
 import (
 	"context"
+	"math"
+	"sync"
 	"testing"
 	"time"
 )
@@ -83,8 +85,10 @@ func TestComposite_PlanReuseByVersion(t *testing.T) {
 	p1, _ := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 	p2, _ := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 
-	// Same version => same cached plan instance returned.
-	assert.Same(t, p1, p2)
+	// Same version => cached content is reused, but callers receive isolated copies.
+	assert.Equal(t, p1.Version, p2.Version)
+	assert.Equal(t, p1.ToolNames, p2.ToolNames)
+	assert.NotSame(t, p1, p2)
 }
 
 func TestComposite_PlanRecomputesOnRegistryChange(t *testing.T) {
@@ -117,7 +121,7 @@ func TestComposite_EnforceOnCallAllowsInPlan(t *testing.T) {
 	cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 
 	assert.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}, tools))
-	assert.Equal(t, 0, store.CallCount("s1"), "authorization alone must not advance progressive disclosure")
+	assert.Equal(t, int64(0), store.CallCount("s1"), "authorization alone must not advance progressive disclosure")
 	assert.ErrorIs(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"}, tools), ErrToolNotAuthorized)
 }
 
@@ -141,7 +145,15 @@ func TestComposite_HiddenDiscoveryStillAuthorized(t *testing.T) {
 }
 
 func TestComposite_RecordCallSuccessIncrementsCallCount(t *testing.T) {
-	cfg := testRouterConfig()
+	cfg := &model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"a"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 2},
+	}
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
@@ -149,27 +161,44 @@ func TestComposite_RecordCallSuccessIncrementsCallCount(t *testing.T) {
 	_, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 	require.NoError(t, err)
 
-	require.NoError(t, cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}))
+	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"})
+	require.NoError(t, err)
 
-	assert.Equal(t, 1, store.CallCount("s1"))
+	assert.Equal(t, int64(1), result.Count)
+	assert.False(t, result.Transitioned)
+	assert.Equal(t, int64(1), store.CallCount("s1"))
 }
 
 func TestComposite_RecordCallSuccessSkipsWithoutPlanOrOutsidePlan(t *testing.T) {
-	cfg := testRouterConfig()
+	cfg := &model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"a"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 1},
+	}
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
-	require.NoError(t, cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "missing", Requested: "a"}))
-	assert.Equal(t, 0, store.CallCount("missing"))
+	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "missing", Requested: "a"})
+	require.NoError(t, err)
+	assert.False(t, result.Transitioned)
+	assert.Equal(t, int64(0), store.CallCount("missing"))
 
 	require.NoError(t, cs.OnInitialize(context.Background(), SelectionContext{SessionID: "init-only", AgentID: "agent"}, nil))
-	require.NoError(t, cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "init-only", Requested: "a"}))
-	assert.Equal(t, 0, store.CallCount("init-only"))
-
-	_, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, testTools("a"))
+	result, err = cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "init-only", Requested: "a"})
 	require.NoError(t, err)
-	require.NoError(t, cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"}))
-	assert.Equal(t, 0, store.CallCount("s1"))
+	assert.False(t, result.Transitioned)
+	assert.Equal(t, int64(0), store.CallCount("init-only"))
+
+	_, err = cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, testTools("a"))
+	require.NoError(t, err)
+	result, err = cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"})
+	require.NoError(t, err)
+	assert.False(t, result.Transitioned)
+	assert.Equal(t, int64(0), store.CallCount("s1"))
 }
 
 func TestComposite_EnforceOnCallDisabledAllowsAll(t *testing.T) {
@@ -244,7 +273,7 @@ func TestComposite_FallbackBundleWorksWhenWorkflowStageDisabled(t *testing.T) {
 			Workflow:    &workflowDisabled,
 			Progressive: true,
 		},
-		Progressive: model.ProgressiveConfig{InitialBundle: "locked-empty"},
+		Progressive: model.ProgressiveConfig{InitialBundle: "locked-empty", ExpandAfterCalls: 1},
 		Workflows: []model.WorkflowConfig{
 			{Name: "safe-minimal", Tools: []string{"ping"}},
 			{Name: "locked-empty", Tools: []string{"missing"}},
@@ -327,6 +356,9 @@ func TestBuild_ProgressiveRequiresInitialBundle(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
 		Enabled: true,
 		Stages:  model.RouterStages{Progressive: true},
+		Progressive: model.ProgressiveConfig{
+			ExpandAfterCalls: 1,
+		},
 	}, NewSessionPlanStoreWithTTL(time.Minute))
 
 	assert.ErrorContains(t, err, "progressive.initial_bundle is required")
@@ -366,6 +398,42 @@ func TestBuild_InvalidSampleRateFails(t *testing.T) {
 		Audit:    model.AuditConfig{SampleRate: -0.1},
 	}, NewSessionPlanStoreWithTTL(time.Minute))
 	assert.ErrorContains(t, err, "sample_rate")
+
+	_, err = Build(&model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Audit:    model.AuditConfig{SampleRate: math.NaN()},
+	}, NewSessionPlanStoreWithTTL(time.Minute))
+	assert.ErrorContains(t, err, "sample_rate")
+
+	_, err = Build(&model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Audit:    model.AuditConfig{SampleRate: math.Inf(1)},
+	}, NewSessionPlanStoreWithTTL(time.Minute))
+	assert.ErrorContains(t, err, "sample_rate")
+}
+
+func TestBuild_InvalidSessionMaxEntriesFails(t *testing.T) {
+	_, err := Build(&model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Session:  model.RouterSessionConfig{MaxEntries: -1},
+	}, NewSessionPlanStoreWithTTL(time.Minute))
+	assert.ErrorContains(t, err, "max_entries")
+}
+
+func TestBuild_ProgressiveRejectsNonPositiveExpandAfter(t *testing.T) {
+	_, err := Build(&model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"t0"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter"},
+	}, NewSessionPlanStoreWithTTL(time.Minute))
+	assert.ErrorContains(t, err, "expand_after_calls")
 }
 
 func TestBuild_InvalidMaxRiskFailsEvenWhenPolicyStageDisabled(t *testing.T) {
@@ -536,21 +604,148 @@ func TestComposite_IdentityIsolatedCache(t *testing.T) {
 	assert.NotEqual(t, p1.Version, p2.Version)
 }
 
-func TestComposite_AgentIDPropagatedToLogs(t *testing.T) {
-	cfg := testRouterConfig()
+func TestComposite_OnInitializeDoesNotPersistRawIdentity(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"a"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 1},
+	}
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
-	// Simulate initialize storing agentID (happens before tools/list in real flow).
 	err := cs.OnInitialize(context.Background(), SelectionContext{SessionID: "s1", AgentID: "test-agent"}, nil)
 	require.NoError(t, err)
+	assert.Equal(t, 0, store.Len())
 
-	// tools/list should backfill agentID from store for decision logs.
 	tools := testTools("a", "b")
 	plan, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 	require.NoError(t, err)
 	assert.NotNil(t, plan)
+}
 
-	// Verify agentID was stored and survives the Select call.
-	assert.Equal(t, "test-agent", store.AgentID("s1"))
+func TestComposite_ProgressiveBoundaryAndPolicyAfterExpansion(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "no-admin", DenyTags: []string{"admin"}},
+		}},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"ping"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 2},
+	}
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	tools := []model.ToolConfig{
+		toolWithMeta("ping", &model.ToolMeta{Tags: []string{"safe"}}),
+		toolWithMeta("advanced", &model.ToolMeta{Tags: []string{"safe"}}),
+		toolWithMeta("admin", &model.ToolMeta{Tags: []string{"admin"}}),
+	}
+
+	sc := SelectionContext{SessionID: "s1"}
+	p1, err := cs.Select(context.Background(), sc, tools)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ping"}, p1.ToolNames)
+
+	r1, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), r1.Count)
+	assert.False(t, r1.Transitioned)
+
+	r2, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), r2.Count)
+	assert.True(t, r2.Transitioned)
+
+	r3, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), r3.Count)
+	assert.False(t, r3.Transitioned)
+
+	p2, err := cs.Select(context.Background(), sc, tools)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"ping", "advanced"}, p2.ToolNames)
+	assert.NotContains(t, p2.ToolNames, "admin")
+}
+
+func TestComposite_ProgressiveConcurrentTransitionOnce(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"ping"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 10},
+	}
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	_, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, testTools("ping", "advanced"))
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	transitions := make(chan bool, 100)
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+			require.NoError(t, err)
+			if result.Transitioned {
+				transitions <- true
+			}
+		}()
+	}
+	wg.Wait()
+	close(transitions)
+
+	assert.Len(t, transitions, 1)
+}
+
+func TestComposite_ClaimsChangeResetsProgressiveState(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Enabled:  true,
+		Fallback: FallbackFailClosed,
+		Stages:   model.RouterStages{Progressive: true},
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"safe"}},
+			{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"safe"}},
+		}},
+		Workflows: []model.WorkflowConfig{
+			{Name: "starter", Tools: []string{"ping"}},
+		},
+		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 1},
+	}
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	tools := []model.ToolConfig{
+		toolWithMeta("ping", &model.ToolMeta{Tags: []string{"safe"}}),
+		toolWithMeta("advanced", &model.ToolMeta{Tags: []string{"safe"}}),
+	}
+	acme := SelectionContext{SessionID: "s1", Tenant: "acme"}
+	plan, err := cs.Select(context.Background(), acme, tools)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ping"}, plan.ToolNames)
+
+	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Tenant: "acme", Requested: "ping"})
+	require.NoError(t, err)
+	assert.True(t, result.Transitioned)
+	expanded, err := cs.Select(context.Background(), acme, tools)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"ping", "advanced"}, expanded.ToolNames)
+
+	globex := SelectionContext{SessionID: "s1", Tenant: "globex"}
+	reset, err := cs.Select(context.Background(), globex, tools)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ping"}, reset.ToolNames)
+	assert.Equal(t, int64(0), store.CallCount("s1"))
 }

@@ -71,7 +71,9 @@ func (f *FilterFactory) Apply() error {
 	}
 
 	// Sync statically configured tools into registry (full replace)
-	f.registry.ReplaceAllTools(f.cfg.Tools)
+	if err := f.registry.ReplaceAllTools(f.cfg.Tools); err != nil {
+		return fmt.Errorf("failed to register mcp tools: %v", err)
+	}
 	for _, tool := range f.cfg.Tools {
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered tool '%s' -> cluster:%s", tool.Name, tool.Cluster)
 	}
@@ -104,7 +106,7 @@ func (f *FilterFactory) Apply() error {
 	if f.cfg.Router != nil && f.cfg.Router.Enabled {
 		// Build the tool selector lazily so disabled routing preserves the
 		// pre-router passthrough behavior with zero plan-store overhead.
-		selector, err := router.Build(f.cfg.Router, GetOrInitPlanStore())
+		selector, err := router.Build(f.cfg.Router, GetOrInitPlanStoreWithMaxEntries(f.cfg.Router.Session.MaxEntries))
 		if err != nil {
 			return fmt.Errorf("failed to build mcp tool router: %v", err)
 		}
@@ -144,12 +146,6 @@ func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain fil
 
 // Decode processes incoming HTTP requests for MCP protocol.
 func (f *MCPServerFilter) Decode(ctx *contexthttp.HttpContext) filter.FilterStatus {
-	// Admin debug endpoint for inspecting a session's router plan. Only served
-	// when the router is enabled with audit.payload_logging; otherwise 404.
-	if f.isRouterAdminRequest(ctx) {
-		return f.handleRouterAdmin(ctx)
-	}
-
 	// Check if it's an MCP request
 	if !f.isMCPRequest(ctx) {
 		return filter.Continue
@@ -255,7 +251,7 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 
 	// Create io.Pipe for SSE message transport
 	pipeReader, pipeWriter := io.Pipe()
-	session.PipeWriter = pipeWriter
+	session.SetPipeWriter(pipeWriter)
 
 	// Create virtual HTTP response with pipe as body
 	virtualResp := &http.Response{
@@ -276,6 +272,7 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 
 	// Start background goroutine to maintain the SSE connection
 	go f.maintainSSEPipe(ctx, session)
+	go f.flushPendingToolsListChanged(session)
 
 	if isNewSession {
 		logger.Infof("[dubbo-go-pixiu] mcp server established new SSE stream for session: %s", session.ID)
@@ -447,9 +444,6 @@ func (f *MCPServerFilter) sendInternalError(ctx *MCPContext, message string) fil
 func (f *MCPServerFilter) maintainSSEPipe(ctx *MCPContext, session *transport.MCPSession) {
 	// Ensure cleanup on exit
 	defer func() {
-		if session.PipeWriter != nil {
-			session.PipeWriter.Close()
-		}
 		f.sessionManager.RemoveSession(session.ID)
 		logger.Debugf("[dubbo-go-pixiu] mcp server SSE pipe maintenance ended for session: %s", session.ID)
 	}()
@@ -462,11 +456,10 @@ func (f *MCPServerFilter) maintainSSEPipe(ctx *MCPContext, session *transport.MC
 		case <-ticker.C:
 			// Send keepalive comment (ignored by SSE clients)
 			keepalive := f.sseHandler.FormatSSEKeepalive(time.Now().Unix())
-			if _, err := session.PipeWriter.Write([]byte(keepalive)); err != nil {
+			if err := session.WriteSSEData([]byte(keepalive), time.Now()); err != nil {
 				logger.Warnf("[dubbo-go-pixiu] mcp server keepalive write failed for session %s: %v", session.ID, err)
 				return
 			}
-			session.LastActivity = time.Now()
 			logger.Debugf("[dubbo-go-pixiu] mcp server sent keepalive for session: %s", session.ID)
 
 		case <-session.Done:
@@ -489,7 +482,7 @@ func (f *MCPServerFilter) SendServerNotification(sessionID string, method string
 		return fmt.Errorf("session not found: %s", sessionID)
 	}
 
-	if session.PipeWriter == nil {
+	if !session.HasPipeWriter() {
 		return fmt.Errorf("SSE pipe not established for session: %s", sessionID)
 	}
 
@@ -497,7 +490,7 @@ func (f *MCPServerFilter) SendServerNotification(sessionID string, method string
 	notification := f.responseBuilder.ServerNotification(method, params)
 
 	// Send via SSE
-	if err := f.sendMessageToSSEPipe(session, notification); err != nil {
+	if err := f.sseHandler.SendSSEMessage(session, notification); err != nil {
 		return err
 	}
 
@@ -512,7 +505,7 @@ func (f *MCPServerFilter) SendServerRequest(sessionID string, id any, method str
 		return fmt.Errorf("session not found: %s", sessionID)
 	}
 
-	if session.PipeWriter == nil {
+	if !session.HasPipeWriter() {
 		return fmt.Errorf("SSE pipe not established for session: %s", sessionID)
 	}
 
@@ -520,28 +513,10 @@ func (f *MCPServerFilter) SendServerRequest(sessionID string, id any, method str
 	request := f.responseBuilder.ServerRequest(id, method, params)
 
 	// Send via SSE
-	if err := f.sendMessageToSSEPipe(session, request); err != nil {
+	if err := f.sseHandler.SendSSEMessage(session, request); err != nil {
 		return err
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] mcp server sent request to session %s: %s (id: %v)", sessionID, method, id)
-	return nil
-}
-
-// sendMessageToSSEPipe sends a message to the SSE pipe
-func (f *MCPServerFilter) sendMessageToSSEPipe(session *transport.MCPSession, message any) error {
-	messageJSON, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
-	}
-
-	// Use SSEHandler to format the message
-	sseData := f.sseHandler.FormatSSEMessage(string(messageJSON))
-
-	if _, err := session.PipeWriter.Write([]byte(sseData)); err != nil {
-		return fmt.Errorf("failed to write to SSE pipe: %w", err)
-	}
-
-	session.LastActivity = time.Now()
 	return nil
 }

@@ -39,31 +39,23 @@ func TestProgressiveGate_InitialBundleThenExpand(t *testing.T) {
 	require.NoError(t, err)
 
 	gate := NewProgressiveGate(model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 1}, wf)
-	store := NewSessionPlanStoreWithTTL(time.Minute)
-	defer store.Stop()
-	store.Set(&SelectionPlan{SessionID: "s1"})
-
 	tools := testTools("ping", "help", "advanced1", "advanced2")
 
 	// Before any calls: only initial bundle visible.
-	out, _ := gate.Apply(tools, SelectionContext{SessionID: "s1"}, store)
+	out, _ := gate.Apply(tools, false)
 	assert.ElementsMatch(t, []string{"ping", "help"}, keptNames(out))
 
-	// After one successful call: full set visible.
-	store.IncrementCallCount("s1")
-	out2, _ := gate.Apply(tools, SelectionContext{SessionID: "s1"}, store)
+	// After expansion: full set visible.
+	out2, _ := gate.Apply(tools, true)
 	assert.Len(t, out2, 4)
 }
 
 func TestProgressiveGate_MissingBundleFailsClosed(t *testing.T) {
 	wf, _ := NewWorkflowSelector(nil)
 	gate := NewProgressiveGate(model.ProgressiveConfig{InitialBundle: "missing"}, wf)
-	store := NewSessionPlanStoreWithTTL(time.Minute)
-	defer store.Stop()
-	store.Set(&SelectionPlan{SessionID: "s1"})
 
 	tools := testTools("a", "b")
-	out, traces := gate.Apply(tools, SelectionContext{SessionID: "s1"}, store)
+	out, traces := gate.Apply(tools, false)
 	assert.Nil(t, out)
 	require.Len(t, traces, 1)
 	assert.Equal(t, "missing_initial_bundle", traces[0].Detail)
@@ -93,7 +85,9 @@ func TestProgressiveGate_ViaCompositeExpands(t *testing.T) {
 
 	// Authorization alone does not bump the counter; only a completed call does.
 	require.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"}, tools))
-	require.NoError(t, cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"}))
+	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"})
+	require.NoError(t, err)
+	assert.True(t, result.Transitioned)
 
 	// Second tools/list with same tools: crossing the threshold invalidates cache, full set revealed.
 	p2, _ := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)

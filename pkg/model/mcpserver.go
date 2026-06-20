@@ -101,21 +101,29 @@ type RouterConfig struct {
 	// not part of the session's selection plan.
 	EnforceOnCall *bool `yaml:"enforce_on_call,omitempty" json:"enforce_on_call,omitempty"`
 
-	Stages      RouterStages      `yaml:"stages,omitempty" json:"stages,omitempty"`
-	Policy      PolicyConfig      `yaml:"policy,omitempty" json:"policy,omitempty"`
-	Workflows   []WorkflowConfig  `yaml:"workflows,omitempty" json:"workflows,omitempty"`
-	Progressive ProgressiveConfig `yaml:"progressive,omitempty" json:"progressive,omitempty"`
-	Audit       AuditConfig       `yaml:"audit,omitempty" json:"audit,omitempty"`
+	Stages      RouterStages        `yaml:"stages,omitempty" json:"stages,omitempty"`
+	Policy      PolicyConfig        `yaml:"policy,omitempty" json:"policy,omitempty"`
+	Workflows   []WorkflowConfig    `yaml:"workflows,omitempty" json:"workflows,omitempty"`
+	Progressive ProgressiveConfig   `yaml:"progressive,omitempty" json:"progressive,omitempty"`
+	Audit       AuditConfig         `yaml:"audit,omitempty" json:"audit,omitempty"`
+	Session     RouterSessionConfig `yaml:"session,omitempty" json:"session,omitempty"`
 }
 
-// AuditConfig controls decision logging and the admin debug endpoint.
+// RouterSessionConfig controls the in-process session plan cache.
+type RouterSessionConfig struct {
+	// MaxEntries caps the number of cached session plans. Zero means the
+	// production default; negative values are rejected during router build.
+	MaxEntries int `yaml:"max_entries,omitempty" json:"max_entries,omitempty"`
+}
+
+// AuditConfig controls sampled decision logging.
 type AuditConfig struct {
 	// SampleRate is the fraction (0..1) of selections to emit a decision log
 	// for. Zero disables decision logs.
 	SampleRate float64 `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty"`
-	// PayloadLogging, when true, opts into detailed logging and enables the
-	// admin plan-inspection endpoint. It must never be enabled in production
-	// without access controls, as plans reveal authorization state.
+	// PayloadLogging, when true, opts into detailed tool/rule logging. It must
+	// never be enabled in production without understanding that tool and rule
+	// names can disclose governance intent.
 	PayloadLogging bool `yaml:"payload_logging,omitempty" json:"payload_logging,omitempty"`
 }
 
@@ -163,7 +171,8 @@ type WorkflowConfig struct {
 type ProgressiveConfig struct {
 	InitialBundle string `yaml:"initial_bundle,omitempty" json:"initial_bundle,omitempty"`
 	// ExpandAfterCalls is the number of successful tool calls before the full
-	// filtered set is revealed. Values <= 0 default to 1.
+	// filtered set is revealed. Values <= 0 are rejected when progressive
+	// disclosure is enabled.
 	ExpandAfterCalls int `yaml:"expand_after_calls,omitempty" json:"expand_after_calls,omitempty"`
 }
 

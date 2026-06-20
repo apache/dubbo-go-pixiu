@@ -39,6 +39,7 @@ var (
 	dynamicOnce        sync.Once
 	sessionManagerOnce sync.Once
 	planStoreOnce      sync.Once
+	planStoreHookOnce  sync.Once
 )
 
 // GetOrInitRegistry returns the global tool registry singleton
@@ -73,10 +74,23 @@ func GetOrInitSessionManager() *transport.SessionManager {
 
 // GetOrInitPlanStore returns the global router session plan store singleton.
 func GetOrInitPlanStore() *router.SessionPlanStore {
+	return GetOrInitPlanStoreWithMaxEntries(router.DefaultPlanMaxEntries)
+}
+
+// GetOrInitPlanStoreWithMaxEntries returns the global router session plan
+// store singleton and applies the configured capacity.
+func GetOrInitPlanStoreWithMaxEntries(maxEntries int) *router.SessionPlanStore {
 	planStoreOnce.Do(func() {
-		globalPlanStore = router.NewSessionPlanStore()
+		globalPlanStore = router.NewSessionPlanStoreWithMaxEntries(maxEntries)
+		sm := GetOrInitSessionManager()
+		planStoreHookOnce.Do(func() {
+			sm.AddSessionRemovedHandler(globalPlanStore.Delete)
+		})
 		logger.Infof("[dubbo-go-pixiu] mcp server initialized global router plan store")
 	})
+	if globalPlanStore != nil {
+		globalPlanStore.SetMaxEntries(maxEntries)
+	}
 	return globalPlanStore
 }
 
@@ -97,6 +111,7 @@ func ResetGlobalState() {
 	dynamicOnce = sync.Once{}
 	sessionManagerOnce = sync.Once{}
 	planStoreOnce = sync.Once{}
+	planStoreHookOnce = sync.Once{}
 
 	logger.Debugf("[dubbo-go-pixiu] mcp server global state reset")
 }

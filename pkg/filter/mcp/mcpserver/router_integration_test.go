@@ -120,14 +120,16 @@ func TestIntegration_TenantIsolation_ListAndCall(t *testing.T) {
 	require.NotNil(t, f.selector)
 
 	// 1. acme session sees only acme tools.
-	acmeNames := listToolsForTenant(f, "sess-acme", "acme")
+	acmeSession, _ := f.sessionManager.EnsureSession("")
+	acmeNames := listToolsForTenant(f, acmeSession.ID, "acme")
 	require.NotEmpty(t, acmeNames)
 	for _, name := range acmeNames {
 		assert.Contains(t, name, "acme_", "acme session must only see acme tools, got %s", name)
 	}
 
 	// 2. globex session sees only globex tools (no cross-tenant leakage).
-	globexNames := listToolsForTenant(f, "sess-globex", "globex")
+	globexSession, _ := f.sessionManager.EnsureSession("")
+	globexNames := listToolsForTenant(f, globexSession.ID, "globex")
 	require.NotEmpty(t, globexNames)
 	for _, name := range globexNames {
 		assert.Contains(t, name, "globex_")
@@ -135,12 +137,12 @@ func TestIntegration_TenantIsolation_ListAndCall(t *testing.T) {
 
 	// 3. acme session cannot call a globex tool, even knowing its name.
 	globexTool := globexNames[0]
-	status := callTool(f, "sess-acme", globexTool)
+	status := callTool(f, acmeSession.ID, globexTool)
 	assert.Equal(t, filter.Stop, status, "cross-tenant call must be denied (Stop with error reply)")
 
 	// 4. acme session CAN call one of its own tools.
 	acmeTool := acmeNames[0]
-	statusOK := callTool(f, "sess-acme", acmeTool)
+	statusOK := callTool(f, acmeSession.ID, acmeTool)
 	assert.Equal(t, filter.Continue, statusOK, "in-tenant call must be forwarded")
 }
 

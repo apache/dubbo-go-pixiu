@@ -65,23 +65,27 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 	return nil
 }
 
-// ReplaceAllTools replaces the entire tools set with the provided slice (full sync)
-func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+// ReplaceAllTools replaces the entire tools set with the provided slice (full sync).
+// It validates the full replacement first and leaves the current registry
+// unchanged when duplicate names are present.
+func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) error {
 	newMap := make(map[string]model.ToolConfig, len(tools))
 	newOrder := make([]string, 0, len(tools))
 	seen := make(map[string]struct{}, len(tools))
-	for _, t := range tools {
-		if _, ok := seen[t.Name]; !ok {
-			newOrder = append(newOrder, t.Name)
-			seen[t.Name] = struct{}{}
+	for i, t := range tools {
+		if _, ok := seen[t.Name]; ok {
+			return fmt.Errorf("duplicate tool name %q at index %d", t.Name, i)
 		}
+		seen[t.Name] = struct{}{}
+		newOrder = append(newOrder, t.Name)
 		newMap[t.Name] = t
 	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.tools = newMap
 	r.toolOrder = newOrder
+	return nil
 }
 
 // RegisterResource registers a resource (indexed by URI as per MCP specification)

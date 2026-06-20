@@ -38,6 +38,7 @@ var (
 	selectedCount    prometheus.Histogram
 	fallbackTotal    *prometheus.CounterVec
 	callDeniedTotal  *prometheus.CounterVec
+	planEvictedTotal *prometheus.CounterVec
 	plansActive      prometheus.Gauge
 )
 
@@ -97,6 +98,13 @@ func initMetrics() {
 			Help:      "Total tools/call denials, partitioned by reason.",
 		}, []string{"reason"})
 
+		planEvictedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystem,
+			Name:      "plan_evicted_total",
+			Help:      "Total session plan evictions, partitioned by fixed reason.",
+		}, []string{"reason"})
+
 		plansActive = promauto.NewGauge(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
@@ -131,6 +139,14 @@ func recordCallDenied(reason string) {
 		return
 	}
 	callDeniedTotal.WithLabelValues(reason).Inc()
+}
+
+// recordPlanEvicted records session plan removals. reason must be a fixed enum.
+func recordPlanEvicted(reason string) {
+	if planEvictedTotal == nil {
+		return
+	}
+	planEvictedTotal.WithLabelValues(reason).Inc()
 }
 
 // setPlansActive publishes the current cached-plan count.
