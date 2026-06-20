@@ -167,12 +167,12 @@ func (a *Adapter) Apply() error {
 			}
 
 			// 1) apply tools dynamically to registry for filter usage
-			if dc := mcpserver.GetOrInitDynamicConsumer(); dc != nil {
+			if dc, err := mcpserver.DynamicConsumerForSingleRuntime(); err == nil {
 				if err := dc.ApplyMcpServerConfigByServer(serverId, cfg); err != nil {
 					logger.Errorf("[dubbo-go-pixiu] mcp adapter apply server %s config error: %v", serverId, err)
 				}
 			} else {
-				logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s: tools=%d", serverId, len(cfg.Tools))
+				logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s without a unique dynamic consumer: %v", serverId, err)
 			}
 			// 2) register endpoint for each tool using BackendURL (host:port) into cluster named by tool.Name
 			for _, tool := range cfg.Tools {

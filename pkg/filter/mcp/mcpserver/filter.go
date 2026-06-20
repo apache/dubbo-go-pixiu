@@ -71,6 +71,7 @@ type (
 		errorHandler      *ErrorHandler
 		responseBuilder   *ResponseBuilder
 		sessionManager    *transport.SessionManager
+		plans             *router.SessionPlanStore
 		sseHandler        *transport.SSEHandler
 		contentNegotiator *transport.ContentNegotiator
 		selector          router.ToolSelector
@@ -237,6 +238,7 @@ func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain fil
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
 		sessionManager:    sessionManager,
+		plans:             f.runtime.plans,
 		sseHandler:        sseHandler,
 		contentNegotiator: contentNegotiator,
 		selector:          f.runtime.selector,
@@ -358,6 +360,7 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 		if !exists {
 			return f.sendNotFound(ctx, mcpSessionNotFoundMessage)
 		}
+		ctx.SetValidatedSession(session)
 	} else {
 		var err error
 		session, _, err = f.sessionManager.EnsureSession(ctx.SessionID())
@@ -365,8 +368,8 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 			logger.Errorf("[dubbo-go-pixiu] mcp server failed to create session: %v", err)
 			return f.errorHandler.SendInternalError(ctx, nil, "failed to create session")
 		}
+		ctx.SetSessionID(session.ID)
 	}
-	ctx.SetSessionID(session.ID)
 
 	// Create io.Pipe for SSE message transport
 	pipeReader, pipeWriter := io.Pipe()
@@ -549,7 +552,7 @@ func (f *MCPServerFilter) validateSessionHeaderForMethod(ctx *MCPContext, method
 		if _, err := validSessionHeader(ctx, false); err != nil {
 			return err
 		}
-		ctx.SetSessionID("")
+		ctx.SetValidatedSession(nil)
 		return nil
 	}
 	sessionID, err := validSessionHeader(ctx, true)
@@ -715,8 +718,10 @@ func (f *MCPServerFilter) validateSessionForMethod(ctx *MCPContext, method strin
 	if sessionID == "" {
 		return f.sendBadRequest(ctx, "Mcp-Session-Id header is required")
 	}
-	if _, exists := f.sessionManager.GetSession(sessionID); !exists {
+	session, exists := f.sessionManager.GetSession(sessionID)
+	if !exists {
 		return f.sendNotFound(ctx, mcpSessionNotFoundMessage)
 	}
+	ctx.SetValidatedSession(session)
 	return filter.Continue
 }

@@ -52,8 +52,9 @@ type ToolConfig struct {
 	BackendURL  string        `yaml:"backend_url,omitempty" json:"backend_url,omitempty"`
 	Request     RequestConfig `yaml:"request" json:"request"`
 	Args        []ArgConfig   `yaml:"args,omitempty" json:"args,omitempty"`
-	// Meta holds optional routing metadata consumed by the tool router.
-	// Omitting it leaves the tool fully exposed, preserving backward compatibility.
+	// Meta holds optional routing metadata consumed by the tool router. Omitting
+	// it uses default discovery/risk attributes; policy, workflow, selector and
+	// session-plan authorization still apply when governance is enabled.
 	Meta *ToolMeta `yaml:"meta,omitempty" json:"meta,omitempty"`
 }
 
@@ -77,14 +78,15 @@ type ArgConfig struct {
 }
 
 // ToolMeta carries optional routing metadata for a tool.
-// All fields are optional; an absent ToolMeta means the tool is fully exposed.
+// All fields are optional; absent metadata uses the router defaults.
 type ToolMeta struct {
 	// Tags are free-form labels used by policy allow/deny lists.
 	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 	// Risk is one of "low" | "medium" | "high"; empty is treated as "low".
 	Risk string `yaml:"risk,omitempty" json:"risk,omitempty"`
-	// DiscoveryVisibility, when explicitly false, hides the tool from tools/list
-	// while still allowing tools/call. A nil pointer means visible (default true).
+	// DiscoveryVisibility, when explicitly false, hides the tool from tools/list.
+	// The tool may still be called only if it is in the session authorization
+	// plan and the execution policy allows it. A nil pointer means visible.
 	DiscoveryVisibility *bool `yaml:"discovery_visibility,omitempty" json:"discovery_visibility,omitempty"`
 }
 
@@ -92,7 +94,7 @@ type ToolMeta struct {
 // block enables governance by presence; there is no public enabled switch, and
 // tools/call enforcement cannot be disabled while governance is active.
 type RouterConfig struct {
-	// Fallback is "bundle_default" (default) or "fail_closed".
+	// Fallback is "fail_closed" (default) or "bundle_default".
 	Fallback string `yaml:"fallback,omitempty" json:"fallback,omitempty"`
 	// DefaultBundle names the workflow used when Fallback is "bundle_default".
 	DefaultBundle string `yaml:"default_bundle,omitempty" json:"default_bundle,omitempty"`
@@ -504,11 +506,43 @@ func (config *ArgConfig) DeepCopy() *ArgConfig {
 		return nil
 	}
 	cpConfig := *config
+	cpConfig.Default = deepCopyAny(config.Default)
 	if config.Enum != nil {
 		cpConfig.Enum = make([]string, len(config.Enum))
 		copy(cpConfig.Enum, config.Enum)
 	}
 	return &cpConfig
+}
+
+func deepCopyAny(value any) any {
+	switch v := value.(type) {
+	case nil:
+		return nil
+	case map[string]any:
+		cp := make(map[string]any, len(v))
+		for k, item := range v {
+			cp[k] = deepCopyAny(item)
+		}
+		return cp
+	case []any:
+		cp := make([]any, len(v))
+		for i := range v {
+			cp[i] = deepCopyAny(v[i])
+		}
+		return cp
+	case []string:
+		cp := make([]string, len(v))
+		copy(cp, v)
+		return cp
+	case map[string]string:
+		cp := make(map[string]string, len(v))
+		for k, item := range v {
+			cp[k] = item
+		}
+		return cp
+	default:
+		return v
+	}
 }
 
 // DeepCopy returns a new independent copy of Config

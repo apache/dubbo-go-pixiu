@@ -20,10 +20,7 @@ package router
 import (
 	"errors"
 	"sync"
-	"time"
 )
-
-type nowFunc func() time.Time
 
 // PlanKey isolates cached plan state by router instance and MCP session.
 type PlanKey struct {
@@ -50,7 +47,7 @@ func NewPlanKey(routerID, sessionID string) PlanKey {
 }
 
 func (k PlanKey) valid() bool {
-	return k.SessionID != ""
+	return k.RouterID != "" && k.SessionID != ""
 }
 
 // sessionEntry bundles the immutable enforcement plan with the progressive
@@ -66,24 +63,22 @@ type sessionEntry struct {
 	catalogVersion  string
 	generation      uint64
 	nextReceiptID   uint64
-	countedReceipts map[uint64]struct{}
-	updatedAt       time.Time
+	activeReceipts  map[uint64]*receiptState
 }
 
 // SessionPlanStoreOptions configures a SessionPlanStore.
 type SessionPlanStoreOptions struct {
 	MaxEntries int
-	Now        nowFunc
 }
 
 // SessionPlanStore is an in-process, concurrency-safe store of selection plans
 // owned by one MCP filter instance. Transport session removal deletes entries
 // immediately; plans do not expire independently from their sessions.
 type SessionPlanStore struct {
-	mu      sync.RWMutex
-	entries map[PlanKey]*sessionEntry
-	max     int
-	now     nowFunc
+	mu             sync.RWMutex
+	entries        map[PlanKey]*sessionEntry
+	activeSessions map[string]uint64
+	max            int
 }
 
 // DefaultPlanMaxEntries caps the number of active session plans.
@@ -98,8 +93,8 @@ func NewSessionPlanStore() *SessionPlanStore {
 	return NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{})
 }
 
-// NewSessionPlanStoreWithMaxEntries creates a store using the default TTL and
-// the supplied capacity. A non-positive value means the production default.
+// NewSessionPlanStoreWithMaxEntries creates a store using the supplied
+// capacity. A non-positive value means the production default.
 func NewSessionPlanStoreWithMaxEntries(maxEntries int) *SessionPlanStore {
 	return NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{MaxEntries: maxEntries})
 }
@@ -110,18 +105,27 @@ func NewSessionPlanStoreWithOptions(opts SessionPlanStoreOptions) *SessionPlanSt
 	if maxEntries <= 0 {
 		maxEntries = DefaultPlanMaxEntries
 	}
-	now := opts.Now
-	if now == nil {
-		now = time.Now
-	}
 
 	s := &SessionPlanStore{
-		entries: make(map[PlanKey]*sessionEntry),
-		max:     maxEntries,
-		now:     now,
+		entries:        make(map[PlanKey]*sessionEntry),
+		activeSessions: make(map[string]uint64),
+		max:            maxEntries,
 	}
 	registerPlanStoreMetric(s)
 	return s
+}
+
+// ActivateSession records the transport session generation that is allowed to
+// own plans for this session ID. The map is bounded by active sessions and is
+// cleared by DeleteSession when the transport session ends.
+func (s *SessionPlanStore) ActivateSession(sessionID string, generation uint64) error {
+	if sessionID == "" || generation == 0 {
+		return ErrSessionPlanNotActive
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.activeSessions[sessionID] = generation
+	return nil
 }
 
 // Get returns an immutable copy of the plan for a session, or (nil, false) if
@@ -143,42 +147,79 @@ func (s *SessionPlanStore) Get(key PlanKey) (*SelectionPlan, bool) {
 // preserved only while the verified identity and progressive config hashes are
 // unchanged; identity/config changes reset progressive disclosure.
 func (s *SessionPlanStore) Set(key PlanKey, plan *SelectionPlan, sc SelectionContext) error {
-	if !key.valid() || plan == nil {
-		return nil
-	}
-	now := s.now()
 	stored := clonePlan(plan, false)
-	stored.Reasons = nil
-	stored.SessionID = key.SessionID
+	if err := validatePlanWrite(key, stored, sc); err != nil {
+		return err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !s.sessionActiveLocked(sc) {
+		return ErrSessionPlanNotActive
+	}
+	_, err := s.setLocked(key, stored, sc, true)
+	return err
+}
 
+func (s *SessionPlanStore) setLocked(key PlanKey, stored *SelectionPlan, sc SelectionContext, allowCreate bool) (*SelectionPlan, error) {
 	e, ok := s.entries[key]
 	if !ok {
+		if !allowCreate {
+			return nil, ErrSessionPlanStale
+		}
 		if len(s.entries) >= s.max {
-			return ErrPlanStoreFull
+			return nil, ErrPlanStoreFull
 		}
 		e = &sessionEntry{}
 		s.entries[key] = e
 	} else if e.identityHash != stored.IdentityHash || e.progressiveHash != stored.ProgressiveHash {
 		e.callCount = 0
 		e.expanded = false
-		e.countedReceipts = nil
 	}
+	e.activeReceipts = nil
 
 	e.generation++
 	stored.Expanded = e.expanded || stored.Expanded
 	stored.Generation = e.generation
+	stored.Reasons = nil
+	stored.SessionID = key.SessionID
 	e.plan = stored
 	e.context = cloneSelectionContext(sc)
 	e.identityHash = stored.IdentityHash
 	e.progressiveHash = stored.ProgressiveHash
 	e.configHash = stored.ConfigHash
 	e.catalogVersion = stored.CatalogVersion
-	e.updatedAt = now
 	s.publishActiveLocked()
-	return nil
+	return clonePlan(e.plan, true), nil
+}
+
+// SetIfCurrent conditionally commits a recomputed plan. It is used by dynamic
+// catalog recomputation so a task that started from an older plan cannot
+// recreate a deleted session plan or overwrite a newer tools/list result.
+func (s *SessionPlanStore) SetIfCurrent(base SessionPlanContext, plan *SelectionPlan) (*SelectionPlan, bool, error) {
+	stored := clonePlan(plan, false)
+	if err := validatePlanWrite(base.Key, stored, base.Context); err != nil {
+		return nil, false, err
+	}
+	if base.PlanGeneration == 0 {
+		return nil, false, ErrSessionPlanStale
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.sessionActiveLocked(base.Context) {
+		return nil, false, nil
+	}
+	e, ok := s.entries[base.Key]
+	if !ok || e.plan == nil || e.generation != base.PlanGeneration ||
+		e.context.SessionGeneration != base.Context.SessionGeneration {
+		return nil, false, nil
+	}
+	committed, err := s.setLocked(base.Key, stored, base.Context, false)
+	if err != nil {
+		return nil, false, err
+	}
+	return committed, true, nil
 }
 
 // SessionPlanContexts returns cloned plan/context pairs for management-plane
@@ -192,9 +233,11 @@ func (s *SessionPlanStore) SessionPlanContexts() []SessionPlanContext {
 			continue
 		}
 		out = append(out, SessionPlanContext{
-			Key:     key,
-			Plan:    clonePlan(entry.plan, false),
-			Context: cloneSelectionContext(entry.context),
+			Key:               key,
+			Plan:              clonePlan(entry.plan, false),
+			Context:           cloneSelectionContext(entry.context),
+			PlanGeneration:    entry.generation,
+			SessionGeneration: entry.context.SessionGeneration,
 		})
 	}
 	return out
@@ -203,9 +246,11 @@ func (s *SessionPlanStore) SessionPlanContexts() []SessionPlanContext {
 // SessionPlanContext is a cloned plan and the normalized selection attributes
 // used to build it.
 type SessionPlanContext struct {
-	Key     PlanKey
-	Plan    *SelectionPlan
-	Context SelectionContext
+	Key               PlanKey
+	Plan              *SelectionPlan
+	Context           SelectionContext
+	PlanGeneration    uint64
+	SessionGeneration uint64
 }
 
 // Delete removes one router instance's plan and progressive state.
@@ -242,6 +287,7 @@ func (s *SessionPlanStore) DeleteSession(sessionID string) {
 			removed++
 		}
 	}
+	delete(s.activeSessions, sessionID)
 	for i := 0; i < removed; i++ {
 		recordPlanEvicted("session_end")
 	}
@@ -269,18 +315,7 @@ func (s *SessionPlanStore) IssueReceipt(key PlanKey, requested string, plan *Sel
 		!e.plan.Contains(requested) {
 		return AuthorizationReceipt{}, ErrToolNotAuthorized
 	}
-	e.nextReceiptID++
-	return AuthorizationReceipt{
-		RouterInstanceID: routerID,
-		SessionID:        key.SessionID,
-		ToolName:         requested,
-		PlanGeneration:   e.plan.Generation,
-		IdentityHash:     e.identityHash,
-		ConfigHash:       e.configHash,
-		CatalogVersion:   e.catalogVersion,
-		ProgressiveHash:  e.progressiveHash,
-		ReceiptID:        e.nextReceiptID,
-	}, nil
+	return e.issueReceipt(key, requested, routerID), nil
 }
 
 // IssueReceiptForVersion signs a tools/call authorization without cloning the
@@ -307,18 +342,28 @@ func (s *SessionPlanStore) IssueReceiptForVersion(req ReceiptVersionRequest) (Au
 	if !e.plan.Contains(req.Requested) {
 		return AuthorizationReceipt{}, false, ErrToolNotAuthorized
 	}
+	return e.issueReceipt(req.Key, req.Requested, req.RouterID), false, nil
+}
+
+func (e *sessionEntry) issueReceipt(key PlanKey, requested, routerID string) AuthorizationReceipt {
 	e.nextReceiptID++
+	if e.activeReceipts == nil {
+		e.activeReceipts = make(map[uint64]*receiptState)
+	}
+	state := &receiptState{}
+	e.activeReceipts[e.nextReceiptID] = state
 	return AuthorizationReceipt{
-		RouterInstanceID: req.RouterID,
-		SessionID:        req.Key.SessionID,
-		ToolName:         req.Requested,
+		RouterInstanceID: routerID,
+		SessionID:        key.SessionID,
+		ToolName:         requested,
 		PlanGeneration:   e.plan.Generation,
 		IdentityHash:     e.identityHash,
 		ConfigHash:       e.configHash,
 		CatalogVersion:   e.catalogVersion,
 		ProgressiveHash:  e.progressiveHash,
 		ReceiptID:        e.nextReceiptID,
-	}, false, nil
+		state:            state,
+	}
 }
 
 // RecordCallSuccess records a successful tool call and returns whether this
@@ -327,10 +372,9 @@ func (s *SessionPlanStore) IssueReceiptForVersion(req ReceiptVersionRequest) (Au
 // transition.
 func (s *SessionPlanStore) RecordCallSuccess(receipt AuthorizationReceipt, expandAfter int) CallSuccessResult {
 	key := NewPlanKey(receipt.RouterInstanceID, receipt.SessionID)
-	if !key.valid() || receipt.ToolName == "" || expandAfter <= 0 || receipt.ReceiptID == 0 {
+	if !key.valid() || receipt.ToolName == "" || expandAfter <= 0 || receipt.ReceiptID == 0 || receipt.state == nil {
 		return CallSuccessResult{}
 	}
-	now := s.now()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -345,21 +389,20 @@ func (s *SessionPlanStore) RecordCallSuccess(receipt AuthorizationReceipt, expan
 		!e.plan.Contains(receipt.ToolName) {
 		return CallSuccessResult{}
 	}
-	if e.countedReceipts == nil {
-		e.countedReceipts = make(map[uint64]struct{})
-	}
-	if _, counted := e.countedReceipts[receipt.ReceiptID]; counted {
+	if e.activeReceipts == nil || e.activeReceipts[receipt.ReceiptID] != receipt.state || !receipt.state.consume() {
 		return CallSuccessResult{}
 	}
-	e.countedReceipts[receipt.ReceiptID] = struct{}{}
+	delete(e.activeReceipts, receipt.ReceiptID)
 	e.callCount++
-	e.updatedAt = now
 
 	result := CallSuccessResult{Count: e.callCount}
 	if !e.expanded && e.callCount >= int64(expandAfter) {
 		e.expanded = true
 		result.Transitioned = true
+		e.generation++
 		e.plan.Expanded = true
+		e.plan.Generation = e.generation
+		e.activeReceipts = nil
 	}
 	return result
 }
@@ -413,15 +456,33 @@ func (s *SessionPlanStore) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.entries = make(map[PlanKey]*sessionEntry)
+	s.activeSessions = make(map[string]uint64)
 	s.publishActiveLocked()
 	unregisterPlanStoreMetric(s)
 }
 
-func planKeyLess(a, b PlanKey) bool {
-	if a.RouterID != b.RouterID {
-		return a.RouterID < b.RouterID
+func validatePlanWrite(key PlanKey, plan *SelectionPlan, sc SelectionContext) error {
+	if !key.valid() {
+		return ErrInvalidPlanKey
 	}
-	return a.SessionID < b.SessionID
+	if plan == nil {
+		return ErrInvalidSelectionPlan
+	}
+	if plan.SessionID != "" && plan.SessionID != key.SessionID {
+		return ErrInvalidSelectionPlan
+	}
+	if sc.SessionID != "" && sc.SessionID != key.SessionID {
+		return ErrInvalidSelectionPlan
+	}
+	return nil
+}
+
+func (s *SessionPlanStore) sessionActiveLocked(sc SelectionContext) bool {
+	if sc.SessionGeneration == 0 {
+		return true
+	}
+	active, ok := s.activeSessions[sc.SessionID]
+	return ok && active == sc.SessionGeneration
 }
 
 func (s *SessionPlanStore) publishActiveLocked() {
@@ -479,8 +540,37 @@ func cloneSelectionContext(sc SelectionContext) SelectionContext {
 	if sc.Claims != nil {
 		cp.Claims = make(map[string]any, len(sc.Claims))
 		for k, v := range sc.Claims {
-			cp.Claims[k] = v
+			cp.Claims[k] = cloneAny(v)
 		}
 	}
 	return cp
+}
+
+func cloneAny(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		cp := make(map[string]any, len(v))
+		for k, item := range v {
+			cp[k] = cloneAny(item)
+		}
+		return cp
+	case []any:
+		cp := make([]any, len(v))
+		for i := range v {
+			cp[i] = cloneAny(v[i])
+		}
+		return cp
+	case []string:
+		cp := make([]string, len(v))
+		copy(cp, v)
+		return cp
+	case map[string]string:
+		cp := make(map[string]string, len(v))
+		for k, item := range v {
+			cp[k] = item
+		}
+		return cp
+	default:
+		return v
+	}
 }

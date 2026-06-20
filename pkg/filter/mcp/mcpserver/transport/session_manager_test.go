@@ -18,7 +18,9 @@
 package transport
 
 import (
+	"errors"
 	"io"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -219,11 +221,12 @@ func TestRemoveSessionClosesBlockedSSEWrite(t *testing.T) {
 	_, _ = session.AttachStream(writer)
 
 	writeDone := make(chan error, 1)
+	ready := make(chan struct{})
 	go func() {
+		close(ready)
 		writeDone <- session.WriteSSEData([]byte("data: blocked\n\n"), time.Now())
 	}()
-
-	time.Sleep(50 * time.Millisecond)
+	<-ready
 
 	removeDone := make(chan struct{})
 	go func() {
@@ -244,6 +247,109 @@ func TestRemoveSessionClosesBlockedSSEWrite(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("blocked write did not unblock after session close")
+	}
+}
+
+func TestAttachStreamClosedSessionFails(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.CreateSession()
+	sm.RemoveSession(session.ID)
+
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	defer writer.Close()
+	if _, err := session.AttachStream(writer); !errors.Is(err, ErrSessionManagerStopped) {
+		t.Fatalf("expected ErrSessionManagerStopped, got %v", err)
+	}
+	if session.HasPipeWriter() {
+		t.Fatal("closed session must not install a writer")
+	}
+}
+
+func TestAttachStreamReadOpenThenCloseClosesInstalledWriter(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.CreateSession()
+	reader, writer := io.Pipe()
+	defer reader.Close()
+
+	session.streamMu.Lock()
+	attached := make(chan error, 1)
+	go func() {
+		_, err := session.AttachStream(writer)
+		attached <- err
+	}()
+	for session.mu.TryLock() {
+		session.mu.Unlock()
+		runtime.Gosched()
+	}
+
+	closeDone := make(chan struct{})
+	go func() {
+		sm.RemoveSession(session.ID)
+		close(closeDone)
+	}()
+
+	session.streamMu.Unlock()
+	if err := <-attached; err != nil {
+		t.Fatalf("attach should win the install race before close: %v", err)
+	}
+	<-closeDone
+	if session.HasPipeWriter() {
+		t.Fatal("closed session must clear installed writer")
+	}
+	if _, err := writer.Write([]byte("data: closed\n\n")); err == nil {
+		t.Fatal("writer installed during close race should be closed")
+	}
+}
+
+func TestAttachStreamReplaceClosesOldWriter(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.CreateSession()
+	readerA, writerA := io.Pipe()
+	defer readerA.Close()
+	_, err := session.AttachStream(writerA)
+	if err != nil {
+		t.Fatalf("initial attach failed: %v", err)
+	}
+
+	readerB, writerB := io.Pipe()
+	defer readerB.Close()
+	defer writerB.Close()
+	_, err = session.AttachStream(writerB)
+	if err != nil {
+		t.Fatalf("replacement attach failed: %v", err)
+	}
+	if _, err := writerA.Write([]byte("data: old\n\n")); err == nil {
+		t.Fatal("old writer should be closed after replacement")
+	}
+}
+
+func TestSessionCloseIdempotentWithAttachedStream(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.CreateSession()
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	_, err := session.AttachStream(writer)
+	if err != nil {
+		t.Fatalf("attach failed: %v", err)
+	}
+
+	sm.RemoveSession(session.ID)
+	sm.RemoveSession(session.ID)
+	session.close()
+	if !session.IsClosed() {
+		t.Fatal("session should remain closed")
+	}
+	if session.HasPipeWriter() {
+		t.Fatal("closed session should not keep a writer")
 	}
 }
 
@@ -430,7 +536,10 @@ func TestGenerateSessionID(t *testing.T) {
 	// Generate multiple session IDs
 	ids := make(map[string]bool)
 	for i := 0; i < 100; i++ {
-		id := sm.generateSessionID()
+		id, err := sm.generateSessionID()
+		if err != nil {
+			t.Fatalf("generateSessionID failed: %v", err)
+		}
 		if id == "" {
 			t.Error("Generated session ID should not be empty")
 		}
@@ -441,6 +550,25 @@ func TestGenerateSessionID(t *testing.T) {
 			t.Errorf("Duplicate session ID generated: %s", id)
 		}
 		ids[id] = true
+	}
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) {
+	return 0, errors.New("entropy unavailable")
+}
+
+func TestCreateSessionFailsWhenRandomSourceFails(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+	sm.random = failingReader{}
+
+	if _, err := sm.CreateSession(); !errors.Is(err, ErrSessionIDGenerationFailed) {
+		t.Fatalf("expected ErrSessionIDGenerationFailed, got %v", err)
+	}
+	if sm.ActiveSessionCount() != 0 {
+		t.Fatalf("failed session creation must not insert a session, count=%d", sm.ActiveSessionCount())
 	}
 }
 
@@ -458,7 +586,6 @@ func TestConcurrentSessionAccess(t *testing.T) {
 	go func() {
 		for i := 0; i < 100; i++ {
 			sm.Session(sessionID)
-			time.Sleep(time.Millisecond)
 		}
 		done <- true
 	}()
@@ -467,7 +594,6 @@ func TestConcurrentSessionAccess(t *testing.T) {
 	go func() {
 		for i := 0; i < 100; i++ {
 			sm.Session(sessionID)
-			time.Sleep(time.Millisecond)
 		}
 		done <- true
 	}()
@@ -476,7 +602,6 @@ func TestConcurrentSessionAccess(t *testing.T) {
 	go func() {
 		for i := 0; i < 10; i++ {
 			sm.CreateSession()
-			time.Sleep(10 * time.Millisecond)
 		}
 		done <- true
 	}()

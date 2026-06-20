@@ -40,6 +40,7 @@ const (
 
 var ErrSessionManagerStopped = errors.New("mcp session manager stopped")
 var ErrSessionCapacityReached = errors.New("mcp session capacity reached")
+var ErrSessionIDGenerationFailed = errors.New("mcp session id generation failed")
 
 // SessionRemovedHandler is invoked after a transport session is removed.
 // Handlers are called outside the SessionManager lock.
@@ -56,9 +57,10 @@ type streamAttachment struct {
 
 // MCPSession represents an active MCP session
 type MCPSession struct {
-	ID        string
-	CreatedAt time.Time
-	Done      chan struct{}
+	ID         string
+	Generation uint64
+	CreatedAt  time.Time
+	Done       chan struct{}
 
 	mu                          sync.RWMutex
 	LastActivity                time.Time
@@ -80,7 +82,9 @@ type SessionManager struct {
 	stopCh          chan struct{}
 	once            sync.Once
 	now             func() time.Time
+	random          io.Reader
 	maxSessions     int
+	nextGeneration  uint64
 	stopped         bool
 }
 
@@ -110,6 +114,7 @@ func NewSessionManagerWithOptions(now func() time.Time, maxEntries int) *Session
 		sessions:    make(map[string]*MCPSession),
 		stopCh:      make(chan struct{}),
 		now:         now,
+		random:      rand.Reader,
 		maxSessions: maxEntries,
 	}
 	go sm.startCleanupRoutine()
@@ -155,9 +160,15 @@ func (sm *SessionManager) CreateSession() (*MCPSession, error) {
 			return nil, ErrSessionCapacityReached
 		}
 	}
-	sessionID := sm.generateUniqueSessionIDLocked()
+	sessionID, err := sm.generateUniqueSessionIDLocked()
+	if err != nil {
+		sm.mu.Unlock()
+		return nil, err
+	}
+	sm.nextGeneration++
 	session := &MCPSession{
 		ID:           sessionID,
+		Generation:   sm.nextGeneration,
 		CreatedAt:    now,
 		LastActivity: now,
 		Done:         make(chan struct{}),
@@ -264,21 +275,25 @@ func (sm *SessionManager) Stop() {
 	})
 }
 
-// generateSessionID generates a session ID
-func (sm *SessionManager) generateSessionID() string {
+// generateSessionID generates a session ID from crypto-grade randomness. A
+// random-source failure fails session creation closed; predictable fallback IDs
+// would make session fixation materially easier.
+func (sm *SessionManager) generateSessionID() (string, error) {
 	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		// Fallback to timestamp-based ID
-		return hex.EncodeToString([]byte(time.Now().String()))
+	if _, err := io.ReadFull(sm.random, bytes); err != nil {
+		return "", fmt.Errorf("%w: %v", ErrSessionIDGenerationFailed, err)
 	}
-	return hex.EncodeToString(bytes)
+	return hex.EncodeToString(bytes), nil
 }
 
-func (sm *SessionManager) generateUniqueSessionIDLocked() string {
+func (sm *SessionManager) generateUniqueSessionIDLocked() (string, error) {
 	for {
-		id := sm.generateSessionID()
+		id, err := sm.generateSessionID()
+		if err != nil {
+			return "", err
+		}
 		if _, exists := sm.sessions[id]; !exists {
-			return id
+			return id, nil
 		}
 	}
 }
@@ -395,11 +410,17 @@ func (sm *SessionManager) callRemovedHandlers(handlers []SessionRemovedHandler, 
 
 func (s *MCPSession) close() {
 	s.closeOnce.Do(func() {
+		// Lock order for stream ownership is session.mu -> streamMu. AttachStream
+		// uses the same order, so closed-state checks and writer replacement are
+		// serialized with session close without holding locks while closing pipes.
 		s.mu.Lock()
 		s.closed = true
+		s.streamMu.Lock()
+		old := s.stream
+		s.stream = nil
+		s.streamMu.Unlock()
 		s.mu.Unlock()
 		close(s.Done)
-		old := s.clearStream()
 		closeStream(old)
 	})
 }
@@ -452,10 +473,12 @@ func (s *MCPSession) MarkToolsListChangedNotified(version uint64) {
 
 // AttachStream installs a new SSE stream and closes the previous stream, if any.
 func (s *MCPSession) AttachStream(writer *io.PipeWriter) (StreamToken, error) {
-	s.mu.RLock()
-	closed := s.closed
-	s.mu.RUnlock()
-	if closed {
+	// Lock order matches close: session.mu -> streamMu. The closed check and
+	// stream replacement are one critical section so a closed session can never
+	// acquire a new writer.
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
 		return 0, ErrSessionManagerStopped
 	}
 	s.streamMu.Lock()
@@ -464,6 +487,7 @@ func (s *MCPSession) AttachStream(writer *io.PipeWriter) (StreamToken, error) {
 	old := s.stream
 	s.stream = &streamAttachment{token: token, writer: writer}
 	s.streamMu.Unlock()
+	s.mu.Unlock()
 
 	closeStream(old)
 	return token, nil
@@ -489,6 +513,13 @@ func (s *MCPSession) clearStream() *streamAttachment {
 	s.stream = nil
 	s.streamMu.Unlock()
 	return old
+}
+
+// IsClosed reports whether the transport session has been closed.
+func (s *MCPSession) IsClosed() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.closed
 }
 
 // HasPipeWriter reports whether an SSE stream is online.

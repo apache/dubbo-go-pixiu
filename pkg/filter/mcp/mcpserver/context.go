@@ -29,6 +29,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 )
 
 const MCPDataKey = "mcp_data"
@@ -39,10 +40,12 @@ type MCPData struct {
 	Method string
 	// RequestID stores JSON-RPC request ID
 	RequestID any
-	// ToolName stores the requested tool name for tools/call requests
-	ToolName string
 	// SessionID stores MCP session ID for SSE connections
 	SessionID string
+	// SessionGeneration is the transport generation validated at request entry.
+	SessionGeneration uint64
+	// Session is the request-entry validated transport session handle.
+	Session *transport.MCPSession
 	// AcceptSSE indicates if client accepts text/event-stream
 	AcceptSSE bool
 	// AcceptJSON indicates if client accepts application/json
@@ -90,16 +93,6 @@ func (ctx *MCPContext) SetMCPRequestID(id any) {
 // McpRequestID gets JSON-RPC request ID
 func (ctx *MCPContext) McpRequestID() any {
 	return ctx.mcpData.RequestID
-}
-
-// SetMCPToolName stores the current tools/call tool name.
-func (ctx *MCPContext) SetMCPToolName(name string) {
-	ctx.mcpData.ToolName = name
-}
-
-// McpToolName gets the current tools/call tool name.
-func (ctx *MCPContext) McpToolName() string {
-	return ctx.mcpData.ToolName
 }
 
 func (ctx *MCPContext) SetAuthorizationReceipt(receipt *router.AuthorizationReceipt) {
@@ -152,9 +145,32 @@ func (ctx *MCPContext) SetSessionID(sessionID string) {
 	ctx.mcpData.SessionID = sessionID
 }
 
+// SetValidatedSession stores the request-entry session handle and generation.
+func (ctx *MCPContext) SetValidatedSession(session *transport.MCPSession) {
+	if session == nil {
+		ctx.mcpData.SessionID = ""
+		ctx.mcpData.SessionGeneration = 0
+		ctx.mcpData.Session = nil
+		return
+	}
+	ctx.mcpData.SessionID = session.ID
+	ctx.mcpData.SessionGeneration = session.Generation
+	ctx.mcpData.Session = session
+}
+
 // SessionID gets MCP session ID
 func (ctx *MCPContext) SessionID() string {
 	return ctx.mcpData.SessionID
+}
+
+// SessionGeneration returns the generation validated for this request.
+func (ctx *MCPContext) SessionGeneration() uint64 {
+	return ctx.mcpData.SessionGeneration
+}
+
+// ValidatedSession returns the request-entry session handle.
+func (ctx *MCPContext) ValidatedSession() *transport.MCPSession {
+	return ctx.mcpData.Session
 }
 
 // HasSession checks if context has a session ID

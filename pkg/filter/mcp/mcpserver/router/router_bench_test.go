@@ -23,7 +23,6 @@ import (
 	"math"
 	"strconv"
 	"testing"
-	"time"
 )
 
 import (
@@ -285,7 +284,7 @@ func BenchmarkSessionPlanStore_ConcurrentGetSet(b *testing.B) {
 	}
 }
 
-func BenchmarkSessionPlanStore_CapacityEviction(b *testing.B) {
+func BenchmarkSessionPlanStore_CapacityBoundedInsert(b *testing.B) {
 	store := NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{
 		MaxEntries: 64,
 	})
@@ -295,7 +294,10 @@ func BenchmarkSessionPlanStore_CapacityEviction(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		sessionID := fmt.Sprintf("s-%d", i)
 		key := NewPlanKey("bench", sessionID)
-		_ = store.Set(key, &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: sessionID})
+		err := store.Set(key, &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: sessionID})
+		if err != nil && err != ErrPlanStoreFull {
+			b.Fatal(err)
+		}
 	}
 	if store.Len() > 64 {
 		b.Fatalf("store size = %d, want <= 64", store.Len())
@@ -303,23 +305,25 @@ func BenchmarkSessionPlanStore_CapacityEviction(b *testing.B) {
 }
 
 func BenchmarkSessionPlanStore_CapacityReject(b *testing.B) {
-	now := time.Unix(1000, 0)
 	store := NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{
 		MaxEntries: 128,
-		Now:        func() time.Time { return now },
 	})
 	defer store.Stop()
 
 	for i := 0; i < 128; i++ {
 		sessionID := fmt.Sprintf("s-%d", i)
 		key := NewPlanKey("bench", sessionID)
-		_ = store.Set(key, &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: sessionID})
+		if err := store.Set(key, &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: sessionID}); err != nil {
+			b.Fatal(err)
+		}
 	}
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		key := NewPlanKey("bench", fmt.Sprintf("overflow-%d", i))
-		_ = store.Set(key, &SelectionPlan{SessionID: key.SessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: key.SessionID})
+		if err := store.Set(key, &SelectionPlan{SessionID: key.SessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: key.SessionID}); err != ErrPlanStoreFull {
+			b.Fatalf("expected ErrPlanStoreFull, got %v", err)
+		}
 	}
 	if store.Len() != 128 {
 		b.Fatalf("store size = %d, want 128", store.Len())

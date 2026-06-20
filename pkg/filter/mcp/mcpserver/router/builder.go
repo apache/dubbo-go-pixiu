@@ -90,16 +90,16 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 	logger.Infof("[dubbo-go-pixiu] mcp tool governance active (policy=%v workflow=%v progressive=%v fallback=%s)",
 		opts.Policy != nil, opts.Workflow != nil, opts.Progressive != nil, opts.Fallback)
 
-	return NewCompositeSelector(opts), nil
+	return NewCompositeSelector(opts)
 }
 
 func normalizeConfig(cfg *model.RouterConfig) *model.RouterConfig {
 	if cfg == nil {
-		return &model.RouterConfig{Fallback: FallbackFailClosed}
+		return &model.RouterConfig{Fallback: DefaultFallback}
 	}
 	cp := cfg.DeepCopy()
 	if cp.Fallback == "" {
-		cp.Fallback = FallbackFailClosed
+		cp.Fallback = DefaultFallback
 	}
 	return cp
 }
@@ -194,13 +194,6 @@ func stageEnabled(v *bool, def bool) bool {
 		return def
 	}
 	return *v
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 func newRouterInstanceID(cfgHash string) string {

@@ -24,6 +24,7 @@ package router
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 )
 
 import (
@@ -33,6 +34,22 @@ import (
 // ErrToolNotAuthorized is returned by AuthorizeCall when a tool is not part of
 // the session's selection plan.
 var ErrToolNotAuthorized = errors.New("tool not authorized for this session")
+
+// ErrInvalidPlanKey reports a programmer/configuration error at the plan store
+// boundary. A plan key must identify both the router instance and MCP session.
+var ErrInvalidPlanKey = errors.New("invalid mcp router session plan key")
+
+// ErrInvalidSelectionPlan reports a nil or self-inconsistent plan passed to the
+// store. The store never treats invalid input as a successful write.
+var ErrInvalidSelectionPlan = errors.New("invalid mcp router selection plan")
+
+// ErrSessionPlanNotActive reports that the transport session generation that
+// produced the plan is no longer the active generation for that session ID.
+var ErrSessionPlanNotActive = errors.New("mcp router session plan is not active")
+
+// ErrSessionPlanStale reports that a conditional plan commit observed a newer
+// plan than the one it started from.
+var ErrSessionPlanStale = errors.New("mcp router session plan is stale")
 
 // Selection mode labels used in plans, logs and metrics.
 const (
@@ -65,13 +82,14 @@ const (
 // MCP context and request body. Fields are best-effort; an empty field simply
 // means the corresponding signal was unavailable.
 type SelectionContext struct {
-	SessionID      string         // Mcp-Session-Id
-	Method         string         // "tools/list" | "tools/call"
-	UserID         string         // from claims.sub
-	Tenant         string         // from claims.tenant
-	Claims         map[string]any // JWT claims already validated by the auth/mcp filter
-	Requested      string         // target tool name on tools/call
-	CatalogVersion string         // immutable registry snapshot version for this request
+	SessionID         string         // Mcp-Session-Id
+	SessionGeneration uint64         // transport session generation validated for this request
+	Method            string         // "tools/list" | "tools/call"
+	UserID            string         // from claims.sub
+	Tenant            string         // from claims.tenant
+	Claims            map[string]any // JWT claims already validated by the auth/mcp filter
+	Requested         string         // target tool name on tools/call
+	CatalogVersion    string         // immutable registry snapshot version for this request
 }
 
 // StageCount records bounded per-stage cardinality without retaining one trace
@@ -155,7 +173,13 @@ type ToolSelector interface {
 // SelectionFailureHandler is optionally implemented by selectors that can
 // produce a safe fallback plan after Select returns an error.
 type SelectionFailureHandler interface {
-	HandleSelectionFailure(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig, cause error) *SelectionPlan
+	HandleSelectionFailure(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig, cause error) (*SelectionPlan, error)
+}
+
+// PlanRefreshSelector is implemented by selectors that can refresh an existing
+// session plan with an atomic stale-generation guard.
+type PlanRefreshSelector interface {
+	RefreshPlan(ctx context.Context, base SessionPlanContext, candidates []model.ToolConfig) (*SelectionPlan, bool, error)
 }
 
 // CallSuccessResult describes the progressive-disclosure effect of one
@@ -184,6 +208,15 @@ type AuthorizationReceipt struct {
 	CatalogVersion   string
 	ProgressiveHash  string
 	ReceiptID        uint64
+	state            *receiptState
+}
+
+type receiptState struct {
+	consumed atomic.Bool
+}
+
+func (s *receiptState) consume() bool {
+	return s != nil && s.consumed.CompareAndSwap(false, true)
 }
 
 // toolNames extracts the stable ordered name slice from a candidate set.

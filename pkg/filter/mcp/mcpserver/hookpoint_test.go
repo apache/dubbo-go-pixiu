@@ -100,10 +100,14 @@ func buildToolsListResult(t *testing.T, f *MCPServerFilter, tools []model.ToolCo
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	if f.governanceEnabled {
 		session, _ := f.sessionManager.CreateSession()
-		ctx.SetSessionID(session.ID)
+		if f.plans != nil {
+			require.NoError(t, f.plans.ActivateSession(session.ID, session.Generation))
+		}
+		ctx.SetValidatedSession(session)
 	}
 
-	resp := f.buildToolsListResponseObject(ctx, req)
+	resp, err := f.buildToolsListResponseObject(ctx, req)
+	require.NoError(t, err)
 	result, ok := resp.Result.(*mcp.ListToolsResult)
 	require.True(t, ok)
 	return result
@@ -287,7 +291,10 @@ func TestToolsList_SelectorTrimsTools(t *testing.T) {
 
 func TestToolsList_SelectorErrorFailClosed(t *testing.T) {
 	f := createTestFilter(t)
-	f.selector = &stubSelector{selectErr: errors.New("selector exploded")}
+	f.selector = &failingSelectionSelector{
+		CompositeSelector: f.selector.(*router.CompositeSelector),
+		err:               errors.New("selector exploded"),
+	}
 
 	result := buildToolsListResult(t, f, alphaBetaTools())
 
@@ -310,6 +317,7 @@ func TestToolsList_SelectorErrorBundleDefaultDoesNotExposeFullCatalog(t *testing
 		},
 	}, store)
 	require.NoError(t, err)
+	f.plans = store
 	f.selector = &failingSelectionSelector{
 		CompositeSelector: sel.(*router.CompositeSelector),
 		err:               errors.New("selector exploded"),
@@ -326,6 +334,63 @@ func TestToolsList_SelectorErrorBundleDefaultDoesNotExposeFullCatalog(t *testing
 
 	require.Len(t, result.Tools, 1)
 	assert.Equal(t, "alpha", result.Tools[0].Name)
+}
+
+func TestToolsList_PlanStoreFullReturnsInternalError(t *testing.T) {
+	f := createTestFilter(t)
+	store := router.NewSessionPlanStoreWithOptions(router.SessionPlanStoreOptions{MaxEntries: 1})
+	defer store.Stop()
+	sel, err := router.Build(&model.RouterConfig{}, store)
+	require.NoError(t, err)
+	f.plans = store
+	f.selector = sel
+	require.NoError(t, f.registry.ReplaceAllTools(alphaBetaTools()))
+
+	occupied := "occupied"
+	require.NoError(t, store.Set(router.NewPlanKey("occupied-router", occupied),
+		&router.SelectionPlan{SessionID: occupied, ToolNames: []string{"alpha"}},
+		router.SelectionContext{SessionID: occupied}))
+
+	session, err := f.sessionManager.CreateSession()
+	require.NoError(t, err)
+	require.NoError(t, store.ActivateSession(session.ID, session.Generation))
+	req := mcp.JSONRPCRequest{}
+	req.ID = mcp.NewRequestId(int64(30))
+	ctx := NewMCPContext(createTestContext(httptest.NewRequest("POST", "/mcp", nil), httptest.NewRecorder()))
+	ctx.SetValidatedSession(session)
+
+	_, err = f.buildToolsListResponseObject(ctx, req)
+	assert.ErrorIs(t, err, router.ErrPlanStoreFull)
+}
+
+func TestToolsList_FallbackPlanStoreFailureIsReturned(t *testing.T) {
+	f := createTestFilter(t)
+	store := router.NewSessionPlanStoreWithOptions(router.SessionPlanStoreOptions{MaxEntries: 1})
+	defer store.Stop()
+	sel, err := router.Build(&model.RouterConfig{}, store)
+	require.NoError(t, err)
+	f.plans = store
+	f.selector = &failingSelectionSelector{
+		CompositeSelector: sel.(*router.CompositeSelector),
+		err:               errors.New("selector exploded"),
+	}
+	require.NoError(t, f.registry.ReplaceAllTools(alphaBetaTools()))
+
+	occupied := "occupied"
+	require.NoError(t, store.Set(router.NewPlanKey("occupied-router", occupied),
+		&router.SelectionPlan{SessionID: occupied, ToolNames: []string{"alpha"}},
+		router.SelectionContext{SessionID: occupied}))
+
+	session, err := f.sessionManager.CreateSession()
+	require.NoError(t, err)
+	require.NoError(t, store.ActivateSession(session.ID, session.Generation))
+	req := mcp.JSONRPCRequest{}
+	req.ID = mcp.NewRequestId(int64(31))
+	ctx := NewMCPContext(createTestContext(httptest.NewRequest("POST", "/mcp", nil), httptest.NewRecorder()))
+	ctx.SetValidatedSession(session)
+
+	_, err = f.buildToolsListResponseObject(ctx, req)
+	assert.ErrorIs(t, err, router.ErrPlanStoreFull)
 }
 
 // TestToolCall_SelectorDeniesUnauthorized confirms AuthorizeCall rejection
@@ -345,7 +410,8 @@ func TestToolCall_SelectorDeniesUnauthorized(t *testing.T) {
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPRequestID(req.ID)
 	session, _ := f.sessionManager.CreateSession()
-	ctx.SetSessionID(session.ID)
+	require.NoError(t, f.plans.ActivateSession(session.ID, session.Generation))
+	ctx.SetValidatedSession(session)
 
 	status := f.handleToolCall(ctx, req)
 
@@ -418,7 +484,8 @@ func TestToolCall_SelectorAllowsAuthorized(t *testing.T) {
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPRequestID(req.ID)
 	session, _ := f.sessionManager.CreateSession()
-	ctx.SetSessionID(session.ID)
+	require.NoError(t, f.plans.ActivateSession(session.ID, session.Generation))
+	ctx.SetValidatedSession(session)
 
 	f.handleToolCall(ctx, req)
 
@@ -438,8 +505,9 @@ func TestProcessToolCallResponse_BackendErrorDoesNotRecordSuccess(t *testing.T) 
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPMethod(string(mcp.MethodToolsCall))
 	ctx.SetMCPRequestID(reqID)
-	ctx.SetMCPToolName("get_user")
-	ctx.SetSessionID("s1")
+	session, _ := f.sessionManager.CreateSession()
+	require.NoError(t, f.plans.ActivateSession(session.ID, session.Generation))
+	ctx.SetValidatedSession(session)
 
 	status := f.processToolCallResponse(ctx, reqID, []byte("backend failed"), 500)
 
@@ -457,14 +525,15 @@ func TestProcessToolCallResponse_SuccessRecordsToolCall(t *testing.T) {
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPMethod(string(mcp.MethodToolsCall))
 	ctx.SetMCPRequestID(reqID)
-	ctx.SetMCPToolName("get_user")
-	ctx.SetSessionID("s1")
-	ctx.SetAuthorizationReceipt(&router.AuthorizationReceipt{SessionID: "s1", ToolName: "get_user", PlanGeneration: 1, ReceiptID: 1})
+	session, _ := f.sessionManager.CreateSession()
+	require.NoError(t, f.plans.ActivateSession(session.ID, session.Generation))
+	ctx.SetValidatedSession(session)
+	ctx.SetAuthorizationReceipt(&router.AuthorizationReceipt{SessionID: session.ID, ToolName: "get_user", PlanGeneration: 1, ReceiptID: 1})
 
 	status := f.processToolCallResponse(ctx, reqID, []byte("ok"), 200)
 
 	assert.Equal(t, filter.Continue, status)
 	require.Len(t, sel.recordSuccessCalls, 1)
-	assert.Equal(t, "s1", sel.recordSuccessCalls[0].SessionID)
+	assert.Equal(t, session.ID, sel.recordSuccessCalls[0].SessionID)
 	assert.Equal(t, "get_user", sel.recordSuccessCalls[0].ToolName)
 }

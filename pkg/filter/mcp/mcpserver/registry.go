@@ -78,7 +78,7 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	snap := r.snapshot()
+	snap := r.snapshotUnsafe()
 	if _, exists := snap.byName[tool.Name]; exists {
 		return fmt.Errorf("tool %s already exists", tool.Name)
 	}
@@ -99,7 +99,10 @@ func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) error {
 }
 
 func (r *ToolRegistry) replaceAllToolsWithFingerprint(tools []model.ToolConfig, fingerprint string) error {
-	old := r.snapshot()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	old := r.snapshotUnsafe()
 	newSnap, err := buildToolCatalogSnapshot(tools, old.Generation+1, fingerprint)
 	if err != nil {
 		return err
@@ -127,8 +130,11 @@ func (r *ToolRegistry) GetTool(name string) (model.ToolConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	tool, exists := r.snapshot().byName[name]
-	return tool, exists
+	tool, exists := r.snapshotUnsafe().byName[name]
+	if !exists {
+		return model.ToolConfig{}, false
+	}
+	return *tool.DeepCopy(), true
 }
 
 // GetResourceByURI gets resource configuration (by URI, O(1) lookup)
@@ -190,10 +196,14 @@ func (r *ToolRegistry) ToolSnapshot() ([]model.ToolConfig, string) {
 // ToolCatalogSnapshot returns the immutable current snapshot. Package-internal
 // hot paths may read its unexported fields without copying.
 func (r *ToolRegistry) ToolCatalogSnapshot() *ToolCatalogSnapshot {
-	return r.snapshot()
+	return r.snapshotUnsafe().clone()
 }
 
-func (r *ToolRegistry) snapshot() *ToolCatalogSnapshot {
+func (r *ToolRegistry) toolCatalogSnapshotUnsafe() *ToolCatalogSnapshot {
+	return r.snapshotUnsafe()
+}
+
+func (r *ToolRegistry) snapshotUnsafe() *ToolCatalogSnapshot {
 	snap, _ := r.toolSnapshot.Load().(*ToolCatalogSnapshot)
 	if snap == nil {
 		return &ToolCatalogSnapshot{Version: "0:" + EmptyFingerprint, Fingerprint: EmptyFingerprint, byName: map[string]model.ToolConfig{}}
@@ -245,6 +255,23 @@ func (s *ToolCatalogSnapshot) OrderedTools() []model.ToolConfig {
 		out[i] = *s.ordered[i].DeepCopy()
 	}
 	return out
+}
+
+func (s *ToolCatalogSnapshot) clone() *ToolCatalogSnapshot {
+	if s == nil {
+		return &ToolCatalogSnapshot{Version: "0:" + EmptyFingerprint, Fingerprint: EmptyFingerprint, byName: map[string]model.ToolConfig{}}
+	}
+	cp := &ToolCatalogSnapshot{
+		Version:     s.Version,
+		Generation:  s.Generation,
+		Fingerprint: s.Fingerprint,
+		ordered:     s.OrderedTools(),
+		byName:      make(map[string]model.ToolConfig, len(s.byName)),
+	}
+	for name, tool := range s.byName {
+		cp.byName[name] = *tool.DeepCopy()
+	}
+	return cp
 }
 
 func (s *ToolCatalogSnapshot) orderedToolsUnsafe() []model.ToolConfig {

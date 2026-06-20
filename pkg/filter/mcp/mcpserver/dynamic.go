@@ -317,13 +317,14 @@ func (d *DynamicConsumer) notifyToolsListChanged() {
 				continue
 			}
 		}
-		if session.MarkToolsListChangedPending() == 0 {
+		marked, flushed, err := markToolsListChangedAndFlush(d.sseHandler, session)
+		if !marked {
 			continue
 		}
 		markedCount++
-		if err := d.flushToolsListChangedNotification(session); err != nil {
+		if err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp server failed to send tools list_changed: %v", err)
-		} else {
+		} else if flushed {
 			flushedCount++
 		}
 	}
@@ -344,14 +345,20 @@ func (d *DynamicConsumer) sessionsWithChangedVisibleSet() map[string]struct{} {
 	if !governance || selector == nil || plans == nil {
 		return nil
 	}
-	snapshot := d.registry.ToolCatalogSnapshot()
+	refresher, ok := selector.(router.PlanRefreshSelector)
+	if !ok {
+		return nil
+	}
+	snapshot := d.registry.toolCatalogSnapshotUnsafe()
 	changed := make(map[string]struct{})
 	for _, item := range plans.SessionPlanContexts() {
-		sc := item.Context
-		sc.CatalogVersion = snapshot.Version
-		plan, err := selector.Select(context.Background(), sc, snapshot.orderedToolsUnsafe())
+		item.Context.CatalogVersion = snapshot.Version
+		plan, committed, err := refresher.RefreshPlan(context.Background(), item, snapshot.orderedToolsUnsafe())
 		if err != nil {
-			changed[item.Key.SessionID] = struct{}{}
+			logger.Warnf("[dubbo-go-pixiu] mcp server failed to refresh session plan after catalog update: %v", err)
+			continue
+		}
+		if !committed {
 			continue
 		}
 		if !sameStrings(item.Plan.VisibleNames(), plan.VisibleNames()) {
@@ -377,27 +384,4 @@ func sameStrings(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-// flushToolsListChangedNotification sends pending notifications to a specific
-// session when an SSE stream is attached.
-func (d *DynamicConsumer) flushToolsListChangedNotification(session *transport.MCPSession) error {
-	if d.sseHandler == nil {
-		return fmt.Errorf("SSE handler not configured")
-	}
-	for {
-		version, pending := session.PendingToolsListChangedVersion()
-		if !pending || !session.HasPipeWriter() {
-			return nil
-		}
-		notification := map[string]any{
-			"jsonrpc": "2.0",
-			"method":  "notifications/tools/list_changed",
-		}
-		if err := d.sseHandler.SendSSEMessage(session, notification); err != nil {
-			return err
-		}
-		session.MarkToolsListChangedNotified(version)
-		logger.Debugf("[dubbo-go-pixiu] mcp server sent tools/list_changed")
-	}
 }

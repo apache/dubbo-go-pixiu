@@ -80,6 +80,7 @@ func newRoutedFilter(t *testing.T, tools []model.ToolConfig) *MCPServerFilter {
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
 		sessionManager:    factory.runtime.sessionManager,
+		plans:             factory.runtime.plans,
 		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          factory.runtime.selector,
@@ -97,12 +98,16 @@ func listToolsWithClaims(f *MCPServerFilter, sessionID string, claims map[string
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetSessionID(sessionID)
+	setValidatedSessionForTest(f, ctx, sessionID)
 	ctx.Params[constant.MCPAuthClaimsParamKey] = claims
 
 	req := mcp.JSONRPCRequest{}
 	req.ID = mcp.NewRequestId(int64(1))
 
-	resp := f.buildToolsListResponseObject(ctx, req)
+	resp, err := f.buildToolsListResponseObject(ctx, req)
+	if err != nil {
+		return nil
+	}
 	result := resp.Result.(*mcp.ListToolsResult)
 	names := make([]string, len(result.Tools))
 	for i, tool := range result.Tools {
@@ -126,6 +131,7 @@ func newIsolatedRouterFilter(t *testing.T, sm *transport.SessionManager, store *
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
 		sessionManager:    sm,
+		plans:             store,
 		sseHandler:        transport.NewSSEHandler(sm),
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          sel,
@@ -177,6 +183,7 @@ func callToolWithClaims(f *MCPServerFilter, sessionID, toolName string, claims m
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetSessionID(sessionID)
+	setValidatedSessionForTest(f, ctx, sessionID)
 	ctx.Params[constant.MCPAuthClaimsParamKey] = claims
 
 	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsCall)}}
@@ -185,6 +192,17 @@ func callToolWithClaims(f *MCPServerFilter, sessionID, toolName string, claims m
 	ctx.SetMCPRequestID(req.ID)
 
 	return f.handleToolCall(ctx, req)
+}
+
+func setValidatedSessionForTest(f *MCPServerFilter, ctx *MCPContext, sessionID string) {
+	session, exists := f.sessionManager.Session(sessionID)
+	if !exists {
+		return
+	}
+	if f.plans != nil {
+		_ = f.plans.ActivateSession(session.ID, session.Generation)
+	}
+	ctx.SetValidatedSession(session)
 }
 
 func TestIntegration_CrossInstanceSameSessionConcurrentIsolation(t *testing.T) {

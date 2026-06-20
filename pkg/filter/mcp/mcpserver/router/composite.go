@@ -34,6 +34,7 @@ import (
 
 // Fallback strategies.
 const (
+	DefaultFallback       = FallbackFailClosed
 	FallbackBundleDefault = "bundle_default"
 	FallbackFailClosed    = "fail_closed"
 )
@@ -74,11 +75,21 @@ type CompositeOptions struct {
 	RouterID      string
 }
 
-// NewCompositeSelector assembles the pipeline from its options.
-func NewCompositeSelector(opts CompositeOptions) *CompositeSelector {
+// NewCompositeSelector assembles the pipeline from validated options.
+func NewCompositeSelector(opts CompositeOptions) (*CompositeSelector, error) {
+	if opts.Store == nil {
+		return nil, fmt.Errorf("router session plan store is nil")
+	}
 	fallback := opts.Fallback
 	if fallback == "" {
-		fallback = FallbackBundleDefault
+		fallback = DefaultFallback
+	}
+	if err := validateFallback(fallback); err != nil {
+		return nil, err
+	}
+	log := opts.Log
+	if log == nil {
+		log = NewDecisionLogger(0, false)
 	}
 	return &CompositeSelector{
 		policy:          opts.Policy,
@@ -86,22 +97,13 @@ func NewCompositeSelector(opts CompositeOptions) *CompositeSelector {
 		progressive:     opts.Progressive,
 		bundles:         opts.Bundles,
 		store:           opts.Store,
-		log:             opts.Log,
+		log:             log,
 		routerID:        opts.RouterID,
 		fallback:        fallback,
 		defaultBundle:   opts.DefaultBundle,
 		configHash:      opts.ConfigHash,
 		progressiveHash: progressiveConfigHash(opts.Progressive),
-	}
-}
-
-type selectionPipelineResult struct {
-	tools         []model.ToolConfig
-	policyAllowed []model.ToolConfig
-	traces        []DecisionTrace
-	stageCounts   map[string]StageCount
-	outcome       string
-	expanded      bool
+	}, nil
 }
 
 type selectionPipeline struct {
@@ -136,19 +138,17 @@ func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candi
 		return cached, nil
 	}
 
-	pipeline := c.runSelectionPipeline(key, identityHash, sc, candidates)
-	plan := c.newSelectionPlan(sc, candidates, version, identityHash, pipeline)
-
-	result := "ok"
-	if outcomeAllowsFallback(pipeline.outcome) {
-		plan = c.applyFallback(sc, pipeline.policyAllowed, version, pipeline.traces, pipeline.stageCounts, pipeline.outcome)
-		result = "fallback"
-		recordFallback(pipeline.outcome)
-	}
-
+	plan := c.computeSelectionPlan(key, identityHash, sc, candidates, version)
 	plan, err = c.storeSelectionPlan(key, plan, sc)
 	if err != nil {
+		recordFallback("plan_persistence_failed")
 		return nil, err
+	}
+
+	result := "ok"
+	if outcomeAllowsFallback(plan.Outcome) {
+		result = "fallback"
+		recordFallback(plan.Outcome)
 	}
 
 	c.recordSelectionResult(result, plan, candidates, start)
@@ -167,13 +167,21 @@ func (c *CompositeSelector) cachedSelectionPlan(key PlanKey, version string, can
 	return cached, true
 }
 
-func (c *CompositeSelector) runSelectionPipeline(key PlanKey, identityHash string, sc SelectionContext, candidates []model.ToolConfig) selectionPipelineResult {
+func (c *CompositeSelector) computeSelectionPlan(key PlanKey, identityHash string, sc SelectionContext, candidates []model.ToolConfig, version string) *SelectionPlan {
+	pipeline := c.runSelectionPipeline(key, identityHash, sc, candidates)
+	if outcomeAllowsFallback(pipeline.outcome) {
+		return c.applyFallback(sc, pipeline.policyAllowed, version, pipeline.traces, pipeline.stageCounts, pipeline.outcome)
+	}
+	return c.newSelectionPlan(sc, candidates, version, identityHash, pipeline)
+}
+
+func (c *CompositeSelector) runSelectionPipeline(key PlanKey, identityHash string, sc SelectionContext, candidates []model.ToolConfig) *selectionPipeline {
 	pipeline := newSelectionPipeline(candidates)
 	pipeline.applyPolicy(c.policy, sc)
 	pipeline.applyWorkflow(c.workflow, sc)
 	pipeline.applyProgressive(c.progressive, c.store, key, identityHash, c.progressiveHash)
 	pipeline.finalizeOutcome()
-	return pipeline.result()
+	return pipeline
 }
 
 func (p *selectionPipeline) applyPolicy(policy *PolicyFilter, sc SelectionContext) {
@@ -234,18 +242,7 @@ func (p *selectionPipeline) selected() bool {
 	return p.outcome == SelectionOutcomeSelected
 }
 
-func (p *selectionPipeline) result() selectionPipelineResult {
-	return selectionPipelineResult{
-		tools:         p.tools,
-		policyAllowed: p.policyAllowed,
-		traces:        p.traces,
-		stageCounts:   p.stageCounts,
-		outcome:       p.outcome,
-		expanded:      p.expanded,
-	}
-}
-
-func (c *CompositeSelector) newSelectionPlan(sc SelectionContext, candidates []model.ToolConfig, version, identityHash string, pipeline selectionPipelineResult) *SelectionPlan {
+func (c *CompositeSelector) newSelectionPlan(sc SelectionContext, candidates []model.ToolConfig, version, identityHash string, pipeline *selectionPipeline) *SelectionPlan {
 	plan := &SelectionPlan{
 		SessionID:        sc.SessionID,
 		ToolNames:        toolNames(pipeline.tools),
@@ -273,7 +270,36 @@ func (c *CompositeSelector) storeSelectionPlan(key PlanKey, plan *SelectionPlan,
 	if stored, ok := c.store.Get(key); ok {
 		return stored, nil
 	}
-	return plan, nil
+	return nil, ErrSessionPlanStale
+}
+
+// RefreshPlan recomputes a plan from a cloned store context and commits it only
+// if the original plan generation is still current. Dynamic catalog updates use
+// this to avoid reviving deleted sessions or overwriting newer request plans.
+func (c *CompositeSelector) RefreshPlan(_ context.Context, base SessionPlanContext, candidates []model.ToolConfig) (*SelectionPlan, bool, error) {
+	start := time.Now()
+	sc := base.Context
+	identityHash, err := identityFingerprint(sc)
+	if err != nil {
+		return nil, false, err
+	}
+	version := c.version(candidates, identityHash, sc.SessionID, sc.CatalogVersion)
+	plan := c.computeSelectionPlan(base.Key, identityHash, sc, candidates, version)
+	committedPlan, committed, err := c.store.SetIfCurrent(base, plan)
+	if err != nil || !committed {
+		if err != nil {
+			recordFallback("plan_persistence_failed")
+		}
+		return nil, committed, err
+	}
+	result := "ok"
+	if outcomeAllowsFallback(committedPlan.Outcome) {
+		result = "fallback"
+		recordFallback(committedPlan.Outcome)
+	}
+	c.recordSelectionResult(result, committedPlan, candidates, start)
+	c.log.Log(sc, committedPlan, len(candidates))
+	return committedPlan, true, nil
 }
 
 func (c *CompositeSelector) recordSelectionResult(result string, plan *SelectionPlan, candidates []model.ToolConfig, start time.Time) {
@@ -283,7 +309,7 @@ func (c *CompositeSelector) recordSelectionResult(result string, plan *Selection
 
 // HandleSelectionFailure returns a safe plan when Select fails. fail_closed
 // exposes nothing; bundle_default is intersected with the hard-policy result.
-func (c *CompositeSelector) HandleSelectionFailure(_ context.Context, sc SelectionContext, candidates []model.ToolConfig, _ error) *SelectionPlan {
+func (c *CompositeSelector) HandleSelectionFailure(_ context.Context, sc SelectionContext, candidates []model.ToolConfig, _ error) (*SelectionPlan, error) {
 	start := time.Now()
 	identityHash, err := identityFingerprint(sc)
 	if err != nil {
@@ -307,13 +333,17 @@ func (c *CompositeSelector) HandleSelectionFailure(_ context.Context, sc Selecti
 	plan.IdentityHash = identityHash
 	plan.ConfigHash = c.configHash
 	plan.CatalogVersion = c.catalogVersion(candidates, sc.CatalogVersion)
-	_ = c.store.Set(key, plan, sc)
+	plan, err = c.storeSelectionPlan(key, plan, sc)
+	if err != nil {
+		recordFallback("plan_persistence_failed")
+		return nil, err
+	}
 
 	elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
 	recordSelection("fallback", plan.Mode, len(candidates), len(plan.ToolNames), elapsedMS)
 	recordFallback(SelectionOutcomeInternalError)
 	c.log.Log(sc, plan, len(candidates))
-	return plan
+	return plan, nil
 }
 
 // applyFallback builds a plan according to the configured fallback strategy.

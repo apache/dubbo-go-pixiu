@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 )
 
 import (
@@ -29,32 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type fakeClock struct {
-	mu  sync.Mutex
-	now time.Time
-}
-
-func newFakeClock() *fakeClock {
-	return &fakeClock{now: time.Unix(100, 0)}
-}
-
-func (c *fakeClock) Now() time.Time {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.now
-}
-
-func (c *fakeClock) Advance(d time.Duration) {
-	c.mu.Lock()
-	c.now = c.now.Add(d)
-	c.mu.Unlock()
-}
-
-func newTestPlanStore(clock *fakeClock, maxEntries int) *SessionPlanStore {
-	return NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{
-		MaxEntries: maxEntries,
-		Now:        clock.Now,
-	})
+func newTestPlanStore(maxEntries int) *SessionPlanStore {
+	return NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{MaxEntries: maxEntries})
 }
 
 func testPlanKey(sessionID string) PlanKey {
@@ -82,6 +57,15 @@ func tryIssueReceiptForTest(s *SessionPlanStore, key PlanKey, tool string) Autho
 	return receipt
 }
 
+func activeReceiptCountForTest(s *SessionPlanStore, key PlanKey) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if entry, ok := s.entries[key]; ok {
+		return len(entry.activeReceipts)
+	}
+	return 0
+}
+
 func receiptVersionRequest(key PlanKey, requested, version string) ReceiptVersionRequest {
 	return ReceiptVersionRequest{
 		Key:             key,
@@ -96,8 +80,7 @@ func receiptVersionRequest(key PlanKey, requested, version string) ReceiptVersio
 }
 
 func TestSessionPlanStore_SetGet(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	plan := &SelectionPlan{
@@ -120,8 +103,7 @@ func TestSessionPlanStore_SetGet(t *testing.T) {
 }
 
 func TestSessionPlanStore_IssueReceiptAllowsEquivalentGenerationRefresh(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	key := testPlanKey("s1")
@@ -149,8 +131,7 @@ func TestSessionPlanStore_IssueReceiptAllowsEquivalentGenerationRefresh(t *testi
 }
 
 func TestSessionPlanStore_IssueReceiptRejectsDifferentIdentityRefresh(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	key := testPlanKey("s1")
@@ -181,8 +162,7 @@ func TestSessionPlanStore_IssueReceiptRejectsDifferentIdentityRefresh(t *testing
 }
 
 func TestSessionPlanStore_IssueReceiptForVersionReportsStale(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	key := testPlanKey("s1")
@@ -210,19 +190,18 @@ func TestSessionPlanStore_IssueReceiptForVersionReportsStale(t *testing.T) {
 	assert.ErrorIs(t, err, ErrToolNotAuthorized)
 }
 
-func TestSessionPlanStore_SetIgnoresEmpty(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+func TestSessionPlanStore_SetRejectsInvalidInput(t *testing.T) {
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
-	s.Set(testPlanKey("ignored"), nil, SelectionContext{SessionID: testPlanKey("ignored").SessionID})
-	s.Set(testPlanKey(""), &SelectionPlan{SessionID: ""}, SelectionContext{SessionID: testPlanKey("").SessionID})
+	assert.ErrorIs(t, s.Set(testPlanKey("ignored"), nil, SelectionContext{SessionID: testPlanKey("ignored").SessionID}), ErrInvalidSelectionPlan)
+	assert.ErrorIs(t, s.Set(NewPlanKey("", "missing-router"), &SelectionPlan{SessionID: "missing-router"}, SelectionContext{SessionID: "missing-router"}), ErrInvalidPlanKey)
+	assert.ErrorIs(t, s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "other"}, SelectionContext{SessionID: "s1"}), ErrInvalidSelectionPlan)
 	assert.Equal(t, 0, s.Len())
 }
 
 func TestSessionPlanStore_MutationIsolation(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	plan := &SelectionPlan{SessionID: "s1", ToolNames: []string{"a", "b"}, VisibleToolNames: []string{"a"}}
@@ -243,9 +222,43 @@ func TestSessionPlanStore_MutationIsolation(t *testing.T) {
 	assert.Equal(t, []string{"a"}, got2.VisibleToolNames)
 }
 
+func TestSessionPlanStore_ContextMutationIsolation(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	claims := map[string]any{"roles": []any{"reader"}}
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{
+		SessionID: key.SessionID,
+		Claims:    claims,
+	}))
+	claims["roles"].([]any)[0] = "admin"
+
+	contexts := s.SessionPlanContexts()
+	require.Len(t, contexts, 1)
+	contexts[0].Context.Claims["roles"].([]any)[0] = "mutated"
+
+	contexts = s.SessionPlanContexts()
+	assert.Equal(t, "reader", contexts[0].Context.Claims["roles"].([]any)[0])
+}
+
+func TestSessionPlanStore_SetRequiresActiveSessionGenerationWhenProvided(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	sc := SelectionContext{SessionID: key.SessionID, SessionGeneration: 7}
+	assert.ErrorIs(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, sc), ErrSessionPlanNotActive)
+
+	require.NoError(t, s.ActivateSession(key.SessionID, 7))
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, sc))
+
+	s.DeleteSession(key.SessionID)
+	assert.ErrorIs(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, sc), ErrSessionPlanNotActive)
+}
+
 func TestSessionPlanStore_CallCountPreservedAndResetByIdentity(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	key := testPlanKey("s1")
@@ -263,8 +276,7 @@ func TestSessionPlanStore_CallCountPreservedAndResetByIdentity(t *testing.T) {
 }
 
 func TestSessionPlanStore_RecordCallSuccessTransitionOnce(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	key := testPlanKey("s1")
@@ -278,9 +290,60 @@ func TestSessionPlanStore_RecordCallSuccessTransitionOnce(t *testing.T) {
 	assert.True(t, got.Expanded)
 }
 
+func TestSessionPlanStore_ProgressiveTransitionInvalidatesOldPlanContext(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	sc := SelectionContext{SessionID: key.SessionID, SessionGeneration: 7}
+	require.NoError(t, s.ActivateSession(key.SessionID, sc.SessionGeneration))
+	require.NoError(t, s.Set(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"starter"},
+		Version:         "v1",
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, sc))
+	contexts := s.SessionPlanContexts()
+	require.Len(t, contexts, 1)
+	base := contexts[0]
+
+	transitionReceipt := issueReceiptForTest(t, s, key, "starter")
+	staleReceipt := issueReceiptForTest(t, s, key, "starter")
+	assert.Equal(t, 2, activeReceiptCountForTest(s, key))
+
+	assert.Equal(t, CallSuccessResult{Count: 1, Transitioned: true}, s.RecordCallSuccess(transitionReceipt, 1))
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key), "transition releases receipts from the superseded plan generation")
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(staleReceipt, 1))
+
+	got, ok := s.Get(key)
+	require.True(t, ok)
+	require.Greater(t, got.Generation, base.PlanGeneration)
+	require.True(t, got.Expanded)
+
+	committed, ok, err := s.SetIfCurrent(base, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"stale"},
+		Version:         "v-stale",
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	})
+	require.NoError(t, err)
+	assert.False(t, ok)
+	assert.Nil(t, committed)
+
+	got, ok = s.Get(key)
+	require.True(t, ok)
+	assert.Equal(t, []string{"starter"}, got.ToolNames)
+	assert.True(t, got.Expanded)
+}
+
 func TestSessionPlanStore_RecordCallSuccessIgnoresUnknownOrOutsidePlan(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(AuthorizationReceipt{}, 1))
@@ -290,9 +353,80 @@ func TestSessionPlanStore_RecordCallSuccessIgnoresUnknownOrOutsidePlan(t *testin
 	assert.Equal(t, int64(0), s.CallCount(key))
 }
 
+func TestSessionPlanStore_ReceiptBookkeepingBoundedAfterManyCompletions(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	for i := 0; i < 100000; i++ {
+		result := s.RecordCallSuccess(issueReceiptForTest(t, s, key, "a"), 200000)
+		require.Equal(t, int64(i+1), result.Count)
+	}
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+	assert.Equal(t, int64(100000), s.CallCount(key))
+}
+
+func TestSessionPlanStore_ConcurrentReceiptCompletionCountsOnce(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	receipt := issueReceiptForTest(t, s, key, "a")
+
+	start := make(chan struct{})
+	results := make(chan CallSuccessResult, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			<-start
+			results <- s.RecordCallSuccess(receipt, 10)
+		}()
+	}
+	close(start)
+
+	first := <-results
+	second := <-results
+	assert.ElementsMatch(t, []CallSuccessResult{{Count: 1}, {}}, []CallSuccessResult{first, second})
+	assert.Equal(t, int64(1), s.CallCount(key))
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(receipt, 10))
+}
+
+func TestSessionPlanStore_UnfinishedReceiptStaysActiveUntilPlanLifecycleEnds(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	receipt := issueReceiptForTest(t, s, key, "a")
+	assert.Equal(t, 1, activeReceiptCountForTest(s, key))
+
+	other := issueReceiptForTest(t, s, key, "a")
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(other, 10))
+	assert.Equal(t, 1, activeReceiptCountForTest(s, key), "unfinished receipt must not be removed by another completion")
+
+	assert.Equal(t, CallSuccessResult{Count: 2}, s.RecordCallSuccess(receipt, 10))
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+}
+
+func TestSessionPlanStore_DeleteSessionReleasesReceipts(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	receipt := issueReceiptForTest(t, s, key, "a")
+	assert.Equal(t, 1, activeReceiptCountForTest(s, key))
+
+	s.DeleteSession(key.SessionID)
+	assert.Equal(t, 0, s.Len())
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(receipt, 10))
+}
+
 func TestSessionPlanStore_Delete(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	key := testPlanKey("s1")
@@ -303,8 +437,7 @@ func TestSessionPlanStore_Delete(t *testing.T) {
 }
 
 func TestSessionPlanStore_IsolatesSameSessionAcrossRouters(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	keyA := NewPlanKey("router-a", "shared-session")
@@ -329,8 +462,7 @@ func TestSessionPlanStore_IsolatesSameSessionAcrossRouters(t *testing.T) {
 }
 
 func TestSessionPlanStore_DeleteOneRouterKeepsOtherRouter(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	defer s.Stop()
 
 	keyA := NewPlanKey("router-a", "shared-session")
@@ -348,8 +480,7 @@ func TestSessionPlanStore_DeleteOneRouterKeepsOtherRouter(t *testing.T) {
 }
 
 func TestSessionPlanStore_CapacityRejectsNewPlan(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 2)
+	s := newTestPlanStore(2)
 	defer s.Stop()
 
 	require.NoError(t, s.Set(testPlanKey("s2"), &SelectionPlan{SessionID: "s2"}, SelectionContext{SessionID: testPlanKey("s2").SessionID}))
@@ -365,12 +496,10 @@ func TestSessionPlanStore_CapacityRejectsNewPlan(t *testing.T) {
 }
 
 func TestSessionPlanStore_CapacityDoesNotExpireActivePlan(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 2)
+	s := newTestPlanStore(2)
 	defer s.Stop()
 
 	require.NoError(t, s.Set(testPlanKey("active"), &SelectionPlan{SessionID: "active"}, SelectionContext{SessionID: testPlanKey("active").SessionID}))
-	clock.Advance(2 * time.Minute)
 	require.NoError(t, s.Set(testPlanKey("fresh"), &SelectionPlan{SessionID: "fresh"}, SelectionContext{SessionID: testPlanKey("fresh").SessionID}))
 	assert.ErrorIs(t, s.Set(testPlanKey("new"), &SelectionPlan{SessionID: "new"}, SelectionContext{SessionID: testPlanKey("new").SessionID}), ErrPlanStoreFull)
 
@@ -380,8 +509,7 @@ func TestSessionPlanStore_CapacityDoesNotExpireActivePlan(t *testing.T) {
 }
 
 func TestSessionPlanStore_SetMaxEntries(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 5)
+	s := newTestPlanStore(5)
 	defer s.Stop()
 
 	for i := 0; i < 5; i++ {
@@ -394,8 +522,7 @@ func TestSessionPlanStore_SetMaxEntries(t *testing.T) {
 }
 
 func TestSessionPlanStore_ConcurrentAccess(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 20)
+	s := newTestPlanStore(20)
 	defer s.Stop()
 
 	var wg sync.WaitGroup
@@ -420,8 +547,7 @@ func TestSessionPlanStore_ConcurrentAccess(t *testing.T) {
 }
 
 func TestSessionPlanStore_StopIdempotentClearsEntries(t *testing.T) {
-	clock := newFakeClock()
-	s := newTestPlanStore(clock, 10)
+	s := newTestPlanStore(10)
 	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"}, SelectionContext{SessionID: testPlanKey("s1").SessionID})
 
 	s.Stop()

@@ -96,6 +96,7 @@ func newLifecycleFilterWithSessionManager(t *testing.T, sm *transport.SessionMan
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
 		sessionManager:    sm,
+		plans:             store,
 		sseHandler:        transport.NewSSEHandler(sm),
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          sel,
@@ -128,6 +129,7 @@ func newLifecycleAllAllowedFilter(t *testing.T, routerCfg *model.RouterConfig) *
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
 		sessionManager:    factory.runtime.sessionManager,
+		plans:             factory.runtime.plans,
 		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          factory.runtime.selector,
@@ -329,10 +331,12 @@ func buildToolsListForSession(t *testing.T, f *MCPServerFilter, sessionID string
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetSessionID(sessionID)
+	setValidatedSessionForTest(f, ctx, sessionID)
 
 	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsList)}}
 	req.ID = mcp.NewRequestId(int64(2))
-	resp := f.buildToolsListResponseObject(ctx, req)
+	resp, err := f.buildToolsListResponseObject(ctx, req)
+	require.NoError(t, err)
 	result := resp.Result.(*mcp.ListToolsResult)
 	names := make([]string, len(result.Tools))
 	for i, tool := range result.Tools {
@@ -366,10 +370,7 @@ func TestTransportTTLExpiryDeletesPlan(t *testing.T) {
 	sm := transport.NewSessionManagerWithNow(clock.Now)
 	defer sm.Stop()
 
-	store := router.NewSessionPlanStoreWithOptions(router.SessionPlanStoreOptions{
-		MaxEntries: 10,
-		Now:        clock.Now,
-	})
+	store := router.NewSessionPlanStoreWithOptions(router.SessionPlanStoreOptions{MaxEntries: 10})
 	defer store.Stop()
 	sm.AddSessionRemovedHandler(store.DeleteSession)
 

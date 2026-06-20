@@ -33,9 +33,10 @@ import (
 // convenient policy access).
 func (f *MCPServerFilter) buildSelectionContext(ctx *MCPContext, method, requested string) router.SelectionContext {
 	sc := router.SelectionContext{
-		SessionID: ctx.SessionID(),
-		Method:    method,
-		Requested: requested,
+		SessionID:         ctx.SessionID(),
+		SessionGeneration: ctx.SessionGeneration(),
+		Method:            method,
+		Requested:         requested,
 	}
 
 	if claims := mcpAuthClaims(ctx); claims != nil {
@@ -91,10 +92,13 @@ func filterByPlan(toolCfgs []model.ToolConfig, plan *router.SelectionPlan) []mod
 	return out
 }
 
-func (f *MCPServerFilter) handleSelectionFailure(ctx *MCPContext, sc router.SelectionContext, candidates []model.ToolConfig, cause error) []model.ToolConfig {
+func (f *MCPServerFilter) handleSelectionFailure(ctx *MCPContext, sc router.SelectionContext, candidates []model.ToolConfig, cause error) ([]model.ToolConfig, error) {
 	if handler, ok := f.selector.(router.SelectionFailureHandler); ok {
-		plan := handler.HandleSelectionFailure(ctx.Ctx, sc, candidates, cause)
-		return filterByPlan(candidates, plan)
+		plan, err := handler.HandleSelectionFailure(ctx.Ctx, sc, candidates, cause)
+		if err != nil {
+			return nil, err
+		}
+		return filterByPlan(candidates, plan), nil
 	}
-	return nil
+	return nil, cause
 }

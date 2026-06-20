@@ -53,13 +53,7 @@ const (
 )
 
 type initializeParams struct {
-	ProtocolVersion string               `json:"protocolVersion"`
-	ClientInfo      initializeClientInfo `json:"clientInfo"`
-}
-
-type initializeClientInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	ProtocolVersion string `json:"protocolVersion"`
 }
 
 // handleInitialize handles the initialize method
@@ -125,6 +119,13 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to create session: %v", err)
 		return f.errorHandler.SendInternalError(ctx, req.ID, "failed to create session")
 	}
+	if f.governanceEnabled && f.plans != nil {
+		if err := f.plans.ActivateSession(session.ID, session.Generation); err != nil {
+			f.sessionManager.RemoveSession(session.ID)
+			logger.Errorf("[dubbo-go-pixiu] mcp server failed to activate router session plan owner: %v", err)
+			return f.errorHandler.SendInternalError(ctx, req.ID, "failed to create session")
+		}
+	}
 
 	// Add Mcp-Session-Id header to the response
 	ctx.AddHeader(constant.HeaderKeyMCPSessionId, session.ID)
@@ -136,14 +137,18 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 // handleToolsList handles the tools/list method using mcp-go APIs
 func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCRequest, responseFormat transport.ResponseFormat) filter.FilterStatus {
-	response := f.buildToolsListResponseObject(ctx, req)
+	response, err := f.buildToolsListResponseObject(ctx, req)
+	if err != nil {
+		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to build tools/list response: %v", err)
+		return f.errorHandler.SendInternalError(ctx, req.ID, "failed to persist session plan")
+	}
 	return f.sendResponseWithFormat(ctx, response, responseFormat)
 }
 
 // buildToolsListResponseObject builds the tools/list response object (for SSE)
-func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.JSONRPCRequest) mcp.JSONRPCResponse {
+func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.JSONRPCRequest) (mcp.JSONRPCResponse, error) {
 	// Read immutable catalog snapshot to reflect dynamic updates.
-	snapshot := f.registry.ToolCatalogSnapshot()
+	snapshot := f.registry.toolCatalogSnapshotUnsafe()
 	toolCfgs := snapshot.orderedToolsUnsafe()
 
 	// Router hookpoint: trim the candidate set to a session-scoped plan.
@@ -152,15 +157,21 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 	if f.governanceEnabled {
 		if !f.routerSessionValid(ctx) {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router rejected tools/list for invalid session")
-			return f.responseBuilder.Success(req.ID, mcp.NewListToolsResult(nil, ""))
+			return mcp.JSONRPCResponse{}, fmt.Errorf("mcp session invalidated during request")
 		}
 		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsList), "", snapshot.Version)
 		plan, err := f.selector.Select(ctx.Ctx, sc, toolCfgs)
 		if err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router Select failed: %v", err)
-			toolCfgs = f.handleSelectionFailure(ctx, sc, toolCfgs, err)
+			toolCfgs, err = f.handleSelectionFailure(ctx, sc, toolCfgs, err)
+			if err != nil {
+				return mcp.JSONRPCResponse{}, err
+			}
 		} else {
 			toolCfgs = filterByPlan(toolCfgs, plan)
+		}
+		if !f.routerSessionValid(ctx) {
+			return mcp.JSONRPCResponse{}, fmt.Errorf("mcp session invalidated during request")
 		}
 	}
 
@@ -194,18 +205,18 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 	// Build standard MCP tools list response using mcp-go structures
 	result := mcp.NewListToolsResult(tools, "")
 
-	return f.responseBuilder.Success(req.ID, result)
+	return f.responseBuilder.Success(req.ID, result), nil
 }
 
 func (f *MCPServerFilter) routerSessionValid(ctx *MCPContext) bool {
 	if !f.governanceEnabled {
 		return true
 	}
-	if ctx.SessionID() == "" {
+	session := ctx.ValidatedSession()
+	if session == nil || ctx.SessionID() == "" || ctx.SessionGeneration() == 0 {
 		return false
 	}
-	_, exists := f.sessionManager.PeekSession(ctx.SessionID())
-	return exists
+	return session.ID == ctx.SessionID() && session.Generation == ctx.SessionGeneration() && !session.IsClosed()
 }
 
 // buildToolParameterOptions builds the mcp.PropertyOption slice for a given tool argument
@@ -311,8 +322,6 @@ func (f *MCPServerFilter) handleResourceRead(ctx *MCPContext, req mcp.JSONRPCReq
 		return f.errorHandler.SendInternalError(ctx, req.ID, fmt.Sprintf("resource not found: %s", params.URI))
 	}
 
-	// Build resource content response
-	// TODO: Implement actual resource content loading from source
 	content := fmt.Sprintf("Resource content for %s (source: %s)", resource.URI, resource.Source.Type)
 
 	result := map[string]any{
@@ -465,7 +474,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 
 	// Read a single live tool snapshot and use it for both lookup and router
 	// authorization so tools/call cannot authorize against stale metadata.
-	snapshot := f.registry.ToolCatalogSnapshot()
+	snapshot := f.registry.toolCatalogSnapshotUnsafe()
 	toolCfgs := snapshot.orderedToolsUnsafe()
 
 	// Router hookpoint: enforce that the tool is authorized for this session.
@@ -510,7 +519,6 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 		params.Name, toolConfig.Request.Method, ctx.Request.URL.Path, toolConfig.Cluster)
 
 	// Store MCP data for Encode stage processing
-	ctx.SetMCPToolName(params.Name)
 	ctx.StoreMCPDataInParams()
 
 	ctx.Route = &model.RouteAction{
@@ -640,6 +648,10 @@ func (f *MCPServerFilter) extractBackendResponse(ctx *MCPContext) ([]byte, int, 
 
 // processToolCallResponse processes the tool call response and sends the result
 func (f *MCPServerFilter) processToolCallResponse(ctx *MCPContext, requestID any, responseBody []byte, statusCode int) filter.FilterStatus {
+	if f.governanceEnabled && !f.routerSessionValid(ctx) {
+		logger.Warnf("[dubbo-go-pixiu] mcp tool router rejected tool response for invalid session")
+		return f.errorHandler.SendToolCallError(ctx, requestID, "MCP session invalidated during request")
+	}
 	// Check for backend errors
 	if statusCode >= 400 {
 		logger.Errorf("[dubbo-go-pixiu] mcp server backend returned error status: %d", statusCode)
@@ -677,7 +689,7 @@ func (f *MCPServerFilter) recordToolCallSuccess(ctx *MCPContext) bool {
 	if !result.Transitioned {
 		return false
 	}
-	snapshot := f.registry.ToolCatalogSnapshot()
+	snapshot := f.registry.toolCatalogSnapshotUnsafe()
 	sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsCall), receipt.ToolName, snapshot.Version)
 	if _, err := f.selector.Select(ctx.Ctx, sc, snapshot.orderedToolsUnsafe()); err != nil {
 		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to refresh expanded plan after transition: %v", err)
@@ -731,31 +743,13 @@ func (f *MCPServerFilter) notifyToolsListChanged(sessionID string) {
 	if !exists {
 		return
 	}
-	session.MarkToolsListChangedPending()
-	f.flushPendingToolsListChanged(session)
+	if _, _, err := markToolsListChangedAndFlush(f.sseHandler, session); err != nil {
+		logger.Warnf("[dubbo-go-pixiu] mcp server failed to flush pending tools/list_changed: %v", err)
+	}
 }
 
 func (f *MCPServerFilter) flushPendingToolsListChanged(session *transport.MCPSession) {
-	if session == nil {
-		return
+	if err := flushToolsListChangedNotification(f.sseHandler, session); err != nil {
+		logger.Warnf("[dubbo-go-pixiu] mcp server failed to flush pending tools/list_changed: %v", err)
 	}
-	for {
-		version, pending := session.PendingToolsListChangedVersion()
-		if !pending || !session.HasPipeWriter() {
-			return
-		}
-		if err := f.sendToolsListChangedNotification(session); err != nil {
-			logger.Warnf("[dubbo-go-pixiu] mcp server failed to flush pending tools/list_changed: %v", err)
-			return
-		}
-		session.MarkToolsListChangedNotified(version)
-	}
-}
-
-func (f *MCPServerFilter) sendToolsListChangedNotification(session *transport.MCPSession) error {
-	notification := map[string]any{
-		"jsonrpc": "2.0",
-		"method":  toolsListChangedMethod,
-	}
-	return f.sseHandler.SendSSEMessage(session, notification)
 }

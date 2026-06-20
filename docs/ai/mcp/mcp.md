@@ -120,7 +120,7 @@ policy  ->  workflow  ->  progressive
     server_info: { name: "Pixiu MCP Server", version: "1.0.0" }
     endpoint: "/mcp"
     router:
-      fallback: "bundle_default"      # bundle_default (default) | fail_closed
+      fallback: "fail_closed"         # fail_closed (default) | bundle_default
       default_bundle: "safe-minimal"  # bundle used for no-match/error fallback
       stages:
         policy: true                  # default true
@@ -153,7 +153,7 @@ policy  ->  workflow  ->  progressive
 
 #### Tool Metadata (`tools[].meta`)
 
-Routing stages act on optional per-tool metadata. Tools without `meta` are treated as untagged, low-risk, and visible — so existing configs keep working unchanged. Unknown `meta.risk` or `policy.max_risk` values are configuration errors and fail fast on startup or dynamic update.
+Routing stages act on optional per-tool metadata. Tools without `meta` are treated as untagged, low-risk, and visible; they still pass through policy, workflow, progressive disclosure, selector evaluation, and session-plan authorization when governance is enabled. Unknown `meta.risk` or `policy.max_risk` values are configuration errors and fail fast on startup or dynamic update.
 
 ```yaml
 tools:
@@ -164,7 +164,7 @@ tools:
     meta:
       tags: ["user", "read"]
       risk: "low"                     # low | medium | high (default low)
-      discovery_visibility: true      # false => hidden from tools/list, still authorized/callable when selected
+      discovery_visibility: true      # false => hidden from tools/list; callable only when selected and authorized
 ```
 
 #### Pipeline Stages
@@ -188,14 +188,14 @@ tools:
 
 If no workflow matches, or the selector hits an internal error, the `fallback` strategy decides the outcome:
 
-- **`bundle_default`** (default): expose the `default_bundle` workflow (intersected with the policy-allowed live catalog). `default_bundle` must be non-empty, the workflow list must exist, and the named workflow must contain at least one tool name, or the gateway fails to start.
-- **`fail_closed`**: return no tools. There is intentionally no `fail_open` — a governance-layer failure must never *widen* the exposure surface.
+- **`fail_closed`** (default): return no tools. There is intentionally no `fail_open` — a governance-layer failure must never *widen* the exposure surface.
+- **`bundle_default`**: expose the `default_bundle` workflow (intersected with the policy-allowed live catalog). `default_bundle` must be non-empty, the workflow list must exist, and the named workflow must contain at least one tool name, or the gateway fails to start.
 
 Explicit empty selections stay empty: policy denial, a matched workflow with no live tools, or a locked progressive tier with no live tools does not fall back to the default bundle.
 
 #### Enforcement at `tools/call`
 
-A `tools/call` for a tool not in the session's plan is rejected with a tool-call error. The router re-validates the plan against the current claims, router config version, and live tool catalog before authorizing the call, so stale plans are recomputed instead of treated as long-lived credentials. A client that skips `tools/list` entirely has no plan and is therefore denied (reason `no_session_plan`).
+A `tools/call` for a tool not in the session's plan is rejected with a tool-call error. The router re-validates the plan against the current claims, router config version, and live tool catalog before authorizing the call, so stale plans are recomputed instead of treated as long-lived credentials. A client that skips `tools/list` entirely has no committed plan and is denied with the same fixed authorization failure surface as any tool outside the current plan.
 
 Tools with `meta.discovery_visibility: false` are omitted from the plan's `visible_tool_names` / `tools/list` view but remain in the authorized `tool_names` set when selected by policy, workflow, or progressive stages. This supports hidden-but-callable tools for clients that already know the tool name while keeping discovery quieter.
 
@@ -203,7 +203,7 @@ Tools with `meta.discovery_visibility: false` are omitted from the plan's `visib
 
 When the router block is configured, `initialize` creates a fresh MCP session and returns it in `Mcp-Session-Id`. Clients must not send `Mcp-Session-Id` on `initialize`; Pixiu rejects that with `400` instead of adopting a caller-supplied ID. Later GET SSE streams require an existing session ID: a missing header returns `400`, and an unknown or expired ID returns `404`. Router-enforced POST requests (`tools/list` and `tools/call`) also require a valid session; unknown or expired IDs are never silently replaced with new sessions.
 
-The MCP session owns the router plan, progressive counter, and pending notification state. An SSE stream is only an attachment to that session: disconnecting, canceling the request context, reconnecting, or replacing the active stream does not terminate the MCP session or delete its plan. When the transport session is removed, Pixiu deletes all router-instance plans for that session; TTL cleanup is only a stale-entry safety net.
+The MCP session owns the router plan, progressive counter, and pending notification state. An SSE stream is only an attachment to that session: disconnecting, canceling the request context, reconnecting, or replacing the active stream does not terminate the MCP session or delete its plan. When the transport session is removed, Pixiu deletes all router-instance plans for that session.
 
 The initialize response advertises `ServerCapabilities.tools.listChanged=true`. This is a server capability; clients do not need to declare `capabilities.tools.listChanged`. When a session's visible tool set changes, Pixiu sends `notifications/tools/list_changed` as a JSON-RPC notification without an `id`. Progressive expansion after the configured successful-call threshold marks a change exactly once. If the client is offline, Pixiu keeps a bounded per-session pending version and flushes the latest change after SSE reconnect. Multiple changes may be coalesced, but the final pending change is not lost.
 
@@ -220,17 +220,18 @@ When governance is enabled, Pixiu publishes Prometheus metrics under the `pixiu_
 | `select_total` | counter | `result` (ok/fallback/cached), `mode` |
 | `selection_latency_ms` | histogram | `stage` |
 | `candidates_count` / `selected_count` | histogram | — |
-| `fallback_total` | counter | `reason` |
-| `call_denied_total` | counter | `reason` (no_session_plan / not_in_plan / stale_plan_recompute_failed) |
+| `fallback_total` | counter | `reason` (no_match / internal_error / plan_persistence_failed) |
+| `call_denied_total` | counter | `reason` (identity_hash_error / not_in_plan / receipt_failed / stale_plan_recompute_failed) |
+| `plan_evicted_total` | counter | `reason` (explicit / session_end) |
 | `plans_active` | gauge | — |
 
-Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and metadata version. Bounded denied-tool samples are included only when `audit.decision_detail_logging: true`. Even with decision detail logging active, Pixiu does not log tokens, claim values, session IDs, authorization headers, or tool arguments.
+Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and `plan_version`. Bounded denied-tool samples are included only when `audit.decision_detail_logging: true`. Even with decision detail logging active, Pixiu does not log tokens, claim values, session IDs, authorization headers, or tool arguments.
 
 There is intentionally no data-plane plan inspection endpoint. Session plans reveal authorization state, so operational debugging should rely on sampled decision logs and aggregate metrics rather than exposing per-session plan text details over the MCP listener.
 
 #### Multi-Instance Note
 
-Session plans are stored in-process. Across multiple Pixiu instances, route the same `Mcp-Session-Id` to the same instance (sticky session, e.g. a load-balancer hash on the header) so a session sees a consistent plan. A shared/distributed plan store is a planned future enhancement.
+Session plans are stored in-process. Across multiple Pixiu instances, route the same `Mcp-Session-Id` to the same instance (sticky session, e.g. a load-balancer hash on the header) so a session sees a consistent plan. This PR does not add a shared or distributed plan store.
 
 ---
 
@@ -456,12 +457,12 @@ adapters:
 `username`
 
 - **Type**: `string`
-- **Description**: Nacos authentication username. Required if the Nacos server has authentication active.
+- **Description**: Nacos authentication username. Required if the Nacos server has authentication enabled.
 
 `password`
 
 - **Type**: `string`
-- **Description**: Nacos authentication password. Required if the Nacos server has authentication active.
+- **Description**: Nacos authentication password. Required if the Nacos server has authentication enabled.
 
 `namespace` (optional)
 

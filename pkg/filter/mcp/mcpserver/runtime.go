@@ -18,6 +18,7 @@
 package mcpserver
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,9 @@ var (
 	runtimeSeq       uint64
 	resetTestGlobals func()
 )
+
+var ErrDynamicConsumerUnavailable = errors.New("mcp dynamic consumer unavailable")
+var ErrDynamicConsumerAmbiguous = errors.New("multiple mcp dynamic consumers registered")
 
 func registerRuntime(runtime *RuntimeState) string {
 	if runtime == nil {
@@ -64,19 +68,38 @@ func (r *RuntimeState) Stop() {
 	}
 }
 
-// GetOrInitDynamicConsumer preserves the legacy registry-center entry point
-// only when a single MCP filter instance is registered. Multiple instances
-// require an explicit runtime binding, so this function refuses to guess.
-func GetOrInitDynamicConsumer() *DynamicConsumer {
+// DynamicConsumerForSingleRuntime returns the only registered dynamic consumer.
+// Registry-center callbacks are process-global today, so multiple MCP filters
+// must be treated as ambiguous instead of guessing which runtime should update.
+func DynamicConsumerForSingleRuntime() (*DynamicConsumer, error) {
 	runtimeIndexMu.RLock()
 	defer runtimeIndexMu.RUnlock()
-	if len(runtimeIndex) != 1 {
+	switch len(runtimeIndex) {
+	case 0:
+		return nil, ErrDynamicConsumerUnavailable
+	case 1:
+		for _, runtime := range runtimeIndex {
+			if runtime.dynamic == nil {
+				return nil, ErrDynamicConsumerUnavailable
+			}
+			return runtime.dynamic, nil
+		}
+	default:
+		return nil, ErrDynamicConsumerAmbiguous
+	}
+	return nil, ErrDynamicConsumerUnavailable
+}
+
+// GetOrInitDynamicConsumer preserves the legacy registry-center entry point.
+//
+// Deprecated: use DynamicConsumerForSingleRuntime to distinguish unavailable
+// and ambiguous runtime state.
+func GetOrInitDynamicConsumer() *DynamicConsumer {
+	consumer, err := DynamicConsumerForSingleRuntime()
+	if err != nil {
 		return nil
 	}
-	for _, runtime := range runtimeIndex {
-		return runtime.dynamic
-	}
-	return nil
+	return consumer
 }
 
 // ResetGlobalState resets runtime references created by tests.

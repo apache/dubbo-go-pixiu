@@ -120,7 +120,7 @@ policy  ->  workflow  ->  progressive
     server_info: { name: "Pixiu MCP Server", version: "1.0.0" }
     endpoint: "/mcp"
     router:
-      fallback: "bundle_default"      # bundle_default（默认）| fail_closed
+      fallback: "fail_closed"         # fail_closed（默认）| bundle_default
       default_bundle: "safe-minimal"  # 无匹配/内部错误回退使用的 bundle
       stages:
         policy: true                  # 默认 true
@@ -153,7 +153,7 @@ policy  ->  workflow  ->  progressive
 
 #### 工具元数据 (`tools[].meta`)
 
-路由各阶段基于可选的单工具元数据工作。没有 `meta` 的工具被视为无标签、低风险、可见 —— 因此现有配置无需改动即可继续工作。未知的 `meta.risk` 或 `policy.max_risk` 属于配置错误，启动或动态更新时会 fail fast。
+路由各阶段基于可选的单工具元数据工作。没有 `meta` 的工具被视为无标签、低风险、可见；启用治理时，它们仍会经过 policy、workflow、progressive、selector 和 session plan 授权。未知的 `meta.risk` 或 `policy.max_risk` 属于配置错误，启动或动态更新时会 fail fast。
 
 ```yaml
 tools:
@@ -164,7 +164,7 @@ tools:
     meta:
       tags: ["user", "read"]
       risk: "low"                     # low | medium | high（默认 low）
-      discovery_visibility: true      # false => 不在 tools/list 暴露，但被选中时仍授权/可调用
+      discovery_visibility: true      # false => 不在 tools/list 暴露；仅在被选中且授权时可调用
 ```
 
 #### 流水线阶段
@@ -188,14 +188,14 @@ tools:
 
 当没有 workflow 命中，或 selector 发生内部错误时，由 `fallback` 决定结果：
 
-- **`bundle_default`**（默认）：暴露 `default_bundle` workflow（与 policy 允许后的当前工具集求交）。`default_bundle` 必须非空，workflow 列表必须存在，且该 workflow 至少包含一个工具名，否则网关启动失败。
-- **`fail_closed`**：不返回任何工具。刻意不提供 `fail_open` —— 治理层故障绝不能反向 *扩大* 暴露面。
+- **`fail_closed`**（默认）：不返回任何工具。刻意不提供 `fail_open` —— 治理层故障绝不能反向 *扩大* 暴露面。
+- **`bundle_default`**：暴露 `default_bundle` workflow（与 policy 允许后的当前工具集求交）。`default_bundle` 必须非空，workflow 列表必须存在，且该 workflow 至少包含一个工具名，否则网关启动失败。
 
 显式空选择会保持为空：policy 拒绝、已命中的 workflow 没有 live tool、progressive 初始层没有 live tool，都不会回退到 default bundle。
 
 #### `tools/call` 强制校验
 
-对不在 session plan 内的工具发起 `tools/call` 会返回 tool-call 错误。授权前，路由器会用当前 claims、router 配置版本和实时工具目录重新校验 plan；过期 plan 会重算，而不会被当作长期授权凭证。完全跳过 `tools/list` 的客户端没有 plan，因此被拒绝（原因 `no_session_plan`）。
+对不在 session plan 内的工具发起 `tools/call` 会返回 tool-call 错误。授权前，路由器会用当前 claims、router 配置版本和实时工具目录重新校验 plan；过期 plan 会重算，而不会被当作长期授权凭证。完全跳过 `tools/list` 的客户端没有已提交 plan，会以固定授权失败语义被拒绝。
 
 配置了 `meta.discovery_visibility: false` 的工具会从 plan 的 `visible_tool_names` / `tools/list` 视图中隐藏；但只要它被 policy、workflow 或 progressive 阶段选中，仍保留在授权用的 `tool_names` 集合中，因此已知工具名的客户端仍可调用。这个能力用于降低 discovery 噪音，而不是作为授权拒绝手段。
 
@@ -203,7 +203,7 @@ tools:
 
 配置了 `router` 时，`initialize` 会创建新的 MCP session，并通过 `Mcp-Session-Id` 返回给客户端。客户端不应在 `initialize` 请求中携带 `Mcp-Session-Id`；Pixiu 会返回 `400`，不会采用调用方提供的 ID。后续 GET SSE stream 必须携带已存在的 session ID：缺失 header 返回 `400`，未知或过期 ID 返回 `404`。启用 router 强制的 POST 请求（`tools/list` 和 `tools/call`）也必须使用有效 session；未知或过期 ID 不会被静默替换成新 session。
 
-MCP session 持有 router plan、progressive 计数器和 pending notification 状态。SSE stream 只是挂载在 session 上的连接：断开、请求 context cancel、重连或新 stream 替换旧 stream，都不会终止 MCP session 或删除 plan。当 transport session 被移除时，Pixiu 会删除该 session 下所有 router 实例的 plan；TTL 清理只是异常路径下的兜底。
+MCP session 持有 router plan、progressive 计数器和 pending notification 状态。SSE stream 只是挂载在 session 上的连接：断开、请求 context cancel、重连或新 stream 替换旧 stream，都不会终止 MCP session 或删除 plan。当 transport session 被移除时，Pixiu 会删除该 session 下所有 router 实例的 plan。
 
 Initialize response 会声明 `ServerCapabilities.tools.listChanged=true`。这是服务端能力；客户端不需要声明 `capabilities.tools.listChanged`。当某个 session 的可见工具集合发生变化时，Pixiu 会发送 `notifications/tools/list_changed` JSON-RPC notification，且不包含 `id`。Progressive 达到成功调用阈值并展开时只标记一次变化。客户端离线时，Pixiu 在 session 内保存有界的 pending version，并在 SSE reconnect 后发送最新变化。多次变化可以合并，但最终 pending 变化不会丢失。
 
@@ -220,17 +220,18 @@ Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块�
 | `select_total` | counter | `result`（ok/fallback/cached）、`mode` |
 | `selection_latency_ms` | histogram | `stage` |
 | `candidates_count` / `selected_count` | histogram | — |
-| `fallback_total` | counter | `reason` |
-| `call_denied_total` | counter | `reason`（no_session_plan / not_in_plan / stale_plan_recompute_failed） |
+| `fallback_total` | counter | `reason`（no_match / internal_error / plan_persistence_failed） |
+| `call_denied_total` | counter | `reason`（identity_hash_error / not_in_plan / receipt_failed / stale_plan_recompute_failed） |
+| `plan_evicted_total` | counter | `reason`（explicit / session_end） |
 | `plans_active` | gauge | — |
 
-决策日志默认关闭。将 `audit.sample_rate` 设为 `(0,1]` 内的值后，才会输出脱敏结构化日志（`event: mcp_router_decision`），包含计数、mode、各阶段丢弃数和元数据版本。只有显式开启 `audit.decision_detail_logging: true` 时才会包含有上限的被拒工具名样本。即使开启 decision detail logging，Pixiu 也不会记录 token、claims value、session ID、Authorization header 或 tool arguments。
+决策日志默认关闭。将 `audit.sample_rate` 设为 `(0,1]` 内的值后，才会输出脱敏结构化日志（`event: mcp_router_decision`），包含计数、mode、各阶段丢弃数和 `plan_version`。只有显式开启 `audit.decision_detail_logging: true` 时才会包含有上限的被拒工具名样本。即使开启 decision detail logging，Pixiu 也不会记录 token、claims value、session ID、Authorization header 或 tool arguments。
 
 数据面不会暴露 plan inspection 端点。Session plan 会泄露授权状态，因此运维调试应依赖采样决策日志和聚合指标，而不是通过 MCP 监听端口暴露单 session 的 plan text detail。
 
 #### 多实例说明
 
-Session plan 存储在进程内。多 Pixiu 实例时，应将同一 `Mcp-Session-Id` 路由到同一实例（粘性会话，例如对该 header 做负载均衡 hash），以保证同一 session 看到一致的 plan。共享/分布式 plan 存储是后续规划的增强项。
+Session plan 存储在进程内。多 Pixiu 实例时，应将同一 `Mcp-Session-Id` 路由到同一实例（粘性会话，例如对该 header 做负载均衡 hash），以保证同一 session 看到一致的 plan。本 PR 不新增共享或分布式 plan store。
 
 ---
 

@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -278,17 +279,16 @@ func TestInitialize_NoRouterAllowsSuppliedSessionHeader(t *testing.T) {
 	}
 }
 
-func TestMaintainSSEPipe_Keepalive(t *testing.T) {
+func TestMaintainSSEPipe_ContextCancellationDetachesStream(t *testing.T) {
 	mcpFilter := createTestFilter(t)
 	defer mcpFilter.sessionManager.Stop()
 
-	// Create session with pipe
 	session, _ := mcpFilter.sessionManager.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
+	defer pipeReader.Close()
 	token, _ := session.AttachStream(pipeWriter)
 
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	httpCtx := &contexthttp.HttpContext{
@@ -296,41 +296,11 @@ func TestMaintainSSEPipe_Keepalive(t *testing.T) {
 	}
 	mcpCtx := NewMCPContext(httpCtx)
 
-	// Start maintainSSEPipe with very short interval for testing
-	// Note: This test uses production KeepaliveInterval (30s), so we won't actually receive keepalive in 2s
 	go mcpFilter.maintainSSEPipe(mcpCtx, session, token)
 
-	// Read from pipe in background
-	dataCh := make(chan string, 10)
-	go func() {
-		buf := make([]byte, 1024)
-		for {
-			n, err := pipeReader.Read(buf)
-			if err != nil {
-				return
-			}
-			if n > 0 {
-				dataCh <- string(buf[:n])
-			}
-		}
-	}()
-
-	// Wait a bit to see if we receive anything (we shouldn't with 30s interval)
-	select {
-	case data := <-dataCh:
-		// If we somehow received data (unlikely with 30s interval), verify it's keepalive
-		if !strings.HasPrefix(data, ":") {
-			t.Errorf("Expected keepalive comment, got: %s", data)
-		}
-	case <-time.After(500 * time.Millisecond):
-		// Expected: no data yet due to 30s interval
-	}
-
-	// Cancel context to stop maintenance
 	cancel()
-	time.Sleep(100 * time.Millisecond)
+	waitForNoPipeWriter(t, session)
 
-	// Verify stream was detached but session was preserved
 	_, exists := mcpFilter.sessionManager.Session(session.ID)
 	if !exists {
 		t.Error("Session should remain after context cancellation")
@@ -414,7 +384,7 @@ func TestHandleGetRequest_OverlappingStreamsOldDetachDoesNotClearNew(t *testing.
 	}
 
 	cancelA()
-	time.Sleep(100 * time.Millisecond)
+	runtime.Gosched()
 	if !session.HasPipeWriter() {
 		t.Fatal("old stream goroutine detached the replacement stream")
 	}
@@ -591,10 +561,24 @@ func createTestFilterWithRouter(t *testing.T, routerCfg *model.RouterConfig) *MC
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
 		sessionManager:    factory.runtime.sessionManager,
+		plans:             factory.runtime.plans,
 		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          factory.runtime.selector,
 		governanceEnabled: factory.runtime.governanceEnabled,
+	}
+}
+
+func waitForNoPipeWriter(t *testing.T, session *transport.MCPSession) {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for session.HasPipeWriter() {
+		select {
+		case <-deadline:
+			t.Fatal("SSE stream was not detached")
+		default:
+			runtime.Gosched()
+		}
 	}
 }
 

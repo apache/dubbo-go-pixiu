@@ -281,11 +281,12 @@ func TestComposite_SelectionFailureBundleDefaultRespectsPolicy(t *testing.T) {
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
-	plan := cs.HandleSelectionFailure(context.Background(), SelectionContext{SessionID: "s1"},
+	plan, err := cs.HandleSelectionFailure(context.Background(), SelectionContext{SessionID: "s1"},
 		[]model.ToolConfig{
 			toolWithMeta("ping", &model.ToolMeta{Tags: []string{"safe"}}),
 			toolWithMeta("admin_tool", &model.ToolMeta{Tags: []string{"admin"}}),
 		}, assert.AnError)
+	require.NoError(t, err)
 
 	assert.Equal(t, []string{"ping"}, plan.ToolNames)
 	assert.Equal(t, ModeFallbackBundle, plan.Mode)
@@ -402,6 +403,30 @@ func TestBuild_FailClosedDoesNotRequireDefaultBundle(t *testing.T) {
 	}, NewSessionPlanStore())
 	assert.NoError(t, err)
 	assert.NotNil(t, sel)
+}
+
+func TestBuild_EmptyRouterDefaultsToFailClosed(t *testing.T) {
+	sel, err := Build(&model.RouterConfig{}, NewSessionPlanStore())
+	require.NoError(t, err)
+	cs := sel.(*CompositeSelector)
+	assert.Equal(t, FallbackFailClosed, cs.fallback)
+
+	plan, err := cs.HandleSelectionFailure(context.Background(), SelectionContext{SessionID: "s1"}, []model.ToolConfig{toolWithMeta("ping", nil)}, assert.AnError)
+	require.NoError(t, err)
+	assert.Equal(t, ModeFailClosed, plan.Mode)
+	assert.Empty(t, plan.ToolNames)
+}
+
+func TestNewCompositeSelectorDefaultsAndValidatesFallback(t *testing.T) {
+	store := NewSessionPlanStore()
+	defer store.Stop()
+
+	cs, err := NewCompositeSelector(CompositeOptions{Store: store})
+	require.NoError(t, err)
+	assert.Equal(t, FallbackFailClosed, cs.fallback)
+
+	_, err = NewCompositeSelector(CompositeOptions{Store: store, Fallback: "fail_open"})
+	assert.ErrorContains(t, err, "not supported")
 }
 
 func TestBuild_ProgressiveRequiresInitialBundle(t *testing.T) {

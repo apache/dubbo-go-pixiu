@@ -25,9 +25,10 @@ This directory demonstrates the MCP intelligent tool router.
    or dynamic catalog changes are reported with `notifications/tools/list_changed`
    when the visible tool set changes.
 
-The example uses `fallback: bundle_default`, so no workflow match or an internal
-router error falls back to the `safe-minimal` bundle after hard policy is
-applied. Explicit policy denial still returns no tools.
+The router default is `fail_closed`. This example explicitly sets
+`fallback: bundle_default`, so no workflow match or an internal router error
+falls back to the `safe-minimal` bundle after hard policy is applied. Explicit
+policy denial still returns no tools.
 
 ## Running
 

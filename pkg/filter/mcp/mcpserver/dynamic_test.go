@@ -18,6 +18,7 @@
 package mcpserver
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -226,6 +227,108 @@ func TestToolRegistryToolSnapshotVersionAdvancesOnRegistryMutation(t *testing.T)
 	require.NoError(t, registry.ReplaceAllTools(tools))
 	_, version3 := registry.ToolSnapshot()
 	assert.NotEqual(t, version2, version3)
+}
+
+func TestToolRegistryReturnsDefensiveCopies(t *testing.T) {
+	registry := NewToolRegistry()
+	visible := true
+	tool := createTestToolConfig("tool1", "First tool")
+	tool.Request.Headers = map[string]string{"x-source": "original"}
+	tool.Args[0].Enum = []string{"a", "b"}
+	tool.Args[0].Default = map[string]any{"nested": []any{"original"}}
+	tool.Meta = &model.ToolMeta{Tags: []string{"safe"}, DiscoveryVisibility: &visible}
+	require.NoError(t, registry.ReplaceAllTools([]model.ToolConfig{tool}))
+
+	got, ok := registry.GetTool("tool1")
+	require.True(t, ok)
+	got.Request.Headers["x-source"] = "mutated"
+	got.Args[0].Enum[0] = "mutated"
+	got.Args[0].Default.(map[string]any)["nested"].([]any)[0] = "mutated"
+	got.Meta.Tags[0] = "mutated"
+	*got.Meta.DiscoveryVisibility = false
+
+	again, ok := registry.GetTool("tool1")
+	require.True(t, ok)
+	assert.Equal(t, "original", again.Request.Headers["x-source"])
+	assert.Equal(t, []string{"a", "b"}, again.Args[0].Enum)
+	assert.Equal(t, "original", again.Args[0].Default.(map[string]any)["nested"].([]any)[0])
+	assert.Equal(t, []string{"safe"}, again.Meta.Tags)
+	assert.True(t, *again.Meta.DiscoveryVisibility)
+
+	snapshot := registry.ToolCatalogSnapshot()
+	snapshot.Version = "caller-mutated"
+	snapshot.Fingerprint = "bad"
+	snapshot.ordered[0].Name = "mutated"
+	next := registry.ToolCatalogSnapshot()
+	assert.NotEqual(t, "caller-mutated", next.Version)
+	assert.NotEqual(t, "bad", next.Fingerprint)
+	assert.Equal(t, "tool1", next.OrderedTools()[0].Name)
+}
+
+func TestToolRegistryConcurrentRegistersDoNotLoseUpdates(t *testing.T) {
+	registry := NewToolRegistry()
+	const writers = 100
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	errs := make(chan error, writers)
+
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			errs <- registry.RegisterTool(createTestToolConfig(fmt.Sprintf("tool-%03d", i), "tool"))
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	tools := registry.ListTools()
+	require.Len(t, tools, writers)
+	assert.Equal(t, uint64(writers), registry.ToolCatalogSnapshot().Generation)
+	seen := make(map[string]struct{}, writers)
+	for _, tool := range tools {
+		seen[tool.Name] = struct{}{}
+	}
+	for i := 0; i < writers; i++ {
+		assert.Contains(t, seen, fmt.Sprintf("tool-%03d", i))
+	}
+}
+
+func TestToolRegistryConcurrentReplaceAllPublishesWholeSnapshots(t *testing.T) {
+	registry := NewToolRegistry()
+	const writers = 40
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	errs := make(chan error, writers)
+
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			errs <- registry.ReplaceAllTools([]model.ToolConfig{
+				createTestToolConfig(fmt.Sprintf("replace-%02d-a", i), "a"),
+				createTestToolConfig(fmt.Sprintf("replace-%02d-b", i), "b"),
+			})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	snapshot := registry.ToolCatalogSnapshot()
+	require.Equal(t, uint64(writers), snapshot.Generation)
+	tools := snapshot.OrderedTools()
+	require.Len(t, tools, 2)
+	assert.Equal(t, tools[0].Name[:10], tools[1].Name[:10], "reader must see one complete replacement set")
 }
 
 func TestDynamicConsumerMergedToolsStableByServerIDAndConfigOrder(t *testing.T) {
