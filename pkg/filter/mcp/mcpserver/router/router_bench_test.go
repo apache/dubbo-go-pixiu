@@ -69,52 +69,66 @@ func benchSelector(b *testing.B, store *SessionPlanStore) *CompositeSelector {
 func BenchmarkCompositeSelector(b *testing.B) {
 	for _, size := range []int{50, 1000, 10000} {
 		b.Run("warm_"+strconv.Itoa(size), func(b *testing.B) {
-			store := NewSessionPlanStoreWithTTL(time.Hour)
-			defer store.Stop()
-			cs := benchSelector(b, store)
-			tools := benchTools(size)
-			sc := SelectionContext{SessionID: "warm", Tenant: "acme"}
-			plan, err := cs.Select(context.Background(), sc, tools)
-			if err != nil || plan == nil {
-				b.Fatalf("prewarm failed: plan=%v err=%v", plan, err)
-			}
-
-			b.ReportAllocs()
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				benchPlan, benchErr = cs.Select(context.Background(), sc, tools)
-			}
-			b.StopTimer()
-			if benchErr != nil || benchPlan == nil {
-				b.Fatalf("warm select failed: plan=%v err=%v", benchPlan, benchErr)
-			}
-			if store.Len() != 1 {
-				b.Fatalf("warm benchmark store size = %d, want 1", store.Len())
-			}
+			benchmarkCompositeSelectorWarm(b, size)
 		})
 
 		b.Run("cold_"+strconv.Itoa(size), func(b *testing.B) {
-			store := NewSessionPlanStoreWithTTL(time.Hour)
-			defer store.Stop()
-			cs := benchSelector(b, store)
-			tools := benchTools(size)
-
-			b.ReportAllocs()
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				sessionID := "cold"
-				sc := SelectionContext{SessionID: sessionID, Tenant: "acme"}
-				benchPlan, benchErr = cs.Select(context.Background(), sc, tools)
-				store.Delete(sessionID)
-			}
-			b.StopTimer()
-			if benchErr != nil || benchPlan == nil {
-				b.Fatalf("cold select failed: plan=%v err=%v", benchPlan, benchErr)
-			}
-			if store.Len() != 0 {
-				b.Fatalf("cold benchmark store size = %d, want 0", store.Len())
-			}
+			benchmarkCompositeSelectorCold(b, size)
 		})
+	}
+}
+
+func benchmarkCompositeSelectorWarm(b *testing.B, size int) {
+	store := NewSessionPlanStoreWithTTL(time.Hour)
+	defer store.Stop()
+	cs := benchSelector(b, store)
+	tools := benchTools(size)
+	sc := SelectionContext{SessionID: "warm", Tenant: "acme"}
+	plan, err := cs.Select(context.Background(), sc, tools)
+	if err != nil || plan == nil {
+		b.Fatalf("prewarm failed: plan=%v err=%v", plan, err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchPlan, benchErr = cs.Select(context.Background(), sc, tools)
+	}
+	b.StopTimer()
+	requireBenchPlan(b, "warm", benchPlan, benchErr)
+	requireBenchStoreSize(b, "warm", store, 1)
+}
+
+func benchmarkCompositeSelectorCold(b *testing.B, size int) {
+	store := NewSessionPlanStoreWithTTL(time.Hour)
+	defer store.Stop()
+	cs := benchSelector(b, store)
+	tools := benchTools(size)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sessionID := "cold"
+		sc := SelectionContext{SessionID: sessionID, Tenant: "acme"}
+		benchPlan, benchErr = cs.Select(context.Background(), sc, tools)
+		store.Delete(sessionID)
+	}
+	b.StopTimer()
+	requireBenchPlan(b, "cold", benchPlan, benchErr)
+	requireBenchStoreSize(b, "cold", store, 0)
+}
+
+func requireBenchPlan(b *testing.B, name string, plan *SelectionPlan, err error) {
+	b.Helper()
+	if err != nil || plan == nil {
+		b.Fatalf("%s select failed: plan=%v err=%v", name, plan, err)
+	}
+}
+
+func requireBenchStoreSize(b *testing.B, name string, store *SessionPlanStore, want int) {
+	b.Helper()
+	if store.Len() != want {
+		b.Fatalf("%s benchmark store size = %d, want %d", name, store.Len(), want)
 	}
 }
 
