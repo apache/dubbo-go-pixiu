@@ -65,6 +65,10 @@ func (c *lifecycleClock) Advance(d time.Duration) {
 }
 
 func newLifecycleFilter(t *testing.T) (*MCPServerFilter, *router.SessionPlanStore) {
+	return newLifecycleFilterWithSessionManager(t, transport.NewSessionManager())
+}
+
+func newLifecycleFilterWithSessionManager(t *testing.T, sm *transport.SessionManager) (*MCPServerFilter, *router.SessionPlanStore) {
 	t.Helper()
 
 	tools := []model.ToolConfig{createTestToolConfig("ping", "ping")}
@@ -88,7 +92,6 @@ func newLifecycleFilter(t *testing.T) (*MCPServerFilter, *router.SessionPlanStor
 	sel, err := router.Build(cfg.Router, store)
 	require.NoError(t, err)
 
-	sm := transport.NewSessionManager()
 	sm.AddSessionRemovedHandler(store.Delete)
 	return &MCPServerFilter{
 		cfg:               cfg,
@@ -100,6 +103,33 @@ func newLifecycleFilter(t *testing.T) (*MCPServerFilter, *router.SessionPlanStor
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          sel,
 	}, store
+}
+
+func newLifecyclePassthroughFilter(t *testing.T, routerCfg *model.RouterConfig) *MCPServerFilter {
+	t.Helper()
+
+	tools := []model.ToolConfig{createTestToolConfig("ping", "ping"), createTestToolConfig("pong", "pong")}
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools:      tools,
+		Router:     routerCfg,
+	}
+	factory := &FilterFactory{cfg: cfg}
+	require.NoError(t, factory.Apply())
+	require.Nil(t, factory.selector)
+
+	sm := transport.NewSessionManager()
+	return &MCPServerFilter{
+		cfg:               cfg,
+		registry:          factory.registry,
+		errorHandler:      NewErrorHandler(),
+		responseBuilder:   NewResponseBuilder(),
+		sessionManager:    sm,
+		sseHandler:        transport.NewSSEHandler(sm),
+		contentNegotiator: transport.NewContentNegotiator(),
+		selector:          factory.selector,
+	}
 }
 
 func initializeSession(t *testing.T, f *MCPServerFilter) string {
@@ -204,6 +234,52 @@ func TestInitializeWithSuppliedSessionIDRejected(t *testing.T) {
 	assert.True(t, ok, "rejected initialize must not overwrite the existing plan")
 }
 
+func TestInitializeWithUnknownSuppliedSessionIDRejected(t *testing.T) {
+	f, store := newLifecycleFilter(t)
+	defer f.sessionManager.Stop()
+	defer store.Stop()
+
+	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`)
+	rec, status := postMCP(t, f, "caller-supplied", body)
+
+	require.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
+}
+
+func TestRouterAbsentAndDisabledPassthroughWithoutSession(t *testing.T) {
+	cases := []struct {
+		name   string
+		router *model.RouterConfig
+	}{
+		{name: "absent"},
+		{name: "disabled", router: &model.RouterConfig{Enabled: false}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newLifecyclePassthroughFilter(t, tc.router)
+			defer f.sessionManager.Stop()
+
+			listBody := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+			rec, status := postMCP(t, f, "", listBody)
+			require.Equal(t, filter.Stop, status)
+			require.Equal(t, http.StatusOK, rec.Code)
+
+			var response map[string]any
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+			result := response["result"].(map[string]any)
+			tools := result["tools"].([]any)
+			assert.Len(t, tools, 2)
+
+			callBody := []byte(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ping","arguments":{"param":"v"}}}`)
+			rec, status = postMCP(t, f, "", callBody)
+			require.Equal(t, filter.Continue, status)
+			assert.Equal(t, http.StatusOK, rec.Code)
+		})
+	}
+}
+
 func TestPostUnknownSessionReturns404AndDoesNotCreate(t *testing.T) {
 	f, store := newLifecycleFilter(t)
 	defer f.sessionManager.Stop()
@@ -215,6 +291,36 @@ func TestPostUnknownSessionReturns404AndDoesNotCreate(t *testing.T) {
 	require.Equal(t, filter.Stop, status)
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
+}
+
+func TestExpiredSessionReturns404AndDoesNotCreate(t *testing.T) {
+	clock := newLifecycleClock()
+	sm := transport.NewSessionManagerWithNow(clock.Now)
+	f, store := newLifecycleFilterWithSessionManager(t, sm)
+	defer f.sessionManager.Stop()
+	defer store.Stop()
+
+	session, _ := f.sessionManager.CreateSession()
+	store.Set(&router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
+	clock.Advance(transport.SessionTimeout + time.Nanosecond)
+
+	getReq := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	getReq.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	getReq.Header.Set(constant.HeaderKeyMCPSessionId, session.ID)
+	getRec := httptest.NewRecorder()
+	getCtx := NewMCPContext(createTestContext(getReq, getRec))
+	getCtx.ParseAndSetAcceptHeader()
+	getCtx.ParseAndSetSessionHeader()
+	require.Equal(t, filter.Stop, f.handleGetRequest(getCtx))
+	assert.Equal(t, http.StatusNotFound, getRec.Code)
+
+	body := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+	rec, status := postMCP(t, f, session.ID, body)
+	require.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
+	_, ok := store.Get(session.ID)
+	assert.False(t, ok)
 }
 
 func TestPostRouterMissingSessionReturns400(t *testing.T) {
