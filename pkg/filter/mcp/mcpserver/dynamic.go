@@ -39,11 +39,26 @@ const (
 
 var errDynamicRouterUpdateUnsupported = fmt.Errorf("dynamic MCP updates support tool catalog changes only; router changes require filter rebuild")
 
+type serverConfigApplySkipReason string
+
+const (
+	serverConfigApplySkippedUnchanged serverConfigApplySkipReason = "unchanged"
+	serverConfigApplySkippedDebounce  serverConfigApplySkipReason = "debounce"
+)
+
 // ServerToolConfig tool configuration for a single server
 type ServerToolConfig struct {
 	Tools       []model.ToolConfig
 	Fingerprint string
 	LastApplied time.Time
+}
+
+type serverConfigApplyResult struct {
+	SkippedReason serverConfigApplySkipReason
+	Fingerprint   string
+	Elapsed       time.Duration
+	ServerCount   int
+	MergedCount   int
 }
 
 // DynamicConsumer applies dynamic MCP configurations into the registry
@@ -87,75 +102,106 @@ func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *mod
 	if cfg == nil {
 		return d.removeServerConfig(serverId)
 	}
-	if cfg.Router != nil {
-		return errDynamicRouterUpdateUnsupported
-	}
-	if d.governanceEnabled() {
-		if err := router.ValidateTools(cfg.Tools); err != nil {
-			return fmt.Errorf("invalid mcp tool router metadata: %w", err)
-		}
-	}
-
-	d.mu.Lock()
-
-	// 1. Calculate new configuration fingerprint
-	fingerprint := d.calculateFingerprint(cfg.Tools)
-
-	// 2. Check if the server's configuration really needs to be updated
-	if existingConfig, exists := d.serverConfigs[serverId]; exists {
-		if existingConfig.Fingerprint == fingerprint {
-			d.mu.Unlock()
-			logger.Debugf("[dubbo-go-pixiu] mcp server %s config unchanged (fp=%s), skipped", serverId, fingerprint)
-			return nil
-		}
-	}
-
-	// 3. Debounce check (based on this server's configuration change time)
-	now := time.Now()
-	if existingConfig, exists := d.serverConfigs[serverId]; exists {
-		// Skip only if this server is within debounce time
-		if !existingConfig.LastApplied.IsZero() && now.Sub(existingConfig.LastApplied) < d.debounceTime {
-			d.mu.Unlock()
-			logger.Debugf("[dubbo-go-pixiu] mcp server %s debounce active (elapsed=%v), skipped", serverId, now.Sub(existingConfig.LastApplied))
-			return nil
-		}
-	}
-
-	// 4. Fully replace the server's tool configuration
-	oldConfig := d.serverConfigs[serverId]
-	serverConfig := &ServerToolConfig{
-		Tools:       make([]model.ToolConfig, len(cfg.Tools)),
-		Fingerprint: fingerprint,
-		LastApplied: now,
-	}
-	for i := range cfg.Tools {
-		serverConfig.Tools[i] = *cfg.Tools[i].DeepCopy()
-	}
-	d.serverConfigs[serverId] = serverConfig
-
-	// 5. Recalculate merged tools from all servers and apply to registry
-	mergedTools := d.calculateCurrentMergedTools()
-	mergedFingerprint := d.calculateFingerprint(mergedTools)
-	if err := d.applyMergedConfig(mergedTools, mergedFingerprint); err != nil {
-		// Rollback
-		if oldConfig != nil {
-			d.serverConfigs[serverId] = oldConfig
-		} else {
-			delete(d.serverConfigs, serverId)
-		}
-		d.mu.Unlock()
+	if err := d.validateDynamicConfig(cfg); err != nil {
 		return err
 	}
-	serverCount := len(d.serverConfigs)
-	mergedCount := len(mergedTools)
-	d.mu.Unlock()
+
+	result, err := d.applyServerTools(serverId, cfg.Tools)
+	if err != nil {
+		return err
+	}
+	if d.logSkippedServerConfigApply(serverId, result) {
+		return nil
+	}
 
 	logger.Infof("[dubbo-go-pixiu] mcp server %s config applied: %d tools, total servers: %d, merged tools: %d",
-		serverId, len(cfg.Tools), serverCount, mergedCount)
+		serverId, len(cfg.Tools), result.ServerCount, result.MergedCount)
 
 	d.notifyToolsListChanged()
 
 	return nil
+}
+
+func (d *DynamicConsumer) validateDynamicConfig(cfg *model.McpServerConfig) error {
+	if cfg.Router != nil {
+		return errDynamicRouterUpdateUnsupported
+	}
+	if !d.governanceEnabled() {
+		return nil
+	}
+	if err := router.ValidateTools(cfg.Tools); err != nil {
+		return fmt.Errorf("invalid mcp tool router metadata: %w", err)
+	}
+	return nil
+}
+
+func (d *DynamicConsumer) applyServerTools(serverId string, tools []model.ToolConfig) (serverConfigApplyResult, error) {
+	result := serverConfigApplyResult{Fingerprint: d.calculateFingerprint(tools)}
+	now := time.Now()
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	existingConfig := d.serverConfigs[serverId]
+	if existingConfig != nil && existingConfig.Fingerprint == result.Fingerprint {
+		result.SkippedReason = serverConfigApplySkippedUnchanged
+		return result, nil
+	}
+	if elapsed, ok := d.serverConfigDebounceElapsed(existingConfig, now); ok {
+		result.SkippedReason = serverConfigApplySkippedDebounce
+		result.Elapsed = elapsed
+		return result, nil
+	}
+
+	oldConfig := d.serverConfigs[serverId]
+	serverConfig := &ServerToolConfig{
+		Tools:       make([]model.ToolConfig, len(tools)),
+		Fingerprint: result.Fingerprint,
+		LastApplied: now,
+	}
+	for i := range tools {
+		serverConfig.Tools[i] = *tools[i].DeepCopy()
+	}
+	d.serverConfigs[serverId] = serverConfig
+
+	mergedTools := d.calculateCurrentMergedTools()
+	mergedFingerprint := d.calculateFingerprint(mergedTools)
+	if err := d.applyMergedConfig(mergedTools, mergedFingerprint); err != nil {
+		d.restoreServerConfig(serverId, oldConfig)
+		return result, err
+	}
+	result.ServerCount = len(d.serverConfigs)
+	result.MergedCount = len(mergedTools)
+	return result, nil
+}
+
+func (d *DynamicConsumer) serverConfigDebounceElapsed(existingConfig *ServerToolConfig, now time.Time) (time.Duration, bool) {
+	if existingConfig == nil || existingConfig.LastApplied.IsZero() {
+		return 0, false
+	}
+	elapsed := now.Sub(existingConfig.LastApplied)
+	return elapsed, elapsed < d.debounceTime
+}
+
+func (d *DynamicConsumer) restoreServerConfig(serverId string, oldConfig *ServerToolConfig) {
+	if oldConfig != nil {
+		d.serverConfigs[serverId] = oldConfig
+		return
+	}
+	delete(d.serverConfigs, serverId)
+}
+
+func (d *DynamicConsumer) logSkippedServerConfigApply(serverId string, result serverConfigApplyResult) bool {
+	switch result.SkippedReason {
+	case serverConfigApplySkippedUnchanged:
+		logger.Debugf("[dubbo-go-pixiu] mcp server %s config unchanged (fp=%s), skipped", serverId, result.Fingerprint)
+		return true
+	case serverConfigApplySkippedDebounce:
+		logger.Debugf("[dubbo-go-pixiu] mcp server %s debounce active (elapsed=%v), skipped", serverId, result.Elapsed)
+		return true
+	default:
+		return false
+	}
 }
 
 // calculateFingerprint returns the registry-level tool catalog fingerprint.
@@ -271,7 +317,7 @@ func (d *DynamicConsumer) notifyToolsListChanged() {
 				continue
 			}
 		}
-		if version := session.MarkToolsListChangedPending(); version == 0 {
+		if session.MarkToolsListChangedPending() == 0 {
 			continue
 		}
 		markedCount++

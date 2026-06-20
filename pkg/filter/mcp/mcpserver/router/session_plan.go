@@ -31,6 +31,19 @@ type PlanKey struct {
 	SessionID string
 }
 
+// ReceiptVersionRequest describes the live authorization inputs a stored plan
+// must still match before a receipt can be issued without recomputing selection.
+type ReceiptVersionRequest struct {
+	Key             PlanKey
+	Requested       string
+	ExpectedVersion string
+	IdentityHash    string
+	ConfigHash      string
+	CatalogVersion  string
+	ProgressiveHash string
+	RouterID        string
+}
+
 // NewPlanKey constructs a key for one router instance/session pair.
 func NewPlanKey(routerID, sessionID string) PlanKey {
 	return PlanKey{RouterID: routerID, SessionID: sessionID}
@@ -273,32 +286,32 @@ func (s *SessionPlanStore) IssueReceipt(key PlanKey, requested string, plan *Sel
 // IssueReceiptForVersion signs a tools/call authorization without cloning the
 // stored plan. It returns stale=true when the session has a plan, but its
 // authorization inputs no longer match the caller's live inputs.
-func (s *SessionPlanStore) IssueReceiptForVersion(key PlanKey, requested, expectedVersion, identityHash, configHash, catalogVersion, progressiveHash, routerID string) (AuthorizationReceipt, bool, error) {
-	if !key.valid() || requested == "" || expectedVersion == "" {
+func (s *SessionPlanStore) IssueReceiptForVersion(req ReceiptVersionRequest) (AuthorizationReceipt, bool, error) {
+	if !req.Key.valid() || req.Requested == "" || req.ExpectedVersion == "" {
 		return AuthorizationReceipt{}, false, ErrToolNotAuthorized
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	e, ok := s.entries[key]
+	e, ok := s.entries[req.Key]
 	if !ok || e.plan == nil {
 		return AuthorizationReceipt{}, false, ErrToolNotAuthorized
 	}
-	if e.plan.Version != expectedVersion ||
-		e.identityHash != identityHash ||
-		e.configHash != configHash ||
-		e.catalogVersion != catalogVersion ||
-		e.progressiveHash != progressiveHash {
+	if e.plan.Version != req.ExpectedVersion ||
+		e.identityHash != req.IdentityHash ||
+		e.configHash != req.ConfigHash ||
+		e.catalogVersion != req.CatalogVersion ||
+		e.progressiveHash != req.ProgressiveHash {
 		return AuthorizationReceipt{}, true, nil
 	}
-	if !e.plan.Contains(requested) {
+	if !e.plan.Contains(req.Requested) {
 		return AuthorizationReceipt{}, false, ErrToolNotAuthorized
 	}
 	e.nextReceiptID++
 	return AuthorizationReceipt{
-		RouterInstanceID: routerID,
-		SessionID:        key.SessionID,
-		ToolName:         requested,
+		RouterInstanceID: req.RouterID,
+		SessionID:        req.Key.SessionID,
+		ToolName:         req.Requested,
 		PlanGeneration:   e.plan.Generation,
 		IdentityHash:     e.identityHash,
 		ConfigHash:       e.configHash,

@@ -39,7 +39,10 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-const maxSessionIDLength = 128
+const (
+	maxSessionIDLength        = 128
+	mcpSessionNotFoundMessage = "MCP session not found"
+)
 
 // FilterFactory and MCPServerFilter types
 type (
@@ -353,7 +356,7 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 		var exists bool
 		session, exists = f.sessionManager.GetSession(sessionIDHeader)
 		if !exists {
-			return f.sendNotFound(ctx, "MCP session not found")
+			return f.sendNotFound(ctx, mcpSessionNotFoundMessage)
 		}
 	} else {
 		var err error
@@ -371,7 +374,7 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 	if err != nil {
 		_ = pipeWriter.Close()
 		_ = pipeReader.Close()
-		return f.sendNotFound(ctx, "MCP session not found")
+		return f.sendNotFound(ctx, mcpSessionNotFoundMessage)
 	}
 
 	// Create virtual HTTP response with pipe as body
@@ -713,7 +716,7 @@ func (f *MCPServerFilter) validateSessionForMethod(ctx *MCPContext, method strin
 		return f.sendBadRequest(ctx, "Mcp-Session-Id header is required")
 	}
 	if _, exists := f.sessionManager.GetSession(sessionID); !exists {
-		return f.sendNotFound(ctx, "MCP session not found")
+		return f.sendNotFound(ctx, mcpSessionNotFoundMessage)
 	}
 	return filter.Continue
 }

@@ -95,6 +95,33 @@ func NewCompositeSelector(opts CompositeOptions) *CompositeSelector {
 	}
 }
 
+type selectionPipelineResult struct {
+	tools         []model.ToolConfig
+	policyAllowed []model.ToolConfig
+	traces        []DecisionTrace
+	stageCounts   map[string]StageCount
+	outcome       string
+	expanded      bool
+}
+
+type selectionPipeline struct {
+	tools         []model.ToolConfig
+	policyAllowed []model.ToolConfig
+	traces        []DecisionTrace
+	stageCounts   map[string]StageCount
+	outcome       string
+	expanded      bool
+}
+
+func newSelectionPipeline(candidates []model.ToolConfig) *selectionPipeline {
+	return &selectionPipeline{
+		tools:         candidates,
+		policyAllowed: candidates,
+		stageCounts:   make(map[string]StageCount),
+		outcome:       SelectionOutcomeSelected,
+	}
+}
+
 // Select runs the pipeline, reusing a cached plan when the version is unchanged.
 func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candidates []model.ToolConfig) (*SelectionPlan, error) {
 	start := time.Now()
@@ -105,102 +132,153 @@ func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candi
 	version := c.version(candidates, identityHash, sc.SessionID, sc.CatalogVersion)
 	key := c.planKey(sc.SessionID)
 
-	// Reuse an existing plan when metadata/config has not changed.
-	if cached, ok := c.store.Get(key); ok && cached.Version == version {
-		elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
-		recordSelection("cached", cached.Mode, len(candidates), len(cached.ToolNames), elapsedMS)
+	if cached, ok := c.cachedSelectionPlan(key, version, candidates, start); ok {
 		return cached, nil
 	}
 
-	cur := candidates
+	pipeline := c.runSelectionPipeline(key, identityHash, sc, candidates)
+	plan := c.newSelectionPlan(sc, candidates, version, identityHash, pipeline)
+
+	result := "ok"
+	if outcomeAllowsFallback(pipeline.outcome) {
+		plan = c.applyFallback(sc, pipeline.policyAllowed, version, pipeline.traces, pipeline.stageCounts, pipeline.outcome)
+		result = "fallback"
+		recordFallback(pipeline.outcome)
+	}
+
+	plan, err = c.storeSelectionPlan(key, plan, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	c.recordSelectionResult(result, plan, candidates, start)
+	c.log.Log(sc, plan, len(candidates))
+
+	return plan, nil
+}
+
+func (c *CompositeSelector) cachedSelectionPlan(key PlanKey, version string, candidates []model.ToolConfig, start time.Time) (*SelectionPlan, bool) {
+	cached, ok := c.store.Get(key)
+	if !ok || cached.Version != version {
+		return nil, false
+	}
+	elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
+	recordSelection("cached", cached.Mode, len(candidates), len(cached.ToolNames), elapsedMS)
+	return cached, true
+}
+
+func (c *CompositeSelector) runSelectionPipeline(key PlanKey, identityHash string, sc SelectionContext, candidates []model.ToolConfig) selectionPipelineResult {
+	pipeline := newSelectionPipeline(candidates)
+	pipeline.applyPolicy(c.policy, sc)
+	pipeline.applyWorkflow(c.workflow, sc)
+	pipeline.applyProgressive(c.progressive, c.store, key, identityHash, c.progressiveHash)
+	pipeline.finalizeOutcome()
+	return pipeline.result()
+}
+
+func (p *selectionPipeline) applyPolicy(policy *PolicyFilter, sc SelectionContext) {
+	if policy == nil {
+		return
+	}
+	input := len(p.tools)
 	var traces []DecisionTrace
-	stageCounts := make(map[string]StageCount)
-	outcome := SelectionOutcomeSelected
-
-	// policyAllowed is the candidate set after the hard policy filter. The
-	// fallback bundle is intersected with this (not raw candidates) so a tool
-	// explicitly denied by policy is never re-exposed through fallback.
-	policyAllowed := candidates
-	if c.policy != nil {
-		input := len(cur)
-		var t []DecisionTrace
-		cur, t = c.policy.Filter(cur, sc)
-		recordStageCount(stageCounts, StagePolicy, input, len(cur))
-		policyAllowed = cur
-		traces = append(traces, t...)
-		if input > 0 && len(cur) == 0 {
-			outcome = SelectionOutcomeExplicitDeny
-		}
+	p.tools, traces = policy.Filter(p.tools, sc)
+	recordStageCount(p.stageCounts, StagePolicy, input, len(p.tools))
+	p.policyAllowed = p.tools
+	p.traces = append(p.traces, traces...)
+	if input > 0 && len(p.tools) == 0 {
+		p.outcome = SelectionOutcomeExplicitDeny
 	}
+}
 
-	if outcome == SelectionOutcomeSelected && c.workflow != nil {
-		input := len(cur)
-		result := c.workflow.filter(cur, sc)
-		cur = result.tools
-		recordStageCount(stageCounts, StageWorkflow, input, len(cur))
-		traces = append(traces, result.traces...)
-		if !result.matched && c.workflow.hasMatchableWorkflows() {
-			outcome = SelectionOutcomeNoMatch
-		} else if input > 0 && len(cur) == 0 {
-			outcome = SelectionOutcomeEmptyByConfiguration
-		}
+func (p *selectionPipeline) applyWorkflow(workflow *WorkflowSelector, sc SelectionContext) {
+	if !p.selected() || workflow == nil {
+		return
 	}
-
-	expanded := false
-	if outcome == SelectionOutcomeSelected && c.progressive != nil {
-		input := len(cur)
-		var t []DecisionTrace
-		_, expanded = c.store.CallState(key, identityHash, c.progressiveHash)
-		cur, t = c.progressive.Apply(cur, expanded)
-		recordStageCount(stageCounts, StageProgressive, input, len(cur))
-		traces = append(traces, t...)
-		if input > 0 && len(cur) == 0 {
-			outcome = SelectionOutcomeEmptyByConfiguration
-		}
+	input := len(p.tools)
+	result := workflow.filter(p.tools, sc)
+	p.tools = result.tools
+	recordStageCount(p.stageCounts, StageWorkflow, input, len(p.tools))
+	p.traces = append(p.traces, result.traces...)
+	if !result.matched && workflow.hasMatchableWorkflows() {
+		p.outcome = SelectionOutcomeNoMatch
+		return
 	}
-
-	if outcome == SelectionOutcomeSelected && len(cur) == 0 {
-		outcome = SelectionOutcomeNoMatch
+	if input > 0 && len(p.tools) == 0 {
+		p.outcome = SelectionOutcomeEmptyByConfiguration
 	}
+}
 
+func (p *selectionPipeline) applyProgressive(progressive *ProgressiveGate, store *SessionPlanStore, key PlanKey, identityHash, progressiveHash string) {
+	if !p.selected() || progressive == nil {
+		return
+	}
+	input := len(p.tools)
+	var traces []DecisionTrace
+	_, p.expanded = store.CallState(key, identityHash, progressiveHash)
+	p.tools, traces = progressive.Apply(p.tools, p.expanded)
+	recordStageCount(p.stageCounts, StageProgressive, input, len(p.tools))
+	p.traces = append(p.traces, traces...)
+	if input > 0 && len(p.tools) == 0 {
+		p.outcome = SelectionOutcomeEmptyByConfiguration
+	}
+}
+
+func (p *selectionPipeline) finalizeOutcome() {
+	if p.selected() && len(p.tools) == 0 {
+		p.outcome = SelectionOutcomeNoMatch
+	}
+}
+
+func (p *selectionPipeline) selected() bool {
+	return p.outcome == SelectionOutcomeSelected
+}
+
+func (p *selectionPipeline) result() selectionPipelineResult {
+	return selectionPipelineResult{
+		tools:         p.tools,
+		policyAllowed: p.policyAllowed,
+		traces:        p.traces,
+		stageCounts:   p.stageCounts,
+		outcome:       p.outcome,
+		expanded:      p.expanded,
+	}
+}
+
+func (c *CompositeSelector) newSelectionPlan(sc SelectionContext, candidates []model.ToolConfig, version, identityHash string, pipeline selectionPipelineResult) *SelectionPlan {
 	plan := &SelectionPlan{
 		SessionID:        sc.SessionID,
-		ToolNames:        toolNames(cur),
-		VisibleToolNames: visibleToolNames(cur),
+		ToolNames:        toolNames(pipeline.tools),
+		VisibleToolNames: visibleToolNames(pipeline.tools),
 		Mode:             ModeSelected,
-		Outcome:          outcome,
-		StageCounts:      stageCounts,
-		Reasons:          traces,
+		Outcome:          pipeline.outcome,
+		StageCounts:      pipeline.stageCounts,
+		Reasons:          pipeline.traces,
 		Version:          version,
 		CreatedAt:        time.Now().UnixNano(),
 		IdentityHash:     identityHash,
 		ProgressiveHash:  c.progressiveHash,
 		ConfigHash:       c.configHash,
 		CatalogVersion:   c.catalogVersion(candidates, sc.CatalogVersion),
-		Expanded:         expanded,
+		Expanded:         pipeline.expanded,
 	}
 	plan.toolSet = toolNameSet(plan.ToolNames)
+	return plan
+}
 
-	result := "ok"
-	if outcomeAllowsFallback(outcome) {
-		plan = c.applyFallback(sc, policyAllowed, version, traces, stageCounts, outcome)
-		result = "fallback"
-		recordFallback(outcome)
-	}
-
+func (c *CompositeSelector) storeSelectionPlan(key PlanKey, plan *SelectionPlan, sc SelectionContext) (*SelectionPlan, error) {
 	if err := c.store.Set(key, plan, sc); err != nil {
 		return nil, err
 	}
 	if stored, ok := c.store.Get(key); ok {
-		plan = stored
+		return stored, nil
 	}
+	return plan, nil
+}
 
+func (c *CompositeSelector) recordSelectionResult(result string, plan *SelectionPlan, candidates []model.ToolConfig, start time.Time) {
 	elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
 	recordSelection(result, plan.Mode, len(candidates), len(plan.ToolNames), elapsedMS)
-
-	c.log.Log(sc, plan, len(candidates))
-
-	return plan, nil
 }
 
 // HandleSelectionFailure returns a safe plan when Select fails. fail_closed
@@ -314,16 +392,16 @@ func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionConte
 	}
 	catalogVersion := c.catalogVersion(candidates, sc.CatalogVersion)
 	expectedVersion := c.version(candidates, identityHash, sc.SessionID, catalogVersion)
-	receipt, stale, err := c.store.IssueReceiptForVersion(
-		key,
-		sc.Requested,
-		expectedVersion,
-		identityHash,
-		c.configHash,
-		catalogVersion,
-		c.progressiveHash,
-		c.routerID,
-	)
+	receipt, stale, err := c.store.IssueReceiptForVersion(ReceiptVersionRequest{
+		Key:             key,
+		Requested:       sc.Requested,
+		ExpectedVersion: expectedVersion,
+		IdentityHash:    identityHash,
+		ConfigHash:      c.configHash,
+		CatalogVersion:  catalogVersion,
+		ProgressiveHash: c.progressiveHash,
+		RouterID:        c.routerID,
+	})
 	if stale {
 		plan, err := c.Select(ctx, sc, candidates)
 		if err != nil {

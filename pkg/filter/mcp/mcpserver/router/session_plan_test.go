@@ -82,6 +82,19 @@ func tryIssueReceiptForTest(s *SessionPlanStore, key PlanKey, tool string) Autho
 	return receipt
 }
 
+func receiptVersionRequest(key PlanKey, requested, version string) ReceiptVersionRequest {
+	return ReceiptVersionRequest{
+		Key:             key,
+		Requested:       requested,
+		ExpectedVersion: version,
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+		RouterID:        key.RouterID,
+	}
+}
+
 func TestSessionPlanStore_SetGet(t *testing.T) {
 	clock := newFakeClock()
 	s := newTestPlanStore(clock, 10)
@@ -183,16 +196,16 @@ func TestSessionPlanStore_IssueReceiptForVersionReportsStale(t *testing.T) {
 		ProgressiveHash: "progressive-a",
 	}, SelectionContext{SessionID: key.SessionID}))
 
-	receipt, stale, err := s.IssueReceiptForVersion(key, "a", "v1", "identity-a", "config-a", "catalog-a", "progressive-a", key.RouterID)
+	receipt, stale, err := s.IssueReceiptForVersion(receiptVersionRequest(key, "a", "v1"))
 	require.NoError(t, err)
 	assert.False(t, stale)
 	assert.Equal(t, uint64(1), receipt.PlanGeneration)
 
-	_, stale, err = s.IssueReceiptForVersion(key, "a", "v2", "identity-a", "config-a", "catalog-a", "progressive-a", key.RouterID)
+	_, stale, err = s.IssueReceiptForVersion(receiptVersionRequest(key, "a", "v2"))
 	require.NoError(t, err)
 	assert.True(t, stale)
 
-	_, stale, err = s.IssueReceiptForVersion(key, "b", "v1", "identity-a", "config-a", "catalog-a", "progressive-a", key.RouterID)
+	_, stale, err = s.IssueReceiptForVersion(receiptVersionRequest(key, "b", "v1"))
 	assert.False(t, stale)
 	assert.ErrorIs(t, err, ErrToolNotAuthorized)
 }
